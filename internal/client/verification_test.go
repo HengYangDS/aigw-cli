@@ -59,7 +59,7 @@ func environmentValue(environment []string, name string) string {
 
 func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedProfile(t *testing.T) {
 	cfg, selected := codexVerificationFixture(t)
-	target := cfg.Adapters[configuration.ClientCodex].Targets[0]
+	target := cfg.Clients[configuration.ClientCodex].Targets[0]
 	if err := codex.DisableConfig(target); err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedProfile(t *tes
 	cfg.Profiles["selected"] = configuration.Profile{Account: "gateway", Client: configuration.ClientClaude, Model: "claude-selected"}
 	cfg.Profiles["alternate"] = configuration.Profile{Account: "gateway", Client: configuration.ClientClaude, Model: "claude-alternate"}
 	cfg.Routes[configuration.ClientClaude] = "selected"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executable}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executable}
 	selected, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
 		t.Fatal(err)

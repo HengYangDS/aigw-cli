@@ -156,7 +156,7 @@ func TestRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
 	cfg.Routes[configuration.ClientCodex] = "one"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{t.TempDir()}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{t.TempDir()}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -183,10 +183,10 @@ func TestRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T) {
 			cfg := configuration.NewConfig()
 			addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
 			cfg.Routes[configuration.ClientCodex] = "one"
-			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 			wantMessage := "clients control their refresh timing"
 			if !hasTarget {
-				cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex"}
+				cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex"}
 			}
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -231,7 +231,7 @@ func TestRotateClaudeOnlyAccountDoesNotTouchCodexTargets(t *testing.T) {
 	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "claude-account", Client: configuration.ClientClaude, Model: "claude-test"}
 	cfg.Routes[configuration.ClientCodex] = "gpt"
 	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/missing/codex", Targets: []string{filepath.Join(t.TempDir(), "unavailable-codex-configuration.toml")}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/missing/codex", Targets: []string{filepath.Join(t.TempDir(), "unavailable-codex-configuration.toml")}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

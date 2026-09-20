@@ -391,7 +391,7 @@ func TestAccountRenameProjectionFailureRollsBackConfigAndRetainsBothCredentialSl
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +441,7 @@ func TestAccountRenameNonCurrentCodexAccountDoesNotReauthenticate(t *testing.T) 
 	cfg.Accounts["active"] = configuration.Account{Label: "Active", Endpoints: configuration.Endpoints{OpenAIResponses: "https://active.test/v1"}}
 	cfg.Profiles["active-profile"] = configuration.Profile{Label: "Active", Account: "active", Client: configuration.ClientCodex, Model: "active-model"}
 	cfg.Routes[configuration.ClientCodex] = "active-profile"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{filepath.Join(t.TempDir(), "codex", "configuration.toml")}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{filepath.Join(t.TempDir(), "codex", "configuration.toml")}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -29,7 +29,7 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 	t.Run("stale checkpoint", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
 		before := accountRenameConfig()
-		before.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
+		before.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true}
 		if err := app.Config.Save(before); err != nil {
 			t.Fatal(err)
 		}
@@ -86,7 +86,7 @@ func TestAccountFinalizeUsesEnabledClientScope(t *testing.T) {
 			app, _, store, _, _ := testApp(t, "")
 			cfg := renamedAccountConfig(accountRenameConfig())
 			if enabled != "" {
-				cfg.Adapters[enabled] = configuration.AdapterConfig{Enabled: true}
+				cfg.Clients[enabled] = configuration.ClientBinding{Enabled: true}
 			}
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -212,7 +212,7 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 	}
 	current := renamedAccountConfig(before)
 	for _, client := range configuration.AdmittedClientIDs() {
-		current.Adapters[client] = configuration.AdapterConfig{Enabled: true}
+		current.Clients[client] = configuration.ClientBinding{Enabled: true}
 	}
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)
@@ -377,7 +377,7 @@ func prepareAccountFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.B
 	}
 	current := renamedAccountConfig(before)
 	for _, client := range configuration.AdmittedClientIDs() {
-		current.Adapters[client] = configuration.AdapterConfig{Enabled: true}
+		current.Clients[client] = configuration.ClientBinding{Enabled: true}
 	}
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)

@@ -288,7 +288,7 @@ func TestCaptureVerifiedBackupStateRequiresCheckpoint(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := NewStore(path)
 	current := convergenceConfig("current")
-	current.Adapters[ClientCodex] = AdapterConfig{Enabled: true}
+	current.Clients[ClientCodex] = ClientBinding{Enabled: true}
 	if err := store.Save(current); err != nil {
 		t.Fatal(err)
 	}

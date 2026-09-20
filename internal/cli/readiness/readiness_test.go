@@ -141,7 +141,7 @@ func configureClaudeExecutable(t *testing.T, runtime *invocation.Context, cfg *c
 	}
 	runtime.Executable = filepath.Join(root, "aigw")
 	runtime.ClaudeSettingsPath = filepath.Join(root, "settings.json")
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executable}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executable}
 }
 
 func synchronizeClaudeSettings(t *testing.T, runtime invocation.Context, cfg configuration.Config) {
@@ -226,7 +226,7 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 	if err := os.WriteFile(target, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{target}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "codex", Targets: []string{target}}
 	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
@@ -262,7 +262,7 @@ func TestCheckAdmitsProjectionBeforeReadingCredentials(t *testing.T) {
 					problemDetail, problemAction = evidence, action
 					return cause
 				}
-				cfg.Adapters[client] = configuration.AdapterConfig{Enabled: true}
+				cfg.Clients[client] = configuration.ClientBinding{Enabled: true}
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
 				}
@@ -314,7 +314,7 @@ func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	if err := os.WriteFile(target, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
 		Enabled: true, Executable: "codex", Targets: []string{target},
 	}
 	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
@@ -388,7 +388,7 @@ func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 func TestCheckJSONReportsOutputFailure(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
 	runtime.Version = "1.0.0"
-	cfg.Adapters = map[string]configuration.AdapterConfig{}
+	cfg.Clients = map[string]configuration.ClientBinding{}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -417,7 +417,7 @@ func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 		runtime, cfg, _ := configuredReadinessRuntime(t)
 		runtime.Version = "1.0.0"
 		delete(cfg.Routes, configuration.ClientClaude)
-		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
+		cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true}
 		if err := runtime.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -447,7 +447,7 @@ func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 		if err := runtime.Secrets.Set("one", "token"); err != nil {
 			t.Fatal(err)
 		}
-		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
+		cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
 			Enabled:    true,
 			Executable: "/opt/codex",
 			Targets:    []string{filepath.Join(t.TempDir(), "missing.toml")},

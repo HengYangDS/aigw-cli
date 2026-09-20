@@ -163,7 +163,7 @@ func TestClaudeCredentialHelperFailsClosedWithoutWritingStdout(t *testing.T) {
 				cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 				cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt"}
 				cfg.Routes[configuration.ClientCodex] = "codex"
-				cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "claude"}
+				cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "claude"}
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
 				}
@@ -255,7 +255,7 @@ func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Contex
 	cfg.Accounts["gateway"] = account
 	cfg.Profiles[client] = configuration.Profile{Label: client, Account: "gateway", Client: client, Model: client + "-team", Protocol: spec.EndpointProtocols[0]}
 	cfg.Routes[client] = client
-	cfg.Adapters[client] = configuration.AdapterConfig{Enabled: enabled, Executable: client}
+	cfg.Clients[client] = configuration.ClientBinding{Enabled: enabled, Executable: client}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

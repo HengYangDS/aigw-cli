@@ -203,7 +203,7 @@ func renderSetupClients(runtime invocation.Context, cfg configuration.Config) {
 	r.Section("Clients")
 	configured := false
 	for _, client := range configuration.AdmittedClientIDs() {
-		if cfg.Adapters[client].Enabled {
+		if cfg.Clients[client].Enabled {
 			configured = true
 			r.Status(presentation.OK, invocation.Title(client), "Configured")
 		} else {

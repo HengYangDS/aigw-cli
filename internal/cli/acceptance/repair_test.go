@@ -19,7 +19,7 @@ func TestRepairPreservesConfiguredClaudeExecutable(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-model")
 	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: claudeExecutable}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func TestRepairPreservesConfiguredClaudeExecutable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := restored.Adapters[configuration.ClientClaude].Executable; got != claudeExecutable {
+	if got := restored.Clients[configuration.ClientClaude].Executable; got != claudeExecutable {
 		t.Fatalf("repair replaced configured Claude executable: %q", got)
 	}
 	if !strings.Contains(out.String(), "Configuration") || !strings.Contains(out.String(), "Synchronized") {
@@ -49,7 +49,7 @@ func TestRepairCanRestoreClaudeWithoutAnyCodexProfile(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-test")
 	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: claudeExecutable}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestRepairCanRestoreClaudeWithoutAnyCodexProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if adapter := got.Adapters[configuration.ClientClaude]; !adapter.Enabled || adapter.Executable != claudeExecutable {
+	if adapter := got.Clients[configuration.ClientClaude]; !adapter.Enabled || adapter.Executable != claudeExecutable {
 		t.Fatalf("Claude adapter changed during repair: %#v", adapter)
 	}
 }
@@ -140,7 +140,7 @@ func TestRepairDiscoversAndEnablesInstalledClients(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := app.Config.Load()
-	if !got.Adapters["claude"].Enabled || !got.Adapters["codex"].Enabled || got.Adapters["codex"].Executable != "/opt/codex" || len(runner.plans) != 0 {
+	if !got.Clients["claude"].Enabled || !got.Clients["codex"].Enabled || got.Clients["codex"].Executable != "/opt/codex" || len(runner.plans) != 0 {
 		t.Fatalf("repair config=%#v plans=%#v", got, runner.plans)
 	}
 	if !strings.Contains(out.String(), "Repair completed") || !strings.Contains(out.String(), "Configuration") || !strings.Contains(out.String(), "Synchronized") {
@@ -167,7 +167,7 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, "gpt-test")
 	cfg.Routes[configuration.ClientCodex] = "dmx"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: trustedExecutable, Targets: []string{existingTarget}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: trustedExecutable, Targets: []string{existingTarget}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -192,8 +192,8 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.Adapters[configuration.ClientCodex].Executable != trustedExecutable {
-		t.Fatalf("repair replaced configured Codex executable: %#v", first.Adapters[configuration.ClientCodex])
+	if first.Clients[configuration.ClientCodex].Executable != trustedExecutable {
+		t.Fatalf("repair replaced configured Codex executable: %#v", first.Clients[configuration.ClientCodex])
 	}
 	if len(runner.plans) != 0 {
 		t.Fatalf("repair invoked a client: %#v", runner.plans)
@@ -231,8 +231,8 @@ func TestRepairMigratesMissingClientExecutables(t *testing.T) {
 	addAccountProfile(&cfg, "codex", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, configuration.ClientCodex, "gpt-model")
 	cfg.Routes[configuration.ClientClaude] = "claude"
 	cfg.Routes[configuration.ClientCodex] = "codex"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: oldClaude}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: oldCodex, Targets: []string{target}}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: oldClaude}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: oldCodex, Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -260,10 +260,10 @@ func TestRepairMigratesMissingClientExecutables(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := after.Adapters[configuration.ClientClaude].Executable; got != newClaude {
+	if got := after.Clients[configuration.ClientClaude].Executable; got != newClaude {
 		t.Fatalf("Claude executable = %q, want %q", got, newClaude)
 	}
-	if got := after.Adapters[configuration.ClientCodex].Executable; got != newCodex {
+	if got := after.Clients[configuration.ClientCodex].Executable; got != newCodex {
 		t.Fatalf("Codex executable = %q, want %q", got, newCodex)
 	}
 }
@@ -277,7 +277,7 @@ func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, "gpt-5.6-terra")
 	cfg.Routes[configuration.ClientCodex] = "dmx"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

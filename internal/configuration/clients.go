@@ -150,12 +150,17 @@ func (endpoints Endpoints) For(protocol EndpointProtocol) string {
 	}
 }
 
-// AdapterConfig records whether an admitted client is enabled and which discovered targets it owns.
-type AdapterConfig struct {
-	Enabled           bool     `json:"enabled"                      toml:"enabled"`
-	Executable        string   `json:"executable,omitempty"         toml:"executable,omitempty"`
-	Targets           []string `json:"targets,omitempty"            toml:"targets,omitempty"`
-	CredentialCommand string   `json:"credential_command,omitempty" toml:"credential_command,omitempty"`
+// ClientBinding records one client's explicit selection, enabled intent, and
+// owned native targets.
+type ClientBinding struct {
+	Profile           string           `json:"profile,omitempty"            toml:"profile,omitempty"`
+	Enabled           bool             `json:"enabled"                      toml:"enabled"`
+	Protocol          EndpointProtocol `json:"protocol,omitempty"           toml:"protocol,omitempty"`
+	ModelProvider     string           `json:"model_provider,omitempty"     toml:"model_provider,omitempty"`
+	Authentication    Authentication   `json:"authentication,omitempty"     toml:"authentication,omitempty"`
+	Executable        string           `json:"executable,omitempty"         toml:"executable,omitempty"`
+	Targets           []string         `json:"targets,omitempty"            toml:"targets,omitempty"`
+	CredentialCommand string           `json:"credential_command,omitempty" toml:"credential_command,omitempty"`
 }
 
 // CredentialExecutable selects explicit host policy or the native AIGW executable.

@@ -29,7 +29,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
-		cfg.Adapters[client] = configuration.AdapterConfig{Enabled: true}
+		cfg.Clients[client] = configuration.ClientBinding{Enabled: true}
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -340,8 +340,8 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	profile.ModelProvider = "amazon-bedrock"
 	profile.Authentication = configuration.AuthenticationClientNative
 	cfg.Profiles["codex"] = profile
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -409,7 +409,7 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex"}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "codex"}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

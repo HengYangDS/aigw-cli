@@ -60,7 +60,7 @@ func TestSyncDiscoversAndProjectsCodexInstalledAfterSetup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapter := after.Adapters[configuration.ClientCodex]
+	adapter := after.Clients[configuration.ClientCodex]
 	if !adapter.Enabled || adapter.Executable != "/usr/local/bin/codex" || len(adapter.Targets) != 1 {
 		t.Fatalf("Codex adapter after sync = %#v", adapter)
 	}
@@ -107,7 +107,7 @@ func TestSyncCreatesDefaultCodexProjectionWhenClientIsInstalledAfterManifestSetu
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapter := after.Adapters[configuration.ClientCodex]
+	adapter := after.Clients[configuration.ClientCodex]
 	if !adapter.Enabled || adapter.Executable != "/usr/local/bin/codex" || len(adapter.Targets) != 1 {
 		t.Fatalf("Codex adapter after sync = %#v", adapter)
 	}
@@ -201,7 +201,7 @@ func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T)
 	if !maps.Equal(after.Routes, wantRoutes) {
 		t.Fatalf("routes = %#v, want %#v", after.Routes, wantRoutes)
 	}
-	adapter := after.Adapters[configuration.ClientClaude]
+	adapter := after.Clients[configuration.ClientClaude]
 	if !adapter.Enabled || adapter.Executable != "/usr/local/bin/claude" {
 		t.Fatalf("Claude adapter after sync = %#v", adapter)
 	}
@@ -255,10 +255,10 @@ func TestSyncActivatesLateTokenWithoutChangingIndependentRoute(t *testing.T) {
 	if !maps.Equal(after.Routes, before.Routes) {
 		t.Fatalf("sync changed independent Routes: got %#v, want %#v", after.Routes, before.Routes)
 	}
-	if after.Adapters[configuration.ClientClaude].Enabled {
-		t.Fatalf("sync activated Claude through an unselected Account: %#v", after.Adapters[configuration.ClientClaude])
+	if after.Clients[configuration.ClientClaude].Enabled {
+		t.Fatalf("sync activated Claude through an unselected Account: %#v", after.Clients[configuration.ClientClaude])
 	}
-	if adapter := after.Adapters[configuration.ClientCodex]; !adapter.Enabled || adapter.Executable == "" || len(adapter.Targets) != 1 {
+	if adapter := after.Clients[configuration.ClientCodex]; !adapter.Enabled || adapter.Executable == "" || len(adapter.Targets) != 1 {
 		t.Fatalf("sync did not activate the selected Codex Route: %#v", adapter)
 	}
 	if data := readFile(t, codexTarget); !strings.Contains(string(data), `model = "gpt-test" # managed by AIGW`) {
@@ -314,7 +314,7 @@ func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if adapter := after.Adapters[configuration.ClientCodex]; adapter.Enabled {
+	if adapter := after.Clients[configuration.ClientCodex]; adapter.Enabled {
 		t.Fatalf("Codex adapter was enabled before Account connection: %#v", adapter)
 	}
 	data, err := os.ReadFile(target)

@@ -39,7 +39,7 @@ func (codexAdapter) Verify(ctx context.Context, deps Dependencies, cfg configura
 	if deps.AIGWExecutable != "" {
 		runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
 	}
-	adapter := cfg.Adapters[configuration.ClientCodex]
+	adapter := cfg.Clients[configuration.ClientCodex]
 	if explicitProfile != "" && adapter.Enabled && adapter.Executable != "" && len(adapter.Targets) > 0 {
 		isolated, workspace, err := isolateCodexProjection(cfg, runtime, adapter)
 		if err != nil {
@@ -55,7 +55,7 @@ func (codexAdapter) Verify(ctx context.Context, deps Dependencies, cfg configura
 	verifyCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
 	defer cancel()
 	runner := deps.Runner
-	if cfg.Adapters[configuration.ClientCodex].CredentialCommand != "" && runner != nil {
+	if cfg.Clients[configuration.ClientCodex].CredentialCommand != "" && runner != nil {
 		runner = externalCredentialRunner{runner: runner}
 	}
 	identity, err := clientverification.VerifyCodexInvocation(verifyCtx, runner, cfg, runtime)
@@ -63,7 +63,7 @@ func (codexAdapter) Verify(ctx context.Context, deps Dependencies, cfg configura
 }
 
 func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime, explicitProfile string) (_ Verification, result error) {
-	adapter := cfg.Adapters[configuration.ClientClaude]
+	adapter := cfg.Clients[configuration.ClientClaude]
 	token := ""
 	if adapter.CredentialCommand == "" {
 		if deps.Secrets == nil {
@@ -109,7 +109,7 @@ func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configur
 	return Verification{}, clientverification.VerifyClaudeRuntime(verifyCtx, runner, adapter.Executable, settingsPath, runtime, token)
 }
 
-func isolateCodexProjection(cfg configuration.Config, runtime configuration.Runtime, adapter configuration.AdapterConfig) (configuration.Config, string, error) {
+func isolateCodexProjection(cfg configuration.Config, runtime configuration.Runtime, adapter configuration.ClientBinding) (configuration.Config, string, error) {
 	workspace, err := os.MkdirTemp("", "aigw-codex-profile-verification-")
 	if err != nil {
 		return configuration.Config{}, "", fmt.Errorf("create isolated Codex verification projection: %w", err)
@@ -129,7 +129,7 @@ func isolateCodexProjection(cfg configuration.Config, runtime configuration.Runt
 	}
 	isolated := cfg.Clone()
 	adapter.Targets = []string{target}
-	isolated.Adapters[configuration.ClientCodex] = adapter
+	isolated.Clients[configuration.ClientCodex] = adapter
 	return isolated, workspace, nil
 }
 

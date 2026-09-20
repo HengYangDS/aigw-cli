@@ -136,7 +136,7 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 	verified := configuration.NewConfig()
 	addAccountProfile(&verified, "stable", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-stable")
 	verified.Routes[configuration.ClientCodex] = "stable"
-	verified.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	verified.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	if err := app.Config.Save(verified); err != nil {
 		t.Fatal(err)
 	}

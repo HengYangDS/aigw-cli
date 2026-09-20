@@ -32,7 +32,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 		r.ProductTitle("Client adapters")
 		r.Section("Adapter")
 		for _, spec := range configuration.AdmittedClientSpecs() {
-			adapter := cfg.Adapters[spec.ID]
+			adapter := cfg.Clients[spec.ID]
 			state, text := presentation.Info, "Disabled"
 			if adapter.Enabled {
 				state, text = presentation.OK, "Enabled"
@@ -91,7 +91,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		}
 		before := cfg.Clone()
-		if before.Adapters[client].Enabled {
+		if before.Clients[client].Enabled {
 			return fmt.Errorf("%s adapter is already enabled; disable it before changing the executable or config targets", spec.Label)
 		}
 		clientRuntime, err := cfg.ResolveRuntime(client, "")
@@ -119,11 +119,11 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 		}
-		adapter := cfg.Adapters[client]
+		adapter := cfg.Clients[client]
 		adapter.Enabled = true
 		adapter.Executable = executable
 		adapter.Targets = append([]string(nil), targets...)
-		cfg.Adapters[client] = adapter
+		cfg.Clients[client] = adapter
 		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "adapter enable"); err != nil {
 			return fmt.Errorf("Adapter enablement failed and was rolled back: %w", err)
 		}
@@ -148,7 +148,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		}
 		before := cfg.Clone()
-		adapter, ok := cfg.Adapters[client]
+		adapter, ok := cfg.Clients[client]
 		if !ok || !adapter.Enabled {
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Client adapters")
@@ -160,7 +160,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		}
 		// Disabled intent is durable; discovery must not turn it back into activation.
 		// Full uninstall uses Withdraw without retaining this client binding.
-		cfg.Adapters[client] = configuration.AdapterConfig{CredentialCommand: adapter.CredentialCommand}
+		cfg.Clients[client] = configuration.ClientBinding{CredentialCommand: adapter.CredentialCommand}
 
 		if err := invocation.Synchronizer(runtime).CommitProjection(cmd.Context(), before, cfg, "adapter disable"); err != nil {
 			return err

@@ -93,8 +93,8 @@ func findCheck(t *testing.T, checks []Check, name string) Check {
 
 func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	cfg := validDoctorConfig()
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true}
 	deps, _, _ := doctorDependencies(t, cfg)
 	checks := Collect(context.Background(), deps)
 	for _, name := range []string{"secret:team", "adapter:claude", "adapter:codex"} {
@@ -107,7 +107,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 		t.Fatalf("checks = %#v", checks)
 	}
 
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
 		Enabled:    true,
 		Executable: "codex",
 	}
@@ -128,7 +128,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 
 func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.T) {
 	cfg := validDoctorConfig()
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true}
 	cfg.Accounts["optional"] = configuration.Account{
 		Label: "Optional",
 		Endpoints: configuration.Endpoints{
@@ -156,7 +156,7 @@ func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.
 func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 	cfg := validDoctorConfig()
 	for _, client := range configuration.AdmittedClientIDs() {
-		cfg.Adapters[client] = configuration.AdapterConfig{Enabled: true}
+		cfg.Clients[client] = configuration.ClientBinding{Enabled: true}
 	}
 	cfg.Accounts["native"] = configuration.Account{
 		Label: "Native",
@@ -193,7 +193,7 @@ func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 
 func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	cfg := validDoctorConfig()
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing")}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing")}
 	deps, _, secretsStore := doctorDependencies(t, cfg)
 	if err := secretsStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
@@ -209,7 +209,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if err := os.WriteFile(executable, []byte("binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executable}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executable}
 	deps, _, _ = doctorDependencies(t, cfg)
 	deps.Clients.ClaudeSettingsPath = filepath.Join(t.TempDir(), "settings.json")
 	deps.Clients.AIGWExecutable = filepath.Join(t.TempDir(), "aigw")
@@ -229,14 +229,14 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 		t.Fatalf("adapter check = %#v", check)
 	}
 
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
 	deps, _, _ = doctorDependencies(t, cfg)
 	check := findCheck(t, Collect(context.Background(), deps), "codex:target-1")
 	if check.OK || !strings.Contains(check.Detail, "read Codex config") || check.Fix != "run `aigw sync`" {
 		t.Fatalf("projection check = %#v", check)
 	}
 
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{"unused"}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "codex", Targets: []string{"unused"}}
 	delete(cfg.Accounts, "team")
 	if check := findCheck(t, adapterChecks(context.Background(), deps.Clients, cfg), "projection:codex"); check.OK {
 		t.Fatalf("route check = %#v", check)
@@ -252,7 +252,7 @@ func TestClaudeExecutableReadFailuresAreDiagnostic(t *testing.T) {
 	if err := os.MkdirAll(blocked, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: blocked}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: blocked}
 	deps, _, _ := doctorDependencies(t, cfg)
 	check := findCheck(t, Collect(context.Background(), deps), "adapter:claude")
 	if check.OK || !strings.Contains(check.Detail, "unavailable") {

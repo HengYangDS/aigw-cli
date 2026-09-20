@@ -33,11 +33,11 @@ func configuredClient(t *testing.T, id string) (configuration.Config, client.Dep
 	cfg.Profiles[id] = configuration.Profile{Client: id, Account: "gateway", Model: "fixture", Protocol: spec.EndpointProtocols[0]}
 	cfg.Routes[id] = id
 	target := filepath.Join(root, "config.toml")
-	adapter := configuration.AdapterConfig{Enabled: true, Executable: executable}
+	adapter := configuration.ClientBinding{Enabled: true, Executable: executable}
 	if id != configuration.ClientClaude {
 		adapter.Targets = []string{target}
 	}
-	cfg.Adapters[id] = adapter
+	cfg.Clients[id] = adapter
 	deps := client.Dependencies{AIGWExecutable: filepath.Join(root, "aigw"), ClaudeSettingsPath: filepath.Join(root, "settings.json")}
 	discovered := discovery.Result{
 		Executables: map[string]string{id: executable},
@@ -53,11 +53,11 @@ func TestCredentialPolicyControlsProjectionAndSurvivesDiscovery(t *testing.T) {
 		t.Run(id, func(t *testing.T) {
 			before, deps, discovered := configuredClient(t, id)
 			after := before.Clone()
-			adapter := after.Adapters[id]
+			adapter := after.Clients[id]
 			adapter.CredentialCommand = filepath.Join(t.TempDir(), "credential adapter")
-			after.Adapters[id] = adapter
+			after.Clients[id] = adapter
 			converged, err := registry.Converge(deps, after, discovered, id)
-			if err != nil || converged.Adapters[id].CredentialCommand != adapter.CredentialCommand {
+			if err != nil || converged.Clients[id].CredentialCommand != adapter.CredentialCommand {
 				t.Fatalf("credential policy lost during discovery: %v", err)
 			}
 			if got := registry.ChangedClients(before, converged); !reflect.DeepEqual(got, []string{id}) {
@@ -89,18 +89,18 @@ func TestDisabledCredentialPolicyRequiresExplicitEnable(t *testing.T) {
 	for _, id := range registry.IDs() {
 		cfg, deps, discovered := configuredClient(t, id)
 		command := filepath.Join(t.TempDir(), "credential adapter")
-		cfg.Adapters[id] = configuration.AdapterConfig{CredentialCommand: command}
+		cfg.Clients[id] = configuration.ClientBinding{CredentialCommand: command}
 		after, err := registry.Converge(deps, cfg, discovered, id)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if adapter := after.Adapters[id]; adapter.Enabled || adapter.CredentialCommand != command {
+		if adapter := after.Clients[id]; adapter.Enabled || adapter.CredentialCommand != command {
 			t.Fatalf("disabled policy changed: %#v", adapter)
 		}
 		if err := registry.Withdraw(&after, id); err != nil {
 			t.Fatal(err)
 		}
-		if _, exists := after.Adapters[id]; exists {
+		if _, exists := after.Clients[id]; exists {
 			t.Fatal("full withdrawal retained host credential policy")
 		}
 	}
@@ -111,7 +111,7 @@ func TestExplicitDisableSurvivesDiscoveryWithoutAnExternalHelper(t *testing.T) {
 	for _, id := range registry.IDs() {
 		t.Run(id, func(t *testing.T) {
 			cfg, deps, observed := configuredClient(t, id)
-			cfg.Adapters[id] = configuration.AdapterConfig{Enabled: false}
+			cfg.Clients[id] = configuration.ClientBinding{Enabled: false}
 			deps.Secrets = secrets.NewMemoryStore()
 			if err := deps.Secrets.Set("gateway", "public-token"); err != nil {
 				t.Fatal(err)
@@ -120,7 +120,7 @@ func TestExplicitDisableSurvivesDiscoveryWithoutAnExternalHelper(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if after.Adapters[id].Enabled {
+			if after.Clients[id].Enabled {
 				t.Fatal("discovery re-enabled explicit disabled intent")
 			}
 		})
@@ -130,16 +130,16 @@ func TestExplicitDisableSurvivesDiscoveryWithoutAnExternalHelper(t *testing.T) {
 func TestMissingCodexTargetRetainsOnlyCredentialPolicy(t *testing.T) {
 	cfg, deps, _ := configuredClient(t, configuration.ClientCodex)
 	command := filepath.Join(t.TempDir(), "credential adapter")
-	adapter := cfg.Adapters[configuration.ClientCodex]
+	adapter := cfg.Clients[configuration.ClientCodex]
 	adapter.Targets = nil
 	adapter.CredentialCommand = command
-	cfg.Adapters[configuration.ClientCodex] = adapter
+	cfg.Clients[configuration.ClientCodex] = adapter
 	after, err := client.DefaultRegistry().Converge(deps, cfg, discovery.Result{}, configuration.ClientCodex)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := configuration.AdapterConfig{CredentialCommand: command}
-	if got := after.Adapters[configuration.ClientCodex]; !reflect.DeepEqual(got, want) {
+	want := configuration.ClientBinding{CredentialCommand: command}
+	if got := after.Clients[configuration.ClientCodex]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("missing-target policy = %#v", got)
 	}
 }
@@ -159,9 +159,9 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 	for _, id := range registry.IDs() {
 		t.Run(id, func(t *testing.T) {
 			cfg, deps, _ := configuredClient(t, id)
-			adapter := cfg.Adapters[id]
+			adapter := cfg.Clients[id]
 			adapter.CredentialCommand = filepath.Join(t.TempDir(), "credential adapter")
-			cfg.Adapters[id] = adapter
+			cfg.Clients[id] = adapter
 			if err := registry.Apply(context.Background(), deps, configuration.NewConfig(), cfg, id); err != nil {
 				t.Fatal(err)
 			}

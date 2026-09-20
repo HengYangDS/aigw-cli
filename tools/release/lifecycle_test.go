@@ -163,7 +163,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 		}
 	}
 	requireUserFiles()
-	clear(before.Adapters)
+	clear(before.Clients)
 	if retained, err := configuration.NewStore(journey.config).Load(); err != nil || !reflect.DeepEqual(retained, before) {
 		t.Fatalf("capability configuration changed across program lifecycle\nwant: %#v\ngot: %#v\nerror: %v", before, retained, err)
 	}

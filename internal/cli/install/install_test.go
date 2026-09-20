@@ -179,7 +179,7 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 		cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
 		cfg.Routes[configuration.ClientClaude] = "claude"
-		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+		cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
 		if err := store.Save(cfg); err != nil {
 			t.Fatal(err)
 		}

@@ -213,7 +213,7 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 			}
 			for clientID := range clients {
 				selected, err := cfg.ResolveRuntime(clientID, "")
-				if err != nil || selected.AccountID != account || !cfg.Adapters[clientID].Enabled {
+				if err != nil || selected.AccountID != account || !cfg.Clients[clientID].Enabled {
 					t.Fatalf("one connected Account did not activate %s: %#v, %v", clientID, selected, err)
 				}
 				recommended := manifest.Profiles[manifest.RecommendedRoutes[clientID]]

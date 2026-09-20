@@ -75,7 +75,7 @@ func testConfig(target string) configuration.Config {
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
 	cfg.Routes[configuration.ClientCodex] = "gpt"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
 }
 
@@ -90,13 +90,13 @@ func TestWithdrawDefaultsToEveryAdmittedClientAndRejectsUnknownClients(t *testin
 	syncer := Synchronizer{}
 	cfg := configuration.NewConfig()
 	for _, clientID := range syncer.ClientIDs() {
-		cfg.Adapters[clientID] = configuration.AdapterConfig{Enabled: true}
+		cfg.Clients[clientID] = configuration.ClientBinding{Enabled: true}
 	}
 	if err := syncer.Withdraw(&cfg); err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Adapters) != 0 {
-		t.Fatalf("adapters after full withdrawal = %#v", cfg.Adapters)
+	if len(cfg.Clients) != 0 {
+		t.Fatalf("adapters after full withdrawal = %#v", cfg.Clients)
 	}
 	if err := syncer.Withdraw(&cfg, "unknown"); err == nil || !strings.Contains(err.Error(), "no admitted operational adapter") {
 		t.Fatalf("unknown withdrawal error = %v", err)
@@ -128,7 +128,7 @@ func TestCommitRestoresTargetRemovedFromAdapter(t *testing.T) {
 		t.Fatal(err)
 	}
 	after := before.Clone()
-	delete(after.Adapters, configuration.ClientCodex)
+	delete(after.Clients, configuration.ClientCodex)
 	if err := syncer.Commit(context.Background(), before, after, "test"); err != nil {
 		t.Fatal(err)
 	}
@@ -140,8 +140,8 @@ func TestCommitRestoresTargetRemovedFromAdapter(t *testing.T) {
 		t.Fatalf("sidecar remains after adapter removal: %v", err)
 	}
 	stored, err := store.Load()
-	if err != nil || stored.Adapters[configuration.ClientCodex].Enabled {
-		t.Fatalf("stored config still enables Codex: %#v, %v", stored.Adapters, err)
+	if err != nil || stored.Clients[configuration.ClientCodex].Enabled {
+		t.Fatalf("stored config still enables Codex: %#v, %v", stored.Clients, err)
 	}
 }
 
@@ -150,7 +150,7 @@ func TestCancelledCommitPreservesConfiguration(t *testing.T) {
 		t.Run(operation, func(t *testing.T) {
 			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
 			before := testConfig("")
-			before.Adapters = map[string]configuration.AdapterConfig{}
+			before.Clients = map[string]configuration.ClientBinding{}
 			if err := store.Save(before); err != nil {
 				t.Fatal(err)
 			}
@@ -232,7 +232,7 @@ func TestCommitCancellationAtPersistenceAndProjectionAdmission(t *testing.T) {
 			root := t.TempDir()
 			target := filepath.Join(root, "config.toml")
 			before := testConfig(target)
-			before.Adapters = map[string]configuration.AdapterConfig{}
+			before.Clients = map[string]configuration.ClientBinding{}
 			after := testConfig(target)
 			store := cancellingConfigStore{Store: configuration.NewStore(filepath.Join(root, "aigw.toml")), phase: phase, cancel: cancel}
 			if err := store.Save(before); err != nil {
@@ -351,7 +351,7 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-team"}
 	before.Routes[configuration.ClientClaude] = "claude"
 	after := before.Clone()
-	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	after.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
 	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
@@ -406,7 +406,7 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-team"}
 	before.Routes[configuration.ClientClaude] = "claude"
 	after := before.Clone()
-	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	after.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
 	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
@@ -417,7 +417,7 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 		t.Fatalf("Commit() error = %v", err)
 	}
 	stored, loadErr := store.Load()
-	if loadErr != nil || stored.Adapters[configuration.ClientClaude].Enabled {
+	if loadErr != nil || stored.Clients[configuration.ClientClaude].Enabled {
 		t.Fatalf("configuration was not rolled back: %#v, %v", stored, loadErr)
 	}
 }

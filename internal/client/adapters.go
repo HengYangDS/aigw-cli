@@ -70,7 +70,7 @@ func (codexAdapter) Converge(deps Dependencies, cfg *configuration.Config, disco
 		}
 		return err
 	}
-	adapter, explicitlyConfigured := cfg.Adapters[configuration.ClientCodex]
+	adapter, explicitlyConfigured := cfg.Clients[configuration.ClientCodex]
 	if explicitlyConfigured && !adapter.Enabled {
 		return nil
 	}
@@ -90,11 +90,11 @@ func (codexAdapter) Converge(deps Dependencies, cfg *configuration.Config, disco
 		adapter.Enabled = true
 		adapter.Executable = executable
 		adapter.Targets = targets
-		cfg.Adapters[configuration.ClientCodex] = adapter
+		cfg.Clients[configuration.ClientCodex] = adapter
 	} else if adapter.Enabled && len(targets) == 0 {
-		delete(cfg.Adapters, configuration.ClientCodex)
+		delete(cfg.Clients, configuration.ClientCodex)
 		if adapter.CredentialCommand != "" {
-			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{CredentialCommand: adapter.CredentialCommand}
+			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{CredentialCommand: adapter.CredentialCommand}
 		}
 	}
 	return nil
@@ -125,8 +125,8 @@ func (codexAdapter) Apply(_ context.Context, deps Dependencies, before, after co
 }
 
 func (codexAdapter) ProjectionChanged(before, after configuration.Config) bool {
-	beforeAdapter := before.Adapters[configuration.ClientCodex]
-	afterAdapter := after.Adapters[configuration.ClientCodex]
+	beforeAdapter := before.Clients[configuration.ClientCodex]
+	afterAdapter := after.Clients[configuration.ClientCodex]
 	if beforeAdapter.Enabled != afterAdapter.Enabled || beforeAdapter.CredentialCommand != afterAdapter.CredentialCommand {
 		return true
 	}
@@ -154,7 +154,7 @@ func (codexAdapter) Inspect(_ context.Context, deps Dependencies, cfg configurat
 	if deps.AIGWExecutable != "" {
 		runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
 	}
-	adapter := cfg.Adapters[configuration.ClientCodex]
+	adapter := cfg.Clients[configuration.ClientCodex]
 	if !adapter.Enabled {
 		return Status{Issue: "Codex adapter is disabled", RepairAction: "aigw sync"}
 	}
@@ -182,7 +182,7 @@ func (codexAdapter) Inspect(_ context.Context, deps Dependencies, cfg configurat
 }
 
 func (codexAdapter) Withdraw(cfg *configuration.Config) {
-	delete(cfg.Adapters, configuration.ClientCodex)
+	delete(cfg.Clients, configuration.ClientCodex)
 }
 
 type claudeAdapter struct{}
@@ -203,7 +203,7 @@ func (claudeAdapter) Converge(deps Dependencies, cfg *configuration.Config, disc
 		}
 		return err
 	}
-	adapter, explicitlyConfigured := cfg.Adapters[configuration.ClientClaude]
+	adapter, explicitlyConfigured := cfg.Clients[configuration.ClientClaude]
 	if explicitlyConfigured && !adapter.Enabled {
 		return nil
 	}
@@ -221,7 +221,7 @@ func (claudeAdapter) Converge(deps Dependencies, cfg *configuration.Config, disc
 	if executable != "" && (adapter.Enabled || available) {
 		adapter.Enabled = true
 		adapter.Executable = executable
-		cfg.Adapters[configuration.ClientClaude] = adapter
+		cfg.Clients[configuration.ClientClaude] = adapter
 	}
 	return nil
 }
@@ -255,8 +255,8 @@ func (claudeAdapter) Apply(_ context.Context, deps Dependencies, before, after c
 }
 
 func (claudeAdapter) ProjectionChanged(before, after configuration.Config) bool {
-	beforeAdapter := before.Adapters[configuration.ClientClaude]
-	afterAdapter := after.Adapters[configuration.ClientClaude]
+	beforeAdapter := before.Clients[configuration.ClientClaude]
+	afterAdapter := after.Clients[configuration.ClientClaude]
 	if beforeAdapter.Enabled != afterAdapter.Enabled || beforeAdapter.CredentialCommand != afterAdapter.CredentialCommand {
 		return true
 	}
@@ -272,7 +272,7 @@ func (claudeAdapter) ProjectionChanged(before, after configuration.Config) bool 
 }
 
 func (claudeAdapter) Inspect(_ context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime) Status {
-	adapter := cfg.Adapters[configuration.ClientClaude]
+	adapter := cfg.Clients[configuration.ClientClaude]
 	if !adapter.Enabled {
 		return Status{Issue: "Claude adapter is disabled", RepairAction: "aigw sync"}
 	}
@@ -293,7 +293,7 @@ func (claudeAdapter) Inspect(_ context.Context, deps Dependencies, cfg configura
 }
 
 func (claudeAdapter) Withdraw(cfg *configuration.Config) {
-	delete(cfg.Adapters, configuration.ClientClaude)
+	delete(cfg.Clients, configuration.ClientClaude)
 }
 
 func mustRegistry(specs []configuration.ClientSpec, adapters ...Adapter) Registry {
@@ -355,8 +355,8 @@ func codexTargets(discovered discovery.Result, current []string) []string {
 }
 
 func codexReconciliationInputs(deps Dependencies, before, after configuration.Config) ([]codex.TargetRef, []codex.TargetRef, configuration.Runtime, error) {
-	beforeAdapter := before.Adapters[configuration.ClientCodex]
-	afterAdapter := after.Adapters[configuration.ClientCodex]
+	beforeAdapter := before.Clients[configuration.ClientCodex]
+	afterAdapter := after.Clients[configuration.ClientCodex]
 	if !beforeAdapter.Enabled && !afterAdapter.Enabled {
 		return nil, nil, configuration.Runtime{}, nil
 	}
@@ -392,7 +392,7 @@ func discover(deps Dependencies) (discovery.Result, error) {
 	return deps.Discovery.Discover(), nil
 }
 
-func codexExecutable(discovered discovery.Result, adapter configuration.AdapterConfig) string {
+func codexExecutable(discovered discovery.Result, adapter configuration.ClientBinding) string {
 	if adapter.Executable != "" {
 		return adapter.Executable
 	}
@@ -429,11 +429,11 @@ func codexTargetRefs(discovered discovery.Result, paths []string, executable str
 }
 
 func claudeProjectionRequired(before, after configuration.Config) bool {
-	return before.Adapters[configuration.ClientClaude].Enabled || after.Adapters[configuration.ClientClaude].Enabled
+	return before.Clients[configuration.ClientClaude].Enabled || after.Clients[configuration.ClientClaude].Enabled
 }
 
 func claudeProjectionInput(cfg configuration.Config) (bool, configuration.Runtime, error) {
-	disabled := !cfg.Adapters[configuration.ClientClaude].Enabled
+	disabled := !cfg.Clients[configuration.ClientClaude].Enabled
 	if disabled {
 		return true, configuration.Runtime{}, nil
 	}

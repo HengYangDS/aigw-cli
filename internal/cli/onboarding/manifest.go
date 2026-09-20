@@ -125,7 +125,7 @@ func buildManifestSetupResult(
 		SelectedRoutes:    make(map[string]string, len(cfg.Routes)),
 	}
 	for _, client := range selectedClients {
-		if cfg.Adapters[client].Enabled {
+		if cfg.Clients[client].Enabled {
 			result.ProjectedClients = append(result.ProjectedClients, client)
 		}
 	}

@@ -99,9 +99,9 @@ func (j *journeyFixture) requireExternalCredentialClient(client, executable, acc
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	adapter := cfg.Adapters[client]
+	adapter := cfg.Clients[client]
 	adapter.CredentialCommand = helper
-	cfg.Adapters[client] = adapter
+	cfg.Clients[client] = adapter
 	if err := store.Save(cfg); err != nil {
 		j.testing.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func (j *journeyFixture) requireExternalCredentialClient(client, executable, acc
 	j.run("sync")
 	j.run("verify", "--for", client)
 	retained, err := store.Load()
-	if err != nil || retained.Adapters[client].CredentialCommand != helper {
+	if err != nil || retained.Clients[client].CredentialCommand != helper {
 		j.testing.Fatalf("native lifecycle discarded explicit helper: %v", err)
 	}
 	if completed() < count+2 {
@@ -513,7 +513,7 @@ func (j *journeyFixture) retainedCredentials() []process.Plan {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	credentials := make([]process.Plan, 0, len(cfg.Adapters))
+	credentials := make([]process.Plan, 0, len(cfg.Clients))
 	for _, client := range cfg.EnabledClientIDs() {
 		credentials = append(credentials, j.retainedCredential(client))
 	}

@@ -78,7 +78,7 @@ type checkEvaluation struct {
 func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config) checkEvaluation {
 	evaluation := checkEvaluation{configPath: runtime.Config.Path()}
 	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
-		if !cfg.Adapters[client].Enabled {
+		if !cfg.Clients[client].Enabled {
 			continue
 		}
 		evaluation.routes = append(evaluation.routes, evaluateRoute(cmd, runtime, cfg, client))
@@ -210,7 +210,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	renderer.Section("Client")
 	verificationCommands := []string{}
 	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
-		adapter := cfg.Adapters[client]
+		adapter := cfg.Clients[client]
 		if !adapter.Enabled {
 			renderer.Status(presentation.Info, invocation.Title(client), "Disabled")
 			continue

@@ -91,7 +91,7 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 			Profile:            clientRuntime.ProfileID,
 			Account:            clientRuntime.AccountID,
 			CredentialRequired: clientRuntime.UsesAIGWCredentialStore(),
-			AdapterEnabled:     cfg.Adapters[clientID].Enabled,
+			AdapterEnabled:     cfg.Clients[clientID].Enabled,
 			AdapterReady:       adapterStatus.Ready,
 			AdapterIssue:       adapterStatus.Issue,
 			AdapterAction:      adapterStatus.RepairAction,

@@ -106,11 +106,11 @@ func TestExplicitCredentialCommandSurvivesHostConfigRoundTrip(t *testing.T) {
 	cfg.Routes[ClientHermes] = ClientHermes
 	for _, client := range AdmittedClientIDs() {
 		command := filepath.Join(t.TempDir(), "credential adapter")
-		var adapter AdapterConfig
+		var adapter ClientBinding
 		if err := toml.Unmarshal([]byte(fmt.Sprintf("enabled = true\ncredential_command = %q\n", command)), &adapter); err != nil {
 			t.Fatal(err)
 		}
-		cfg.Adapters[client] = adapter
+		cfg.Clients[client] = adapter
 		runtime, err := cfg.ResolveRuntime(client, "")
 		if err != nil || runtime.CredentialCommand != command {
 			t.Fatalf("explicit %s command = %q, %v", client, runtime.CredentialCommand, err)
@@ -134,7 +134,7 @@ func TestCredentialCommandRejectsAmbiguousPaths(t *testing.T) {
 	for _, command := range []string{"relative-helper", " /absolute/helper", "/absolute/helper\nargument", "/absolute/helper\x00"} {
 		cfg := validConfig()
 		cfg.Normalize()
-		var adapter AdapterConfig
+		var adapter ClientBinding
 		encoded, err := toml.Marshal(map[string]any{"enabled": true, "credential_command": command})
 		if err != nil {
 			t.Fatal(err)
@@ -142,7 +142,7 @@ func TestCredentialCommandRejectsAmbiguousPaths(t *testing.T) {
 		if err := toml.Unmarshal(encoded, &adapter); err != nil {
 			t.Fatal(err)
 		}
-		cfg.Adapters[ClientCodex] = adapter
+		cfg.Clients[ClientCodex] = adapter
 		if err := cfg.Validate(); err == nil {
 			t.Errorf("accepted ambiguous command %q", command)
 		}

@@ -40,7 +40,7 @@ protocol = "anthropic"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Adapters[configuration.ClientHermes].Enabled || cfg.Routes[configuration.ClientHermes] != "team-model" {
+	if cfg.Clients[configuration.ClientHermes].Enabled || cfg.Routes[configuration.ClientHermes] != "team-model" {
 		t.Fatal("deferred setup lost intent or enabled an absent client")
 	}
 	target := filepath.Join(root, "hermes", "config.yaml")

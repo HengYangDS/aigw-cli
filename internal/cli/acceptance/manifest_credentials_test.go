@@ -183,8 +183,8 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	if !maps.Equal(cfg.Routes, map[string]string{"claude": "dmxapi-claude", "codex": "dmxapi-gpt"}) {
 		t.Fatalf("connected Account routes = %#v", cfg.Routes)
 	}
-	if !cfg.Adapters["claude"].Enabled || !cfg.Adapters["codex"].Enabled {
-		t.Fatalf("discovered clients were not configured: %#v", cfg.Adapters)
+	if !cfg.Clients["claude"].Enabled || !cfg.Clients["codex"].Enabled {
+		t.Fatalf("discovered clients were not configured: %#v", cfg.Clients)
 	}
 	if len(runner.plans) != 0 {
 		t.Fatalf("setup invoked a client: %#v", runner.plans)

@@ -301,7 +301,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 		}, want: "client discovery is unavailable"},
 		{name: "commit", prepare: func(value invocation.Context, cfg configuration.Config) invocation.Context {
 			cfg.Profiles["next"] = configuration.Profile{Label: "Next", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-next"}
-			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{filepath.Join(t.TempDir(), "missing-configuration.toml")}}
+			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Targets: []string{filepath.Join(t.TempDir(), "missing-configuration.toml")}}
 			if err := value.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -408,7 +408,7 @@ func TestUsePreservesCredentialsWhenCompensationCannotComplete(t *testing.T) {
 				}
 			}}
 			cfg.Profiles["next"] = configuration.Profile{Label: "Next", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-next"}
-			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
+			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
 			if err := run.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}

@@ -39,7 +39,7 @@ func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 		cfg := configuration.NewConfig()
 		addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		cfg.Routes[configuration.ClientCodex] = "one"
-		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+		cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -75,7 +75,7 @@ func TestCodexSyncReconcilesEachConfiguredHomeWithoutLoggingIn(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "team-model")
 	cfg.Routes[configuration.ClientCodex] = "team"
-	cfg.Adapters["codex"] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex-real", Targets: targets}
+	cfg.Clients["codex"] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex-real", Targets: targets}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestSyncReconcilesCodexConfigWithoutRebindingCredentials(t *testing.T) {
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-test"}
 	cfg.Routes[configuration.ClientCodex] = "gpt"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{target}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryAccountChoices(t *
 			cfg := configuration.NewConfig()
 			addAccountProfile(&cfg, "codex", "provider", "Provider", configuration.Endpoints{OpenAIResponses: test.endpoint}, configuration.ClientCodex, "gpt-test")
 			cfg.Routes[configuration.ClientCodex] = "codex"
-			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{target}}
+			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{target}}
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -246,7 +246,7 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 	if !maps.Equal(after.Profiles, cfg.Profiles) || !maps.Equal(after.Routes, cfg.Routes) {
 		t.Fatalf("sync changed Profile or Route authority: profiles=%#v routes=%#v", after.Profiles, after.Routes)
 	}
-	adapter := after.Adapters[configuration.ClientCodex]
+	adapter := after.Clients[configuration.ClientCodex]
 	if !adapter.Enabled || len(adapter.Targets) != 1 || adapter.Targets[0] != codexTarget {
 		t.Fatalf("Codex did not use the single discovered shared home: %#v", adapter)
 	}
@@ -328,8 +328,8 @@ func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
 	if !maps.Equal(after.Profiles, cfg.Profiles) || !maps.Equal(after.Routes, cfg.Routes) {
 		t.Fatalf("sync changed Profile or Route authority: profiles=%#v routes=%#v", after.Profiles, after.Routes)
 	}
-	if after.Adapters[configuration.ClientClaude].Executable != claudeExecutable {
-		t.Fatalf("sync changed the Claude executable: %#v", after.Adapters[configuration.ClientClaude])
+	if after.Clients[configuration.ClientClaude].Executable != claudeExecutable {
+		t.Fatalf("sync changed the Claude executable: %#v", after.Clients[configuration.ClientClaude])
 	}
 
 	data, err := os.ReadFile(settingsPath)
@@ -393,7 +393,7 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
 	cfg.Routes[configuration.ClientCodex] = "terra"
 	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{first, second}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{first, second}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

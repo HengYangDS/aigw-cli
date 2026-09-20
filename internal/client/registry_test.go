@@ -122,7 +122,7 @@ func (adapter *recordingAdapter) Discover(DiscoverySource) discovery.Result {
 
 func (adapter *recordingAdapter) Converge(_ Dependencies, cfg *configuration.Config, _ discovery.Result) error {
 	adapter.calls = append(adapter.calls, "converge")
-	cfg.Adapters[adapter.Spec().ID] = configuration.AdapterConfig{Enabled: true}
+	cfg.Clients[adapter.Spec().ID] = configuration.ClientBinding{Enabled: true}
 	return nil
 }
 
@@ -156,7 +156,7 @@ func (adapter *recordingAdapter) Verify(_ context.Context, _ Dependencies, _ con
 
 func (adapter *recordingAdapter) Withdraw(cfg *configuration.Config) {
 	adapter.calls = append(adapter.calls, "withdraw")
-	delete(cfg.Adapters, adapter.Spec().ID)
+	delete(cfg.Clients, adapter.Spec().ID)
 }
 
 func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
@@ -191,7 +191,7 @@ func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 	if err := registry.Withdraw(&cfg, "future"); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := cfg.Adapters["future"]; ok {
+	if _, ok := cfg.Clients["future"]; ok {
 		t.Fatal("withdraw retained the adapter configuration")
 	}
 	want := []string{"discovery", "converge", "plan", "plan", "apply", "projection-change", "status", "verify", "withdraw"}
@@ -221,8 +221,8 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 	before.Profiles["codex"] = configuration.Profile{Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
 	before.Routes[configuration.ClientClaude] = "claude"
 	before.Routes[configuration.ClientCodex] = "codex"
-	before.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/clients/claude"}
-	before.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/clients/codex", Targets: []string{"/clients/codex.toml"}}
+	before.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/clients/claude"}
+	before.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/clients/codex", Targets: []string{"/clients/codex.toml"}}
 	wantUnchanged := before.Clone()
 
 	future := &recordingAdapter{}
@@ -235,10 +235,10 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !after.Adapters[future.Spec().ID].Enabled {
+	if !after.Clients[future.Spec().ID].Enabled {
 		t.Fatal("future client was not admitted through its adapter")
 	}
-	delete(after.Adapters, future.Spec().ID)
+	delete(after.Clients, future.Spec().ID)
 	if !reflect.DeepEqual(after, wantUnchanged) {
 		t.Fatalf("future client changed existing client or Provider state:\n got %#v\nwant %#v", after, wantUnchanged)
 	}
@@ -440,11 +440,11 @@ func TestDefaultRegistryConvergesConfiguredExecutablesConservatively(t *testing.
 	cfg.Profiles["codex"] = configuration.Profile{Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
 	cfg.Routes[configuration.ClientClaude] = "claude"
 	cfg.Routes[configuration.ClientCodex] = "codex"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: missing}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: missing}
 
 	after, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, configuration.ClientClaude)
-	if err != nil || after.Adapters[configuration.ClientClaude].Executable != missing {
-		t.Fatalf("configured missing executable = %q, %v", after.Adapters[configuration.ClientClaude].Executable, err)
+	if err != nil || after.Clients[configuration.ClientClaude].Executable != missing {
+		t.Fatalf("configured missing executable = %q, %v", after.Clients[configuration.ClientClaude].Executable, err)
 	}
 	if runtime.GOOS == "windows" {
 		return
@@ -453,8 +453,8 @@ func TestDefaultRegistryConvergesConfiguredExecutablesConservatively(t *testing.
 	if err := os.Symlink(loop, loop); err != nil {
 		t.Skipf("symbolic link unavailable: %v", err)
 	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: loop}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: loop, Targets: []string{"/target"}}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: loop}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: loop, Targets: []string{"/target"}}
 	discovered := discovery.Result{Executables: map[string]string{
 		configuration.ClientClaude: "/replacement/claude",
 		configuration.ClientCodex:  "/replacement/codex",
@@ -512,8 +512,8 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 	before.Routes[configuration.ClientClaude] = "claude"
 	before.Routes[configuration.ClientCodex] = "codex"
 	after := before.Clone()
-	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
-	after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}}
+	after.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
+	after.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}}
 	deps := Dependencies{
 		Discovery: fixedDiscoverer{result: discovery.Result{Surfaces: []discovery.Surface{{
 			ID: "codex-home-default", Authority: "aigw", ConfigPath: codexTarget, Present: true, AutoManaged: true,

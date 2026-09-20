@@ -235,7 +235,7 @@ func Collect(ctx context.Context, deps Dependencies) []Check {
 func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cfg configuration.Config) []Check {
 	checks := make([]Check, 0)
 	for _, clientID := range clients.ClientIDs() {
-		adapter := cfg.Adapters[clientID]
+		adapter := cfg.Clients[clientID]
 		if !adapter.Enabled {
 			checks = append(checks, Check{Name: "adapter:" + clientID, OK: true, Detail: "disabled"})
 			continue

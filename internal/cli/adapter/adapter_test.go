@@ -81,7 +81,7 @@ func executeAdapter(t *testing.T, runtime invocation.Context, args ...string) er
 
 func TestListReportsEveryAdapterState(t *testing.T) {
 	cfg := adapterConfig()
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
 	runtime, out, _, _ := adapterRuntime(t, cfg)
 
 	if err := executeAdapter(t, runtime, "list"); err != nil {
@@ -183,7 +183,7 @@ func TestEnableClaudePersistsOnlyTheRealExecutable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapter := got.Adapters[configuration.ClientClaude]
+	adapter := got.Clients[configuration.ClientClaude]
 	if !adapter.Enabled || adapter.Executable != `C:\Program Files\Claude\claude.exe` {
 		t.Fatalf("saved adapter = %#v", adapter)
 	}
@@ -221,7 +221,7 @@ func TestEnableCodexValidatesTargetsAndPersistsProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapter := got.Adapters[configuration.ClientCodex]
+	adapter := got.Clients[configuration.ClientCodex]
 	if !adapter.Enabled || adapter.Executable != "/opt/codex" || len(adapter.Targets) != 1 || adapter.Targets[0] != target {
 		t.Fatalf("saved adapter = %#v", adapter)
 	}
@@ -306,7 +306,7 @@ func TestEnableClaudeDoesNotRequireAnAIGWLauncherDirectory(t *testing.T) {
 	if loadErr != nil {
 		t.Fatal(loadErr)
 	}
-	if !got.Adapters[configuration.ClientClaude].Enabled {
+	if !got.Clients[configuration.ClientClaude].Enabled {
 		t.Fatal("Claude adapter was not enabled")
 	}
 }
@@ -372,8 +372,8 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if adapter, ok := got.Adapters[configuration.ClientClaude]; !ok || adapter.Enabled {
-		t.Fatalf("explicit disabled intent was not retained: %#v", got.Adapters)
+	if adapter, ok := got.Clients[configuration.ClientClaude]; !ok || adapter.Enabled {
+		t.Fatalf("explicit disabled intent was not retained: %#v", got.Clients)
 	}
 	if got.Routes[configuration.ClientClaude] != "claude" || got.Profiles["claude"].Account != "gateway" {
 		t.Fatalf("capability configuration changed: %#v", got)
@@ -394,7 +394,7 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 		}
 	}
 	backup, err := runtime.Config.LoadBackup()
-	if err != nil || !backup.Adapters[configuration.ClientClaude].Enabled {
+	if err != nil || !backup.Clients[configuration.ClientClaude].Enabled {
 		t.Fatalf("explicit previous configuration = %#v, %v", backup, err)
 	}
 	if !strings.Contains(out.String(), "Client disabled") {
@@ -404,7 +404,7 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 
 func TestDisableClaudeDoesNotInspectForeignFilesystemEntries(t *testing.T) {
 	cfg := adapterConfig()
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: `C:\claude.exe`}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: `C:\claude.exe`}
 	runtime, _, _, _ := adapterRuntime(t, cfg)
 	err := executeAdapter(t, runtime, "disable", configuration.ClientClaude)
 	if err != nil {
@@ -414,7 +414,7 @@ func TestDisableClaudeDoesNotInspectForeignFilesystemEntries(t *testing.T) {
 	if loadErr != nil {
 		t.Fatal(loadErr)
 	}
-	if got.Adapters[configuration.ClientClaude].Enabled {
+	if got.Clients[configuration.ClientClaude].Enabled {
 		t.Fatal("Claude adapter remains enabled")
 	}
 }
@@ -503,7 +503,7 @@ func TestEnablePropagatesRuntimeResolutionError(t *testing.T) {
 func TestDisableCodexReturnsProjectionFailure(t *testing.T) {
 	cfg := adapterConfig()
 	target := filepath.Join(t.TempDir(), "missing", "configuration.toml")
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	runtime, _, _, _ := adapterRuntime(t, cfg)
 	runtime.Discovery = adapterDiscovery{}
 
@@ -515,7 +515,7 @@ func TestDisableCodexReturnsProjectionFailure(t *testing.T) {
 	if loadErr != nil {
 		t.Fatal(loadErr)
 	}
-	if !got.Adapters[configuration.ClientCodex].Enabled {
+	if !got.Clients[configuration.ClientCodex].Enabled {
 		t.Fatal("configuration was not rolled back")
 	}
 }

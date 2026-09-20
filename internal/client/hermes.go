@@ -46,7 +46,7 @@ func (hermesAdapter) Converge(deps Dependencies, cfg *configuration.Config, disc
 	if err != nil {
 		return err
 	}
-	adapter, explicitlyConfigured := cfg.Adapters[configuration.ClientHermes]
+	adapter, explicitlyConfigured := cfg.Clients[configuration.ClientHermes]
 	if explicitlyConfigured && !adapter.Enabled {
 		return nil
 	}
@@ -79,7 +79,7 @@ func (hermesAdapter) Converge(deps Dependencies, cfg *configuration.Config, disc
 		adapter.Targets = []string{surface.ConfigPath}
 	}
 	adapter.Enabled, adapter.Executable = true, executable
-	cfg.Adapters[configuration.ClientHermes] = adapter
+	cfg.Clients[configuration.ClientHermes] = adapter
 	return nil
 }
 
@@ -92,7 +92,7 @@ func hermesRoute(deps Dependencies, selected configuration.Runtime) (hermesconfi
 }
 
 func hermesPlans(deps Dependencies, before, after configuration.Config) ([]hermesconfig.Plan, []string, error) {
-	previous, current := before.Adapters[configuration.ClientHermes], after.Adapters[configuration.ClientHermes]
+	previous, current := before.Clients[configuration.ClientHermes], after.Clients[configuration.ClientHermes]
 	if !previous.Enabled && !current.Enabled {
 		return nil, nil, nil
 	}
@@ -170,7 +170,7 @@ func (hermesAdapter) Apply(_ context.Context, deps Dependencies, before, after c
 }
 
 func (hermesAdapter) ProjectionChanged(before, after configuration.Config) bool {
-	previous, current := before.Adapters[configuration.ClientHermes], after.Adapters[configuration.ClientHermes]
+	previous, current := before.Clients[configuration.ClientHermes], after.Clients[configuration.ClientHermes]
 	if previous.Enabled != current.Enabled {
 		return true
 	}
@@ -189,7 +189,7 @@ func (hermesAdapter) Inspect(ctx context.Context, deps Dependencies, cfg configu
 	if err := ctx.Err(); err != nil {
 		return Status{Issue: err.Error()}
 	}
-	adapter := cfg.Adapters[configuration.ClientHermes]
+	adapter := cfg.Clients[configuration.ClientHermes]
 	available, err := discovery.ExecutableAvailable(adapter.Executable)
 	if err != nil || !adapter.Enabled || !available || len(adapter.Targets) != 1 {
 		return Status{Issue: "Hermes executable or configuration home is unavailable", RepairAction: "aigw sync"}
@@ -209,14 +209,14 @@ func (hermesAdapter) Inspect(ctx context.Context, deps Dependencies, cfg configu
 }
 
 func (hermesAdapter) Withdraw(cfg *configuration.Config) {
-	delete(cfg.Adapters, configuration.ClientHermes)
+	delete(cfg.Clients, configuration.ClientHermes)
 }
 
 func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, selected configuration.Runtime, _ string) (_ Verification, result error) {
 	if deps.Runner == nil {
 		return Verification{}, errors.New("Hermes verification requires a process runner")
 	}
-	configured := cfg.Adapters[configuration.ClientHermes]
+	configured := cfg.Clients[configuration.ClientHermes]
 	if !configured.Enabled {
 		return Verification{}, errors.New("Hermes adapter is disabled; run aigw sync")
 	}

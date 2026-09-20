@@ -25,7 +25,7 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{Anthropic: "https://example.test"}}
 	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude Fable", Account: "dmx", Client: configuration.ClientClaude, Model: "claude-fable-5"}
 	cfg.Routes[configuration.ClientClaude] = "claude-fable-5"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: claudeExecutable}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -59,8 +59,8 @@ func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "dmx", Client: configuration.ClientClaude, Model: "claude-test"}
 	cfg.Routes[configuration.ClientCodex] = "gpt"
 	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude")}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true}
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -85,10 +85,10 @@ func TestVerifyAllUsesEnabledClientScope(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for other, adapter := range cfg.Adapters {
+			for other, adapter := range cfg.Clients {
 				if other != client {
 					adapter.Enabled = false
-					cfg.Adapters[other] = adapter
+					cfg.Clients[other] = adapter
 					delete(cfg.Routes, other)
 				}
 			}
@@ -104,7 +104,7 @@ func TestVerifyAllUsesEnabledClientScope(t *testing.T) {
 				t.Fatalf("checkpoint scope = %v: %v", checkpoint.Clients, err)
 			}
 			for _, plan := range runner.plans {
-				if plan.Executable != cfg.Adapters[client].Executable {
+				if plan.Executable != cfg.Clients[client].Executable {
 					t.Fatalf("invoked disabled client: %s", plan.Executable)
 				}
 			}
@@ -187,7 +187,7 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+			cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude")}
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -199,8 +199,8 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 			cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
 			cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
 			cfg.Routes[configuration.ClientClaude] = "claude"
-			cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
-			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
+			cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude")}
+			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true}
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -249,7 +249,7 @@ func TestVerifyCodexRunsTheConfiguredClientOnceAndReportsItsIdentity(t *testing.
 			t.Fatal(err)
 		}
 	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executable, Targets: targets}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: executable, Targets: targets}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -313,7 +313,7 @@ func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 	if err := codex.SyncConfig(target, runtime); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
 		Enabled:    true,
 		Executable: executableFixture(t, "codex"),
 		Targets:    []string{target},
@@ -361,7 +361,7 @@ func TestVerifyInfersClientFromExplicitProfile(t *testing.T) {
 	if err := codex.SyncConfig(target, runtime); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{target}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -388,12 +388,12 @@ func readyVerificationApp(t *testing.T) (*cli.App, *fakeRunner) {
 	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "dmx", Client: configuration.ClientClaude, Model: "claude-test"}
 	cfg.Routes[configuration.ClientCodex] = "gpt"
 	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude")}
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{codexTarget}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{codexTarget}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

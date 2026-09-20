@@ -28,11 +28,11 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 			for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 				cfg.Profiles[id] = configuration.Profile{Label: id, Account: "old", Client: id, Model: "old-model"}
 				cfg.Routes[id] = id
-				cfg.Adapters[id] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, id)}
+				cfg.Clients[id] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, id)}
 			}
-			adapter := cfg.Adapters[configuration.ClientCodex]
+			adapter := cfg.Clients[configuration.ClientCodex]
 			adapter.Targets = []string{target}
-			cfg.Adapters[configuration.ClientCodex] = adapter
+			cfg.Clients[configuration.ClientCodex] = adapter
 			if err := credentials.Set("old", "old-token"); err != nil {
 				t.Fatal(err)
 			}

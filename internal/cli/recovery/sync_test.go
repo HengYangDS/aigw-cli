@@ -40,7 +40,7 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 			cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 			cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
 			cfg.Routes[configuration.ClientCodex] = "one"
-			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/portable/codex", Targets: []string{"/portable/config.toml"}}
+			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/portable/codex", Targets: []string{"/portable/config.toml"}}
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -77,7 +77,7 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 		cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 		cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
 		cfg.Routes[configuration.ClientCodex] = "one"
-		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{""}}
+		cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{""}}
 		if err := store.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -99,7 +99,7 @@ func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
 	cfg.Profiles["two"] = configuration.Profile{Label: "Two", Account: "two", Client: configuration.ClientCodex, Model: "gpt-test"}
 	cfg.Routes[configuration.ClientCodex] = "one"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{t.TempDir()}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{t.TempDir()}}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
 	cfg.Routes[configuration.ClientCodex] = "one"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

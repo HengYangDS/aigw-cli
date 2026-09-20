@@ -30,7 +30,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after.Adapters["hermes"].Enabled {
+	if after.Clients["hermes"].Enabled {
 		t.Fatal("absent Hermes was enabled")
 	}
 	name := "hermes"
@@ -45,7 +45,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !after.Adapters["hermes"].Enabled {
+	if !after.Clients["hermes"].Enabled {
 		t.Fatal("installed Hermes was not enabled")
 	}
 	if err := registry.Apply(context.Background(), deps, cfg, after, "hermes"); err != nil {

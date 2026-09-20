@@ -4,17 +4,10 @@ package configuration
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"maps"
-	"net/netip"
-	"net/url"
-	"path/filepath"
 	"regexp"
-	"slices"
 	"sort"
-	"strings"
-	"unicode"
 )
 
 // Authentication identifies which boundary owns credentials for a profile.
@@ -41,14 +34,14 @@ const (
 var profileNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 var modelProviderPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 
-// Config is the typed source of truth for accounts, profiles, routes, and client adapters.
+// Config is the typed source of truth for accounts, profiles, routes, and client bindings.
 type Config struct {
 	Version           int                      `json:"version"                      toml:"version"`
 	Accounts          map[string]Account       `json:"accounts,omitempty"           toml:"accounts,omitempty"`
 	Profiles          map[string]Profile       `json:"profiles"                     toml:"profiles"`
 	Routes            Routes                   `json:"routes"                       toml:"routes"`
 	RecommendedRoutes Routes                   `json:"recommended_routes,omitempty" toml:"recommended_routes,omitempty"`
-	Adapters          map[string]AdapterConfig `json:"adapters,omitempty"           toml:"adapters,omitempty"`
+	Clients           map[string]ClientBinding `json:"adapters,omitempty"           toml:"adapters,omitempty"`
 }
 
 // Account defines one provider capability and its protocol endpoints without containing credentials.
@@ -120,7 +113,7 @@ type Routes map[string]string
 
 // NewConfig returns an empty configuration with all collection invariants initialized.
 func NewConfig() Config {
-	return Config{Version: ConfigVersion, Accounts: map[string]Account{}, Profiles: map[string]Profile{}, Routes: Routes{}, RecommendedRoutes: Routes{}, Adapters: map[string]AdapterConfig{}}
+	return Config{Version: ConfigVersion, Accounts: map[string]Account{}, Profiles: map[string]Profile{}, Routes: Routes{}, RecommendedRoutes: Routes{}, Clients: map[string]ClientBinding{}}
 }
 
 // Clone returns an independent configuration value. Config is the semantic
@@ -139,9 +132,9 @@ func (c Config) Clone() Config {
 	maps.Copy(out.Profiles, c.Profiles)
 	maps.Copy(out.Routes, c.Routes)
 	maps.Copy(out.RecommendedRoutes, c.RecommendedRoutes)
-	for name, adapter := range c.Adapters {
+	for name, adapter := range c.Clients {
 		adapter.Targets = append([]string(nil), adapter.Targets...)
-		out.Adapters[name] = adapter
+		out.Clients[name] = adapter
 	}
 	return out
 }
@@ -212,9 +205,9 @@ func (c Config) FirstProfileForClient(client string) string {
 
 // EnabledClientIDs returns the stable client scope explicitly enabled by this configuration.
 func (c Config) EnabledClientIDs() []string {
-	clients := make([]string, 0, len(c.Adapters))
+	clients := make([]string, 0, len(c.Clients))
 	for _, client := range AdmittedClientIDs() {
-		if c.Adapters[client].Enabled {
+		if c.Clients[client].Enabled {
 			clients = append(clients, client)
 		}
 	}
@@ -329,222 +322,15 @@ func (c Config) profileForAvailableAuthentication(client string, connected map[s
 	return replacement
 }
 
-// ValidIdentifier reports whether a user-defined identifier is safe for configuration and credential slots.
-func ValidIdentifier(name string) bool { return profileNamePattern.MatchString(name) }
-
-// Normalize fills deterministic defaults and canonicalizes collection state in place.
-func (c *Config) Normalize() {
-	if c.Accounts == nil {
-		c.Accounts = map[string]Account{}
-	}
-	if c.Profiles == nil {
-		c.Profiles = map[string]Profile{}
-	}
-	if c.Routes == nil {
-		c.Routes = Routes{}
-	}
-	if c.RecommendedRoutes == nil {
-		c.RecommendedRoutes = Routes{}
-	}
-	if c.Adapters == nil {
-		c.Adapters = map[string]AdapterConfig{}
-	}
-}
-
-// Validate checks schema, accounts, profiles, routes, then adapters without mutation.
-// Within each collection, lexical key order determines the first diagnostic.
-func (c Config) Validate() error {
-	if c.Version != ConfigVersion {
-		return &UnsupportedConfigVersionError{Version: c.Version, ExpectedVersion: ConfigVersion}
-	}
-	if len(c.Profiles) == 0 {
-		return errors.New("at least one profile is required")
-	}
-	if len(c.Accounts) == 0 {
-		return errors.New("at least one account is required")
-	}
-	for _, name := range slices.Sorted(maps.Keys(c.Accounts)) {
-		if err := c.Accounts[name].validate(name); err != nil {
-			return err
-		}
-	}
-	for _, name := range c.ProfileIDs() {
-		if err := c.Profiles[name].validate(name, c.Accounts); err != nil {
-			return err
-		}
-	}
-	if err := c.validateRoutes(c.Routes, "route"); err != nil {
-		return err
-	}
-	if err := c.validateRoutes(c.RecommendedRoutes, "recommended route"); err != nil {
-		return err
-	}
-	for _, name := range slices.Sorted(maps.Keys(c.Adapters)) {
-		if !IsAdmittedClient(name) {
-			return fmt.Errorf("unknown adapter %q", name)
-		}
-		command := c.Adapters[name].CredentialCommand
-		if command != "" && (!filepath.IsAbs(command) || strings.TrimSpace(command) != command || strings.ContainsFunc(command, unicode.IsControl)) {
-			return fmt.Errorf("adapter %q credential_command must be one absolute executable path", name)
-		}
-	}
-	return nil
-}
-
-func (c Config) validateRoutes(routes Routes, kind string) error {
-	for _, client := range slices.Sorted(maps.Keys(routes)) {
-		if !IsAdmittedClient(client) {
-			return fmt.Errorf("unknown %s %q; supported routes are %s", kind, client, AdmittedClientUsage())
-		}
-		profile := routes[client]
-		selected, ok := c.Profiles[profile]
-		if !ok {
-			return fmt.Errorf("%s %q references unknown profile %q", kind, client, profile)
-		}
-		if selected.Client != client {
-			return fmt.Errorf("%s %q selects profile %q for %q", kind, client, profile, selected.Client)
-		}
-	}
-	return nil
-}
-
-func (account Account) validate(name string) error {
-	if !ValidIdentifier(name) {
-		return fmt.Errorf("invalid account name %q; use letters, numbers, dot, dash, or underscore", name)
-	}
-	if name != strings.ToLower(name) {
-		return fmt.Errorf("invalid account name %q; environment-backed account IDs must be lowercase", name)
-	}
-	if strings.TrimSpace(account.Label) == "" {
-		return fmt.Errorf("account %q has an empty label", name)
-	}
-	if account.Endpoints.OpenAIResponses == "" && account.Endpoints.Anthropic == "" && account.Endpoints.OpenAIChatCompletions == "" {
-		return fmt.Errorf("account %q must define at least one endpoint", name)
-	}
-	for _, endpoint := range []struct {
-		protocol EndpointProtocol
-		url      string
-	}{
-		{ProtocolAnthropic, account.Endpoints.Anthropic},
-		{ProtocolOpenAIResponses, account.Endpoints.OpenAIResponses},
-		{ProtocolOpenAIChatCompletions, account.Endpoints.OpenAIChatCompletions},
-	} {
-		if endpoint.url == "" {
-			continue
-		}
-		if err := validateEndpoint(endpoint.url); err != nil {
-			return fmt.Errorf("account %q endpoint %s: %w", name, endpoint.protocol, err)
-		}
-	}
-	if account.AccountProbe == nil {
-		return nil
-	}
-	if !ValidIdentifier(account.AccountProbe.Kind) {
-		return fmt.Errorf("account %q has invalid account probe provider %q", name, account.AccountProbe.Kind)
-	}
-	if err := validateEndpoint(account.AccountProbe.BaseURL); err != nil {
-		return fmt.Errorf("account %q account probe: %w", name, err)
-	}
-	return nil
-}
-
-func (profile Profile) validate(name string, accounts map[string]Account) error {
-	if !ValidIdentifier(name) {
-		return fmt.Errorf("invalid profile name %q; use letters, numbers, dot, dash, or underscore", name)
-	}
-	if strings.TrimSpace(profile.Label) == "" {
-		return fmt.Errorf("profile %q has an empty label", name)
-	}
-	if profile.Account == "" {
-		return fmt.Errorf("profile %q must reference an account", name)
-	}
-	account, ok := accounts[profile.Account]
-	if !ok {
-		return fmt.Errorf("profile %q references unknown account %q", name, profile.Account)
-	}
-	if !IsAdmittedClient(profile.Client) {
-		return fmt.Errorf("profile %q has unknown client %q", name, profile.Client)
-	}
-	account.ID = profile.Account
-	spec, _ := ClientSpecFor(profile.Client)
-	if _, _, err := spec.ResolveEndpoint(account, profile.Protocol); err != nil {
-		return fmt.Errorf("profile %q: %w", name, err)
-	}
-	if strings.TrimSpace(profile.Model) == "" {
-		return fmt.Errorf("profile %q must define a model", name)
-	}
-	if profile.ModelProvider != "" && !modelProviderPattern.MatchString(profile.ModelProvider) {
-		return fmt.Errorf("profile %q has invalid model provider %q", name, profile.ModelProvider)
-	}
-	if profile.ModelProvider != "" && profile.Client != ClientCodex {
-		return fmt.Errorf("profile %q model_provider is only supported for codex-scoped profiles", name)
-	}
-	switch authentication := resolvedAuthentication(profile); authentication {
-	case AuthenticationAccountToken:
-	case AuthenticationClientNative:
-		if profile.Client != ClientCodex {
-			return fmt.Errorf("profile %q client-native authentication is only supported for codex-scoped profiles", name)
-		}
-		if profile.ModelProvider == "" {
-			return fmt.Errorf("profile %q client-native authentication requires model_provider", name)
-		}
-	default:
-		return fmt.Errorf("profile %q has invalid authentication %q", name, authentication)
-	}
-	return nil
-}
-
-func resolvedModelProvider(client string, profile Profile) string {
-	if client != ClientCodex {
-		return ""
-	}
-	if profile.ModelProvider != "" {
-		return profile.ModelProvider
-	}
-	return ModelProviderAIGW
-}
-
-func resolvedAuthentication(profile Profile) Authentication {
-	if profile.Authentication == "" {
-		return AuthenticationAccountToken
-	}
-	return profile.Authentication
-}
-
-func validateEndpoint(raw string) error {
-	u, err := url.Parse(raw)
-	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
-		return errors.New("URL must use http or https and include a host")
-	}
-	if u.User != nil {
-		return errors.New("URL userinfo is forbidden")
-	}
-	if u.Scheme == "http" && !IsLoopbackHost(u.Hostname()) {
-		return errors.New("plain HTTP is allowed only for a loopback endpoint")
-	}
-	for _, key := range slices.Sorted(maps.Keys(u.Query())) {
-		lower := strings.ToLower(key)
-		if strings.Contains(lower, "token") || strings.Contains(lower, "secret") || strings.Contains(lower, "key") || strings.Contains(lower, "auth") || strings.Contains(lower, "password") {
-			return fmt.Errorf("credential-like query parameter %q is forbidden", key)
-		}
-	}
-	return nil
-}
-
-// IsLoopbackHost classifies a URL hostname without DNS or service discovery.
-func IsLoopbackHost(host string) bool {
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	address, err := netip.ParseAddr(host)
-	return err == nil && address.IsLoopback()
-}
-
 // ResolveRuntime resolves one client route to its validated account and profile runtime.
 func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, error) {
+	binding := c.Clients[client]
 	name := explicitProfile
 	if name == "" {
-		name = c.Routes[client]
+		name = binding.Profile
+		if name == "" {
+			name = c.Routes[client]
+		}
 		if name == "" {
 			return Runtime{}, &RuntimeRouteUnselectedError{Client: client}
 		}
@@ -554,7 +340,7 @@ func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, error) 
 		return Runtime{}, fmt.Errorf("unknown profile %q", name)
 	}
 	profile.ID = name
-	if profile.Client != client {
+	if profile.Client != "" && profile.Client != client {
 		return Runtime{}, &RuntimeProfileClientMismatchError{ProfileID: name, ExpectedClient: profile.Client, ActualClient: client}
 	}
 	account, ok := c.Accounts[profile.Account]
@@ -566,7 +352,7 @@ func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, error) 
 	if !admitted {
 		return Runtime{}, fmt.Errorf("unknown client %q", client)
 	}
-	endpoint, protocol, err := spec.ResolveEndpoint(account, profile.Protocol)
+	endpoint, protocol, err := spec.ResolveEndpoint(account, selectedProtocol(binding, profile))
 	if err != nil {
 		return Runtime{}, err
 	}
@@ -579,10 +365,31 @@ func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, error) 
 		Endpoint:          endpoint,
 		Protocol:          protocol,
 		Model:             profile.Model,
-		ModelProvider:     resolvedModelProvider(client, profile),
-		Authentication:    resolvedAuthentication(profile),
-		CredentialCommand: c.Adapters[client].CredentialCommand,
+		ModelProvider:     selectedModelProvider(client, binding, profile),
+		Authentication:    selectedAuthentication(binding, profile),
+		CredentialCommand: c.Clients[client].CredentialCommand,
 	}, nil
+}
+
+func selectedProtocol(binding ClientBinding, profile Profile) EndpointProtocol {
+	if binding.Protocol != "" {
+		return binding.Protocol
+	}
+	return profile.Protocol
+}
+
+func selectedModelProvider(client string, binding ClientBinding, profile Profile) string {
+	if binding.ModelProvider != "" {
+		return binding.ModelProvider
+	}
+	return resolvedModelProvider(client, profile)
+}
+
+func selectedAuthentication(binding ClientBinding, profile Profile) Authentication {
+	if binding.Authentication != "" {
+		return binding.Authentication
+	}
+	return resolvedAuthentication(profile)
 }
 
 // EndpointFor returns the endpoint whose protocol is required by the requested admitted client.

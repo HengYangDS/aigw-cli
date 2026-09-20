@@ -36,7 +36,7 @@ func TestClaudeModelDriftRecoveryThroughPublicCommands(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+			cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude")}
 			profile := cfg.Profiles["one"]
 			profile.Model = "claude-next"
 			cfg.Profiles["next"] = profile
@@ -196,8 +196,8 @@ func TestRecoveryJSONOutputFailurePreservesCommittedProjection(t *testing.T) {
 				t.Fatalf("output error = %v, want %v", err, want)
 			}
 			cfg, err := app.Config.Load()
-			if err != nil || !cfg.Adapters[configuration.ClientClaude].Enabled {
-				t.Fatalf("committed adapter = %+v, %v", cfg.Adapters[configuration.ClientClaude], err)
+			if err != nil || !cfg.Clients[configuration.ClientClaude].Enabled {
+				t.Fatalf("committed adapter = %+v, %v", cfg.Clients[configuration.ClientClaude], err)
 			}
 			settings, err := os.ReadFile(app.ClaudeSettingsPath)
 			if err != nil || !json.Valid(settings) {

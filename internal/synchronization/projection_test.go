@@ -24,7 +24,7 @@ func TestDesiredClientConfigurationScopesDiscoveryToRequestedClient(t *testing.T
 	before.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
 	before.Routes[configuration.ClientClaude] = "claude"
 	before.Routes[configuration.ClientCodex] = "codex"
-	before.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/existing/codex", Targets: []string{"/explicit/config.toml"}}
+	before.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/existing/codex", Targets: []string{"/explicit/config.toml"}}
 	secretStore := secrets.NewMemoryStore()
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
@@ -37,10 +37,10 @@ func TestDesiredClientConfigurationScopesDiscoveryToRequestedClient(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if adapter := after.Adapters[configuration.ClientClaude]; !adapter.Enabled || adapter.Executable != claudeExecutable {
+	if adapter := after.Clients[configuration.ClientClaude]; !adapter.Enabled || adapter.Executable != claudeExecutable {
 		t.Fatalf("Claude adapter = %#v", adapter)
 	}
-	if got := after.Adapters[configuration.ClientCodex]; !got.Enabled || got.Executable != "/existing/codex" || len(got.Targets) != 1 || got.Targets[0] != "/explicit/config.toml" {
+	if got := after.Clients[configuration.ClientCodex]; !got.Enabled || got.Executable != "/existing/codex" || len(got.Targets) != 1 || got.Targets[0] != "/explicit/config.toml" {
 		t.Fatalf("unselected Codex adapter changed: %#v", got)
 	}
 }
@@ -129,7 +129,7 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-team"}
 	before.Routes[configuration.ClientClaude] = "claude"
 	after := before.Clone()
-	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	after.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
 	syncer := Synchronizer{Config: configuration.NewStore(filepath.Join(dir, "aigw.toml")), Discovery: staticDiscovery{}, ClaudeSettingsPath: settingsPath, AIGWExecutable: filepath.Join(dir, "aigw")}
 
 	plans, err := syncer.Plan(before, after)
@@ -154,7 +154,7 @@ func TestPlanReportsClaudePlanningFailures(t *testing.T) {
 	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-team"}
 	before.Routes[configuration.ClientClaude] = "claude"
 	after := before.Clone()
-	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	after.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
 
 	if _, err := (Synchronizer{Discovery: staticDiscovery{}}).Plan(before, after); err == nil || !strings.Contains(err.Error(), "settings path") {
 		t.Fatalf("missing settings path error = %v", err)
@@ -183,7 +183,7 @@ func TestCommitReconcilesOnlyClientsWhoseProjectionChanges(t *testing.T) {
 			before.Accounts["gateway"] = account
 			before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-original"}
 			before.Routes[configuration.ClientClaude] = "claude"
-			before.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+			before.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
 			store := configuration.NewStore(filepath.Join(root, "aigw.toml"))
 			syncer := Synchronizer{Config: store, Discovery: targetDiscovery(targets[configuration.ClientCodex]), ClaudeSettingsPath: targets[configuration.ClientClaude], AIGWExecutable: filepath.Join(root, "aigw")}
 			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), before, "initial projection"); err != nil {
@@ -250,12 +250,12 @@ func TestProjectionPlanningRequiresDiscoveryAndValidTargets(t *testing.T) {
 	}
 	syncer := Synchronizer{Discovery: staticDiscovery{}}
 	before := base.Clone()
-	before.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{""}}
+	before.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Targets: []string{""}}
 	if _, err := syncer.Plan(before, base); err == nil {
 		t.Fatal("expected before-target error")
 	}
 	after := base.Clone()
-	after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{""}}
+	after.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Targets: []string{""}}
 	if _, err := syncer.Plan(base, after); err == nil {
 		t.Fatal("expected after-target error")
 	}
@@ -275,7 +275,7 @@ func TestCommitProjectionDoesNotBindNativeAuthentication(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := testConfig(target)
-	delete(before.Adapters, configuration.ClientCodex)
+	delete(before.Clients, configuration.ClientCodex)
 	after := testConfig(target)
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 	if err := store.Save(before); err != nil {
@@ -300,7 +300,7 @@ func TestCommitProjectionDoesNotBindNativeAuthentication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !stored.Adapters[configuration.ClientCodex].Enabled {
+	if !stored.Clients[configuration.ClientCodex].Enabled {
 		t.Fatal("projection-only commit did not persist the discovered adapter")
 	}
 	projected, err := os.ReadFile(target)

@@ -95,8 +95,8 @@ func TestUseForClaudeLeavesUnselectedCodexDriftUntouched(t *testing.T) {
 	cfg.Profiles["claude-sonnet"] = configuration.Profile{Label: "Claude Sonnet", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-sonnet"}
 	cfg.Routes[configuration.ClientCodex] = "gpt"
 	cfg.Routes[configuration.ClientClaude] = "claude-fable"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{target}}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{target}}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude")}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -147,10 +147,10 @@ func TestUseForCodexLeavesUnselectedClaudeDriftUntouched(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{target}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{target}}
 	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
 	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude")}
 	for _, account := range []string{"one", "two"} {
 		if err := credentials.Set(account, "token"); err != nil {
 			t.Fatal(err)
@@ -372,7 +372,7 @@ func TestUseActivatesClaudeInstalledAfterManifestSetup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapter := after.Adapters[configuration.ClientClaude]
+	adapter := after.Clients[configuration.ClientClaude]
 	if !adapter.Enabled || adapter.Executable != claudeExecutable {
 		t.Fatalf("Claude adapter after use = %#v", adapter)
 	}
@@ -404,7 +404,7 @@ func TestUseRollsBackRouteWhenAdapterSyncFails(t *testing.T) {
 	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-one")
 	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{OpenAIResponses: "https://two.test/v1"}, configuration.ClientCodex, "gpt-two")
 	cfg.Routes[configuration.ClientCodex] = "one"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/missing/codex", Targets: []string{target}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/missing/codex", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -432,7 +432,7 @@ func TestUseCodexProfileOnSameAccountDoesNotRebindCredentials(t *testing.T) {
 	cfg.Profiles["sol"] = configuration.Profile{Label: "Sol", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-5.6-sol"}
 	cfg.Profiles["terra"] = configuration.Profile{Label: "Terra", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-5.6-terra"}
 	cfg.Routes[configuration.ClientCodex] = "sol"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{target}}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

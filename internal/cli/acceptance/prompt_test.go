@@ -297,7 +297,7 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Routes[configuration.ClientCodex] != "gpt-5.6-terra" || cfg.Adapters["claude"].Enabled || !cfg.Adapters["codex"].Enabled {
+	if cfg.Routes[configuration.ClientCodex] != "gpt-5.6-terra" || cfg.Clients["claude"].Enabled || !cfg.Clients["codex"].Enabled {
 		t.Fatalf("configured state = %#v", cfg)
 	}
 	if len(runner.plans) != 0 {

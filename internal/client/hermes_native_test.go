@@ -44,7 +44,7 @@ func TestHermesNativeProjection(t *testing.T) {
 			cfg.Accounts["fixture"] = configuration.Account{Label: "Fixture", Endpoints: configuration.Endpoints{Anthropic: "https://provider.invalid", OpenAIResponses: "https://provider.invalid/v1", OpenAIChatCompletions: "https://provider.invalid/v1"}}
 			cfg.Profiles["hermes"] = configuration.Profile{Label: "Hermes", Client: configuration.ClientHermes, Account: "fixture", Model: "fixture-model", Protocol: protocol}
 			cfg.Routes[configuration.ClientHermes] = "hermes"
-			cfg.Adapters[configuration.ClientHermes] = configuration.AdapterConfig{Enabled: true, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
+			cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Enabled: true, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
 			if err := configuration.NewStore(configPath).Save(cfg); err != nil {
 				t.Fatal(err)
 			}

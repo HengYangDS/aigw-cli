@@ -327,7 +327,7 @@ func TestExportOmitsSecretsAndAdaptersAndPublishesRouteRecommendations(t *testin
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Profiles["team"] = Profile{Label: "Team", Account: "team", Client: ClientClaude, Model: "claude-team"}
 	cfg.Routes[ClientClaude] = "team"
-	cfg.Adapters[ClientClaude] = AdapterConfig{Enabled: true, Executable: "/personal/claude"}
+	cfg.Clients[ClientClaude] = ClientBinding{Enabled: true, Executable: "/personal/claude"}
 	data, err := Export(cfg)
 	if err != nil {
 		t.Fatal(err)

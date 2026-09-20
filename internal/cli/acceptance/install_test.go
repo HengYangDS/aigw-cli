@@ -166,7 +166,7 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	if manager == "homebrew" {
 		expectedBindings = 2
 	}
-	if len(retained.Adapters) != expectedBindings || len(retained.EnabledClientIDs()) != 0 || retained.Routes[configuration.ClientClaude] != "claude" || retained.Routes[configuration.ClientCodex] != "codex" || len(retained.Accounts) != 1 || len(retained.Profiles) != 2 {
+	if len(retained.Clients) != expectedBindings || len(retained.EnabledClientIDs()) != 0 || retained.Routes[configuration.ClientClaude] != "claude" || retained.Routes[configuration.ClientCodex] != "codex" || len(retained.Accounts) != 1 || len(retained.Profiles) != 2 {
 		t.Fatalf("retained capability configuration = %#v", retained)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "token" {
@@ -177,7 +177,7 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	}
 	previous, err := app.Config.LoadBackup()
 	expectedAdapters := 2
-	if err != nil || len(previous.Adapters) != expectedAdapters {
+	if err != nil || len(previous.Clients) != expectedAdapters {
 		t.Fatalf("previous configuration = %#v, %v", previous, err)
 	}
 }
@@ -204,8 +204,8 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Client: configuration.ClientCodex, Model: "gpt-model"}
 	cfg.Routes[configuration.ClientClaude] = "claude"
 	cfg.Routes[configuration.ClientCodex] = "codex"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: codexExecutable, Targets: []string{codexTarget}}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: claudeExecutable}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: codexExecutable, Targets: []string{codexTarget}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

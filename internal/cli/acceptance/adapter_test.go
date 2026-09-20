@@ -62,7 +62,7 @@ func TestAdapterListAndDiscoveryBranches(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
 		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
 		cfg, _ := app.Config.Load()
-		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+		cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -141,7 +141,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
 		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
 		cfg, _ := app.Config.Load()
-		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/old"}
+		cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/old"}
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -207,11 +207,11 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := app.Config.Load()
-	if !got.Adapters["claude"].Enabled || got.Adapters["claude"].Executable != claudeExecutable {
-		t.Fatalf("Claude adapter = %#v", got.Adapters["claude"])
+	if !got.Clients["claude"].Enabled || got.Clients["claude"].Executable != claudeExecutable {
+		t.Fatalf("Claude adapter = %#v", got.Clients["claude"])
 	}
-	if _, exists := got.Adapters["codex"]; exists {
-		t.Fatalf("Claude enable touched Codex: %#v", got.Adapters)
+	if _, exists := got.Clients["codex"]; exists {
+		t.Fatalf("Claude enable touched Codex: %#v", got.Clients)
 	}
 	if err := cli.Execute(app, []string{"adapter", "disable", "claude"}); err != nil {
 		t.Fatal(err)
@@ -296,11 +296,11 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 		writeFile(t, executable, []byte("public fixture"), 0o700)
 		cfg.Profiles[id] = configuration.Profile{Label: id, Account: "gateway", Client: id, Model: "fixture-model"}
 		cfg.Routes[id] = id
-		cfg.Adapters[id] = configuration.AdapterConfig{Enabled: true, Executable: executable}
+		cfg.Clients[id] = configuration.ClientBinding{Enabled: true, Executable: executable}
 	}
-	adapter := cfg.Adapters[configuration.ClientCodex]
+	adapter := cfg.Clients[configuration.ClientCodex]
 	adapter.Targets = []string{target}
-	cfg.Adapters[configuration.ClientCodex] = adapter
+	cfg.Clients[configuration.ClientCodex] = adapter
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -318,9 +318,9 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 	}
 	command := filepath.Join(root, "credential adapter")
 	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
-		adapter := cfg.Adapters[id]
+		adapter := cfg.Clients[id]
 		adapter.CredentialCommand = command
-		cfg.Adapters[id] = adapter
+		cfg.Clients[id] = adapter
 	}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -373,7 +373,7 @@ func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, tar
 		t.Fatal(err)
 	}
 	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
-		adapter := disabled.Adapters[id]
+		adapter := disabled.Clients[id]
 		if adapter.Enabled || adapter.CredentialCommand != command {
 			t.Fatalf("sync did not preserve disabled %s policy: %#v", id, adapter)
 		}
@@ -390,7 +390,7 @@ func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, tar
 		t.Fatal(err)
 	}
 	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
-		if adapter := reenabled.Adapters[id]; !adapter.Enabled || adapter.CredentialCommand != command {
+		if adapter := reenabled.Clients[id]; !adapter.Enabled || adapter.CredentialCommand != command {
 			t.Fatalf("reenable replaced %s credential policy: %#v", id, adapter)
 		}
 	}
@@ -403,7 +403,7 @@ func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *t
 	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "fixture-model"}
 	cfg.Routes[configuration.ClientClaude] = "claude"
 	command := filepath.Join(t.TempDir(), "explicit-helper")
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude"), CredentialCommand: command}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude"), CredentialCommand: command}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -416,7 +416,7 @@ func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *t
 	if err := cli.Execute(app, []string{"verify", "--for", "claude"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(runner.plans) != 1 || runner.plans[0].Executable != cfg.Adapters[configuration.ClientClaude].Executable {
+	if len(runner.plans) != 1 || runner.plans[0].Executable != cfg.Clients[configuration.ClientClaude].Executable {
 		t.Fatal("verification did not use the sole native client plan")
 	}
 	if !bytes.Equal(beforeConfig, readFile(t, app.Config.Path())) || !bytes.Equal(beforeSettings, readFile(t, app.ClaudeSettingsPath)) {

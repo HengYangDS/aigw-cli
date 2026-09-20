@@ -86,7 +86,7 @@ model = "claude-team"
 		t.Fatal(err)
 	}
 	cfg := NewConfig()
-	cfg.Adapters[ClientClaude] = AdapterConfig{Enabled: true, Executable: "/personal/claude"}
+	cfg.Clients[ClientClaude] = ClientBinding{Enabled: true, Executable: "/personal/claude"}
 	cfg.Routes[ClientClaude] = "personal"
 	cfg.Accounts["personal"] = Account{Label: "Personal", Endpoints: Endpoints{Anthropic: "https://personal.test"}}
 	cfg.Profiles["personal"] = Profile{Label: "Personal", Account: "personal", Client: ClientClaude, Model: "claude-personal"}
@@ -97,8 +97,8 @@ model = "claude-team"
 	if got.Routes[ClientClaude] != "personal" {
 		t.Fatalf("personal routes changed: %#v", got.Routes)
 	}
-	if got.Adapters[ClientClaude].Executable != "/personal/claude" {
-		t.Fatalf("personal adapter changed: %#v", got.Adapters)
+	if got.Clients[ClientClaude].Executable != "/personal/claude" {
+		t.Fatalf("personal adapter changed: %#v", got.Clients)
 	}
 	if got.Profiles["team"].Label != "Team Gateway" {
 		t.Fatalf("imported profile missing: %#v", got.Profiles)
@@ -304,7 +304,7 @@ model = "claude-team"
 	if err == nil {
 		t.Fatal("expected conflict")
 	}
-	if cfg.Routes != nil || cfg.Adapters != nil {
+	if cfg.Routes != nil || cfg.Clients != nil {
 		t.Fatalf("rejected merge normalized caller-owned config: %#v", cfg)
 	}
 }

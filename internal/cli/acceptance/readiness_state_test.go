@@ -55,7 +55,7 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Client: configuration.ClientClaude, Account: "gateway", Model: "fixture"}
 	cfg.Routes[configuration.ClientClaude] = "claude"
 	command := filepath.Join(t.TempDir(), "credential adapter")
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude"), CredentialCommand: command}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude"), CredentialCommand: command}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: errors.New("native metadata must not select external credentials")}
-	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"profile", "list"}, {"profile", "show", "claude"}, {"use", "claude"}, {"adapter", "disable", "claude"}, {"adapter", "enable", "claude", "--executable", cfg.Adapters[configuration.ClientClaude].Executable}} {
+	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"profile", "list"}, {"profile", "show", "claude"}, {"use", "claude"}, {"adapter", "disable", "claude"}, {"adapter", "enable", "claude", "--executable", cfg.Clients[configuration.ClientClaude].Executable}} {
 		out.Reset()
 		if err := cli.Execute(app, args); err != nil {
 			t.Fatalf("%v required a native Token: %v", args, err)
@@ -116,7 +116,7 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 				"claude-test",
 			)
 			cfg.Routes[configuration.ClientClaude] = "claude"
-			cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{
+			cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{
 				Enabled:    true,
 				Executable: executableFixture(t, "claude"),
 			}
@@ -162,7 +162,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 				"claude-test",
 			)
 			cfg.Routes[configuration.ClientClaude] = "claude"
-			cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{
+			cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{
 				Enabled:    true,
 				Executable: executableFixture(t, "claude"),
 			}
@@ -201,7 +201,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 		"claude-test",
 	)
 	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{
 		Enabled:    true,
 		Executable: executableFixture(t, "claude"),
 	}
@@ -281,7 +281,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 				AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
 			}
 			cfg.Routes[configuration.ClientClaude] = "claude"
-			cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{
+			cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{
 				Enabled:    true,
 				Executable: executableFixture(t, "claude"),
 			}
@@ -359,7 +359,7 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 		AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
 	}
 	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{
 		Enabled:    true,
 		Executable: executableFixture(t, "claude"),
 	}

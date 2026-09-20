@@ -33,7 +33,7 @@ var removeCodexWorkspace = robustio.RemoveAll
 // VerifyCodexInvocation validates one synchronized Codex target, measures the
 // configured executable, and makes exactly one non-persistent client request.
 func VerifyCodexInvocation(ctx context.Context, runner process.CaptureRunner, cfg configuration.Config, clientRuntime configuration.Runtime) (_ codex.ExecutableIdentity, result error) {
-	adapter := cfg.Adapters[configuration.ClientCodex]
+	adapter := cfg.Clients[configuration.ClientCodex]
 	if !adapter.Enabled {
 		return codex.ExecutableIdentity{}, fmt.Errorf("Codex adapter is disabled; run `aigw repair`")
 	}

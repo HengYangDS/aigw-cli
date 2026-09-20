@@ -535,7 +535,7 @@ func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if adapter := cfg.Adapters[configuration.ClientClaude]; !adapter.Enabled || adapter.Executable != "/opt/claude" {
+	if adapter := cfg.Clients[configuration.ClientClaude]; !adapter.Enabled || adapter.Executable != "/opt/claude" {
 		t.Fatalf("Claude adapter = %#v", adapter)
 	}
 }

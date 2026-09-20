@@ -30,7 +30,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return presentation.ProblemError("Cannot read AIGW configuration", "", "Credential lookup did not start.", "Run `aigw doctor` to inspect the configuration.", err)
 			}
-			adapter := cfg.Adapters[client]
+			adapter := cfg.Clients[client]
 			if !adapter.Enabled {
 				return presentation.ProblemError(fmt.Sprintf("%s adapter is not enabled", client), "", "Credential lookup did not start.", fmt.Sprintf("Enable the %s adapter before using its credential helper.", client), nil)
 			}

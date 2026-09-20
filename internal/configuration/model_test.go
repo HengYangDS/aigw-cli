@@ -45,12 +45,12 @@ func TestEnabledClientIDsFollowConfigurationNotSupportedCapabilities(t *testing.
 	if got := cfg.EnabledClientIDs(); len(got) != 0 {
 		t.Fatalf("empty scope = %v", got)
 	}
-	cfg.Adapters[ClientCodex] = AdapterConfig{Enabled: true}
-	cfg.Adapters[ClientClaude] = AdapterConfig{Enabled: false}
+	cfg.Clients[ClientCodex] = ClientBinding{Enabled: true}
+	cfg.Clients[ClientClaude] = ClientBinding{Enabled: false}
 	if got := cfg.EnabledClientIDs(); !reflect.DeepEqual(got, []string{ClientCodex}) {
 		t.Fatalf("single-client scope = %v", got)
 	}
-	cfg.Adapters[ClientClaude] = AdapterConfig{Enabled: true}
+	cfg.Clients[ClientClaude] = ClientBinding{Enabled: true}
 	if got := cfg.EnabledClientIDs(); !reflect.DeepEqual(got, []string{ClientClaude, ClientCodex}) {
 		t.Fatalf("full scope = %v", got)
 	}
@@ -62,7 +62,7 @@ func TestRequiredAccountTokensFollowEnabledRoutesAndAuthentication(t *testing.T)
 	if got := cfg.RequiredAccountTokenIDs(); len(got) != 0 {
 		t.Fatalf("disabled Routes require Tokens: %v", got)
 	}
-	cfg.Adapters[ClientCodex] = AdapterConfig{Enabled: true}
+	cfg.Clients[ClientCodex] = ClientBinding{Enabled: true}
 	want := []string{cfg.Profiles[cfg.Routes[ClientCodex]].Account}
 	if got := cfg.RequiredAccountTokenIDs(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("enabled Token scope = %v, want %v", got, want)
@@ -118,8 +118,8 @@ func TestConfigCloneDoesNotShareMutableState(t *testing.T) {
 	account := original.Accounts["dmx"]
 	account.AccountProbe = &AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}
 	original.Accounts["dmx"] = account
-	original.Adapters = map[string]AdapterConfig{}
-	original.Adapters[ClientCodex] = AdapterConfig{Enabled: true, Targets: []string{"one"}}
+	original.Clients = map[string]ClientBinding{}
+	original.Clients[ClientCodex] = ClientBinding{Enabled: true, Targets: []string{"one"}}
 	original.RecommendedRoutes = Routes{ClientClaude: "dmx"}
 
 	clone := original.Clone()
@@ -135,9 +135,9 @@ func TestConfigCloneDoesNotShareMutableState(t *testing.T) {
 	clone.Profiles["default"] = Profile{Label: "Changed"}
 	clone.Routes[ClientClaude] = "changed"
 	clone.RecommendedRoutes[ClientClaude] = "changed"
-	adapter := clone.Adapters[ClientCodex]
+	adapter := clone.Clients[ClientCodex]
 	adapter.Targets[0] = "changed"
-	clone.Adapters[ClientCodex] = adapter
+	clone.Clients[ClientCodex] = adapter
 
 	if original.Accounts["dmx"].Label == "Changed" || original.Profiles["default"].Label == "Changed" {
 		t.Fatal("clone shares map state with original")
@@ -145,7 +145,7 @@ func TestConfigCloneDoesNotShareMutableState(t *testing.T) {
 	if original.Routes[ClientClaude] == "changed" || original.RecommendedRoutes[ClientClaude] == "changed" {
 		t.Fatal("clone shares route overrides with original")
 	}
-	if original.Adapters[ClientCodex].Targets[0] == "changed" {
+	if original.Clients[ClientCodex].Targets[0] == "changed" {
 		t.Fatal("clone shares adapter targets with original")
 	}
 }
@@ -216,9 +216,9 @@ func TestValidationReportsStableFirstProblemWithoutChangingConfiguration(t *test
 		{"routes", func(c *Config) {
 			c.Routes = Routes{ClientClaude: "missing", ClientCodex: "missing"}
 		}, `route "claude" references unknown profile "missing"`},
-		{"adapters", func(c *Config) {
-			c.Adapters = map[string]AdapterConfig{"alpha": {}, "zeta": {}}
-		}, `unknown adapter "alpha"`},
+		{"client bindings", func(c *Config) {
+			c.Clients = map[string]ClientBinding{"alpha": {}, "zeta": {}}
+		}, `unknown client binding "alpha"`},
 		{"protocol endpoints", func(c *Config) {
 			c.Accounts = map[string]Account{"alpha": {Label: "Alpha", Endpoints: Endpoints{
 				OpenAIResponses: "invalid", Anthropic: "invalid",
@@ -315,13 +315,12 @@ func TestValidateRequiresEachProfilesClientProtocol(t *testing.T) {
 	}
 }
 
-func TestValidateRequiresExplicitClientAndModel(t *testing.T) {
+func TestValidateRequiresAValidOptionalClientAndModel(t *testing.T) {
 	for _, testCase := range []struct {
 		name string
 		edit func(*Profile)
 		want string
 	}{
-		{name: "missing client", edit: func(profile *Profile) { profile.Client = "" }, want: "unknown client"},
 		{name: "unknown client", edit: func(profile *Profile) { profile.Client = "gemini" }, want: "unknown client"},
 		{name: "missing model", edit: func(profile *Profile) { profile.Model = " " }, want: "must define a model"},
 	} {
@@ -372,14 +371,14 @@ func TestValidateTreatsUpstreamModelIDAsTransparentConfiguration(t *testing.T) {
 func TestNormalizeFillsEveryNilCollection(t *testing.T) {
 	cfg := Config{}
 	cfg.Normalize()
-	if cfg.Accounts == nil || cfg.Profiles == nil || cfg.Routes == nil || cfg.RecommendedRoutes == nil || cfg.Adapters == nil {
+	if cfg.Accounts == nil || cfg.Profiles == nil || cfg.Routes == nil || cfg.RecommendedRoutes == nil || cfg.Clients == nil {
 		t.Fatalf("normalized config still has nil collections: %#v", cfg)
 	}
 }
 
 func TestValidateAdmitsClientAdapterTargets(t *testing.T) {
 	cfg := validConfig()
-	cfg.Adapters = map[string]AdapterConfig{
+	cfg.Clients = map[string]ClientBinding{
 		ClientCodex: {Enabled: true, Targets: []string{"a", "b"}},
 	}
 	if err := cfg.Validate(); err != nil {
@@ -446,9 +445,9 @@ func TestValidateRejectsEmptyLabelsAndUnnamedOrUnendpointedAccounts(t *testing.T
 		{"override references unknown profile", func(c *Config) {
 			c.Routes[ClientClaude] = "missing"
 		}, "references unknown profile"},
-		{"unknown adapter", func(c *Config) {
-			c.Adapters = map[string]AdapterConfig{"gemini": {Enabled: true}}
-		}, "unknown adapter"},
+		{"unknown client binding", func(c *Config) {
+			c.Clients = map[string]ClientBinding{"gemini": {Enabled: true}}
+		}, "unknown client binding"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

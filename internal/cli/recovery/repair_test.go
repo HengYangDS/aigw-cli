@@ -95,14 +95,14 @@ func TestRepairDesiredConfigDropsUnusableCodexAndKeepsExplicitTargets(t *testing
 	before.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 	before.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt"}
 	before.Routes[configuration.ClientCodex] = "one"
-	before.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/old"}
+	before.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/old"}
 	runtime := invocation.Context{Discovery: staticDiscovery{result: discovery.Result{}}}
 	after, _, err := invocation.Synchronizer(runtime).DesiredClientConfiguration(before)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := after.Adapters[configuration.ClientCodex]; ok {
-		t.Fatalf("unusable adapter remains: %#v", after.Adapters)
+	if _, ok := after.Clients[configuration.ClientCodex]; ok {
+		t.Fatalf("unusable adapter remains: %#v", after.Clients)
 	}
 }
 
@@ -147,7 +147,7 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 			cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
 			cfg.Routes[configuration.ClientCodex] = "one"
 			missingTarget := filepath.Join(t.TempDir(), "missing", "configuration.toml")
-			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{missingTarget}}
+			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{missingTarget}}
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -183,7 +183,7 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
 	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
 	cfg.Routes[configuration.ClientClaude] = "one"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

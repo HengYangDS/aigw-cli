@@ -37,8 +37,8 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
 		t.Fatal("catalogue import wrote a Token")
 	}
-	if len(cfg.Adapters) != 0 || len(runner.plans) != 0 {
-		t.Fatalf("catalogue import activated absent clients: adapters=%#v plans=%#v", cfg.Adapters, runner.plans)
+	if len(cfg.Clients) != 0 || len(runner.plans) != 0 {
+		t.Fatalf("catalogue import activated absent clients: adapters=%#v plans=%#v", cfg.Clients, runner.plans)
 	}
 	for _, want := range []string{
 		"Configuration catalogue imported",
@@ -238,8 +238,8 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 			}
 			for _, client := range configuration.AdmittedClientIDs() {
 				_, installed := test.installed[client]
-				if cfg.Adapters[client].Enabled != installed {
-					t.Errorf("%s adapter enabled = %v, want %v", client, cfg.Adapters[client].Enabled, installed)
+				if cfg.Clients[client].Enabled != installed {
+					t.Errorf("%s adapter enabled = %v, want %v", client, cfg.Clients[client].Enabled, installed)
 				}
 				if slices.Contains(result.ProjectedClients, client) != installed {
 					t.Errorf("%s projected = %v, want %v", client, slices.Contains(result.ProjectedClients, client), installed)
