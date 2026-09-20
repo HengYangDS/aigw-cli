@@ -178,6 +178,29 @@ the team manifest, user/contributor guides and cross-platform native journeys
 before the existing final qualification and archive/release steps. A green
 fixture or checked historical task does not admit the new schema or client.
 
+#### Lessons retained from CC Switch CLI
+
+The current CC Switch CLI was re-read at commit
+`1ab2882d89fac9ae0281f5937528252babd9af49` and stable release `v5.10.5`.
+Its useful lessons are behavioral rather than structural:
+
+- one explicit application selector makes the affected native surface clear;
+- live configuration is not created for an application that has not initialized
+  its own state;
+- provider writes preserve unrelated native fields and reject stale preimages;
+- discovery, switching, one-off launch, health checks, and data management are
+  distinct user intents;
+- shared frames, keymaps, and generated help keep the TUI internally
+  consistent.
+
+AIGW adopts the first four principles through its client binding and guarded
+projection owners. It does not copy CC Switch's SQLite database, TUI, optional
+proxy, session management, MCP, skills, prompts, synchronization service, or
+usage subsystem. Those facilities serve a broader personal workbench product
+and would add authorities outside AIGW's narrower team-catalogue and native
+configuration contract. A future visual shell may consume AIGW's public
+machine-readable commands, but it cannot become another configuration owner.
+
 ## Risks / Trade-offs
 
 - **Large scope can create churn** → complete one semantic closure at a time and require deletion plus focused acceptance before the next structural move.

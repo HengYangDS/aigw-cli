@@ -169,6 +169,19 @@ NOT be a second independently persisted selection. Setup, selection, synchroniza
 depend on a global Profile, an aggregate selection flag, another client's
 Route, or the presence of an external compatibility product.
 
+Discovery SHALL report client availability without creating native files,
+selecting a Profile, or changing enabled intent. A client that has not created
+its native state SHALL remain untouched until the operator explicitly binds it.
+Every projection SHALL preserve unrelated native fields and reject a changed
+preimage rather than overwrite concurrent user or tool edits.
+
+#### Scenario: A client is discovered but not configured
+
+- **WHEN** discovery finds an admitted executable whose native state has not
+  been initialized or explicitly bound
+- **THEN** AIGW SHALL report it as available without creating its configuration
+- **AND** synchronization and readiness of other clients remain unaffected.
+
 #### Scenario: Both clients are selected independently
 
 - **WHEN** an operator selects one Codex Profile and one Claude Profile in

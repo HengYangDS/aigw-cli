@@ -225,9 +225,28 @@ A shortlist is an investigation order, not a claim that a candidate passed accep
 
 ### CC Switch CLI versus AIGW: what the user would actually notice
 
-The [CLI][cli-stable-readme] combines CLI/TUI, global and per-launch switching, account management, MCP/skills and optional proxy operation across seven declared clients. AIGW's [documented boundary](../architecture/authority-and-projection-boundary.md) is narrower: Claude/Codex configuration, Accounts, Profiles, Routes and credential integration, without owning sessions or a traffic service.
+The [CLI][cli-stable-readme] combines CLI/TUI, global and per-launch switching,
+account management, MCP/skills and optional proxy operation across seven
+declared clients. Its `v5.10.5` release adds opt-in shared Codex sessions and
+per-model reasoning controls while retaining schema version 18. The current
+source also states that live files are not created for applications that have
+not initialized their own configuration. [CLI source][cc-cli-head], [release
+notes][cc-cli-release-5105]. AIGW's [documented
+boundary](../architecture/authority-and-projection-boundary.md) is narrower:
+provider Accounts, reusable model Profiles, explicit client bindings and
+credential integration, without owning sessions or a traffic service.
 
 CC Switch CLI's breadth is a real benefit if it replaces several tools the user needs. AIGW's restraint is useful only if it makes setup, diagnosis, preservation and removal materially more predictable. Optional competitor features need not be enabled; comparing AIGW's minimal mode to a competitor's maximal deployment would bias the result. Conversely, the CLI's Windows foreground-proxy boundary must not be hidden by a generic platform checkmark.
+
+The transferable mechanisms are narrower than the product: make application
+scope explicit, distinguish discovery from activation, avoid creating
+uninitialized client state, preserve foreign fields, and reject concurrent
+preimage drift. AIGW should adopt those behaviors. It should not copy the
+database, TUI, proxy, session manager, MCP/skills manager, prompts, WebDAV
+synchronization, or usage subsystem: doing so would turn a bounded local
+control plane into another all-in-one workbench and duplicate responsibilities
+owned by clients and gateways. A future visual interface, if justified, should
+consume AIGW's public JSON contract rather than own configuration separately.
 
 ### One API: relevant, but at a different operating boundary
 
@@ -716,6 +735,8 @@ Repository links below identify the inspected snapshots. Release pages and docum
 
 [cc-desktop]: https://github.com/farion1231/cc-switch/tree/f3b18df12007d0fd79fd8ad8d310880664015197
 [cc-cli]: https://github.com/SaladDay/cc-switch-cli/tree/8a5614db0f582cea36268389a98ea3abe4eaa418
+[cc-cli-head]: https://github.com/SaladDay/cc-switch-cli/tree/1ab2882d89fac9ae0281f5937528252babd9af49
+[cc-cli-release-5105]: https://github.com/SaladDay/cc-switch-cli/releases/tag/v5.10.5
 [muxlm]: https://github.com/Neo-Isshin/MuxLM/tree/72440581778996e0361b60eeaa16dc06b46651cf
 [zcf]: https://github.com/UfoMiao/zcf/tree/63cb2d07a0fad3a9def37118ba056bafae780d44
 [ccman]: https://github.com/2ue/ccman/tree/b8d58895f04460d7fcde7418584985c4ba9040d7
