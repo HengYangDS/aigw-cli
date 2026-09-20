@@ -639,20 +639,26 @@ digest, or any entrypoint patch. The complete lock was regenerated twice from
 `mise.toml`; both results were byte-identical and contain no obsolete
 `provenance_verified` compatibility fields.
 
-GitLab merge-request pipeline 7620 then exposed the remaining Linux ARM64
-runtime prerequisite before any product gate ran: the locked Node 26.9.0
-binary requires `libatomic.so.1`, while the official Mise Debian image does not
-include that library. Both `quality` and `native-linux` failed at the shared
-tool installation boundary; `native-darwin` and the same-SHA GitHub quality,
-macOS, Linux, and Windows jobs passed. A same-architecture Docker
-counterexample reproduced the failure with the exact pinned image and lock.
-Installing Debian's `libatomic1` before Mise made the locked Node 26.9.0 and
-npm 12.0.2 executables pass. The CUE model now owns that one Linux runtime
-package list and projects it once through `.linux-toolchain`; no job-local
-copy, alternate image, entrypoint override, or retry was added. The projection
-suite, byte-stable GitHub projections, real ARM64 bootstrap, and complete local
-quality graph pass. Task 7.4 remains open until the repaired hosted run and the
-other supported clean-host bootstrap journeys are observed.
+GitLab merge-request pipeline 7620 first exposed a Linux ARM64 prerequisite
+before any product gate ran: the locked Node 26.9.0 binary requires
+`libatomic.so.1`, while the official Mise Debian image does not include that
+library. A same-architecture Docker counterexample reproduced the failure with
+the exact pinned image and lock, and Debian's `libatomic1` restored Node and npm.
+
+The next same-source pipeline, 7627, proved that treating the first missing
+library as the whole contract was incomplete. The `quality` job reached source
+signature verification but the image lacked `ssh-keygen`; `native-linux`
+reached the race gate but CGO was disabled, and a CGO-enabled Go toolchain also
+requires a compiler and C development headers. These are not unrelated job
+exceptions: they are the operating-system capability closure of the declared
+quality and native graph. The CUE owner therefore declares the single minimal
+Debian package set `gcc`, `libatomic1`, `libc6-dev`, and `openssh-client`,
+projects it once through `.linux-toolchain`, and explicitly enables CGO for the
+Linux quality and native jobs. Projection tests reject an incomplete package
+set, missing CGO, or job-local installation copies. No alternate image,
+entrypoint override, retry, or second bootstrap owner is added. Task 7.4 remains
+open until the exact image passes real ARM64 execution and the repaired hosted
+run, followed by the other supported clean-host bootstrap journeys.
 
 ## Initial deletion inventory
 

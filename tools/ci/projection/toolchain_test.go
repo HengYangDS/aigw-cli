@@ -166,33 +166,28 @@ func TestGitLabToolchainUsesOfficialRunnableMiseImage(t *testing.T) {
 }
 
 func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
-	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	projections, err := renderProjections(root)
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var pipeline struct {
 		LinuxToolchain gitLabJob `yaml:".linux-toolchain"`
-		Quality        gitLabJob `yaml:"quality"`
 		NativeLinux    gitLabJob `yaml:"native-linux"`
-		ReleaseVersion gitLabJob `yaml:"release-version"`
+		Quality        gitLabJob `yaml:"quality"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
 	wantBootstrap := []string{
-		"apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y libatomic1",
+		"apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y gcc libatomic1 libc6-dev openssh-client",
 		"env GODEBUG=http2client=0 mise install --locked",
 	}
-	if !slices.Equal(pipeline.LinuxToolchain.BeforeScript, wantBootstrap) {
-		t.Fatalf("Linux bootstrap = %q, want %q", pipeline.LinuxToolchain.BeforeScript, wantBootstrap)
-	}
-	if pipeline.LinuxToolchain.Image == "" {
-		t.Fatalf("Linux toolchain image is incomplete: %#v", pipeline.LinuxToolchain.Image)
+	if got := pipeline.LinuxToolchain.BeforeScript; !slices.Equal(got, wantBootstrap) {
+		t.Fatalf("Linux bootstrap = %q, want %q", got, wantBootstrap)
 	}
 	for name, job := range map[string]gitLabJob{
-		"native-linux":    pipeline.NativeLinux,
-		"release-version": pipeline.ReleaseVersion,
+		"native-linux": pipeline.NativeLinux,
+		"quality":      pipeline.Quality,
 	} {
 		if !slices.Equal(job.Extends, []string{".linux-toolchain"}) {
 			t.Fatalf("%s extends = %q, want [.linux-toolchain]", name, job.Extends)
@@ -204,8 +199,13 @@ func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
 			t.Fatalf("%s does not cleanly inherit the toolchain bootstrap: %#v", name, job)
 		}
 	}
-	if !slices.Equal(pipeline.Quality.Extends, []string{".linux-toolchain"}) {
-		t.Fatalf("quality extends = %q, want [.linux-toolchain]", pipeline.Quality.Extends)
+	for name, job := range map[string]gitLabJob{"native-linux": pipeline.NativeLinux, "quality": pipeline.Quality} {
+		if job.Variables["CGO_ENABLED"] != "1" {
+			t.Fatalf("%s must explicitly enable CGO: %#v", name, job.Variables)
+		}
+	}
+	if strings.Count(projections[0].Content, wantBootstrap[0]) != 1 {
+		t.Fatal("Linux system-package preparation must have one shared projection owner")
 	}
 }
 

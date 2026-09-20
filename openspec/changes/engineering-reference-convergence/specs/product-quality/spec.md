@@ -39,21 +39,23 @@ The repository quality graph SHALL cover every tracked source, test, configurati
 ### Requirement: Portable exact-version CI bootstrap
 
 GitLab Linux bootstrap SHALL consume the exact Mise image version and digest
-from the CUE authority, prepare the image's declared system runtime closure,
-and install the repository-locked tool graph. Native distribution clients SHALL
-own transport and bounded failure handling; the repository SHALL NOT retain a
-second installer, force an incidental HTTP version, or invent a mirror-package
-requirement. Forge projections SHALL consume the same Linux bootstrap owner
-rather than repeat system-package or tool installation in individual jobs.
+from the CUE authority, prepare the complete operating-system capability
+closure required by the repository's declared execution graph, and install the
+repository-locked tool graph. It SHALL also own required execution modes such as
+CGO enablement. Every Linux job SHALL inherit that owner rather than duplicate
+system-package or tool installation, substitute another image or installer, or
+weaken integrity and transport policy.
 
-#### Scenario: A locked tool needs a system runtime library
+#### Scenario: The repository graph needs a Linux host capability
 
-- **WHEN** a locked tool cannot start in the selected Linux image because a
-  required system runtime library is absent
-- **THEN** the CUE-owned Linux toolchain SHALL declare and install that minimal
-  operating-system package before invoking Mise
+- **WHEN** a locked tool, trust check, native compiler path, or race-enabled test
+  needs an operating-system capability absent from the selected Linux image
+- **THEN** the CUE-owned Linux toolchain SHALL declare and install the minimal
+  complete package set before invoking Mise or the repository graph
 - **AND** all GitLab Linux jobs SHALL inherit the same preparation without
-  job-local copies, alternate images, or unbounded retries.
+  job-local copies, alternate images, or unbounded retries
+- **AND** jobs that exercise CGO-dependent behavior SHALL explicitly enable CGO
+  through the same CUE projection.
 
 #### Scenario: Transient HTTP transport failure
 

@@ -28,7 +28,7 @@ stages:
     policy: pull-push
     when: always
   before_script:
-    - apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y libatomic1
+    - apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y gcc libatomic1 libc6-dev openssh-client
     - env GODEBUG=http2client=0 mise install --locked
 quality:
   stage: verify
@@ -37,6 +37,7 @@ quality:
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
   variables:
+    CGO_ENABLED: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos
   rules:
     - if: $CI_COMMIT_TAG
@@ -66,7 +67,6 @@ accepted-ref-parity:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"
     - when: never
   script:
-    - env GODEBUG=http2client=0 mise install --locked
     - mise exec --locked -- go run ./tools/forge refs --remote origin --expect "main=$CI_COMMIT_SHA" --expect "dev=$CI_COMMIT_SHA"
 native-darwin:
   script:
@@ -93,14 +93,11 @@ native-darwin:
 native-linux:
   extends:
     - .linux-toolchain
-  script:
-    - mise run bootstrap
-    - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
-    - mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
   stage: verify
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
   variables:
+    CGO_ENABLED: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos,gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs
   rules:
     - if: $CI_COMMIT_TAG
@@ -113,6 +110,10 @@ native-linux:
     paths:
       - mise.lock
       - .mise/locks
+  script:
+    - mise run bootstrap
+    - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
+    - mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
 release-version:
   stage: verify
   extends:

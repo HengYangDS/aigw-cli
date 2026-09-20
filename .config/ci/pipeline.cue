@@ -20,7 +20,9 @@ import "strings"
 installationEnvironment: GODEBUG: "http2client=0"
 
 linuxToolchain: {
-	runtimePackages: ["libatomic1"]
+	// The runnable Mise image is intentionally small. Declare the complete
+	// repository execution closure here so every Linux job inherits one owner.
+	runtimePackages: ["gcc", "libatomic1", "libc6-dev", "openssh-client"]
 	prepare: "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \(strings.Join(runtimePackages, " "))"
 }
 
@@ -401,6 +403,7 @@ actions: {
 	}
 	if _platform == "linux" {
 		extends: [".linux-toolchain"]
+		variables: nativeToolchain & {CGO_ENABLED: "1"}
 		script: [commands.bootstrap, _refreshLocks, _native]
 	}
 	if _platform != "linux" {
@@ -437,8 +440,8 @@ gitlab: {
 	quality: {
 		stage: graph.quality.stage
 		extends: [".linux-toolchain"]
-		tags:      nativeEvidence.linux.gitlab.tags
-		variables: qualityToolchain
+		tags: nativeEvidence.linux.gitlab.tags
+		variables: qualityToolchain & {CGO_ENABLED: "1"}
 		rules: [
 			{if: gitlabVerificationCondition.tag, variables: AIGW_COMMIT_BASE: "$CI_COMMIT_SHA^"},
 			{
@@ -467,7 +470,7 @@ gitlab: {
 			{if: "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.releaseBranch)\""},
 			{when: "never"},
 		]
-		script: [commands.install, commands.acceptedRefParity.gitlab]
+		script: [commands.acceptedRefParity.gitlab]
 	}
 	"native-darwin": #NativeGitLabJob & {_platform: "darwin"}
 	"native-linux": #NativeGitLabJob & {_platform: "linux"}
