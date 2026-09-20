@@ -28,6 +28,7 @@ stages:
     policy: pull-push
     when: always
   before_script:
+    - apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y libatomic1
     - env GODEBUG=http2client=0 mise install --locked
 quality:
   stage: verify

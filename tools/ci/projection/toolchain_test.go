@@ -180,8 +180,12 @@ func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(pipeline.LinuxToolchain.BeforeScript, []string{"env GODEBUG=http2client=0 mise install --locked"}) {
-		t.Fatalf("Linux bootstrap must install the repository lock directly: %q", pipeline.LinuxToolchain.BeforeScript)
+	wantBootstrap := []string{
+		"apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y libatomic1",
+		"env GODEBUG=http2client=0 mise install --locked",
+	}
+	if !slices.Equal(pipeline.LinuxToolchain.BeforeScript, wantBootstrap) {
+		t.Fatalf("Linux bootstrap = %q, want %q", pipeline.LinuxToolchain.BeforeScript, wantBootstrap)
 	}
 	if pipeline.LinuxToolchain.Image == "" {
 		t.Fatalf("Linux toolchain image is incomplete: %#v", pipeline.LinuxToolchain.Image)

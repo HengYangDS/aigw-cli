@@ -19,6 +19,11 @@ import "strings"
 // Keep this transport choice in the installer process, not product execution.
 installationEnvironment: GODEBUG: "http2client=0"
 
+linuxToolchain: {
+	runtimePackages: ["libatomic1"]
+	prepare: "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \(strings.Join(runtimePackages, " "))"
+}
+
 commands: {
 	install:      "env GODEBUG=\(installationEnvironment.GODEBUG) mise install --locked"
 	bootstrap:    "mise run bootstrap"
@@ -427,7 +432,7 @@ gitlab: {
 			policy: "pull-push"
 			when:   "always"
 		}
-		"before_script": [commands.install]
+		"before_script": [linuxToolchain.prepare, commands.install]
 	}
 	quality: {
 		stage: graph.quality.stage

@@ -639,6 +639,21 @@ digest, or any entrypoint patch. The complete lock was regenerated twice from
 `mise.toml`; both results were byte-identical and contain no obsolete
 `provenance_verified` compatibility fields.
 
+GitLab merge-request pipeline 7620 then exposed the remaining Linux ARM64
+runtime prerequisite before any product gate ran: the locked Node 26.9.0
+binary requires `libatomic.so.1`, while the official Mise Debian image does not
+include that library. Both `quality` and `native-linux` failed at the shared
+tool installation boundary; `native-darwin` and the same-SHA GitHub quality,
+macOS, Linux, and Windows jobs passed. A same-architecture Docker
+counterexample reproduced the failure with the exact pinned image and lock.
+Installing Debian's `libatomic1` before Mise made the locked Node 26.9.0 and
+npm 12.0.2 executables pass. The CUE model now owns that one Linux runtime
+package list and projects it once through `.linux-toolchain`; no job-local
+copy, alternate image, entrypoint override, or retry was added. The projection
+suite, byte-stable GitHub projections, real ARM64 bootstrap, and complete local
+quality graph pass. Task 7.4 remains open until the repaired hosted run and the
+other supported clean-host bootstrap journeys are observed.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:
