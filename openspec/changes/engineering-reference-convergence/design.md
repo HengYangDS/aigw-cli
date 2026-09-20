@@ -482,6 +482,19 @@ no such requirement. Pants, Dagger, and Nix require the same future test: remove
 more owned execution and environment complexity than they introduce, without
 weakening native macOS, Linux, or Windows evidence.
 
+Task 6.2 confirms one authority per quality concern. Eight native policy files
+under `.config/checks` are consumed directly by their owning implementation or
+mature tool; none is a second command registry. The `repositoryQualityGraph`
+is the only executable source and the former `qualityCommands` value is now a
+derived compatibility-free view used by existing internal tests and native
+composition. `.config/ci/pipeline.cue` remains the single hosted topology and
+renders `.gitlab-ci.yml`, `.github/workflows/verify.yml`, and
+`.github/workflows/release.yml`; byte-level reconciliation rejects edits to any
+projection without modifying it. Both Forge quality jobs invoke the same locked
+`go run ./tools/ci quality` entrypoint and declare the same tool closure.
+Focused projection tests, exact projection reconciliation, and the complete
+repository quality graph pass at signed commit `7b6e496e`.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:
