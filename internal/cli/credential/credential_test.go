@@ -251,8 +251,9 @@ func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Contex
 	} else {
 		account.Endpoints.OpenAIResponses = "https://gateway.test/v1"
 	}
+	spec, _ := configuration.ClientSpecFor(client)
 	cfg.Accounts["gateway"] = account
-	cfg.Profiles[client] = configuration.Profile{Label: client, Account: "gateway", Client: client, Model: client + "-team"}
+	cfg.Profiles[client] = configuration.Profile{Label: client, Account: "gateway", Client: client, Model: client + "-team", Protocol: spec.EndpointProtocols[0]}
 	cfg.Routes[client] = client
 	cfg.Adapters[client] = configuration.AdapterConfig{Enabled: enabled, Executable: client}
 	if err := store.Save(cfg); err != nil {

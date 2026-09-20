@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -179,6 +180,10 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 	}
 	program, _, _ := nativeReleaseCandidate(t, root, version)
 	t.Logf("team candidate version=%s sha256=%x", version, sha256.Sum256(readFile(t, program)))
+	clients := map[string]bool{}
+	for _, profile := range manifest.Profiles {
+		clients[profile.Client] = true
+	}
 	for _, account := range append([]string{""}, configuration.ManifestAccountNames(manifest)...) {
 		t.Run(account, func(t *testing.T) {
 			journey := newNativeJourney(t, program, "https://unused.example.test", false)
@@ -195,8 +200,8 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 				return
 			}
 			journey.setEnvironment(secrets.EnvironmentKey(account), "team-journey-token")
-			for _, client := range configuration.AdmittedClientSpecs() {
-				journey.installClientFixture(client.ID)
+			for client := range clients {
+				journey.installClientFixture(client)
 			}
 			journey.run("sync")
 			cfg, err := configuration.NewStore(journey.config).Load()
@@ -206,19 +211,20 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 			if len(cfg.Accounts) != len(manifest.Accounts) || len(cfg.Profiles) != len(manifest.Profiles) {
 				t.Fatal("setup lost reviewed team capabilities")
 			}
-			for _, client := range configuration.AdmittedClientSpecs() {
-				selected, err := cfg.ResolveRuntime(client.ID, "")
-				if err != nil || selected.AccountID != account || !cfg.Adapters[client.ID].Enabled {
-					t.Fatalf("one connected Account did not activate %s: %#v, %v", client.ID, selected, err)
+			for clientID := range clients {
+				selected, err := cfg.ResolveRuntime(clientID, "")
+				if err != nil || selected.AccountID != account || !cfg.Adapters[clientID].Enabled {
+					t.Fatalf("one connected Account did not activate %s: %#v, %v", clientID, selected, err)
 				}
-				recommended := manifest.Profiles[manifest.RecommendedRoutes[client.ID]]
-				for _, offered := range manifest.Profiles {
-					if offered.Account == account && offered.Client == client.ID && offered.Model == recommended.Model && selected.Model != recommended.Model {
-						t.Fatalf("%s activation lost recommended model %q: %q", client.ID, recommended.Model, selected.Model)
-					}
+				recommended := manifest.Profiles[manifest.RecommendedRoutes[clientID]]
+				offered := slices.ContainsFunc(slices.Collect(maps.Values(manifest.Profiles)), func(profile configuration.Profile) bool {
+					return profile.Account == account && profile.Client == clientID && profile.Model == recommended.Model
+				})
+				if offered && selected.Model != recommended.Model {
+					t.Fatalf("%s activation lost recommended model %q: %q", clientID, recommended.Model, selected.Model)
 				}
-				if got := strings.TrimSpace(string(journey.run("credential", client.ID, selected.CredentialProjectionFingerprint(client.ID)))); got != "team-journey-token" {
-					t.Fatalf("environment credential differs for %s", client.ID)
+				if got := strings.TrimSpace(string(journey.run("credential", clientID, selected.CredentialProjectionFingerprint(clientID)))); got != "team-journey-token" {
+					t.Fatalf("environment credential differs for %s", clientID)
 				}
 			}
 			before := readFile(t, journey.config)

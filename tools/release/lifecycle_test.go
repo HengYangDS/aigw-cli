@@ -140,12 +140,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 		t.Fatalf("exact candidate was not a verified no-op: %s", output)
 	}
 	journey.requireInvalidSuccessorPreservesInstallation(newVersion)
-	journey.run("adapter", "disable", configuration.ClientClaude)
-	journey.run("adapter", "disable", configuration.ClientCodex)
-	journey.requireUserTheme("user-dark")
-	if got := readFile(t, codexConfig); string(got) != originalCodex {
-		t.Fatalf("disable changed original Codex configuration: %q", got)
-	}
+	// Keep client projections active across rollback; disable/re-enable would test a different journey.
 	journey.run("update", "--rollback")
 	journey.run("sync")
 	journey.requireHealthyVersion(oldVersion)

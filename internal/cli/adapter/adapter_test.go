@@ -372,8 +372,8 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := got.Adapters[configuration.ClientClaude]; ok {
-		t.Fatalf("adapter was not deleted: %#v", got.Adapters)
+	if adapter, ok := got.Adapters[configuration.ClientClaude]; !ok || adapter.Enabled {
+		t.Fatalf("explicit disabled intent was not retained: %#v", got.Adapters)
 	}
 	if got.Routes[configuration.ClientClaude] != "claude" || got.Profiles["claude"].Account != "gateway" {
 		t.Fatalf("capability configuration changed: %#v", got)

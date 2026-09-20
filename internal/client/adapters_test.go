@@ -472,7 +472,7 @@ func TestChangedClientsRetainsAdmissionOrderAndIndependentResults(t *testing.T) 
 	after.Accounts["gateway"] = account
 	registry := DefaultRegistry()
 	changed := registry.ChangedClients(before, after)
-	want := configuration.AdmittedClientIDs()
+	want := before.EnabledClientIDs()
 	if !slices.Equal(changed, want) {
 		t.Fatalf("shared Account change scope = %v, want admission order %v", changed, want)
 	}

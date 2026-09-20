@@ -40,6 +40,11 @@ compensated-projection requirements.
 
 ## Admitted clients
 
+The table describes the accepted release. The active Change contains a Hermes
+candidate with native configuration and credential-command evidence; its live
+tool-loop, platform and revised-schema admission remain incomplete. Candidate
+source registration is not a release support claim.
+
 | Client                      | Configuration and authentication boundary                                                                                                                              | Required account capability            |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | Claude Code                 | Official per-user settings projection; Token is read on demand through `aigw credential claude <projection-fingerprint>`                                               | Verified Anthropic-compatible endpoint |

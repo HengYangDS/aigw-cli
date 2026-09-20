@@ -24,6 +24,7 @@ package_children."internal" = [
   "credential",
   "diagnostics",
   "discovery",
+  "hermes",
   "platform",
   "presentation",
   "process",
@@ -48,6 +49,8 @@ package_children."tools" = [
 ]
 package_children."internal/codex" = ["catalog"]
 package_children."internal/client" = ["verification"]
+package_children."internal/hermes" = ["configuration"]
+allowed_import_edges."internal/hermes/configuration" = ["internal/transaction"]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
 package_children."tools/ci" = ["markdown", "projection"]
 package_children."tools/codex" = ["catalog"]
@@ -76,6 +79,7 @@ allowed_import_edges."internal/transaction" = []
 allowed_import_edges."internal/credential" = ["internal/configuration", "internal/secrets"]
 allowed_import_edges."internal/configuration" = ["internal/transaction"]
 allowed_import_edges."internal/client" = [
+  "internal/hermes/configuration",
   "internal/claude",
   "internal/codex",
   "internal/configuration",
@@ -120,6 +124,7 @@ allowed_import_edges."internal/secrets" = [
 ]
 allowed_import_edges."internal/secrets/native" = ["internal/process"]
 allowed_import_edges."internal/claude" = [
+  "internal/credential",
   "internal/configuration",
   "internal/process",
   "internal/transaction",

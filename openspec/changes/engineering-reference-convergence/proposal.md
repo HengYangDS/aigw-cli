@@ -15,7 +15,7 @@ AIGW is now a formally distributed product, but release success alone does not m
 - Qualify immutable candidate artifacts on macOS, Linux, and Windows with realistic client, credential, and lifecycle inputs; complete and archive this Change before stable publication and subsequent download verification.
 - Upgrade direct supply-chain inputs to current stable releases only after compatibility and native acceptance.
 - Document the smallest reproducible contribution and extension journeys so a new engineer can locate an invariant, change its owner, and disprove a faulty implementation.
-- **BREAKING**: remove unsupported aliases, duplicate configuration, obsolete compatibility behavior, and historical carriers that have no current consumer. Migration instructions are required only for supported public behavior.
+- **BREAKING**: replace client-bound Profiles and parallel Route/Adapter selection with reusable model Profiles and one explicit client binding. Redesign setup, selection, synchronization, status and withdrawal around user intent. Provide an explicit retained-state migration; remove the replaced runtime schema and duplicate orchestration instead of preserving compatibility facades.
 
 ## Capabilities
 

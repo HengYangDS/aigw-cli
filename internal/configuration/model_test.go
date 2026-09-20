@@ -51,7 +51,7 @@ func TestEnabledClientIDsFollowConfigurationNotSupportedCapabilities(t *testing.
 		t.Fatalf("single-client scope = %v", got)
 	}
 	cfg.Adapters[ClientClaude] = AdapterConfig{Enabled: true}
-	if got := cfg.EnabledClientIDs(); !reflect.DeepEqual(got, AdmittedClientIDs()) {
+	if got := cfg.EnabledClientIDs(); !reflect.DeepEqual(got, []string{ClientClaude, ClientCodex}) {
 		t.Fatalf("full scope = %v", got)
 	}
 }
@@ -279,7 +279,7 @@ func TestValidateRequiresEachProfilesClientProtocol(t *testing.T) {
 				cfg := validConfig()
 				cfg.Normalize()
 				cfg.Profiles = map[string]Profile{"selected-profile": {
-					Label: "Selected Profile", Account: "dmx", Client: client.ID, Model: "model",
+					Label: "Selected Profile", Account: "dmx", Client: client.ID, Model: "model", Protocol: client.EndpointProtocols[0],
 				}}
 				cfg.Routes = Routes{}
 				if selected {
@@ -289,18 +289,20 @@ func TestValidateRequiresEachProfilesClientProtocol(t *testing.T) {
 					t.Fatalf("compatible profile: %v", err)
 				}
 				account := cfg.Accounts["dmx"]
-				switch client.EndpointProtocol {
+				switch client.EndpointProtocols[0] {
 				case ProtocolAnthropic:
 					account.Endpoints.Anthropic = ""
 				case ProtocolOpenAIResponses:
 					account.Endpoints.OpenAIResponses = ""
+				case ProtocolOpenAIChatCompletions:
+					account.Endpoints.OpenAIChatCompletions = ""
 				}
 				cfg.Accounts["dmx"] = account
 				before := cfg.Clone()
 				err := cfg.Validate()
 				var missing *RuntimeMissingEndpointError
-				if !errors.As(err, &missing) || missing.AccountID != "dmx" || missing.Protocol != client.EndpointProtocol {
-					t.Fatalf("incompatible profile error = %v; want Account dmx protocol %s", err, client.EndpointProtocol)
+				if !errors.As(err, &missing) || missing.AccountID != "dmx" || missing.Protocol != client.EndpointProtocols[0] {
+					t.Fatalf("incompatible profile error = %v; want Account dmx protocol %s", err, client.EndpointProtocols[0])
 				}
 				if !strings.Contains(err.Error(), "selected-profile") {
 					t.Fatalf("validation error omits Profile: %v", err)

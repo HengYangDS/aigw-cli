@@ -32,7 +32,7 @@ func TestRetainedCredentialCommandDoesNotReloadClientProjection(t *testing.T) {
 		_, _ = io.WriteString(w, `{"data":[]}`)
 	}))
 	t.Cleanup(server.Close)
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		t.Run(client, func(t *testing.T) {
 			journey := newNativeJourney(t, program, server.URL, true)
 			var projection string

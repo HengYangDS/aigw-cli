@@ -89,7 +89,7 @@ func TestEndpointTestDefaultsToSelectedRoutesOnly(t *testing.T) {
 }
 
 func TestEndpointTestUsesOneEphemeralTokenAndExplicitConfig(t *testing.T) {
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		t.Run(client, func(t *testing.T) {
 			runtime, _, output := configuredReadinessRuntime(t)
 			configPath := runtime.Config.Path()

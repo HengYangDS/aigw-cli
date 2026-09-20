@@ -246,13 +246,13 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 	if evaluation := evaluateCheck(command, runtime, cfg); !evaluation.ok() {
 		t.Fatalf("ready clients failed evaluation: %+v", evaluation.routes)
 	}
-	if store.existsCalls != 0 || store.getCalls != len(configuration.AdmittedClientIDs()) {
+	if store.existsCalls != 0 || store.getCalls != len([]string{configuration.ClientClaude, configuration.ClientCodex}) {
 		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
 	}
 }
 
 func TestCheckAdmitsProjectionBeforeReadingCredentials(t *testing.T) {
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		for _, jsonMode := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%t", client, jsonMode), func(t *testing.T) {
 				runtime, cfg, output := configuredReadinessRuntime(t)

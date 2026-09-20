@@ -158,11 +158,10 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		if err := invocation.Synchronizer(runtime).Withdraw(&cfg, client); err != nil {
 			return err
 		}
-		// Disable withdraws client projections, not explicit host credential policy.
-		// Full uninstall still uses Withdraw directly and removes all adapter state.
-		if adapter.CredentialCommand != "" {
-			cfg.Adapters[client] = configuration.AdapterConfig{CredentialCommand: adapter.CredentialCommand}
-		}
+		// Disabled intent is durable; discovery must not turn it back into activation.
+		// Full uninstall uses Withdraw without retaining this client binding.
+		cfg.Adapters[client] = configuration.AdapterConfig{CredentialCommand: adapter.CredentialCommand}
+
 		if err := invocation.Synchronizer(runtime).CommitProjection(cmd.Context(), before, cfg, "adapter disable"); err != nil {
 			return err
 		}

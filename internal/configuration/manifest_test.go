@@ -29,9 +29,9 @@ func TestCredentialDetectionDescendsIntoArrays(t *testing.T) {
 func TestManifestAdmissionIsDerivedFromClientRegistry(t *testing.T) {
 	previous := admittedClientSpecs
 	admittedClientSpecs = append(AdmittedClientSpecs(), ClientSpec{
-		ID:               "synthetic",
-		Label:            "Synthetic",
-		EndpointProtocol: ProtocolOpenAIResponses,
+		ID:                "synthetic",
+		Label:             "Synthetic",
+		EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses},
 	})
 	defer func() { admittedClientSpecs = previous }()
 

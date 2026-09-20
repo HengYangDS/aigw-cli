@@ -10,6 +10,69 @@ transition` requirement and the `aigw add <account>` command.
 
 ## ADDED Requirements
 
+### Requirement: Model Profiles are reusable across compatible clients
+
+A Profile SHALL identify an Account and an actual upstream model independently
+of client branding. Each client binding SHALL select a Profile and own its
+explicit enabled intent, native target and client-specific options. The binding
+SHALL replace parallel Route and Adapter selection as the operational authority.
+The Account and the selected client's supported interfaces SHALL determine
+protocol compatibility without model-name inference.
+
+#### Scenario: One model is selected by two clients
+
+- **GIVEN** an Account exposes interfaces compatible with both clients
+- **WHEN** the operator selects the same Profile for both clients
+- **THEN** there SHALL be one reusable Profile and two independent client bindings
+- **AND** changing one binding SHALL preserve the other client's choice and files.
+
+#### Scenario: More than one endpoint is compatible
+
+- **WHEN** a binding has multiple compatible endpoints and no explicit choice
+- **THEN** selection SHALL request a protocol choice before mutation
+- **AND** endpoint order, model prefixes and unrelated client settings SHALL NOT
+  decide the selection.
+
+#### Scenario: The operator disables a client
+
+- **WHEN** a client is disabled and its owned projection is withdrawn
+- **THEN** synchronization, discovery and team import SHALL retain disabled intent
+- **AND** the reusable Profile, credential reference and other clients remain intact.
+
+#### Scenario: A supported but unused client is discovered
+
+- **WHEN** the operator inspects an otherwise healthy configured installation
+- **THEN** an unselected client SHALL NOT create a health failure or mandatory
+  setup action
+- **AND** optional availability SHALL remain discoverable separately.
+
+### Requirement: Schema replacement is explicit and reversible
+
+AIGW SHALL migrate the prior supported configuration through a bounded explicit
+operation with a preview of Accounts, equivalent Profiles, client bindings and
+native options. Normal runtime SHALL interpret only the current schema. The
+migration SHALL preserve explicit choices, disabled intent, credentials in their
+authoritative stores, unrelated client settings and existing session metadata.
+
+#### Scenario: The migration preview has not been applied
+
+- **WHEN** the operator previews the prior configuration's canonical replacement
+- **THEN** no configuration, credential, client projection or session SHALL change
+- **AND** ambiguous identity or ownership SHALL be reported before application.
+
+#### Scenario: State changes after migration preparation
+
+- **WHEN** any affected preimage differs before its prepared write
+- **THEN** migration SHALL preserve that state and report the conflict
+- **AND** already applied owned writes SHALL use guarded compensation.
+
+#### Scenario: The new schema is accepted
+
+- **WHEN** retained-state migration and native candidate acceptance pass
+- **THEN** old normal-runtime readers and duplicate selection state SHALL be removed
+- **AND** rollback SHALL use the immutable predecessor and matching retained state,
+  not a second live schema authority.
+
 ### Requirement: Requested client surfaces have explicit adapters
 
 AIGW SHALL integrate Hermes and Claude Desktop through their supported native
@@ -99,9 +162,10 @@ or Profile identity SHALL NOT be implicitly replaced.
 
 ### Requirement: Control-plane convergence is client-scoped and monotonic
 
-AIGW SHALL derive operational state only from Accounts, client-scoped Profiles,
-explicit per-client Routes, admitted client Adapters, and the selected
-credential backend. Setup, selection, synchronization, and readiness MUST NOT
+AIGW SHALL derive operational state from Accounts, reusable model Profiles,
+explicit client bindings, admitted native Adapters and the selected credential
+backend. A binding owns the client selection and enabled intent; there SHALL
+NOT be a second independently persisted selection. Setup, selection, synchronization, and readiness MUST NOT
 depend on a global Profile, an aggregate selection flag, another client's
 Route, or the presence of an external compatibility product.
 

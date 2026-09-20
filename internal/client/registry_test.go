@@ -30,7 +30,7 @@ type failingProjectionAdapter struct {
 }
 
 func (adapter failingProjectionAdapter) Spec() configuration.ClientSpec {
-	return configuration.ClientSpec{ID: adapter.id, Label: adapter.id, EndpointProtocol: configuration.ProtocolOpenAIResponses}
+	return configuration.ClientSpec{ID: adapter.id, Label: adapter.id, EndpointProtocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
 }
 
 func (adapter failingProjectionAdapter) Discover(DiscoverySource) discovery.Result {
@@ -112,7 +112,7 @@ type recordingAdapter struct {
 }
 
 func (adapter *recordingAdapter) Spec() configuration.ClientSpec {
-	return configuration.ClientSpec{ID: "future", Label: "Future", EndpointProtocol: configuration.ProtocolOpenAIResponses}
+	return configuration.ClientSpec{ID: "future", Label: "Future", EndpointProtocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
 }
 
 func (adapter *recordingAdapter) Discover(DiscoverySource) discovery.Result {
@@ -227,7 +227,7 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 
 	future := &recordingAdapter{}
 	specs := append(configuration.AdmittedClientSpecs(), future.Spec())
-	registry, err := NewRegistry(specs, codexAdapter{}, claudeAdapter{}, future)
+	registry, err := NewRegistry(specs, codexAdapter{}, claudeAdapter{}, hermesAdapter{}, future)
 	if err != nil {
 		t.Fatal(err)
 	}

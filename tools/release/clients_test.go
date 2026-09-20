@@ -11,8 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -121,53 +119,6 @@ func TestNativeClientFilePreservation(t *testing.T) {
 	}
 }
 
-func TestNativeClientStreamEnvelope(t *testing.T) {
-	for _, client := range configuration.AdmittedClientIDs() {
-		t.Run(client, func(t *testing.T) {
-			var completions atomic.Int64
-			path := map[string]string{"claude": "/v1/messages", "codex": "/v1/responses"}[client]
-			body := map[string]string{
-				"codex":  `{"model":"configured-model","stream":true,"reasoning":{"effort":"high"}}`,
-				"claude": `{"model":"configured-model","stream":true,"output_config":{"effort":"high"}}`,
-			}[client]
-			var response *httptest.ResponseRecorder
-			for _, test := range []struct {
-				method, path, credential, body string
-				status                         int
-				completed                      int64
-			}{
-				{http.MethodPost, path, "", `{"stream":true}`, http.StatusUnauthorized, 0},
-				{http.MethodPost, "/wrong", "synthetic", `{"stream":true}`, http.StatusNotFound, 0},
-				{http.MethodGet, path, "synthetic", `{"stream":true}`, http.StatusMethodNotAllowed, 0},
-				{http.MethodPost, path, "synthetic", `{"stream":false}`, http.StatusBadRequest, 0},
-				{http.MethodPost, path, "synthetic", `{"stream":true}`, http.StatusBadRequest, 0},
-				{http.MethodPost, path, "synthetic", strings.ReplaceAll(body, "high", "low"), http.StatusBadRequest, 0},
-				{http.MethodPost, path, "synthetic", strings.ReplaceAll(body, "configured-model", "different-model"), http.StatusBadRequest, 0},
-				{http.MethodPost, path, "synthetic", body, http.StatusOK, 1},
-			} {
-				request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
-				request.Header.Set("Authorization", "Bearer "+test.credential)
-				response = httptest.NewRecorder()
-				clientResponseHandler(client, "configured-model", "synthetic", &completions).ServeHTTP(response, request)
-				if response.Code != test.status || completions.Load() != test.completed {
-					t.Fatalf("%s %s: status=%d completions=%d", test.method, test.path, response.Code, completions.Load())
-				}
-			}
-			for _, data := range clientResponseEvents(client, "configured-model") {
-				var event struct {
-					Type string `json:"type"`
-				}
-				if err := json.Unmarshal([]byte(data), &event); err != nil {
-					t.Fatal(err)
-				}
-				if !strings.Contains(response.Body.String(), "event: "+event.Type+"\ndata: "+data+"\n\n") {
-					t.Fatalf("missing named %s event: %s", event.Type, response.Body.String())
-				}
-			}
-		})
-	}
-}
-
 func TestNativeClientJourney(t *testing.T) {
 	inputs := map[string]string{}
 	for _, key := range []string{"AIGW_ACCEPTANCE_BASELINE", "AIGW_ACCEPTANCE_RELEASE", "AIGW_ACCEPTANCE_CODEX", "AIGW_ACCEPTANCE_CLAUDE"} {
@@ -197,84 +148,104 @@ func TestNativeClientJourney(t *testing.T) {
 	for _, path := range []string{candidate, archive, checksums} {
 		t.Logf("artifact %s sha256=%x", filepath.Base(path), sha256.Sum256(readFile(t, path)))
 	}
+	plan := nativeClientJourneyPlan{
+		inputs: inputs, version: version, team: team, manifest: manifest,
+		candidate: candidate, archive: archive, checksums: checksums,
+	}
 	for _, client := range configuration.AdmittedClientIDs() {
-		profile := manifest.Profiles[manifest.RecommendedRoutes[client]]
-		t.Run(client, func(t *testing.T) {
-			const token = "native-real-client-token"
-			var completions atomic.Int64
-			server := httptest.NewServer(clientResponseHandler(client, profile.Model, token, &completions))
-			t.Cleanup(server.Close)
-			journey := newNativeJourney(t, inputs["AIGW_ACCEPTANCE_BASELINE"], server.URL+"/v1", false)
-			executable := inputs["AIGW_ACCEPTANCE_"+strings.ToUpper(client)]
-			journey.prepareNativeClient(client, executable, team)
-			journey.setEnvironment(secrets.EnvironmentKey(profile.Account), token)
-			journey.run("setup", "--from", journey.manifest, "--account", profile.Account)
-			journey.enableNativeClient(client, executable)
-			retainedCredential := journey.retainedCredential(client)
-			before := journey.preserveClientFiles(client)
-			oldVersion := journey.predecessorVersion(version)
-			for _, step := range []struct {
-				name, version, program string
-				args                   []string
-			}{
-				{"baseline", oldVersion, journey.source, []string{"status", "--json"}},
-				{"candidate", version, candidate, []string{"update", "--candidate", archive, "--checksums", checksums}},
-				{"rollback", oldVersion, journey.source, []string{"update", "--rollback"}},
-				{"re-upgrade", version, candidate, []string{"update", "--candidate", archive, "--checksums", checksums}},
-			} {
-				if !t.Run(step.name, func(t *testing.T) {
-					journey.testing = t
-					configurationBefore := readFile(t, journey.config)
-					journey.run(step.args...)
-					if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
-						t.Fatal("lifecycle operation changed the retained client configuration")
-					}
-					journey.requireVersion(step.version)
-					journey.requireProgramBytes(step.program)
-					journey.requireCredential(retainedCredential, token)
-					count := completions.Load()
-					journey.run("verify", "--for", client)
-					journey.requireNativePreferences(client)
-					if completions.Load() <= count {
-						t.Fatal("client returned without an authenticated streaming request")
-					}
-					if err := before(); err != nil {
-						t.Fatal(err)
-					}
-				}) {
-					return
-				}
-			}
+		t.Run(client, func(t *testing.T) { plan.run(t, client) })
+	}
+}
+
+type nativeClientJourneyPlan struct {
+	inputs                        map[string]string
+	version                       string
+	team                          []byte
+	manifest                      configuration.Manifest
+	candidate, archive, checksums string
+}
+
+func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
+	t.Helper()
+	profile := p.manifest.Profiles[p.manifest.RecommendedRoutes[client]]
+	const token = "native-real-client-token"
+	var completions atomic.Int64
+	protocol := profile.Protocol
+	if protocol == "" {
+		spec, _ := configuration.ClientSpecFor(client)
+		protocol = spec.EndpointProtocols[0]
+	}
+	server := httptest.NewServer(clientResponseHandler(protocol, profile.Model, token, &completions))
+	t.Cleanup(server.Close)
+	journey := newNativeJourney(t, p.inputs["AIGW_ACCEPTANCE_BASELINE"], server.URL+"/v1", false)
+	executable := p.inputs["AIGW_ACCEPTANCE_"+strings.ToUpper(client)]
+	journey.prepareNativeClient(client, executable, p.team)
+	journey.setEnvironment(secrets.EnvironmentKey(profile.Account), token)
+	journey.run("setup", "--from", journey.manifest, "--account", profile.Account)
+	journey.enableNativeClient(client, executable)
+	retainedCredential := journey.retainedCredential(client)
+	before := journey.preserveClientFiles(client)
+	oldVersion := journey.predecessorVersion(p.version)
+	for _, step := range []struct {
+		name, version, program string
+		args                   []string
+	}{
+		{"baseline", oldVersion, journey.source, []string{"status", "--json"}},
+		{"candidate", p.version, p.candidate, []string{"update", "--candidate", p.archive, "--checksums", p.checksums}},
+		{"rollback", oldVersion, journey.source, []string{"update", "--rollback"}},
+		{"re-upgrade", p.version, p.candidate, []string{"update", "--candidate", p.archive, "--checksums", p.checksums}},
+	} {
+		if !t.Run(step.name, func(t *testing.T) {
 			journey.testing = t
-			journey.verifyNativeConfigEditing(client, executable)
-			const renamedAccount = "renamed-client-account"
-			journey.setEnvironment(secrets.EnvironmentKey(renamedAccount), token)
-			journey.run("account", "rename", profile.Account, renamedAccount)
+			configurationBefore := readFile(t, journey.config)
+			journey.run(step.args...)
+			if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
+				t.Fatal("lifecycle operation changed the retained client configuration")
+			}
+			journey.requireVersion(step.version)
+			journey.requireProgramBytes(step.program)
+			journey.requireCredential(retainedCredential, token)
 			count := completions.Load()
-			journey.run("verify", "--for", "all")
-			if completions.Load() <= count {
-				t.Fatal("bulk verification did not invoke the enabled native client")
-			}
-			checkpoint, err := configuration.NewStore(journey.config).LoadVerifiedCheckpoint()
-			if err != nil || len(checkpoint.Clients) != 1 || checkpoint.Clients[0] != client {
-				t.Fatalf("single-client checkpoint = %v: %v", checkpoint.Clients, err)
-			}
-			journey.environment = environmentWithout(journey.environment, secrets.EnvironmentKey(profile.Account))
-			journey.run("account", "rename", profile.Account, renamedAccount, "--finalize")
-			var retirement struct {
-				Status string `json:"status"`
-			}
-			if err := json.Unmarshal(journey.run("account", "rename", profile.Account, renamedAccount, "--finalize", "--dry-run", "--json"), &retirement); err != nil || retirement.Status != "already-finalized" {
-				t.Fatalf("repeated retirement = %q: %v", retirement.Status, err)
-			}
-			journey.requireExternalCredentialClient(client, executable, renamedAccount, completions.Load)
-			journey.runWith(candidate, "uninstall", "--target", journey.binary)
-			journey.requireOwnedFilesAbsent()
+			journey.run("verify", "--for", client)
 			journey.requireNativePreferences(client)
+			if completions.Load() <= count {
+				t.Fatal("client returned without an authenticated streaming request")
+			}
 			if err := before(); err != nil {
 				t.Fatal(err)
 			}
-		})
+		}) {
+			return
+		}
+	}
+	journey.testing = t
+	journey.verifyNativeConfigEditing(client, executable)
+	const renamedAccount = "renamed-client-account"
+	journey.setEnvironment(secrets.EnvironmentKey(renamedAccount), token)
+	journey.run("account", "rename", profile.Account, renamedAccount)
+	count := completions.Load()
+	journey.run("verify", "--for", "all")
+	if completions.Load() <= count {
+		t.Fatal("bulk verification did not invoke the enabled native client")
+	}
+	checkpoint, err := configuration.NewStore(journey.config).LoadVerifiedCheckpoint()
+	if err != nil || len(checkpoint.Clients) != 1 || checkpoint.Clients[0] != client {
+		t.Fatalf("single-client checkpoint = %v: %v", checkpoint.Clients, err)
+	}
+	journey.environment = environmentWithout(journey.environment, secrets.EnvironmentKey(profile.Account))
+	journey.run("account", "rename", profile.Account, renamedAccount, "--finalize")
+	var retirement struct {
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(journey.run("account", "rename", profile.Account, renamedAccount, "--finalize", "--dry-run", "--json"), &retirement); err != nil || retirement.Status != "already-finalized" {
+		t.Fatalf("repeated retirement = %q: %v", retirement.Status, err)
+	}
+	journey.requireExternalCredentialClient(client, executable, renamedAccount, completions.Load)
+	journey.runWith(p.candidate, "uninstall", "--target", journey.binary)
+	journey.requireOwnedFilesAbsent()
+	journey.requireNativePreferences(client)
+	if err := before(); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -425,81 +396,5 @@ func (j *journeyFixture) preserveClientFiles(client string) func() error {
 			}
 		}
 		return nil
-	}
-}
-
-func clientResponseHandler(client, model, token string, completions *atomic.Int64) http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /v1/models", func(response http.ResponseWriter, _ *http.Request) {
-		response.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(response, `{"data":[],"models":[],"has_more":false}`)
-	})
-	path := map[string]string{"claude": "/v1/messages", "codex": "/v1/responses"}[client]
-	mux.HandleFunc("POST "+path, func(response http.ResponseWriter, request *http.Request) {
-		var input struct {
-			Model     string `json:"model"`
-			Stream    bool   `json:"stream"`
-			Reasoning struct {
-				Effort string `json:"effort"`
-			} `json:"reasoning"`
-			OutputConfig struct {
-				Effort string `json:"effort"`
-			} `json:"output_config"`
-		}
-		if err := json.NewDecoder(request.Body).Decode(&input); err != nil || !input.Stream || input.Model != model {
-			http.Error(response, "configured model and stream required", http.StatusBadRequest)
-			return
-		}
-		effort := input.Reasoning.Effort
-		if client == configuration.ClientClaude {
-			effort = input.OutputConfig.Effort
-		}
-		if effort != "high" {
-			http.Error(response, "configured high effort required", http.StatusBadRequest)
-			return
-		}
-		response.Header().Set("Content-Type", "text/event-stream")
-		for _, data := range clientResponseEvents(client, model) {
-			var event struct {
-				Type string `json:"type"`
-			}
-			if err := json.Unmarshal([]byte(data), &event); err != nil {
-				http.Error(response, "invalid fixture event", http.StatusInternalServerError)
-				return
-			}
-			if _, err := fmt.Fprintf(response, "event: %s\ndata: %s\n\n", event.Type, data); err != nil {
-				return
-			}
-		}
-		completions.Add(1)
-	})
-	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Header.Get("Authorization") != "Bearer "+token && request.Header.Get("X-Api-Key") != token {
-			http.Error(response, "credential mismatch", http.StatusUnauthorized)
-			return
-		}
-		mux.ServeHTTP(response, request)
-	})
-}
-
-func clientResponseEvents(client, model string) []string {
-	if client == configuration.ClientClaude {
-		return []string{
-			fmt.Sprintf(`{"type":"message_start","message":{"id":"msg_fixture","type":"message","role":"assistant","model":%q,"content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":1,"output_tokens":0}}}`, model),
-			`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
-			`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"AIGW_OK"}}`,
-			`{"type":"content_block_stop","index":0}`,
-			`{"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":1}}`,
-			`{"type":"message_stop"}`,
-		}
-	}
-	return []string{
-		`{"type":"response.created","response":{"id":"resp_fixture","object":"response","status":"in_progress","output":[]}}`,
-		`{"type":"response.output_item.added","output_index":0,"item":{"id":"msg_fixture","type":"message","role":"assistant","status":"in_progress","content":[]}}`,
-		`{"type":"response.content_part.added","item_id":"msg_fixture","output_index":0,"content_index":0,"part":{"type":"output_text","text":"","annotations":[]}}`,
-		`{"type":"response.output_text.delta","item_id":"msg_fixture","output_index":0,"content_index":0,"delta":"AIGW_OK"}`,
-		`{"type":"response.output_text.done","item_id":"msg_fixture","output_index":0,"content_index":0,"text":"AIGW_OK"}`,
-		`{"type":"response.output_item.done","output_index":0,"item":{"id":"msg_fixture","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"AIGW_OK","annotations":[]}]}}`,
-		`{"type":"response.completed","response":{"id":"resp_fixture","object":"response","status":"completed","output":[{"id":"msg_fixture","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"AIGW_OK","annotations":[]}]}],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`,
 	}
 }

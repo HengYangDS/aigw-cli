@@ -78,13 +78,113 @@ native client authentication from compatible gateway composition. The existing
 [research assessment](../../../docs/research/provider-tooling-assessment.md#client-surfaces-and-cross-model-inference)
 owns source evidence; tasks own implementation progress.
 
+### 9. Redesign intent before extending adapters
+
+The requested outcome is choosing a usable model for a client, not maintaining
+separate copies of the same model for every executable. The current
+`Profile.Client`, `Routes`, and `Adapters` structure is a baseline under review,
+not a constraint on the final schema. Its costs are now observable: a new
+client changes unrelated readiness suggestions; protocol selection leaks into
+credential probing; and each Adapter repeats discovery, activation, rollback,
+and verification orchestration.
+
+The recommended replacement has three existing concepts, not another layer:
+
+- **Account:** provider endpoint declarations and one credential reference.
+- **Profile:** one Account and real upstream model, independent of client brand.
+- **Client configuration:** selected Profile, explicit enabled intent, native
+  target, and only genuinely client-specific options. Consolidate the current
+  Route and Adapter state here instead of keeping parallel selections.
+
+A Profile may be selected by several compatible clients. The client-specific
+binding resolves the protocol from the Profile's Account and the Adapter's
+supported interfaces. Select the sole compatible endpoint automatically; ask
+for an explicit choice when several remain. Never guess from a model prefix,
+client brand, or the order of declarations. Client-native authentication stays
+inside that client's contract rather than acquiring a second AIGW token owner.
+
+This recommendation supersedes the assumption that preserving the current
+schema is intrinsically desirable. Update canonical requirements and public
+examples before implementing the replacement. Stable installed state remains
+untouched until a candidate and a reviewed migration are accepted.
+
+#### User journey
+
+1. Import a token-free team catalogue or connect one Account. Other Accounts
+   and absent applications are optional; no credential access is required to
+   inspect the catalogue.
+2. Choose a client surface and a compatible Profile. An explicit choice owns
+   the default for future work, not the model of an existing conversation.
+3. Resolve the native target, show the exact owned changes, and apply through
+   the shared guarded transaction. Missing applications produce deferred
+   activation, not placeholder files or failure of another client.
+4. Synchronize only enabled client intent. Discovery observes availability;
+   it never re-enables an explicitly disabled client or silently selects an
+   alternative model because a credential is temporarily unavailable.
+5. Status defaults to configured clients, explains saved versus applied versus
+   verified state, and offers optional discovery separately. Local inspection,
+   endpoint authentication, and quota-consuming inference remain distinct
+   operations with explicit names and consequences.
+6. Disable restores owned configuration while retaining the user's reusable
+   Profile and explicit disabled intent. Removal withdraws the binding;
+   uninstall removes only owned installation/projections and follows explicit
+   credential retention policy.
+
+The guided path and noninteractive commands must express the same choices.
+`use` requires a client when the Profile does not determine a unique intended
+binding; it must not silently affect every compatible installed application.
+An explicit multi-client operation names its affected set before mutation.
+Team imports never overwrite local selections or reactivate a disabled client.
+
+#### Developer boundary
+
+Keep a small Adapter contract around native observation, projection planning,
+and real verification. The existing transaction owner applies and compensates
+typed file changes; no new Adapter gets its own rollback coordinator. Format
+readers preserve unrelated keys and reject ambiguous owned structures. Native
+helpers, environment references, and SDK authentication precede wrappers or
+additional credential processes. Provider data cannot select an application
+configuration path or acquire session/service ownership.
+
+A new provider with an existing protocol changes catalogue data. A new client
+adds its native contract and acceptance tests. A genuinely missing protocol
+uses a selected mature endpoint implementation before product-specific traffic
+code is considered. A dependency is justified by a necessary capability or
+removed maintenance responsibility, not by novelty.
+
+#### Migration and deletion
+
+Change the schema once for the coherent replacement. Parse an old version only
+inside a bounded, explicit migration operation; normal runtime accepts the new
+schema alone. The migration previews Accounts, equivalent Profiles, client
+bindings, retained selections, native options and credential references. It
+never copies secret values or changes native session metadata. Commit only
+when all affected preimages still match; retain the immutable predecessor and
+its guarded rollback input until candidate acceptance.
+
+Delete the replaced `Profile.Client` selector, parallel Route/Adapter state,
+client-name branches in shared orchestration, and duplicate rollback machinery
+in the same semantic closure as their replacements. Do not ship aliases or two
+runtime readers to avoid finishing migration. Preserve client-specific options
+where they carry real behavior instead of forcing superficial uniformity.
+
+#### Implementation dependency order
+
+First prove the revised domain model and migration with retained-state tests.
+Then implement one shared intent-to-projection transaction and migrate existing
+Codex/Claude consumers. Next connect Hermes and Claude Desktop through that
+same boundary, consuming the already established native contract tests. Finish
+the team manifest, user/contributor guides and cross-platform native journeys
+before the existing final qualification and archive/release steps. A green
+fixture or checked historical task does not admit the new schema or client.
+
 ## Risks / Trade-offs
 
 - **Large scope can create churn** → complete one semantic closure at a time and require deletion plus focused acceptance before the next structural move.
 - **Stricter gates can reward fragmentation** → derive thresholds from distributions and preserve coherent domain units.
 - **Native evidence can become expensive** → run focused local falsification first, freeze inputs, then reuse exact matching immutable evidence.
 - **External tools can expand the maintenance surface** → admit only stable tools that replace more code and operational burden than they add.
-- **Breaking cleanup can surprise existing users** → remove only unsupported or unconsumed behavior; document migration for supported public contracts.
+- **Breaking changes can surprise existing users** → replace supported contracts when net benefit justifies it, with explicit migration, retained-state acceptance and guarded rollback before cutover.
 
 ## Accepted baseline
 

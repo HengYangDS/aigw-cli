@@ -15,7 +15,7 @@ import (
 )
 
 func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
-	for _, clientID := range configuration.AdmittedClientIDs() {
+	for _, clientID := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		t.Run(clientID, func(t *testing.T) {
 			app, out, credentials, _, _ := testApp(t, "new-token\n")
 			target := filepath.Join(t.TempDir(), "config.toml")
@@ -25,7 +25,7 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 			cfg := configuration.NewConfig()
 			cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{Anthropic: "https://old.test", OpenAIResponses: "https://old.test/v1"}}
 			paths := map[string]string{configuration.ClientCodex: target, configuration.ClientClaude: app.ClaudeSettingsPath}
-			for _, id := range configuration.AdmittedClientIDs() {
+			for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 				cfg.Profiles[id] = configuration.Profile{Label: id, Account: "old", Client: id, Model: "old-model"}
 				cfg.Routes[id] = id
 				cfg.Adapters[id] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, id)}

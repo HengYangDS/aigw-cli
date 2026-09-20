@@ -12,19 +12,20 @@ import (
 
 func TestAdmittedClientRegistryIsTheSingleProtocolBoundary(t *testing.T) {
 	want := []ClientSpec{
-		{ID: ClientClaude, Label: "Claude", EndpointProtocol: ProtocolAnthropic},
-		{ID: ClientCodex, Label: "Codex", EndpointProtocol: ProtocolOpenAIResponses},
+		{ID: ClientClaude, Label: "Claude", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}},
+		{ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses}},
+		{ID: ClientHermes, Label: "Hermes", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions}},
 	}
 	if got := AdmittedClientSpecs(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("client specs = %#v, want %#v", got, want)
 	}
-	if got := AdmittedClientIDs(); !reflect.DeepEqual(got, []string{ClientClaude, ClientCodex}) {
+	if got := AdmittedClientIDs(); !reflect.DeepEqual(got, []string{ClientClaude, ClientCodex, ClientHermes}) {
 		t.Fatalf("client ids = %#v", got)
 	}
 	if !IsAdmittedClient(ClientClaude) || IsAdmittedClient("gemini") {
 		t.Fatal("registry must admit only implemented adapters")
 	}
-	if spec, ok := ClientSpecFor(ClientCodex); !ok || spec.EndpointProtocol != ProtocolOpenAIResponses {
+	if spec, ok := ClientSpecFor(ClientCodex); !ok || !reflect.DeepEqual(spec.EndpointProtocols, []EndpointProtocol{ProtocolOpenAIResponses}) {
 		t.Fatalf("Codex client spec = %#v, %v", spec, ok)
 	}
 }
@@ -62,7 +63,7 @@ func TestClientSpecResolvesItsDeclaredEndpoint(t *testing.T) {
 			if !ok {
 				t.Fatalf("missing client spec %q", test.client)
 			}
-			got, err := spec.Endpoint(account)
+			got, _, err := spec.ResolveEndpoint(account, "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -80,19 +81,19 @@ func TestAdmittedClientUsageIsDerivedFromRegistry(t *testing.T) {
 	if got := naturalChoices([]string{"codex"}); got != "codex" {
 		t.Fatalf("single choice = %q", got)
 	}
-	if got := AdmittedClientUsage(); got != "claude or codex" {
+	if got := AdmittedClientUsage(); got != "claude, codex, or hermes" {
 		t.Fatalf("usage = %q", got)
 	}
-	if got := AdmittedClientUsage("all"); got != "claude, codex, or all" {
+	if got := AdmittedClientUsage("all"); got != "claude, codex, hermes, or all" {
 		t.Fatalf("usage with extra choice = %q", got)
 	}
-	if got := AdmittedClientLabelUsage("all"); got != "Claude, Codex, or all" {
+	if got := AdmittedClientLabelUsage("all"); got != "Claude, Codex, Hermes, or all" {
 		t.Fatalf("label usage = %q", got)
 	}
 }
 
 func TestClientSpecRejectsUnimplementedProtocol(t *testing.T) {
-	_, err := (ClientSpec{ID: "future", EndpointProtocol: "future"}).Endpoint(Account{})
+	_, _, err := (ClientSpec{ID: "future", EndpointProtocols: []EndpointProtocol{"future"}}).ResolveEndpoint(Account{}, "")
 	if err == nil || !strings.Contains(err.Error(), "unsupported endpoint protocol") {
 		t.Fatalf("unsupported protocol error = %v", err)
 	}
@@ -101,6 +102,8 @@ func TestClientSpecRejectsUnimplementedProtocol(t *testing.T) {
 func TestExplicitCredentialCommandSurvivesHostConfigRoundTrip(t *testing.T) {
 	cfg := validConfig()
 	cfg.Normalize()
+	cfg.Profiles[ClientHermes] = Profile{Label: "Hermes", Account: "backup", Client: ClientHermes, Model: "model"}
+	cfg.Routes[ClientHermes] = ClientHermes
 	for _, client := range AdmittedClientIDs() {
 		command := filepath.Join(t.TempDir(), "credential adapter")
 		var adapter AdapterConfig

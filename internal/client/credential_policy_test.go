@@ -13,6 +13,7 @@ import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
+	"aigw-cli/internal/secrets"
 )
 
 type fixedDiscovery struct{ result discovery.Result }
@@ -28,18 +29,19 @@ func configuredClient(t *testing.T, id string) (configuration.Config, client.Dep
 	}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
-	cfg.Profiles[id] = configuration.Profile{Client: id, Account: "gateway", Model: "fixture"}
+	spec, _ := configuration.ClientSpecFor(id)
+	cfg.Profiles[id] = configuration.Profile{Client: id, Account: "gateway", Model: "fixture", Protocol: spec.EndpointProtocols[0]}
 	cfg.Routes[id] = id
 	target := filepath.Join(root, "config.toml")
 	adapter := configuration.AdapterConfig{Enabled: true, Executable: executable}
-	if id == configuration.ClientCodex {
+	if id != configuration.ClientClaude {
 		adapter.Targets = []string{target}
 	}
 	cfg.Adapters[id] = adapter
 	deps := client.Dependencies{AIGWExecutable: filepath.Join(root, "aigw"), ClaudeSettingsPath: filepath.Join(root, "settings.json")}
 	discovered := discovery.Result{
 		Executables: map[string]string{id: executable},
-		Surfaces:    []discovery.Surface{{ID: "codex-home-default", Authority: "aigw", ConfigPath: target, AutoManaged: true}},
+		Surfaces:    []discovery.Surface{{ID: "codex-home-default", Authority: "aigw", ConfigPath: target, AutoManaged: true}, {ID: "hermes-home-default", Authority: "aigw", ConfigPath: target}},
 	}
 	deps.Discovery = fixedDiscovery{result: discovered}
 	return cfg, deps, discovered
@@ -104,6 +106,27 @@ func TestDisabledCredentialPolicyRequiresExplicitEnable(t *testing.T) {
 	}
 }
 
+func TestExplicitDisableSurvivesDiscoveryWithoutAnExternalHelper(t *testing.T) {
+	registry := client.DefaultRegistry()
+	for _, id := range registry.IDs() {
+		t.Run(id, func(t *testing.T) {
+			cfg, deps, observed := configuredClient(t, id)
+			cfg.Adapters[id] = configuration.AdapterConfig{Enabled: false}
+			deps.Secrets = secrets.NewMemoryStore()
+			if err := deps.Secrets.Set("gateway", "public-token"); err != nil {
+				t.Fatal(err)
+			}
+			after, err := registry.Converge(deps, cfg, observed, id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if after.Adapters[id].Enabled {
+				t.Fatal("discovery re-enabled explicit disabled intent")
+			}
+		})
+	}
+}
+
 func TestMissingCodexTargetRetainsOnlyCredentialPolicy(t *testing.T) {
 	cfg, deps, _ := configuredClient(t, configuration.ClientCodex)
 	command := filepath.Join(t.TempDir(), "credential adapter")
@@ -153,7 +176,7 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 				t.Fatalf("external client failure = %v", err)
 			}
 			wantCalls := 1
-			if id == configuration.ClientCodex {
+			if id != configuration.ClientClaude {
 				wantCalls++
 			}
 			if runner.calls != wantCalls {

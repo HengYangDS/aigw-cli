@@ -509,9 +509,12 @@ func (j *journeyFixture) retainedCredential(client string) process.Plan {
 }
 
 func (j *journeyFixture) retainedCredentials() []process.Plan {
-	clients := configuration.AdmittedClientIDs()
-	credentials := make([]process.Plan, 0, len(clients))
-	for _, client := range clients {
+	cfg, err := configuration.NewStore(j.config).Load()
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	credentials := make([]process.Plan, 0, len(cfg.Adapters))
+	for _, client := range cfg.EnabledClientIDs() {
 		credentials = append(credentials, j.retainedCredential(client))
 	}
 	return credentials

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 
 	configuration "aigw-cli/internal/configuration"
@@ -21,6 +22,7 @@ import (
 type DiscoverySource interface {
 	Executable(clientID string) string
 	CodexHomeDirectory() string
+	HermesHomeDirectory() string
 	FilePresent(path string) bool
 }
 
@@ -115,7 +117,7 @@ func NewRegistry(specs []configuration.ClientSpec, adapters ...Adapter) (Registr
 		if !ok {
 			return Registry{}, fmt.Errorf("client admission %q has no operational adapter", spec.ID)
 		}
-		if adapter.Spec() != spec {
+		if !reflect.DeepEqual(adapter.Spec(), spec) {
 			return Registry{}, fmt.Errorf("client adapter %q does not match its admission record", spec.ID)
 		}
 		ids = append(ids, spec.ID)

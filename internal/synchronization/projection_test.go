@@ -170,7 +170,7 @@ func TestPlanReportsClaudePlanningFailures(t *testing.T) {
 }
 
 func TestCommitReconcilesOnlyClientsWhoseProjectionChanges(t *testing.T) {
-	for _, selected := range configuration.AdmittedClientIDs() {
+	for _, selected := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		t.Run(selected, func(t *testing.T) {
 			root := t.TempDir()
 			targets := map[string]string{

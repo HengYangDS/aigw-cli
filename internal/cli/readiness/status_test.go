@@ -28,7 +28,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		cfg.Adapters[client] = configuration.AdapterConfig{Enabled: true}
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -158,7 +158,7 @@ func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *test
 	if err := json.Unmarshal(buffer.Bytes(), &status); err != nil {
 		t.Fatal(err)
 	}
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		if status.Routes[client].Transport != "external_loopback" {
 			t.Errorf("client %s transport = %q", client, status.Routes[client].Transport)
 		}
@@ -278,7 +278,7 @@ func TestStatusFallsBackToRepairForUnclassifiedAttention(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Profiles["available"] = configuration.Profile{Label: "Available"}
 	routes := map[string]routeStatus{}
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		routes[client] = routeStatus{State: domainreadiness.Invalid}
 	}
 
@@ -329,7 +329,7 @@ func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 	}
 
 	collectStatus(runtime, cfg)
-	if store.existsCalls != len(configuration.AdmittedClientIDs()) || store.getCalls != 0 {
+	if store.existsCalls != len([]string{configuration.ClientClaude, configuration.ClientCodex}) || store.getCalls != 0 {
 		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
 	}
 }
@@ -387,7 +387,7 @@ func TestStatusClassifiesCredentialObservationFailureWithoutReadingValues(t *tes
 	store := &observingSecretStore{existsErr: want}
 	runtime.Secrets = store
 	result := collectStatus(runtime, cfg)
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		state := result.Clients[client]
 		if state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" || !strings.Contains(strings.ToLower(state.Detail), "credential metadata") {
 			t.Fatalf("%s state = %#v", client, state)

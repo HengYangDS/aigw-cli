@@ -82,12 +82,7 @@ func typedErrorMessage(err error) (string, bool) {
 		return fmt.Sprintf("profile %q references unknown account %q", unknownAccount.ProfileID, unknownAccount.AccountID), true
 	}
 	if missingEndpoint, ok := errors.AsType[*configuration.RuntimeMissingEndpointError](err); ok {
-		switch missingEndpoint.Protocol {
-		case configuration.ProtocolAnthropic:
-			return fmt.Sprintf("account %q has no Anthropic endpoint", missingEndpoint.AccountID), true
-		case configuration.ProtocolOpenAIResponses:
-			return fmt.Sprintf("account %q has no OpenAI Responses endpoint", missingEndpoint.AccountID), true
-		}
+		return missingEndpoint.Error(), true
 	}
 	if version, ok := errors.AsType[*configuration.UnsupportedConfigVersionError](err); ok {
 		return fmt.Sprintf(

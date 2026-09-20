@@ -164,7 +164,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 	if strings.TrimSpace(runtime.Endpoint) == "" {
 		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Fix: "Check the protocol endpoint for the current profile's account"}
 	}
-	req, err := credential.ProbeRequest(ctx, runtime.Client, runtime.Endpoint, token)
+	req, err := credential.ProbeRequest(ctx, runtime.Client, runtime.Endpoint, token, runtime.Protocol)
 	if err != nil {
 		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Detail: err.Error(), Fix: "Check the endpoint for the active profile"}
 	}

@@ -27,6 +27,8 @@ const (
 	ClientClaude = "claude"
 	// ClientCodex identifies the admitted Codex client family.
 	ClientCodex = "codex"
+	// ClientHermes identifies the independently configured Hermes Agent.
+	ClientHermes = "hermes"
 	// ModelProviderAIGW is the stable provider identifier written into AIGW-owned Codex projections.
 	ModelProviderAIGW = "aigw"
 
@@ -59,28 +61,30 @@ type Account struct {
 
 // Profile binds one account, client, model, and authentication owner into a selectable route target.
 type Profile struct {
-	ID             string         `json:"id,omitempty"             toml:"-"`
-	Label          string         `json:"label"                    toml:"label"`
-	Purpose        string         `json:"purpose,omitempty"        toml:"purpose,omitempty"`
-	Account        string         `json:"account"                  toml:"account"`
-	Client         string         `json:"client"                   toml:"client"`
-	Model          string         `json:"model"                    toml:"model"`
-	ModelProvider  string         `json:"model_provider,omitempty" toml:"model_provider,omitempty"`
-	Authentication Authentication `json:"authentication,omitempty" toml:"authentication,omitempty"`
+	ID             string           `json:"id,omitempty"             toml:"-"`
+	Label          string           `json:"label"                    toml:"label"`
+	Purpose        string           `json:"purpose,omitempty"        toml:"purpose,omitempty"`
+	Account        string           `json:"account"                  toml:"account"`
+	Client         string           `json:"client"                   toml:"client"`
+	Model          string           `json:"model"                    toml:"model"`
+	Protocol       EndpointProtocol `json:"protocol,omitempty" toml:"protocol,omitempty"`
+	ModelProvider  string           `json:"model_provider,omitempty" toml:"model_provider,omitempty"`
+	Authentication Authentication   `json:"authentication,omitempty" toml:"authentication,omitempty"`
 }
 
 // Runtime is the resolved, immutable input used to project or invoke one client profile.
 type Runtime struct {
-	ProfileID         string         `json:"profile_id"`
-	ProfileLabel      string         `json:"profile_label"`
-	AccountID         string         `json:"account_id"`
-	AccountLabel      string         `json:"account_label"`
-	Client            string         `json:"client"`
-	Endpoint          string         `json:"endpoint"`
-	Model             string         `json:"model,omitempty"`
-	ModelProvider     string         `json:"model_provider"`
-	Authentication    Authentication `json:"authentication"`
-	CredentialCommand string         `json:"-"`
+	ProfileID         string           `json:"profile_id"`
+	ProfileLabel      string           `json:"profile_label"`
+	AccountID         string           `json:"account_id"`
+	AccountLabel      string           `json:"account_label"`
+	Client            string           `json:"client"`
+	Endpoint          string           `json:"endpoint"`
+	Protocol          EndpointProtocol `json:"protocol"`
+	Model             string           `json:"model,omitempty"`
+	ModelProvider     string           `json:"model_provider"`
+	Authentication    Authentication   `json:"authentication"`
+	CredentialCommand string           `json:"-"`
 }
 
 // RequiresAccountToken reports whether the selected Profile uses Account Token
@@ -104,8 +108,9 @@ type AccountProbe struct {
 
 // Endpoints declares the protocol-specific upstream URLs offered by an account.
 type Endpoints struct {
-	OpenAIResponses string `json:"openai_responses,omitempty" toml:"openai_responses,omitempty"`
-	Anthropic       string `json:"anthropic,omitempty"        toml:"anthropic,omitempty"`
+	OpenAIChatCompletions string `json:"openai_chat_completions,omitempty" toml:"openai_chat_completions,omitempty"`
+	OpenAIResponses       string `json:"openai_responses,omitempty" toml:"openai_responses,omitempty"`
+	Anthropic             string `json:"anthropic,omitempty"        toml:"anthropic,omitempty"`
 }
 
 // Routes maps each admitted client to its selected Profile. There is no global
@@ -413,7 +418,7 @@ func (account Account) validate(name string) error {
 	if strings.TrimSpace(account.Label) == "" {
 		return fmt.Errorf("account %q has an empty label", name)
 	}
-	if account.Endpoints.OpenAIResponses == "" && account.Endpoints.Anthropic == "" {
+	if account.Endpoints.OpenAIResponses == "" && account.Endpoints.Anthropic == "" && account.Endpoints.OpenAIChatCompletions == "" {
 		return fmt.Errorf("account %q must define at least one endpoint", name)
 	}
 	for _, endpoint := range []struct {
@@ -422,6 +427,7 @@ func (account Account) validate(name string) error {
 	}{
 		{ProtocolAnthropic, account.Endpoints.Anthropic},
 		{ProtocolOpenAIResponses, account.Endpoints.OpenAIResponses},
+		{ProtocolOpenAIChatCompletions, account.Endpoints.OpenAIChatCompletions},
 	} {
 		if endpoint.url == "" {
 			continue
@@ -460,7 +466,8 @@ func (profile Profile) validate(name string, accounts map[string]Account) error 
 		return fmt.Errorf("profile %q has unknown client %q", name, profile.Client)
 	}
 	account.ID = profile.Account
-	if _, err := account.EndpointFor(profile.Client); err != nil {
+	spec, _ := ClientSpecFor(profile.Client)
+	if _, _, err := spec.ResolveEndpoint(account, profile.Protocol); err != nil {
 		return fmt.Errorf("profile %q: %w", name, err)
 	}
 	if strings.TrimSpace(profile.Model) == "" {
@@ -555,7 +562,11 @@ func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, error) 
 		return Runtime{}, &RuntimeProfileUnknownAccountError{ProfileID: name, AccountID: profile.Account}
 	}
 	account.ID = profile.Account
-	endpoint, err := account.EndpointFor(client)
+	spec, admitted := ClientSpecFor(client)
+	if !admitted {
+		return Runtime{}, fmt.Errorf("unknown client %q", client)
+	}
+	endpoint, protocol, err := spec.ResolveEndpoint(account, profile.Protocol)
 	if err != nil {
 		return Runtime{}, err
 	}
@@ -566,6 +577,7 @@ func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, error) 
 		AccountLabel:      account.Label,
 		Client:            client,
 		Endpoint:          endpoint,
+		Protocol:          protocol,
 		Model:             profile.Model,
 		ModelProvider:     resolvedModelProvider(client, profile),
 		Authentication:    resolvedAuthentication(profile),
@@ -579,5 +591,6 @@ func (account Account) EndpointFor(client string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("unknown client %q", client)
 	}
-	return spec.Endpoint(account)
+	endpoint, _, err := spec.ResolveEndpoint(account, "")
+	return endpoint, err
 }

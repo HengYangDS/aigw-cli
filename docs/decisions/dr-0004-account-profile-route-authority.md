@@ -35,6 +35,10 @@ Adding an ordinary provider changes configuration data rather than branching
 client or routing logic. Switching a Route never copies a Token into client
 files, and traffic is never retried through an unselected provider.
 
+## Active redesign
+
+The active [engineering-reference Change](../../openspec/changes/engineering-reference-convergence/design.md#9-redesign-intent-before-extending-adapters) revisits this decision: reusable Profiles and one explicit client binding replace client-bound model duplication and parallel Route/Adapter selection. This is an implementation target, not a claim that the new schema has shipped. Existing installed configuration stays on its accepted schema until migration and native candidate acceptance pass.
+
 ## Revisit Trigger
 
 Revisit if AIGW adopts a different canonical domain model that preserves the

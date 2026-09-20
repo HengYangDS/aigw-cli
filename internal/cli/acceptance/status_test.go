@@ -321,7 +321,7 @@ func TestRouteListJSONReportsSelectedAndDeferredClients(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Routes) != 2 || result.Routes[0].Client != configuration.ClientClaude || result.Routes[1].Client != configuration.ClientCodex {
+	if len(result.Routes) != len(configuration.AdmittedClientIDs()) || result.Routes[0].Client != configuration.ClientClaude || result.Routes[1].Client != configuration.ClientCodex {
 		t.Fatalf("route order = %#v", result.Routes)
 	}
 	if result.Routes[0].State != "unselected" || result.Routes[0].Profile != "" || result.Routes[0].NextAction != "aigw use claude" {

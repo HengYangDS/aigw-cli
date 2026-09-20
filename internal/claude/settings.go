@@ -14,6 +14,7 @@ import (
 	"unicode"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/transaction"
 )
 
@@ -382,14 +383,15 @@ func validateExecutable(executable string) (string, error) {
 	if executable == "" || !filepath.IsAbs(executable) {
 		return "", errors.New("AIGW executable path must be absolute")
 	}
+	if _, err := credential.Command(executable, configuration.ClientClaude, "validation", runtime.GOOS); err != nil {
+		return "", err
+	}
 	return executable, nil
 }
 
 func credentialHelper(executable, scope string) string {
-	if runtime.GOOS == "windows" {
-		return `"` + strings.ReplaceAll(executable, `"`, `\"`) + `" credential claude ` + scope
-	}
-	return "'" + strings.ReplaceAll(executable, "'", "'\\''") + "' credential claude " + scope
+	command, _ := credential.Command(executable, configuration.ClientClaude, scope, runtime.GOOS)
+	return command
 }
 
 func captureOriginalSettings(document settingsDocument, fileExisted bool) originalSettings {

@@ -181,12 +181,12 @@ func TestCoreValidationFailuresUseEnglishGuidance(t *testing.T) {
 		args []string
 		want string
 	}{
-		{args: []string{"test", "--for", "other"}, want: "--for must be claude or codex"},
-		{args: []string{"verify", "--for", "other"}, want: "--for must be claude, codex, or all"},
-		{args: []string{"setup", "--profile", "new-profile", "--for", "other"}, want: "--for must be claude or codex"},
+		{args: []string{"test", "--for", "other"}, want: "--for must be claude, codex, or hermes"},
+		{args: []string{"verify", "--for", "other"}, want: "--for must be claude, codex, hermes, or all"},
+		{args: []string{"setup", "--profile", "new-profile", "--for", "other"}, want: "--for must be claude, codex, or hermes"},
 		{args: []string{"profile", "add", "new-profile"}, want: "--account, --for, and --model are required"},
 		{args: []string{"route", "reset", "other"}, want: "unknown command \"reset\""},
-		{args: []string{"adapter", "enable", "other"}, want: "Client must be claude or codex"},
+		{args: []string{"adapter", "enable", "other"}, want: "Client must be claude, codex, or hermes"},
 	} {
 		out.Reset()
 		err := cli.Execute(app, tc.args)

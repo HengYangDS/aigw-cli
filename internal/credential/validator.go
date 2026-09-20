@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -49,11 +50,12 @@ func Validate(ctx context.Context, httpClient HTTPDoer, account configuration.Ac
 		if _, ok := configuration.ClientSpecFor(client); !ok {
 			return fmt.Errorf("unsupported credential validation client %q", client)
 		}
-		endpoint, err := account.EndpointFor(client)
+		spec, _ := configuration.ClientSpecFor(client)
+		endpoint, protocol, err := spec.ResolveEndpoint(account, "")
 		if err != nil {
 			return err
 		}
-		status, err := ProbeStatus(ctx, httpClient, client, endpoint, token)
+		status, err := ProbeStatus(ctx, httpClient, client, endpoint, token, protocol)
 		if err != nil {
 			return err
 		}
@@ -70,10 +72,10 @@ func Validate(ctx context.Context, httpClient HTTPDoer, account configuration.Ac
 // ProbeStatus executes one bounded authenticated endpoint request and closes
 // its response before returning the status. A status is transport evidence;
 // callers own its interpretation as credential validation or diagnostics.
-func ProbeStatus(ctx context.Context, httpClient HTTPDoer, client, endpoint, token string) (int, error) {
+func ProbeStatus(ctx context.Context, httpClient HTTPDoer, client, endpoint, token string, protocols ...configuration.EndpointProtocol) (int, error) {
 	ctx, cancel := context.WithTimeout(ctx, validationTimeout)
 	defer cancel()
-	request, err := ProbeRequest(ctx, client, endpoint, token)
+	request, err := ProbeRequest(ctx, client, endpoint, token, protocols...)
 	if err != nil {
 		return 0, err
 	}
@@ -105,26 +107,39 @@ func DoProbe(httpClient HTTPDoer, request *http.Request) (*http.Response, error)
 
 // ProbeRequest constructs the authentication request declared by one admitted
 // client's endpoint protocol.
-func ProbeRequest(ctx context.Context, client, endpoint, token string) (*http.Request, error) {
+func ProbeRequest(ctx context.Context, client, endpoint, token string, protocols ...configuration.EndpointProtocol) (*http.Request, error) {
 	spec, ok := configuration.ClientSpecFor(client)
 	if !ok {
 		return nil, fmt.Errorf("unsupported credential validation client %q", client)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, modelsEndpoint(endpoint, spec.EndpointProtocol), nil)
+	protocol := configuration.EndpointProtocol("")
+	if len(protocols) > 1 {
+		return nil, fmt.Errorf("credential probe requires one protocol")
+	}
+	if len(protocols) == 1 {
+		protocol = protocols[0]
+	}
+	if protocol == "" && len(spec.EndpointProtocols) == 1 {
+		protocol = spec.EndpointProtocols[0]
+	}
+	if protocol == "" || !slices.Contains(spec.EndpointProtocols, protocol) {
+		return nil, fmt.Errorf("client %q requires an admitted endpoint protocol", client)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, modelsEndpoint(endpoint, protocol), nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
-	authenticate(req, spec, token)
+	authenticate(req, protocol, token)
 	return req, nil
 }
 
-func authenticate(request *http.Request, spec configuration.ClientSpec, token string) {
-	switch spec.EndpointProtocol {
+func authenticate(request *http.Request, protocol configuration.EndpointProtocol, token string) {
+	switch protocol {
 	case configuration.ProtocolAnthropic:
 		request.Header.Set("X-Api-Key", token)
 		request.Header.Set("Anthropic-Version", "2023-06-01")
-	case configuration.ProtocolOpenAIResponses:
+	case configuration.ProtocolOpenAIResponses, configuration.ProtocolOpenAIChatCompletions:
 		request.Header.Set("Authorization", "Bearer "+token)
 	}
 }

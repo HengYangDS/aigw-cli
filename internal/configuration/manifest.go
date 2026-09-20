@@ -181,6 +181,7 @@ func validateReplacementSelectors(incoming Manifest, options MergeOptions) error
 func equivalentAccount(left, right Account) bool {
 	return left.Label == right.Label &&
 		normalizeEndpoint(left.Endpoints.OpenAIResponses) == normalizeEndpoint(right.Endpoints.OpenAIResponses) &&
+		normalizeEndpoint(left.Endpoints.OpenAIChatCompletions) == normalizeEndpoint(right.Endpoints.OpenAIChatCompletions) &&
 		normalizeEndpoint(left.Endpoints.Anthropic) == normalizeEndpoint(right.Endpoints.Anthropic) &&
 		equivalentProbe(left.AccountProbe, right.AccountProbe)
 }
@@ -200,6 +201,7 @@ func equivalentProfile(left, right Profile) bool {
 		left.Account == right.Account &&
 		left.Client == right.Client &&
 		left.Model == right.Model &&
+		left.Protocol == right.Protocol &&
 		left.ModelProvider == right.ModelProvider &&
 		resolvedAuthentication(left) == resolvedAuthentication(right)
 }

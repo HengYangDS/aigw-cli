@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -13,6 +14,8 @@ const (
 	ProtocolAnthropic EndpointProtocol = "anthropic"
 	// ProtocolOpenAIResponses identifies the OpenAI Responses-compatible endpoint.
 	ProtocolOpenAIResponses EndpointProtocol = "openai_responses"
+	// ProtocolOpenAIChatCompletions identifies OpenAI Chat Completions-compatible endpoints.
+	ProtocolOpenAIChatCompletions EndpointProtocol = "openai_chat_completions"
 )
 
 // ClientSpec is the canonical admission record for an implemented client
@@ -21,19 +24,24 @@ const (
 // another client. A future adapter must prove its own configuration, credential,
 // protocol, verification, rollback, and uninstall boundaries.
 type ClientSpec struct {
-	ID               string
-	Label            string
-	EndpointProtocol EndpointProtocol
+	ID                string
+	Label             string
+	EndpointProtocols []EndpointProtocol
 }
 
 var admittedClientSpecs = []ClientSpec{
-	{ID: ClientClaude, Label: "Claude", EndpointProtocol: ProtocolAnthropic},
-	{ID: ClientCodex, Label: "Codex", EndpointProtocol: ProtocolOpenAIResponses},
+	{ID: ClientClaude, Label: "Claude", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}},
+	{ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses}},
+	{ID: ClientHermes, Label: "Hermes", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions}},
 }
 
 // AdmittedClientSpecs returns an independent copy of every supported client contract.
 func AdmittedClientSpecs() []ClientSpec {
-	return append([]ClientSpec(nil), admittedClientSpecs...)
+	result := slices.Clone(admittedClientSpecs)
+	for index := range result {
+		result[index].EndpointProtocols = slices.Clone(result[index].EndpointProtocols)
+	}
+	return result
 }
 
 // AdmittedClientIDs returns admitted client identifiers in stable order.
@@ -79,6 +87,7 @@ func naturalChoices(choices []string) string {
 func ClientSpecFor(id string) (ClientSpec, bool) {
 	for _, spec := range admittedClientSpecs {
 		if spec.ID == id {
+			spec.EndpointProtocols = slices.Clone(spec.EndpointProtocols)
 			return spec, true
 		}
 	}
@@ -91,23 +100,54 @@ func IsAdmittedClient(id string) bool {
 	return ok
 }
 
-// Endpoint resolves this client's declared protocol endpoint from an Account.
-// Client identity selects protocol only here; provider identity never changes
-// client behavior.
-func (s ClientSpec) Endpoint(account Account) (string, error) {
-	var endpoint string
-	switch s.EndpointProtocol {
-	case ProtocolAnthropic:
-		endpoint = account.Endpoints.Anthropic
-	case ProtocolOpenAIResponses:
-		endpoint = account.Endpoints.OpenAIResponses
+// ResolveEndpoint selects an explicitly requested protocol or the sole available
+// supported endpoint. Multiple choices require a Profile-level selection.
+func (s ClientSpec) ResolveEndpoint(account Account, requested EndpointProtocol) (string, EndpointProtocol, error) {
+	protocol := requested
+	if protocol == "" && len(s.EndpointProtocols) == 1 {
+		protocol = s.EndpointProtocols[0]
+	}
+	if protocol == "" {
+		for _, candidate := range s.EndpointProtocols {
+			if account.Endpoints.For(candidate) == "" {
+				continue
+			}
+			if protocol != "" {
+				return "", "", fmt.Errorf("client %q has multiple compatible endpoints; select a profile protocol", s.ID)
+			}
+			protocol = candidate
+		}
+	}
+	if protocol == "" {
+		return "", "", fmt.Errorf("account %q has no compatible endpoint for client %q", account.ID, s.ID)
+	}
+	if !slices.Contains(s.EndpointProtocols, protocol) {
+		return "", "", fmt.Errorf("client %q does not support endpoint protocol %q", s.ID, protocol)
+	}
+	switch protocol {
+	case ProtocolAnthropic, ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions:
 	default:
-		return "", fmt.Errorf("client %q has unsupported endpoint protocol %q", s.ID, s.EndpointProtocol)
+		return "", "", fmt.Errorf("client %q has unsupported endpoint protocol %q", s.ID, protocol)
 	}
+	endpoint := account.Endpoints.For(protocol)
 	if endpoint == "" {
-		return "", &RuntimeMissingEndpointError{AccountID: account.ID, Protocol: s.EndpointProtocol}
+		return "", "", &RuntimeMissingEndpointError{AccountID: account.ID, Protocol: protocol}
 	}
-	return strings.TrimRight(endpoint, "/"), nil
+	return strings.TrimRight(endpoint, "/"), protocol, nil
+}
+
+// For returns the configured endpoint for one wire protocol.
+func (endpoints Endpoints) For(protocol EndpointProtocol) string {
+	switch protocol {
+	case ProtocolAnthropic:
+		return endpoints.Anthropic
+	case ProtocolOpenAIResponses:
+		return endpoints.OpenAIResponses
+	case ProtocolOpenAIChatCompletions:
+		return endpoints.OpenAIChatCompletions
+	default:
+		return ""
+	}
 }
 
 // AdapterConfig records whether an admitted client is enabled and which discovered targets it owns.

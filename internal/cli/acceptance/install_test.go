@@ -162,7 +162,11 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(retained.Adapters) != 0 || retained.Routes[configuration.ClientClaude] != "claude" || retained.Routes[configuration.ClientCodex] != "codex" || len(retained.Accounts) != 1 || len(retained.Profiles) != 2 {
+	expectedBindings := 0
+	if manager == "homebrew" {
+		expectedBindings = 2
+	}
+	if len(retained.Adapters) != expectedBindings || len(retained.EnabledClientIDs()) != 0 || retained.Routes[configuration.ClientClaude] != "claude" || retained.Routes[configuration.ClientCodex] != "codex" || len(retained.Accounts) != 1 || len(retained.Profiles) != 2 {
 		t.Fatalf("retained capability configuration = %#v", retained)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "token" {
@@ -173,9 +177,6 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	}
 	previous, err := app.Config.LoadBackup()
 	expectedAdapters := 2
-	if manager == "homebrew" {
-		expectedAdapters = 1
-	}
 	if err != nil || len(previous.Adapters) != expectedAdapters {
 		t.Fatalf("previous configuration = %#v, %v", previous, err)
 	}

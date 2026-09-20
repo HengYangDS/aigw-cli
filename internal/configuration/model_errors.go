@@ -67,6 +67,8 @@ func endpointProtocolName(protocol EndpointProtocol) string {
 		return "Anthropic"
 	case ProtocolOpenAIResponses:
 		return "OpenAI Responses"
+	case ProtocolOpenAIChatCompletions:
+		return "OpenAI Chat Completions"
 	default:
 		return string(protocol)
 	}

@@ -78,7 +78,7 @@ func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 }
 
 func TestVerifyAllUsesEnabledClientScope(t *testing.T) {
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		t.Run(client, func(t *testing.T) {
 			app, runner := readyVerificationApp(t)
 			cfg, err := app.Config.Load()
@@ -493,7 +493,7 @@ func TestVerifyAllReturnsCheckpointWriteFailure(t *testing.T) {
 }
 
 func TestVerifyRejectsMissingResponseSentinel(t *testing.T) {
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		t.Run(client, func(t *testing.T) {
 			app, runner := readyVerificationApp(t)
 			runner.output = []byte("wrong\n")

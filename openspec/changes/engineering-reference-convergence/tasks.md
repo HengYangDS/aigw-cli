@@ -12,9 +12,11 @@
 - [x] 2.1 Exercise first-time interactive setup with each supported credential mode and no installed clients; verify one available Account is sufficient and no unrelated Token is required.
 - [x] 2.2 Exercise `setup --from` with zero, one, and several available Accounts; verify token-free import, partial activation, and precise next actions.
 - [ ] 2.3 Verify deferred installation and later synchronization for Claude Code, Codex, Hermes, and Claude Desktop without re-importing team configuration or changing unrelated client state; report availability for each actual platform and surface.
-- [x] 2.4 Reconcile `use`, client-scoped selection, default selection, `use --all`, `status`, `check`, `doctor`, `test`, and `verify`; verify defaults have one human-readable meaning and explicit client selections require no hidden global step.
+- [ ] 2.4 Reconcile `use`, client-scoped selection, default selection, `use --all`, `status`, `check`, `doctor`, `test`, and `verify`; verify defaults have one human-readable meaning and explicit client selections require no hidden global step.
 - [x] 2.5 Verify setup, synchronization, selection, and repair are transactional under cancellation, output failure, concurrent external edits, and compensation failure.
-- [x] 2.6 Remove obsolete setup aliases, duplicate state transitions, and unconsumed configuration fields; verify supported manifests receive explicit migration errors rather than silent reinterpretation.
+- [ ] 2.6 Remove obsolete setup aliases, duplicate state transitions, and unconsumed configuration fields; verify supported manifests receive explicit migration errors rather than silent reinterpretation.
+- [ ] 2.7 Replace client-bound model duplication and parallel Route/Adapter selection with reusable Profiles and one explicit client binding; verify independent choices, native options, disabled intent, unambiguous protocol selection, and unaffected clients.
+- [ ] 2.8 Preview and execute a bounded retained-state schema migration without copying credentials or changing client sessions; verify exact guarded rollback and remove the replaced runtime schema and duplicate orchestration.
 
 ## 3. Converge credential ownership and portability
 
@@ -40,11 +42,11 @@
 
 ## 5. Align logical and physical repository structure
 
-- [x] 5.1 Build a dependency and semantic-ownership map for production packages; verify import direction, composition roots, and public interfaces match the product concepts.
+- [ ] 5.1 Build a dependency and semantic-ownership map for production packages; verify import direction, composition roots, and public interfaces match the product concepts.
 - [x] 5.2 Reorganize flat suffix families, mixed-responsibility directories, concatenated names, and misplaced code into cohesive semantic packages; verify behavior remains unchanged through focused tests.
 - [x] 5.3 Mirror production ownership in test organization without co-locating unrelated fixtures or creating a second implementation; verify reusable fixtures expose only stable test contracts.
 - [x] 5.4 Reorganize repository tools and configuration by responsibility; verify publication, CI, quality, release, and development bootstrap each have one discoverable owner.
-- [x] 5.5 Delete duplicate helpers, aliases, facades, dead branches, stale runtime artifacts, unused dependencies, orphaned evidence, and empty directories; verify no current consumer or required recovery path is lost.
+- [ ] 5.5 Delete duplicate helpers, aliases, facades, dead branches, stale runtime artifacts, unused dependencies, orphaned evidence, and empty directories; verify no current consumer or required recovery path is lost.
 - [x] 5.6 Review names, types, constants, error values, configuration keys, and CLI copy repository-wide; verify every semantic scope is narrow, consistent, English, and free of unexplained hard-coding.
 
 ## 6. Consolidate and tighten the quality graph
@@ -68,7 +70,7 @@
 ## 8. Rebuild documentation and contributor experience
 
 - [x] 8.1 Reconfirm documentation domains and move every current document to its precise semantic owner; verify research, decisions, architecture, concepts, guides, governance, operations, and history are not mixed.
-- [x] 8.2 Rewrite the README as a concise English product entry point covering installation, first Account, explicit client activation, direct endpoint composition, diagnosis, recovery, and removal with current commands.
+- [ ] 8.2 Rewrite the README as a concise English product entry point covering installation, first Account, explicit client activation, direct endpoint composition, diagnosis, recovery, and removal with current commands.
 - [ ] 8.3 Document complete setup, deferred synchronization, credential, installation, update, rollback, uninstall, Provider extension, Client extension, and optional-gateway journeys, including Hermes and Claude Desktop; verify every referenced source and artifact is tracked or publicly reachable.
 - [x] 8.4 Review every heading, paragraph, list, table, code block, Mermaid diagram, internal link, and external link for semantic order, rendering, accessibility, and concise `信、达、雅` expression.
 - [x] 8.5 Create a clean-checkout contributor path from bootstrap through a bounded TDD change and review; verify a new contributor can locate the invariant, owner, test, gate, and evidence without private context.

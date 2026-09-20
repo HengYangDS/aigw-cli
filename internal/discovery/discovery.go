@@ -26,16 +26,17 @@ type Discoverer interface{ Discover() Result }
 
 // System discovers clients from one explicit operating-system, home, and search-path context.
 type System struct {
-	GOOS      string
-	Home      string
-	CodexHome string
-	Path      string
+	GOOS       string
+	Home       string
+	CodexHome  string
+	HermesHome string
+	Path       string
 }
 
 // Current returns the discovery context derived from the current process environment.
 func Current() System {
 	home, _ := os.UserHomeDir()
-	return System{GOOS: runtime.GOOS, Home: home, CodexHome: os.Getenv("CODEX_HOME"), Path: os.Getenv("PATH")}
+	return System{GOOS: runtime.GOOS, Home: home, CodexHome: os.Getenv("CODEX_HOME"), HermesHome: os.Getenv("HERMES_HOME"), Path: os.Getenv("PATH")}
 }
 
 // Executable returns the first runnable command with name on this host.
@@ -97,4 +98,12 @@ func executableAvailable(goos, path string) (bool, error) {
 		return false, nil
 	}
 	return goos == "windows" || info.Mode().Perm()&0o111 != 0, nil
+}
+
+// HermesHomeDirectory resolves the native Hermes configuration root without creating it.
+func (s System) HermesHomeDirectory() string {
+	if s.HermesHome != "" {
+		return s.HermesHome
+	}
+	return filepath.Join(s.Home, ".hermes")
 }

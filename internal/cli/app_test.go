@@ -450,9 +450,9 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 		want []string
 	}{
 		{args: []string{"setup", "--help"}, want: []string{"Account ID; uses the first Profile ID when omitted", "First profile ID", "Read one token line from standard input"}},
-		{args: []string{"test", "--help"}, want: []string{"Test selected endpoints", "Test the selected Route for Claude or Codex"}},
+		{args: []string{"test", "--help"}, want: []string{"Test selected endpoints", "Test the selected Route for Claude, Codex, or Hermes"}},
 		{args: []string{"models", "--help"}, want: []string{"Compare configured model IDs with provider catalogs", "does not test inference"}},
-		{args: []string{"verify", "--help"}, want: []string{"Verify the selected Route for Claude, Codex, or all", "Verify one Profile using its declared client without changing Routes"}},
+		{args: []string{"verify", "--help"}, want: []string{"Verify the selected Route for Claude, Codex, Hermes, or all", "Verify one Profile using its declared client without changing Routes"}},
 		{args: []string{"rotate", "--help"}, want: []string{"Update one Account Token"}},
 		{args: []string{"completion", "--help"}, want: []string{"Generate shell completion"}},
 		{args: []string{"rollback", "--help"}, want: []string{"Restore only the immediately previous configuration backup"}},

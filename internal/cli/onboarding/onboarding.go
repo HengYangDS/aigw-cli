@@ -165,11 +165,11 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 		return setupPlan{}, fmt.Errorf("--for must be %s; run `aigw setup --help`", configuration.AdmittedClientUsage())
 	}
 	account := configuration.Account{ID: plan.request.Account, Endpoints: endpoints}
-	if _, err := spec.Endpoint(account); err != nil {
+	if _, _, err := spec.ResolveEndpoint(account, ""); err != nil {
 		if _, ok := errors.AsType[*configuration.RuntimeMissingEndpointError](err); !ok {
 			return setupPlan{}, err
 		}
-		return setupPlan{}, fmt.Errorf("--for %s requires %s", plan.request.Client, setupEndpointFlag(spec.EndpointProtocol))
+		return setupPlan{}, fmt.Errorf("--for %s requires %s", plan.request.Client, setupEndpointFlag(spec.EndpointProtocols[0]))
 	}
 	if strings.TrimSpace(plan.request.Model) == "" {
 		return setupPlan{}, fmt.Errorf("--for %s requires --model", plan.request.Client)

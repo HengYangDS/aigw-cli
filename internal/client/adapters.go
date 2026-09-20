@@ -21,6 +21,7 @@ var defaultRegistry = mustRegistry(
 	configuration.AdmittedClientSpecs(),
 	codexAdapter{},
 	claudeAdapter{},
+	hermesAdapter{},
 )
 
 // DefaultRegistry returns the immutable built-in adapter registry.
@@ -69,8 +70,8 @@ func (codexAdapter) Converge(deps Dependencies, cfg *configuration.Config, disco
 		}
 		return err
 	}
-	adapter := cfg.Adapters[configuration.ClientCodex]
-	if !adapter.Enabled && adapter.CredentialCommand != "" {
+	adapter, explicitlyConfigured := cfg.Adapters[configuration.ClientCodex]
+	if explicitlyConfigured && !adapter.Enabled {
 		return nil
 	}
 	targets := codexTargets(discovered, adapter.Targets)
@@ -202,8 +203,8 @@ func (claudeAdapter) Converge(deps Dependencies, cfg *configuration.Config, disc
 		}
 		return err
 	}
-	adapter := cfg.Adapters[configuration.ClientClaude]
-	if !adapter.Enabled && adapter.CredentialCommand != "" {
+	adapter, explicitlyConfigured := cfg.Adapters[configuration.ClientClaude]
+	if explicitlyConfigured && !adapter.Enabled {
 		return nil
 	}
 	executable, err := resolveExecutable(configuration.ClientClaude, adapter.Executable, discovered.Executable(configuration.ClientClaude))

@@ -80,6 +80,9 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 				facts.SuggestedProfile = cfg.FirstProfileForClient(clientID)
 			}
 			state := domainreadiness.ClassifyClient(facts)
+			if facts.Profile == "" && facts.SuggestedProfile == "" {
+				state.NextAction = ""
+			}
 			routes[clientID] = routeStatus{Client: state}
 			continue
 		}

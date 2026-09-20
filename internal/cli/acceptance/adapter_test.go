@@ -242,7 +242,7 @@ func TestAdapterCommandsListOnlyAdmittedClients(t *testing.T) {
 	}
 
 	err := cli.Execute(app, []string{"profile", "add", "future", "--account", "team", "--for", "gemini", "--model", "gemini-next"})
-	if err == nil || !strings.Contains(err.Error(), "claude or codex") {
+	if err == nil || !strings.Contains(err.Error(), "claude, codex, or hermes") {
 		t.Fatalf("unadmitted client error = %v", err)
 	}
 }
@@ -291,7 +291,7 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 	writeFile(t, app.ClaudeSettingsPath, []byte(`{"theme":"dark","env":{"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS":"1"}}`), 0o600)
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
-	for _, id := range configuration.AdmittedClientIDs() {
+	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		executable := filepath.Join(root, id)
 		writeFile(t, executable, []byte("public fixture"), 0o700)
 		cfg.Profiles[id] = configuration.Profile{Label: id, Account: "gateway", Client: id, Model: "fixture-model"}
@@ -317,7 +317,7 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 		t.Fatal(err)
 	}
 	command := filepath.Join(root, "credential adapter")
-	for _, id := range configuration.AdmittedClientIDs() {
+	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		adapter := cfg.Adapters[id]
 		adapter.CredentialCommand = command
 		cfg.Adapters[id] = adapter
@@ -360,7 +360,7 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 
 func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, target, command string) {
 	t.Helper()
-	for _, id := range configuration.AdmittedClientIDs() {
+	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		if err := cli.Execute(app, []string{"adapter", "disable", id}); err != nil {
 			t.Fatal(err)
 		}
@@ -372,7 +372,7 @@ func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, tar
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range configuration.AdmittedClientIDs() {
+	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		adapter := disabled.Adapters[id]
 		if adapter.Enabled || adapter.CredentialCommand != command {
 			t.Fatalf("sync did not preserve disabled %s policy: %#v", id, adapter)
@@ -389,7 +389,7 @@ func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, tar
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range configuration.AdmittedClientIDs() {
+	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		if adapter := reenabled.Adapters[id]; !adapter.Enabled || adapter.CredentialCommand != command {
 			t.Fatalf("reenable replaced %s credential policy: %#v", id, adapter)
 		}

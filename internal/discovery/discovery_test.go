@@ -139,10 +139,10 @@ func TestResultFindsKnownSurfaceByEachIdentity(t *testing.T) {
 	}
 }
 
-func TestLinuxDiscoveryContainsOnlyDefaultCodexHome(t *testing.T) {
+func TestLinuxDiscoveryKeepsDefaultClientHomesIndependent(t *testing.T) {
 	home := t.TempDir()
 	result := client.NewDiscoverer(client.DefaultRegistry(), discovery.System{GOOS: "linux", Home: home}).Discover()
-	if len(result.Surfaces) != 1 {
+	if len(result.Surfaces) != 2 {
 		t.Fatalf("Linux surfaces = %#v", result.Surfaces)
 	}
 	surface := result.Surfaces[0]

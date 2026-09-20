@@ -76,7 +76,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("token for account %q is unavailable: %w; %s", accountName, err, instruction)
 				}
-				status, err := credential.ProbeStatus(cmd.Context(), runtime.HTTP, target, clientRuntime.Endpoint, token)
+				status, err := credential.ProbeStatus(cmd.Context(), runtime.HTTP, target, clientRuntime.Endpoint, token, clientRuntime.Protocol)
 				if err != nil {
 					return err
 				}

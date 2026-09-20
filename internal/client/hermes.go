@@ -1,0 +1,267 @@
+package client
+
+import (
+	"context"
+	"crypto/sha256"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"slices"
+	"strings"
+
+	clientverification "aigw-cli/internal/client/verification"
+	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
+	"aigw-cli/internal/discovery"
+	hermesconfig "aigw-cli/internal/hermes/configuration"
+	"aigw-cli/internal/process"
+
+	"github.com/rogpeppe/go-internal/robustio"
+)
+
+type hermesAdapter struct{}
+
+const hermesSurface = "hermes-home-default"
+
+func (hermesAdapter) Spec() configuration.ClientSpec {
+	return mustClientSpec(configuration.ClientHermes)
+}
+
+func (hermesAdapter) Discover(source DiscoverySource) discovery.Result {
+	executable := source.Executable(configuration.ClientHermes)
+	path := filepath.Join(source.HermesHomeDirectory(), "config.yaml")
+	return discovery.Result{
+		Executables: map[string]string{configuration.ClientHermes: executable},
+		Surfaces:    []discovery.Surface{{ID: hermesSurface, Product: "Hermes", Authority: "aigw", Executable: executable, ConfigPath: path, Present: source.FilePresent(path)}},
+	}
+}
+
+func (hermesAdapter) Converge(deps Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
+	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	if _, absent := errors.AsType[*configuration.RuntimeRouteUnselectedError](err); absent {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	adapter, explicitlyConfigured := cfg.Adapters[configuration.ClientHermes]
+	if explicitlyConfigured && !adapter.Enabled {
+		return nil
+	}
+	executable, err := resolveExecutable(configuration.ClientHermes, adapter.Executable, discovered.Executable(configuration.ClientHermes))
+	if err != nil {
+		return err
+	}
+	available, err := discovery.ExecutableAvailable(executable)
+	if err != nil {
+		return err
+	}
+	if !available {
+		return nil
+	}
+	credentialAvailable := !selected.UsesAIGWCredentialStore()
+	if selected.UsesAIGWCredentialStore() {
+		credentialAvailable, err = secretAvailable(deps.Secrets, selected.AccountID)
+		if err != nil {
+			return err
+		}
+	}
+	if !adapter.Enabled && !credentialAvailable {
+		return nil
+	}
+	if len(adapter.Targets) == 0 {
+		surface, found := discovered.Surface(hermesSurface)
+		if !found || surface.ConfigPath == "" {
+			return nil
+		}
+		adapter.Targets = []string{surface.ConfigPath}
+	}
+	adapter.Enabled, adapter.Executable = true, executable
+	cfg.Adapters[configuration.ClientHermes] = adapter
+	return nil
+}
+
+func hermesRoute(deps Dependencies, selected configuration.Runtime) (hermesconfig.Route, error) {
+	command, err := credential.Command(selected.CredentialExecutable(deps.AIGWExecutable), configuration.ClientHermes, selected.CredentialProjectionFingerprint(configuration.ClientHermes), runtime.GOOS)
+	if err != nil {
+		return hermesconfig.Route{}, err
+	}
+	return hermesconfig.Route{Model: selected.Model, Endpoint: selected.Endpoint, Protocol: string(selected.Protocol), CredentialCommand: command}, nil
+}
+
+func hermesPlans(deps Dependencies, before, after configuration.Config) ([]hermesconfig.Plan, []string, error) {
+	previous, current := before.Adapters[configuration.ClientHermes], after.Adapters[configuration.ClientHermes]
+	if !previous.Enabled && !current.Enabled {
+		return nil, nil, nil
+	}
+	var route hermesconfig.Route
+	if current.Enabled {
+		selected, err := after.ResolveRuntime(configuration.ClientHermes, "")
+		if err != nil {
+			return nil, nil, err
+		}
+		route, err = hermesRoute(deps, selected)
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(current.Targets) != 1 {
+			return nil, nil, errors.New("Hermes requires one configured home")
+		}
+	}
+	targets := slices.Clone(current.Targets)
+	for _, target := range previous.Targets {
+		if !slices.Contains(targets, target) {
+			targets = append(targets, target)
+		}
+	}
+	plans := make([]hermesconfig.Plan, 0, len(targets))
+	for _, target := range targets {
+		var desired *hermesconfig.Route
+		if current.Enabled && slices.Contains(current.Targets, target) {
+			desired = &route
+		}
+		plan, err := hermesconfig.Prepare(target, desired)
+		if err != nil {
+			return nil, nil, err
+		}
+		plans = append(plans, plan)
+	}
+	return plans, targets, nil
+}
+
+func (hermesAdapter) Plan(deps Dependencies, before, after configuration.Config) ([]ProjectionPlan, error) {
+	plans, targets, err := hermesPlans(deps, before, after)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]ProjectionPlan, 0, len(plans))
+	for index, plan := range plans {
+		result = append(result, ProjectionPlan{Client: configuration.ClientHermes, Target: targets[index], Action: plan.Action})
+	}
+	return result, nil
+}
+
+type hermesReceipt []hermesconfig.Receipt
+
+func (receipt hermesReceipt) Rollback() error {
+	var result error
+	for _, item := range slices.Backward(receipt) {
+		result = errors.Join(result, item.Rollback())
+	}
+	return result
+}
+
+func (hermesAdapter) Apply(_ context.Context, deps Dependencies, before, after configuration.Config) (ProjectionReceipt, error) {
+	plans, _, err := hermesPlans(deps, before, after)
+	if err != nil {
+		return nil, err
+	}
+	receipts := hermesReceipt{}
+	for _, plan := range plans {
+		receipt, err := plan.Apply()
+		if err != nil {
+			return nil, errors.Join(err, receipts.Rollback())
+		}
+		receipts = append(receipts, receipt)
+	}
+	return receipts, nil
+}
+
+func (hermesAdapter) ProjectionChanged(before, after configuration.Config) bool {
+	previous, current := before.Adapters[configuration.ClientHermes], after.Adapters[configuration.ClientHermes]
+	if previous.Enabled != current.Enabled {
+		return true
+	}
+	if !current.Enabled {
+		return false
+	}
+	if previous.CredentialCommand != current.CredentialCommand || !slices.Equal(previous.Targets, current.Targets) {
+		return true
+	}
+	left, leftErr := before.ResolveRuntime(configuration.ClientHermes, "")
+	right, rightErr := after.ResolveRuntime(configuration.ClientHermes, "")
+	return leftErr != nil || rightErr != nil || left != right
+}
+
+func (hermesAdapter) Inspect(ctx context.Context, deps Dependencies, cfg configuration.Config, selected configuration.Runtime) Status {
+	if err := ctx.Err(); err != nil {
+		return Status{Issue: err.Error()}
+	}
+	adapter := cfg.Adapters[configuration.ClientHermes]
+	available, err := discovery.ExecutableAvailable(adapter.Executable)
+	if err != nil || !adapter.Enabled || !available || len(adapter.Targets) != 1 {
+		return Status{Issue: "Hermes executable or configuration home is unavailable", RepairAction: "aigw sync"}
+	}
+	route, err := hermesRoute(deps, selected)
+	if err == nil {
+		var plan hermesconfig.Plan
+		plan, err = hermesconfig.Prepare(adapter.Targets[0], &route)
+		if err == nil && plan.Action != "unchanged" {
+			err = errors.New("Hermes configuration projection differs from the selected route")
+		}
+	}
+	if err != nil {
+		return Status{Issue: err.Error(), RepairAction: "aigw sync"}
+	}
+	return Status{Ready: true}
+}
+
+func (hermesAdapter) Withdraw(cfg *configuration.Config) {
+	delete(cfg.Adapters, configuration.ClientHermes)
+}
+
+func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, selected configuration.Runtime, _ string) (_ Verification, result error) {
+	if deps.Runner == nil {
+		return Verification{}, errors.New("Hermes verification requires a process runner")
+	}
+	configured := cfg.Adapters[configuration.ClientHermes]
+	if !configured.Enabled {
+		return Verification{}, errors.New("Hermes adapter is disabled; run aigw sync")
+	}
+	home, err := os.MkdirTemp("", "aigw-hermes-verification-")
+	if err != nil {
+		return Verification{}, err
+	}
+	defer func() { result = errors.Join(result, robustio.RemoveAll(home)) }()
+	route, err := hermesRoute(deps, selected)
+	if err != nil {
+		return Verification{}, err
+	}
+	plan, err := hermesconfig.Prepare(filepath.Join(home, "config.yaml"), &route)
+	if err != nil {
+		return Verification{}, err
+	}
+	if _, err := plan.Apply(); err != nil {
+		return Verification{}, err
+	}
+	environment := []string{}
+	for _, entry := range os.Environ() {
+		if !strings.HasPrefix(entry, "HERMES_HOME=") {
+			environment = append(environment, entry)
+		}
+	}
+	environment = append(environment, "HERMES_HOME="+home)
+	probeCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
+	defer cancel()
+	probe := process.Plan{Executable: configured.Executable, Directory: home, Env: environment, Args: []string{"--version"}}
+	version, err := deps.Runner.RunCapture(probeCtx, probe)
+	if err != nil {
+		return Verification{}, errors.New("Hermes executable identity could not be observed")
+	}
+	probe.Args = []string{"chat", "--quiet", "--query-file", "-", "--toolsets", "none"}
+	probe.Stdin = "Reply with exactly AIGW_OK."
+	response, err := deps.Runner.RunCapture(probeCtx, probe)
+	if err != nil {
+		return Verification{}, errors.Join(errors.New("Hermes inference failed; external credential diagnostics suppressed"), probeCtx.Err())
+	}
+	if !strings.Contains(string(response), "AIGW_OK") {
+		return Verification{}, errors.New("Hermes model response did not return the expected AIGW_OK verification marker")
+	}
+	executable, err := os.ReadFile(configured.Executable)
+	if err != nil {
+		return Verification{}, err
+	}
+	return Verification{Version: strings.TrimSpace(string(version)), SHA256: fmt.Sprintf("%x", sha256.Sum256(executable))}, nil
+}
