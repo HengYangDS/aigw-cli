@@ -544,6 +544,21 @@ budgets pass, so no numerical gate changes merely to manufacture a tighter
 score. This is current-source calibration, not the later multi-host published-
 artifact acceptance owned by task 9.6.
 
+Task 6.5 distinguishes repository failures from bounded external outcomes. The
+exact-HEAD proof and complete macOS native entrypoint emit no repository-owned
+warning and no skipped Go test. OpenSpec's remaining long-requirement `INFO` is
+visible advice under the existing validation contract, not a warning or an
+admission bypass. GoReleaser reports only its explicit snapshot exclusions:
+publication and its disabled internal SBOM pipe are outside native acceptance,
+while the `AIGW_BUILD_OS=darwin` selection excludes Linux and Windows artifacts
+from that host-local build. CUE keeps those product/platform distinctions in
+`productEvidence`, `forgeCapabilities`, and `nativeEvidence`; projection tests
+prove that GitHub supplies all three native hosts and GitLab advertises only its
+macOS and Linux capacity. The sole source-level `t.Skip` names the Windows
+symlink-privilege limitation and executes the same ownership test on supported
+hosts. No retry, ignored exit code, `allow_failure`, `continue-on-error`, or
+silent capability promotion remains in the quality or Forge graph.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:
