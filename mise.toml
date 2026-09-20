@@ -12,7 +12,7 @@ GOTOOLCHAIN = "local"
 GOWORK = "off"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.103.1@sha256:09507c3c518c128403c5932380f393faa2659b8d1b98e95f966a2243294f6836"
+renovate_image = "ghcr.io/renovatebot/renovate:44.103.6@sha256:9c07736ffc4f85e26310db577696cad7dd9ca3d359bea6d0eadbb3d399caa38b"
 
 [tool_alias]
 # Keep npm's native precedence over Node's bundled npm on every platform.
@@ -44,7 +44,7 @@ taplo = "0.10.0"
 
 # Static quality
 "github:boyter/scc" = "4.1.0"
-"github:editorconfig-checker/editorconfig-checker" = "4.0.1"
+"github:editorconfig-checker/editorconfig-checker" = "4.0.2"
 "github:gitleaks/gitleaks" = "8.30.1"
 "github:golangci/golangci-lint" = "2.13.2"
 shellcheck = "0.11.0"

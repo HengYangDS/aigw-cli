@@ -118,6 +118,14 @@ warning: it makes no lookup and provides no freshness or vulnerability claim.
 Both containers remove their writable temporary state on exit. This container
 workflow was exercised on macOS; Windows-host invocation is not yet evidenced.
 
+CI images must select an upstream variant whose published contract already
+matches the runner. A runnable GitLab base therefore uses mise's explicit
+`-debian` image and an immutable multi-platform digest. Do not select the
+unqualified scratch image and compensate with an entrypoint override. Keep the
+complete image reference as the CUE-owned dependency literal so Renovate can
+observe both its version and digest; derive any action-version projection from
+that same value rather than duplicating it.
+
 Normal releases wait three days before proposal creation, covering npm's
 initial unpublish window. Missing publication timestamps are not guessed.
 Go and repository-tool updates are grouped separately; only non-major updates
@@ -126,13 +134,6 @@ images, pre-1.0 dependencies, and major upgrades require deliberate admission.
 OSV security fixes bypass the age delay and ordinary proposal quota, not quality
 or signing requirements. The existing OSV gate still owns full-lock scanning;
 Renovate's OSV integration covers direct dependencies only.
-
-The scoped npm override for markdownlint-cli2 selects smol-toml 1.8.0 because
-markdownlint-cli2 0.23.2 pins vulnerable 1.7.0. This addresses
-[GHSA-7w5x-hrqm-74c2](https://github.com/advisories/GHSA-7w5x-hrqm-74c2)
-without adding a direct dependency or patching vendor code. Remove the override
-when the admitted markdownlint-cli2 release resolves a non-vulnerable version
-itself; registry integrity and the native Markdown checks remain required.
 
 Mermaid validation uses the latest admitted development-only
 `@mermaid-lint/core` release and preserves its syntax diagnostics and semantic
@@ -382,11 +383,10 @@ and `SOURCE_DATE_EPOCH` from the committed Changelog date. The build emits the
 complete portable archive matrix, checksums, and SPDX SBOM. Repeating the build
 with the same inputs must produce identical bytes.
 
-Mise's current lock writer records the provenance method that successfully
-validated an artifact but no longer emits `provenance_verified`; older copies of
-that field are inert compatibility metadata. A lockfile provenance declaration
-therefore proves the selected verification method was used during generation,
-while checksums continue to bind installations to the reviewed bytes.
+Mise records the provenance method used during lock generation, while checksums
+bind installation to the reviewed bytes. Regenerate the complete lock through
+the current repository-pinned Mise whenever its schema changes; do not preserve
+retired generator fields by editing around an older lock.
 
 Credential-free construction uses the existing GoReleaser post-build hook to
 apply an ad-hoc Mach-O signature and Hardened Runtime before archiving. Native

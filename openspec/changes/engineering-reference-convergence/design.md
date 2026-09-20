@@ -583,6 +583,62 @@ workflow edit masked a failure. Exact-HEAD ETHOS proof remains the final local
 admission for the signed commit; native and hosted release matrices retain their
 separate task 9 obligations.
 
+## Supply-chain closure
+
+Tasks 7.1–7.3 treat authored manifests as dependency truth and upstream release
+metadata observed on 2026-09-20 as freshness evidence. Renovate retains its
+three-day delay for unattended proposals. This maintainer-directed batch admits
+newer stable inputs only after checking their published identity, immutable
+digest or registry signature, compatibility, focused owner tests, and
+deterministic lock output.
+
+- **Language and package managers:** Go 1.27.1, Node 26.9.0, npm 12.0.2, and
+  mise 2026.9.11. Exact pins and repository locks select execution; ambient
+  fallback is disabled. AIGW has no Python manifest or Python runtime, so it
+  declares no Python compatibility line.
+- **Product Go modules:** `charm.land/huh/v2` 2.0.3,
+  `charm.land/lipgloss/v2` 2.0.6, `Masterminds/semver/v3` 3.5.0,
+  `charmbracelet/x/ansi` 0.11.8, `gofrs/flock` 0.13.1,
+  `pelletier/go-toml/v2` 2.4.3, `rogpeppe/go-internal` 1.16.0,
+  `santhosh-tekuri/jsonschema/v6` 6.0.3, `spf13/cobra` 1.10.2,
+  `spf13/pflag` 1.0.10, `zalando/go-keyring` 0.2.8,
+  `go.yaml.in/yaml/v3` 3.0.5, `x/sys` 0.48.0, and `x/term` 0.46.0. The exact
+  module graph is governed by update discovery, tidy, integrity, test, race,
+  and vulnerability checks.
+- **Repository Node tools:** OpenSpec 1.13.1, Mermaid Lint 0.53.1,
+  markdownlint-cli2 0.23.3, and Prettier 3.9.8. The exact package lock is
+  exercised by deterministic installation, registry-signature, format,
+  Markdown, Mermaid, and OpenSpec gates.
+- **Release and Forge tools:** GitHub CLI 2.101.0, GitLab CLI 1.118.0,
+  GoReleaser 2.18.2, Syft 1.52.0, OSV-Scanner 2.6.0, and Apple codesign 0.29.0.
+  Native version probes, release tests, and signed artifact checks own their
+  use.
+- **Quality tools:** CUE 0.17.1, Taplo 0.10.0, SCC 4.1.0, EditorConfig Checker
+  4.0.2, Gitleaks 8.30.1, golangci-lint 2.13.2, ShellCheck 0.11.0, actionlint
+  1.7.12, Lychee 0.24.2, and Typos 1.50.2. Each has one existing quality-graph
+  consumer; Hyperfine 1.20.0 remains scoped to performance acceptance.
+- **Hosted inputs:** checkout 7.0.1, mise-action 4.3.0, and upload-artifact
+  7.0.1 use immutable commits matching their official tags. Renovate 44.103.6
+  and the mise 2026.9.11 Debian image use immutable multi-platform index
+  digests. CUE remains the single authored owner of both Forge projections.
+
+The admitted updates are markdownlint-cli2 0.23.3, EditorConfig Checker 4.0.2,
+and Renovate 44.103.6. markdownlint-cli2 now owns `smol-toml` 1.8.0 directly,
+so its former repository override was deleted. The remaining Mermaid override
+has a current consumer: removing it resolves to deprecated `whatwg-encoding`
+through jsdom 26, while the admitted jsdom 30 and whatwg-url 17 graph is warning-
+free and passes the same nine-diagram validation.
+
+The mise release introduced a breaking image-tag distinction after 2026.9.11
+was published. The unqualified version tag now names a scratch image with no
+shell; the official `-debian` variant is the runnable CI base. AIGW therefore
+uses `2026.9.11-debian` at its verified multi-platform digest, derives the
+GitHub action version from that one CUE value, and removes the old empty-
+entrypoint override. Projection tests reject an unqualified image, a missing
+digest, or any entrypoint patch. The complete lock was regenerated twice from
+`mise.toml`; both results were byte-identical and contain no obsolete
+`provenance_verified` compatibility fields.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:

@@ -4,13 +4,10 @@
   "devDependencies": {
     "@fission-ai/openspec": "1.13.1",
     "@mermaid-lint/core": "0.53.1",
-    "markdownlint-cli2": "0.23.2",
+    "markdownlint-cli2": "0.23.3",
     "prettier": "3.9.8"
   },
   "overrides": {
-    "markdownlint-cli2": {
-      "smol-toml": "1.8.0"
-    },
     "@mermaid-lint/core": {
       "jsdom": {
         ".": "30.1.0",

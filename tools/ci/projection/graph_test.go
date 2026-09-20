@@ -384,7 +384,7 @@ func TestGitHubWorkflowsDeclareTheCanonicalInitialBranch(t *testing.T) {
 type gitLabJob struct {
 	BeforeScript []string          `yaml:"before_script"`
 	Extends      []string          `yaml:"extends"`
-	Image        gitLabImage       `yaml:"image"`
+	Image        string            `yaml:"image"`
 	Needs        []gitLabNeed      `yaml:"needs"`
 	Script       []string          `yaml:"script"`
 	Variables    map[string]string `yaml:"variables"`
@@ -469,11 +469,6 @@ func TestSemanticGraphDefinesExactClaimsAndEvidenceReuse(t *testing.T) {
 
 type gitLabNeed struct {
 	Job string `yaml:"job"`
-}
-
-type gitLabImage struct {
-	Name       string   `yaml:"name"`
-	Entrypoint []string `yaml:"entrypoint"`
 }
 
 func TestForgeProjectionsFollowDeclaredNativeCapacity(t *testing.T) {

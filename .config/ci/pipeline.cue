@@ -158,12 +158,8 @@ _graphOrder: {
 	}
 }
 
-miseImage: "ghcr.io/jdx/mise:2026.9.11@sha256:f01b88463f3a8396b2273d88469bd09d097aa3cacfe343177eb5457f1d8d2a92"
-
-#MiseGitLabImage: {
-	name: miseImage
-	entrypoint: [""]
-}
+miseImage:   "ghcr.io/jdx/mise:2026.9.11-debian@sha256:12f3fe18fe6c02c54d1bbb9bdc60a492a72a320252439f0df657c6f01a04c23f"
+miseVersion: strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
@@ -193,7 +189,7 @@ actions: {
 	uses: actions.mise
 	env:  installationEnvironment
 	with: {
-		version:          strings.Split(strings.Split(miseImage, ":")[1], "@")[0]
+		version:          miseVersion
 		install:          true
 		install_args:     "--locked"
 		cache:            true
@@ -417,7 +413,7 @@ gitlab: {
 	".linux-toolchain": {
 		_dataDirectory: "build/runtime/tool-cache/.mise"
 		_cacheDirectories: ["installs", "cache"]
-		image: #MiseGitLabImage
+		image: miseImage
 		variables: {
 			MISE_DATA_DIR:  "$CI_PROJECT_DIR/\(_dataDirectory)"
 			MISE_CACHE_DIR: "$CI_PROJECT_DIR/\(_dataDirectory)/cache"

@@ -54,11 +54,11 @@
 
 ## 7. Upgrade and lock the development supply chain
 
-- [ ] 7.1 Enumerate every direct runtime, build, test, documentation, CI, release, action, container, and package-manager dependency with its current stable upstream version and compatibility policy.
-- [ ] 7.2 Upgrade direct dependencies in semantic batches, regenerate only canonical locks and projections, and verify each batch through focused tests before full native acceptance.
-- [ ] 7.3 Verify Python 3.12 compatibility where declared while qualifying current stable Python, Go, Node, npm, mise, OpenSpec, CUE, release, security, and documentation tooling.
+- [x] 7.1 Enumerate every direct runtime, build, test, documentation, CI, release, action, container, and package-manager dependency with its current stable upstream version and compatibility policy.
+- [x] 7.2 Upgrade direct dependencies in semantic batches, regenerate only canonical locks and projections, and verify each batch through focused tests before full native acceptance.
+- [x] 7.3 Verify Python 3.12 compatibility where declared while qualifying current stable Python, Go, Node, npm, mise, OpenSpec, CUE, release, security, and documentation tooling.
 - [ ] 7.4 Reproduce bootstrap in a clean Work Lane on each supported host; verify repository-locked tools, local mutable environments, and content-addressed caches do not depend on ambient system versions or sibling lanes.
-- [ ] 7.5 Remove superseded pins, duplicate installers, unused packages, stale caches, and abandoned generated outputs; verify lockfiles and dependency evidence describe the exact surviving graph.
+- [x] 7.5 Remove superseded pins, duplicate installers, unused packages, stale caches, and abandoned generated outputs; verify lockfiles and dependency evidence describe the exact surviving graph.
 
 ## 8. Rebuild documentation and contributor experience
 

@@ -144,29 +144,24 @@ func TestToolchainCachesPreserveLockAndExecutionBoundaries(t *testing.T) {
 	}
 }
 
-func TestGitLabToolchainImagesYieldToTheRunnerShell(t *testing.T) {
-	content := `package ci
-#ToolchainImage: {
-	name: "example.invalid/toolchain@sha256:fixture"
-	entrypoint: [""]
-}
-gitlab: {
-	".linux-toolchain": {image: #ToolchainImage}
-	quality: {extends: [".linux-toolchain"]}
-	"native-linux": {extends: [".linux-toolchain"]}
-}
-githubVerify: {name: "Verify"}
-githubRelease: {name: "Release"}
-`
-	root := projectionRoot(t, content)
-
+func TestGitLabToolchainUsesOfficialRunnableMiseImage(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	gitlab := projections[0].Content
-	if got := strings.Count(gitlab, "entrypoint:\n      - \"\""); got != 1 {
-		t.Fatalf("empty GitLab image entrypoints = %d, want 1:\n%s", got, gitlab)
+	var pipeline struct {
+		Toolchain gitLabJob `yaml:".linux-toolchain"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	image, digest, pinned := strings.Cut(pipeline.Toolchain.Image, "@sha256:")
+	if !pinned || len(digest) != 64 || !strings.HasPrefix(image, "ghcr.io/jdx/mise:") || !strings.HasSuffix(image, "-debian") {
+		t.Fatalf("GitLab must use one runnable official mise image pinned by digest: %q", pipeline.Toolchain.Image)
+	}
+	if strings.Contains(projections[0].Content, "entrypoint:") {
+		t.Fatal("GitLab projection overrides the official runnable image entrypoint")
 	}
 }
 
@@ -188,7 +183,7 @@ func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
 	if !slices.Equal(pipeline.LinuxToolchain.BeforeScript, []string{"env GODEBUG=http2client=0 mise install --locked"}) {
 		t.Fatalf("Linux bootstrap must install the repository lock directly: %q", pipeline.LinuxToolchain.BeforeScript)
 	}
-	if pipeline.LinuxToolchain.Image.Name == "" || pipeline.LinuxToolchain.Image.Entrypoint == nil {
+	if pipeline.LinuxToolchain.Image == "" {
 		t.Fatalf("Linux toolchain image is incomplete: %#v", pipeline.LinuxToolchain.Image)
 	}
 	for name, job := range map[string]gitLabJob{
@@ -222,10 +217,11 @@ func TestForgeBootstrapUsesOneMiseRelease(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	image, digest, pinned := strings.Cut(gitlab.Toolchain.Image.Name, "@sha256:")
+	image, digest, pinned := strings.Cut(gitlab.Toolchain.Image, "@sha256:")
 	_, version, tagged := strings.Cut(image, ":")
-	if !pinned || len(digest) != 64 || !tagged || version == "" {
-		t.Fatalf("mise image must identify one version and digest: %q", gitlab.Toolchain.Image.Name)
+	version, runnable := strings.CutSuffix(version, "-debian")
+	if !pinned || len(digest) != 64 || !tagged || !runnable || version == "" {
+		t.Fatalf("mise image must identify one runnable version and digest: %q", gitlab.Toolchain.Image)
 	}
 	for _, projection := range projections[1:] {
 		var github struct {
