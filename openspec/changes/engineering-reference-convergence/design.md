@@ -559,6 +559,30 @@ symlink-privilege limitation and executes the same ownership test on supported
 hosts. No retry, ignored exit code, `allow_failure`, `continue-on-error`, or
 silent capability promotion remains in the quality or Forge graph.
 
+Task 6.6 reuses the adversarial regressions already introduced at each semantic
+owner instead of adding a parallel fault-test layer. Invalid command shapes are
+rejected before storage creation; Account connection and secret replacement
+exercise partial acquisition and compensation; compare-and-swap file writes and
+multi-target projection preflight model concurrent external edits; registry,
+synchronization, renaming, and process tests inject cancellation before and
+during effects; bounded process tests retain stderr and report interrupted pipe
+drain; Claude and Codex tests reject foreign ownership, malformed state, and
+stale hashes; diagnostics and secret selection classify unavailable services;
+and client, secret, synchronization, and program replacement tests preserve the
+primary failure when rollback also fails. Focused execution of those owners
+passes at `db864bcb`. The regressions exercise real public or domain boundaries,
+not mocks of the assertion itself, and retain the failure-inducing fixtures that
+would reject removal of the corresponding guard.
+
+Task 6.7 closes the quality phase with one execution order. Each semantic change
+first ran its smallest owning package or native adapter tests. The consolidated
+repository graph then ran once after tasks 6.1–6.6 stabilized, including exact
+projection reconciliation and the source-only package-observed coverage gate.
+No retry, issue limit, new-only mode, baseline, source exclusion, or generated
+workflow edit masked a failure. Exact-HEAD ETHOS proof remains the final local
+admission for the signed commit; native and hosted release matrices retain their
+separate task 9 obligations.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:

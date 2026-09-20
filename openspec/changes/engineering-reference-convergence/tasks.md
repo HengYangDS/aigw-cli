@@ -49,8 +49,8 @@
 - [x] 6.3 Enable the highest-value stable checks from Go, Markdown, TOML, YAML, JSON, CUE, shell, OpenSpec, spelling, links, secrets, vulnerabilities, and dependency analysis; verify each tool replaces rather than duplicates custom logic.
 - [x] 6.4 Measure executable lines, cyclomatic and cognitive complexity, nesting, parameters, test size, coverage, binary size, startup, steady-state latency, and memory; set strict but coherent thresholds with scope, rationale, and remediation.
 - [x] 6.5 Eliminate all repository-owned warnings and ambiguous skips; verify expected platform exclusions and external-capacity limits are explicit structured outcomes.
-- [ ] 6.6 Add adversarial tests for invalid inputs, partial state, concurrency, cancellation, interrupted I/O, ownership drift, stale sidecars, unavailable services, and rollback failure; verify each former defect fails before its minimal repair.
-- [ ] 6.7 Run focused checks after each semantic closure and the complete local graph only after prerequisites stabilize; verify no failure is hidden by retries, broad exclusions, or generated-file drift.
+- [x] 6.6 Add adversarial tests for invalid inputs, partial state, concurrency, cancellation, interrupted I/O, ownership drift, stale sidecars, unavailable services, and rollback failure; verify each former defect fails before its minimal repair.
+- [x] 6.7 Run focused checks after each semantic closure and the complete local graph only after prerequisites stabilize; verify no failure is hidden by retries, broad exclusions, or generated-file drift.
 
 ## 7. Upgrade and lock the development supply chain
 
