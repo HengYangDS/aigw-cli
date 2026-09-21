@@ -90,19 +90,23 @@ func TestDiscoverReturnsClaudeDesktopApplicationAndConfigurationLibrary(t *testi
 }
 
 func TestClaudeDesktopDiscoveryUsesNativeApplicationPath(t *testing.T) {
-	if runtime.GOOS != "darwin" && runtime.GOOS != "windows" {
-		t.Skip("Claude Desktop uses PATH discovery on this host")
+	goos := runtime.GOOS
+	if goos == "linux" {
+		goos = "darwin"
+	}
+	if goos != "darwin" && goos != "windows" {
+		t.Skip("unsupported test host")
 	}
 	root := t.TempDir()
 	env := map[string]string{"HOME": root, "LOCALAPPDATA": root}
-	candidate := platform.ClaudeDesktopApplicationPathsFor(runtime.GOOS, env)[0]
+	candidate := platform.ClaudeDesktopApplicationPathsFor(goos, env)[0]
 	if err := os.MkdirAll(filepath.Dir(candidate), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(candidate, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	system := discovery.System{GOOS: runtime.GOOS, Home: root, LocalAppData: root}
+	system := discovery.System{GOOS: goos, Home: root, LocalAppData: root}
 	if got := system.ClaudeDesktopExecutable(); got != candidate {
 		t.Fatalf("ClaudeDesktopExecutable() = %q, want %q", got, candidate)
 	}
