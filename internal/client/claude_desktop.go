@@ -161,7 +161,10 @@ func claudeDesktopPlans(deps Dependencies, before, after configuration.Config) (
 		return nil, nil, nil
 	}
 	var desired *claudedesktop.Desired
-	if current.Enabled {
+	if current.Enabled && len(current.Targets) > 0 {
+		if len(current.Targets) != 1 {
+			return nil, nil, errors.New("Claude Desktop requires one configuration library")
+		}
 		selected, err := after.ResolveRuntime(configuration.ClientClaudeDesktop, "")
 		if err != nil {
 			return nil, nil, err
@@ -171,9 +174,6 @@ func claudeDesktopPlans(deps Dependencies, before, after configuration.Config) (
 			return nil, nil, err
 		}
 		desired = &projection
-		if len(current.Targets) != 1 {
-			return nil, nil, errors.New("Claude Desktop requires one configuration library")
-		}
 	}
 	targets := slices.Clone(current.Targets)
 	for _, target := range previous.Targets {

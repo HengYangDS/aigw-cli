@@ -150,7 +150,10 @@ func hermesPlans(deps Dependencies, before, after configuration.Config) ([]herme
 		return nil, nil, nil
 	}
 	var desired hermesconfig.Desired
-	if current.Enabled {
+	if current.Enabled && len(current.Targets) > 0 {
+		if len(current.Targets) != 1 {
+			return nil, nil, errors.New("hermes requires one configured home")
+		}
 		selected, err := after.ResolveRuntime(configuration.ClientHermes, "")
 		if err != nil {
 			return nil, nil, err
@@ -158,9 +161,6 @@ func hermesPlans(deps Dependencies, before, after configuration.Config) ([]herme
 		desired, err = hermesDesired(deps, after, selected)
 		if err != nil {
 			return nil, nil, err
-		}
-		if len(current.Targets) != 1 {
-			return nil, nil, errors.New("hermes requires one configured home")
 		}
 	}
 	targets := slices.Clone(current.Targets)
@@ -172,7 +172,7 @@ func hermesPlans(deps Dependencies, before, after configuration.Config) ([]herme
 	plans := make([]hermesconfig.Plan, 0, len(targets))
 	for _, target := range targets {
 		var projection *hermesconfig.Desired
-		if current.Enabled && slices.Contains(current.Targets, target) {
+		if current.Enabled && len(current.Targets) > 0 && slices.Contains(current.Targets, target) {
 			projection = &desired
 		}
 		plan, err := hermesconfig.Prepare(target, projection)

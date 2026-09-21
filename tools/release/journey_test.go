@@ -99,6 +99,8 @@ func TestNativeProductJourney(t *testing.T) {
 		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 	})
 
+	runDeferredClientInstallation(t, artifact, server.URL+"/v1")
+
 	t.Run("one selected account does not require every token", func(t *testing.T) {
 		journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
 		journey.prepareCodexLifecycle()
@@ -328,16 +330,12 @@ func (j *journeyFixture) requireConfigContains(values ...string) {
 
 func (j *journeyFixture) requireNoClaudeProjection() {
 	j.testing.Helper()
-	for _, path := range []string{j.settings, j.settings + ".aigw-state.json"} {
-		if _, err := os.Stat(path); !os.IsNotExist(err) {
-			j.testing.Fatalf("Claude projection unexpectedly exists at %s: %v", path, err)
-		}
-	}
+	j.requireNoClientProjection(configuration.ClientClaude)
 }
 
 func (j *journeyFixture) requireClaudeProjection() {
 	j.testing.Helper()
-	requireFileContains(j.testing, j.settings, j.endpoint, "claude-test", "apiKeyHelper")
+	j.requireClientProjection(configuration.ClientClaude)
 	data, err := os.ReadFile(j.settings)
 	if err != nil {
 		j.testing.Fatal(err)

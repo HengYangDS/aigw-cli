@@ -13,6 +13,7 @@ import (
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/secrets"
 )
 
 type rollbackFunc func() error
@@ -429,6 +430,34 @@ func TestDefaultRegistryIgnoresOnlyAnUnselectedRoute(t *testing.T) {
 			cfg.SetSelectedProfile(clientID, "missing-profile")
 			if _, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown profile "missing-profile"`) {
 				t.Fatalf("Converge(%q) broken route error = %v", clientID, err)
+			}
+		})
+	}
+}
+
+func TestDefaultRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Profiles["claude"] = configuration.Profile{
+		Account: "gateway", Model: "claude-test", Protocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic},
+	}
+	store := secrets.NewMemoryStore()
+	if err := store.Set("gateway", "fixture-token"); err != nil {
+		t.Fatal(err)
+	}
+	deps := Dependencies{Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
+
+	for _, clientID := range []string{configuration.ClientClaudeDesktop, configuration.ClientHermes} {
+		t.Run(clientID, func(t *testing.T) {
+			deferred := cfg.Clone()
+			deferred.SetSelectedProfile(clientID, "claude")
+			deferred.SetClientActivation(clientID, true, "", nil)
+			plans, err := DefaultRegistry().Plan(deps, configuration.NewConfig(), deferred, clientID)
+			if err != nil {
+				t.Fatalf("Plan(%q) deferred binding: %v", clientID, err)
+			}
+			if len(plans) != 0 {
+				t.Fatalf("Plan(%q) deferred binding = %#v, want no projection", clientID, plans)
 			}
 		})
 	}
