@@ -446,3 +446,7 @@ exact_paths = [
   "LICENSE",
   "VERSION",
 ]
+
+[tracked_carrier_classes.architecture-publisher-integration]
+responsibility = "source-owned optional Architecture Publisher Edition"
+prefixes = ["integrations/architecture-publisher"]

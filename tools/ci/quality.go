@@ -81,6 +81,7 @@ var repositoryQualityGraph = qualityGraph{
 		{ID: "release-sources", Command: command{Name: "go", Args: []string{"run", "./tools/release", "validate-release-sources"}}, Concerns: []qualityConcern{qualitySchema, qualityProjection}},
 		{ID: "changelog", Command: command{Name: "go", Args: []string{"run", "./tools/release", "validate-changelog"}}, Concerns: []qualityConcern{qualityDocumentation, qualitySchema}},
 		{ID: "architecture", Command: command{Name: "go", Args: []string{"run", "./tools/architecture", "--root", "."}}, Concerns: []qualityConcern{qualityArchitecture}},
+		{ID: "architecture-edition-source", Command: command{Name: "node", Args: []string{"--test", "integrations/architecture-publisher/test/source-ownership.test.mjs"}}, Concerns: []qualityConcern{qualityTest, qualitySchema}},
 		{ID: "source-size", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-source-size", "."}}, Concerns: []qualityConcern{qualityArchitecture}},
 		{ID: "go-analysis", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}}, Concerns: []qualityConcern{qualityFormat, qualityLint, qualityType, qualitySecurity}},
 		{ID: "client-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClient(Inputs|StreamEnvelope|FilePreservation)$"}}, Concerns: []qualityConcern{qualityTest}},
@@ -105,6 +106,7 @@ var repositoryQualityGraph = qualityGraph{
 		{Class: "team-manifest", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema}, Gates: []string{"spelling", "toml", "coverage"}},
 		{Class: "toolchain", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema}, Gates: []string{"format", "spelling", "toml", "npm-signatures", "go-module-tidy", "go-module-integrity", "vulnerabilities", "toolchain", "coverage"}},
 		{Class: "repository-metadata", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema}, Gates: []string{"format", "spelling", "release-sources", "coverage"}},
+		{Class: "architecture-publisher-integration", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualityDocumentation, qualitySchema}, Gates: []string{"format", "spelling", "npm-signatures", "architecture-edition-source"}},
 	},
 }
 

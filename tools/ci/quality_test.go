@@ -86,6 +86,31 @@ func TestRepositoryQualityGraphIncludesStableGenericChecks(t *testing.T) {
 	}
 }
 
+func TestRepositoryQualityGraphOwnsTheArchitecturePublisherEdition(t *testing.T) {
+	gateIndex := slices.IndexFunc(repositoryQualityGraph.Gates, func(gate qualityGate) bool {
+		return gate.ID == "architecture-edition-source"
+	})
+	if gateIndex < 0 {
+		t.Fatal("quality graph lacks the source-owned Architecture Publisher Edition gate")
+	}
+	gate := repositoryQualityGraph.Gates[gateIndex]
+	if gate.Command.Name != "node" || !slices.Equal(gate.Command.Args, []string{
+		"--test",
+		"integrations/architecture-publisher/test/source-ownership.test.mjs",
+	}) {
+		t.Fatalf("architecture Edition gate = %#v", gate.Command)
+	}
+	carrierIndex := slices.IndexFunc(repositoryQualityGraph.Carriers, func(carrier carrierQuality) bool {
+		return carrier.Class == "architecture-publisher-integration"
+	})
+	if carrierIndex < 0 || !slices.Contains(
+		repositoryQualityGraph.Carriers[carrierIndex].Gates,
+		"architecture-edition-source",
+	) {
+		t.Fatal("architecture Edition carrier is not bound to its source gate")
+	}
+}
+
 func TestSpellingUsesCurrentCheckoutAndNativePolicy(t *testing.T) {
 	repository := repositoryRoot(t)
 	root := t.TempDir()
