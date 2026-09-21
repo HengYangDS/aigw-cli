@@ -3,7 +3,6 @@ package main
 import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/platform"
-	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	"bytes"
 	"crypto/sha256"
@@ -19,8 +18,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-
-	"github.com/pelletier/go-toml/v2"
 )
 
 func TestMain(m *testing.M) {
@@ -451,71 +448,4 @@ func requiredClientInput(key string, directory bool) (string, error) {
 		return "", fmt.Errorf("%s has the wrong input kind", key)
 	}
 	return path, nil
-}
-
-func (j *journeyFixture) retainedCredential(client string) process.Plan {
-	j.testing.Helper()
-	plan := process.Plan{Env: slices.Clone(j.environment)}
-	if client == configuration.ClientCodex {
-		var config struct {
-			ModelProvider  string `toml:"model_provider"`
-			ModelProviders map[string]struct {
-				Auth struct {
-					Command string   `toml:"command"`
-					Args    []string `toml:"args"`
-				} `toml:"auth"`
-			} `toml:"model_providers"`
-		}
-		path := filepath.Join(environmentValues(j.environment)["CODEX_HOME"], "config.toml")
-		if err := toml.Unmarshal(readFile(j.testing, path), &config); err != nil {
-			j.testing.Fatal(err)
-		}
-		auth := config.ModelProviders[config.ModelProvider].Auth
-		if auth.Command == "" || len(auth.Args) == 0 {
-			j.testing.Fatal("Codex projection lacks a credential command")
-		}
-		plan.Executable, plan.Args = auth.Command, auth.Args
-		return plan
-	}
-	if client != configuration.ClientClaude {
-		j.testing.Fatalf("unsupported credential client %q", client)
-	}
-	var settings struct {
-		APIKeyHelper string `json:"apiKeyHelper"`
-	}
-	if err := json.Unmarshal(readFile(j.testing, j.settings), &settings); err != nil {
-		j.testing.Fatal(err)
-	}
-	if settings.APIKeyHelper == "" {
-		j.testing.Fatal("Claude projection lacks a credential helper")
-	}
-	if runtime.GOOS == "windows" {
-		// Execute the exact helper as native shell source, not a quoted Go
-		// argument: cmd.exe does not use CommandLineToArgvW escaping.
-		script, err := os.CreateTemp(j.root, "credential-*.cmd")
-		if err != nil {
-			j.testing.Fatal(err)
-		}
-		_, writeErr := script.WriteString("@echo off\r\n" + settings.APIKeyHelper + "\r\n")
-		closeErr := script.Close()
-		if writeErr != nil || closeErr != nil {
-			j.testing.Fatalf("retain exact Windows credential command: write=%v close=%v", writeErr, closeErr)
-		}
-		plan.Executable = script.Name()
-	} else {
-		plan.Executable, plan.Args = "/bin/sh", []string{"-c", settings.APIKeyHelper}
-	}
-	return plan
-}
-
-func (j *journeyFixture) retainedCredentials() []process.Plan {
-	cfg, err := configuration.NewStore(j.config).Load()
-	if err != nil {
-		j.testing.Fatal(err)
-	}
-	credentials := make([]process.Plan, 0, len(cfg.Clients))
-	for _, client := range cfg.EnabledClientIDs() {
-		credentials = append(credentials, j.retainedCredential(client))
-	}
-	return credentials
 }

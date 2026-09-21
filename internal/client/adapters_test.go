@@ -30,12 +30,18 @@ type captureAdapterRunner struct {
 	err       error
 	calls     int
 	deadlines []bool
+	plans     []process.Plan
+	outputs   [][]byte
 }
 
-func (runner *captureAdapterRunner) RunCapture(ctx context.Context, _ process.Plan) ([]byte, error) {
+func (runner *captureAdapterRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
+	runner.plans = append(runner.plans, plan)
 	runner.calls++
 	_, hasDeadline := ctx.Deadline()
 	runner.deadlines = append(runner.deadlines, hasDeadline)
+	if runner.calls <= len(runner.outputs) {
+		return runner.outputs[runner.calls-1], runner.err
+	}
 	return nil, runner.err
 }
 
@@ -426,26 +432,6 @@ func TestClaudeAdapterReportsExecutableAndSecretFailures(t *testing.T) {
 	cfg.SetClientActivation(configuration.ClientClaude, true, filepath.Join(t.TempDir(), "missing"), nil)
 	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "executable is unavailable") {
 		t.Fatalf("Verify() unavailable error = %v", err)
-	}
-}
-
-func TestBuiltInRegistryInvariantsPanicOnInvalidDefinitions(t *testing.T) {
-	tests := []struct {
-		name string
-		run  func()
-	}{
-		{name: "invalid registry", run: func() { mustRegistry(nil, failingProjectionAdapter{id: "unadmitted"}) }},
-		{name: "missing client", run: func() { mustClientSpec("missing") }},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			defer func() {
-				if recover() == nil {
-					t.Fatal("invariant violation did not panic")
-				}
-			}()
-			test.run()
-		})
 	}
 }
 

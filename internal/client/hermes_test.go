@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 
 	"aigw-cli/internal/configuration"
@@ -77,5 +78,32 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 		if _, err := os.Stat(target); !os.IsNotExist(err) {
 			t.Fatalf("withdrawal left %s: %v", target, err)
 		}
+	}
+}
+
+func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
+	executable := filepath.Join(t.TempDir(), "hermes")
+	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Profiles["hermes"] = configuration.Profile{Account: "gateway", Model: "claude-test"}
+	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Profile: "hermes", Enabled: true, Protocol: configuration.ProtocolAnthropic, Executable: executable}
+	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := secrets.NewMemoryStore()
+	if err := store.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
+	if _, err := (hermesAdapter{}).Verify(context.Background(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, clientRuntime, ""); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"chat", "--quiet", "--query-file", "-", "--oneshot", "--max-turns", "1", "--run-budget", "45", "--ignore-rules", "--source", "tool"}
+	if len(runner.plans) != 2 || !slices.Equal(runner.plans[1].Args, want) {
+		t.Fatalf("Hermes verification plans = %#v", runner.plans)
 	}
 }

@@ -121,7 +121,7 @@ func TestNativeClientFilePreservation(t *testing.T) {
 
 func TestNativeClientJourney(t *testing.T) {
 	inputs := map[string]string{}
-	for _, key := range []string{"AIGW_ACCEPTANCE_BASELINE", "AIGW_ACCEPTANCE_RELEASE", "AIGW_ACCEPTANCE_CODEX", "AIGW_ACCEPTANCE_CLAUDE"} {
+	for _, key := range []string{"AIGW_ACCEPTANCE_BASELINE", "AIGW_ACCEPTANCE_RELEASE", "AIGW_ACCEPTANCE_CODEX", "AIGW_ACCEPTANCE_CLAUDE", "AIGW_ACCEPTANCE_HERMES"} {
 		path, err := requiredClientInput(key, key == "AIGW_ACCEPTANCE_RELEASE")
 		if err != nil {
 			t.Fatal(err)
@@ -176,26 +176,28 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		spec, _ := configuration.ClientSpecFor(client)
 		protocol = spec.EndpointProtocols[0]
 	}
-	server := httptest.NewServer(clientResponseHandler(protocol, profile.Model, token, &completions))
+	requiredEffort := "high"
+	if client == configuration.ClientHermes {
+		requiredEffort = ""
+	}
+	server := httptest.NewServer(clientResponseHandler(protocol, profile.Model, token, requiredEffort, &completions))
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, p.inputs["AIGW_ACCEPTANCE_BASELINE"], server.URL+"/v1", false)
 	executable := p.inputs["AIGW_ACCEPTANCE_"+strings.ToUpper(client)]
+	if client == configuration.ClientHermes {
+		journey.run("update", "--candidate", p.archive, "--checksums", p.checksums)
+		journey.requireVersion(p.version)
+		journey.requireProgramBytes(p.candidate)
+	}
 	journey.prepareNativeClient(client, executable, p.team)
+	journey.isolateNativeClientManifest(client)
 	journey.setEnvironment(secrets.EnvironmentKey(profile.Account), token)
 	journey.run("setup", "--from", journey.manifest, "--account", profile.Account)
 	journey.enableNativeClient(client, executable)
 	retainedCredential := journey.retainedCredential(client)
 	before := journey.preserveClientFiles(client)
-	oldVersion := journey.predecessorVersion(p.version)
-	for _, step := range []struct {
-		name, version, program string
-		args                   []string
-	}{
-		{"baseline", oldVersion, journey.source, []string{"status", "--json"}},
-		{"candidate", p.version, p.candidate, []string{"update", "--candidate", p.archive, "--checksums", p.checksums}},
-		{"rollback", oldVersion, journey.source, []string{"update", "--rollback"}},
-		{"re-upgrade", p.version, p.candidate, []string{"update", "--candidate", p.archive, "--checksums", p.checksums}},
-	} {
+	steps := p.clientLifecycle(journey, client)
+	for _, step := range steps {
 		if !t.Run(step.name, func(t *testing.T) {
 			journey.testing = t
 			configurationBefore := readFile(t, journey.config)
@@ -250,6 +252,48 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	}
 }
 
+func (j *journeyFixture) isolateNativeClientManifest(client string) {
+	j.testing.Helper()
+	manifest, err := configuration.Parse(readFile(j.testing, j.manifest))
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	for recommendedClient := range manifest.Recommendations {
+		if recommendedClient != client {
+			delete(manifest.Recommendations, recommendedClient)
+		}
+	}
+	team, err := toml.Marshal(manifest)
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	if err := os.WriteFile(j.manifest, team, 0o600); err != nil {
+		j.testing.Fatal(err)
+	}
+}
+
+func (p nativeClientJourneyPlan) clientLifecycle(journey *journeyFixture, client string) []struct {
+	name, version, program string
+	args                   []string
+} {
+	if client == configuration.ClientHermes {
+		return []struct {
+			name, version, program string
+			args                   []string
+		}{{"first-adoption", p.version, p.candidate, []string{"status", "--json"}}}
+	}
+	oldVersion := journey.predecessorVersion(p.version)
+	return []struct {
+		name, version, program string
+		args                   []string
+	}{
+		{"baseline", oldVersion, journey.source, []string{"status", "--json"}},
+		{"candidate", p.version, p.candidate, []string{"update", "--candidate", p.archive, "--checksums", p.checksums}},
+		{"rollback", oldVersion, journey.source, []string{"update", "--rollback"}},
+		{"re-upgrade", p.version, p.candidate, []string{"update", "--candidate", p.archive, "--checksums", p.checksums}},
+	}
+}
+
 func (j *journeyFixture) verifyNativeConfigEditing(client, executable string) {
 	j.testing.Helper()
 	if client != configuration.ClientCodex {
@@ -273,6 +317,7 @@ func (j *journeyFixture) prepareNativeClient(client, executable string, team []b
 	j.environment = environmentWithout(j.environment, "CODEX_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL")
 	j.setEnvironment("CODEX_HOME", filepath.Join(home, ".codex"))
 	j.setEnvironment("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
+	j.setEnvironment("HERMES_HOME", filepath.Join(home, ".hermes"))
 	preferences := map[string]string{
 		// This journey owns client inference and projection, not marketplace synchronization.
 		configuration.ClientCodex: `model_reasoning_effort = 'high'
@@ -285,10 +330,15 @@ plugins = false
 max_concurrent_threads_per_session = 16
 `,
 		configuration.ClientClaude: `{"effortLevel":"high","autoCompactWindow":180000}`,
+		configuration.ClientHermes: "model:\n  temperature: 0.3\nproviders:\n  personal:\n    base_url: https://personal.test\nterminal:\n  backend: local\n",
 	}
-	path := j.settings
-	if client == configuration.ClientCodex {
-		path = filepath.Join(home, ".codex", "config.toml")
+	path := map[string]string{
+		configuration.ClientClaude: j.settings,
+		configuration.ClientCodex:  filepath.Join(home, ".codex", "config.toml"),
+		configuration.ClientHermes: filepath.Join(home, ".hermes", "config.yaml"),
+	}[client]
+	if path == "" {
+		j.testing.Fatalf("unsupported native client %q", client)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		j.testing.Fatal(err)
@@ -333,7 +383,8 @@ func (j *journeyFixture) enableNativeClient(client, executable string) {
 
 func (j *journeyFixture) requireNativePreferences(client string) {
 	j.testing.Helper()
-	if client == configuration.ClientCodex {
+	switch client {
+	case configuration.ClientCodex:
 		var preferences struct {
 			Effort   string `toml:"model_reasoning_effort"`
 			Window   int    `toml:"model_context_window"`
@@ -350,17 +401,27 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 		if preferences.Effort != "high" || preferences.Window != 500000 || preferences.Compact != 450000 || preferences.Scope != "body_after_prefix" || preferences.Features.Plugins == nil || *preferences.Features.Plugins {
 			j.testing.Fatalf("Codex preferences changed: %+v", preferences)
 		}
-		return
-	}
-	var preferences struct {
-		Effort  string `json:"effortLevel"`
-		Compact int    `json:"autoCompactWindow"`
-	}
-	if err := json.Unmarshal(readFile(j.testing, j.settings), &preferences); err != nil {
-		j.testing.Fatal(err)
-	}
-	if preferences.Effort != "high" || preferences.Compact != 180000 {
-		j.testing.Fatalf("Claude preferences changed: %+v", preferences)
+	case configuration.ClientClaude:
+		var preferences struct {
+			Effort  string `json:"effortLevel"`
+			Compact int    `json:"autoCompactWindow"`
+		}
+		if err := json.Unmarshal(readFile(j.testing, j.settings), &preferences); err != nil {
+			j.testing.Fatal(err)
+		}
+		if preferences.Effort != "high" || preferences.Compact != 180000 {
+			j.testing.Fatalf("Claude preferences changed: %+v", preferences)
+		}
+	case configuration.ClientHermes:
+		requireFileContains(
+			j.testing,
+			filepath.Join(environmentValues(j.environment)["HERMES_HOME"], "config.yaml"),
+			"temperature: 0.3",
+			"personal:",
+			"backend: local",
+		)
+	default:
+		j.testing.Fatalf("unsupported native client %q", client)
 	}
 }
 
@@ -368,8 +429,11 @@ func (j *journeyFixture) preserveClientFiles(client string) func() error {
 	j.testing.Helper()
 	home := filepath.Join(j.root, "home")
 	path, content := filepath.Join(home, ".claude", "CLAUDE.md"), "# User instructions\n"
-	if client == configuration.ClientCodex {
+	switch client {
+	case configuration.ClientCodex:
 		path, content = filepath.Join(home, ".codex", "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
+	case configuration.ClientHermes:
+		path, content = filepath.Join(home, ".hermes", "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		j.testing.Fatal(err)

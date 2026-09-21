@@ -13,13 +13,14 @@ cause AIGW to adopt foreign IDEs or agents accidentally.
 
 ## Decision
 
-The current admitted client set is Codex CLI and Desktop through their shared
-Codex Home, plus Claude Code through its official per-user settings and
-credential-helper interfaces. Missing clients are untouched. This describes
-the operational registry, not the complete requested delivery scope. Hermes
-and Claude Desktop are implementation obligations of the active Change and
-remain pending until their own admission passes. Session state, unrelated GUI
-preferences, JetBrains products, and external services retain their owners.
+The current admitted CLI client set is Codex CLI and Desktop through their
+shared Codex Home, Claude Code through its official per-user settings and
+credential-helper interfaces, and Hermes through its native provider,
+transport, and credential-command configuration. Missing clients are
+untouched. This describes the source-level operational registry, not stable
+release qualification. Claude Desktop remains an implementation obligation of
+the active Change. Session state, unrelated GUI preferences, JetBrains
+products, and external services retain their owners.
 
 A new client requires one explicit adapter admission with configuration,
 secret, rollback, uninstall, platform, and real verification evidence. Provider

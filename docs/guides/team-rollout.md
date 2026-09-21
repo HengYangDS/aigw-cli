@@ -229,10 +229,11 @@ overwriting them.
 
 ## Install a client later
 
-Claude Code and Codex are not setup prerequisites. After installing either
-client, run `aigw sync`; AIGW rediscovers supported clients and converges only
-its owned configuration. If that client has a selected Client Binding and usable
-authentication, sync enables its Adapter and writes the owned projection.
+Claude Code, Codex, and Hermes are not setup prerequisites. After installing a
+selected client, run `aigw sync`; AIGW rediscovers admitted clients and
+converges only its owned configuration. If that client has a selected Client
+Binding and usable authentication, sync enables its Adapter and writes the
+owned projection.
 Account-Token Client Bindings receive a credential helper; client-native bindings continue
 to use the client's own authentication:
 

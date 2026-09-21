@@ -249,7 +249,7 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 	if err != nil {
 		return Verification{}, errors.New("hermes executable identity could not be observed")
 	}
-	probe.Args = []string{"chat", "--quiet", "--query-file", "-", "--toolsets", "none"}
+	probe.Args = []string{"chat", "--quiet", "--query-file", "-", "--oneshot", "--max-turns", "1", "--run-budget", "45", "--ignore-rules", "--source", "tool"}
 	probe.Stdin = "Reply with exactly AIGW_OK."
 	response, err := deps.Runner.RunCapture(probeCtx, probe)
 	if err != nil {

@@ -299,7 +299,13 @@ Vendor count is a poor proxy for extensibility. One new model can be a data chan
   - **Smallest plausible owner:** Client-specific projection/launch adapter
   - **Evidence of genuinely low-cost extension:** Correct path, precedence, credential delivery, conflict handling and removal in the real client.
 
-CC Switch CLI declares Hermes, OpenCode and Pi support; AIGW currently admits Claude Code and Codex. That is a breadth difference, not a reason to call a future AIGW integration free. Equivalent Qoder evidence was not established in the assessed leading candidates. “Endpoint configured,” “model visible,” “tool loop works” and “survives upgrade” are separate acceptance levels. [CLI][cc-cli], [AIGW](../../README.md).
+CC Switch CLI declares Hermes, OpenCode and Pi support; the current AIGW source
+admits Claude Code, Codex, and Hermes, while Claude Desktop, OpenCode, Pi, and
+Qoder remain separate admission questions. That breadth difference is not a
+reason to call any future AIGW integration free. Equivalent Qoder evidence was
+not established in the assessed leading candidates. “Endpoint configured,”
+“model visible,” “tool loop works,” “survives upgrade,” and “is published” are
+separate acceptance levels. [CLI][cc-cli], [AIGW](../../README.md).
 
 ### Client surfaces and cross-model inference
 

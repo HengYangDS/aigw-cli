@@ -342,7 +342,21 @@ field. `mise run check` passes with 95.34% statement coverage, and the macOS
 `mise run native` gate passes retained-configuration rollback, delayed client
 activation, partial-credential setup, portable lifecycle and the shipped team
 manifest journey. These results do not establish the pending Linux, Windows,
-Hermes or Claude Desktop acceptance tasks.
+or Claude Desktop acceptance tasks.
+
+Task 4.5 admits Hermes through the same Client Binding and transaction owners
+as the existing clients. Setup may retain enabled intent before Hermes is
+installed; later discovery and synchronization select its native
+`config.yaml`, while explicit re-enablement retains that target. Projection
+maps the selected protocol to Hermes' native provider type, supplies a
+credential command rather than a Token, preserves unrelated YAML and session
+files, rejects a changed preimage, and removes only AIGW-owned configuration on
+disable or uninstall. Verification uses Hermes' documented bounded single-turn
+`chat` contract. The real Homebrew Hermes Agent `v0.21.3` executed an
+authenticated streaming request against the selected Anthropic-compatible
+endpoint, then passed Account rename, external credential-helper replacement,
+disable, re-enable, and uninstall in an isolated home. This is macOS evidence;
+Linux and Windows native qualification remain tasks 9.3 and 9.4.
 
 Credential portability is accepted at signed commit `3863e05e`. The ordinary
 GitHub review run `35455496791` exercised the complete native graph on macOS,

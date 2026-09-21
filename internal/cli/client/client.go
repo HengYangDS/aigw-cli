@@ -67,7 +67,8 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		}
 		before := cfg.Clone()
-		if before.Clients[client].Enabled {
+		current := before.Clients[client]
+		if current.Enabled && (current.Executable != "" || len(current.Targets) > 0) {
 			return fmt.Errorf("%s client projection is already enabled; disable it before changing the executable or config targets", spec.Label)
 		}
 		clientRuntime, err := cfg.ResolveRuntime(client, "")
@@ -94,6 +95,9 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 					return err
 				}
 			}
+		}
+		if len(targets) == 0 {
+			targets = current.Targets
 		}
 		cfg.SetClientActivation(client, true, executable, targets)
 		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "client enable"); err != nil {

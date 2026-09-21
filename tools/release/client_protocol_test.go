@@ -42,7 +42,7 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 				request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
 				request.Header.Set("Authorization", "Bearer "+test.credential)
 				response = httptest.NewRecorder()
-				clientResponseHandler(protocol, "configured-model", "synthetic", &completions).ServeHTTP(response, request)
+				clientResponseHandler(protocol, "configured-model", "synthetic", "high", &completions).ServeHTTP(response, request)
 				if response.Code != test.status || completions.Load() != test.completed {
 					t.Fatalf("%s %s: status=%d completions=%d", test.method, test.path, response.Code, completions.Load())
 				}
@@ -73,7 +73,7 @@ func assertStreamEvents(t *testing.T, protocol configuration.EndpointProtocol, b
 	}
 }
 
-func clientResponseHandler(protocol configuration.EndpointProtocol, model, token string, completions *atomic.Int64) http.Handler {
+func clientResponseHandler(protocol configuration.EndpointProtocol, model, token, requiredEffort string, completions *atomic.Int64) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/models", func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
@@ -96,8 +96,8 @@ func clientResponseHandler(protocol configuration.EndpointProtocol, model, token
 			http.Error(response, "configured model and stream required", http.StatusBadRequest)
 			return
 		}
-		if streamEffort(protocol, input.Reasoning.Effort, input.OutputConfig.Effort, input.ReasoningEffort) != "high" {
-			http.Error(response, "configured high effort required", http.StatusBadRequest)
+		if requiredEffort != "" && streamEffort(protocol, input.Reasoning.Effort, input.OutputConfig.Effort, input.ReasoningEffort) != requiredEffort {
+			http.Error(response, "configured effort required", http.StatusBadRequest)
 			return
 		}
 		response.Header().Set("Content-Type", "text/event-stream")
