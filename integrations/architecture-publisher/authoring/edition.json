@@ -1,0 +1,506 @@
+{
+  "schema": "aigw.architecture-edition-authoring/v1",
+  "id": "aigw-control-plane",
+  "owner": "aigw-cli",
+  "class": "structural",
+  "title": "AIGW Control Plane",
+  "audiences": {
+    "operator": {
+      "label": "AIGW operators"
+    },
+    "maintainer": {
+      "label": "AIGW maintainers"
+    }
+  },
+  "questions": {
+    "overview": {
+      "audience": "operator",
+      "prompt": "How does explicit intent become a bounded native client projection?",
+      "claims": [
+        "operator-cli",
+        "cli-configuration",
+        "configuration-accounts",
+        "configuration-profiles",
+        "configuration-synchronizer",
+        "synchronizer-registry",
+        "registry-adapter",
+        "adapter-credentials",
+        "adapter-transaction",
+        "adapter-clients"
+      ],
+      "detail": "overview",
+      "risk": "Omission would hide an authority or effect boundary."
+    },
+    "state": {
+      "audience": "maintainer",
+      "prompt": "Which state carries provider, route and client intent?",
+      "claims": [
+        "cli-configuration",
+        "configuration-accounts",
+        "configuration-profiles",
+        "configuration-synchronizer"
+      ],
+      "detail": "mechanism",
+      "risk": "Omission would confuse desired state with generated projections."
+    },
+    "projection": {
+      "audience": "maintainer",
+      "prompt": "How are enabled clients selected and projected?",
+      "claims": [
+        "synchronizer-registry",
+        "registry-adapter",
+        "adapter-clients"
+      ],
+      "detail": "mechanism",
+      "risk": "Omission would hide registry order and adapter ownership."
+    },
+    "safety": {
+      "audience": "operator",
+      "prompt": "Where are credentials and mutation safety bounded?",
+      "claims": ["adapter-credentials", "adapter-transaction"],
+      "detail": "mechanism",
+      "risk": "Omission would hide the credential and compensation boundaries."
+    }
+  },
+  "requiredClaims": [
+    "operator-cli",
+    "cli-configuration",
+    "configuration-accounts",
+    "configuration-profiles",
+    "configuration-synchronizer",
+    "synchronizer-registry",
+    "registry-adapter",
+    "adapter-credentials",
+    "adapter-transaction",
+    "adapter-clients"
+  ],
+  "omissions": {},
+  "narrative": ["overview", "state", "projection", "safety"],
+  "visualGrammar": {
+    "entityTypes": {
+      "actor": "external",
+      "interface": "frontend",
+      "desired-state": "database",
+      "catalog": "database",
+      "selection": "database",
+      "coordinator": "backend",
+      "registry": "backend",
+      "contract": "security",
+      "credential-store": "security",
+      "transaction": "security",
+      "client-surface": "cloud"
+    },
+    "relationTypes": {
+      "invokes": {
+        "label": "invokes",
+        "variant": "default"
+      },
+      "mutates": {
+        "label": "writes intent",
+        "variant": "emphasis"
+      },
+      "contains": {
+        "label": "contains",
+        "variant": "default"
+      },
+      "coordinates": {
+        "label": "coordinates",
+        "variant": "emphasis"
+      },
+      "dispatches": {
+        "label": "dispatches",
+        "variant": "emphasis"
+      },
+      "reads": {
+        "label": "reads",
+        "variant": "security"
+      },
+      "applies": {
+        "label": "applies",
+        "variant": "security"
+      },
+      "projects": {
+        "label": "projects",
+        "variant": "default"
+      }
+    },
+    "principles": [
+      "Explicit operator intent",
+      "One desired-state authority",
+      "Client-owned runtime preserved",
+      "Guarded and recoverable effects"
+    ]
+  },
+  "scenes": {
+    "static": {
+      "label": "Intent to native projection",
+      "questions": ["overview"],
+      "claims": [
+        "operator-cli",
+        "cli-configuration",
+        "configuration-accounts",
+        "configuration-profiles",
+        "configuration-synchronizer",
+        "synchronizer-registry",
+        "registry-adapter",
+        "adapter-credentials",
+        "adapter-transaction",
+        "adapter-clients"
+      ],
+      "composition": {
+        "groups": [
+          {
+            "id": "intent",
+            "label": "Intent",
+            "entities": ["operator", "cli"]
+          },
+          {
+            "id": "state",
+            "label": "Desired state",
+            "entities": ["accounts", "configuration", "profiles"]
+          },
+          {
+            "id": "coordination",
+            "label": "Coordination",
+            "entities": ["synchronizer", "registry"]
+          },
+          {
+            "id": "effects",
+            "label": "Guarded effects",
+            "entities": ["credentials", "adapter", "transaction"]
+          },
+          {
+            "id": "clients",
+            "label": "Native clients",
+            "entities": ["clients"]
+          }
+        ],
+        "relations": [
+          {
+            "id": "operator-cli",
+            "fromSide": "right",
+            "toSide": "left",
+            "route": "orthogonal-h"
+          },
+          {
+            "id": "cli-configuration",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "configuration-accounts",
+            "fromSide": "left",
+            "toSide": "right",
+            "route": "orthogonal-h"
+          },
+          {
+            "id": "configuration-profiles",
+            "fromSide": "right",
+            "toSide": "left",
+            "route": "orthogonal-h"
+          },
+          {
+            "id": "configuration-synchronizer",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "synchronizer-registry",
+            "fromSide": "right",
+            "toSide": "left",
+            "route": "orthogonal-h"
+          },
+          {
+            "id": "registry-adapter",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "adapter-credentials",
+            "fromSide": "left",
+            "toSide": "right",
+            "route": "orthogonal-h"
+          },
+          {
+            "id": "adapter-transaction",
+            "fromSide": "right",
+            "toSide": "left",
+            "route": "orthogonal-h"
+          },
+          {
+            "id": "adapter-clients",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          }
+        ]
+      }
+    },
+    "interactive": {
+      "overview": {
+        "label": "AIGW control plane",
+        "purpose": "overview",
+        "questions": ["overview"],
+        "claims": [
+          "operator-cli",
+          "cli-configuration",
+          "configuration-accounts",
+          "configuration-profiles",
+          "configuration-synchronizer",
+          "synchronizer-registry",
+          "registry-adapter",
+          "adapter-credentials",
+          "adapter-transaction",
+          "adapter-clients"
+        ],
+        "composition": {
+          "groups": [
+            {
+              "id": "intent",
+              "label": "Intent",
+              "entities": ["operator", "cli"]
+            },
+            {
+              "id": "state",
+              "label": "Desired state",
+              "entities": ["accounts", "configuration", "profiles"]
+            },
+            {
+              "id": "coordination",
+              "label": "Coordination",
+              "entities": ["synchronizer", "registry"]
+            },
+            {
+              "id": "effects",
+              "label": "Guarded effects",
+              "entities": ["credentials", "adapter", "transaction"]
+            },
+            {
+              "id": "clients",
+              "label": "Native clients",
+              "entities": ["clients"]
+            }
+          ],
+          "relations": [
+            {
+              "id": "operator-cli",
+              "fromSide": "right",
+              "toSide": "left",
+              "route": "auto"
+            },
+            {
+              "id": "cli-configuration",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto",
+              "labelDy": 24
+            },
+            {
+              "id": "configuration-accounts",
+              "fromSide": "left",
+              "toSide": "right",
+              "route": "auto"
+            },
+            {
+              "id": "configuration-profiles",
+              "fromSide": "right",
+              "toSide": "left",
+              "route": "auto"
+            },
+            {
+              "id": "configuration-synchronizer",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto",
+              "labelDy": 24
+            },
+            {
+              "id": "synchronizer-registry",
+              "fromSide": "right",
+              "toSide": "left",
+              "route": "auto"
+            },
+            {
+              "id": "registry-adapter",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto",
+              "labelDy": 24
+            },
+            {
+              "id": "adapter-credentials",
+              "fromSide": "left",
+              "toSide": "right",
+              "route": "auto"
+            },
+            {
+              "id": "adapter-transaction",
+              "fromSide": "right",
+              "toSide": "left",
+              "route": "auto"
+            },
+            {
+              "id": "adapter-clients",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto",
+              "labelDy": 24
+            }
+          ]
+        }
+      },
+      "state": {
+        "label": "Desired state",
+        "purpose": "mechanism",
+        "questions": ["state"],
+        "claims": [
+          "cli-configuration",
+          "configuration-accounts",
+          "configuration-profiles",
+          "configuration-synchronizer"
+        ],
+        "composition": {
+          "groups": [
+            {
+              "id": "command",
+              "label": "Command",
+              "entities": ["cli"]
+            },
+            {
+              "id": "state",
+              "label": "State",
+              "entities": ["accounts", "configuration", "profiles"]
+            },
+            {
+              "id": "consumer",
+              "label": "Consumer",
+              "entities": ["synchronizer"]
+            }
+          ],
+          "relations": [
+            {
+              "id": "cli-configuration",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto",
+              "labelDy": 24
+            },
+            {
+              "id": "configuration-accounts",
+              "fromSide": "left",
+              "toSide": "right",
+              "route": "auto"
+            },
+            {
+              "id": "configuration-profiles",
+              "fromSide": "right",
+              "toSide": "left",
+              "route": "auto"
+            },
+            {
+              "id": "configuration-synchronizer",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto",
+              "labelDy": 24
+            }
+          ]
+        }
+      },
+      "projection": {
+        "label": "Client projection",
+        "purpose": "mechanism",
+        "questions": ["projection"],
+        "claims": [
+          "synchronizer-registry",
+          "registry-adapter",
+          "adapter-clients"
+        ],
+        "composition": {
+          "groups": [
+            {
+              "id": "coordination",
+              "label": "Coordination",
+              "entities": ["synchronizer", "registry"]
+            },
+            {
+              "id": "contract",
+              "label": "Adapter contract",
+              "entities": ["adapter"]
+            },
+            {
+              "id": "targets",
+              "label": "Enabled clients",
+              "entities": ["clients"]
+            }
+          ],
+          "relations": [
+            {
+              "id": "synchronizer-registry",
+              "fromSide": "right",
+              "toSide": "left",
+              "route": "auto"
+            },
+            {
+              "id": "registry-adapter",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto",
+              "labelDy": 24
+            },
+            {
+              "id": "adapter-clients",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto",
+              "labelDy": 24
+            }
+          ]
+        }
+      },
+      "safety": {
+        "label": "Credential and mutation safety",
+        "purpose": "mechanism",
+        "questions": ["safety"],
+        "claims": ["adapter-credentials", "adapter-transaction"],
+        "composition": {
+          "groups": [
+            {
+              "id": "boundaries",
+              "label": "Bounded effects",
+              "entities": ["credentials", "adapter", "transaction"]
+            }
+          ],
+          "relations": [
+            {
+              "id": "adapter-credentials",
+              "fromSide": "left",
+              "toSide": "right",
+              "route": "auto"
+            },
+            {
+              "id": "adapter-transaction",
+              "fromSide": "right",
+              "toSide": "left",
+              "route": "auto"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "qualification": {
+    "semantic": ["claim-model-valid"],
+    "coverage": ["required-claims-visible"],
+    "static": ["static-geometry"],
+    "interactive": ["browser-behavior"],
+    "accessibility": ["keyboard-and-reduced-motion"],
+    "installed": ["offline-reproduction"],
+    "recovery": [],
+    "human": []
+  },
+  "scope": "Current AIGW control-plane architecture selected from exact source bytes"
+}
