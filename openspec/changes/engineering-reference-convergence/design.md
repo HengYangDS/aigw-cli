@@ -413,6 +413,12 @@ four manifest cases, and the complete local quality graph passes at 95.22%
 statement coverage. Hosted macOS, Linux, and Windows reruns remain required
 before this evidence closes Task 4.7 or the platform obligations in Task 9.
 
+The installed Claude Desktop 2.2553.1 schema independently identifies Chat,
+Cowork, and Code as configurable third-party surfaces. The AIGW-owned profile
+now enables all three explicitly instead of inheriting release-specific client
+defaults. This establishes deterministic projection intent; it does not replace
+the still-required native consumption and inference evidence for each surface.
+
 Credential portability is accepted at signed commit `3863e05e`. The ordinary
 GitHub review run `35455496791` exercised the complete native graph on macOS,
 Linux, and Windows; Windows also completed the real Credential Manager journey.

@@ -47,11 +47,14 @@ func TestProjectionPreservesForeignConfigurationAndRestoresOwnedState(t *testing
 	requireJSONKeys(t, paths.StandardConfig, "mcpServers")
 	requireJSONValues(t, paths.ThirdPartyConfig, map[string]any{"deploymentMode": "3p", "theme": "dark"})
 	requireJSONValues(t, paths.Profile, map[string]any{
-		"inferenceProvider":         "gateway",
-		"inferenceGatewayBaseUrl":   desired.BaseURL,
-		"inferenceCredentialKind":   "helper-script",
-		"inferenceCredentialHelper": desired.CredentialExecutable,
-		"modelDiscoveryEnabled":     false,
+		"chatTabEnabled":                true,
+		"coworkTabEnabled":              true,
+		"inferenceProvider":             "gateway",
+		"inferenceGatewayBaseUrl":       desired.BaseURL,
+		"inferenceCredentialKind":       "helper-script",
+		"inferenceCredentialHelper":     desired.CredentialExecutable,
+		"isClaudeCodeForDesktopEnabled": true,
+		"modelDiscoveryEnabled":         false,
 	})
 	requireJSONList(t, paths.Profile, "inferenceCredentialHelperArgs", []any{"credential", "claude-desktop", "fingerprint"})
 	requireModelNames(t, paths.Profile, []string{"claude-fable-5-1", "claude-opus-5"})

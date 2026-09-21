@@ -327,6 +327,8 @@ func encodeProfile(desired Desired) ([]byte, error) {
 		models = append(models, entry)
 	}
 	return encode(document{
+		"chatTabEnabled":                raw(true),
+		"coworkTabEnabled":              raw(true),
 		"inferenceCredentialHelper":     raw(desired.CredentialExecutable),
 		"inferenceCredentialHelperArgs": raw(desired.CredentialArguments),
 		"inferenceCredentialKind":       raw("helper-script"),
@@ -334,6 +336,7 @@ func encodeProfile(desired Desired) ([]byte, error) {
 		"inferenceGatewayBaseUrl":       raw(strings.TrimRight(desired.BaseURL, "/")),
 		"inferenceModels":               raw(models),
 		"inferenceProvider":             raw("gateway"),
+		"isClaudeCodeForDesktopEnabled": raw(true),
 		"modelDiscoveryEnabled":         raw(false),
 	})
 }
