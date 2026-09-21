@@ -229,6 +229,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	journey.requireClaudeCredential(token)
 	journey.runWithInput(journey.binary, replacement+"\n", "rotate", sourceAccount, "--token-stdin")
 	journey.requireClaudeCredential(replacement)
+	journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, oldVersion, replacement, backend)
 	journey.run("account", "rename", sourceAccount, targetAccount)
 	for _, account := range []string{sourceAccount, targetAccount} {
 		if value, err := store.Get(account); err != nil || value != replacement {
@@ -244,7 +245,6 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	if value, err := store.Get(targetAccount); err != nil || value != replacement {
 		t.Fatalf("finalized target credential = %q, %v", value, err)
 	}
-	journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, oldVersion, replacement, backend)
 	journey.uninstallAndRequireOwnedFilesAbsent()
 	if exists, err := store.Exists(targetAccount); err != nil || !exists {
 		t.Fatalf("uninstall removed the retained credential: exists=%t error=%v", exists, err)

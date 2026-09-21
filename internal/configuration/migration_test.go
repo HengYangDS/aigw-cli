@@ -7,49 +7,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/pelletier/go-toml/v2"
 )
-
-const legacyConfiguration = `version = 3
-
-[accounts.gateway]
-label = "Gateway"
-
-[accounts.gateway.endpoints]
-openai_responses = "https://gateway.test/v1"
-anthropic = "https://gateway.test"
-
-[profiles.claude]
-label = "Claude"
-purpose = "Conversation"
-account = "gateway"
-client = "claude"
-model = "claude-test"
-
-[profiles.codex]
-label = "Codex"
-account = "gateway"
-client = "codex"
-model = "gpt-test"
-model_provider = "amazon-bedrock"
-authentication = "client-native"
-
-[routes]
-claude = "claude"
-codex = "codex"
-
-[recommended_routes]
-codex = "codex"
-
-[adapters.claude]
-enabled = false
-executable = "/opt/claude"
-
-[adapters.codex]
-enabled = true
-executable = "/opt/codex"
-targets = ["/home/member/.codex/config.toml"]
-credential_command = "/opt/aigw"
-`
 
 func TestPrepareMigrationTranslatesLegacySelectionOwnership(t *testing.T) {
 	store, original := legacyStore(t)
@@ -68,7 +28,8 @@ func TestPrepareMigrationTranslatesLegacySelectionOwnership(t *testing.T) {
 	}
 
 	claude := plan.Clients[ClientClaude]
-	wantClaude := ClientBinding{Profile: "claude", Protocol: ProtocolAnthropic, Executable: "/opt/claude"}
+	root := filepath.Dir(store.Path())
+	wantClaude := ClientBinding{Profile: "claude", Protocol: ProtocolAnthropic, Executable: filepath.Join(root, "bin", "claude")}
 	if !reflect.DeepEqual(claude, wantClaude) {
 		t.Fatalf("Claude binding = %#v", claude)
 	}
@@ -76,7 +37,8 @@ func TestPrepareMigrationTranslatesLegacySelectionOwnership(t *testing.T) {
 	wantCodex := ClientBinding{
 		Profile: "codex", Enabled: true, Protocol: ProtocolOpenAIResponses,
 		ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
-		Executable: "/opt/codex", Targets: []string{"/home/member/.codex/config.toml"}, CredentialCommand: "/opt/aigw",
+		Executable: filepath.Join(root, "bin", "codex"), Targets: []string{filepath.Join(root, "home", ".codex", "config.toml")},
+		CredentialCommand: filepath.Join(root, "bin", "aigw"),
 	}
 	if !reflect.DeepEqual(codex, wantCodex) {
 		t.Fatalf("Codex binding = %#v", codex)
@@ -91,16 +53,10 @@ func TestPrepareMigrationTranslatesLegacySelectionOwnership(t *testing.T) {
 }
 
 func TestPrepareMigrationPreservesExplicitDisabledIntentWithoutASelection(t *testing.T) {
-	store, _ := legacyStore(t)
-	data, err := os.ReadFile(store.Path())
-	if err != nil {
-		t.Fatal(err)
-	}
-	data = bytes.Replace(data, []byte("[adapters.claude]\nenabled = false\nexecutable = \"/opt/claude\"\n\n"), []byte("[adapters.claude]\nenabled = false\n\n"), 1)
-	data = bytes.Replace(data, []byte("claude = \"claude\"\n"), nil, 1)
-	if err := os.WriteFile(store.Path(), data, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	store, _ := legacyStoreWith(t, func(config *legacyConfig) {
+		delete(config.Routes, ClientClaude)
+		config.Adapters[ClientClaude] = legacyAdapter{}
+	})
 
 	plan, err := store.PrepareMigration(false)
 	if err != nil {
@@ -201,40 +157,60 @@ func TestCurrentConfigurationMigrationIsANoOp(t *testing.T) {
 }
 
 func TestPrepareMigrationRejectsAmbiguousLegacyClientOptions(t *testing.T) {
-	store, _ := legacyStore(t)
-	data, err := os.ReadFile(store.Path())
-	if err != nil {
-		t.Fatal(err)
-	}
-	data = bytes.Replace(data, []byte("codex = \"codex\"\n\n[recommended_routes]"), []byte("\n[recommended_routes]"), 1)
-	data = bytes.Replace(data, []byte("codex = \"codex\"\n\n[adapters.claude]"), []byte("\n[adapters.claude]"), 1)
-	if err := os.WriteFile(store.Path(), data, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	store, _ := legacyStoreWith(t, func(config *legacyConfig) { delete(config.Routes, ClientCodex) })
 	if _, err := store.PrepareMigration(false); err == nil || !strings.Contains(err.Error(), "client-specific options") {
 		t.Fatalf("ambiguous migration error = %v", err)
 	}
 }
 
 func TestPrepareMigrationRejectsInvalidLegacyProfileClient(t *testing.T) {
-	store, _ := legacyStore(t)
-	data, err := os.ReadFile(store.Path())
-	if err != nil {
-		t.Fatal(err)
-	}
-	data = bytes.Replace(data, []byte("client = \"claude\""), []byte("client = \"unknown\""), 1)
-	if err := os.WriteFile(store.Path(), data, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	store, _ := legacyStoreWith(t, func(config *legacyConfig) {
+		profile := config.Profiles[ClientClaude]
+		profile.Client = "unknown"
+		config.Profiles[ClientClaude] = profile
+	})
 	if _, err := store.PrepareMigration(false); err == nil || !strings.Contains(err.Error(), "unknown client") {
 		t.Fatalf("invalid legacy client error = %v", err)
 	}
 }
 
 func legacyStore(t *testing.T) (Store, []byte) {
+	return legacyStoreWith(t, nil)
+}
+
+func legacyStoreWith(t *testing.T, mutate func(*legacyConfig)) (Store, []byte) {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "config.toml")
-	data := []byte(legacyConfiguration)
+	root := t.TempDir()
+	path := filepath.Join(root, "config.toml")
+	config := legacyConfig{
+		Version: LegacyConfigVersion,
+		Accounts: map[string]legacyAccount{"gateway": {
+			Label: "Gateway", Endpoints: legacyEndpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"},
+		}},
+		Profiles: map[string]legacyProfile{
+			ClientClaude: {Label: "Claude", Purpose: "Conversation", Account: "gateway", Client: ClientClaude, Model: "claude-test"},
+			ClientCodex: {
+				Label: "Codex", Account: "gateway", Client: ClientCodex, Model: "gpt-test",
+				ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
+			},
+		},
+		Routes:            map[string]string{ClientClaude: ClientClaude, ClientCodex: ClientCodex},
+		RecommendedRoutes: map[string]string{ClientCodex: ClientCodex},
+		Adapters: map[string]legacyAdapter{
+			ClientClaude: {Executable: filepath.Join(root, "bin", "claude")},
+			ClientCodex: {
+				Enabled: true, Executable: filepath.Join(root, "bin", "codex"),
+				Targets: []string{filepath.Join(root, "home", ".codex", "config.toml")}, CredentialCommand: filepath.Join(root, "bin", "aigw"),
+			},
+		},
+	}
+	if mutate != nil {
+		mutate(&config)
+	}
+	data, err := toml.Marshal(config)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}

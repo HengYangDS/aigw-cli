@@ -10,12 +10,14 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 func TestMigrationPreviewAndApplyPreserveCredentialsAndClientFiles(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	target := filepath.Join(t.TempDir(), "client-settings")
-	legacy := []byte(strings.Replace(legacyMigrationManifest, "/home/member/.codex/config.toml", target, 1))
+	legacy := legacyMigrationFixture(t, target)
 	if err := os.WriteFile(path, legacy, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +67,7 @@ func TestMigrationPreviewAndApplyPreserveCredentialsAndClientFiles(t *testing.T)
 func TestMigrationRollbackUsesRetainedPredecessorWithoutTouchingCredentialsOrClients(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	target := filepath.Join(t.TempDir(), "client-settings")
-	legacy := []byte(strings.Replace(legacyMigrationManifest, "/home/member/.codex/config.toml", target, 1))
+	legacy := legacyMigrationFixture(t, target)
 	if err := os.WriteFile(path, legacy, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -132,25 +134,23 @@ func (store *observedSecretStore) reset() {
 	store.writes = 0
 }
 
-const legacyMigrationManifest = `version = 3
-
-[accounts.gateway]
-label = "Gateway"
-
-[accounts.gateway.endpoints]
-openai_responses = "https://gateway.test/v1"
-
-[profiles.codex]
-label = "Codex"
-account = "gateway"
-client = "codex"
-model = "gpt-test"
-
-[routes]
-codex = "codex"
-
-[adapters.codex]
-enabled = true
-executable = "/opt/codex"
-targets = ["/home/member/.codex/config.toml"]
-`
+func legacyMigrationFixture(t *testing.T, target string) []byte {
+	t.Helper()
+	data, err := toml.Marshal(map[string]any{
+		"version": 3,
+		"accounts": map[string]any{"gateway": map[string]any{
+			"label": "Gateway", "endpoints": map[string]string{"openai_responses": "https://gateway.test/v1"},
+		}},
+		"profiles": map[string]any{"codex": map[string]string{
+			"label": "Codex", "account": "gateway", "client": "codex", "model": "gpt-test",
+		}},
+		"routes": map[string]string{"codex": "codex"},
+		"adapters": map[string]any{"codex": map[string]any{
+			"enabled": true, "executable": filepath.Join(filepath.Dir(target), "codex"), "targets": []string{target},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
