@@ -269,6 +269,137 @@ func TestWithdrawalWithoutOwnershipIsUnchanged(t *testing.T) {
 	}
 }
 
+func TestProjectionRejectsInvalidDesiredConfiguration(t *testing.T) {
+	root := t.TempDir()
+	valid := Desired{BaseURL: "https://gateway.example.test/v1", CredentialExecutable: filepath.Join(root, "aigw"), Models: []Model{{Name: "claude-fable-5-1"}}}
+	for _, test := range []struct {
+		name string
+		edit func(*Desired)
+		want string
+	}{
+		{name: "gateway", edit: func(value *Desired) { value.BaseURL = "relative" }, want: "absolute HTTP(S) URL"},
+		{name: "helper", edit: func(value *Desired) { value.CredentialExecutable = "aigw" }, want: "absolute path"},
+		{name: "models", edit: func(value *Desired) { value.Models = nil }, want: "at least one named model"},
+		{name: "blank model", edit: func(value *Desired) { value.Models = []Model{{}} }, want: "at least one named model"},
+		{name: "duplicate model", edit: func(value *Desired) { value.Models = []Model{{Name: "same"}, {Name: "same"}} }, want: "non-empty and unique"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			desired := valid
+			test.edit(&desired)
+			if _, err := Prepare(PathsForLibrary(filepath.Join(root, test.name)), &desired); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("Prepare() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestProjectionRejectsInvalidOwnershipMetadata(t *testing.T) {
+	root := t.TempDir()
+	paths := PathsForLibrary(filepath.Join(root, "invalid-state"))
+	writeJSON(t, paths.State, map[string]any{"version": 2, "writer_id": "aigw-cli"})
+	if _, err := Prepare(paths, &Desired{BaseURL: "https://gateway.example.test", CredentialExecutable: filepath.Join(root, "aigw"), Models: []Model{{Name: "model"}}}); err == nil || !strings.Contains(err.Error(), "ownership state") {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+
+	paths = PathsForLibrary(filepath.Join(root, "foreign-profile"))
+	writeJSON(t, paths.Profile, map[string]any{"inferenceProvider": "foreign"})
+	if _, err := Prepare(paths, &Desired{BaseURL: "https://gateway.example.test", CredentialExecutable: filepath.Join(root, "aigw"), Models: []Model{{Name: "model"}}}); err == nil || !strings.Contains(err.Error(), "without AIGW ownership") {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+
+	paths = PathsForLibrary(filepath.Join(root, "invalid-metadata"))
+	writeJSON(t, paths.Metadata, map[string]any{"entries": map[string]any{}})
+	if _, err := Prepare(paths, &Desired{BaseURL: "https://gateway.example.test", CredentialExecutable: filepath.Join(root, "aigw"), Models: []Model{{Name: "model"}}}); err == nil || !strings.Contains(err.Error(), "metadata entries") {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+}
+
+func TestProjectionIsIdempotentAndRollsBackPartialApply(t *testing.T) {
+	root := t.TempDir()
+	paths := PathsForLibrary(filepath.Join(root, "stable", "Claude-3p", "configLibrary"))
+	desired := Desired{BaseURL: "https://gateway.example.test", CredentialExecutable: filepath.Join(root, "aigw"), Models: []Model{{Name: "model"}}}
+	plan, err := Prepare(paths, &desired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plan.Apply(); err != nil {
+		t.Fatal(err)
+	}
+	plan, err = Prepare(paths, &desired)
+	if err != nil || plan.Action != ActionUnchanged {
+		t.Fatalf("second Prepare() = %q, %v", plan.Action, err)
+	}
+
+	paths = PathsForLibrary(filepath.Join(root, "partial", "Claude-3p", "configLibrary"))
+	plan, err = Prepare(paths, &desired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(paths.ThirdPartyConfig, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plan.Apply(); err == nil {
+		t.Fatal("partial projection apply succeeded")
+	}
+	if _, err := os.Stat(paths.StandardConfig); !os.IsNotExist(err) {
+		t.Fatalf("partial apply left standard configuration: %v", err)
+	}
+}
+
+func TestProjectionRejectsUnreadableAndCorruptOwnedState(t *testing.T) {
+	root := t.TempDir()
+	paths := PathsForLibrary(filepath.Join(root, "capture", "Claude-3p", "configLibrary"))
+	if err := os.MkdirAll(paths.StandardConfig, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	desired := Desired{BaseURL: "https://gateway.example.test", CredentialExecutable: filepath.Join(root, "aigw"), Models: []Model{{Name: "model"}}}
+	if _, err := Prepare(paths, &desired); err == nil {
+		t.Fatal("directory-backed configuration was accepted")
+	}
+
+	paths = PathsForLibrary(filepath.Join(root, "owned", "Claude-3p", "configLibrary"))
+	plan, err := Prepare(paths, &desired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plan.Apply(); err != nil {
+		t.Fatal(err)
+	}
+	writeJSON(t, paths.Metadata, map[string]any{"entries": map[string]any{}})
+	if _, err := Prepare(paths, &desired); err == nil || !strings.Contains(err.Error(), "metadata entries") {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+}
+
+func TestInternalDocumentBoundariesFailClosed(t *testing.T) {
+	foreign, _ := json.Marshal(map[string]string{"id": "foreign"})
+	owned, _ := json.Marshal(map[string]string{"id": profileID})
+	metadata := document{"entries": raw([]json.RawMessage{foreign, owned})}
+	if err := removeProfileEntry(metadata); err != nil {
+		t.Fatal(err)
+	}
+	if entries, err := metadataEntries(metadata); err != nil || len(entries) != 1 {
+		t.Fatalf("metadata entries = %d, %v", len(entries), err)
+	}
+	if err := removeProfileEntry(document{"entries": raw(map[string]any{})}); err == nil {
+		t.Fatal("invalid metadata entries were accepted")
+	}
+	if _, err := encode(map[string]any{"unsupported": func() {}}); err == nil {
+		t.Fatal("unsupported JSON value was accepted")
+	}
+
+	invalid := json.RawMessage("{")
+	for _, projected := range []projectedFiles{
+		{standard: document{"invalid": invalid}, thirdParty: document{}, metadata: document{}, original: originalState{StandardExists: true, ThirdPartyExists: true, MetadataExists: true}},
+		{standard: document{}, thirdParty: document{"invalid": invalid}, metadata: document{}, original: originalState{StandardExists: true, ThirdPartyExists: true, MetadataExists: true}},
+		{standard: document{}, thirdParty: document{}, metadata: document{"invalid": invalid}, original: originalState{StandardExists: true, ThirdPartyExists: true, MetadataExists: true}},
+	} {
+		if _, err := buildPlan(ActionProject, Paths{}, snapshots{}, projected); err == nil {
+			t.Fatal("invalid projected document was accepted")
+		}
+	}
+}
+
 func writeJSON(t *testing.T, path string, value any) {
 	t.Helper()
 	data, err := json.MarshalIndent(value, "", "  ")

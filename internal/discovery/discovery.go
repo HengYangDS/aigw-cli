@@ -56,19 +56,12 @@ func (s System) ClaudeDesktopExecutable() string {
 	if available, _ := executableAvailable(s.GOOS, s.ClaudeDesktopApp); available {
 		return s.ClaudeDesktopApp
 	}
-	candidates := []string{}
-	switch s.GOOS {
-	case "darwin":
-		candidates = []string{
-			filepath.Join(string(filepath.Separator), "Applications", "Claude.app", "Contents", "MacOS", "Claude"),
-			filepath.Join(s.Home, "Applications", "Claude.app", "Contents", "MacOS", "Claude"),
-		}
-	case "linux":
+	if s.GOOS == "linux" {
 		return s.find("claude-desktop")
-	case "windows":
-		candidates = []string{filepath.Join(s.LocalAppData, "AnthropicClaude", "claude.exe")}
 	}
-	for _, candidate := range candidates {
+	for _, candidate := range platform.ClaudeDesktopApplicationPathsFor(s.GOOS, map[string]string{
+		"HOME": s.Home, "LOCALAPPDATA": s.LocalAppData,
+	}) {
 		if available, _ := executableAvailable(s.GOOS, candidate); available {
 			return candidate
 		}

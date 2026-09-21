@@ -383,6 +383,22 @@ credential helper, and withdrew every AIGW-owned Desktop file without touching
 the real user configuration. Chat, Cowork, Code, restart behavior and Linux and
 Windows host consumption remain unproved, so Task 4.7 remains open.
 
+GitHub review run `35602717964` exposed a test-isolation defect rather than a
+second Claude Desktop product path. Quality passed, Linux missed the repository
+coverage floor at 94.77%, and the macOS and Windows native jobs could not find a
+Desktop configuration library. The release fixture had installed every client
+as a PATH executable even though Desktop discovery uses an application bundle
+on macOS and `%LOCALAPPDATA%/AnthropicClaude/claude.exe` on Windows. The local
+macOS run had therefore borrowed the operator's real `/Applications/Claude.app`
+and concealed the missing fixture contract. Platform paths now have one owner,
+discovery consumes that owner, and the native fixture creates a test-owned
+executable at the selected host-native location. Host-native discovery and
+fixture-isolation regressions reject both ambient application borrowing and
+foreign-platform path creation. Focused native manifest acceptance passes all
+four manifest cases, and the complete local quality graph passes at 95.22%
+statement coverage. Hosted macOS, Linux, and Windows reruns remain required
+before this evidence closes Task 4.7 or the platform obligations in Task 9.
+
 Credential portability is accepted at signed commit `3863e05e`. The ordinary
 GitHub review run `35455496791` exercised the complete native graph on macOS,
 Linux, and Windows; Windows also completed the real Credential Manager journey.

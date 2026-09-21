@@ -168,6 +168,26 @@ func ClaudeDesktopLibraryPathFor(goos string, env map[string]string) (string, er
 	}
 }
 
+// ClaudeDesktopApplicationPathsFor returns Claude Desktop's native application
+// locations in discovery order. Linux installations are resolved through PATH.
+func ClaudeDesktopApplicationPathsFor(goos string, env map[string]string) []string {
+	switch goos {
+	case "darwin":
+		paths := []string{}
+		if home := env["HOME"]; home != "" {
+			paths = append(paths, path.Join(home, "Applications", "Claude.app", "Contents", "MacOS", "Claude"))
+		}
+		return append(paths, path.Join("/", "Applications", "Claude.app", "Contents", "MacOS", "Claude"))
+	case "windows":
+		if env["LOCALAPPDATA"] == "" {
+			return nil
+		}
+		return []string{appendWindowsPath(env["LOCALAPPDATA"], "AnthropicClaude", "claude.exe")}
+	default:
+		return nil
+	}
+}
+
 // UserBinDirFor returns the platform-native per-user executable directory from an explicit environment.
 func UserBinDirFor(goos string, env map[string]string) (string, error) {
 	switch goos {

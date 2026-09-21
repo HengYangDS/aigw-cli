@@ -2,6 +2,8 @@ package main
 
 import (
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
@@ -20,6 +22,23 @@ import (
 	"testing"
 	"time"
 )
+
+func TestNativeClientFixtureMatchesClaudeDesktopDiscovery(t *testing.T) {
+	root := t.TempDir()
+	clientBin := filepath.Join(root, "client bin")
+	if err := os.MkdirAll(clientBin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	journey := &journeyFixture{testing: t, root: root, clientBin: clientBin}
+	journey.installClientFixture(configuration.ClientClaudeDesktop)
+	discovered := (discovery.System{
+		GOOS: runtime.GOOS, Home: filepath.Join(root, "home"),
+		XDGConfigHome: filepath.Join(root, "config"), LocalAppData: filepath.Join(root, "localappdata"), Path: clientBin,
+	}).ClaudeDesktopExecutable()
+	if discovered == "" || !strings.HasPrefix(filepath.Clean(discovered), filepath.Clean(root)+string(filepath.Separator)) {
+		t.Fatalf("Claude Desktop fixture discovery = %q, want an executable owned by %s", discovered, root)
+	}
+}
 
 func TestNativeProductJourney(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
@@ -242,7 +261,19 @@ func (j *journeyFixture) installClientFixture(client string) {
 	if runtime.GOOS == "windows" {
 		name += ".exe"
 	}
-	if err := os.WriteFile(filepath.Join(j.clientBin, name), readFile(j.testing, program), 0o700); err != nil {
+	target := filepath.Join(j.clientBin, name)
+	if client == configuration.ClientClaudeDesktop {
+		candidates := platform.ClaudeDesktopApplicationPathsFor(runtime.GOOS, map[string]string{
+			"HOME": filepath.Join(j.root, "home"), "LOCALAPPDATA": filepath.Join(j.root, "localappdata"),
+		})
+		if len(candidates) > 0 {
+			target = candidates[0]
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		j.testing.Fatal(err)
+	}
+	if err := os.WriteFile(target, readFile(j.testing, program), 0o700); err != nil {
 		j.testing.Fatal(err)
 	}
 }

@@ -2,6 +2,7 @@ package platform_test
 
 import (
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"testing"
 
@@ -61,6 +62,29 @@ func TestClaudeDesktopLibraryUsesTheOfficialPerUserScope(t *testing.T) {
 		if _, err := platform.ClaudeDesktopLibraryPathFor(goos, map[string]string{}); err == nil {
 			t.Fatalf("ClaudeDesktopLibraryPathFor(%q) accepted missing platform input", goos)
 		}
+	}
+}
+
+func TestClaudeDesktopApplicationPathsUseOfficialNativeLocations(t *testing.T) {
+	tests := []struct {
+		name string
+		goos string
+		env  map[string]string
+		want []string
+	}{
+		{name: "macOS", goos: "darwin", env: map[string]string{"HOME": "/Users/alex"}, want: []string{"/Users/alex/Applications/Claude.app/Contents/MacOS/Claude", "/Applications/Claude.app/Contents/MacOS/Claude"}},
+		{name: "macOS without home", goos: "darwin", env: map[string]string{}, want: []string{"/Applications/Claude.app/Contents/MacOS/Claude"}},
+		{name: "Linux", goos: "linux", env: map[string]string{"HOME": "/home/alex"}, want: nil},
+		{name: "Windows", goos: "windows", env: map[string]string{"LOCALAPPDATA": `C:\Users\alex\AppData\Local`}, want: []string{`C:\Users\alex\AppData\Local\AnthropicClaude\claude.exe`}},
+		{name: "Windows without local app data", goos: "windows", env: map[string]string{}, want: nil},
+		{name: "unsupported", goos: "plan9", env: map[string]string{}, want: nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := platform.ClaudeDesktopApplicationPathsFor(test.goos, test.env); !reflect.DeepEqual(got, test.want) {
+				t.Fatalf("ClaudeDesktopApplicationPathsFor() = %#v, want %#v", got, test.want)
+			}
+		})
 	}
 }
 

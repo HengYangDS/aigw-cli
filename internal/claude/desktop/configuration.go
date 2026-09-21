@@ -200,9 +200,6 @@ func prepareState(before snapshots, standard, thirdParty, metadata document, des
 		}
 		return state, nil
 	}
-	if desired == nil {
-		return ownershipState{}, nil
-	}
 	if before.profile.Exists || hasProfileEntry(metadata) {
 		return ownershipState{}, errors.New("Claude Desktop AIGW profile already exists without AIGW ownership")
 	}

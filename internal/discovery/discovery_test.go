@@ -9,6 +9,7 @@ import (
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/platform"
 	surfacepkg "aigw-cli/internal/surface"
 )
 
@@ -85,6 +86,25 @@ func TestDiscoverReturnsClaudeDesktopApplicationAndConfigurationLibrary(t *testi
 	surface, ok := result.Surface(string(surfacepkg.ClaudeDesktopLibrary))
 	if !ok || surface.ConfigPath != library || surface.Executable != executable || !surface.AutoManaged || !surface.Present {
 		t.Fatalf("Claude Desktop surface = %#v, %t", surface, ok)
+	}
+}
+
+func TestClaudeDesktopDiscoveryUsesNativeApplicationPath(t *testing.T) {
+	if runtime.GOOS != "darwin" && runtime.GOOS != "windows" {
+		t.Skip("Claude Desktop uses PATH discovery on this host")
+	}
+	root := t.TempDir()
+	env := map[string]string{"HOME": root, "LOCALAPPDATA": root}
+	candidate := platform.ClaudeDesktopApplicationPathsFor(runtime.GOOS, env)[0]
+	if err := os.MkdirAll(filepath.Dir(candidate), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(candidate, []byte("fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	system := discovery.System{GOOS: runtime.GOOS, Home: root, LocalAppData: root}
+	if got := system.ClaudeDesktopExecutable(); got != candidate {
+		t.Fatalf("ClaudeDesktopExecutable() = %q, want %q", got, candidate)
 	}
 }
 
