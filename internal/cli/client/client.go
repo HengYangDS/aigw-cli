@@ -103,11 +103,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "client enable"); err != nil {
 			return fmt.Errorf("Client enablement failed and was rolled back: %w", err)
 		}
-		r := invocation.Renderer(runtime)
-		r.ProductTitle("Client enabled")
-		r.Row("Client", spec.Label)
-		r.Status(presentation.OK, "Projection", "Configured")
-		r.Next("aigw check")
+		renderEnabled(invocation.Renderer(runtime), spec)
 		return nil
 	}}
 	cmd.Flags().StringVar(&executable, "executable", "", "Path to the real client executable")
@@ -142,12 +138,34 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		if err := invocation.Synchronizer(runtime).CommitProjection(cmd.Context(), before, cfg, "client disable", client); err != nil {
 			return err
 		}
-		r := invocation.Renderer(runtime)
-		r.ProductTitle("Client disabled")
-		r.Row("Client", spec.Label)
-		r.Success("All AIGW-owned projections were safely removed")
+		renderDisabled(invocation.Renderer(runtime), spec)
 		return nil
 	}}
+}
+
+func renderEnabled(r *presentation.Renderer, spec configuration.ClientSpec) {
+	if !spec.RestartAfterProjection {
+		r.ProductTitle("Client enabled")
+		r.Row("Client", spec.Label)
+		r.Status(presentation.OK, "Projection", "Configured")
+		r.Next("aigw check")
+		return
+	}
+	r.ProductTitle("Client configured")
+	r.Row("Client", spec.Label)
+	r.Status(presentation.OK, "Projection", "Configured")
+	r.Status(presentation.Info, "Activation", "Restart required")
+	r.Next(fmt.Sprintf("Restart %s, then run `aigw check`", spec.Label))
+}
+
+func renderDisabled(r *presentation.Renderer, spec configuration.ClientSpec) {
+	r.ProductTitle("Client disabled")
+	r.Row("Client", spec.Label)
+	r.Success("All AIGW-owned projections were safely removed")
+	if spec.RestartAfterProjection {
+		r.Status(presentation.Info, "Deactivation", "Restart required")
+		r.Next(fmt.Sprintf("Restart %s to finish deactivation", spec.Label))
+	}
 }
 
 func validateClientArgument(command *cobra.Command, args []string) error {

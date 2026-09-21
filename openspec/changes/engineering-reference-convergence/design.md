@@ -416,8 +416,11 @@ before this evidence closes Task 4.7 or the platform obligations in Task 9.
 The installed Claude Desktop 2.2553.1 schema independently identifies Chat,
 Cowork, and Code as configurable third-party surfaces. The AIGW-owned profile
 now enables all three explicitly instead of inheriting release-specific client
-defaults. This establishes deterministic projection intent; it does not replace
-the still-required native consumption and inference evidence for each surface.
+defaults. Client enablement now reports the projection as configured rather
+than active and requires a Claude Desktop restart; withdrawal reports the same
+restart boundary. This establishes deterministic projection and lifecycle
+intent; it does not replace the still-required native consumption and inference
+evidence for each surface.
 
 Credential portability is accepted at signed commit `3863e05e`. The ordinary
 GitHub review run `35455496791` exercised the complete native graph on macOS,

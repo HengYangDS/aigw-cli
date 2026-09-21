@@ -57,10 +57,12 @@ into client files.
 
 Hermes has native tool-loop evidence. Claude Desktop's source Adapter,
 transactional projection, discovery, environment-backed credential helper and
-withdrawal are implemented in the active Change; Chat, Cowork, Code, restart,
-host-version and release qualification remain incomplete. A synthetic extension
-test cannot satisfy that client journey. CodeBuddy, WorkBuddy, OpenCode, Pi,
-and Qoder retain the individual dispositions in the
+withdrawal are implemented in the active Change. Its explicit enable and
+disable commands report that the application must restart before activation or
+deactivation is claimed. Chat, Cowork, Code, actual restart consumption,
+host-version and release qualification remain incomplete. A synthetic
+extension test cannot satisfy that client journey. CodeBuddy, WorkBuddy,
+OpenCode, Pi, and Qoder retain the individual dispositions in the
 [client assessment](../research/provider-tooling-assessment.md#client-surfaces-and-cross-model-inference).
 
 Claude Desktop uses its own third-party inference configuration. Its Chat,

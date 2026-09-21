@@ -19,19 +19,19 @@ const (
 )
 
 // ClientSpec is the canonical admission record for an implemented client
-// adapter. The current product admits Claude and Codex for its enterprise use
-// case; this registry is extensible, but a provider or model alone never admits
-// another client. A future adapter must prove its own configuration, credential,
-// protocol, verification, rollback, and uninstall boundaries.
+// adapter. A provider or model alone never admits a client. Every adapter must
+// prove its own configuration, credential, protocol, activation, verification,
+// rollback, and uninstall boundaries.
 type ClientSpec struct {
-	ID                string
-	Label             string
-	EndpointProtocols []EndpointProtocol
+	ID                     string
+	Label                  string
+	EndpointProtocols      []EndpointProtocol
+	RestartAfterProjection bool
 }
 
 var admittedClientSpecs = []ClientSpec{
 	{ID: ClientClaude, Label: "Claude", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}},
-	{ID: ClientClaudeDesktop, Label: "Claude Desktop", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}},
+	{ID: ClientClaudeDesktop, Label: "Claude Desktop", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}, RestartAfterProjection: true},
 	{ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses}},
 	{ID: ClientHermes, Label: "Hermes", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions}},
 }
