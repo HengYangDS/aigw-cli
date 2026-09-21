@@ -70,6 +70,11 @@ process.
 Dependency direction is toward domain owners. Presentation, CLI composition,
 Forge code, and host discovery do not define product semantics.
 
+The [Client Projection Architecture Edition](client-projection/README.md)
+expresses this selected structure as source-bound Claim Model and Edition values.
+It is an explanatory projection over these owners, not a replacement for the
+repository architecture policy, OpenSpec, or product code.
+
 ### Module depth
 
 Prefer a small, stable interface that hides a complete responsibility. A module

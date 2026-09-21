@@ -1,0 +1,28 @@
+{
+  "schema": "architecture.semantic-compare-input/v2",
+  "before": {
+    "claimModel": {
+      "path": "history/registry-v1-claim-model.json",
+      "sha256": "a99ef1a4348461d622a0b357368343992af1d824f7a6586675f480c17c4a6ea4"
+    },
+    "editions": [
+      {
+        "path": "history/registry-v1-edition.json",
+        "sha256": "101e60a865f03f60bdbc0994edf2431a3027b02971aefc57682244028b2c27fb"
+      }
+    ]
+  },
+  "after": {
+    "claimModel": {
+      "path": "claim-model.json",
+      "sha256": "ce5511a08cd9992fe37a3139a4dc39d0050757b5505bd6605e206cf2d95846b7"
+    },
+    "editions": [
+      {
+        "path": "edition.json",
+        "sha256": "6dfb612864db1a3872dcb81d1c7ef8650266a1b3165a2c6110f6a14a41381262"
+      }
+    ]
+  },
+  "correspondences": []
+}

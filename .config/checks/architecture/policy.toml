@@ -378,6 +378,11 @@ exact_paths = ["AGENTS.md", "CHANGELOG.md", "CONTRIBUTING.md", "README.md"]
 prefixes = ["docs"]
 suffixes = [".md"]
 
+[tracked_carrier_classes.architecture-edition]
+responsibility = "source-bound architecture Claim Model, Edition, and evolution inputs"
+prefixes = ["docs/architecture/client-projection"]
+suffixes = [".json"]
+
 [tracked_carrier_classes.active-openspec]
 responsibility = "current OpenSpec configuration, specifications, and active Change"
 prefixes = ["openspec"]

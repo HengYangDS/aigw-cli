@@ -559,6 +559,30 @@ complete parse coverage for product code and reports one internal validation
 recursion cycle, not a package dependency cycle. Focused architecture, CI, and
 release tool suites pass against this same topology.
 
+The final Task 5.1 publication binds that topology to a product-owned
+`architecture.claim-model/v2` and `architecture.edition/v1` under
+`docs/architecture/client-projection/`. The selected Claim Model covers 14 exact
+source owners at product revision `dcfb274c4cb5bc8c87d9d1a21867768ea39cffdc`;
+Architecture Publisher package `0.2.0-alpha.0` with SHA-256
+`f853ae1fb149ef1329fd28e5230c7f76101eeab4d63d8ec81b6b3324b272f2f3`
+compiled candidate
+`b2035f2bde00b790aa1b6e9854d5420e51fa1d1f7a361f538b81d61bb57599b7`.
+The source bundle manifest is
+`455f20c4c7285fccdf05faeeb6025d4aa56b901df721cc409857590186627414`
+and the candidate manifest is
+`7abb2c3a1d33d44fccc0148332dd5eefcd4a5496eb1a746e376ce5c784c0d266`;
+the Edition, static scene, and interactive scene digests are respectively
+`c1b7368908923d63e9fae77e4ca00aa6b4d6277f3408cec25f2a6eab0f1c82d2`,
+`445f374686b71c10d52b713a25b2125fef996786f9ff01ff1196d58e2c29927a`,
+and `29f15c7116857d78d427a3b6687126c3a1c33543fd6877cc687def694874eea2`.
+A network-disabled installation into an empty relocated HOME reproduced the
+manifest and every member byte exactly. A native Chrome run loaded the overview
+without page errors, exposed named keyboard-focusable controls, honored reduced
+motion, changed theme, and focused one semantic node. The static overview was
+independently rendered and visually reviewed. Generated media remain ignored
+acceptance output; AIGW adds no Publisher runtime, wrapper, or second command
+plane.
+
 The first physical simplification removes the one-file
 `internal/client/acceptance` test-only subpackage. Its credential-projection
 journeys exercise the public Client contract but own no separate implementation,

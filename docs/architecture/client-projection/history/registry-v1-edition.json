@@ -1,0 +1,308 @@
+{
+  "schema": "architecture.edition/v1",
+  "id": "aigw-client-projection",
+  "owner": "aigw-cli",
+  "class": "structural",
+  "product": {
+    "name": "Architecture Publisher",
+    "schema": "architecture.publisher/v1",
+    "version": "0.2.0-alpha.0"
+  },
+  "source": {
+    "manifestSha256": "e2943310db5eb45702aecc9b8582a79b004b21d1f0f48aaf883fd5c1f13ccaae"
+  },
+  "claimModel": {
+    "schema": "architecture.claim-model/v2",
+    "digest": "452838f749a959887a1c2f35567f2ce5d84f9c6ae2f08879649296ea25805b3f"
+  },
+  "title": "AIGW Client Projection",
+  "audiences": {
+    "maintainer": {
+      "label": "AIGW maintainers"
+    }
+  },
+  "questions": {
+    "overview": {
+      "audience": "maintainer",
+      "prompt": "How does the complete selected AIGW client projection work?",
+      "claims": [
+        "cli-synchronizer",
+        "contract-claude",
+        "contract-codex",
+        "registry-contract",
+        "synchronizer-registry"
+      ],
+      "detail": "overview",
+      "risk": "Omission would hide part of the selected architecture."
+    },
+    "registry": {
+      "audience": "maintainer",
+      "prompt": "How does registry admission and dispatch work?",
+      "claims": ["contract-claude", "contract-codex", "registry-contract"],
+      "detail": "mechanism",
+      "risk": "Omission would hide the named mechanism boundary."
+    },
+    "coordination": {
+      "audience": "maintainer",
+      "prompt": "How does coordinator delegates to the registry work?",
+      "claims": ["synchronizer-registry"],
+      "detail": "mechanism",
+      "risk": "Omission would hide the named mechanism boundary."
+    }
+  },
+  "requiredClaims": [
+    "cli-synchronizer",
+    "contract-claude",
+    "contract-codex",
+    "registry-contract",
+    "synchronizer-registry"
+  ],
+  "omissions": {},
+  "narrative": ["overview", "registry", "coordination"],
+  "visualGrammar": {
+    "entityTypes": {
+      "interface": "external",
+      "coordinator": "backend",
+      "registry": "security",
+      "contract": "messagebus",
+      "client": "cloud"
+    },
+    "relationTypes": {
+      "delegates": {
+        "label": "delegates",
+        "variant": "emphasis"
+      },
+      "dispatches": {
+        "label": "ordered dispatch",
+        "variant": "emphasis"
+      },
+      "realized-by": {
+        "label": "realized by",
+        "variant": "default"
+      }
+    },
+    "principles": [
+      "Complete selected structure",
+      "Independent medium composition",
+      "No inferred implementation completeness"
+    ]
+  },
+  "scenes": {
+    "static": {
+      "label": "One ordered operational registry",
+      "questions": ["overview"],
+      "claims": [
+        "cli-synchronizer",
+        "contract-claude",
+        "contract-codex",
+        "registry-contract",
+        "synchronizer-registry"
+      ],
+      "composition": {
+        "groups": [
+          {
+            "id": "command",
+            "label": "Command",
+            "entities": ["cli"]
+          },
+          {
+            "id": "coordination",
+            "label": "Coordination",
+            "entities": ["synchronizer", "registry"]
+          },
+          {
+            "id": "protocol",
+            "label": "Client protocol",
+            "entities": ["adapter-contract"]
+          },
+          {
+            "id": "clients",
+            "label": "Native adapters",
+            "entities": ["codex", "claude"]
+          }
+        ],
+        "relations": [
+          {
+            "id": "cli-synchronizer",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "synchronizer-registry",
+            "fromSide": "right",
+            "toSide": "left",
+            "route": "orthogonal-h"
+          },
+          {
+            "id": "registry-contract",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "contract-codex",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "contract-claude",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          }
+        ]
+      }
+    },
+    "interactive": {
+      "overview": {
+        "label": "One ordered operational registry",
+        "purpose": "overview",
+        "questions": ["overview"],
+        "claims": [
+          "cli-synchronizer",
+          "contract-claude",
+          "contract-codex",
+          "registry-contract",
+          "synchronizer-registry"
+        ],
+        "composition": {
+          "groups": [
+            {
+              "id": "command",
+              "label": "Command",
+              "entities": ["cli"]
+            },
+            {
+              "id": "coordination",
+              "label": "Coordination",
+              "entities": ["synchronizer", "registry"]
+            },
+            {
+              "id": "protocol",
+              "label": "Client protocol",
+              "entities": ["adapter-contract"]
+            },
+            {
+              "id": "clients",
+              "label": "Native adapters",
+              "entities": ["codex", "claude"]
+            }
+          ],
+          "relations": [
+            {
+              "id": "cli-synchronizer",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v"
+            },
+            {
+              "id": "synchronizer-registry",
+              "fromSide": "right",
+              "toSide": "left",
+              "route": "orthogonal-h"
+            },
+            {
+              "id": "registry-contract",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v"
+            },
+            {
+              "id": "contract-codex",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v"
+            },
+            {
+              "id": "contract-claude",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v"
+            }
+          ]
+        }
+      },
+      "registry": {
+        "label": "Registry admission and dispatch",
+        "purpose": "mechanism",
+        "questions": ["registry"],
+        "claims": ["contract-claude", "contract-codex", "registry-contract"],
+        "composition": {
+          "groups": [
+            {
+              "id": "registry",
+              "label": "Ordered registry",
+              "entities": ["registry"]
+            },
+            {
+              "id": "protocol",
+              "label": "Complete adapter contract",
+              "entities": ["adapter-contract"]
+            },
+            {
+              "id": "adapters",
+              "label": "Admitted adapters",
+              "entities": ["codex", "claude"]
+            }
+          ],
+          "relations": [
+            {
+              "id": "registry-contract",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v"
+            },
+            {
+              "id": "contract-codex",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v"
+            },
+            {
+              "id": "contract-claude",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v"
+            }
+          ]
+        }
+      },
+      "coordination": {
+        "label": "Coordinator delegates to the registry",
+        "purpose": "mechanism",
+        "questions": ["coordination"],
+        "claims": ["synchronizer-registry"],
+        "composition": {
+          "groups": [
+            {
+              "id": "coordination",
+              "label": "Transaction coordination",
+              "entities": ["synchronizer", "registry"]
+            }
+          ],
+          "relations": [
+            {
+              "id": "synchronizer-registry",
+              "fromSide": "right",
+              "toSide": "left",
+              "route": "orthogonal-h"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "qualification": {
+    "semantic": ["claim-model-valid"],
+    "coverage": ["required-claims-visible"],
+    "static": ["static-geometry"],
+    "interactive": ["browser-behavior"],
+    "accessibility": ["keyboard-and-reduced-motion"],
+    "installed": ["offline-reproduction"],
+    "recovery": [],
+    "human": []
+  },
+  "scope": "AIGW commit 069c2a655a5a1b9124d656e64b2d323ff53baf11; curated from exact code, not inferred implementation completeness"
+}

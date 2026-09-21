@@ -1,0 +1,539 @@
+{
+  "schema": "architecture.edition/v1",
+  "id": "aigw-client-projection",
+  "owner": "aigw-cli",
+  "class": "structural",
+  "product": {
+    "name": "Architecture Publisher",
+    "schema": "architecture.publisher/v1",
+    "version": "0.2.0-alpha.0"
+  },
+  "source": {
+    "manifestSha256": "455f20c4c7285fccdf05faeeb6025d4aa56b901df721cc409857590186627414"
+  },
+  "claimModel": {
+    "schema": "architecture.claim-model/v2",
+    "digest": "1ee3d12f00cd8ccd9795069c0dfdcb377a5f2ea38174ce20282abaa31cc75ed5"
+  },
+  "title": "AIGW Client Projection",
+  "audiences": {
+    "maintainer": {
+      "label": "AIGW maintainers"
+    }
+  },
+  "questions": {
+    "overview": {
+      "audience": "maintainer",
+      "prompt": "How does AIGW turn operator intent into guarded native client projections?",
+      "claims": [
+        "cli-synchronizer",
+        "configuration-synchronizer",
+        "discovery-synchronizer",
+        "credentials-contract",
+        "synchronizer-registry",
+        "registry-contract",
+        "contract-transaction",
+        "contract-codex",
+        "contract-claude-code",
+        "contract-claude-desktop",
+        "contract-hermes"
+      ],
+      "detail": "overview",
+      "risk": "Omission would hide part of the selected control-plane architecture."
+    },
+    "authority": {
+      "audience": "maintainer",
+      "prompt": "Which owners supply desired state, credentials, and host observations?",
+      "claims": [
+        "configuration-synchronizer",
+        "discovery-synchronizer",
+        "credentials-contract"
+      ],
+      "detail": "mechanism",
+      "risk": "Omission would blur authority between configuration, credentials, discovery, and synchronization."
+    },
+    "adapters": {
+      "audience": "maintainer",
+      "prompt": "How are native client adapters admitted and dispatched?",
+      "claims": [
+        "synchronizer-registry",
+        "registry-contract",
+        "contract-codex",
+        "contract-claude-code",
+        "contract-claude-desktop",
+        "contract-hermes"
+      ],
+      "detail": "mechanism",
+      "risk": "Omission would hide the common Adapter contract and create client-specific parallel authority."
+    },
+    "transaction": {
+      "audience": "maintainer",
+      "prompt": "Where are client projection effects guarded and compensated?",
+      "claims": ["registry-contract", "contract-transaction"],
+      "detail": "mechanism",
+      "risk": "Omission would hide the mutation and recovery boundary."
+    }
+  },
+  "requiredClaims": [
+    "cli-synchronizer",
+    "configuration-synchronizer",
+    "discovery-synchronizer",
+    "credentials-contract",
+    "synchronizer-registry",
+    "registry-contract",
+    "contract-transaction",
+    "contract-codex",
+    "contract-claude-code",
+    "contract-claude-desktop",
+    "contract-hermes"
+  ],
+  "omissions": {},
+  "narrative": ["overview", "authority", "adapters", "transaction"],
+  "visualGrammar": {
+    "entityTypes": {
+      "interface": "external",
+      "authority": "database",
+      "observer": "external",
+      "coordinator": "backend",
+      "registry": "messagebus",
+      "contract": "security",
+      "boundary": "security",
+      "client": "cloud"
+    },
+    "relationTypes": {
+      "delegates": {
+        "label": "delegates",
+        "variant": "emphasis"
+      },
+      "configures": {
+        "label": "configures",
+        "variant": "default"
+      },
+      "reports-to": {
+        "label": "reports to",
+        "variant": "dashed"
+      },
+      "supplies-credentials": {
+        "label": "supplies credentials",
+        "variant": "security"
+      },
+      "dispatches": {
+        "label": "dispatches",
+        "variant": "emphasis"
+      },
+      "guards": {
+        "label": "guards",
+        "variant": "security"
+      },
+      "realized-by": {
+        "label": "realized by",
+        "variant": "default"
+      }
+    },
+    "principles": [
+      "Authority before effect",
+      "One Adapter contract",
+      "One guarded transaction boundary"
+    ]
+  },
+  "scenes": {
+    "static": {
+      "label": "AIGW control plane and native client projections",
+      "questions": ["overview"],
+      "claims": [
+        "cli-synchronizer",
+        "configuration-synchronizer",
+        "discovery-synchronizer",
+        "credentials-contract",
+        "synchronizer-registry",
+        "registry-contract",
+        "contract-transaction",
+        "contract-codex",
+        "contract-claude-code",
+        "contract-claude-desktop",
+        "contract-hermes"
+      ],
+      "composition": {
+        "groups": [
+          {
+            "id": "intent",
+            "label": "Operator intent and host state",
+            "entities": ["cli", "configuration", "discovery"]
+          },
+          {
+            "id": "coordination",
+            "label": "Desired-state coordination",
+            "entities": ["synchronizer"]
+          },
+          {
+            "id": "admission",
+            "label": "Credential and client admission",
+            "entities": ["credentials", "registry"]
+          },
+          {
+            "id": "safety",
+            "label": "Adapter contract and transaction",
+            "entities": ["adapter-contract", "transaction"]
+          },
+          {
+            "id": "clients",
+            "label": "Native client projections",
+            "entities": ["codex", "claude-code", "claude-desktop", "hermes"]
+          }
+        ],
+        "relations": [
+          {
+            "id": "cli-synchronizer",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "configuration-synchronizer",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "discovery-synchronizer",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "synchronizer-registry",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "credentials-contract",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "registry-contract",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "contract-transaction",
+            "fromSide": "right",
+            "toSide": "left",
+            "route": "orthogonal-h"
+          },
+          {
+            "id": "contract-codex",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "contract-claude-code",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "contract-claude-desktop",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          },
+          {
+            "id": "contract-hermes",
+            "fromSide": "bottom",
+            "toSide": "top",
+            "route": "orthogonal-v"
+          }
+        ]
+      }
+    },
+    "interactive": {
+      "overview": {
+        "label": "AIGW control plane and native client projections",
+        "purpose": "overview",
+        "questions": ["overview"],
+        "claims": [
+          "cli-synchronizer",
+          "configuration-synchronizer",
+          "discovery-synchronizer",
+          "credentials-contract",
+          "synchronizer-registry",
+          "registry-contract",
+          "contract-transaction",
+          "contract-codex",
+          "contract-claude-code",
+          "contract-claude-desktop",
+          "contract-hermes"
+        ],
+        "composition": {
+          "groups": [
+            {
+              "id": "intent",
+              "label": "Operator intent and host state",
+              "entities": ["cli", "configuration", "discovery"]
+            },
+            {
+              "id": "coordination",
+              "label": "Desired-state coordination",
+              "entities": ["synchronizer"]
+            },
+            {
+              "id": "admission",
+              "label": "Credential and client admission",
+              "entities": ["credentials", "registry"]
+            },
+            {
+              "id": "safety",
+              "label": "Adapter contract and transaction",
+              "entities": ["adapter-contract", "transaction"]
+            },
+            {
+              "id": "clients",
+              "label": "Native client projections",
+              "entities": ["codex", "claude-code", "claude-desktop", "hermes"]
+            }
+          ],
+          "relations": [
+            {
+              "id": "cli-synchronizer",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v"
+            },
+            {
+              "id": "configuration-synchronizer",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v"
+            },
+            {
+              "id": "discovery-synchronizer",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v"
+            },
+            {
+              "id": "synchronizer-registry",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v"
+            },
+            {
+              "id": "credentials-contract",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v"
+            },
+            {
+              "id": "registry-contract",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v"
+            },
+            {
+              "id": "contract-transaction",
+              "fromSide": "right",
+              "toSide": "left",
+              "route": "orthogonal-h"
+            },
+            {
+              "id": "contract-codex",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v",
+              "labelSegment": 2
+            },
+            {
+              "id": "contract-claude-code",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v",
+              "labelDx": 82
+            },
+            {
+              "id": "contract-claude-desktop",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v",
+              "labelSegment": 2
+            },
+            {
+              "id": "contract-hermes",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "orthogonal-v",
+              "labelSegment": 2
+            }
+          ]
+        }
+      },
+      "authority": {
+        "label": "Configuration, credentials, and discovery ownership",
+        "purpose": "mechanism",
+        "questions": ["authority"],
+        "claims": [
+          "configuration-synchronizer",
+          "discovery-synchronizer",
+          "credentials-contract"
+        ],
+        "composition": {
+          "groups": [
+            {
+              "id": "inputs",
+              "label": "Authoritative inputs",
+              "entities": ["configuration", "discovery", "credentials"]
+            },
+            {
+              "id": "consumers",
+              "label": "Bounded consumers",
+              "entities": ["synchronizer", "adapter-contract"]
+            }
+          ],
+          "relations": [
+            {
+              "id": "configuration-synchronizer",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto"
+            },
+            {
+              "id": "discovery-synchronizer",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto"
+            },
+            {
+              "id": "credentials-contract",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto"
+            }
+          ]
+        }
+      },
+      "adapters": {
+        "label": "One registry, one Adapter contract",
+        "purpose": "mechanism",
+        "questions": ["adapters"],
+        "claims": [
+          "synchronizer-registry",
+          "registry-contract",
+          "contract-codex",
+          "contract-claude-code",
+          "contract-claude-desktop",
+          "contract-hermes"
+        ],
+        "composition": {
+          "groups": [
+            {
+              "id": "coordination",
+              "label": "Coordination",
+              "entities": ["synchronizer"]
+            },
+            {
+              "id": "registry",
+              "label": "Admission and dispatch",
+              "entities": ["registry", "adapter-contract"]
+            },
+            {
+              "id": "clients",
+              "label": "Native projections",
+              "entities": ["codex", "claude-code", "claude-desktop", "hermes"]
+            }
+          ],
+          "relations": [
+            {
+              "id": "synchronizer-registry",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto"
+            },
+            {
+              "id": "registry-contract",
+              "fromSide": "right",
+              "toSide": "left",
+              "route": "auto"
+            },
+            {
+              "id": "contract-codex",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto",
+              "labelSegment": 2
+            },
+            {
+              "id": "contract-claude-code",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto",
+              "labelSegment": 2
+            },
+            {
+              "id": "contract-claude-desktop",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto",
+              "labelAt": [774, 416]
+            },
+            {
+              "id": "contract-hermes",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto",
+              "labelSegment": 2
+            }
+          ]
+        }
+      },
+      "transaction": {
+        "label": "Guarded client projection transaction",
+        "purpose": "mechanism",
+        "questions": ["transaction"],
+        "claims": ["registry-contract", "contract-transaction"],
+        "composition": {
+          "groups": [
+            {
+              "id": "admission",
+              "label": "Admitted operation",
+              "entities": ["registry", "adapter-contract"]
+            },
+            {
+              "id": "effect",
+              "label": "Guarded effect",
+              "entities": ["transaction"]
+            }
+          ],
+          "relations": [
+            {
+              "id": "registry-contract",
+              "fromSide": "right",
+              "toSide": "left",
+              "route": "auto"
+            },
+            {
+              "id": "contract-transaction",
+              "fromSide": "bottom",
+              "toSide": "top",
+              "route": "auto"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "qualification": {
+    "semantic": ["claim-model-valid"],
+    "coverage": ["required-claims-visible"],
+    "static": ["rendered-svg-geometry", "rendered-png-decodes"],
+    "interactive": ["browser-loads", "view-navigation"],
+    "accessibility": ["keyboard-navigation", "reduced-motion"],
+    "installed": ["relocated-offline-reproduction"],
+    "recovery": [],
+    "human": []
+  },
+  "scope": "Selected AIGW control-plane owners at commit dcfb274c4cb5bc8c87d9d1a21867768ea39cffdc; curated from exact source bytes without inferred implementation completeness."
+}
