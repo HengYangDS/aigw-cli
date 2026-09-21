@@ -7,6 +7,10 @@ profile = 'ucloud-claude-fable-5-1'
 [recommendations.codex]
 profile = 'ucloud-gpt-6-astra'
 
+[recommendations.hermes]
+profile = 'ucloud-claude-fable-5-1'
+protocol = 'anthropic'
+
 [accounts]
 [accounts.aihubmix]
 label = 'AIHubMix'

@@ -26,8 +26,8 @@ func (s Synchronizer) selectProfile(ctx context.Context, before, after configura
 	if !exists {
 		return false, fmt.Errorf("unknown profile %q", profileID)
 	}
+	after.SetSelectedProfile(client, profileID)
 	binding := after.Clients[client]
-	binding.Profile = profileID
 	binding.Enabled = true
 	after.Clients[client] = binding
 	selected, err := after.ResolveRuntime(client, "")

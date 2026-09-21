@@ -185,6 +185,9 @@ func (c *Config) SetSelectedProfile(client, profileID string) {
 		c.Clients = map[string]ClientBinding{}
 	}
 	binding := c.Clients[client]
+	if binding.Profile == "" {
+		binding = binding.withSelection(c.recommendedSelection(client))
+	}
 	binding.Profile = profileID
 	c.Clients[client] = binding
 }
@@ -364,7 +367,8 @@ func (c *Config) profileForAvailableAuthentication(client string, connected map[
 	}
 
 	for _, profileID := range c.ProfileIDs() {
-		selection := ClientSelection{Profile: profileID}
+		selection := recommendation
+		selection.Profile = profileID
 		runtime, err := c.resolveSelection(client, selection)
 		if err != nil || runtime.RequiresAccountToken() && !connected[runtime.AccountID] {
 			continue
@@ -384,16 +388,19 @@ func (c *Config) recommendedSelection(client string) ClientSelection {
 func (c *Config) ResolveRuntime(client, explicitProfile string) (Runtime, error) {
 	binding := c.clientBinding(client)
 	selection := binding.selection()
-	if explicitProfile != "" {
-		if explicitProfile != selection.Profile {
-			selection = ClientSelection{Profile: explicitProfile}
-		}
-	} else if selection.Profile == "" {
+	if explicitProfile == "" && selection.Profile == "" {
 		return Runtime{}, &RuntimeBindingUnselectedError{Client: client}
+	}
+	if explicitProfile == "" || explicitProfile == selection.Profile {
+		return c.resolveSelection(client, selection)
+	}
+	selection = ClientSelection{Profile: explicitProfile}
+	if binding.Profile == "" {
+		selection = c.recommendedSelection(client)
+		selection.Profile = explicitProfile
 	}
 	return c.resolveSelection(client, selection)
 }
-
 func (c *Config) clientBinding(client string) ClientBinding {
 	return c.Clients[client]
 }

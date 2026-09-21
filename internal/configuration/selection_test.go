@@ -277,6 +277,57 @@ func TestSelectProfilesForConnectedAccountsDefaultsToRecommendedClients(t *testi
 	}
 }
 
+func TestSelectProfilesForConnectedAccountsPreservesRecommendedProtocolForEquivalentProfile(t *testing.T) {
+	cfg := NewConfig()
+	cfg.Accounts["preferred"] = Account{Label: "Preferred", Endpoints: Endpoints{
+		Anthropic: "https://preferred.test", OpenAIResponses: "https://preferred.test/v1",
+	}}
+	cfg.Accounts["connected"] = Account{Label: "Connected", Endpoints: Endpoints{
+		Anthropic: "https://connected.test", OpenAIResponses: "https://connected.test/v1",
+	}}
+	cfg.Profiles["preferred"] = Profile{Label: "Preferred", Account: "preferred", Model: "shared-model"}
+	cfg.Profiles["connected"] = Profile{Label: "Connected", Account: "connected", Model: "shared-model"}
+	cfg.Recommendations[ClientHermes] = ClientSelection{Profile: "preferred", Protocol: ProtocolAnthropic}
+
+	selected, err := cfg.SelectProfilesForConnectedAccounts([]string{"connected"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := selected.Clients[ClientHermes]
+	if binding.Profile != "connected" || binding.Protocol != ProtocolAnthropic {
+		t.Fatalf("Hermes binding = %#v, want connected Profile with Anthropic protocol", binding)
+	}
+	runtime, err := selected.ResolveRuntime(ClientHermes, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.Endpoint != "https://connected.test" || runtime.Protocol != ProtocolAnthropic {
+		t.Fatalf("Hermes runtime = %#v", runtime)
+	}
+}
+
+func TestExplicitProfileSelectionUsesUnboundRecommendationOptions(t *testing.T) {
+	cfg := NewConfig()
+	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{
+		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
+	}}
+	cfg.Profiles["recommended"] = Profile{Label: "Recommended", Account: "team", Model: "recommended-model"}
+	cfg.Profiles["selected"] = Profile{Label: "Selected", Account: "team", Model: "selected-model"}
+	cfg.Recommendations[ClientHermes] = ClientSelection{Profile: "recommended", Protocol: ProtocolAnthropic}
+
+	runtime, err := cfg.ResolveRuntime(ClientHermes, "selected")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.ProfileID != "selected" || runtime.Protocol != ProtocolAnthropic {
+		t.Fatalf("explicit Hermes runtime = %#v", runtime)
+	}
+	cfg.SetSelectedProfile(ClientHermes, "selected")
+	if binding := cfg.Clients[ClientHermes]; binding.Profile != "selected" || binding.Protocol != ProtocolAnthropic {
+		t.Fatalf("stored Hermes binding = %#v", binding)
+	}
+}
+
 func TestSelectProfilesForConnectedAccountsSkipsProfilesWithoutTheClientEndpoint(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://team.test"}}

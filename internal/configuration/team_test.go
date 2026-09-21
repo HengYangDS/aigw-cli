@@ -42,17 +42,22 @@ func TestTeamConfigurationManifestIsReviewedVersionFive(t *testing.T) {
 			t.Fatalf("team manifest missing account %q", accountID)
 		}
 	}
-	recommendedModels := map[string]string{
-		ClientClaude: "claude-fable-5-1",
-		ClientCodex:  "gpt-6-astra",
+	recommendations := map[string]struct {
+		model           string
+		storedProtocol  EndpointProtocol
+		runtimeProtocol EndpointProtocol
+	}{
+		ClientClaude: {model: "claude-fable-5-1", runtimeProtocol: ProtocolAnthropic},
+		ClientCodex:  {model: "gpt-6-astra", runtimeProtocol: ProtocolOpenAIResponses},
+		ClientHermes: {model: "claude-fable-5-1", storedProtocol: ProtocolAnthropic, runtimeProtocol: ProtocolAnthropic},
 	}
-	if len(parsedManifest.Recommendations) != len(recommendedModels) {
+	if len(parsedManifest.Recommendations) != len(recommendations) {
 		t.Fatalf("team manifest recommended routes = %#v", parsedManifest.Recommendations)
 	}
-	for client, want := range recommendedModels {
+	for client, want := range recommendations {
 		profile := parsedManifest.Profiles[parsedManifest.Recommendations[client].Profile]
-		if profile.Model != want {
-			t.Fatalf("recommended %s profile = %#v, want model %q", client, profile, want)
+		if profile.Model != want.model || parsedManifest.Recommendations[client].Protocol != want.storedProtocol {
+			t.Fatalf("recommended %s profile = %#v with stored protocol %q, want model %q with stored protocol %q", client, profile, parsedManifest.Recommendations[client].Protocol, want.model, want.storedProtocol)
 		}
 	}
 	for accountID := range parsedManifest.Accounts {
@@ -64,17 +69,17 @@ func TestTeamConfigurationManifestIsReviewedVersionFive(t *testing.T) {
 		if selectErr != nil {
 			t.Fatal(selectErr)
 		}
-		for client, wantModel := range recommendedModels {
+		for client, want := range recommendations {
 			runtime, resolveErr := selected.ResolveRuntime(client, "")
 			if resolveErr != nil {
 				t.Fatalf("resolve %s route for Account %q: %v", client, accountID, resolveErr)
 			}
 			modelOffered := false
 			for _, profile := range parsedManifest.Profiles {
-				modelOffered = modelOffered || profile.Account == accountID && profile.Model == wantModel
+				modelOffered = modelOffered || profile.Account == accountID && profile.Model == want.model
 			}
-			if runtime.AccountID != accountID || modelOffered && runtime.Model != wantModel {
-				t.Fatalf("%s route for Account %q = Account %q model %q, want model %q", client, accountID, runtime.AccountID, runtime.Model, wantModel)
+			if runtime.AccountID != accountID || modelOffered && runtime.Model != want.model || runtime.Protocol != want.runtimeProtocol {
+				t.Fatalf("%s route for Account %q = Account %q model %q protocol %q, want model %q protocol %q", client, accountID, runtime.AccountID, runtime.Model, runtime.Protocol, want.model, want.runtimeProtocol)
 			}
 		}
 	}
@@ -131,7 +136,7 @@ func TestTeamManifestSelectsRecommendedModelsForAIHubMix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for client, model := range map[string]string{ClientClaude: "claude-fable-5-1", ClientCodex: "gpt-6-astra"} {
+	for client, model := range map[string]string{ClientClaude: "claude-fable-5-1", ClientCodex: "gpt-6-astra", ClientHermes: "claude-fable-5-1"} {
 		runtime, resolveErr := selected.ResolveRuntime(client, "")
 		if resolveErr != nil {
 			t.Fatal(resolveErr)
