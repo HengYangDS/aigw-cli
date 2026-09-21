@@ -352,17 +352,23 @@ Task 4.5 admits Hermes through the same Client Binding and transaction owners
 as the existing clients. Setup may retain enabled intent before Hermes is
 installed; later discovery and synchronization select its native
 `config.yaml`, while explicit re-enablement retains that target. Projection
-groups the selected Account's reviewed Profiles into deterministic native
-providers by protocol, publishes their explicit model allowlists with discovery
-disabled, selects one active provider/model, and supplies protocol-scoped
-credential commands rather than Tokens. It preserves unrelated YAML and
-session files, rejects a changed preimage, and removes only AIGW-owned providers
-on disable or uninstall. Verification uses Hermes' documented bounded
+groups every connected Account's reviewed, compatible Profiles into
+deterministic native providers by Account and protocol, publishes their explicit
+model allowlists with discovery disabled, and keeps the explicit Client Binding
+as the one active provider/model. Disconnected Accounts and unverified manual
+Profiles are omitted. Each projected provider receives its own Account-scoped
+credential command rather than a Token. The transaction preserves unrelated
+YAML and session files, rejects a changed preimage, and removes only AIGW-owned
+providers on disable or uninstall. Verification uses Hermes' documented bounded
 single-turn `chat` contract. The real Homebrew Hermes Agent `v0.21.3` executed an
 authenticated streaming request against the selected Anthropic-compatible
 endpoint, then passed Account rename, external credential-helper replacement,
 disable, re-enable, and uninstall in an isolated home. This is macOS evidence;
 Linux and Windows native qualification remain tasks 9.3 and 9.4.
+The current native catalogue acceptance additionally loads two connected
+Accounts through the installed Hermes runtime, observes every compatible
+reviewed Profile under its Account-and-protocol provider, and proves that an
+unconnected Account is not projected.
 
 Credential portability is accepted at signed commit `3863e05e`. The ordinary
 GitHub review run `35455496791` exercised the complete native graph on macOS,

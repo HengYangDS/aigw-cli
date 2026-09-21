@@ -107,6 +107,15 @@ Client-owned sessions, services, and model choices SHALL remain client-owned.
 - **AND** credentials SHALL use the selected supported delivery mechanism
 - **AND** unrelated clients, Hermes sessions, and Hermes services remain unchanged.
 
+#### Scenario: Hermes exposes the connected catalogue
+
+- **GIVEN** more than one Account has an available credential
+- **WHEN** Hermes synchronization projects its native model catalogue
+- **THEN** every reviewed Profile compatible with Hermes from those connected
+  Accounts SHALL be grouped under its Account and protocol provider
+- **AND** the explicitly selected Profile SHALL remain Hermes' active model
+- **AND** disconnected Accounts and unverified manual Profiles SHALL remain absent.
+
 #### Scenario: Claude Desktop and Claude Code use different bindings
 
 - **WHEN** the operator enables distinct Desktop and CLI Profiles

@@ -84,44 +84,54 @@ func (hermesAdapter) Converge(deps Dependencies, cfg *configuration.Config, disc
 }
 
 func hermesDesired(deps Dependencies, cfg configuration.Config, selected configuration.Runtime) (hermesconfig.Desired, error) {
-	models := make(map[configuration.EndpointProtocol][]string)
+	spec := mustClientSpec(configuration.ClientHermes)
+	providers := make(map[string]hermesconfig.Provider)
+	connected := map[string]bool{selected.AccountID: true}
 	for _, profileID := range cfg.ProfileIDs() {
 		profile := cfg.Profiles[profileID]
-		if profile.Account != selected.AccountID {
+		if _, observed := connected[profile.Account]; !observed {
+			available, err := secretAvailable(deps.Secrets, profile.Account)
+			if err != nil {
+				return hermesconfig.Desired{}, fmt.Errorf("inspect Hermes Account %q credential: %w", profile.Account, err)
+			}
+			connected[profile.Account] = available
+		}
+		if !connected[profile.Account] {
 			continue
 		}
-		protocols := profile.Protocols
-		if protocols == nil && profileID == selected.ProfileID {
+		account := cfg.Accounts[profile.Account]
+		protocols := spec.CompatibleProfileProtocols(account, profile)
+		if profile.Protocols == nil {
+			if profileID != selected.ProfileID {
+				continue
+			}
 			protocols = []configuration.EndpointProtocol{selected.Protocol}
 		}
 		for _, protocol := range protocols {
-			models[protocol] = append(models[protocol], profile.Model)
+			providerID := hermesProviderID(profile.Account, protocol)
+			provider, exists := providers[providerID]
+			if !exists {
+				providerRuntime, err := cfg.ResolveProfileProtocol(configuration.ClientHermes, profileID, protocol)
+				if err != nil {
+					return hermesconfig.Desired{}, err
+				}
+				command, err := credential.Command(providerRuntime.CredentialExecutable(deps.AIGWExecutable), configuration.ClientHermes, providerRuntime.CredentialProjectionFingerprint(configuration.ClientHermes), runtime.GOOS)
+				if err != nil {
+					return hermesconfig.Desired{}, err
+				}
+				provider = hermesconfig.Provider{
+					ID: providerID, Endpoint: providerRuntime.Endpoint, Protocol: string(protocol), CredentialCommand: command,
+				}
+			}
+			provider.Models = append(provider.Models, profile.Model)
+			providers[providerID] = provider
 		}
 	}
-	account := cfg.Accounts[selected.AccountID]
 	desired := hermesconfig.Desired{SelectedProvider: hermesProviderID(selected.AccountID, selected.Protocol), SelectedModel: selected.Model}
-	for _, protocol := range mustClientSpec(configuration.ClientHermes).EndpointProtocols {
-		catalog := models[protocol]
-		if len(catalog) == 0 {
-			continue
-		}
-		endpoint := account.Endpoints.For(protocol)
-		if endpoint == "" {
-			continue
-		}
-		slices.Sort(catalog)
-		catalog = slices.Compact(catalog)
-		providerRuntime := selected
-		providerRuntime.Endpoint = strings.TrimRight(endpoint, "/")
-		providerRuntime.Protocol = protocol
-		command, err := credential.Command(providerRuntime.CredentialExecutable(deps.AIGWExecutable), configuration.ClientHermes, providerRuntime.CredentialProjectionFingerprint(configuration.ClientHermes), runtime.GOOS)
-		if err != nil {
-			return hermesconfig.Desired{}, err
-		}
-		desired.Providers = append(desired.Providers, hermesconfig.Provider{
-			ID: hermesProviderID(selected.AccountID, protocol), Models: catalog,
-			Endpoint: providerRuntime.Endpoint, Protocol: string(protocol), CredentialCommand: command,
-		})
+	for _, provider := range providers {
+		slices.Sort(provider.Models)
+		provider.Models = slices.Compact(provider.Models)
+		desired.Providers = append(desired.Providers, provider)
 	}
 	sort.Slice(desired.Providers, func(left, right int) bool { return desired.Providers[left].ID < desired.Providers[right].ID })
 	if err := desired.Validate(); err != nil {

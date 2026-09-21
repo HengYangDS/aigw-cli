@@ -426,6 +426,16 @@ func (c *Config) ResolveRuntime(client, explicitProfile string) (Runtime, error)
 	return c.resolveSelection(client, selection)
 }
 
+// ResolveProfileProtocol resolves one reviewed Profile through an exact client
+// protocol while retaining that client's authentication and credential policy.
+func (c *Config) ResolveProfileProtocol(client, profileID string, protocol EndpointProtocol) (Runtime, error) {
+	binding := c.clientBinding(client)
+	return c.resolveSelection(client, ClientSelection{
+		Profile: profileID, Protocol: protocol,
+		ModelProvider: binding.ModelProvider, Authentication: binding.Authentication,
+	})
+}
+
 func profileAdmitsProtocol(profile Profile, protocol EndpointProtocol) bool {
 	return profile.Protocols == nil || slices.Contains(profile.Protocols, protocol)
 }

@@ -100,6 +100,43 @@ func TestCredentialHelperResolvesAnUnselectedProfileProjection(t *testing.T) {
 	}
 }
 
+func TestCredentialHelperResolvesEveryProjectedProfileProtocol(t *testing.T) {
+	runtime, buffer := helperRuntime(t, configuration.ClientHermes, true)
+	cfg, err := runtime.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	account := cfg.Accounts["gateway"]
+	account.Endpoints.OpenAIChatCompletions = "https://gateway.test/chat/v1"
+	cfg.Accounts["gateway"] = account
+	profile := cfg.Profiles[configuration.ClientHermes]
+	profile.Protocols = []configuration.EndpointProtocol{
+		configuration.ProtocolOpenAIResponses,
+		configuration.ProtocolOpenAIChatCompletions,
+	}
+	cfg.Profiles[configuration.ClientHermes] = profile
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.Secrets.Set("gateway", "gateway-token"); err != nil {
+		t.Fatal(err)
+	}
+	projection, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	projection.Protocol = configuration.ProtocolOpenAIChatCompletions
+	projection.Endpoint = account.Endpoints.OpenAIChatCompletions
+
+	command := NewCommand(runtime)
+	if err := command.RunE(command, []string{configuration.ClientHermes, projection.CredentialProjectionFingerprint(configuration.ClientHermes)}); err != nil {
+		t.Fatal(err)
+	}
+	if got := buffer.String(); got != "gateway-token\n" {
+		t.Fatalf("alternate protocol credential = %q", got)
+	}
+}
+
 func TestCredentialHelperRejectsStaleBindingBeforeSecretAccess(t *testing.T) {
 	for _, client := range configuration.AdmittedClientIDs() {
 		for _, change := range []string{"client", "account", "endpoint"} {

@@ -58,13 +58,33 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func resolveProjectedRuntime(cfg configuration.Config, client, fingerprint string) (configuration.Runtime, error) {
+	spec, admitted := configuration.ClientSpecFor(client)
+	if !admitted {
+		return configuration.Runtime{}, fmt.Errorf("unknown client %q", client)
+	}
 	for _, profileID := range cfg.ProfileIDs() {
-		clientRuntime, err := cfg.ResolveRuntime(client, profileID)
-		if err != nil {
+		profile := cfg.Profiles[profileID]
+		account, exists := cfg.Accounts[profile.Account]
+		if !exists {
 			continue
 		}
-		if clientRuntime.CredentialProjectionFingerprint(client) == fingerprint {
-			return clientRuntime, nil
+		account.ID = profile.Account
+		protocols := spec.CompatibleProfileProtocols(account, profile)
+		if profile.Protocols == nil {
+			clientRuntime, err := cfg.ResolveRuntime(client, profileID)
+			if err != nil {
+				continue
+			}
+			protocols = []configuration.EndpointProtocol{clientRuntime.Protocol}
+		}
+		for _, protocol := range protocols {
+			clientRuntime, err := cfg.ResolveProfileProtocol(client, profileID, protocol)
+			if err != nil {
+				continue
+			}
+			if clientRuntime.CredentialProjectionFingerprint(client) == fingerprint {
+				return clientRuntime, nil
+			}
 		}
 	}
 	return configuration.Runtime{}, fmt.Errorf("unknown credential projection fingerprint")

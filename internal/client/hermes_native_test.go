@@ -127,9 +127,16 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err = cfg.SelectProfilesForConnectedAccounts([]string{"ucloud"}, configuration.ClientHermes)
+	connectedAccounts := []string{"aihubmix", "ucloud"}
+	cfg, err = cfg.SelectProfilesForConnectedAccounts(connectedAccounts, configuration.ClientHermes)
 	if err != nil {
 		t.Fatal(err)
+	}
+	projectionSecrets := secrets.NewMemoryStore()
+	for _, accountID := range connectedAccounts {
+		if err := projectionSecrets.Set(accountID, "public-native-fixture"); err != nil {
+			t.Fatal(err)
+		}
 	}
 	hermesHome := filepath.Join(home, "hermes")
 	binding := cfg.Clients[configuration.ClientHermes]
@@ -140,10 +147,13 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err := configuration.NewStore(configPath).Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := DefaultRegistry().Apply(t.Context(), Dependencies{AIGWExecutable: candidate}, configuration.NewConfig(), cfg, configuration.ClientHermes); err != nil {
+	if err := DefaultRegistry().Apply(t.Context(), Dependencies{Secrets: projectionSecrets, AIGWExecutable: candidate}, configuration.NewConfig(), cfg, configuration.ClientHermes); err != nil {
 		t.Fatal(err)
 	}
-	env["HERMES_HOME"], env["AIGW_SECRET_BACKEND"], env[secrets.EnvironmentKey("ucloud")] = hermesHome, "env", "public-native-fixture"
+	env["HERMES_HOME"], env["AIGW_SECRET_BACKEND"] = hermesHome, "env"
+	for _, accountID := range connectedAccounts {
+		env[secrets.EnvironmentKey(accountID)] = "public-native-fixture"
+	}
 	env["PATH"] = os.Getenv("PATH")
 	if systemRoot := os.Getenv("SystemRoot"); systemRoot != "" {
 		env["SystemRoot"] = systemRoot
@@ -167,13 +177,17 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err := json.Unmarshal(output, &result); err != nil {
 		t.Fatalf("native catalogue result: %v\n%s", err, output)
 	}
+	connected := map[string]bool{}
+	for _, accountID := range connectedAccounts {
+		connected[accountID] = true
+	}
 	want := map[string][]string{}
 	for _, profile := range manifest.Profiles {
-		if profile.Account != "ucloud" {
+		if !connected[profile.Account] {
 			continue
 		}
 		for _, protocol := range profile.Protocols {
-			providerID := hermesProviderID("ucloud", protocol)
+			providerID := hermesProviderID(profile.Account, protocol)
 			want[providerID] = append(want[providerID], profile.Model)
 		}
 	}

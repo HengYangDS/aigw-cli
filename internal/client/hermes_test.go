@@ -109,7 +109,7 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	}
 }
 
-func TestHermesProjectionGroupsTheSelectedAccountsCuratedModelsByProtocol(t *testing.T) {
+func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *testing.T) {
 	home := t.TempDir()
 	target := filepath.Join(home, ".hermes", "config.yaml")
 	cfg := configuration.NewConfig()
@@ -118,12 +118,26 @@ func TestHermesProjectionGroupsTheSelectedAccountsCuratedModelsByProtocol(t *tes
 		OpenAIResponses:       "https://responses.test/v1",
 		OpenAIChatCompletions: "https://chat.test/v1",
 	}}
+	cfg.Accounts["connected"] = configuration.Account{Label: "Connected", Endpoints: configuration.Endpoints{
+		OpenAIResponses: "https://connected.test/v1",
+	}}
+	cfg.Accounts["offline"] = configuration.Account{Label: "Offline", Endpoints: configuration.Endpoints{
+		OpenAIResponses: "https://offline.test/v1",
+	}}
 	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Model: "claude-fable-5-1", Protocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic}}
 	cfg.Profiles["grok"] = configuration.Profile{Label: "Grok", Account: "team", Model: "grok-4.6", Protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
 	cfg.Profiles["gemini"] = configuration.Profile{Label: "Gemini", Account: "team", Model: "gemini-3.8-flash", Protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIChatCompletions}}
+	cfg.Profiles["qwen"] = configuration.Profile{Label: "Qwen", Account: "connected", Model: "qwen-max", Protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
+	cfg.Profiles["deepseek"] = configuration.Profile{Label: "DeepSeek", Account: "offline", Model: "deepseek-v3", Protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
 	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Profile: "claude", Enabled: true, Protocol: configuration.ProtocolAnthropic, Targets: []string{target}}
+	store := secrets.NewMemoryStore()
+	for _, accountID := range []string{"team", "connected"} {
+		if err := store.Set(accountID, "fixture-token"); err != nil {
+			t.Fatal(err)
+		}
+	}
 
-	plans, _, err := hermesPlans(Dependencies{AIGWExecutable: filepath.Join(home, "aigw")}, configuration.NewConfig(), cfg)
+	plans, _, err := hermesPlans(Dependencies{Secrets: store, AIGWExecutable: filepath.Join(home, "aigw")}, configuration.NewConfig(), cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,9 +151,14 @@ func TestHermesProjectionGroupsTheSelectedAccountsCuratedModelsByProtocol(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"aigw-team-anthropic", "aigw-team-openai-responses", "aigw-team-openai-chat-completions", "claude-fable-5-1", "grok-4.6", "gemini-3.8-flash", "discover_models: false"} {
+	for _, want := range []string{"aigw-team-anthropic", "aigw-team-openai-responses", "aigw-team-openai-chat-completions", "aigw-connected-openai-responses", "claude-fable-5-1", "grok-4.6", "gemini-3.8-flash", "qwen-max", "discover_models: false"} {
 		if !strings.Contains(string(data), want) {
 			t.Errorf("Hermes projection missing %q:\n%s", want, data)
+		}
+	}
+	for _, unwanted := range []string{"aigw-offline-openai-responses", "deepseek-v3"} {
+		if strings.Contains(string(data), unwanted) {
+			t.Errorf("Hermes projection contains disconnected Account value %q:\n%s", unwanted, data)
 		}
 	}
 }
