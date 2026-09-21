@@ -242,20 +242,22 @@ installation or compatibility path.
 The Change keeps one task ledger while mapping the accumulated feedback to its
 owning closure:
 
-| Feedback theme                                                                                                                             | Owning tasks     |
-| ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
-| Natural first setup, partial credentials, absent clients, later synchronization, and precise `use`/`check` semantics                       | 2.1–2.6          |
-| Keychain, Secret Service, Credential Manager, file and environment portability without repeated prompts                                    | 3.1–3.5          |
-| Optional Proxy composition, direct endpoints, and mature reuse before custom implementation                                                | 4.1–4.3, 4.6     |
-| Hermes, Claude Desktop, model-neutral access, and real client qualification                                                                | 4.4–4.5, 4.7–4.8 |
-| OpenCode, Pi, WorkBuddy/CodeBuddy, Qoder, ChatGPT surfaces, and AWS/provider extension research                                            | 4.9–4.10         |
-| Real team configuration, consistent model identity and channel variants, and preserved explicit selections                                 | 4.11             |
-| Semantic packages, test topology, precise names and types, no suffix-based flat sprawl, hard-coding, wrappers, or parallel implementations | 5.1–5.6          |
-| Comprehensive format, lint, type, test, documentation, schema, security, complexity, size, coverage, and warning policy                    | 6.1–6.7          |
-| Latest stable direct supply chain, locked clean-lane bootstrap, and removal of stale installers or caches                                  | 7.1–7.5          |
-| English, navigable, accurate documentation; correct research, decision, architecture, guide, governance, and operations placement          | 8.1–8.6          |
-| Real macOS, Linux, and Windows product journeys; performance; dual-Forge identity and CI projection                                        | 9.1–9.7          |
-| Versioning, release only for changed product bytes, branch convergence, proposal cleanup, lane retirement, and residue removal             | 10.1–10.4        |
+| Feedback theme                                                                                                                                                                                         | Owning tasks or boundary |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
+| First setup, token-free team import, partial credentials, absent clients, deferred installation, later sync, and uninstall                                                                             | 2.1–2.3, 9.3             |
+| `use`, per-client defaults, `use --all`, status, check, doctor, test, verify, recovery, cancellation, and migration UX                                                                                 | 2.4–2.8                  |
+| Keychain, Secret Service, Credential Manager, file and environment modes, bounded noninteractive access, retained callers, and secret hygiene                                                          | 3.1–3.5, 9.3             |
+| Optional Proxy composition, direct endpoints, endpoint identity, and removal of Proxy-shaped defaults from AIGW                                                                                        | 4.1–4.3                  |
+| Provider-neutral protocols, non-OpenAI and non-Anthropic model families, exact serving-model identity, and synthetic plus real extension evidence                                                      | 4.4, 4.8, 4.10           |
+| Hermes and Claude Desktop, including Chat, Cowork, Code, native discovery, restart, withdrawal, and client-owned state                                                                                 | 4.5, 4.7–4.8, 9.4        |
+| OpenCode, Pi, CodeBuddy, WorkBuddy, Qoder, ChatGPT surfaces, CC Switch, local gateways, and mature-framework reuse                                                                                     | 4.6, 4.9–4.10            |
+| Real team Profiles, Flagship and Daily model tiers, protocol metadata, channel variants, naming consistency, and preserved explicit selections                                                         | 4.11                     |
+| Semantic packages, test topology, narrow names and types, deep modules, no suffix sprawl, hard-coding, wrappers, duplicate implementations, or stale residue                                           | 5.1–5.6                  |
+| Comprehensive format, lint, type, test, docstring, documentation, schema, security, complexity, size, coverage, warnings, and deterministic Forge projection                                           | 6.1–6.7, 9.5–9.7         |
+| Latest stable direct supply chain, repository-locked bootstrap, Work Lane environments, cache ownership, and cross-host reproduction                                                                   | 7.1–7.5, 9.3             |
+| English, navigable, accurate documentation; correct research, decision, architecture, guide, governance, operations, diagram, table, and link ownership                                                | 8.1–8.6                  |
+| macOS, Linux, and Windows builds, credentials, clients, installation, update, rollback, recovery, uninstall, performance, and portable artifacts                                                       | 9.1–9.7                  |
+| Developer review versus maintainer closeout, proposal cleanup, signed object parity, main/dev convergence, release gating, Homebrew, optional later distribution channels, and repository housekeeping | 9.2, 9.5, 10.1–10.4      |
 
 Generic Work Lane, lease, commitment, publication, review, and retirement
 mechanisms remain ETHOS responsibilities. Proxy protocol translation, service
