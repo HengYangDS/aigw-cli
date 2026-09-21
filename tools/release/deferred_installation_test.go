@@ -77,6 +77,10 @@ protocols = ['openai_responses']
 			if err != nil {
 				t.Fatal(err)
 			}
+			binding := after.Clients[clientID]
+			if !binding.Enabled || binding.Executable == "" || clientID != configuration.ClientClaude && len(binding.Targets) == 0 {
+				t.Fatalf("%s binding was not activated: %#v", clientID, binding)
+			}
 			journey.requireClientProjection(clientID)
 			for _, candidate := range configuration.AdmittedClientIDs() {
 				if candidate == clientID {
@@ -122,7 +126,7 @@ func (j *journeyFixture) requireClientProjection(clientID string) {
 	if clientID == configuration.ClientClaudeDesktop {
 		primary = paths[2]
 	}
-	requireFileContains(j.testing, primary, j.endpoint, model, j.binary)
+	requireFileContains(j.testing, primary, j.endpoint, model)
 }
 
 func (j *journeyFixture) clientProjectionSnapshot(clientID string) map[string]string {
