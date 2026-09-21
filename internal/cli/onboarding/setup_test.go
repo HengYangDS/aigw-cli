@@ -359,7 +359,7 @@ func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
 func TestManifestSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "configuration.toml")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 5
+	manifest := `version = 6
 [recommendations.codex]
 profile = "gpt"
 

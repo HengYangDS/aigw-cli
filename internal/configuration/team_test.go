@@ -32,9 +32,9 @@ func loadTeamManifest(t *testing.T) ([]byte, Manifest) {
 	return data, parsedManifest
 }
 
-func TestTeamConfigurationManifestIsReviewedVersionFive(t *testing.T) {
+func TestTeamConfigurationManifestIsReviewedVersionSix(t *testing.T) {
 	_, parsedManifest := loadTeamManifest(t)
-	if parsedManifest.Version != 5 || len(parsedManifest.Accounts) != 3 || len(parsedManifest.Profiles) == 0 {
+	if parsedManifest.Version != 6 || len(parsedManifest.Accounts) != 3 || len(parsedManifest.Profiles) == 0 {
 		t.Fatalf("team manifest = version %d, %d Accounts, %d profiles", parsedManifest.Version, len(parsedManifest.Accounts), len(parsedManifest.Profiles))
 	}
 	for _, accountID := range []string{"aihubmix", "dmxapi", "ucloud"} {
@@ -80,6 +80,37 @@ func TestTeamConfigurationManifestIsReviewedVersionFive(t *testing.T) {
 			}
 			if runtime.AccountID != accountID || modelOffered && runtime.Model != want.model || runtime.Protocol != want.runtimeProtocol {
 				t.Fatalf("%s route for Account %q = Account %q model %q protocol %q, want model %q protocol %q", client, accountID, runtime.AccountID, runtime.Model, runtime.Protocol, want.model, want.runtimeProtocol)
+			}
+		}
+	}
+}
+
+func TestTeamManifestProvidesFlagshipAndDailyProfilesForEachGeneralModelFamily(t *testing.T) {
+	_, manifest := loadTeamManifest(t)
+	want := map[string][2]string{
+		"grok":     {"grok-4.6", "grok-4.3"},
+		"gemini":   {"gemini-3.1-pro-preview", "gemini-3.8-flash"},
+		"deepseek": {"deepseek-v4-pro-0813", "deepseek-v4-flash-0731"},
+		"qwen":     {"qwen3.8-max", "qwen3.7-plus"},
+		"glm":      {"glm-5.3", "glm-5.3-flash"},
+		"kimi":     {"kimi-k3", "kimi-k2.7-code-highspeed"},
+	}
+	for accountID := range manifest.Accounts {
+		for family, models := range want {
+			for index, model := range models {
+				profileID := accountID + "-" + model
+				profile, ok := manifest.Profiles[profileID]
+				if !ok {
+					t.Errorf("team manifest missing %s %s Profile %q", accountID, family, profileID)
+					continue
+				}
+				wantTier := ModelTierFlagship
+				if index == 1 {
+					wantTier = ModelTierDaily
+				}
+				if profile.Account != accountID || profile.Model != model || profile.Tier != wantTier || len(profile.Protocols) == 0 {
+					t.Errorf("team Profile %q = %#v", profileID, profile)
+				}
 			}
 		}
 	}

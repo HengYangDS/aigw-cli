@@ -9,18 +9,66 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
+	"strings"
 
 	"aigw-cli/internal/transaction"
 
 	"go.yaml.in/yaml/v3"
 )
 
-// Route is the non-secret input to Hermes's native provider configuration.
-type Route struct {
-	Model             string
+// Provider is one AIGW-owned Hermes provider projection.
+type Provider struct {
+	ID                string
+	Models            []string
 	Endpoint          string
 	Protocol          string
 	CredentialCommand string
+}
+
+// Desired is the complete non-secret AIGW projection into Hermes.
+type Desired struct {
+	SelectedProvider string
+	SelectedModel    string
+	Providers        []Provider
+}
+
+// Validate checks that the selected model belongs to one complete provider.
+func (desired Desired) Validate() error {
+	if strings.TrimSpace(desired.SelectedProvider) == "" || strings.TrimSpace(desired.SelectedModel) == "" {
+		return errors.New("Hermes selected provider and model are required")
+	}
+	providerIDs := make(map[string]bool, len(desired.Providers))
+	selected := false
+	for _, provider := range desired.Providers {
+		if err := provider.validate(); err != nil {
+			return err
+		}
+		if providerIDs[provider.ID] {
+			return fmt.Errorf("Hermes provider %q is duplicated", provider.ID)
+		}
+		providerIDs[provider.ID] = true
+		if provider.ID == desired.SelectedProvider && slices.Contains(provider.Models, desired.SelectedModel) {
+			selected = true
+		}
+	}
+	if !selected {
+		return errors.New("Hermes selected model is absent from its provider catalogue")
+	}
+	return nil
+}
+
+func (provider Provider) validate() error {
+	for name, value := range map[string]string{"provider ID": provider.ID, "endpoint": provider.Endpoint, "credential command": provider.CredentialCommand} {
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("Hermes %s is required", name)
+		}
+	}
+	if len(provider.Models) == 0 {
+		return fmt.Errorf("Hermes provider %q requires at least one model", provider.ID)
+	}
+	_, err := nativeProtocol(provider.Protocol)
+	return err
 }
 
 // Plan describes a prepared configuration change without applying it.
@@ -49,6 +97,7 @@ type ownership struct {
 	OriginalModel    *yaml.Node `json:"original_model"`
 	ModelPresent     bool       `json:"model_present"`
 	ProvidersPresent bool       `json:"providers_present"`
+	ProviderIDs      []string   `json:"provider_ids"`
 	FilePresent      bool       `json:"file_present"`
 	ManagedDigest    string     `json:"managed_digest"`
 }
@@ -56,7 +105,7 @@ type ownership struct {
 const stateSuffix = ".aigw-state.json"
 
 // Prepare validates and prepares one projection or its withdrawal.
-func Prepare(path string, route *Route) (Plan, error) {
+func Prepare(path string, desired *Desired) (Plan, error) {
 	plan := Plan{path: path, Action: "unchanged"}
 	var err error
 	plan.configBefore, err = transaction.CaptureFileSnapshot(path)
@@ -67,28 +116,24 @@ func Prepare(path string, route *Route) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	if route == nil && !plan.stateBefore.Exists {
+	if desired == nil && !plan.stateBefore.Exists {
 		return plan, nil
 	}
 	root, err := parse(plan.configBefore.Data)
 	if err != nil {
 		return Plan{}, err
 	}
-	before, err := managedBytes(root)
+	state, before, err := plan.readOwnership(root, desired)
 	if err != nil {
 		return Plan{}, err
 	}
-	state, err := plan.readOwnership(root, before)
-	if err != nil {
-		return Plan{}, err
-	}
-	if route == nil {
+	if desired == nil {
 		if err := restore(root, state); err != nil {
 			return Plan{}, err
 		}
 		plan.Action = "remove"
 		plan.removeConfig = !state.FilePresent && len(root.Content) == 0
-	} else if err := plan.prepareRoute(root, *route, state, before); err != nil {
+	} else if err := plan.prepareDesired(root, *desired, state, before); err != nil {
 		return Plan{}, err
 	}
 	if plan.Action == "unchanged" {
@@ -101,13 +146,25 @@ func Prepare(path string, route *Route) (Plan, error) {
 	return plan, nil
 }
 
-func (plan *Plan) prepareRoute(root *yaml.Node, route Route, state ownership, before []byte) error {
-	protocol, err := route.nativeProtocol()
-	if err != nil {
+func (plan *Plan) prepareDesired(root *yaml.Node, desired Desired, state ownership, before []byte) error {
+	if err := desired.Validate(); err != nil {
 		return err
 	}
-	project(root, route, protocol)
-	after, err := managedBytes(root)
+	providers := field(root, "providers")
+	if providers != nil {
+		setField(providers, legacyProviderID, nil)
+		for _, providerID := range state.ProviderIDs {
+			setField(providers, providerID, nil)
+		}
+	}
+	for _, provider := range desired.Providers {
+		if !slices.Contains(state.ProviderIDs, provider.ID) && field(providers, provider.ID) != nil {
+			return fmt.Errorf("Hermes provider %s already exists without AIGW ownership", provider.ID)
+		}
+	}
+	project(root, desired)
+	state.ProviderIDs = desired.providerIDs()
+	after, err := managedBytes(root, state.ProviderIDs)
 	if err != nil {
 		return err
 	}
@@ -124,29 +181,48 @@ func (plan *Plan) prepareRoute(root *yaml.Node, route Route, state ownership, be
 	return nil
 }
 
-func (plan *Plan) readOwnership(root *yaml.Node, current []byte) (ownership, error) {
-	if plan.stateBefore.Exists {
-		var state ownership
-		decoder := json.NewDecoder(bytes.NewReader(plan.stateBefore.Data))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&state); err != nil {
-			return state, fmt.Errorf("invalid Hermes ownership record: %w", err)
-		}
-		if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) || state.Version != 1 || state.ManagedDigest == "" {
-			return state, errors.New("invalid Hermes ownership record")
-		}
-		if digest(current) != state.ManagedDigest {
-			return state, errors.New("managed Hermes settings changed outside AIGW; preserve the edit before synchronization")
-		}
-		return state, nil
+func (plan *Plan) readOwnership(root *yaml.Node, desired *Desired) (ownership, []byte, error) {
+	if !plan.stateBefore.Exists {
+		return initialOwnership(root, desired, plan.configBefore.Exists)
 	}
-	if field(field(root, "providers"), "aigw") != nil {
-		return ownership{}, errors.New("Hermes provider aigw already exists without AIGW ownership")
+	var state ownership
+	decoder := json.NewDecoder(bytes.NewReader(plan.stateBefore.Data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&state); err != nil {
+		return state, nil, fmt.Errorf("invalid Hermes ownership record: %w", err)
 	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) || state.Version != 2 || state.ManagedDigest == "" || len(state.ProviderIDs) == 0 {
+		return state, nil, errors.New("invalid Hermes ownership record")
+	}
+	current, err := managedBytes(root, state.ProviderIDs)
+	if err != nil {
+		return state, nil, err
+	}
+	if digest(current) != state.ManagedDigest {
+		return state, nil, errors.New("managed Hermes settings changed outside AIGW; preserve the edit before synchronization")
+	}
+	return state, current, nil
+}
+
+func initialOwnership(root *yaml.Node, desired *Desired, filePresent bool) (ownership, []byte, error) {
+	if desired == nil {
+		return ownership{}, nil, errors.New("Hermes ownership record is required for withdrawal")
+	}
+	providerIDs := desired.providerIDs()
+	providers := field(root, "providers")
+	if field(providers, legacyProviderID) != nil {
+		return ownership{}, nil, errors.New("Hermes provider aigw already exists without AIGW ownership")
+	}
+	for _, providerID := range providerIDs {
+		if field(providers, providerID) != nil {
+			return ownership{}, nil, fmt.Errorf("Hermes provider %s already exists without AIGW ownership", providerID)
+		}
+	}
+	current, err := managedBytes(root, providerIDs)
 	return ownership{
-		Version: 1, OriginalModel: selectedModel(root), ModelPresent: field(root, "model") != nil,
-		ProvidersPresent: field(root, "providers") != nil, FilePresent: plan.configBefore.Exists,
-	}, nil
+		Version: 2, OriginalModel: selectedModel(root), ModelPresent: field(root, "model") != nil,
+		ProvidersPresent: providers != nil, ProviderIDs: providerIDs, FilePresent: filePresent,
+	}, current, err
 }
 
 func restore(root *yaml.Node, state ownership) error {
@@ -167,11 +243,22 @@ func restore(root *yaml.Node, state ownership) error {
 		}
 	}
 	providers := field(root, "providers")
-	setField(providers, "aigw", nil)
+	for _, providerID := range state.ProviderIDs {
+		setField(providers, providerID, nil)
+	}
 	if !state.ProvidersPresent && len(providers.Content) == 0 {
 		setField(root, "providers", nil)
 	}
 	return nil
+}
+
+func (desired Desired) providerIDs() []string {
+	ids := make([]string, 0, len(desired.Providers))
+	for _, provider := range desired.Providers {
+		ids = append(ids, provider.ID)
+	}
+	slices.Sort(ids)
+	return ids
 }
 
 func digest(data []byte) string {

@@ -145,7 +145,7 @@ func TestRollbackConfigurationVerdictsPreservePrograms(t *testing.T) {
 		failure    error
 		compatible bool
 	}{
-		{name: "compatible", output: "version = 4\n[profiles.team]\nmodel = 'test'\n", compatible: true},
+		{name: "compatible", output: "version = 5\n[profiles.team]\nmodel = 'test'\n", compatible: true},
 		{name: "unreadable", failure: errors.New("unsupported configuration")},
 		{name: "empty export"},
 		{name: "invalid export", output: "not a configuration"},
@@ -225,7 +225,7 @@ func TestRollbackVerificationReadsExactBytesWithoutHostCredentials(t *testing.T)
 		if data, err := os.ReadFile(path); err != nil || !bytes.Equal(data, config) {
 			t.Fatalf("predecessor read different configuration: %q, %v", data, err)
 		}
-		return []byte("version = 4\n[profiles.team]\nmodel = 'test'\n"), nil
+		return []byte("version = 5\n[profiles.team]\nmodel = 'test'\n"), nil
 	}}
 	if err := (Updater{Executable: filepath.Join(root, "aigw"), Runner: runner}).verifyProgram(t.Context(), []byte("previous"), "", config); err != nil {
 		t.Fatal(err)

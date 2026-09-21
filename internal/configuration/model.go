@@ -14,9 +14,12 @@ import (
 // Authentication identifies which boundary owns credentials for a profile.
 type Authentication string
 
+// ModelTier identifies a curated catalogue role without affecting routing.
+type ModelTier string
+
 const (
 	// ConfigVersion is the only configuration schema version accepted by this build.
-	ConfigVersion = 4
+	ConfigVersion = 5
 	// ClientClaude identifies the admitted Claude Code client.
 	ClientClaude = "claude"
 	// ClientCodex identifies the admitted Codex client family.
@@ -30,6 +33,10 @@ const (
 	AuthenticationAccountToken Authentication = "account-token"
 	// AuthenticationClientNative delegates authentication to the selected client's native credential chain.
 	AuthenticationClientNative Authentication = "client-native"
+	// ModelTierFlagship identifies the highest-capability curated model in a family.
+	ModelTierFlagship ModelTier = "flagship"
+	// ModelTierDaily identifies the balanced curated model in a family.
+	ModelTierDaily ModelTier = "daily"
 )
 
 var profileNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
@@ -56,11 +63,13 @@ type Account struct {
 // Profile identifies one upstream model on an Account independently of client
 // selection and native configuration.
 type Profile struct {
-	ID      string `json:"id,omitempty"      toml:"-"`
-	Label   string `json:"label"             toml:"label"`
-	Purpose string `json:"purpose,omitempty" toml:"purpose,omitempty"`
-	Account string `json:"account"           toml:"account"`
-	Model   string `json:"model"             toml:"model"`
+	ID        string             `json:"id,omitempty"        toml:"-"`
+	Label     string             `json:"label"               toml:"label"`
+	Purpose   string             `json:"purpose,omitempty"   toml:"purpose,omitempty"`
+	Account   string             `json:"account"             toml:"account"`
+	Model     string             `json:"model"               toml:"model"`
+	Tier      ModelTier          `json:"tier,omitempty"      toml:"tier,omitempty"`
+	Protocols []EndpointProtocol `json:"protocols,omitempty" toml:"protocols,omitempty"`
 }
 
 // Runtime is the resolved, immutable input used to project or invoke one client profile.
@@ -122,7 +131,10 @@ func (c *Config) Clone() Config {
 		}
 		out.Accounts[name] = account
 	}
-	maps.Copy(out.Profiles, c.Profiles)
+	for name, profile := range c.Profiles {
+		profile.Protocols = slices.Clone(profile.Protocols)
+		out.Profiles[name] = profile
+	}
 	maps.Copy(out.Recommendations, c.Recommendations)
 	for name, adapter := range c.Clients {
 		adapter.Targets = append([]string(nil), adapter.Targets...)
@@ -168,7 +180,7 @@ func (c *Config) CompatibleClientIDs(name string) ([]string, error) {
 	account.ID = profile.Account
 	compatible := make([]string, 0, len(admittedClientSpecs))
 	for _, client := range AdmittedClientIDs() {
-		if len(mustClientSpec(client).CompatibleProtocols(account)) > 0 {
+		if len(mustClientSpec(client).CompatibleProfileProtocols(account, profile)) > 0 {
 			compatible = append(compatible, client)
 		}
 	}
@@ -395,11 +407,27 @@ func (c *Config) ResolveRuntime(client, explicitProfile string) (Runtime, error)
 		return c.resolveSelection(client, selection)
 	}
 	selection = ClientSelection{Profile: explicitProfile}
-	if binding.Profile == "" {
-		selection = c.recommendedSelection(client)
-		selection.Profile = explicitProfile
+	profile, ok := c.Profiles[explicitProfile]
+	if !ok {
+		return Runtime{}, fmt.Errorf("unknown profile %q", explicitProfile)
 	}
+	if binding.Profile != "" {
+		bound := c.Profiles[binding.Profile]
+		if bound.Account == profile.Account && profileAdmitsProtocol(profile, binding.Protocol) {
+			selection.Protocol = binding.Protocol
+		}
+	} else {
+		recommended := c.recommendedSelection(client)
+		if recommendedProfile, exists := c.Profiles[recommended.Profile]; exists && recommendedProfile.Account == profile.Account && profileAdmitsProtocol(profile, recommended.Protocol) {
+			selection = recommended
+		}
+	}
+	selection.Profile = explicitProfile
 	return c.resolveSelection(client, selection)
+}
+
+func profileAdmitsProtocol(profile Profile, protocol EndpointProtocol) bool {
+	return profile.Protocols == nil || slices.Contains(profile.Protocols, protocol)
 }
 func (c *Config) clientBinding(client string) ClientBinding {
 	return c.Clients[client]
@@ -420,7 +448,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 	if !admitted {
 		return Runtime{}, fmt.Errorf("unknown client %q", client)
 	}
-	endpoint, protocol, err := spec.ResolveEndpoint(account, selection.Protocol)
+	endpoint, protocol, err := spec.ResolveProfileEndpoint(account, profile, selection.Protocol)
 	if err != nil {
 		return Runtime{}, err
 	}

@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -297,7 +296,7 @@ func requireFilesUnchanged(t *testing.T, files map[string][]byte) {
 
 func requireProfileSelectionsUnchanged(t *testing.T, before, after configuration.Config) {
 	t.Helper()
-	if !maps.Equal(after.Profiles, before.Profiles) ||
+	if !reflect.DeepEqual(after.Profiles, before.Profiles) ||
 		after.SelectedProfile(configuration.ClientClaude) != before.SelectedProfile(configuration.ClientClaude) ||
 		after.SelectedProfile(configuration.ClientCodex) != before.SelectedProfile(configuration.ClientCodex) {
 		t.Fatalf("sync changed Profile or client-selection authority: profiles=%#v clients=%#v", after.Profiles, after.Clients)
@@ -341,7 +340,7 @@ func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !maps.Equal(after.Profiles, cfg.Profiles) ||
+	if !reflect.DeepEqual(after.Profiles, cfg.Profiles) ||
 		after.SelectedProfile(configuration.ClientClaude) != cfg.SelectedProfile(configuration.ClientClaude) {
 		t.Fatalf("sync changed Profile or client-selection authority: profiles=%#v clients=%#v", after.Profiles, after.Clients)
 	}

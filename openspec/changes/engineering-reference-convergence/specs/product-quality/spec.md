@@ -38,11 +38,12 @@ The repository quality graph SHALL cover every tracked source, test, configurati
 
 Quality completion SHALL require separate proof of local gates, exact source,
 hosted CI, peer publication, Git identity, artifact integrity, installation,
-runtime acceptance, and housekeeping. Release completion SHALL additionally bind
-one signed tag to immutable assets, checksums, native Release records, and
-supported-platform results. Each peer verifies its own objects and assets; the
-admitted aggregate executor set MAY supply native platform evidence without
-duplicating unavailable runners.
+runtime acceptance, and housekeeping.
+
+Release completion SHALL bind one signed tag to immutable assets, checksums,
+native Release records, and supported-platform results. Each peer verifies its
+own objects and assets. The aggregate executor set MAY supply native platform
+evidence without duplicating unavailable runners.
 
 #### Scenario: Both publication planes complete
 
@@ -91,10 +92,11 @@ namespaces, identity replay, and commit maps SHALL NOT be accepted as parity.
 One evidence graph and CI topology SHALL separate product proof from Forge
 capacity. Each projection includes only runnable native jobs; aggregate proof
 retains every supported platform. Manual qualification MAY select one platform;
-omitted or `all` keeps the available set. Review, accepted-branch, and tag events
-keep their required source and native set. Missing capacity stays explicit. No
-partial, cross-built, optional, pending, or `allow_failure` result SHALL count as
-native or release proof.
+omitted or `all` keeps the available set.
+
+Review, accepted-branch, and tag events keep their required source and native
+set. Missing capacity stays explicit. Partial, cross-built, optional, pending,
+or `allow_failure` results do not count as native or release proof.
 
 #### Scenario: one Forge lacks a Windows executor
 
@@ -126,10 +128,10 @@ native or release proof.
 ### Requirement: Portable exact-version CI bootstrap
 
 GitLab Linux bootstrap SHALL use the exact Mise image version and digest
-projected by CUE. It SHALL install the minimal operating-system capabilities and
-repository-locked tools required by the graph, including CGO when declared.
-Every Linux job SHALL inherit this owner; no job may duplicate installation,
-substitute another image or installer, or weaken integrity or transport policy.
+projected by CUE and the repository-locked tool closure. Native distribution
+clients SHALL own bounded transport failure handling. Linux jobs SHALL inherit
+this owner rather than duplicate installation, substitute an image or installer,
+or weaken integrity policy.
 
 #### Scenario: The repository graph needs a Linux host capability
 
@@ -154,12 +156,9 @@ substitute another image or installer, or weaken integrity or transport policy.
 
 ### Requirement: complete delivery evidence
 
-**Reason:** The requirement combined aggregate delivery, Forge capacity,
-distribution trust, credential continuity, and real credential-store
-qualification under one quality owner.
+**Reason:** The requirement combined unrelated delivery, Forge, distribution,
+and credential responsibilities under one quality owner.
 
-**Migration:** Aggregate completion and Forge evidence survive in
-`Delivery completion is evidence-bound`, `Independent Forge parity`, and
-`Forge capability projection`. Distribution trust and final bytes move to
-`release-distribution`. Credential continuity and real-store qualification move
+**Migration:** Aggregate and Forge evidence move to the requirements above.
+Distribution trust moves to `release-distribution`; credential continuity moves
 to `secret-storage`.

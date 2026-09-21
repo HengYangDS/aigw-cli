@@ -87,19 +87,23 @@ input, not normal-runtime authority. Its costs were observable: a new client
 changed unrelated readiness suggestions, protocol selection leaked into
 credential probing, and each Adapter repeated selection and activation state.
 
-The v4 runtime has three configuration concepts, not another layer:
+The v5 runtime has three configuration concepts, not another layer:
 
 - **Account:** provider endpoint declarations and one credential reference.
-- **Profile:** one Account and real upstream model, independent of client brand.
+- **Profile:** one Account and real upstream model, independent of client brand,
+  plus its explicitly verified protocol set and optional catalogue tier.
 - **Client Binding:** selected Profile, explicit enabled intent, native target,
   authentication, protocol, and only genuinely client-specific options.
 
 A Profile may be selected by several compatible clients. The client-specific
-binding resolves the protocol from the Profile's Account and the Adapter's
-supported interfaces. Select the sole compatible endpoint automatically; ask
-for an explicit choice when several remain. Never guess from a model prefix,
-client brand, or the order of declarations. Client-native authentication stays
-inside that client's contract rather than acquiring a second AIGW token owner.
+binding resolves the protocol from the intersection of the Profile's verified
+protocol set, its Account endpoints, and the Adapter's supported interfaces.
+Select the sole compatible endpoint automatically; ask for an explicit choice
+when several remain. An omitted protocol set preserves manually authored
+Profiles that have not claimed qualification; reviewed team Profiles always
+declare it. Never guess from a model prefix, client brand, or declaration order.
+Client-native authentication stays inside that client's contract rather than
+acquiring a second AIGW token owner.
 
 Current source, tests, public commands, and documentation use this replacement.
 Stable installed state remains untouched until a candidate and the reviewed
@@ -348,11 +352,13 @@ Task 4.5 admits Hermes through the same Client Binding and transaction owners
 as the existing clients. Setup may retain enabled intent before Hermes is
 installed; later discovery and synchronization select its native
 `config.yaml`, while explicit re-enablement retains that target. Projection
-maps the selected protocol to Hermes' native provider type, supplies a
-credential command rather than a Token, preserves unrelated YAML and session
-files, rejects a changed preimage, and removes only AIGW-owned configuration on
-disable or uninstall. Verification uses Hermes' documented bounded single-turn
-`chat` contract. The real Homebrew Hermes Agent `v0.21.3` executed an
+groups the selected Account's reviewed Profiles into deterministic native
+providers by protocol, publishes their explicit model allowlists with discovery
+disabled, selects one active provider/model, and supplies protocol-scoped
+credential commands rather than Tokens. It preserves unrelated YAML and
+session files, rejects a changed preimage, and removes only AIGW-owned providers
+on disable or uninstall. Verification uses Hermes' documented bounded
+single-turn `chat` contract. The real Homebrew Hermes Agent `v0.21.3` executed an
 authenticated streaming request against the selected Anthropic-compatible
 endpoint, then passed Account rename, external credential-helper replacement,
 disable, re-enable, and uninstall in an isolated home. This is macOS evidence;

@@ -106,7 +106,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				if len(item.SelectedClients) > 0 {
 					state, stateText = presentation.OK, "Selected for "+strings.Join(item.SelectedClients, ", ")
 				}
-				detail := []string{choiceLabel(configuration.Profile{Label: item.Label, Purpose: item.Purpose}), stateText, "Account " + item.Account}
+				detail := []string{choiceLabel(configuration.Profile{Label: item.Label, Purpose: item.Purpose, Tier: configuration.ModelTier(item.Tier)}), stateText, "Account " + item.Account}
 				if len(item.CompatibleClients) > 0 {
 					detail = append(detail, "Clients "+strings.Join(item.CompatibleClients, ", "))
 				}
@@ -133,6 +133,7 @@ type profileListItem struct {
 	CompatibleClients []string `json:"compatible_clients"`
 	SelectedClients   []string `json:"selected_clients"`
 	Model             string   `json:"model"`
+	Tier              string   `json:"tier,omitempty"`
 }
 
 func collectProfileListItem(runtime invocation.Context, cfg configuration.Config, name string) (profileListItem, error) {
@@ -143,7 +144,7 @@ func collectProfileListItem(runtime invocation.Context, cfg configuration.Config
 	}
 	return profileListItem{
 		ID: name, Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account,
-		CompatibleClients: compatible, SelectedClients: cfg.SelectedClientsForProfile(name), Model: profile.Model,
+		CompatibleClients: compatible, SelectedClients: cfg.SelectedClientsForProfile(name), Model: profile.Model, Tier: string(profile.Tier),
 	}, nil
 }
 
@@ -170,7 +171,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			if jsonMode {
 				result := map[string]any{
 					"id": args[0], "label": profile.Label, "purpose": profile.Purpose,
-					"account": accountName, "model": profile.Model,
+					"account": accountName, "model": profile.Model, "tier": profile.Tier,
 					"compatible_clients": compatible, "selected_clients": selected,
 					"endpoints": account.Endpoints,
 				}
@@ -186,6 +187,9 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r.Row("Account", accountName)
 			r.Row("Model", profile.Model)
+			if profile.Tier != "" {
+				r.Row("Tier", strings.ToUpper(string(profile.Tier[:1]))+string(profile.Tier[1:]))
+			}
 			r.Row("Compatible clients", strings.Join(compatible, ", "))
 			if len(selected) > 0 {
 				r.Row("Selected for", strings.Join(selected, ", "))
@@ -296,6 +300,9 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 
 func choiceLabel(profile configuration.Profile) string {
 	label := profile.Label
+	if profile.Tier != "" {
+		label += " · " + strings.ToUpper(string(profile.Tier[:1])) + string(profile.Tier[1:])
+	}
 	if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
 		return label + " · " + purpose
 	}

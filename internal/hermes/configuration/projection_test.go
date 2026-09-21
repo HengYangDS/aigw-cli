@@ -10,8 +10,15 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-func testRoute() Route {
-	return Route{Model: "model-test", Endpoint: "https://provider.test/v1", Protocol: "openai_responses", CredentialCommand: "aigw credential hermes projection-test"}
+func testDesired() Desired {
+	return Desired{
+		SelectedProvider: "aigw",
+		SelectedModel:    "model-test",
+		Providers: []Provider{{
+			ID: "aigw", Models: []string{"model-test"}, Endpoint: "https://provider.test/v1",
+			Protocol: "openai_responses", CredentialCommand: "aigw credential hermes projection-test",
+		}},
+	}
 }
 
 func readConfig(t *testing.T, path string) map[string]any {
@@ -33,8 +40,8 @@ func TestProjectionPreservesUnownedConfigurationAndWithdraws(t *testing.T) {
 	if err := os.WriteFile(path, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	route := testRoute()
-	plan, err := Prepare(path, &route)
+	desired := testDesired()
+	plan, err := Prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,12 +55,12 @@ func TestProjectionPreservesUnownedConfigurationAndWithdraws(t *testing.T) {
 	}
 	got := readConfig(t, path)
 	model := configMap(t, got, "model")
-	if model["provider"] != "aigw" || model["default"] != route.Model || model["temperature"] != 0.3 {
+	if model["provider"] != "aigw" || model["default"] != desired.SelectedModel || model["temperature"] != 0.3 {
 		t.Fatalf("model projection = %#v", model)
 	}
 	providers := configMap(t, got, "providers")
 	projected := configMap(t, providers, "aigw")
-	if projected["key_cmd"] != route.CredentialCommand || projected["base_url"] != route.Endpoint || projected["transport"] != "codex_responses" {
+	if projected["key_cmd"] != desired.Providers[0].CredentialCommand || projected["base_url"] != desired.Providers[0].Endpoint || projected["transport"] != "codex_responses" {
 		t.Fatalf("provider projection = %#v", projected)
 	}
 	if _, ok := providers["personal"]; !ok || got["terminal"] == nil {
@@ -73,7 +80,7 @@ func TestProjectionPreservesUnownedConfigurationAndWithdraws(t *testing.T) {
 	if _, err := os.Stat(path + ".aigw-state.json"); !os.IsNotExist(err) {
 		t.Fatal("compensation left an ownership record")
 	}
-	plan, err = Prepare(path, &route)
+	plan, err = Prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,10 +103,46 @@ func TestProjectionPreservesUnownedConfigurationAndWithdraws(t *testing.T) {
 	}
 }
 
+func TestProjectionPublishesTheCuratedModelsForEachOwnedProvider(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	desired := Desired{
+		SelectedProvider: "aigw-ucloud-anthropic",
+		SelectedModel:    "claude-fable-5-1",
+		Providers: []Provider{
+			{ID: "aigw-ucloud-anthropic", Endpoint: "https://messages.test", Protocol: "anthropic", CredentialCommand: "aigw credential hermes messages", Models: []string{"claude-fable-5-1", "claude-opus-5"}},
+			{ID: "aigw-ucloud-responses", Endpoint: "https://responses.test/v1", Protocol: "openai_responses", CredentialCommand: "aigw credential hermes responses", Models: []string{"gpt-6-astra", "grok-4.6"}},
+			{ID: "aigw-ucloud-chat", Endpoint: "https://chat.test/v1", Protocol: "openai_chat_completions", CredentialCommand: "aigw credential hermes chat", Models: []string{"gemini-3.8-flash"}},
+		},
+	}
+	plan, err := Prepare(path, &desired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plan.Apply(); err != nil {
+		t.Fatal(err)
+	}
+	got := readConfig(t, path)
+	model := configMap(t, got, "model")
+	if model["provider"] != desired.SelectedProvider || model["default"] != desired.SelectedModel {
+		t.Fatalf("selected model = %#v", model)
+	}
+	providers := configMap(t, got, "providers")
+	for _, provider := range desired.Providers {
+		projected := configMap(t, providers, provider.ID)
+		models, ok := projected["models"].([]any)
+		if projected["key_cmd"] != provider.CredentialCommand || projected["discover_models"] != false || !ok || len(models) != len(provider.Models) {
+			t.Fatalf("provider %s projection = %#v", provider.ID, projected)
+		}
+	}
+	if _, err := Prepare(path, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestProjectionNoopPreservesBytesAndUnownedEdits(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	route := testRoute()
-	plan, err := Prepare(path, &route)
+	desired := testDesired()
+	plan, err := Prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +154,7 @@ func TestProjectionNoopPreservesBytesAndUnownedEdits(t *testing.T) {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	plan, err = Prepare(path, &route)
+	plan, err = Prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,15 +192,15 @@ func TestProjectionProtectsForeignProviderAndManagedEdits(t *testing.T) {
 			if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			route := testRoute()
-			if _, err := Prepare(path, &route); err == nil {
+			desired := testDesired()
+			if _, err := Prepare(path, &desired); err == nil {
 				t.Fatal("accepted ambiguous or foreign-owned configuration")
 			}
 		})
 	}
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	route := testRoute()
-	plan, err := Prepare(path, &route)
+	desired := testDesired()
+	plan, err := Prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,11 +208,11 @@ func TestProjectionProtectsForeignProviderAndManagedEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(path)
-	edited := bytes.ReplaceAll(data, []byte(route.Model), []byte("user-model"))
+	edited := bytes.ReplaceAll(data, []byte(desired.SelectedModel), []byte("user-model"))
 	if err := os.WriteFile(path, edited, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	for _, desired := range []*Route{&route, nil} {
+	for _, desired := range []*Desired{&desired, nil} {
 		if _, err := Prepare(path, desired); err == nil {
 			t.Fatal("managed user edit was not protected")
 		}
@@ -178,8 +221,8 @@ func TestProjectionProtectsForeignProviderAndManagedEdits(t *testing.T) {
 
 func TestPreparedProjectionAndRollbackProtectConcurrentEdits(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	route := testRoute()
-	plan, err := Prepare(path, &route)
+	desired := testDesired()
+	plan, err := Prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +232,7 @@ func TestPreparedProjectionAndRollbackProtectConcurrentEdits(t *testing.T) {
 	if _, err := plan.Apply(); err == nil {
 		t.Fatal("prepared write overwrote concurrent edit")
 	}
-	plan, err = Prepare(path, &route)
+	plan, err = Prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,9 +255,9 @@ func TestProjectionSupportsEveryHermesWireAndScalarModel(t *testing.T) {
 			if err := os.WriteFile(path, []byte("model: previous-model\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			route := testRoute()
-			route.Protocol = protocol
-			plan, err := Prepare(path, &route)
+			desired := testDesired()
+			desired.Providers[0].Protocol = protocol
+			plan, err := Prepare(path, &desired)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -237,9 +280,9 @@ func TestProjectionSupportsEveryHermesWireAndScalarModel(t *testing.T) {
 			}
 		})
 	}
-	route := testRoute()
-	route.Protocol = "unrecognized"
-	if _, err := Prepare(filepath.Join(t.TempDir(), "config.yaml"), &route); err == nil || !strings.Contains(err.Error(), "protocol") {
+	desired := testDesired()
+	desired.Providers[0].Protocol = "unrecognized"
+	if _, err := Prepare(filepath.Join(t.TempDir(), "config.yaml"), &desired); err == nil || !strings.Contains(err.Error(), "protocol") {
 		t.Fatalf("protocol validation = %v", err)
 	}
 }

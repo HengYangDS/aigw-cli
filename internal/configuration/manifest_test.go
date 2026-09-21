@@ -35,7 +35,7 @@ func TestManifestAdmissionIsDerivedFromClientRegistry(t *testing.T) {
 	})
 	defer func() { admittedClientSpecs = previous }()
 
-	manifest, err := Parse([]byte(`version = 5
+	manifest, err := Parse([]byte(`version = 6
 [recommendations.synthetic]
 profile = "synthetic-default"
 
@@ -58,7 +58,7 @@ model = "synthetic-model"
 }
 
 func TestSyntheticProviderUsesOnlyManifestDataAcrossParseMergeAndRouteResolution(t *testing.T) {
-	incoming, err := Parse([]byte(`version = 5
+	incoming, err := Parse([]byte(`version = 6
 [recommendations.codex]
 profile = "northstar-codex"
 model_provider = "northstar"
@@ -95,7 +95,7 @@ model = "northstar-model"
 }
 
 func TestParseRejectsIncompatibleRecommendedRoute(t *testing.T) {
-	raw := []byte(`version = 5
+	raw := []byte(`version = 6
 [recommendations.claude]
 profile = "codex"
 [accounts.team]
@@ -123,7 +123,7 @@ label = "Claude"
 account = "team"
 model = "claude-test"
 `)
-	if _, err := Parse(legacy); err == nil || !strings.Contains(err.Error(), "expected 5") {
+	if _, err := Parse(legacy); err == nil || !strings.Contains(err.Error(), "expected 6") {
 		t.Fatalf("v2 manifest error = %v", err)
 	}
 }
@@ -141,7 +141,7 @@ func TestExportRejectsRouteThatCannotBeParsedBack(t *testing.T) {
 }
 
 func TestParseRejectsProfileWithoutItsClientProtocol(t *testing.T) {
-	_, err := Parse([]byte(`version = 5
+	_, err := Parse([]byte(`version = 6
 
 [recommendations.codex]
 profile = "codex"
@@ -164,7 +164,7 @@ model = "model"
 
 func TestParseRejectsCredentialShapedFields(t *testing.T) {
 	for _, key := range []string{"token", "api_key", "password", "auth_header", "client_secret"} {
-		raw := []byte("version = 5\n" + key + " = \"must-not-exist\"\n")
+		raw := []byte("version = 6\n" + key + " = \"must-not-exist\"\n")
 		_, err := Parse(raw)
 		if err == nil || !strings.Contains(err.Error(), "credential") {
 			t.Errorf("key %s: error = %v", key, err)
@@ -189,18 +189,18 @@ model = "claude-team"
 		!strings.Contains(err.Error(), "does not reinterpret schema versions") {
 		t.Fatalf("version 1 parse error = %v", err)
 	}
-	current := []byte(strings.Replace(string(oldSchema), "version = 1", "version = 5", 1))
+	current := []byte(strings.Replace(string(oldSchema), "version = 1", "version = 6", 1))
 	parsed, err := Parse(current)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parsed.Version != 5 || parsed.Profiles["team"].Purpose != "Default agent" {
+	if parsed.Version != 6 || parsed.Profiles["team"].Purpose != "Default agent" {
 		t.Fatalf("parsed manifest = %#v", parsed)
 	}
 }
 
 func TestParseRejectsProfileOwnedEndpointResidue(t *testing.T) {
-	raw := []byte(`version = 5
+	raw := []byte(`version = 6
 
 [profiles.team]
 label = "Team Gateway"
@@ -222,7 +222,7 @@ func TestParseRejectsMalformedTOML(t *testing.T) {
 }
 
 func TestParseRejectsManifestWithoutAnyProfile(t *testing.T) {
-	raw := []byte(`version = 5
+	raw := []byte(`version = 6
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
@@ -234,7 +234,7 @@ anthropic = "https://team.test"
 }
 
 func TestParseRejectsRemovedRecommendedDefault(t *testing.T) {
-	raw := []byte(`version = 5
+	raw := []byte(`version = 6
 recommended_default = "missing"
 [accounts.team]
 label = "Team"
@@ -251,7 +251,7 @@ model = "claude-team"
 }
 
 func TestParseInitializesMissingAccountsAndDefaultsToFirstProfile(t *testing.T) {
-	raw := []byte(`version = 5
+	raw := []byte(`version = 6
 [profiles.solo]
 label = "Solo"
 account = "missing"
@@ -262,7 +262,7 @@ account = "missing"
 }
 
 func TestParseRejectsRecommendedRouteWithUnsupportedClient(t *testing.T) {
-	raw := []byte(`version = 5
+	raw := []byte(`version = 6
 [recommendations.gemini]
 profile = "team"
 [accounts.team]
@@ -280,7 +280,7 @@ model = "claude-team"
 }
 
 func TestParseRejectsRecommendedRouteReferencingUnknownProfile(t *testing.T) {
-	raw := []byte(`version = 5
+	raw := []byte(`version = 6
 [recommendations.claude]
 profile = "missing"
 [accounts.team]
@@ -298,7 +298,7 @@ model = "claude-team"
 }
 
 func TestParseRejectsDeeplyNestedCredentialShapedFields(t *testing.T) {
-	raw := []byte(`version = 5
+	raw := []byte(`version = 6
 [wrapper]
 password = "leak"
 [[entries]]
@@ -337,8 +337,8 @@ func TestExportOmitsSecretsAndAdaptersAndPublishesRouteRecommendations(t *testin
 	if strings.Contains(text, "recommended_default") {
 		t.Fatalf("export retained removed recommended_default:\n%s", text)
 	}
-	if !strings.Contains(text, "version = 5") || !strings.Contains(text, "recommendations") || !strings.Contains(text, "claude") {
-		t.Fatalf("new config export must use manifest v5 with client recommendations:\n%s", text)
+	if !strings.Contains(text, "version = 6") || !strings.Contains(text, "recommendations") || !strings.Contains(text, "claude") {
+		t.Fatalf("new config export must use manifest v6 with client recommendations:\n%s", text)
 	}
 }
 

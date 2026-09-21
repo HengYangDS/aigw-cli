@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"sort"
 	"strings"
 
 	clientverification "aigw-cli/internal/client/verification"
@@ -82,12 +83,55 @@ func (hermesAdapter) Converge(deps Dependencies, cfg *configuration.Config, disc
 	return nil
 }
 
-func hermesRoute(deps Dependencies, selected configuration.Runtime) (hermesconfig.Route, error) {
-	command, err := credential.Command(selected.CredentialExecutable(deps.AIGWExecutable), configuration.ClientHermes, selected.CredentialProjectionFingerprint(configuration.ClientHermes), runtime.GOOS)
-	if err != nil {
-		return hermesconfig.Route{}, err
+func hermesDesired(deps Dependencies, cfg configuration.Config, selected configuration.Runtime) (hermesconfig.Desired, error) {
+	models := make(map[configuration.EndpointProtocol][]string)
+	for _, profileID := range cfg.ProfileIDs() {
+		profile := cfg.Profiles[profileID]
+		if profile.Account != selected.AccountID {
+			continue
+		}
+		protocols := profile.Protocols
+		if protocols == nil && profileID == selected.ProfileID {
+			protocols = []configuration.EndpointProtocol{selected.Protocol}
+		}
+		for _, protocol := range protocols {
+			models[protocol] = append(models[protocol], profile.Model)
+		}
 	}
-	return hermesconfig.Route{Model: selected.Model, Endpoint: selected.Endpoint, Protocol: string(selected.Protocol), CredentialCommand: command}, nil
+	account := cfg.Accounts[selected.AccountID]
+	desired := hermesconfig.Desired{SelectedProvider: hermesProviderID(selected.AccountID, selected.Protocol), SelectedModel: selected.Model}
+	for _, protocol := range mustClientSpec(configuration.ClientHermes).EndpointProtocols {
+		catalog := models[protocol]
+		if len(catalog) == 0 {
+			continue
+		}
+		endpoint := account.Endpoints.For(protocol)
+		if endpoint == "" {
+			continue
+		}
+		slices.Sort(catalog)
+		catalog = slices.Compact(catalog)
+		providerRuntime := selected
+		providerRuntime.Endpoint = strings.TrimRight(endpoint, "/")
+		providerRuntime.Protocol = protocol
+		command, err := credential.Command(providerRuntime.CredentialExecutable(deps.AIGWExecutable), configuration.ClientHermes, providerRuntime.CredentialProjectionFingerprint(configuration.ClientHermes), runtime.GOOS)
+		if err != nil {
+			return hermesconfig.Desired{}, err
+		}
+		desired.Providers = append(desired.Providers, hermesconfig.Provider{
+			ID: hermesProviderID(selected.AccountID, protocol), Models: catalog,
+			Endpoint: providerRuntime.Endpoint, Protocol: string(protocol), CredentialCommand: command,
+		})
+	}
+	sort.Slice(desired.Providers, func(left, right int) bool { return desired.Providers[left].ID < desired.Providers[right].ID })
+	if err := desired.Validate(); err != nil {
+		return hermesconfig.Desired{}, err
+	}
+	return desired, nil
+}
+
+func hermesProviderID(accountID string, protocol configuration.EndpointProtocol) string {
+	return "aigw-" + accountID + "-" + strings.ReplaceAll(string(protocol), "_", "-")
 }
 
 func hermesPlans(deps Dependencies, before, after configuration.Config) ([]hermesconfig.Plan, []string, error) {
@@ -95,13 +139,13 @@ func hermesPlans(deps Dependencies, before, after configuration.Config) ([]herme
 	if !previous.Enabled && !current.Enabled {
 		return nil, nil, nil
 	}
-	var route hermesconfig.Route
+	var desired hermesconfig.Desired
 	if current.Enabled {
 		selected, err := after.ResolveRuntime(configuration.ClientHermes, "")
 		if err != nil {
 			return nil, nil, err
 		}
-		route, err = hermesRoute(deps, selected)
+		desired, err = hermesDesired(deps, after, selected)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -117,11 +161,11 @@ func hermesPlans(deps Dependencies, before, after configuration.Config) ([]herme
 	}
 	plans := make([]hermesconfig.Plan, 0, len(targets))
 	for _, target := range targets {
-		var desired *hermesconfig.Route
+		var projection *hermesconfig.Desired
 		if current.Enabled && slices.Contains(current.Targets, target) {
-			desired = &route
+			projection = &desired
 		}
-		plan, err := hermesconfig.Prepare(target, desired)
+		plan, err := hermesconfig.Prepare(target, projection)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -193,10 +237,10 @@ func (hermesAdapter) Inspect(ctx context.Context, deps Dependencies, cfg configu
 	if err != nil || !adapter.Enabled || !available || len(adapter.Targets) != 1 {
 		return Status{Issue: "Hermes executable or configuration home is unavailable", RepairAction: "aigw sync"}
 	}
-	route, err := hermesRoute(deps, selected)
+	desired, err := hermesDesired(deps, cfg, selected)
 	if err == nil {
 		var plan hermesconfig.Plan
-		plan, err = hermesconfig.Prepare(adapter.Targets[0], &route)
+		plan, err = hermesconfig.Prepare(adapter.Targets[0], &desired)
 		if err == nil && plan.Action != "unchanged" {
 			err = errors.New("hermes configuration projection differs from the selected route")
 		}
@@ -224,11 +268,11 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 		return Verification{}, err
 	}
 	defer func() { result = errors.Join(result, robustio.RemoveAll(home)) }()
-	route, err := hermesRoute(deps, selected)
+	desired, err := hermesDesired(deps, cfg, selected)
 	if err != nil {
 		return Verification{}, err
 	}
-	plan, err := hermesconfig.Prepare(filepath.Join(home, "config.yaml"), &route)
+	plan, err := hermesconfig.Prepare(filepath.Join(home, "config.yaml"), &desired)
 	if err != nil {
 		return Verification{}, err
 	}

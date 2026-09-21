@@ -82,7 +82,7 @@ func TestSetupFromConfigurationManifestProjectsClientNativeCodexWithoutAccountTo
 			AutoManaged: true,
 		}},
 	}}
-	manifestPath := writeConfigurationManifest(t, `version = 5
+	manifestPath := writeConfigurationManifest(t, `version = 6
 [recommendations.codex]
 profile = "bedrock"
 model_provider = "amazon-bedrock"

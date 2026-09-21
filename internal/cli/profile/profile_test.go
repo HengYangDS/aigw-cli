@@ -44,6 +44,13 @@ func TestProfileMutationsReturnConfigurationTransactionFailures(t *testing.T) {
 	}
 }
 
+func TestChoiceLabelPresentsCuratedTierWithoutPurposeMetadata(t *testing.T) {
+	profile := configuration.Profile{Label: "UCloud · Grok 4.6", Tier: configuration.ModelTierFlagship}
+	if got := choiceLabel(profile); got != "UCloud · Grok 4.6 · Flagship" {
+		t.Fatalf("choice label = %q", got)
+	}
+}
+
 type commandExecutor interface {
 	SetArgs(args []string)
 	Execute() error

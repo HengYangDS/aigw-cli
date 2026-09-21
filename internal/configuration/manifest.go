@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -12,7 +13,7 @@ import (
 
 var credentialKey = regexp.MustCompile(`(?i)(^|[_-])(token|secret|password|api[_-]?key|auth|authorization(?:[_-]?header)?|credential)($|[_-])`)
 
-const currentVersion = 5
+const currentVersion = 6
 
 // Manifest is the credential-free team capability document accepted by setup and export.
 type Manifest struct {
@@ -199,7 +200,9 @@ func equivalentProfile(left, right Profile) bool {
 	return left.Label == right.Label &&
 		left.Purpose == right.Purpose &&
 		left.Account == right.Account &&
-		left.Model == right.Model
+		left.Model == right.Model &&
+		left.Tier == right.Tier &&
+		slices.Equal(left.Protocols, right.Protocols)
 }
 
 // Export projects configuration into the canonical credential-free team manifest form.

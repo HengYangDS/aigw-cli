@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
+	"slices"
 
 	"go.yaml.in/yaml/v3"
 )
 
 var modelKeys = []string{"provider", "default", "base_url", "api_mode"}
+
+const legacyProviderID = "aigw"
 
 func mapping() *yaml.Node { return &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"} }
 
@@ -116,10 +118,17 @@ func selectedModel(root *yaml.Node) *yaml.Node {
 	return selected
 }
 
-func managedBytes(root *yaml.Node) ([]byte, error) {
+func managedBytes(root *yaml.Node, providerIDs []string) ([]byte, error) {
 	selected := mapping()
 	setField(selected, "model", selectedModel(root))
-	setField(selected, "provider", field(field(root, "providers"), "aigw"))
+	providers := mapping()
+	for _, providerID := range providerIDs {
+		setField(providers, providerID, field(field(root, "providers"), providerID))
+	}
+	if !slices.Contains(providerIDs, legacyProviderID) {
+		setField(providers, legacyProviderID, field(field(root, "providers"), legacyProviderID))
+	}
+	setField(selected, "providers", providers)
 	var value map[string]any
 	if err := selected.Decode(&value); err != nil {
 		return nil, err
@@ -127,41 +136,50 @@ func managedBytes(root *yaml.Node) ([]byte, error) {
 	return json.Marshal(value)
 }
 
-func (route Route) nativeProtocol() (string, error) {
+func nativeProtocol(wire string) (string, error) {
 	protocol, found := map[string]string{
 		"openai_responses":        "codex_responses",
 		"anthropic":               "anthropic_messages",
 		"openai_chat_completions": "chat_completions",
-	}[route.Protocol]
+	}[wire]
 	if !found {
-		return "", fmt.Errorf("unsupported Hermes protocol %q", route.Protocol)
-	}
-	for name, value := range map[string]string{"model": route.Model, "endpoint": route.Endpoint, "credential command": route.CredentialCommand} {
-		if strings.TrimSpace(value) == "" {
-			return "", fmt.Errorf("Hermes %s is required", name)
-		}
+		return "", fmt.Errorf("unsupported Hermes protocol %q", wire)
 	}
 	return protocol, nil
 }
 
-func project(root *yaml.Node, route Route, protocol string) {
+func project(root *yaml.Node, desired Desired) {
 	model := field(root, "model")
 	if model == nil || model.Kind != yaml.MappingNode {
 		model = mapping()
 		setField(root, "model", model)
 	}
-	setString(model, "provider", "aigw")
-	setString(model, "default", route.Model)
-	setString(model, "base_url", route.Endpoint)
+	setString(model, "provider", desired.SelectedProvider)
+	setString(model, "default", desired.SelectedModel)
+	selected := desired.Providers[slices.IndexFunc(desired.Providers, func(provider Provider) bool { return provider.ID == desired.SelectedProvider })]
+	setString(model, "base_url", selected.Endpoint)
+	protocol, _ := nativeProtocol(selected.Protocol)
 	setString(model, "api_mode", protocol)
 	providers := field(root, "providers")
 	if providers == nil {
 		providers = mapping()
 		setField(root, "providers", providers)
 	}
-	provider := mapping()
-	setString(provider, "base_url", route.Endpoint)
-	setString(provider, "transport", protocol)
-	setString(provider, "key_cmd", route.CredentialCommand)
-	setField(providers, "aigw", provider)
+	for _, desiredProvider := range desired.Providers {
+		provider := mapping()
+		setString(provider, "base_url", desiredProvider.Endpoint)
+		protocol, _ := nativeProtocol(desiredProvider.Protocol)
+		setString(provider, "transport", protocol)
+		setString(provider, "key_cmd", desiredProvider.CredentialCommand)
+		models := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
+		for _, modelID := range desiredProvider.Models {
+			model := &yaml.Node{}
+			model.SetString(modelID)
+			models.Content = append(models.Content, model)
+		}
+		setField(provider, "models", models)
+		discovery := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "false"}
+		setField(provider, "discover_models", discovery)
+		setField(providers, desiredProvider.ID, provider)
+	}
 }

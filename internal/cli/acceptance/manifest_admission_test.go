@@ -136,7 +136,7 @@ func TestSetupFromConfigurationManifestRejectsUnreferencedAccountBeforePrompt(t 
 	app.Interactive = true
 	prompt := &scriptedPrompt{secrets: []string{"must-not-be-read"}}
 	app.Prompt = prompt
-	manifestPath := writeConfigurationManifest(t, `version = 5
+	manifestPath := writeConfigurationManifest(t, `version = 6
 [recommendations.claude]
 profile = "used"
 [accounts.used]
@@ -165,7 +165,7 @@ model = "claude-test"
 
 func TestSetupFromConfigurationManifestRejectsProfileWithoutModel(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	manifestPath := writeConfigurationManifest(t, `version = 5
+	manifestPath := writeConfigurationManifest(t, `version = 6
 [recommendations.claude]
 profile = "team"
 [accounts.team]

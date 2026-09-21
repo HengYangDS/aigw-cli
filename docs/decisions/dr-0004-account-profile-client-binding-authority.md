@@ -14,9 +14,11 @@ ambiguous fallback.
 ## Decision
 
 An Account owns provider endpoints and one logical Token boundary. A Profile
-owns one reusable `account + model` definition. A Client Binding selects one
-compatible Profile for one client and owns enabled intent, protocol,
-authentication, native targets, and genuinely client-specific options.
+owns one reusable `account + model` identity plus the protocols verified for
+that exact pairing. Its optional Flagship/Daily tier is catalogue guidance, not
+runtime policy. A Client Binding selects one compatible Profile for one client
+and owns enabled intent, the active protocol, authentication, native targets,
+and genuinely client-specific options.
 
 Accounts, Profiles, recommendations, and Client Bindings form the configuration
 SSOT. A recommendation is import guidance, not a local selection. Setup may use

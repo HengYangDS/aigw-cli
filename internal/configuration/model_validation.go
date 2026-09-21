@@ -112,7 +112,7 @@ func (c *Config) validateSelection(client string, selection ClientSelection) err
 	account := c.Accounts[profile.Account]
 	account.ID = profile.Account
 	spec, _ := ClientSpecFor(client)
-	if _, _, err := spec.ResolveEndpoint(account, selection.Protocol); err != nil {
+	if _, _, err := spec.ResolveProfileEndpoint(account, profile, selection.Protocol); err != nil {
 		return fmt.Errorf("profile %q: %w", selection.Profile, err)
 	}
 	return selection.validate(client)
@@ -198,11 +198,35 @@ func (profile Profile) validate(name string, accounts map[string]Account) error 
 	if profile.Account == "" {
 		return fmt.Errorf("profile %q must reference an account", name)
 	}
-	if _, ok := accounts[profile.Account]; !ok {
+	account, ok := accounts[profile.Account]
+	if !ok {
 		return fmt.Errorf("profile %q references unknown account %q", name, profile.Account)
 	}
 	if strings.TrimSpace(profile.Model) == "" {
 		return fmt.Errorf("profile %q must define a model", name)
+	}
+	switch profile.Tier {
+	case "", ModelTierFlagship, ModelTierDaily:
+	default:
+		return fmt.Errorf("profile %q has unknown tier %q", name, profile.Tier)
+	}
+	if profile.Protocols != nil && len(profile.Protocols) == 0 {
+		return fmt.Errorf("profile %q protocols must be omitted or contain at least one verified protocol", name)
+	}
+	seen := make(map[EndpointProtocol]bool, len(profile.Protocols))
+	for _, protocol := range profile.Protocols {
+		switch protocol {
+		case ProtocolAnthropic, ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions:
+		default:
+			return fmt.Errorf("profile %q has unknown protocol %q", name, protocol)
+		}
+		if seen[protocol] {
+			return fmt.Errorf("profile %q repeats protocol %q", name, protocol)
+		}
+		if account.Endpoints.For(protocol) == "" {
+			return fmt.Errorf("profile %q admits protocol %q without an Account endpoint", name, protocol)
+		}
+		seen[protocol] = true
 	}
 	return nil
 }

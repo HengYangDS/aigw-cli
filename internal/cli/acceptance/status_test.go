@@ -65,7 +65,7 @@ func TestTerminalErrorLocalizesUnsupportedConfigVersion(t *testing.T) {
 	}
 	text := out.String()
 	for _, want := range []string{
-		"unsupported configuration version: found 0, expected 4",
+		"unsupported configuration version: found 0, expected 5",
 		"AIGW does not reinterpret configuration schemas",
 		"Recommended action",
 		"aigw doctor",

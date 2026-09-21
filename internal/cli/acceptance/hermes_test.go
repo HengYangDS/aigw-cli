@@ -16,7 +16,7 @@ func TestHermesSetupDeferredSyncCredentialCheckAndWithdrawal(t *testing.T) {
 	app, output, credentials, runner, httpClient := testApp(t, "")
 	root := t.TempDir()
 	manifest := filepath.Join(root, "team.toml")
-	writeFile(t, manifest, []byte(`version = 5
+	writeFile(t, manifest, []byte(`version = 6
 [recommendations.hermes]
 profile = "team-model"
 protocol = "anthropic"

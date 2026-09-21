@@ -193,10 +193,11 @@ func migrateLegacyConfig(legacy legacyConfig) (Config, error) {
 			return Config{}, fmt.Errorf("profile %q references unknown account %q", id, profile.Account)
 		}
 		account.ID = profile.Account
-		if _, _, err := mustClientSpec(profile.Client).ResolveEndpoint(account, ""); err != nil {
+		_, protocol, err := mustClientSpec(profile.Client).ResolveEndpoint(account, "")
+		if err != nil {
 			return Config{}, fmt.Errorf("profile %q: %w", id, err)
 		}
-		cfg.Profiles[id] = Profile{Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account, Model: profile.Model}
+		cfg.Profiles[id] = Profile{Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account, Model: profile.Model, Protocols: []EndpointProtocol{protocol}}
 	}
 	for client, profileID := range legacy.RecommendedRoutes {
 		selection, err := migrateLegacySelection(legacy, client, profileID)

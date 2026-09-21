@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 
 	"aigw-cli/internal/configuration"
@@ -105,5 +106,40 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	want := []string{"chat", "--quiet", "--query-file", "-", "--oneshot", "--max-turns", "1", "--run-budget", "45", "--ignore-rules", "--source", "tool"}
 	if len(runner.plans) != 2 || !slices.Equal(runner.plans[1].Args, want) {
 		t.Fatalf("Hermes verification plans = %#v", runner.plans)
+	}
+}
+
+func TestHermesProjectionGroupsTheSelectedAccountsCuratedModelsByProtocol(t *testing.T) {
+	home := t.TempDir()
+	target := filepath.Join(home, ".hermes", "config.yaml")
+	cfg := configuration.NewConfig()
+	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{
+		Anthropic:             "https://messages.test",
+		OpenAIResponses:       "https://responses.test/v1",
+		OpenAIChatCompletions: "https://chat.test/v1",
+	}}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Model: "claude-fable-5-1", Protocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic}}
+	cfg.Profiles["grok"] = configuration.Profile{Label: "Grok", Account: "team", Model: "grok-4.6", Protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
+	cfg.Profiles["gemini"] = configuration.Profile{Label: "Gemini", Account: "team", Model: "gemini-3.8-flash", Protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIChatCompletions}}
+	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Profile: "claude", Enabled: true, Protocol: configuration.ProtocolAnthropic, Targets: []string{target}}
+
+	plans, _, err := hermesPlans(Dependencies{AIGWExecutable: filepath.Join(home, "aigw")}, configuration.NewConfig(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plans) != 1 {
+		t.Fatalf("Hermes plans = %d", len(plans))
+	}
+	if _, err := plans[0].Apply(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"aigw-team-anthropic", "aigw-team-openai-responses", "aigw-team-openai-chat-completions", "claude-fable-5-1", "grok-4.6", "gemini-3.8-flash", "discover_models: false"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("Hermes projection missing %q:\n%s", want, data)
+		}
 	}
 }

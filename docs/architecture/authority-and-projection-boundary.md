@@ -91,12 +91,14 @@ together. Review line counts as signals, not reasons to create shallow modules.
 
 ## Configuration admission
 
-Configuration admission checks every Profile against its Account's declared
-protocol endpoints, including Profiles not selected by a Client Binding. It uses the
-same client-protocol definition as runtime resolution. Manifest import and local
-persistence share that validation; neither may accept a Profile that cannot
-resolve its protocol endpoint. This is a structural check, not evidence of
-credentials, installed clients, endpoint availability, or successful inference.
+Configuration admission checks every declared Profile protocol against its
+Account's corresponding endpoint, including Profiles not selected by a Client
+Binding. Runtime resolution intersects that explicit Profile capability with
+the selected client's protocol contract. A manually authored Profile may omit
+the capability set until it is qualified, but the reviewed team catalogue does
+not. Manifest import and local persistence share that validation. This is a
+structural check, not evidence of credentials, installed clients, endpoint
+availability, or successful inference.
 
 Imported recommendations and actual selections have separate meanings in that
 same configuration. Import retains the recommendation; setup and sync select
@@ -495,8 +497,9 @@ provider-named implementation of all of them.
   - **AIGW implementation consequence:** Select its endpoint; do not add transport to AIGW
 
 Account admission owns protocol endpoints and credential references. Profiles
-own the Account and model identity; Client Bindings own selection and native
-client options. Catalogue
+own Account/model identity and verified protocol capability; an optional
+Flagship/Daily tier is curated presentation metadata only. Client Bindings own
+selection and native client options. Catalogue
 observations, authenticated probes and client verification provide separate
 evidence rather than becoming configuration facts. Code is needed only when
 authentication or discovery exceeds the admitted Account contract. Client

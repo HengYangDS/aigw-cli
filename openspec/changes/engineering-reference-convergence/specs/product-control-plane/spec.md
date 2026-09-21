@@ -13,11 +13,15 @@ transition` requirement and the `aigw add <account>` command.
 ### Requirement: Model Profiles are reusable across compatible clients
 
 A Profile SHALL identify an Account and an actual upstream model independently
-of client branding. Each client binding SHALL select a Profile and own its
-explicit enabled intent, native target and client-specific options. The binding
-SHALL replace parallel Route and Adapter selection as the operational authority.
-The Account and the selected client's supported interfaces SHALL determine
-protocol compatibility without model-name inference.
+of client branding. A reviewed catalogue Profile SHALL also declare the wire
+protocols verified for that exact Account and model; manually authored Profiles
+without this metadata retain explicit-binding compatibility but SHALL NOT be
+presented as verified catalogue entries. Each client binding SHALL select a
+Profile and own its explicit enabled intent, native target and client-specific
+options. The binding SHALL replace parallel Route and Adapter selection as the
+operational authority. The intersection of the Profile's verified protocols,
+the Account endpoints, and the selected client's supported interfaces SHALL
+determine protocol compatibility without model-name inference.
 
 #### Scenario: One model is selected by two clients
 
@@ -32,6 +36,20 @@ protocol compatibility without model-name inference.
 - **THEN** selection SHALL request a protocol choice before mutation
 - **AND** endpoint order, model prefixes and unrelated client settings SHALL NOT
   decide the selection.
+
+#### Scenario: One Account exposes different protocols per model
+
+- **GIVEN** an Account exposes Responses and Chat Completions endpoints
+- **AND** two reviewed Profiles on that Account were verified on different protocols
+- **WHEN** a client resolves either Profile
+- **THEN** only that Profile's verified protocol set SHALL be eligible
+- **AND** Account-level endpoint presence SHALL NOT imply model-level compatibility.
+
+#### Scenario: The team curates broad model choice
+
+- **WHEN** the reviewed team catalogue admits a general model family
+- **THEN** it SHALL normally identify one `flagship` and one `daily` Profile per Account
+- **AND** the tier SHALL remain display metadata rather than a routing or capability inference.
 
 #### Scenario: The operator disables a client
 

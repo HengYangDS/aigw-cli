@@ -152,7 +152,7 @@ func TestTypedErrorLocalizationDoesNotDependOnErrorText(t *testing.T) {
 		{name: "OpenAI Responses endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolOpenAIResponses}, want: `account "one" has no OpenAI Responses endpoint`},
 		{name: "OpenAI Chat Completions endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolOpenAIChatCompletions}, want: `account "one" has no OpenAI Chat Completions endpoint`},
 		{name: "unsupported version", err: &configuration.UnsupportedConfigVersionError{Version: 3, ExpectedVersion: 2}, want: "unsupported configuration version: found 3, expected 2. AIGW does not reinterpret configuration schemas"},
-		{name: "migratable version", err: &configuration.UnsupportedConfigVersionError{Version: configuration.LegacyConfigVersion, ExpectedVersion: configuration.ConfigVersion}, want: "unsupported configuration version: found 3, expected 4. AIGW does not reinterpret configuration schemas; run `aigw config migrate --dry-run`"},
+		{name: "migratable version", err: &configuration.UnsupportedConfigVersionError{Version: configuration.LegacyConfigVersion, ExpectedVersion: configuration.ConfigVersion}, want: "unsupported configuration version: found 3, expected 5. AIGW does not reinterpret configuration schemas; run `aigw config migrate --dry-run`"},
 		{name: "config load", err: &configuration.LoadError{Phase: configuration.LoadPhaseRead, Err: errors.New("details changed")}, want: "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it"},
 	}
 	for _, test := range tests {

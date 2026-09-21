@@ -103,13 +103,24 @@ func IsAdmittedClient(id string) bool {
 // ResolveEndpoint selects an explicitly requested protocol or the sole available
 // supported endpoint. Multiple choices require a Profile-level selection.
 func (s ClientSpec) ResolveEndpoint(account Account, requested EndpointProtocol) (string, EndpointProtocol, error) {
+	return s.resolveEndpoint(account, nil, requested)
+}
+
+// ResolveProfileEndpoint selects one endpoint admitted by the client, Account,
+// and Profile capability declaration. A nil declaration preserves manually
+// configured Profiles that have not yet been qualified by protocol.
+func (s ClientSpec) ResolveProfileEndpoint(account Account, profile Profile, requested EndpointProtocol) (string, EndpointProtocol, error) {
+	return s.resolveEndpoint(account, profile.Protocols, requested)
+}
+
+func (s ClientSpec) resolveEndpoint(account Account, admitted []EndpointProtocol, requested EndpointProtocol) (string, EndpointProtocol, error) {
 	protocol := requested
 	if protocol == "" && len(s.EndpointProtocols) == 1 {
 		protocol = s.EndpointProtocols[0]
 	}
 	if protocol == "" {
 		for _, candidate := range s.EndpointProtocols {
-			if account.Endpoints.For(candidate) == "" {
+			if account.Endpoints.For(candidate) == "" || admitted != nil && !slices.Contains(admitted, candidate) {
 				continue
 			}
 			if protocol != "" {
@@ -123,6 +134,9 @@ func (s ClientSpec) ResolveEndpoint(account Account, requested EndpointProtocol)
 	}
 	if !slices.Contains(s.EndpointProtocols, protocol) {
 		return "", "", fmt.Errorf("client %q does not support endpoint protocol %q", s.ID, protocol)
+	}
+	if admitted != nil && !slices.Contains(admitted, protocol) {
+		return "", "", fmt.Errorf("profile does not admit endpoint protocol %q for client %q", protocol, s.ID)
 	}
 	switch protocol {
 	case ProtocolAnthropic, ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions:
@@ -139,9 +153,19 @@ func (s ClientSpec) ResolveEndpoint(account Account, requested EndpointProtocol)
 // CompatibleProtocols returns the protocols this client and Account both
 // expose, preserving the client's declared preference order.
 func (s ClientSpec) CompatibleProtocols(account Account) []EndpointProtocol {
+	return s.compatibleProtocols(account, nil)
+}
+
+// CompatibleProfileProtocols returns the client protocols admitted by both
+// the Account endpoints and the Profile's verified capability declaration.
+func (s ClientSpec) CompatibleProfileProtocols(account Account, profile Profile) []EndpointProtocol {
+	return s.compatibleProtocols(account, profile.Protocols)
+}
+
+func (s ClientSpec) compatibleProtocols(account Account, admitted []EndpointProtocol) []EndpointProtocol {
 	protocols := make([]EndpointProtocol, 0, len(s.EndpointProtocols))
 	for _, protocol := range s.EndpointProtocols {
-		if account.Endpoints.For(protocol) != "" {
+		if account.Endpoints.For(protocol) != "" && (admitted == nil || slices.Contains(admitted, protocol)) {
 			protocols = append(protocols, protocol)
 		}
 	}

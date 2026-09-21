@@ -126,7 +126,7 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Profiles["purpose"] = configuration.Profile{Label: "Purpose", Purpose: "Research", Account: "gateway", Model: "claude-research"}
+	cfg.Profiles["purpose"] = configuration.Profile{Label: "Purpose", Purpose: "Research", Account: "gateway", Model: "claude-research", Tier: configuration.ModelTierDaily}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if len(selector.choices) != 2 || selector.choices[0].Value != "codex" || selector.choices[0].Label != "Codex" || selector.choices[1].Value != "purpose" || selector.choices[1].Label != "Purpose · Research" {
+	if len(selector.choices) != 2 || selector.choices[0].Value != "codex" || selector.choices[0].Label != "Codex" || selector.choices[1].Value != "purpose" || selector.choices[1].Label != "Purpose · Daily · Research" {
 		t.Fatalf("choices = %#v", selector.choices)
 	}
 

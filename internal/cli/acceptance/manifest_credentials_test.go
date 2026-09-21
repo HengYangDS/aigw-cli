@@ -15,6 +15,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -212,7 +213,7 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 		"dmxapi-claude":   {Label: "DMXAPI Claude", Account: "dmxapi", Model: "claude-test"},
 		"dmxapi-gpt":      {Label: "DMXAPI GPT", Account: "dmxapi", Model: "gpt-test"},
 	}
-	if !maps.Equal(cfg.Profiles, wantProfiles) {
+	if !reflect.DeepEqual(cfg.Profiles, wantProfiles) {
 		t.Fatalf("manifest model matrix was not preserved: %#v", cfg.Profiles)
 	}
 
@@ -317,7 +318,7 @@ func TestSetupFromConfigurationManifestDoesNotFollowCredentialProbeRedirects(t *
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{secrets: []string{"aigw-test-team-token"}}
 	app.HTTP = &http.Client{}
-	manifestPath := writeConfigurationManifest(t, `version = 5
+	manifestPath := writeConfigurationManifest(t, `version = 6
 [recommendations.claude]
 profile = "team-claude"
 [accounts.team]

@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const importManifest = `version = 5
+const importManifest = `version = 6
 
 [recommendations.codex]
 profile = "remote"

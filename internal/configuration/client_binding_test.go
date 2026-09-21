@@ -8,15 +8,15 @@ import (
 )
 
 func TestCurrentSchemaRemovesLegacySelectionFields(t *testing.T) {
-	if ConfigVersion != 4 {
-		t.Fatalf("config version = %d, want 4", ConfigVersion)
+	if ConfigVersion != 5 {
+		t.Fatalf("config version = %d, want 5", ConfigVersion)
 	}
 	for _, field := range []string{"Routes", "RecommendedRoutes"} {
 		if _, exists := reflect.TypeFor[Config]().FieldByName(field); exists {
 			t.Errorf("Config still exposes legacy field %s", field)
 		}
 	}
-	for _, field := range []string{"Client", "Protocol", "ModelProvider", "Authentication"} {
+	for _, field := range []string{"Client", "ModelProvider", "Authentication"} {
 		if _, exists := reflect.TypeFor[Profile]().FieldByName(field); exists {
 			t.Errorf("Profile still exposes client concern %s", field)
 		}

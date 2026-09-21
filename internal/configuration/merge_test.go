@@ -6,7 +6,7 @@ import (
 )
 
 func TestRecommendationsAreValidatedExportedAndDoNotOverridePersonalChoices(t *testing.T) {
-	raw := []byte(`version = 5
+	raw := []byte(`version = 6
 [recommendations.claude]
 profile = "team-claude"
 
@@ -66,7 +66,7 @@ model = "gpt-test"
 }
 
 func TestParseConfigurationManifestAndMergePreservesPersonalState(t *testing.T) {
-	raw := []byte(`version = 5
+	raw := []byte(`version = 6
 
 [accounts.team]
 label = "Team Gateway"
@@ -105,7 +105,7 @@ model = "claude-team"
 }
 
 func TestMergeRejectsConflictingExistingAccountWithoutMutatingLocalConfig(t *testing.T) {
-	team, err := Parse([]byte(`version = 5
+	team, err := Parse([]byte(`version = 6
 
 [accounts.team]
 label = "Team Gateway"
@@ -140,7 +140,7 @@ model = "claude-team"
 }
 
 func TestMergeRejectsConflictingExistingProfileWithoutMutatingLocalConfig(t *testing.T) {
-	team, err := Parse([]byte(`version = 5
+	team, err := Parse([]byte(`version = 6
 
 [accounts.team]
 label = "Team Gateway"
@@ -169,7 +169,7 @@ model = "team-model"
 }
 
 func TestMergeAcceptsEquivalentExistingIdentityWithoutReplacingLocalState(t *testing.T) {
-	team, err := Parse([]byte(`version = 5
+	team, err := Parse([]byte(`version = 6
 
 [accounts.team]
 label = "Team Gateway"
@@ -202,7 +202,7 @@ model = "claude-team"
 }
 
 func TestMergeWithOptionsReplacesOnlyExplicitConflictingIdentity(t *testing.T) {
-	team, err := Parse([]byte(`version = 5
+	team, err := Parse([]byte(`version = 6
 
 [accounts.team]
 label = "Team Gateway"
@@ -237,7 +237,7 @@ model = "team-model"
 }
 
 func TestMergeWithOptionsRejectsUnusedReplacementSelectors(t *testing.T) {
-	team, err := Parse([]byte(`version = 5
+	team, err := Parse([]byte(`version = 6
 
 [accounts.team]
 label = "Team Gateway"
@@ -267,7 +267,7 @@ model = "claude-team"
 }
 
 func TestMergeWithOptionsDoesNotNormalizeOrMutateRejectedInput(t *testing.T) {
-	team, err := Parse([]byte(`version = 5
+	team, err := Parse([]byte(`version = 6
 
 [accounts.team]
 label = "Team Gateway"
@@ -303,7 +303,7 @@ model = "claude-team"
 }
 
 func TestMergeRejectsNonCanonicalLocalSchemaVersion(t *testing.T) {
-	team, err := Parse([]byte(`version = 5
+	team, err := Parse([]byte(`version = 6
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
@@ -334,7 +334,7 @@ func TestMergeWithOptionsRejectsNonCanonicalConfigurationManifestVersion(t *test
 }
 
 func TestMergeDefaultsToFirstImportedProfileWhenNeitherSideChoosesADefault(t *testing.T) {
-	team, err := Parse([]byte(`version = 5
+	team, err := Parse([]byte(`version = 6
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
@@ -357,7 +357,7 @@ model = "claude-solo"
 }
 
 func TestMergeRejectsConflictingModelOverrideWithOtherwiseIdenticalProfile(t *testing.T) {
-	team, err := Parse([]byte(`version = 5
+	team, err := Parse([]byte(`version = 6
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
@@ -380,7 +380,7 @@ model = "team-model"
 }
 
 func TestMergeTreatsIdenticalAccountProbesAsEquivalent(t *testing.T) {
-	team, err := Parse([]byte(`version = 5
+	team, err := Parse([]byte(`version = 6
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]

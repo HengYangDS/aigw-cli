@@ -36,7 +36,7 @@ func TestMigrationPreviewAndApplyPreserveCredentialsAndClientFiles(t *testing.T)
 	if err := executeManifestCommand(preview); err != nil {
 		t.Fatal(err)
 	}
-	if text := out.String(); !strings.Contains(text, `"from_version": 3`) || !strings.Contains(text, `"to_version": 4`) || strings.Contains(text, "must-remain-secret") {
+	if text := out.String(); !strings.Contains(text, `"from_version": 3`) || !strings.Contains(text, `"to_version": 5`) || strings.Contains(text, "must-remain-secret") {
 		t.Fatalf("migration preview = %s", text)
 	}
 	if actual, err := os.ReadFile(path); err != nil || !bytes.Equal(actual, legacy) {

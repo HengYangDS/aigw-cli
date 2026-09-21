@@ -220,7 +220,7 @@ func newNativeJourney(t *testing.T, source, endpoint string, installClient bool)
 		"AIGW_SECRET_BACKEND": "env",
 		"NO_COLOR":            "1",
 	})
-	manifest := fmt.Sprintf("version = 5\n\n[recommendations.claude]\nprofile = 'native-system-keyring-probe-claude'\n\n[accounts.native-system-keyring-probe]\nlabel = 'Native System Keyring Probe'\n\n[accounts.native-system-keyring-probe.endpoints]\nanthropic = %q\n\n[accounts.unused]\nlabel = 'Unused'\n\n[accounts.unused.endpoints]\nanthropic = %q\n\n[profiles.native-system-keyring-probe-claude]\nlabel = 'Native System Keyring Probe Claude'\naccount = 'native-system-keyring-probe'\nmodel = 'claude-test'\n\n[profiles.unused-claude]\nlabel = 'Unused Claude'\naccount = 'unused'\nmodel = 'claude-test'\n", endpoint, endpoint)
+	manifest := fmt.Sprintf("version = 6\n\n[recommendations.claude]\nprofile = 'native-system-keyring-probe-claude'\n\n[accounts.native-system-keyring-probe]\nlabel = 'Native System Keyring Probe'\n\n[accounts.native-system-keyring-probe.endpoints]\nanthropic = %q\n\n[accounts.unused]\nlabel = 'Unused'\n\n[accounts.unused.endpoints]\nanthropic = %q\n\n[profiles.native-system-keyring-probe-claude]\nlabel = 'Native System Keyring Probe Claude'\naccount = 'native-system-keyring-probe'\nmodel = 'claude-test'\n\n[profiles.unused-claude]\nlabel = 'Unused Claude'\naccount = 'unused'\nmodel = 'claude-test'\n", endpoint, endpoint)
 	if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
 	}

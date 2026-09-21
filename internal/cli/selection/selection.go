@@ -175,8 +175,12 @@ func chooseProfile(runtime invocation.Context, cfg configuration.Config, client,
 }
 
 func profileChoiceLabel(profile configuration.Profile) string {
-	if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
-		return profile.Label + " · " + purpose
+	label := profile.Label
+	if profile.Tier != "" {
+		label += " · " + strings.ToUpper(string(profile.Tier[:1])) + string(profile.Tier[1:])
 	}
-	return profile.Label
+	if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
+		return label + " · " + purpose
+	}
+	return label
 }

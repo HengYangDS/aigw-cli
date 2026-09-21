@@ -37,6 +37,12 @@ The team manifest is a curated catalogue, not a collection of personal notes.
   remain reusable and do not declare a client.
 - **`model`:** exact provider request identifier, preserving version
   punctuation and channel suffix.
+- **`tier`:** optional curated role. Use `flagship` for the family's primary
+  capability choice and `daily` for its balanced everyday choice. The tier is
+  presentation metadata; it never changes routing or capability.
+- **`protocols`:** the explicit set of wire protocols verified for that exact
+  Account and model. A client may select only the intersection of its native
+  protocols, the Account endpoints, and this set.
 - **`label`:** human-readable identity: `Account label · Model display name`;
   append `· CHANNEL` with a separating space when needed.
 - **`purpose`:** optional workflow description; omit throughout this
@@ -72,10 +78,25 @@ readiness; use `aigw verify --for <client>` for the separate client proof.
 ### Reviewed model defaults
 
 The catalogue contains GPT-6 Astra, GPT-5.6 Sol, Terra and Luna, Claude Fable
-5.1, Opus 5 and Sonnet 5. DMXAPI's retained CC, SSVIP and CDX channels remain
-separate Profiles within those model families; other Accounts use their
-ordinary model identifiers. Channel names are not substitutes for the native
-model selected in an existing Codex conversation.
+5.1, Opus 5 and Sonnet 5. It also offers a deliberately small two-tier set for
+each general model family: Grok 4.6/4.3, Gemini 3.1 Pro Preview/3.8 Flash,
+DeepSeek V4 Pro 0813/V4 Flash 0731, Qwen 3.8 Max/3.7 Plus, GLM 5.3/5.3 Flash,
+and Kimi K3/K2.7 Code Highspeed. The first model in each pair is the reviewed
+`flagship`; the second is `daily`. This is team curation, not a claim about
+vendor pricing, benchmarks, or universal superiority.
+
+All three configured Accounts listed those model IDs in the authenticated
+catalogue observation on September 21, 2026. The selected protocols were also
+tested with minimal inference calls. AIHubMix and DMXAPI used OpenAI Responses
+for the 12 general profiles. UCloud used Responses except for Gemini 3.1 Pro
+Preview, Gemini 3.8 Flash, and Kimi K2.7 Code Highspeed, which used Chat
+Completions. Catalogue membership and one successful text call remain narrower
+than complete tool, streaming, long-context, cost, or latency qualification.
+
+DMXAPI's retained CC, SSVIP and CDX channels remain separate Profiles within
+the Claude and GPT families; other Accounts use their ordinary model
+identifiers. Channel names are not substitutes for the native model selected
+in an existing Codex conversation.
 
 The reviewed [DMXAPI public catalogue](https://rmb.dmxapi.cn/) lists ordinary
 and CC Fable 5.1, ordinary/CC/SSVIP Opus 5 and Sonnet 5, and ordinary/CDX/SSVIP
@@ -97,7 +118,7 @@ available Profile for that client. No provider Token is mandatory, and an
 import preserves existing personal Client Bindings.
 
 Reasoning effort remains a native client preference, outside manifest schema
-version 4. The team preference is `high`: set `model_reasoning_effort = "high"`
+version 6. The team preference is `high`: set `model_reasoning_effort = "high"`
 in the active Codex Home's `config.toml`, and `"effortLevel": "high"` in the
 active Claude configuration directory's `settings.json`. Merge those fields
 into existing settings; do not replace either document. Importing the team

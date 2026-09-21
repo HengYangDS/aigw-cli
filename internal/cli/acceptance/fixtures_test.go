@@ -347,7 +347,7 @@ func directoryNames(t *testing.T, path string) []string {
 	return names
 }
 
-const configurationManifestFixture = `version = 5
+const configurationManifestFixture = `version = 6
 [recommendations.claude]
 profile = "aihubmix-claude"
 

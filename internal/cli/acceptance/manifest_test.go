@@ -25,7 +25,7 @@ func TestConfigImportRefusesAccountConflictUntilExplicitReplacementAndPreservesT
 		t.Fatal(err)
 	}
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 5
+	manifest := `version = 6
 [recommendations.claude]
 profile = "team-profile"
 [accounts.team]
@@ -74,7 +74,7 @@ model = "team-model"
 func TestConfigImportReportsMissingAccountTokensNotProfileTokens(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 5
+	manifest := `version = 6
 [recommendations.codex]
 profile = "gpt-long-model"
 
@@ -115,7 +115,7 @@ model = "claude-long-model"
 func TestConfigImportReportsOnlyMissingAccounts(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 5
+	manifest := `version = 6
 [recommendations.codex]
 profile = "gpt-long-model"
 
@@ -214,7 +214,7 @@ func TestConfigCommandIOFailures(t *testing.T) {
 func TestConfigImportAndExportAreSecretFree(t *testing.T) {
 	app, out, secrets, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 5
+	manifest := `version = 6
 [recommendations.claude]
 profile = "team"
 [accounts.team]
@@ -255,7 +255,7 @@ func TestConfigImportRefusesProfileConflictUntilExplicitReplacement(t *testing.T
 		t.Fatal(err)
 	}
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 5
+	manifest := `version = 6
 [recommendations.codex]
 profile = "shared"
 [accounts.team]
