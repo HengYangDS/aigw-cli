@@ -8,7 +8,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-func TestGitHubLinuxNativeHasAnExplicitSelfHostedARM64OptIn(t *testing.T) {
+func TestGitHubNativeJobsHaveExplicitSelfHostedARM64OptIns(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
@@ -33,17 +33,29 @@ func TestGitHubLinuxNativeHasAnExplicitSelfHostedARM64OptIn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	input, ok := workflow.On.Dispatch.Inputs["self_hosted_linux_arm64"]
-	if !ok {
-		t.Fatal("GitHub Verify lacks the explicit self-hosted Linux ARM64 opt-in")
-	}
-	if input.Type != "boolean" || input.Default.Value != "false" || !strings.Contains(input.Description, "Native Linux") {
-		t.Fatalf("self-hosted Linux ARM64 input = %#v", input)
-	}
+	for _, platform := range []struct {
+		id         string
+		label      string
+		hosted     string
+		selfHosted string
+	}{
+		{id: "linux", label: "Linux", hosted: "ubuntu-latest", selfHosted: "aigw-github-linux-arm64-parallels-shadow"},
+		{id: "windows", label: "Windows", hosted: "windows-latest", selfHosted: "aigw-github-windows-arm64-parallels-shadow"},
+	} {
+		inputName := "self_hosted_" + platform.id + "_arm64"
+		input, ok := workflow.On.Dispatch.Inputs[inputName]
+		if !ok {
+			t.Errorf("GitHub Verify lacks the explicit self-hosted %s ARM64 opt-in", platform.label)
+			continue
+		}
+		if input.Type != "boolean" || input.Default.Value != "false" || !strings.Contains(input.Description, "Native "+platform.label) {
+			t.Errorf("self-hosted %s ARM64 input = %#v", platform.label, input)
+		}
 
-	const selector = `${{ github.event_name == 'workflow_dispatch' && inputs.self_hosted_linux_arm64 && fromJSON('["self-hosted","Linux","ARM64","aigw-github-linux-arm64-parallels-shadow"]') || 'ubuntu-latest' }}`
-	if got := workflow.Jobs["native-linux"].RunsOn.Value; got != selector {
-		t.Fatalf("native Linux runner selector = %q, want %q", got, selector)
+		selector := `${{ github.event_name == 'workflow_dispatch' && inputs.` + inputName + ` && fromJSON('["self-hosted","` + platform.label + `","ARM64","` + platform.selfHosted + `"]') || '` + platform.hosted + `' }}`
+		if got := workflow.Jobs["native-"+platform.id].RunsOn.Value; got != selector {
+			t.Errorf("native %s runner selector = %q, want %q", platform.label, got, selector)
+		}
 	}
 	for _, name := range []string{"accepted-ref-parity", "quality"} {
 		if got := workflow.Jobs[name].RunsOn.Value; got != "ubuntu-latest" {

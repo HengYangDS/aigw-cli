@@ -82,7 +82,10 @@ nativeEvidence: {
 	darwin: {
 		name: "macOS"
 		gitlab: tags: ["$AIGW_GITLAB_DARWIN_RUNNER_TAG"]
-		github: runner: "macos-latest"
+		github: {
+			runner:       "macos-latest"
+			verifyRunner: runner
+		}
 	}
 	linux: {
 		name: "Linux"
@@ -94,7 +97,10 @@ nativeEvidence: {
 	}
 	windows: {
 		name: "Windows"
-		github: runner: "windows-latest"
+		github: {
+			runner:       "windows-latest"
+			verifyRunner: "${{ github.event_name == 'workflow_dispatch' && inputs.self_hosted_windows_arm64 && fromJSON('[\"self-hosted\",\"Windows\",\"ARM64\",\"aigw-github-windows-arm64-parallels-shadow\"]') || '\(runner)' }}"
+		}
 	}
 }
 
@@ -217,13 +223,8 @@ actions: {
 			AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: "ephemeral-host"
 		}
 	}
-	name: "Native \(nativeEvidence[_platform].name) acceptance"
-	if _platform == "linux" {
-		"runs-on": nativeEvidence.linux.github.verifyRunner
-	}
-	if _platform != "linux" {
-		"runs-on": nativeEvidence[_platform].github.runner
-	}
+	name:              "Native \(nativeEvidence[_platform].name) acceptance"
+	"runs-on":         nativeEvidence[_platform].github.verifyRunner
 	"timeout-minutes": 25
 	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
 	env:               nativeToolchain
@@ -535,6 +536,12 @@ githubVerify: {
 			}
 			self_hosted_linux_arm64: {
 				description: "Run Native Linux acceptance on a self-hosted Linux ARM64 runner"
+				required:    false
+				type:        "boolean"
+				default:     false
+			}
+			self_hosted_windows_arm64: {
+				description: "Run Native Windows acceptance on a self-hosted Windows ARM64 runner"
 				required:    false
 				type:        "boolean"
 				default:     false

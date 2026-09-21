@@ -31,6 +31,11 @@ env:
         required: false
         type: boolean
         default: false
+      self_hosted_windows_arm64:
+        description: Run Native Windows acceptance on a self-hosted Windows ARM64 runner
+        required: false
+        type: boolean
+        default: false
       full_quality:
         description: Qualify all repository quality tools on each native platform
         required: false
@@ -437,7 +442,7 @@ jobs:
           if-no-files-found: error
   native-windows:
     name: Native Windows acceptance
-    runs-on: windows-latest
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.self_hosted_windows_arm64 && fromJSON('["self-hosted","Windows","ARM64","aigw-github-windows-arm64-parallels-shadow"]') || 'windows-latest' }}
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'windows')
     env:
