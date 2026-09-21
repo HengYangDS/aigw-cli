@@ -81,7 +81,7 @@ func TestClientForProfileRequiresCanonicalScope(t *testing.T) {
 	if _, err := cfg.ClientForProfile("codex"); err == nil || !strings.Contains(err.Error(), "compatible with 2 clients") {
 		t.Fatalf("multi-client profile error = %v", err)
 	}
-	if _, err := cfg.ClientForProfile("shared"); err == nil || !strings.Contains(err.Error(), "compatible with 3 clients") {
+	if _, err := cfg.ClientForProfile("shared"); err == nil || !strings.Contains(err.Error(), "compatible with 4 clients") {
 		t.Fatalf("unscoped profile error = %v", err)
 	}
 	if _, err := cfg.ClientForProfile("missing"); err == nil || !strings.Contains(err.Error(), "unknown profile") {

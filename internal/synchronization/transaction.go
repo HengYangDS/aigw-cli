@@ -16,8 +16,8 @@ func (s Synchronizer) Commit(ctx context.Context, before, after configuration.Co
 
 // CommitProjection persists configuration and reconciles every client projection,
 // including missing or out-of-date projections of unchanged configuration.
-func (s Synchronizer) CommitProjection(ctx context.Context, before, after configuration.Config, subject string) error {
-	return s.commit(ctx, before, after, subject, true)
+func (s Synchronizer) CommitProjection(ctx context.Context, before, after configuration.Config, subject string, clientIDs ...string) error {
+	return s.commit(ctx, before, after, subject, true, clientIDs...)
 }
 
 func (s Synchronizer) commit(ctx context.Context, before, after configuration.Config, subject string, reconcileProjection bool, clientIDs ...string) error {

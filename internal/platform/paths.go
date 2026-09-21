@@ -10,12 +10,13 @@ import (
 
 // Paths is the complete host-derived path contract for one AIGW process.
 type Paths struct {
-	Config         string
-	Data           string
-	Secrets        string
-	ClaudeSettings string
-	InstallDir     string
-	InstallName    string
+	Config               string
+	Data                 string
+	Secrets              string
+	ClaudeSettings       string
+	ClaudeDesktopLibrary string
+	InstallDir           string
+	InstallName          string
 }
 
 // PathsFor derives every host-owned path from one explicit platform snapshot.
@@ -32,6 +33,10 @@ func PathsFor(goos string, env map[string]string) (Paths, error) {
 	if err != nil {
 		return Paths{}, err
 	}
+	claudeDesktopLibrary, err := ClaudeDesktopLibraryPathFor(goos, env)
+	if err != nil {
+		return Paths{}, err
+	}
 	installDir, err := UserBinDirFor(goos, env)
 	if err != nil {
 		return Paths{}, err
@@ -43,12 +48,13 @@ func PathsFor(goos string, env map[string]string) (Paths, error) {
 		secrets = appendWindowsPath(data, "secrets")
 	}
 	return Paths{
-		Config:         config,
-		Data:           data,
-		Secrets:        secrets,
-		ClaudeSettings: claudeSettings,
-		InstallDir:     installDir,
-		InstallName:    installName,
+		Config:               config,
+		Data:                 data,
+		Secrets:              secrets,
+		ClaudeSettings:       claudeSettings,
+		ClaudeDesktopLibrary: claudeDesktopLibrary,
+		InstallDir:           installDir,
+		InstallName:          installName,
 	}, nil
 }
 
@@ -132,6 +138,34 @@ func ClaudeSettingsPathFor(goos string, env map[string]string) (string, error) {
 		return "", fmt.Errorf("HOME is not set")
 	}
 	return path.Join(home, ".claude", "settings.json"), nil
+}
+
+// ClaudeDesktopLibraryPathFor returns Claude Desktop's official per-user
+// third-party inference configuration library.
+func ClaudeDesktopLibraryPathFor(goos string, env map[string]string) (string, error) {
+	switch goos {
+	case "darwin":
+		if env["HOME"] == "" {
+			return "", fmt.Errorf("HOME is not set")
+		}
+		return path.Join(env["HOME"], "Library", "Application Support", "Claude-3p", "configLibrary"), nil
+	case "linux":
+		base := env["XDG_CONFIG_HOME"]
+		if base == "" {
+			if env["HOME"] == "" {
+				return "", fmt.Errorf("HOME and XDG_CONFIG_HOME are not set")
+			}
+			base = path.Join(env["HOME"], ".config")
+		}
+		return path.Join(base, "Claude-3p", "configLibrary"), nil
+	case "windows":
+		if env["LOCALAPPDATA"] == "" {
+			return "", fmt.Errorf("LOCALAPPDATA is not set")
+		}
+		return appendWindowsPath(env["LOCALAPPDATA"], "Claude-3p", "configLibrary"), nil
+	default:
+		return "", fmt.Errorf("unsupported operating system %q", goos)
+	}
 }
 
 // UserBinDirFor returns the platform-native per-user executable directory from an explicit environment.

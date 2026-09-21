@@ -17,12 +17,13 @@ func TestHostPathsAreDerivedAsOnePlatformContract(t *testing.T) {
 		data        string
 		secrets     string
 		claude      string
+		desktop     string
 		installDir  string
 		installName string
 	}{
-		{name: "macOS", goos: "darwin", env: map[string]string{"HOME": "/Users/alex"}, config: "/Users/alex/Library/Application Support/aigw/config.toml", data: "/Users/alex/Library/Application Support/aigw", secrets: "/Users/alex/Library/Application Support/aigw/secrets", claude: "/Users/alex/.claude/settings.json", installDir: "/Users/alex/.local/bin", installName: "aigw"},
-		{name: "Linux", goos: "linux", env: map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg", "XDG_DATA_HOME": "/data"}, config: "/cfg/aigw/config.toml", data: "/data/aigw", secrets: "/data/aigw/secrets", claude: "/home/alex/.claude/settings.json", installDir: "/home/alex/.local/bin", installName: "aigw"},
-		{name: "Windows", goos: "windows", env: map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`, "LOCALAPPDATA": `C:\Users\alex\AppData\Local`, "USERPROFILE": `C:\Users\alex`}, config: `C:\Users\alex\AppData\Roaming\aigw\config.toml`, data: `C:\Users\alex\AppData\Local\aigw`, secrets: `C:\Users\alex\AppData\Local\aigw\secrets`, claude: `C:\Users\alex\.claude\settings.json`, installDir: `C:\Users\alex\AppData\Local\Programs\aigw\bin`, installName: "aigw.exe"},
+		{name: "macOS", goos: "darwin", env: map[string]string{"HOME": "/Users/alex"}, config: "/Users/alex/Library/Application Support/aigw/config.toml", data: "/Users/alex/Library/Application Support/aigw", secrets: "/Users/alex/Library/Application Support/aigw/secrets", claude: "/Users/alex/.claude/settings.json", desktop: "/Users/alex/Library/Application Support/Claude-3p/configLibrary", installDir: "/Users/alex/.local/bin", installName: "aigw"},
+		{name: "Linux", goos: "linux", env: map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg", "XDG_DATA_HOME": "/data"}, config: "/cfg/aigw/config.toml", data: "/data/aigw", secrets: "/data/aigw/secrets", claude: "/home/alex/.claude/settings.json", desktop: "/cfg/Claude-3p/configLibrary", installDir: "/home/alex/.local/bin", installName: "aigw"},
+		{name: "Windows", goos: "windows", env: map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`, "LOCALAPPDATA": `C:\Users\alex\AppData\Local`, "USERPROFILE": `C:\Users\alex`}, config: `C:\Users\alex\AppData\Roaming\aigw\config.toml`, data: `C:\Users\alex\AppData\Local\aigw`, secrets: `C:\Users\alex\AppData\Local\aigw\secrets`, claude: `C:\Users\alex\.claude\settings.json`, desktop: `C:\Users\alex\AppData\Local\Claude-3p\configLibrary`, installDir: `C:\Users\alex\AppData\Local\Programs\aigw\bin`, installName: "aigw.exe"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -30,10 +31,36 @@ func TestHostPathsAreDerivedAsOnePlatformContract(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got.Config != test.config || got.Data != test.data || got.Secrets != test.secrets || got.ClaudeSettings != test.claude || got.InstallDir != test.installDir || got.InstallName != test.installName {
+			if got.Config != test.config || got.Data != test.data || got.Secrets != test.secrets || got.ClaudeSettings != test.claude || got.ClaudeDesktopLibrary != test.desktop || got.InstallDir != test.installDir || got.InstallName != test.installName {
 				t.Fatalf("PathsFor() = %#v", got)
 			}
 		})
+	}
+}
+
+func TestClaudeDesktopLibraryUsesTheOfficialPerUserScope(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		goos string
+		env  map[string]string
+		want string
+	}{
+		{name: "macOS", goos: "darwin", env: map[string]string{"HOME": "/Users/alex"}, want: "/Users/alex/Library/Application Support/Claude-3p/configLibrary"},
+		{name: "Linux XDG", goos: "linux", env: map[string]string{"XDG_CONFIG_HOME": "/cfg"}, want: "/cfg/Claude-3p/configLibrary"},
+		{name: "Linux home", goos: "linux", env: map[string]string{"HOME": "/home/alex"}, want: "/home/alex/.config/Claude-3p/configLibrary"},
+		{name: "Windows", goos: "windows", env: map[string]string{"LOCALAPPDATA": `C:\Users\alex\AppData\Local`}, want: `C:\Users\alex\AppData\Local\Claude-3p\configLibrary`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := platform.ClaudeDesktopLibraryPathFor(test.goos, test.env)
+			if err != nil || filepath.Clean(got) != filepath.Clean(test.want) {
+				t.Fatalf("ClaudeDesktopLibraryPathFor() = %q, %v; want %q", got, err, test.want)
+			}
+		})
+	}
+	for _, goos := range []string{"darwin", "linux", "windows", "plan9"} {
+		if _, err := platform.ClaudeDesktopLibraryPathFor(goos, map[string]string{}); err == nil {
+			t.Fatalf("ClaudeDesktopLibraryPathFor(%q) accepted missing platform input", goos)
+		}
 	}
 }
 

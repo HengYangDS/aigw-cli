@@ -68,6 +68,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	cfg.Profiles["codex-only"] = configuration.Profile{Label: "Codex only", Purpose: "Selection", Account: "one", Model: "gpt-test"}
 	delete(cfg.Clients, configuration.ClientCodex)
 	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude only", Account: "one", Model: "claude-test"}
+	cfg.SetRecommendedProfile(configuration.ClientCodex, "claude")
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

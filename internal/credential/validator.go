@@ -55,16 +55,29 @@ func Validate(ctx context.Context, httpClient HTTPDoer, account configuration.Ac
 		if err != nil {
 			return err
 		}
-		status, err := ProbeStatus(ctx, httpClient, client, endpoint, token, protocol)
-		if err != nil {
+		if err := validateEndpoint(ctx, httpClient, client, endpoint, protocol, token); err != nil {
 			return err
 		}
-		if status == http.StatusUnauthorized || status == http.StatusForbidden {
-			return fmt.Errorf("%s authentication was rejected (HTTP %d)", title(client), status)
-		}
-		if status < http.StatusOK || status >= http.StatusMultipleChoices {
-			return fmt.Errorf("%s endpoint returned HTTP %d", title(client), status)
-		}
+	}
+	return nil
+}
+
+// ValidateRuntime verifies one fully resolved client endpoint without
+// re-selecting or guessing its protocol.
+func ValidateRuntime(ctx context.Context, httpClient HTTPDoer, runtime configuration.Runtime, token string) error {
+	return validateEndpoint(ctx, httpClient, runtime.Client, runtime.Endpoint, runtime.Protocol, token)
+}
+
+func validateEndpoint(ctx context.Context, httpClient HTTPDoer, client, endpoint string, protocol configuration.EndpointProtocol, token string) error {
+	status, err := ProbeStatus(ctx, httpClient, client, endpoint, token, protocol)
+	if err != nil {
+		return err
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return fmt.Errorf("%s authentication was rejected (HTTP %d)", title(client), status)
+	}
+	if status < http.StatusOK || status >= http.StatusMultipleChoices {
+		return fmt.Errorf("%s endpoint returned HTTP %d", title(client), status)
 	}
 	return nil
 }

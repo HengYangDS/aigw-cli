@@ -47,9 +47,10 @@ func TestTeamConfigurationManifestIsReviewedVersionSix(t *testing.T) {
 		storedProtocol  EndpointProtocol
 		runtimeProtocol EndpointProtocol
 	}{
-		ClientClaude: {model: "claude-fable-5-1", runtimeProtocol: ProtocolAnthropic},
-		ClientCodex:  {model: "gpt-6-astra", runtimeProtocol: ProtocolOpenAIResponses},
-		ClientHermes: {model: "claude-fable-5-1", storedProtocol: ProtocolAnthropic, runtimeProtocol: ProtocolAnthropic},
+		ClientClaude:        {model: "claude-fable-5-1", runtimeProtocol: ProtocolAnthropic},
+		ClientClaudeDesktop: {model: "claude-fable-5-1", runtimeProtocol: ProtocolAnthropic},
+		ClientCodex:         {model: "gpt-6-astra", runtimeProtocol: ProtocolOpenAIResponses},
+		ClientHermes:        {model: "claude-fable-5-1", storedProtocol: ProtocolAnthropic, runtimeProtocol: ProtocolAnthropic},
 	}
 	if len(parsedManifest.Recommendations) != len(recommendations) {
 		t.Fatalf("team manifest recommended routes = %#v", parsedManifest.Recommendations)

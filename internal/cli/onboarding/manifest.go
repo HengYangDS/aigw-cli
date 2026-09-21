@@ -54,7 +54,6 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	if err != nil {
 		return err
 	}
-	discoveredTargets := discovered.AutoManagedCodexTargets()
 	for _, accountName := range accountNames {
 		if len(configuredClientsForAccount(cfg, accountName)) == 0 {
 			return fmt.Errorf("Account %q is not referenced by any configuration profile; remove it or add an explicit client profile before setup", accountName)
@@ -79,10 +78,8 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	if err != nil {
 		return err
 	}
-	selectedClients := manifestSetupSelectedClients(cfg, connected, map[string]bool{
-		configuration.ClientClaude: discovered.Executable(configuration.ClientClaude) != "",
-		configuration.ClientCodex:  discovered.Executable(configuration.ClientCodex) != "" && len(discoveredTargets) > 0,
-	})
+	availableClients := manifestSetupAvailableClients(discovered.Executables)
+	selectedClients := manifestSetupSelectedClients(cfg, connected, availableClients)
 
 	for _, credential := range credentials {
 		if err := verifyManifestSetupCredential(ctx, runtime, cfg, credential.account, credential.token, selectedClients...); err != nil {
@@ -95,16 +92,20 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 		return err
 	}
 
-	availableClients := make(map[string]bool, len(configuration.AdmittedClientIDs()))
-	for _, client := range configuration.AdmittedClientIDs() {
-		availableClients[client] = discovered.Executable(client) != ""
-	}
 	result := buildManifestSetupResult(runtime, cfg, accountNames, connected, availableClients, selectedClients)
 	if request.JSON {
 		return presentation.WriteJSON(runtime.Out, result)
 	}
 	renderManifestSetupResult(runtime, result)
 	return nil
+}
+
+func manifestSetupAvailableClients(executables map[string]string) map[string]bool {
+	available := make(map[string]bool, len(configuration.AdmittedClientIDs()))
+	for _, clientID := range configuration.AdmittedClientIDs() {
+		available[clientID] = executables[clientID] != ""
+	}
+	return available
 }
 
 func buildManifestSetupResult(
@@ -308,16 +309,24 @@ func accountHasRecommendedTokenSelection(cfg configuration.Config, accountName s
 }
 
 func verifyManifestSetupCredential(ctx context.Context, runtime invocation.Context, cfg configuration.Config, accountName, token string, selectedClients ...string) error {
-	account := cfg.Accounts[accountName]
-	account.ID = accountName
+	type endpointKey struct {
+		endpoint string
+		protocol configuration.EndpointProtocol
+	}
+	verified := map[endpointKey]bool{}
 	for _, client := range selectedClients {
 		clientRuntime, resolveErr := cfg.ResolveRuntime(client, "")
 		if resolveErr != nil || clientRuntime.AccountID != accountName || !clientRuntime.RequiresAccountToken() {
 			continue
 		}
-		if err := credential.Validate(ctx, runtime.HTTP, account, token, client); err != nil {
+		key := endpointKey{endpoint: clientRuntime.Endpoint, protocol: clientRuntime.Protocol}
+		if verified[key] {
+			continue
+		}
+		if err := credential.ValidateRuntime(ctx, runtime.HTTP, clientRuntime, token); err != nil {
 			return err
 		}
+		verified[key] = true
 	}
 	return nil
 }

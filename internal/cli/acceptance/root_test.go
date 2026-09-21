@@ -149,7 +149,7 @@ func TestCommonCommandFailuresUseEnglishGuidance(t *testing.T) {
 		fix  string
 	}{
 		{args: []string{"config"}, want: "Choose a config subcommand; run `aigw config --help`", fix: "aigw config --help"},
-		{args: []string{"use", "--for", "other", "one"}, want: "--for must be claude, codex, or hermes", fix: "aigw use --help"},
+		{args: []string{"use", "--for", "other", "one"}, want: "--for must be claude, claude-desktop, codex, or hermes", fix: "aigw use --help"},
 	} {
 		out.Reset()
 		err := cli.Execute(app, tc.args)
@@ -181,13 +181,13 @@ func TestCoreValidationFailuresUseEnglishGuidance(t *testing.T) {
 		args []string
 		want string
 	}{
-		{args: []string{"test", "--for", "other"}, want: "--for must be claude, codex, or hermes"},
-		{args: []string{"verify", "--for", "other"}, want: "--for must be claude, codex, hermes, or all"},
-		{args: []string{"setup", "--profile", "new-profile", "--for", "other"}, want: "--for must be claude, codex, or hermes"},
+		{args: []string{"test", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, or hermes"},
+		{args: []string{"verify", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, hermes, or all"},
+		{args: []string{"setup", "--profile", "new-profile", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, or hermes"},
 		{args: []string{"profile", "add", "new-profile"}, want: "--account and --model are required"},
 		{args: []string{"route"}, want: "unknown command \"route\""},
 		{args: []string{"adapter"}, want: "unknown command \"adapter\""},
-		{args: []string{"client", "enable", "other"}, want: "Client must be claude, codex, or hermes"},
+		{args: []string{"client", "enable", "other"}, want: "Client must be claude, claude-desktop, codex, or hermes"},
 	} {
 		out.Reset()
 		err := cli.Execute(app, tc.args)

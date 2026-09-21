@@ -40,9 +40,10 @@ or a local proxy deployment to make a configuration test pass.
   [Compensation](docs/decisions/dr-0006-transactional-client-projection.md)
   preserves newer edits; it does not provide atomic visibility across files.
 - AIGW does not own Codex Desktop-only GUI settings.
-- The admitted CLI client set is Claude Code, Codex, and Hermes. Missing
-  clients remain untouched; Claude Desktop and any future client require a
-  separately admitted Adapter rather than reuse of another client's surfaces.
+- The source-level client registry contains Claude Code, Claude Desktop,
+  Codex, and Hermes. Missing clients remain untouched. Claude Desktop uses its
+  separate third-party inference library rather than Claude Code settings; its
+  release support remains gated by mode-specific native evidence.
 - External Responses compatibility services, when explicitly selected by an
   operator, own their transport and lifecycle. AIGW treats them as ordinary
   Account endpoints and must not install, start, stop, reload, or configure

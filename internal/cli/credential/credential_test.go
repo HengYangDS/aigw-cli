@@ -69,7 +69,8 @@ func TestCredentialHelperResolvesAnUnselectedProfileProjection(t *testing.T) {
 				t.Fatal(err)
 			}
 			account := configuration.Account{Label: "Alternate"}
-			if client == configuration.ClientClaude {
+			spec, _ := configuration.ClientSpecFor(client)
+			if spec.EndpointProtocols[0] == configuration.ProtocolAnthropic {
 				account.Endpoints.Anthropic = "https://alternate.test"
 			} else {
 				account.Endpoints.OpenAIResponses = "https://alternate.test/v1"
@@ -285,12 +286,12 @@ func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Contex
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 	cfg := configuration.NewConfig()
 	account := configuration.Account{Label: "Gateway"}
-	if client == configuration.ClientClaude {
+	spec, _ := configuration.ClientSpecFor(client)
+	if spec.EndpointProtocols[0] == configuration.ProtocolAnthropic {
 		account.Endpoints.Anthropic = "https://gateway.test"
 	} else {
 		account.Endpoints.OpenAIResponses = "https://gateway.test/v1"
 	}
-	spec, _ := configuration.ClientSpecFor(client)
 	cfg.Accounts["gateway"] = account
 	cfg.Profiles[client] = configuration.Profile{Label: client, Account: "gateway", Model: client + "-team"}
 	cfg.Clients[client] = configuration.ClientBinding{Profile: client, Enabled: enabled, Protocol: spec.EndpointProtocols[0], Executable: client}

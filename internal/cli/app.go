@@ -215,6 +215,8 @@ func NewDefault() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	host := discovery.Current()
+	host.ClaudeDesktopLibrary = paths.ClaudeDesktopLibrary
 	return &App{
 		GOOS:               runtime.GOOS,
 		DataDir:            paths.Data,
@@ -235,7 +237,7 @@ func NewDefault() (*App, error) {
 		Runner:             process.Runner{},
 		HTTP:               &http.Client{},
 		Prompt:             prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
-		Discovery:          client.NewDiscoverer(client.DefaultRegistry(), discovery.Current()),
+		Discovery:          client.NewDiscoverer(client.DefaultRegistry(), host),
 		Updater:            upgrade.Current(executable),
 	}, nil
 }

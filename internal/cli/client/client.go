@@ -139,7 +139,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		binding.Enabled = false
 		cfg.Clients[client] = binding
 
-		if err := invocation.Synchronizer(runtime).CommitProjection(cmd.Context(), before, cfg, "client disable"); err != nil {
+		if err := invocation.Synchronizer(runtime).CommitProjection(cmd.Context(), before, cfg, "client disable", client); err != nil {
 			return err
 		}
 		r := invocation.Renderer(runtime)

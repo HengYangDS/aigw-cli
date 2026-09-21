@@ -32,6 +32,9 @@ func configuredClient(t *testing.T, id string) (configuration.Config, client.Dep
 	spec, _ := configuration.ClientSpecFor(id)
 	cfg.Profiles[id] = configuration.Profile{Account: "gateway", Model: "fixture"}
 	target := filepath.Join(root, "config.toml")
+	if id == configuration.ClientClaudeDesktop {
+		target = filepath.Join(root, "Claude-3p", "configLibrary")
+	}
 	adapter := configuration.ClientBinding{Profile: id, Enabled: true, Protocol: spec.EndpointProtocols[0], Executable: executable}
 	if id != configuration.ClientClaude {
 		adapter.Targets = []string{target}
@@ -171,6 +174,12 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 			runner := &rejectingClient{}
 			deps.Runner = runner
 			_, err = registry.Verify(context.Background(), deps, cfg, id, runtime, "")
+			if id == configuration.ClientClaudeDesktop {
+				if err == nil || !strings.Contains(err.Error(), "explicit native Chat, Cowork, or Code acceptance") || runner.calls != 0 {
+					t.Fatalf("Claude Desktop verification = %v, calls = %d", err, runner.calls)
+				}
+				return
+			}
 			if err == nil || strings.Contains(err.Error(), "public-secret-canary") || !strings.Contains(err.Error(), "diagnostics suppressed") {
 				t.Fatalf("external client failure = %v", err)
 			}

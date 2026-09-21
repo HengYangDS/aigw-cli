@@ -21,6 +21,8 @@ import (
 // It contains no mutation capability.
 type DiscoverySource interface {
 	Executable(clientID string) string
+	ClaudeDesktopExecutable() string
+	ClaudeDesktopLibraryDirectory() string
 	CodexHomeDirectory() string
 	HermesHomeDirectory() string
 	FilePresent(path string) bool

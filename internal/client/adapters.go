@@ -21,6 +21,7 @@ var defaultRegistry = mustRegistry(
 	configuration.AdmittedClientSpecs(),
 	codexAdapter{},
 	claudeAdapter{},
+	claudeDesktopAdapter{},
 	hermesAdapter{},
 )
 

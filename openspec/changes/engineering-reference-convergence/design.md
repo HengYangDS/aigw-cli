@@ -370,6 +370,19 @@ Accounts through the installed Hermes runtime, observes every compatible
 reviewed Profile under its Account-and-protocol provider, and proves that an
 unconnected Account is not projected.
 
+Task 4.7 now has a source-level Claude Desktop Adapter using the documented
+per-user `Claude-3p/configLibrary` boundary on macOS, Linux and Windows. It owns
+one `aigw` profile, the corresponding metadata entry, deployment-mode values
+and a compact ownership sidecar; it preserves unrelated JSON fields, rejects
+managed drift, compensates partial writes and removes only its own state. The
+team manifest recommends the same UCloud Fable Profile independently for
+Claude Code and Claude Desktop. An isolated macOS run discovered the installed
+Claude Desktop 2.2553.1 executable, imported the shipped manifest, projected
+three compatible UCloud models, executed the projected environment-backed
+credential helper, and withdrew every AIGW-owned Desktop file without touching
+the real user configuration. Chat, Cowork, Code, restart behavior and Linux and
+Windows host consumption remain unproved, so Task 4.7 remains open.
+
 Credential portability is accepted at signed commit `3863e05e`. The ordinary
 GitHub review run `35455496791` exercised the complete native graph on macOS,
 Linux, and Windows; Windows also completed the real Credential Manager journey.

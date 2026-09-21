@@ -12,6 +12,8 @@ type Authority string
 const (
 	// CodexHomeDefault identifies the canonical default Codex Home projection surface.
 	CodexHomeDefault ID = "codex-home-default"
+	// ClaudeDesktopLibrary identifies Claude Desktop's per-user third-party configuration library.
+	ClaudeDesktopLibrary ID = "claude-desktop-config-library"
 
 	// AuthorityAIGW identifies a surface whose bounded projection is owned by AIGW.
 	AuthorityAIGW Authority = "aigw"
@@ -33,7 +35,7 @@ func (id ID) IsCodexHome() bool {
 
 // Authority returns the owner of a known surface identity.
 func (id ID) Authority() (Authority, bool) {
-	if id.IsCodexHome() {
+	if id.IsCodexHome() || id == ClaudeDesktopLibrary {
 		return AuthorityAIGW, true
 	}
 	return "", false

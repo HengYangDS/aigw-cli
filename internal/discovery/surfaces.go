@@ -3,6 +3,8 @@ package discovery
 import (
 	"path/filepath"
 	"sort"
+
+	surfaceidentity "aigw-cli/internal/surface"
 )
 
 // Surface is a stable host classification. Discovery only inspects paths; it
@@ -54,7 +56,7 @@ func (r Result) SurfaceForExecutablePath(path string) (Surface, bool) {
 func (r Result) AutoManagedCodexTargets() []string {
 	targets := make([]string, 0)
 	for _, surface := range r.Surfaces {
-		if surface.AutoManaged && surface.ConfigPath != "" {
+		if surface.AutoManaged && surfaceidentity.ID(surface.ID).IsCodexHome() && surface.ConfigPath != "" {
 			targets = append(targets, surface.ConfigPath)
 		}
 	}

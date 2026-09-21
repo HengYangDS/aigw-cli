@@ -99,6 +99,7 @@ func TestStatusGuidesClientSpecificRouteInsteadOfBlankRepair(t *testing.T) {
 	cfg.Profiles["gpt-5.6-sol"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-5.6-sol"}
 	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude", Account: "dmx", Model: "claude-fable-5"}
 	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt-5.6-sol")
+	cfg.SetRecommendedProfile(configuration.ClientClaude, "claude-fable-5")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

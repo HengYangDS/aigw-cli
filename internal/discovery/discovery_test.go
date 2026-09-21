@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
+	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	surfacepkg "aigw-cli/internal/surface"
 )
@@ -66,6 +67,24 @@ func TestDiscoverReturnsClaudeExecutableWithoutPrivateMarkers(t *testing.T) {
 	}
 	if got.Executable("claude") != want {
 		t.Fatalf("Claude executable = %q, want %q", got.Executable("claude"), want)
+	}
+}
+
+func TestDiscoverReturnsClaudeDesktopApplicationAndConfigurationLibrary(t *testing.T) {
+	root := t.TempDir()
+	executable := filepath.Join(root, "Claude")
+	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	library := filepath.Join(root, "Claude-3p", "configLibrary")
+	system := discovery.System{GOOS: runtime.GOOS, Home: root, ClaudeDesktopApp: executable, ClaudeDesktopLibrary: library}
+	result := client.NewDiscoverer(client.DefaultRegistry(), system).Discover()
+	if got := result.Executable(configuration.ClientClaudeDesktop); got != executable {
+		t.Fatalf("Claude Desktop executable = %q, want %q", got, executable)
+	}
+	surface, ok := result.Surface(string(surfacepkg.ClaudeDesktopLibrary))
+	if !ok || surface.ConfigPath != library || surface.Executable != executable || !surface.AutoManaged || !surface.Present {
+		t.Fatalf("Claude Desktop surface = %#v, %t", surface, ok)
 	}
 }
 
@@ -142,10 +161,13 @@ func TestResultFindsKnownSurfaceByEachIdentity(t *testing.T) {
 func TestLinuxDiscoveryKeepsDefaultClientHomesIndependent(t *testing.T) {
 	home := t.TempDir()
 	result := client.NewDiscoverer(client.DefaultRegistry(), discovery.System{GOOS: "linux", Home: home}).Discover()
-	if len(result.Surfaces) != 2 {
+	if len(result.Surfaces) != 3 {
 		t.Fatalf("Linux surfaces = %#v", result.Surfaces)
 	}
-	surface := result.Surfaces[0]
+	surface, ok := result.Surface(string(surfacepkg.CodexHomeDefault))
+	if !ok {
+		t.Fatalf("default Codex Home missing from %#v", result.Surfaces)
+	}
 	wantConfig := filepath.Join(home, ".codex", "config.toml")
 	if surface.ID != string(surfacepkg.CodexHomeDefault) || surface.ConfigPath != wantConfig || surface.Present {
 		t.Fatalf("default Codex Home = %#v", surface)

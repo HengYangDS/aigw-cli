@@ -250,11 +250,12 @@ overwriting them.
 
 ## Install a client later
 
-Claude Code, Codex, and Hermes are not setup prerequisites. After installing a
-selected client, run `aigw sync`; AIGW rediscovers admitted clients and
-converges only its owned configuration. If that client has a selected Client
-Binding and usable authentication, sync enables its Adapter and writes the
-owned projection.
+Claude Code, Claude Desktop, Codex, and Hermes are not setup prerequisites.
+After installing a selected client, run `aigw sync`; AIGW rediscovers admitted
+clients and converges only its owned configuration. Claude Desktop uses
+`Claude-3p/configLibrary`, independently of Claude Code's `~/.claude` settings.
+If a client has a selected Client Binding and usable authentication, sync
+enables its Adapter and writes only that Adapter's owned projection.
 Account-Token Client Bindings receive a credential helper; client-native bindings continue
 to use the client's own authentication:
 

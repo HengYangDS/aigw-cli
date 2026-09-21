@@ -227,7 +227,7 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 
 	future := &recordingAdapter{}
 	specs := append(configuration.AdmittedClientSpecs(), future.Spec())
-	registry, err := NewRegistry(specs, codexAdapter{}, claudeAdapter{}, hermesAdapter{}, future)
+	registry, err := NewRegistry(specs, codexAdapter{}, claudeAdapter{}, claudeDesktopAdapter{}, hermesAdapter{}, future)
 	if err != nil {
 		t.Fatal(err)
 	}

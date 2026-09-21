@@ -40,25 +40,27 @@ compensated-projection requirements.
 
 ## Admitted clients
 
-The table describes the accepted release. The active Change contains a Hermes
-candidate with native configuration and credential-command evidence; its live
-tool-loop, platform and revised-schema admission remain incomplete. Candidate
-source registration is not a release support claim.
+The table describes the source-level operational registry. Stable release
+support additionally requires the native evidence listed below; source
+registration alone is not a release support claim.
 
 | Client                      | Configuration and authentication boundary                                                                                                                              | Required account capability            |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | Claude Code                 | Official per-user settings projection; Token is read on demand through `aigw credential claude <projection-fingerprint>`                                               | Verified Anthropic-compatible endpoint |
+| Claude Desktop              | Official per-user third-party inference library; Token is read on demand through an executable helper and argument array                                               | Verified Anthropic-compatible endpoint |
 | Codex CLI and Codex Desktop | AIGW-owned `config.toml` projection in the shared Codex Home; projection-matching command helper for Account Tokens; client-native authentication remains client-owned | Verified OpenAI Responses endpoint     |
+| Hermes Agent                | Native provider and model configuration with an Account-scoped credential command                                                                                      | Verified declared endpoint protocol    |
 
 An Account Token, when required, stays in the selected backend. Client-native
 authentication stays with the client. Switching Profiles does not copy Tokens
 into client files.
 
-Hermes Agent and Claude Desktop are requested implementation targets; their
-incomplete admission remains explicit. The current registry above must change
-only when their implementations and native acceptance pass. A synthetic
-extension test cannot satisfy either client journey. CodeBuddy, WorkBuddy,
-OpenCode, Pi, and Qoder retain the individual dispositions in the
+Hermes has native tool-loop evidence. Claude Desktop's source Adapter,
+transactional projection, discovery, environment-backed credential helper and
+withdrawal are implemented in the active Change; Chat, Cowork, Code, restart,
+host-version and release qualification remain incomplete. A synthetic extension
+test cannot satisfy that client journey. CodeBuddy, WorkBuddy, OpenCode, Pi,
+and Qoder retain the individual dispositions in the
 [client assessment](../research/provider-tooling-assessment.md#client-surfaces-and-cross-model-inference).
 
 Claude Desktop uses its own third-party inference configuration. Its Chat,

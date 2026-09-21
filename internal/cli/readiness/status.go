@@ -123,7 +123,7 @@ func unresolvedClientStatus(cfg *configuration.Config, clientID string, resolveE
 		facts.Profile = profile
 		facts.BindingIssue = resolveErr.Error()
 		facts.BindingAction = "aigw use --for " + clientID + " <profile>"
-	} else if suggested := cfg.FirstProfileForClient(clientID); suggested != "" {
+	} else if suggested := cfg.RecommendedProfile(clientID); suggested != "" {
 		facts.SuggestedProfile = suggested
 		facts.BindingAction = "aigw use --for " + clientID + " " + suggested
 	}

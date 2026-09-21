@@ -4,6 +4,9 @@ version = 6
 [recommendations.claude]
 profile = 'ucloud-claude-fable-5-1'
 
+[recommendations.claude-desktop]
+profile = 'ucloud-claude-fable-5-1'
+
 [recommendations.codex]
 profile = 'ucloud-gpt-6-astra'
 

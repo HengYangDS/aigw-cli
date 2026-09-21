@@ -9,6 +9,7 @@ func TestStableIdentities(t *testing.T) {
 		want string
 	}{
 		{name: "default Codex Home", got: string(CodexHomeDefault), want: "codex-home-default"},
+		{name: "Claude Desktop library", got: string(ClaudeDesktopLibrary), want: "claude-desktop-config-library"},
 		{name: "AIGW authority", got: string(AuthorityAIGW), want: "aigw"},
 	}
 	for _, tt := range tests {
@@ -50,6 +51,7 @@ func TestIDAuthority(t *testing.T) {
 	}{
 		{name: "default", id: CodexHomeDefault, authority: AuthorityAIGW, known: true},
 		{name: "explicit", id: CodexHomeExplicit("0123456789ab"), authority: AuthorityAIGW, known: true},
+		{name: "Claude Desktop", id: ClaudeDesktopLibrary, authority: AuthorityAIGW, known: true},
 		{name: "unknown", id: ID("unknown"), known: false},
 	}
 	for _, tt := range tests {

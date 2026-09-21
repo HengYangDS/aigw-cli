@@ -168,10 +168,13 @@ There is no global model selection: `aigw use --for <client> <profile>` changes
 exactly one client binding. A present Token, synchronized file, endpoint probe,
 and successful native-client request are different readiness claims.
 
-Current Adapters support Codex CLI/Desktop through their shared Codex Home and
-Claude Code through its official user settings and credential-helper contract.
-Missing clients remain untouched. Future clients require a separately admitted
-Adapter rather than reuse of Codex or Claude state.
+Current source Adapters support Codex CLI/Desktop through their shared Codex
+Home, Claude Code through its user settings, Hermes through its provider
+configuration, and Claude Desktop through its separate third-party inference
+library. Account Tokens remain behind credential helpers. Missing clients stay
+untouched, and release support remains limited to clients with completed native
+evidence. Future clients require a separately admitted Adapter rather than
+reuse of another client's state.
 
 See [Product concepts](docs/concepts/product-concepts.md) for the entity model
 and [Adapter admission](docs/governance/adapter-admission.md) for extension
@@ -182,7 +185,7 @@ requirements.
 | Surface                                                         | Owner                  |
 | --------------------------------------------------------------- | ---------------------- |
 | Accounts, Tokens, Profiles, and client bindings                 | AIGW                   |
-| AIGW-marked Codex and Claude Code projections                   | AIGW                   |
+| AIGW-marked Codex, Claude Code, Hermes, and Desktop projections | AIGW                   |
 | Codex conversations, JSONL, SQLite, and per-conversation models | Codex                  |
 | Claude sessions and unrelated settings                          | Claude Code            |
 | External gateways and compatibility services                    | Their product/operator |

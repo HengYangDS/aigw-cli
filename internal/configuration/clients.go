@@ -31,6 +31,7 @@ type ClientSpec struct {
 
 var admittedClientSpecs = []ClientSpec{
 	{ID: ClientClaude, Label: "Claude", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}},
+	{ID: ClientClaudeDesktop, Label: "Claude Desktop", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}},
 	{ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses}},
 	{ID: ClientHermes, Label: "Hermes", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions}},
 }

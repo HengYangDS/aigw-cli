@@ -22,6 +22,8 @@ const (
 	ConfigVersion = 5
 	// ClientClaude identifies the admitted Claude Code client.
 	ClientClaude = "claude"
+	// ClientClaudeDesktop identifies Claude Desktop's independent third-party inference surface.
+	ClientClaudeDesktop = "claude-desktop"
 	// ClientCodex identifies the admitted Codex client family.
 	ClientCodex = "codex"
 	// ClientHermes identifies the independently configured Hermes Agent.

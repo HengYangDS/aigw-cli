@@ -13,13 +13,14 @@ import (
 func TestAdmittedClientRegistryIsTheSingleProtocolBoundary(t *testing.T) {
 	want := []ClientSpec{
 		{ID: ClientClaude, Label: "Claude", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}},
+		{ID: ClientClaudeDesktop, Label: "Claude Desktop", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}},
 		{ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses}},
 		{ID: ClientHermes, Label: "Hermes", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions}},
 	}
 	if got := AdmittedClientSpecs(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("client specs = %#v, want %#v", got, want)
 	}
-	if got := AdmittedClientIDs(); !reflect.DeepEqual(got, []string{ClientClaude, ClientCodex, ClientHermes}) {
+	if got := AdmittedClientIDs(); !reflect.DeepEqual(got, []string{ClientClaude, ClientClaudeDesktop, ClientCodex, ClientHermes}) {
 		t.Fatalf("client ids = %#v", got)
 	}
 	if !IsAdmittedClient(ClientClaude) || IsAdmittedClient("gemini") {
@@ -81,13 +82,13 @@ func TestAdmittedClientUsageIsDerivedFromRegistry(t *testing.T) {
 	if got := naturalChoices([]string{"codex"}); got != "codex" {
 		t.Fatalf("single choice = %q", got)
 	}
-	if got := AdmittedClientUsage(); got != "claude, codex, or hermes" {
+	if got := AdmittedClientUsage(); got != "claude, claude-desktop, codex, or hermes" {
 		t.Fatalf("usage = %q", got)
 	}
-	if got := AdmittedClientUsage("all"); got != "claude, codex, hermes, or all" {
+	if got := AdmittedClientUsage("all"); got != "claude, claude-desktop, codex, hermes, or all" {
 		t.Fatalf("usage with extra choice = %q", got)
 	}
-	if got := AdmittedClientLabelUsage("all"); got != "Claude, Codex, Hermes, or all" {
+	if got := AdmittedClientLabelUsage("all"); got != "Claude, Claude Desktop, Codex, Hermes, or all" {
 		t.Fatalf("label usage = %q", got)
 	}
 }
@@ -102,6 +103,8 @@ func TestClientSpecRejectsUnimplementedProtocol(t *testing.T) {
 func TestExplicitCredentialCommandSurvivesHostConfigRoundTrip(t *testing.T) {
 	cfg := validConfig()
 	cfg.Normalize()
+	cfg.Profiles[ClientClaudeDesktop] = Profile{Label: "Claude Desktop", Account: "dmx", Model: "model"}
+	cfg.SetSelectedProfile(ClientClaudeDesktop, ClientClaudeDesktop)
 	cfg.Profiles[ClientHermes] = Profile{Label: "Hermes", Account: "backup", Model: "model"}
 	cfg.SetSelectedProfile(ClientHermes, ClientHermes)
 	for _, client := range AdmittedClientIDs() {

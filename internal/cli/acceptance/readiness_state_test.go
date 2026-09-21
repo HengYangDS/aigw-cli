@@ -235,6 +235,7 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 				configuration.ClientClaude,
 				"claude-test",
 			)
+			cfg.SetRecommendedProfile(configuration.ClientClaude, "claude")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"aigw-cli/internal/platform"
 )
 
 // Result contains discovered client executables and independently addressable configuration surfaces.
@@ -26,21 +28,64 @@ type Discoverer interface{ Discover() Result }
 
 // System discovers clients from one explicit operating-system, home, and search-path context.
 type System struct {
-	GOOS       string
-	Home       string
-	CodexHome  string
-	HermesHome string
-	Path       string
+	GOOS                 string
+	Home                 string
+	CodexHome            string
+	HermesHome           string
+	ClaudeDesktopApp     string
+	ClaudeDesktopLibrary string
+	XDGConfigHome        string
+	LocalAppData         string
+	Path                 string
 }
 
 // Current returns the discovery context derived from the current process environment.
 func Current() System {
 	home, _ := os.UserHomeDir()
-	return System{GOOS: runtime.GOOS, Home: home, CodexHome: os.Getenv("CODEX_HOME"), HermesHome: os.Getenv("HERMES_HOME"), Path: os.Getenv("PATH")}
+	return System{
+		GOOS: runtime.GOOS, Home: home, CodexHome: os.Getenv("CODEX_HOME"), HermesHome: os.Getenv("HERMES_HOME"),
+		XDGConfigHome: os.Getenv("XDG_CONFIG_HOME"), LocalAppData: os.Getenv("LOCALAPPDATA"), Path: os.Getenv("PATH"),
+	}
 }
 
 // Executable returns the first runnable command with name on this host.
 func (s System) Executable(name string) string { return s.find(name) }
+
+// ClaudeDesktopExecutable returns the installed native Claude Desktop executable.
+func (s System) ClaudeDesktopExecutable() string {
+	if available, _ := executableAvailable(s.GOOS, s.ClaudeDesktopApp); available {
+		return s.ClaudeDesktopApp
+	}
+	candidates := []string{}
+	switch s.GOOS {
+	case "darwin":
+		candidates = []string{
+			filepath.Join(string(filepath.Separator), "Applications", "Claude.app", "Contents", "MacOS", "Claude"),
+			filepath.Join(s.Home, "Applications", "Claude.app", "Contents", "MacOS", "Claude"),
+		}
+	case "linux":
+		return s.find("claude-desktop")
+	case "windows":
+		candidates = []string{filepath.Join(s.LocalAppData, "AnthropicClaude", "claude.exe")}
+	}
+	for _, candidate := range candidates {
+		if available, _ := executableAvailable(s.GOOS, candidate); available {
+			return candidate
+		}
+	}
+	return ""
+}
+
+// ClaudeDesktopLibraryDirectory returns the native third-party configuration root.
+func (s System) ClaudeDesktopLibraryDirectory() string {
+	if s.ClaudeDesktopLibrary != "" {
+		return s.ClaudeDesktopLibrary
+	}
+	library, _ := platform.ClaudeDesktopLibraryPathFor(s.GOOS, map[string]string{
+		"HOME": s.Home, "XDG_CONFIG_HOME": s.XDGConfigHome, "LOCALAPPDATA": s.LocalAppData,
+	})
+	return library
+}
 
 // CodexHomeDirectory returns the explicit Codex Home or its platform default.
 func (s System) CodexHomeDirectory() string {
