@@ -87,7 +87,10 @@ nativeEvidence: {
 	linux: {
 		name: "Linux"
 		gitlab: tags: ["$AIGW_GITLAB_LINUX_RUNNER_TAG"]
-		github: runner: "ubuntu-latest"
+		github: {
+			runner:       "ubuntu-latest"
+			verifyRunner: "${{ github.event_name == 'workflow_dispatch' && inputs.self_hosted_linux_arm64 && fromJSON('[\"self-hosted\",\"Linux\",\"ARM64\",\"aigw-github-linux-arm64-parallels-shadow\"]') || '\(runner)' }}"
+		}
 	}
 	windows: {
 		name: "Windows"
@@ -214,8 +217,13 @@ actions: {
 			AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: "ephemeral-host"
 		}
 	}
-	name:              "Native \(nativeEvidence[_platform].name) acceptance"
-	"runs-on":         nativeEvidence[_platform].github.runner
+	name: "Native \(nativeEvidence[_platform].name) acceptance"
+	if _platform == "linux" {
+		"runs-on": nativeEvidence.linux.github.verifyRunner
+	}
+	if _platform != "linux" {
+		"runs-on": nativeEvidence[_platform].github.runner
+	}
 	"timeout-minutes": 25
 	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
 	env:               nativeToolchain
@@ -524,6 +532,12 @@ githubVerify: {
 				type:        "choice"
 				default:     "all"
 				options: ["all", for platform in productEvidence.native {platform}]
+			}
+			self_hosted_linux_arm64: {
+				description: "Run Native Linux acceptance on a self-hosted Linux ARM64 runner"
+				required:    false
+				type:        "boolean"
+				default:     false
 			}
 			full_quality: {
 				description: "Qualify all repository quality tools on each native platform"

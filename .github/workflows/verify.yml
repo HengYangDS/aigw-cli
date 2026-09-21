@@ -26,6 +26,11 @@ env:
           - darwin
           - linux
           - windows
+      self_hosted_linux_arm64:
+        description: Run Native Linux acceptance on a self-hosted Linux ARM64 runner
+        required: false
+        type: boolean
+        default: false
       full_quality:
         description: Qualify all repository quality tools on each native platform
         required: false
@@ -286,7 +291,7 @@ jobs:
           if-no-files-found: error
   native-linux:
     name: Native Linux acceptance
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.self_hosted_linux_arm64 && fromJSON('["self-hosted","Linux","ARM64","aigw-github-linux-arm64-parallels-shadow"]') || 'ubuntu-latest' }}
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
     env:
