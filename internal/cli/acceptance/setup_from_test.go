@@ -45,7 +45,7 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 		"Imported capability",
 		"Connected accounts",
 		"0 of 2",
-		"Selected routes",
+		"Selected Client Bindings",
 		"Projected clients",
 		"Connect one compatible Account",
 		"aigw rotate <account>",
@@ -82,9 +82,11 @@ func TestSetupFromConfigurationManifestProjectsClientNativeCodexWithoutAccountTo
 			AutoManaged: true,
 		}},
 	}}
-	manifestPath := writeConfigurationManifest(t, `version = 4
-[recommended_routes]
-codex = "bedrock"
+	manifestPath := writeConfigurationManifest(t, `version = 5
+[recommendations.codex]
+profile = "bedrock"
+model_provider = "amazon-bedrock"
+authentication = "client-native"
 
 [accounts.aws]
 label = "AWS"
@@ -94,10 +96,7 @@ openai_responses = "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"
 [profiles.bedrock]
 label = "AWS Bedrock"
 account = "aws"
-client = "codex"
 model = "openai.gpt-5.6-sol"
-model_provider = "amazon-bedrock"
-authentication = "client-native"
 `)
 
 	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--json"}); err != nil {
@@ -111,7 +110,7 @@ authentication = "client-native"
 	}
 	var result struct {
 		ConnectedAccounts []string          `json:"connected_accounts"`
-		SelectedRoutes    map[string]string `json:"selected_routes"`
+		SelectedBindings  map[string]string `json:"selected_bindings"`
 		ProjectedClients  []string          `json:"projected_clients"`
 		DeferredActions   []string          `json:"deferred_actions"`
 		NextAction        string            `json:"next_action"`
@@ -119,7 +118,7 @@ authentication = "client-native"
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode setup result: %v\n%s", err, out.String())
 	}
-	if len(result.ConnectedAccounts) != 0 || result.SelectedRoutes[configuration.ClientCodex] != "bedrock" || !slices.Equal(result.ProjectedClients, []string{configuration.ClientCodex}) {
+	if len(result.ConnectedAccounts) != 0 || result.SelectedBindings[configuration.ClientCodex] != "bedrock" || !slices.Equal(result.ProjectedClients, []string{configuration.ClientCodex}) {
 		t.Fatalf("setup state = %#v", result)
 	}
 	if len(result.DeferredActions) != 0 || result.NextAction != "aigw check" {
@@ -145,7 +144,7 @@ func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *test
 			Profiles []string `json:"profiles"`
 		} `json:"imported"`
 		ConnectedAccounts []string          `json:"connected_accounts"`
-		SelectedRoutes    map[string]string `json:"selected_routes"`
+		SelectedBindings  map[string]string `json:"selected_bindings"`
 		ProjectedClients  []string          `json:"projected_clients"`
 		DeferredActions   []string          `json:"deferred_actions"`
 		NextAction        string            `json:"next_action"`
@@ -153,21 +152,22 @@ func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *test
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
 	}
+	if strings.Contains(out.String(), `"selected_routes"`) {
+		t.Fatalf("setup JSON retained the removed Route authority: %s", out.String())
+	}
 	if !slices.Equal(result.Imported.Accounts, []string{"aihubmix", "dmxapi"}) ||
 		!slices.Equal(result.Imported.Profiles, []string{"aihubmix-claude", "dmxapi-claude", "dmxapi-gpt"}) ||
 		len(result.ConnectedAccounts) != 0 {
 		t.Fatalf("setup JSON catalogue state = %#v", result)
 	}
-	if len(result.SelectedRoutes) != 0 {
-		t.Fatalf("setup turned unavailable recommendations into selections: %#v", result.SelectedRoutes)
+	if len(result.SelectedBindings) != 0 {
+		t.Fatalf("setup turned unavailable recommendations into selections: %#v", result.SelectedBindings)
 	}
 	if len(result.ProjectedClients) != 0 {
 		t.Fatalf("setup JSON projected clients = %#v", result.ProjectedClients)
 	}
 	wantDeferred := []string{
 		"Connect one compatible Account",
-		"Install Claude, then run `aigw sync`",
-		"Install Codex, then run `aigw sync`",
 	}
 	if !slices.Equal(result.DeferredActions, wantDeferred) || result.NextAction != "aigw rotate <account>" {
 		t.Fatalf("setup JSON continuation = %#v", result)
@@ -223,14 +223,14 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 				t.Fatal(err)
 			}
 			var result struct {
-				SelectedRoutes   map[string]string `json:"selected_routes"`
+				SelectedBindings map[string]string `json:"selected_bindings"`
 				ProjectedClients []string          `json:"projected_clients"`
 			}
 			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 				t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
 			}
-			if result.SelectedRoutes[configuration.ClientClaude] != "dmxapi-claude" || result.SelectedRoutes[configuration.ClientCodex] != "dmxapi-gpt" {
-				t.Fatalf("selected routes = %#v", result.SelectedRoutes)
+			if result.SelectedBindings[configuration.ClientClaude] != "dmxapi-claude" || result.SelectedBindings[configuration.ClientCodex] != "dmxapi-gpt" {
+				t.Fatalf("selected bindings = %#v", result.SelectedBindings)
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -238,8 +238,9 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 			}
 			for _, client := range configuration.AdmittedClientIDs() {
 				_, installed := test.installed[client]
-				if cfg.Clients[client].Enabled != installed {
-					t.Errorf("%s adapter enabled = %v, want %v", client, cfg.Clients[client].Enabled, installed)
+				selected := cfg.SelectedProfile(client) != ""
+				if cfg.Clients[client].Enabled != selected {
+					t.Errorf("%s enabled intent = %v, want %v", client, cfg.Clients[client].Enabled, selected)
 				}
 				if slices.Contains(result.ProjectedClients, client) != installed {
 					t.Errorf("%s projected = %v, want %v", client, slices.Contains(result.ProjectedClients, client), installed)
@@ -283,7 +284,7 @@ func TestSetupFromConfigurationManifestReportsInstalledClientWaitingForAnAccount
 	if err := cli.Execute(app, []string{"setup", "--from", manifestPath}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Connect an Account compatible with Claude, then run `aigw sync`") {
+	if !strings.Contains(out.String(), "Connect one compatible Account") {
 		t.Fatalf("installed but deferred client is not explained:\n%s", out.String())
 	}
 }
@@ -323,8 +324,8 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if cfg.Routes[configuration.ClientCodex] != "dmxapi-gpt" {
-				t.Fatalf("Codex route = %q", cfg.Routes[configuration.ClientCodex])
+			if selected := cfg.SelectedProfile(configuration.ClientCodex); selected != "dmxapi-gpt" {
+				t.Fatalf("Codex selected Profile = %q", selected)
 			}
 			projectedRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 			if err != nil {

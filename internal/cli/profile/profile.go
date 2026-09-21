@@ -22,21 +22,18 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 }
 
 func newAddCommand(runtime invocation.Context) *cobra.Command {
-	var accountName, client, model, label, purpose string
+	var accountName, model, label, purpose string
 	cmd := &cobra.Command{
 		Use: "add <profile>", Short: "Add a model profile to an existing account",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
 			if !configuration.ValidIdentifier(args[0]) {
 				return fmt.Errorf("Invalid profile ID %q; use letters, numbers, dots, hyphens, or underscores; run `%s --help`", args[0], cmd.CommandPath())
 			}
-			if strings.TrimSpace(accountName) == "" || strings.TrimSpace(client) == "" || strings.TrimSpace(model) == "" {
-				return fmt.Errorf("--account, --for, and --model are required; run `%s --help`", cmd.CommandPath())
+			if strings.TrimSpace(accountName) == "" || strings.TrimSpace(model) == "" {
+				return fmt.Errorf("--account and --model are required; run `%s --help`", cmd.CommandPath())
 			}
 			if !configuration.ValidIdentifier(accountName) {
 				return fmt.Errorf("Invalid account ID %q; run `%s --help`", accountName, cmd.CommandPath())
-			}
-			if !configuration.IsAdmittedClient(client) {
-				return fmt.Errorf("--for must be %s; run `%s --help`", configuration.AdmittedClientUsage(), cmd.CommandPath())
 			}
 			return nil
 		}),
@@ -49,19 +46,15 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			if _, exists := cfg.Profiles[profileName]; exists {
 				return fmt.Errorf("Profile %q already exists", profileName)
 			}
-			account, exists := cfg.Accounts[accountName]
+			_, exists := cfg.Accounts[accountName]
 			if !exists {
 				return fmt.Errorf("Unknown account %q; first run `aigw add %s ...`", accountName, accountName)
-			}
-			account.ID = accountName
-			if _, err := account.EndpointFor(client); err != nil {
-				return err
 			}
 			if label == "" {
 				label = profileName
 			}
 			before := cfg.Clone()
-			cfg.Profiles[profileName] = configuration.Profile{Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Client: client, Model: model}
+			cfg.Profiles[profileName] = configuration.Profile{Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Model: model}
 			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "profile add"); err != nil {
 				return err
 			}
@@ -73,13 +66,12 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			if purpose := strings.TrimSpace(purpose); purpose != "" {
 				r.Row("Purpose", purpose)
 			}
-			r.Success("Reused the existing account token; current route was not changed")
-			r.Next("aigw use " + profileName)
+			r.Success("Reused the existing Account; no client selection was changed")
+			r.Next("aigw use --for <client> " + profileName)
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&accountName, "account", "", "Existing account ID")
-	cmd.Flags().StringVar(&client, "for", "", "Client: "+configuration.AdmittedClientUsage())
 	cmd.Flags().StringVar(&model, "model", "", "Upstream model ID")
 	cmd.Flags().StringVar(&label, "label", "", "Display name")
 	cmd.Flags().StringVar(&purpose, "purpose", "", "Purpose note (display only)")
@@ -111,24 +103,13 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 			r.Section("Available profiles")
 			for _, item := range result.Profiles {
 				state, stateText := presentation.Info, "Available"
-				if item.Selected {
-					state, stateText = presentation.OK, "Selected for "+invocation.Title(item.Client)
+				if len(item.SelectedClients) > 0 {
+					state, stateText = presentation.OK, "Selected for "+strings.Join(item.SelectedClients, ", ")
 				}
-				authentication := "Client-owned authentication"
-				if item.CredentialOwnership == "external" {
-					authentication = "External credential helper"
+				detail := []string{choiceLabel(configuration.Profile{Label: item.Label, Purpose: item.Purpose}), stateText, "Account " + item.Account}
+				if len(item.CompatibleClients) > 0 {
+					detail = append(detail, "Clients "+strings.Join(item.CompatibleClients, ", "))
 				}
-				if item.SecretAvailable != nil {
-					authentication = "Token missing"
-					if *item.SecretAvailable {
-						authentication = "Token available"
-					}
-				}
-				detail := []string{}
-				if item.Client != "" {
-					detail = append(detail, invocation.Title(item.Client))
-				}
-				detail = append(detail, choiceLabel(configuration.Profile{Label: item.Label, Purpose: item.Purpose}), stateText, "Account "+item.Account, authentication)
 				r.StatusLine(state, "Configuration", item.ID)
 				r.Detail(strings.Join(detail, " · "))
 			}
@@ -145,44 +126,25 @@ type profileListOutput struct {
 }
 
 type profileListItem struct {
-	ID                  string                       `json:"id"`
-	Label               string                       `json:"label"`
-	Purpose             string                       `json:"purpose,omitempty"`
-	Account             string                       `json:"account"`
-	Client              string                       `json:"client"`
-	Model               string                       `json:"model"`
-	ModelProvider       string                       `json:"model_provider"`
-	Authentication      configuration.Authentication `json:"authentication"`
-	CredentialOwnership string                       `json:"credential_ownership"`
-	Selected            bool                         `json:"selected"`
-	SecretAvailable     *bool                        `json:"secret_available,omitempty"`
+	ID                string   `json:"id"`
+	Label             string   `json:"label"`
+	Purpose           string   `json:"purpose,omitempty"`
+	Account           string   `json:"account"`
+	CompatibleClients []string `json:"compatible_clients"`
+	SelectedClients   []string `json:"selected_clients"`
+	Model             string   `json:"model"`
 }
 
 func collectProfileListItem(runtime invocation.Context, cfg configuration.Config, name string) (profileListItem, error) {
 	profile := cfg.Profiles[name]
-	profileRuntime, err := cfg.ResolveRuntime(profile.Client, name)
+	compatible, err := cfg.CompatibleClientIDs(name)
 	if err != nil {
 		return profileListItem{}, err
 	}
-	item := profileListItem{
+	return profileListItem{
 		ID: name, Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account,
-		Client: profile.Client, Model: profile.Model, ModelProvider: profileRuntime.ModelProvider,
-		Authentication: profileRuntime.Authentication, Selected: cfg.Routes[profile.Client] == name,
-	}
-	switch {
-	case profileRuntime.UsesAIGWCredentialStore():
-		item.CredentialOwnership = "aigw"
-		available, observationErr := runtime.Secrets.Exists(profile.Account)
-		if observationErr != nil {
-			return profileListItem{}, fmt.Errorf("observe credential for Account %q: %w", profile.Account, observationErr)
-		}
-		item.SecretAvailable = &available
-	case profileRuntime.CredentialCommand != "":
-		item.CredentialOwnership = "external"
-	default:
-		item.CredentialOwnership = "client"
-	}
-	return item, nil
+		CompatibleClients: compatible, SelectedClients: cfg.SelectedClientsForProfile(name), Model: profile.Model,
+	}, nil
 }
 
 func newShowCommand(runtime invocation.Context) *cobra.Command {
@@ -200,26 +162,17 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			}
 			accountName := profile.Account
 			account := cfg.Accounts[accountName]
-			profileRuntime, err := cfg.ResolveRuntime(profile.Client, args[0])
+			compatible, err := cfg.CompatibleClientIDs(args[0])
 			if err != nil {
 				return err
 			}
-			available := false
-			if profileRuntime.UsesAIGWCredentialStore() {
-				available, err = runtime.Secrets.Exists(accountName)
-				if err != nil {
-					return fmt.Errorf("observe credential for Account %q: %w", accountName, err)
-				}
-			}
+			selected := cfg.SelectedClientsForProfile(args[0])
 			if jsonMode {
 				result := map[string]any{
 					"id": args[0], "label": profile.Label, "purpose": profile.Purpose,
-					"account": accountName, "client": profile.Client, "model": profile.Model,
-					"model_provider": profileRuntime.ModelProvider, "authentication": profileRuntime.Authentication,
+					"account": accountName, "model": profile.Model,
+					"compatible_clients": compatible, "selected_clients": selected,
 					"endpoints": account.Endpoints,
-				}
-				if profileRuntime.UsesAIGWCredentialStore() {
-					result["secret_available"] = available
 				}
 				return presentation.WriteJSON(runtime.Out, result)
 			}
@@ -232,24 +185,16 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 				r.Row("Purpose", purpose)
 			}
 			r.Row("Account", accountName)
-			r.Row("Client", invocation.Title(profile.Client))
 			r.Row("Model", profile.Model)
+			r.Row("Compatible clients", strings.Join(compatible, ", "))
+			if len(selected) > 0 {
+				r.Row("Selected for", strings.Join(selected, ", "))
+			}
 			if account.Endpoints.OpenAIResponses != "" {
 				r.Row("OpenAI", account.Endpoints.OpenAIResponses)
 			}
 			if account.Endpoints.Anthropic != "" {
 				r.Row("Anthropic", account.Endpoints.Anthropic)
-			}
-			if profileRuntime.UsesAIGWCredentialStore() {
-				state, text := presentation.Warn, "Missing"
-				if available {
-					state, text = presentation.OK, "Available"
-				}
-				r.Status(state, "Account Token", text)
-			} else if profileRuntime.CredentialCommand != "" {
-				r.Row("Authentication", "External credential helper")
-			} else {
-				r.Row("Authentication", "Client-owned")
 			}
 			return nil
 		},
@@ -325,14 +270,16 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 			if !ok {
 				return fmt.Errorf("Unknown profile %q", name)
 			}
-			for client, route := range cfg.Routes {
-				if route == name {
-					return fmt.Errorf("Profile %q is selected for %s; first run `aigw use <other-%s-profile>`", name, client, client)
+			for client, binding := range cfg.Clients {
+				if binding.Profile == name {
+					return fmt.Errorf("Profile %q is selected for %s; first run `aigw use --for %s <other-profile>`", name, client, client)
 				}
 			}
 			delete(cfg.Profiles, name)
-			if cfg.RecommendedRoutes[profile.Client] == name {
-				delete(cfg.RecommendedRoutes, profile.Client)
+			for client, recommendation := range cfg.Recommendations {
+				if recommendation.Profile == name {
+					delete(cfg.Recommendations, client)
+				}
 			}
 			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "profile remove"); err != nil {
 				return err

@@ -186,7 +186,7 @@ func addAccountProfile(cfg *configuration.Config, profileName, accountName, labe
 	if _, exists := cfg.Accounts[accountName]; !exists {
 		cfg.Accounts[accountName] = configuration.Account{Label: label, Endpoints: endpoints}
 	}
-	cfg.Profiles[profileName] = configuration.Profile{Label: label, Account: accountName, Client: client, Model: model}
+	cfg.Profiles[profileName] = configuration.Profile{Label: label, Account: accountName, Model: model}
 }
 
 func synchronizeClaudeProjection(t *testing.T, app *cli.App, cfg configuration.Config) {
@@ -220,7 +220,7 @@ func saveCommandProfile(t *testing.T, app *cli.App, endpoints configuration.Endp
 	t.Helper()
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One", endpoints, client, model)
-	cfg.Routes[client] = "one"
+	cfg.SetSelectedProfile(client, "one")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -319,8 +319,8 @@ func saveProbeProfile(t *testing.T, appConfig configuration.Store) {
 		Endpoints:    configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 		AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"},
 	}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-test"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
 	if err := appConfig.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +330,7 @@ func twoProfileConfig() configuration.Config {
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One Gateway", configuration.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "model-one")
 	addAccountProfile(&cfg, "two", "two", "Two Gateway", configuration.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, configuration.ClientCodex, "model-two")
-	cfg.Routes[configuration.ClientCodex] = "one"
+	cfg.SetSelectedProfile(configuration.ClientCodex, "one")
 	return cfg
 }
 
@@ -347,10 +347,12 @@ func directoryNames(t *testing.T, path string) []string {
 	return names
 }
 
-const configurationManifestFixture = `version = 4
-[recommended_routes]
-claude = "aihubmix-claude"
-codex = "dmxapi-gpt"
+const configurationManifestFixture = `version = 5
+[recommendations.claude]
+profile = "aihubmix-claude"
+
+[recommendations.codex]
+profile = "dmxapi-gpt"
 
 [accounts.aihubmix]
 label = "AIHubMix"
@@ -367,19 +369,16 @@ anthropic = "https://dmxapi.test"
 [profiles.aihubmix-claude]
 label = "AIHubMix Claude"
 account = "aihubmix"
-client = "claude"
 model = "claude-test"
 
 [profiles.dmxapi-claude]
 label = "DMXAPI Claude"
 account = "dmxapi"
-client = "claude"
 model = "claude-test"
 
 [profiles.dmxapi-gpt]
 label = "DMXAPI GPT"
 account = "dmxapi"
-client = "codex"
 model = "gpt-test"
 `
 

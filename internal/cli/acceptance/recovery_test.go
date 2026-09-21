@@ -23,8 +23,8 @@ func TestClaudeModelDriftRecoveryThroughPublicCommands(t *testing.T) {
 	}{
 		{"sync", []string{"sync"}, `"claude-test"`, true},
 		{"repair", []string{"repair"}, `"claude-test"`, true},
-		{"use", []string{"use", "next"}, `"claude-next"`, false},
-		{"repeat-use", []string{"use", "one"}, `"claude-test"`, false},
+		{"use", []string{"use", "--for", "claude", "next"}, `"claude-next"`, false},
+		{"repeat-use", []string{"use", "--for", "claude", "one"}, `"claude-test"`, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, credentials, runner, _ := testApp(t, "")
@@ -36,7 +36,7 @@ func TestClaudeModelDriftRecoveryThroughPublicCommands(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude")}
+			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 			profile := cfg.Profiles["one"]
 			profile.Model = "claude-next"
 			cfg.Profiles["next"] = profile
@@ -136,6 +136,14 @@ func TestRecoveryJSONSeparatesPreviewFromAppliedProjection(t *testing.T) {
 		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
 			app, out, credentials, _, _ := testApp(t, "")
 			saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+			cfg, err := app.Config.Load()
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+			if err := app.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
 			if err := credentials.Set("one", "test-token"); err != nil {
 				t.Fatal(err)
 			}
@@ -186,6 +194,14 @@ func TestRecoveryJSONOutputFailurePreservesCommittedProjection(t *testing.T) {
 		t.Run(command, func(t *testing.T) {
 			app, _, credentials, _, _ := testApp(t, "")
 			saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+			cfg, err := app.Config.Load()
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+			if err := app.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
 			if err := credentials.Set("one", "test-token"); err != nil {
 				t.Fatal(err)
 			}
@@ -195,7 +211,7 @@ func TestRecoveryJSONOutputFailurePreservesCommittedProjection(t *testing.T) {
 			if err := cli.Execute(app, []string{command, "--json"}); !errors.Is(err, want) {
 				t.Fatalf("output error = %v, want %v", err, want)
 			}
-			cfg, err := app.Config.Load()
+			cfg, err = app.Config.Load()
 			if err != nil || !cfg.Clients[configuration.ClientClaude].Enabled {
 				t.Fatalf("committed adapter = %+v, %v", cfg.Clients[configuration.ClientClaude], err)
 			}

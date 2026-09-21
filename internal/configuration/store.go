@@ -79,8 +79,13 @@ func (s Store) Commit(before Snapshot, cfg Config) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
+	return s.commitData(before, data)
+}
+
+func (s Store) commitData(before Snapshot, data []byte) (Snapshot, error) {
 	backupAfter := before.Backup
 	if before.Config.Exists {
+		var err error
 		backupAfter, err = writeConfigurationFileIfUnchanged(s.path+".bak", before.Backup, before.Config.Data, 0o600)
 		if err != nil {
 			return Snapshot{}, fmt.Errorf("back up current config: %w", err)

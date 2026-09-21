@@ -65,13 +65,13 @@ func (codexAdapter) Discover(source DiscoverySource) discovery.Result {
 func (codexAdapter) Converge(deps Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
 	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
-		if _, unselected := errors.AsType[*configuration.RuntimeRouteUnselectedError](err); unselected {
+		if _, unselected := errors.AsType[*configuration.RuntimeBindingUnselectedError](err); unselected {
 			return nil
 		}
 		return err
 	}
 	adapter, explicitlyConfigured := cfg.Clients[configuration.ClientCodex]
-	if explicitlyConfigured && !adapter.Enabled {
+	if !explicitlyConfigured || !adapter.Enabled {
 		return nil
 	}
 	targets := codexTargets(discovered, adapter.Targets)
@@ -86,16 +86,8 @@ func (codexAdapter) Converge(deps Dependencies, cfg *configuration.Config, disco
 			return err
 		}
 	}
-	if executable != "" && len(targets) > 0 && (adapter.Enabled || available) {
-		adapter.Enabled = true
-		adapter.Executable = executable
-		adapter.Targets = targets
-		cfg.Clients[configuration.ClientCodex] = adapter
-	} else if adapter.Enabled && len(targets) == 0 {
-		delete(cfg.Clients, configuration.ClientCodex)
-		if adapter.CredentialCommand != "" {
-			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{CredentialCommand: adapter.CredentialCommand}
-		}
+	if executable != "" && len(targets) > 0 && available {
+		cfg.SetClientActivation(configuration.ClientCodex, true, executable, targets)
 	}
 	return nil
 }
@@ -198,13 +190,13 @@ func (claudeAdapter) Discover(source DiscoverySource) discovery.Result {
 func (claudeAdapter) Converge(deps Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
 	runtime, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
-		if _, unselected := errors.AsType[*configuration.RuntimeRouteUnselectedError](err); unselected {
+		if _, unselected := errors.AsType[*configuration.RuntimeBindingUnselectedError](err); unselected {
 			return nil
 		}
 		return err
 	}
 	adapter, explicitlyConfigured := cfg.Clients[configuration.ClientClaude]
-	if explicitlyConfigured && !adapter.Enabled {
+	if !explicitlyConfigured || !adapter.Enabled {
 		return nil
 	}
 	executable, err := resolveExecutable(configuration.ClientClaude, adapter.Executable, discovered.Executable(configuration.ClientClaude))
@@ -218,10 +210,8 @@ func (claudeAdapter) Converge(deps Dependencies, cfg *configuration.Config, disc
 			return err
 		}
 	}
-	if executable != "" && (adapter.Enabled || available) {
-		adapter.Enabled = true
-		adapter.Executable = executable
-		cfg.Clients[configuration.ClientClaude] = adapter
+	if executable != "" && available {
+		cfg.SetClientActivation(configuration.ClientClaude, true, executable, adapter.Targets)
 	}
 	return nil
 }
@@ -387,7 +377,7 @@ func codexReconciliationInputs(deps Dependencies, before, after configuration.Co
 
 func discover(deps Dependencies) (discovery.Result, error) {
 	if deps.Discovery == nil {
-		return discovery.Result{}, fmt.Errorf("Codex surface discovery is unavailable")
+		return discovery.Result{}, fmt.Errorf("codex surface discovery is unavailable")
 	}
 	return deps.Discovery.Discover(), nil
 }
@@ -403,7 +393,7 @@ func codexTargetRefs(discovered discovery.Result, paths []string, executable str
 	refs := make([]codex.TargetRef, 0, len(paths))
 	for _, path := range paths {
 		if path == "" {
-			return nil, fmt.Errorf("Codex config target is empty")
+			return nil, fmt.Errorf("codex config target is empty")
 		}
 		if surface, ok := discovered.SurfaceForConfigPath(path); ok {
 			refs = append(refs, codex.TargetRef{
@@ -429,7 +419,9 @@ func codexTargetRefs(discovered discovery.Result, paths []string, executable str
 }
 
 func claudeProjectionRequired(before, after configuration.Config) bool {
-	return before.Clients[configuration.ClientClaude].Enabled || after.Clients[configuration.ClientClaude].Enabled
+	previous := before.Clients[configuration.ClientClaude]
+	current := after.Clients[configuration.ClientClaude]
+	return previous.Enabled && previous.Executable != "" || current.Enabled && current.Executable != ""
 }
 
 func claudeProjectionInput(cfg configuration.Config) (bool, configuration.Runtime, error) {

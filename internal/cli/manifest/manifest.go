@@ -26,7 +26,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return fmt.Errorf("Unknown config subcommand %q; run `aigw config --help`", args[0])
 		},
 	}
-	root.AddCommand(newPathCommand(runtime), newExportCommand(runtime), newImportCommand(runtime))
+	root.AddCommand(newPathCommand(runtime), newExportCommand(runtime), newImportCommand(runtime), newMigrateCommand(runtime))
 	return root
 }
 
@@ -88,10 +88,14 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		r.ProductTitle("Configuration manifest imported")
 		r.Row("Profiles", fmt.Sprintf("%d", len(incoming.Profiles)))
 		r.Row("Accounts", fmt.Sprintf("%d", len(accountNames)))
-		for _, id := range cfg.ProfileIDs() {
-			profile, err := cfg.ResolveRuntime(cfg.Profiles[id].Client, id)
-			if err != nil {
-				return err
+		for _, client := range configuration.AdmittedClientIDs() {
+			selection := cfg.Recommendations[client]
+			if selection.Profile == "" {
+				continue
+			}
+			profile, resolveErr := cfg.ResolveRuntime(client, selection.Profile)
+			if resolveErr != nil {
+				continue
 			}
 			if !profile.RequiresAccountToken() {
 				ready = true

@@ -238,7 +238,7 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 		budget                 float64
 	}{
 		{"credential", helper, "", 0.1},
-		{"projection", performanceCommand(j.binary, "use", "performance-second"), performanceCommand(j.binary, "use", "native-system-keyring-probe-claude"), 0.25},
+		{"projection", performanceCommand(j.binary, "use", "--for", "claude", "performance-second"), performanceCommand(j.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"), 0.25},
 	}
 	if backend == "env" {
 		for _, args := range [][]string{{"version", "--version"}, {"help", "--help"}, {"status", "status", "--json"}, {"export", "config", "export"}} {

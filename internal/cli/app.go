@@ -17,8 +17,8 @@ import (
 	"github.com/spf13/pflag"
 
 	accountcli "aigw-cli/internal/cli/account"
-	"aigw-cli/internal/cli/adapter"
 	"aigw-cli/internal/cli/catalog"
+	clientcli "aigw-cli/internal/cli/client"
 	credentialcli "aigw-cli/internal/cli/credential"
 	"aigw-cli/internal/cli/doctor"
 	installcli "aigw-cli/internal/cli/install"
@@ -29,7 +29,7 @@ import (
 	"aigw-cli/internal/cli/readiness"
 	"aigw-cli/internal/cli/recovery"
 	"aigw-cli/internal/cli/renaming"
-	"aigw-cli/internal/cli/route"
+	"aigw-cli/internal/cli/selection"
 	updatecli "aigw-cli/internal/cli/update"
 	"aigw-cli/internal/cli/verification"
 	"aigw-cli/internal/client"
@@ -180,9 +180,9 @@ func requiresConfigurationLock(app *App, command *cobra.Command) bool {
 	case "setup", "add", "use", "rotate", "rollback", "uninstall", "update",
 		"account diagnostics enable", "account diagnostics disable", "account edit",
 		"profile add", "profile edit", "profile remove",
-		"adapter enable", "adapter disable", "config import":
+		"client enable", "client disable", "config import":
 		return true
-	case "sync", "repair", "account rename", "profile rename":
+	case "sync", "repair", "account rename", "profile rename", "config migrate":
 		dryRun, err := command.Flags().GetBool("dry-run")
 		return err != nil || !dryRun
 	default:
@@ -327,7 +327,7 @@ func NewRoot(app *App) *cobra.Command {
 	)
 	runtime := app.invocationContext()
 	connect := []*cobra.Command{onboarding.NewCommand(runtime)}
-	daily := []*cobra.Command{readiness.NewStatusCommand(runtime), route.NewUseCommand(runtime), readiness.NewCheckCommand(runtime), accountcli.NewRotateCommand(runtime)}
+	daily := []*cobra.Command{readiness.NewStatusCommand(runtime), selection.NewUseCommand(runtime), readiness.NewCheckCommand(runtime), accountcli.NewRotateCommand(runtime)}
 	recoveryCommands := []*cobra.Command{
 		app.doctorCommand(), recovery.NewRepairCommand(runtime), recovery.NewSyncCommand(runtime),
 		recovery.NewRollbackCommand(runtime), updatecli.NewCommand(runtime),
@@ -337,7 +337,7 @@ func NewRoot(app *App) *cobra.Command {
 		installcli.NewInspectionCommand(runtime),
 		accountcli.NewAddCommand(runtime), accountcli.NewCommand(runtime, renaming.NewAccountCommand(runtime)),
 		profile.NewCommand(runtime, renaming.NewProfileCommand(runtime)),
-		route.NewCommand(runtime), adapter.NewCommand(runtime),
+		clientcli.NewCommand(runtime),
 		manifest.NewCommand(runtime), readiness.NewTestCommand(runtime),
 		verification.NewCommand(runtime), catalog.NewModelsCommand(app.catalogDependencies()),
 		catalog.NewCatalogCommand(app.catalogDependencies()), accountcli.NewBalanceCommand(runtime),
@@ -384,7 +384,7 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 		r.Section("Start with one path")
 		r.Rows(
 			presentation.Field{Label: command.CommandPath() + " setup", Value: "Connect the first account"},
-			presentation.Field{Label: command.CommandPath() + " use <profile>", Value: "Select this profile for its client"},
+			presentation.Field{Label: command.CommandPath() + " use --for <client> <profile>", Value: "Select one Profile for one client"},
 			presentation.Field{Label: command.CommandPath() + " check", Value: "Confirm readiness"},
 		)
 	}

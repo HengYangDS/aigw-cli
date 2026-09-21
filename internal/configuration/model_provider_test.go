@@ -10,14 +10,15 @@ import (
 func TestProfileModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	cfg := modelProviderConfig()
 	cfg.Profiles["native"] = Profile{
-		Label:          "Native",
-		Account:        "gateway",
-		Client:         ClientCodex,
+		Label:   "Native",
+		Account: "gateway",
+		Model:   "openai.gpt-5.6-sol",
+	}
+	cfg.Clients[ClientCodex] = ClientBinding{
+		Profile:        "native",
 		ModelProvider:  "amazon-bedrock",
 		Authentication: AuthenticationClientNative,
-		Model:          "openai.gpt-5.6-sol",
 	}
-	cfg.Routes[ClientCodex] = "native"
 
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
@@ -33,9 +34,6 @@ func TestProfileModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 		t.Fatalf("authentication = %q, requires Token = %t", runtime.Authentication, runtime.RequiresAccountToken())
 	}
 
-	profile := cfg.Profiles["default"]
-	profile.ModelProvider = ""
-	cfg.Profiles["default"] = profile
 	runtime, err = cfg.ResolveRuntime(ClientCodex, "default")
 	if err != nil {
 		t.Fatal(err)
@@ -48,10 +46,8 @@ func TestProfileModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	}
 
 	claude := modelProviderConfig()
-	profile = claude.Profiles["default"]
-	profile.Client = ClientClaude
+	profile := claude.Profiles["default"]
 	profile.Model = "claude-fable-5"
-	profile.ModelProvider = ""
 	claude.Profiles["default"] = profile
 	runtime, err = claude.ResolveRuntime(ClientClaude, "default")
 	if err != nil {
@@ -62,13 +58,13 @@ func TestProfileModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	}
 }
 
-func TestProfileModelProviderPersistsAndParticipatesInManifestEquality(t *testing.T) {
+func TestClientModelProviderPersistsAndParticipatesInManifestSelection(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	cfg := modelProviderConfig()
-	profile := cfg.Profiles["default"]
-	profile.ModelProvider = "amazon-bedrock"
-	profile.Authentication = AuthenticationClientNative
-	cfg.Profiles["default"] = profile
+	binding := cfg.Clients[ClientCodex]
+	binding.ModelProvider = "amazon-bedrock"
+	binding.Authentication = AuthenticationClientNative
+	cfg.Clients[ClientCodex] = binding
 
 	store := NewStore(path)
 	if err := store.Save(cfg); err != nil {
@@ -85,31 +81,34 @@ func TestProfileModelProviderPersistsAndParticipatesInManifestEquality(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := loaded.Profiles["default"].ModelProvider; got != "amazon-bedrock" {
+	if got := loaded.Clients[ClientCodex].ModelProvider; got != "amazon-bedrock" {
 		t.Fatalf("loaded model provider = %q", got)
 	}
-	if got := loaded.Profiles["default"].Authentication; got != AuthenticationClientNative {
+	if got := loaded.Clients[ClientCodex].Authentication; got != AuthenticationClientNative {
 		t.Fatalf("loaded authentication = %q", got)
 	}
 
 	incoming := Manifest{
 		Version:  currentVersion,
 		Accounts: map[string]Account{"gateway": cfg.Accounts["gateway"]},
-		Profiles: map[string]Profile{"default": profile},
+		Profiles: map[string]Profile{"default": cfg.Profiles["default"]},
+		Recommendations: map[string]ClientSelection{
+			ClientCodex: {Profile: "default", ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative},
+		},
 	}
 	merged, err := MergeWithOptions(modelProviderConfig(), incoming, MergeOptions{ReplaceProfiles: map[string]bool{"default": true}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := merged.Profiles["default"].ModelProvider; got != "amazon-bedrock" {
+	if got := merged.Recommendations[ClientCodex].ModelProvider; got != "amazon-bedrock" {
 		t.Fatalf("merged model provider = %q", got)
 	}
-	if got := merged.Profiles["default"].Authentication; got != AuthenticationClientNative {
+	if got := merged.Recommendations[ClientCodex].Authentication; got != AuthenticationClientNative {
 		t.Fatalf("merged authentication = %q", got)
 	}
 }
 
-func TestProfileModelProviderRejectsUnsafeOrNonCodexValues(t *testing.T) {
+func TestClientBindingModelProviderRejectsUnsafeOrNonCodexValues(t *testing.T) {
 	for name, testCase := range map[string]struct {
 		client   string
 		provider string
@@ -121,11 +120,9 @@ func TestProfileModelProviderRejectsUnsafeOrNonCodexValues(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			cfg := modelProviderConfig()
-			profile := cfg.Profiles["default"]
-			profile.Client = testCase.client
-			profile.ModelProvider = testCase.provider
-			profile.Model = "model"
-			cfg.Profiles["default"] = profile
+			cfg.Clients = map[string]ClientBinding{
+				testCase.client: {Profile: "default", ModelProvider: testCase.provider},
+			}
 			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), testCase.want) {
 				t.Fatalf("validation error = %v, want %q", err, testCase.want)
 			}
@@ -133,7 +130,7 @@ func TestProfileModelProviderRejectsUnsafeOrNonCodexValues(t *testing.T) {
 	}
 }
 
-func TestProfileAuthenticationRejectsInvalidValuesAndClientNativeWithoutProvider(t *testing.T) {
+func TestClientBindingAuthenticationRejectsInvalidValuesAndClientNativeWithoutProvider(t *testing.T) {
 	for name, testCase := range map[string]struct {
 		authentication Authentication
 		provider       string
@@ -144,10 +141,9 @@ func TestProfileAuthenticationRejectsInvalidValuesAndClientNativeWithoutProvider
 	} {
 		t.Run(name, func(t *testing.T) {
 			cfg := modelProviderConfig()
-			profile := cfg.Profiles["default"]
-			profile.Authentication = testCase.authentication
-			profile.ModelProvider = testCase.provider
-			cfg.Profiles["default"] = profile
+			cfg.Clients[ClientCodex] = ClientBinding{
+				Profile: "default", ModelProvider: testCase.provider, Authentication: testCase.authentication,
+			}
 			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), testCase.want) {
 				t.Fatalf("validation error = %v, want %q", err, testCase.want)
 			}
@@ -155,17 +151,15 @@ func TestProfileAuthenticationRejectsInvalidValuesAndClientNativeWithoutProvider
 	}
 
 	claude := modelProviderConfig()
-	profile := claude.Profiles["default"]
-	profile.Client = ClientClaude
-	profile.ModelProvider = ""
-	profile.Authentication = AuthenticationClientNative
-	claude.Profiles["default"] = profile
+	claude.Clients = map[string]ClientBinding{
+		ClientClaude: {Profile: "default", Authentication: AuthenticationClientNative},
+	}
 	if err := claude.Validate(); err == nil || !strings.Contains(err.Error(), "only supported for codex") {
 		t.Fatalf("Claude client-native validation error = %v", err)
 	}
 }
 
-func TestSelectRoutesForConnectedAccountsTreatsClientNativeProfilesAsReadyWithoutTokens(t *testing.T) {
+func TestSelectProfilesForConnectedAccountsHonorsRecommendationAuthentication(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["native"] = Account{
 		Label:     "Native",
@@ -175,38 +169,34 @@ func TestSelectRoutesForConnectedAccountsTreatsClientNativeProfilesAsReadyWithou
 		Label:     "Token",
 		Endpoints: Endpoints{OpenAIResponses: "https://token.test/v1"},
 	}
-	cfg.Profiles["native"] = Profile{
-		Label:          "Native",
-		Account:        "native",
-		Client:         ClientCodex,
-		Model:          "native-model",
+	cfg.Profiles["native"] = Profile{Label: "Native", Account: "native", Model: "native-model"}
+	cfg.Profiles["token"] = Profile{Label: "Token", Account: "token", Model: "token-model"}
+	cfg.Recommendations[ClientCodex] = ClientSelection{
+		Profile:        "native",
 		ModelProvider:  "native-provider",
 		Authentication: AuthenticationClientNative,
 	}
-	cfg.Profiles["token"] = Profile{
-		Label:          "Token",
-		Account:        "token",
-		Client:         ClientCodex,
-		Model:          "token-model",
+
+	withoutTokens, err := cfg.SelectProfilesForConnectedAccounts(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := withoutTokens.SelectedProfile(ClientCodex); got != "native" {
+		t.Fatalf("selection without Tokens = %q, want client-native profile", got)
+	}
+
+	token := cfg.Clone()
+	token.Recommendations[ClientCodex] = ClientSelection{
+		Profile:        "token",
 		ModelProvider:  "token-provider",
 		Authentication: AuthenticationAccountToken,
 	}
-	cfg.RecommendedRoutes[ClientCodex] = "token"
-
-	withoutTokens, err := cfg.SelectRoutesForConnectedAccounts(nil)
+	withToken, err := token.SelectProfilesForConnectedAccounts([]string{"token"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := withoutTokens.Routes[ClientCodex]; got != "native" {
-		t.Fatalf("route without Tokens = %q, want client-native profile", got)
-	}
-
-	withToken, err := cfg.SelectRoutesForConnectedAccounts([]string{"token"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := withToken.Routes[ClientCodex]; got != "token" {
-		t.Fatalf("route with connected Token = %q, want selected account-token profile", got)
+	if got := withToken.SelectedProfile(ClientCodex); got != "token" {
+		t.Fatalf("selection with connected Token = %q, want account-token profile", got)
 	}
 }
 
@@ -222,9 +212,8 @@ func modelProviderConfig() Config {
 	cfg.Profiles["default"] = Profile{
 		Label:   "Default",
 		Account: "gateway",
-		Client:  ClientCodex,
 		Model:   "gpt-5.6-sol",
 	}
-	cfg.Routes[ClientCodex] = "default"
+	cfg.SetSelectedProfile(ClientCodex, "default")
 	return cfg
 }

@@ -61,7 +61,39 @@ func TestLoadRequiresCanonicalSchemaVersion(t *testing.T) {
 	}
 }
 
-func TestLoadRejectsUnknownVersionThreeField(t *testing.T) {
+func TestLoadRejectsLegacySelectionFieldsAtTheCurrentVersion(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	raw := fmt.Sprintf(`version = %d
+
+[accounts.gateway]
+label = "Gateway"
+
+[accounts.gateway.endpoints]
+anthropic = "https://gateway.test"
+
+[profiles.claude]
+label = "Claude"
+account = "gateway"
+client = "claude"
+model = "claude-test"
+
+[routes]
+claude = "claude"
+
+[adapters.claude]
+enabled = true
+`, ConfigVersion)
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := NewStore(path).Load()
+	var loadErr *LoadError
+	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseParse {
+		t.Fatalf("legacy selection load error = %v", err)
+	}
+}
+
+func TestLoadRejectsUnsupportedVersionBeforeReadingItsFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	raw := `version = 3
 unexpected = true
@@ -82,7 +114,7 @@ claude = "claude"
 	}
 	_, err := NewStore(path).Load()
 	var loadErr *LoadError
-	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseParse {
+	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseValidate {
 		t.Fatalf("unknown field load error = %v", err)
 	}
 }
@@ -110,11 +142,11 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", " toml")
 	store := NewStore(path)
 	want := Config{
-		Version:           ConfigVersion,
-		Accounts:          map[string]Account{"dmx": {Label: "DMXAPI", Endpoints: Endpoints{Anthropic: "https://example.test"}}},
-		Profiles:          map[string]Profile{"dmx": {Label: "DMXAPI", Account: "dmx", Client: ClientClaude, Model: "claude-test"}},
-		Routes:            Routes{ClientClaude: "dmx"},
-		RecommendedRoutes: Routes{ClientClaude: "dmx"},
+		Version:         ConfigVersion,
+		Accounts:        map[string]Account{"dmx": {Label: "DMXAPI", Endpoints: Endpoints{Anthropic: "https://example.test"}}},
+		Profiles:        map[string]Profile{"dmx": {Label: "DMXAPI", Account: "dmx", Model: "claude-test"}},
+		Recommendations: map[string]ClientSelection{ClientClaude: {Profile: "dmx"}},
+		Clients:         map[string]ClientBinding{ClientClaude: {Profile: "dmx"}},
 	}
 	if err := store.Save(want); err != nil {
 		t.Fatal(err)
@@ -130,7 +162,7 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["dmx"].Endpoints.Anthropic != "https://example.test" || got.Routes[ClientClaude] != "dmx" || got.RecommendedRoutes[ClientClaude] != "dmx" {
+	if got.Accounts["dmx"].Endpoints.Anthropic != "https://example.test" || got.SelectedProfile(ClientClaude) != "dmx" || got.RecommendedProfile(ClientClaude) != "dmx" {
 		t.Fatalf("round trip = %#v", got)
 	}
 }
@@ -147,11 +179,10 @@ func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
 			"claude": {
 				Label:   "Claude",
 				Account: "dmx",
-				Client:  ClientClaude,
 				Model:   "claude-test",
 			},
 		},
-		Routes: Routes{ClientClaude: "claude"},
+		Clients: map[string]ClientBinding{ClientClaude: {Profile: "claude"}},
 	}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -216,8 +247,8 @@ func TestRestoreSnapshotRestoresAnAbsentConfigurationAndBackup(t *testing.T) {
 	cfg := Config{
 		Version:  ConfigVersion,
 		Accounts: map[string]Account{"gateway": {Label: "Gateway", Endpoints: Endpoints{Anthropic: "https://gateway.test"}}},
-		Profiles: map[string]Profile{"gateway": {Label: "Gateway", Account: "gateway", Client: ClientClaude, Model: "claude-test"}},
-		Routes:   Routes{ClientClaude: "gateway"},
+		Profiles: map[string]Profile{"gateway": {Label: "Gateway", Account: "gateway", Model: "claude-test"}},
+		Clients:  map[string]ClientBinding{ClientClaude: {Profile: "gateway"}},
 	}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -276,16 +307,16 @@ func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	first := Config{
 		Version:  ConfigVersion,
 		Accounts: map[string]Account{"one": {Label: "One", Endpoints: Endpoints{Anthropic: "https://one.test"}}},
-		Profiles: map[string]Profile{"one": {Label: "One", Account: "one", Client: ClientClaude, Model: "claude-one"}},
-		Routes:   Routes{ClientClaude: "one"},
+		Profiles: map[string]Profile{"one": {Label: "One", Account: "one", Model: "claude-one"}},
+		Clients:  map[string]ClientBinding{ClientClaude: {Profile: "one"}},
 	}
 	if err := store.Save(first); err != nil {
 		t.Fatal(err)
 	}
 	second := first
 	second.Accounts = map[string]Account{"two": {Label: "Two", Endpoints: Endpoints{Anthropic: "https://two.test"}}}
-	second.Profiles = map[string]Profile{"two": {Label: "Two", Account: "two", Client: ClientClaude, Model: "claude-two"}}
-	second.Routes = Routes{ClientClaude: "two"}
+	second.Profiles = map[string]Profile{"two": {Label: "Two", Account: "two", Model: "claude-two"}}
+	second.Clients = map[string]ClientBinding{ClientClaude: {Profile: "two"}}
 	if err := store.Save(second); err != nil {
 		t.Fatal(err)
 	}

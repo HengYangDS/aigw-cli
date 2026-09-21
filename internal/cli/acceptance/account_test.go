@@ -83,7 +83,7 @@ func TestAccountEditUpdatesSharedEndpointWithoutProfileDuplication(t *testing.T)
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "gpt", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}, configuration.ClientCodex, "gpt-test")
 	addAccountProfile(&cfg, "claude", "dmx", "DMXAPI", configuration.Endpoints{}, configuration.ClientClaude, "claude-test")
-	cfg.Routes[configuration.ClientCodex] = "gpt"
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

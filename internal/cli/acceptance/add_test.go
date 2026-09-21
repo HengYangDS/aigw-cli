@@ -26,9 +26,9 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 			cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{Anthropic: "https://old.test", OpenAIResponses: "https://old.test/v1"}}
 			paths := map[string]string{configuration.ClientCodex: target, configuration.ClientClaude: app.ClaudeSettingsPath}
 			for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
-				cfg.Profiles[id] = configuration.Profile{Label: id, Account: "old", Client: id, Model: "old-model"}
-				cfg.Routes[id] = id
-				cfg.Clients[id] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, id)}
+				cfg.Profiles[id] = configuration.Profile{Label: id, Account: "old", Model: "old-model"}
+				cfg.SetSelectedProfile(id, id)
+				cfg.SetClientActivation(id, true, executableFixture(t, id), nil)
 			}
 			adapter := cfg.Clients[configuration.ClientCodex]
 			adapter.Targets = []string{target}
@@ -56,8 +56,8 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 			}
 			assertAccountConnectionOutput(t, out.String())
 			current, err := app.Config.Load()
-			if err != nil || current.Routes[clientID] != "new" || current.Routes[other] != other {
-				t.Fatalf("creation routes = %v, %v", current.Routes, err)
+			if err != nil || current.SelectedProfile(clientID) != "new" || current.SelectedProfile(other) != other {
+				t.Fatalf("creation bindings = %v, %v", current.Clients, err)
 			}
 			if !bytes.Contains(readFile(t, paths[clientID]), []byte("new-model")) {
 				t.Fatal("Account connection left the selected client on its old model")
@@ -83,8 +83,17 @@ func assertAccountConnectionOutput(t *testing.T, output string) {
 
 func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 	app, _, credentials, _, _ := testApp(t, "new-token\n")
-	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: executableFixture(t, "claude")}}}
+	claudeExecutable := executableFixture(t, "claude")
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: claudeExecutable}}}
 	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://old.test"}, configuration.ClientClaude, "old-model")
+	cfg, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.SetClientActivation(configuration.ClientClaude, true, claudeExecutable, nil)
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
 	if err := credentials.Set("one", "old-token"); err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +282,7 @@ func TestAddWithTokenStdinCreatesProfileWithoutPrintingSecret(t *testing.T) {
 		t.Fatalf("secret leaked in output: %s", out.String())
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || cfg.Routes[configuration.ClientCodex] != "dmx" || cfg.Profiles["dmx"].Label != "DMXAPI" {
+	if err != nil || cfg.SelectedProfile(configuration.ClientCodex) != "dmx" || cfg.Profiles["dmx"].Label != "DMXAPI" {
 		t.Fatalf("config = %#v, %v", cfg, err)
 	}
 }

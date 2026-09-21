@@ -66,7 +66,7 @@ func TestNativeClientInputs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(prepared.Profiles, manifest.Profiles) || !reflect.DeepEqual(prepared.RecommendedRoutes, manifest.RecommendedRoutes) {
+		if !reflect.DeepEqual(prepared.Profiles, manifest.Profiles) || !reflect.DeepEqual(prepared.Recommendations, manifest.Recommendations) {
 			t.Fatal("native preparation substituted its own profile or model for the supplied recommendation")
 		}
 	})
@@ -141,7 +141,7 @@ func TestNativeClientJourney(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(manifest.RecommendedRoutes) != len(configuration.AdmittedClientIDs()) {
+	if len(manifest.Recommendations) != len(configuration.AdmittedClientIDs()) {
 		t.Fatal("team manifest must recommend one profile for every admitted client")
 	}
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
@@ -167,10 +167,11 @@ type nativeClientJourneyPlan struct {
 
 func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	t.Helper()
-	profile := p.manifest.Profiles[p.manifest.RecommendedRoutes[client]]
+	selection := p.manifest.Recommendations[client]
+	profile := p.manifest.Profiles[selection.Profile]
 	const token = "native-real-client-token"
 	var completions atomic.Int64
-	protocol := profile.Protocol
+	protocol := selection.Protocol
 	if protocol == "" {
 		spec, _ := configuration.ClientSpecFor(client)
 		protocol = spec.EndpointProtocols[0]
@@ -321,7 +322,7 @@ func (j *journeyFixture) enableNativeClient(client, executable string) {
 	j.testing.Helper()
 	path := strings.Join([]string{j.clientBin, os.Getenv("AIGW_ACCEPTANCE_CLIENT_PATH")}, string(os.PathListSeparator))
 	j.setEnvironment("PATH", strings.TrimRight(path, string(os.PathListSeparator)))
-	args := []string{"adapter", "enable", client, "--executable", executable}
+	args := []string{"client", "enable", client, "--executable", executable}
 	if client == configuration.ClientCodex {
 		args = append(args, "--target", filepath.Join(j.root, "home", ".codex", "config.toml"))
 	}

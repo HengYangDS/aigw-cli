@@ -17,10 +17,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const importManifest = `version = 4
+const importManifest = `version = 5
 
-[recommended_routes]
-codex = "remote"
+[recommendations.codex]
+profile = "remote"
 
 [accounts.gateway]
 label = "Gateway"
@@ -31,7 +31,6 @@ openai_responses = "https://gateway.example/v1"
 [profiles.remote]
 label = "Remote"
 account = "gateway"
-client = "codex"
 model = "gpt-remote"
 `
 
@@ -60,7 +59,7 @@ func TestConfigurationCommandTreeMatchesItsManifestResponsibility(t *testing.T) 
 			t.Errorf("configuration operation %q lacks execution or argument admission", child.Name())
 		}
 	}
-	if want := []string{"export", "import", "path"}; !slices.Equal(names, want) {
+	if want := []string{"export", "import", "migrate", "path"}; !slices.Equal(names, want) {
 		t.Fatalf("configuration operations = %q, want %q", names, want)
 	}
 }
@@ -104,7 +103,7 @@ func TestExportWritesASecretFreeRoundTripManifest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse exported manifest: %v\n%s", err, data)
 	}
-	if parsed.RecommendedRoutes[configuration.ClientCodex] != "local" || parsed.Profiles["local"].Account != "local" {
+	if parsed.Recommendations[configuration.ClientCodex].Profile != "local" || parsed.Profiles["local"].Account != "local" {
 		t.Fatalf("exported manifest = %#v", parsed)
 	}
 }
@@ -189,7 +188,7 @@ func TestImportSelectsNextStepFromCredentialAvailability(t *testing.T) {
 	}{
 		{name: "all available", manifest: importManifest, seed: []string{"gateway"}, want: "aigw sync"},
 		{name: "one available", manifest: twoAccountManifest(), seed: []string{"gateway"}, want: "aigw sync"},
-		{name: "multiple missing", manifest: twoAccountManifest(), want: "aigw rotate <account>"},
+		{name: "selected account missing", manifest: twoAccountManifest(), want: "aigw rotate gateway"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -349,8 +348,8 @@ func savedRuntime(t *testing.T, cfg configuration.Config) (invocation.Context, s
 func localConfig() configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["local"] = configuration.Account{Label: "Local", Endpoints: configuration.Endpoints{OpenAIResponses: "https://local.example/v1"}}
-	cfg.Profiles["local"] = configuration.Profile{Label: "Local", Account: "local", Client: configuration.ClientCodex, Model: "gpt-local"}
-	cfg.Routes[configuration.ClientCodex] = "local"
+	cfg.Profiles["local"] = configuration.Profile{Label: "Local", Account: "local", Model: "gpt-local"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "local")
 	return cfg
 }
 
@@ -373,7 +372,6 @@ openai_responses = "https://backup.example/v1"
 [profiles.backup]
 label = "Backup"
 account = "backup"
-client = "codex"
 model = "gpt-backup"
 
 [profiles.remote]`, 1)

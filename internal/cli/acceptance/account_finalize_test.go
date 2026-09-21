@@ -29,11 +29,11 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 	t.Run("stale checkpoint", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
 		before := accountRenameConfig()
-		before.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true}
+		before.SetClientActivation(configuration.ClientClaude, true, "", nil)
 		if err := app.Config.Save(before); err != nil {
 			t.Fatal(err)
 		}
-		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), before, configuration.AdmittedClientIDs()); err != nil {
+		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), before, before.EnabledClientIDs()); err != nil {
 			t.Fatal(err)
 		}
 		staleCheckpoint, err := os.ReadFile(app.Config.Path() + ".verified.json")
@@ -55,7 +55,10 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 	})
 
 	t.Run("partial client coverage", func(t *testing.T) {
-		app, _, secretStore, current := prepareAccountFinalizer(t, []string{configuration.ClientCodex})
+		app, _, secretStore, current := prepareAccountFinalizer(t, nil)
+		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, []string{configuration.ClientCodex}); err != nil {
+			t.Fatal(err)
+		}
 		if err := secretStore.Set("zeta-new", "target-token"); err != nil {
 			t.Fatal(err)
 		}
@@ -67,10 +70,11 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 		app, _, secretStore, _, _ := testApp(t, "")
 		current := accountRenameConfig()
 		current.Accounts["zeta-new"] = current.Accounts["zeta-old"]
+		current.SetClientActivation(configuration.ClientClaude, true, "", nil)
 		if err := app.Config.Save(current); err != nil {
 			t.Fatal(err)
 		}
-		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, configuration.AdmittedClientIDs()); err != nil {
+		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, current.EnabledClientIDs()); err != nil {
 			t.Fatal(err)
 		}
 		if err := secretStore.Set("zeta-new", "target-token"); err != nil {
@@ -86,7 +90,7 @@ func TestAccountFinalizeUsesEnabledClientScope(t *testing.T) {
 			app, _, store, _, _ := testApp(t, "")
 			cfg := renamedAccountConfig(accountRenameConfig())
 			if enabled != "" {
-				cfg.Clients[enabled] = configuration.ClientBinding{Enabled: true}
+				cfg.SetClientActivation(enabled, true, "", nil)
 			}
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -125,7 +129,7 @@ func TestAccountFinalizeWithoutCredentialsNeedsNoToken(t *testing.T) {
 }
 
 func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
-	app, out, secretStore, current := prepareAccountFinalizer(t, configuration.AdmittedClientIDs())
+	app, out, secretStore, current := prepareAccountFinalizer(t, []string{configuration.ClientClaude, configuration.ClientCodex})
 	const token = "finalize-shared-token"
 	probe := secrets.DiagnosticCredential{SystemToken: "finalize-shared-system", UserID: "finalize-shared-user"}
 	for _, id := range []string{"zeta-old", "zeta-new"} {
@@ -188,7 +192,7 @@ func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
 }
 
 func TestAccountFinalizeRequiresTargetAPIToken(t *testing.T) {
-	app, _, secretStore, _ := prepareAccountFinalizer(t, configuration.AdmittedClientIDs())
+	app, _, secretStore, _ := prepareAccountFinalizer(t, []string{configuration.ClientClaude, configuration.ClientCodex})
 	if err := secretStore.Set("zeta-old", "source-token"); err != nil {
 		t.Fatal(err)
 	}
@@ -211,13 +215,13 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 		t.Fatal(err)
 	}
 	current := renamedAccountConfig(before)
-	for _, client := range configuration.AdmittedClientIDs() {
-		current.Clients[client] = configuration.ClientBinding{Enabled: true}
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+		current.SetClientActivation(client, true, "", nil)
 	}
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, configuration.AdmittedClientIDs()); err != nil {
+	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, current.EnabledClientIDs()); err != nil {
 		t.Fatal(err)
 	}
 	const oldToken = "old-api-token"
@@ -276,7 +280,7 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 }
 
 func TestAccountFinalizePartialDeleteCanRetryAfterBackupConvergence(t *testing.T) {
-	app, _, secretStore, _ := prepareAccountFinalizer(t, configuration.AdmittedClientIDs())
+	app, _, secretStore, _ := prepareAccountFinalizer(t, []string{configuration.ClientClaude, configuration.ClientCodex})
 	const token = "partial-delete-token"
 	probe := secrets.DiagnosticCredential{SystemToken: "partial-delete-system", UserID: "partial-delete-user"}
 	for _, id := range []string{"zeta-old", "zeta-new"} {
@@ -306,7 +310,7 @@ func TestAccountFinalizePartialDeleteCanRetryAfterBackupConvergence(t *testing.T
 }
 
 func TestAccountFinalizeEnvironmentCleanupIsExternalAndRetryable(t *testing.T) {
-	app, _, _, _ := prepareAccountFinalizer(t, configuration.AdmittedClientIDs())
+	app, _, _, _ := prepareAccountFinalizer(t, []string{configuration.ClientClaude, configuration.ClientCodex})
 	const token = "finalize-environment-token"
 	values := map[string]string{
 		secrets.EnvironmentKey("zeta-old"): token,
@@ -376,8 +380,12 @@ func prepareAccountFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.B
 		t.Fatal(err)
 	}
 	current := renamedAccountConfig(before)
-	for _, client := range configuration.AdmittedClientIDs() {
-		current.Clients[client] = configuration.ClientBinding{Enabled: true}
+	enabledClients := clients
+	if enabledClients == nil {
+		enabledClients = []string{configuration.ClientClaude, configuration.ClientCodex}
+	}
+	for _, client := range enabledClients {
+		current.SetClientActivation(client, true, "", nil)
 	}
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)

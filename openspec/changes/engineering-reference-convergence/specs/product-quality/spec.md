@@ -125,12 +125,11 @@ native or release proof.
 
 ### Requirement: Portable exact-version CI bootstrap
 
-GitLab Linux bootstrap SHALL consume the exact Mise image version and digest
-from CUE, prepare the operating-system capabilities required by the declared
-repository graph, install repository-locked tools, and own required execution
-modes such as CGO. Every Linux job SHALL inherit that owner rather than
-duplicate package or tool installation, substitute another image or installer,
-or weaken integrity and transport policy.
+GitLab Linux bootstrap SHALL use the exact Mise image version and digest
+projected by CUE. It SHALL install the minimal operating-system capabilities and
+repository-locked tools required by the graph, including CGO when declared.
+Every Linux job SHALL inherit this owner; no job may duplicate installation,
+substitute another image or installer, or weaken integrity or transport policy.
 
 #### Scenario: The repository graph needs a Linux host capability
 

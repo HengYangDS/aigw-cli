@@ -43,7 +43,7 @@ func TestSetupReusesReadOnlyEnvironmentSecretWithoutPromptingOrPersisting(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Routes[configuration.ClientCodex] != "gpt-5.6-terra" || cfg.Profiles["gpt-5.6-terra"].Account != "dmx" {
+	if cfg.SelectedProfile(configuration.ClientCodex) != "gpt-5.6-terra" || cfg.Profiles["gpt-5.6-terra"].Account != "dmx" {
 		t.Fatalf("setup config = %#v", cfg)
 	}
 	if strings.Contains(out.String(), "environment-only-token") {

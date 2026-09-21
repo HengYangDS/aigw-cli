@@ -252,8 +252,8 @@ existing configuration is copied byte-for-byte; no historical schema is
 reconstructed. The predecessor must return a nonempty TOML manifest with its
 declared version and Profiles. This proves configuration readability, not
 Provider access or client compatibility. Failure preserves both program files
-and the original configuration; the existing explicit configuration rollback
-can restore a compatible state before retrying program rollback. The verifier
+and the original configuration; `aigw config migrate --rollback` can restore the
+exact retained predecessor state before retrying program rollback. The verifier
 uses the same bounded process and temporary-resource owners as candidate
 startup verification, without a second snapshot store or migration framework.
 
@@ -784,7 +784,7 @@ run. They are engineering targets, not claims about every host:
 | --------------------------------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | Warm local `version`, `help`, configured `status` and `config export` | p95 at most 100 ms                                                          | These commands perform bounded local work and should not impose a perceptible wait.                                           |
 | Warm projected credential helper, including its native shell          | p95 at most 100 ms                                                          | Credential delivery is on the client's request path; its overhead must remain small.                                          |
-| One configured client Route change and durable projection             | p95 at most 250 ms                                                          | A user-triggered operation includes guarded configuration, checkpoint and client-file writes.                                 |
+| One configured client Client Binding change and durable projection    | p95 at most 250 ms                                                          | A user-triggered operation includes guarded configuration, checkpoint and client-file writes.                                 |
 | Peak resident memory for configured local observation                 | Review growth exceeding both 20% and 4 MiB against the retained predecessor | Require both a meaningful absolute cost and a relative change; allocator noise alone must not drive artificial restructuring. |
 | Uncompressed executable size for each matching target                 | Review growth exceeding both 10% and 1 MiB against the retained predecessor | Expose material distribution cost without demanding identical compiler output or removing useful product behavior.            |
 
@@ -811,7 +811,7 @@ Every completion claim names its scope, verifier, current evidence and limit.
 | Source is releasable        | Clean exact revision, complete quality graph, package-observed statement coverage, race detection and product signatures | An old log, an excluded package or an inferred metric     |
 | Artifact matrix is complete | Two deterministic builds from one version, epoch, toolchain and source; identical archives, checksums and SPDX SBOM      | A partial matrix or merely equivalent content             |
 | Installation works          | Native install, update, rollback and uninstall of the candidate archive on every supported OS                            | Cross-compilation or archive inspection                   |
-| Client integration works    | Real Codex and Claude invocations through the exact installed artifact and selected Route                                | Valid settings, an endpoint probe or an unrelated session |
+| Client integration works    | Real Codex and Claude invocations through the exact installed artifact and selected Client Binding                       | Valid settings, an endpoint probe or an unrelated session |
 | Release is published        | Successful tag pipeline and independent inspection of each selected peer's Release and assets                            | A local build directory or source tag                     |
 | GA is trusted               | Protected signing-policy verification and post-signature checksums for exact published assets                            | An unsigned prerelease or local identity inspection       |
 
@@ -837,7 +837,7 @@ cleanup is storage maintenance, not evidence of release or product completion.
 
 ## Product Boundary
 
-AIGW owns Accounts, credentials, Profiles, Routes, storage policy, and explicit
+AIGW owns Accounts, credentials, Profiles, Client Bindings, storage policy, and explicit
 client projections. It does not carry API traffic, manage an external proxy,
 control IDE state, or mutate Codex JSONL, SQLite, historical messages, or model
 metadata. Optional Responses services are ordinary configured endpoints and

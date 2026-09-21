@@ -19,8 +19,8 @@ func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	cfg := Config{
 		Version:  ConfigVersion,
 		Accounts: map[string]Account{"dmx": {Label: "DMX", Endpoints: Endpoints{Anthropic: "https://example.test"}}},
-		Profiles: map[string]Profile{"claude": {Label: "Claude", Account: "dmx", Client: ClientClaude, Model: "claude-test"}},
-		Routes:   Routes{ClientClaude: "claude"},
+		Profiles: map[string]Profile{"claude": {Label: "Claude", Account: "dmx", Model: "claude-test"}},
+		Clients:  map[string]ClientBinding{ClientClaude: {Profile: "claude"}},
 	}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -32,7 +32,7 @@ func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if checkpoint.Config.Routes[ClientClaude] != "claude" || len(checkpoint.Clients) != 2 || checkpoint.VerifiedAt.IsZero() {
+	if checkpoint.Config.SelectedProfile(ClientClaude) != "claude" || len(checkpoint.Clients) != 2 || checkpoint.VerifiedAt.IsZero() {
 		t.Fatalf("checkpoint = %#v", checkpoint)
 	}
 	data, err := os.ReadFile(path + ".verified.json")
@@ -271,7 +271,7 @@ func TestLoadVerifiedCheckpointRejectsNonCanonicalConfigVersion(t *testing.T) {
     "version": 1,
     "accounts": {"team": {"label": "Team", "endpoints": {"anthropic": "https://team.test"}}},
     "profiles": {"team": {"label": "Team", "account": "team"}},
-    "routes": {"default": "team"}
+    "clients": {"codex": {"profile": "team"}}
   },
   "clients": ["codex"],
   "verified_at": "2026-07-11T00:00:00Z"

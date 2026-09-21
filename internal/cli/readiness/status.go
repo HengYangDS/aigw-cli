@@ -16,12 +16,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type routeStatus struct {
+type clientStatus struct {
 	domainreadiness.Client
 	Authentication     configuration.Authentication `json:"authentication"`
 	EndpointConfigured bool                         `json:"endpoint_configured"`
 	Transport          endpointTransportKind        `json:"transport,omitempty"`
-	AdapterReady       bool                         `json:"adapter_ready"`
+	ProjectionReady    bool                         `json:"projection_ready"`
+	CheckPassed        *bool                        `json:"check_passed,omitempty"`
+	DiagnosticKind     string                       `json:"diagnostic_kind,omitempty"`
+	Attempts           int                          `json:"attempts,omitempty"`
+	Retryable          bool                         `json:"retryable,omitempty"`
 }
 
 type endpointTransportKind string
@@ -29,11 +33,10 @@ type endpointTransportKind string
 const endpointTransportExternalLoopback endpointTransportKind = "external_loopback"
 
 type statusOutput struct {
-	ConfigPath        string                            `json:"config_path"`
-	CredentialBackend secrets.BackendSelection          `json:"credential_backend"`
-	Clients           map[string]domainreadiness.Client `json:"clients"`
-	Routes            map[string]routeStatus            `json:"routes"`
-	Profiles          int                               `json:"profiles"`
+	ConfigPath        string                   `json:"config_path"`
+	CredentialBackend secrets.BackendSelection `json:"credential_backend"`
+	Clients           map[string]clientStatus  `json:"clients"`
+	Profiles          int                      `json:"profiles"`
 }
 
 var inspectAdapter = func(ctx context.Context, runtime invocation.Context, cfg configuration.Config, clientID string, clientRuntime configuration.Runtime) clientdomain.Status {
@@ -49,7 +52,7 @@ func NewStatusCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
-// RunStatus observes configured routes and projections without reading secret values or mutating state.
+// RunStatus observes client bindings and projections without reading secret values or mutating state.
 func RunStatus(runtime invocation.Context, jsonMode bool) error {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
@@ -65,25 +68,13 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 
 // inspectStatusClients observes every admitted client without authenticating
 // an endpoint or reading Token values.
-func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) map[string]routeStatus {
+func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) map[string]clientStatus {
 	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
-	routes := make(map[string]routeStatus, len(clientIDs))
+	clients := make(map[string]clientStatus, len(clientIDs))
 	for _, clientID := range clientIDs {
 		clientRuntime, resolveErr := cfg.ResolveRuntime(clientID, "")
 		if resolveErr != nil {
-			facts := domainreadiness.ClientFacts{}
-			if profile := cfg.Routes[clientID]; profile != "" {
-				facts.Profile = profile
-				facts.RouteIssue = resolveErr.Error()
-				facts.RouteAction = "aigw use <" + clientID + "-profile>"
-			} else {
-				facts.SuggestedProfile = cfg.FirstProfileForClient(clientID)
-			}
-			state := domainreadiness.ClassifyClient(facts)
-			if facts.Profile == "" && facts.SuggestedProfile == "" {
-				state.NextAction = ""
-			}
-			routes[clientID] = routeStatus{Client: state}
+			clients[clientID] = unresolvedClientStatus(&cfg, clientID, resolveErr)
 			continue
 		}
 		adapterStatus := inspectAdapter(context.Background(), runtime, cfg, clientID, clientRuntime)
@@ -91,12 +82,12 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 			Profile:            clientRuntime.ProfileID,
 			Account:            clientRuntime.AccountID,
 			CredentialRequired: clientRuntime.UsesAIGWCredentialStore(),
-			AdapterEnabled:     cfg.Clients[clientID].Enabled,
-			AdapterReady:       adapterStatus.Ready,
-			AdapterIssue:       adapterStatus.Issue,
-			AdapterAction:      adapterStatus.RepairAction,
+			ProjectionEnabled:  cfg.Clients[clientID].Enabled,
+			ProjectionReady:    adapterStatus.Ready,
+			ProjectionIssue:    adapterStatus.Issue,
+			ProjectionAction:   adapterStatus.RepairAction,
 		}
-		if facts.CredentialRequired && (!facts.AdapterEnabled || facts.AdapterReady) {
+		if facts.CredentialRequired && (!facts.ProjectionEnabled || facts.ProjectionReady) {
 			available, observationErr := runtime.Secrets.Exists(clientRuntime.AccountID)
 			facts.CredentialAvailable = available
 			if observationErr != nil {
@@ -106,33 +97,50 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 			}
 		}
 		state := domainreadiness.ClassifyClient(facts)
-		route := routeStatus{
+		client := clientStatus{
 			Client:             state,
 			Authentication:     clientRuntime.Authentication,
 			EndpointConfigured: strings.TrimSpace(clientRuntime.Endpoint) != "",
 			Transport:          endpointTransport(clientRuntime.Endpoint),
-			AdapterReady:       adapterStatus.Ready,
+			ProjectionReady:    adapterStatus.Ready,
 		}
 		if adapterStatus.Ready && !clientRuntime.UsesAIGWCredentialStore() {
-			route.State = domainreadiness.Configured
-			route.Detail = "Projection ready; client-owned authentication is not proven"
+			client.State = domainreadiness.Configured
+			client.Detail = "Projection ready; client-owned authentication is not proven"
 			if clientRuntime.CredentialCommand != "" {
-				route.Detail = "Projection ready; external credential helper is not verified"
+				client.Detail = "Projection ready; external credential helper is not verified"
 			}
-			route.NextAction = "aigw verify --for " + clientID
+			client.NextAction = "aigw verify --for " + clientID
 		}
-		routes[clientID] = route
+		clients[clientID] = client
 	}
-	return routes
+	return clients
+}
+
+func unresolvedClientStatus(cfg *configuration.Config, clientID string, resolveErr error) clientStatus {
+	facts := domainreadiness.ClientFacts{}
+	if profile := cfg.SelectedProfile(clientID); profile != "" {
+		facts.Profile = profile
+		facts.BindingIssue = resolveErr.Error()
+		facts.BindingAction = "aigw use --for " + clientID + " <profile>"
+	} else if suggested := cfg.FirstProfileForClient(clientID); suggested != "" {
+		facts.SuggestedProfile = suggested
+		facts.BindingAction = "aigw use --for " + clientID + " " + suggested
+	}
+	state := domainreadiness.ClassifyClient(facts)
+	if facts.Profile == "" && facts.SuggestedProfile == "" {
+		state.NextAction = ""
+	}
+	return clientStatus{Client: state}
 }
 
 // InspectClients returns the canonical, secret-free local state of every
 // admitted client without authenticating an endpoint or reading Token values.
 func InspectClients(runtime invocation.Context, cfg configuration.Config) map[string]domainreadiness.Client {
-	routes := inspectStatusClients(runtime, cfg)
-	clients := make(map[string]domainreadiness.Client, len(routes))
-	for client, route := range routes {
-		clients[client] = route.Client
+	observed := inspectStatusClients(runtime, cfg)
+	clients := make(map[string]domainreadiness.Client, len(observed))
+	for client, status := range observed {
+		clients[client] = status.Client
 	}
 	return clients
 }
@@ -142,17 +150,12 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 	if backendErr != nil {
 		backend.RecoveryAction = domainreadiness.CredentialBackendRecovery
 	}
-	routes := inspectStatusClients(runtime, cfg)
-	clients := make(map[string]domainreadiness.Client, len(routes))
-	for client, route := range routes {
-		clients[client] = route.Client
-	}
+	clients := inspectStatusClients(runtime, cfg)
 	return statusOutput{
 		ConfigPath:        runtime.Config.Path(),
 		CredentialBackend: backend,
 		Clients:           clients,
 		Profiles:          len(cfg.Profiles),
-		Routes:            routes,
 	}
 }
 

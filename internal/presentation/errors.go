@@ -85,11 +85,15 @@ func typedErrorMessage(err error) (string, bool) {
 		return missingEndpoint.Error(), true
 	}
 	if version, ok := errors.AsType[*configuration.UnsupportedConfigVersionError](err); ok {
-		return fmt.Sprintf(
+		message := fmt.Sprintf(
 			"unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas",
 			version.Version,
 			version.ExpectedVersion,
-		), true
+		)
+		if version.Version == configuration.LegacyConfigVersion && version.ExpectedVersion == configuration.ConfigVersion {
+			message += "; run `aigw config migrate --dry-run`"
+		}
+		return message, true
 	}
 	if _, ok := errors.AsType[*configuration.LoadError](err); ok {
 		return "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it", true

@@ -47,9 +47,9 @@ func executeCatalogCommand(t *testing.T, command *cobra.Command, args ...string)
 func configuredCatalog() configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-codex"}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "gpt-claude"}
-	cfg.Routes[configuration.ClientCodex] = "codex"
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Model: "gpt-codex"}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "gpt-claude"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
 	return cfg
 }
 
@@ -70,7 +70,7 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 
 	cfg := configuredCatalog()
 	cfg.Accounts["anthropic"] = configuration.Account{Label: "Anthropic", Endpoints: configuration.Endpoints{Anthropic: "https://anthropic.test"}}
-	cfg.Profiles["anthropic"] = configuration.Profile{Label: "Anthropic", Account: "anthropic", Client: configuration.ClientClaude, Model: "claude-only"}
+	cfg.Profiles["anthropic"] = configuration.Profile{Label: "Anthropic", Account: "anthropic", Model: "claude-only"}
 	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt-codex"]}`)), Request: request}, nil
 	})
@@ -79,7 +79,7 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 	if err := executeCatalogCommand(t, NewModelsCommand(deps)); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Listed", "OpenAI Responses endpoint is not configured", "Codex", "Claude"} {
+	for _, want := range []string{"Listed", "OpenAI Responses endpoint is not configured", "gpt-codex", "claude-only"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("models output lacks %q:\n%s", want, out.String())
 		}
@@ -129,10 +129,10 @@ func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
 	cfg.Accounts["missing"] = configuration.Account{Label: "Missing", Endpoints: configuration.Endpoints{OpenAIResponses: "https://missing.test/v1"}}
 	cfg.Accounts["denied"] = configuration.Account{Label: "Denied", Endpoints: configuration.Endpoints{OpenAIResponses: "https://denied.test/v1"}}
 	cfg.Accounts["broken"] = configuration.Account{Label: "Broken", Endpoints: configuration.Endpoints{OpenAIResponses: "https://broken.test/v1"}}
-	cfg.Profiles["anthropic"] = configuration.Profile{Label: "Anthropic", Account: "anthropic", Client: configuration.ClientClaude, Model: "claude"}
-	cfg.Profiles["missing"] = configuration.Profile{Label: "Missing", Account: "missing", Client: configuration.ClientCodex, Model: "missing"}
-	cfg.Profiles["denied"] = configuration.Profile{Label: "Denied", Account: "denied", Client: configuration.ClientCodex, Model: "denied"}
-	cfg.Profiles["broken"] = configuration.Profile{Label: "Broken", Account: "broken", Client: configuration.ClientCodex, Model: "broken"}
+	cfg.Profiles["anthropic"] = configuration.Profile{Label: "Anthropic", Account: "anthropic", Model: "claude"}
+	cfg.Profiles["missing"] = configuration.Profile{Label: "Missing", Account: "missing", Model: "missing"}
+	cfg.Profiles["denied"] = configuration.Profile{Label: "Denied", Account: "denied", Model: "denied"}
+	cfg.Profiles["broken"] = configuration.Profile{Label: "Broken", Account: "broken", Model: "broken"}
 	secretStore := &faultingSecrets{values: map[string]string{"gateway": "token", "denied": "token", "broken": "token"}, failAccount: "denied", getErr: errors.New("denied")}
 	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		if request.URL.Host == "broken.test" {

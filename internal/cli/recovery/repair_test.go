@@ -72,7 +72,7 @@ func TestRunRepairReportsDiscoveryFailureWithoutMutatingConfiguration(t *testing
 	if err := runRepair(context.Background(), invocation.Context{Config: store}, false, false); err == nil || !strings.Contains(err.Error(), "discovery") {
 		t.Fatalf("runRepair() error = %v, want discovery failure", err)
 	}
-	if saved, err := store.Load(); err != nil || saved.Routes[configuration.ClientCodex] != cfg.Routes[configuration.ClientCodex] {
+	if saved, err := store.Load(); err != nil || saved.SelectedProfile(configuration.ClientCodex) != cfg.SelectedProfile(configuration.ClientCodex) {
 		t.Fatalf("configuration changed after discovery failure: cfg=%#v error=%v", saved, err)
 	}
 }
@@ -82,27 +82,27 @@ func configuredRepairStore(t *testing.T) (configuration.Store, configuration.Con
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 	cfg := configuration.NewConfig()
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientClaude] = "one"
+	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "claude-test"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "one")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	return store, cfg
 }
 
-func TestRepairDesiredConfigDropsUnusableCodexAndKeepsExplicitTargets(t *testing.T) {
+func TestRepairDesiredConfigPreservesExplicitCodexIntentWhenDiscoveryIsEmpty(t *testing.T) {
 	before := configuration.NewConfig()
 	before.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-	before.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt"}
-	before.Routes[configuration.ClientCodex] = "one"
-	before.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/old"}
+	before.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "gpt"}
+	before.SetSelectedProfile(configuration.ClientCodex, "one")
+	before.SetClientActivation(configuration.ClientCodex, true, "/old", nil)
 	runtime := invocation.Context{Discovery: staticDiscovery{result: discovery.Result{}}}
 	after, _, err := invocation.Synchronizer(runtime).DesiredClientConfiguration(before)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := after.Clients[configuration.ClientCodex]; ok {
-		t.Fatalf("unusable adapter remains: %#v", after.Clients)
+	if got := after.Clients[configuration.ClientCodex]; !reflect.DeepEqual(got, before.Clients[configuration.ClientCodex]) {
+		t.Fatalf("explicit client intent changed: got %#v, want %#v", got, before.Clients[configuration.ClientCodex])
 	}
 }
 
@@ -126,7 +126,7 @@ func TestRunRepairReturnsConfigurationCommitFailure(t *testing.T) {
 		t.Fatal("configuration commit failure was accepted")
 	}
 	got, err := store.Load()
-	if err != nil || got.Routes[configuration.ClientCodex] != cfg.Routes[configuration.ClientCodex] {
+	if err != nil || got.SelectedProfile(configuration.ClientCodex) != cfg.SelectedProfile(configuration.ClientCodex) {
 		t.Fatalf("configuration changed: %#v, %v", got, err)
 	}
 }
@@ -144,10 +144,10 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 			cfg := configuration.NewConfig()
 			cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-			cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
-			cfg.Routes[configuration.ClientCodex] = "one"
+			cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "gpt-test"}
+			cfg.SetSelectedProfile(configuration.ClientCodex, "one")
 			missingTarget := filepath.Join(t.TempDir(), "missing", "configuration.toml")
-			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{missingTarget}}
+			cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{missingTarget})
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -181,9 +181,9 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 	executable := filepath.Join(t.TempDir(), "aigw")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientClaude] = "one"
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
+	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "claude-test"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "one")
+	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 		action string
 	}{
 		{"/opt/claude", "already-converged"},
-		{"/updated/claude", "update"},
+		{"/updated/claude", "already-converged"},
 	} {
 		out.Reset()
 		runtime.Discovery = staticDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: test.label}}}

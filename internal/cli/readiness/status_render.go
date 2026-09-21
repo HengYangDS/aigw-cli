@@ -38,28 +38,28 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 	attention := false
 	nextAction := ""
 	for _, client := range clientIDs {
-		route := result.Routes[client]
-		message := route.Profile + " · " + route.State.Label()
+		clientStatus := result.Clients[client]
+		message := clientStatus.Profile + " · " + clientStatus.State.Label()
 		state := presentation.Info
-		switch route.State {
+		switch clientStatus.State {
 		case domainreadiness.EndpointChecked:
 			state = presentation.OK
 		case domainreadiness.Configured:
 			state = presentation.Info
 		case domainreadiness.Deferred:
-			if route.Profile == "" {
+			if clientStatus.Profile == "" {
 				message = "No " + invocation.Title(client) + " profile selected"
 			}
 		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
 			state = presentation.Warn
 			attention = true
 		}
-		if route.Detail != "" && route.Profile != "" {
-			message = route.Profile + " · " + route.State.Label() + " · " + route.Detail
+		if clientStatus.Detail != "" && clientStatus.Profile != "" {
+			message = clientStatus.Profile + " · " + clientStatus.State.Label() + " · " + clientStatus.Detail
 		}
 
-		if nextAction == "" && route.NextAction != "" {
-			nextAction = route.NextAction
+		if nextAction == "" && clientStatus.NextAction != "" {
+			nextAction = clientStatus.NextAction
 		}
 		r.Status(state, invocation.Title(client), message)
 	}
@@ -69,7 +69,7 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 func renderTransportStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) {
 	shown := false
 	for _, client := range clientIDs {
-		if result.Routes[client].Transport != endpointTransportExternalLoopback {
+		if result.Clients[client].Transport != endpointTransportExternalLoopback {
 			continue
 		}
 		if !shown {
@@ -86,7 +86,7 @@ func renderTransportStatus(r *presentation.Renderer, result statusOutput, client
 
 func renderDiagnosticStatus(runtime invocation.Context, r *presentation.Renderer, cfg configuration.Config) {
 	r.Section("Optional diagnostics")
-	accountIDs := cfg.RoutedAccountIDs()
+	accountIDs := cfg.SelectedAccountIDs()
 	if len(accountIDs) == 0 {
 		r.Status(presentation.Info, "Precise balance", "No selected account")
 		return

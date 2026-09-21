@@ -30,7 +30,7 @@ func (fn roundTripFunc) Do(request *http.Request) (*http.Response, error) { retu
 
 func TestCheckCommandDescribesItsProductBoundary(t *testing.T) {
 	command := NewCheckCommand(invocation.Context{})
-	if command.Short != "Check routes, credentials, clients, and endpoints" {
+	if command.Short != "Check client bindings, credentials, projections, and endpoints" {
 		t.Fatalf("check summary = %q", command.Short)
 	}
 }
@@ -109,10 +109,10 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, configuration
 			OpenAIResponses: "https://codex.example.test/v1",
 		},
 	}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Routes[configuration.ClientCodex] = "codex"
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Model: "claude-test"}
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Model: "gpt-test"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func configureClaudeExecutable(t *testing.T, runtime *invocation.Context, cfg *c
 	}
 	runtime.Executable = filepath.Join(root, "aigw")
 	runtime.ClaudeSettingsPath = filepath.Join(root, "settings.json")
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executable}
+	cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
 }
 
 func synchronizeClaudeSettings(t *testing.T, runtime invocation.Context, cfg configuration.Config) {
@@ -184,9 +184,9 @@ func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
 		if err := json.Unmarshal(buffer.Bytes(), &status); err != nil {
 			t.Fatal(err)
 		}
-		route := status.Routes[configuration.ClientClaude]
-		if route.AdapterReady != synchronized || secretStore.getCalls != secretReads {
-			t.Errorf("synchronized=%t route=%+v secret reads=%d", synchronized, route, secretStore.getCalls-secretReads)
+		client := status.Clients[configuration.ClientClaude]
+		if client.ProjectionReady != synchronized || secretStore.getCalls != secretReads {
+			t.Errorf("synchronized=%t client=%+v secret reads=%d", synchronized, client, secretStore.getCalls-secretReads)
 		}
 		err := RunCheck(command, runtime)
 		if synchronized {
@@ -206,13 +206,13 @@ func executeCommand(command *cobra.Command) error {
 	return command.Execute()
 }
 
-func TestCheckEvaluationRouteLookupDistinguishesMissingClient(t *testing.T) {
-	evaluation := checkEvaluation{routes: []evaluatedRoute{{client: configuration.ClientClaude}}}
-	if route, ok := evaluation.route(configuration.ClientClaude); !ok || route.client != configuration.ClientClaude {
-		t.Fatalf("Claude route = %#v, %v", route, ok)
+func TestCheckEvaluationClientLookupDistinguishesMissingClient(t *testing.T) {
+	evaluation := checkEvaluation{clients: []evaluatedClient{{client: configuration.ClientClaude}}}
+	if client, ok := evaluation.client(configuration.ClientClaude); !ok || client.client != configuration.ClientClaude {
+		t.Fatalf("Claude client = %#v, %v", client, ok)
 	}
-	if route, ok := evaluation.route(configuration.ClientCodex); ok || route != (evaluatedRoute{}) {
-		t.Fatalf("missing Codex route = %#v, %v", route, ok)
+	if client, ok := evaluation.client(configuration.ClientCodex); ok || client != (evaluatedClient{}) {
+		t.Fatalf("missing Codex client = %#v, %v", client, ok)
 	}
 }
 
@@ -226,7 +226,7 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 	if err := os.WriteFile(target, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "codex", Targets: []string{target}}
+	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", []string{target})
 	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
@@ -244,7 +244,7 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 	command := NewCheckCommand(runtime)
 	command.SetContext(t.Context())
 	if evaluation := evaluateCheck(command, runtime, cfg); !evaluation.ok() {
-		t.Fatalf("ready clients failed evaluation: %+v", evaluation.routes)
+		t.Fatalf("ready clients failed evaluation: %+v", evaluation.clients)
 	}
 	if store.existsCalls != 0 || store.getCalls != len([]string{configuration.ClientClaude, configuration.ClientCodex}) {
 		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
@@ -262,7 +262,7 @@ func TestCheckAdmitsProjectionBeforeReadingCredentials(t *testing.T) {
 					problemDetail, problemAction = evidence, action
 					return cause
 				}
-				cfg.Clients[client] = configuration.ClientBinding{Enabled: true}
+				cfg.SetClientActivation(client, true, "", nil)
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
 				}
@@ -289,9 +289,9 @@ func TestCheckAdmitsProjectionBeforeReadingCredentials(t *testing.T) {
 					if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 						t.Fatal(err)
 					}
-					problemDetail, problemAction = result.Routes[client].Issue, result.Routes[client].NextAction
+					problemDetail, problemAction = result.Clients[client].Detail, result.Clients[client].NextAction
 					if state := result.Clients[client]; state.State != domainreadiness.Invalid || state.NextAction != problemAction || state.Detail != problemDetail {
-						t.Fatalf("client and route disagree: client=%+v route=%+v", state, result.Routes[client])
+						t.Fatalf("client status = %+v", state)
 					}
 				}
 				if !strings.Contains(problemDetail, "executable is not configured") || problemAction != "aigw repair" {
@@ -305,18 +305,18 @@ func TestCheckAdmitsProjectionBeforeReadingCredentials(t *testing.T) {
 func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
 	runtime.Version = "1.0.0"
-	profile := cfg.Profiles["codex"]
-	profile.ModelProvider = "amazon-bedrock"
-	profile.Authentication = configuration.AuthenticationClientNative
-	cfg.Profiles["codex"] = profile
-	delete(cfg.Routes, configuration.ClientClaude)
+	binding := cfg.Clients[configuration.ClientCodex]
+	binding.ModelProvider = "amazon-bedrock"
+	binding.Authentication = configuration.AuthenticationClientNative
+	delete(cfg.Clients, configuration.ClientClaude)
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
-		Enabled: true, Executable: "codex", Targets: []string{target},
-	}
+	binding.Enabled = true
+	binding.Executable = "codex"
+	binding.Targets = []string{target}
+	cfg.Clients[configuration.ClientCodex] = binding
 	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
@@ -344,7 +344,7 @@ func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 		t.Fatalf("client-native check used AIGW authentication capabilities: get=%d exists=%d HTTP=%d", store.getCalls, store.existsCalls, requests)
 	}
 	human := buffer.String()
-	for _, want := range []string{"Local projection checked", "Client-owned authentication", "aigw verify --for codex", "All enabled route checks passed", "Model inference and real-client execution were not verified"} {
+	for _, want := range []string{"Local projection checked", "Client-owned authentication", "aigw verify --for codex", "All enabled client checks passed", "Model inference and real-client execution were not verified"} {
 		if !strings.Contains(strings.ToLower(human), strings.ToLower(want)) {
 			t.Fatalf("client-native check output = %q, want %q", human, want)
 		}
@@ -361,23 +361,23 @@ func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	}
 	var machine struct {
 		OK      bool                                  `json:"ok"`
-		Routes  map[string]map[string]json.RawMessage `json:"routes"`
-		Clients map[string]domainreadiness.Client     `json:"clients"`
+		Clients map[string]map[string]json.RawMessage `json:"clients"`
 	}
 	if err := json.Unmarshal(buffer.Bytes(), &machine); err != nil {
 		t.Fatal(err)
 	}
 	want := map[string]json.RawMessage{
-		"client":              json.RawMessage(`"codex"`),
+		"state":               json.RawMessage(`"configured"`),
 		"profile":             json.RawMessage(`"codex"`),
 		"account":             json.RawMessage(`"one"`),
+		"detail":              json.RawMessage(`"Projection ready; client-owned authentication is not proven"`),
 		"authentication":      json.RawMessage(`"client-native"`),
 		"endpoint_configured": json.RawMessage(`true`),
-		"adapter_ready":       json.RawMessage(`true`),
+		"projection_ready":    json.RawMessage(`true`),
 		"check_passed":        json.RawMessage(`true`),
 		"next_action":         json.RawMessage(`"aigw verify --for codex"`),
 	}
-	if !machine.OK || !reflect.DeepEqual(machine.Routes[configuration.ClientCodex], want) || machine.Clients[configuration.ClientCodex].State != domainreadiness.Configured {
+	if !machine.OK || !reflect.DeepEqual(machine.Clients[configuration.ClientCodex], want) {
 		t.Fatalf("client-native JSON check = %#v", machine)
 	}
 	if store.getCalls != 0 || store.existsCalls != 0 || requests != 0 {
@@ -413,19 +413,6 @@ func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 		}
 	})
 
-	t.Run("enabled client route mismatch", func(t *testing.T) {
-		runtime, cfg, _ := configuredReadinessRuntime(t)
-		runtime.Version = "1.0.0"
-		delete(cfg.Routes, configuration.ClientClaude)
-		cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true}
-		if err := runtime.Config.Save(cfg); err != nil {
-			t.Fatal(err)
-		}
-		if err := RunCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(err.Error(), `no route selected for client "claude"`) {
-			t.Fatalf("RunCheck() error = %v", err)
-		}
-	})
-
 	t.Run("token lookup failure", func(t *testing.T) {
 		runtime, cfg, _ := configuredReadinessRuntime(t)
 		runtime.Version = "1.0.0"
@@ -447,15 +434,15 @@ func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 		if err := runtime.Secrets.Set("one", "token"); err != nil {
 			t.Fatal(err)
 		}
-		cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
-			Enabled:    true,
-			Executable: "/opt/codex",
-			Targets:    []string{filepath.Join(t.TempDir(), "missing.toml")},
-		}
+		binding := cfg.Clients[configuration.ClientCodex]
+		binding.Enabled = true
+		binding.Executable = "/opt/codex"
+		binding.Targets = []string{filepath.Join(t.TempDir(), "missing.toml")}
+		cfg.Clients[configuration.ClientCodex] = binding
 		if err := runtime.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
-		if err := RunCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(err.Error(), "adapter not ready") {
+		if err := RunCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(err.Error(), "projection not ready") {
 			t.Fatalf("RunCheck() error = %v", err)
 		}
 	})
@@ -497,7 +484,7 @@ func TestCheckEndpointReadinessIsIndependentOfDiagnosticCredentials(t *testing.T
 				t.Fatalf("endpoint check read diagnostic credentials %d times", store.reads)
 			}
 			if mode == "human" {
-				if !strings.Contains(buffer.String(), "All enabled route checks passed") {
+				if !strings.Contains(buffer.String(), "All enabled client checks passed") {
 					t.Fatalf("human readiness verdict: %s", buffer.String())
 				}
 				return

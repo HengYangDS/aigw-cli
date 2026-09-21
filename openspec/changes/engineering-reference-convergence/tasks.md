@@ -12,11 +12,11 @@
 - [x] 2.1 Exercise first-time interactive setup with each supported credential mode and no installed clients; verify one available Account is sufficient and no unrelated Token is required.
 - [x] 2.2 Exercise `setup --from` with zero, one, and several available Accounts; verify token-free import, partial activation, and precise next actions.
 - [ ] 2.3 Verify deferred installation and later synchronization for Claude Code, Codex, Hermes, and Claude Desktop without re-importing team configuration or changing unrelated client state; report availability for each actual platform and surface.
-- [ ] 2.4 Reconcile `use`, client-scoped selection, default selection, `use --all`, `status`, `check`, `doctor`, `test`, and `verify`; verify defaults have one human-readable meaning and explicit client selections require no hidden global step.
+- [x] 2.4 Reconcile `use`, client-scoped selection, default selection, `use --all`, `status`, `check`, `doctor`, `test`, and `verify`; verify defaults have one human-readable meaning and explicit client selections require no hidden global step.
 - [x] 2.5 Verify setup, synchronization, selection, and repair are transactional under cancellation, output failure, concurrent external edits, and compensation failure.
-- [ ] 2.6 Remove obsolete setup aliases, duplicate state transitions, and unconsumed configuration fields; verify supported manifests receive explicit migration errors rather than silent reinterpretation.
-- [ ] 2.7 Replace client-bound model duplication and parallel Route/Adapter selection with reusable Profiles and one explicit client binding; verify independent choices, native options, disabled intent, unambiguous protocol selection, and unaffected clients.
-- [ ] 2.8 Preview and execute a bounded retained-state schema migration without copying credentials or changing client sessions; verify exact guarded rollback and remove the replaced runtime schema and duplicate orchestration.
+- [x] 2.6 Remove obsolete setup aliases, duplicate state transitions, and unconsumed configuration fields; verify supported manifests receive explicit migration errors rather than silent reinterpretation.
+- [x] 2.7 Replace client-bound model duplication and parallel Route/Adapter selection with reusable Profiles and one explicit client binding; verify independent choices, native options, disabled intent, unambiguous protocol selection, and unaffected clients.
+- [x] 2.8 Preview and execute a bounded retained-state schema migration without copying credentials or changing client sessions; verify exact guarded rollback and remove the replaced runtime schema and duplicate orchestration.
 
 ## 3. Converge credential ownership and portability
 

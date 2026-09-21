@@ -1,5 +1,5 @@
-// Package readiness owns read-only status, health, and endpoint checks for the
-// selected AIGW routes.
+// Package readiness owns read-only status, health, and endpoint checks for
+// selected AIGW client bindings.
 package readiness
 
 import (
@@ -20,7 +20,7 @@ import (
 func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
 	cmd := &cobra.Command{
-		Use: "check", Short: "Check routes, credentials, clients, and endpoints", Args: cobra.NoArgs,
+		Use: "check", Short: "Check client bindings, credentials, projections, and endpoints", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if jsonMode {
 				return runJSONCheck(cmd, runtime)
@@ -33,31 +33,15 @@ func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 }
 
 type checkJSON struct {
-	ConfigPath string                            `json:"config_path"`
-	Routes     map[string]checkRoute             `json:"routes"`
-	Clients    map[string]domainreadiness.Client `json:"clients"`
-	OK         bool                              `json:"ok"`
-	State      domainreadiness.State             `json:"state,omitempty"`
-	NextAction string                            `json:"next_action,omitempty"`
-	Error      string                            `json:"error,omitempty"`
+	ConfigPath string                  `json:"config_path"`
+	Clients    map[string]clientStatus `json:"clients"`
+	OK         bool                    `json:"ok"`
+	State      domainreadiness.State   `json:"state,omitempty"`
+	NextAction string                  `json:"next_action,omitempty"`
+	Error      string                  `json:"error,omitempty"`
 }
 
-type checkRoute struct {
-	Client             string                       `json:"client"`
-	Profile            string                       `json:"profile,omitempty"`
-	Account            string                       `json:"account,omitempty"`
-	Authentication     configuration.Authentication `json:"authentication,omitempty"`
-	EndpointConfigured bool                         `json:"endpoint_configured"`
-	AdapterReady       bool                         `json:"adapter_ready"`
-	CheckPassed        bool                         `json:"check_passed"`
-	Issue              string                       `json:"issue,omitempty"`
-	DiagnosticKind     string                       `json:"diagnostic_kind,omitempty"`
-	NextAction         string                       `json:"next_action,omitempty"`
-	Attempts           int                          `json:"attempts,omitempty"`
-	Retryable          bool                         `json:"retryable,omitempty"`
-}
-
-type evaluatedRoute struct {
+type evaluatedClient struct {
 	client             string
 	runtime            configuration.Runtime
 	resolveErr         error
@@ -72,7 +56,7 @@ type evaluatedRoute struct {
 
 type checkEvaluation struct {
 	configPath string
-	routes     []evaluatedRoute
+	clients    []evaluatedClient
 }
 
 func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config) checkEvaluation {
@@ -81,65 +65,65 @@ func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg configura
 		if !cfg.Clients[client].Enabled {
 			continue
 		}
-		evaluation.routes = append(evaluation.routes, evaluateRoute(cmd, runtime, cfg, client))
+		evaluation.clients = append(evaluation.clients, evaluateClient(cmd, runtime, cfg, client))
 	}
 	return evaluation
 }
 
-func evaluateRoute(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config, client string) evaluatedRoute {
-	route := evaluatedRoute{client: client}
+func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config, client string) evaluatedClient {
+	result := evaluatedClient{client: client}
 	clientRuntime, err := cfg.ResolveRuntime(client, "")
 	if err != nil {
-		route.resolveErr = err
-		route.issue = err.Error()
-		return route
+		result.resolveErr = err
+		result.issue = err.Error()
+		return result
 	}
-	route.runtime = clientRuntime
-	route.endpointConfigured = strings.TrimSpace(clientRuntime.Endpoint) != ""
+	result.runtime = clientRuntime
+	result.endpointConfigured = strings.TrimSpace(clientRuntime.Endpoint) != ""
 	status := invocation.Synchronizer(runtime).Inspect(cmd.Context(), cfg, client, clientRuntime)
-	route.adapter = status.Ready
-	route.issue = status.Issue
-	route.fix = status.RepairAction
-	if !route.adapter {
-		return route
+	result.adapter = status.Ready
+	result.issue = status.Issue
+	result.fix = status.RepairAction
+	if !result.adapter {
+		return result
 	}
 	if !clientRuntime.UsesAIGWCredentialStore() {
-		route.checkPassed = true
-		route.fix = "aigw verify --for " + client
-		return route
+		result.checkPassed = true
+		result.fix = "aigw verify --for " + client
+		return result
 	}
 	token, tokenErr := runtime.Secrets.Get(clientRuntime.AccountID)
 	if tokenErr != nil {
-		route.credentialErr = tokenErr
-		route.issue = "account token is unavailable"
-		route.fix = "aigw rotate " + clientRuntime.AccountID
-		return route
+		result.credentialErr = tokenErr
+		result.issue = "account token is unavailable"
+		result.fix = "aigw rotate " + clientRuntime.AccountID
+		return result
 	}
-	route.diagnostic = diagnostics.ProbeStable(cmd.Context(), runtime.HTTP, clientRuntime, token, diagnostics.DefaultStabilityPolicy())
-	if route.diagnostic.Kind != diagnostics.Healthy {
-		route.issue = route.diagnostic.Summary
-		route.fix = route.diagnostic.Fix
+	result.diagnostic = diagnostics.ProbeStable(cmd.Context(), runtime.HTTP, clientRuntime, token, diagnostics.DefaultStabilityPolicy())
+	if result.diagnostic.Kind != diagnostics.Healthy {
+		result.issue = result.diagnostic.Summary
+		result.fix = result.diagnostic.Fix
 	}
-	route.checkPassed = route.issue == ""
-	return route
+	result.checkPassed = result.issue == ""
+	return result
 }
 
 func (e checkEvaluation) ok() bool {
-	for _, route := range e.routes {
-		if !route.checkPassed {
+	for _, client := range e.clients {
+		if !client.checkPassed {
 			return false
 		}
 	}
 	return true
 }
 
-func (e checkEvaluation) route(client string) (evaluatedRoute, bool) {
-	for _, route := range e.routes {
-		if route.client == client {
-			return route, true
+func (e checkEvaluation) client(clientID string) (evaluatedClient, bool) {
+	for _, client := range e.clients {
+		if client.client == clientID {
+			return client, true
 		}
 	}
-	return evaluatedRoute{}, false
+	return evaluatedClient{}, false
 }
 
 func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
@@ -151,25 +135,34 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		return writeJSONFailure(runtime, domainreadiness.Deferred, "not configured", "aigw setup", fmt.Errorf("not configured"))
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
-	clients := InspectClients(runtime, cfg)
+	clients := inspectStatusClients(runtime, cfg)
 	result := checkJSON{
 		ConfigPath: evaluation.configPath,
-		Routes:     map[string]checkRoute{},
 		Clients:    clients,
 		OK:         evaluation.ok(),
 	}
-	for _, route := range evaluation.routes {
-		result.Routes[route.client] = checkRoute{
-			Client: route.client, Profile: route.runtime.ProfileID, Account: route.runtime.AccountID,
-			Authentication:     route.runtime.Authentication,
-			EndpointConfigured: route.endpointConfigured, AdapterReady: route.adapter, CheckPassed: route.checkPassed, Issue: route.issue,
-			DiagnosticKind: string(route.diagnostic.Kind), NextAction: route.fix,
-			Attempts: route.diagnostic.Attempts, Retryable: route.diagnostic.Retryable,
+	for _, client := range evaluation.clients {
+		status := clients[client.client]
+		status.Profile = client.runtime.ProfileID
+		status.Account = client.runtime.AccountID
+		status.Authentication = client.runtime.Authentication
+		status.EndpointConfigured = client.endpointConfigured
+		status.ProjectionReady = client.adapter
+		status.CheckPassed = new(bool)
+		*status.CheckPassed = client.checkPassed
+		status.DiagnosticKind = string(client.diagnostic.Kind)
+		status.Attempts = client.diagnostic.Attempts
+		status.Retryable = client.diagnostic.Retryable
+		if client.issue != "" {
+			status.Detail = client.issue
 		}
-		state := clients[route.client]
-		if route.diagnostic.Kind != "" && state.State == domainreadiness.Configured {
-			clients[route.client] = domainreadiness.WithProbe(state, route.diagnostic)
+		if client.fix != "" {
+			status.NextAction = client.fix
 		}
+		if client.diagnostic.Kind != "" && status.State == domainreadiness.Configured {
+			status.Client = domainreadiness.WithProbe(status.Client, client.diagnostic)
+		}
+		clients[client.client] = status
 	}
 	if err := presentation.WriteJSON(runtime.Out, result); err != nil {
 		return err
@@ -179,20 +172,20 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		// already-serialized failure as presented so the root command preserves
 		// one valid JSON document on stdout while still returning a non-zero
 		// result to callers.
-		return presentation.Presented(fmt.Errorf("one or more enabled route checks failed"))
+		return presentation.Presented(fmt.Errorf("one or more enabled client checks failed"))
 	}
 	return nil
 }
 
 func writeJSONFailure(runtime invocation.Context, state domainreadiness.State, message, fix string, cause error) error {
-	result := checkJSON{Routes: map[string]checkRoute{}, Clients: map[string]domainreadiness.Client{}, State: state, NextAction: fix, Error: message}
+	result := checkJSON{Clients: map[string]clientStatus{}, State: state, NextAction: fix, Error: message}
 	if err := presentation.WriteJSON(runtime.Out, result); err != nil {
 		return err
 	}
 	return presentation.Presented(cause)
 }
 
-// RunCheck verifies the selected route, configured client projections, and
+// RunCheck verifies selected client bindings, configured projections, and
 // endpoint authentication without mutating configuration or credentials.
 func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	cfg, err := runtime.Config.Load()
@@ -215,62 +208,62 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			renderer.Status(presentation.Info, invocation.Title(client), "Disabled")
 			continue
 		}
-		route, _ := evaluation.route(client)
-		if route.resolveErr != nil {
-			return invocation.Problem(runtime, invocation.Title(client)+" route cannot be resolved", route.resolveErr.Error(), invocation.Title(client)+" cannot determine which profile to use.", "aigw use <"+client+"-profile>", route.resolveErr)
+		result, _ := evaluation.client(client)
+		if result.resolveErr != nil {
+			return invocation.Problem(runtime, invocation.Title(client)+" binding cannot be resolved", result.resolveErr.Error(), invocation.Title(client)+" cannot determine which Profile to use.", "aigw use --for "+client+" <profile>", result.resolveErr)
 		}
-		if route.credentialErr != nil {
-			instruction, _ := credential.TokenRecovery(runtime.Secrets, route.runtime.AccountID)
+		if result.credentialErr != nil {
+			instruction, _ := credential.TokenRecovery(runtime.Secrets, result.runtime.AccountID)
 			return invocation.Problem(
 				runtime,
 				invocation.Title(client)+" account token is unavailable",
-				"Account "+route.runtime.AccountID+" has no available Token.",
+				"Account "+result.runtime.AccountID+" has no available Token.",
 				invocation.Title(client)+" cannot authenticate to its selected endpoint.",
 				instruction,
-				fmt.Errorf("%s account token unavailable: %w", client, route.credentialErr),
+				fmt.Errorf("%s account token unavailable: %w", client, result.credentialErr),
 			)
 		}
-		if !route.adapter {
-			impact := invocation.Title(client) + " cannot inherit AIGW routes, tokens, or configuration projections."
-			return invocation.Problem(runtime, invocation.Title(client)+" adapter is not ready", route.issue, impact, route.fix, fmt.Errorf("%s adapter not ready", client))
+		if !result.adapter {
+			impact := invocation.Title(client) + " cannot receive its AIGW Profile, Token, or configuration projection."
+			return invocation.Problem(runtime, invocation.Title(client)+" projection is not ready", result.issue, impact, result.fix, fmt.Errorf("%s projection not ready", client))
 		}
-		if !route.runtime.UsesAIGWCredentialStore() {
-			renderer.Status(presentation.OK, invocation.Title(client), route.runtime.ProfileLabel+" · Local projection checked")
+		if !result.runtime.UsesAIGWCredentialStore() {
+			renderer.Status(presentation.OK, invocation.Title(client), result.runtime.ProfileLabel+" · Local projection checked")
 			detail := "Client-owned authentication requires an explicit live verification"
-			if route.runtime.CredentialCommand != "" {
+			if result.runtime.CredentialCommand != "" {
 				detail = "External credential helper requires an explicit live verification"
 			}
 			renderer.Detail(detail)
-			verificationCommands = append(verificationCommands, route.fix)
+			verificationCommands = append(verificationCommands, result.fix)
 			continue
 		}
-		result := route.diagnostic
-		if result.Kind != diagnostics.Healthy {
-			evidence := result.Detail
-			if result.HTTPStatus != 0 {
-				evidence = fmt.Sprintf("HTTP %d", result.HTTPStatus)
-				if result.Detail != "" {
-					evidence += " · " + result.Detail
+		diagnostic := result.diagnostic
+		if diagnostic.Kind != diagnostics.Healthy {
+			evidence := diagnostic.Detail
+			if diagnostic.HTTPStatus != 0 {
+				evidence = fmt.Sprintf("HTTP %d", diagnostic.HTTPStatus)
+				if diagnostic.Detail != "" {
+					evidence += " · " + diagnostic.Detail
 				}
 			}
-			return invocation.Problem(runtime, result.Summary, evidence, invocation.Title(client)+" is unavailable.", result.Fix, fmt.Errorf("%s diagnostic kind %s", client, result.Kind))
+			return invocation.Problem(runtime, diagnostic.Summary, evidence, invocation.Title(client)+" is unavailable.", diagnostic.Fix, fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
 		}
-		renderer.Status(presentation.OK, invocation.Title(client), route.runtime.ProfileLabel+" · Endpoint checked")
-		if result.RecoveredTransient {
+		renderer.Status(presentation.OK, invocation.Title(client), result.runtime.ProfileLabel+" · Endpoint checked")
+		if diagnostic.RecoveredTransient {
 			renderer.Detail(invocation.Title(client) + " authentication recovered after a transient response")
 		}
-		if endpointTransport(route.runtime.Endpoint) == endpointTransportExternalLoopback {
+		if endpointTransport(result.runtime.Endpoint) == endpointTransportExternalLoopback {
 			renderer.Detail(invocation.Title(client) + " uses a loopback endpoint; AIGW does not manage the endpoint runtime")
 		}
 	}
 	renderer.Section("Result")
-	if len(evaluation.routes) == 0 {
+	if len(evaluation.clients) == 0 {
 		renderer.Success("Configuration is healthy; no clients are enabled")
 		return nil
 	}
 	// Passing this command establishes only the checks it actually performed.
 	// Endpoint diagnostics do not execute a model or a real client.
-	renderer.Success("All enabled route checks passed")
+	renderer.Success("All enabled client checks passed")
 	renderer.Detail("Model inference and real-client execution were not verified")
 	for _, command := range verificationCommands {
 		renderer.Next(command)

@@ -34,11 +34,11 @@ For every duplicate helper, wrapper, configuration fragment, compatibility path,
 
 ### 3. Product journeys define dependency order
 
-Converge the paths in this order: configuration and route authority; credentials; client projections; installation and recovery; provider/client extension; repository topology; quality graph; documentation; performance and final acceptance. This order prevents structural refactors from preserving broken behavior and avoids running expensive matrices before local semantics stabilize.
+Converge the paths in this order: configuration and Client Binding authority; credentials; client projections; installation and recovery; provider/client extension; repository topology; quality graph; documentation; performance and final acceptance. This order prevents structural refactors from preserving broken behavior and avoids running expensive matrices before local semantics stabilize.
 
 ### 4. AIGW and Proxy compose only through explicit endpoints
 
-AIGW owns Accounts, Tokens, Profiles, Routes, and client projections. It carries no Proxy lifecycle, state, or mandatory loopback default. A profile may select a direct provider endpoint or any independently managed compatible endpoint. Proxy owns protocol translation and runtime traffic when explicitly installed. Tests use an external endpoint contract rather than importing Proxy implementation.
+AIGW owns Accounts, Tokens, Profiles, Client Bindings, and native projections. It carries no Proxy lifecycle, state, or mandatory loopback default. A Profile may resolve a direct provider endpoint or any independently managed compatible endpoint. Proxy owns protocol translation and runtime traffic when explicitly installed. Tests use an external endpoint contract rather than importing Proxy implementation.
 
 ### 5. Quality has one declarative graph
 
@@ -63,7 +63,7 @@ third-party inference configuration is independent of Claude Code settings.
 
 Client, provider, model, protocol, and host surface are separate dimensions.
 AIGW selects explicit endpoints and credential references through the shared
-route and transaction owners. Client Adapters encapsulate native configuration,
+Client Binding and transaction owners. Client Adapters encapsulate native configuration,
 authentication delivery, discovery, verification, and withdrawal. Model names
 are provider data; usable capabilities come from the actual client and endpoint.
 Protocol translation remains at an independently selected compatible service.
@@ -81,20 +81,18 @@ owns source evidence; tasks own implementation progress.
 ### 9. Redesign intent before extending adapters
 
 The requested outcome is choosing a usable model for a client, not maintaining
-separate copies of the same model for every executable. The current
-`Profile.Client`, `Routes`, and `Adapters` structure is a baseline under review,
-not a constraint on the final schema. Its costs are now observable: a new
-client changes unrelated readiness suggestions; protocol selection leaks into
-credential probing; and each Adapter repeats discovery, activation, rollback,
-and verification orchestration.
+separate copies of the same model for every executable. The prior v3
+`Profile.Client`, `Routes`, and `Adapters` structure is now bounded migration
+input, not normal-runtime authority. Its costs were observable: a new client
+changed unrelated readiness suggestions, protocol selection leaked into
+credential probing, and each Adapter repeated selection and activation state.
 
-The recommended replacement has three existing concepts, not another layer:
+The v4 runtime has three configuration concepts, not another layer:
 
 - **Account:** provider endpoint declarations and one credential reference.
 - **Profile:** one Account and real upstream model, independent of client brand.
-- **Client configuration:** selected Profile, explicit enabled intent, native
-  target, and only genuinely client-specific options. Consolidate the current
-  Route and Adapter state here instead of keeping parallel selections.
+- **Client Binding:** selected Profile, explicit enabled intent, native target,
+  authentication, protocol, and only genuinely client-specific options.
 
 A Profile may be selected by several compatible clients. The client-specific
 binding resolves the protocol from the Profile's Account and the Adapter's
@@ -103,10 +101,9 @@ for an explicit choice when several remain. Never guess from a model prefix,
 client brand, or the order of declarations. Client-native authentication stays
 inside that client's contract rather than acquiring a second AIGW token owner.
 
-This recommendation supersedes the assumption that preserving the current
-schema is intrinsically desirable. Update canonical requirements and public
-examples before implementing the replacement. Stable installed state remains
-untouched until a candidate and a reviewed migration are accepted.
+Current source, tests, public commands, and documentation use this replacement.
+Stable installed state remains untouched until a candidate and the reviewed
+migration pass native acceptance.
 
 #### User journey
 
@@ -306,9 +303,10 @@ semantics before further restructuring:
 - manifest setup imports capability with no Token and no installed client;
 - any one available Account Token is sufficient, including an explicitly
   selected Account or the read-only environment backend;
-- setup projects only the intersection of installed clients and usable Routes;
+- setup projects only the intersection of installed clients and usable bindings;
 - installing a client or making its Token available later is completed by
-  `aigw sync` or an explicit `aigw use <profile>`, without repeating setup;
+  `aigw sync` for an existing enabled binding or an explicit
+  `aigw use --for <client> <profile>`, without repeating setup;
 - independent Claude and Codex selections remain independent, and `aigw check`
   accepts both without a hidden global or bulk-selection step;
 - cancellation, invalid backend state, projection failure, persistence failure,
@@ -329,6 +327,22 @@ manifest schema errors now state that AIGW does not reinterpret versions and
 direct the operator to a matching release or an explicitly reviewed canonical
 export instead of suggesting a generic readiness retry. Focused configuration,
 presentation, onboarding, synchronization, and CLI acceptance suites pass.
+
+Tasks 2.6 through 2.8 are accepted on the current Work Lane. Normal runtime now
+loads only configuration schema v4; the explicit migration command is the sole
+v3 reader. Its dry run preserves the exact configuration bytes, credentials and
+client files. Apply writes one Client Binding model, retains the exact v3 bytes
+as rollback input and rejects a changed preimage; rollback restores those exact
+bytes while leaving credentials and client state untouched. The obsolete
+`route` and `adapter` commands, their duplicate list state and their package
+topology were deleted. `use --for`, `status`, `check`, `doctor`, `test` and
+`verify` now consume one Client Binding authority; JSON uses one `clients` state
+tree and manifest setup reports `selected_bindings` without a compatibility
+field. `mise run check` passes with 95.34% statement coverage, and the macOS
+`mise run native` gate passes retained-configuration rollback, delayed client
+activation, partial-credential setup, portable lifecycle and the shipped team
+manifest journey. These results do not establish the pending Linux, Windows,
+Hermes or Claude Desktop acceptance tasks.
 
 Credential portability is accepted at signed commit `3863e05e`. The ordinary
 GitHub review run `35455496791` exercised the complete native graph on macOS,
@@ -397,11 +411,11 @@ or non-secret projection bytes, not Tokens. Current Claude sidecars record no
 present original credential value, and the first-adoption path rejects
 plaintext credentials or a foreign helper before writing a sidecar.
 
-The external-gateway boundary is accepted through tasks 4.1 to 4.5. Production
+The external-gateway boundary is accepted through tasks 4.1 to 4.3. Production
 source and the shipped team manifest contain no Proxy identity, fixed Proxy
 port, listener, service manager, installation, or runtime lifecycle. An Account
 holds either a direct HTTPS endpoint or an explicitly selected loopback endpoint;
-both follow the same Profile, Route, projection, readiness, and diagnostic path.
+both follow the same Profile, Client Binding, projection, readiness, and diagnostic path.
 Loopback classification reports only that the service is external, while an
 absent or unavailable endpoint produces the ordinary configuration or network
 failure without installation, startup, retry, or repair of another product.
@@ -409,22 +423,22 @@ Historical Proxy-shaped test ports were replaced with a neutral loopback
 fixture. Strict local and manifest schema admission rejects older versions and
 unknown fields rather than retaining a compatibility reader or gateway field.
 
-A synthetic `northstar` Provider passes parse, merge, connected-Account route
+A synthetic `northstar` Provider passes parse, merge, connected-Account binding
 selection, runtime resolution, and client-native Codex projection using only
 manifest data; no provider name enters the control-plane core. The sole
 provider-specific production package remains the explicitly selected DMXAPI
-Account diagnostic, which is outside Route and projection semantics. A
+Account diagnostic, which is outside Client Binding and projection semantics. A
 synthetic `future` Client passes the complete registry contract for discovery,
 convergence, preflight, guarded projection, change detection, inspection, live
 verification, compensation, disable, and withdrawal. The same registry rejects
 unadmitted or incomplete implementations, prepares all selected clients before
-writing, compensates in reverse order, and preserves existing Accounts, Routes,
+writing, compensates in reverse order, and preserves existing Accounts, Client Bindings,
 and built-in clients. Adapter and uninstall acceptance confirm that withdrawal
 removes only owned projection state and never the foreign client executable.
 The extension and admission documents identify the same contract and keep
 incompatible wire behavior in an independent data plane. Focused suites for
 `internal/configuration`, `internal/client`, `internal/cli/acceptance`,
-`internal/cli/adapter`, `internal/cli/install`, `internal/cli/readiness`, and
+`internal/cli/client`, `internal/cli/install`, `internal/cli/readiness`, and
 `internal/codex` pass with these boundaries.
 
 Task 4.6 compares replaceable responsibility rather than feature count. At this
@@ -443,7 +457,7 @@ The bounded upstream review on 2026-09-20 produced these decisions:
   1.21.0](https://github.com/spf13/viper/releases/tag/v1.21.0) declares ten
   direct and seven indirect requirements. Both own generic source loading and
   merging. Neither removes AIGW's strict schema, unknown-field rejection,
-  Account/Profile/Route validation, explicit conflict admission, atomic store,
+  Account/Profile/Client Binding validation, explicit conflict admission, atomic store,
   or source-preserving client projection. Their alias, default, watch, or
   ambient-source behavior would introduce a second configuration semantic, so
   neither is adopted.
@@ -463,7 +477,7 @@ The bounded upstream review on 2026-09-20 produced these decisions:
   a product obligation.
 - [LiteLLM 1.101.0](https://github.com/BerriAI/litellm/releases/tag/v1.101.0)
   is a Python SDK and traffic gateway, not a replacement for local Account,
-  credential, Route, or native-client projection ownership. It may be selected
+  credential, Client Binding, or native-client projection ownership. It may be selected
   as an external endpoint, or evaluated later against Proxy with protocol and
   lifecycle evidence, but it must not enter AIGW as a framework dependency.
 
@@ -569,10 +583,10 @@ release construction tests pass after the consolidation.
 
 Task 5.5 removes implementations retained only by tests after their product
 consumers disappeared: the standalone Codex inspection result model and
-sidecar-identity reader, an onboarding runtime selector, a route-list forwarding
+sidecar-identity reader, an onboarding runtime selector, a route-list command,
 function, a default-provider parsing wrapper, and a duplicate coverage-percent
 helper. Their live safety properties remain exercised through the actual
-`ValidateConfig`, `ReconcileConfigs`, route command, onboarding, and coverage
+`ValidateConfig`, `ReconcileConfigs`, selection command, onboarding, and coverage
 paths. A cross-platform `deadcode` 0.50.0 audit over Darwin arm64, Linux amd64,
 and Windows amd64 reports no unreachable functions when all declared acceptance
 build tags are enabled. The production-only view leaves eleven intentional test
@@ -587,7 +601,7 @@ Task 5.6 narrows the remaining domain language around the objects AIGW actually
 owns. The guided `add` journey now connects an Account and its first Profile;
 optional provider-platform credentials live under `account diagnostics`, so
 they cannot be confused with an Account Token or with connectivity itself.
-Account identifiers, labels, Tokens, Profile identifiers, Routes, endpoint
+Account identifiers, labels, Tokens, Profile identifiers, Client Bindings, endpoint
 runtimes, and native credential services retain distinct names in code and
 human output. The former generic renaming `Service` is now `Renamer`, while
 Codex and Claude projection transitions use closed action types at their owning
@@ -630,7 +644,7 @@ current AIGW responsibility without adding another build, execution,
 environment, or policy authority. CUE 0.17.1 remains the stable locked CI model
 because it already replaces separately maintained Forge workflows. CEL may be
 reconsidered only for a future data-plane product that needs operator-authored,
-high-frequency runtime predicates; AIGW's explicit Profile and Route model has
+high-frequency runtime predicates; AIGW's explicit Profile and Client Binding model has
 no such requirement. Pants, Dagger, and Nix require the same future test: remove
 more owned execution and environment complexity than they introduce, without
 weakening native macOS, Linux, or Windows evidence.
@@ -687,7 +701,7 @@ package observed. A local macOS arm64 comparison then measured the current
 source program against the downloaded published `0.1.0` predecessor. The
 candidate's pooled p95 was 4.442 ms for version, 4.300 ms for help, 4.323 ms
 for configured status, 4.331 ms for configuration export, 6.720 ms for the
-projected environment credential helper, and 23.093 ms for one durable Route
+projected environment credential helper, and 23.093 ms for one durable Client Binding
 projection. Its two configured-status peak-memory blocks each reached
 14,876,672 bytes, compared with predecessor maxima of 14,827,520 and 14,925,824
 bytes. Across the six release targets, executable-size change ranged from

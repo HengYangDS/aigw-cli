@@ -142,11 +142,7 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	if manager == "portable" {
 		removedPaths = append(removedPaths, app.Executable, previousExecutable)
 	}
-	for _, path := range removedPaths {
-		if _, err := os.Stat(path); !os.IsNotExist(err) {
-			t.Fatalf("owned uninstall residue remains at %s: %v", path, err)
-		}
-	}
+	requirePathsAbsent(t, removedPaths)
 	if data, err := os.ReadFile(codexTarget); err != nil || string(data) != codexUserState {
 		t.Fatalf("Codex user state = %q, %v", data, err)
 	}
@@ -166,8 +162,11 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	if manager == "homebrew" {
 		expectedBindings = 2
 	}
-	if len(retained.Clients) != expectedBindings || len(retained.EnabledClientIDs()) != 0 || retained.Routes[configuration.ClientClaude] != "claude" || retained.Routes[configuration.ClientCodex] != "codex" || len(retained.Accounts) != 1 || len(retained.Profiles) != 2 {
+	if len(retained.Clients) != expectedBindings || len(retained.EnabledClientIDs()) != 0 || len(retained.Accounts) != 1 || len(retained.Profiles) != 2 {
 		t.Fatalf("retained capability configuration = %#v", retained)
+	}
+	if manager == "homebrew" && (retained.SelectedProfile(configuration.ClientClaude) != "claude" || retained.SelectedProfile(configuration.ClientCodex) != "codex") {
+		t.Fatalf("package-managed uninstall changed retained client selections: %#v", retained.Clients)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "token" {
 		t.Fatalf("retained credential = %q, %v", token, err)
@@ -179,6 +178,15 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	expectedAdapters := 2
 	if err != nil || len(previous.Clients) != expectedAdapters {
 		t.Fatalf("previous configuration = %#v, %v", previous, err)
+	}
+}
+
+func requirePathsAbsent(t *testing.T, paths []string) {
+	t.Helper()
+	for _, path := range paths {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("owned uninstall residue remains at %s: %v", path, err)
+		}
 	}
 }
 
@@ -200,12 +208,12 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 	}}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Model: "claude-model"}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Client: configuration.ClientCodex, Model: "gpt-model"}
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Routes[configuration.ClientCodex] = "codex"
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: claudeExecutable}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: codexExecutable, Targets: []string{codexTarget}}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Model: "claude-model"}
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Model: "gpt-model"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
+	cfg.SetClientActivation(configuration.ClientClaude, true, claudeExecutable, nil)
+	cfg.SetClientActivation(configuration.ClientCodex, true, codexExecutable, []string{codexTarget})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -233,10 +241,10 @@ func withdrawInstallationClients(t *testing.T, app *cli.App, manager, previousEx
 		t.Fatalf("managed uninstall = %v", err)
 	}
 	for _, client := range configuration.AdmittedClientIDs() {
-		if err := cli.Execute(app, []string{"adapter", "disable", client}); err != nil {
+		if err := cli.Execute(app, []string{"client", "disable", client}); err != nil {
 			t.Fatal(err)
 		}
-		if err := cli.Execute(app, []string{"adapter", "disable", client}); err != nil {
+		if err := cli.Execute(app, []string{"client", "disable", client}); err != nil {
 			t.Fatalf("repeat disable: %v", err)
 		}
 	}

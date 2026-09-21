@@ -21,8 +21,8 @@ func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-5.6-sol"] = configuration.Profile{Label: "GPT Profile", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-5.6-sol"}
-	cfg.Routes[configuration.ClientCodex] = "gpt-5.6-sol"
+	cfg.Profiles["gpt-5.6-sol"] = configuration.Profile{Label: "GPT Profile", Account: "dmx", Model: "gpt-5.6-sol"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt-5.6-sol")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -155,8 +155,8 @@ func TestRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "new-token\n")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
-	cfg.Routes[configuration.ClientCodex] = "one"
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{t.TempDir()}}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{t.TempDir()})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -182,11 +182,11 @@ func TestRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T) {
 			}
 			cfg := configuration.NewConfig()
 			addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
-			cfg.Routes[configuration.ClientCodex] = "one"
-			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+			cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+			cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 			wantMessage := "clients control their refresh timing"
 			if !hasTarget {
-				cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex"}
+				cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", nil)
 			}
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -227,11 +227,11 @@ func TestRotateClaudeOnlyAccountDoesNotTouchCodexTargets(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["codex-account"] = configuration.Account{Label: "Codex", Endpoints: configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}}
 	cfg.Accounts["claude-account"] = configuration.Account{Label: "Claude", Endpoints: configuration.Endpoints{Anthropic: "https://claude.test"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "codex-account", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "claude-account", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/missing/codex", Targets: []string{filepath.Join(t.TempDir(), "unavailable-codex-configuration.toml")}}
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "codex-account", Model: "gpt-test"}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "claude-account", Model: "claude-test"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/missing/codex", []string{filepath.Join(t.TempDir(), "unavailable-codex-configuration.toml")})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

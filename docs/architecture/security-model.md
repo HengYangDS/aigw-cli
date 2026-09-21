@@ -64,7 +64,7 @@ Each local Adapter may set `credential_command` to one absolute executable
 path. The selected executable must accept
 `credential <client> <projection-fingerprint>`, validate the requested projection,
 and emit only its Token on successful stdout. The fingerprint identifies a
-route; it is not caller authorization. The operator owns the executable's
+Client Binding; it is not caller authorization. The operator owns the executable's
 installation, trust, permissions and credential source. AIGW does not discover
 an alternative reader, change native access control or install the helper.
 
@@ -93,7 +93,7 @@ selecting that predecessor. The updater's compatibility check remains required.
 ## Configuration boundary
 
 Manifest validation uses public metadata, not Token values. Account-Token
-routes require credential availability before client activation. Client-native
+Client Bindings require credential availability before client activation. Client-native
 Codex authentication needs no AIGW Token and remains client-owned. Public
 configuration never carries credentials.
 
@@ -172,5 +172,5 @@ and redirect failures are terminal.
 Uninstall first withdraws AIGW-owned client projections, including marked
 configuration blocks, sidecars, generated catalogues, and credential helpers.
 It then removes the selected program and its rollback copy. Accounts, Profiles,
-Routes, Tokens, explicit configuration backup, client conversations, and
+Client Bindings, Tokens, explicit configuration backup, client conversations, and
 neighboring user-authored settings remain intact.

@@ -16,9 +16,10 @@ func TestHermesSetupDeferredSyncCredentialCheckAndWithdrawal(t *testing.T) {
 	app, output, credentials, runner, httpClient := testApp(t, "")
 	root := t.TempDir()
 	manifest := filepath.Join(root, "team.toml")
-	writeFile(t, manifest, []byte(`version = 4
-[recommended_routes]
-hermes = "team-model"
+	writeFile(t, manifest, []byte(`version = 5
+[recommendations.hermes]
+profile = "team-model"
+protocol = "anthropic"
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
@@ -26,9 +27,7 @@ anthropic = "https://provider.test"
 [profiles.team-model]
 label = "Team Model"
 account = "team"
-client = "hermes"
 model = "model-test"
-protocol = "anthropic"
 `), 0o600)
 	if err := credentials.Set("team", "public-fixture-token"); err != nil {
 		t.Fatal(err)
@@ -40,8 +39,8 @@ protocol = "anthropic"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Clients[configuration.ClientHermes].Enabled || cfg.Routes[configuration.ClientHermes] != "team-model" {
-		t.Fatal("deferred setup lost intent or enabled an absent client")
+	if !cfg.Clients[configuration.ClientHermes].Enabled || cfg.SelectedProfile(configuration.ClientHermes) != "team-model" {
+		t.Fatal("deferred setup lost selected or enabled intent")
 	}
 	target := filepath.Join(root, "hermes", "config.yaml")
 	executable := executableFixture(t, "hermes")
@@ -68,7 +67,7 @@ protocol = "anthropic"
 	if !bytes.Contains(before, []byte("key_cmd:")) || bytes.Contains(before, []byte("public-fixture-token")) {
 		t.Fatal("Hermes did not receive a secret-free native helper projection")
 	}
-	if err := cli.Execute(app, []string{"adapter", "disable", "hermes"}); err != nil {
+	if err := cli.Execute(app, []string{"client", "disable", "hermes"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := cli.Execute(app, []string{"sync"}); err != nil {

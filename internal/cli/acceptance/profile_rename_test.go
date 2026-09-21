@@ -15,8 +15,8 @@ func TestProfileRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-old"] = configuration.Profile{Label: "GPT Old", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-old"}
-	cfg.Routes[configuration.ClientCodex] = "gpt-old"
+	cfg.Profiles["gpt-old"] = configuration.Profile{Label: "GPT Old", Account: "dmx", Model: "gpt-old"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt-old")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestProfileRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 		t.Fatalf("profile rename created profile-level secret slots")
 	}
 	got, _ := app.Config.Load()
-	if got.Routes[configuration.ClientCodex] != "gpt-new" || got.Profiles["gpt-new"].Account != "dmx" {
+	if got.SelectedProfile(configuration.ClientCodex) != "gpt-new" || got.Profiles["gpt-new"].Account != "dmx" {
 		t.Fatalf("rename config = %#v", got)
 	}
 }
@@ -39,8 +39,8 @@ func TestProfileRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 func TestProfileRenameInteractiveZeroArgsSortsChoicesAndUpdatesRoutes(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := profileRenameConfig()
-	cfg.Profiles["alpha"] = configuration.Profile{Label: "Alpha", Account: "gateway", Client: configuration.ClientCodex, Model: "alpha"}
-	cfg.Routes[configuration.ClientCodex] = "zeta-old"
+	cfg.Profiles["alpha"] = configuration.Profile{Label: "Alpha", Account: "gateway", Model: "alpha"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "zeta-old")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -62,8 +62,8 @@ func TestProfileRenameInteractiveZeroArgsSortsChoicesAndUpdatesRoutes(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Routes[configuration.ClientCodex] != "zeta-new" {
-		t.Fatalf("routes after rename = %#v", got.Routes)
+	if got.SelectedProfile(configuration.ClientCodex) != "zeta-new" {
+		t.Fatalf("bindings after rename = %#v", got.Clients)
 	}
 	profile, ok := got.Profiles["zeta-new"]
 	if !ok || profile.Label != "Zeta" || profile.Account != "gateway" {
@@ -141,7 +141,7 @@ func TestProfileRenameNonInteractiveRequiresBothIDs(t *testing.T) {
 func TestProfileRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
 	cfg := profileRenameConfig()
-	cfg.Routes[configuration.ClientCodex] = "zeta-old"
+	cfg.SetSelectedProfile(configuration.ClientCodex, "zeta-old")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestProfileRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	if result.Resource != "profile" || result.OldID != "zeta-old" || result.NewID != "zeta-new" || result.Status != "planned" {
 		t.Fatalf("rename result = %#v", result)
 	}
-	wantReferences := []string{"routes.codex"}
+	wantReferences := []string{"clients.codex.profile"}
 	if !reflect.DeepEqual(result.AffectedReferences, wantReferences) {
 		t.Fatalf("affected references = %q, want %q", result.AffectedReferences, wantReferences)
 	}
@@ -210,7 +210,7 @@ func TestProfileRenameRefusesInvalidOrConflictingTargetWithoutMutation(t *testin
 		t.Run(target, func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")
 			cfg := profileRenameConfig()
-			cfg.Profiles["alpha"] = configuration.Profile{Label: "Alpha", Account: "gateway", Client: configuration.ClientCodex, Model: "alpha-model"}
+			cfg.Profiles["alpha"] = configuration.Profile{Label: "Alpha", Account: "gateway", Model: "alpha-model"}
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -236,7 +236,7 @@ func TestProfileRenameRefusesInvalidOrConflictingTargetWithoutMutation(t *testin
 func profileRenameConfig() configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Profiles["zeta-old"] = configuration.Profile{Label: "Zeta", Purpose: "Keep this label and purpose", Account: "gateway", Client: configuration.ClientCodex, Model: "zeta-model"}
-	cfg.Routes[configuration.ClientCodex] = "zeta-old"
+	cfg.Profiles["zeta-old"] = configuration.Profile{Label: "Zeta", Purpose: "Keep this label and purpose", Account: "gateway", Model: "zeta-model"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "zeta-old")
 	return cfg
 }

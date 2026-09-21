@@ -27,8 +27,8 @@ Classify an extension through the
 before applying the evidence requirements below. Existing compatible Accounts
 and models need configuration admission, not a new client implementation.
 
-The admitted clients live in one static registry. Status, diagnostics, profile
-validation, route validation, and adapter discovery read from that registry. A
+The admitted clients live in one static registry. Status, diagnostics, Profile
+compatibility, binding validation, and client discovery read from that registry. A
 new model in an account catalog does not change it.
 
 ## Dependency admission
@@ -111,7 +111,7 @@ Every new adapter must supply all of the following before merge:
 
 The implementation must expose one cohesive Adapter boundary for discovery,
 planning, guarded projection, verification, rollback, and uninstall. Client
-names do not belong in provider admission, route persistence, transaction, or
+names do not belong in provider admission, Client Binding persistence, transaction, or
 presentation policy. A missing client is a successful no-op, not an invitation
 to create placeholder state.
 
@@ -122,7 +122,7 @@ both the required and forbidden headers and prove that neither the credential
 nor its header name appears in command output.
 
 Until a Client Adapter completes admission, it remains outside the operational
-registry and routable Profiles. Model and Account catalogue discovery does not
-create Profiles or select Routes. Comparative product observations belong to
+registry and compatible Profiles. Model and Account catalogue discovery does not
+create Profiles or select Client Bindings. Comparative product observations belong to
 [research](../research/provider-tooling-assessment.md), not a second admission
 registry in this policy.

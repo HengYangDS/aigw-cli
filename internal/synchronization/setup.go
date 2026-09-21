@@ -42,6 +42,15 @@ func (s Synchronizer) Setup(ctx context.Context, before, after configuration.Con
 		if !slices.Contains(s.ClientIDs(), client) {
 			return configuration.Config{}, fmt.Errorf("setup client %q has no admitted operational adapter", client)
 		}
+		binding := after.Clients[client]
+		if binding.Profile == "" {
+			return configuration.Config{}, fmt.Errorf("setup client %q has no selected profile", client)
+		}
+		binding.Enabled = true
+		after.Clients[client] = binding
+	}
+	if err := after.Validate(); err != nil {
+		return configuration.Config{}, err
 	}
 	rollback, err := secrets.Replace(s.Secrets, tokens)
 	if err != nil {
@@ -63,7 +72,7 @@ func (s Synchronizer) Setup(ctx context.Context, before, after configuration.Con
 			return configuration.Config{}, err
 		}
 	}
-	if err := s.Commit(ctx, before, after, "setup"); err != nil {
+	if err := s.commit(ctx, before, after, "setup", len(clients) > 0, clients...); err != nil {
 		return configuration.Config{}, err
 	}
 	return after, nil

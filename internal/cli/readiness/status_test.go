@@ -29,7 +29,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
-		cfg.Clients[client] = configuration.ClientBinding{Enabled: true}
+		cfg.SetClientActivation(client, true, "", nil)
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -65,9 +65,9 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 		t.Fatalf("enabled diagnostic status = %q", got)
 	}
 
-	cfg.Profiles["codex-only"] = configuration.Profile{Label: "Codex only", Purpose: "Selection", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
-	delete(cfg.Routes, configuration.ClientCodex)
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude only", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Profiles["codex-only"] = configuration.Profile{Label: "Codex only", Purpose: "Selection", Account: "one", Model: "gpt-test"}
+	delete(cfg.Clients, configuration.ClientCodex)
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude only", Account: "one", Model: "claude-test"}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := buffer.String(); !strings.Contains(got, "aigw use codex") {
+	if got := buffer.String(); !strings.Contains(got, "aigw use --for codex claude") {
 		t.Fatalf("route selection status = %q", got)
 	}
 }
@@ -159,8 +159,8 @@ func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *test
 		t.Fatal(err)
 	}
 	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
-		if status.Routes[client].Transport != "external_loopback" {
-			t.Errorf("client %s transport = %q", client, status.Routes[client].Transport)
+		if status.Clients[client].Transport != "external_loopback" {
+			t.Errorf("client %s transport = %q", client, status.Clients[client].Transport)
 		}
 	}
 	after, err := os.ReadFile(runtime.Config.Path())
@@ -277,12 +277,13 @@ func TestStatusFallsBackToRepairForUnclassifiedAttention(t *testing.T) {
 	runtime := invocation.Context{Out: out, RenderOut: out, Width: 120}
 	cfg := configuration.NewConfig()
 	cfg.Profiles["available"] = configuration.Profile{Label: "Available"}
-	routes := map[string]routeStatus{}
+	clients := map[string]clientStatus{}
 	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
-		routes[client] = routeStatus{State: domainreadiness.Invalid}
+		state := domainreadiness.Client{State: domainreadiness.Invalid}
+		clients[client] = clientStatus{Client: state}
 	}
 
-	renderStatus(runtime, cfg, statusOutput{Routes: routes})
+	renderStatus(runtime, cfg, statusOutput{Clients: clients})
 	got := out.String()
 	if !strings.Contains(got, "aigw repair") || !strings.Contains(got, "No selected account") {
 		t.Fatalf("status fallback = %q", got)
@@ -300,7 +301,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 		clientID := string(state)
 		attention, _ := renderClientStatus(
 			invocation.Renderer(runtime),
-			statusOutput{Routes: map[string]routeStatus{clientID: {Client: domainreadiness.Client{State: state}}}},
+			statusOutput{Clients: map[string]clientStatus{clientID: {Client: domainreadiness.Client{State: state}}}},
 			[]string{clientID},
 		)
 		if attention != (state == domainreadiness.Invalid) {
@@ -311,7 +312,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 
 func TestStatusReportsSelectedUnknownProfile(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	cfg.Routes[configuration.ClientClaude] = "missing"
+	cfg.SetSelectedProfile(configuration.ClientClaude, "missing")
 	state := inspectStatusClients(runtime, cfg)[configuration.ClientClaude]
 	if state.State != domainreadiness.Invalid || state.Profile != "missing" || !strings.Contains(state.Detail, `unknown profile "missing"`) {
 		t.Fatalf("Claude status = %#v", state)
@@ -336,12 +337,14 @@ func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 
 func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
-	profile := cfg.Profiles["codex"]
-	profile.ModelProvider = "amazon-bedrock"
-	profile.Authentication = configuration.AuthenticationClientNative
-	cfg.Profiles["codex"] = profile
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true}
+	codexBinding := cfg.Clients[configuration.ClientCodex]
+	codexBinding.Enabled = true
+	codexBinding.ModelProvider = "amazon-bedrock"
+	codexBinding.Authentication = configuration.AuthenticationClientNative
+	cfg.Clients[configuration.ClientCodex] = codexBinding
+	claudeBinding := cfg.Clients[configuration.ClientClaude]
+	claudeBinding.Enabled = true
+	cfg.Clients[configuration.ClientClaude] = claudeBinding
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -365,7 +368,7 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 			t.Fatalf("client-native status = %q, want %q", human, want)
 		}
 	}
-	for _, unwanted := range []string{"Token", "aigw rotate", "aigw adapter auth"} {
+	for _, unwanted := range []string{"Token", "aigw rotate", "aigw client auth"} {
 		if strings.Contains(human, unwanted) {
 			t.Fatalf("client-native status = %q, contains %q", human, unwanted)
 		}
@@ -409,7 +412,7 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "codex"}
+	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -422,16 +425,16 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 		t.Fatal(err)
 	}
 	var result struct {
-		Routes map[string]struct {
-			AdapterReady   bool   `json:"adapter_ready"`
-			Authentication string `json:"authentication"`
-		} `json:"routes"`
+		Clients map[string]struct {
+			ProjectionReady bool   `json:"projection_ready"`
+			Authentication  string `json:"authentication"`
+		} `json:"clients"`
 	}
 	if err := json.Unmarshal(buffer.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	observed := result.Routes[configuration.ClientCodex]
-	if !observed.AdapterReady || observed.Authentication != string(configuration.AuthenticationAccountToken) {
+	observed := result.Clients[configuration.ClientCodex]
+	if !observed.ProjectionReady || observed.Authentication != string(configuration.AuthenticationAccountToken) {
 		t.Fatalf("local projection observation = %#v", observed)
 	}
 }

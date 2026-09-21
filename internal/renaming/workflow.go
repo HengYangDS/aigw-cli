@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// RenameProfile updates one Profile identity and all Route references as one transaction.
+// RenameProfile updates one Profile identity and all Client Binding references as one transaction.
 func (s Renamer) RenameProfile(ctx context.Context, oldID, newID string, dryRun bool) (Plan, error) {
 	if err := ctx.Err(); err != nil {
 		return Plan{}, err

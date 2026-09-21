@@ -242,7 +242,7 @@ func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cf
 		}
 		runtime, err := cfg.ResolveRuntime(clientID, "")
 		if err != nil {
-			checks = append(checks, Check{Name: "projection:" + clientID, Detail: err.Error(), Fix: "run `aigw use <" + clientID + "-profile>`"})
+			checks = append(checks, Check{Name: "projection:" + clientID, Detail: err.Error(), Fix: "run `aigw use --for " + clientID + " <profile>`"})
 			continue
 		}
 		status := clients.Inspect(ctx, cfg, clientID, runtime)
@@ -332,12 +332,12 @@ func Detail(check Check) string {
 			return "Enabled, but no Codex configuration file is configured"
 		}
 	case name == "projection:codex":
-		return "Current Codex route cannot be resolved"
+		return "Current Codex binding cannot be resolved"
 	case strings.HasPrefix(name, "codex:target-"):
 		if check.OK {
-			return "Matches the current route"
+			return "Matches the current binding"
 		}
-		return "Does not match the current route"
+		return "Does not match the current binding"
 	}
 	if check.OK {
 		return "Healthy"

@@ -12,14 +12,14 @@ import (
 
 var credentialKey = regexp.MustCompile(`(?i)(^|[_-])(token|secret|password|api[_-]?key|auth|authorization(?:[_-]?header)?|credential)($|[_-])`)
 
-const currentVersion = 4
+const currentVersion = 5
 
 // Manifest is the credential-free team capability document accepted by setup and export.
 type Manifest struct {
-	Version           int                `toml:"version"`
-	RecommendedRoutes map[string]string  `toml:"recommended_routes,omitempty"`
-	Accounts          map[string]Account `toml:"accounts,omitempty"`
-	Profiles          map[string]Profile `toml:"profiles"`
+	Version         int                        `toml:"version"`
+	Recommendations map[string]ClientSelection `toml:"recommendations,omitempty"`
+	Accounts        map[string]Account         `toml:"accounts,omitempty"`
+	Profiles        map[string]Profile         `toml:"profiles"`
 }
 
 // MergeOptions makes every local-identity replacement explicit. Configuration
@@ -64,8 +64,8 @@ func Parse(data []byte) (Manifest, error) {
 	if result.Accounts == nil {
 		result.Accounts = map[string]Account{}
 	}
-	if result.RecommendedRoutes == nil {
-		result.RecommendedRoutes = map[string]string{}
+	if result.Recommendations == nil {
+		result.Recommendations = map[string]ClientSelection{}
 	}
 	if len(result.Profiles) == 0 {
 		return Manifest{}, fmt.Errorf("configuration manifest must define at least one profile")
@@ -73,15 +73,15 @@ func Parse(data []byte) (Manifest, error) {
 	check := NewConfig()
 	check.Accounts = result.Accounts
 	check.Profiles = result.Profiles
-	for client, profile := range result.RecommendedRoutes {
+	for client, selection := range result.Recommendations {
 		if !IsAdmittedClient(client) {
-			return Manifest{}, fmt.Errorf("recommended route uses unsupported client %q", client)
+			return Manifest{}, fmt.Errorf("recommendation uses unsupported client %q", client)
 		}
-		if _, ok := result.Profiles[profile]; !ok {
-			return Manifest{}, fmt.Errorf("recommended %s route references unknown profile %q", client, profile)
+		if _, ok := result.Profiles[selection.Profile]; !ok {
+			return Manifest{}, fmt.Errorf("%s recommendation references unknown profile %q", client, selection.Profile)
 		}
-		check.Routes[client] = profile
 	}
+	check.Recommendations = result.Recommendations
 	if err := check.Validate(); err != nil {
 		return Manifest{}, fmt.Errorf("invalid configuration manifest: %w", err)
 	}
@@ -149,7 +149,7 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 		}
 		merged.Profiles[name] = profile
 	}
-	maps.Copy(merged.RecommendedRoutes, incoming.RecommendedRoutes)
+	maps.Copy(merged.Recommendations, incoming.Recommendations)
 	if err := merged.Validate(); err != nil {
 		return Config{}, fmt.Errorf("merge configuration manifest: %w", err)
 	}
@@ -199,11 +199,7 @@ func equivalentProfile(left, right Profile) bool {
 	return left.Label == right.Label &&
 		left.Purpose == right.Purpose &&
 		left.Account == right.Account &&
-		left.Client == right.Client &&
-		left.Model == right.Model &&
-		left.Protocol == right.Protocol &&
-		left.ModelProvider == right.ModelProvider &&
-		resolvedAuthentication(left) == resolvedAuthentication(right)
+		left.Model == right.Model
 }
 
 // Export projects configuration into the canonical credential-free team manifest form.
@@ -211,10 +207,14 @@ func Export(cfg Config) ([]byte, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	recommendedRoutes := make(map[string]string, len(cfg.RecommendedRoutes)+len(cfg.Routes))
-	maps.Copy(recommendedRoutes, cfg.RecommendedRoutes)
-	maps.Copy(recommendedRoutes, cfg.Routes)
-	data, err := toml.Marshal(Manifest{Version: currentVersion, RecommendedRoutes: recommendedRoutes, Accounts: cfg.Accounts, Profiles: cfg.Profiles})
+	recommendations := make(map[string]ClientSelection, len(cfg.Recommendations)+len(cfg.Clients))
+	maps.Copy(recommendations, cfg.Recommendations)
+	for client, binding := range cfg.Clients {
+		if binding.Profile != "" {
+			recommendations[client] = binding.selection()
+		}
+	}
+	data, err := toml.Marshal(Manifest{Version: currentVersion, Recommendations: recommendations, Accounts: cfg.Accounts, Profiles: cfg.Profiles})
 	if err != nil {
 		return nil, err
 	}

@@ -13,26 +13,26 @@ import (
 
 func TestProfileSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	before := setupConfiguration()
-	before.Profiles["next"] = configuration.Profile{Label: "Next", Account: "team", Client: configuration.ClientClaude, Model: "claude-next"}
+	before.Profiles["next"] = configuration.Profile{Label: "Next", Account: "team", Model: "claude-next"}
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
 	credentials := setupTokenStore(t, "existing-token")
 	syncer := Synchronizer{Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
-	changed, err := syncer.SelectProfile(t.Context(), before, "next", "")
+	changed, err := syncer.SelectProfile(t.Context(), before, configuration.ClientClaude, "next", "")
 	if err != nil || !changed {
 		t.Fatalf("selection = %t, %v; want committed change", changed, err)
 	}
 	current, err := store.Load()
-	if err != nil || current.Routes[configuration.ClientClaude] != "next" || before.Routes[configuration.ClientClaude] != "claude" {
+	if err != nil || current.SelectedProfile(configuration.ClientClaude) != "next" || before.SelectedProfile(configuration.ClientClaude) != "claude" {
 		t.Fatalf("selection mutated its input or failed persistence: %v", err)
 	}
 	snapshot, err := store.CaptureSnapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	changed, err = syncer.SelectProfile(t.Context(), current, "next", "")
+	changed, err = syncer.SelectProfile(t.Context(), current, configuration.ClientClaude, "next", "")
 	if err != nil || changed || credentials.writes != 0 {
 		t.Fatalf("repeated selection = %t, %v; credential writes=%d", changed, err, credentials.writes)
 	}
@@ -46,7 +46,7 @@ func TestProfileSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 	for _, phase := range []string{"cancelled", "discovery", "persistence"} {
 		t.Run(phase, func(t *testing.T) {
 			before := setupConfiguration()
-			before.Routes = configuration.Routes{}
+			delete(before.Clients, configuration.ClientClaude)
 			credentials := secrets.NewMemoryStore()
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
@@ -61,14 +61,14 @@ func TestProfileSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 				syncer.Discovery = setupDiscovery(cancel)
 				failure = context.Canceled
 			}
-			_, err := syncer.SelectProfile(ctx, before, "claude", "new-token")
+			_, err := syncer.SelectProfile(ctx, before, configuration.ClientClaude, "claude", "new-token")
 			if !errors.Is(err, failure) {
 				t.Fatalf("selection error = %v, want %v", err, failure)
 			}
 			if token, err := credentials.Get("team"); !errors.Is(err, secrets.ErrNotFound) || token != "" {
 				t.Fatalf("failed selection retained credential: %v", err)
 			}
-			if before.Routes[configuration.ClientClaude] != "" || (phase != "persistence" && store.commits != 0) {
+			if before.SelectedProfile(configuration.ClientClaude) != "" || (phase != "persistence" && store.commits != 0) {
 				t.Fatal("failed selection modified its configuration input or committed after cancellation")
 			}
 		})
@@ -79,10 +79,18 @@ func TestProfileSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 	for _, profile := range []string{"unknown", "native"} {
 		t.Run(profile, func(t *testing.T) {
 			cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
-			cfg.Profiles["native"] = configuration.Profile{Label: "Native", Account: "gateway", Client: configuration.ClientCodex, Model: "model", ModelProvider: "provider", Authentication: configuration.AuthenticationClientNative}
+			cfg.Profiles["native"] = configuration.Profile{Label: "Native", Account: "gateway", Model: "model"}
+			binding := cfg.Clients[configuration.ClientCodex]
+			binding.ModelProvider = "provider"
+			binding.Authentication = configuration.AuthenticationClientNative
+			cfg.Clients[configuration.ClientCodex] = binding
 			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
 			credentials := &setupCredentials{Store: secrets.NewMemoryStore()}
-			_, err := (Synchronizer{Config: store, Secrets: credentials}).SelectProfile(t.Context(), cfg, profile, "token")
+			client := configuration.ClientClaude
+			if profile == "native" {
+				client = configuration.ClientCodex
+			}
+			_, err := (Synchronizer{Config: store, Secrets: credentials}).SelectProfile(t.Context(), cfg, client, profile, "token")
 			if err == nil || credentials.writes != 0 {
 				t.Fatalf("invalid selection reached credential mutation: writes=%d, error=%v", credentials.writes, err)
 			}

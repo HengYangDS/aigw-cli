@@ -14,7 +14,7 @@ func writeResult(runtime invocation.Context, plan renaming.Plan, jsonMode bool) 
 
 	r := invocation.Renderer(runtime)
 	isPlan := plan.Status != renaming.StatusApplied
-	referenceLabel := "Route references"
+	referenceLabel := "Client Binding references"
 	if plan.Resource == renaming.ResourceAccount {
 		referenceLabel = "Profile references"
 		switch {
@@ -65,7 +65,7 @@ func writeResult(runtime invocation.Context, plan renaming.Plan, jsonMode bool) 
 			}
 			r.Next("aigw account rename " + plan.OldID + " " + plan.NewID + " --finalize")
 		} else {
-			r.Success("The account token remains in place and routes were synchronized")
+			r.Success("The account token remains in place and Client Bindings were synchronized")
 		}
 	}
 	return nil

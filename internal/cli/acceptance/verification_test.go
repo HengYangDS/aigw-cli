@@ -23,9 +23,9 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{Anthropic: "https://example.test"}}
-	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude Fable", Account: "dmx", Client: configuration.ClientClaude, Model: "claude-fable-5"}
-	cfg.Routes[configuration.ClientClaude] = "claude-fable-5"
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: claudeExecutable}
+	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude Fable", Account: "dmx", Model: "claude-fable-5"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude-fable-5")
+	cfg.SetClientActivation(configuration.ClientClaude, true, claudeExecutable, nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -55,12 +55,12 @@ func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "dmx", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude")}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true}
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-test"}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "dmx", Model: "claude-test"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+	cfg.SetClientActivation(configuration.ClientCodex, true, "", nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -89,7 +89,6 @@ func TestVerifyAllUsesEnabledClientScope(t *testing.T) {
 				if other != client {
 					adapter.Enabled = false
 					cfg.Clients[other] = adapter
-					delete(cfg.Routes, other)
 				}
 			}
 			if err := app.Config.Save(cfg); err != nil {
@@ -135,13 +134,12 @@ func TestVerifyAdmitsTargetArgumentsBeforeReadingConfiguration(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"missing target", []string{"verify"}, "choose a verification target"},
-		{"empty client", []string{"verify", "--for="}, "choose a verification target"},
-		{"empty profile", []string{"verify", "--profile="}, "choose a verification target"},
+		{"missing target", []string{"verify"}, "choose a verification client"},
+		{"empty client", []string{"verify", "--for="}, "choose a verification client"},
+		{"empty profile", []string{"verify", "--profile="}, "choose a verification client"},
 		{"unknown client", []string{"verify", "--for", "unknown"}, "--for must be"},
-		{"conflicting targets", []string{"verify", "--for", "codex", "--profile", "one"}, "[for profile] were all set"},
-		{"profile with all", []string{"verify", "--for", "all", "--profile", "one"}, "[for profile] were all set"},
-		{"explicit empty conflict", []string{"verify", "--for=", "--profile", "one"}, "[for profile] were all set"},
+		{"profile with all", []string{"verify", "--for", "all", "--profile", "one"}, "requires one explicit client"},
+		{"explicit empty client", []string{"verify", "--for=", "--profile", "one"}, "choose a verification client"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, _, _, runner, httpClient := testApp(t, "")
@@ -175,7 +173,7 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 		want string
 	}{
 		{name: "config load", args: []string{"verify", "--for", "codex"}, prep: func(app *cli.App) { app.Config = configuration.NewStore(t.TempDir()) }, want: "read config"},
-		{name: "unknown profile", args: []string{"verify", "--profile", "missing"}, prep: func(app *cli.App) {
+		{name: "unknown profile", args: []string{"verify", "--for", "codex", "--profile", "missing"}, prep: func(app *cli.App) {
 			saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		}, want: "unknown profile"},
 		{name: "disabled Codex adapter", args: []string{"verify", "--for", "codex"}, prep: func(app *cli.App) {
@@ -187,25 +185,26 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude")}
+			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
-		}, want: "Token for account"},
-		{name: "all with unresolved route", args: []string{"verify", "--for", "all"}, prep: func(app *cli.App) {
+		}, want: "token for account"},
+		{name: "all with unavailable Codex executable", args: []string{"verify", "--for", "all"}, prep: func(app *cli.App) {
 			cfg := configuration.NewConfig()
 			cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}}
-			cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
-			cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
-			cfg.Routes[configuration.ClientClaude] = "claude"
-			cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude")}
-			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true}
+			cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Model: "claude-test"}
+			cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Model: "gpt-test"}
+			cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+			cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
+			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+			cfg.SetClientActivation(configuration.ClientCodex, true, "", nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
-		}, want: `no route selected for client "codex"`},
+		}, want: "Codex executable is not configured"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -225,8 +224,8 @@ func TestVerifyCodexRunsTheConfiguredClientOnceAndReportsItsIdentity(t *testing.
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-test"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
 	executable := executableFixture(t, "codex")
 	root := t.TempDir()
 	targets := []string{
@@ -249,7 +248,7 @@ func TestVerifyCodexRunsTheConfiguredClientOnceAndReportsItsIdentity(t *testing.
 			t.Fatal(err)
 		}
 	}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: executable, Targets: targets}
+	cfg.SetClientActivation(configuration.ClientCodex, true, executable, targets)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -297,10 +296,9 @@ func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 	cfg.Profiles["gpt"] = configuration.Profile{
 		Label:   "GPT",
 		Account: "dmx",
-		Client:  configuration.ClientCodex,
 		Model:   "gpt-test",
 	}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -313,11 +311,7 @@ func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 	if err := codex.SyncConfig(target, runtime); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
-		Enabled:    true,
-		Executable: executableFixture(t, "codex"),
-		Targets:    []string{target},
-	}
+	cfg.SetClientActivation(configuration.ClientCodex, true, executableFixture(t, "codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -343,12 +337,12 @@ func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 	}
 }
 
-func TestVerifyInfersClientFromExplicitProfile(t *testing.T) {
+func TestVerifyUsesExplicitClientWithProfileOverride(t *testing.T) {
 	app, _, _, runner, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-test"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -361,7 +355,7 @@ func TestVerifyInfersClientFromExplicitProfile(t *testing.T) {
 	if err := codex.SyncConfig(target, runtime); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{target}}
+	cfg.SetClientActivation(configuration.ClientCodex, true, executableFixture(t, "codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -371,7 +365,7 @@ func TestVerifyInfersClientFromExplicitProfile(t *testing.T) {
 		return nil, fmt.Errorf("unexpected HTTP request to %s", req.URL)
 	}}
 
-	if err := cli.Execute(app, []string{"verify", "--profile", "gpt"}); err != nil {
+	if err := cli.Execute(app, []string{"verify", "--for", "codex", "--profile", "gpt"}); err != nil {
 		t.Fatal(err)
 	}
 	if requests != 0 || len(runner.plans) != 2 {
@@ -384,16 +378,16 @@ func readyVerificationApp(t *testing.T) (*cli.App, *fakeRunner) {
 	app, _, secretStore, runner, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "dmx", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude")}
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-test"}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "dmx", Model: "claude-test"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{codexTarget}}
+	cfg.SetClientActivation(configuration.ClientCodex, true, executableFixture(t, "codex"), []string{codexTarget})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -470,7 +464,7 @@ func TestVerifyAllWritesVerifiedCheckpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(checkpoint.Clients) != 2 || checkpoint.Config.Routes[configuration.ClientCodex] != "gpt" {
+	if len(checkpoint.Clients) != 2 || checkpoint.Config.SelectedProfile(configuration.ClientCodex) != "gpt" {
 		t.Fatalf("checkpoint = %#v", checkpoint)
 	}
 }

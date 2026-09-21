@@ -1,7 +1,8 @@
 # Agent Entry Points
 
 This repository is **AIGW CLI**, a local control plane for provider Accounts,
-credentials, Profiles, Routes, and explicit Claude/Codex client integration.
+credentials, reusable Profiles, explicit client bindings, and native client
+projections.
 It does not run a proxy, listen on a port, carry API traffic, or own Codex
 conversation state.
 

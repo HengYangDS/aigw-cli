@@ -76,7 +76,7 @@ func TestCredentialHelperResolvesAnUnselectedProfileProjection(t *testing.T) {
 			}
 			cfg.Accounts["alternate"] = account
 			cfg.Profiles["alternate"] = configuration.Profile{
-				Label: "Alternate", Account: "alternate", Client: client, Model: client + "-alternate",
+				Label: "Alternate", Account: "alternate", Model: client + "-alternate",
 			}
 			if err := runtime.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -159,11 +159,13 @@ func TestClaudeCredentialHelperFailsClosedWithoutWritingStdout(t *testing.T) {
 			case "disabled":
 				runtime, buffer = helperRuntime(t, configuration.ClientClaude, false)
 			case "route":
-				cfg := configuration.NewConfig()
-				cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-				cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt"}
-				cfg.Routes[configuration.ClientCodex] = "codex"
-				cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "claude"}
+				cfg, err := runtime.Config.Load()
+				if err != nil {
+					t.Fatal(err)
+				}
+				profile := cfg.Profiles[configuration.ClientClaude]
+				profile.Model = "changed-after-projection"
+				cfg.Profiles[configuration.ClientClaude] = profile
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
 				}
@@ -253,9 +255,8 @@ func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Contex
 	}
 	spec, _ := configuration.ClientSpecFor(client)
 	cfg.Accounts["gateway"] = account
-	cfg.Profiles[client] = configuration.Profile{Label: client, Account: "gateway", Client: client, Model: client + "-team", Protocol: spec.EndpointProtocols[0]}
-	cfg.Routes[client] = client
-	cfg.Clients[client] = configuration.ClientBinding{Enabled: enabled, Executable: client}
+	cfg.Profiles[client] = configuration.Profile{Label: client, Account: "gateway", Model: client + "-team"}
+	cfg.Clients[client] = configuration.ClientBinding{Profile: client, Enabled: enabled, Protocol: spec.EndpointProtocols[0], Executable: client}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -320,10 +321,10 @@ func TestCredentialHelperRejectsClientNativeBeforeSecretAccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	profile := cfg.Profiles[configuration.ClientCodex]
-	profile.ModelProvider = "amazon-bedrock"
-	profile.Authentication = configuration.AuthenticationClientNative
-	cfg.Profiles[configuration.ClientCodex] = profile
+	binding := cfg.Clients[configuration.ClientCodex]
+	binding.ModelProvider = "amazon-bedrock"
+	binding.Authentication = configuration.AuthenticationClientNative
+	cfg.Clients[configuration.ClientCodex] = binding
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -40,14 +40,14 @@ func (hermesAdapter) Discover(source DiscoverySource) discovery.Result {
 
 func (hermesAdapter) Converge(deps Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
 	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
-	if _, absent := errors.AsType[*configuration.RuntimeRouteUnselectedError](err); absent {
+	if _, absent := errors.AsType[*configuration.RuntimeBindingUnselectedError](err); absent {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
 	adapter, explicitlyConfigured := cfg.Clients[configuration.ClientHermes]
-	if explicitlyConfigured && !adapter.Enabled {
+	if !explicitlyConfigured || !adapter.Enabled {
 		return nil
 	}
 	executable, err := resolveExecutable(configuration.ClientHermes, adapter.Executable, discovered.Executable(configuration.ClientHermes))
@@ -68,7 +68,7 @@ func (hermesAdapter) Converge(deps Dependencies, cfg *configuration.Config, disc
 			return err
 		}
 	}
-	if !adapter.Enabled && !credentialAvailable {
+	if !credentialAvailable {
 		return nil
 	}
 	if len(adapter.Targets) == 0 {
@@ -78,8 +78,7 @@ func (hermesAdapter) Converge(deps Dependencies, cfg *configuration.Config, disc
 		}
 		adapter.Targets = []string{surface.ConfigPath}
 	}
-	adapter.Enabled, adapter.Executable = true, executable
-	cfg.Clients[configuration.ClientHermes] = adapter
+	cfg.SetClientActivation(configuration.ClientHermes, true, executable, adapter.Targets)
 	return nil
 }
 
@@ -107,7 +106,7 @@ func hermesPlans(deps Dependencies, before, after configuration.Config) ([]herme
 			return nil, nil, err
 		}
 		if len(current.Targets) != 1 {
-			return nil, nil, errors.New("Hermes requires one configured home")
+			return nil, nil, errors.New("hermes requires one configured home")
 		}
 	}
 	targets := slices.Clone(current.Targets)
@@ -199,7 +198,7 @@ func (hermesAdapter) Inspect(ctx context.Context, deps Dependencies, cfg configu
 		var plan hermesconfig.Plan
 		plan, err = hermesconfig.Prepare(adapter.Targets[0], &route)
 		if err == nil && plan.Action != "unchanged" {
-			err = errors.New("Hermes configuration projection differs from the selected route")
+			err = errors.New("hermes configuration projection differs from the selected route")
 		}
 	}
 	if err != nil {
@@ -214,11 +213,11 @@ func (hermesAdapter) Withdraw(cfg *configuration.Config) {
 
 func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, selected configuration.Runtime, _ string) (_ Verification, result error) {
 	if deps.Runner == nil {
-		return Verification{}, errors.New("Hermes verification requires a process runner")
+		return Verification{}, errors.New("hermes verification requires a process runner")
 	}
 	configured := cfg.Clients[configuration.ClientHermes]
 	if !configured.Enabled {
-		return Verification{}, errors.New("Hermes adapter is disabled; run aigw sync")
+		return Verification{}, errors.New("hermes adapter is disabled; run aigw sync")
 	}
 	home, err := os.MkdirTemp("", "aigw-hermes-verification-")
 	if err != nil {
@@ -248,16 +247,16 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 	probe := process.Plan{Executable: configured.Executable, Directory: home, Env: environment, Args: []string{"--version"}}
 	version, err := deps.Runner.RunCapture(probeCtx, probe)
 	if err != nil {
-		return Verification{}, errors.New("Hermes executable identity could not be observed")
+		return Verification{}, errors.New("hermes executable identity could not be observed")
 	}
 	probe.Args = []string{"chat", "--quiet", "--query-file", "-", "--toolsets", "none"}
 	probe.Stdin = "Reply with exactly AIGW_OK."
 	response, err := deps.Runner.RunCapture(probeCtx, probe)
 	if err != nil {
-		return Verification{}, errors.Join(errors.New("Hermes inference failed; external credential diagnostics suppressed"), probeCtx.Err())
+		return Verification{}, errors.Join(errors.New("hermes inference failed; external credential diagnostics suppressed"), probeCtx.Err())
 	}
 	if !strings.Contains(string(response), "AIGW_OK") {
-		return Verification{}, errors.New("Hermes model response did not return the expected AIGW_OK verification marker")
+		return Verification{}, errors.New("hermes model response did not return the expected AIGW_OK verification marker")
 	}
 	executable, err := os.ReadFile(configured.Executable)
 	if err != nil {

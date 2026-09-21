@@ -65,8 +65,6 @@ func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice
 	}
 	wantDeferred := []string{
 		"Set one compatible Account variable: " + secrets.EnvironmentKey("aihubmix") + " or " + secrets.EnvironmentKey("dmxapi"),
-		"Install Claude, then run `aigw sync`",
-		"Install Codex, then run `aigw sync`",
 	}
 	if !slices.Equal(result.DeferredActions, wantDeferred) || result.NextAction != "aigw sync" {
 		t.Fatalf("setup JSON continuation = %#v", result)
@@ -108,8 +106,8 @@ func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Routes[configuration.ClientClaude] != "dmxapi-claude" || cfg.Routes[configuration.ClientCodex] != "dmxapi-gpt" {
-		t.Fatalf("available Account did not become usable: %#v", cfg.Routes)
+	if cfg.SelectedProfile(configuration.ClientClaude) != "dmxapi-claude" || cfg.SelectedProfile(configuration.ClientCodex) != "dmxapi-gpt" {
+		t.Fatalf("available Account did not become usable: %#v", cfg.Clients)
 	}
 	for _, want := range []string{"Install Claude, then run `aigw sync`", "Install Codex, then run `aigw sync`", "Next", "aigw sync"} {
 		if !strings.Contains(out.String(), want) {
@@ -180,8 +178,8 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	if len(cfg.Accounts) != 2 {
 		t.Fatalf("team config = %#v", cfg)
 	}
-	if !maps.Equal(cfg.Routes, map[string]string{"claude": "dmxapi-claude", "codex": "dmxapi-gpt"}) {
-		t.Fatalf("connected Account routes = %#v", cfg.Routes)
+	if cfg.SelectedProfile(configuration.ClientClaude) != "dmxapi-claude" || cfg.SelectedProfile(configuration.ClientCodex) != "dmxapi-gpt" {
+		t.Fatalf("connected Account bindings = %#v", cfg.Clients)
 	}
 	if !cfg.Clients["claude"].Enabled || !cfg.Clients["codex"].Enabled {
 		t.Fatalf("discovered clients were not configured: %#v", cfg.Clients)
@@ -197,7 +195,7 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	if !strings.Contains(string(projected), projection.CredentialProjectionFingerprint(configuration.ClientCodex)) {
 		t.Fatalf("credential helper projection = %s", projected)
 	}
-	for _, want := range []string{"Selected routes", "Claude", "dmxapi-claude", "Codex", "dmxapi-gpt", "Projected", "aihubmix", "Deferred"} {
+	for _, want := range []string{"Selected Client Bindings", "Claude", "dmxapi-claude", "Codex", "dmxapi-gpt", "Projected", "aihubmix", "Deferred"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("setup output missing %q:\n%s", want, out.String())
 		}
@@ -210,9 +208,9 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 		t.Fatalf("validation requests = %#v, want %#v", requests, wantValidationRequests)
 	}
 	wantProfiles := map[string]configuration.Profile{
-		"aihubmix-claude": {Label: "AIHubMix Claude", Account: "aihubmix", Client: "claude", Model: "claude-test"},
-		"dmxapi-claude":   {Label: "DMXAPI Claude", Account: "dmxapi", Client: "claude", Model: "claude-test"},
-		"dmxapi-gpt":      {Label: "DMXAPI GPT", Account: "dmxapi", Client: "codex", Model: "gpt-test"},
+		"aihubmix-claude": {Label: "AIHubMix Claude", Account: "aihubmix", Model: "claude-test"},
+		"dmxapi-claude":   {Label: "DMXAPI Claude", Account: "dmxapi", Model: "claude-test"},
+		"dmxapi-gpt":      {Label: "DMXAPI GPT", Account: "dmxapi", Model: "gpt-test"},
 	}
 	if !maps.Equal(cfg.Profiles, wantProfiles) {
 		t.Fatalf("manifest model matrix was not preserved: %#v", cfg.Profiles)
@@ -267,7 +265,7 @@ func TestSetupFromConfigurationManifestReusesEnvironmentTokensWithoutPrompting(t
 		t.Fatal(err)
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || len(cfg.Profiles) != 3 || cfg.Routes[configuration.ClientCodex] != "dmxapi-gpt" {
+	if err != nil || len(cfg.Profiles) != 3 || cfg.SelectedProfile(configuration.ClientCodex) != "dmxapi-gpt" {
 		t.Fatalf("team config = %#v, %v", cfg, err)
 	}
 }
@@ -319,9 +317,9 @@ func TestSetupFromConfigurationManifestDoesNotFollowCredentialProbeRedirects(t *
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{secrets: []string{"aigw-test-team-token"}}
 	app.HTTP = &http.Client{}
-	manifestPath := writeConfigurationManifest(t, `version = 4
-[recommended_routes]
-claude = "team-claude"
+	manifestPath := writeConfigurationManifest(t, `version = 5
+[recommendations.claude]
+profile = "team-claude"
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
@@ -329,7 +327,6 @@ anthropic = "`+source.URL+`"
 [profiles.team-claude]
 label = "Team Claude"
 account = "team"
-client = "claude"
 model = "claude-test"
 `)
 
@@ -372,7 +369,7 @@ func TestSetupFromConfigurationManifestPreservesClientOwnedCredentials(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Routes[configuration.ClientCodex] == "" || !secretExists(t, app.Secrets, "dmxapi") {
+	if cfg.SelectedProfile(configuration.ClientCodex) == "" || !secretExists(t, app.Secrets, "dmxapi") {
 		t.Fatal("setup did not persist the selected Account and route")
 	}
 	authAfter, err := os.ReadFile(authPath)

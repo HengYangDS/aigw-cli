@@ -67,24 +67,24 @@ func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configur
 	token := ""
 	if adapter.CredentialCommand == "" {
 		if deps.Secrets == nil {
-			return Verification{}, fmt.Errorf("Token for account %q is unavailable: secret store is unavailable", runtime.AccountID)
+			return Verification{}, fmt.Errorf("token for account %q is unavailable: secret store is unavailable", runtime.AccountID)
 		}
 		var err error
 		token, err = deps.Secrets.Get(runtime.AccountID)
 		if err != nil {
 			instruction, _ := credential.TokenRecovery(deps.Secrets, runtime.AccountID)
-			return Verification{}, fmt.Errorf("Token for account %q is unavailable: %w; %s", runtime.AccountID, err, instruction)
+			return Verification{}, fmt.Errorf("token for account %q is unavailable: %w; %s", runtime.AccountID, err, instruction)
 		}
 	}
 	if !adapter.Enabled || adapter.Executable == "" {
-		return Verification{}, fmt.Errorf("Claude adapter is disabled; run `aigw repair`")
+		return Verification{}, fmt.Errorf("claude adapter is disabled; run `aigw repair`")
 	}
 	ready, err := discovery.ExecutableAvailable(adapter.Executable)
 	if err != nil {
 		return Verification{}, fmt.Errorf("inspect Claude executable: %w", err)
 	}
 	if !ready {
-		return Verification{}, fmt.Errorf("Claude executable is unavailable; run `aigw repair`")
+		return Verification{}, fmt.Errorf("claude executable is unavailable; run `aigw repair`")
 	}
 	verifyCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
 	defer cancel()

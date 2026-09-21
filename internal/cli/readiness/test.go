@@ -46,7 +46,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if len(clients) == 0 {
-				return invocation.Problem(runtime, "No Route is selected", "Profiles exist, but no client has an active Route.", "There is no selected endpoint to test.", "aigw use <profile>", fmt.Errorf("no route selected"))
+				return invocation.Problem(runtime, "No Client Binding is selected", "Profiles exist, but no client has a selected Profile.", "There is no selected endpoint to test.", "aigw use --for <client> <profile>", fmt.Errorf("no Client Binding selected"))
 			}
 			resolved := make(map[string]configuration.Runtime, len(clients))
 			for _, spec := range clients {
@@ -106,12 +106,11 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Test the selected Route for "+configuration.AdmittedClientLabelUsage())
-	cmd.Flags().StringVar(&profileName, "profile", "", "Test one Profile using its declared client without changing Routes")
+	cmd.Flags().StringVar(&client, "for", "", "Client whose selected Profile to test: "+configuration.AdmittedClientLabelUsage())
+	cmd.Flags().StringVar(&profileName, "profile", "", "Test this Profile for the explicit client without changing its binding")
 	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read one bounded Token through EOF for this request only; never store it")
 	cmd.Flags().StringVar(&tokenFormat, "token-format", "raw", "Explicit stdin encoding: raw or go-keyring-base64")
 	cmd.Flags().StringVar(&configPath, "config", "", "Read an absolute configuration file for a one-time stdin Token test")
-	cmd.MarkFlagsMutuallyExclusive("for", "profile")
 	return cmd
 }
 
@@ -132,13 +131,6 @@ func endpointTestToken(runtime invocation.Context, account string, stdinMode boo
 }
 
 func endpointTestClients(cfg configuration.Config, client, profileName string) ([]configuration.ClientSpec, error) {
-	if profileName != "" {
-		profileClient, err := cfg.ClientForProfile(profileName)
-		if err != nil {
-			return nil, err
-		}
-		client = profileClient
-	}
 	if client != "" {
 		spec, ok := configuration.ClientSpecFor(client)
 		if !ok {
@@ -146,9 +138,9 @@ func endpointTestClients(cfg configuration.Config, client, profileName string) (
 		}
 		return []configuration.ClientSpec{spec}, nil
 	}
-	selected := make([]configuration.ClientSpec, 0, len(cfg.Routes))
+	selected := make([]configuration.ClientSpec, 0, len(cfg.Clients))
 	for _, spec := range configuration.AdmittedClientSpecs() {
-		if cfg.Routes[spec.ID] != "" {
+		if cfg.SelectedProfile(spec.ID) != "" {
 			selected = append(selected, spec)
 		}
 	}
@@ -166,12 +158,16 @@ func validateEndpointTestSelection(cmd *cobra.Command, _ []string) error {
 	if client != "" && !configuration.IsAdmittedClient(client) {
 		return fmt.Errorf("--for must be %s; run `aigw test --help`", configuration.AdmittedClientUsage())
 	}
+	profileName := cmd.Flags().Lookup("profile").Value.String()
+	if profileName != "" && client == "" {
+		return fmt.Errorf("--profile requires one explicit --for client; run `aigw test --help`")
+	}
 	stdinMode, err := cmd.Flags().GetBool("token-stdin")
 	if err != nil {
 		return err
 	}
-	if stdinMode && client == "" && cmd.Flags().Lookup("profile").Value.String() == "" {
-		return fmt.Errorf("--token-stdin requires one explicit --for or --profile target")
+	if stdinMode && client == "" {
+		return fmt.Errorf("--token-stdin requires one explicit --for client")
 	}
 	format := cmd.Flags().Lookup("token-format")
 	if format.Value.String() != "raw" && format.Value.String() != "go-keyring-base64" {

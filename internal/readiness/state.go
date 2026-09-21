@@ -62,16 +62,16 @@ type Client struct {
 type ClientFacts struct {
 	Profile                    string
 	Account                    string
-	RouteIssue                 string
-	RouteAction                string
+	BindingIssue               string
+	BindingAction              string
 	CredentialObservationIssue string
 	CredentialRequired         bool
 	CredentialAvailable        bool
 	CredentialAction           string
-	AdapterEnabled             bool
-	AdapterReady               bool
-	AdapterIssue               string
-	AdapterAction              string
+	ProjectionEnabled          bool
+	ProjectionReady            bool
+	ProjectionIssue            string
+	ProjectionAction           string
 	SuggestedProfile           string
 }
 
@@ -80,22 +80,22 @@ type ClientFacts struct {
 func ClassifyClient(facts ClientFacts) Client {
 	state := Client{Profile: facts.Profile, Account: facts.Account}
 	switch {
-	case facts.RouteIssue != "":
+	case facts.BindingIssue != "":
 		state.State = Invalid
-		state.Detail = facts.RouteIssue
-		state.NextAction = facts.RouteAction
+		state.Detail = facts.BindingIssue
+		state.NextAction = facts.BindingAction
 	case facts.Profile == "":
 		state.State = Deferred
 		state.Detail = "No profile is selected for this client"
-		if facts.SuggestedProfile != "" {
-			state.NextAction = "aigw use " + facts.SuggestedProfile
+		if facts.BindingAction != "" {
+			state.NextAction = facts.BindingAction
 		} else {
 			state.NextAction = "aigw profile add"
 		}
-	case facts.AdapterEnabled && !facts.AdapterReady:
+	case facts.ProjectionEnabled && !facts.ProjectionReady:
 		state.State = Invalid
-		state.Detail = facts.AdapterIssue
-		state.NextAction = facts.AdapterAction
+		state.Detail = facts.ProjectionIssue
+		state.NextAction = facts.ProjectionAction
 		if state.NextAction == "" {
 			state.NextAction = "aigw repair"
 		}
@@ -110,7 +110,7 @@ func ClassifyClient(facts ClientFacts) Client {
 		if state.NextAction == "" {
 			state.NextAction = "aigw rotate " + facts.Account
 		}
-	case !facts.AdapterEnabled:
+	case !facts.ProjectionEnabled:
 		state.State = Deferred
 		state.Detail = "The client is not installed or enabled"
 		state.NextAction = "aigw sync"

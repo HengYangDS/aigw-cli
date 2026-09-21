@@ -32,9 +32,9 @@ func loadTeamManifest(t *testing.T) ([]byte, Manifest) {
 	return data, parsedManifest
 }
 
-func TestTeamConfigurationManifestIsReviewedVersionFour(t *testing.T) {
+func TestTeamConfigurationManifestIsReviewedVersionFive(t *testing.T) {
 	_, parsedManifest := loadTeamManifest(t)
-	if parsedManifest.Version != 4 || len(parsedManifest.Accounts) != 3 || len(parsedManifest.Profiles) == 0 {
+	if parsedManifest.Version != 5 || len(parsedManifest.Accounts) != 3 || len(parsedManifest.Profiles) == 0 {
 		t.Fatalf("team manifest = version %d, %d Accounts, %d profiles", parsedManifest.Version, len(parsedManifest.Accounts), len(parsedManifest.Profiles))
 	}
 	for _, accountID := range []string{"aihubmix", "dmxapi", "ucloud"} {
@@ -46,12 +46,12 @@ func TestTeamConfigurationManifestIsReviewedVersionFour(t *testing.T) {
 		ClientClaude: "claude-fable-5-1",
 		ClientCodex:  "gpt-6-astra",
 	}
-	if len(parsedManifest.RecommendedRoutes) != len(recommendedModels) {
-		t.Fatalf("team manifest recommended routes = %#v", parsedManifest.RecommendedRoutes)
+	if len(parsedManifest.Recommendations) != len(recommendedModels) {
+		t.Fatalf("team manifest recommended routes = %#v", parsedManifest.Recommendations)
 	}
 	for client, want := range recommendedModels {
-		profile := parsedManifest.Profiles[parsedManifest.RecommendedRoutes[client]]
-		if profile.Client != client || profile.Model != want {
+		profile := parsedManifest.Profiles[parsedManifest.Recommendations[client].Profile]
+		if profile.Model != want {
 			t.Fatalf("recommended %s profile = %#v, want model %q", client, profile, want)
 		}
 	}
@@ -60,7 +60,7 @@ func TestTeamConfigurationManifestIsReviewedVersionFour(t *testing.T) {
 		if mergeErr != nil {
 			t.Fatal(mergeErr)
 		}
-		selected, selectErr := cfg.SelectRoutesForConnectedAccounts([]string{accountID})
+		selected, selectErr := cfg.SelectProfilesForConnectedAccounts([]string{accountID})
 		if selectErr != nil {
 			t.Fatal(selectErr)
 		}
@@ -71,7 +71,7 @@ func TestTeamConfigurationManifestIsReviewedVersionFour(t *testing.T) {
 			}
 			modelOffered := false
 			for _, profile := range parsedManifest.Profiles {
-				modelOffered = modelOffered || profile.Account == accountID && profile.Client == client && profile.Model == wantModel
+				modelOffered = modelOffered || profile.Account == accountID && profile.Model == wantModel
 			}
 			if runtime.AccountID != accountID || modelOffered && runtime.Model != wantModel {
 				t.Fatalf("%s route for Account %q = Account %q model %q, want model %q", client, accountID, runtime.AccountID, runtime.Model, wantModel)
@@ -127,7 +127,7 @@ func TestTeamManifestSelectsRecommendedModelsForAIHubMix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected, err := cfg.SelectRoutesForConnectedAccounts([]string{"aihubmix"})
+	selected, err := cfg.SelectProfilesForConnectedAccounts([]string{"aihubmix"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,12 +147,12 @@ func TestTeamManifestUsesNativeExportLayout(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts = manifest.Accounts
 	cfg.Profiles = manifest.Profiles
-	cfg.Routes = manifest.RecommendedRoutes
+	cfg.Recommendations = manifest.Recommendations
 	canonical, err := Export(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(data, canonical) {
-		t.Error("team manifest must use the native canonical export order and layout")
+		t.Errorf("team manifest must use the native canonical export order and layout:\nwant:\n%s\ngot:\n%s", canonical, data)
 	}
 }

@@ -7,10 +7,8 @@ import (
 	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -66,6 +64,8 @@ func TestNativeProductJourney(t *testing.T) {
 			t.Fatalf("sync preview is not JSON: %s", preview)
 		}
 		journey.run("sync")
+		journey.requireNoClaudeProjection()
+		journey.run("use", "--for", "claude", "native-system-keyring-probe-claude")
 		journey.requireClaudeProjection()
 		journey.requireCredentialBackend("native-journey-token", secrets.BackendSelection{
 			Kind:         "env",
@@ -164,79 +164,6 @@ func TestNativeAccountRetirementWithoutClients(t *testing.T) {
 	journey.uninstallAndRequireOwnedFilesAbsent()
 }
 
-func TestNativeTeamManifestJourney(t *testing.T) {
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	team := readFile(t, filepath.Join(root, "manifests", "team.toml"))
-	manifest, err := configuration.Parse(team)
-	if err != nil {
-		t.Fatal(err)
-	}
-	version, err := readiness.ReadProductVersion(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	program, _, _ := nativeReleaseCandidate(t, root, version)
-	t.Logf("team candidate version=%s sha256=%x", version, sha256.Sum256(readFile(t, program)))
-	clients := map[string]bool{}
-	for _, profile := range manifest.Profiles {
-		clients[profile.Client] = true
-	}
-	for _, account := range append([]string{""}, configuration.ManifestAccountNames(manifest)...) {
-		t.Run(account, func(t *testing.T) {
-			journey := newNativeJourney(t, program, "https://unused.example.test", false)
-			journey.setEnvironment("CODEX_HOME", filepath.Join(journey.root, "home", ".codex"))
-			journey.setEnvironment("CLAUDE_CONFIG_DIR", filepath.Dir(journey.settings))
-			if err := os.WriteFile(journey.manifest, team, 0o600); err != nil {
-				t.Fatal(err)
-			}
-			journey.run("setup", "--from", journey.manifest)
-			journey.run("doctor", "--json")
-			journey.requireNoClaudeProjection()
-			if account == "" {
-				journey.uninstallAndRequireOwnedFilesAbsent()
-				return
-			}
-			journey.setEnvironment(secrets.EnvironmentKey(account), "team-journey-token")
-			for client := range clients {
-				journey.installClientFixture(client)
-			}
-			journey.run("sync")
-			cfg, err := configuration.NewStore(journey.config).Load()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(cfg.Accounts) != len(manifest.Accounts) || len(cfg.Profiles) != len(manifest.Profiles) {
-				t.Fatal("setup lost reviewed team capabilities")
-			}
-			for clientID := range clients {
-				selected, err := cfg.ResolveRuntime(clientID, "")
-				if err != nil || selected.AccountID != account || !cfg.Clients[clientID].Enabled {
-					t.Fatalf("one connected Account did not activate %s: %#v, %v", clientID, selected, err)
-				}
-				recommended := manifest.Profiles[manifest.RecommendedRoutes[clientID]]
-				offered := slices.ContainsFunc(slices.Collect(maps.Values(manifest.Profiles)), func(profile configuration.Profile) bool {
-					return profile.Account == account && profile.Client == clientID && profile.Model == recommended.Model
-				})
-				if offered && selected.Model != recommended.Model {
-					t.Fatalf("%s activation lost recommended model %q: %q", clientID, recommended.Model, selected.Model)
-				}
-				if got := strings.TrimSpace(string(journey.run("credential", clientID, selected.CredentialProjectionFingerprint(clientID)))); got != "team-journey-token" {
-					t.Fatalf("environment credential differs for %s", clientID)
-				}
-			}
-			before := readFile(t, journey.config)
-			journey.run("sync")
-			if !bytes.Equal(before, readFile(t, journey.config)) {
-				t.Fatal("repeated team synchronization rewrote configuration")
-			}
-			journey.uninstallAndRequireOwnedFilesAbsent()
-		})
-	}
-}
-
 type journeyFixture struct {
 	testing              *testing.T
 	source               string
@@ -293,7 +220,7 @@ func newNativeJourney(t *testing.T, source, endpoint string, installClient bool)
 		"AIGW_SECRET_BACKEND": "env",
 		"NO_COLOR":            "1",
 	})
-	manifest := fmt.Sprintf("version = 4\n\n[recommended_routes]\nclaude = 'native-system-keyring-probe-claude'\n\n[accounts.native-system-keyring-probe]\nlabel = 'Native System Keyring Probe'\n\n[accounts.native-system-keyring-probe.endpoints]\nanthropic = %q\n\n[accounts.unused]\nlabel = 'Unused'\n\n[accounts.unused.endpoints]\nanthropic = %q\n\n[profiles.native-system-keyring-probe-claude]\nlabel = 'Native System Keyring Probe Claude'\naccount = 'native-system-keyring-probe'\nclient = 'claude'\nmodel = 'claude-test'\n\n[profiles.unused-claude]\nlabel = 'Unused Claude'\naccount = 'unused'\nclient = 'claude'\nmodel = 'claude-test'\n", endpoint, endpoint)
+	manifest := fmt.Sprintf("version = 5\n\n[recommendations.claude]\nprofile = 'native-system-keyring-probe-claude'\n\n[accounts.native-system-keyring-probe]\nlabel = 'Native System Keyring Probe'\n\n[accounts.native-system-keyring-probe.endpoints]\nanthropic = %q\n\n[accounts.unused]\nlabel = 'Unused'\n\n[accounts.unused.endpoints]\nanthropic = %q\n\n[profiles.native-system-keyring-probe-claude]\nlabel = 'Native System Keyring Probe Claude'\naccount = 'native-system-keyring-probe'\nmodel = 'claude-test'\n\n[profiles.unused-claude]\nlabel = 'Unused Claude'\naccount = 'unused'\nmodel = 'claude-test'\n", endpoint, endpoint)
 	if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
 	}

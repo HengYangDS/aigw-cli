@@ -391,7 +391,7 @@ func TestAccountRenameProjectionFailureRollsBackConfigAndRetainsBothCredentialSl
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -439,9 +439,9 @@ func TestAccountRenameNonCurrentCodexAccountDoesNotReauthenticate(t *testing.T) 
 	app, _, secretStore, runner, _ := testApp(t, "")
 	cfg := accountRenameConfig()
 	cfg.Accounts["active"] = configuration.Account{Label: "Active", Endpoints: configuration.Endpoints{OpenAIResponses: "https://active.test/v1"}}
-	cfg.Profiles["active-profile"] = configuration.Profile{Label: "Active", Account: "active", Client: configuration.ClientCodex, Model: "active-model"}
-	cfg.Routes[configuration.ClientCodex] = "active-profile"
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{filepath.Join(t.TempDir(), "codex", "configuration.toml")}}
+	cfg.Profiles["active-profile"] = configuration.Profile{Label: "Active", Account: "active", Model: "active-model"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "active-profile")
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{filepath.Join(t.TempDir(), "codex", "configuration.toml")})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -517,9 +517,9 @@ func accountRenameConfig() configuration.Config {
 		},
 		AccountProbe: &configuration.AccountProbe{Kind: "future-provider", BaseURL: "https://probe.zeta.test"},
 	}
-	cfg.Profiles["codex-profile"] = configuration.Profile{Label: "Codex", Purpose: "Codex purpose", Account: "zeta-old", Client: configuration.ClientCodex, Model: "codex-model"}
-	cfg.Profiles["claude-profile"] = configuration.Profile{Label: "Claude", Purpose: "Claude purpose", Account: "zeta-old", Client: configuration.ClientClaude, Model: "claude-model"}
-	cfg.Routes[configuration.ClientCodex] = "codex-profile"
-	cfg.Routes[configuration.ClientClaude] = "claude-profile"
+	cfg.Profiles["codex-profile"] = configuration.Profile{Label: "Codex", Purpose: "Codex purpose", Account: "zeta-old", Model: "codex-model"}
+	cfg.Profiles["claude-profile"] = configuration.Profile{Label: "Claude", Purpose: "Claude purpose", Account: "zeta-old", Model: "claude-model"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "codex-profile")
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude-profile")
 	return cfg
 }

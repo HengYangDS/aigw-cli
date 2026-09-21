@@ -136,9 +136,9 @@ func TestSetupFromConfigurationManifestRejectsUnreferencedAccountBeforePrompt(t 
 	app.Interactive = true
 	prompt := &scriptedPrompt{secrets: []string{"must-not-be-read"}}
 	app.Prompt = prompt
-	manifestPath := writeConfigurationManifest(t, `version = 4
-[recommended_routes]
-claude = "used"
+	manifestPath := writeConfigurationManifest(t, `version = 5
+[recommendations.claude]
+profile = "used"
 [accounts.used]
 label = "Used"
 [accounts.used.endpoints]
@@ -150,7 +150,6 @@ anthropic = "https://unused.test"
 [profiles.used]
 label = "Used"
 account = "used"
-client = "claude"
 model = "claude-test"
 `)
 
@@ -164,11 +163,11 @@ model = "claude-test"
 	assertManifestSetupLeavesNoConfig(t, app)
 }
 
-func TestSetupFromConfigurationManifestRejectsProfileWithoutClient(t *testing.T) {
+func TestSetupFromConfigurationManifestRejectsProfileWithoutModel(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	manifestPath := writeConfigurationManifest(t, `version = 4
-[recommended_routes]
-claude = "team"
+	manifestPath := writeConfigurationManifest(t, `version = 5
+[recommendations.claude]
+profile = "team"
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
@@ -180,7 +179,7 @@ account = "team"
 `)
 
 	err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--account", "team"})
-	if err == nil || !strings.Contains(err.Error(), `profile "team" has unknown client ""`) {
+	if err == nil || !strings.Contains(err.Error(), `profile "team" must define a model`) {
 		t.Fatalf("error = %v", err)
 	}
 	if secretExists(t, secretStore, "team") {

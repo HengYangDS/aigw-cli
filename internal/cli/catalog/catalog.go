@@ -39,7 +39,6 @@ type Dependencies struct {
 type modelRow struct {
 	Profile string
 	Account string
-	Client  string
 	Model   string
 	Catalog string
 }
@@ -97,7 +96,7 @@ func NewModelsCommand(deps Dependencies) *cobra.Command {
 					state = presentation.Info
 				}
 				r.StatusLine(state, "Profile", row.Profile)
-				r.Detail(fmt.Sprintf("%s · %s · %s · account %s", modelTitle(row.Client), row.Model, row.Catalog, row.Account))
+				r.Detail(fmt.Sprintf("%s · %s · account %s", row.Model, row.Catalog, row.Account))
 			}
 			r.Next("aigw use")
 			return r.Err()
@@ -123,7 +122,7 @@ func modelRows(cfg configuration.Config, catalog catalogOutput) []modelRow {
 				}
 			}
 		}
-		rows = append(rows, modelRow{name, profile.Account, profile.Client, profile.Model, membership})
+		rows = append(rows, modelRow{name, profile.Account, profile.Model, membership})
 	}
 	return rows
 }

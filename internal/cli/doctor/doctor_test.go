@@ -35,10 +35,10 @@ func validDoctorConfig() configuration.Config {
 			OpenAIResponses: "https://team.test/v1",
 		},
 	}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Routes[configuration.ClientCodex] = "codex"
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Model: "claude-test"}
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Model: "gpt-test"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
 	return cfg
 }
 
@@ -93,8 +93,8 @@ func findCheck(t *testing.T, checks []Check, name string) Check {
 
 func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	cfg := validDoctorConfig()
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true}
+	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	cfg.SetClientActivation(configuration.ClientCodex, true, "", nil)
 	deps, _, _ := doctorDependencies(t, cfg)
 	checks := Collect(context.Background(), deps)
 	for _, name := range []string{"secret:team", "adapter:claude", "adapter:codex"} {
@@ -107,10 +107,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 		t.Fatalf("checks = %#v", checks)
 	}
 
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
-		Enabled:    true,
-		Executable: "codex",
-	}
+	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", nil)
 	deps, _, _ = doctorDependencies(t, cfg)
 	check := findCheck(t, Collect(context.Background(), deps), "adapter:codex")
 	if check.OK || check.Detail != "Codex configuration target is missing" || check.Fix != "run `aigw repair`" {
@@ -128,7 +125,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 
 func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.T) {
 	cfg := validDoctorConfig()
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true}
+	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
 	cfg.Accounts["optional"] = configuration.Account{
 		Label: "Optional",
 		Endpoints: configuration.Endpoints{
@@ -136,7 +133,7 @@ func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.
 			OpenAIResponses: "https://optional.test/v1",
 		},
 	}
-	cfg.Profiles["optional"] = configuration.Profile{Label: "Optional", Account: "optional", Client: configuration.ClientCodex, Model: "gpt-optional"}
+	cfg.Profiles["optional"] = configuration.Profile{Label: "Optional", Account: "optional", Model: "gpt-optional"}
 	deps, _, secretStore := doctorDependencies(t, cfg)
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
@@ -155,8 +152,8 @@ func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.
 
 func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 	cfg := validDoctorConfig()
-	for _, client := range configuration.AdmittedClientIDs() {
-		cfg.Clients[client] = configuration.ClientBinding{Enabled: true}
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+		cfg.SetClientActivation(client, true, "", nil)
 	}
 	cfg.Accounts["native"] = configuration.Account{
 		Label: "Native",
@@ -165,14 +162,14 @@ func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 		},
 	}
 	cfg.Profiles["native"] = configuration.Profile{
-		Label:          "Native",
-		Account:        "native",
-		Client:         configuration.ClientCodex,
-		Model:          "native-model",
-		ModelProvider:  "amazon-bedrock",
+		Label:   "Native",
+		Account: "native",
+		Model:   "native-model",
+	}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
+		Profile: "native", Enabled: true, ModelProvider: "amazon-bedrock",
 		Authentication: configuration.AuthenticationClientNative,
 	}
-	cfg.Routes[configuration.ClientCodex] = "native"
 	deps, _, secretStore := doctorDependencies(t, cfg)
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
@@ -193,7 +190,7 @@ func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 
 func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	cfg := validDoctorConfig()
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing")}
+	cfg.SetClientActivation(configuration.ClientClaude, true, filepath.Join(t.TempDir(), "missing"), nil)
 	deps, _, secretsStore := doctorDependencies(t, cfg)
 	if err := secretsStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
@@ -209,7 +206,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if err := os.WriteFile(executable, []byte("binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executable}
+	cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
 	deps, _, _ = doctorDependencies(t, cfg)
 	deps.Clients.ClaudeSettingsPath = filepath.Join(t.TempDir(), "settings.json")
 	deps.Clients.AIGWExecutable = filepath.Join(t.TempDir(), "aigw")
@@ -229,14 +226,14 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 		t.Fatalf("adapter check = %#v", check)
 	}
 
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
+	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", []string{filepath.Join(t.TempDir(), "missing.toml")})
 	deps, _, _ = doctorDependencies(t, cfg)
 	check := findCheck(t, Collect(context.Background(), deps), "codex:target-1")
 	if check.OK || !strings.Contains(check.Detail, "read Codex config") || check.Fix != "run `aigw sync`" {
 		t.Fatalf("projection check = %#v", check)
 	}
 
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "codex", Targets: []string{"unused"}}
+	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", []string{"unused"})
 	delete(cfg.Accounts, "team")
 	if check := findCheck(t, adapterChecks(context.Background(), deps.Clients, cfg), "projection:codex"); check.OK {
 		t.Fatalf("route check = %#v", check)
@@ -252,7 +249,7 @@ func TestClaudeExecutableReadFailuresAreDiagnostic(t *testing.T) {
 	if err := os.MkdirAll(blocked, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: blocked}
+	cfg.SetClientActivation(configuration.ClientClaude, true, blocked, nil)
 	deps, _, _ := doctorDependencies(t, cfg)
 	check := findCheck(t, Collect(context.Background(), deps), "adapter:claude")
 	if check.OK || !strings.Contains(check.Detail, "unavailable") {

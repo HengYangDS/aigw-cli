@@ -77,7 +77,7 @@ authoritative stores, unrelated client settings and existing session metadata.
 
 AIGW SHALL integrate Hermes and Claude Desktop through their supported native
 configuration and credential interfaces. Each Adapter SHALL use the shared
-route, transaction, discovery, verification, and withdrawal owners. Claude
+Client Binding, transaction, discovery, verification, and withdrawal owners. Claude
 Desktop Chat, Cowork, and Code SHALL retain distinct capability evidence.
 Client-owned sessions, services, and model choices SHALL remain client-owned.
 
@@ -89,7 +89,7 @@ Client-owned sessions, services, and model choices SHALL remain client-owned.
 - **AND** credentials SHALL use the selected supported delivery mechanism
 - **AND** unrelated clients, Hermes sessions, and Hermes services remain unchanged.
 
-#### Scenario: Claude Desktop and Claude Code use different routes
+#### Scenario: Claude Desktop and Claude Code use different bindings
 
 - **WHEN** the operator enables distinct Desktop and CLI Profiles
 - **THEN** each surface SHALL use its own documented configuration boundary
@@ -107,7 +107,7 @@ models. A successful text request SHALL establish only text connectivity.
 
 #### Scenario: A non-Anthropic model serves Claude
 
-- **WHEN** an explicit route selects a non-Anthropic model through a compatible
+- **WHEN** an explicit Client Binding selects a non-Anthropic model through a compatible
   Messages endpoint
 - **THEN** AIGW SHALL preserve that provider and model identity in its output
 - **AND** support claims SHALL reflect tested streaming, tool results,
@@ -115,7 +115,7 @@ models. A successful text request SHALL establish only text connectivity.
 
 #### Scenario: Codex uses an independent Responses endpoint
 
-- **WHEN** an explicit route selects a model through an independent Responses
+- **WHEN** an explicit Client Binding selects a model through an independent Responses
   endpoint
 - **THEN** validation SHALL verify its actual input, event, and tool contracts
 - **AND** missing compaction or hosted tools SHALL have explicit outcomes
@@ -137,7 +137,7 @@ or Profile identity SHALL NOT be implicitly replaced.
 #### Scenario: Add and select another Account
 
 - **WHEN** Account connection succeeds for an installed admitted client
-- **THEN** the stored Route and that client's configuration SHALL select the new
+- **THEN** the stored Client Binding and that client's configuration SHALL select the new
   Account Profile without requiring a second selection or synchronization command
 - **AND** unrelated client configuration and ownership state SHALL be unchanged,
   including unrelated external edits.
@@ -167,7 +167,7 @@ explicit client bindings, admitted native Adapters and the selected credential
 backend. A binding owns the client selection and enabled intent; there SHALL
 NOT be a second independently persisted selection. Setup, selection, synchronization, and readiness MUST NOT
 depend on a global Profile, an aggregate selection flag, another client's
-Route, or the presence of an external compatibility product.
+binding, or the presence of an external compatibility product.
 
 Discovery SHALL report client availability without creating native files,
 selecting a Profile, or changing enabled intent. A client that has not created
@@ -186,7 +186,7 @@ preimage rather than overwrite concurrent user or tool edits.
 
 - **WHEN** an operator selects one Codex Profile and one Claude Profile in
   separate operations
-- **THEN** both per-client Routes remain selected
+- **THEN** both per-client bindings remain selected
 - **AND** readiness requires no additional aggregate selection operation.
 
 #### Scenario: An ordinary configuration edit affects one client
@@ -207,9 +207,9 @@ preimage rather than overwrite concurrent user or tool edits.
 
 #### Scenario: One client is absent
 
-- **WHEN** a valid selected Route belongs to a client that is not installed
+- **WHEN** a valid selected Client Binding belongs to a client that is not installed
 - **THEN** AIGW records that capability as deferred
-- **AND** the installed client's independent Route remains usable.
+- **AND** the installed client's independent binding remains usable.
 
 #### Scenario: An external compatibility endpoint is absent
 
@@ -279,8 +279,9 @@ preimage rather than overwrite concurrent user or tool edits.
 ### Requirement: Token rotation is credential-scoped
 
 AIGW SHALL validate and replace only the selected Account's Token. Rotation
-MUST leave Accounts, Profiles, Routes, client configuration, ownership sidecars
-and client-owned credentials unchanged. Setup, Account connection and rotation SHALL use the same
+MUST leave Accounts, Profiles, Client Bindings, client configuration, ownership
+sidecars and client-owned credentials unchanged. Setup, Account connection and
+rotation SHALL use the same
 Token replacement and compensation owner. Compensation SHALL inspect the
 written Token, preserve a different observed value, and report incomplete
 storage recovery.

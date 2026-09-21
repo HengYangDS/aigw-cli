@@ -1,4 +1,4 @@
-package adapter
+package client
 
 import (
 	"bytes"
@@ -42,10 +42,10 @@ func adapterConfig() configuration.Config {
 			OpenAIResponses: "https://gateway.test/v1",
 		},
 	}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "codex-test"}
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Routes[configuration.ClientCodex] = "codex"
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-test"}
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Model: "codex-test"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
 	return cfg
 }
 
@@ -77,22 +77,6 @@ func executeAdapter(t *testing.T, runtime invocation.Context, args ...string) er
 	command.SilenceUsage = true
 	command.SetArgs(args)
 	return command.Execute()
-}
-
-func TestListReportsEveryAdapterState(t *testing.T) {
-	cfg := adapterConfig()
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
-	runtime, out, _, _ := adapterRuntime(t, cfg)
-
-	if err := executeAdapter(t, runtime, "list"); err != nil {
-		t.Fatal(err)
-	}
-	text := out.String()
-	for _, want := range []string{"Claude", "Enabled", "/opt/claude", "Codex", "Disabled"} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("list output %q does not contain %q", text, want)
-		}
-	}
 }
 
 func TestDiscoverReportsFoundAndMissingExecutables(t *testing.T) {
@@ -239,10 +223,10 @@ func TestEnableCodexValidatesTargetsAndPersistsProjection(t *testing.T) {
 
 func TestEnableCodexWithClientNativeAuthenticationDoesNotAccessAccountTokens(t *testing.T) {
 	cfg := adapterConfig()
-	profile := cfg.Profiles[configuration.ClientCodex]
-	profile.ModelProvider = "amazon-bedrock"
-	profile.Authentication = configuration.AuthenticationClientNative
-	cfg.Profiles[configuration.ClientCodex] = profile
+	binding := cfg.Clients[configuration.ClientCodex]
+	binding.ModelProvider = "amazon-bedrock"
+	binding.Authentication = configuration.AuthenticationClientNative
+	cfg.Clients[configuration.ClientCodex] = binding
 	runtime, _, _, runner := adapterRuntime(t, cfg)
 	runtime.Secrets = unavailableAdapterSecretStore{}
 	target := filepath.Join(t.TempDir(), "configuration.toml")
@@ -375,7 +359,7 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	if adapter, ok := got.Clients[configuration.ClientClaude]; !ok || adapter.Enabled {
 		t.Fatalf("explicit disabled intent was not retained: %#v", got.Clients)
 	}
-	if got.Routes[configuration.ClientClaude] != "claude" || got.Profiles["claude"].Account != "gateway" {
+	if got.SelectedProfile(configuration.ClientClaude) != "claude" || got.Profiles["claude"].Account != "gateway" {
 		t.Fatalf("capability configuration changed: %#v", got)
 	}
 	if token, err := secretStore.Get("gateway"); err != nil || token != "token" {
@@ -404,7 +388,7 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 
 func TestDisableClaudeDoesNotInspectForeignFilesystemEntries(t *testing.T) {
 	cfg := adapterConfig()
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: `C:\claude.exe`}
+	cfg.SetClientActivation(configuration.ClientClaude, true, `C:\claude.exe`, nil)
 	runtime, _, _, _ := adapterRuntime(t, cfg)
 	err := executeAdapter(t, runtime, "disable", configuration.ClientClaude)
 	if err != nil {
@@ -489,13 +473,13 @@ func TestCommandsPropagateConfigurationLoadErrors(t *testing.T) {
 
 func TestEnablePropagatesRuntimeResolutionError(t *testing.T) {
 	cfg := adapterConfig()
-	delete(cfg.Routes, configuration.ClientClaude)
+	delete(cfg.Clients, configuration.ClientClaude)
 	runtime, _, secretStore, _ := adapterRuntime(t, cfg)
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
 	err := executeAdapter(t, runtime, "enable", configuration.ClientClaude, "--executable", "/opt/claude")
-	if err == nil || !strings.Contains(err.Error(), "no route selected") {
+	if err == nil || !strings.Contains(err.Error(), "no Profile selected") {
 		t.Fatalf("runtime error = %v", err)
 	}
 }
@@ -503,7 +487,7 @@ func TestEnablePropagatesRuntimeResolutionError(t *testing.T) {
 func TestDisableCodexReturnsProjectionFailure(t *testing.T) {
 	cfg := adapterConfig()
 	target := filepath.Join(t.TempDir(), "missing", "configuration.toml")
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	runtime, _, _, _ := adapterRuntime(t, cfg)
 	runtime.Discovery = adapterDiscovery{}
 
@@ -520,13 +504,13 @@ func TestDisableCodexReturnsProjectionFailure(t *testing.T) {
 	}
 }
 
-func TestListFallsBackToPrimaryOutput(t *testing.T) {
+func TestDiscoverFallsBackToPrimaryOutput(t *testing.T) {
 	runtime, out, _, _ := adapterRuntime(t, adapterConfig())
 	runtime.RenderOut = nil
-	if err := executeAdapter(t, runtime, "list"); err != nil {
+	if err := executeAdapter(t, runtime, "discover"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Client adapters") {
+	if !strings.Contains(out.String(), "Client discovery") {
 		t.Fatalf("output = %q", out.String())
 	}
 }

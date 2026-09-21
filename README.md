@@ -1,24 +1,25 @@
 # AIGW CLI
 
 AIGW is a local-first control plane for teams that use reviewed third-party AI
-services. It manages Accounts, Tokens, Profiles, Routes, and explicit native
-client projections. It does not relay model traffic, run a gateway, or own
-conversation state.
+services. It manages Accounts, Tokens, reusable Profiles, explicit client
+bindings, and guarded native projections. It does not relay model traffic, run
+a gateway, or own conversation state.
 
-Codex and Claude Code call the endpoint selected for their own Route. Read the
-[authority boundary](docs/architecture/authority-and-projection-boundary.md)
-for the complete design.
+Each client resolves its endpoint and model from its own binding. Read the
+[authority boundary](docs/architecture/authority-and-projection-boundary.md) for
+the complete design.
 
 ## Start here
 
-| Goal                          | Command                       | Then                               |
-| ----------------------------- | ----------------------------- | ---------------------------------- |
-| Connect the first Account     | `aigw setup`                  | `aigw check`                       |
-| Import reviewed team settings | `aigw setup --from team.toml` | Connect any one Account when ready |
-| Inspect current state         | `aigw`                        | Follow **Next**                    |
-| Select a Profile              | `aigw use <profile>`          | `aigw check`                       |
-| Replace one Account Token     | `aigw rotate <account>`       | `aigw check`                       |
-| Diagnose a problem            | `aigw doctor`                 | Run its recommended action         |
+| Goal                          | Command                             | Then                               |
+| ----------------------------- | ----------------------------------- | ---------------------------------- |
+| Connect the first Account     | `aigw setup`                        | `aigw check`                       |
+| Import reviewed team settings | `aigw setup --from team.toml`       | Connect any one Account when ready |
+| Inspect current state         | `aigw`                              | Follow **Next**                    |
+| Bind a Profile to a client    | `aigw use --for <client> <profile>` | `aigw check`                       |
+| Replace one Account Token     | `aigw rotate <account>`             | `aigw check`                       |
+| Diagnose a problem            | `aigw doctor`                       | Run its recommended action         |
+| Migrate retained local state  | `aigw config migrate --dry-run`     | Review, then apply                 |
 
 ## Install
 
@@ -59,8 +60,8 @@ before updating or removing one.
 
 ## Connect an Account
 
-Interactive setup creates one Account, one Profile, one Route, and one local
-Token slot:
+Interactive setup creates one Account and one Profile, then binds the explicitly
+selected client when its prerequisites are available:
 
 ```bash
 aigw setup
@@ -93,16 +94,30 @@ repeating setup:
 
 ```bash
 aigw rotate dmxapi
-aigw use dmxapi-gpt-5.6-sol
+aigw use --for codex dmxapi-gpt-5.6-sol
 aigw sync
 aigw check
 ```
 
 `sync` discovers installed clients and changes only AIGW-owned projection state.
-When a selected Route, usable authentication, and a supported client are all
-present, it explicitly enables that client's Adapter. It does not replace Tokens
-or create missing clients. See the complete
+It reconciles enabled client bindings whose Profile, authentication, and native
+surface are available. It never selects a Profile, enables an unbound client,
+replaces Tokens, or creates missing clients. See the complete
 [first-member and deferred-client journey](docs/guides/team-rollout.md#new-member).
+
+An installation retaining the preceding schema fails normal commands closed.
+Preview its deterministic replacement before applying it:
+
+```bash
+aigw config migrate --dry-run
+aigw config migrate
+aigw sync
+aigw check
+```
+
+Migration changes only AIGW configuration. It preserves Account Tokens, client
+files, sessions, and one exact predecessor configuration. Before rolling the
+program back, restore that predecessor with `aigw config migrate --rollback`.
 
 ### Credential storage
 
@@ -121,37 +136,37 @@ the [security model](docs/architecture/security-model.md#credential-storage).
 
 ```bash
 aigw
-aigw use <profile>
+aigw use --for <client> <profile>
 aigw status
 aigw check
 aigw verify --for <client>
 ```
 
-| Command    | Contract                                                               |
-| ---------- | ---------------------------------------------------------------------- |
-| `status`   | Observe Routes and local projection readiness without reading Tokens   |
-| `check`    | Add credential availability, client configuration, and endpoint checks |
-| `doctor`   | Explain current problems without mutation                              |
-| `repair`   | Reconcile bounded AIGW-owned client state                              |
-| `test`     | Test an endpoint without proving native-client behavior                |
-| `verify`   | Run one explicit native-client request that may consume quota          |
-| `rollback` | Restore a verified AIGW configuration checkpoint                       |
+| Command    | Contract                                                                |
+| ---------- | ----------------------------------------------------------------------- |
+| `status`   | Observe Client Bindings and projection readiness without reading Tokens |
+| `check`    | Add credential availability, client configuration, and endpoint checks  |
+| `doctor`   | Explain current problems without mutation                               |
+| `repair`   | Reconcile bounded AIGW-owned client state                               |
+| `test`     | Test an endpoint without proving native-client behavior                 |
+| `verify`   | Run one explicit native-client request that may consume quota           |
+| `rollback` | Restore a verified AIGW configuration checkpoint                        |
 
 Use `aigw repair --dry-run --json` before repairing drift. Human output gives one
 next action; machine consumers use the command's JSON mode where available.
 
 ## Product model
 
-| Entity  | Owns                                                             |
-| ------- | ---------------------------------------------------------------- |
-| Account | Provider endpoints and one logical Token boundary                |
-| Profile | `account + client + model` and optional native-provider identity |
-| Route   | One client's explicit Profile selection                          |
-| Adapter | One admitted native-client projection                            |
+| Entity            | Owns                                                        |
+| ----------------- | ----------------------------------------------------------- |
+| Account           | Provider endpoints and one logical Token boundary           |
+| Profile           | `account + model` and reusable display metadata             |
+| Client binding    | One client's Profile, enabled intent, protocol, and options |
+| Native projection | The AIGW-owned portion of one client's configuration        |
 
-There is no global model selection: `aigw use <profile>` changes only the Route
-for the Profile's declared client. A present Token, synchronized file, endpoint
-probe, and successful native-client request are different readiness claims.
+There is no global model selection: `aigw use --for <client> <profile>` changes
+exactly one client binding. A present Token, synchronized file, endpoint probe,
+and successful native-client request are different readiness claims.
 
 Current Adapters support Codex CLI/Desktop through their shared Codex Home and
 Claude Code through its official user settings and credential-helper contract.
@@ -166,7 +181,7 @@ requirements.
 
 | Surface                                                         | Owner                  |
 | --------------------------------------------------------------- | ---------------------- |
-| Accounts, Tokens, Profiles, Routes                              | AIGW                   |
+| Accounts, Tokens, Profiles, and client bindings                 | AIGW                   |
 | AIGW-marked Codex and Claude Code projections                   | AIGW                   |
 | Codex conversations, JSONL, SQLite, and per-conversation models | Codex                  |
 | Claude sessions and unrelated settings                          | Claude Code            |
@@ -202,13 +217,13 @@ aigw check
 Program rollback does not silently downgrade configuration. If the predecessor
 cannot read an isolated copy of current configuration, AIGW leaves both program
 and configuration unchanged. Restore a compatible configuration explicitly with
-`aigw rollback`, then retry the program rollback.
+`aigw config migrate --rollback`, then retry `aigw update --rollback`.
 
 `aigw uninstall` withdraws AIGW-owned client projections and removes the
 portable executable plus its predecessor. It preserves Accounts, Profiles,
-Routes, Tokens, configuration backup, and user-authored client state.
+Client Bindings, Tokens, configuration backup, and user-authored client state.
 
-For a Homebrew installation, disable enabled Adapters first and let Homebrew
+For a Homebrew installation, disable enabled clients first and let Homebrew
 remove the package; AIGW does not overwrite or delete package-manager-owned
 files.
 

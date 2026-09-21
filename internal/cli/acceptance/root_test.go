@@ -149,7 +149,7 @@ func TestCommonCommandFailuresUseEnglishGuidance(t *testing.T) {
 		fix  string
 	}{
 		{args: []string{"config"}, want: "Choose a config subcommand; run `aigw config --help`", fix: "aigw config --help"},
-		{args: []string{"use", "--for", "other", "one"}, want: "unknown option --for", fix: "aigw --help"},
+		{args: []string{"use", "--for", "other", "one"}, want: "--for must be claude, codex, or hermes", fix: "aigw use --help"},
 	} {
 		out.Reset()
 		err := cli.Execute(app, tc.args)
@@ -184,9 +184,10 @@ func TestCoreValidationFailuresUseEnglishGuidance(t *testing.T) {
 		{args: []string{"test", "--for", "other"}, want: "--for must be claude, codex, or hermes"},
 		{args: []string{"verify", "--for", "other"}, want: "--for must be claude, codex, hermes, or all"},
 		{args: []string{"setup", "--profile", "new-profile", "--for", "other"}, want: "--for must be claude, codex, or hermes"},
-		{args: []string{"profile", "add", "new-profile"}, want: "--account, --for, and --model are required"},
-		{args: []string{"route", "reset", "other"}, want: "unknown command \"reset\""},
-		{args: []string{"adapter", "enable", "other"}, want: "Client must be claude, codex, or hermes"},
+		{args: []string{"profile", "add", "new-profile"}, want: "--account and --model are required"},
+		{args: []string{"route"}, want: "unknown command \"route\""},
+		{args: []string{"adapter"}, want: "unknown command \"adapter\""},
+		{args: []string{"client", "enable", "other"}, want: "Client must be claude, codex, or hermes"},
 	} {
 		out.Reset()
 		err := cli.Execute(app, tc.args)
@@ -201,7 +202,7 @@ func TestExecuteReturnsHumanOutputFailure(t *testing.T) {
 	want := errors.New("output is unavailable")
 	app.Out = failingOutput{err: want}
 
-	err := cli.Execute(app, []string{"adapter", "discover"})
+	err := cli.Execute(app, []string{"client", "discover"})
 	if !errors.Is(err, want) {
 		t.Fatalf("Execute() error = %v, want %v", err, want)
 	}

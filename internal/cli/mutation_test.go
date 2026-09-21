@@ -18,7 +18,8 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 		want string
 		next string
 	}{
-		{[]string{"use"}, "requires a profile", "aigw use <profile>"},
+		{[]string{"use"}, "requires a Profile", "aigw use --for <client> <profile>"},
+		{[]string{"use", "profile"}, "requires --for", "aigw use --for <client> <profile>"},
 		{[]string{"setup", "--from", "missing-manifest.toml", "--token-stdin"}, "--token-stdin requires --account", "aigw setup --help"},
 		{[]string{"account", "rename", "old", "--finalize"}, "requires explicit <old> <new>", "aigw account rename --help"},
 		{[]string{"account", "rename"}, "requires <old> <new>", "aigw account rename --help"},
@@ -33,21 +34,20 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 		{[]string{"account", "rename", "old", "bad id", "--finalize", "--dry-run"}, "Invalid account ID", "aigw account rename --help"},
 		{[]string{"account", "rename", "old", "new", "--confirm-api-token-rotation"}, "confirmations require --finalize", "aigw account rename --help"},
 		{[]string{"account", "rename", "old", "new", "--confirm-account-probe-rotation"}, "confirmations require --finalize", "aigw account rename --help"},
-		{[]string{"adapter", "enable", "unknown"}, "invalid argument", "aigw adapter enable --help"},
-		{[]string{"adapter", "disable", "unknown"}, "invalid argument", "aigw adapter disable --help"},
-		{[]string{"adapter", "enable", "claude"}, "--executable is required", "aigw adapter discover"},
-		{[]string{"adapter", "enable", "claude", "--executable", " "}, "--executable is required", "aigw adapter discover"},
-		{[]string{"adapter", "enable", "codex", "--executable", "codex"}, "requires at least one --target", "aigw adapter enable --help"},
-		{[]string{"adapter", "enable", "codex", "--executable", "codex", "--target", " "}, "--target requires a non-empty path", "aigw adapter enable --help"},
+		{[]string{"client", "enable", "unknown"}, "invalid argument", "aigw client enable --help"},
+		{[]string{"client", "disable", "unknown"}, "invalid argument", "aigw client disable --help"},
+		{[]string{"client", "enable", "claude"}, "--executable is required", "aigw client discover"},
+		{[]string{"client", "enable", "claude", "--executable", " "}, "--executable is required", "aigw client discover"},
+		{[]string{"client", "enable", "codex", "--executable", "codex"}, "requires at least one --target", "aigw client enable --help"},
+		{[]string{"client", "enable", "codex", "--executable", "codex", "--target", " "}, "--target requires a non-empty path", "aigw client enable --help"},
 		{[]string{"add", "new"}, "--for and --model are required", "aigw add --help"},
 		{[]string{"add", "bad id"}, "Invalid account ID", "aigw add --help"},
 		{[]string{"add", "new", "--for", "unknown", "--model", "model"}, "--for and --model are required", "aigw add --help"},
 		{[]string{"add", "new", "--for", "codex", "--model", " "}, "--for and --model are required", "aigw add --help"},
-		{[]string{"profile", "add", "new"}, "--account, --for, and --model are required", "aigw profile add --help"},
+		{[]string{"profile", "add", "new"}, "--account and --model are required", "aigw profile add --help"},
 		{[]string{"profile", "add", "bad id"}, "Invalid profile ID", "aigw profile add --help"},
-		{[]string{"profile", "add", "new", "--account", "bad id", "--for", "codex", "--model", "model"}, "Invalid account ID", "aigw profile add --help"},
-		{[]string{"profile", "add", "new", "--account", "account", "--for", "unknown", "--model", "model"}, "--for must be", "aigw profile add --help"},
-		{[]string{"profile", "add", "new", "--account", "account", "--for", "codex", "--model", " "}, "--account, --for, and --model are required", "aigw profile add --help"},
+		{[]string{"profile", "add", "new", "--account", "bad id", "--model", "model"}, "Invalid account ID", "aigw profile add --help"},
+		{[]string{"profile", "add", "new", "--account", "account", "--model", " "}, "--account and --model are required", "aigw profile add --help"},
 		{[]string{"config", "import", " "}, "manifest path must not be blank", "aigw config import --help"},
 		{[]string{"account", "edit", "account"}, "at least one of the flags", "aigw account edit --help"},
 		{[]string{"account", "edit", "bad id", "--label", "Name"}, "Invalid account ID", "aigw account edit --help"},
@@ -120,12 +120,15 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 		{name: "uninstall", args: []string{"uninstall"}, want: true},
 		{name: "bare account", args: []string{"account"}, want: false},
 		{name: "bare profile", args: []string{"profile"}, want: false},
-		{name: "bare route", args: []string{"route"}, want: false},
-		{name: "bare adapter", args: []string{"adapter"}, want: false},
-		{name: "adapter enable", args: []string{"adapter", "enable", "codex"}, want: true},
-		{name: "adapter disable", args: []string{"adapter", "disable", "codex"}, want: true},
+		{name: "bare client", args: []string{"client"}, want: false},
+		{name: "client enable", args: []string{"client", "enable", "codex"}, want: true},
+		{name: "client disable", args: []string{"client", "disable", "codex"}, want: true},
 		{name: "bare config", args: []string{"config"}, want: false},
 		{name: "config import", args: []string{"config", "import", "path"}, want: true},
+		{name: "config migrate", args: []string{"config", "migrate"}, want: true},
+		{name: "config migrate dry-run", args: []string{"config", "migrate", "--dry-run"}, want: false},
+		{name: "config migration rollback", args: []string{"config", "migrate", "--rollback"}, want: true},
+		{name: "config migration rollback preview", args: []string{"config", "migrate", "--rollback", "--dry-run"}, want: false},
 		{name: "config export", args: []string{"config", "export"}, want: false},
 		{name: "status", args: []string{"status"}, want: false},
 	}
@@ -162,8 +165,8 @@ func TestConfigurationLockForInteractiveOnboarding(t *testing.T) {
 	store := configuration.NewStore(path)
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-test"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

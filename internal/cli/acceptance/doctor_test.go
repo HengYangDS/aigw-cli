@@ -82,7 +82,7 @@ func TestDoctorReportsCredentialObservationFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true}
+	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -105,12 +105,12 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := configuration.Profile{Label: "GPT 5.6 Sol Codex", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-5.6-sol"}
+	profile := configuration.Profile{Label: "GPT 5.6 Sol Codex", Account: "dmx", Model: "gpt-5.6-sol"}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Profiles["gpt-5.6-sol"] = profile
-	cfg.Routes[configuration.ClientCodex] = "gpt-5.6-sol"
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt-5.6-sol")
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -198,8 +198,8 @@ func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
-	cfg.Routes[configuration.ClientClaude] = "team"
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude")}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "team")
+	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -226,12 +226,12 @@ func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T
 func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "configuration.toml")
-	profile := configuration.Profile{Label: "GPT", Account: "team", Client: configuration.ClientCodex, Model: "gpt-test"}
+	profile := configuration.Profile{Label: "GPT", Account: "team", Model: "gpt-test"}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}}
 	cfg.Profiles["gpt"] = profile
-	cfg.Routes[configuration.ClientCodex] = "gpt"
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic
 		t.Fatal("doctor should report Codex projection drift")
 	}
 	human := out.String()
-	if !strings.Contains(human, "Codex configuration target 1") || !strings.Contains(human, "Does not match the current route") || strings.Contains(human, "Codex config AIGW state is missing") {
+	if !strings.Contains(human, "Codex configuration target 1") || !strings.Contains(human, "Does not match the current binding") || strings.Contains(human, "Codex config AIGW state is missing") {
 		t.Fatalf("doctor human output = %s", human)
 	}
 	if !strings.Contains(human, "Next\n  aigw sync") || strings.Contains(human, "Next\n  aigw repair") {

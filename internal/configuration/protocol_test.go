@@ -10,8 +10,8 @@ import (
 func TestProfileSelectsProtocolIndependentlyOfClientBrand(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{OpenAIResponses: "https://responses.test/v1", Anthropic: "https://messages.test", OpenAIChatCompletions: "https://chat.test/v1"}}
-	cfg.Profiles["hermes"] = Profile{Label: "Hermes", Client: "hermes", Account: "team", Model: "model-test", Protocol: ProtocolAnthropic}
-	cfg.Routes["hermes"] = "hermes"
+	cfg.Profiles["hermes"] = Profile{Label: "Hermes", Account: "team", Model: "model-test"}
+	cfg.Clients[ClientHermes] = ClientBinding{Profile: "hermes", Protocol: ProtocolAnthropic}
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
@@ -27,12 +27,12 @@ func TestProfileSelectsProtocolIndependentlyOfClientBrand(t *testing.T) {
 	if err := toml.Unmarshal(data, &restored); err != nil {
 		t.Fatal(err)
 	}
-	if restored.Profiles["hermes"].Protocol != ProtocolAnthropic {
+	if restored.Clients[ClientHermes].Protocol != ProtocolAnthropic {
 		t.Fatal("profile protocol did not survive round-trip")
 	}
-	profile := cfg.Profiles["hermes"]
-	profile.Protocol = ""
-	cfg.Profiles["hermes"] = profile
+	binding := cfg.Clients[ClientHermes]
+	binding.Protocol = ""
+	cfg.Clients[ClientHermes] = binding
 	if _, err := cfg.ResolveRuntime("hermes", ""); err == nil || !strings.Contains(err.Error(), "protocol") {
 		t.Fatalf("ambiguous endpoint did not require protocol selection: %v", err)
 	}
@@ -45,9 +45,9 @@ func TestProfileSelectsProtocolIndependentlyOfClientBrand(t *testing.T) {
 
 func TestExplicitProtocolMustBeSupportedByClient(t *testing.T) {
 	cfg := validConfig()
-	profile := cfg.Profiles["backup"]
-	profile.Protocol = ProtocolAnthropic
-	cfg.Profiles["backup"] = profile
+	binding := cfg.Clients[ClientCodex]
+	binding.Protocol = ProtocolAnthropic
+	cfg.Clients[ClientCodex] = binding
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "does not support") {
 		t.Fatalf("Codex protocol validation = %v", err)
 	}
@@ -60,10 +60,8 @@ func TestManifestEquivalenceIncludesEveryEndpointAndProtocol(t *testing.T) {
 	if equivalentAccount(left, right) {
 		t.Fatal("manifest import treated different Chat Completions endpoints as equivalent")
 	}
-	profile := Profile{Account: "team", Client: ClientHermes, Model: "model", Protocol: ProtocolAnthropic}
-	other := profile
-	other.Protocol = ProtocolOpenAIResponses
-	if equivalentProfile(profile, other) {
-		t.Fatal("manifest import treated different selected protocols as equivalent")
+	profile := Profile{Account: "team", Model: "model"}
+	if !equivalentProfile(profile, profile) {
+		t.Fatal("manifest import treated equal provider model identities as different")
 	}
 }

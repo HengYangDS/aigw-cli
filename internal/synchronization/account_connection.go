@@ -13,7 +13,7 @@ import (
 // and configuration admission. Existing identities are never implicitly replaced.
 // Configuration, credential and projection failures retain their shared recovery
 // semantics; the caller owns no compensation after this operation returns.
-func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.Config, name string, account configuration.Account, profile configuration.Profile, acquireToken func() (string, error)) error {
+func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.Config, name, client string, account configuration.Account, profile configuration.Profile, acquireToken func() (string, error)) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -28,6 +28,10 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.C
 	profile.Account = name
 	after.Accounts[name] = account
 	after.Profiles[name] = profile
+	binding := after.Clients[client]
+	binding.Profile = name
+	binding.Enabled = true
+	after.Clients[client] = binding
 	if err := after.Validate(); err != nil {
 		return err
 	}
@@ -38,6 +42,6 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.C
 	if strings.TrimSpace(token) == "" {
 		return fmt.Errorf("Account connection requires a non-empty Token")
 	}
-	_, err = s.selectProfile(ctx, before, after, name, token)
+	_, err = s.selectProfile(ctx, before, after, client, name, token)
 	return err
 }

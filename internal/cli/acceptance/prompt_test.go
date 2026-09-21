@@ -110,11 +110,11 @@ func TestUseWithoutNameSelectsProfileAndCollectsMissingToken(t *testing.T) {
 	prompt := &scriptedPrompt{selections: []string{"two"}, secrets: []string{"two-token"}}
 	app.Interactive = true
 	app.Prompt = prompt
-	if err := cli.Execute(app, []string{"use"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "--for", "claude"}); err != nil {
 		t.Fatal(err)
 	}
 	cfg, _ := app.Config.Load()
-	if cfg.Routes[configuration.ClientCodex] != "two" || !secretExists(t, secretStore, "two") || len(prompt.secretCalls) != 1 {
+	if cfg.SelectedProfile(configuration.ClientClaude) != "two" || cfg.SelectedProfile(configuration.ClientCodex) != "one" || !secretExists(t, secretStore, "two") || len(prompt.secretCalls) != 1 {
 		t.Fatalf("config=%#v hasSecret=%v prompts=%d", cfg, secretExists(t, secretStore, "two"), len(prompt.secretCalls))
 	}
 }
@@ -123,13 +123,13 @@ func TestUseWithoutProfileRequiresInteractiveTerminal(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
-	cfg.Routes[configuration.ClientClaude] = "one"
+	cfg.SetSelectedProfile(configuration.ClientClaude, "one")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("one", "one-secret")
-	err := cli.Execute(app, []string{"use"})
-	if err == nil || !strings.Contains(err.Error(), "Non-interactive use requires a profile") {
+	err := cli.Execute(app, []string{"use", "--for", "claude"})
+	if err == nil || !strings.Contains(err.Error(), "non-interactive use requires a Profile") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -139,7 +139,7 @@ func TestUseWithoutProfilePromptsInteractively(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
-	cfg.Routes[configuration.ClientClaude] = "one"
+	cfg.SetSelectedProfile(configuration.ClientClaude, "one")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -147,15 +147,15 @@ func TestUseWithoutProfilePromptsInteractively(t *testing.T) {
 	_ = secretStore.Set("two", "two-secret")
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{selections: []string{"two"}}
-	if err := cli.Execute(app, []string{"use"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "--for", "claude"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Routes[configuration.ClientClaude] != "two" {
-		t.Fatalf("routes = %#v, want the interactively chosen profile", got.Routes)
+	if got.SelectedProfile(configuration.ClientClaude) != "two" {
+		t.Fatalf("bindings = %#v, want the interactively chosen profile", got.Clients)
 	}
 }
 
@@ -163,7 +163,7 @@ func TestUseSurfacesInteractiveSelectionFailure(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
-	cfg.Routes[configuration.ClientClaude] = "one"
+	cfg.SetSelectedProfile(configuration.ClientClaude, "one")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -182,11 +182,11 @@ func TestUseWithMissingTokenRequiresInteractiveTerminal(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
-	cfg.Routes[configuration.ClientClaude] = "one"
+	cfg.SetSelectedProfile(configuration.ClientClaude, "one")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	err := cli.Execute(app, []string{"use", "two"})
+	err := cli.Execute(app, []string{"use", "--for", "claude", "two"})
 	if err == nil || !strings.Contains(err.Error(), "is missing a token") {
 		t.Fatalf("error = %v", err)
 	}
@@ -197,13 +197,13 @@ func TestUseWithMissingTokenSurfacesPromptFailure(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
-	cfg.Routes[configuration.ClientClaude] = "one"
+	cfg.SetSelectedProfile(configuration.ClientClaude, "one")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{}
-	err := cli.Execute(app, []string{"use", "two"})
+	err := cli.Execute(app, []string{"use", "--for", "claude", "two"})
 	if err == nil || !strings.Contains(err.Error(), "no secret") {
 		t.Fatalf("error = %v", err)
 	}
@@ -214,7 +214,7 @@ func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
-	cfg.Routes[configuration.ClientClaude] = "one"
+	cfg.SetSelectedProfile(configuration.ClientClaude, "one")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -222,8 +222,8 @@ func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{secrets: []string{"new-token"}}
 	httpClient.status = 401
-	err := cli.Execute(app, []string{"use", "two"})
-	if err == nil || !strings.Contains(err.Error(), "Token validation failed") {
+	err := cli.Execute(app, []string{"use", "--for", "claude", "two"})
+	if err == nil || !strings.Contains(err.Error(), "token validation failed") {
 		t.Fatalf("error = %v", err)
 	}
 	if secretExists(t, secretStore, "two") {
@@ -236,7 +236,7 @@ func TestUseWithMissingTokenSurfacesSecretStoreFailure(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
-	cfg.Routes[configuration.ClientClaude] = "one"
+	cfg.SetSelectedProfile(configuration.ClientClaude, "one")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +244,7 @@ func TestUseWithMissingTokenSurfacesSecretStoreFailure(t *testing.T) {
 	app.Prompt = &scriptedPrompt{secrets: []string{"new-token"}}
 	want := errors.New("keychain locked")
 	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), setErr: want}
-	err := cli.Execute(app, []string{"use", "two"})
+	err := cli.Execute(app, []string{"use", "--for", "claude", "two"})
 	if !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
 	}
@@ -297,7 +297,7 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Routes[configuration.ClientCodex] != "gpt-5.6-terra" || cfg.Clients["claude"].Enabled || !cfg.Clients["codex"].Enabled {
+	if cfg.SelectedProfile(configuration.ClientCodex) != "gpt-5.6-terra" || cfg.Clients["claude"].Enabled || !cfg.Clients["codex"].Enabled {
 		t.Fatalf("configured state = %#v", cfg)
 	}
 	if len(runner.plans) != 0 {
@@ -348,7 +348,7 @@ func TestFirstRunCreatesExplicitGenericAccountWithoutBundledProviderDefault(t *t
 		t.Fatal("generic Account Token was not stored")
 	}
 	profile, ok := cfg.Profiles["gpt-5.6-terra"]
-	if !ok || profile.Account != "team-gateway" || profile.Client != "codex" || profile.Model != "gpt-5.6-terra" {
+	if !ok || profile.Account != "team-gateway" || profile.Model != "gpt-5.6-terra" || cfg.SelectedProfile(configuration.ClientCodex) != "gpt-5.6-terra" {
 		t.Fatalf("generic profile = %#v", profile)
 	}
 	if _, exists := cfg.Accounts["dmx"]; exists {
@@ -378,11 +378,11 @@ func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !secretExists(t, secretStore, "team-gateway") || cfg.Routes[configuration.ClientClaude] != "claude-sonnet-5" {
+	if !secretExists(t, secretStore, "team-gateway") || cfg.SelectedProfile(configuration.ClientClaude) != "claude-sonnet-5" {
 		t.Fatalf("setup state = %#v", cfg)
 	}
 	text := out.String()
-	if !strings.Contains(text, "aigw sync") || strings.Contains(text, "aigw check") {
+	if !strings.Contains(text, "aigw check") || strings.Contains(text, "aigw sync") {
 		t.Fatalf("setup continuation = %q", text)
 	}
 }
@@ -392,8 +392,8 @@ func TestSetupWithoutFlagsRefusesBeforePromptingWhenAlreadyConfigured(t *testing
 	app.Interactive = true
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-test"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

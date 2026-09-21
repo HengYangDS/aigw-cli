@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -15,7 +16,7 @@ import (
 func TestProfileAddValidation(t *testing.T) {
 	t.Run("profile add invalid id", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		err := cli.Execute(app, []string{"profile", "add", "bad id", "--account", "one", "--for", "claude", "--model", "m"})
+		err := cli.Execute(app, []string{"profile", "add", "bad id", "--account", "one", "--model", "m"})
 		if err == nil || !strings.Contains(err.Error(), "Invalid profile ID") {
 			t.Fatalf("error = %v", err)
 		}
@@ -24,7 +25,7 @@ func TestProfileAddValidation(t *testing.T) {
 	t.Run("profile add load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Config = configuration.NewStore(t.TempDir())
-		if err := cli.Execute(app, []string{"profile", "add", "two", "--account", "one", "--for", "claude", "--model", "m"}); err == nil {
+		if err := cli.Execute(app, []string{"profile", "add", "two", "--account", "one", "--model", "m"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
 	})
@@ -32,7 +33,7 @@ func TestProfileAddValidation(t *testing.T) {
 	t.Run("profile add duplicate", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
-		err := cli.Execute(app, []string{"profile", "add", "one", "--account", "one", "--for", "claude", "--model", "m"})
+		err := cli.Execute(app, []string{"profile", "add", "one", "--account", "one", "--model", "m"})
 		if err == nil || !strings.Contains(err.Error(), "already exists") {
 			t.Fatalf("error = %v", err)
 		}
@@ -41,7 +42,7 @@ func TestProfileAddValidation(t *testing.T) {
 	t.Run("profile add unknown account", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
-		err := cli.Execute(app, []string{"profile", "add", "two", "--account", "missing", "--for", "claude", "--model", "m"})
+		err := cli.Execute(app, []string{"profile", "add", "two", "--account", "missing", "--model", "m"})
 		if err == nil || !strings.Contains(err.Error(), "Unknown account") {
 			t.Fatalf("error = %v", err)
 		}
@@ -50,7 +51,7 @@ func TestProfileAddValidation(t *testing.T) {
 	t.Run("profile add default label", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
-		if err := cli.Execute(app, []string{"profile", "add", "two", "--account", "one", "--for", "claude", "--model", "m2"}); err != nil {
+		if err := cli.Execute(app, []string{"profile", "add", "two", "--account", "one", "--model", "m2"}); err != nil {
 			t.Fatal(err)
 		}
 		cfg, _ := app.Config.Load()
@@ -64,9 +65,9 @@ func TestProfileRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-default"] = configuration.Profile{Label: "GPT Default", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-default"}
-	cfg.Profiles["gpt-unused"] = configuration.Profile{Label: "GPT Unused", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-unused"}
-	cfg.Routes[configuration.ClientCodex] = "gpt-default"
+	cfg.Profiles["gpt-default"] = configuration.Profile{Label: "GPT Default", Account: "dmx", Model: "gpt-default"}
+	cfg.Profiles["gpt-unused"] = configuration.Profile{Label: "GPT Unused", Account: "dmx", Model: "gpt-unused"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt-default")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +88,7 @@ func TestProfileAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "gpt", "dmx", "GPT", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}, configuration.ClientCodex, "gpt-test")
-	cfg.Routes[configuration.ClientCodex] = "gpt"
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +96,7 @@ func TestProfileAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"profile", "add", "claude", "--account", "dmx", "--for", "claude", "--model", "claude-test", "--label", "Claude Test"}); err != nil {
+	if err := cli.Execute(app, []string{"profile", "add", "claude", "--account", "dmx", "--model", "claude-test", "--label", "Claude Test"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
@@ -103,50 +104,61 @@ func TestProfileAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := got.Profiles["claude"]
-	if profile.Account != "dmx" || profile.Client != configuration.ClientClaude || profile.Model != "claude-test" {
+	if profile.Account != "dmx" || profile.Model != "claude-test" {
 		t.Fatalf("added profile = %#v", profile)
 	}
-	if got.Routes[configuration.ClientCodex] != "gpt" || !secretExists(t, secretStore, "dmx") || secretExists(t, secretStore, "claude") {
-		t.Fatalf("route or token slots changed: routes=%#v dmx=%v claude=%v", got.Routes, secretExists(t, secretStore, "dmx"), secretExists(t, secretStore, "claude"))
+	if got.SelectedProfile(configuration.ClientCodex) != "gpt" || !secretExists(t, secretStore, "dmx") || secretExists(t, secretStore, "claude") {
+		t.Fatalf("selection or token slots changed: clients=%#v dmx=%v claude=%v", got.Clients, secretExists(t, secretStore, "dmx"), secretExists(t, secretStore, "claude"))
 	}
 }
 
-func TestProfileAddRejectsClientWithoutMatchingAccountEndpoint(t *testing.T) {
+func TestProfileAddDoesNotConflateProfileCreationWithClientCompatibility(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "gpt", "openai-only", "OpenAI Only", configuration.Endpoints{OpenAIResponses: "https://openai.test/v1"}, configuration.ClientCodex, "gpt-test")
-	cfg.Routes[configuration.ClientCodex] = "gpt"
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 
-	err := cli.Execute(app, []string{"profile", "add", "claude", "--account", "openai-only", "--for", "claude", "--model", "claude-test"})
+	if err := cli.Execute(app, []string{"profile", "add", "claude", "--account", "openai-only", "--model", "claude-test"}); err != nil {
+		t.Fatalf("profile creation should remain client-independent: %v", err)
+	}
+	got, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, exists := got.Profiles["claude"]
+	if !exists || profile.Account != "openai-only" || profile.Model != "claude-test" {
+		t.Fatalf("created Profile = %#v, exists=%v", profile, exists)
+	}
+	if got.SelectedProfile(configuration.ClientClaude) != "" {
+		t.Fatalf("profile creation selected a Claude binding: %#v", got.Clients)
+	}
+
+	err = cli.Execute(app, []string{"use", "--for", "claude", "claude"})
 	if err == nil || !strings.Contains(err.Error(), "no Anthropic endpoint") {
-		t.Fatalf("profile add error = %v", err)
-	}
-	got, loadErr := app.Config.Load()
-	if loadErr != nil {
-		t.Fatal(loadErr)
-	}
-	if _, exists := got.Profiles["claude"]; exists {
-		t.Fatalf("unusable Profile was persisted: %#v", got.Profiles["claude"])
+		t.Fatalf("client selection error = %v", err)
 	}
 }
 
-func TestProfileReadsSurfaceCredentialObservationFailure(t *testing.T) {
+func TestProfileReadsDoNotInspectCredentials(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
-	want := errors.New("credential observation failed")
-	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: want}
+	observed := &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: errors.New("credential observation must not run")}
+	app.Secrets = observed
 
 	for _, args := range [][]string{{"profile", "list"}, {"profile", "show", "one"}} {
-		if err := cli.Execute(app, args); !errors.Is(err, want) {
-			t.Fatalf("%v error = %v, want %v", args, err, want)
+		if err := cli.Execute(app, args); err != nil {
+			t.Fatalf("%v: %v", args, err)
 		}
+	}
+	if len(observed.existsCalls)+len(observed.getCalls) != 0 {
+		t.Fatalf("Profile reads inspected credentials: exists=%q get=%q", observed.existsCalls, observed.getCalls)
 	}
 }
 
-func TestProfileReadsHonorClientNativeAuthenticationOwnership(t *testing.T) {
+func TestProfileReadsKeepClientAuthenticationInTheBinding(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["native"] = configuration.Account{
@@ -156,14 +168,14 @@ func TestProfileReadsHonorClientNativeAuthenticationOwnership(t *testing.T) {
 		},
 	}
 	cfg.Profiles["native"] = configuration.Profile{
-		Label:          "Native",
-		Account:        "native",
-		Client:         configuration.ClientCodex,
-		Model:          "native-model",
-		ModelProvider:  "amazon-bedrock",
+		Label:   "Native",
+		Account: "native",
+		Model:   "native-model",
+	}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
+		Profile: "native", ModelProvider: "amazon-bedrock",
 		Authentication: configuration.AuthenticationClientNative,
 	}
-	cfg.Routes[configuration.ClientCodex] = "native"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +188,7 @@ func TestProfileReadsHonorClientNativeAuthenticationOwnership(t *testing.T) {
 	if len(observed.existsCalls) != 0 || len(observed.getCalls) != 0 {
 		t.Fatalf("profile list accessed client-native credentials: exists=%q get=%q", observed.existsCalls, observed.getCalls)
 	}
-	if text := out.String(); !strings.Contains(text, "Client-owned authentication") || strings.Contains(text, "Token missing") {
+	if text := out.String(); strings.Contains(text, "Authentication") || strings.Contains(text, "Token") {
 		t.Fatalf("profile list = %q", text)
 	}
 
@@ -187,36 +199,36 @@ func TestProfileReadsHonorClientNativeAuthenticationOwnership(t *testing.T) {
 	if len(observed.existsCalls) != 0 || len(observed.getCalls) != 0 {
 		t.Fatalf("profile show accessed client-native credentials: exists=%q get=%q", observed.existsCalls, observed.getCalls)
 	}
-	var result struct {
-		Authentication configuration.Authentication `json:"authentication"`
-		ModelProvider  string                       `json:"model_provider"`
-	}
+	var result map[string]any
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.Authentication != configuration.AuthenticationClientNative || result.ModelProvider != "amazon-bedrock" {
-		t.Fatalf("profile JSON = %+v", result)
-	}
-	if strings.Contains(out.String(), "secret_available") {
-		t.Fatalf("profile JSON projected an AIGW Token fact for client-native authentication: %s", out.String())
+	for _, clientField := range []string{"authentication", "model_provider", "secret_available", "credential_ownership"} {
+		if _, exists := result[clientField]; exists {
+			t.Fatalf("Profile JSON contains client-binding field %q: %s", clientField, out.String())
+		}
 	}
 
 	out.Reset()
 	if err := cli.Execute(app, []string{"profile", "show", "native"}); err != nil {
 		t.Fatal(err)
 	}
-	if text := out.String(); !strings.Contains(text, "Authentication") || !strings.Contains(text, "Client-owned") {
+	if text := out.String(); strings.Contains(text, "Authentication") || strings.Contains(text, "Token") {
 		t.Fatalf("profile show = %q", text)
 	}
 }
 
-func TestProfileListJSONIsStableAndPreservesAuthenticationOwnership(t *testing.T) {
+func TestProfileListJSONIsStableAndClientIndependent(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["shared"] = configuration.Account{Label: "Shared", Endpoints: configuration.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
-	cfg.Profiles["zeta"] = configuration.Profile{Label: "Zeta", Account: "shared", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Profiles["alpha"] = configuration.Profile{Label: "Alpha", Account: "shared", Client: configuration.ClientCodex, Model: "gpt-test", ModelProvider: "amazon-bedrock", Authentication: configuration.AuthenticationClientNative}
-	cfg.Routes[configuration.ClientClaude] = "zeta"
+	cfg.Profiles["zeta"] = configuration.Profile{Label: "Zeta", Account: "shared", Model: "claude-test"}
+	cfg.Profiles["alpha"] = configuration.Profile{Label: "Alpha", Account: "shared", Model: "gpt-test"}
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
+		Profile: "alpha", ModelProvider: "amazon-bedrock",
+		Authentication: configuration.AuthenticationClientNative,
+	}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "zeta")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -229,11 +241,8 @@ func TestProfileListJSONIsStableAndPreservesAuthenticationOwnership(t *testing.T
 	}
 	var result struct {
 		Profiles []struct {
-			ID                  string                       `json:"id"`
-			Authentication      configuration.Authentication `json:"authentication"`
-			CredentialOwnership string                       `json:"credential_ownership"`
-			Selected            bool                         `json:"selected"`
-			SecretAvailable     *bool                        `json:"secret_available,omitempty"`
+			ID              string   `json:"id"`
+			SelectedClients []string `json:"selected_clients"`
 		} `json:"profiles"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
@@ -242,14 +251,16 @@ func TestProfileListJSONIsStableAndPreservesAuthenticationOwnership(t *testing.T
 	if len(result.Profiles) != 2 || result.Profiles[0].ID != "alpha" || result.Profiles[1].ID != "zeta" {
 		t.Fatalf("profile order = %#v", result.Profiles)
 	}
-	if result.Profiles[0].Authentication != configuration.AuthenticationClientNative || result.Profiles[0].CredentialOwnership != "client" || result.Profiles[0].SecretAvailable != nil {
-		t.Fatalf("client-native profile projected AIGW credential state: %#v", result.Profiles[0])
+	if !slices.Equal(result.Profiles[0].SelectedClients, []string{configuration.ClientCodex}) {
+		t.Fatalf("Codex-selected Profile = %#v", result.Profiles[0])
 	}
-	if result.Profiles[1].CredentialOwnership != "aigw" || !result.Profiles[1].Selected || result.Profiles[1].SecretAvailable == nil || !*result.Profiles[1].SecretAvailable {
-		t.Fatalf("selected account-token profile = %#v", result.Profiles[1])
+	if !slices.Equal(result.Profiles[1].SelectedClients, []string{configuration.ClientClaude}) {
+		t.Fatalf("Claude-selected Profile = %#v", result.Profiles[1])
 	}
-	if strings.Contains(out.String(), "never-print-this-token") {
-		t.Fatalf("profile list exposed Token material: %s", out.String())
+	for _, forbidden := range []string{"never-print-this-token", "authentication", "credential_ownership", "secret_available"} {
+		if strings.Contains(out.String(), forbidden) {
+			t.Fatalf("profile list exposed client or credential field %q: %s", forbidden, out.String())
+		}
 	}
 }
 
@@ -257,8 +268,8 @@ func TestProfileShowRendersEverySecretFreeField(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["shared"] = configuration.Account{Label: "Shared", Endpoints: configuration.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex Model", Purpose: "Daily work", Account: "shared", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Routes[configuration.ClientCodex] = "codex"
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex Model", Purpose: "Daily work", Account: "shared", Model: "gpt-test"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +279,7 @@ func TestProfileShowRendersEverySecretFreeField(t *testing.T) {
 	if err := cli.Execute(app, []string{"profile", "show", "codex"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Codex Model", "Daily work", "shared", "Codex", "gpt-test", "https://shared.test/v1", "https://shared.test", "Account Token", "Available"} {
+	for _, want := range []string{"Codex Model", "Daily work", "shared", "codex", "gpt-test", "https://shared.test/v1", "https://shared.test"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("human output lacks %q:\n%s", want, out.String())
 		}
@@ -280,13 +291,11 @@ func TestProfileShowRendersEverySecretFreeField(t *testing.T) {
 	if err := cli.Execute(app, []string{"profile", "show", "codex", "--json"}); err != nil {
 		t.Fatal(err)
 	}
-	var result struct {
-		SecretAvailable bool `json:"secret_available"`
-	}
+	var result map[string]any
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if !result.SecretAvailable || strings.Contains(out.String(), "never-render-this") {
+	if _, exists := result["secret_available"]; exists || strings.Contains(out.String(), "never-render-this") {
 		t.Fatalf("JSON output = %s", out.String())
 	}
 }
@@ -362,8 +371,8 @@ func TestAdvancedProfileReadEditAndRemoveErrors(t *testing.T) {
 		cfg := configuration.NewConfig()
 		addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}, configuration.ClientClaude, "m1")
 		addAccountProfile(&cfg, "two", "one", "Two", configuration.Endpoints{}, configuration.ClientCodex, "m2")
-		cfg.Routes[configuration.ClientClaude] = "one"
-		cfg.Routes[configuration.ClientCodex] = "two"
+		cfg.SetSelectedProfile(configuration.ClientClaude, "one")
+		cfg.SetSelectedProfile(configuration.ClientCodex, "two")
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -382,8 +391,8 @@ func TestProfileEditSynchronizesActiveCodexProjection(t *testing.T) {
 	}
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
-	cfg.Routes[configuration.ClientCodex] = "one"
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -404,12 +413,12 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "current", "team", "Team Gateway", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-current")
-	cfg.Routes[configuration.ClientClaude] = "current"
+	cfg.SetSelectedProfile(configuration.ClientClaude, "current")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"profile", "add", "claude-fable-5", "--account", "team", "--for", "claude", "--model", "claude-fable-5", "--label", "Claude Fable 5", "--purpose", "Default agent"}); err != nil {
+	if err := cli.Execute(app, []string{"profile", "add", "claude-fable-5", "--account", "team", "--model", "claude-fable-5", "--label", "Claude Fable 5", "--purpose", "Default agent"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
@@ -425,7 +434,7 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 	selector := &scriptedPrompt{selections: []string{"claude-fable-5"}}
 	app.Interactive = true
 	app.Prompt = selector
-	if err := cli.Execute(app, []string{"use"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "--for", "claude"}); err != nil {
 		t.Fatal(err)
 	}
 	if len(selector.choices) != 2 || selector.choices[0].Label != "Claude Fable 5 · Default agent" {
@@ -484,10 +493,9 @@ func TestProfileListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T
 		Label:   "GPT Test",
 		Purpose: "native Codex picker-aligned daily default",
 		Account: "team",
-		Client:  configuration.ClientCodex,
 		Model:   "gpt-test",
 	}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -499,7 +507,7 @@ func TestProfileListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"Profiles", "Available profiles", "Configuration  gpt", "Codex · GPT Test · native Codex picker-aligned daily default · Selected for Codex · Account team · Token available"} {
+	for _, want := range []string{"Profiles", "Available profiles", "Configuration  gpt", "GPT Test · native Codex picker-aligned daily default · Selected for codex · Account team · Clients codex"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("profile list lacks %q:\n%s", want, text)
 		}
@@ -515,7 +523,7 @@ func TestProfileRemoveRefusesActiveProfile(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
-	cfg.Routes[configuration.ClientClaude] = "team"
+	cfg.SetSelectedProfile(configuration.ClientClaude, "team")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

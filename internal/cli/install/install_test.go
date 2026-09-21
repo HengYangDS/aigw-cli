@@ -177,9 +177,9 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		store := configuration.NewStore(filepath.Join(root, "configuration.toml"))
 		cfg := configuration.NewConfig()
 		cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-		cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
-		cfg.Routes[configuration.ClientClaude] = "claude"
-		cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
+		cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-test"}
+		cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+		cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 		if err := store.Save(cfg); err != nil {
 			t.Fatal(err)
 		}

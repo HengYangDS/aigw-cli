@@ -1,6 +1,79 @@
 package configuration
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+
+	"github.com/pelletier/go-toml/v2"
+)
+
+func TestCurrentSchemaRemovesLegacySelectionFields(t *testing.T) {
+	if ConfigVersion != 4 {
+		t.Fatalf("config version = %d, want 4", ConfigVersion)
+	}
+	for _, field := range []string{"Routes", "RecommendedRoutes"} {
+		if _, exists := reflect.TypeFor[Config]().FieldByName(field); exists {
+			t.Errorf("Config still exposes legacy field %s", field)
+		}
+	}
+	for _, field := range []string{"Client", "Protocol", "ModelProvider", "Authentication"} {
+		if _, exists := reflect.TypeFor[Profile]().FieldByName(field); exists {
+			t.Errorf("Profile still exposes client concern %s", field)
+		}
+	}
+}
+
+func TestConfigSerializationUsesClientBindingsOnly(t *testing.T) {
+	cfg := NewConfig()
+	cfg.Accounts["team"] = Account{
+		Label:     "Team",
+		Endpoints: Endpoints{Anthropic: "https://team.test/anthropic"},
+	}
+	cfg.Profiles["reasoning"] = Profile{
+		Label:   "Reasoning",
+		Account: "team",
+		Model:   "reasoning-model",
+	}
+	cfg.Clients[ClientClaude] = ClientBinding{
+		Enabled:  true,
+		Profile:  "reasoning",
+		Protocol: ProtocolAnthropic,
+	}
+
+	encoded, err := toml.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err := toml.Unmarshal(encoded, &document); err != nil {
+		t.Fatal(err)
+	}
+	for _, legacy := range []string{"routes", "recommended_routes", "adapters"} {
+		if _, exists := document[legacy]; exists {
+			t.Fatalf("serialized configuration retained legacy %q state:\n%s", legacy, encoded)
+		}
+	}
+	clients, ok := document["clients"].(map[string]any)
+	if !ok {
+		t.Fatalf("serialized configuration has no clients table:\n%s", encoded)
+	}
+	if _, ok := clients[ClientClaude]; !ok {
+		t.Fatalf("serialized configuration has no Claude binding:\n%s", encoded)
+	}
+	profiles, ok := document["profiles"].(map[string]any)
+	if !ok {
+		t.Fatalf("serialized configuration has no profiles table:\n%s", encoded)
+	}
+	profile, ok := profiles["reasoning"].(map[string]any)
+	if !ok {
+		t.Fatalf("serialized configuration has no reasoning profile:\n%s", encoded)
+	}
+	for _, clientConcern := range []string{"client", "protocol", "model_provider", "authentication"} {
+		if _, exists := profile[clientConcern]; exists {
+			t.Fatalf("serialized Profile retained client concern %q:\n%s", clientConcern, encoded)
+		}
+	}
+}
 
 func TestClientBindingOwnsSelectionAndClientSpecificOptions(t *testing.T) {
 	cfg := NewConfig()
@@ -70,5 +143,26 @@ func TestClientBindingOwnsNativeAuthentication(t *testing.T) {
 	}
 	if runtime.RequiresAccountToken() {
 		t.Fatal("client-native binding unexpectedly requires an Account Token")
+	}
+}
+
+func TestSetClientActivationPreservesSelectionAndClientOptions(t *testing.T) {
+	cfg := NewConfig()
+	cfg.Clients[ClientCodex] = ClientBinding{
+		Profile:           "reasoning",
+		Protocol:          ProtocolOpenAIResponses,
+		ModelProvider:     "provider",
+		Authentication:    AuthenticationClientNative,
+		CredentialCommand: "/existing/helper",
+	}
+
+	cfg.SetClientActivation(ClientCodex, true, "/opt/codex", []string{"/one/config.toml", "/two/config.toml"})
+
+	got := cfg.Clients[ClientCodex]
+	if got.Profile != "reasoning" || got.Protocol != ProtocolOpenAIResponses || got.ModelProvider != "provider" || got.Authentication != AuthenticationClientNative || got.CredentialCommand != "/existing/helper" {
+		t.Fatalf("activation replaced client selection or options: %#v", got)
+	}
+	if !got.Enabled || got.Executable != "/opt/codex" || !reflect.DeepEqual(got.Targets, []string{"/one/config.toml", "/two/config.toml"}) {
+		t.Fatalf("activation state = %#v", got)
 	}
 }

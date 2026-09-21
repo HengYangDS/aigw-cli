@@ -230,7 +230,7 @@ func TestHomebrewProjectionUsesExactArchiveBytes(t *testing.T) {
 			t.Fatalf("wrapped program location missing for %s", name)
 		}
 	}
-	for _, expected := range []string{`cask "aigw"`, `version "` + request.Version + `"`, `binary "aigw"`, "/releases/download/v#{version}/", "aigw adapter disable"} {
+	for _, expected := range []string{`cask "aigw"`, `version "` + request.Version + `"`, `binary "aigw"`, "/releases/download/v#{version}/", "aigw client disable"} {
 		if !strings.Contains(string(cask), expected) {
 			t.Fatalf("Homebrew projection missing %q", expected)
 		}

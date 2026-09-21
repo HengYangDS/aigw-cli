@@ -73,9 +73,9 @@ func (s *configStoreStub) RestoreSnapshot(configuration.Snapshot, configuration.
 func testConfig(target string) configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "gateway", Model: "gpt-test"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	return cfg
 }
 
@@ -90,7 +90,7 @@ func TestWithdrawDefaultsToEveryAdmittedClientAndRejectsUnknownClients(t *testin
 	syncer := Synchronizer{}
 	cfg := configuration.NewConfig()
 	for _, clientID := range syncer.ClientIDs() {
-		cfg.Clients[clientID] = configuration.ClientBinding{Enabled: true}
+		cfg.SetClientActivation(clientID, true, "", nil)
 	}
 	if err := syncer.Withdraw(&cfg); err != nil {
 		t.Fatal(err)
@@ -348,10 +348,10 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	}
 	before := configuration.NewConfig()
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-team"}
-	before.Routes[configuration.ClientClaude] = "claude"
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-team"}
+	before.SetSelectedProfile(configuration.ClientClaude, "claude")
 	after := before.Clone()
-	after.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
+	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
@@ -403,10 +403,10 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 	}
 	before := configuration.NewConfig()
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-team"}
-	before.Routes[configuration.ClientClaude] = "claude"
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-team"}
+	before.SetSelectedProfile(configuration.ClientClaude, "claude")
 	after := before.Clone()
-	after.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
+	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)

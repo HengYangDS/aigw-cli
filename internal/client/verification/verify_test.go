@@ -98,10 +98,10 @@ func verificationConfig() configuration.Config {
 		OpenAIResponses: "https://one.test/v1",
 		Anthropic:       "https://one.test",
 	}}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientCodex] = "codex"
-	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Model: "gpt-test"}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Model: "claude-test"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
 	return cfg
 }
 
@@ -131,7 +131,7 @@ func configuredCodexVerification(t *testing.T, targets ...string) (configuration
 	if err := os.WriteFile(executable, []byte("codex fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: executable, Targets: targets}
+	cfg.SetClientActivation(configuration.ClientCodex, true, executable, targets)
 	return cfg, runtime
 }
 
@@ -242,12 +242,12 @@ func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 		t.Fatalf("disabled adapter error = %v", err)
 	}
 	missingExecutable := cfg.Clone()
-	missingExecutable.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Targets: []string{target}}
+	missingExecutable.SetClientActivation(configuration.ClientCodex, true, "", []string{target})
 	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, missingExecutable, runtime); err == nil || !strings.Contains(err.Error(), "executable is not configured") {
 		t.Fatalf("missing executable error = %v", err)
 	}
 	missingTarget := cfg.Clone()
-	missingTarget.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: executable}
+	missingTarget.SetClientActivation(configuration.ClientCodex, true, executable, nil)
 	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, missingTarget, runtime); err == nil || !strings.Contains(err.Error(), "configuration target is missing") {
 		t.Fatalf("missing target error = %v", err)
 	}
@@ -260,12 +260,12 @@ func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 		t.Fatalf("capture error = %v", err)
 	}
 	missingOnDisk := cfg.Clone()
-	missingOnDisk.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing-codex"), Targets: []string{target}}
+	missingOnDisk.SetClientActivation(configuration.ClientCodex, true, filepath.Join(t.TempDir(), "missing-codex"), []string{target})
 	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, missingOnDisk, runtime); err == nil || !strings.Contains(err.Error(), "read Codex executable") {
 		t.Fatalf("missing executable file error = %v", err)
 	}
 	drifted := cfg.Clone()
-	drifted.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Client: configuration.ClientCodex, Model: "other"}
+	drifted.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Model: "other"}
 	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, drifted, configuration.Runtime{ProfileID: "codex", Model: "other"}); err == nil || !strings.Contains(err.Error(), "synchronized") {
 		t.Fatalf("projection error = %v", err)
 	}

@@ -53,10 +53,10 @@ func TestRemoveProfileRemovesOnlyItsRecommendation(t *testing.T) {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.RecommendedRoutes[configuration.ClientClaude] = "claude"
-	cfg.RecommendedRoutes[configuration.ClientCodex] = "codex"
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Model: "claude-test"}
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Model: "gpt-test"}
+	cfg.SetRecommendedProfile(configuration.ClientClaude, "claude")
+	cfg.SetRecommendedProfile(configuration.ClientCodex, "codex")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -66,8 +66,8 @@ func TestRemoveProfileRemovesOnlyItsRecommendation(t *testing.T) {
 		t.Fatal(err)
 	}
 	after, err := store.Load()
-	if err != nil || after.RecommendedRoutes[configuration.ClientClaude] != "" || after.RecommendedRoutes[configuration.ClientCodex] != "codex" {
-		t.Fatalf("removal recommendation state = %#v, %v", after.RecommendedRoutes, err)
+	if err != nil || after.RecommendedProfile(configuration.ClientClaude) != "" || after.RecommendedProfile(configuration.ClientCodex) != "codex" {
+		t.Fatalf("removal recommendation state = %#v, %v", after.Recommendations, err)
 	}
 }
 
@@ -83,10 +83,9 @@ func blockedProfileRuntime(t *testing.T) invocation.Context {
 	cfg.Profiles["current"] = configuration.Profile{
 		Label:   "Current",
 		Account: "current",
-		Client:  configuration.ClientCodex,
 		Model:   "gpt-current",
 	}
-	cfg.Routes[configuration.ClientCodex] = "current"
+	cfg.SetSelectedProfile(configuration.ClientCodex, "current")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

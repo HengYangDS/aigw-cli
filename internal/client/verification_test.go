@@ -79,7 +79,7 @@ func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedProfile(t *test
 		t.Fatal(err)
 	}
 	cfg.Profiles["alternate"] = configuration.Profile{
-		Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-alternate",
+		Account: "gateway", Model: "gpt-alternate",
 	}
 	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "alternate")
 	if err != nil {
@@ -125,10 +125,10 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedProfile(t *tes
 	}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Profiles["selected"] = configuration.Profile{Account: "gateway", Client: configuration.ClientClaude, Model: "claude-selected"}
-	cfg.Profiles["alternate"] = configuration.Profile{Account: "gateway", Client: configuration.ClientClaude, Model: "claude-alternate"}
-	cfg.Routes[configuration.ClientClaude] = "selected"
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executable}
+	cfg.Profiles["selected"] = configuration.Profile{Account: "gateway", Model: "claude-selected"}
+	cfg.Profiles["alternate"] = configuration.Profile{Account: "gateway", Model: "claude-alternate"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "selected")
+	cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
 	selected, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
 		t.Fatal(err)

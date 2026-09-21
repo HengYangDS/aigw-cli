@@ -17,8 +17,8 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	source := discovery.System{GOOS: runtime.GOOS, Home: home, Path: home}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://provider.test"}}
-	cfg.Profiles["hermes"] = configuration.Profile{Label: "Hermes", Account: "team", Client: "hermes", Model: "model-test", Protocol: configuration.ProtocolAnthropic}
-	cfg.Routes["hermes"] = "hermes"
+	cfg.Profiles["hermes"] = configuration.Profile{Label: "Hermes", Account: "team", Model: "model-test"}
+	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Profile: "hermes", Enabled: true, Protocol: configuration.ProtocolAnthropic}
 	store := secrets.NewMemoryStore()
 	if err := store.Set("team", "fixture-token"); err != nil {
 		t.Fatal(err)
@@ -30,8 +30,8 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after.Clients["hermes"].Enabled {
-		t.Fatal("absent Hermes was enabled")
+	if binding := after.Clients["hermes"]; !binding.Enabled || binding.Executable != "" || len(binding.Targets) != 0 {
+		t.Fatalf("absent Hermes intent was not deferred: %#v", binding)
 	}
 	name := "hermes"
 	if runtime.GOOS == "windows" {
@@ -45,8 +45,8 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !after.Clients["hermes"].Enabled {
-		t.Fatal("installed Hermes was not enabled")
+	if binding := after.Clients["hermes"]; !binding.Enabled || binding.Executable == "" || len(binding.Targets) != 1 {
+		t.Fatalf("installed Hermes intent was not materialized: %#v", binding)
 	}
 	if err := registry.Apply(context.Background(), deps, cfg, after, "hermes"); err != nil {
 		t.Fatal(err)

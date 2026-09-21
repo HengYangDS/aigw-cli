@@ -15,8 +15,8 @@ func TestStatusSuggestsAccountSpecificDiagnostics(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
-	cfg.Profiles["gpt-5.6-sol"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-5.6-sol"}
-	cfg.Routes[configuration.ClientCodex] = "gpt-5.6-sol"
+	cfg.Profiles["gpt-5.6-sol"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-5.6-sol"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt-5.6-sol")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -34,9 +34,9 @@ func TestStatusWarnsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{Anthropic: "https://example.test"}}
-	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude Fable", Account: "dmx", Client: configuration.ClientClaude, Model: "claude-fable-5"}
-	cfg.Routes[configuration.ClientClaude] = "claude-fable-5"
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude-real"}
+	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude Fable", Account: "dmx", Model: "claude-fable-5"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude-fable-5")
+	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude-real", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestTerminalErrorLocalizesUnsupportedConfigVersion(t *testing.T) {
 	}
 	text := out.String()
 	for _, want := range []string{
-		"unsupported configuration version: found 0, expected 3",
+		"unsupported configuration version: found 0, expected 4",
 		"AIGW does not reinterpret configuration schemas",
 		"Recommended action",
 		"aigw doctor",
@@ -79,13 +79,26 @@ func TestTerminalErrorLocalizesUnsupportedConfigVersion(t *testing.T) {
 	}
 }
 
+func TestStatusDirectsTheSupportedPredecessorToExplicitMigration(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	if err := os.WriteFile(app.Config.Path(), []byte("version = 3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"status"}); err == nil {
+		t.Fatal("legacy configuration unexpectedly entered normal runtime")
+	}
+	if text := out.String(); !strings.Contains(text, "aigw config migrate --dry-run") {
+		t.Fatalf("legacy configuration guidance = %s", text)
+	}
+}
+
 func TestStatusGuidesClientSpecificRouteInsteadOfBlankRepair(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
-	cfg.Profiles["gpt-5.6-sol"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-5.6-sol"}
-	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude", Account: "dmx", Client: configuration.ClientClaude, Model: "claude-fable-5"}
-	cfg.Routes[configuration.ClientCodex] = "gpt-5.6-sol"
+	cfg.Profiles["gpt-5.6-sol"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-5.6-sol"}
+	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude", Account: "dmx", Model: "claude-fable-5"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt-5.6-sol")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +110,7 @@ func TestStatusGuidesClientSpecificRouteInsteadOfBlankRepair(t *testing.T) {
 	if strings.Contains(text, "Claude             ·") || strings.Contains(text, "aigw repair") {
 		t.Fatalf("status should not show blank Claude route or misleading repair:\n%s", text)
 	}
-	for _, want := range []string{"Claude", "No Claude profile selected", "aigw use claude-fable-5"} {
+	for _, want := range []string{"Claude", "No Claude profile selected", "aigw use --for claude claude-fable-5"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("status lacks %q:\n%s", want, text)
 		}
@@ -120,8 +133,8 @@ func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-test")
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude-real"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude-real", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -141,8 +154,8 @@ func TestStatusShowsIndependentRoutesAndJSONNeverContainsToken(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "codex", "dmx", "Codex", configuration.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, configuration.ClientCodex, "gpt-test")
 	addAccountProfile(&cfg, "claude", "dmx", "Claude", configuration.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, configuration.ClientClaude, "claude-test")
-	cfg.Routes[configuration.ClientCodex] = "codex"
-	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +170,7 @@ func TestStatusShowsIndependentRoutesAndJSONNeverContainsToken(t *testing.T) {
 	if err := cli.Execute(app, []string{"status", "--json"}); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(out.String(), "never-print-this-secret") || !strings.Contains(out.String(), `"authentication": "account-token"`) {
+	if strings.Contains(out.String(), "never-print-this-secret") || !strings.Contains(out.String(), `"authentication": "account-token"`) || strings.Contains(out.String(), `"routes"`) {
 		t.Fatalf("unsafe JSON status = %s", out.String())
 	}
 }
@@ -180,7 +193,7 @@ func TestStatusReportsRouteTransport(t *testing.T) {
 			app.Config = configuration.NewStore(filepath.Join(t.TempDir(), "localhost-4567-configuration.toml"))
 			cfg := configuration.NewConfig()
 			addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: tc.endpoint}, configuration.ClientCodex, "model-test")
-			cfg.Routes[configuration.ClientCodex] = "team"
+			cfg.SetSelectedProfile(configuration.ClientCodex, "team")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -192,7 +205,7 @@ func TestStatusReportsRouteTransport(t *testing.T) {
 			}
 			var document struct {
 				ConfigPath string                                `json:"config_path"`
-				Routes     map[string]map[string]json.RawMessage `json:"routes"`
+				Clients    map[string]map[string]json.RawMessage `json:"clients"`
 			}
 			if err := json.Unmarshal(out.Bytes(), &document); err != nil {
 				t.Fatal(err)
@@ -208,13 +221,13 @@ func TestStatusReportsRouteTransport(t *testing.T) {
 				"next_action":         json.RawMessage(`"aigw sync"`),
 				"authentication":      json.RawMessage(`"account-token"`),
 				"endpoint_configured": json.RawMessage(`true`),
-				"adapter_ready":       json.RawMessage(`false`),
+				"projection_ready":    json.RawMessage(`false`),
 			}
 			if tc.transport != "" {
 				want["transport"] = json.RawMessage(tc.transport)
 			}
-			if got := document.Routes["codex"]; !reflect.DeepEqual(got, want) {
-				t.Fatalf("Codex route = %s, want %s", got, want)
+			if got := document.Clients["codex"]; !reflect.DeepEqual(got, want) {
+				t.Fatalf("Codex client = %s, want %s", got, want)
 			}
 		})
 	}
@@ -224,10 +237,10 @@ func TestStatusLabelsProfileCountAsModelConfigurations(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "team", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
-	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "team", Model: "gpt-test"}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Model: "claude-test"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -244,90 +257,5 @@ func TestStatusLabelsProfileCountAsModelConfigurations(t *testing.T) {
 	}
 	if strings.Contains(text, "configured service") {
 		t.Fatalf("status mislabels configuration count as services:\n%s", text)
-	}
-}
-
-func TestRouteListIsNarrowHumanRouteView(t *testing.T) {
-	app, out, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "gpt", "team", "GPT", configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}, configuration.ClientCodex, "gpt-test")
-	addAccountProfile(&cfg, "claude", "team", "Claude", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Purpose: "Default coding", Account: "team", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Purpose: "Independent review", Account: "team", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := cli.Execute(app, []string{"route", "list"}); err != nil {
-		t.Fatal(err)
-	}
-	text := out.String()
-	for _, want := range []string{"Current routes", "Codex", "gpt", "Default coding", "Claude", "claude", "Independent review", "aigw use <profile>"} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("route list lacks %q:\n%s", want, text)
-		}
-	}
-	for _, unwanted := range []string{"Account diagnostics", "Model profiles", "Client adapters"} {
-		if strings.Contains(text, unwanted) {
-			t.Fatalf("route list should not include operational status section %q:\n%s", unwanted, text)
-		}
-	}
-}
-
-func TestRouteListReportsEachUnselectedClientIndependently(t *testing.T) {
-	app, out, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "gpt", "team", "GPT", configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}, configuration.ClientCodex, "gpt-test")
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := cli.Execute(app, []string{"route", "list"}); err != nil {
-		t.Fatal(err)
-	}
-	text := out.String()
-	for _, want := range []string{"Claude", "No Claude profile selected", "aigw use claude", "Next\n  aigw use claude"} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("route list lacks %q:\n%s", want, text)
-		}
-	}
-}
-
-func TestRouteListJSONReportsSelectedAndDeferredClients(t *testing.T) {
-	app, out, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "gpt", "team", "GPT", configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}, configuration.ClientCodex, "gpt-test")
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Purpose: "Independent review", Account: "team", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := cli.Execute(app, []string{"route", "list", "--json"}); err != nil {
-		t.Fatal(err)
-	}
-	var result struct {
-		Routes []struct {
-			Client     string `json:"client"`
-			State      string `json:"state"`
-			Profile    string `json:"profile"`
-			NextAction string `json:"next_action"`
-		} `json:"routes"`
-	}
-	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
-		t.Fatal(err)
-	}
-	if len(result.Routes) != len(configuration.AdmittedClientIDs()) || result.Routes[0].Client != configuration.ClientClaude || result.Routes[1].Client != configuration.ClientCodex {
-		t.Fatalf("route order = %#v", result.Routes)
-	}
-	if result.Routes[0].State != "unselected" || result.Routes[0].Profile != "" || result.Routes[0].NextAction != "aigw use claude" {
-		t.Fatalf("Claude route = %#v", result.Routes[0])
-	}
-	if result.Routes[1].State != "selected" || result.Routes[1].Profile != "gpt" || result.Routes[1].NextAction != "" {
-		t.Fatalf("Codex route = %#v", result.Routes[1])
 	}
 }

@@ -38,9 +38,9 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 			cfg := configuration.NewConfig()
 			cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-			cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
-			cfg.Routes[configuration.ClientCodex] = "one"
-			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/portable/codex", Targets: []string{"/portable/config.toml"}}
+			cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "gpt-test"}
+			cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+			cfg.SetClientActivation(configuration.ClientCodex, true, "/portable/codex", []string{"/portable/config.toml"})
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -75,9 +75,9 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 		store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 		cfg := configuration.NewConfig()
 		cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-		cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
-		cfg.Routes[configuration.ClientCodex] = "one"
-		cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{""}}
+		cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "gpt-test"}
+		cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+		cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{""})
 		if err := store.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -96,10 +96,10 @@ func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 	cfg.Accounts["two"] = configuration.Account{Label: "Two", Endpoints: configuration.Endpoints{OpenAIResponses: "https://two.test/v1"}}
-	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Profiles["two"] = configuration.Profile{Label: "Two", Account: "two", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Routes[configuration.ClientCodex] = "one"
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{t.TempDir()}}
+	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "gpt-test"}
+	cfg.Profiles["two"] = configuration.Profile{Label: "Two", Account: "two", Model: "gpt-test"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{t.TempDir()})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -112,14 +112,14 @@ func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 	command.SilenceUsage = true
 
 	if err := command.Execute(); err == nil {
-		t.Fatal("projection failure after Route selection was accepted")
+		t.Fatal("projection failure after Client Binding selection was accepted")
 	}
 	after, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := after.Routes[configuration.ClientCodex]; got != "one" {
-		t.Fatalf("failed sync left Route %q, want rolled-back route one", got)
+	if got := after.SelectedProfile(configuration.ClientCodex); got != "one" {
+		t.Fatalf("failed sync left Client Binding %q, want rolled-back binding one", got)
 	}
 }
 
@@ -128,9 +128,9 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 	target := t.TempDir()
 	cfg := configuration.NewConfig()
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Routes[configuration.ClientCodex] = "one"
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "gpt-test"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -185,8 +185,8 @@ func rollbackStore(t *testing.T) configuration.Store {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 	cfg := configuration.NewConfig()
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientClaude] = "one"
+	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "claude-test"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "one")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -178,10 +178,10 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 	storedAccount := configuration.Account{Label: plan.request.Label, Endpoints: endpoints}
 	plan.account = storedAccount
 	plan.account.ID = plan.request.Account
-	plan.profile = configuration.Profile{Label: plan.request.Label, Account: plan.request.Account, Client: plan.request.Client, Model: strings.TrimSpace(plan.request.Model)}
+	plan.profile = configuration.Profile{Label: plan.request.Label, Account: plan.request.Account, Model: strings.TrimSpace(plan.request.Model)}
 	plan.config.Accounts[plan.request.Account] = storedAccount
 	plan.config.Profiles[plan.request.Profile] = plan.profile
-	plan.config.Routes[plan.request.Client] = plan.request.Profile
+	plan.config.Clients[plan.request.Client] = configuration.ClientBinding{Profile: plan.request.Profile, Enabled: true}
 	if err := plan.config.Validate(); err != nil {
 		return setupPlan{}, err
 	}

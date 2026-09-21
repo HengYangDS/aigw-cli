@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewSyncCommand constructs the command that projects current routes to discovered clients.
+// NewSyncCommand constructs the command that projects current bindings to discovered clients.
 func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 	var dryRun bool
 	var jsonMode bool
@@ -30,7 +30,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				return invocation.Problem(
 					runtime,
 					"Synchronization prerequisites are unavailable",
-					"AIGW could not determine which selected Routes can be projected with the currently available clients and credentials.",
+					"AIGW could not determine which selected Client Bindings can be projected with the currently available clients and credentials.",
 					"Configuration and client projections remain unchanged.",
 					"aigw doctor",
 					err,
@@ -38,10 +38,15 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			}
 			result := struct {
 				DryRun     bool                    `json:"dry_run"`
-				Routes     map[string]string       `json:"routes"`
+				Selections map[string]string       `json:"selections"`
 				Targets    []client.ProjectionPlan `json:"targets,omitempty"`
 				NextAction string                  `json:"next_action"`
-			}{DryRun: dryRun, Routes: after.Routes, NextAction: "aigw check"}
+			}{DryRun: dryRun, Selections: map[string]string{}, NextAction: "aigw check"}
+			for _, client := range configuration.AdmittedClientIDs() {
+				if profile := after.SelectedProfile(client); profile != "" {
+					result.Selections[client] = profile
+				}
+			}
 			if dryRun {
 				plans, err := synchronizer.Plan(before, after)
 				if err != nil {
@@ -58,11 +63,11 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			r := invocation.Renderer(runtime)
 			if dryRun {
 				r.ProductTitle("Synchronization preview")
-				var routes []presentation.Field
+				var bindings []presentation.Field
 				for _, client := range configuration.AdmittedClientIDs() {
-					routes = append(routes, presentation.Field{Label: "Route · " + client, Value: after.Routes[client]})
+					bindings = append(bindings, presentation.Field{Label: "Client · " + client, Value: after.SelectedProfile(client)})
 				}
-				r.Rows(routes...)
+				r.Rows(bindings...)
 				if len(result.Targets) == 0 {
 					r.Status(presentation.OK, "Projection", "No client configuration needs changing")
 				} else {
@@ -142,7 +147,7 @@ func NewRollbackCommand(runtime invocation.Context) *cobra.Command {
 			r.ProductTitle("Rolled back safely")
 			r.Section("Restore source")
 			r.Row("Configuration", source)
-			r.Success("Routes and client projections were restored; clients were not restarted.")
+			r.Success("Client selections and projections were restored; clients were not restarted.")
 			r.Next("aigw doctor")
 			return nil
 		},

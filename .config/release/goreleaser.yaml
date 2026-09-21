@@ -98,5 +98,5 @@ homebrew_casks:
       template: "https://github.com/HengYangDS/aigw-cli/releases/download/v{{ .Version }}/{{ .ArtifactName }}"
     caveats: |
       Run aigw setup to configure a provider and explicitly enable clients.
-      Before uninstalling, run aigw adapter list and aigw adapter disable <client>
+      Before uninstalling, run aigw status and aigw client disable <client>
       for each enabled client. Configuration and Tokens remain available.

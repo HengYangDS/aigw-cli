@@ -22,9 +22,9 @@ table. Help is available before configuration and does not create local state.
 
 Runnable commands show their invocation; command groups show `[command]`.
 A command that supports both shows both forms. The root journey uses
-`aigw use <profile>`: selection belongs to that Profile's client, not a hidden
-global default. No alias exists only for presentation; the command grammar
-remains the automation contract.
+`aigw use --for <client> <profile>`: the client binding, not the reusable
+Profile, owns selection. Interactive invocation may prompt for omitted values;
+automation must state both. The command grammar remains the automation contract.
 
 Argument admission precedes configuration locking and command execution. An
 explicit empty or whitespace-only update path is invalid, not an online-update
@@ -49,12 +49,12 @@ newline. The presentation owner delegates encoding to Go's standard library;
 command owners retain their schemas and exit-status decisions. Terminal width
 and color do not alter machine output.
 
-`account list`, `profile list`, and `route list` expose deterministic,
-secret-free JSON inventories. Account and Profile IDs use lexical order; Route
-rows use the admitted-client order. Profile inventory names credential
+`account list`, `profile list`, and `status --json` expose deterministic,
+secret-free JSON inventories. Account and Profile IDs use lexical order;
+client-keyed state uses stable client identifiers. Profile inventory names credential
 ownership as `aigw`, `external`, or `client`, and only AIGW-owned credentials
-include availability metadata. Unselected Routes remain explicit and include
-their next usable `aigw use` action when one exists.
+include availability metadata. Unselected Client Bindings remain explicit and
+include their next usable `aigw use` action when one exists.
 
 For a command whose parsed `--json` value is true, a failure before any result
 is written produces one JSON document: `ok: false`, `error`, `next_action`, and
@@ -92,43 +92,46 @@ stdout carries only the requested credential, never root-level diagnostics.
 
 Use the least powerful command that answers the current question:
 
-1. `aigw status` reports selected Routes and the next useful action.
+1. `aigw status` reports selected Client Bindings and the next useful action.
 2. `aigw check` validates configuration, credentials, installed-client
    projections, and selected endpoints without making a model request.
 3. `aigw doctor` explains structural or host integration failures without
    mutation.
 4. `aigw repair --dry-run --json` previews only AIGW-owned reconciliation;
    `aigw repair` applies that bounded plan.
-5. `aigw test` tests the selected Account endpoints; use `--for` or `--profile`
-   to narrow it. With no selected Route it fails and recommends
-   `aigw use <profile>` rather than reporting an empty success. A one-time
-   `--token-stdin` request requires an explicit target and never accesses the
-   credential store; optional `--config` selects an absolute configuration file.
-   Its result is HTTP observation, not model inference or native-client proof.
+5. `aigw test` tests selected Account endpoints. `--for <client>` chooses the
+   client; optional `--profile <profile>` overrides that client's current
+   binding for this read-only request. With no selected binding it fails and
+   recommends `aigw use --for <client> <profile>` rather than reporting an empty
+   success. A one-time `--token-stdin` request requires an explicit client and
+   never accesses the credential store; optional `--config` selects an absolute
+   configuration file. Its result is HTTP observation, not model inference or
+   native-client proof.
 6. `aigw verify` is the explicit quota-consuming real model request.
 
-`check` exits successfully when the enabled Routes pass their applicable
+`check` exits successfully when the enabled Client Bindings pass their applicable
 checks. With no enabled client, success covers configuration only. For
 client-native authentication it checks the local projection without accessing
-client credentials or calling the endpoint. An Account-Token Route also receives
-an endpoint diagnostic; a successful response is not model or client proof.
+client credentials or calling the endpoint. An Account-Token Client Binding
+also receives an endpoint diagnostic; a successful response is not model or
+client proof.
 
 The JSON vocabulary follows that evidence boundary:
 
-| Field or state        | Exact meaning                                              |
-| --------------------- | ---------------------------------------------------------- |
-| `endpoint_configured` | The resolved Route contains an endpoint address.           |
-| `adapter_ready`       | The local client projection passes inspection.             |
-| `check_passed`        | This Route passed the checks applicable to its auth mode.  |
-| `configured`          | Local prerequisites pass; no successful endpoint evidence. |
-| `endpoint_checked`    | Local prerequisites and the endpoint diagnostic passed.    |
-| `ok`                  | The command's applicable checks passed.                    |
-| `next_action`         | The next explicit action, not necessarily a repair.        |
+| Field or state        | Exact meaning                                                   |
+| --------------------- | --------------------------------------------------------------- |
+| `endpoint_configured` | The selected Profile resolves an endpoint address.              |
+| `projection_ready`    | The local client projection passes inspection.                  |
+| `check_passed`        | The binding passed the checks applicable to its authentication. |
+| `configured`          | Local prerequisites pass; no successful endpoint evidence.      |
+| `endpoint_checked`    | Local prerequisites and the endpoint diagnostic passed.         |
+| `ok`                  | The command's applicable checks passed.                         |
+| `next_action`         | The next explicit action, not necessarily a repair.             |
 
 Model inference and real-client execution require their own verification;
 neither `ok` nor `endpoint_checked` establishes them.
 
-`verify --for all` means all enabled client Routes. It checks their local
+`verify --for all` means all enabled client bindings. It checks their local
 prerequisites before invoking any client, then writes a checkpoint only after
 all requested verifications succeed. Disabled clients are not prerequisites;
 no enabled clients produces an explicit error, not an empty success. Account
@@ -168,5 +171,5 @@ classification, including IPv4-mapped addresses and case-insensitive
 `localhost`. Classification performs no DNS lookup or service probe. Private
 and unspecified network addresses are not loopback and still require HTTPS.
 
-Client route commands manage AIGW Profile selection only. They do not inspect
+Client Binding commands manage AIGW Profile selection only. They do not inspect
 or control IDEs, external proxies, desktop-only state, or conversations.

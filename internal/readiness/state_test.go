@@ -15,9 +15,9 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 	}{
 		{
 			name:       "profile is available but not selected",
-			facts:      ClientFacts{SuggestedProfile: "claude"},
+			facts:      ClientFacts{SuggestedProfile: "claude", BindingAction: "aigw use --for claude claude"},
 			wantState:  Deferred,
-			wantAction: "aigw use claude",
+			wantAction: "aigw use --for claude claude",
 		},
 		{
 			name:       "no compatible profile exists",
@@ -60,9 +60,9 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 				Account:             "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
-				AdapterEnabled:      true,
-				AdapterIssue:        "projection drift",
-				AdapterAction:       "aigw sync",
+				ProjectionEnabled:   true,
+				ProjectionIssue:     "projection drift",
+				ProjectionAction:    "aigw sync",
 			},
 			wantState:  Invalid,
 			wantAction: "aigw sync",
@@ -74,8 +74,8 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 				Account:             "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
-				AdapterEnabled:      true,
-				AdapterIssue:        "Claude executable is unavailable",
+				ProjectionEnabled:   true,
+				ProjectionIssue:     "Claude executable is unavailable",
 			},
 			wantState:  Invalid,
 			wantAction: "aigw repair",
@@ -87,8 +87,8 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 				Account:             "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
-				AdapterEnabled:      true,
-				AdapterReady:        true,
+				ProjectionEnabled:   true,
+				ProjectionReady:     true,
 			},
 			wantState: Configured,
 		},
@@ -126,9 +126,9 @@ func TestStateLabelUsesTheCanonicalVocabulary(t *testing.T) {
 
 func TestClassifyClientIncludesRouteFailures(t *testing.T) {
 	got := ClassifyClient(ClientFacts{
-		Profile:     "missing",
-		RouteIssue:  "unknown profile \"missing\"",
-		RouteAction: "aigw use <claude-profile>",
+		Profile:       "missing",
+		BindingIssue:  "unknown profile \"missing\"",
+		BindingAction: "aigw use <claude-profile>",
 	})
 	if got.State != Invalid || got.Detail != `unknown profile "missing"` || got.NextAction != "aigw use <claude-profile>" {
 		t.Fatalf("ClassifyClient() = %#v", got)
@@ -140,7 +140,7 @@ func TestClassifyClientPrioritizesObservedProjectionFailure(t *testing.T) {
 		got := ClassifyClient(ClientFacts{
 			Profile: "codex", Account: "team", CredentialRequired: true,
 			CredentialObservationIssue: metadataIssue,
-			AdapterEnabled:             true, AdapterIssue: "projection drift", AdapterAction: "aigw sync",
+			ProjectionEnabled:          true, ProjectionIssue: "projection drift", ProjectionAction: "aigw sync",
 		})
 		if got.State != Invalid || got.Detail != "projection drift" || got.NextAction != "aigw sync" {
 			t.Fatalf("projection failure lost to credential state: %+v", got)

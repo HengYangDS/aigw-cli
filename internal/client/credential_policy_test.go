@@ -30,10 +30,9 @@ func configuredClient(t *testing.T, id string) (configuration.Config, client.Dep
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	spec, _ := configuration.ClientSpecFor(id)
-	cfg.Profiles[id] = configuration.Profile{Client: id, Account: "gateway", Model: "fixture", Protocol: spec.EndpointProtocols[0]}
-	cfg.Routes[id] = id
+	cfg.Profiles[id] = configuration.Profile{Account: "gateway", Model: "fixture"}
 	target := filepath.Join(root, "config.toml")
-	adapter := configuration.ClientBinding{Enabled: true, Executable: executable}
+	adapter := configuration.ClientBinding{Profile: id, Enabled: true, Protocol: spec.EndpointProtocols[0], Executable: executable}
 	if id != configuration.ClientClaude {
 		adapter.Targets = []string{target}
 	}
@@ -111,7 +110,7 @@ func TestExplicitDisableSurvivesDiscoveryWithoutAnExternalHelper(t *testing.T) {
 	for _, id := range registry.IDs() {
 		t.Run(id, func(t *testing.T) {
 			cfg, deps, observed := configuredClient(t, id)
-			cfg.Clients[id] = configuration.ClientBinding{Enabled: false}
+			cfg.SetClientActivation(id, false, "", nil)
 			deps.Secrets = secrets.NewMemoryStore()
 			if err := deps.Secrets.Set("gateway", "public-token"); err != nil {
 				t.Fatal(err)
@@ -127,7 +126,7 @@ func TestExplicitDisableSurvivesDiscoveryWithoutAnExternalHelper(t *testing.T) {
 	}
 }
 
-func TestMissingCodexTargetRetainsOnlyCredentialPolicy(t *testing.T) {
+func TestMissingCodexTargetRetainsExplicitIntentAndCredentialPolicy(t *testing.T) {
 	cfg, deps, _ := configuredClient(t, configuration.ClientCodex)
 	command := filepath.Join(t.TempDir(), "credential adapter")
 	adapter := cfg.Clients[configuration.ClientCodex]
@@ -138,7 +137,7 @@ func TestMissingCodexTargetRetainsOnlyCredentialPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := configuration.ClientBinding{CredentialCommand: command}
+	want := cfg.Clients[configuration.ClientCodex]
 	if got := after.Clients[configuration.ClientCodex]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("missing-target policy = %#v", got)
 	}

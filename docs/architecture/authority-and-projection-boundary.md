@@ -16,7 +16,7 @@ traffic hop, a client launcher, or an agent-state manager.
   - **AIGW role:** Select and use one Account Token backend
   - **Other owner:** Native credential service or AIGW owner-only store
 - **Client intent**
-  - **AIGW role:** Select a Profile through a Route
+  - **AIGW role:** Select a Profile through a Client Binding
   - **Other owner:** AIGW configuration
 - **Native client configuration**
   - **AIGW role:** Project one admitted, bounded region
@@ -38,22 +38,22 @@ not this design contract.
 
 ## Authority
 
-| Owner                     | Authoritative state                                              |
-| ------------------------- | ---------------------------------------------------------------- |
-| AIGW configuration        | Accounts, Profiles, recommendations, selected Routes, Adapters   |
-| Selected Token store      | Account Tokens; the selection policy belongs to AIGW             |
-| Codex                     | Conversations, JSONL, SQLite, model metadata, Desktop GUI state  |
-| Claude Code               | Session and client runtime behavior                              |
-| External endpoint product | Traffic normalization, retries, service lifecycle                |
-| Local Git                 | Signed commit and annotated-tag objects                          |
-| GitLab / GitHub           | Independent hosting, CI observations, Release records and assets |
+| Owner                     | Authoritative state                                               |
+| ------------------------- | ----------------------------------------------------------------- |
+| AIGW configuration        | Accounts, Profiles, recommendations, and explicit Client Bindings |
+| Selected Token store      | Account Tokens; the selection policy belongs to AIGW              |
+| Codex                     | Conversations, JSONL, SQLite, model metadata, Desktop GUI state   |
+| Claude Code               | Session and client runtime behavior                               |
+| External endpoint product | Traffic normalization, retries, service lifecycle                 |
+| Local Git                 | Signed commit and annotated-tag objects                           |
+| GitLab / GitHub           | Independent hosting, CI observations, Release records and assets  |
 
 AIGW never edits conversation state and never manages an external endpoint
 process.
 
 ## Semantic packages
 
-- **[Configuration](../../internal/configuration/):** Account, Profile, Route, Adapter schema and persistence
+- **[Configuration](../../internal/configuration/):** Account, Profile, recommendation, Client Binding, schema migration, and persistence
 - **[Secret storage](../../internal/secrets/):** Account credential backends, typed diagnostic credentials and replacement
 - **[Diagnostic contract](../../internal/providers/diagnostic/):** Optional provider-account diagnostic results
 - **[Codex integration](../../internal/codex/):** Projection planning and reconciliation
@@ -61,7 +61,7 @@ process.
 - **[Endpoint authentication](../../internal/credential/):** Provider-neutral credential validation
 - **[Provider diagnostics](../../internal/providers/):** Optional provider-native diagnostics only
 - **[Client orchestration](../../internal/client/):** Admitted client discovery, projection, inspection, verification, compensation, and withdrawal
-- **[Synchronization](../../internal/synchronization/):** Route convergence and all-client configuration transaction
+- **[Synchronization](../../internal/synchronization/):** Client Binding convergence and multi-client projection transaction
 - **[Presentation](../../internal/presentation/):** Terminal capability detection plus human and JSON rendering of command results
 - **[CLI](../../internal/cli/):** Command composition; domain behavior remains in semantic owners
 - **[Transactions](../../internal/transaction/):** Guarded filesystem mutation and rollback
@@ -92,7 +92,7 @@ together. Review line counts as signals, not reasons to create shallow modules.
 ## Configuration admission
 
 Configuration admission checks every Profile against its Account's declared
-protocol endpoints, including Profiles not selected by a Route. It uses the
+protocol endpoints, including Profiles not selected by a Client Binding. It uses the
 same client-protocol definition as runtime resolution. Manifest import and local
 persistence share that validation; neither may accept a Profile that cannot
 resolve its protocol endpoint. This is a structural check, not evidence of
@@ -100,7 +100,7 @@ credentials, installed clients, endpoint availability, or successful inference.
 
 Imported recommendations and actual selections have separate meanings in that
 same configuration. Import retains the recommendation; setup and sync select
-only for clients without a Route. They prefer an available recommendation, then
+only for clients without a selected Profile. They prefer an available recommendation, then
 its model on another usable Account, then stable Profile identifier order.
 Unavailable credentials do not authorize replacing an existing selection.
 
@@ -408,9 +408,9 @@ filesystem-wide transaction against external editors.
 
 ## Client boundaries
 
-Account-Token routes use a helper whose fingerprint binds the client, Account
+Account-Token Client Bindings use a helper whose fingerprint binds the client, Account
 and endpoint. Before reading a Token, it compares that fingerprint with the
-selected Route. A mismatch requires synchronization and client reload without
+selected Client Binding. A mismatch requires synchronization and client reload without
 credential access. Model and label changes preserve the fingerprint; it detects
 stale projections, not caller authorization. Client-native Codex authentication
 uses no AIGW Token helper.
@@ -495,7 +495,8 @@ provider-named implementation of all of them.
   - **AIGW implementation consequence:** Select its endpoint; do not add transport to AIGW
 
 Account admission owns protocol endpoints and credential references. Profiles
-own the Account, client and model choice; Routes own selection. Catalogue
+own the Account and model identity; Client Bindings own selection and native
+client options. Catalogue
 observations, authenticated probes and client verification provide separate
 evidence rather than becoming configuration facts. Code is needed only when
 authentication or discovery exceeds the admitted Account contract. Client

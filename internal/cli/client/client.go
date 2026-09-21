@@ -1,5 +1,5 @@
-// Package adapter owns client-adapter lifecycle commands.
-package adapter
+// Package client owns explicit client discovery and projection lifecycle commands.
+package client
 
 import (
 	"fmt"
@@ -15,35 +15,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCommand constructs the adapter command tree.
+// NewCommand constructs the client lifecycle command tree.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	root := &cobra.Command{Use: "adapter", Short: "Manage client adapters"}
-	root.AddCommand(newListCommand(runtime), newDiscoverCommand(runtime), newEnableCommand(runtime), newDisableCommand(runtime))
+	root := &cobra.Command{Use: "client", Short: "Manage client projections"}
+	root.AddCommand(newDiscoverCommand(runtime), newEnableCommand(runtime), newDisableCommand(runtime))
 	return root
-}
-
-func newListCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{Use: "list", Short: "List adapter status", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
-		cfg, err := runtime.Config.Load()
-		if err != nil {
-			return err
-		}
-		r := invocation.Renderer(runtime)
-		r.ProductTitle("Client adapters")
-		r.Section("Adapter")
-		for _, spec := range configuration.AdmittedClientSpecs() {
-			adapter := cfg.Clients[spec.ID]
-			state, text := presentation.Info, "Disabled"
-			if adapter.Enabled {
-				state, text = presentation.OK, "Enabled"
-			}
-			r.Status(state, spec.Label, text)
-			if adapter.Executable != "" {
-				r.Detail(adapter.Executable)
-			}
-		}
-		return nil
-	}}
 }
 
 func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
@@ -70,16 +46,16 @@ func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
 func newEnableCommand(runtime invocation.Context) *cobra.Command {
 	var executable string
 	var targets []string
-	cmd := &cobra.Command{Use: "enable <client>", Short: "Enable a client adapter", ValidArgs: configuration.AdmittedClientIDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument, func(_ *cobra.Command, args []string) error {
+	cmd := &cobra.Command{Use: "enable <client>", Short: "Enable a client projection", ValidArgs: configuration.AdmittedClientIDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument, func(_ *cobra.Command, args []string) error {
 		if strings.TrimSpace(executable) == "" {
-			return fmt.Errorf("--executable is required; run `aigw adapter discover`")
+			return fmt.Errorf("--executable is required; run `aigw client discover`")
 		}
 		if args[0] == configuration.ClientCodex && len(targets) == 0 {
-			return fmt.Errorf("Codex adapter requires at least one --target config.toml; run `aigw adapter enable --help`")
+			return fmt.Errorf("Codex projection requires at least one --target config.toml; run `aigw client enable --help`")
 		}
 		for _, target := range targets {
 			if strings.TrimSpace(target) == "" {
-				return fmt.Errorf("--target requires a non-empty path; run `aigw adapter enable --help`")
+				return fmt.Errorf("--target requires a non-empty path; run `aigw client enable --help`")
 			}
 		}
 		return nil
@@ -92,7 +68,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		}
 		before := cfg.Clone()
 		if before.Clients[client].Enabled {
-			return fmt.Errorf("%s adapter is already enabled; disable it before changing the executable or config targets", spec.Label)
+			return fmt.Errorf("%s client projection is already enabled; disable it before changing the executable or config targets", spec.Label)
 		}
 		clientRuntime, err := cfg.ResolveRuntime(client, "")
 		if err != nil {
@@ -119,18 +95,14 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 		}
-		adapter := cfg.Clients[client]
-		adapter.Enabled = true
-		adapter.Executable = executable
-		adapter.Targets = append([]string(nil), targets...)
-		cfg.Clients[client] = adapter
-		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "adapter enable"); err != nil {
-			return fmt.Errorf("Adapter enablement failed and was rolled back: %w", err)
+		cfg.SetClientActivation(client, true, executable, targets)
+		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "client enable"); err != nil {
+			return fmt.Errorf("Client enablement failed and was rolled back: %w", err)
 		}
 		r := invocation.Renderer(runtime)
 		r.ProductTitle("Client enabled")
 		r.Row("Client", spec.Label)
-		r.Status(presentation.OK, "Adapter", "Configured")
+		r.Status(presentation.OK, "Projection", "Configured")
 		r.Next("aigw check")
 		return nil
 	}}
@@ -140,7 +112,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func newDisableCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{Use: "disable <client>", Short: "Disable a client adapter and remove AIGW-owned projections", ValidArgs: configuration.AdmittedClientIDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument), RunE: func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{Use: "disable <client>", Short: "Disable a client and remove AIGW-owned projections", ValidArgs: configuration.AdmittedClientIDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument), RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
 		spec, _ := configuration.ClientSpecFor(client)
 		cfg, err := runtime.Config.Load()
@@ -148,10 +120,10 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		}
 		before := cfg.Clone()
-		adapter, ok := cfg.Clients[client]
-		if !ok || !adapter.Enabled {
+		binding, ok := cfg.Clients[client]
+		if !ok || !binding.Enabled {
 			r := invocation.Renderer(runtime)
-			r.ProductTitle("Client adapters")
+			r.ProductTitle("Client projections")
 			r.Status(presentation.Info, spec.Label, "Already disabled")
 			return nil
 		}
@@ -160,9 +132,10 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		}
 		// Disabled intent is durable; discovery must not turn it back into activation.
 		// Full uninstall uses Withdraw without retaining this client binding.
-		cfg.Clients[client] = configuration.ClientBinding{CredentialCommand: adapter.CredentialCommand}
+		binding.Enabled = false
+		cfg.Clients[client] = binding
 
-		if err := invocation.Synchronizer(runtime).CommitProjection(cmd.Context(), before, cfg, "adapter disable"); err != nil {
+		if err := invocation.Synchronizer(runtime).CommitProjection(cmd.Context(), before, cfg, "client disable"); err != nil {
 			return err
 		}
 		r := invocation.Renderer(runtime)

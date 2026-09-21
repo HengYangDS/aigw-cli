@@ -122,7 +122,7 @@ func (adapter *recordingAdapter) Discover(DiscoverySource) discovery.Result {
 
 func (adapter *recordingAdapter) Converge(_ Dependencies, cfg *configuration.Config, _ discovery.Result) error {
 	adapter.calls = append(adapter.calls, "converge")
-	cfg.Clients[adapter.Spec().ID] = configuration.ClientBinding{Enabled: true}
+	cfg.SetClientActivation(adapter.Spec().ID, true, "", nil)
 	return nil
 }
 
@@ -217,12 +217,12 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 			OpenAIResponses: "http://127.0.0.1:9876/v1",
 		},
 	}
-	before.Profiles["claude"] = configuration.Profile{Account: "direct", Client: configuration.ClientClaude, Model: "claude-test"}
-	before.Profiles["codex"] = configuration.Profile{Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
-	before.Routes[configuration.ClientClaude] = "claude"
-	before.Routes[configuration.ClientCodex] = "codex"
-	before.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/clients/claude"}
-	before.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/clients/codex", Targets: []string{"/clients/codex.toml"}}
+	before.Profiles["claude"] = configuration.Profile{Account: "direct", Model: "claude-test"}
+	before.Profiles["codex"] = configuration.Profile{Account: "gateway", Model: "gpt-test"}
+	before.SetSelectedProfile(configuration.ClientClaude, "claude")
+	before.SetSelectedProfile(configuration.ClientCodex, "codex")
+	before.SetClientActivation(configuration.ClientClaude, true, "/clients/claude", nil)
+	before.SetClientActivation(configuration.ClientCodex, true, "/clients/codex", []string{"/clients/codex.toml"})
 	wantUnchanged := before.Clone()
 
 	future := &recordingAdapter{}
@@ -436,11 +436,11 @@ func TestDefaultRegistryConvergesConfiguredExecutablesConservatively(t *testing.
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
-	cfg.Profiles["claude"] = configuration.Profile{Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Profiles["codex"] = configuration.Profile{Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Routes[configuration.ClientCodex] = "codex"
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: missing}
+	cfg.Profiles["claude"] = configuration.Profile{Account: "gateway", Model: "claude-test"}
+	cfg.Profiles["codex"] = configuration.Profile{Account: "gateway", Model: "gpt-test"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
+	cfg.SetClientActivation(configuration.ClientClaude, true, missing, nil)
 
 	after, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, configuration.ClientClaude)
 	if err != nil || after.Clients[configuration.ClientClaude].Executable != missing {
@@ -453,8 +453,8 @@ func TestDefaultRegistryConvergesConfiguredExecutablesConservatively(t *testing.
 	if err := os.Symlink(loop, loop); err != nil {
 		t.Skipf("symbolic link unavailable: %v", err)
 	}
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: loop}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: loop, Targets: []string{"/target"}}
+	cfg.SetClientActivation(configuration.ClientClaude, true, loop, nil)
+	cfg.SetClientActivation(configuration.ClientCodex, true, loop, []string{"/target"})
 	discovered := discovery.Result{Executables: map[string]string{
 		configuration.ClientClaude: "/replacement/claude",
 		configuration.ClientCodex:  "/replacement/codex",
@@ -476,7 +476,7 @@ func TestDefaultRegistryIgnoresOnlyAnUnselectedRoute(t *testing.T) {
 
 		t.Run(clientID+" with a broken route", func(t *testing.T) {
 			cfg := configuration.NewConfig()
-			cfg.Routes[clientID] = "missing-profile"
+			cfg.SetSelectedProfile(clientID, "missing-profile")
 			if _, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown profile "missing-profile"`) {
 				t.Fatalf("Converge(%q) broken route error = %v", clientID, err)
 			}
@@ -507,13 +507,13 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
-	before.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
-	before.Routes[configuration.ClientClaude] = "claude"
-	before.Routes[configuration.ClientCodex] = "codex"
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-test"}
+	before.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Model: "gpt-test"}
+	before.SetSelectedProfile(configuration.ClientClaude, "claude")
+	before.SetSelectedProfile(configuration.ClientCodex, "codex")
 	after := before.Clone()
-	after.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
-	after.Clients[configuration.ClientCodex] = configuration.ClientBinding{Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}}
+	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
+	after.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{codexTarget})
 	deps := Dependencies{
 		Discovery: fixedDiscoverer{result: discovery.Result{Surfaces: []discovery.Surface{{
 			ID: "codex-home-default", Authority: "aigw", ConfigPath: codexTarget, Present: true, AutoManaged: true,

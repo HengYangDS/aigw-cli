@@ -23,33 +23,27 @@ func (c *Config) Normalize() {
 	if c.Profiles == nil {
 		c.Profiles = map[string]Profile{}
 	}
-	if c.Routes == nil {
-		c.Routes = Routes{}
-	}
-	if c.RecommendedRoutes == nil {
-		c.RecommendedRoutes = Routes{}
+	if c.Recommendations == nil {
+		c.Recommendations = map[string]ClientSelection{}
 	}
 	if c.Clients == nil {
 		c.Clients = map[string]ClientBinding{}
 	}
 }
 
-// Validate checks schema, accounts, profiles, routes, then client bindings without mutation.
+// Validate checks schema, accounts, profiles, recommendations, then client bindings without mutation.
 // Within each collection, lexical key order determines the first diagnostic.
-func (c Config) Validate() error {
+func (c *Config) Validate() error {
 	if err := c.validateCollections(); err != nil {
 		return err
 	}
-	if err := c.validateRoutes(c.Routes, "route"); err != nil {
-		return err
-	}
-	if err := c.validateRoutes(c.RecommendedRoutes, "recommended route"); err != nil {
+	if err := c.validateSelections(c.Recommendations, "recommendation"); err != nil {
 		return err
 	}
 	return c.validateClientBindings()
 }
 
-func (c Config) validateCollections() error {
+func (c *Config) validateCollections() error {
 	if c.Version != ConfigVersion {
 		return &UnsupportedConfigVersionError{Version: c.Version, ExpectedVersion: ConfigVersion}
 	}
@@ -64,86 +58,89 @@ func (c Config) validateCollections() error {
 			return err
 		}
 	}
-	boundProfiles := make(map[string]bool, len(c.Clients))
-	for _, binding := range c.Clients {
-		if binding.Profile != "" {
-			boundProfiles[binding.Profile] = true
-		}
-	}
 	for _, name := range c.ProfileIDs() {
-		if err := c.Profiles[name].validate(name, c.Accounts, boundProfiles[name]); err != nil {
+		if err := c.Profiles[name].validate(name, c.Accounts); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c Config) validateRoutes(routes Routes, kind string) error {
-	for _, client := range slices.Sorted(maps.Keys(routes)) {
+func (c *Config) validateSelections(selections map[string]ClientSelection, kind string) error {
+	for _, client := range slices.Sorted(maps.Keys(selections)) {
 		if !IsAdmittedClient(client) {
-			return fmt.Errorf("unknown %s %q; supported routes are %s", kind, client, AdmittedClientUsage())
+			return fmt.Errorf("unknown client %s %q; supported clients are %s", kind, client, AdmittedClientUsage())
 		}
-		profile := routes[client]
-		selected, ok := c.Profiles[profile]
-		if !ok {
-			return fmt.Errorf("%s %q references unknown profile %q", kind, client, profile)
-		}
-		if selected.Client != client {
-			return fmt.Errorf("%s %q selects profile %q for %q", kind, client, profile, selected.Client)
+		selection := selections[client]
+		if err := c.validateSelection(client, selection); err != nil {
+			return fmt.Errorf("client %s %q: %w", kind, client, err)
 		}
 	}
 	return nil
 }
 
-func (c Config) validateClientBindings() error {
+func (c *Config) validateClientBindings() error {
 	for _, client := range slices.Sorted(maps.Keys(c.Clients)) {
 		if !IsAdmittedClient(client) {
 			return fmt.Errorf("unknown client binding %q", client)
 		}
-		binding := c.Clients[client]
-		profile := Profile{}
-		if binding.Profile != "" {
-			var ok bool
-			profile, ok = c.Profiles[binding.Profile]
-			if !ok {
-				return fmt.Errorf("client binding %q references unknown profile %q", client, binding.Profile)
+		binding := c.clientBinding(client)
+		if binding.Profile == "" {
+			if binding.Enabled || binding.Protocol != "" || binding.ModelProvider != "" || binding.Authentication != "" {
+				return fmt.Errorf("client binding %q must select a profile before it can be enabled or define runtime options", client)
 			}
-			if profile.Client != "" && profile.Client != client {
-				return fmt.Errorf("client binding %q selects profile %q for %q", client, binding.Profile, profile.Client)
+			if err := binding.validate(client); err != nil {
+				return err
 			}
-			account := c.Accounts[profile.Account]
-			account.ID = profile.Account
-			spec, _ := ClientSpecFor(client)
-			if _, _, err := spec.ResolveEndpoint(account, selectedProtocol(binding, profile)); err != nil {
-				return fmt.Errorf("client binding %q: %w", client, err)
-			}
+			continue
 		}
-		if err := binding.validate(client, profile); err != nil {
+		if err := c.validateSelection(client, binding.selection()); err != nil {
+			return fmt.Errorf("client binding %q: %w", client, err)
+		}
+		if err := binding.validate(client); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (binding ClientBinding) validate(client string, profile Profile) error {
-	if binding.ModelProvider != "" && !modelProviderPattern.MatchString(binding.ModelProvider) {
-		return fmt.Errorf("client binding %q has invalid model provider %q", client, binding.ModelProvider)
+func (c *Config) validateSelection(client string, selection ClientSelection) error {
+	profile, ok := c.Profiles[selection.Profile]
+	if !ok {
+		return fmt.Errorf("references unknown profile %q", selection.Profile)
 	}
-	if binding.ModelProvider != "" && client != ClientCodex {
-		return fmt.Errorf("client binding %q model_provider is only supported for codex", client)
+	account := c.Accounts[profile.Account]
+	account.ID = profile.Account
+	spec, _ := ClientSpecFor(client)
+	if _, _, err := spec.ResolveEndpoint(account, selection.Protocol); err != nil {
+		return fmt.Errorf("profile %q: %w", selection.Profile, err)
 	}
-	switch authentication := selectedAuthentication(binding, profile); authentication {
+	return selection.validate(client)
+}
+
+func (selection ClientSelection) validate(client string) error {
+	if selection.ModelProvider != "" && !modelProviderPattern.MatchString(selection.ModelProvider) {
+		return fmt.Errorf("invalid model provider %q", selection.ModelProvider)
+	}
+	if selection.ModelProvider != "" && client != ClientCodex {
+		return fmt.Errorf("model_provider is only supported for codex")
+	}
+	switch authentication := selectedAuthentication(selection); authentication {
 	case AuthenticationAccountToken:
 	case AuthenticationClientNative:
 		if client != ClientCodex {
-			return fmt.Errorf("client binding %q client-native authentication is only supported for codex", client)
+			return fmt.Errorf("client-native authentication is only supported for codex")
 		}
-		if binding.ModelProvider == "" {
-			return fmt.Errorf("client binding %q client-native authentication requires model_provider", client)
+		if selection.ModelProvider == "" {
+			return fmt.Errorf("client-native authentication requires model_provider")
 		}
 	default:
-		return fmt.Errorf("client binding %q has invalid authentication %q", client, authentication)
+		return fmt.Errorf("invalid authentication %q", authentication)
 	}
+	return nil
+}
+
+func (binding ClientBinding) validate(client string) error {
 	command := binding.CredentialCommand
 	if command != "" && (!filepath.IsAbs(command) || strings.TrimSpace(command) != command || strings.ContainsFunc(command, unicode.IsControl)) {
 		return fmt.Errorf("client binding %q credential_command must be one absolute executable path", client)
@@ -191,7 +188,7 @@ func (account Account) validate(name string) error {
 	return nil
 }
 
-func (profile Profile) validate(name string, accounts map[string]Account, bound bool) error {
+func (profile Profile) validate(name string, accounts map[string]Account) error {
 	if !ValidIdentifier(name) {
 		return fmt.Errorf("invalid profile name %q; use letters, numbers, dot, dash, or underscore", name)
 	}
@@ -201,66 +198,13 @@ func (profile Profile) validate(name string, accounts map[string]Account, bound 
 	if profile.Account == "" {
 		return fmt.Errorf("profile %q must reference an account", name)
 	}
-	account, ok := accounts[profile.Account]
-	if !ok {
+	if _, ok := accounts[profile.Account]; !ok {
 		return fmt.Errorf("profile %q references unknown account %q", name, profile.Account)
-	}
-	if !bound && !IsAdmittedClient(profile.Client) {
-		return fmt.Errorf("profile %q has unknown client %q", name, profile.Client)
-	}
-	if bound && profile.Client != "" && !IsAdmittedClient(profile.Client) {
-		return fmt.Errorf("profile %q has unknown client %q", name, profile.Client)
 	}
 	if strings.TrimSpace(profile.Model) == "" {
 		return fmt.Errorf("profile %q must define a model", name)
 	}
-	if profile.Client == "" {
-		if profile.Protocol != "" || profile.ModelProvider != "" || profile.Authentication != "" {
-			return fmt.Errorf("profile %q stores client-specific options without a client binding", name)
-		}
-		return nil
-	}
-	account.ID = profile.Account
-	spec, _ := ClientSpecFor(profile.Client)
-	if _, _, err := spec.ResolveEndpoint(account, profile.Protocol); err != nil {
-		return fmt.Errorf("profile %q: %w", name, err)
-	}
-	if profile.ModelProvider != "" && !modelProviderPattern.MatchString(profile.ModelProvider) {
-		return fmt.Errorf("profile %q has invalid model provider %q", name, profile.ModelProvider)
-	}
-	if profile.ModelProvider != "" && profile.Client != ClientCodex {
-		return fmt.Errorf("profile %q model_provider is only supported for codex-scoped profiles", name)
-	}
-	switch authentication := resolvedAuthentication(profile); authentication {
-	case AuthenticationAccountToken:
-	case AuthenticationClientNative:
-		if profile.Client != ClientCodex {
-			return fmt.Errorf("profile %q client-native authentication is only supported for codex-scoped profiles", name)
-		}
-		if profile.ModelProvider == "" {
-			return fmt.Errorf("profile %q client-native authentication requires model_provider", name)
-		}
-	default:
-		return fmt.Errorf("profile %q has invalid authentication %q", name, authentication)
-	}
 	return nil
-}
-
-func resolvedModelProvider(client string, profile Profile) string {
-	if client != ClientCodex {
-		return ""
-	}
-	if profile.ModelProvider != "" {
-		return profile.ModelProvider
-	}
-	return ModelProviderAIGW
-}
-
-func resolvedAuthentication(profile Profile) Authentication {
-	if profile.Authentication == "" {
-		return AuthenticationAccountToken
-	}
-	return profile.Authentication
 }
 
 func validateEndpoint(raw string) error {

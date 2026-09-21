@@ -136,6 +136,18 @@ func (s ClientSpec) ResolveEndpoint(account Account, requested EndpointProtocol)
 	return strings.TrimRight(endpoint, "/"), protocol, nil
 }
 
+// CompatibleProtocols returns the protocols this client and Account both
+// expose, preserving the client's declared preference order.
+func (s ClientSpec) CompatibleProtocols(account Account) []EndpointProtocol {
+	protocols := make([]EndpointProtocol, 0, len(s.EndpointProtocols))
+	for _, protocol := range s.EndpointProtocols {
+		if account.Endpoints.For(protocol) != "" {
+			protocols = append(protocols, protocol)
+		}
+	}
+	return protocols
+}
+
 // For returns the configured endpoint for one wire protocol.
 func (endpoints Endpoints) For(protocol EndpointProtocol) string {
 	switch protocol {
@@ -150,6 +162,15 @@ func (endpoints Endpoints) For(protocol EndpointProtocol) string {
 	}
 }
 
+// ClientSelection identifies one Profile and the client-specific choices needed
+// to resolve it without coupling the Profile to a client brand.
+type ClientSelection struct {
+	Profile        string           `json:"profile,omitempty"            toml:"profile,omitempty"`
+	Protocol       EndpointProtocol `json:"protocol,omitempty"           toml:"protocol,omitempty"`
+	ModelProvider  string           `json:"model_provider,omitempty"     toml:"model_provider,omitempty"`
+	Authentication Authentication   `json:"authentication,omitempty"     toml:"authentication,omitempty"`
+}
+
 // ClientBinding records one client's explicit selection, enabled intent, and
 // owned native targets.
 type ClientBinding struct {
@@ -161,6 +182,23 @@ type ClientBinding struct {
 	Executable        string           `json:"executable,omitempty"         toml:"executable,omitempty"`
 	Targets           []string         `json:"targets,omitempty"            toml:"targets,omitempty"`
 	CredentialCommand string           `json:"credential_command,omitempty" toml:"credential_command,omitempty"`
+}
+
+func (binding ClientBinding) selection() ClientSelection {
+	return ClientSelection{
+		Profile:        binding.Profile,
+		Protocol:       binding.Protocol,
+		ModelProvider:  binding.ModelProvider,
+		Authentication: binding.Authentication,
+	}
+}
+
+func (binding ClientBinding) withSelection(selection ClientSelection) ClientBinding {
+	binding.Profile = selection.Profile
+	binding.Protocol = selection.Protocol
+	binding.ModelProvider = selection.ModelProvider
+	binding.Authentication = selection.Authentication
+	return binding
 }
 
 // CredentialExecutable selects explicit host policy or the native AIGW executable.

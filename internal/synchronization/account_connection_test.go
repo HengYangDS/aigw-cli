@@ -16,7 +16,7 @@ func TestAccountConnectionAdmitsStateBeforeTokenAcquisition(t *testing.T) {
 			before := setupConfiguration()
 			original := before.Clone()
 			account := configuration.Account{Label: "New", Endpoints: configuration.Endpoints{Anthropic: "https://new.test"}}
-			profile := configuration.Profile{Label: "New", Client: configuration.ClientClaude, Model: "new-model"}
+			profile := configuration.Profile{Label: "New", Model: "new-model"}
 			name := "new"
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
@@ -31,7 +31,7 @@ func TestAccountConnectionAdmitsStateBeforeTokenAcquisition(t *testing.T) {
 				account.Endpoints.Anthropic = "invalid-endpoint"
 			}
 			acquired := false
-			err := (Synchronizer{}).ConnectAccount(ctx, before, name, account, profile, func() (string, error) {
+			err := (Synchronizer{}).ConnectAccount(ctx, before, name, configuration.ClientClaude, account, profile, func() (string, error) {
 				acquired = true
 				return "token", nil
 			})
@@ -52,7 +52,7 @@ func TestAccountConnectionPreservesStateWhenTokenAcquisitionFails(t *testing.T) 
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			failure := errors.New("input unavailable")
-			err := syncer.ConnectAccount(ctx, before, "new", before.Accounts["team"], before.Profiles["claude"], func() (string, error) {
+			err := syncer.ConnectAccount(ctx, before, "new", configuration.ClientClaude, before.Accounts["team"], before.Profiles["claude"], func() (string, error) {
 				switch phase {
 				case "input failure":
 					return "", failure

@@ -25,7 +25,7 @@ func TestEndpointTestExplicitKeyringFormatDecodesExactlyOnce(t *testing.T) {
 		runtime.In = strings.NewReader(envelope)
 		runtime.Secrets = nil
 		want := envelope
-		args := []string{"--profile", "codex", "--token-stdin"}
+		args := []string{"--for", "codex", "--profile", "codex", "--token-stdin"}
 		if explicit {
 			want = token
 			args = append(args, "--token-format", "go-keyring-base64")
@@ -54,16 +54,16 @@ func TestEndpointTestRejectsMalformedKeyringFormatBeforeHTTP(t *testing.T) {
 		requests := 0
 		runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) { requests++; return nil, errors.New("unexpected request") })
 		command := NewTestCommand(runtime)
-		command.SetArgs([]string{"--profile", "codex", "--token-stdin", "--token-format", "go-keyring-base64"})
+		command.SetArgs([]string{"--for", "codex", "--profile", "codex", "--token-stdin", "--token-format", "go-keyring-base64"})
 		if err := executeCommand(command); err == nil || requests != 0 {
 			t.Fatalf("invalid decoded token reached HTTP: error=%v requests=%d", err, requests)
 		}
 	}
 }
 
-func TestEndpointTestDefaultsToSelectedRoutesOnly(t *testing.T) {
+func TestEndpointTestDefaultsToSelectedBindingsOnly(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	delete(cfg.Routes, configuration.ClientClaude)
+	delete(cfg.Clients, configuration.ClientClaude)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestEndpointTestDefaultsToSelectedRoutesOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	if requests != 1 {
-		t.Fatalf("requests = %d, want 1 selected Route", requests)
+		t.Fatalf("requests = %d, want 1 selected Client Binding", requests)
 	}
 }
 
@@ -112,7 +112,7 @@ func TestEndpointTestUsesOneEphemeralTokenAndExplicitConfig(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}"))}, nil
 			})
 			command := NewTestCommand(runtime)
-			command.SetArgs([]string{"--profile", client, "--token-stdin", "--config", configPath})
+			command.SetArgs([]string{"--for", client, "--profile", client, "--token-stdin", "--config", configPath})
 			if err := executeCommand(command); err != nil {
 				t.Fatal(err)
 			}
@@ -136,9 +136,9 @@ func TestEndpointTestRejectsAmbiguousEphemeralInputsBeforeEffects(t *testing.T) 
 		{"--token-stdin"},
 		{"--token-stdin", "--for", "all"},
 		{"--token-stdin", "--profile", "missing"},
-		{"--token-stdin", "--profile", "codex", "--config", "relative.toml"},
-		{"--token-stdin", "--profile", "codex", "--config", ""},
-		{"--profile", "codex", "--config", "/unrelated/config.toml"},
+		{"--token-stdin", "--for", "codex", "--profile", "codex", "--config", "relative.toml"},
+		{"--token-stdin", "--for", "codex", "--profile", "codex", "--config", ""},
+		{"--for", "codex", "--profile", "codex", "--config", "/unrelated/config.toml"},
 	} {
 		runtime, _, _ := configuredReadinessRuntime(t)
 		store := &observingSecretStore{}
@@ -176,25 +176,25 @@ func TestEndpointTestRejectsMalformedEphemeralTokenBeforeHTTP(t *testing.T) {
 	}
 }
 
-func TestEndpointTestRequiresASelectedRouteByDefault(t *testing.T) {
+func TestEndpointTestRequiresASelectedClientBindingByDefault(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	cfg.Routes = configuration.Routes{}
+	cfg.Clients = map[string]configuration.ClientBinding{}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
-		t.Fatal("endpoint request must not run without a selected Route")
+		t.Fatal("endpoint request must not run without a selected Client Binding")
 		return nil, nil
 	})
 	runtime.Problem = func(title, evidence, impact, fix string, cause error) error {
-		if title != "No Route is selected" || evidence != "Profiles exist, but no client has an active Route." || impact != "There is no selected endpoint to test." || fix != "aigw use <profile>" {
+		if title != "No Client Binding is selected" || evidence != "Profiles exist, but no client has a selected Profile." || impact != "There is no selected endpoint to test." || fix != "aigw use --for <client> <profile>" {
 			t.Fatalf("problem = %q, %q, %q, %q", title, evidence, impact, fix)
 		}
 		return cause
 	}
 
 	err := executeCommand(NewTestCommand(runtime))
-	if err == nil || !strings.Contains(err.Error(), "no route selected") {
+	if err == nil || !strings.Contains(err.Error(), "no Client Binding selected") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -261,10 +261,10 @@ func TestEndpointTestCommandCoversSuccessAndTransportFailures(t *testing.T) {
 
 func TestEndpointTestRejectsClientNativeBeforeCredentialOrNetworkAccess(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	profile := cfg.Profiles["codex"]
-	profile.ModelProvider = "amazon-bedrock"
-	profile.Authentication = configuration.AuthenticationClientNative
-	cfg.Profiles["codex"] = profile
+	binding := cfg.Clients[configuration.ClientCodex]
+	binding.ModelProvider = "amazon-bedrock"
+	binding.Authentication = configuration.AuthenticationClientNative
+	cfg.Clients[configuration.ClientCodex] = binding
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +288,7 @@ func TestEndpointTestRejectsClientNativeBeforeCredentialOrNetworkAccess(t *testi
 }
 
 func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
-	t.Run("profile infers client", func(t *testing.T) {
+	t.Run("profile overrides the explicit client selection", func(t *testing.T) {
 		runtime, _, _ := configuredReadinessRuntime(t)
 		if err := runtime.Secrets.Set("one", "token"); err != nil {
 			t.Fatal(err)
@@ -302,7 +302,7 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}"))}, nil
 		})
 		command := NewTestCommand(runtime)
-		command.SetArgs([]string{"--profile", "codex"})
+		command.SetArgs([]string{"--for", "codex", "--profile", "codex"})
 		if err := executeCommand(command); err != nil {
 			t.Fatal(err)
 		}
@@ -314,7 +314,7 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 	t.Run("unknown profile is rejected", func(t *testing.T) {
 		runtime, _, _ := configuredReadinessRuntime(t)
 		command := NewTestCommand(runtime)
-		command.SetArgs([]string{"--profile", "missing"})
+		command.SetArgs([]string{"--for", "codex", "--profile", "missing"})
 		if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), "unknown profile") {
 			t.Fatalf("error = %v", err)
 		}

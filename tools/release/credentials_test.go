@@ -121,9 +121,9 @@ func (j *journeyFixture) requireExternalCredentialClient(client, executable, acc
 	j.run("sync")
 	j.run("check", "--json")
 	j.run("verify", "--for", client)
-	j.run("adapter", "disable", client)
+	j.run("client", "disable", client)
 	j.run("sync")
-	args := []string{"adapter", "enable", client, "--executable", executable}
+	args := []string{"client", "enable", client, "--executable", executable}
 	if client == configuration.ClientCodex {
 		args = append(args, "--target", filepath.Join(j.root, "home", ".codex", "config.toml"))
 	}
@@ -179,7 +179,7 @@ func runNativeEphemeralCredentials(t *testing.T, artifact string) {
 		if format == "go-keyring-base64" {
 			input = "go-keyring-base64:" + base64.StdEncoding.EncodeToString([]byte(token))
 		}
-		output := journey.runWithInput(journey.binary, input, "test", "--profile", "native-system-keyring-probe-claude", "--token-stdin", "--token-format", format, "--config", journey.config)
+		output := journey.runWithInput(journey.binary, input, "test", "--for", "claude", "--profile", "native-system-keyring-probe-claude", "--token-stdin", "--token-format", format, "--config", journey.config)
 		if !bytes.Contains(output, []byte("not model inference")) || bytes.Contains(output, []byte(token)) {
 			t.Fatal("endpoint result lost its evidence or secret boundary")
 		}

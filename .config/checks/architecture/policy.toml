@@ -54,7 +54,12 @@ allowed_import_edges."internal/hermes/configuration" = ["internal/transaction"]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
 package_children."tools/ci" = ["markdown", "projection"]
 package_children."tools/codex" = ["catalog"]
-package_children."tools/release" = ["artifact", "construction", "publication", "readiness"]
+package_children."tools/release" = [
+  "artifact",
+  "construction",
+  "publication",
+  "readiness",
+]
 
 # Composition roots may contain only their declared production files. Command
 # behavior belongs to semantic subpackages, never beside the root assembler.
@@ -76,7 +81,10 @@ allowed_import_edges."cmd/aigw" = [
   "internal/secrets/native",
 ]
 allowed_import_edges."internal/transaction" = []
-allowed_import_edges."internal/credential" = ["internal/configuration", "internal/secrets"]
+allowed_import_edges."internal/credential" = [
+  "internal/configuration",
+  "internal/secrets",
+]
 allowed_import_edges."internal/configuration" = ["internal/transaction"]
 allowed_import_edges."internal/client" = [
   "internal/hermes/configuration",
@@ -157,8 +165,8 @@ allowed_import_edges."internal/surface" = []
 allowed_import_edges."internal/readiness" = ["internal/diagnostics"]
 allowed_import_edges."internal/cli" = [
   "internal/cli/account",
-  "internal/cli/adapter",
   "internal/cli/catalog",
+  "internal/cli/client",
   "internal/cli/credential",
   "internal/cli/doctor",
   "internal/cli/install",
@@ -169,7 +177,7 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/readiness",
   "internal/cli/recovery",
   "internal/cli/renaming",
-  "internal/cli/route",
+  "internal/cli/selection",
   "internal/cli/update",
   "internal/cli/verification",
   "internal/client",
@@ -204,14 +212,16 @@ allowed_import_edges."internal/cli/install" = [
   "internal/transaction",
   "internal/upgrade",
 ]
-allowed_import_edges."internal/cli/route" = [
+allowed_import_edges."internal/cli/selection" = [
   "internal/cli/invocation",
   "internal/configuration",
   "internal/credential",
-  "internal/presentation",
   "internal/prompt",
 ]
-allowed_import_edges."internal/cli/update" = ["internal/cli/invocation", "internal/upgrade"]
+allowed_import_edges."internal/cli/update" = [
+  "internal/cli/invocation",
+  "internal/upgrade",
+]
 allowed_import_edges."internal/cli/renaming" = [
   "internal/cli/invocation",
   "internal/configuration",
@@ -246,7 +256,7 @@ allowed_import_edges."internal/cli/doctor" = [
   "internal/secrets",
   "internal/synchronization",
 ]
-allowed_import_edges."internal/cli/adapter" = [
+allowed_import_edges."internal/cli/client" = [
   "internal/cli/invocation",
   "internal/configuration",
   "internal/credential",
@@ -327,7 +337,10 @@ allowed_import_edges."tools/release/publication" = ["tools/release/artifact"]
 allowed_import_edges."tools/release/readiness" = []
 allowed_import_edges."tools/architecture" = []
 allowed_import_edges."tools/forge" = []
-allowed_import_edges."tools/codex/catalog" = ["internal/codex", "internal/codex/catalog"]
+allowed_import_edges."tools/codex/catalog" = [
+  "internal/codex",
+  "internal/codex/catalog",
+]
 allowed_import_edges."tools/coverage" = []
 
 # Top-level roots skipped entirely while walking the repository.
@@ -415,4 +428,10 @@ exact_paths = [
 
 [tracked_carrier_classes.repository-metadata]
 responsibility = "portable repository and product metadata"
-exact_paths = [".editorconfig", ".gitattributes", ".gitignore", "LICENSE", "VERSION"]
+exact_paths = [
+  ".editorconfig",
+  ".gitattributes",
+  ".gitignore",
+  "LICENSE",
+  "VERSION",
+]

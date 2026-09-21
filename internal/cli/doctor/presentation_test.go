@@ -75,9 +75,9 @@ func TestHumanFormattingBranches(t *testing.T) {
 		{Check{Name: "adapter:claude", Detail: "Claude executable is not configured"}, "Enabled, but no executable is configured"},
 		{Check{Name: "adapter:codex", Detail: "Codex executable is not configured"}, "Enabled, but no executable is configured"},
 		{Check{Name: "adapter:codex", Detail: "Codex configuration target is missing"}, "Enabled, but no Codex configuration file is configured"},
-		{Check{Name: "projection:codex", Detail: "unavailable"}, "Current Codex route cannot be resolved"},
-		{Check{Name: "codex:target-1", OK: true}, "Matches the current route"},
-		{Check{Name: "codex:target-1"}, "Does not match the current route"},
+		{Check{Name: "projection:codex", Detail: "unavailable"}, "Current Codex binding cannot be resolved"},
+		{Check{Name: "codex:target-1", OK: true}, "Matches the current binding"},
+		{Check{Name: "codex:target-1"}, "Does not match the current binding"},
 	}
 	for _, test := range details {
 		if got := Detail(test.check); got != test.want {

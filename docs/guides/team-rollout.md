@@ -33,16 +33,16 @@ The team manifest is a curated catalogue, not a collection of personal notes.
 
 - **Profile ID:** stable selection key: Account ID + `-` + the exact provider
   model ID, including its channel suffix.
-- **`account` and `client`:** explicit references to the credential-owning
-  Account and admitted client.
+- **`account`:** explicit reference to the credential-owning Account; Profiles
+  remain reusable and do not declare a client.
 - **`model`:** exact provider request identifier, preserving version
   punctuation and channel suffix.
 - **`label`:** human-readable identity: `Account label · Model display name`;
   append `· CHANNEL` with a separating space when needed.
 - **`purpose`:** optional workflow description; omit throughout this
   model catalogue.
-- **`recommended_routes`:** sole recommendation owner, one Profile per
-  client; recommendations do not belong in display text.
+- **`recommendations.<client>`:** sole team recommendation owner, one Profile
+  per client; recommendations do not belong in display text.
 
 Use product capitalization, dotted display versions, uppercase channel names,
 and spaces around `·`. Labels contain identity, not performance promises,
@@ -94,7 +94,7 @@ refresh that separate evidence before rollout.
 The recommendation applies when its Account is connected. With another
 Account, setup prefers the same model if that Account offers it, otherwise an
 available Profile for that client. No provider Token is mandatory, and an
-import preserves existing personal Routes.
+import preserves existing personal Client Bindings.
 
 Reasoning effort remains a native client preference, outside manifest schema
 version 4. The team preference is `high`: set `model_reasoning_effort = "high"`
@@ -183,8 +183,9 @@ the Token owner is explicit. The input is read through EOF and is limited to
 ASCII characters; embedded whitespace, extra lines and control characters fail
 before validation or storage.
 
-For a one-time endpoint test, `aigw test --profile <profile> --token-stdin`
-consumes that Token without reading or writing the credential store. Supply
+For a one-time endpoint test,
+`aigw test --for <client> --profile <profile> --token-stdin` consumes that Token
+without reading or writing the credential store. Supply
 `--config /absolute/path/to/config.toml` when the calling process intentionally
 has no ordinary user HOME. One explicit Profile or client is required so input
 cannot be reused across unrelated Accounts. This command reports HTTP endpoint
@@ -202,22 +203,22 @@ Account Token, then select its Profile:
 
 ```bash
 aigw rotate dmxapi
-aigw use dmxapi-gpt-5.6-sol
+aigw use --for codex dmxapi-gpt-5.6-sol
 aigw check
 ```
 
 One connected Account is enough to begin. Accounts without Tokens remain
 available but do not make another Account fail. With no enabled client, `check`
 and `doctor` validate local configuration without requiring the recommended
-Routes' Tokens; their success is not a client or inference proof.
+Profiles' Tokens; their success is not a client or inference proof.
 
-Interactive `aigw use <profile>` can also prompt for that Account's missing
-Token. Re-selecting the current Profile then reports **Token stored**, not an
-unchanged operation. If the Token is already available and configuration is
-unchanged, selection performs no writes. A cancelled or failed selection
-compensates its own credential writes; it preserves a newer credential and
-reports any incomplete recovery. An output error after commit does not undo
-the selection. Run `aigw status` before retrying to inspect current state.
+Interactive `aigw use --for <client> <profile>` can also prompt for that
+Account's missing Token. Interactive use may prompt for the client or Profile;
+non-interactive use requires both explicitly. If the Token is already available
+and the binding is unchanged, selection performs no writes. A cancelled or
+failed selection compensates its own credential writes; it preserves a newer
+credential and reports any incomplete recovery. An output error after commit
+does not undo the selection. Run `aigw status` before retrying.
 
 Rotation validates and replaces only the selected Account's Token. It does not
 select a Profile, rewrite client configuration or invoke a native client. The
@@ -230,9 +231,9 @@ overwriting them.
 
 Claude Code and Codex are not setup prerequisites. After installing either
 client, run `aigw sync`; AIGW rediscovers supported clients and converges only
-its owned configuration. If that client has a selected Route and usable
+its owned configuration. If that client has a selected Client Binding and usable
 authentication, sync enables its Adapter and writes the owned projection.
-Account-Token routes receive a credential helper; client-native routes continue
+Account-Token Client Bindings receive a credential helper; client-native bindings continue
 to use the client's own authentication:
 
 ```bash
@@ -249,9 +250,9 @@ or inference proof.
 Optional balance credentials do not participate in `aigw check`, in either
 human or JSON output. Use `aigw account diagnostics enable <account>` to configure them
 and `aigw balance <account>` to request provider diagnostics. An unavailable
-balance service does not make a working client Route unhealthy.
+balance service does not make a working Client Binding unhealthy.
 
-Claude Code and Account-Token Codex routes use projection-matching helpers.
+Claude Code and Account-Token Codex bindings use projection-matching helpers.
 Changing Account or endpoint invalidates a retained helper invocation: run
 `aigw sync` and reload the client's configuration. The helper does not return a
 new Account's Token to a client retaining the old endpoint.
@@ -277,15 +278,15 @@ Conflicting public metadata requires an explicit `--replace-account <id>` or
 | Local-only Profile not in manifest | Preserve             | Remove explicitly if obsolete            |
 | Existing Token                     | Preserve             | Rotate explicitly if required            |
 
-Import preserves existing Routes and stores the manifest's recommendations
-separately. Importing a recommendation does not select it. Setup and `sync`
-fill unselected Routes from currently usable Profiles: the recommendation first,
-then the same model on another connected Account, then stable Profile identifier
-order. An existing selection is preserved even if its Token is unavailable;
-use `aigw use <profile>` to change it explicitly. Client-native authentication
-does not require an AIGW Token. Import reconciles enabled client projections through
-the ordinary guarded transaction; a failed projection leaves the import
-uncommitted.
+Import preserves existing client bindings and stores manifest recommendations
+separately. Importing a recommendation does not select it. First-time setup may
+bind recommendations to Profiles reachable through the Accounts explicitly
+connected during that operation. `sync` never invents a binding; it reconciles
+only enabled bindings. An existing selection is preserved even if its Token is
+unavailable; use `aigw use --for <client> <profile>` to change it explicitly.
+Client-native authentication does not require an AIGW Token. Import reconciles
+enabled native projections through the ordinary guarded transaction; a failed
+projection leaves the import uncommitted.
 
 ## Local choices
 
@@ -294,12 +295,12 @@ client path, or workstation-only endpoint. Import it as reviewed, then keep
 local intent in AIGW's own configuration commands:
 
 ```bash
-aigw use <profile>
+aigw use --for <client> <profile>
 aigw account edit <account> --openai-url <url>
-aigw profile add <profile> --account <account> --for <client> --model <model>
+aigw profile add <profile> --account <account> --model <model>
 ```
 
-`aigw use` changes only the named client's Route. Account and Profile commands
+`aigw use` changes only the named client binding. Account and Profile commands
 change local configuration and are not written back into [distributed team manifest](../../manifests/team.toml).
 To publish a team change, review the manifest itself and distribute the new
 token-free revision.

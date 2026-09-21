@@ -23,7 +23,7 @@ func TestAdapterEnableSurfacesCredentialObservationFailure(t *testing.T) {
 	want := errors.New("credential observation failed")
 	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: want}
 
-	err := cli.Execute(app, []string{"adapter", "enable", "claude", "--executable", executableFixture(t, "claude")})
+	err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", executableFixture(t, "claude")})
 	if !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
 	}
@@ -43,37 +43,13 @@ func TestAdapterEnableReportsConfigurationCommitFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := cli.Execute(app, []string{"adapter", "enable", "claude", "--executable", executableFixture(t, "claude")})
-	if err == nil || !strings.Contains(err.Error(), "Adapter enablement failed and was rolled back") {
+	err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", executableFixture(t, "claude")})
+	if err == nil || !strings.Contains(err.Error(), "Client enablement failed and was rolled back") {
 		t.Fatalf("error = %v", err)
 	}
 }
 
-func TestAdapterListAndDiscoveryBranches(t *testing.T) {
-	t.Run("list load", func(t *testing.T) {
-		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir())
-		if err := cli.Execute(app, []string{"adapter", "list"}); err == nil {
-			t.Fatal("expected config load failure")
-		}
-	})
-
-	t.Run("list enabled executable", func(t *testing.T) {
-		app, out, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
-		cfg, _ := app.Config.Load()
-		cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/opt/claude"}
-		if err := app.Config.Save(cfg); err != nil {
-			t.Fatal(err)
-		}
-		if err := cli.Execute(app, []string{"adapter", "list"}); err != nil {
-			t.Fatal(err)
-		}
-		if !strings.Contains(out.String(), "Enabled") || !strings.Contains(out.String(), "/opt/claude") {
-			t.Fatalf("output = %q", out.String())
-		}
-	})
-
+func TestClientDiscoveryBranches(t *testing.T) {
 	t.Run("discover executables", func(t *testing.T) {
 		dir := t.TempDir()
 		fixtures := map[string]string{}
@@ -104,7 +80,7 @@ func TestAdapterListAndDiscoveryBranches(t *testing.T) {
 		}
 		app, out, _, _, _ := testApp(t, "")
 		app.Discovery = client.NewDiscoverer(client.DefaultRegistry(), discovery.System{GOOS: runtime.GOOS, Home: t.TempDir(), Path: dir})
-		if err := cli.Execute(app, []string{"adapter", "discover"}); err != nil {
+		if err := cli.Execute(app, []string{"client", "discover"}); err != nil {
 			t.Fatal(err)
 		}
 		for name, path := range resolved {
@@ -121,10 +97,10 @@ func TestAdapterValidationBranches(t *testing.T) {
 		args []string
 		want string
 	}{
-		{name: "enable invalid", args: []string{"adapter", "enable", "other", "--executable", "/x"}, want: "invalid argument"},
-		{name: "enable missing executable", args: []string{"adapter", "enable", "claude"}, want: "--executable is required"},
-		{name: "enable missing target", args: []string{"adapter", "enable", "codex", "--executable", "/x"}, want: "requires at least one"},
-		{name: "disable invalid", args: []string{"adapter", "disable", "other"}, want: "invalid argument"},
+		{name: "enable invalid", args: []string{"client", "enable", "other", "--executable", "/x"}, want: "invalid argument"},
+		{name: "enable missing executable", args: []string{"client", "enable", "claude"}, want: "--executable is required"},
+		{name: "enable missing target", args: []string{"client", "enable", "codex", "--executable", "/x"}, want: "requires at least one"},
+		{name: "disable invalid", args: []string{"client", "disable", "other"}, want: "invalid argument"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")
@@ -141,12 +117,12 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
 		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
 		cfg, _ := app.Config.Load()
-		cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: "/old"}
+		cfg.SetClientActivation(configuration.ClientClaude, true, "/old", nil)
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
 		_ = secretStore.Set("one", "token")
-		err := cli.Execute(app, []string{"adapter", "enable", "claude", "--executable", "/new"})
+		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", "/new"})
 		if err == nil || !strings.Contains(err.Error(), "already enabled") {
 			t.Fatalf("error = %v", err)
 		}
@@ -156,8 +132,8 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
 		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		_ = secretStore.Set("one", "token")
-		err := cli.Execute(app, []string{"adapter", "enable", "claude", "--executable", "/x"})
-		if err == nil || !strings.Contains(err.Error(), "no route selected for client \"claude\"") {
+		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", "/x"})
+		if err == nil || !strings.Contains(err.Error(), "no Profile selected for client \"claude\"") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -165,7 +141,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 	t.Run("enable missing token", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
-		err := cli.Execute(app, []string{"adapter", "enable", "claude", "--executable", "/x"})
+		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", "/x"})
 		if err == nil || !strings.Contains(err.Error(), "missing a token") {
 			t.Fatalf("error = %v", err)
 		}
@@ -176,7 +152,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		_ = secretStore.Set("one", "token")
 		app.Discovery = nil
-		err := cli.Execute(app, []string{"adapter", "enable", "codex", "--executable", "/x", "--target", filepath.Join(t.TempDir(), "configuration.toml")})
+		err := cli.Execute(app, []string{"client", "enable", "codex", "--executable", "/x", "--target", filepath.Join(t.TempDir(), "configuration.toml")})
 		if err == nil || !strings.Contains(err.Error(), "discovery is unavailable") {
 			t.Fatalf("error = %v", err)
 		}
@@ -184,7 +160,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 
 	t.Run("disable already disabled", func(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
-		if err := cli.Execute(app, []string{"adapter", "disable", "codex"}); err != nil {
+		if err := cli.Execute(app, []string{"client", "disable", "codex"}); err != nil {
 			t.Fatal(err)
 		}
 		if !strings.Contains(out.String(), "Already disabled") {
@@ -198,12 +174,12 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-model")
-	cfg.Routes[configuration.ClientClaude] = "team"
+	cfg.SetSelectedProfile(configuration.ClientClaude, "team")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("team", "secret")
-	if err := cli.Execute(app, []string{"adapter", "enable", "claude", "--executable", claudeExecutable}); err != nil {
+	if err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", claudeExecutable}); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := app.Config.Load()
@@ -213,37 +189,11 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	if _, exists := got.Clients["codex"]; exists {
 		t.Fatalf("Claude enable touched Codex: %#v", got.Clients)
 	}
-	if err := cli.Execute(app, []string{"adapter", "disable", "claude"}); err != nil {
+	if err := cli.Execute(app, []string{"client", "disable", "claude"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(claudeExecutable); err != nil {
 		t.Fatalf("adapter disable changed the foreign Claude executable: %v", err)
-	}
-}
-
-func TestAdapterCommandsListOnlyAdmittedClients(t *testing.T) {
-	app, out, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}, configuration.ClientClaude, "claude-model")
-	cfg.Routes[configuration.ClientClaude] = "team"
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	if err := cli.Execute(app, []string{"adapter", "list"}); err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{"Claude", "Codex"} {
-		if !strings.Contains(out.String(), want) {
-			t.Fatalf("adapter list misses admitted client %q:\n%s", want, out.String())
-		}
-	}
-	if strings.Contains(strings.ToLower(out.String()), "gemini") || strings.Contains(strings.ToLower(out.String()), "qwen") {
-		t.Fatalf("adapter list exposed an unadmitted client:\n%s", out.String())
-	}
-
-	err := cli.Execute(app, []string{"profile", "add", "future", "--account", "team", "--for", "gemini", "--model", "gemini-next"})
-	if err == nil || !strings.Contains(err.Error(), "claude, codex, or hermes") {
-		t.Fatalf("unadmitted client error = %v", err)
 	}
 }
 
@@ -259,12 +209,12 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 	}
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "gpt-model")
-	cfg.Routes[configuration.ClientCodex] = "team"
+	cfg.SetSelectedProfile(configuration.ClientCodex, "team")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("team", "secret")
-	if err := cli.Execute(app, []string{"adapter", "enable", "codex", "--executable", "/opt/codex-real", "--target", target}); err != nil {
+	if err := cli.Execute(app, []string{"client", "enable", "codex", "--executable", "/opt/codex-real", "--target", target}); err != nil {
 		t.Fatal(err)
 	}
 	if len(runner.plans) != 0 {
@@ -274,7 +224,7 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 	if !strings.Contains(string(projected), "AIGW managed provider") {
 		t.Fatalf("target not projected:\n%s", projected)
 	}
-	if err := cli.Execute(app, []string{"adapter", "disable", "codex"}); err != nil {
+	if err := cli.Execute(app, []string{"client", "disable", "codex"}); err != nil {
 		t.Fatal(err)
 	}
 	restored, _ := os.ReadFile(target)
@@ -294,9 +244,9 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		executable := filepath.Join(root, id)
 		writeFile(t, executable, []byte("public fixture"), 0o700)
-		cfg.Profiles[id] = configuration.Profile{Label: id, Account: "gateway", Client: id, Model: "fixture-model"}
-		cfg.Routes[id] = id
-		cfg.Clients[id] = configuration.ClientBinding{Enabled: true, Executable: executable}
+		cfg.Profiles[id] = configuration.Profile{Label: id, Account: "gateway", Model: "fixture-model"}
+		cfg.SetSelectedProfile(id, id)
+		cfg.SetClientActivation(id, true, executable, nil)
 	}
 	adapter := cfg.Clients[configuration.ClientCodex]
 	adapter.Targets = []string{target}
@@ -361,7 +311,7 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, target, command string) {
 	t.Helper()
 	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
-		if err := cli.Execute(app, []string{"adapter", "disable", id}); err != nil {
+		if err := cli.Execute(app, []string{"client", "disable", id}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -377,7 +327,7 @@ func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, tar
 		if adapter.Enabled || adapter.CredentialCommand != command {
 			t.Fatalf("sync did not preserve disabled %s policy: %#v", id, adapter)
 		}
-		args := []string{"adapter", "enable", id, "--executable", filepath.Join(root, id)}
+		args := []string{"client", "enable", id, "--executable", filepath.Join(root, id)}
 		if id == configuration.ClientCodex {
 			args = append(args, "--target", target)
 		}
@@ -400,10 +350,13 @@ func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *t
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://example.invalid"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "fixture-model"}
-	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "fixture-model"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
 	command := filepath.Join(t.TempDir(), "explicit-helper")
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude"), CredentialCommand: command}
+	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+	binding := cfg.Clients[configuration.ClientClaude]
+	binding.CredentialCommand = command
+	cfg.Clients[configuration.ClientClaude] = binding
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

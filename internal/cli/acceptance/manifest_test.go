@@ -16,8 +16,8 @@ func TestConfigImportRefusesAccountConflictUntilExplicitReplacementAndPreservesT
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Personal Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://personal.example.test"}}
-	cfg.Profiles["local"] = configuration.Profile{Label: "Local", Account: "team", Client: configuration.ClientClaude, Model: "local-model"}
-	cfg.Routes[configuration.ClientClaude] = "local"
+	cfg.Profiles["local"] = configuration.Profile{Label: "Local", Account: "team", Model: "local-model"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "local")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -25,9 +25,9 @@ func TestConfigImportRefusesAccountConflictUntilExplicitReplacementAndPreservesT
 		t.Fatal(err)
 	}
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 4
-[recommended_routes]
-claude = "team-profile"
+	manifest := `version = 5
+[recommendations.claude]
+profile = "team-profile"
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
@@ -35,7 +35,6 @@ anthropic = "https://team.example.test"
 [profiles.team-profile]
 label = "Team Profile"
 account = "team"
-client = "claude"
 model = "team-model"
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
@@ -50,7 +49,7 @@ model = "team-model"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["team"].Endpoints.Anthropic != "https://personal.example.test" || got.Routes[configuration.ClientClaude] != "local" {
+	if got.Accounts["team"].Endpoints.Anthropic != "https://personal.example.test" || got.SelectedProfile(configuration.ClientClaude) != "local" {
 		t.Fatalf("default import mutated local identity: %#v", got)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "personal-token" {
@@ -64,7 +63,7 @@ model = "team-model"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["team"].Endpoints.Anthropic != "https://team.example.test" || got.Routes[configuration.ClientClaude] != "local" {
+	if got.Accounts["team"].Endpoints.Anthropic != "https://team.example.test" || got.SelectedProfile(configuration.ClientClaude) != "local" {
 		t.Fatalf("explicit replacement result: %#v", got)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "personal-token" {
@@ -75,10 +74,12 @@ model = "team-model"
 func TestConfigImportReportsMissingAccountTokensNotProfileTokens(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 4
-[recommended_routes]
-codex = "gpt-long-model"
-claude = "claude-long-model"
+	manifest := `version = 5
+[recommendations.codex]
+profile = "gpt-long-model"
+
+[recommendations.claude]
+profile = "claude-long-model"
 [accounts.dmx]
 label = "DMXAPI"
 [accounts.dmx.endpoints]
@@ -87,12 +88,10 @@ anthropic = "https://dmx.test"
 [profiles."gpt-long-model"]
 label = "GPT Long Model"
 account = "dmx"
-client = "codex"
 model = "gpt-long-model"
 [profiles."claude-long-model"]
 label = "Claude Long Model"
 account = "dmx"
-client = "claude"
 model = "claude-long-model"
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
@@ -116,10 +115,12 @@ model = "claude-long-model"
 func TestConfigImportReportsOnlyMissingAccounts(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 4
-[recommended_routes]
-codex = "gpt-long-model"
-claude = "claude-long-model"
+	manifest := `version = 5
+[recommendations.codex]
+profile = "gpt-long-model"
+
+[recommendations.claude]
+profile = "claude-long-model"
 [accounts.dmx]
 label = "DMXAPI"
 [accounts.dmx.endpoints]
@@ -128,12 +129,10 @@ anthropic = "https://dmx.test"
 [profiles."gpt-long-model"]
 label = "GPT Long Model"
 account = "dmx"
-client = "codex"
 model = "gpt-long-model"
 [profiles."claude-long-model"]
 label = "Claude Long Model"
 account = "dmx"
-client = "claude"
 model = "claude-long-model"
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
@@ -215,9 +214,9 @@ func TestConfigCommandIOFailures(t *testing.T) {
 func TestConfigImportAndExportAreSecretFree(t *testing.T) {
 	app, out, secrets, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 4
-[recommended_routes]
-claude = "team"
+	manifest := `version = 5
+[recommendations.claude]
+profile = "team"
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
@@ -226,7 +225,6 @@ anthropic = "https://team.test"
 label = "Team Gateway"
 purpose = "Default agent"
 account = "team"
-client = "claude"
 model = "claude-model"
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
@@ -251,15 +249,15 @@ func TestConfigImportRefusesProfileConflictUntilExplicitReplacement(t *testing.T
 	app, _, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
-	cfg.Profiles["shared"] = configuration.Profile{Label: "Personal Model", Account: "team", Client: configuration.ClientCodex, Model: "personal-model"}
-	cfg.Routes[configuration.ClientCodex] = "shared"
+	cfg.Profiles["shared"] = configuration.Profile{Label: "Personal Model", Account: "team", Model: "personal-model"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "shared")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 4
-[recommended_routes]
-codex = "shared"
+	manifest := `version = 5
+[recommendations.codex]
+profile = "shared"
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
@@ -267,7 +265,6 @@ openai_responses = "https://team.example.test/v1"
 [profiles.shared]
 label = "Team Model"
 account = "team"
-client = "codex"
 model = "team-model"
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {

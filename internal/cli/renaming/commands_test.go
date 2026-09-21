@@ -21,7 +21,7 @@ func renameRuntime(t *testing.T) invocation.Context {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 	cfg := configuration.NewConfig()
 	cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{OpenAIResponses: "https://old.test/v1"}}
-	cfg.Profiles["old"] = configuration.Profile{Label: "Old", Account: "old", Client: configuration.ClientCodex, Model: "gpt"}
+	cfg.Profiles["old"] = configuration.Profile{Label: "Old", Account: "old", Model: "gpt"}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

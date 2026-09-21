@@ -35,9 +35,9 @@ func TestManifestAdmissionIsDerivedFromClientRegistry(t *testing.T) {
 	})
 	defer func() { admittedClientSpecs = previous }()
 
-	manifest, err := Parse([]byte(`version = 4
-[recommended_routes]
-synthetic = "synthetic-default"
+	manifest, err := Parse([]byte(`version = 5
+[recommendations.synthetic]
+profile = "synthetic-default"
 
 [accounts.team]
 label = "Team"
@@ -47,21 +47,22 @@ openai_responses = "https://team.test/v1"
 [profiles.synthetic-default]
 label = "Synthetic Default"
 account = "team"
-client = "synthetic"
 model = "synthetic-model"
 `))
 	if err != nil {
 		t.Fatalf("registry-admitted client was rejected: %v", err)
 	}
-	if manifest.RecommendedRoutes["synthetic"] != "synthetic-default" {
-		t.Fatalf("recommended routes = %#v", manifest.RecommendedRoutes)
+	if manifest.Recommendations["synthetic"].Profile != "synthetic-default" {
+		t.Fatalf("recommended routes = %#v", manifest.Recommendations)
 	}
 }
 
 func TestSyntheticProviderUsesOnlyManifestDataAcrossParseMergeAndRouteResolution(t *testing.T) {
-	incoming, err := Parse([]byte(`version = 4
-[recommended_routes]
-codex = "northstar-codex"
+	incoming, err := Parse([]byte(`version = 5
+[recommendations.codex]
+profile = "northstar-codex"
+model_provider = "northstar"
+authentication = "account-token"
 
 [accounts.northstar]
 label = "Northstar"
@@ -71,10 +72,7 @@ openai_responses = "https://northstar.example.test/v1"
 [profiles.northstar-codex]
 label = "Northstar Codex"
 account = "northstar"
-client = "codex"
 model = "northstar-model"
-model_provider = "northstar"
-authentication = "account-token"
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +81,7 @@ authentication = "account-token"
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected, err := merged.SelectRoutesForConnectedAccounts([]string{"northstar"})
+	selected, err := merged.SelectProfilesForConnectedAccounts([]string{"northstar"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,9 +95,9 @@ authentication = "account-token"
 }
 
 func TestParseRejectsIncompatibleRecommendedRoute(t *testing.T) {
-	raw := []byte(`version = 4
-[recommended_routes]
-claude = "codex"
+	raw := []byte(`version = 5
+[recommendations.claude]
+profile = "codex"
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
@@ -107,7 +105,6 @@ openai_responses = "https://team.test/v1"
 [profiles.codex]
 label = "Codex"
 account = "team"
-client = "codex"
 model = "gpt-test"
 `)
 	if _, err := Parse(raw); err == nil {
@@ -124,10 +121,9 @@ anthropic = "https://team.test"
 [profiles.claude]
 label = "Claude"
 account = "team"
-client = "claude"
 model = "claude-test"
 `)
-	if _, err := Parse(legacy); err == nil || !strings.Contains(err.Error(), "expected 4") {
+	if _, err := Parse(legacy); err == nil || !strings.Contains(err.Error(), "expected 5") {
 		t.Fatalf("v2 manifest error = %v", err)
 	}
 }
@@ -135,9 +131,9 @@ model = "claude-test"
 func TestExportRejectsRouteThatCannotBeParsedBack(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Profiles["codex"] = Profile{Label: "Codex", Account: "team", Client: ClientCodex, Model: "gpt-test"}
-	cfg.Routes[ClientCodex] = "codex"
-	cfg.Routes[ClientClaude] = "codex"
+	cfg.Profiles["codex"] = Profile{Label: "Codex", Account: "team", Model: "gpt-test"}
+	cfg.SetSelectedProfile(ClientCodex, "codex")
+	cfg.Clients[ClientClaude] = ClientBinding{Profile: "codex", Protocol: ProtocolOpenAIResponses}
 
 	if _, err := Export(cfg); err == nil {
 		t.Fatal("export accepted a client-incompatible route")
@@ -145,7 +141,10 @@ func TestExportRejectsRouteThatCannotBeParsedBack(t *testing.T) {
 }
 
 func TestParseRejectsProfileWithoutItsClientProtocol(t *testing.T) {
-	_, err := Parse([]byte(`version = 4
+	_, err := Parse([]byte(`version = 5
+
+[recommendations.codex]
+profile = "codex"
 
 [accounts.gateway]
 label = "Gateway"
@@ -155,7 +154,6 @@ anthropic = "https://gateway.test"
 [profiles.codex]
 label = "Codex"
 account = "gateway"
-client = "codex"
 model = "model"
 `))
 	var missing *RuntimeMissingEndpointError
@@ -166,7 +164,7 @@ model = "model"
 
 func TestParseRejectsCredentialShapedFields(t *testing.T) {
 	for _, key := range []string{"token", "api_key", "password", "auth_header", "client_secret"} {
-		raw := []byte("version = 4\n" + key + " = \"must-not-exist\"\n")
+		raw := []byte("version = 5\n" + key + " = \"must-not-exist\"\n")
 		_, err := Parse(raw)
 		if err == nil || !strings.Contains(err.Error(), "credential") {
 			t.Errorf("key %s: error = %v", key, err)
@@ -184,7 +182,6 @@ anthropic = "https://gateway.test"
 label = "Team"
 purpose = "Default agent"
 account = "team"
-client = "claude"
 model = "claude-team"
 `)
 	if _, err := Parse(oldSchema); err == nil ||
@@ -192,23 +189,22 @@ model = "claude-team"
 		!strings.Contains(err.Error(), "does not reinterpret schema versions") {
 		t.Fatalf("version 1 parse error = %v", err)
 	}
-	current := []byte(strings.Replace(string(oldSchema), "version = 1", "version = 4", 1))
+	current := []byte(strings.Replace(string(oldSchema), "version = 1", "version = 5", 1))
 	parsed, err := Parse(current)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parsed.Version != 4 || parsed.Profiles["team"].Purpose != "Default agent" {
+	if parsed.Version != 5 || parsed.Profiles["team"].Purpose != "Default agent" {
 		t.Fatalf("parsed manifest = %#v", parsed)
 	}
 }
 
 func TestParseRejectsProfileOwnedEndpointResidue(t *testing.T) {
-	raw := []byte(`version = 4
+	raw := []byte(`version = 5
 
 [profiles.team]
 label = "Team Gateway"
 account = "team"
-client = "claude"
 model = "claude-team"
 
 [profiles.team.endpoints]
@@ -226,7 +222,7 @@ func TestParseRejectsMalformedTOML(t *testing.T) {
 }
 
 func TestParseRejectsManifestWithoutAnyProfile(t *testing.T) {
-	raw := []byte(`version = 4
+	raw := []byte(`version = 5
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
@@ -238,7 +234,7 @@ anthropic = "https://team.test"
 }
 
 func TestParseRejectsRemovedRecommendedDefault(t *testing.T) {
-	raw := []byte(`version = 4
+	raw := []byte(`version = 5
 recommended_default = "missing"
 [accounts.team]
 label = "Team"
@@ -247,7 +243,6 @@ anthropic = "https://team.test"
 [profiles.team]
 label = "Team"
 account = "team"
-client = "claude"
 model = "claude-team"
 `)
 	if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "fields in the document are missing") {
@@ -256,7 +251,7 @@ model = "claude-team"
 }
 
 func TestParseInitializesMissingAccountsAndDefaultsToFirstProfile(t *testing.T) {
-	raw := []byte(`version = 4
+	raw := []byte(`version = 5
 [profiles.solo]
 label = "Solo"
 account = "missing"
@@ -267,9 +262,9 @@ account = "missing"
 }
 
 func TestParseRejectsRecommendedRouteWithUnsupportedClient(t *testing.T) {
-	raw := []byte(`version = 4
-[recommended_routes]
-gemini = "team"
+	raw := []byte(`version = 5
+[recommendations.gemini]
+profile = "team"
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
@@ -277,7 +272,6 @@ anthropic = "https://team.test"
 [profiles.team]
 label = "Team"
 account = "team"
-client = "claude"
 model = "claude-team"
 `)
 	if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "unsupported client") {
@@ -286,9 +280,9 @@ model = "claude-team"
 }
 
 func TestParseRejectsRecommendedRouteReferencingUnknownProfile(t *testing.T) {
-	raw := []byte(`version = 4
-[recommended_routes]
-claude = "missing"
+	raw := []byte(`version = 5
+[recommendations.claude]
+profile = "missing"
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
@@ -296,7 +290,6 @@ anthropic = "https://team.test"
 [profiles.team]
 label = "Team"
 account = "team"
-client = "claude"
 model = "claude-team"
 `)
 	if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "references unknown profile") {
@@ -305,7 +298,7 @@ model = "claude-team"
 }
 
 func TestParseRejectsDeeplyNestedCredentialShapedFields(t *testing.T) {
-	raw := []byte(`version = 4
+	raw := []byte(`version = 5
 [wrapper]
 password = "leak"
 [[entries]]
@@ -325,9 +318,12 @@ func TestExportRejectsInvalidConfiguration(t *testing.T) {
 func TestExportOmitsSecretsAndAdaptersAndPublishesRouteRecommendations(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Profiles["team"] = Profile{Label: "Team", Account: "team", Client: ClientClaude, Model: "claude-team"}
-	cfg.Routes[ClientClaude] = "team"
-	cfg.Clients[ClientClaude] = ClientBinding{Enabled: true, Executable: "/personal/claude"}
+	cfg.Profiles["team"] = Profile{Label: "Team", Account: "team", Model: "claude-team"}
+	cfg.SetSelectedProfile(ClientClaude, "team")
+	binding := cfg.Clients[ClientClaude]
+	binding.Enabled = true
+	binding.Executable = "/personal/claude"
+	cfg.Clients[ClientClaude] = binding
 	data, err := Export(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -341,8 +337,8 @@ func TestExportOmitsSecretsAndAdaptersAndPublishesRouteRecommendations(t *testin
 	if strings.Contains(text, "recommended_default") {
 		t.Fatalf("export retained removed recommended_default:\n%s", text)
 	}
-	if !strings.Contains(text, "version = 4") || !strings.Contains(text, "recommended_routes") || !strings.Contains(text, "claude") {
-		t.Fatalf("new config export must use manifest v4 with route recommendations:\n%s", text)
+	if !strings.Contains(text, "version = 5") || !strings.Contains(text, "recommendations") || !strings.Contains(text, "claude") {
+		t.Fatalf("new config export must use manifest v5 with client recommendations:\n%s", text)
 	}
 }
 
@@ -355,10 +351,9 @@ func TestExportIsCanonicalTypedManifestProjection(t *testing.T) {
 	cfg.Profiles["team"] = Profile{
 		Label:   "Team Claude",
 		Account: "team",
-		Client:  ClientClaude,
 		Model:   "claude-team",
 	}
-	cfg.Routes[ClientClaude] = "team"
+	cfg.SetSelectedProfile(ClientClaude, "team")
 
 	first, err := Export(cfg)
 	if err != nil {
@@ -371,7 +366,7 @@ func TestExportIsCanonicalTypedManifestProjection(t *testing.T) {
 	projected := NewConfig()
 	projected.Accounts = manifest.Accounts
 	projected.Profiles = manifest.Profiles
-	projected.Routes = manifest.RecommendedRoutes
+	projected.Recommendations = manifest.Recommendations
 	second, err := Export(projected)
 	if err != nil {
 		t.Fatal(err)

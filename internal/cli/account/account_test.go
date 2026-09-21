@@ -90,8 +90,8 @@ func blockedConfigurationStore(t *testing.T) (configuration.Store, secrets.Store
 		Label:     "Current",
 		Endpoints: configuration.Endpoints{OpenAIResponses: "https://current.test/v1"},
 	}
-	cfg.Profiles["current"] = configuration.Profile{Label: "Current", Account: "current", Client: configuration.ClientCodex, Model: "gpt-current"}
-	cfg.Routes[configuration.ClientCodex] = "current"
+	cfg.Profiles["current"] = configuration.Profile{Label: "Current", Account: "current", Model: "gpt-current"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "current")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

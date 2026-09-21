@@ -19,11 +19,14 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Use:   "verify",
 		Short: "Run one minimal live request to verify the model protocol path",
 		Args: cobra.MatchAll(cobra.NoArgs, func(_ *cobra.Command, _ []string) error {
-			if client == "" && profileName == "" {
-				return fmt.Errorf("choose a verification target with --for or --profile; run `aigw verify --help`")
+			if client == "" {
+				return fmt.Errorf("choose a verification client with --for; run `aigw verify --help`")
 			}
 			if client != "" && client != "all" && !configuration.IsAdmittedClient(client) {
 				return fmt.Errorf("--for must be %s; run `aigw verify --help`", configuration.AdmittedClientUsage("all"))
+			}
+			if client == "all" && profileName != "" {
+				return fmt.Errorf("--profile requires one explicit client, not --for all; run `aigw verify --help`")
 			}
 			return nil
 		}),
@@ -33,17 +36,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if profileName != "" {
-				client, err = cfg.ClientForProfile(profileName)
-				if err != nil {
-					return err
-				}
-			}
 			clients := []string{client}
 			if client == "all" {
 				clients = cfg.EnabledClientIDs()
 				if len(clients) == 0 {
-					return fmt.Errorf("no enabled clients to verify; run `aigw adapter list`")
+					return fmt.Errorf("no enabled clients to verify; run `aigw status`")
 				}
 			}
 			clientRuntimes := make(map[string]configuration.Runtime, len(clients))
@@ -86,8 +83,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Verify the selected Route for "+configuration.AdmittedClientLabelUsage("all")+"; all means enabled clients")
-	cmd.Flags().StringVar(&profileName, "profile", "", "Verify one Profile using its declared client without changing Routes")
-	cmd.MarkFlagsMutuallyExclusive("for", "profile")
+	cmd.Flags().StringVar(&client, "for", "", "Client whose selected Profile to verify: "+configuration.AdmittedClientLabelUsage("all")+"; all means enabled clients")
+	cmd.Flags().StringVar(&profileName, "profile", "", "Verify this Profile for the explicit client without changing its binding")
 	return cmd
 }

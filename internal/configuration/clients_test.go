@@ -38,9 +38,9 @@ func TestAdmittedClientRegistryReturnsDefensiveCopies(t *testing.T) {
 	}
 }
 
-func TestProfileOwnsOneClientAndOneModel(t *testing.T) {
-	profile := Profile{Client: ClientClaude, Model: "claude-test"}
-	if profile.Client != ClientClaude || profile.Model != "claude-test" {
+func TestProfileOwnsModelIdentityWithoutClientState(t *testing.T) {
+	profile := Profile{Model: "claude-test"}
+	if profile.Model != "claude-test" {
 		t.Fatalf("profile = %#v", profile)
 	}
 }
@@ -102,14 +102,15 @@ func TestClientSpecRejectsUnimplementedProtocol(t *testing.T) {
 func TestExplicitCredentialCommandSurvivesHostConfigRoundTrip(t *testing.T) {
 	cfg := validConfig()
 	cfg.Normalize()
-	cfg.Profiles[ClientHermes] = Profile{Label: "Hermes", Account: "backup", Client: ClientHermes, Model: "model"}
-	cfg.Routes[ClientHermes] = ClientHermes
+	cfg.Profiles[ClientHermes] = Profile{Label: "Hermes", Account: "backup", Model: "model"}
+	cfg.SetSelectedProfile(ClientHermes, ClientHermes)
 	for _, client := range AdmittedClientIDs() {
 		command := filepath.Join(t.TempDir(), "credential adapter")
 		var adapter ClientBinding
 		if err := toml.Unmarshal([]byte(fmt.Sprintf("enabled = true\ncredential_command = %q\n", command)), &adapter); err != nil {
 			t.Fatal(err)
 		}
+		adapter.Profile = cfg.SelectedProfile(client)
 		cfg.Clients[client] = adapter
 		runtime, err := cfg.ResolveRuntime(client, "")
 		if err != nil || runtime.CredentialCommand != command {

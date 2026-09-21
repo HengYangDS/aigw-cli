@@ -115,10 +115,14 @@ func (candidate setupDiscovery) Discover() discovery.Result {
 func manifestSetupConfig() configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Routes[configuration.ClientCodex] = "codex"
-	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Model: "claude-test"}
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Model: "gpt-test"}
+	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.Recommendations[configuration.ClientCodex] = configuration.ClientSelection{Profile: "codex"}
+	cfg.Recommendations[configuration.ClientClaude] = configuration.ClientSelection{Profile: "claude"}
+	cfg.SetClientActivation(configuration.ClientCodex, true, "", nil)
+	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
 	return cfg
 }
 
@@ -355,9 +359,9 @@ func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
 func TestManifestSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "configuration.toml")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 4
-[recommended_routes]
-codex = "gpt"
+	manifest := `version = 5
+[recommendations.codex]
+profile = "gpt"
 
 [accounts.team]
 label = "Team"
@@ -367,7 +371,6 @@ openai_responses = "https://team.test/v1"
 [profiles.gpt]
 label = "GPT"
 account = "team"
-client = "codex"
 model = "gpt-test"
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
@@ -415,11 +418,13 @@ model = "gpt-test"
 
 func TestConfiguredClientsForAccount(t *testing.T) {
 	cfg := configuration.NewConfig()
-	cfg.Profiles["legacy"] = configuration.Profile{Account: "legacy", Client: configuration.ClientCodex}
-	cfg.Profiles["other"] = configuration.Profile{Account: "other", Client: configuration.ClientClaude}
+	cfg.Accounts["legacy"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://legacy.test/v1"}}
+	cfg.Accounts["other"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://other.test"}}
+	cfg.Profiles["legacy"] = configuration.Profile{Account: "legacy", Model: "model"}
+	cfg.Profiles["other"] = configuration.Profile{Account: "other", Model: "model"}
 
 	clients := configuredClientsForAccount(cfg, "legacy")
-	if len(clients) != 1 || clients[0] != configuration.ClientCodex {
+	if len(clients) != 2 || clients[0] != configuration.ClientCodex || clients[1] != configuration.ClientHermes {
 		t.Fatalf("clients = %#v", clients)
 	}
 }

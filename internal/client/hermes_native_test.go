@@ -42,9 +42,8 @@ func TestHermesNativeProjection(t *testing.T) {
 			hermesHome := filepath.Join(home, "hermes")
 			cfg := configuration.NewConfig()
 			cfg.Accounts["fixture"] = configuration.Account{Label: "Fixture", Endpoints: configuration.Endpoints{Anthropic: "https://provider.invalid", OpenAIResponses: "https://provider.invalid/v1", OpenAIChatCompletions: "https://provider.invalid/v1"}}
-			cfg.Profiles["hermes"] = configuration.Profile{Label: "Hermes", Client: configuration.ClientHermes, Account: "fixture", Model: "fixture-model", Protocol: protocol}
-			cfg.Routes[configuration.ClientHermes] = "hermes"
-			cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Enabled: true, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
+			cfg.Profiles["hermes"] = configuration.Profile{Label: "Hermes", Account: "fixture", Model: "fixture-model"}
+			cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Profile: "hermes", Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
 			if err := configuration.NewStore(configPath).Save(cfg); err != nil {
 				t.Fatal(err)
 			}

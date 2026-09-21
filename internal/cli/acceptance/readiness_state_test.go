@@ -52,10 +52,13 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://example.invalid"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Client: configuration.ClientClaude, Account: "gateway", Model: "fixture"}
-	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "fixture"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
 	command := filepath.Join(t.TempDir(), "credential adapter")
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{Enabled: true, Executable: executableFixture(t, "claude"), CredentialCommand: command}
+	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+	binding := cfg.Clients[configuration.ClientClaude]
+	binding.CredentialCommand = command
+	cfg.Clients[configuration.ClientClaude] = binding
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +66,7 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: errors.New("native metadata must not select external credentials")}
-	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"profile", "list"}, {"profile", "show", "claude"}, {"use", "claude"}, {"adapter", "disable", "claude"}, {"adapter", "enable", "claude", "--executable", cfg.Clients[configuration.ClientClaude].Executable}} {
+	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"profile", "list"}, {"profile", "show", "claude"}, {"use", "--for", "claude", "claude"}, {"client", "disable", "claude"}, {"client", "enable", "claude", "--executable", cfg.Clients[configuration.ClientClaude].Executable}} {
 		out.Reset()
 		if err := cli.Execute(app, args); err != nil {
 			t.Fatalf("%v required a native Token: %v", args, err)
@@ -115,11 +118,8 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 				configuration.ClientClaude,
 				"claude-test",
 			)
-			cfg.Routes[configuration.ClientClaude] = "claude"
-			cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{
-				Enabled:    true,
-				Executable: executableFixture(t, "claude"),
-			}
+			cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -161,11 +161,8 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 				configuration.ClientClaude,
 				"claude-test",
 			)
-			cfg.Routes[configuration.ClientClaude] = "claude"
-			cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{
-				Enabled:    true,
-				Executable: executableFixture(t, "claude"),
-			}
+			cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -200,11 +197,8 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 		configuration.ClientClaude,
 		"claude-test",
 	)
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{
-		Enabled:    true,
-		Executable: executableFixture(t, "claude"),
-	}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -254,8 +248,8 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 			}
 			client := document.Clients[configuration.ClientClaude]
 			state, action := client.State, client.NextAction
-			if state != "deferred" || action != "aigw use claude" {
-				t.Fatalf("%s state = %q, next_action = %q; want deferred and aigw use claude\n%s", command, state, action, out.String())
+			if state != "deferred" || action != "aigw use --for claude claude" {
+				t.Fatalf("%s state = %q, next_action = %q; want deferred and an explicit Claude selection\n%s", command, state, action, out.String())
 			}
 		})
 	}
@@ -280,11 +274,8 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 				Endpoints:    configuration.Endpoints{Anthropic: "https://team.test"},
 				AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
 			}
-			cfg.Routes[configuration.ClientClaude] = "claude"
-			cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{
-				Enabled:    true,
-				Executable: executableFixture(t, "claude"),
-			}
+			cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -358,11 +349,8 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 		Endpoints:    configuration.Endpoints{Anthropic: "https://team.test"},
 		AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
 	}
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Clients[configuration.ClientClaude] = configuration.ClientBinding{
-		Enabled:    true,
-		Executable: executableFixture(t, "claude"),
-	}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

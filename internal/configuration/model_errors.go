@@ -2,14 +2,14 @@ package configuration
 
 import "fmt"
 
-// RuntimeRouteUnselectedError reports that a client has no selected Profile.
-type RuntimeRouteUnselectedError struct {
+// RuntimeBindingUnselectedError reports that a client has no selected Profile.
+type RuntimeBindingUnselectedError struct {
 	Client string
 }
 
-// Error formats the missing client-scoped Route without implying invalid configuration.
-func (e *RuntimeRouteUnselectedError) Error() string {
-	return fmt.Sprintf("no route selected for client %q", e.Client)
+// Error formats a missing client selection without implying invalid configuration.
+func (e *RuntimeBindingUnselectedError) Error() string {
+	return fmt.Sprintf("no Profile selected for client %q", e.Client)
 }
 
 // UnsupportedConfigVersionError reports a configuration schema newer or older than the one accepted by this build.
@@ -20,10 +20,15 @@ type UnsupportedConfigVersionError struct {
 
 // Error formats the unsupported-version failure without exposing configuration contents.
 func (e *UnsupportedConfigVersionError) Error() string {
+	action := "restore a configuration supported by this program or use the matching AIGW release"
+	if e.Version == LegacyConfigVersion && e.ExpectedVersion == ConfigVersion {
+		action = "run `aigw config migrate --dry-run`, review the replacement, then run `aigw config migrate`"
+	}
 	return fmt.Sprintf(
-		"unsupported config version %d; expected %d; AIGW does not reinterpret configuration schemas; restore a configuration supported by this program or use the matching AIGW release",
+		"unsupported config version %d; expected %d; AIGW does not reinterpret configuration schemas; %s",
 		e.Version,
 		e.ExpectedVersion,
+		action,
 	)
 }
 

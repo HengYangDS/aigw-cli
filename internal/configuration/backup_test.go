@@ -288,7 +288,9 @@ func TestCaptureVerifiedBackupStateRequiresCheckpoint(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := NewStore(path)
 	current := convergenceConfig("current")
-	current.Clients[ClientCodex] = ClientBinding{Enabled: true}
+	binding := current.Clients[ClientCodex]
+	binding.Enabled = true
+	current.Clients[ClientCodex] = binding
 	if err := store.Save(current); err != nil {
 		t.Fatal(err)
 	}
@@ -320,7 +322,7 @@ func TestCaptureVerifiedBackupStateWithoutEnabledClientsNeedsNoCheckpoint(t *tes
 func convergenceConfig(id string) Config {
 	cfg := NewConfig()
 	cfg.Accounts[id] = Account{Label: strings.ToUpper(id), Endpoints: Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
-	cfg.Profiles[id] = Profile{Label: strings.ToUpper(id), Account: id, Client: ClientCodex, Model: id + "-model"}
-	cfg.Routes[ClientCodex] = id
+	cfg.Profiles[id] = Profile{Label: strings.ToUpper(id), Account: id, Model: id + "-model"}
+	cfg.SetSelectedProfile(ClientCodex, id)
 	return cfg
 }
