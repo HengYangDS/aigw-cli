@@ -324,6 +324,18 @@ synchronization, and secret backends pass at the current Work Lane base. These
 observations establish the existing behavior for tasks 2.1 through 2.5. They do
 not yet prove released-artifact execution on every host, which remains task 9.3.
 
+Task 2.3 is accepted at signed commit `71da0af8`. A native installed-program
+journey imports one four-client catalogue before any client is present, adds
+Claude Code, Claude Desktop, Codex, or Hermes afterward, and synchronizes only
+that client without another import. It compares every unrelated Client Binding
+and projection byte-for-byte, then verifies uninstall removes the newly owned
+projection. GitHub review run `35637431188` passed the four cases on native
+macOS, Linux, and Windows; GitLab pipeline `7748` independently passed quality
+and its available macOS and Linux native jobs. These fixtures prove each host's
+discovery and projection surface. They do not substitute for real-client
+inference, Claude Desktop Chat/Cowork/Code qualification, or published-artifact
+acceptance, which remain tasks 4.7, 9.3, and 9.4.
+
 The configuration-lifecycle audit found one public setup command, one shared
 setup transaction, and no command alias or parallel persisted selection model.
 The removed `recommended_default` manifest field and the preceding local
