@@ -496,8 +496,18 @@ A synthetic `northstar` Provider passes parse, merge, connected-Account binding
 selection, runtime resolution, and client-native Codex projection using only
 manifest data; no provider name enters the control-plane core. The sole
 provider-specific production package remains the explicitly selected DMXAPI
-Account diagnostic, which is outside Client Binding and projection semantics. A
-synthetic `future` Client passes the complete registry contract for discovery,
+Account diagnostic, which is outside Client Binding and projection semantics.
+A candidate-built AIGW 0.2.0 and native Codex CLI 0.155.1 also completed one
+authenticated Responses stream for each AIHubMix Flagship and Daily Profile:
+the 12 reviewed Grok, Gemini, DeepSeek, Qwen, GLM, and Kimi models. The fixture
+rejected an unknown model, a missing credential, non-streaming input, or effort
+other than `high`; each explicit `verify --profile` used an isolated projection
+and preserved the selected Client Binding byte for byte. This evidence proves
+the declared compatible protocol and exact requested model, not the upstream
+vendor's serving identity or broader tool, cancellation, continuation, and
+compaction behavior, which remain task 4.8.
+
+A synthetic `future` Client passes the complete registry contract for discovery,
 convergence, preflight, guarded projection, change detection, inspection, live
 verification, compensation, disable, and withdrawal. The same registry rejects
 unadmitted or incomplete implementations, prepares all selected clients before

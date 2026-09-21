@@ -120,14 +120,6 @@ func TestNativeClientFilePreservation(t *testing.T) {
 }
 
 func TestNativeClientJourney(t *testing.T) {
-	inputs := map[string]string{}
-	for _, key := range []string{"AIGW_ACCEPTANCE_BASELINE", "AIGW_ACCEPTANCE_RELEASE", "AIGW_ACCEPTANCE_CODEX", "AIGW_ACCEPTANCE_CLAUDE", "AIGW_ACCEPTANCE_HERMES"} {
-		path, err := requiredClientInput(key, key == "AIGW_ACCEPTANCE_RELEASE")
-		if err != nil {
-			t.Fatal(err)
-		}
-		inputs[key] = path
-	}
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -149,16 +141,16 @@ func TestNativeClientJourney(t *testing.T) {
 		t.Logf("artifact %s sha256=%x", filepath.Base(path), sha256.Sum256(readFile(t, path)))
 	}
 	plan := nativeClientJourneyPlan{
-		inputs: inputs, version: version, team: team, manifest: manifest,
+		version: version, team: team, manifest: manifest,
 		candidate: candidate, archive: archive, checksums: checksums,
 	}
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex, configuration.ClientHermes} {
 		t.Run(client, func(t *testing.T) { plan.run(t, client) })
 	}
+	t.Run("codex-general-profiles", plan.runCodexGeneralProfiles)
 }
 
 type nativeClientJourneyPlan struct {
-	inputs                        map[string]string
 	version                       string
 	team                          []byte
 	manifest                      configuration.Manifest
@@ -167,6 +159,14 @@ type nativeClientJourneyPlan struct {
 
 func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	t.Helper()
+	baseline, err := requiredClientInput("AIGW_ACCEPTANCE_BASELINE", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	executable, err := requiredClientInput("AIGW_ACCEPTANCE_"+strings.ToUpper(client), false)
+	if err != nil {
+		t.Fatal(err)
+	}
 	selection := p.manifest.Recommendations[client]
 	profile := p.manifest.Profiles[selection.Profile]
 	const token = "native-real-client-token"
@@ -180,10 +180,9 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	if client == configuration.ClientHermes {
 		requiredEffort = ""
 	}
-	server := httptest.NewServer(clientResponseHandler(protocol, profile.Model, token, requiredEffort, &completions))
+	server := httptest.NewServer(clientResponseHandler(protocol, map[string]*atomic.Int64{profile.Model: &completions}, token, requiredEffort))
 	t.Cleanup(server.Close)
-	journey := newNativeJourney(t, p.inputs["AIGW_ACCEPTANCE_BASELINE"], server.URL+"/v1", false)
-	executable := p.inputs["AIGW_ACCEPTANCE_"+strings.ToUpper(client)]
+	journey := newNativeJourney(t, baseline, server.URL+"/v1", false)
 	if client == configuration.ClientHermes {
 		journey.run("update", "--candidate", p.archive, "--checksums", p.checksums)
 		journey.requireVersion(p.version)

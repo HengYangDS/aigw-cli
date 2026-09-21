@@ -8,11 +8,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
 
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/secrets"
 )
 
 func TestNativeClientStreamEnvelope(t *testing.T) {
@@ -23,6 +25,7 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 	} {
 		t.Run(string(protocol), func(t *testing.T) {
 			var completions atomic.Int64
+			expected := map[string]*atomic.Int64{"configured-model": &completions}
 			path, body := streamRequest(protocol, "configured-model")
 			var response *httptest.ResponseRecorder
 			for _, test := range []struct {
@@ -42,7 +45,7 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 				request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
 				request.Header.Set("Authorization", "Bearer "+test.credential)
 				response = httptest.NewRecorder()
-				clientResponseHandler(protocol, "configured-model", "synthetic", "high", &completions).ServeHTTP(response, request)
+				clientResponseHandler(protocol, expected, "synthetic", "high").ServeHTTP(response, request)
 				if response.Code != test.status || completions.Load() != test.completed {
 					t.Fatalf("%s %s: status=%d completions=%d", test.method, test.path, response.Code, completions.Load())
 				}
@@ -50,6 +53,64 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 			assertStreamEvents(t, protocol, response.Body.String())
 		})
 	}
+}
+
+func (p nativeClientJourneyPlan) runCodexGeneralProfiles(t *testing.T) {
+	t.Helper()
+	const (
+		account = "aihubmix"
+		token   = "native-general-profile-token"
+	)
+	profileIDs := make([]string, 0, 12)
+	completions := map[string]*atomic.Int64{}
+	for profileID, profile := range p.manifest.Profiles {
+		if profile.Account != account || profile.Tier != configuration.ModelTierFlagship && profile.Tier != configuration.ModelTierDaily {
+			continue
+		}
+		if !slices.Equal(profile.Protocols, []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}) {
+			t.Fatalf("general Profile %q protocols = %v, want only OpenAI Responses", profileID, profile.Protocols)
+		}
+		if _, duplicate := completions[profile.Model]; duplicate {
+			t.Fatalf("general Profiles reuse upstream model %q", profile.Model)
+		}
+		profileIDs = append(profileIDs, profileID)
+		completions[profile.Model] = &atomic.Int64{}
+	}
+	if len(profileIDs) != 12 {
+		t.Fatalf("AIHubMix general Profiles = %d, want six flagship/daily pairs", len(profileIDs))
+	}
+	slices.Sort(profileIDs)
+	server := httptest.NewServer(clientResponseHandler(configuration.ProtocolOpenAIResponses, completions, token, "high"))
+	t.Cleanup(server.Close)
+	executable, err := requiredClientInput("AIGW_ACCEPTANCE_CODEX", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	journey := newNativeJourney(t, p.candidate, server.URL+"/v1", false)
+	journey.prepareNativeClient(configuration.ClientCodex, executable, p.team)
+	journey.isolateNativeClientManifest(configuration.ClientCodex)
+	journey.setEnvironment(secrets.EnvironmentKey(account), token)
+	journey.run("setup", "--from", journey.manifest)
+	journey.run("use", "--for", configuration.ClientCodex, account+"-gpt-6-astra")
+	journey.enableNativeClient(configuration.ClientCodex, executable)
+	selected := readFile(t, journey.config)
+	for _, profileID := range profileIDs {
+		profile := p.manifest.Profiles[profileID]
+		t.Run(profileID, func(t *testing.T) {
+			before := completions[profile.Model].Load()
+			journey.testing = t
+			journey.run("verify", "--for", configuration.ClientCodex, "--profile", profileID)
+			if completions[profile.Model].Load() != before+1 {
+				t.Fatalf("Codex did not complete exactly one request for model %q", profile.Model)
+			}
+			if !slices.Equal(readFile(t, journey.config), selected) {
+				t.Fatal("explicit Profile verification changed the selected client binding")
+			}
+		})
+	}
+	journey.testing = t
+	journey.runWith(p.candidate, "uninstall", "--target", journey.binary)
+	journey.requireOwnedFilesAbsent()
 }
 
 func assertStreamEvents(t *testing.T, protocol configuration.EndpointProtocol, body string) {
@@ -73,13 +134,13 @@ func assertStreamEvents(t *testing.T, protocol configuration.EndpointProtocol, b
 	}
 }
 
-func clientResponseHandler(protocol configuration.EndpointProtocol, model, token, requiredEffort string, completions *atomic.Int64) http.Handler {
+func clientResponseHandler(protocol configuration.EndpointProtocol, completions map[string]*atomic.Int64, token, requiredEffort string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/models", func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(response, `{"data":[],"models":[],"has_more":false}`)
 	})
-	path, _ := streamRequest(protocol, model)
+	path, _ := streamRequest(protocol, "")
 	mux.HandleFunc("POST "+path, func(response http.ResponseWriter, request *http.Request) {
 		var input struct {
 			Model     string `json:"model"`
@@ -92,7 +153,12 @@ func clientResponseHandler(protocol configuration.EndpointProtocol, model, token
 			} `json:"output_config"`
 			ReasoningEffort string `json:"reasoning_effort"`
 		}
-		if err := json.NewDecoder(request.Body).Decode(&input); err != nil || !input.Stream || input.Model != model {
+		if err := json.NewDecoder(request.Body).Decode(&input); err != nil || !input.Stream {
+			http.Error(response, "configured model and stream required", http.StatusBadRequest)
+			return
+		}
+		completion, expectedModel := completions[input.Model]
+		if !expectedModel {
 			http.Error(response, "configured model and stream required", http.StatusBadRequest)
 			return
 		}
@@ -101,7 +167,7 @@ func clientResponseHandler(protocol configuration.EndpointProtocol, model, token
 			return
 		}
 		response.Header().Set("Content-Type", "text/event-stream")
-		for _, data := range clientResponseEvents(protocol, model) {
+		for _, data := range clientResponseEvents(protocol, input.Model) {
 			if protocol == configuration.ProtocolOpenAIChatCompletions {
 				if _, err := fmt.Fprintf(response, "data: %s\n\n", data); err != nil {
 					return
@@ -119,7 +185,7 @@ func clientResponseHandler(protocol configuration.EndpointProtocol, model, token
 				return
 			}
 		}
-		completions.Add(1)
+		completion.Add(1)
 	})
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if request.Header.Get("Authorization") != "Bearer "+token && request.Header.Get("X-Api-Key") != token {
