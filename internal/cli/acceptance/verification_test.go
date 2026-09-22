@@ -315,7 +315,7 @@ func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	runner.output = []byte("Error loading config.toml: unknown configuration field mcp_servers.github.disabled_reason\n")
+	runner.output = []byte("workdir: /Users/operator/private\nsession id: secret-session\nERROR: model gpt-next is unavailable at https://gateway.example/v1 (request id: secret-request); token=must-not-leak\n")
 	runner.capture = errors.New("exit status 1")
 
 	err = cli.Execute(app, []string{"verify", "--for", "codex"})
@@ -325,7 +325,7 @@ func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 	text := out.String()
 	for _, want := range []string{
 		"Codex minimal verification request failed",
-		"unknown configuration field mcp_servers.github.disabled_reason",
+		"selected model is unavailable through the client or endpoint",
 		"aigw verify --for codex",
 	} {
 		if !strings.Contains(text, want) {
@@ -334,6 +334,11 @@ func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 	}
 	if strings.Contains(text, "aigw check") {
 		t.Fatalf("verification output retained the unrelated check loop:\n%s", text)
+	}
+	for _, forbidden := range []string{"must-not-leak", "/Users/operator", "secret-session", "secret-request", "https://gateway.example"} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("verification output exposed %q:\n%s", forbidden, text)
+		}
 	}
 }
 

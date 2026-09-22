@@ -279,7 +279,7 @@ func TestVerifyCodexRequiresSuccessfulFinalMessage(t *testing.T) {
 	}
 	requestFailure := &recordingCaptureRunner{
 		version:       "codex-cli 9.9.9",
-		requestOutput: []byte("Error loading config.toml: unknown configuration field mcp_servers.github.disabled_reason; token=must-not-leak\n"),
+		requestOutput: []byte("workdir: /Users/operator/private\nsession id: secret-session\nERROR: model gpt-next is unavailable at https://gateway.example/v1 (request id: secret-request); token=must-not-leak\n"),
 		requestErr:    errors.New("exit status 1"),
 	}
 	_, err := VerifyCodexInvocation(context.Background(), requestFailure, cfg, runtime)
@@ -288,16 +288,17 @@ func TestVerifyCodexRequiresSuccessfulFinalMessage(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Codex minimal verification request failed",
-		"unknown configuration field mcp_servers.github.disabled_reason",
-		"token=[REDACTED]",
+		"selected model is unavailable through the client or endpoint",
 		"aigw verify --for codex",
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("request error lacks %q: %v", want, err)
 		}
 	}
-	if strings.Contains(err.Error(), "must-not-leak") {
-		t.Fatalf("request error exposed a credential: %v", err)
+	for _, forbidden := range []string{"must-not-leak", "/Users/operator", "secret-session", "secret-request", "https://gateway.example"} {
+		if strings.Contains(err.Error(), forbidden) {
+			t.Fatalf("request error exposed %q: %v", forbidden, err)
+		}
 	}
 	if outputPath := finalMessagePath(requestFailure.plans[len(requestFailure.plans)-1].Args); outputPath == "" {
 		t.Fatal("failed request plan has no output path")
@@ -335,7 +336,7 @@ func TestVerifyClaude(t *testing.T) {
 	if _, err := claude.ReconcileSettings(settings, false, runtime, runtime.CredentialCommand, runtime.Model); err != nil {
 		t.Fatal(err)
 	}
-	want := errors.New("launcher failed")
+	want := errors.New("launch /Users/operator/private/claude: exit status 1")
 	if err := VerifyClaudeRuntime(context.Background(), nil, "claude", settings, configuration.Runtime{ProfileID: "one"}, "token"); err == nil || !strings.Contains(err.Error(), "no Claude model") {
 		t.Fatalf("model error = %v", err)
 	}
@@ -347,6 +348,21 @@ func TestVerifyClaude(t *testing.T) {
 	}
 	if err := VerifyClaudeRuntime(context.Background(), captureRunner{err: want}, "claude", settings, runtime, "token"); !errors.Is(err, want) {
 		t.Fatalf("capture error = %v", err)
+	} else if strings.Contains(err.Error(), "/Users/operator") {
+		t.Fatalf("capture error exposed a private path: %v", err)
+	}
+	unsafe := captureRunner{
+		output: []byte("/Users/operator/private [claude-code:unrecognized_model] model=claude-next request id=secret-request token=must-not-leak"),
+		err:    want,
+	}
+	if err := VerifyClaudeRuntime(context.Background(), unsafe, "claude", settings, runtime, "token"); err == nil || !strings.Contains(err.Error(), "selected model is unavailable through the client or endpoint") {
+		t.Fatalf("bounded model error = %v", err)
+	} else {
+		for _, forbidden := range []string{"must-not-leak", "/Users/operator", "secret-request", "claude-next"} {
+			if strings.Contains(err.Error(), forbidden) {
+				t.Fatalf("Claude request error exposed %q: %v", forbidden, err)
+			}
+		}
 	}
 	if err := VerifyClaudeRuntime(context.Background(), captureRunner{output: []byte("wrong")}, "claude", settings, runtime, "token"); err == nil || !strings.Contains(err.Error(), "expected AIGW_OK") {
 		t.Fatalf("sentinel error = %v", err)

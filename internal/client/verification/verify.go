@@ -125,11 +125,41 @@ func VerifyClaudeRuntime(ctx context.Context, runner process.CaptureRunner, exec
 	return nil
 }
 
+type requestFailureError struct {
+	message string
+	cause   error
+}
+
+func (failure requestFailureError) Error() string { return failure.message }
+
+func (failure requestFailureError) Unwrap() error { return failure.cause }
+
 func verificationFailure(label, client string, diagnostic []byte, cause error, secrets ...string) error {
-	detail := strings.Join(strings.Fields(redaction.Text(string(diagnostic), secrets...)), " ")
+	detail := verificationFailureSummary(diagnostic, cause, secrets...)
 	next := "aigw verify --for " + client
-	if detail == "" {
-		return fmt.Errorf("%s minimal verification request failed: %w; inspect the client error, then run `%s`", label, cause, next)
+	return requestFailureError{
+		message: fmt.Sprintf("%s minimal verification request failed: %s; run `%s`", label, detail, next),
+		cause:   cause,
 	}
-	return fmt.Errorf("%s minimal verification request failed: %s; correct the reported client error, then run `%s`: %w", label, detail, next, cause)
+}
+
+func verificationFailureSummary(diagnostic []byte, cause error, secrets ...string) string {
+	text := strings.ToLower(redaction.Text(string(diagnostic), secrets...))
+	switch {
+	case errors.Is(cause, context.DeadlineExceeded), strings.Contains(text, "deadline exceeded"), strings.Contains(text, "timed out"):
+		return "client verification timed out"
+	case strings.Contains(text, "unrecognized_model"),
+		strings.Contains(text, "not support for model"),
+		strings.Contains(text, "model id") && strings.Contains(text, "incorrect"),
+		strings.Contains(text, "model") && strings.Contains(text, "unavailable"),
+		strings.Contains(text, "model") && strings.Contains(text, "status 503"):
+		return "selected model is unavailable through the client or endpoint"
+	case strings.Contains(text, "provider auth command"),
+		strings.Contains(text, "unauthorized"),
+		strings.Contains(text, "authentication"),
+		strings.Contains(text, "status 401"):
+		return "client or endpoint rejected authentication"
+	default:
+		return "client process rejected the request; diagnostics suppressed"
+	}
 }
