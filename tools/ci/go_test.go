@@ -51,8 +51,7 @@ func TestGoChecksUseCurrentRepositorySources(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []command{{Name: "golangci-lint", Dir: root, Args: []string{
-		"fmt", "--diff", "--config", filepath.Join(root, ".config", "checks", "go", "policy.yml"), "--",
-		filepath.Join(root, "nested", "source.go"), filepath.Join(root, "pending.go"), filepath.Join(root, "source.go"),
+		"fmt", "--diff", "--config", filepath.Join(root, ".config", "checks", "go", "policy.yml"),
 	}}, {Name: "golangci-lint", Dir: root, Args: []string{
 		"run", "--config", filepath.Join(root, ".config", "checks", "go", "policy.yml"), "--", root, filepath.Join(root, "nested"),
 	}}}

@@ -64,9 +64,9 @@ func checkGo(root string, runner commandRunner) error {
 		return err
 	}
 	config := filepath.Join(root, ".config", "checks", "go", "policy.yml")
-	if err := runner(command{Name: "golangci-lint", Dir: root, Args: append(
-		[]string{"fmt", "--diff", "--config", config, "--"}, files...,
-	)}); err != nil {
+	if err := runner(command{Name: "golangci-lint", Dir: root, Args: []string{
+		"fmt", "--diff", "--config", config,
+	}}); err != nil {
 		return err
 	}
 	packages := make(map[string]struct{})
