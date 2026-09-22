@@ -519,6 +519,25 @@ owns the required credential chain and signing. AIGW projects the selection
 without reading client credentials or adding a signer. The selected client,
 endpoint and model still require real invocation evidence.
 
+AWS Bedrock illustrates all three extension classes without requiring an
+AWS-specific AIGW core:
+
+| Required behavior                                                                       | AIGW path                                              | Owner                                                            |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------- |
+| OpenAI-compatible endpoint with an ordinary bearer Token                                | Account endpoint and Profile data                      | AIGW stores the selected Account Token                           |
+| Codex `amazon-bedrock` provider using a Bedrock API key or the AWS SDK credential chain | Client Binding with `authentication = "client-native"` | Codex and AWS own credentials, signing, refresh, Region, and IAM |
+| A capability unavailable through either admitted endpoint                               | Independently selected protocol adapter                | The adapter owns wire translation and runtime lifecycle          |
+
+For new Responses workloads, AWS recommends the regional `bedrock-runtime`
+endpoint and retains `bedrock-mantle` for capabilities that are not yet
+available there. Those endpoints are not interchangeable: model identifiers,
+discovery, stored-response behavior, server-side tools, projects, quotas, and
+regional availability differ. An AWS Profile therefore records only the exact
+endpoint and model already reviewed for its client; it never infers support
+from the Provider name. Cost acceptance likewise binds the model, Region, and
+inference tier to the current AWS price sheet instead of hard-coding a price in
+portable configuration.
+
 An unsupported credential exchange needs a separately reviewed authentication
 extension; an incompatible wire protocol belongs to an independently selected
 data plane. Neither case is admitted by treating its credentials as an ordinary

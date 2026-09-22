@@ -78,6 +78,20 @@ native client authentication from compatible gateway composition. The existing
 [research assessment](../../../docs/research/provider-tooling-assessment.md#client-surfaces-and-cross-model-inference)
 owns source evidence; tasks own implementation progress.
 
+Task 4.10 closes the Provider-extension decision with one three-way contract.
+An ordinary compatible endpoint and Token are Account/Profile data. A client
+that already owns authentication and request signing uses a Client Binding with
+`authentication = "client-native"`; AIGW projects no credential helper. A true
+wire mismatch belongs to an independently selected data plane. The existing
+AWS regressions exercise import, selection, projection, readiness, diagnostics,
+credential omission, and withdrawal for Codex's `amazon-bedrock` provider.
+Current OpenAI and AWS documentation confirms the two native credential paths
+and distinguishes recommended `bedrock-runtime` from compatibility
+`bedrock-mantle`. Pricing remains a dated model, Region, and tier input rather
+than portable manifest data. No AWS entitlement or live inference is claimed;
+that remains a route-specific acceptance obligation rather than an Adapter
+implementation requirement.
+
 ### 9. Redesign intent before extending adapters
 
 The requested outcome is choosing a usable model for a client, not maintaining

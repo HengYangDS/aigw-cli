@@ -463,15 +463,34 @@ forbids that path; the live product contract therefore governs this assessment.
 
 ### AWS illustrates why adapters need an expiry condition
 
-The pinned [Bedrock Access Gateway README][aws-gateway] marks the sample deprecated and recommends native OpenAI-compatible and Anthropic-compatible Bedrock APIs instead. This is evidence of that sample's rationale, not proof that every model, region or client can use every AWS surface. Direct official-document retrievals failed in the original collection; no AWS request was run.
+The pinned [Bedrock Access Gateway README][aws-gateway] marks the sample
+deprecated and recommends native OpenAI-compatible and Anthropic-compatible
+Bedrock APIs instead. This is evidence of that sample's rationale, not proof
+that every model, Region, or client can use every AWS surface.
 
-For an AWS evaluation, bind the exact client, model, region, API and authentication contract; check native support and maintained SDKs first. The extension question follows the value-movement analysis: which responsibility still requires an intermediary? Do not introduce a signer or translator solely because an earlier integration needed one.
+The current [AWS Responses API documentation][aws-responses-api] recommends the
+regional `bedrock-runtime` endpoint for new applications and retains
+`bedrock-mantle` only for capabilities unavailable there. The two surfaces
+differ in model identifiers, discovery, background inference, server-side
+tools, projects, stored responses, quotas, and regional availability. A
+compatible URL therefore does not prove portable capability.
 
-The later [official OpenAI guide][openai-bedrock] establishes a native
-`amazon-bedrock` provider for local Work/Codex surfaces with AWS authentication
-and region/profile selection. Anthropic's [Desktop deployment][claude-desktop-overview]
-also documents Bedrock. These successful documentation reads supersede the
-earlier retrieval gap; no real AWS request or account entitlement is claimed.
+The [official OpenAI guide][openai-bedrock] establishes a native
+`amazon-bedrock` provider for local Work and Codex surfaces. It accepts either a
+Bedrock API key or the AWS SDK credential chain and leaves IAM, credential
+refresh, Region selection, quotas, and billing with AWS and the client.
+Anthropic's [Desktop deployment][claude-desktop-overview] separately documents
+Bedrock. AIGW should therefore project client-native selection when that path is
+sufficient, represent a bearer-compatible endpoint as ordinary Account data,
+and add no signer or gateway without a demonstrated remaining protocol gap.
+
+The [AWS pricing contract][aws-bedrock-pricing] is model-, Region-, and
+inference-tier-specific. On-demand token pricing, discounted batch or flex
+tiers, priority premiums, provisioned throughput, and custom-model charges are
+distinct decisions. A portable team manifest must not freeze a numeric price;
+admission records the selected model, Region, endpoint, tier, and the dated
+official estimate instead. No AWS request, entitlement, latency, or spend is
+claimed by this research result.
 
 ## 8. From research to practice
 
@@ -794,6 +813,8 @@ Repository links below identify the inspected snapshots. Release pages and docum
 [historical-ccr]: https://github.com/musistudio/claude-code-router/tree/deff4859b57f2d0822a3d1fb3f0504d34ac2b06c
 [aws-gateway]: https://github.com/aws-samples/bedrock-access-gateway/blob/144c4bcb866d247dc1cef5b7c5d4cbea8bc7d633/README.md
 [aws-native-adoption]: https://github.com/aws-solutions-library-samples/guidance-for-claude-code-with-amazon-bedrock/blob/014d7abe7cc8fb1820ffe1e3b26df4ac30d23fd9/README.md
+[aws-bedrock-pricing]: https://aws.amazon.com/bedrock/pricing/
+[aws-responses-api]: https://docs.aws.amazon.com/bedrock/latest/userguide/inference-responses-api.html
 [codebuddy-env]: https://www.workbuddy.ai/docs/cli/env-vars
 [codebuddy-models]: https://www.workbuddy.ai/docs/cli/models
 [codebuddy-settings]: https://www.workbuddy.ai/docs/cli/settings
