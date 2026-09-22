@@ -1,15 +1,12 @@
 //go:build !windows
 
-package transaction_test
+package transaction
 
 import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
-
-	"aigw-cli/internal/transaction"
 )
 
 func TestCaptureFileSnapshotSurfacesSymlinkLoop(t *testing.T) {
@@ -17,42 +14,25 @@ func TestCaptureFileSnapshotSurfacesSymlinkLoop(t *testing.T) {
 	if err := os.Symlink(path, path); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := transaction.CaptureFileSnapshot(path); err == nil || !strings.Contains(err.Error(), "read") {
+	if _, err := CaptureFileSnapshot(path); err == nil || !strings.Contains(err.Error(), "read") {
 		t.Fatalf("CaptureFileSnapshot() error = %v, want a symlink-loop read error", err)
 	}
 }
 
 func TestCaptureFileSnapshotRemainsConsistentWhenPathDisappears(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "snapshot-fifo")
-	if err := syscall.Mkfifo(path, 0o600); err != nil {
+	path := filepath.Join(t.TempDir(), "snapshot")
+	if err := os.WriteFile(path, []byte("snapshot"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	type snapshotResult struct {
-		snapshot transaction.FileSnapshot
-		err      error
-	}
-	result := make(chan snapshotResult, 1)
-	go func() {
-		snapshot, err := transaction.CaptureFileSnapshot(path)
-		result <- snapshotResult{snapshot: snapshot, err: err}
-	}()
-
-	writer, err := os.OpenFile(path, os.O_WRONLY, 0)
+	file, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = writer.Close() }()
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := writer.Write([]byte("snapshot")); err != nil {
-		t.Fatal(err)
-	}
-	if err := writer.Close(); err != nil {
-		t.Fatal(err)
-	}
-	got := <-result
-	if got.err != nil || !got.snapshot.Exists || string(got.snapshot.Data) != "snapshot" {
-		t.Fatalf("CaptureFileSnapshot() = %#v, %v", got.snapshot, got.err)
+	got, err := captureOpenedFile(path, file)
+	if err != nil || !got.Exists || string(got.Data) != "snapshot" {
+		t.Fatalf("captureOpenedFile() = %#v, %v", got, err)
 	}
 }
