@@ -86,28 +86,28 @@ func TestRepositoryQualityGraphIncludesStableGenericChecks(t *testing.T) {
 	}
 }
 
-func TestRepositoryQualityGraphOwnsTheArchitecturePublisherEdition(t *testing.T) {
+func TestRepositoryQualityGraphOwnsTheArchitectureEditionProvider(t *testing.T) {
 	gateIndex := slices.IndexFunc(repositoryQualityGraph.Gates, func(gate qualityGate) bool {
-		return gate.ID == "architecture-edition-source"
+		return gate.ID == "architecture-edition-provider"
 	})
 	if gateIndex < 0 {
-		t.Fatal("quality graph lacks the source-owned Architecture Publisher Edition gate")
+		t.Fatal("quality graph lacks the source-owned Architecture Edition Provider gate")
 	}
 	gate := repositoryQualityGraph.Gates[gateIndex]
 	if gate.Command.Name != "node" || !slices.Equal(gate.Command.Args, []string{
 		"--test",
-		"integrations/architecture-publisher/test/source-ownership.test.mjs",
+		"architecture/edition-provider/test/source.test.mjs",
 	}) {
-		t.Fatalf("architecture Edition gate = %#v", gate.Command)
+		t.Fatalf("architecture Edition Provider gate = %#v", gate.Command)
 	}
 	carrierIndex := slices.IndexFunc(repositoryQualityGraph.Carriers, func(carrier carrierQuality) bool {
-		return carrier.Class == "architecture-publisher-integration"
+		return carrier.Class == "architecture-edition-provider"
 	})
 	if carrierIndex < 0 || !slices.Contains(
 		repositoryQualityGraph.Carriers[carrierIndex].Gates,
-		"architecture-edition-source",
+		"architecture-edition-provider",
 	) {
-		t.Fatal("architecture Edition carrier is not bound to its source gate")
+		t.Fatal("architecture Edition Provider carrier is not bound to its source gate")
 	}
 }
 

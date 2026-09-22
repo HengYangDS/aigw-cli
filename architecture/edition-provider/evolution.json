@@ -14,7 +14,7 @@
   },
   "after": {
     "claimModel": {
-      "path": "claim-model.json",
+      "path": "_source/semantic.json",
       "sha256": "ce5511a08cd9992fe37a3139a4dc39d0050757b5505bd6605e206cf2d95846b7"
     },
     "editions": [

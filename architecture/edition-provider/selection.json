@@ -1,0 +1,43 @@
+{
+  "schema": "aigw.architecture-publisher-selection/v1",
+  "publisher": {
+    "name": "architecture-publisher",
+    "version": "0.3.0-alpha.1",
+    "archiveSha256": "c2707bcffc9ba0cea277cb3b6f4fb6f04f2755996781f92c035fa9cadb4dcc37",
+    "contentTarSha256": "6b0a925f85879ea7a576c5153849e2741d2e54fcd83bf068cfb5a473b8c7d682"
+  },
+  "providerManifestSha256": "6731b69ab82322d7b4ecbbefacd297d281c185628c98b54ebbcb68e32e9b4bcf",
+  "migrationBaseline": {
+    "ownerCommit": "71da0af8cbaeaeb1b59fafd5ddabe59be7248627",
+    "ownerTree": "20de90269ae0fc10d3562a1be1d5903ae444d4c6",
+    "editionTree": "2f108ccd365529c16954280eaa246cb2b689130f",
+    "semanticRevision": "dcfb274c4cb5bc8c87d9d1a21867768ea39cffdc",
+    "files": {
+      "README.md": "9b057616d757ccd682289975b3566bfafb44a892050dbd0d0dbaf445154c0785",
+      "claim-model.json": "ce5511a08cd9992fe37a3139a4dc39d0050757b5505bd6605e206cf2d95846b7",
+      "edition.json": "6dfb612864db1a3872dcb81d1c7ef8650266a1b3165a2c6110f6a14a41381262",
+      "evolution.json": "9f7765a9f5c870505e3c5052f370518641ec072ce68df05ef7d5063368faed80",
+      "history/registry-v1-claim-model.json": "a99ef1a4348461d622a0b357368343992af1d824f7a6586675f480c17c4a6ea4",
+      "history/registry-v1-edition.json": "101e60a865f03f60bdbc0994edf2431a3027b02971aefc57682244028b2c27fb"
+    },
+    "providerEvolutionSha256": "54a5c18dfe44059984d824e0c9cb01977bf9a53c959e4df711beb92d01746bb1",
+    "candidate": {
+      "manifestSha256": "7abb2c3a1d33d44fccc0148332dd5eefcd4a5496eb1a746e376ce5c784c0d266",
+      "candidateSha256": "b2035f2bde00b790aa1b6e9854d5420e51fa1d1f7a361f538b81d61bb57599b7",
+      "semanticDigest": "1ee3d12f00cd8ccd9795069c0dfdcb377a5f2ea38174ce20282abaa31cc75ed5",
+      "editionDigest": "c1b7368908923d63e9fae77e4ca00aa6b4d6277f3408cec25f2a6eab0f1c82d2",
+      "staticSceneDigest": "445f374686b71c10d52b713a25b2125fef996786f9ff01ff1196d58e2c29927a",
+      "interactiveSceneDigest": "29f15c7116857d78d427a3b6687126c3a1c33543fd6877cc687def694874eea2",
+      "pngSha256": "7330cac6faa872cb5bced514cc7cc848ab1d9d60cca7c0c620f7e339f43e4a04",
+      "svgSha256": "7f9ab1aec2f520dbdc68c9303da9cea0c87e8cf2a566fc6c134b60582be1ffe1",
+      "overviewHtmlSha256": "58d2b76677f4b6e846176c4e2e282686979335b521cf658f0d48a7cb4c9a1278"
+    }
+  },
+  "authority": {
+    "subject": "AIGW",
+    "subjectRepository": "dig/misc/tools/llm-third-party-api/aigw-cli",
+    "authorizationOwner": "AIGW",
+    "publisherRole": "non-authorizing compiler",
+    "generatedArtifacts": "untracked-reproducible-output"
+  }
+}

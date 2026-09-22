@@ -48,7 +48,7 @@
 - [x] 5.4 Reorganize repository tools and configuration by responsibility; verify publication, CI, quality, release, and development bootstrap each have one discoverable owner.
 - [x] 5.5 Delete duplicate helpers, aliases, facades, dead branches, stale runtime artifacts, unused dependencies, orphaned evidence, and empty directories; verify no current consumer or required recovery path is lost.
 - [x] 5.6 Review names, types, constants, error values, configuration keys, and CLI copy repository-wide; verify every semantic scope is narrow, consistent, English, and free of unexplained hard-coding.
-- [ ] 5.7 Add one optional source-owned Architecture Publisher Edition under `integrations/architecture-publisher`; bind its Claim Model and Edition to explicit tracked AIGW sources, keep it outside the AIGW command and credential planes, exercise real before/after semantic evolution through exact packed Publisher inputs, and integrate its checks into the existing repository quality graph without creating a second command or state authority.
+- [x] 5.7 Add one source-owned declarative Architecture Publisher Edition Provider under `architecture/edition-provider`; bind its Claim Model, Edition, evolution, package selection, and provenance snapshot to exact AIGW identities, remove the superseded executable integration and documentation owner only after parity, exercise installed and relocated Publisher inputs, and integrate source checks into the existing repository quality graph without creating a second command or state authority.
 
 ## 6. Consolidate and tighten the quality graph
 

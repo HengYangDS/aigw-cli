@@ -21,12 +21,14 @@ func TestGoChecksUseCurrentRepositorySources(t *testing.T) {
 		t.Fatalf("git init: %v: %s", err, output)
 	}
 	for path, content := range map[string]string{
-		".gitignore":         "build/\n",
-		"source.go":          "package fixture\n",
-		"pending.go":         "package fixture\n",
-		"nested/source.go":   "package nested\n",
-		"retired.go":         "package fixture\n",
-		"build/generated.go": "not source\n",
+		".gitignore":          "build/\n",
+		"source.go":           "package fixture\n",
+		"pending.go":          "package fixture\n",
+		"nested/source.go":    "package nested\n",
+		"_snapshot/source.go": "captured bytes, not a Go package\n",
+		".snapshot/source.go": "captured bytes, not a Go package\n",
+		"retired.go":          "package fixture\n",
+		"build/generated.go":  "not source\n",
 	} {
 		target := filepath.Join(root, filepath.FromSlash(path))
 		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
@@ -36,7 +38,10 @@ func TestGoChecksUseCurrentRepositorySources(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	process = exec.Command("git", "-C", root, "add", "--", ".gitignore", "source.go", "retired.go")
+	process = exec.Command(
+		"git", "-C", root, "add", "--",
+		".gitignore", "source.go", "retired.go", "_snapshot/source.go", ".snapshot/source.go",
+	)
 	if output, err := process.CombinedOutput(); err != nil {
 		t.Fatalf("git add: %v: %s", err, output)
 	}

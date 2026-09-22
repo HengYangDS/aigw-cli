@@ -71,11 +71,30 @@ func checkGo(root string, runner commandRunner) error {
 	}
 	packages := make(map[string]struct{})
 	for _, file := range files {
+		if !goToolSource(root, file) {
+			continue
+		}
 		packages[filepath.Dir(file)] = struct{}{}
+	}
+	if len(packages) == 0 {
+		return errors.New("repository contains no current Go package source")
 	}
 	return runner(command{Name: "golangci-lint", Dir: root, Args: append(
 		[]string{"run", "--config", config, "--"}, slices.Sorted(maps.Keys(packages))...,
 	)})
+}
+
+func goToolSource(root, file string) bool {
+	relative, err := filepath.Rel(root, file)
+	if err != nil {
+		return false
+	}
+	for component := range strings.SplitSeq(filepath.ToSlash(relative), "/") {
+		if strings.HasPrefix(component, ".") || strings.HasPrefix(component, "_") {
+			return false
+		}
+	}
+	return true
 }
 
 func checkLinks(root string, runner commandRunner) error {

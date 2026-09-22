@@ -655,9 +655,8 @@ complete parse coverage for product code and reports one internal validation
 recursion cycle, not a package dependency cycle. Focused architecture, CI, and
 release tool suites pass against this same topology.
 
-The final Task 5.1 publication binds that topology to a product-owned
-`architecture.claim-model/v2` and `architecture.edition/v1` under
-`docs/architecture/client-projection/`. The selected Claim Model covers 14 exact
+The Task 5.1 baseline bound that topology to a product-owned
+`architecture.claim-model/v2` and `architecture.edition/v1`. The selected Claim Model covers 14 exact
 source owners at product revision `dcfb274c4cb5bc8c87d9d1a21867768ea39cffdc`;
 Architecture Publisher package `0.2.0-alpha.0` with SHA-256
 `f853ae1fb149ef1329fd28e5230c7f76101eeab4d63d8ec81b6b3324b272f2f3`
@@ -678,6 +677,22 @@ motion, changed theme, and focused one semantic node. The static overview was
 independently rendered and visually reviewed. Generated media remain ignored
 acceptance output; AIGW adds no Publisher runtime, wrapper, or second command
 plane.
+
+Task 5.7 replaces the provisional executable package and documentation-owned
+copy with one declarative Provider at `architecture/edition-provider/`. Its
+closed Source Bundle reproduces source manifest
+`455f20c4c7285fccdf05faeeb6025d4aa56b901df721cc409857590186627414`;
+the Provider selects the unchanged Claim Model and Edition bytes and a derived
+inline evolution value generated from the sole path-based comparison plan.
+Architecture Publisher `0.3.0-alpha.1`, selected by archive SHA-256
+`c2707bcffc9ba0cea277cb3b6f4fb6f04f2755996781f92c035fa9cadb4dcc37`,
+reproduces the baseline Candidate, semantic, Edition, scene, PNG, SVG, and
+overview HTML identities from two relocated copies with an empty HOME and no
+adjacent Publisher checkout. The outer Candidate manifest changes only because
+it now carries the Provider materialization receipt. AIGW retains acceptance
+and publication authority; generated media remain untracked outputs. The
+pre-migration owner remains recoverable from the exact ancestor recorded in
+`selection.json`, so removal does not discard rollback evidence.
 
 The first physical simplification removes the one-file
 `internal/client/acceptance` test-only subpackage. Its credential-projection

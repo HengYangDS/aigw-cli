@@ -54,8 +54,9 @@ They answer different questions; none substitutes for all the others.
 
 - **Architecture:** [Authority and projection boundary](architecture/authority-and-projection-boundary.md)
   explains the control plane and projection transactions; the
-  [Client Projection Architecture Edition](architecture/client-projection/README.md)
-  binds that selected structure to exact source bytes; [Security
+  [Client Projection Edition Provider](../architecture/edition-provider/README.md)
+  binds that selected structure to exact source bytes without adding runtime
+  coupling; [Security
   model](architecture/security-model.md) defines credentials, process boundaries
   and real-request verification.
 - **Concepts:** [Product concepts](concepts/product-concepts.md) defines Accounts,
