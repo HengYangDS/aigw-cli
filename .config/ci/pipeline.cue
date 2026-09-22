@@ -50,7 +50,7 @@ commands: {
 
 toolchainTools: {
 	bootstrap: ["go", "node", "npm"]
-	native: list.Concat([bootstrap, ["github:goreleaser/goreleaser", "github:anchore/syft", "gh"]])
+	native: list.Concat([bootstrap, ["github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "gh"]])
 	quality: list.Concat([bootstrap, [
 		"cue",
 		"github:boyter/scc",

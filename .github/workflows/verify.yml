@@ -152,7 +152,7 @@ jobs:
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'darwin')
     env:
-      MISE_ENABLE_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,github:indygreg/apple-platform-rs' || 'go,node,npm,github:goreleaser/goreleaser,github:anchore/syft,gh,github:indygreg/apple-platform-rs' }}
+      MISE_ENABLE_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,github:indygreg/apple-platform-rs' || 'go,node,npm,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:anchore/syft,gh,github:indygreg/apple-platform-rs' }}
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -300,7 +300,7 @@ jobs:
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
     env:
-      MISE_ENABLE_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh' || 'go,node,npm,github:goreleaser/goreleaser,github:anchore/syft,gh' }}
+      MISE_ENABLE_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh' || 'go,node,npm,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:anchore/syft,gh' }}
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -446,7 +446,7 @@ jobs:
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'windows')
     env:
-      MISE_ENABLE_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh' || 'go,node,npm,github:goreleaser/goreleaser,github:anchore/syft,gh' }}
+      MISE_ENABLE_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh' || 'go,node,npm,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:anchore/syft,gh' }}
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
