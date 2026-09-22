@@ -442,7 +442,7 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 	for _, need := range pipeline.Assets.Needs {
 		needs = append(needs, need.Job)
 	}
-	if !slices.Equal(needs, []string{"quality", "native-darwin", "native-linux", "release-version"}) {
+	if !slices.Equal(needs, []string{"quality", "native-darwin", "native-linux", "native-windows", "release-version"}) {
 		t.Fatalf("release requirements = %q", needs)
 	}
 	if len(pipeline.Assets.Rules) != 2 || pipeline.Assets.Rules[0].If != `$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == "api" || $CI_PIPELINE_SOURCE == "web")` || pipeline.Assets.Rules[1].When != "never" {

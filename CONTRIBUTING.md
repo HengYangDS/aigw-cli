@@ -639,9 +639,10 @@ Codex and Claude packages using npm with install scripts disabled, verifies
 registry signatures and resolves their complete native layouts before running
 the same command. This path requires Git Bash and records executable hashes;
 its temporary clients are removed afterward. It does not install anything on
-the operator's workstation. The shared command is also available to local and
-GitLab runners that provision equivalent inputs; no second product verifier is
-introduced for a Forge that lacks a Windows executor.
+the operator's workstation. GitLab projects the same native command onto its
+local Windows runner through the required `AIGW_GITLAB_WINDOWS_RUNNER_TAG` CI
+variable. GitHub remains exclusively GitHub-hosted; it exposes no self-hosted
+runner selector or fallback.
 
 Set `candidate_tag` with `baseline_tag` to consume a published signed matrix
 instead of reconstructing its successor. Each native job downloads from its own

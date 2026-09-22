@@ -22,6 +22,7 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		Quality  gitLabJob `yaml:"quality"`
 		Darwin   gitLabJob `yaml:"native-darwin"`
 		Linux    gitLabJob `yaml:"native-linux"`
+		Windows  gitLabJob `yaml:"native-windows"`
 		Workflow struct {
 			Rules []struct {
 				If   string `yaml:"if"`
@@ -52,7 +53,7 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		}
 	}
 	for name, job := range map[string]gitLabJob{
-		"quality": gitlab.Quality, "native-darwin": gitlab.Darwin, "native-linux": gitlab.Linux,
+		"quality": gitlab.Quality, "native-darwin": gitlab.Darwin, "native-linux": gitlab.Linux, "native-windows": gitlab.Windows,
 	} {
 		if len(job.Rules) != len(wantGitLabWorkflow) || job.Rules[1].If != wantGitLabWorkflow[1].If {
 			t.Errorf("GitLab %s must verify reviews into both integration and release: %#v", name, job.Rules)
@@ -287,7 +288,7 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 	for _, metadata := range []string{".linux-toolchain", "stages", "variables", "workflow"} {
 		delete(gitlab, metadata)
 	}
-	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "quality", "release-assets", "release-version"}
+	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "native-windows", "quality", "release-assets", "release-version"}
 	if got := slices.Sorted(maps.Keys(gitlab)); !slices.Equal(got, wantGitLabJobs) {
 		t.Fatalf("GitLab jobs = %q, want %q", got, wantGitLabJobs)
 	}
@@ -391,6 +392,7 @@ type gitLabJob struct {
 	Image        string            `yaml:"image"`
 	Needs        []gitLabNeed      `yaml:"needs"`
 	Script       []string          `yaml:"script"`
+	Tags         []string          `yaml:"tags"`
 	Variables    map[string]string `yaml:"variables"`
 	Rules        []struct {
 		If        string            `yaml:"if"`
@@ -427,7 +429,7 @@ func TestSemanticGraphDefinesExactClaimsAndEvidenceReuse(t *testing.T) {
 		"native-linux":        {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
 		"native-windows":      {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
 		"release-version":     {Stage: "verify", Needs: []string{}, Claims: []string{"release-metadata"}},
-		"release-assets":      {Stage: "release", Rank: 1, Needs: []string{"quality", "native-darwin", "native-linux", "release-version"}, Claims: []string{"artifact-verification"}},
+		"release-assets":      {Stage: "release", Rank: 1, Needs: []string{"quality", "native-darwin", "native-linux", "native-windows", "release-version"}, Claims: []string{"artifact-verification"}},
 	}
 	if !reflect.DeepEqual(graph, wantGraph) {
 		t.Fatalf("CI graph = %#v, want %#v", graph, wantGraph)
@@ -488,17 +490,27 @@ func TestForgeProjectionsFollowDeclaredNativeCapacity(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	if gitlab.NativeWindows != nil {
-		t.Fatal("GitLab projection contains Windows without declared execution capacity")
+	if gitlab.NativeWindows == nil {
+		t.Fatal("GitLab projection lacks declared native Windows capacity")
 	}
-	if strings.Contains(projections[0].Content, "AIGW_GITLAB_WINDOWS_RUNNER_TAG") ||
-		strings.Contains(projections[0].Content, "allow_failure:") {
-		t.Fatal("GitLab projection retains a disabled Windows runner surface")
+	if !slices.Equal(gitlab.NativeWindows.Tags, []string{"$AIGW_GITLAB_WINDOWS_RUNNER_TAG"}) {
+		t.Fatalf("GitLab native Windows runner tags = %q", gitlab.NativeWindows.Tags)
 	}
+	if gitlab.NativeWindows.Variables["AIGW_VERIFY_SYSTEM_KEYRING"] != "1" ||
+		!slices.Contains(gitlab.NativeWindows.Script, `mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"`) {
+		t.Fatalf("GitLab native Windows contract = %#v", gitlab.NativeWindows)
+	}
+	if strings.Contains(projections[0].Content, "allow_failure:") {
+		t.Fatal("GitLab projection weakens a native job with allow_failure")
+	}
+	foundWindows := false
 	for _, need := range gitlab.Assets.Needs {
 		if need.Job == "native-windows" {
-			t.Fatal("GitLab package duplicates product-level native Windows admission")
+			foundWindows = true
 		}
+	}
+	if !foundWindows {
+		t.Fatal("GitLab release assets do not require native Windows acceptance")
 	}
 
 	for _, projectionIndex := range []int{1} {

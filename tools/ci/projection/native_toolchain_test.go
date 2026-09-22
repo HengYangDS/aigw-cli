@@ -28,16 +28,18 @@ func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 func checkGitLabNativeToolClosure(t *testing.T, content string) {
 	t.Helper()
 	var pipeline struct {
-		Quality      gitLabJob `yaml:"quality"`
-		NativeDarwin gitLabJob `yaml:"native-darwin"`
-		NativeLinux  gitLabJob `yaml:"native-linux"`
+		Quality       gitLabJob `yaml:"quality"`
+		NativeDarwin  gitLabJob `yaml:"native-darwin"`
+		NativeLinux   gitLabJob `yaml:"native-linux"`
+		NativeWindows gitLabJob `yaml:"native-windows"`
 	}
 	if err := yaml.Unmarshal([]byte(content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
 	for name, job := range map[string]gitLabJob{
-		"native-darwin": pipeline.NativeDarwin,
-		"native-linux":  pipeline.NativeLinux,
+		"native-darwin":  pipeline.NativeDarwin,
+		"native-linux":   pipeline.NativeLinux,
+		"native-windows": pipeline.NativeWindows,
 	} {
 		for tool := range strings.SplitSeq(pipeline.Quality.Variables["MISE_ENABLE_TOOLS"], ",") {
 			if !slices.Contains(strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ","), tool) {
@@ -57,6 +59,9 @@ func checkGitLabNativeToolClosure(t *testing.T, content string) {
 		if bootstrap < 0 || bootstrap >= len(job.Script)-1 {
 			t.Errorf("GitLab %s must prepare locked dependencies before native acceptance", name)
 		}
+	}
+	if got := pipeline.NativeWindows.Variables["AIGW_VERIFY_SYSTEM_KEYRING"]; got != "1" {
+		t.Fatalf("GitLab native Windows credential verification = %q, want 1", got)
 	}
 }
 
@@ -98,7 +103,7 @@ func checkGitHubNativeToolClosure(t *testing.T, projection projection) {
 	}
 }
 
-func TestGitHubWindowsARM64UsesThePortableNativeToolClosure(t *testing.T) {
+func TestGitHubWindowsUsesThePortableNativeToolClosure(t *testing.T) {
 	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {
 		t.Fatal(err)
@@ -114,7 +119,7 @@ func TestGitHubWindowsARM64UsesThePortableNativeToolClosure(t *testing.T) {
 	}
 
 	job := workflow.Jobs["native-windows"]
-	const runner = `${{ github.event_name == 'workflow_dispatch' && inputs.self_hosted_windows_arm64 && !inputs.full_quality && fromJSON('["self-hosted","Windows","ARM64","aigw-github-windows-arm64-parallels-shadow"]') || 'windows-latest' }}`
+	const runner = "windows-latest"
 	if job.RunsOn.Value != runner {
 		t.Fatalf("native Windows runner selector = %q, want %q", job.RunsOn.Value, runner)
 	}

@@ -895,9 +895,12 @@ GoReleaser reports only its explicit snapshot exclusions: publication and its
 disabled internal SBOM pipe are outside native acceptance,
 while the `AIGW_BUILD_OS=darwin` selection excludes Linux and Windows artifacts
 from that host-local build. CUE keeps those product/platform distinctions in
-`productEvidence`, `forgeCapabilities`, and `nativeEvidence`; projection tests
-prove that GitHub supplies all three native hosts and GitLab advertises only its
-macOS and Linux capacity. The sole source-level `t.Skip` names the Windows
+`productEvidence` and `nativeEvidence`; projection tests prove that
+GitHub-hosted runners supply all three native hosts, while GitLab uses its
+explicitly tagged local macOS, Linux, and Windows runners. AIGW
+therefore exposes no GitHub self-hosted runner selectors or workflow inputs;
+the GitLab Windows job uses the same native command and enables the existing
+Credential Manager journey. The sole source-level `t.Skip` names the Windows
 symlink-privilege limitation and executes the same ownership test on supported
 hosts. No retry, ignored exit code, `allow_failure`, `continue-on-error`, or
 silent capability promotion remains in the quality or Forge graph.

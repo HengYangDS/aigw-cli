@@ -96,23 +96,8 @@ lifecycle: {
 	checkoutRemote: "origin"
 }
 
-// Product evidence and Forge execution capacity are separate facts. A Forge
-// projects only the native jobs it can execute; product-level evidence remains
-// complete across the independent publication planes.
+// Product evidence is explicit and shared by both Forge projections.
 productEvidence: native: ["darwin", "linux", "windows"]
-
-forgeCapabilities: {
-	gitlab: {
-		darwin:  true
-		linux:   true
-		windows: false
-	}
-	github: {
-		for platform in productEvidence.native {
-			(platform): true
-		}
-	}
-}
 
 // This map owns native execution evidence only. Product release targets remain
 // solely owned by .config/release/goreleaser.yaml.
@@ -120,25 +105,17 @@ nativeEvidence: {
 	darwin: {
 		name: "macOS"
 		gitlab: tags: ["$AIGW_GITLAB_DARWIN_RUNNER_TAG"]
-		github: {
-			runner:       "macos-latest"
-			verifyRunner: runner
-		}
+		github: runner: "macos-latest"
 	}
 	linux: {
 		name: "Linux"
 		gitlab: tags: ["$AIGW_GITLAB_LINUX_RUNNER_TAG"]
-		github: {
-			runner:       "ubuntu-latest"
-			verifyRunner: "${{ github.event_name == 'workflow_dispatch' && inputs.self_hosted_linux_arm64 && fromJSON('[\"self-hosted\",\"Linux\",\"ARM64\",\"aigw-github-linux-arm64-parallels-shadow\"]') || '\(runner)' }}"
-		}
+		github: runner: "ubuntu-latest"
 	}
 	windows: {
 		name: "Windows"
-		github: {
-			runner:       "windows-latest"
-			verifyRunner: "${{ github.event_name == 'workflow_dispatch' && inputs.self_hosted_windows_arm64 && !inputs.full_quality && fromJSON('[\"self-hosted\",\"Windows\",\"ARM64\",\"aigw-github-windows-arm64-parallels-shadow\"]') || '\(runner)' }}"
-		}
+		gitlab: tags: ["$AIGW_GITLAB_WINDOWS_RUNNER_TAG"]
+		github: runner: "windows-latest"
 	}
 }
 
@@ -182,7 +159,7 @@ graph: {
 	"native-linux": {stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
 	"native-windows": {stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
 	"release-version": {stage: "verify", rank: 0, needs: [], claims: ["release-metadata"]}
-	"release-assets": {stage: "release", rank: 1, needs: ["quality", "native-darwin", "native-linux", "release-version"], claims: ["artifact-verification"]}
+	"release-assets": {stage: "release", rank: 1, needs: ["quality", "native-darwin", "native-linux", "native-windows", "release-version"], claims: ["artifact-verification"]}
 }
 
 gitlabVerificationCondition: {
@@ -271,7 +248,7 @@ actions: {
 		}
 	}
 	name:              "Native \(nativeEvidence[_platform].name) acceptance"
-	"runs-on":         nativeEvidence[_platform].github.verifyRunner
+	"runs-on":         nativeEvidence[_platform].github.runner
 	"timeout-minutes": 25
 	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
 	env: MISE_ENABLE_TOOLS: "${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && '\(nativeToolchain[_platform].full.MISE_ENABLE_TOOLS)' || '\(nativeToolchain[_platform].default.MISE_ENABLE_TOOLS)' }}"
@@ -441,9 +418,13 @@ actions: {
 		_refreshLocks: "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
 		_native:       "\(commands.native[_platform]) --full-quality=\"${AIGW_FULL_NATIVE_QUALITY:-false}\""
 	}
-	stage:     graph["native-\(_platform)"].stage
-	tags:      nativeEvidence[_platform].gitlab.tags
-	variables: nativeToolchain[_platform].full
+	stage: graph["native-\(_platform)"].stage
+	tags:  nativeEvidence[_platform].gitlab.tags
+	variables: nativeToolchain[_platform].full & {
+		if _platform == "windows" {
+			AIGW_VERIFY_SYSTEM_KEYRING: "1"
+		}
+	}
 	rules: [for rule in gitlabFullVerificationRules {
 		if rule.if != _|_ {
 			if rule.if == gitlabVerificationCondition.manual {
@@ -530,9 +511,7 @@ gitlab: {
 	}
 	"native-darwin": #NativeGitLabJob & {_platform: "darwin"}
 	"native-linux": #NativeGitLabJob & {_platform: "linux"}
-	if forgeCapabilities.gitlab.windows {
-		"native-windows": #NativeGitLabJob & {_platform: "windows"}
-	}
+	"native-windows": #NativeGitLabJob & {_platform: "windows"}
 	"release-version": {
 		stage: graph["release-version"].stage
 		extends: [".linux-toolchain"]
@@ -580,18 +559,6 @@ githubVerify: {
 				type:        "choice"
 				default:     "all"
 				options: ["all", for platform in productEvidence.native {platform}]
-			}
-			self_hosted_linux_arm64: {
-				description: "Run Native Linux acceptance on a self-hosted Linux ARM64 runner"
-				required:    false
-				type:        "boolean"
-				default:     false
-			}
-			self_hosted_windows_arm64: {
-				description: "Run Native Windows acceptance only on a self-hosted Windows ARM64 runner"
-				required:    false
-				type:        "boolean"
-				default:     false
 			}
 			full_quality: {
 				description: "Qualify all repository quality tools on each native platform"
