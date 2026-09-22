@@ -19,10 +19,10 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	}
 
 	var gitlab struct {
-		Quality  gitLabJob  `yaml:"quality"`
-		Darwin   gitLabJob  `yaml:"native-darwin"`
-		Linux    *gitLabJob `yaml:"native-linux"`
-		Windows  *gitLabJob `yaml:"native-windows"`
+		Quality  gitLabJob `yaml:"quality"`
+		Darwin   gitLabJob `yaml:"native-darwin"`
+		Linux    gitLabJob `yaml:"native-linux"`
+		Windows  gitLabJob `yaml:"native-windows"`
 		Workflow struct {
 			Rules []struct {
 				If   string `yaml:"if"`
@@ -53,7 +53,10 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		}
 	}
 	for name, job := range map[string]gitLabJob{
-		"quality": gitlab.Quality, "native-darwin": gitlab.Darwin,
+		"quality":        gitlab.Quality,
+		"native-darwin":  gitlab.Darwin,
+		"native-linux":   gitlab.Linux,
+		"native-windows": gitlab.Windows,
 	} {
 		if len(job.Rules) != len(wantGitLabWorkflow) || job.Rules[1].If != wantGitLabWorkflow[1].If {
 			t.Errorf("GitLab %s must verify reviews into both integration and release: %#v", name, job.Rules)
@@ -63,10 +66,6 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 			t.Errorf("GitLab %s accepted-push rule = %q", name, got)
 		}
 	}
-	if gitlab.Linux != nil || gitlab.Windows != nil {
-		t.Fatal("GitLab review graph includes unqualified native capacity")
-	}
-
 	var github struct {
 		On struct {
 			Push struct {
@@ -273,7 +272,7 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 	for _, metadata := range []string{".linux-toolchain", "stages", "variables", "workflow"} {
 		delete(gitlab, metadata)
 	}
-	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "quality", "release-assets", "release-version"}
+	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "native-windows", "quality", "release-assets", "release-version"}
 	if got := slices.Sorted(maps.Keys(gitlab)); !slices.Equal(got, wantGitLabJobs) {
 		t.Fatalf("GitLab jobs = %q, want %q", got, wantGitLabJobs)
 	}

@@ -100,6 +100,8 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		AcceptedRefParity gitLabJob `yaml:"accepted-ref-parity"`
 		Quality           gitLabJob `yaml:"quality"`
 		Darwin            gitLabJob `yaml:"native-darwin"`
+		Linux             gitLabJob `yaml:"native-linux"`
+		Windows           gitLabJob `yaml:"native-windows"`
 		ReleaseAssets     gitLabJob `yaml:"release-assets"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
@@ -115,8 +117,10 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		t.Fatalf("GitLab accepted parity rules = %#v", parity.Rules)
 	}
 	for name, job := range map[string]gitLabJob{
-		"quality":       gitlab.Quality,
-		"native-darwin": gitlab.Darwin,
+		"quality":        gitlab.Quality,
+		"native-darwin":  gitlab.Darwin,
+		"native-linux":   gitlab.Linux,
+		"native-windows": gitlab.Windows,
 	} {
 		protectedPushRuleSeen := false
 		for _, rule := range job.Rules {
@@ -440,7 +444,7 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 	for _, need := range pipeline.Assets.Needs {
 		needs = append(needs, need.Job)
 	}
-	if !slices.Equal(needs, []string{"quality", "native-darwin", "release-version"}) {
+	if !slices.Equal(needs, []string{"quality", "native-darwin", "native-linux", "native-windows", "release-version"}) {
 		t.Fatalf("release requirements = %q", needs)
 	}
 	if len(pipeline.Assets.Rules) != 2 || pipeline.Assets.Rules[0].If != `$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == "api" || $CI_PIPELINE_SOURCE == "web")` || pipeline.Assets.Rules[1].When != "never" {

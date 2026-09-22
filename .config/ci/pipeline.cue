@@ -105,7 +105,7 @@ productEvidence: native: ["darwin", "linux", "windows"]
 forgeCapabilities: {
 	gitlab: {
 		control: "darwin"
-		native: ["darwin"]
+		native:  productEvidence.native
 	}
 	github: native: productEvidence.native
 }
