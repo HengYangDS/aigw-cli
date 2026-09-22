@@ -770,7 +770,10 @@ native release construction. Direct Go and Node dependencies each retain a
 current source or tool consumer; `go mod tidy -diff` is empty. No non-ignored
 untracked or empty directory remains. Active-lane `.serena` and `node_modules`
 remain reproducible workspace inputs until lane retirement; branch and Work Lane
-removal remain task 10.3 rather than being performed beneath active work.
+removal remain task 10.3 rather than being performed beneath active work. The
+final local sweep removed the disposable `build/tmp` tree and two superseded
+development binaries; candidate artifacts and verification results remain until
+their active acceptance consumers finish.
 
 Task 5.6 narrows the remaining domain language around the objects AIGW actually
 owns. The guided `add` journey now connects an Account and its first Profile;
