@@ -28,18 +28,16 @@ func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 func checkGitLabNativeToolClosure(t *testing.T, content string) {
 	t.Helper()
 	var pipeline struct {
-		Quality       gitLabJob `yaml:"quality"`
-		NativeDarwin  gitLabJob `yaml:"native-darwin"`
-		NativeLinux   gitLabJob `yaml:"native-linux"`
-		NativeWindows gitLabJob `yaml:"native-windows"`
+		Quality       gitLabJob  `yaml:"quality"`
+		NativeDarwin  gitLabJob  `yaml:"native-darwin"`
+		NativeLinux   *gitLabJob `yaml:"native-linux"`
+		NativeWindows *gitLabJob `yaml:"native-windows"`
 	}
 	if err := yaml.Unmarshal([]byte(content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
 	for name, job := range map[string]gitLabJob{
-		"native-darwin":  pipeline.NativeDarwin,
-		"native-linux":   pipeline.NativeLinux,
-		"native-windows": pipeline.NativeWindows,
+		"native-darwin": pipeline.NativeDarwin,
 	} {
 		for _, tool := range []string{"go", "node", "npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "gh", "glab"} {
 			if !slices.Contains(strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ","), tool) {
@@ -55,11 +53,8 @@ func checkGitLabNativeToolClosure(t *testing.T, content string) {
 			t.Errorf("GitLab %s must prepare locked dependencies before native acceptance", name)
 		}
 	}
-	if got := pipeline.NativeWindows.Variables["AIGW_VERIFY_SYSTEM_KEYRING"]; got != "1" {
-		t.Fatalf("GitLab native Windows credential verification = %q, want 1", got)
-	}
-	if strings.Contains(pipeline.NativeWindows.Variables["MISE_ENABLE_TOOLS"], "github:lycheeverse/lychee") {
-		t.Fatal("GitLab native Windows installs the unrelated link-checking tool closure")
+	if pipeline.NativeLinux != nil || pipeline.NativeWindows != nil {
+		t.Fatal("GitLab projection advertises unqualified native capacity")
 	}
 }
 

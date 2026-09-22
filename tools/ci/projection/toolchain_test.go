@@ -165,15 +165,15 @@ func TestGitLabToolchainUsesOfficialRunnableMiseImage(t *testing.T) {
 	}
 }
 
-func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
+func TestGitLabLinuxToolchainRemainsDormantWithoutQualifiedCapacity(t *testing.T) {
 	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var pipeline struct {
-		LinuxToolchain gitLabJob `yaml:".linux-toolchain"`
-		NativeLinux    gitLabJob `yaml:"native-linux"`
-		Quality        gitLabJob `yaml:"quality"`
+		LinuxToolchain gitLabJob  `yaml:".linux-toolchain"`
+		NativeLinux    *gitLabJob `yaml:"native-linux"`
+		Quality        gitLabJob  `yaml:"quality"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
@@ -185,27 +185,17 @@ func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
 	if got := pipeline.LinuxToolchain.BeforeScript; !slices.Equal(got, wantBootstrap) {
 		t.Fatalf("Linux bootstrap = %q, want %q", got, wantBootstrap)
 	}
-	for name, job := range map[string]gitLabJob{
-		"native-linux": pipeline.NativeLinux,
-		"quality":      pipeline.Quality,
-	} {
-		if !slices.Equal(job.Extends, []string{".linux-toolchain"}) {
-			t.Fatalf("%s extends = %q, want [.linux-toolchain]", name, job.Extends)
-		}
-		lockedExecution := slices.IndexFunc(job.Script, func(command string) bool {
-			return strings.Contains(command, "mise exec --locked")
-		})
-		if lockedExecution < 0 || job.BeforeScript != nil || strings.Contains(strings.Join(job.Script, "\n"), "curl ") {
-			t.Fatalf("%s does not cleanly inherit the toolchain bootstrap: %#v", name, job)
-		}
+	if pipeline.NativeLinux != nil {
+		t.Fatal("GitLab projects Linux work without qualified executor capacity")
 	}
-	for name, job := range map[string]gitLabJob{"native-linux": pipeline.NativeLinux, "quality": pipeline.Quality} {
-		if job.Variables["CGO_ENABLED"] != "1" {
-			t.Fatalf("%s must explicitly enable CGO: %#v", name, job.Variables)
-		}
+	if len(pipeline.Quality.Extends) != 0 || pipeline.Quality.Variables["CGO_ENABLED"] != "1" {
+		t.Fatalf("GitLab quality must use the selected control executor directly: %#v", pipeline.Quality)
 	}
-	if strings.Count(projections[0].Content, wantBootstrap[0]) != 1 {
-		t.Fatal("Linux system-package preparation must have one shared projection owner")
+	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_GITLAB_DARWIN_RUNNER_TAG"}) {
+		t.Fatalf("GitLab quality runner tags = %q", pipeline.Quality.Tags)
+	}
+	if len(pipeline.Quality.Script) < 2 || pipeline.Quality.Script[0] != "env GODEBUG=http2client=0 mise install --locked" || pipeline.Quality.Script[1] != "mise run bootstrap" {
+		t.Fatalf("GitLab quality bootstrap = %q", pipeline.Quality.Script)
 	}
 }
 
@@ -393,12 +383,11 @@ func TestLockRefreshIsExplicitAndUsesOneNativeTask(t *testing.T) {
 	}
 	var gitlab struct {
 		Darwin gitLabJob `yaml:"native-darwin"`
-		Linux  gitLabJob `yaml:"native-linux"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	for platform, job := range map[string]gitLabJob{"darwin": gitlab.Darwin, "linux": gitlab.Linux} {
+	for platform, job := range map[string]gitLabJob{"darwin": gitlab.Darwin} {
 		if !slices.Contains(job.Script, `if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi`) {
 			t.Fatalf("GitLab %s lacks the same opt-in lock task", platform)
 		}
@@ -412,8 +401,7 @@ func TestQualityJobsUseTheirExactToolClosure(t *testing.T) {
 		t.Fatal(err)
 	}
 	var pipeline struct {
-		LinuxToolchain gitLabJob `yaml:".linux-toolchain"`
-		Quality        gitLabJob `yaml:"quality"`
+		Quality gitLabJob `yaml:"quality"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
@@ -422,7 +410,10 @@ func TestQualityJobsUseTheirExactToolClosure(t *testing.T) {
 	if qualityTools == "" {
 		t.Fatal("GitLab quality job must declare its native toolchain")
 	}
-	if !slices.Contains(pipeline.Quality.Script, "mise run bootstrap") {
+	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_GITLAB_DARWIN_RUNNER_TAG"}) {
+		t.Fatalf("GitLab quality runner tags = %q", pipeline.Quality.Tags)
+	}
+	if len(pipeline.Quality.Script) < 2 || pipeline.Quality.Script[0] != "env GODEBUG=http2client=0 mise install --locked" || pipeline.Quality.Script[1] != "mise run bootstrap" {
 		t.Fatalf("GitLab quality job lacks locked dependency preparation: %q", pipeline.Quality.Script)
 	}
 	var github struct {

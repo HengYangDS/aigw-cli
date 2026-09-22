@@ -19,10 +19,10 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	}
 
 	var gitlab struct {
-		Quality  gitLabJob `yaml:"quality"`
-		Darwin   gitLabJob `yaml:"native-darwin"`
-		Linux    gitLabJob `yaml:"native-linux"`
-		Windows  gitLabJob `yaml:"native-windows"`
+		Quality  gitLabJob  `yaml:"quality"`
+		Darwin   gitLabJob  `yaml:"native-darwin"`
+		Linux    *gitLabJob `yaml:"native-linux"`
+		Windows  *gitLabJob `yaml:"native-windows"`
 		Workflow struct {
 			Rules []struct {
 				If   string `yaml:"if"`
@@ -53,7 +53,7 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		}
 	}
 	for name, job := range map[string]gitLabJob{
-		"quality": gitlab.Quality, "native-darwin": gitlab.Darwin, "native-linux": gitlab.Linux, "native-windows": gitlab.Windows,
+		"quality": gitlab.Quality, "native-darwin": gitlab.Darwin,
 	} {
 		if len(job.Rules) != len(wantGitLabWorkflow) || job.Rules[1].If != wantGitLabWorkflow[1].If {
 			t.Errorf("GitLab %s must verify reviews into both integration and release: %#v", name, job.Rules)
@@ -62,6 +62,9 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		if got := job.Rules[2].If; got != `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
 			t.Errorf("GitLab %s accepted-push rule = %q", name, got)
 		}
+	}
+	if gitlab.Linux != nil || gitlab.Windows != nil {
+		t.Fatal("GitLab review graph includes unqualified native capacity")
 	}
 
 	var github struct {
@@ -90,16 +93,10 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	}
 }
 
-func TestLinuxNativeJourneysUseTheSameLockedProductCommand(t *testing.T) {
+func TestGitHubLinuxNativeJourneyUsesTheLockedProductCommand(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
-		t.Fatal(err)
-	}
-	var gitlab struct {
-		NativeLinux gitLabJob `yaml:"native-linux"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
 	var workflow struct {
@@ -120,19 +117,8 @@ func TestLinuxNativeJourneysUseTheSameLockedProductCommand(t *testing.T) {
 		}
 	}
 	want := []string{"mise run bootstrap", "mise exec --locked -- go run ./tools/ci native --platform linux"}
-	for forge, commands := range map[string][]string{
-		"GitHub": githubCommands,
-		"GitLab": gitlab.NativeLinux.Script,
-	} {
-		if forge == "GitLab" {
-			commands = slices.DeleteFunc(slices.Clone(commands), func(command string) bool {
-				return command == `if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi`
-			})
-			commands[len(commands)-1] = strings.TrimSuffix(commands[len(commands)-1], ` --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"`)
-		}
-		if !reflect.DeepEqual(commands, want) {
-			t.Fatalf("%s native Linux commands = %q, want locked dependencies then one product journey", forge, commands)
-		}
+	if !reflect.DeepEqual(githubCommands, want) {
+		t.Fatalf("GitHub native Linux commands = %q, want locked dependencies then one product journey", githubCommands)
 	}
 }
 
@@ -194,12 +180,11 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 	}
 	var gitlab struct {
 		Darwin gitLabJob `yaml:"native-darwin"`
-		Linux  gitLabJob `yaml:"native-linux"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	for platform, job := range map[string]gitLabJob{"darwin": gitlab.Darwin, "linux": gitlab.Linux} {
+	for platform, job := range map[string]gitLabJob{"darwin": gitlab.Darwin} {
 		wantRule := `($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "` + platform + `")`
 		if len(job.Rules) != 5 || job.Rules[3].If != wantRule {
 			t.Fatalf("GitLab %s lacks equivalent manual platform selection: %#v", platform, job.Rules)
@@ -288,7 +273,7 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 	for _, metadata := range []string{".linux-toolchain", "stages", "variables", "workflow"} {
 		delete(gitlab, metadata)
 	}
-	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "native-windows", "quality", "release-assets", "release-version"}
+	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "quality", "release-assets", "release-version"}
 	if got := slices.Sorted(maps.Keys(gitlab)); !slices.Equal(got, wantGitLabJobs) {
 		t.Fatalf("GitLab jobs = %q, want %q", got, wantGitLabJobs)
 	}

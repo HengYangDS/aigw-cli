@@ -138,7 +138,7 @@ jobs:
         run: mise exec --locked -- go run ./tools/ci quality
   native-darwin:
     name: Native macOS acceptance
-    runs-on: macos-latest
+    runs-on: macos-26-intel
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'darwin')
     env:

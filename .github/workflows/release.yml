@@ -17,7 +17,7 @@ env:
         options:
           - ubuntu-latest
           - ubuntu-24.04-arm
-          - macos-latest
+          - macos-26-intel
           - macos-15-intel
           - windows-latest
           - windows-11-arm

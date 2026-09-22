@@ -103,7 +103,10 @@ productEvidence: native: ["darwin", "linux", "windows"]
 // only the native jobs backed by qualified runners; the aggregate product
 // evidence set remains unchanged.
 forgeCapabilities: {
-	gitlab: native: productEvidence.native
+	gitlab: {
+		control: "darwin"
+		native: ["darwin"]
+	}
 	github: native: productEvidence.native
 }
 
@@ -113,7 +116,7 @@ nativeEvidence: {
 	darwin: {
 		name: "macOS"
 		gitlab: tags: ["$AIGW_GITLAB_DARWIN_RUNNER_TAG"]
-		github: runner: "macos-latest"
+		github: runner: "macos-26-intel"
 	}
 	linux: {
 		name: "Linux"
@@ -462,6 +465,18 @@ actions: {
 	}
 }
 
+_gitlabControlJob: {
+	_commands: [...string]
+	tags: nativeEvidence[forgeCapabilities.gitlab.control].gitlab.tags
+	if forgeCapabilities.gitlab.control == "linux" {
+		extends: [".linux-toolchain"]
+		script: _commands
+	}
+	if forgeCapabilities.gitlab.control != "linux" {
+		script: list.Concat([[commands.install], _commands])
+	}
+}
+
 gitlab: {
 	variables: {
 		GIT_DEPTH: "0"
@@ -488,10 +503,13 @@ gitlab: {
 		}
 		"before_script": [linuxToolchain.prepare, commands.install]
 	}
-	quality: {
+	quality: _gitlabControlJob & {
+		_commands: [
+			commands.bootstrap,
+			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
+			commands.quality,
+		]
 		stage: graph.quality.stage
-		extends: [".linux-toolchain"]
-		tags: nativeEvidence.linux.gitlab.tags
 		variables: qualityToolchain & {CGO_ENABLED: "1"}
 		rules: [
 			{if: gitlabVerificationCondition.tag, variables: AIGW_COMMIT_BASE: "$CI_COMMIT_SHA^"},
@@ -506,22 +524,15 @@ gitlab: {
 			{if: gitlabVerificationCondition.manual},
 			{when: "never"},
 		]
-		script: [
-			commands.bootstrap,
-			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
-			commands.quality,
-		]
 	}
-	"accepted-ref-parity": {
-		stage: graph["accepted-ref-parity"].stage
-		extends: [".linux-toolchain"]
-		tags:      nativeEvidence.linux.gitlab.tags
+	"accepted-ref-parity": _gitlabControlJob & {
+		_commands: [commands.acceptedRefParity.gitlab]
+		stage:     graph["accepted-ref-parity"].stage
 		variables: goToolchain
 		rules: [
 			{if: "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.releaseBranch)\""},
 			{when: "never"},
 		]
-		script: [commands.acceptedRefParity.gitlab]
 	}
 	if list.Contains(forgeCapabilities.gitlab.native, "darwin") {
 		"native-darwin": #NativeGitLabJob & {_platform: "darwin"}
@@ -532,32 +543,28 @@ gitlab: {
 	if list.Contains(forgeCapabilities.gitlab.native, "windows") {
 		"native-windows": #NativeGitLabJob & {_platform: "windows"}
 	}
-	"release-version": {
-		stage: graph["release-version"].stage
-		extends: [".linux-toolchain"]
-		tags:      nativeEvidence.linux.gitlab.tags
+	"release-version": _gitlabControlJob & {
+		_commands: [commands.version]
+		stage:     graph["release-version"].stage
 		variables: goToolchain
 		rules: [
 			{if: "$CI_COMMIT_TAG"},
 			{when: "never"},
 		]
-		script: [commands.version]
 	}
-	"release-assets": {
-		stage: graph["release-assets"].stage
-		extends: [".linux-toolchain"]
-		tags:      nativeEvidence.linux.gitlab.tags
+	"release-assets": _gitlabControlJob & {
+		_commands: [
+			#"mkdir dist"#,
+			#"mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist"#,
+			commands.artifacts,
+		]
+		stage:     graph["release-assets"].stage
 		variables: #ReleaseTrustFiles
 		rules: [
 			{if: "$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == \"api\" || $CI_PIPELINE_SOURCE == \"web\")"},
 			{when: "never"},
 		]
 		needs: [for dependency in gitlabReleaseNeeds {{job: dependency}}]
-		script: [
-			#"mkdir dist"#,
-			#"mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist"#,
-			commands.artifacts,
-		]
 	}
 
 }

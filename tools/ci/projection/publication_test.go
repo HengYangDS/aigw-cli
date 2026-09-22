@@ -19,8 +19,8 @@ func TestQualityJobsProjectTheIntegrationCommitBase(t *testing.T) {
 	}
 
 	var gitlab struct {
-		Quality     gitLabJob `yaml:"quality"`
-		NativeLinux gitLabJob `yaml:"native-linux"`
+		Quality      gitLabJob `yaml:"quality"`
+		NativeDarwin gitLabJob `yaml:"native-darwin"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
@@ -38,7 +38,7 @@ func TestQualityJobsProjectTheIntegrationCommitBase(t *testing.T) {
 	if _, guessed := gitlab.Quality.Rules[3].Variables["AIGW_COMMIT_BASE"]; guessed {
 		t.Fatal("GitLab manual verification must require an explicit AIGW_COMMIT_BASE")
 	}
-	for index, rule := range gitlab.NativeLinux.Rules {
+	for index, rule := range gitlab.NativeDarwin.Rules {
 		if _, leaked := rule.Variables["AIGW_COMMIT_BASE"]; leaked {
 			t.Fatalf("GitLab native rule %d received source-only commit-base state", index)
 		}
@@ -100,7 +100,6 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		AcceptedRefParity gitLabJob `yaml:"accepted-ref-parity"`
 		Quality           gitLabJob `yaml:"quality"`
 		Darwin            gitLabJob `yaml:"native-darwin"`
-		Linux             gitLabJob `yaml:"native-linux"`
 		ReleaseAssets     gitLabJob `yaml:"release-assets"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
@@ -118,7 +117,6 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 	for name, job := range map[string]gitLabJob{
 		"quality":       gitlab.Quality,
 		"native-darwin": gitlab.Darwin,
-		"native-linux":  gitlab.Linux,
 	} {
 		protectedPushRuleSeen := false
 		for _, rule := range job.Rules {
@@ -397,7 +395,7 @@ func TestPublishedNativeLifecycleUsesSelectedIsolatedRunner(t *testing.T) {
 	inputs := workflow.On["workflow_dispatch"].Inputs
 	runner := inputs["runner"]
 	if runner.Type != "choice" || runner.Default != "ubuntu-latest" ||
-		!slices.Equal(runner.Options, []string{"ubuntu-latest", "ubuntu-24.04-arm", "macos-latest", "macos-15-intel", "windows-latest", "windows-11-arm"}) {
+		!slices.Equal(runner.Options, []string{"ubuntu-latest", "ubuntu-24.04-arm", "macos-26-intel", "macos-15-intel", "windows-latest", "windows-11-arm"}) {
 		t.Fatalf("release verification runner choices = %#v", runner)
 	}
 	if inputs["native_lifecycle"].Type != "boolean" || inputs["native_lifecycle"].Default != "false" {
@@ -427,10 +425,10 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(pipeline.Version.Script, []string{"mise exec --locked -- go run ./tools/release validate-version-tag"}) {
+	if !slices.Equal(pipeline.Version.Script, []string{"env GODEBUG=http2client=0 mise install --locked", "mise exec --locked -- go run ./tools/release validate-version-tag"}) {
 		t.Fatal("tag admission is missing")
 	}
-	want := []string{"mkdir dist", `mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist`, "mise exec --locked -- go run ./tools/release verify-artifacts dist"}
+	want := []string{"env GODEBUG=http2client=0 mise install --locked", "mkdir dist", `mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist`, "mise exec --locked -- go run ./tools/release verify-artifacts dist"}
 	if !slices.Equal(pipeline.Assets.Script, want) {
 		t.Fatalf("GitLab asset verification = %q", pipeline.Assets.Script)
 	}
@@ -442,7 +440,7 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 	for _, need := range pipeline.Assets.Needs {
 		needs = append(needs, need.Job)
 	}
-	if !slices.Equal(needs, []string{"quality", "native-darwin", "native-linux", "native-windows", "release-version"}) {
+	if !slices.Equal(needs, []string{"quality", "native-darwin", "release-version"}) {
 		t.Fatalf("release requirements = %q", needs)
 	}
 	if len(pipeline.Assets.Rules) != 2 || pipeline.Assets.Rules[0].If != `$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == "api" || $CI_PIPELINE_SOURCE == "web")` || pipeline.Assets.Rules[1].When != "never" {

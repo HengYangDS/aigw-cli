@@ -2,7 +2,6 @@ package projection
 
 import (
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
@@ -42,7 +41,7 @@ func TestGitHubNativeJobsUseHostedRunners(t *testing.T) {
 	for name, runner := range map[string]string{
 		"accepted-ref-parity": "ubuntu-latest",
 		"quality":             "ubuntu-latest",
-		"native-darwin":       "macos-latest",
+		"native-darwin":       "macos-26-intel",
 		"native-linux":        "ubuntu-latest",
 		"native-windows":      "windows-latest",
 	} {
@@ -67,35 +66,23 @@ func TestForgeProjectionsFollowDeclaredNativeCapacity(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	if gitlab.NativeWindows == nil {
-		t.Fatal("GitLab projection lacks declared native Windows capacity")
+	if gitlab.NativeDarwin == nil {
+		t.Fatal("GitLab projection lacks declared native Darwin capacity")
 	}
-	for name, job := range map[string]*gitLabJob{
-		"darwin": gitlab.NativeDarwin,
-		"linux":  gitlab.NativeLinux,
-	} {
-		if job == nil {
-			t.Fatalf("GitLab projection lacks declared native %s capacity", name)
-		}
-	}
-	if !slices.Equal(gitlab.NativeWindows.Tags, []string{"$AIGW_GITLAB_WINDOWS_RUNNER_TAG"}) {
-		t.Fatalf("GitLab native Windows runner tags = %q", gitlab.NativeWindows.Tags)
-	}
-	if gitlab.NativeWindows.Variables["AIGW_VERIFY_SYSTEM_KEYRING"] != "1" ||
-		!slices.Contains(gitlab.NativeWindows.Script, `mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"`) {
-		t.Fatalf("GitLab native Windows contract = %#v", gitlab.NativeWindows)
+	if gitlab.NativeLinux != nil || gitlab.NativeWindows != nil {
+		t.Fatal("GitLab projection advertises native capacity that is not qualified")
 	}
 	if strings.Contains(projections[0].Content, "allow_failure:") {
 		t.Fatal("GitLab projection weakens a native job with allow_failure")
 	}
-	foundWindows := false
+	unexpectedNativeNeed := false
 	for _, need := range gitlab.Assets.Needs {
-		if need.Job == "native-windows" {
-			foundWindows = true
+		if need.Job == "native-linux" || need.Job == "native-windows" {
+			unexpectedNativeNeed = true
 		}
 	}
-	if !foundWindows {
-		t.Fatal("GitLab release assets do not require declared native Windows acceptance")
+	if unexpectedNativeNeed {
+		t.Fatal("GitLab release assets depend on undeclared native capacity")
 	}
 
 	for _, projectionIndex := range []int{1} {
