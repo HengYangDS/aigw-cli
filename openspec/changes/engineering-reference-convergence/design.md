@@ -1018,14 +1018,15 @@ procedures, and research informs later decisions without becoming policy. All
 22 current documents below `docs/` have an inbound tracked link; no current root
 or documentation page refers to an untracked local target or private host path.
 
-The root README is reduced from 431 to 245 lines and now leads from installation
-through first Account connection, deferred client activation, daily use,
-boundaries, recovery, removal, contribution, and deeper documentation. The team
-guide, security model, architecture boundary, Adapter admission policy,
-contributor guide, and Forge operations retain the complete setup, credential,
-extension, native-client, installation, and release journeys rather than copying
-them back into the entry point. A built current executable returned valid help
-for all 42 command and command-group surfaces used to check those examples.
+The root README is a concise entry point that leads from installation through
+first Account connection, direct endpoint composition, deferred client
+activation, daily use, boundaries, recovery, removal, contribution, and deeper
+documentation. The team guide, security model, architecture boundary, Adapter
+admission policy, contributor guide, and Forge operations retain the complete
+setup, credential, extension, native-client, installation, and release journeys
+rather than copying them back into the entry point. A built current executable
+returned valid help for all 42 command and command-group surfaces used to check
+those examples.
 
 The complete current Markdown graph passes Prettier, markdownlint, repository
 policy, spelling, local-link, and Mermaid validation. A bounded online Lychee run

@@ -67,6 +67,22 @@ selected client when its prerequisites are available:
 aigw setup
 ```
 
+To connect a direct OpenAI Responses endpoint without a team manifest:
+
+```bash
+printf '%s\n' "$TEAM_TOKEN" \
+  | aigw add team \
+      --label "Team endpoint" \
+      --openai-url https://api.example.com/v1 \
+      --model model-id \
+      --for codex \
+      --token-stdin
+```
+
+Use `--anthropic-url` and an Anthropic-compatible client for a native Anthropic
+endpoint. AIGW records the endpoint choice; it does not insert or manage a
+gateway.
+
 A team can instead distribute a reviewed, token-free manifest:
 
 ```bash

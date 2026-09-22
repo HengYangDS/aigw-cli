@@ -70,8 +70,8 @@
 ## 8. Rebuild documentation and contributor experience
 
 - [x] 8.1 Reconfirm documentation domains and move every current document to its precise semantic owner; verify research, decisions, architecture, concepts, guides, governance, operations, and history are not mixed.
-- [ ] 8.2 Rewrite the README as a concise English product entry point covering installation, first Account, explicit client activation, direct endpoint composition, diagnosis, recovery, and removal with current commands.
-- [ ] 8.3 Document complete setup, deferred synchronization, credential, installation, update, rollback, uninstall, Provider extension, Client extension, and optional-gateway journeys, including Hermes and Claude Desktop; verify every referenced source and artifact is tracked or publicly reachable.
+- [x] 8.2 Rewrite the README as a concise English product entry point covering installation, first Account, explicit client activation, direct endpoint composition, diagnosis, recovery, and removal with current commands.
+- [x] 8.3 Document complete setup, deferred synchronization, credential, installation, update, rollback, uninstall, Provider extension, Client extension, and optional-gateway journeys, including Hermes and Claude Desktop; verify every referenced source and artifact is tracked or publicly reachable.
 - [x] 8.4 Review every heading, paragraph, list, table, code block, Mermaid diagram, internal link, and external link for semantic order, rendering, accessibility, and concise `信、达、雅` expression.
 - [x] 8.5 Create a clean-checkout contributor path from bootstrap through a bounded TDD change and review; verify a new contributor can locate the invariant, owner, test, gate, and evidence without private context.
 - [x] 8.6 Remove duplicate explanations, obsolete warnings, historical instructions presented as current, empty indexes, private-path references, and unlinked authority names; verify navigation remains complete after deletion.
