@@ -53,7 +53,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			synchronizer := invocation.Synchronizer(runtime)
-			configurationChanged, err := synchronizer.SelectProfile(cmd.Context(), cfg, client, name, token)
+			configurationChanged, binding, err := synchronizer.SelectProfile(cmd.Context(), cfg, client, name, token)
 			if err != nil {
 				return err
 			}
@@ -74,8 +74,19 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 				r.Row("Purpose", purpose)
 			}
 			r.Row("Client", invocation.Title(client))
+			spec, _ := configuration.ClientSpecFor(client)
+			if spec.RestartAfterProjection && (binding.Executable == "" || len(binding.Targets) == 0) {
+				r.Row("Projection", fmt.Sprintf("Deferred; %s is not installed", spec.Label))
+				r.Next(fmt.Sprintf("Install %s, then run `aigw sync`", spec.Label))
+				return r.Err()
+			}
 			r.Success(detail)
-			r.Next("aigw check")
+			if spec.RestartAfterProjection && configurationChanged {
+				r.Row("Activation", "Restart required")
+				r.Next(fmt.Sprintf("Restart %s, then run `aigw check`", spec.Label))
+			} else {
+				r.Next("aigw check")
+			}
 			return r.Err()
 		},
 	}

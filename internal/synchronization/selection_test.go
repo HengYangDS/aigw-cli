@@ -20,7 +20,7 @@ func TestProfileSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	}
 	credentials := setupTokenStore(t, "existing-token")
 	syncer := Synchronizer{Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
-	changed, err := syncer.SelectProfile(t.Context(), before, configuration.ClientClaude, "next", "")
+	changed, _, err := syncer.SelectProfile(t.Context(), before, configuration.ClientClaude, "next", "")
 	if err != nil || !changed {
 		t.Fatalf("selection = %t, %v; want committed change", changed, err)
 	}
@@ -32,7 +32,7 @@ func TestProfileSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changed, err = syncer.SelectProfile(t.Context(), current, configuration.ClientClaude, "next", "")
+	changed, _, err = syncer.SelectProfile(t.Context(), current, configuration.ClientClaude, "next", "")
 	if err != nil || changed || credentials.writes != 0 {
 		t.Fatalf("repeated selection = %t, %v; credential writes=%d", changed, err, credentials.writes)
 	}
@@ -61,7 +61,7 @@ func TestProfileSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 				syncer.Discovery = setupDiscovery(cancel)
 				failure = context.Canceled
 			}
-			_, err := syncer.SelectProfile(ctx, before, configuration.ClientClaude, "claude", "new-token")
+			_, _, err := syncer.SelectProfile(ctx, before, configuration.ClientClaude, "claude", "new-token")
 			if !errors.Is(err, failure) {
 				t.Fatalf("selection error = %v, want %v", err, failure)
 			}
@@ -90,7 +90,7 @@ func TestProfileSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 			if profile == "native" {
 				client = configuration.ClientCodex
 			}
-			_, err := (Synchronizer{Config: store, Secrets: credentials}).SelectProfile(t.Context(), cfg, client, profile, "token")
+			_, _, err := (Synchronizer{Config: store, Secrets: credentials}).SelectProfile(t.Context(), cfg, client, profile, "token")
 			if err == nil || credentials.writes != 0 {
 				t.Fatalf("invalid selection reached credential mutation: writes=%d, error=%v", credentials.writes, err)
 			}

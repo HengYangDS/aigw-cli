@@ -18,13 +18,16 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-type staticDiscovery struct{ onDiscover func() }
+type staticDiscovery struct {
+	result     discovery.Result
+	onDiscover func()
+}
 
 func (source staticDiscovery) Discover() discovery.Result {
 	if source.onDiscover != nil {
 		source.onDiscover()
 	}
-	return discovery.Result{}
+	return source.result
 }
 
 func secretExists(t testing.TB, store secrets.Store, account string) bool {
@@ -113,6 +116,60 @@ func TestUseSelectsOnlyTheProfilesDeclaredClient(t *testing.T) {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("output lacks %q: %q", want, out.String())
 		}
+	}
+}
+
+func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		installed bool
+		want      []string
+		forbid    string
+	}{
+		{name: "restart", installed: true, want: []string{"Profile selected", "Restart required", "Restart Claude Desktop, then run `aigw check`"}},
+		{name: "deferred", want: []string{"Profile selected", "Projection", "Deferred; Claude Desktop is not installed", "Install Claude Desktop, then run `aigw sync`"}, forbid: "Restart required"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runtime, cfg, out := configuredRuntime(t)
+			store := secrets.NewMemoryStore()
+			runtime.Secrets = store
+			runtime.Executable = filepath.Join(t.TempDir(), "aigw")
+			if err := store.Set("gateway", "token"); err != nil {
+				t.Fatal(err)
+			}
+			cfg.Profiles["desktop"] = configuration.Profile{
+				Label: "Desktop", Account: "gateway", Model: "claude-test", Protocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic},
+			}
+			if err := runtime.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if test.installed {
+				executable := filepath.Join(t.TempDir(), "Claude")
+				if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				library := filepath.Join(t.TempDir(), "Claude-3p", "configLibrary")
+				runtime.Discovery = staticDiscovery{result: discovery.Result{
+					Executables: map[string]string{configuration.ClientClaudeDesktop: executable},
+					Surfaces:    []discovery.Surface{{ID: "claude-desktop-config-library", ConfigPath: library, Present: true, AutoManaged: true}},
+				}}
+			}
+			command := NewUseCommand(runtime)
+			command.SilenceErrors = true
+			command.SilenceUsage = true
+			command.SetArgs([]string{"--for", configuration.ClientClaudeDesktop, "desktop"})
+			if err := command.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range test.want {
+				if !strings.Contains(out.String(), want) {
+					t.Fatalf("use output = %q, want %q", out.String(), want)
+				}
+			}
+			if test.forbid != "" && strings.Contains(out.String(), test.forbid) {
+				t.Fatalf("use output = %q, forbid %q", out.String(), test.forbid)
+			}
+		})
 	}
 }
 
