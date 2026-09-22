@@ -448,8 +448,9 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 		t.Fatalf("dry-run wrote Claude settings state %s: %v", claudeSettings, err)
 	}
 	var preview struct {
-		DryRun  bool `json:"dry_run"`
-		Targets []struct {
+		DryRun     bool   `json:"dry_run"`
+		NextAction string `json:"next_action"`
+		Targets    []struct {
 			Client string `json:"client"`
 			Target string `json:"target"`
 			Action string `json:"action"`
@@ -461,7 +462,7 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 	wantTargets := []string{claudeSettings, first, second}
 	wantClients := []string{configuration.ClientClaude, configuration.ClientCodex, configuration.ClientCodex}
 	wantActions := []string{"project", "initial-project", "initial-project"}
-	if !preview.DryRun || len(preview.Targets) != len(wantTargets) {
+	if !preview.DryRun || preview.NextAction != "aigw sync" || len(preview.Targets) != len(wantTargets) {
 		t.Fatalf("sync dry-run preview = %#v", preview)
 	}
 	for index, want := range wantTargets {
@@ -476,5 +477,40 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 		} else if preview.Targets[index].Target != want {
 			t.Fatalf("target %d = %q, want %q", index, preview.Targets[index].Target, want)
 		}
+	}
+}
+
+func TestSyncDryRunRecommendsCheckWhenProjectionIsConverged(t *testing.T) {
+	app, out, secretStore, _, _ := testApp(t, "")
+	settingsPath := filepath.Join(t.TempDir(), "settings.json")
+	app.ClaudeSettingsPath = settingsPath
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/usr/local/bin/claude"}}}
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-test"}
+	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("gateway", "dry-run-token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if err := cli.Execute(app, []string{"sync", "--dry-run", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Targets    []client.ProjectionPlan `json:"targets"`
+		NextAction string                  `json:"next_action"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Targets) != 1 || result.Targets[0].Action != "already-converged" || result.NextAction != "aigw check" {
+		t.Fatalf("converged sync dry-run preview = %#v", result)
 	}
 }

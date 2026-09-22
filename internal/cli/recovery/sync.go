@@ -53,7 +53,12 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 					return err
 				}
 				result.Targets = plans
-				result.NextAction = "aigw sync"
+				for _, plan := range plans {
+					if plan.ChangesState {
+						result.NextAction = "aigw sync"
+						break
+					}
+				}
 			} else if err := synchronizer.CommitProjection(cmd.Context(), before, after, "sync"); err != nil {
 				return err
 			}

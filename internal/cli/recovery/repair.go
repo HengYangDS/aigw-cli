@@ -75,13 +75,16 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 
 func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurationChanged bool, discovered discovery.Result, plans []client.ProjectionPlan) error {
 	result := repairResult{DryRun: dryRun, ConfigurationAction: "already-converged", NextAction: "aigw check"}
-	if dryRun {
+	if dryRun && configurationChanged {
 		result.NextAction = "aigw repair"
 	}
 	if configurationChanged {
 		result.ConfigurationAction = "update"
 	}
 	for _, plan := range plans {
+		if dryRun && plan.ChangesState {
+			result.NextAction = "aigw repair"
+		}
 		surfaceID := "claude-settings"
 		if plan.Client == configuration.ClientCodex {
 			surfaceID = "codex-home-explicit"

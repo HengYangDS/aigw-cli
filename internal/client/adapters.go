@@ -104,7 +104,7 @@ func (codexAdapter) Plan(deps Dependencies, before, after configuration.Config) 
 	}
 	result := make([]ProjectionPlan, 0, len(plans))
 	for _, plan := range plans {
-		result = append(result, ProjectionPlan{Client: configuration.ClientCodex, Target: plan.Target, Action: string(plan.Action)})
+		result = append(result, ProjectionPlan{Client: configuration.ClientCodex, Target: plan.Target, Action: string(plan.Action), ChangesState: plan.ChangesState()})
 	}
 	return result, nil
 }
@@ -230,7 +230,7 @@ func (claudeAdapter) Plan(deps Dependencies, before, after configuration.Config)
 	if err != nil {
 		return nil, err
 	}
-	return []ProjectionPlan{{Client: configuration.ClientClaude, Target: plan.Target, Action: string(plan.Action)}}, nil
+	return []ProjectionPlan{{Client: configuration.ClientClaude, Target: plan.Target, Action: string(plan.Action), ChangesState: plan.ChangesState()}}, nil
 }
 
 func (claudeAdapter) Apply(_ context.Context, deps Dependencies, before, after configuration.Config) (ProjectionReceipt, error) {

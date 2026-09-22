@@ -75,6 +75,11 @@ type SettingsPlan struct {
 	Target string         `json:"target"`
 }
 
+// ChangesState reports whether applying the plan changes owned settings.
+func (plan SettingsPlan) ChangesState() bool {
+	return plan.Action == SettingsActionProject || plan.Action == SettingsActionRestore
+}
+
 // SettingsReceipt records the settings projection that was actually applied.
 type SettingsReceipt struct {
 	SettingsPlan

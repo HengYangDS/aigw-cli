@@ -53,16 +53,16 @@ func TestRenderRepairPreviewJSONReportsTheSameSemanticPlan(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Out: out}
 	discovered := discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), ConfigPath: "/known"}}}
-	plans := []client.ProjectionPlan{{Client: configuration.ClientCodex, Target: "/known", Action: "update"}}
+	plans := []client.ProjectionPlan{{Client: configuration.ClientCodex, Target: "/known", Action: "update", ChangesState: true}}
 
-	if err := renderRepairResult(runtime, true, true, true, discovered, plans); err != nil {
+	if err := renderRepairResult(runtime, true, true, false, discovered, plans); err != nil {
 		t.Fatal(err)
 	}
 	var got repairResult
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if !got.DryRun || got.ConfigurationAction != "update" || len(got.Projections) != 1 || got.Projections[0].Client != configuration.ClientCodex || got.Projections[0].SurfaceID != string(surfaceidentity.CodexHomeDefault) {
+	if !got.DryRun || got.ConfigurationAction != "already-converged" || got.NextAction != "aigw repair" || len(got.Projections) != 1 || got.Projections[0].Client != configuration.ClientCodex || got.Projections[0].SurfaceID != string(surfaceidentity.CodexHomeDefault) {
 		t.Fatalf("preview = %#v", got)
 	}
 }
@@ -214,11 +214,12 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 		t.Fatalf("Claude projection = %s", data)
 	}
 	for _, test := range []struct {
-		label  string
-		action string
+		label      string
+		action     string
+		nextAction string
 	}{
-		{"/opt/claude", "already-converged"},
-		{"/updated/claude", "already-converged"},
+		{"/opt/claude", "already-converged", "aigw check"},
+		{"/updated/claude", "already-converged", "aigw check"},
 	} {
 		out.Reset()
 		runtime.Discovery = staticDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: test.label}}}
@@ -226,8 +227,8 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 			t.Fatal(err)
 		}
 		var result repairResult
-		if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.ConfigurationAction != test.action || !result.DryRun {
-			t.Fatalf("repair preview = %+v, %v; want action %s", result, err, test.action)
+		if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.ConfigurationAction != test.action || result.NextAction != test.nextAction || !result.DryRun {
+			t.Fatalf("repair preview = %+v, %v; want action %s and next action %s", result, err, test.action, test.nextAction)
 		}
 	}
 }

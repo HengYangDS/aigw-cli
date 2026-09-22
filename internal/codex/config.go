@@ -73,6 +73,13 @@ type ProjectionPlan struct {
 	Action ProjectionAction `json:"action"`
 }
 
+// ChangesState reports whether applying the plan changes an owned target.
+func (plan ProjectionPlan) ChangesState() bool {
+	return plan.Action == ProjectionActionInitialProject ||
+		plan.Action == ProjectionActionUpdate ||
+		plan.Action == ProjectionActionRestoreExternal
+}
+
 // SyncConfig reconciles one Codex configuration target to the resolved runtime.
 func SyncConfig(path string, runtime configuration.Runtime) error {
 	_, err := ReconcileConfigs(nil, codexHomeTargets([]string{path}), runtime)

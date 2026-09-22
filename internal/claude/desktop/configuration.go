@@ -71,6 +71,9 @@ type Plan struct {
 	changes []fileChange
 }
 
+// ChangesState reports whether applying the plan changes an owned file.
+func (plan Plan) ChangesState() bool { return len(plan.changes) > 0 }
+
 // Receipt compensates one applied projection while its postimages remain unchanged.
 type Receipt struct{ changes []appliedChange }
 
