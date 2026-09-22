@@ -4,9 +4,14 @@
     "name": "architecture-publisher",
     "version": "0.3.0-alpha.1",
     "archiveSha256": "c2707bcffc9ba0cea277cb3b6f4fb6f04f2755996781f92c035fa9cadb4dcc37",
-    "contentTarSha256": "6b0a925f85879ea7a576c5153849e2741d2e54fcd83bf068cfb5a473b8c7d682"
+    "contentTarSha256": "6b0a925f85879ea7a576c5153849e2741d2e54fcd83bf068cfb5a473b8c7d682",
+    "state": "release-candidate"
   },
   "providerManifestSha256": "6731b69ab82322d7b4ecbbefacd297d281c185628c98b54ebbcb68e32e9b4bcf",
+  "providerOutput": {
+    "manifestSha256": "b075b4ab9954a35a6b4e3bb14f25e032fd4e3d7d2b7f05d77076032710b8bace",
+    "providerMaterializationSha256": "0e57c1385c31fe72350f471d485535605859c912c3e6a97c63579e51df3138d7"
+  },
   "migrationBaseline": {
     "ownerCommit": "71da0af8cbaeaeb1b59fafd5ddabe59be7248627",
     "ownerTree": "20de90269ae0fc10d3562a1be1d5903ae444d4c6",

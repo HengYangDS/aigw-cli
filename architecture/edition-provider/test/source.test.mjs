@@ -41,6 +41,7 @@ test("AIGW owns one closed declarative Edition Provider", async () => {
   assert.equal(selection.schema, "aigw.architecture-publisher-selection/v1");
   assert.equal(selection.publisher.name, "architecture-publisher");
   assert.equal(selection.publisher.version, "0.3.0-alpha.1");
+  assert.equal(selection.publisher.state, "release-candidate");
   assert.equal(
     selection.providerManifestSha256,
     sha256(await regularBytes("provider.json")),

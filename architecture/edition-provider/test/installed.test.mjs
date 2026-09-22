@@ -137,6 +137,14 @@ test("the selected installed Publisher reproduces the AIGW provider", async (t) 
       "interactiveSceneDigest",
     ])
       assert.equal(result[field], expected[field], field);
+    assert.equal(
+      result.manifestSha256,
+      selection.providerOutput.manifestSha256,
+    );
+    assert.equal(
+      result.providerMaterializationSha256,
+      selection.providerOutput.providerMaterializationSha256,
+    );
   }
   const stableResult = ({ manifestPath: _manifestPath, ...result }) => result;
   assert.deepEqual(stableResult(results[0]), stableResult(results[1]));
