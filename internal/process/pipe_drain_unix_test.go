@@ -18,19 +18,17 @@ func TestRunCaptureBoundsPipeDrainAfterChildExit(t *testing.T) {
 	requireShellFixture(t)
 	for _, output := range []string{"capture", "file"} {
 		t.Run(output, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), capturedProcessWaitDelay+3*time.Second)
-			defer cancel()
-			plan := Plan{Executable: "/bin/sh", Args: []string{"-c", "sleep 1.5; (sleep 5) >&2 & printf AIGW_OK"}, Env: []string{}}
+			plan := Plan{Executable: "/bin/sh", Args: []string{"-c", "(sleep 5) >&2 & printf AIGW_OK"}, Env: []string{}}
 			destination := filepath.Join(t.TempDir(), "asset")
 			var err error
 			if output == "capture" {
-				_, err = (Runner{}).RunCapture(ctx, plan)
+				_, err = (Runner{}).RunCapture(t.Context(), plan)
 			} else {
-				err = (Runner{}).RunToFile(ctx, destination, plan)
+				err = (Runner{}).RunToFile(t.Context(), destination, plan)
 			}
-			// ErrWaitDelay proves the native pipe-drain timer expired. Elapsed
-			// invocation time also includes startup and host scheduling, neither
-			// of which belongs to that timer's contract.
+			// The finite descendant bounds the fixture without introducing a
+			// competing context deadline. ErrWaitDelay therefore identifies the
+			// pipe-drain boundary even when the host schedules the shell slowly.
 			if !errors.Is(err, exec.ErrWaitDelay) {
 				t.Fatalf("%s error = %v, want exec.ErrWaitDelay", output, err)
 			}
