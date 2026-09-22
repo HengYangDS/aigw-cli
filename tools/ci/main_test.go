@@ -63,6 +63,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 
 func TestQualityCommandsResolveInDeclaredToolchain(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
+	activeToolchain := os.Getenv("MISE_ENABLE_TOOLS")
 	output, err := exec.Command("cue", "export", ".config/ci/pipeline.cue", ".ethos/workspace.toml", "--expression", "qualityToolchain", "--out", "json").Output()
 	if err != nil {
 		t.Fatal(err)
@@ -80,12 +81,17 @@ func TestQualityCommandsResolveInDeclaredToolchain(t *testing.T) {
 			t.Fatalf("quality toolchain lacks %s: %q", required, toolchain)
 		}
 	}
-	for key, value := range environment {
-		t.Setenv(key, value)
+	if activeToolchain == "" {
+		for key, value := range environment {
+			t.Setenv(key, value)
+		}
 	}
 	observed := make(map[string]bool)
 	for _, call := range qualityCommands {
 		if observed[call.Name] {
+			continue
+		}
+		if !miseCommandEnabled(call.Name) {
 			continue
 		}
 		observed[call.Name] = true

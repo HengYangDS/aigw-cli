@@ -50,8 +50,7 @@ commands: {
 
 toolchainTools: {
 	bootstrap: ["go", "node", "npm"]
-	native: list.Concat([bootstrap, ["github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "gh"]])
-	quality: list.Concat([bootstrap, [
+	portableQuality: list.Concat([bootstrap, [
 		"cue",
 		"github:boyter/scc",
 		"github:editorconfig-checker/editorconfig-checker",
@@ -59,13 +58,14 @@ toolchainTools: {
 		"github:golangci/golangci-lint",
 		"github:goreleaser/goreleaser",
 		"go:github.com/google/osv-scanner/v2/cmd/osv-scanner",
-		"github:lycheeverse/lychee",
 		"github:rhysd/actionlint",
 		"shellcheck",
 		"taplo",
 		"typos",
 	]])
-	fullNative: list.Concat([quality, ["github:anchore/syft", "gh"]])
+	quality: list.Concat([portableQuality, ["github:lycheeverse/lychee"]])
+	native: list.Concat([portableQuality, ["github:anchore/syft", "gh", "glab"]])
+	fullNative: list.Concat([quality, ["github:anchore/syft", "gh", "glab"]])
 	darwin: ["github:indygreg/apple-platform-rs"]
 }
 
