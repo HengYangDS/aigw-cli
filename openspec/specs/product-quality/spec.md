@@ -256,58 +256,12 @@ repository-specific merge blacklists.
 
 ### Requirement: complete delivery evidence
 
-Quality completion SHALL require distinct evidence for the complete local
-graph, exact-HEAD proof, native hosted CI, independent peer publication, exact
-branch and tag identity, asset integrity, installation, runtime acceptance, and
-repository housekeeping. A release SHALL be complete only when its one signed
-tag object, immutable assets, checksums, peer-native Release records, and
-supported-platform acceptance are verified at their owning boundaries. Every
-selected peer SHALL verify its own objects and assets; native platform evidence
-MAY be supplied by the admitted aggregate executor set without duplicating
-unavailable runners or weakening the platform requirement.
-
-Upgrade acceptance SHALL retain each enabled client's original credential
-command, arguments and process environment and execute that invocation after
-program replacement but before synchronization or client configuration reload.
-Native-store acceptance SHALL retain the original item and identify the real
-reader implementation and authorization identity on both sides. A fresh client
-consuming a replacement helper SHALL NOT establish existing-caller continuity.
-Complete rollback SHALL restore compatible program, configuration and credential
-ownership without requiring a credential fallback or new host helper.
-
-Credential-free construction SHALL retain verified ad-hoc Mach-O signatures
-and Hardened Runtime with release-epoch timestamps for native qualification.
-Public macOS distribution SHALL additionally verify Developer ID signing and
-accepted Apple notarization before final checksums and publication. Trusted
-signing timestamps and notarization SHALL be distinguished from reproducible
-construction; neither SHALL change the credential reader or its authorization.
-Detached SSH manifest signatures, checksums, provenance and complete native
-acceptance SHALL remain required. Selected peers SHALL receive the same immutable
-artifact bytes. Native acceptance SHALL select only its host operating system;
-full construction SHALL emit the complete target matrix. Consuming published
-assets SHALL NOT require their private signing keys or developer membership.
-
-macOS retained-Keychain qualification SHALL preserve the published go-keyring
-`/usr/bin/security` provider across predecessor, candidate and rollback. It SHALL
-execute each retained original client credential command before synchronization,
-return the same Token and preserve configuration bytes without ACL mutation,
-backend migration or a replacement helper. Artifact signing and public notarization remain independent distribution
-requirements. Neither SHALL be a prerequisite for routine credential access.
-
-Ordinary source tests SHALL use provider doubles and SHALL NOT touch the host
-credential store. Every real Keychain journey SHALL require explicit disposable-
-host scope before native access, use exact owned slots and verify their removal.
-The scope declaration SHALL NOT be represented as a sandbox or proof that the
-machine is disposable. Source-only success SHALL NOT substitute for released-
-artifact credential evidence.
-
-Manual native qualification MAY select one supported platform through the
-existing CUE-owned Forge projections. Omitted or `all` selection SHALL preserve
-the complete available platform set. Selection SHALL NOT remove source quality
-or narrow review, accepted-branch push or tag admission. A partial manual result
-SHALL prove only its selected platform, not complete release readiness or
-required review admission. A Forge's unavailable runner SHALL remain an explicit
-capacity boundary rather than an inferred product pass.
+Quality completion SHALL require independent evidence for local gates, exact
+source identity, hosted native execution, peer publication, immutable artifacts,
+installation, runtime acceptance, and housekeeping. A release SHALL bind one
+signed tag to identical selected-peer assets and supported-platform results.
+Credential continuity, distribution trust, and platform capacity SHALL be
+verified by their dedicated owners; none may be inferred from another boundary.
 
 #### Scenario: A maintainer qualifies an updated Windows toolchain
 

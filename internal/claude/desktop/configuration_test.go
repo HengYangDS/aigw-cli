@@ -378,13 +378,13 @@ func TestInternalDocumentBoundariesFailClosed(t *testing.T) {
 	foreign, _ := json.Marshal(map[string]string{"id": "foreign"})
 	owned, _ := json.Marshal(map[string]string{"id": profileID})
 	metadata := document{"entries": raw([]json.RawMessage{foreign, owned})}
-	if err := removeProfileEntry(metadata); err != nil {
+	if err := removeProfileEntries(metadata); err != nil {
 		t.Fatal(err)
 	}
 	if entries, err := metadataEntries(metadata); err != nil || len(entries) != 1 {
 		t.Fatalf("metadata entries = %d, %v", len(entries), err)
 	}
-	if err := removeProfileEntry(document{"entries": raw(map[string]any{})}); err == nil {
+	if err := removeProfileEntries(document{"entries": raw(map[string]any{})}); err == nil {
 		t.Fatal("invalid metadata entries were accepted")
 	}
 	if _, err := encode(map[string]any{"unsupported": func() {}}); err == nil {

@@ -409,18 +409,17 @@ Accounts through the installed Hermes runtime, observes every compatible
 reviewed Profile under its Account-and-protocol provider, and proves that an
 unconnected Account is not projected.
 
-Task 4.7 now has a source-level Claude Desktop Adapter using the documented
+Task 4.7 now has a source-level Claude Desktop Adapter using the product's
 per-user `Claude-3p/configLibrary` boundary on macOS, Linux and Windows. It owns
-one `aigw` profile, the corresponding metadata entry, deployment-mode values
-and a compact ownership sidecar; it preserves unrelated JSON fields, rejects
-managed drift, compensates partial writes and removes only its own state. The
-team manifest recommends the same UCloud Fable Profile independently for
-Claude Code and Claude Desktop. An isolated macOS run discovered the installed
-Claude Desktop 2.2553.1 executable, imported the shipped manifest, projected
-three compatible UCloud models, executed the projected environment-backed
-credential helper, and withdrew every AIGW-owned Desktop file without touching
-the real user configuration. Chat, Cowork, Code, restart behavior and Linux and
-Windows host consumption remain unproved, so Task 4.7 remains open.
+one stable UUID configuration, the corresponding metadata entry,
+deployment-mode values and a compact ownership sidecar; it preserves unrelated
+JSON fields, rejects managed drift, compensates partial writes and removes only
+its own state. The team manifest recommends the same UCloud Fable Profile
+independently for Claude Code and Claude Desktop. An isolated macOS run
+discovered the installed Claude Desktop 2.2553.1 executable, imported the
+shipped manifest, projected three compatible UCloud models, executed the
+projected environment-backed credential helper, and withdrew every AIGW-owned
+Desktop file without touching the real user configuration.
 
 GitHub review run `35602717964` exposed a test-isolation defect rather than a
 second Claude Desktop product path. Quality passed, Linux missed the repository
@@ -440,12 +439,20 @@ before this evidence closes Task 4.7 or the platform obligations in Task 9.
 
 The installed Claude Desktop 2.2553.1 schema independently identifies Chat,
 Cowork, and Code as configurable third-party surfaces. The AIGW-owned profile
-now enables all three explicitly instead of inheriting release-specific client
-defaults. Client enablement now reports the projection as configured rather
-than active and requires a Claude Desktop restart; withdrawal reports the same
-restart boundary. This establishes deterministic projection and lifecycle
-intent; it does not replace the still-required native consumption and inference
-evidence for each surface.
+enables all three explicitly instead of inheriting release-specific client
+defaults. Native diagnostics on 2026-09-22 exposed that the former profile ID
+`aigw` violated Claude Desktop's UUID contract: the application reported an
+applied four-character non-ID, retained the persisted `3p` choice, but resolved
+effective mode `1P` with no inference provider. Reusing the same profile under
+the stable UUID `6500fbf3-029c-5c0d-842a-48ee47e228c5` changed the real
+application to `app://localhost`, exposed `UCloud · Claude Fable 5.1`, completed
+an authenticated Cowork response and ran a Code session with tool activity. The
+Adapter now migrates the invalid owned identity only after validating its
+ownership hash, removes the superseded files, and retains guarded rollback and
+withdrawal. Client enablement reports the projection as configured rather than
+active and requires a restart; withdrawal reports the same boundary. Standalone
+Chat and Linux and Windows host consumption remain required before Task 4.7 can
+close.
 
 Credential portability is accepted at signed commit `3863e05e`. The ordinary
 GitHub review run `35455496791` exercised the complete native graph on macOS,
