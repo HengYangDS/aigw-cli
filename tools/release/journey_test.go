@@ -35,6 +35,12 @@ func TestNativeClientFixtureMatchesClaudeDesktopDiscovery(t *testing.T) {
 		GOOS: runtime.GOOS, Home: filepath.Join(root, "home"),
 		XDGConfigHome: filepath.Join(root, "config"), LocalAppData: filepath.Join(root, "localappdata"), Path: clientBin,
 	}).ClaudeDesktopExecutable()
+	if runtime.GOOS == "linux" {
+		if discovered != "" {
+			t.Fatalf("Claude Desktop fixture was discovered on unsupported Linux host: %q", discovered)
+		}
+		return
+	}
 	if discovered == "" || !strings.HasPrefix(filepath.Clean(discovered), filepath.Clean(root)+string(filepath.Separator)) {
 		t.Fatalf("Claude Desktop fixture discovery = %q, want an executable owned by %s", discovered, root)
 	}

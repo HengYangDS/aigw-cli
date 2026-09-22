@@ -29,6 +29,9 @@ separate evidence.
 
 ### Fixed
 
+- Stop treating an arbitrary Linux PATH executable named `claude-desktop` as
+  the official Claude Desktop client; Linux now proves graceful absence while
+  macOS and Windows retain their native application locations.
 - Preserve precise client-scoped Route failures, external client edits, and
   guarded Account-rename recovery instead of collapsing them into generic
   readiness or rollback errors.

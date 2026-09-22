@@ -112,6 +112,19 @@ func TestClaudeDesktopDiscoveryUsesNativeApplicationPath(t *testing.T) {
 	}
 }
 
+func TestClaudeDesktopDiscoveryRejectsUnofficialLinuxPathExecutable(t *testing.T) {
+	root := t.TempDir()
+	executable := filepath.Join(root, "claude-desktop")
+	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	system := discovery.System{GOOS: "linux", Home: root, Path: root}
+	if got := system.ClaudeDesktopExecutable(); got != "" {
+		t.Fatalf("ClaudeDesktopExecutable() = %q, want unavailable on Linux", got)
+	}
+}
+
 func TestCurrentReflectsProcessPlatformAndPath(t *testing.T) {
 	wantPath := filepath.Join(t.TempDir(), "bin")
 	wantCodexHome := filepath.Join(t.TempDir(), "codex-home")

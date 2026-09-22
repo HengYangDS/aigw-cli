@@ -10,12 +10,23 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"testing"
 )
 
+func deferredJourneyClientIDs() []string {
+	clients := slices.Clone(configuration.AdmittedClientIDs())
+	if runtime.GOOS != "linux" {
+		return clients
+	}
+	return slices.DeleteFunc(clients, func(client string) bool {
+		return client == configuration.ClientClaudeDesktop
+	})
+}
+
 func runDeferredClientInstallation(t *testing.T, artifact, endpoint string) {
 	t.Helper()
-	for _, clientID := range configuration.AdmittedClientIDs() {
+	for _, clientID := range deferredJourneyClientIDs() {
 		t.Run(clientID, func(t *testing.T) {
 			journey := newNativeJourney(t, artifact, endpoint, false)
 			manifest := fmt.Sprintf(`version = 6

@@ -417,8 +417,10 @@ reviewed Profile under its Account-and-protocol provider, and proves that an
 unconnected Account is not projected.
 
 Task 4.7 now has a source-level Claude Desktop Adapter using the product's
-per-user `Claude-3p/configLibrary` boundary on macOS, Linux and Windows. It owns
-one stable UUID configuration, the corresponding metadata entry,
+per-user `Claude-3p/configLibrary` boundary on the officially supported macOS
+and Windows clients. Linux acceptance proves graceful absence; it does not
+manufacture a Desktop executable or claim native client support. The Adapter
+owns one stable UUID configuration, the corresponding metadata entry,
 deployment-mode values and a compact ownership sidecar; it preserves unrelated
 JSON fields, rejects managed drift, compensates partial writes and removes only
 its own state. The team manifest recommends the same UCloud Fable Profile
