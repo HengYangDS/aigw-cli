@@ -59,6 +59,8 @@ func TestForgeProjectionsFollowDeclaredNativeCapacity(t *testing.T) {
 		t.Fatal(err)
 	}
 	var gitlab struct {
+		NativeDarwin  *gitLabJob `yaml:"native-darwin"`
+		NativeLinux   *gitLabJob `yaml:"native-linux"`
 		NativeWindows *gitLabJob `yaml:"native-windows"`
 		Assets        gitLabJob  `yaml:"release-assets"`
 	}
@@ -67,6 +69,14 @@ func TestForgeProjectionsFollowDeclaredNativeCapacity(t *testing.T) {
 	}
 	if gitlab.NativeWindows == nil {
 		t.Fatal("GitLab projection lacks declared native Windows capacity")
+	}
+	for name, job := range map[string]*gitLabJob{
+		"darwin": gitlab.NativeDarwin,
+		"linux":  gitlab.NativeLinux,
+	} {
+		if job == nil {
+			t.Fatalf("GitLab projection lacks declared native %s capacity", name)
+		}
 	}
 	if !slices.Equal(gitlab.NativeWindows.Tags, []string{"$AIGW_GITLAB_WINDOWS_RUNNER_TAG"}) {
 		t.Fatalf("GitLab native Windows runner tags = %q", gitlab.NativeWindows.Tags)
@@ -85,7 +95,7 @@ func TestForgeProjectionsFollowDeclaredNativeCapacity(t *testing.T) {
 		}
 	}
 	if !foundWindows {
-		t.Fatal("GitLab release assets do not require native Windows acceptance")
+		t.Fatal("GitLab release assets do not require declared native Windows acceptance")
 	}
 
 	for _, projectionIndex := range []int{1} {

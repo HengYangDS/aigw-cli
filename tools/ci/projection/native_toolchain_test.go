@@ -41,14 +41,9 @@ func checkGitLabNativeToolClosure(t *testing.T, content string) {
 		"native-linux":   pipeline.NativeLinux,
 		"native-windows": pipeline.NativeWindows,
 	} {
-		for tool := range strings.SplitSeq(pipeline.Quality.Variables["MISE_ENABLE_TOOLS"], ",") {
+		for _, tool := range []string{"go", "node", "npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "gh", "glab"} {
 			if !slices.Contains(strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ","), tool) {
-				t.Errorf("GitLab %s cannot run repository conformance tests: missing %s", name, tool)
-			}
-		}
-		for _, tool := range []string{"github:goreleaser/goreleaser", "github:anchore/syft"} {
-			if !slices.Contains(strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ","), tool) {
-				t.Errorf("GitLab %s lacks native release conformance tool %s", name, tool)
+				t.Errorf("GitLab %s lacks native acceptance tool %s", name, tool)
 			}
 		}
 		hasDarwinSigner := slices.Contains(strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ","), "github:indygreg/apple-platform-rs")
@@ -62,6 +57,9 @@ func checkGitLabNativeToolClosure(t *testing.T, content string) {
 	}
 	if got := pipeline.NativeWindows.Variables["AIGW_VERIFY_SYSTEM_KEYRING"]; got != "1" {
 		t.Fatalf("GitLab native Windows credential verification = %q, want 1", got)
+	}
+	if strings.Contains(pipeline.NativeWindows.Variables["MISE_ENABLE_TOOLS"], "github:lycheeverse/lychee") {
+		t.Fatal("GitLab native Windows installs the unrelated link-checking tool closure")
 	}
 }
 

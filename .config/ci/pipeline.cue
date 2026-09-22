@@ -99,6 +99,14 @@ lifecycle: {
 // Product evidence is explicit and shared by both Forge projections.
 productEvidence: native: ["darwin", "linux", "windows"]
 
+// Forge capacity is executor inventory, not product support. A Forge projects
+// only the native jobs backed by qualified runners; the aggregate product
+// evidence set remains unchanged.
+forgeCapabilities: {
+	gitlab: native: productEvidence.native
+	github: native: productEvidence.native
+}
+
 // This map owns native execution evidence only. Product release targets remain
 // solely owned by .config/release/goreleaser.yaml.
 nativeEvidence: {
@@ -161,6 +169,12 @@ graph: {
 	"release-version": {stage: "verify", rank: 0, needs: [], claims: ["release-metadata"]}
 	"release-assets": {stage: "release", rank: 1, needs: ["quality", "native-darwin", "native-linux", "native-windows", "release-version"], claims: ["artifact-verification"]}
 }
+
+gitlabReleaseNeeds: list.Concat([
+	["quality"],
+	[for platform in forgeCapabilities.gitlab.native {"native-\(platform)"}],
+	["release-version"],
+])
 
 gitlabVerificationCondition: {
 	tag:           "$CI_COMMIT_TAG"
@@ -420,7 +434,7 @@ actions: {
 	}
 	stage: graph["native-\(_platform)"].stage
 	tags:  nativeEvidence[_platform].gitlab.tags
-	variables: nativeToolchain[_platform].full & {
+	variables: nativeToolchain[_platform].default & {
 		if _platform == "windows" {
 			AIGW_VERIFY_SYSTEM_KEYRING: "1"
 		}
@@ -440,7 +454,7 @@ actions: {
 	}
 	if _platform == "linux" {
 		extends: [".linux-toolchain"]
-		variables: nativeToolchain.linux.full & {CGO_ENABLED: "1"}
+		variables: CGO_ENABLED: "1"
 		script: [commands.bootstrap, _refreshLocks, _native]
 	}
 	if _platform != "linux" {
@@ -509,9 +523,15 @@ gitlab: {
 		]
 		script: [commands.acceptedRefParity.gitlab]
 	}
-	"native-darwin": #NativeGitLabJob & {_platform: "darwin"}
-	"native-linux": #NativeGitLabJob & {_platform: "linux"}
-	"native-windows": #NativeGitLabJob & {_platform: "windows"}
+	if list.Contains(forgeCapabilities.gitlab.native, "darwin") {
+		"native-darwin": #NativeGitLabJob & {_platform: "darwin"}
+	}
+	if list.Contains(forgeCapabilities.gitlab.native, "linux") {
+		"native-linux": #NativeGitLabJob & {_platform: "linux"}
+	}
+	if list.Contains(forgeCapabilities.gitlab.native, "windows") {
+		"native-windows": #NativeGitLabJob & {_platform: "windows"}
+	}
 	"release-version": {
 		stage: graph["release-version"].stage
 		extends: [".linux-toolchain"]
@@ -532,7 +552,7 @@ gitlab: {
 			{if: "$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == \"api\" || $CI_PIPELINE_SOURCE == \"web\")"},
 			{when: "never"},
 		]
-		needs: [for dependency in graph["release-assets"].needs {{job: dependency}}]
+		needs: [for dependency in gitlabReleaseNeeds {{job: dependency}}]
 		script: [
 			#"mkdir dist"#,
 			#"mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist"#,
@@ -659,9 +679,9 @@ githubVerify: {
 				},
 			]
 		}
-		"native-darwin": #NativeGitHubJob & {_platform: "darwin"}
-		"native-linux": #NativeGitHubJob & {_platform: "linux"}
-		"native-windows": #NativeGitHubJob & {_platform: "windows"}
+		for platform in forgeCapabilities.github.native {
+			"native-\(platform)": #NativeGitHubJob & {_platform: platform}
+		}
 	}
 }
 
