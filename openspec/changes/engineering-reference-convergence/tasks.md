@@ -88,7 +88,7 @@
 
 ## 10. Prepare distribution and close the Change
 
-- [ ] 10.1 Verify release necessity, version, changelog, candidate provenance, platform trust, and upgrade evidence after all implementation obligations pass; keep stable publication pending until this Change is complete and archived.
+- [ ] 10.1 Verify release necessity and SemVer impact after all implementation obligations pass; mechanically enforce Keep a Changelog structure, exact `VERSION`/tag/`HEAD` identity, complete tag-to-section provenance, candidate provenance, platform trust, and upgrade evidence; keep stable publication pending until this Change is complete and archived.
 - [ ] 10.2 Prepare the existing release procedure for identical GitHub/GitLab assets, Homebrew distribution, final signed-ref convergence, download verification, and installed-product acceptance; bind each operation to observed source and artifact inputs.
 - [ ] 10.3 Remove proved disposable residue and completed proposal refs; preserve the active Work Lane, required recovery material, and evidence until the remaining archival and distribution operations finish.
 - [ ] 10.4 Verify every task and requirement, and run the official OpenSpec archive preview; establish complete canonical scenario preservation and the exact archival delta before the native archive transition.

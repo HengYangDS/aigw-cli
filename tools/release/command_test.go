@@ -222,15 +222,11 @@ func TestRunArtifactCommands(t *testing.T) {
 }
 
 func TestRunReleasePolicyCommands(t *testing.T) {
-	tmp := t.TempDir()
-	module := filepath.Join(tmp, "go.mod")
+	prepareSignedRelease(t, "1.2.3")
+	module := "go.mod"
 	if err := os.WriteFile(module, []byte("module example\n\ngo "+strings.TrimPrefix(runtime.Version(), "go")+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(tmp, "CHANGELOG.md"), []byte("## [Unreleased]\n\n## [1.2.3] - 2026-08-07\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Chdir(tmp)
 	var output bytes.Buffer
 	for _, args := range [][]string{
 		{"validate-toolchain", module},
@@ -440,7 +436,7 @@ func prepareSignedRelease(t *testing.T, version string) string {
 	source := t.TempDir()
 	for name, content := range map[string]string{
 		"VERSION": version + "\n", "go.mod": "module example.invalid/aigw\n", "go.sum": "sum\n",
-		"CHANGELOG.md":      "# Changelog\n\n## [Unreleased]\n\n## [" + version + "] - 2026-01-01\n",
+		"CHANGELOG.md":      "# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## [Unreleased]\n\n## [" + version + "] - 2026-01-01\n\n### Fixed\n\n- Fix.\n",
 		"package-lock.json": "{}\n", "mise.lock": "lockfile_version = 1\n", "mise.toml": "[tools]\ngo = \"1.27.1\"\n",
 	} {
 		if err := os.WriteFile(filepath.Join(source, name), []byte(content), 0o600); err != nil {

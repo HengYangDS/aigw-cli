@@ -28,7 +28,20 @@ Archive completion SHALL NOT by itself establish distribution success.
 
 ### Requirement: Stable identity and platform trust are distinct
 
-AIGW SHALL validate strict semantic versions apart from platform trust.
+AIGW SHALL keep `VERSION` as the sole product-version authority and validate it
+with strict Semantic Versioning. `CHANGELOG.md` SHALL follow Keep a Changelog
+1.1.0 with exactly one leading `Unreleased` section, canonical change
+categories, and released sections in strictly descending semantic-version
+order. Every local product tag SHALL have exactly one released section. Every
+released section SHALL have a local product tag, except for at most one pending
+release section that is first, matches the current untagged `VERSION`, and is
+newer than every published version. The exact release tag, `VERSION`, first
+released section, and `HEAD` SHALL agree before publication. Version syntax and
+chronology checks SHALL NOT infer whether a change is breaking; the Change and
+release review remain responsible for selecting the SemVer increment from the
+public compatibility impact.
+
+AIGW SHALL validate version identity apart from platform trust.
 Credential-free macOS builds retain ad-hoc signatures, Hardened Runtime, and
 release-epoch timestamps. Public macOS distribution requires Developer ID
 signing and accepted notarization before publication; Windows Authenticode
@@ -41,6 +54,26 @@ secret or developer membership.
 - **WHEN** a valid stable version lacks required product or channel evidence
 - **THEN** distribution SHALL stop with the specific missing evidence
 - **AND** version parsing alone SHALL NOT claim release readiness.
+
+#### Scenario: Development continues between releases
+
+- **WHEN** the current `VERSION` is newer than every local product tag
+- **THEN** unreleased user-visible changes SHALL remain under `Unreleased`
+- **AND** an ordinary development commit SHALL NOT manufacture a dated release.
+
+#### Scenario: A release commit is prepared before its tag
+
+- **WHEN** the current untagged `VERSION` has a dated release section
+- **THEN** that section SHALL be the only untagged released section and the first
+  section after `Unreleased`
+- **AND** every older released section SHALL already correspond to a product tag.
+
+#### Scenario: Release history and Git disagree
+
+- **WHEN** a product tag lacks a released section, a historical released section
+  lacks its tag, or the selected tag differs from `VERSION`, the first released
+  section, or `HEAD`
+- **THEN** the release gate SHALL fail before construction or publication.
 
 #### Scenario: A user consumes the publisher's signed release
 

@@ -756,6 +756,18 @@ current code, task, CI, documentation, or release consumers; projection drift,
 tool bootstrap, Changelog/tag binding, strict semantic-version ordering, and
 release construction tests pass after the consolidation.
 
+The release-readiness owner also treats `VERSION`, local product tags, and
+`CHANGELOG.md` as one identity contract. The Changelog follows Keep a Changelog
+1.1.0: one leading `Unreleased` section, canonical change categories, and one
+strictly descending section per released SemVer. Ordinary development keeps
+changes under `Unreleased`; only the current `VERSION` may temporarily appear
+as the first untagged release section while its release commit is being
+prepared. Historical headings without tags are folded into the next release
+that actually carried their changes, preserving user-visible meaning without
+preserving fictional releases. The tag pipeline additionally binds the exact
+tag, `VERSION`, first released section, and `HEAD`. This extends the existing
+release owner rather than introducing a second metadata command plane.
+
 Task 5.5 removes implementations retained only by tests after their product
 consumers disappeared: the standalone Codex inspection result model and
 sidecar-identity reader, an onboarding runtime selector, a route-list command,

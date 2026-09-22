@@ -1,14 +1,13 @@
 # Changelog
 
 All notable, user-relevant changes are recorded here. This chronicle follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and Semantic
-Versioning. A published section must correspond to an existing Git tag; it is
-not a plan, a branch name, or an inferred version. Artifact publication,
-platform acceptance, signing, and GA status remain separate evidence.
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic
+Versioning](https://semver.org/). A published section must correspond to an
+existing Git tag; it is not a plan, a branch name, or an inferred version.
+Artifact publication, platform acceptance, signing, and GA status remain
+separate evidence.
 
 ## [Unreleased]
-
-## [0.2.0] - 2026-09-20
 
 ### Changed
 
@@ -24,6 +23,9 @@ platform acceptance, signing, and GA status remain separate evidence.
   generate GitHub and GitLab pipelines from the same CUE model.
 - Rebuild product and contributor guidance around the supported setup,
   synchronization, credential, extension, recovery, and distribution journeys.
+- Bind `VERSION`, local product tags, and this Changelog as one release
+  identity; reject fictional historical releases while retaining one explicit
+  pending release train.
 
 ### Fixed
 
@@ -49,9 +51,6 @@ platform acceptance, signing, and GA status remain separate evidence.
   acceptance. Version syntax alone never admits publication.
 - Delegate Homebrew-owned program updates and removal to Homebrew; retain
   explicit client withdrawal, user configuration, and credentials.
-
-### Distribution status
-
 - This initial 0.x line does not promise 1.x API compatibility. A changelog
   entry is not publication evidence; verify the signed tag and release assets.
 - Windows archives do not carry Authenticode signatures. Portable macOS
@@ -231,15 +230,15 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [0.1.0-rc.105] - 2026-08-31
 
-### Fixed
-
-- Make progressive setup actionable when credentials or supported clients are
-  intentionally deferred, while keeping `aigw check` a read-only verifier.
-
 ### Changed
 
 - Define the stable extension boundary for provider Accounts, client adapters,
   and optional external Responses services without coupling AIGW to a proxy.
+
+### Fixed
+
+- Make progressive setup actionable when credentials or supported clients are
+  intentionally deferred, while keeping `aigw check` a read-only verifier.
 
 ## [0.1.0-rc.104] - 2026-08-30
 
@@ -297,17 +296,17 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [0.1.0-rc.99] - 2026-08-29
 
+### Changed
+
+- Remove obsolete OpenSpec summaries, scope carriers, and capability shells
+  after their unique product semantics were absorbed by canonical sources.
+
 ### Fixed
 
 - Give environment-backed Accounts the exact `AIGW_TOKEN_<ACCOUNT>` recovery
   action across setup, use, diagnostics, verification, and adapters.
 - Reject environment-backed Token rotation before reading input, validating a
   replacement, opening a credential prompt, or attempting persistence.
-
-### Changed
-
-- Remove obsolete OpenSpec summaries, scope carriers, and capability shells
-  after their unique product semantics were absorbed by canonical sources.
 
 ## [0.1.0-rc.98] - 2026-08-29
 
@@ -419,16 +418,16 @@ platform acceptance, signing, and GA status remain separate evidence.
   and removal journey on native macOS, Linux, and Windows, including each
   platform's system credential store.
 
+### Changed
+
+- Refresh the locked stable language, specification, CI, build, and
+  supply-chain toolsets while keeping `mise.toml` and `mise.lock` authoritative.
+
 ### Fixed
 
 - Execute Windows client shims through their native command boundary.
 - Verify the exact signed product commit in Forge review pipelines and isolate
   release jobs from ambient lifecycle and credential state.
-
-### Changed
-
-- Refresh the locked stable language, specification, CI, build, and
-  supply-chain toolsets while keeping `mise.toml` and `mise.lock` authoritative.
 
 ## [0.1.0-rc.90] - 2026-08-21
 
@@ -439,15 +438,6 @@ platform acceptance, signing, and GA status remain separate evidence.
   optional beta support while keeping the setting process-local.
 
 ## [0.1.0-rc.89] - 2026-08-19
-
-### Fixed
-
-- Make Windows and Linux hosted verification use host-native, deterministic
-  fixtures without weakening executable-path or publication rejection checks.
-- Keep Windows native acceptance focused on build, execution, installation, and
-  uninstallation; aggregate coverage remains a single source-governance gate.
-- Bind Claude Code credential lookup to the installed AIGW executable so GUI
-  and service launches do not depend on shell `PATH`.
 
 ### Added
 
@@ -463,6 +453,15 @@ platform acceptance, signing, and GA status remain separate evidence.
   tree-only parity, and duplicate branch-lifecycle commands.
 - Use aggregate statement and branch coverage as the quantitative release veto;
   keep every package present, executed, and visible with exact diagnostics.
+
+### Fixed
+
+- Make Windows and Linux hosted verification use host-native, deterministic
+  fixtures without weakening executable-path or publication rejection checks.
+- Keep Windows native acceptance focused on build, execution, installation, and
+  uninstallation; aggregate coverage remains a single source-governance gate.
+- Bind Claude Code credential lookup to the installed AIGW executable so GUI
+  and service launches do not depend on shell `PATH`.
 
 ## [0.1.0-rc.88] - 2026-08-18
 
@@ -513,69 +512,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [0.1.0-rc.82] - 2026-08-15
 
-### Fixed
-
-- Bind the selected GitHub release tag to the release builder's canonical
-  `CI_COMMIT_TAG` input, so packaging follows native macOS, Linux, and Windows
-  acceptance instead of failing at the publication boundary.
-- Limit GitHub source verification to the exact locked tool closure used by its
-  source and governance command.
-
-## [0.1.0-rc.81] - 2026-08-15
-
-### Fixed
-
-- Isolate generic repository tests from ambient GitHub and GitLab release-tag
-  variables while keeping dedicated provenance tests explicit, so the same
-  native source suite passes locally and inside release jobs.
-
 ### Changed
 
 - Confirm every direct Go dependency is current without pinning unneeded
   transitive modules, and replace generated OpenSpec purpose placeholders with
   concise product semantics.
-
-## [0.1.0-rc.80] - 2026-08-05
-
-### Fixed
-
-- Preserve the established cross-platform `config.toml` control-plane path so
-  upgrading does not make an existing configuration appear absent.
-- Let portable and automated installations explicitly avoid changing shell or
-  user PATH configuration.
-- Validate source-bound evidence by provider-neutral tree identity in each
-  Forge's own signed history, without requiring a peer-Forge commit object.
-- Build the Claude launcher diagnostic fixture from the test-owned executable
-  instead of depending on the host Go toolchain path.
-
-## [0.1.0-rc.79] - 2026-08-05
-
-### Changed
-
 - Upgrade the Go dependency graph and immutable GitHub Actions revisions to
   their current stable releases without retaining obsolete versions as
   compatibility targets.
-
-### Fixed
-
-- Describe GitHub accurately as the public distribution peer while keeping
-  signed, independently verified Forge provenance as the release authority.
-- Materialize GitHub provenance trust content as a runner-temporary file and
-  validate repository-relative policy paths identically on macOS, Linux, and
-  Windows.
-- Restore the actual `~/.codex/config.toml` projection target and model Codex
-  CLI/Desktop as one shared Codex Home integration without claiming authority
-  over conversations or Desktop-only GUI settings.
-- Make the current client boundary explicit: setup configures only discoverable
-  Claude or Codex integrations, while missing clients remain untouched and
-  Hermes or future clients require independent Adapter admission.
-- Project Codex's current per-session scheduler keys with a 16-thread limit and
-  depth 1, leaving global transport capacity to the selected external service.
-
-## [0.1.0-rc.78] - 2026-07-31
-
-### Changed
-
 - Remove AIGW's JetBrains Air, PyCharm, and Junie discovery, diagnosis,
   fallback, attestation, and recovery vertical slices. IDE configuration and
   lifecycle remain entirely with the owning client; AIGW now projects only to
@@ -591,6 +535,38 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 - Remove the legacy version 2 manifest parser and the Air-specific route,
   recovery, attestation, and private-ledger command surface.
+
+### Fixed
+
+- Bind the selected GitHub release tag to the release builder's canonical
+  `CI_COMMIT_TAG` input, so packaging follows native macOS, Linux, and Windows
+  acceptance instead of failing at the publication boundary.
+- Limit GitHub source verification to the exact locked tool closure used by its
+  source and governance command.
+- Isolate generic repository tests from ambient GitHub and GitLab release-tag
+  variables while keeping dedicated provenance tests explicit, so the same
+  native source suite passes locally and inside release jobs.
+- Preserve the established cross-platform `config.toml` control-plane path so
+  upgrading does not make an existing configuration appear absent.
+- Let portable and automated installations explicitly avoid changing shell or
+  user PATH configuration.
+- Validate source-bound evidence by provider-neutral tree identity in each
+  Forge's own signed history, without requiring a peer-Forge commit object.
+- Build the Claude launcher diagnostic fixture from the test-owned executable
+  instead of depending on the host Go toolchain path.
+- Describe GitHub accurately as the public distribution peer while keeping
+  signed, independently verified Forge provenance as the release authority.
+- Materialize GitHub provenance trust content as a runner-temporary file and
+  validate repository-relative policy paths identically on macOS, Linux, and
+  Windows.
+- Restore the actual `~/.codex/config.toml` projection target and model Codex
+  CLI/Desktop as one shared Codex Home integration without claiming authority
+  over conversations or Desktop-only GUI settings.
+- Make the current client boundary explicit: setup configures only discoverable
+  Claude or Codex integrations, while missing clients remain untouched and
+  Hermes or future clients require independent Adapter admission.
+- Project Codex's current per-session scheduler keys with a 16-thread limit and
+  depth 1, leaving global transport capacity to the selected external service.
 
 ## [0.1.0-rc.77] - 2026-07-30
 
@@ -635,22 +611,6 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [0.1.0-rc.74] - 2026-07-29
 
-### Fixed
-
-- Isolate Changelog regression fixtures from an outer tag workflow's selected
-  release identity.
-
-## [0.1.0-rc.73] - 2026-07-29
-
-### Fixed
-
-- Pass the selected provider root tag explicitly through GitHub verification
-  and release jobs so cached qualified tags cannot alter release chronology.
-- Keep native macOS, Linux, and Windows source verification blocking for RCs,
-  while reserving rooted macOS package-lifecycle acceptance for GA credentials.
-
-## [0.1.0-rc.72] - 2026-07-29
-
 ### Added
 
 - Add a repository-wide Go statement-coverage gate that tests every package
@@ -670,6 +630,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Isolate Changelog regression fixtures from an outer tag workflow's selected
+  release identity.
+- Pass the selected provider root tag explicitly through GitHub verification
+  and release jobs so cached qualified tags cannot alter release chronology.
+- Keep native macOS, Linux, and Windows source verification blocking for RCs,
+  while reserving rooted macOS package-lifecycle acceptance for GA credentials.
 - Make Windows paths, file modes, archive names, recovery storage, deferred
   self-update, discovery, and launcher tests follow native platform semantics.
 - Make transaction snapshots read bytes and metadata from one file handle, and
@@ -858,11 +824,6 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Preserve superseded GitLab release headings through an explicit retired-tag
   inventory, and keep the chronology regression fixture valid after a candidate
   tag is created.
-
-## [0.1.0-rc.61] - 2026-07-17
-
-### Fixed
-
 - Treat the Changelog release date as source-controlled metadata, rather than
   as the timestamp of one forge's independently signed tag.
 - Verify GitLab and GitHub release tags against separate tracked trust anchors;
@@ -873,83 +834,11 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [0.1.0-rc.58] - 2026-07-17
 
-### Fixed
-
-- Pin release builds to Go 1.25.8, use one tracked provider-neutral release
-  source manifest, and remove AppleDouble metadata before macOS packaging so
-  the equal GitLab and GitHub release planes produce the same artifact bytes.
-- Reject a release compiler or provider tuple that differs from the committed
-  source contract, and omit forge-specific VCS metadata from portable binaries.
-
-### Changed
-
-- Run the full release matrix on the dedicated macOS arm64 release runner in
-  both forge pipelines, with a byte-for-byte comparison gate for every matrix.
-
-## [0.1.0-rc.57] - 2026-07-18
-
-### Fixed
-
-- Reset writable ownership before bounded CI Go-cache eviction, so a read-only
-  module entry cannot abort a release package job.
-- Verify every linked GitLab and GitHub release asset after creation or reuse;
-  publication now fails closed when a release is incomplete or differs from
-  locally validated artifacts.
-
-## [0.1.0-rc.56] - 2026-07-18
-
-### Fixed
-
-- Pin release builds to Go 1.25.8, use one tracked provider-neutral release
-  source manifest, and remove AppleDouble metadata before macOS packaging so
-  the equal GitLab and GitHub release planes produce the same artifact bytes.
-
-### Changed
-
-- Run the full release matrix on the dedicated macOS arm64 release runner in
-  both forge pipelines, with a byte-for-byte comparison gate for every matrix.
-
-## [0.1.0-rc.55] - 2026-07-17
-
-### Fixed
-
-- Make the complete 15-artifact release matrix reproducible from one committed
-  source epoch, including portable archives, macOS packages, Windows MSI
-  metadata, checksums, and the SPDX SBOM.
-- Keep GitLab package builds resilient to a transient module-proxy timeout
-  without weakening the declared dependency source policy.
-- Preserve the MSI PATH environment entry through deterministic package
-  metadata and its install/uninstall execution sequence.
-
-### Changed
-
-- Require two byte-identical full-matrix builds before either release plane
-  publishes an artifact set.
-
-## [0.1.0-rc.54] - 2026-07-17
-
 ### Added
 
 - Add `aigw repair --dry-run [--json]` as a secret-free, lock-free preview for
   restoring legacy JetBrains target membership while retaining the standalone
   Codex target.
-
-### Fixed
-
-- Make route-doctor conflicts recommend the repair preview instead of an Air
-  restore command that must fail while Air still selects AIGW at the top level.
-
-## [0.1.0-rc.53] - 2026-07-17
-
-### Fixed
-
-- Keep the shallow branch-history fixture in `test-changelog.sh` independent
-  of an outer GitLab or GitHub release-tag environment.
-
-## [0.1.0-rc.52] - 2026-07-17
-
-### Added
-
 - Add host-specific Codex surface classification and `aigw route doctor` for
   local, secret-free ownership diagnostics. The doctor distinguishes ordinary
   standalone Codex CLI, PyCharm Codex, JetBrains Air, and Junie CLI without
@@ -957,52 +846,7 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Add explicit `aigw route fallback air` and `aigw route restore air` commands
   with secret-free dry runs and required `--confirm-host-idle` attestation for
   any mutation.
-
-### Changed
-
-- Make host routing explicit: ordinary standalone Codex CLI receives the AIGW
-  full-selection projection; ChatGPT Desktop retains authority over existing
-  conversation model choices and transcripts; PyCharm Codex and Junie CLI stay
-  JetBrains AI surfaces; and Air stays JetBrains AI except for an explicit,
-  non-default fallback.
-- Restrict generic Codex setup and repair discovery to standalone targets. An
-  explicitly staged Air fallback remains reconcilable, but generic commands no
-  longer adopt JetBrains host defaults.
-
-### Fixed
-
-- Reconcile Codex projections as before-to-after transactions with sidecar
-  writer attribution, guarded preimage checks, byte-exact rollback, and
-  fail-closed handling of incomplete, foreign, or mode-mismatched state.
-- Preserve Air's top-level provider/model selection and original bytes while
-  staging or restoring its namespaced fallback.
-
-- Mark GitHub releases created from SemVer prerelease tags as prereleases, while
-  leaving GA releases unmarked.
-- Resolve the newest published GitHub prerelease when GitHub's stable-only
-  latest-release endpoint has no result, preserving the independent peer update
-  contract for prerelease-only release streams.
-- Add a disposable-volume macOS native-package acceptance lane with an owned
-  uninstaller and explicit RC-versus-GA evidence boundaries.
-
-## [0.1.0-rc.51] - 2026-07-15
-
-### Fixed
-
-- Build the shallow-history changelog regression from an independent complete fixture, so both GitHub and GitLab release gates exercise the same recoverable history boundary.
-
-## [0.1.0-rc.50] - 2026-07-15
-
-### Fixed
-
-- Make the GitHub release workflow install the supported Homebrew `msitools` formula, which provides `wixl`, and make the shallow-history changelog fixture reproduce CI safely.
-
-## [0.1.0-rc.49] - 2026-07-15
-
-### Added
-
 - Split the self-update implementation into focused coordinator, candidate, archive, installer, GitLab, and GitHub units without changing the equal-forge update contract.
-
 - Add the canonical MIT License and align repository, package, and contributor
   surfaces on the same permissive licensing statement.
 - Add a command-oriented entry path in the CLI and documentation: setup, choose,
@@ -1014,6 +858,20 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Changed
 
+- Run the full release matrix on the dedicated macOS arm64 release runner in
+  both forge pipelines, with a byte-for-byte comparison gate for every matrix.
+- Run the full release matrix on the dedicated macOS arm64 release runner in
+  both forge pipelines, with a byte-for-byte comparison gate for every matrix.
+- Require two byte-identical full-matrix builds before either release plane
+  publishes an artifact set.
+- Make host routing explicit: ordinary standalone Codex CLI receives the AIGW
+  full-selection projection; ChatGPT Desktop retains authority over existing
+  conversation model choices and transcripts; PyCharm Codex and Junie CLI stay
+  JetBrains AI surfaces; and Air stays JetBrains AI except for an explicit,
+  non-default fallback.
+- Restrict generic Codex setup and repair discovery to standalone targets. An
+  explicitly staged Air fallback remains reconcilable, but generic commands no
+  longer adopt JetBrains host defaults.
 - Standardize the repository's user-facing commands, diagnostics, examples,
   documentation, and release metadata on English-only canonical text.
 - Simplify the public documentation set around portable installation, explicit
@@ -1031,6 +889,44 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Pin release builds to Go 1.25.8, use one tracked provider-neutral release
+  source manifest, and remove AppleDouble metadata before macOS packaging so
+  the equal GitLab and GitHub release planes produce the same artifact bytes.
+- Reject a release compiler or provider tuple that differs from the committed
+  source contract, and omit forge-specific VCS metadata from portable binaries.
+- Reset writable ownership before bounded CI Go-cache eviction, so a read-only
+  module entry cannot abort a release package job.
+- Verify every linked GitLab and GitHub release asset after creation or reuse;
+  publication now fails closed when a release is incomplete or differs from
+  locally validated artifacts.
+- Pin release builds to Go 1.25.8, use one tracked provider-neutral release
+  source manifest, and remove AppleDouble metadata before macOS packaging so
+  the equal GitLab and GitHub release planes produce the same artifact bytes.
+- Make the complete 15-artifact release matrix reproducible from one committed
+  source epoch, including portable archives, macOS packages, Windows MSI
+  metadata, checksums, and the SPDX SBOM.
+- Keep GitLab package builds resilient to a transient module-proxy timeout
+  without weakening the declared dependency source policy.
+- Preserve the MSI PATH environment entry through deterministic package
+  metadata and its install/uninstall execution sequence.
+- Make route-doctor conflicts recommend the repair preview instead of an Air
+  restore command that must fail while Air still selects AIGW at the top level.
+- Keep the shallow branch-history fixture in `test-changelog.sh` independent
+  of an outer GitLab or GitHub release-tag environment.
+- Reconcile Codex projections as before-to-after transactions with sidecar
+  writer attribution, guarded preimage checks, byte-exact rollback, and
+  fail-closed handling of incomplete, foreign, or mode-mismatched state.
+- Preserve Air's top-level provider/model selection and original bytes while
+  staging or restoring its namespaced fallback.
+- Mark GitHub releases created from SemVer prerelease tags as prereleases, while
+  leaving GA releases unmarked.
+- Resolve the newest published GitHub prerelease when GitHub's stable-only
+  latest-release endpoint has no result, preserving the independent peer update
+  contract for prerelease-only release streams.
+- Add a disposable-volume macOS native-package acceptance lane with an owned
+  uninstaller and explicit RC-versus-GA evidence boundaries.
+- Build the shallow-history changelog regression from an independent complete fixture, so both GitHub and GitLab release gates exercise the same recoverable history boundary.
+- Make the GitHub release workflow install the supported Homebrew `msitools` formula, which provides `wixl`, and make the shallow-history changelog fixture reproduce CI safely.
 - Remove repository-specific release endpoints from source builds. Published
   artifacts now receive their release host and project at build time; source
   builds fail closed until both are configured explicitly.
@@ -1038,8 +934,6 @@ platform acceptance, signing, and GA status remain separate evidence.
   test fixtures, through the governance gate.
 - Reject disagreeing peer tags or platform artifact bytes before installation;
   retain single-peer updates only when the other configured peer is unavailable.
-
-## [0.1.0-rc.48] - 2026-07-14
 
 ### Security
 

@@ -8,34 +8,49 @@ import (
 	"testing"
 )
 
-func TestChangelogRequiresOneDescendingSemanticChronology(t *testing.T) {
+func TestChangelogRequiresKeepAChangelogStructure(t *testing.T) {
 	for name, content := range map[string]string{
-		"missing unreleased": "## [1.0.0] - 2026-08-07\n",
-		"malformed heading":  "## [Unreleased]\n\n## [1.0.0] 2026-08-07\n",
-		"invalid version":    "## [Unreleased]\n\n## [01.0.0] - 2026-08-07\n",
-		"invalid date":       "## [Unreleased]\n\n## [1.0.0] - 2026-02-30\n",
-		"duplicate":          "## [Unreleased]\n\n## [1.0.0] - 2026-08-07\n\n## [1.0.0] - 2026-08-06\n",
-		"ascending":          "## [Unreleased]\n\n## [1.0.0] - 2026-08-06\n\n## [1.1.0] - 2026-08-07\n",
-		"missing release":    "## [Unreleased]\n",
+		"missing title":               "## [Unreleased]\n",
+		"missing standards":           "# Changelog\n\n## [Unreleased]\n",
+		"missing unreleased":          validChangelog("## [1.0.0] - 2026-08-07\n\n### Fixed\n\n- Fix.\n"),
+		"duplicate unreleased":        validChangelog("## [Unreleased]\n\n## [Unreleased]\n"),
+		"malformed heading":           validChangelog("## [Unreleased]\n\n## [1.0.0] 2026-08-07\n"),
+		"invalid version":             validChangelog("## [Unreleased]\n\n## [01.0.0] - 2026-08-07\n"),
+		"invalid date":                validChangelog("## [Unreleased]\n\n## [1.0.0] - 2026-02-30\n"),
+		"duplicate release":           validChangelog("## [Unreleased]\n\n## [1.0.0] - 2026-08-07\n\n### Fixed\n\n- Fix.\n\n## [1.0.0] - 2026-08-06\n\n### Fixed\n\n- Fix.\n"),
+		"ascending releases":          validChangelog("## [Unreleased]\n\n## [1.0.0] - 2026-08-06\n\n### Fixed\n\n- Fix.\n\n## [1.1.0] - 2026-08-07\n\n### Fixed\n\n- Fix.\n"),
+		"nonstandard change category": validChangelog("## [Unreleased]\n\n## [1.0.0] - 2026-08-07\n\n### Quality\n\n- Improve quality.\n"),
+		"duplicate change category":   validChangelog("## [Unreleased]\n\n## [1.0.0] - 2026-08-07\n\n### Fixed\n\n- Fix one.\n\n### Fixed\n\n- Fix two.\n"),
+		"release without changes":     validChangelog("## [Unreleased]\n\n## [1.0.0] - 2026-08-07\n\n### Fixed\n"),
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "CHANGELOG.md")
 			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if err := ValidateChangelog(t.TempDir(), path, ""); err == nil {
-				t.Fatal("invalid release chronology was accepted")
+			if _, err := parseChangelog(path); err == nil {
+				t.Fatal("invalid changelog structure was accepted")
 			}
 		})
 	}
 
-	path := filepath.Join(t.TempDir(), "CHANGELOG.md")
-	content := "## [Unreleased]\n\n## [1.2.3+build.1] - 2026-08-07\n\n## [1.2.3-rc.1] - 2026-08-06\n"
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := ValidateChangelog(t.TempDir(), path, ""); err != nil {
-		t.Fatal(err)
+	for name, content := range map[string]string{
+		"initial unreleased": validChangelog("## [Unreleased]\n"),
+		"released history": validChangelog(
+			"## [Unreleased]\n\n" +
+				"## [1.2.3+build.1] - 2026-08-07\n\n### Fixed\n\n- Fix one.\n\n" +
+				"## [1.2.3-rc.1] - 2026-08-06\n\n### Added\n\n- Add one.\n",
+		),
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "CHANGELOG.md")
+			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := parseChangelog(path); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 
@@ -43,10 +58,13 @@ func TestChangelogTagBindsTheFirstPublishedVersionToHead(t *testing.T) {
 	root := t.TempDir()
 	git(t, root, "init", "-q", "-b", "main")
 	path := filepath.Join(root, "CHANGELOG.md")
-	if err := os.WriteFile(path, []byte("## [Unreleased]\n\n## [1.2.3] - 2026-08-07\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(validChangelog("## [Unreleased]\n\n## [1.2.3] - 2026-08-07\n\n### Fixed\n\n- Fix one.\n")), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	git(t, root, "add", "CHANGELOG.md")
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	git(t, root, "add", "CHANGELOG.md", "VERSION")
 	git(t, root, "-c", "user.name=Release Test", "-c", "user.email=release@example.test", "commit", "-q", "-m", "release")
 	git(t, root, "tag", "v1.2.3")
 	if err := ValidateChangelog(root, path, "v1.2.3"); err != nil {
@@ -76,9 +94,75 @@ func TestChangelogTagBindsTheFirstPublishedVersionToHead(t *testing.T) {
 	}
 }
 
+func TestChangelogAllowsOnlyTheCurrentPendingRelease(t *testing.T) {
+	root := t.TempDir()
+	git(t, root, "init", "-q", "-b", "main")
+	path := filepath.Join(root, "CHANGELOG.md")
+	if err := os.WriteFile(path, []byte(validChangelog("## [Unreleased]\n\n## [1.0.0] - 2026-08-07\n\n### Added\n\n- Initial release.\n")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.0.0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	git(t, root, "add", "CHANGELOG.md", "VERSION")
+	git(t, root, "-c", "user.name=Release Test", "-c", "user.email=release@example.test", "commit", "-q", "-m", "release")
+	git(t, root, "tag", "v1.0.0")
+
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.1.0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(validChangelog("## [Unreleased]\n\n### Changed\n\n- Pending change.\n\n## [1.0.0] - 2026-08-07\n\n### Added\n\n- Initial release.\n")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateChangelog(root, path, ""); err != nil {
+		t.Fatalf("unreleased active train = %v", err)
+	}
+
+	if err := os.WriteFile(path, []byte(validChangelog("## [Unreleased]\n\n## [1.1.0] - 2026-08-08\n\n### Changed\n\n- Pending change.\n\n## [1.0.0] - 2026-08-07\n\n### Added\n\n- Initial release.\n")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateChangelog(root, path, ""); err != nil {
+		t.Fatalf("prepared release = %v", err)
+	}
+
+	if err := os.WriteFile(path, []byte(validChangelog("## [Unreleased]\n\n## [1.1.0] - 2026-08-08\n\n### Changed\n\n- Pending change.\n\n## [1.0.1] - 2026-08-07\n\n### Fixed\n\n- Never published.\n\n## [1.0.0] - 2026-08-06\n\n### Added\n\n- Initial release.\n")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateChangelog(root, path, ""); err == nil || !strings.Contains(err.Error(), "has no Git tag") {
+		t.Fatalf("historical untagged release = %v", err)
+	}
+}
+
+func TestChangelogRequiresEveryReleaseTagAndCurrentVersion(t *testing.T) {
+	root := t.TempDir()
+	git(t, root, "init", "-q", "-b", "main")
+	path := filepath.Join(root, "CHANGELOG.md")
+	if err := os.WriteFile(path, []byte(validChangelog("## [Unreleased]\n\n## [1.1.0] - 2026-08-08\n\n### Changed\n\n- Latest.\n")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.1.0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	git(t, root, "add", "CHANGELOG.md", "VERSION")
+	git(t, root, "-c", "user.name=Release Test", "-c", "user.email=release@example.test", "commit", "-q", "-m", "release")
+	git(t, root, "tag", "v1.1.0")
+	git(t, root, "tag", "v1.0.0")
+	if err := ValidateChangelog(root, path, ""); err == nil || !strings.Contains(err.Error(), "missing release section") {
+		t.Fatalf("tag without changelog release = %v", err)
+	}
+
+	git(t, root, "tag", "-d", "v1.0.0")
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.0.0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateChangelog(root, path, ""); err == nil || !strings.Contains(err.Error(), "must not precede") {
+		t.Fatalf("regressed active version = %v", err)
+	}
+}
+
 func TestLookupReleaseEpochPreservesExactBuildIdentity(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "CHANGELOG.md")
-	if err := os.WriteFile(path, []byte("## [Unreleased]\n\n## [1.2.3+build.1] - 2026-08-07\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(validChangelog("## [Unreleased]\n\n## [1.2.3+build.1] - 2026-08-07\n\n### Fixed\n\n- Fix.\n")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	epoch, found, err := LookupReleaseEpoch(path, "1.2.3+build.1")
@@ -109,16 +193,17 @@ func TestChangelogUsesStrictSemanticVersionPrecedence(t *testing.T) {
 		{name: "equal precedence", versions: []string{"1.2.3+first", "1.2.3+second"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			var content strings.Builder
-			content.WriteString("## [Unreleased]\n")
+			var sections strings.Builder
+			sections.WriteString("## [Unreleased]\n")
 			for _, version := range test.versions {
-				content.WriteString("\n## [" + version + "] - 2026-08-07\n")
+				sections.WriteString("\n## [" + version + "] - 2026-08-07\n\n### Fixed\n\n- Fix.\n")
 			}
 			path := filepath.Join(t.TempDir(), "CHANGELOG.md")
-			if err := os.WriteFile(path, []byte(content.String()), 0o600); err != nil {
+			if err := os.WriteFile(path, []byte(validChangelog(sections.String())), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if err := ValidateChangelog(t.TempDir(), path, ""); (err == nil) != test.valid {
+			_, err := parseChangelog(path)
+			if (err == nil) != test.valid {
 				t.Fatalf("versions=%v error=%v valid=%t", test.versions, err, test.valid)
 			}
 		})
@@ -154,12 +239,16 @@ func TestSelectedReleaseTagUsesExplicitForgePrecedence(t *testing.T) {
 
 func TestChangelogReportsOversizedInput(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "CHANGELOG.md")
-	if err := os.WriteFile(path, []byte("## [Unreleased]\n"+strings.Repeat("a", 70*1024)), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(validChangelog("## [Unreleased]\n"+strings.Repeat("a", 70*1024))), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateChangelog(t.TempDir(), path, ""); err == nil || !strings.Contains(err.Error(), "token too long") {
+	if _, err := parseChangelog(path); err == nil || !strings.Contains(err.Error(), "token too long") {
 		t.Fatalf("oversized changelog = %v", err)
 	}
+}
+
+func validChangelog(sections string) string {
+	return "# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n" + sections
 }
 
 func git(t *testing.T, root string, args ...string) {

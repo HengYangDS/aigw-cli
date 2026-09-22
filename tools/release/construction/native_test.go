@@ -88,7 +88,7 @@ func TestBuildNativeRejectsInvalidInputsWithoutOwningCallerWorkspace(t *testing.
 				version = "invalid"
 			}
 			if failure != "changelog" {
-				if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("## [Unreleased]\n\n## ["+version+"] - 2026-09-15\n"), 0o600); err != nil {
+				if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## [Unreleased]\n\n## ["+version+"] - 2026-09-15\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}
