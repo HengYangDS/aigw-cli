@@ -85,6 +85,59 @@ func TestProjectionMigratesTheInvalidLegacyProfileIdentity(t *testing.T) {
 	requireAbsent(t, paths.StandardConfig, paths.ThirdPartyConfig, paths.Profile, paths.State, paths.Metadata, legacyProfile, legacyState)
 }
 
+func TestProjectionRejectsAmbiguousProfileOwnership(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(*testing.T, Paths, string, string)
+		want  string
+	}{
+		{
+			name: "both ownership states",
+			setup: func(t *testing.T, paths Paths, _ string, legacyState string) {
+				writeFile(t, paths.State, []byte("{}"))
+				writeFile(t, legacyState, []byte("{}"))
+			},
+			want: "multiple Claude Desktop ownership states are present",
+		},
+		{
+			name: "legacy profile beside current state",
+			setup: func(t *testing.T, paths Paths, legacyProfile, _ string) {
+				writeFile(t, paths.State, []byte("{}"))
+				writeFile(t, legacyProfile, []byte("{}"))
+			},
+			want: "legacy Claude Desktop profile exists beside the current ownership state",
+		},
+		{
+			name: "current profile beside legacy state",
+			setup: func(t *testing.T, paths Paths, _ string, legacyState string) {
+				writeFile(t, paths.Profile, []byte("{}"))
+				writeFile(t, legacyState, []byte("{}"))
+			},
+			want: "current Claude Desktop profile exists beside the legacy ownership state",
+		},
+		{
+			name: "profile without ownership state",
+			setup: func(t *testing.T, paths Paths, _, _ string) {
+				writeFile(t, paths.Profile, []byte("{}"))
+			},
+			want: "Claude Desktop AIGW profile already exists without AIGW ownership",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			paths := PathsForLibrary(filepath.Join(t.TempDir(), "Claude-3p", "configLibrary"))
+			legacyProfile, legacyState := legacyPaths(paths)
+			test.setup(t, paths, legacyProfile, legacyState)
+
+			_, err := Prepare(paths, &Desired{})
+			if err == nil || err.Error() != test.want {
+				t.Fatalf("Prepare() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
 func writeFile(t *testing.T, path string, data []byte) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
