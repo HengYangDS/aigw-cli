@@ -38,7 +38,7 @@
 - [ ] 4.8 Qualify selected cross-model routes in Codex CLI/Desktop, Claude Code, and Claude Desktop; verify exact upstream identity, streaming, tool results, cancellation, continuation, compaction, and explicit feature limits without rewriting session state or disguising the serving model.
 - [x] 4.9 Complete source-backed assessments for OpenCode, Pi, CodeBuddy CLI, WorkBuddy Desktop, Qoder CLI/IDE, and ChatGPT Chat/Work/Codex surfaces; state the supported extension path, actual platform coverage, and a bounded implementation or research disposition for each.
 - [x] 4.10 Document and validate the AWS Bedrock and other provider extension recipes; distinguish a data-only endpoint/model addition, client-native authentication, and a protocol adapter, with concrete cost and capability evidence.
-- [ ] 4.11 Update the real team manifest and complete user journeys for admitted clients and routes; use consistent naming, curate Flagship and Daily profiles for Grok, Gemini, DeepSeek, Qwen, GLM, and Kimi, declare each Account/model protocol capability, verify exact model IDs and channel variants, allow partial credentials, and preserve explicit operator selections and native model-choice authority.
+- [x] 4.11 Update the real team manifest and complete user journeys for admitted clients and routes; use consistent naming, curate Flagship and Daily profiles for Grok, Gemini, DeepSeek, Qwen, GLM, and Kimi, declare each Account/model protocol capability, verify exact model IDs and channel variants, allow partial credentials, and preserve explicit operator selections and native model-choice authority.
 
 ## 5. Align logical and physical repository structure
 

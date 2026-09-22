@@ -541,6 +541,21 @@ the declared compatible protocol and exact requested model, not the upstream
 vendor's serving identity or broader tool, cancellation, continuation, and
 compaction behavior, which remain task 4.8.
 
+Task 4.11 closes on the canonical version 6 [`team.toml`](../../../manifests/team.toml),
+whose SHA-256 is `71540fec516305bc84407b5a0d802a679c617335939d0dab15dae8310b40413f`.
+It contains three Accounts, 70 credential-free Profiles, and one independent
+recommendation for each admitted client. Profile identifiers retain the exact
+Account and upstream model spelling; labels use `Account · Model [· Channel]`,
+DMXAPI channel variants remain explicit, and catalogue entries omit subjective
+purpose text. Each general model family has one declared Flagship and Daily
+Profile per Account with an explicit verified protocol. The native team journey
+builds the current candidate, imports the manifest with no Token, then connects
+each Account independently through the environment backend, synchronizes all
+four admitted clients, preserves every Profile, proves a second sync byte-stable,
+and removes only owned state. Focused configuration, CLI acceptance, and native
+release suites pass. Live inference breadth remains task 4.8 rather than being
+inferred from manifest admission.
+
 A synthetic `future` Client passes the complete registry contract for discovery,
 convergence, preflight, guarded projection, change detection, inspection, live
 verification, compensation, disable, and withdrawal. The same registry rejects
