@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	goruntime "runtime"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -78,6 +79,38 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	}
 	if got := buffer.String(); !strings.Contains(got, "aigw use --for codex claude") {
 		t.Fatalf("route selection status = %q", got)
+	}
+}
+
+func TestStatusStatesClaudeDesktopQualifiedModesAndPlatforms(t *testing.T) {
+	runtime, _, buffer := configuredReadinessRuntime(t)
+
+	if err := RunStatus(runtime, true); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Clients map[string]struct {
+			QualifiedModes     []string `json:"qualified_modes"`
+			QualifiedPlatforms []string `json:"qualified_platforms"`
+		} `json:"clients"`
+	}
+	if err := json.Unmarshal(buffer.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	desktop := result.Clients[configuration.ClientClaudeDesktop]
+	if !slices.Equal(desktop.QualifiedModes, []string{"Cowork", "Code"}) {
+		t.Fatalf("qualified modes = %#v", desktop.QualifiedModes)
+	}
+	if !slices.Equal(desktop.QualifiedPlatforms, []string{"macOS"}) {
+		t.Fatalf("qualified platforms = %#v", desktop.QualifiedPlatforms)
+	}
+
+	buffer.Reset()
+	if err := RunStatus(runtime, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := buffer.String(); !strings.Contains(got, "Qualified: Cowork, Code · macOS") {
+		t.Fatalf("human status = %q", got)
 	}
 }
 

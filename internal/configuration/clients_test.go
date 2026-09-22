@@ -13,7 +13,14 @@ import (
 func TestAdmittedClientRegistryIsTheSingleProtocolBoundary(t *testing.T) {
 	want := []ClientSpec{
 		{ID: ClientClaude, Label: "Claude", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}},
-		{ID: ClientClaudeDesktop, Label: "Claude Desktop", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}, RestartAfterProjection: true},
+		{
+			ID:                     ClientClaudeDesktop,
+			Label:                  "Claude Desktop",
+			EndpointProtocols:      []EndpointProtocol{ProtocolAnthropic},
+			RestartAfterProjection: true,
+			QualifiedModes:         []string{"Cowork", "Code"},
+			QualifiedPlatforms:     []string{"macOS"},
+		},
 		{ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses}},
 		{ID: ClientHermes, Label: "Hermes", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions}},
 	}
@@ -34,8 +41,14 @@ func TestAdmittedClientRegistryIsTheSingleProtocolBoundary(t *testing.T) {
 func TestAdmittedClientRegistryReturnsDefensiveCopies(t *testing.T) {
 	clients := AdmittedClientSpecs()
 	clients[0].ID = "mutated"
+	clients[1].QualifiedModes[0] = "mutated"
+	clients[1].QualifiedPlatforms[0] = "mutated"
 	if AdmittedClientSpecs()[0].ID != ClientClaude {
 		t.Fatal("caller mutation changed the registered client boundary")
+	}
+	desktop, ok := ClientSpecFor(ClientClaudeDesktop)
+	if !ok || desktop.QualifiedModes[0] != "Cowork" || desktop.QualifiedPlatforms[0] != "macOS" {
+		t.Fatalf("caller mutation changed Claude Desktop qualification: %#v", desktop)
 	}
 }
 

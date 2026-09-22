@@ -463,6 +463,12 @@ active and requires a restart; withdrawal reports the same boundary. Standalone
 Chat and Linux and Windows host consumption remain required before Task 4.7 can
 close.
 
+The admitted Client specification is now the single runtime owner of those
+qualification claims. `aigw status` exposes `qualified_modes` and
+`qualified_platforms` in JSON and renders the same bounded claim for humans.
+The current product therefore states only Cowork and Code on macOS; it does not
+imply standalone Chat or Windows qualification before those journeys pass.
+
 A later real-host observation found the running Desktop application had
 reserialized its shared third-party settings without changing their JSON
 meaning. Ownership validation already compared only the managed semantic

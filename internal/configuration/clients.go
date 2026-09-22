@@ -27,11 +27,20 @@ type ClientSpec struct {
 	Label                  string
 	EndpointProtocols      []EndpointProtocol
 	RestartAfterProjection bool
+	QualifiedModes         []string
+	QualifiedPlatforms     []string
 }
 
 var admittedClientSpecs = []ClientSpec{
 	{ID: ClientClaude, Label: "Claude", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}},
-	{ID: ClientClaudeDesktop, Label: "Claude Desktop", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}, RestartAfterProjection: true},
+	{
+		ID:                     ClientClaudeDesktop,
+		Label:                  "Claude Desktop",
+		EndpointProtocols:      []EndpointProtocol{ProtocolAnthropic},
+		RestartAfterProjection: true,
+		QualifiedModes:         []string{"Cowork", "Code"},
+		QualifiedPlatforms:     []string{"macOS"},
+	},
 	{ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses}},
 	{ID: ClientHermes, Label: "Hermes", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions}},
 }
@@ -41,6 +50,8 @@ func AdmittedClientSpecs() []ClientSpec {
 	result := slices.Clone(admittedClientSpecs)
 	for index := range result {
 		result[index].EndpointProtocols = slices.Clone(result[index].EndpointProtocols)
+		result[index].QualifiedModes = slices.Clone(result[index].QualifiedModes)
+		result[index].QualifiedPlatforms = slices.Clone(result[index].QualifiedPlatforms)
 	}
 	return result
 }
@@ -89,6 +100,8 @@ func ClientSpecFor(id string) (ClientSpec, bool) {
 	for _, spec := range admittedClientSpecs {
 		if spec.ID == id {
 			spec.EndpointProtocols = slices.Clone(spec.EndpointProtocols)
+			spec.QualifiedModes = slices.Clone(spec.QualifiedModes)
+			spec.QualifiedPlatforms = slices.Clone(spec.QualifiedPlatforms)
 			return spec, true
 		}
 	}

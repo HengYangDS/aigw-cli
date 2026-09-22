@@ -26,6 +26,8 @@ separate evidence.
 - Bind `VERSION`, local product tags, and this Changelog as one release
   identity; reject fictional historical releases while retaining one explicit
   pending release train.
+- Report the exact Claude Desktop modes and platforms qualified by the current
+  product instead of implying broader client support from configuration alone.
 
 ### Fixed
 

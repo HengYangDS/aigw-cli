@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
 	domainreadiness "aigw-cli/internal/readiness"
+	"strings"
 )
 
 func renderStatus(runtime invocation.Context, cfg configuration.Config, result statusOutput) {
@@ -56,6 +57,9 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 		}
 		if clientStatus.Detail != "" && clientStatus.Profile != "" {
 			message = clientStatus.Profile + " · " + clientStatus.State.Label() + " · " + clientStatus.Detail
+		}
+		if len(clientStatus.QualifiedModes) > 0 && len(clientStatus.QualifiedPlatforms) > 0 {
+			message += " · Qualified: " + strings.Join(clientStatus.QualifiedModes, ", ") + " · " + strings.Join(clientStatus.QualifiedPlatforms, ", ")
 		}
 
 		if nextAction == "" && clientStatus.NextAction != "" {

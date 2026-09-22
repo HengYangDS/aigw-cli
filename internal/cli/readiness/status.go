@@ -22,6 +22,8 @@ type clientStatus struct {
 	EndpointConfigured bool                         `json:"endpoint_configured"`
 	Transport          endpointTransportKind        `json:"transport,omitempty"`
 	ProjectionReady    bool                         `json:"projection_ready"`
+	QualifiedModes     []string                     `json:"qualified_modes,omitempty"`
+	QualifiedPlatforms []string                     `json:"qualified_platforms,omitempty"`
 	CheckPassed        *bool                        `json:"check_passed,omitempty"`
 	DiagnosticKind     string                       `json:"diagnostic_kind,omitempty"`
 	Attempts           int                          `json:"attempts,omitempty"`
@@ -72,9 +74,13 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
 	clients := make(map[string]clientStatus, len(clientIDs))
 	for _, clientID := range clientIDs {
+		spec, _ := configuration.ClientSpecFor(clientID)
 		clientRuntime, resolveErr := cfg.ResolveRuntime(clientID, "")
 		if resolveErr != nil {
-			clients[clientID] = unresolvedClientStatus(&cfg, clientID, resolveErr)
+			client := unresolvedClientStatus(&cfg, clientID, resolveErr)
+			client.QualifiedModes = spec.QualifiedModes
+			client.QualifiedPlatforms = spec.QualifiedPlatforms
+			clients[clientID] = client
 			continue
 		}
 		adapterStatus := inspectAdapter(context.Background(), runtime, cfg, clientID, clientRuntime)
@@ -103,6 +109,8 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 			EndpointConfigured: strings.TrimSpace(clientRuntime.Endpoint) != "",
 			Transport:          endpointTransport(clientRuntime.Endpoint),
 			ProjectionReady:    adapterStatus.Ready,
+			QualifiedModes:     spec.QualifiedModes,
+			QualifiedPlatforms: spec.QualifiedPlatforms,
 		}
 		if adapterStatus.Ready && !clientRuntime.UsesAIGWCredentialStore() {
 			client.State = domainreadiness.Configured
