@@ -572,6 +572,16 @@ the declared compatible protocol and exact requested model, not the upstream
 vendor's serving identity or broader tool, cancellation, continuation, and
 compaction behavior, which remain task 4.8.
 
+On 2026-09-22, installed AIGW 0.2.0 reconciled only the drifted Claude Desktop
+projection; the next dry run left all four clients unchanged and status marked
+them configured. Native Codex CLI 0.155.1, Claude Code, and Hermes Agent 0.21.3
+then completed minimal live requests without changing their bindings. Isolated
+Codex and Claude runs additionally proved streamed events, one native shell-tool
+round trip, and same-session continuation. Codex cancellation exited without a
+residual process group but emitted its own `UnknownProcessId` diagnostic. These
+observations protect the installed baseline; candidate installation, Desktop
+Chat, serving-provider identity, Hermes tools, and compaction remain unproved.
+
 Task 4.11 closes on the canonical version 6 [`team.toml`](../../../manifests/team.toml),
 whose SHA-256 is `71540fec516305bc84407b5a0d802a679c617335939d0dab15dae8310b40413f`.
 It contains three Accounts, 70 credential-free Profiles, and one independent
@@ -1061,9 +1071,16 @@ platform-specific implementation. The model projects the package set once
 through `.linux-toolchain` and explicitly enables CGO for the Linux quality and
 native jobs. Projection tests reject an incomplete package set, missing CGO, or
 job-local installation copies. No alternate image, entrypoint override, retry,
-or second bootstrap owner is added. Task 7.4 remains open until the exact image
-passes real ARM64 execution and the repaired hosted run, followed by the other
-supported clean-host bootstrap journeys.
+or second bootstrap owner is added.
+
+Task 7.4 closes at signed commit `cb06e55d`. Its clean macOS, Linux, and Windows
+jobs in GitHub run `35776556593` each passed exact checkout, locked Mise
+installation, bootstrap, and native acceptance. The same bootstrap left the
+local Work Lane clean. Its repository test reconstructs Go and npm twice in an
+isolated checkout with ambient configuration and network disabled, cache-only
+inputs, stale-install removal, exact dependency and executable checks, and
+byte-identical committed inputs. Neither sibling Work Lanes nor system package
+versions are admitted bootstrap inputs.
 
 ## Documentation closure
 
