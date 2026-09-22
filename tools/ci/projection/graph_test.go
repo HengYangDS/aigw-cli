@@ -32,7 +32,7 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	wantGitLab := []struct {
+	wantGitLabWorkflow := []struct {
 		If   string
 		When string
 	}{
@@ -42,10 +42,10 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		{If: `$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"`},
 		{When: "never"},
 	}
-	if len(gitlab.Workflow.Rules) != len(wantGitLab) {
-		t.Fatalf("GitLab verification routes = %#v, want %#v", gitlab.Workflow.Rules, wantGitLab)
+	if len(gitlab.Workflow.Rules) != len(wantGitLabWorkflow) {
+		t.Fatalf("GitLab verification routes = %#v, want %#v", gitlab.Workflow.Rules, wantGitLabWorkflow)
 	}
-	for index, want := range wantGitLab {
+	for index, want := range wantGitLabWorkflow {
 		got := gitlab.Workflow.Rules[index]
 		if got.If != want.If || got.When != want.When {
 			t.Errorf("GitLab verification route %d = %#v, want %#v", index, got, want)
@@ -54,8 +54,12 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	for name, job := range map[string]gitLabJob{
 		"quality": gitlab.Quality, "native-darwin": gitlab.Darwin, "native-linux": gitlab.Linux,
 	} {
-		if len(job.Rules) != len(wantGitLab) || job.Rules[1].If != wantGitLab[1].If {
+		if len(job.Rules) != len(wantGitLabWorkflow) || job.Rules[1].If != wantGitLabWorkflow[1].If {
 			t.Errorf("GitLab %s must verify reviews into both integration and release: %#v", name, job.Rules)
+			continue
+		}
+		if got := job.Rules[2].If; got != `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
+			t.Errorf("GitLab %s accepted-push rule = %q", name, got)
 		}
 	}
 

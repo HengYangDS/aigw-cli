@@ -292,9 +292,13 @@ not embed another grammar in the launcher. Hosted quality checks read that same
 policy from the exact reviewed commit and verify the introduced range, including
 release-preparation commits. GitHub review, accepted-branch and tag events and
 GitLab merge-request, accepted-branch and tag events select that shared check
-through CUE. No parallel pre-commit runner is needed to own these rules.
-An accepted-ref merge or proposal deletion is a separate delivery operation,
-not evidence implied by a valid commit message or a green review job.
+through CUE. A release-branch push runs only accepted-ref parity because the
+publisher advances `main` and `dev` atomically to one object; running the same
+platform matrix again would observe no new product input. Review into `main`
+still receives full verification, and a direct maintainer update to `dev`
+retains the complete gate. No parallel pre-commit runner is needed to own these
+rules. An accepted-ref merge or proposal deletion is a separate delivery
+operation, not evidence implied by a valid commit message or a green review job.
 
 Product signing and peer transport authentication are independent. GitLab and
 GitHub may use different SSH keys, PATs, OIDC identities, or host credentials

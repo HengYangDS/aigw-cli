@@ -896,6 +896,16 @@ workflow edit masked a failure. Exact-HEAD ETHOS proof remains the final local
 admission for the signed commit; native and hosted release matrices retain their
 separate task 9 obligations.
 
+The accepted publication of `af25e36f` exposed one remaining CI duplication:
+the publisher atomically advanced `main` and `dev` to the same object, but both
+push events launched the complete platform graph. CUE now distinguishes
+pipeline admission from evidence-producing job admission. Review, tag, manual,
+and `dev` events retain the complete graph, preserving both developer review
+and direct maintainer paths. A `main` push runs only accepted-ref parity, which
+proves that the release and accepted refs name the same object without spending
+a second platform matrix on identical source, locks, toolchain, and claimed
+facts. Both Forge files remain generated projections of this decision.
+
 ## Supply-chain closure
 
 Tasks 7.1–7.3 treat authored manifests as dependency truth and upstream release
