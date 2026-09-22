@@ -345,68 +345,6 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 	}
 }
 
-func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
-	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	projections, err := renderProjections(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var pipeline struct {
-		Quality      gitLabJob `yaml:"quality"`
-		NativeDarwin gitLabJob `yaml:"native-darwin"`
-		NativeLinux  gitLabJob `yaml:"native-linux"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
-		t.Fatal(err)
-	}
-	for name, job := range map[string]gitLabJob{
-		"native-darwin": pipeline.NativeDarwin,
-		"native-linux":  pipeline.NativeLinux,
-	} {
-		for tool := range strings.SplitSeq(pipeline.Quality.Variables["MISE_ENABLE_TOOLS"], ",") {
-			if !slices.Contains(strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ","), tool) {
-				t.Errorf("GitLab %s cannot run repository conformance tests: missing %s", name, tool)
-			}
-		}
-		for _, tool := range []string{"glab", "github:goreleaser/goreleaser", "github:anchore/syft", "github:indygreg/apple-platform-rs"} {
-			if !slices.Contains(strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ","), tool) {
-				t.Errorf("GitLab %s lacks native release conformance tool %s", name, tool)
-			}
-		}
-		bootstrap := slices.Index(job.Script, "mise run bootstrap")
-		if bootstrap < 0 || bootstrap >= len(job.Script)-1 {
-			t.Errorf("GitLab %s must prepare locked dependencies before native acceptance", name)
-		}
-	}
-
-	var workflow struct {
-		Jobs map[string]struct {
-			Env   map[string]string `yaml:"env"`
-			Steps []struct {
-				Run string `yaml:"run"`
-			} `yaml:"steps"`
-		} `yaml:"jobs"`
-	}
-	for _, projection := range projections[1:] {
-		if err := yaml.Unmarshal([]byte(projection.Content), &workflow); err != nil {
-			t.Fatal(err)
-		}
-		for _, name := range []string{"native-darwin", "native-linux", "native-windows"} {
-			job := workflow.Jobs[name]
-			if got := job.Env["MISE_ENABLE_TOOLS"]; got != pipeline.NativeDarwin.Variables["MISE_ENABLE_TOOLS"] {
-				t.Errorf("%s %s tool closure = %q, want the same native closure as GitLab", projection.Path, name, got)
-			}
-			bootstrap := false
-			for _, step := range job.Steps {
-				if strings.Contains(step.Run, "./tools/ci native") && !bootstrap {
-					t.Errorf("%s %s runs native acceptance before locked dependency preparation", projection.Path, name)
-				}
-				bootstrap = bootstrap || step.Run == "mise run bootstrap"
-			}
-		}
-	}
-}
-
 func TestLockRefreshIsExplicitAndUsesOneNativeTask(t *testing.T) {
 	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {

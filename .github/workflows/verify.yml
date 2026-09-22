@@ -32,7 +32,7 @@ env:
         type: boolean
         default: false
       self_hosted_windows_arm64:
-        description: Run Native Windows acceptance on a self-hosted Windows ARM64 runner
+        description: Run Native Windows acceptance only on a self-hosted Windows ARM64 runner
         required: false
         type: boolean
         default: false
@@ -152,7 +152,7 @@ jobs:
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'darwin')
     env:
-      MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos,gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs
+      MISE_ENABLE_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,github:indygreg/apple-platform-rs' || 'go,node,npm,github:goreleaser/goreleaser,github:anchore/syft,gh,github:indygreg/apple-platform-rs' }}
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -300,7 +300,7 @@ jobs:
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
     env:
-      MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos,gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs
+      MISE_ENABLE_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh' || 'go,node,npm,github:goreleaser/goreleaser,github:anchore/syft,gh' }}
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -442,11 +442,11 @@ jobs:
           if-no-files-found: error
   native-windows:
     name: Native Windows acceptance
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.self_hosted_windows_arm64 && fromJSON('["self-hosted","Windows","ARM64","aigw-github-windows-arm64-parallels-shadow"]') || 'windows-latest' }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.self_hosted_windows_arm64 && !inputs.full_quality && fromJSON('["self-hosted","Windows","ARM64","aigw-github-windows-arm64-parallels-shadow"]') || 'windows-latest' }}
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'windows')
     env:
-      MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos,gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs
+      MISE_ENABLE_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh' || 'go,node,npm,github:goreleaser/goreleaser,github:anchore/syft,gh' }}
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

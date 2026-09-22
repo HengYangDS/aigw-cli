@@ -52,7 +52,11 @@ func TestGitHubNativeJobsHaveExplicitSelfHostedARM64OptIns(t *testing.T) {
 			t.Errorf("self-hosted %s ARM64 input = %#v", platform.label, input)
 		}
 
-		selector := `${{ github.event_name == 'workflow_dispatch' && inputs.` + inputName + ` && fromJSON('["self-hosted","` + platform.label + `","ARM64","` + platform.selfHosted + `"]') || '` + platform.hosted + `' }}`
+		fullQualityGuard := ""
+		if platform.id == "windows" {
+			fullQualityGuard = " && !inputs.full_quality"
+		}
+		selector := `${{ github.event_name == 'workflow_dispatch' && inputs.` + inputName + fullQualityGuard + ` && fromJSON('["self-hosted","` + platform.label + `","ARM64","` + platform.selfHosted + `"]') || '` + platform.hosted + `' }}`
 		if got := workflow.Jobs["native-"+platform.id].RunsOn.Value; got != selector {
 			t.Errorf("native %s runner selector = %q, want %q", platform.label, got, selector)
 		}

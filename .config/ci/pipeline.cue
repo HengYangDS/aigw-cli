@@ -1,6 +1,9 @@
 package ci
 
-import "strings"
+import (
+	"list"
+	"strings"
+)
 
 // pipeline.cue owns CI topology. Forge files are generated projections.
 
@@ -45,9 +48,43 @@ commands: {
 	}
 }
 
+toolchainTools: {
+	bootstrap: ["go", "node", "npm"]
+	native: list.Concat([bootstrap, ["github:goreleaser/goreleaser", "github:anchore/syft", "gh"]])
+	quality: list.Concat([bootstrap, [
+		"cue",
+		"github:boyter/scc",
+		"github:editorconfig-checker/editorconfig-checker",
+		"github:gitleaks/gitleaks",
+		"github:golangci/golangci-lint",
+		"github:goreleaser/goreleaser",
+		"go:github.com/google/osv-scanner/v2/cmd/osv-scanner",
+		"github:lycheeverse/lychee",
+		"github:rhysd/actionlint",
+		"shellcheck",
+		"taplo",
+		"typos",
+	]])
+	fullNative: list.Concat([quality, ["github:anchore/syft", "gh"]])
+	darwin: ["github:indygreg/apple-platform-rs"]
+}
+
 goToolchain: MISE_ENABLE_TOOLS:      "go"
-nativeToolchain: MISE_ENABLE_TOOLS:  "\(qualityToolchain.MISE_ENABLE_TOOLS),gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs"
-qualityToolchain: MISE_ENABLE_TOOLS: "go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,shellcheck,taplo,typos"
+qualityToolchain: MISE_ENABLE_TOOLS: strings.Join(toolchainTools.quality, ",")
+nativeToolchain: {
+	darwin: {
+		default: MISE_ENABLE_TOOLS: strings.Join(list.Concat([toolchainTools.native, toolchainTools.darwin]), ",")
+		full: MISE_ENABLE_TOOLS: strings.Join(list.Concat([toolchainTools.fullNative, toolchainTools.darwin]), ",")
+	}
+	linux: {
+		default: MISE_ENABLE_TOOLS: strings.Join(toolchainTools.native, ",")
+		full: MISE_ENABLE_TOOLS:    strings.Join(toolchainTools.fullNative, ",")
+	}
+	windows: {
+		default: MISE_ENABLE_TOOLS: strings.Join(toolchainTools.native, ",")
+		full: MISE_ENABLE_TOOLS:    strings.Join(toolchainTools.fullNative, ",")
+	}
+}
 
 // Git role names belong to the adopter workspace; CUE consumes its native TOML.
 branch_roles: {accepted_branch: string, release_branch: string}
@@ -99,7 +136,7 @@ nativeEvidence: {
 		name: "Windows"
 		github: {
 			runner:       "windows-latest"
-			verifyRunner: "${{ github.event_name == 'workflow_dispatch' && inputs.self_hosted_windows_arm64 && fromJSON('[\"self-hosted\",\"Windows\",\"ARM64\",\"aigw-github-windows-arm64-parallels-shadow\"]') || '\(runner)' }}"
+			verifyRunner: "${{ github.event_name == 'workflow_dispatch' && inputs.self_hosted_windows_arm64 && !inputs.full_quality && fromJSON('[\"self-hosted\",\"Windows\",\"ARM64\",\"aigw-github-windows-arm64-parallels-shadow\"]') || '\(runner)' }}"
 		}
 	}
 }
@@ -227,7 +264,7 @@ actions: {
 	"runs-on":         nativeEvidence[_platform].github.verifyRunner
 	"timeout-minutes": 25
 	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
-	env:               nativeToolchain
+	env: MISE_ENABLE_TOOLS: "${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && '\(nativeToolchain[_platform].full.MISE_ENABLE_TOOLS)' || '\(nativeToolchain[_platform].default.MISE_ENABLE_TOOLS)' }}"
 	steps: [
 		#SourceCheckout,
 		#Toolchain,
@@ -396,7 +433,7 @@ actions: {
 	}
 	stage:     graph["native-\(_platform)"].stage
 	tags:      nativeEvidence[_platform].gitlab.tags
-	variables: nativeToolchain
+	variables: nativeToolchain[_platform].full
 	rules: [for rule in gitlabFullVerificationRules {
 		if rule.if != _|_ {
 			if rule.if == gitlabVerificationCondition.manual {
@@ -412,7 +449,7 @@ actions: {
 	}
 	if _platform == "linux" {
 		extends: [".linux-toolchain"]
-		variables: nativeToolchain & {CGO_ENABLED: "1"}
+		variables: nativeToolchain.linux.full & {CGO_ENABLED: "1"}
 		script: [commands.bootstrap, _refreshLocks, _native]
 	}
 	if _platform != "linux" {
@@ -541,7 +578,7 @@ githubVerify: {
 				default:     false
 			}
 			self_hosted_windows_arm64: {
-				description: "Run Native Windows acceptance on a self-hosted Windows ARM64 runner"
+				description: "Run Native Windows acceptance only on a self-hosted Windows ARM64 runner"
 				required:    false
 				type:        "boolean"
 				default:     false
