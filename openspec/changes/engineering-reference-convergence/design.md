@@ -92,6 +92,17 @@ than portable manifest data. No AWS entitlement or live inference is claimed;
 that remains a route-specific acceptance obligation rather than an Adapter
 implementation requirement.
 
+Task 4.9 closes the requested client-surface assessment without creating
+placeholder Adapters. OpenCode, Pi, and CodeBuddy CLI expose plausible
+noninteractive projection boundaries and remain future candidates. WorkBuddy
+Desktop and Qoder IDE remain manual composition because their reviewed
+interfaces do not provide an independently owned credential-safe write path;
+Qoder CLI requires an official noninteractive import contract. ChatGPT Codex
+mode shares the admitted Codex configuration boundary, while regular Chat,
+voice, and Work do not. Each later implementation still requires its own
+installed-client and host acceptance rather than inheriting this research
+result.
+
 ### 9. Redesign intent before extending adapters
 
 The requested outcome is choosing a usable model for a client, not maintaining

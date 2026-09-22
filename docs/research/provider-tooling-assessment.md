@@ -423,10 +423,16 @@ configuration surface; one shared transaction owns compensation. The existing
 Proxy retains its bounded Responses-compatibility responsibility, not a new
 mandate to become a universal model gateway.
 
-Hermes and Claude Desktop remain requested AIGW implementation work. OpenCode,
-Pi, WorkBuddy/CodeBuddy, Qoder, and the remaining ChatGPT surfaces receive
-bounded dispositions before additional implementation is proposed. Research
-informs these choices without deciding the fate of either product for the user.
+Hermes and Claude Desktop remain the admitted AIGW implementation work.
+OpenCode and Pi are viable future Adapter candidates because they expose
+documented noninteractive configuration and credential boundaries. CodeBuddy
+CLI is also a candidate, but its distinct OpenAI and Anthropic paths require
+separate proof. WorkBuddy Desktop and Qoder IDE remain manual composition;
+Qoder CLI requires a supported noninteractive import contract before AIGW may
+write it. ChatGPT Codex mode can consume compatible model routes through the
+Codex configuration boundary, while ordinary Chat, voice, and Work surfaces
+remain outside AIGW ownership. These are bounded dispositions, not promises to
+add every client.
 
 ### WorkBuddy and Qoder require surface-specific admission
 
