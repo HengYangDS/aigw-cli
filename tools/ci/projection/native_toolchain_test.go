@@ -15,12 +15,24 @@ func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	checkGitLabNativeToolClosure(t, projections[0].Content)
+	for _, item := range projections[1:] {
+		if item.Path == ".github/workflows/verify.yml" {
+			checkGitHubNativeToolClosure(t, item)
+			return
+		}
+	}
+	t.Fatal("GitHub verification projection is missing")
+}
+
+func checkGitLabNativeToolClosure(t *testing.T, content string) {
+	t.Helper()
 	var pipeline struct {
 		Quality      gitLabJob `yaml:"quality"`
 		NativeDarwin gitLabJob `yaml:"native-darwin"`
 		NativeLinux  gitLabJob `yaml:"native-linux"`
 	}
-	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+	if err := yaml.Unmarshal([]byte(content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
 	for name, job := range map[string]gitLabJob{
@@ -46,7 +58,10 @@ func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 			t.Errorf("GitLab %s must prepare locked dependencies before native acceptance", name)
 		}
 	}
+}
 
+func checkGitHubNativeToolClosure(t *testing.T, projection projection) {
+	t.Helper()
 	var workflow struct {
 		Jobs map[string]struct {
 			Env   map[string]string `yaml:"env"`
@@ -55,29 +70,30 @@ func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 			} `yaml:"steps"`
 		} `yaml:"jobs"`
 	}
-	for _, projection := range projections[1:] {
-		if err := yaml.Unmarshal([]byte(projection.Content), &workflow); err != nil {
-			t.Fatal(err)
+	if err := yaml.Unmarshal([]byte(projection.Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"native-darwin", "native-linux", "native-windows"} {
+		job := workflow.Jobs[name]
+		tools := job.Env["MISE_ENABLE_TOOLS"]
+		for _, required := range []string{"go,node,npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "gh", "inputs.full_quality"} {
+			if !strings.Contains(tools, required) {
+				t.Errorf("%s %s tool closure lacks %q: %q", projection.Path, name, required, tools)
+			}
 		}
-		for _, name := range []string{"native-darwin", "native-linux", "native-windows"} {
-			job := workflow.Jobs[name]
-			tools := job.Env["MISE_ENABLE_TOOLS"]
-			for _, required := range []string{"go,node,npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "gh", "inputs.full_quality"} {
-				if !strings.Contains(tools, required) {
-					t.Errorf("%s %s tool closure lacks %q: %q", projection.Path, name, required, tools)
-				}
+		hasDarwinSigner := strings.Contains(tools, "github:indygreg/apple-platform-rs")
+		if hasDarwinSigner != (name == "native-darwin") {
+			t.Errorf("%s %s Darwin signer presence = %t", projection.Path, name, hasDarwinSigner)
+		}
+		if name != "native-windows" && !strings.Contains(tools, "github:lycheeverse/lychee") {
+			t.Errorf("%s %s lacks the supported link checker: %q", projection.Path, name, tools)
+		}
+		bootstrap := false
+		for _, step := range job.Steps {
+			if strings.Contains(step.Run, "./tools/ci native") && !bootstrap {
+				t.Errorf("%s %s runs native acceptance before locked dependency preparation", projection.Path, name)
 			}
-			hasDarwinSigner := strings.Contains(tools, "github:indygreg/apple-platform-rs")
-			if hasDarwinSigner != (name == "native-darwin") {
-				t.Errorf("%s %s Darwin signer presence = %t", projection.Path, name, hasDarwinSigner)
-			}
-			bootstrap := false
-			for _, step := range job.Steps {
-				if strings.Contains(step.Run, "./tools/ci native") && !bootstrap {
-					t.Errorf("%s %s runs native acceptance before locked dependency preparation", projection.Path, name)
-				}
-				bootstrap = bootstrap || step.Run == "mise run bootstrap"
-			}
+			bootstrap = bootstrap || step.Run == "mise run bootstrap"
 		}
 	}
 }

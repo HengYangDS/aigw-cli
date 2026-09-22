@@ -57,6 +57,13 @@ func miseCommandEnabled(name string) bool {
 	return true
 }
 
+func requireMiseTool(t *testing.T, name string) {
+	t.Helper()
+	if !miseToolEnabled(name) {
+		t.Skipf("%s is outside the active platform toolchain", name)
+	}
+}
+
 func TestMiseToolSelectionHonorsTheActiveToolchain(t *testing.T) {
 	t.Setenv("MISE_ENABLE_TOOLS", "go,github:golangci/golangci-lint")
 	for name, want := range map[string]bool{

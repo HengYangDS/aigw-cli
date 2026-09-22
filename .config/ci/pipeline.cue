@@ -63,7 +63,8 @@ toolchainTools: {
 		"taplo",
 		"typos",
 	]])
-	quality: list.Concat([portableQuality, ["github:lycheeverse/lychee"]])
+	links: ["github:lycheeverse/lychee"]
+	quality: list.Concat([portableQuality, links])
 	native: list.Concat([portableQuality, ["github:anchore/syft", "gh", "glab"]])
 	fullNative: list.Concat([quality, ["github:anchore/syft", "gh", "glab"]])
 	darwin: ["github:indygreg/apple-platform-rs"]
@@ -73,12 +74,12 @@ goToolchain: MISE_ENABLE_TOOLS:      "go"
 qualityToolchain: MISE_ENABLE_TOOLS: strings.Join(toolchainTools.quality, ",")
 nativeToolchain: {
 	darwin: {
-		default: MISE_ENABLE_TOOLS: strings.Join(list.Concat([toolchainTools.native, toolchainTools.darwin]), ",")
+		default: MISE_ENABLE_TOOLS: strings.Join(list.Concat([toolchainTools.native, toolchainTools.links, toolchainTools.darwin]), ",")
 		full: MISE_ENABLE_TOOLS: strings.Join(list.Concat([toolchainTools.fullNative, toolchainTools.darwin]), ",")
 	}
 	linux: {
-		default: MISE_ENABLE_TOOLS: strings.Join(toolchainTools.native, ",")
-		full: MISE_ENABLE_TOOLS:    strings.Join(toolchainTools.fullNative, ",")
+		default: MISE_ENABLE_TOOLS: strings.Join(list.Concat([toolchainTools.native, toolchainTools.links]), ",")
+		full: MISE_ENABLE_TOOLS: strings.Join(toolchainTools.fullNative, ",")
 	}
 	windows: {
 		default: MISE_ENABLE_TOOLS: strings.Join(toolchainTools.native, ",")
