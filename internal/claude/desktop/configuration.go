@@ -2,11 +2,13 @@
 package desktop
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -195,6 +197,9 @@ func buildPlan(action Action, paths Paths, before snapshots, projected projected
 	if err != nil {
 		return Plan{}, err
 	}
+	standardBytes = preserveEquivalentJSON(standardBytes, before.standard)
+	thirdPartyBytes = preserveEquivalentJSON(thirdPartyBytes, before.thirdParty)
+	metadataBytes = preserveEquivalentJSON(metadataBytes, before.metadata)
 	after := []transaction.FileSnapshot{
 		snapshot(standardBytes, before.standard),
 		snapshot(thirdPartyBytes, before.thirdParty),
@@ -453,4 +458,30 @@ func snapshot(data []byte, before transaction.FileSnapshot) transaction.FileSnap
 		mode = before.Mode
 	}
 	return transaction.NewFileSnapshot(data, mode)
+}
+
+func preserveEquivalentJSON(data []byte, before transaction.FileSnapshot) []byte {
+	if !before.Exists || data == nil {
+		return data
+	}
+	current, currentOK := canonicalJSON(before.Data)
+	desired, desiredOK := canonicalJSON(data)
+	if currentOK && desiredOK && bytes.Equal(current, desired) {
+		return slices.Clone(before.Data)
+	}
+	return data
+}
+
+func canonicalJSON(data []byte) ([]byte, bool) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return nil, false
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return nil, false
+	}
+	normalized, err := json.Marshal(value)
+	return normalized, err == nil
 }

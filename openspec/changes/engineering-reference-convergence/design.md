@@ -349,6 +349,13 @@ synchronization, and secret backends pass at the current Work Lane base. These
 observations establish the existing behavior for tasks 2.1 through 2.5. They do
 not yet prove released-artifact execution on every host, which remains task 9.3.
 
+Synchronization and repair previews now derive their continuation from the
+prepared plans' explicit state-change semantics. A preview with only converged
+or unchanged targets directs the operator to `aigw check`; it recommends the
+mutating command only when configuration or an owned projection would actually
+change. The CLI therefore does not infer work from dry-run mode or from
+adapter-specific action text.
+
 Task 2.3 is accepted at signed commit `71da0af8`. A native installed-program
 journey imports one four-client catalogue before any client is present, adds
 Claude Code, Claude Desktop, Codex, or Hermes afterward, and synchronizes only
@@ -453,6 +460,15 @@ withdrawal. Client enablement reports the projection as configured rather than
 active and requires a restart; withdrawal reports the same boundary. Standalone
 Chat and Linux and Windows host consumption remain required before Task 4.7 can
 close.
+
+A later real-host observation found the running Desktop application had
+reserialized its shared third-party settings without changing their JSON
+meaning. Ownership validation already compared only the managed semantic
+fields, but plan construction compared the complete re-encoded document byte
+for byte and therefore reported a false projection change. Plan construction
+now preserves existing bytes for semantically equivalent shared JSON documents;
+AIGW-owned profile and state files remain exact. A regression reproduces the
+host reserialization and proves a no-op plan does not rewrite any shared file.
 
 Credential portability is accepted at signed commit `3863e05e`. The ordinary
 GitHub review run `35455496791` exercised the complete native graph on macOS,

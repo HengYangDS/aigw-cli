@@ -349,6 +349,53 @@ func TestProjectionIsIdempotentAndRollsBackPartialApply(t *testing.T) {
 	}
 }
 
+func TestProjectionPreservesEquivalentHostSerialization(t *testing.T) {
+	root := t.TempDir()
+	paths := PathsForLibrary(filepath.Join(root, "stable", "Claude-3p", "configLibrary"))
+	desired := Desired{BaseURL: "https://gateway.example.test", CredentialExecutable: filepath.Join(root, "aigw"), Models: []Model{{Name: "model"}}}
+	plan, err := Prepare(paths, &desired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plan.Apply(); err != nil {
+		t.Fatal(err)
+	}
+
+	reformatted := make(map[string][]byte)
+	for _, path := range []string{paths.StandardConfig, paths.ThirdPartyConfig, paths.Metadata} {
+		value := readJSON(t, path)
+		data, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data = append(data, '\n')
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		reformatted[path] = data
+	}
+
+	plan, err = Prepare(paths, &desired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Action != ActionUnchanged || plan.ChangesState() {
+		t.Fatalf("equivalent host serialization produced action %q", plan.Action)
+	}
+	if _, err := plan.Apply(); err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range reformatted {
+		got, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got, want) {
+			t.Fatalf("no-op projection rewrote %s", path)
+		}
+	}
+}
+
 func TestProjectionRejectsUnreadableAndCorruptOwnedState(t *testing.T) {
 	root := t.TempDir()
 	paths := PathsForLibrary(filepath.Join(root, "capture", "Claude-3p", "configLibrary"))
