@@ -10,6 +10,8 @@ import { pathToFileURL } from "node:url";
 
 const providerRoot = path.resolve(import.meta.dirname, "..");
 const archive = process.env.ARCHITECTURE_PUBLISHER_ARCHIVE;
+const packageIdentities = process.env.ARCHITECTURE_PUBLISHER_PACKAGE_IDENTITIES;
+const releaseManifest = process.env.ARCHITECTURE_PUBLISHER_RELEASE_MANIFEST;
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 function run(command, args, options = {}) {
@@ -48,13 +50,39 @@ async function build(cli, input, output, environment, manifestSha256) {
 }
 
 test("the selected installed Publisher reproduces the AIGW provider", async (t) => {
-  assert.equal(
-    path.isAbsolute(archive ?? ""),
-    true,
-    "set ARCHITECTURE_PUBLISHER_ARCHIVE",
-  );
+  for (const [name, selected] of Object.entries({
+    ARCHITECTURE_PUBLISHER_ARCHIVE: archive,
+    ARCHITECTURE_PUBLISHER_PACKAGE_IDENTITIES: packageIdentities,
+    ARCHITECTURE_PUBLISHER_RELEASE_MANIFEST: releaseManifest,
+  }))
+    assert.equal(path.isAbsolute(selected ?? ""), true, `set ${name}`);
   const selection = JSON.parse(
     await fs.readFile(path.join(providerRoot, "selection.json")),
+  );
+  const release = JSON.parse(await fs.readFile(releaseManifest, "utf8"));
+  const identities = JSON.parse(await fs.readFile(packageIdentities, "utf8"));
+  assert.equal(selection.publisher.state, "published");
+  assert.equal(
+    sha256(await fs.readFile(releaseManifest)),
+    selection.publisher.release.manifestSha256,
+  );
+  assert.equal(
+    sha256(await fs.readFile(packageIdentities)),
+    selection.publisher.release.packageIdentitiesSha256,
+  );
+  assert.equal(release.release, selection.publisher.release.tag);
+  assert.equal(release.commit, selection.publisher.release.commit);
+  const packageIdentity = identities.packages.find(
+    ({ file }) => file === path.basename(archive),
+  );
+  assert(packageIdentity, path.basename(archive));
+  assert.equal(
+    packageIdentity.archiveSha256,
+    selection.publisher.archiveSha256,
+  );
+  assert.equal(
+    packageIdentity.contentTarSha256,
+    selection.publisher.contentTarSha256,
   );
   assert.equal(
     sha256(await fs.readFile(archive)),

@@ -40,8 +40,21 @@ test("AIGW owns one closed declarative Edition Provider", async () => {
   assert.deepEqual(provider.subject, source.source);
   assert.equal(selection.schema, "aigw.architecture-publisher-selection/v1");
   assert.equal(selection.publisher.name, "architecture-publisher");
-  assert.equal(selection.publisher.version, "0.3.0-alpha.1");
-  assert.equal(selection.publisher.state, "release-candidate");
+  assert.match(
+    selection.publisher.version,
+    /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u,
+  );
+  assert.equal(selection.publisher.state, "published");
+  assert.equal(
+    selection.publisher.release.tag,
+    `v${selection.publisher.version}`,
+  );
+  assert.match(selection.publisher.release.commit, /^[0-9a-f]{40}$/u);
+  assert.match(selection.publisher.release.manifestSha256, /^[0-9a-f]{64}$/u);
+  assert.match(
+    selection.publisher.release.packageIdentitiesSha256,
+    /^[0-9a-f]{64}$/u,
+  );
   assert.equal(
     selection.providerManifestSha256,
     sha256(await regularBytes("provider.json")),

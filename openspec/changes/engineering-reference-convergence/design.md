@@ -702,15 +702,14 @@ closed Source Bundle reproduces source manifest
 `455f20c4c7285fccdf05faeeb6025d4aa56b901df721cc409857590186627414`;
 the Provider selects the unchanged Claim Model and Edition bytes and a derived
 inline evolution value generated from the sole path-based comparison plan.
-Architecture Publisher `0.3.0-alpha.1`, selected by archive SHA-256
-`c2707bcffc9ba0cea277cb3b6f4fb6f04f2755996781f92c035fa9cadb4dcc37`,
-reproduces the baseline Candidate, semantic, Edition, scene, PNG, SVG, and
-overview HTML identities from two relocated copies with an empty HOME and no
-adjacent Publisher checkout. The outer Candidate manifest changes only because
-it now carries the Provider materialization receipt. AIGW retains acceptance
-and publication authority; generated media remain untracked outputs. The
-pre-migration owner remains recoverable from the exact ancestor recorded in
-`selection.json`, so removal does not discard rollback evidence.
+The published Architecture Publisher `v0.3.0-alpha.1` tag targets
+`855c7c82b95f17a9f7c1c70d173f513e79b1f617`; its selected package has SHA-256
+`c2707bcffc9ba0cea277cb3b6f4fb6f04f2755996781f92c035fa9cadb4dcc37`.
+An offline install from those immutable bytes reproduces the baseline Candidate,
+semantic, Edition, scene, PNG, SVG, and overview HTML identities with an empty
+HOME and no Publisher checkout. AIGW retains acceptance and publication
+authority; generated media remain untracked outputs. The pre-migration owner
+remains recoverable from the exact ancestor recorded in `selection.json`.
 
 The first physical simplification removes the one-file
 `internal/client/acceptance` test-only subpackage. Its credential-projection

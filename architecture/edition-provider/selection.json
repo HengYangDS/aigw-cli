@@ -5,7 +5,13 @@
     "version": "0.3.0-alpha.1",
     "archiveSha256": "c2707bcffc9ba0cea277cb3b6f4fb6f04f2755996781f92c035fa9cadb4dcc37",
     "contentTarSha256": "6b0a925f85879ea7a576c5153849e2741d2e54fcd83bf068cfb5a473b8c7d682",
-    "state": "release-candidate"
+    "state": "published",
+    "release": {
+      "tag": "v0.3.0-alpha.1",
+      "commit": "855c7c82b95f17a9f7c1c70d173f513e79b1f617",
+      "manifestSha256": "d0146a5a8b62d351227ed535b13d2b4642e0bf448705cda7440cc464c654b7b7",
+      "packageIdentitiesSha256": "a5f59a0e668fa9279d31e4e0cc11d95f3e4e7e21242a7bc4329cad790c8293ca"
+    }
   },
   "providerManifestSha256": "6731b69ab82322d7b4ecbbefacd297d281c185628c98b54ebbcb68e32e9b4bcf",
   "providerOutput": {
