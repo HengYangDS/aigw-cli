@@ -38,7 +38,12 @@ Converge the paths in this order: configuration and Client Binding authority; cr
 
 ### 4. AIGW and Proxy compose only through explicit endpoints
 
-AIGW owns Accounts, Tokens, Profiles, Client Bindings, and native projections. It carries no Proxy lifecycle, state, or mandatory loopback default. A Profile may resolve a direct provider endpoint or any independently managed compatible endpoint. Proxy owns protocol translation and runtime traffic when explicitly installed. Tests use an external endpoint contract rather than importing Proxy implementation.
+AIGW owns Accounts, Tokens, canonical Models, exact Routes, Client Bindings, and
+native projections. It carries no Proxy lifecycle, state, or mandatory loopback
+default. A Route may resolve a direct provider endpoint or any independently
+managed compatible endpoint. Proxy owns protocol translation and runtime
+traffic when explicitly installed. Tests use an external endpoint contract
+rather than importing Proxy implementation.
 
 ### 5. Quality has one declarative graph
 
@@ -79,7 +84,7 @@ native client authentication from compatible gateway composition. The existing
 owns source evidence; tasks own implementation progress.
 
 Task 4.10 closes the Provider-extension decision with one three-way contract.
-An ordinary compatible endpoint and Token are Account/Profile data. A client
+An ordinary compatible endpoint and Token are Account and Route data. A client
 that already owns authentication and request signing uses a Client Binding with
 `authentication = "client-native"`; AIGW projects no credential helper. A true
 wire mismatch belongs to an independently selected data plane. The existing
@@ -112,34 +117,66 @@ input, not normal-runtime authority. Its costs were observable: a new client
 changed unrelated readiness suggestions, protocol selection leaked into
 credential probing, and each Adapter repeated selection and activation state.
 
-The v5 runtime has three configuration concepts, not another layer:
+The accepted v5 runtime removed the earlier parallel selection authorities, but
+its `Profile` still combines stable model identity with an Account-specific
+route and its optional Flagship/Daily tier compresses unrelated concerns. The
+successor schema replaces that remaining conflation once, with four operational
+concepts:
 
 - **Account:** provider endpoint declarations and one credential reference.
-- **Profile:** one Account and real upstream model, independent of client brand,
-  plus its explicitly verified protocol set and optional catalogue tier.
-- **Client Binding:** selected Profile, explicit enabled intent, native target,
+- **Model:** one canonical vendor model identity and lineage, without Account,
+  protocol, channel, recommendation, or client state.
+- **Route:** one Account, one canonical Model, the exact upstream model
+  identifier, and the wire protocols admitted for that pairing. Provider
+  channel aliases are explicit Route data rather than inferred suffixes.
+- **Client Binding:** selected Route, explicit enabled intent, native target,
   authentication, protocol, and only genuinely client-specific options.
 
-A Profile may be selected by several compatible clients. The client-specific
-binding resolves the protocol from the intersection of the Profile's verified
-protocol set, its Account endpoints, and the Adapter's supported interfaces.
-Select the sole compatible endpoint automatically; ask for an explicit choice
-when several remain. An omitted protocol set preserves manually authored
-Profiles that have not claimed qualification; reviewed team Profiles always
-declare it. Never guess from a model prefix, client brand, or declaration order.
-Client-native authentication stays inside that client's contract rather than
-acquiring a second AIGW token owner.
+A Route may be selected by several compatible clients. The client-specific
+binding resolves the wire protocol from the intersection of the Route's
+admitted protocols, its Account endpoints, and the Adapter's supported
+interfaces. Protocol and capability are independent dimensions: Anthropic
+Messages, OpenAI Chat Completions, and OpenAI Responses identify request and
+event grammars, while reasoning, streaming, tool calls, structured output,
+continuation, compaction, and multimodal input are separately qualified Route,
+client, and platform properties. In particular, a successful Chat Completions
+request does not admit Responses, and a successful Responses text request does
+not admit Responses reasoning or the Codex tool loop.
 
-Current source, tests, public commands, and documentation use this replacement.
-Stable installed state remains untouched until a candidate and the reviewed
-migration pass native acceptance.
+Select the sole compatible endpoint automatically; ask for an explicit choice
+when several remain. Never guess protocol, capability, canonical Model, or
+channel identity from a model prefix, provider suffix, client brand, or
+declaration order. Client-native authentication stays inside that client's
+contract rather than acquiring a second AIGW token owner.
+
+Flagship and Daily are removed as Model or Route properties. They are unstable,
+global judgements that conflate quality, latency, cost, availability, maturity,
+and workload. A reviewed recommendation instead relates one client context to
+an ordered primary Route and bounded alternatives. It is import guidance, not
+another selection authority; an explicit Client Binding remains stronger.
+
+Provider catalogues are volatile observations, not configuration truth. A
+bounded refresh reads each Account's supported discovery surface, records
+source and observation identity outside tracked configuration, normalizes exact
+upstream identifiers, and produces a deterministic difference against admitted
+Models and Routes. New observations become candidates only. Admission requires
+real protocol and client qualification; recommendation changes require review;
+one missing catalogue observation never deletes a Route or changes a binding.
+The lifecycle is `observed -> candidate -> qualified -> admitted -> deprecated
+-> retired`. Only admitted Models, Routes, and reviewed recommendations enter
+the team manifest.
+
+Current source still implements the accepted Account/Profile/Client Binding
+schema. The Model/Route successor described here is approved Change intent, not
+an implementation claim. Stable installed state remains untouched until its
+candidate and reviewed migration pass native acceptance.
 
 #### User journey
 
 1. Import a token-free team catalogue or connect one Account. Other Accounts
    and absent applications are optional; no credential access is required to
    inspect the catalogue.
-2. Choose a client surface and a compatible Profile. An explicit choice owns
+2. Choose a client surface and a compatible Route. An explicit choice owns
    the default for future work, not the model of an existing conversation.
 3. Resolve the native target, show the exact owned changes, and apply through
    the shared guarded transaction. Missing applications produce deferred
@@ -152,12 +189,12 @@ migration pass native acceptance.
    endpoint authentication, and quota-consuming inference remain distinct
    operations with explicit names and consequences.
 6. Disable restores owned configuration while retaining the user's reusable
-   Profile and explicit disabled intent. Removal withdraws the binding;
+   Route and explicit disabled intent. Removal withdraws the binding;
    uninstall removes only owned installation/projections and follows explicit
    credential retention policy.
 
 The guided path and noninteractive commands must express the same choices.
-`use` requires a client when the Profile does not determine a unique intended
+`use` requires a client when the Route does not determine a unique intended
 binding; it must not silently affect every compatible installed application.
 An explicit multi-client operation names its affected set before mutation.
 Team imports never overwrite local selections or reactivate a disabled client.
@@ -172,7 +209,8 @@ helpers, environment references, and SDK authentication precede wrappers or
 additional credential processes. Provider data cannot select an application
 configuration path or acquire session/service ownership.
 
-A new provider with an existing protocol changes catalogue data. A new client
+A new provider with an existing protocol changes Account, Model, and Route
+catalogue data. A new client
 adds its native contract and acceptance tests. A genuinely missing protocol
 uses a selected mature endpoint implementation before product-specific traffic
 code is considered. A dependency is justified by a necessary capability or
@@ -182,27 +220,31 @@ removed maintenance responsibility, not by novelty.
 
 Change the schema once for the coherent replacement. Parse an old version only
 inside a bounded, explicit migration operation; normal runtime accepts the new
-schema alone. The migration previews Accounts, equivalent Profiles, client
-bindings, retained selections, native options and credential references. It
+schema alone. The migration previews Accounts, canonical Models, equivalent
+Routes, client bindings, retained selections, native options and credential
+references. It
 never copies secret values or changes native session metadata. Commit only
 when all affected preimages still match; retain the immutable predecessor and
 its guarded rollback input until candidate acceptance.
 
-Delete the replaced `Profile.Client` selector, parallel Route/Adapter state,
-client-name branches in shared orchestration, and duplicate rollback machinery
-in the same semantic closure as their replacements. Do not ship aliases or two
-runtime readers to avoid finishing migration. Preserve client-specific options
-where they carry real behavior instead of forcing superficial uniformity.
+Delete the replaced `Profile.Client` selector, the current Account-plus-model
+`Profile`, Flagship/Daily tiers, parallel Route/Adapter state, client-name
+branches in shared orchestration, and duplicate rollback machinery in the same
+semantic closure as their replacements. Do not ship aliases or two runtime
+readers to avoid finishing migration. Preserve client-specific options where
+they carry real behavior instead of forcing superficial uniformity.
 
 #### Implementation dependency order
 
-First prove the revised domain model and migration with retained-state tests.
-Then implement one shared intent-to-projection transaction and migrate existing
-Codex/Claude consumers. Next connect Hermes and Claude Desktop through that
-same boundary, consuming the already established native contract tests. Finish
-the team manifest, user/contributor guides and cross-platform native journeys
-before the existing final qualification and archive/release steps. A green
-fixture or checked historical task does not admit the new schema or client.
+First prove the revised Model, Route, recommendation, and migration contracts
+with retained-state tests. Then add deterministic catalogue observation and
+qualification without allowing either derived surface to mutate configuration.
+Migrate the existing shared intent-to-projection transaction and client
+Adapters to consume Routes without replacing their ownership boundaries. Next
+finish the team manifest, user/contributor guides, and cross-platform native
+journeys before the existing final qualification and archive/release steps. A
+green fixture or checked historical task does not admit the new schema or
+client.
 
 #### Lessons retained from CC Switch CLI
 
@@ -276,7 +318,7 @@ owning closure:
 | Provider-neutral protocols, non-OpenAI and non-Anthropic model families, exact serving-model identity, and synthetic plus real extension evidence                                                      | 4.4, 4.8, 4.10           |
 | Hermes and Claude Desktop, including Chat, Cowork, Code, native discovery, restart, withdrawal, and client-owned state                                                                                 | 4.5, 4.7–4.8, 9.4        |
 | OpenCode, Pi, CodeBuddy, WorkBuddy, Qoder, ChatGPT surfaces, CC Switch, local gateways, and mature-framework reuse                                                                                     | 4.6, 4.9–4.10            |
-| Real team Profiles, Flagship and Daily model tiers, protocol metadata, channel variants, naming consistency, and preserved explicit selections                                                         | 4.11                     |
+| Canonical Models, exact Account Routes, protocol-versus-capability qualification, evolving provider catalogues, reviewed recommendations, channel variants, and preserved explicit selections          | 4.11–4.12                |
 | Semantic packages, test topology, narrow names and types, deep modules, no suffix sprawl, hard-coding, wrappers, duplicate implementations, or stale residue                                           | 5.1–5.6                  |
 | Comprehensive format, lint, type, test, docstring, documentation, schema, security, complexity, size, coverage, warnings, and deterministic Forge projection                                           | 6.1–6.7, 9.5–9.7         |
 | Latest stable direct supply chain, repository-locked bootstrap, Work Lane environments, cache ownership, and cross-host reproduction                                                                   | 7.1–7.5, 9.3             |
@@ -549,7 +591,8 @@ The external-gateway boundary is accepted through tasks 4.1 to 4.3. Production
 source and the shipped team manifest contain no Proxy identity, fixed Proxy
 port, listener, service manager, installation, or runtime lifecycle. An Account
 holds either a direct HTTPS endpoint or an explicitly selected loopback endpoint;
-both follow the same Profile, Client Binding, projection, readiness, and diagnostic path.
+both follow the same Route, Client Binding, projection, readiness, and
+diagnostic path.
 Loopback classification reports only that the service is external, while an
 absent or unavailable endpoint produces the ordinary configuration or network
 failure without installation, startup, retry, or repair of another product.
@@ -582,7 +625,7 @@ residual process group but emitted its own `UnknownProcessId` diagnostic. These
 observations protect the installed baseline; candidate installation, Desktop
 Chat, serving-provider identity, Hermes tools, and compaction remain unproved.
 
-Task 4.11 closes on the canonical version 6 [`team.toml`](../../../manifests/team.toml),
+Task 4.11 previously closed on the version 6 [`team.toml`](../../../manifests/team.toml),
 whose SHA-256 is `71540fec516305bc84407b5a0d802a679c617335939d0dab15dae8310b40413f`.
 It contains three Accounts, 70 credential-free Profiles, and one independent
 recommendation for each admitted client. Profile identifiers retain the exact
@@ -594,8 +637,11 @@ builds the current candidate, imports the manifest with no Token, then connects
 each Account independently through the environment backend, synchronizes all
 four admitted clients, preserves every Profile, proves a second sync byte-stable,
 and removes only owned state. Focused configuration, CLI acceptance, and native
-release suites pass. Live inference breadth remains task 4.8 rather than being
-inferred from manifest admission.
+release suites passed for that schema. The reopened tasks 4.11 and 4.12 now
+supersede its Flagship/Daily classification and Account-plus-model Profile
+conflation; this paragraph remains historical evidence rather than successor
+acceptance. Live inference breadth remains task 4.8 rather than being inferred
+from manifest admission.
 
 A synthetic `future` Client passes the complete registry contract for discovery,
 convergence, preflight, guarded projection, change detection, inspection, live

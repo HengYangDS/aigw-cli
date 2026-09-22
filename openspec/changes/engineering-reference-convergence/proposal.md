@@ -15,7 +15,20 @@ AIGW is now a formally distributed product, but release success alone does not m
 - Qualify immutable candidate artifacts on macOS, Linux, and Windows with realistic client, credential, and lifecycle inputs; complete and archive this Change before stable publication and subsequent download verification.
 - Upgrade direct supply-chain inputs to current stable releases only after compatibility and native acceptance.
 - Document the smallest reproducible contribution and extension journeys so a new engineer can locate an invariant, change its owner, and disprove a faulty implementation.
-- **BREAKING**: replace client-bound Profiles and parallel Route/Adapter selection with reusable model Profiles and one explicit client binding. Redesign setup, selection, synchronization, status and withdrawal around user intent. Provide an explicit retained-state migration; remove the replaced runtime schema and duplicate orchestration instead of preserving compatibility facades.
+- **BREAKING**: separate canonical Models from exact Account Routes and retain one
+  explicit Client Binding as operational authority. Remove global
+  Flagship/Daily classification; distinguish Anthropic Messages, OpenAI Chat
+  Completions, OpenAI Responses, reasoning, tools, streaming, continuation,
+  compaction, structured output, and multimodal capability through explicit
+  qualification rather than names or endpoint presence.
+- Observe evolving provider catalogues through bounded, deterministic
+  differences. New and missing entries remain candidates or contradictory
+  evidence until qualified and reviewed; they never rewrite team
+  recommendations, explicit bindings, credentials, or native projections.
+- Redesign setup, selection, synchronization, status and withdrawal around user
+  intent. Provide an explicit retained-state migration; remove the replaced
+  runtime schema and duplicate orchestration instead of preserving compatibility
+  facades.
 
 ## Capabilities
 

@@ -3,32 +3,43 @@
 ### Requirement: Service creation is an atomic client-scoped transition
 
 **Reason:** The name treats a Provider service as the created domain object,
-while the operation actually creates one Account and its first Profile.
+while the operation actually creates one Account and its first Model and Route.
 
 **Migration:** Use the `Account connection is an atomic client-scoped
-transition` requirement and the `aigw add <account>` command.
+transition` requirement and the successor Account connection command.
 
 ## ADDED Requirements
 
-### Requirement: Model Profiles are reusable across compatible clients
+### Requirement: Models, Routes, and Client Bindings have distinct authority
 
-A Profile SHALL identify an Account and an actual upstream model independently
-of client branding. A reviewed catalogue Profile SHALL also declare the wire
-protocols verified for that exact Account and model; manually authored Profiles
-without this metadata retain explicit-binding compatibility but SHALL NOT be
-presented as verified catalogue entries. Each client binding SHALL select a
-Profile and own its explicit enabled intent, native target and client-specific
-options. The binding SHALL replace parallel Route and Adapter selection as the
-operational authority. The intersection of the Profile's verified protocols,
-the Account endpoints, and the selected client's supported interfaces SHALL
-determine protocol compatibility without model-name inference.
+A Model SHALL identify one canonical vendor model independently of Account,
+wire protocol, channel alias, recommendation, and client state. A Route SHALL
+identify one Account, one canonical Model, the exact upstream model identifier,
+and the wire protocols admitted for that pairing. Each Client Binding SHALL
+select a Route and own its explicit enabled intent, native target, protocol,
+authentication, and genuinely client-specific options. The binding SHALL remain
+the only operational selection authority.
 
-#### Scenario: One model is selected by two clients
+Anthropic Messages, OpenAI Chat Completions, and OpenAI Responses SHALL remain
+distinct wire protocols. Reasoning, streaming, tool calls, structured output,
+continuation, compaction, and multimodal input SHALL remain separately qualified
+capabilities. Endpoint presence, model names, catalogue membership, and basic
+text success SHALL NOT imply either protocol or capability support.
+
+#### Scenario: One Route is selected by two clients
 
 - **GIVEN** an Account exposes interfaces compatible with both clients
-- **WHEN** the operator selects the same Profile for both clients
-- **THEN** there SHALL be one reusable Profile and two independent client bindings
+- **WHEN** the operator selects the same Route for both clients
+- **THEN** there SHALL be one reusable Route and two independent Client Bindings
 - **AND** changing one binding SHALL preserve the other client's choice and files.
+
+#### Scenario: One Model has provider-specific route identifiers
+
+- **GIVEN** two Accounts expose the same canonical Model under different exact
+  upstream model identifiers or channel aliases
+- **WHEN** the team admits both paths
+- **THEN** both Routes SHALL reference the same canonical Model
+- **AND** neither identifier SHALL be inferred by adding or removing a suffix.
 
 #### Scenario: More than one endpoint is compatible
 
@@ -40,22 +51,32 @@ determine protocol compatibility without model-name inference.
 #### Scenario: One Account exposes different protocols per model
 
 - **GIVEN** an Account exposes Responses and Chat Completions endpoints
-- **AND** two reviewed Profiles on that Account were verified on different protocols
-- **WHEN** a client resolves either Profile
-- **THEN** only that Profile's verified protocol set SHALL be eligible
+- **AND** two reviewed Routes on that Account were admitted on different protocols
+- **WHEN** a client resolves either Route
+- **THEN** only that Route's admitted protocol set SHALL be eligible
 - **AND** Account-level endpoint presence SHALL NOT imply model-level compatibility.
 
-#### Scenario: The team curates broad model choice
+#### Scenario: Responses text and Responses reasoning differ
 
-- **WHEN** the reviewed team catalogue admits a general model family
-- **THEN** it SHALL normally identify one `flagship` and one `daily` Profile per Account
-- **AND** the tier SHALL remain display metadata rather than a routing or capability inference.
+- **GIVEN** a Route can complete a basic OpenAI Responses text request
+- **WHEN** its reasoning, tool, continuation, or compaction behavior has not been
+  qualified for the selected client
+- **THEN** AIGW SHALL report only the proven text capability
+- **AND** SHALL NOT present the Route as Codex-compatible or reasoning-qualified.
+
+#### Scenario: The team recommends a Route
+
+- **WHEN** the reviewed team catalogue recommends a primary Route and bounded
+  alternatives for a client context
+- **THEN** those positions SHALL be relational guidance rather than Model tiers
+- **AND** an explicit Client Binding SHALL remain unchanged by import, discovery,
+  or a later recommendation.
 
 #### Scenario: The operator disables a client
 
 - **WHEN** a client is disabled and its owned projection is withdrawn
 - **THEN** synchronization, discovery and team import SHALL retain disabled intent
-- **AND** the reusable Profile, credential reference and other clients remain intact.
+- **AND** the reusable Route, credential reference and other clients remain intact.
 
 #### Scenario: A supported but unused client is discovered
 
@@ -67,8 +88,9 @@ determine protocol compatibility without model-name inference.
 ### Requirement: Schema replacement is explicit and reversible
 
 AIGW SHALL migrate the prior supported configuration through a bounded explicit
-operation with a preview of Accounts, equivalent Profiles, client bindings and
-native options. Normal runtime SHALL interpret only the current schema. The
+operation with a preview of Accounts, canonical Models, equivalent Routes,
+Client Bindings and native options. Normal runtime SHALL interpret only the
+current schema. The
 migration SHALL preserve explicit choices, disabled intent, credentials in their
 authoritative stores, unrelated client settings and existing session metadata.
 
@@ -91,6 +113,41 @@ authoritative stores, unrelated client settings and existing session metadata.
 - **AND** rollback SHALL use the immutable predecessor and matching retained state,
   not a second live schema authority.
 
+### Requirement: Provider catalogue evolution is observed before admission
+
+AIGW SHALL treat provider catalogues as volatile observations rather than
+configuration authority. A bounded refresh SHALL normalize exact upstream model
+identifiers and produce a deterministic difference against the admitted Model
+and Route set. Observation data and qualification evidence SHALL remain derived
+state outside the reviewed team manifest.
+
+The admission lifecycle SHALL distinguish observed, candidate, qualified,
+admitted, deprecated, and retired states. A new catalogue entry SHALL NOT alter
+configuration, recommendations, Client Bindings, or native projections before
+reviewed admission. A missing entry SHALL NOT by itself prove withdrawal,
+rename, or incompatibility.
+
+#### Scenario: A provider publishes a new model
+
+- **WHEN** catalogue refresh observes a previously unknown upstream identifier
+- **THEN** AIGW SHALL report a deterministic candidate Model or Route difference
+- **AND** SHALL require real protocol and client qualification before admission
+- **AND** SHALL require review before changing a recommendation.
+
+#### Scenario: A provider catalogue omits an admitted Route
+
+- **WHEN** one refresh no longer reports an admitted upstream identifier
+- **THEN** AIGW SHALL retain the Route and explicit Client Bindings
+- **AND** SHALL report stale or contradictory evidence for bounded requalification
+- **AND** SHALL NOT infer a rename from another newly observed identifier.
+
+#### Scenario: An admitted primary Route becomes unusable
+
+- **WHEN** current qualification proves that a recommended primary Route no
+  longer satisfies the selected client's contract
+- **THEN** AIGW MAY propose a previously admitted alternative
+- **AND** SHALL NOT change an explicit Client Binding without operator intent.
+
 ### Requirement: Requested client surfaces have explicit adapters
 
 AIGW SHALL integrate Hermes and Claude Desktop through their supported native
@@ -102,7 +159,7 @@ Client-owned sessions, services, and model choices SHALL remain client-owned.
 #### Scenario: Hermes becomes available after team import
 
 - **GIVEN** team configuration was imported before Hermes was installed
-- **WHEN** Hermes becomes available and its Profile is explicitly selected
+- **WHEN** Hermes becomes available and its Route is explicitly selected
 - **THEN** synchronization SHALL configure its admitted provider and model
 - **AND** credentials SHALL use the selected supported delivery mechanism
 - **AND** unrelated clients, Hermes sessions, and Hermes services remain unchanged.
@@ -111,14 +168,14 @@ Client-owned sessions, services, and model choices SHALL remain client-owned.
 
 - **GIVEN** more than one Account has an available credential
 - **WHEN** Hermes synchronization projects its native model catalogue
-- **THEN** every reviewed Profile compatible with Hermes from those connected
+- **THEN** every admitted Route compatible with Hermes from those connected
   Accounts SHALL be grouped under its Account and protocol provider
-- **AND** the explicitly selected Profile SHALL remain Hermes' active model
-- **AND** disconnected Accounts and unverified manual Profiles SHALL remain absent.
+- **AND** the explicitly selected Route SHALL remain Hermes' active model
+- **AND** disconnected Accounts and unqualified Routes SHALL remain absent.
 
 #### Scenario: Claude Desktop and Claude Code use different bindings
 
-- **WHEN** the operator enables distinct Desktop and CLI Profiles
+- **WHEN** the operator enables distinct Desktop and CLI Routes
 - **THEN** each surface SHALL use its own documented configuration boundary
 - **AND** status SHALL state which Desktop modes and platforms were qualified
 - **AND** a required app restart SHALL be reported before activation is claimed.
@@ -156,22 +213,22 @@ models. A successful text request SHALL establish only text connectivity.
 
 ### Requirement: Account connection is an atomic client-scoped transition
 
-Account connection SHALL admit a new Account and first Profile before requesting
-its Token. It SHALL select that Profile and reconcile only its client's
-projection through the shared synchronization transaction. An existing Account
-or Profile identity SHALL NOT be implicitly replaced.
+Account connection SHALL admit a new Account and its first canonical Model and
+Route before requesting its Token. It SHALL select that Route and reconcile
+only its client's projection through the shared synchronization transaction. An
+existing Account, Model, or Route identity SHALL NOT be implicitly replaced.
 
 #### Scenario: Add and select another Account
 
 - **WHEN** Account connection succeeds for an installed admitted client
 - **THEN** the stored Client Binding and that client's configuration SHALL select the new
-  Account Profile without requiring a second selection or synchronization command
+  Account Route without requiring a second selection or synchronization command
 - **AND** unrelated client configuration and ownership state SHALL be unchanged,
   including unrelated external edits.
 
 #### Scenario: Creation admission fails
 
-- **WHEN** the Account or Profile already exists, desired configuration is
+- **WHEN** the Account, Model, or Route already exists, desired configuration is
   invalid, or the request is cancelled before acquisition
 - **THEN** creation SHALL reject the request before requesting a Token or
   changing configuration, credentials or client projections.
@@ -189,15 +246,15 @@ or Profile identity SHALL NOT be implicitly replaced.
 
 ### Requirement: Control-plane convergence is client-scoped and monotonic
 
-AIGW SHALL derive operational state from Accounts, reusable model Profiles,
-explicit client bindings, admitted native Adapters and the selected credential
+AIGW SHALL derive operational state from Accounts, canonical Models, exact
+Routes, explicit Client Bindings, admitted native Adapters and the selected credential
 backend. A binding owns the client selection and enabled intent; there SHALL
 NOT be a second independently persisted selection. Setup, selection, synchronization, and readiness MUST NOT
-depend on a global Profile, an aggregate selection flag, another client's
+depend on a global Route, an aggregate selection flag, another client's
 binding, or the presence of an external compatibility product.
 
 Discovery SHALL report client availability without creating native files,
-selecting a Profile, or changing enabled intent. A client that has not created
+selecting a Route, or changing enabled intent. A client that has not created
 its native state SHALL remain untouched until the operator explicitly binds it.
 Every projection SHALL preserve unrelated native fields and reject a changed
 preimage rather than overwrite concurrent user or tool edits.
@@ -211,14 +268,14 @@ preimage rather than overwrite concurrent user or tool edits.
 
 #### Scenario: Both clients are selected independently
 
-- **WHEN** an operator selects one Codex Profile and one Claude Profile in
+- **WHEN** an operator selects one Codex Route and one Claude Route in
   separate operations
 - **THEN** both per-client bindings remain selected
 - **AND** readiness requires no additional aggregate selection operation.
 
 #### Scenario: An ordinary configuration edit affects one client
 
-- **WHEN** an Account or Profile edit changes one client's persistent projection
+- **WHEN** an Account, Model, or Route edit changes one client's persistent projection
 - **THEN** the configuration transaction SHALL plan and apply only the affected
   client set in admission order
 - **AND** another client's external edits and ownership state SHALL remain
@@ -288,7 +345,7 @@ preimage rather than overwrite concurrent user or tool edits.
 
 #### Scenario: Setup is requested for an existing installation
 
-- **GIVEN** the current configuration already contains Profiles
+- **GIVEN** the current configuration already contains Routes
 - **WHEN** interactive, explicit, manifest or internal setup is requested
 - **THEN** the shared setup admission rejects it before prompting, Provider
   probing, client discovery or mutation
@@ -297,7 +354,7 @@ preimage rather than overwrite concurrent user or tool edits.
 
 #### Scenario: First-time setup finds an existing credential slot
 
-- **GIVEN** the current configuration has no Profiles but an Account Token is
+- **GIVEN** the current configuration has no Routes but an Account Token is
   already available
 - **WHEN** first-time setup is requested
 - **THEN** that Token does not by itself classify the installation as configured
@@ -306,7 +363,7 @@ preimage rather than overwrite concurrent user or tool edits.
 ### Requirement: Token rotation is credential-scoped
 
 AIGW SHALL validate and replace only the selected Account's Token. Rotation
-MUST leave Accounts, Profiles, Client Bindings, client configuration, ownership
+MUST leave Accounts, Models, Routes, Client Bindings, client configuration, ownership
 sidecars and client-owned credentials unchanged. Setup, Account connection and
 rotation SHALL use the same
 Token replacement and compensation owner. Compensation SHALL inspect the
@@ -366,7 +423,7 @@ lock or executing an operation. Cobra SHALL own shared flag validation.
 
 #### Scenario: Supply invalid rename arguments
 
-- **WHEN** noninteractive Account or Profile rename omits an identifier, an
+- **WHEN** noninteractive Account, Model, or Route rename omits an identifier, an
   explicitly supplied identifier violates the configuration identifier contract,
   or an incomplete interactive invocation has no prompt capability
 - **THEN** argument admission SHALL reject it before configuration access,
@@ -377,7 +434,7 @@ lock or executing an operation. Cobra SHALL own shared flag validation.
 
 #### Scenario: Supply invalid selection or adapter arguments
 
-- **WHEN** noninteractive selection omits its Profile, an adapter client is not
+- **WHEN** noninteractive selection omits its Route, an adapter client is not
   admitted, its executable is missing or blank, or a required target is missing
   or an explicitly supplied target is blank
 - **THEN** the command SHALL reject the invocation with an actionable repair
@@ -386,7 +443,7 @@ lock or executing an operation. Cobra SHALL own shared flag validation.
 
 #### Scenario: Supply invalid creation or import arguments
 
-- **WHEN** Account or Profile creation supplies an invalid identifier, omits
+- **WHEN** Account, Model, or Route creation supplies an invalid identifier, omits
   required client/model/Account flags, supplies blank required values, selects
   an inadmitted client, or configuration import supplies a blank manifest path
 - **THEN** the command SHALL reject the invocation with actionable guidance
@@ -394,12 +451,12 @@ lock or executing an operation. Cobra SHALL own shared flag validation.
 
 #### Scenario: Supply invalid metadata edit intent
 
-- **WHEN** Account or Profile editing supplies no editable flag, an invalid
-  identifier or a blank label or endpoint, Profile removal supplies an invalid
+- **WHEN** Account, Model, or Route editing supplies no editable flag, an invalid
+  identifier or a blank label or endpoint, Route removal supplies an invalid
   identifier, or diagnostic-credential enablement lacks an interactive terminal
 - **THEN** admission SHALL reject the invocation before configuration access or
   creation, mutation-lock acquisition or credential access
 - **AND** native flag-group failures SHALL identify the invoked command's help,
   not an unrelated readiness check
-- **AND** explicit empty Profile purpose SHALL remain a valid request to clear
-  that optional display field.
+- **AND** explicit empty Model or Route display metadata SHALL remain a valid
+  request to clear that optional field.
