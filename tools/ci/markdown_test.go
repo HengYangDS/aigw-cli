@@ -155,6 +155,9 @@ func TestDocumentInputsAreIndependentOfCommandLineLength(t *testing.T) {
 	}
 	for name, argumentCount := range map[string]int{"check-mermaid": 1, "links": 6} {
 		t.Run(name, func(t *testing.T) {
+			if name == "links" {
+				requireMiseTool(t, "github:lycheeverse/lychee")
+			}
 			if err := run([]string{name, root}, &bytes.Buffer{}, func(call command) error {
 				if len(call.Args) != argumentCount {
 					t.Fatalf("document inventory escaped onto the command line: %d arguments", len(call.Args))

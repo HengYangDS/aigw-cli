@@ -12,6 +12,7 @@ import (
 )
 
 func TestLinksChecksCurrentRepositoryMarkdown(t *testing.T) {
+	requireMiseTool(t, "github:lycheeverse/lychee")
 	root := t.TempDir()
 	git := func(args ...string) {
 		t.Helper()
