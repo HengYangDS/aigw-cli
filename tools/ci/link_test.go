@@ -186,6 +186,7 @@ func TestLinksRejectsInvalidRepositoriesAndEmptyMarkdownSets(t *testing.T) {
 }
 
 func TestLinksPropagatesLycheeFailure(t *testing.T) {
+	requireMiseTool(t, "github:lycheeverse/lychee")
 	root := t.TempDir()
 	process := exec.Command("git", "-C", root, "init", "--quiet")
 	if output, err := process.CombinedOutput(); err != nil {
