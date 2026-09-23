@@ -94,6 +94,31 @@ bundled diagnostic provider.
 An unknown diagnostic kind does not invalidate the Account or Client Binding. It makes
 only the optional diagnostic unavailable.
 
+## Provider catalogue lifecycle
+
+Provider catalogues are observations, not configuration. `aigw catalog`
+queries each configured Anthropic Messages, OpenAI Chat Completions, and OpenAI
+Responses catalogue surface independently. Its source endpoint and content
+identity make the result reproducible; membership proves neither inference nor
+any capability.
+
+The lifecycle uses existing owners rather than another state store:
+
+| State      | Owner and meaning                                                                                               |
+| ---------- | --------------------------------------------------------------------------------------------------------------- |
+| Observed   | One successful, protocol-scoped catalogue response                                                              |
+| Candidate  | An observed upstream ID with no matching Route on that Account and protocol                                     |
+| Qualified  | Explicit protocol and real-client evidence for named capabilities                                               |
+| Admitted   | A reviewed Route in configuration; omitted `lifecycle` means `admitted`                                         |
+| Deprecated | A retained Route with `lifecycle = "deprecated"`; it may preserve an existing binding but cannot be recommended |
+| Retired    | The Route has been explicitly removed after bindings and recommendations no longer require it                   |
+
+Catalogue comparison uses `Route.upstream_model`, never the canonical Model ID.
+A missing Route is reported for requalification; it is not renamed, deprecated,
+retired, or removed automatically. Chat Completions success does not qualify
+Responses, and Responses text success does not qualify reasoning, tools,
+continuation, or compaction.
+
 ## Manifest import
 
 A token-free team manifest adds or reconciles public metadata. Same-named

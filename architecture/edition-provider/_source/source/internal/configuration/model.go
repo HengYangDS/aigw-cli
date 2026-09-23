@@ -17,6 +17,9 @@ type Authentication string
 // Capability identifies one behavior qualified for an exact Route interface.
 type Capability string
 
+// RouteLifecycle identifies a reviewed Route's current admission disposition.
+type RouteLifecycle string
+
 const (
 	// ConfigVersion is the only configuration schema version accepted by this build.
 	ConfigVersion = 6
@@ -52,6 +55,11 @@ const (
 	CapabilityCompaction Capability = "compaction"
 	// CapabilityMultimodalInput identifies non-text model input.
 	CapabilityMultimodalInput Capability = "multimodal_input"
+
+	// RouteAdmitted is the default lifecycle state for a configured Route.
+	RouteAdmitted RouteLifecycle = "admitted"
+	// RouteDeprecated retains existing bindings while excluding new recommendations.
+	RouteDeprecated RouteLifecycle = "deprecated"
 )
 
 var identifierPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
@@ -93,6 +101,7 @@ type Route struct {
 	Model         string                            `json:"model"                    toml:"model"`
 	UpstreamModel string                            `json:"upstream_model,omitempty" toml:"upstream_model,omitempty"`
 	Interfaces    map[EndpointProtocol][]Capability `json:"interfaces,omitempty"      toml:"interfaces,omitempty"`
+	Lifecycle     RouteLifecycle                    `json:"lifecycle,omitempty"       toml:"lifecycle,omitempty"`
 }
 
 // UpstreamModelID returns the exact identifier sent to this Route's provider.
@@ -101,6 +110,14 @@ func (route Route) UpstreamModelID() string {
 		return route.UpstreamModel
 	}
 	return route.Model
+}
+
+// LifecycleState returns the Route's explicit lifecycle or its admitted default.
+func (route Route) LifecycleState() RouteLifecycle {
+	if route.Lifecycle != "" {
+		return route.Lifecycle
+	}
+	return RouteAdmitted
 }
 
 // AdmittedProtocols returns the Route's wire interfaces in stable order.

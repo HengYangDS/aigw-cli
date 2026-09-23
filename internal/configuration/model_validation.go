@@ -99,6 +99,9 @@ func (c *Config) validateRecommendations() error {
 			if err := c.validateSelection(client, selection); err != nil {
 				return fmt.Errorf("client recommendation %q choice %d: %w", client, index+1, err)
 			}
+			if c.Routes[selection.Route].LifecycleState() == RouteDeprecated {
+				return fmt.Errorf("client recommendation %q choice %d references deprecated route %q", client, index+1, selection.Route)
+			}
 		}
 	}
 	return nil
@@ -244,6 +247,11 @@ func (route Route) validate(name string, accounts map[string]Account, models map
 	}
 	if route.UpstreamModel != "" && strings.TrimSpace(route.UpstreamModel) == "" {
 		return fmt.Errorf("route %q has an empty upstream model", name)
+	}
+	switch route.LifecycleState() {
+	case RouteAdmitted, RouteDeprecated:
+	default:
+		return fmt.Errorf("route %q has invalid lifecycle %q", name, route.Lifecycle)
 	}
 	protocols := routeAdmittedProtocols(route)
 	seen := make(map[EndpointProtocol]bool, len(protocols))

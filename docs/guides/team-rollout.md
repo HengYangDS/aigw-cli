@@ -63,17 +63,27 @@ then Profiles; map keys follow stable lexical order and fields follow schema
 order. Existing manifest tests check display structure and byte-identical
 native export, without another formatter or model-name registry.
 
-Verify exact provider identifiers before admitting models. A catalogue listing,
-an authenticated protocol call, and a real-client journey prove different facts.
-Recommendation readiness requires the latter two; a version name never proves
-availability or capabilities. Missing evidence remains an open rollout task.
+Verify exact provider identifiers before admitting Routes. `aigw catalog`
+observes every configured catalogue surface separately and records its Account,
+protocol, endpoint, normalized IDs, and deterministic observation identity.
+Anthropic Messages, OpenAI Chat Completions, and OpenAI Responses observations
+are not interchangeable. A Chat Completions result cannot qualify Responses;
+a Responses text call cannot qualify reasoning, tools, continuation, or
+compaction.
 
-`aigw catalog` discovers Account catalogues; `aigw models` compares configured
-Profile model IDs with the same observations. `Listed` and `Not listed` describe
-catalogue membership only. Missing credentials, a failed request, an incomplete
-response, or an absent catalogue endpoint remain explicit unknown observations,
-not unavailable models. Neither command calls inference or proves native-client
-readiness; use `aigw verify --for <client>` for the separate client proof.
+`aigw models` compares each configured Route's exact `upstream_model` against
+the observation for that Route's protocol. `Listed` and `Not listed` describe
+catalogue membership only. New IDs are candidates; missing admitted Routes are
+reported for requalification without changing configuration. Missing
+credentials, a failed request, an incomplete response, or an absent catalogue
+endpoint remain unknown observations, not unavailable models.
+
+Qualification requires `aigw verify --for <client>` and the capability-specific
+native evidence required by the selected client. Admission is a reviewed Model
+and Route change. Deprecation sets `lifecycle = "deprecated"`, removes the Route
+from recommendations, and preserves existing explicit bindings. Retirement is
+an explicit Route removal after no binding or recommendation depends on it.
+Catalogue refresh performs none of those transitions.
 
 ### Reviewed model defaults
 

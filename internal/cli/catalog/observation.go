@@ -23,11 +23,12 @@ type catalogModel struct {
 }
 
 type catalogRoute struct {
-	ID            string                     `json:"id"`
-	Model         string                     `json:"model"`
-	UpstreamModel string                     `json:"upstream_model"`
-	Capabilities  []configuration.Capability `json:"capabilities"`
-	State         catalogEntryState          `json:"state,omitempty"`
+	ID            string                       `json:"id"`
+	Model         string                       `json:"model"`
+	UpstreamModel string                       `json:"upstream_model"`
+	Capabilities  []configuration.Capability   `json:"capabilities"`
+	Lifecycle     configuration.RouteLifecycle `json:"lifecycle"`
+	Evidence      catalogEvidence              `json:"evidence"`
 }
 
 type catalogSource struct {
@@ -50,6 +51,8 @@ type catalogStatus string
 
 type catalogEntryState string
 
+type catalogEvidence string
+
 const (
 	catalogOK                    catalogStatus = "ok"
 	catalogEndpointUnavailable   catalogStatus = "catalog_endpoint_unavailable"
@@ -57,9 +60,12 @@ const (
 	catalogTokenUnavailable      catalogStatus = "token_unavailable"
 	catalogRequestFailed         catalogStatus = "request_failed"
 
-	catalogCandidate               catalogEntryState = "candidate"
-	catalogAdmitted                catalogEntryState = "admitted"
-	catalogRequalificationRequired catalogEntryState = "requalification_required"
+	catalogCandidate  catalogEntryState = "candidate"
+	catalogAdmitted   catalogEntryState = "admitted"
+	catalogDeprecated catalogEntryState = "deprecated"
+
+	catalogObserved                catalogEvidence = "observed"
+	catalogRequalificationRequired catalogEvidence = "requalification_required"
 )
 
 type catalogOutput struct {
@@ -145,11 +151,11 @@ func catalogDifference(cfg configuration.Config, account string, protocol config
 		slices.Sort(capabilities)
 		entry := catalogRoute{
 			ID: routeID, Model: route.Model, UpstreamModel: route.UpstreamModelID(),
-			Capabilities: capabilities,
+			Capabilities: capabilities, Lifecycle: route.LifecycleState(), Evidence: catalogObserved,
 		}
 		routesByModel[entry.UpstreamModel] = append(routesByModel[entry.UpstreamModel], entry)
 		if !observed[entry.UpstreamModel] {
-			entry.State = catalogRequalificationRequired
+			entry.Evidence = catalogRequalificationRequired
 			missing = append(missing, entry)
 		}
 	}
@@ -158,8 +164,12 @@ func catalogDifference(cfg configuration.Config, account string, protocol config
 	for _, id := range ids {
 		routes := routesByModel[id]
 		state := catalogCandidate
-		if len(routes) > 0 {
-			state = catalogAdmitted
+		for _, route := range routes {
+			if route.Lifecycle == configuration.RouteAdmitted {
+				state = catalogAdmitted
+				break
+			}
+			state = catalogDeprecated
 		}
 		models = append(models, catalogModel{ID: id, State: state, Routes: routes})
 	}

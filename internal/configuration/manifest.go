@@ -234,6 +234,7 @@ func equivalentRoute(left, right Route) bool {
 		left.Account == right.Account &&
 		left.Model == right.Model &&
 		left.UpstreamModelID() == right.UpstreamModelID() &&
+		left.LifecycleState() == right.LifecycleState() &&
 		equalInterfaces(left.Interfaces, right.Interfaces)
 }
 

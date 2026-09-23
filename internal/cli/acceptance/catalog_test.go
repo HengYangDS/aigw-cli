@@ -35,7 +35,7 @@ func TestCatalogJSONUnconfiguredIsEmptyAndMachineReadable(t *testing.T) {
 }
 
 func TestCatalogDiscoversSortedModelsWithoutWritingConfigOrLeakingToken(t *testing.T) {
-	app, out, secretStore, _, httpClient := testApp(t, "")
+	app, out, secretStore, runner, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://responses.dmx.test/v1", Anthropic: "https://anthropic.dmx.test"}}
 	cfg.Routes["gpt-configured"] = qualifiedRoute("GPT", "dmx", "gpt-5.6", configuration.ProtocolOpenAIResponses)
@@ -53,6 +53,8 @@ func TestCatalogDiscoversSortedModelsWithoutWritingConfigOrLeakingToken(t *testi
 	if err := secretStore.Set("dmx", token); err != nil {
 		t.Fatal(err)
 	}
+	clientState := []byte("user-owned client state\n")
+	writeFile(t, app.ClaudeSettingsPath, clientState, 0o600)
 	httpClient.handler = func(req *http.Request) (*http.Response, error) {
 		assertCatalogRequest(t, req, token)
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":[{"id":"z-model"},{"id":"gpt-5.6"}]}`)), Request: req}, nil
@@ -67,6 +69,15 @@ func TestCatalogDiscoversSortedModelsWithoutWritingConfigOrLeakingToken(t *testi
 	}
 	if string(before) != string(after) {
 		t.Fatalf("catalog changed config\nbefore:\n%s\nafter:\n%s", before, after)
+	}
+	if got := readFile(t, app.ClaudeSettingsPath); string(got) != string(clientState) {
+		t.Fatalf("catalog changed client state: %q", got)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("catalog invoked a client: %#v", runner.plans)
+	}
+	if got, err := secretStore.Get("dmx"); err != nil || got != token {
+		t.Fatalf("catalog changed the Account Token: %q, %v", got, err)
 	}
 	if strings.Contains(out.String(), token) || strings.Contains(strings.ToLower(out.String()), "authorization") {
 		t.Fatalf("catalog leaked secret material: %s", out.String())

@@ -155,29 +155,35 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 }
 
 func renderCatalogObservation(r *presentation.Renderer, observation catalogObservation, all bool) {
-	admitted := make([]catalogModel, 0, len(observation.Models))
+	visible := make([]catalogModel, 0, len(observation.Models))
+	admitted, deprecated, candidates := 0, 0, 0
 	for _, model := range observation.Models {
-		if model.State == catalogAdmitted {
-			admitted = append(admitted, model)
+		switch model.State {
+		case catalogAdmitted:
+			admitted++
+			visible = append(visible, model)
+		case catalogDeprecated:
+			deprecated++
+			visible = append(visible, model)
+		case catalogCandidate:
+			candidates++
 		}
 	}
 	r.Row("Models", fmt.Sprintf("%d observed", len(observation.Models)))
-	r.Row("Admitted", fmt.Sprintf("%d admitted", len(admitted)))
-	if all {
-		for _, model := range observation.Models {
-			state, detail := catalogModelDisplay(model)
-			r.StatusLine(state, "model", model.ID)
-			r.Detail(detail)
-		}
-		return
+	r.Row("Admitted", fmt.Sprintf("%d admitted", admitted))
+	if deprecated > 0 {
+		r.Row("Deprecated", fmt.Sprintf("%d deprecated", deprecated))
 	}
-	for _, model := range admitted {
-		_, detail := catalogModelDisplay(model)
-		r.Status(presentation.OK, "model", model.ID)
+	if all {
+		visible = observation.Models
+	}
+	for _, model := range visible {
+		state, detail := catalogModelDisplay(model)
+		r.Status(state, "model", model.ID)
 		r.Detail(detail)
 	}
-	if remaining := len(observation.Models) - len(admitted); remaining > 0 {
-		r.Detail(fmt.Sprintf("%d candidate models require qualification; full catalog: aigw catalog --all", remaining))
+	if !all && candidates > 0 {
+		r.Detail(fmt.Sprintf("%d candidate models require qualification; full catalog: aigw catalog --all", candidates))
 	}
 }
 
@@ -188,6 +194,9 @@ func catalogModelDisplay(model catalogModel) (presentation.State, string) {
 	routes := make([]string, 0, len(model.Routes))
 	for _, route := range model.Routes {
 		routes = append(routes, route.ID)
+	}
+	if model.State == catalogDeprecated {
+		return presentation.Warn, "Deprecated Routes: " + strings.Join(routes, ", ")
 	}
 	return presentation.OK, "Admitted Routes: " + strings.Join(routes, ", ")
 }

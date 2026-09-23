@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -28,6 +29,7 @@ func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testin
 		Account:       "gateway",
 		Model:         "shared",
 		UpstreamModel: "provider-shared",
+		Lifecycle:     configuration.RouteDeprecated,
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
 			configuration.ProtocolOpenAIChatCompletions: {configuration.CapabilityText},
 		},
@@ -70,6 +72,13 @@ func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testin
 	if !reflect.DeepEqual(cfg, before) {
 		t.Fatalf("catalog observation mutated configuration:\nbefore=%#v\nafter=%#v", before, cfg)
 	}
+	assertObservationIdentityAndSources(t, result)
+	assertRouteCapabilityIsolation(t, result)
+	assertCatalogCandidateAndMissingRoute(t, result)
+}
+
+func assertObservationIdentityAndSources(t *testing.T, result catalogOutput) {
+	t.Helper()
 	if len(result.Observations) != 2 {
 		t.Fatalf("observations = %#v", result.Observations)
 	}
@@ -85,14 +94,21 @@ func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testin
 	if chat.Source.Endpoint != "https://chat.test/v1/models" || responses.Source.Endpoint != "https://responses.test/v1/models" {
 		t.Fatalf("sources = chat %#v responses %#v", chat.Source, responses.Source)
 	}
+}
 
+func assertRouteCapabilityIsolation(t *testing.T, result catalogOutput) {
+	t.Helper()
+	chat := observationForProtocol(t, result, configuration.ProtocolOpenAIChatCompletions)
+	responses := observationForProtocol(t, result, configuration.ProtocolOpenAIResponses)
 	chatShared := observedModel(t, chat, "provider-shared")
-	if len(chatShared.Routes) != 1 || chatShared.Routes[0].ID != "chat" ||
+	if chatShared.State != catalogDeprecated || len(chatShared.Routes) != 1 || chatShared.Routes[0].ID != "chat" ||
+		chatShared.Routes[0].Lifecycle != configuration.RouteDeprecated || chatShared.Routes[0].Evidence != catalogObserved ||
 		!reflect.DeepEqual(chatShared.Routes[0].Capabilities, []configuration.Capability{configuration.CapabilityText}) {
 		t.Fatalf("chat admission = %#v", chatShared.Routes)
 	}
 	responsesShared := observedModel(t, responses, "provider-shared")
-	if len(responsesShared.Routes) != 1 || responsesShared.Routes[0].ID != "responses" ||
+	if responsesShared.State != catalogAdmitted || len(responsesShared.Routes) != 1 || responsesShared.Routes[0].ID != "responses" ||
+		responsesShared.Routes[0].Lifecycle != configuration.RouteAdmitted || responsesShared.Routes[0].Evidence != catalogObserved ||
 		!reflect.DeepEqual(responsesShared.Routes[0].Capabilities, []configuration.Capability{
 			configuration.CapabilityReasoning,
 			configuration.CapabilityText,
@@ -102,13 +118,18 @@ func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testin
 	if slices.Contains(chatShared.Routes[0].Capabilities, configuration.CapabilityReasoning) {
 		t.Fatalf("Responses reasoning leaked into Chat Completions: %#v", chatShared.Routes[0])
 	}
+}
 
+func assertCatalogCandidateAndMissingRoute(t *testing.T, result catalogOutput) {
+	t.Helper()
+	chat := observationForProtocol(t, result, configuration.ProtocolOpenAIChatCompletions)
+	responses := observationForProtocol(t, result, configuration.ProtocolOpenAIResponses)
 	candidate := observedModel(t, responses, "provider-new")
 	if candidate.State != catalogCandidate || len(candidate.Routes) != 0 {
 		t.Fatalf("candidate = %#v", candidate)
 	}
 	if len(responses.MissingRoutes) != 1 || responses.MissingRoutes[0].ID != "missing" ||
-		responses.MissingRoutes[0].State != catalogRequalificationRequired {
+		responses.MissingRoutes[0].Lifecycle != configuration.RouteAdmitted || responses.MissingRoutes[0].Evidence != catalogRequalificationRequired {
 		t.Fatalf("missing Routes = %#v", responses.MissingRoutes)
 	}
 	if len(chat.MissingRoutes) != 0 {
@@ -132,6 +153,40 @@ func TestCatalogParsingRejectsAmbiguousProviderIdentifiers(t *testing.T) {
 	ids, err := ParseIDs([]byte(`{"data":[{"id":" exact ","model":"exact"},"zeta","exact"]}`))
 	if err != nil || !reflect.DeepEqual(ids, []string{"exact", "zeta"}) {
 		t.Fatalf("normalized IDs = %#v, error=%v", ids, err)
+	}
+}
+
+func TestDeprecatedCatalogEntryDoesNotPresentAsAdmitted(t *testing.T) {
+	state, detail := catalogModelDisplay(catalogModel{
+		ID:    "legacy",
+		State: catalogDeprecated,
+		Routes: []catalogRoute{{
+			ID: "legacy-route", Lifecycle: configuration.RouteDeprecated, Evidence: catalogObserved,
+		}},
+	})
+	if state == 0 || detail != "Deprecated Routes: legacy-route" {
+		t.Fatalf("deprecated display state=%v detail=%q", state, detail)
+	}
+}
+
+func TestDefaultCatalogRenderingKeepsDeprecatedRoutesSeparateFromCandidates(t *testing.T) {
+	out := new(bytes.Buffer)
+	renderCatalogObservation(renderer(Dependencies{Out: out, Width: 120}), catalogObservation{
+		Models: []catalogModel{
+			{ID: "current", State: catalogAdmitted, Routes: []catalogRoute{{ID: "current-route"}}},
+			{ID: "legacy", State: catalogDeprecated, Routes: []catalogRoute{{ID: "legacy-route"}}},
+			{ID: "future", State: catalogCandidate},
+		},
+	}, false)
+
+	text := out.String()
+	for _, want := range []string{"1 admitted", "1 deprecated", "legacy", "Deprecated Routes: legacy-route", "1 candidate models require qualification"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("default catalogue output lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "future") {
+		t.Fatalf("default catalogue output exposed candidate detail:\n%s", text)
 	}
 }
 

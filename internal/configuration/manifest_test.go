@@ -47,6 +47,36 @@ route = "ucloud-gpt-6-astra"
 	}
 }
 
+func TestManifestRetainsDeprecatedRoutesButRejectsThemAsRecommendations(t *testing.T) {
+	raw := []byte(`version = 7
+[models.legacy]
+label = "Legacy"
+
+[accounts.team]
+label = "Team"
+[accounts.team.endpoints]
+openai_responses = "https://team.test/v1"
+
+[routes.legacy]
+account = "team"
+model = "legacy"
+lifecycle = "deprecated"
+interfaces = { openai_responses = ["text"] }
+`)
+	manifest, err := Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lifecycle := manifest.Routes["legacy"].LifecycleState(); lifecycle != RouteDeprecated {
+		t.Fatalf("lifecycle = %q", lifecycle)
+	}
+
+	withRecommendation := bytes.Replace(raw, []byte("[accounts.team]"), []byte("[recommendations.codex.primary]\nroute = \"legacy\"\n\n[accounts.team]"), 1)
+	if _, err := Parse(withRecommendation); err == nil || !strings.Contains(err.Error(), "deprecated route") {
+		t.Fatalf("deprecated recommendation error = %v", err)
+	}
+}
+
 func TestManifestAccountNamesReturnsEveryCredentialOwnerOnce(t *testing.T) {
 	incoming := Manifest{
 		Accounts: map[string]Account{"shared": {}, "direct": {}},

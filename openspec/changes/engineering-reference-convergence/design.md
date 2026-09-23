@@ -166,10 +166,9 @@ The lifecycle is `observed -> candidate -> qualified -> admitted -> deprecated
 -> retired`. Only admitted Models, Routes, and reviewed recommendations enter
 the team manifest.
 
-Current source still implements the accepted Account/Profile/Client Binding
-schema. The Model/Route successor described here is approved Change intent, not
-an implementation claim. Stable installed state remains untouched until its
-candidate and reviewed migration pass native acceptance.
+Current source implements the Account/Model/Route/Client Binding schema and its
+bounded predecessor migration. Stable installed state remains untouched until
+the complete candidate and reviewed migration pass native acceptance.
 
 #### User journey
 
@@ -642,6 +641,18 @@ supersede its Flagship/Daily classification and Account-plus-model Profile
 conflation; this paragraph remains historical evidence rather than successor
 acceptance. Live inference breadth remains task 4.8 rather than being inferred
 from manifest admission.
+
+Task 4.12 observes each configured catalogue surface as an independent
+Anthropic Messages, OpenAI Chat Completions, or OpenAI Responses source. The
+normalizer rejects malformed or contradictory identifier shapes, compares
+exact `Route.upstream_model` values, and emits content-addressed candidate,
+admitted, and missing-Route differences. Route capabilities remain scoped to
+the observed protocol, so Responses reasoning cannot leak into Chat
+Completions. Catalogue execution has no configuration, recommendation, binding,
+credential-write, synchronization, or native-projection dependency. Qualified
+capabilities remain verification evidence; reviewed Routes are admitted,
+`lifecycle = "deprecated"` preserves existing bindings while excluding
+recommendations, and removal after reference checks is retirement.
 
 A synthetic `future` Client passes the complete registry contract for discovery,
 convergence, preflight, guarded projection, change detection, inspection, live
