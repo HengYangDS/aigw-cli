@@ -132,8 +132,8 @@ available Route for that client. No provider Token is mandatory, and an
 import preserves existing personal Client Bindings.
 
 Reasoning effort remains a native client preference, outside manifest schema
-version 6. The team preference is `high`: set `model_reasoning_effort = "high"`
-in the active Codex Home's `config.toml`, and `"effortLevel": "high"` in the
+version 6. The team preference is `medium`: set `model_reasoning_effort = "medium"`
+in the active Codex Home's `config.toml`, and `"effortLevel": "medium"` in the
 active Claude configuration directory's `settings.json`. Merge those fields
 into existing settings; do not replace either document. Importing the team
 manifest does not set these preferences.
