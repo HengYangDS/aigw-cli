@@ -334,6 +334,7 @@ actions: {
 				if ([string]::IsNullOrWhiteSpace($env:AIGW_BASELINE_TAG)) { throw 'Client qualification requires baseline_tag' }
 				if ($env:AIGW_MEASURE_PERFORMANCE -eq 'true' -and [string]::IsNullOrWhiteSpace($env:AIGW_CANDIDATE_TAG)) { throw 'Performance qualification requires candidate_tag' }
 				$scope = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString())
+				$originalGitConfigGlobal = [Environment]::GetEnvironmentVariable('GIT_CONFIG_GLOBAL')
 				New-Item -ItemType Directory -Path $scope | Out-Null
 				try {
 				  $platform = mise exec --locked -- go env GOOS
@@ -385,6 +386,10 @@ actions: {
 				    $hermesInstaller = Join-Path $scope 'hermes-install.ps1'
 				    $hermesHome = Join-Path $scope 'hermes'
 				    $hermesInstall = Join-Path $hermesHome 'hermes-agent'
+				    # The pinned installer changes autocrlf after cloning; set it before Git checks out LF files.
+				    $env:GIT_CONFIG_GLOBAL = Join-Path $scope 'hermes-gitconfig'
+				    git config --file $env:GIT_CONFIG_GLOBAL core.autocrlf false
+				    if ($LASTEXITCODE -ne 0) { throw 'Hermes Git checkout configuration failed' }
 				    $env:UV_CACHE_DIR = Join-Path $scope 'uv-cache'
 				    $env:GIT_TERMINAL_PROMPT = '0'
 				    curl.exe --fail --show-error --silent --location --connect-timeout 10 --max-time 60 "https://raw.githubusercontent.com/NousResearch/hermes-agent/$hermesCommit/scripts/install.ps1" --output $hermesInstaller
@@ -424,6 +429,11 @@ actions: {
 				    mise exec --locked -- go run ./tools/release @acceptance
 				  }
 				} finally {
+				  if ($null -eq $originalGitConfigGlobal) {
+				    Remove-Item Env:GIT_CONFIG_GLOBAL -ErrorAction SilentlyContinue
+				  } else {
+				    $env:GIT_CONFIG_GLOBAL = $originalGitConfigGlobal
+				  }
 				  foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
 				    Remove-Item "Env:$name" -ErrorAction SilentlyContinue
 				  }
