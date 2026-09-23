@@ -242,6 +242,7 @@ jobs:
               [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
               $acceptance += @('--artifacts', $candidate)
             }
+            Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
             if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
               $clients = Join-Path $scope 'clients'
               New-Item -ItemType Directory -Path $clients | Out-Null
@@ -251,18 +252,41 @@ jobs:
               $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
               $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
               $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
+              $hermesCommit = '345cd2b057a452236de401d3534b8502a7465e8d'
+              $hermesInstallerDigest = '226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5'
+              $hermesInstaller = Join-Path $scope 'hermes-install.ps1'
+              $hermesHome = Join-Path $scope 'hermes'
+              $hermesInstall = Join-Path $hermesHome 'hermes-agent'
+              $env:UV_CACHE_DIR = Join-Path $scope 'uv-cache'
+              $env:GIT_TERMINAL_PROMPT = '0'
+              curl.exe --fail --show-error --silent --location --connect-timeout 10 --max-time 60 "https://raw.githubusercontent.com/NousResearch/hermes-agent/$hermesCommit/scripts/install.ps1" --output $hermesInstaller
+              if ($LASTEXITCODE -ne 0) { throw 'Pinned Hermes installer download failed' }
+              if ((Get-FileHash -LiteralPath $hermesInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hermesInstallerDigest) {
+                throw 'Pinned Hermes installer checksum mismatch'
+              }
+              foreach ($stage in @('uv', 'git', 'repository', 'python', 'venv', 'dependencies')) {
+                $frames = @(& pwsh -NoProfile -File $hermesInstaller -Commit $hermesCommit -HermesHome $hermesHome -InstallDir $hermesInstall -NonInteractive -Json -Stage $stage)
+                if ($LASTEXITCODE -ne 0 -or $frames.Count -eq 0) { throw "Hermes install stage failed: $stage" }
+                $frame = $frames[-1] | ConvertFrom-Json
+                if ($frame.stage -ne $stage -or -not $frame.ok -or $frame.skipped) { throw "Hermes install stage was not admitted: $stage" }
+                if ($stage -eq 'dependencies' -and -not ($frames -match 'hash-verified via uv.lock')) {
+                  throw 'Hermes dependencies were not installed from the pinned uv.lock'
+                }
+              }
+              $observedHermesCommit = git -C $hermesInstall rev-parse HEAD
+              if ($LASTEXITCODE -ne 0 -or $observedHermesCommit.Trim() -ne $hermesCommit) { throw 'Hermes installed source differs from the pinned commit' }
+              $env:AIGW_ACCEPTANCE_HERMES = Join-Path $hermesInstall 'venv/Scripts/hermes.exe'
               $gitBin = Split-Path (Get-Command git.exe).Source
               $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
               if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Claude requires a native Git Bash installation' }
               $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
-              $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
-              foreach ($client in @($env:AIGW_ACCEPTANCE_CODEX, $env:AIGW_ACCEPTANCE_CLAUDE)) {
+              $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), (Join-Path $hermesHome 'bin'), (Join-Path $hermesInstall 'venv/Scripts'), (Split-Path (Get-Command node.exe).Source), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+              foreach ($client in @($env:AIGW_ACCEPTANCE_CODEX, $env:AIGW_ACCEPTANCE_CLAUDE, $env:AIGW_ACCEPTANCE_HERMES)) {
                 if (-not (Test-Path -LiteralPath $client -PathType Leaf)) { throw "Missing native client: $client" }
                 Get-FileHash -LiteralPath $client -Algorithm SHA256
               }
               $acceptance += '--clients'
             }
-            Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
             if ($env:AIGW_MEASURE_PERFORMANCE -eq 'true') {
               $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine'
               $output = Join-Path $env:GITHUB_WORKSPACE 'build/performance'
@@ -272,7 +296,7 @@ jobs:
               mise exec --locked -- go run ./tools/release @acceptance
             }
           } finally {
-            foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH')) {
+            foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
               Remove-Item "Env:$name" -ErrorAction SilentlyContinue
             }
             Remove-Item -LiteralPath $scope -Recurse -Force
@@ -388,6 +412,7 @@ jobs:
               [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
               $acceptance += @('--artifacts', $candidate)
             }
+            Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
             if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
               $clients = Join-Path $scope 'clients'
               New-Item -ItemType Directory -Path $clients | Out-Null
@@ -397,18 +422,41 @@ jobs:
               $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
               $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
               $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
+              $hermesCommit = '345cd2b057a452236de401d3534b8502a7465e8d'
+              $hermesInstallerDigest = '226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5'
+              $hermesInstaller = Join-Path $scope 'hermes-install.ps1'
+              $hermesHome = Join-Path $scope 'hermes'
+              $hermesInstall = Join-Path $hermesHome 'hermes-agent'
+              $env:UV_CACHE_DIR = Join-Path $scope 'uv-cache'
+              $env:GIT_TERMINAL_PROMPT = '0'
+              curl.exe --fail --show-error --silent --location --connect-timeout 10 --max-time 60 "https://raw.githubusercontent.com/NousResearch/hermes-agent/$hermesCommit/scripts/install.ps1" --output $hermesInstaller
+              if ($LASTEXITCODE -ne 0) { throw 'Pinned Hermes installer download failed' }
+              if ((Get-FileHash -LiteralPath $hermesInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hermesInstallerDigest) {
+                throw 'Pinned Hermes installer checksum mismatch'
+              }
+              foreach ($stage in @('uv', 'git', 'repository', 'python', 'venv', 'dependencies')) {
+                $frames = @(& pwsh -NoProfile -File $hermesInstaller -Commit $hermesCommit -HermesHome $hermesHome -InstallDir $hermesInstall -NonInteractive -Json -Stage $stage)
+                if ($LASTEXITCODE -ne 0 -or $frames.Count -eq 0) { throw "Hermes install stage failed: $stage" }
+                $frame = $frames[-1] | ConvertFrom-Json
+                if ($frame.stage -ne $stage -or -not $frame.ok -or $frame.skipped) { throw "Hermes install stage was not admitted: $stage" }
+                if ($stage -eq 'dependencies' -and -not ($frames -match 'hash-verified via uv.lock')) {
+                  throw 'Hermes dependencies were not installed from the pinned uv.lock'
+                }
+              }
+              $observedHermesCommit = git -C $hermesInstall rev-parse HEAD
+              if ($LASTEXITCODE -ne 0 -or $observedHermesCommit.Trim() -ne $hermesCommit) { throw 'Hermes installed source differs from the pinned commit' }
+              $env:AIGW_ACCEPTANCE_HERMES = Join-Path $hermesInstall 'venv/Scripts/hermes.exe'
               $gitBin = Split-Path (Get-Command git.exe).Source
               $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
               if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Claude requires a native Git Bash installation' }
               $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
-              $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
-              foreach ($client in @($env:AIGW_ACCEPTANCE_CODEX, $env:AIGW_ACCEPTANCE_CLAUDE)) {
+              $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), (Join-Path $hermesHome 'bin'), (Join-Path $hermesInstall 'venv/Scripts'), (Split-Path (Get-Command node.exe).Source), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+              foreach ($client in @($env:AIGW_ACCEPTANCE_CODEX, $env:AIGW_ACCEPTANCE_CLAUDE, $env:AIGW_ACCEPTANCE_HERMES)) {
                 if (-not (Test-Path -LiteralPath $client -PathType Leaf)) { throw "Missing native client: $client" }
                 Get-FileHash -LiteralPath $client -Algorithm SHA256
               }
               $acceptance += '--clients'
             }
-            Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
             if ($env:AIGW_MEASURE_PERFORMANCE -eq 'true') {
               $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine'
               $output = Join-Path $env:GITHUB_WORKSPACE 'build/performance'
@@ -418,7 +466,7 @@ jobs:
               mise exec --locked -- go run ./tools/release @acceptance
             }
           } finally {
-            foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH')) {
+            foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
               Remove-Item "Env:$name" -ErrorAction SilentlyContinue
             }
             Remove-Item -LiteralPath $scope -Recurse -Force
@@ -535,6 +583,7 @@ jobs:
               [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
               $acceptance += @('--artifacts', $candidate)
             }
+            Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
             if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
               $clients = Join-Path $scope 'clients'
               New-Item -ItemType Directory -Path $clients | Out-Null
@@ -544,18 +593,41 @@ jobs:
               $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
               $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
               $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
+              $hermesCommit = '345cd2b057a452236de401d3534b8502a7465e8d'
+              $hermesInstallerDigest = '226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5'
+              $hermesInstaller = Join-Path $scope 'hermes-install.ps1'
+              $hermesHome = Join-Path $scope 'hermes'
+              $hermesInstall = Join-Path $hermesHome 'hermes-agent'
+              $env:UV_CACHE_DIR = Join-Path $scope 'uv-cache'
+              $env:GIT_TERMINAL_PROMPT = '0'
+              curl.exe --fail --show-error --silent --location --connect-timeout 10 --max-time 60 "https://raw.githubusercontent.com/NousResearch/hermes-agent/$hermesCommit/scripts/install.ps1" --output $hermesInstaller
+              if ($LASTEXITCODE -ne 0) { throw 'Pinned Hermes installer download failed' }
+              if ((Get-FileHash -LiteralPath $hermesInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hermesInstallerDigest) {
+                throw 'Pinned Hermes installer checksum mismatch'
+              }
+              foreach ($stage in @('uv', 'git', 'repository', 'python', 'venv', 'dependencies')) {
+                $frames = @(& pwsh -NoProfile -File $hermesInstaller -Commit $hermesCommit -HermesHome $hermesHome -InstallDir $hermesInstall -NonInteractive -Json -Stage $stage)
+                if ($LASTEXITCODE -ne 0 -or $frames.Count -eq 0) { throw "Hermes install stage failed: $stage" }
+                $frame = $frames[-1] | ConvertFrom-Json
+                if ($frame.stage -ne $stage -or -not $frame.ok -or $frame.skipped) { throw "Hermes install stage was not admitted: $stage" }
+                if ($stage -eq 'dependencies' -and -not ($frames -match 'hash-verified via uv.lock')) {
+                  throw 'Hermes dependencies were not installed from the pinned uv.lock'
+                }
+              }
+              $observedHermesCommit = git -C $hermesInstall rev-parse HEAD
+              if ($LASTEXITCODE -ne 0 -or $observedHermesCommit.Trim() -ne $hermesCommit) { throw 'Hermes installed source differs from the pinned commit' }
+              $env:AIGW_ACCEPTANCE_HERMES = Join-Path $hermesInstall 'venv/Scripts/hermes.exe'
               $gitBin = Split-Path (Get-Command git.exe).Source
               $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
               if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Claude requires a native Git Bash installation' }
               $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
-              $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
-              foreach ($client in @($env:AIGW_ACCEPTANCE_CODEX, $env:AIGW_ACCEPTANCE_CLAUDE)) {
+              $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), (Join-Path $hermesHome 'bin'), (Join-Path $hermesInstall 'venv/Scripts'), (Split-Path (Get-Command node.exe).Source), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+              foreach ($client in @($env:AIGW_ACCEPTANCE_CODEX, $env:AIGW_ACCEPTANCE_CLAUDE, $env:AIGW_ACCEPTANCE_HERMES)) {
                 if (-not (Test-Path -LiteralPath $client -PathType Leaf)) { throw "Missing native client: $client" }
                 Get-FileHash -LiteralPath $client -Algorithm SHA256
               }
               $acceptance += '--clients'
             }
-            Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
             if ($env:AIGW_MEASURE_PERFORMANCE -eq 'true') {
               $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine'
               $output = Join-Path $env:GITHUB_WORKSPACE 'build/performance'
@@ -565,7 +637,7 @@ jobs:
               mise exec --locked -- go run ./tools/release @acceptance
             }
           } finally {
-            foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH')) {
+            foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
               Remove-Item "Env:$name" -ErrorAction SilentlyContinue
             }
             Remove-Item -LiteralPath $scope -Recurse -Force

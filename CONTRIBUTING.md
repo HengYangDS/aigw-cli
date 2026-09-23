@@ -634,22 +634,26 @@ stops on the first failure and cleans it afterward. No second build is needed.
 #### Hosted Windows qualification
 
 The existing GitHub **Verify** workflow exposes `windows_clients` for an explicit
-manual qualification with `baseline_tag`. It provisions pinned official native
-Codex and Claude packages using npm with install scripts disabled, verifies
-registry signatures and resolves their complete native layouts before running
-the same command. This path requires Git Bash and records executable hashes;
-its temporary clients are removed afterward. It does not install anything on
-the operator's workstation. GitLab projects the same native command onto its
-local Windows runner through the required `AIGW_GITLAB_WINDOWS_RUNNER_TAG` CI
-variable. GitHub remains exclusively GitHub-hosted; it exposes no self-hosted
-runner selector or fallback.
+manual qualification with `baseline_tag`. It provisions pinned native Codex
+and Claude packages through npm with install scripts disabled and registry
+signatures checked. It also verifies the exact official Hermes Windows installer
+bytes, runs only its noninteractive CLI installation stages at a pinned source
+commit, and requires its hash-verified `uv.lock` dependency tier. All three
+client executable paths and required companion tools are explicit inputs to the
+same native journey. Git Bash is required; the disposable runner removes the
+clients afterward without changing the operator's workstation. GitLab projects
+the same native product command onto its local Windows runner through the
+required `AIGW_GITLAB_WINDOWS_RUNNER_TAG` CI variable. GitHub remains exclusively
+GitHub-hosted; it exposes no self-hosted runner selector or fallback.
 
 Set `candidate_tag` with `baseline_tag` to consume a published signed matrix
 instead of reconstructing its successor. Each native job downloads from its own
 GitHub peer, supplies the public trust inputs, and runs `accept-native
 --artifacts`; with `windows_clients`, the real Windows clients consume those
-same candidate bytes. Run the workflow at the candidate tag's source revision.
-This is native execution evidence, separate from peer-local asset verification.
+same candidate bytes. Run the workflow at the candidate tag or a reviewed
+verifier revision declaring the same version; signed provenance still binds the
+executed artifact to the candidate tag. This is native execution evidence,
+separate from peer-local asset verification.
 
 #### Disposable Linux clients
 
