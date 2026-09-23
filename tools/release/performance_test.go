@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -21,6 +22,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 type performanceSamples struct {
@@ -195,10 +198,29 @@ client = "claude"
 model = "claude-second"
 `)
 	case "candidate":
-		manifest = append(readFile(t, j.manifest), []byte(`
+		manifest = []byte(fmt.Sprintf(`version = 7
+
+[recommendations.claude.primary]
+route = "native-system-keyring-probe-claude"
+
+[accounts.native-system-keyring-probe]
+label = "Native System Keyring Probe"
+
+[accounts.native-system-keyring-probe.endpoints]
+anthropic = %q
+
+[models.claude-test]
+label = "Claude Test"
 
 [models.claude-second]
 label = "Claude Second"
+
+[routes.native-system-keyring-probe-claude]
+label = "Native System Keyring Probe Claude"
+account = "native-system-keyring-probe"
+model = "claude-test"
+upstream_model = "claude-test"
+interfaces = { anthropic = ["text"] }
 
 [routes.performance-second]
 label = "Performance Second"
@@ -206,7 +228,7 @@ account = "native-system-keyring-probe"
 model = "claude-second"
 upstream_model = "claude-second"
 interfaces = { anthropic = ["text"] }
-`)...)
+`, server.URL))
 	default:
 		t.Fatalf("unknown performance variant %q", variant)
 	}
@@ -223,6 +245,24 @@ interfaces = { anthropic = ["text"] }
 		j.runWithInput(j.binary, token+"\n", append(args, "--token-stdin")...)
 	}
 	j.requireClaudeCredential(token)
+	var catalog struct {
+		Accounts map[string]any `toml:"accounts"`
+		Profiles map[string]any `toml:"profiles"`
+		Routes   map[string]any `toml:"routes"`
+	}
+	if err := toml.Unmarshal(readFile(t, j.config), &catalog); err != nil {
+		t.Fatal(err)
+	}
+	modelConfigurations := catalog.Profiles
+	if variant == "candidate" {
+		modelConfigurations = catalog.Routes
+	}
+	if actual := slices.Sorted(maps.Keys(catalog.Accounts)); !slices.Equal(actual, []string{account}) {
+		t.Fatalf("performance Account inputs differ: %v", actual)
+	}
+	if actual := slices.Sorted(maps.Keys(modelConfigurations)); !slices.Equal(actual, []string{"native-system-keyring-probe-claude", "performance-second"}) {
+		t.Fatalf("performance model-configuration inputs differ: %v", actual)
+	}
 	return j
 }
 
