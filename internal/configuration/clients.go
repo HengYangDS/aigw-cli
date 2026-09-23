@@ -38,7 +38,7 @@ var admittedClientSpecs = []ClientSpec{
 		Label:                  "Claude Desktop",
 		EndpointProtocols:      []EndpointProtocol{ProtocolAnthropic},
 		RestartAfterProjection: true,
-		QualifiedModes:         []string{"Cowork", "Code"},
+		QualifiedModes:         []string{"Chat", "Cowork", "Code"},
 		QualifiedPlatforms:     []string{"macOS"},
 	},
 	{ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses}},

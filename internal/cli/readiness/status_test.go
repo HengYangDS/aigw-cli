@@ -100,7 +100,7 @@ func TestStatusStatesClaudeDesktopQualifiedModesAndPlatforms(t *testing.T) {
 		t.Fatal(err)
 	}
 	desktop := result.Clients[configuration.ClientClaudeDesktop]
-	if !slices.Equal(desktop.QualifiedModes, []string{"Cowork", "Code"}) {
+	if !slices.Equal(desktop.QualifiedModes, []string{"Chat", "Cowork", "Code"}) {
 		t.Fatalf("qualified modes = %#v", desktop.QualifiedModes)
 	}
 	if !slices.Equal(desktop.QualifiedPlatforms, []string{"macOS"}) {
@@ -111,7 +111,7 @@ func TestStatusStatesClaudeDesktopQualifiedModesAndPlatforms(t *testing.T) {
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := buffer.String(); !strings.Contains(got, "Qualified: Cowork, Code · macOS") {
+	if got := buffer.String(); !strings.Contains(got, "Qualified: Chat, Cowork, Code · macOS") {
 		t.Fatalf("human status = %q", got)
 	}
 }

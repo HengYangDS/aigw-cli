@@ -18,7 +18,7 @@ func TestAdmittedClientRegistryIsTheSingleProtocolBoundary(t *testing.T) {
 			Label:                  "Claude Desktop",
 			EndpointProtocols:      []EndpointProtocol{ProtocolAnthropic},
 			RestartAfterProjection: true,
-			QualifiedModes:         []string{"Cowork", "Code"},
+			QualifiedModes:         []string{"Chat", "Cowork", "Code"},
 			QualifiedPlatforms:     []string{"macOS"},
 		},
 		{ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses}},
@@ -47,7 +47,7 @@ func TestAdmittedClientRegistryReturnsDefensiveCopies(t *testing.T) {
 		t.Fatal("caller mutation changed the registered client boundary")
 	}
 	desktop, ok := ClientSpecFor(ClientClaudeDesktop)
-	if !ok || desktop.QualifiedModes[0] != "Cowork" || desktop.QualifiedPlatforms[0] != "macOS" {
+	if !ok || desktop.QualifiedModes[0] != "Chat" || desktop.QualifiedPlatforms[0] != "macOS" {
 		t.Fatalf("caller mutation changed Claude Desktop qualification: %#v", desktop)
 	}
 }

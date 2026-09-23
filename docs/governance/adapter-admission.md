@@ -61,9 +61,12 @@ withdrawal are implemented in the active Change. The official Desktop client
 supports [macOS and Windows](https://support.claude.com/en/articles/10065433-install-claude-desktop);
 Linux verifies explicit absence and never treats an unrelated PATH executable
 as that client. Enable and disable commands report that the application must
-restart before activation or deactivation is claimed. Chat, Cowork, Code,
-actual restart consumption, host-version and release qualification remain
-incomplete. A synthetic extension test cannot satisfy that client journey.
+restart before activation or deactivation is claimed. A restarted Claude
+Desktop 2.7032.0 consumed the projected UCloud profile on macOS and completed
+Chat, Cowork inference, and Code with a shell-tool result. Cowork's isolated VM
+remained in `booting` and did not execute its requested Bash tool, so that
+capability limit remains explicit. Windows host qualification remains open. A
+synthetic extension test cannot satisfy a native client journey.
 CodeBuddy, WorkBuddy, OpenCode, Pi, and Qoder retain the individual dispositions
 in the [client assessment](../research/provider-tooling-assessment.md#client-surfaces-and-cross-model-inference).
 

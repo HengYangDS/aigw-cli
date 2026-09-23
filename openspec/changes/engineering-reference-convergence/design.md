@@ -487,8 +487,8 @@ four manifest cases, and the complete local quality graph passes at 95.22%
 statement coverage. Hosted macOS, Linux, and Windows reruns remain required
 before this evidence closes Task 4.7 or the platform obligations in Task 9.
 
-The installed Claude Desktop 2.2553.1 schema independently identifies Chat,
-Cowork, and Code as configurable third-party surfaces. The AIGW-owned Claude Desktop profile
+The installed Claude Desktop schema independently identifies Chat, Cowork, and
+Code as configurable third-party surfaces. The AIGW-owned Claude Desktop profile
 enables all three explicitly instead of inheriting release-specific client
 defaults. Native diagnostics on 2026-09-22 exposed that the former Claude Desktop profile ID
 `aigw` violated Claude Desktop's UUID contract: the application reported an
@@ -500,15 +500,24 @@ an authenticated Cowork response and ran a Code session with tool activity. The
 Adapter now migrates the invalid owned identity only after validating its
 ownership hash, removes the superseded files, and retains guarded rollback and
 withdrawal. Client enablement reports the projection as configured rather than
-active and requires a restart; withdrawal reports the same boundary. Standalone
-Chat and Linux and Windows host consumption remain required before Task 4.7 can
-close.
+active and requires a restart; withdrawal reports the same boundary.
+
+On 2026-09-23, Claude Desktop 2.7032.0 was restarted with that same owned UCloud
+profile. Runtime logs resolved `apiHost=https://api.modelverse.cn` from the
+third-party configuration directory for Chat, Cowork, and Code. Chat returned
+the requested `CLAUDE_DESKTOP_CHAT_OK` marker. Cowork completed live inference,
+but its isolated VM remained in `booting`; after twelve internal Bash startup
+attempts it explicitly reported that the requested tool had not executed. Code
+executed a read-only `printf` command and returned
+`CLAUDE_DESKTOP_CODE_OK`. These observations qualify all three inference modes
+on macOS while preserving the Cowork tool limit and leaving Windows native
+qualification unclaimed.
 
 The admitted Client specification is now the single runtime owner of those
 qualification claims. `aigw status` exposes `qualified_modes` and
 `qualified_platforms` in JSON and renders the same bounded claim for humans.
-The current product therefore states only Cowork and Code on macOS; it does not
-imply standalone Chat or Windows qualification before those journeys pass.
+The current product therefore states Chat, Cowork, and Code on macOS. It does
+not imply Windows qualification or successful Cowork VM tool execution.
 
 A later real-host observation found the running Desktop application had
 reserialized its shared third-party settings without changing their JSON
@@ -614,15 +623,21 @@ the declared compatible protocol and exact requested model, not the upstream
 vendor's serving identity or broader tool, cancellation, continuation, and
 compaction behavior, which remain task 4.8.
 
-On 2026-09-22, installed AIGW 0.2.0 reconciled only the drifted Claude Desktop
-projection; the next dry run left all four clients unchanged and status marked
-them configured. Native Codex CLI 0.155.1, Claude Code, and Hermes Agent 0.21.3
-then completed minimal live requests without changing their bindings. Isolated
-Codex and Claude runs additionally proved streamed events, one native shell-tool
-round trip, and same-session continuation. Codex cancellation exited without a
-residual process group but emitted its own `UnknownProcessId` diagnostic. These
-observations protect the installed baseline; candidate installation, Desktop
-Chat, serving-provider identity, Hermes tools, and compaction remain unproved.
+On 2026-09-23, the installed AIGW 0.2.0 configuration selected UCloud GPT-6 Sol
+for Codex and Hermes and UCloud Claude Fable 5.1 for Claude Code and Claude
+Desktop. A guarded synchronization changed only the drifted Desktop projection;
+the next dry run left all four clients unchanged, and both `aigw check --json`
+and `aigw doctor --json` reported every Adapter healthy. The GPT Responses
+stream reported serving model `gpt-6-sol` and reached its terminal SSE event.
+Codex, Claude Code, and Hermes completed native tool loops; a
+`previous_response_id` request continued successfully; and an isolated Codex
+session cancelled without a residual process group. Claude Desktop completed
+the three mode journeys described above. UCloud returned 503 `model_not_found`
+for `/responses/compact`, so native compaction remains an explicit upstream
+limit. GPT-6 Sol also lacks an `ultrafast` service-tier declaration, causing the
+client to omit that parameter instead of misrepresenting support. These results
+qualify the selected routes and their observed limits without changing session
+history or model metadata. Candidate installation remains part of Task 9.3.
 
 Task 4.11 previously closed on the version 6 [`team.toml`](../../../manifests/team.toml),
 whose SHA-256 is `71540fec516305bc84407b5a0d802a679c617335939d0dab15dae8310b40413f`.

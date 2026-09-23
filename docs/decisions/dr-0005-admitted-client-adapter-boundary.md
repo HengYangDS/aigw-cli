@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-07
-- Last amended: 2026-09-21
+- Last amended: 2026-09-23
 
 ## Context
 
@@ -17,10 +17,12 @@ The current source-level client registry is Codex CLI and Desktop through their
 shared Codex Home, Claude Code through its official per-user settings, Hermes
 through its native provider configuration, and Claude Desktop through its
 independent third-party inference library. Missing clients are untouched. This
-does not grant stable release qualification: Claude Desktop Chat, Cowork, Code,
-restart and supported-host evidence remain obligations of the active Change.
-Session state, unrelated GUI preferences, JetBrains products, and external
-services retain their owners.
+does not grant stable release qualification by itself. Native Claude Desktop
+2.7032.0 evidence qualifies Chat, Cowork, and Code after restart on macOS;
+Cowork's isolated VM tool execution remains unavailable while that VM stays in
+`booting`, and Windows host qualification remains open. Session state,
+unrelated GUI preferences, JetBrains products, and external services retain
+their owners.
 
 A new client requires one explicit adapter admission with configuration,
 secret, rollback, uninstall, platform, and real verification evidence. Provider
