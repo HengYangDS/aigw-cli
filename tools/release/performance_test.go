@@ -98,7 +98,7 @@ func TestNativePerformance(t *testing.T) {
 			program := programs[index]
 			for _, backend := range backends {
 				t.Run(fmt.Sprintf("block-%d/%s/%s", block+1, program.Variant, backend), func(t *testing.T) {
-					journey := nativePerformanceJourney(t, program.Path, program.Variant, backend)
+					journey := nativePerformanceJourney(t, program.Path, programs[1].Path, program.Variant, backend)
 					rows := journey.measurePerformance(hyperfine, output, program.Variant, backend, block+1)
 					measurements = append(measurements, rows...)
 					if backend == "env" {
@@ -174,7 +174,7 @@ func nativePerformancePrograms(t *testing.T) []performanceProgram {
 	return programs
 }
 
-func nativePerformanceJourney(t *testing.T, program, variant, backend string) *journeyFixture {
+func nativePerformanceJourney(t *testing.T, program, credentialWorker, variant, backend string) *journeyFixture {
 	t.Helper()
 	const account, token = "native-system-keyring-probe", "synthetic-performance-token"
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
@@ -213,7 +213,7 @@ interfaces = { anthropic = ["text"] }
 	if err := os.WriteFile(j.manifest, manifest, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	j.preparePerformanceCredentials(backend, account)
+	j.preparePerformanceCredentials(backend, account, credentialWorker)
 	t.Cleanup(j.uninstallAndRequireOwnedFilesAbsent)
 	args := []string{"setup", "--from", j.manifest, "--account", account}
 	if backend == "env" {
@@ -226,14 +226,16 @@ interfaces = { anthropic = ["text"] }
 	return j
 }
 
-func (j *journeyFixture) preparePerformanceCredentials(backend, account string) {
+func (j *journeyFixture) preparePerformanceCredentials(backend, account, credentialWorker string) {
 	j.testing.Helper()
 	if backend != "keyring" {
 		j.setEnvironment("AIGW_SECRET_BACKEND", backend)
 		return
 	}
 	j.enableSystemCredentialStore()
-	store, err := secrets.Select(secrets.Selection{Backend: "keyring", Executable: j.binary})
+	// The published baseline predates the native credential worker. Use the
+	// verified candidate for fixture observation and cleanup on both variants.
+	store, err := secrets.Select(secrets.Selection{Backend: "keyring", Executable: credentialWorker})
 	if err != nil {
 		j.testing.Fatal(err)
 	}
