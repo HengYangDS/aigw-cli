@@ -13,14 +13,14 @@ import (
 func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 	var out bytes.Buffer
 	r := presentation.NewWithWidth(&out, false, 24)
-	r.Row("Current profile", "GPT-5.6 Terra")
+	r.Row("Current route", "GPT-5.6 Terra")
 	r.Status(presentation.OK, "Precise balance", "Disabled until connected")
 	r.Detail("Run aigw account diagnostics enable team-gateway")
 	r.Command("aigw config import configuration.toml")
 
 	got := out.String()
 	for _, want := range []string{
-		"  Current profile\n",
+		"  Current route\n",
 		"    GPT-5.6 Terra\n",
 		"  ✓ Precise balance\n",
 		"    Disabled until\n",
@@ -35,7 +35,7 @@ func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 		}
 	}
 	brokenConnected := strings.Replace("connected", "ct", "c\nt", 1)
-	for _, forbidden := range []string{"Current profileGPT", brokenConnected, "configuration.tom\nl"} {
+	for _, forbidden := range []string{"Current routeGPT", brokenConnected, "configuration.tom\nl"} {
 		if strings.Contains(got, forbidden) {
 			t.Fatalf("narrow output contains %q:\n%s", forbidden, got)
 		}

@@ -137,9 +137,9 @@ func TestCaptureVerifiedBackupStateBindsCurrentConfiguration(t *testing.T) {
 				t.Fatal(err)
 			}
 			if changed {
-				profile := current.Routes["current"]
-				profile.Model = "unverified-model"
-				current.Routes["current"] = profile
+				route := current.Routes["current"]
+				route.Model = "unverified-model"
+				current.Routes["current"] = route
 			}
 			data, err := encodeConfig(current)
 			if err != nil {

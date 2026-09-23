@@ -242,7 +242,7 @@ func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cf
 		}
 		runtime, err := cfg.ResolveRuntime(clientID, "")
 		if err != nil {
-			checks = append(checks, Check{Name: "projection:" + clientID, Detail: err.Error(), Fix: "run `aigw use --for " + clientID + " <profile>`"})
+			checks = append(checks, Check{Name: "projection:" + clientID, Detail: err.Error(), Fix: "run `aigw use --for " + clientID + " <route>`"})
 			continue
 		}
 		status := clients.Inspect(ctx, cfg, clientID, runtime)

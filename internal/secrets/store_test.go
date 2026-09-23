@@ -73,7 +73,7 @@ func TestMemoryStoreLifecycle(t *testing.T) {
 	}
 }
 
-func TestStoresRejectInvalidProfileAndEmptySecret(t *testing.T) {
+func TestStoresRejectInvalidAccountAndEmptySecret(t *testing.T) {
 	store := NewMemoryStore()
 	for _, name := range []string{"bad name", "", "../escape"} {
 		if err := store.Set(name, "value"); err == nil {
@@ -119,7 +119,7 @@ func TestEnvironmentStoreMissingVariableIsNotFound(t *testing.T) {
 	}
 }
 
-func TestEnvironmentStoreRejectsInvalidProfileName(t *testing.T) {
+func TestEnvironmentStoreRejectsInvalidAccountName(t *testing.T) {
 	store := NewEnvironmentStore(func(string) string { return "value" })
 	if _, err := store.Get("bad name"); err == nil {
 		t.Error("Get(bad name) succeeded")

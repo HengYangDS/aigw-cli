@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func TestLoadRejectsProfileOwnedEndpointResidue(t *testing.T) {
+func TestLoadRejectsLegacyProfileOwnedEndpointResidue(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	raw := `version = 3
 
@@ -39,7 +39,7 @@ codex = "gpt"
 	}
 	store := NewStore(path)
 	if _, err := store.Load(); err == nil {
-		t.Fatal("Profile-owned endpoint residue was accepted")
+		t.Fatal("Legacy Profile-owned endpoint residue was accepted")
 	}
 }
 
@@ -213,8 +213,8 @@ func TestSaveRefusesInvalidConfigWithoutReplacingExistingFile(t *testing.T) {
 	account.Endpoints.Anthropic = ""
 	incompatible.Accounts["dmx"] = account
 	for name, cfg := range map[string]Config{
-		"empty":                {Version: ConfigVersion},
-		"incompatible Profile": incompatible,
+		"empty":                       {Version: ConfigVersion},
+		"incompatible legacy Profile": incompatible,
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")

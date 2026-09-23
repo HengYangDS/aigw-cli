@@ -43,8 +43,8 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				NextAction string                  `json:"next_action"`
 			}{DryRun: dryRun, Selections: map[string]string{}, NextAction: "aigw check"}
 			for _, client := range configuration.AdmittedClientIDs() {
-				if profile := after.SelectedRoute(client); profile != "" {
-					result.Selections[client] = profile
+				if route := after.SelectedRoute(client); route != "" {
+					result.Selections[client] = route
 				}
 			}
 			if dryRun {

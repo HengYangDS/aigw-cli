@@ -44,8 +44,8 @@ func TestHermesNativeProjection(t *testing.T) {
 			hermesHome := filepath.Join(home, "hermes")
 			cfg := configuration.NewConfig()
 			cfg.Accounts["fixture"] = configuration.Account{Label: "Fixture", Endpoints: configuration.Endpoints{Anthropic: "https://provider.invalid", OpenAIResponses: "https://provider.invalid/v1", OpenAIChatCompletions: "https://provider.invalid/v1"}}
-			cfg.Profiles["hermes"] = configuration.Profile{Label: "Hermes", Account: "fixture", Model: "fixture-model"}
-			cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Profile: "hermes", Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
+			cfg.Routes["hermes"] = configuration.Route{Label: "Hermes", Account: "fixture", Model: "fixture-model"}
+			cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
 			if err := configuration.NewStore(configPath).Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -182,13 +182,13 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 		connected[accountID] = true
 	}
 	want := map[string][]string{}
-	for _, profile := range manifest.Profiles {
-		if !connected[profile.Account] {
+	for _, route := range manifest.Routes {
+		if !connected[route.Account] {
 			continue
 		}
-		for _, protocol := range profile.AdmittedProtocols() {
-			providerID := hermesProviderID(profile.Account, protocol)
-			want[providerID] = append(want[providerID], profile.Model)
+		for _, protocol := range route.AdmittedProtocols() {
+			providerID := hermesProviderID(route.Account, protocol)
+			want[providerID] = append(want[providerID], route.Model)
 		}
 	}
 	for providerID, models := range want {

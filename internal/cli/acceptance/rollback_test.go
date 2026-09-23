@@ -33,7 +33,7 @@ func TestRollbackReportsUnavailableRecoveryWithoutChangingCurrentConfiguration(t
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
-			saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
+			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 			if test.prepare != nil {
 				test.prepare(t, app.Config.Path())
 			}
@@ -77,7 +77,7 @@ func TestRollbackReportsUnavailableRecoveryWithoutChangingCurrentConfiguration(t
 func TestRollbackRestoresLastConfigurationChange(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	before := configuration.NewConfig()
-	addAccountProfile(&before, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
+	addAccountRoute(&before, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 	before.SetSelectedRoute(configuration.ClientClaude, "one")
 	if err := app.Config.Save(before); err != nil {
 		t.Fatal(err)
@@ -100,7 +100,7 @@ func TestRollbackRestoresLastConfigurationChange(t *testing.T) {
 func TestRollbackUsesPreviousConfigurationWhenVerifiedRecoveryIsInvalid(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	previous := configuration.NewConfig()
-	addAccountProfile(&previous, "stable", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-stable")
+	addAccountRoute(&previous, "stable", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-stable")
 	previous.SetSelectedRoute(configuration.ClientClaude, "stable")
 	if err := app.Config.Save(previous); err != nil {
 		t.Fatal(err)
@@ -134,7 +134,7 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	target := t.TempDir()
 	verified := configuration.NewConfig()
-	addAccountProfile(&verified, "stable", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-stable")
+	addAccountRoute(&verified, "stable", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-stable")
 	verified.SetSelectedRoute(configuration.ClientCodex, "stable")
 	verified.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(verified); err != nil {

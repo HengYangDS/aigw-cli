@@ -11,16 +11,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewProfileCommand constructs the Profile identity-migration command.
-func NewProfileCommand(runtime invocation.Context) *cobra.Command {
+// NewRouteCommand constructs the Route identity-migration command.
+func NewRouteCommand(runtime invocation.Context) *cobra.Command {
 	var dryRun, jsonMode bool
-	cmd := &cobra.Command{Use: "rename [old] [new]", Short: "Rename a profile", Args: renameArguments(runtime, "profile")}
+	cmd := &cobra.Command{Use: "rename [old] [new]", Short: "Rename a route", Args: renameArguments(runtime, "route")}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		oldID, newID, err := resolveIDs(runtime, "profile", args)
+		oldID, newID, err := resolveIDs(runtime, "route", args)
 		if err != nil {
 			return err
 		}
-		plan, err := renamer(runtime).RenameProfile(cmd.Context(), oldID, newID, dryRun)
+		plan, err := renamer(runtime).RenameRoute(cmd.Context(), oldID, newID, dryRun)
 		if err != nil {
 			return err
 		}
@@ -35,7 +35,7 @@ func NewProfileCommand(runtime invocation.Context) *cobra.Command {
 func NewAccountCommand(runtime invocation.Context) *cobra.Command {
 	var dryRun, jsonMode, finalize bool
 	var options renaming.FinalizeOptions
-	cmd := &cobra.Command{Use: "rename [old] [new]", Short: "Rename an account and update its profile references"}
+	cmd := &cobra.Command{Use: "rename [old] [new]", Short: "Rename an account and update its route references"}
 	cmd.Args = cobra.MatchAll(func(cmd *cobra.Command, args []string) error {
 		if finalize && len(args) != 2 {
 			return fmt.Errorf("account rename --finalize requires explicit <old> <new> arguments; run `%s --help`", cmd.CommandPath())

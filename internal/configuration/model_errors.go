@@ -2,14 +2,14 @@ package configuration
 
 import "fmt"
 
-// RuntimeBindingUnselectedError reports that a client has no selected Profile.
+// RuntimeBindingUnselectedError reports that a client has no selected Route.
 type RuntimeBindingUnselectedError struct {
 	Client string
 }
 
 // Error formats a missing client selection without implying invalid configuration.
 func (e *RuntimeBindingUnselectedError) Error() string {
-	return fmt.Sprintf("no Profile selected for client %q", e.Client)
+	return fmt.Sprintf("no Route selected for client %q", e.Client)
 }
 
 // UnsupportedConfigVersionError reports a configuration schema newer or older than the one accepted by this build.
@@ -32,27 +32,27 @@ func (e *UnsupportedConfigVersionError) Error() string {
 	)
 }
 
-// RuntimeRouteClientMismatchError reports a profile selected for a different client.
+// RuntimeRouteClientMismatchError reports a route selected for a different client.
 type RuntimeRouteClientMismatchError struct {
 	RouteID        string
 	ExpectedClient string
 	ActualClient   string
 }
 
-// Error formats the expected and actual client identities for a mismatched profile.
+// Error formats the expected and actual client identities for a mismatched route.
 func (e *RuntimeRouteClientMismatchError) Error() string {
-	return fmt.Sprintf("profile %q is for %s, not %s", e.RouteID, e.ExpectedClient, e.ActualClient)
+	return fmt.Sprintf("route %q is for %s, not %s", e.RouteID, e.ExpectedClient, e.ActualClient)
 }
 
-// RuntimeRouteUnknownAccountError reports a profile whose referenced account is absent.
+// RuntimeRouteUnknownAccountError reports a route whose referenced account is absent.
 type RuntimeRouteUnknownAccountError struct {
 	RouteID   string
 	AccountID string
 }
 
-// Error formats the unresolved account reference for a profile.
+// Error formats the unresolved account reference for a route.
 func (e *RuntimeRouteUnknownAccountError) Error() string {
-	return fmt.Sprintf("profile %q references unknown account %q", e.RouteID, e.AccountID)
+	return fmt.Sprintf("route %q references unknown account %q", e.RouteID, e.AccountID)
 }
 
 // RuntimeMissingEndpointError reports that an account lacks the protocol endpoint required by its client.

@@ -158,9 +158,9 @@ func renamedConfig() configuration.Config {
 	providerAccount := cfg.Accounts["old"]
 	delete(cfg.Accounts, "old")
 	cfg.Accounts["new"] = providerAccount
-	for id, profile := range cfg.Routes {
-		profile.Account = "new"
-		cfg.Routes[id] = profile
+	for id, route := range cfg.Routes {
+		route.Account = "new"
+		cfg.Routes[id] = route
 	}
 	return cfg
 }
@@ -248,7 +248,7 @@ func TestCanceledAccountFinalizationPreservesOwnedState(t *testing.T) {
 }
 
 func TestRenamerRetainsRetryStateWhenConfigurationCommitFails(t *testing.T) {
-	for _, resource := range []string{"account", "profile"} {
+	for _, resource := range []string{"account", "route"} {
 		t.Run(resource, func(t *testing.T) {
 			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 			if err := store.Save(migrationConfig()); err != nil {
@@ -270,7 +270,7 @@ func TestRenamerRetainsRetryStateWhenConfigurationCommitFails(t *testing.T) {
 					t.Fatalf("prepared retry credential = %q, error = %v", value, getErr)
 				}
 			} else {
-				_, err = renamer.RenameProfile(t.Context(), "codex", "new", false)
+				_, err = renamer.RenameRoute(t.Context(), "codex", "new", false)
 			}
 			if !errors.Is(err, failure) {
 				t.Fatalf("rename error = %v, want commit failure", err)
@@ -291,8 +291,8 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 	if _, err := planAccount(cfg, "missing", "new"); err == nil {
 		t.Fatal("expected unknown account")
 	}
-	if _, err := planProfile(cfg, "missing", "new"); err == nil {
-		t.Fatal("expected unknown profile")
+	if _, err := planRoute(cfg, "missing", "new"); err == nil {
+		t.Fatal("expected unknown route")
 	}
 
 	invalid := cfg.Clone()
@@ -300,13 +300,13 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 	if _, err := planAccount(invalid, "old", "new"); err == nil || !strings.Contains(err.Error(), "Validate") {
 		t.Fatalf("account error = %v", err)
 	}
-	if _, err := planProfile(invalid, "codex", "new-codex"); err == nil || !strings.Contains(err.Error(), "Validate") {
-		t.Fatalf("profile error = %v", err)
+	if _, err := planRoute(invalid, "codex", "new-codex"); err == nil || !strings.Contains(err.Error(), "Validate") {
+		t.Fatalf("route error = %v", err)
 	}
 
 	cfg.SetRecommendedRoute(configuration.ClientClaude, "claude")
 	cfg.SetRecommendedRoute(configuration.ClientCodex, "codex")
-	plan, err := planProfile(cfg, "codex", "new-codex")
+	plan, err := planRoute(cfg, "codex", "new-codex")
 	if err != nil || plan.Config.SelectedRoute(configuration.ClientClaude) != "claude" ||
 		plan.Config.RecommendedRoute(configuration.ClientCodex) != "new-codex" ||
 		plan.Config.RecommendedRoute(configuration.ClientClaude) != "claude" {

@@ -1,5 +1,5 @@
 // Package providers contains explicitly bundled, provider-native diagnostics.
-// It is intentionally outside AIGW's Account/Profile/Route/Adapter core: an
+// It is intentionally outside AIGW's Account/Model/Route/Adapter core: an
 // Account may declare a diagnostic provider that is not present in a given
 // build while all ordinary routing and health checks continue to work.
 package providers

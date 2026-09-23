@@ -138,7 +138,7 @@ func (claudeDesktopAdapter) Inspect(ctx context.Context, deps Dependencies, cfg 
 		var plan claudedesktop.Plan
 		plan, err = claudedesktop.Prepare(claudedesktop.PathsForLibrary(binding.Targets[0]), &desired)
 		if err == nil && plan.Action != claudedesktop.ActionUnchanged {
-			err = errors.New("Claude Desktop projection differs from the selected Profile")
+			err = errors.New("Claude Desktop projection differs from the selected Route")
 		}
 	}
 	if err != nil {
@@ -215,20 +215,20 @@ func claudeDesktopModels(cfg configuration.Config, selected configuration.Runtim
 	models := []claudedesktop.Model{{Name: selected.Model, Label: selected.RouteLabel}}
 	seen := map[string]bool{selected.Model: true}
 	spec := mustClientSpec(configuration.ClientClaudeDesktop)
-	for _, profileID := range cfg.RouteIDs() {
-		if profileID == selected.RouteID {
+	for _, routeID := range cfg.RouteIDs() {
+		if routeID == selected.RouteID {
 			continue
 		}
-		profile := cfg.Routes[profileID]
-		if profile.Account != selected.AccountID || seen[profile.Model] {
+		route := cfg.Routes[routeID]
+		if route.Account != selected.AccountID || seen[route.Model] {
 			continue
 		}
-		account := cfg.Accounts[profile.Account]
-		if !slices.Contains(spec.CompatibleRouteProtocols(account, profile), selected.Protocol) {
+		account := cfg.Accounts[route.Account]
+		if !slices.Contains(spec.CompatibleRouteProtocols(account, route), selected.Protocol) {
 			continue
 		}
-		models = append(models, claudedesktop.Model{Name: profile.Model, Label: profile.Label})
-		seen[profile.Model] = true
+		models = append(models, claudedesktop.Model{Name: route.Model, Label: route.Label})
+		seen[route.Model] = true
 	}
 	return models
 }

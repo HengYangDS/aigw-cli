@@ -250,7 +250,7 @@ startup and public configuration export run in a private temporary home with
 an explicit environment backend, no Tokens and no client search path. An
 existing configuration is copied byte-for-byte; no historical schema is
 reconstructed. The predecessor must return a nonempty TOML manifest with its
-declared version and Profiles. This proves configuration readability, not
+declared version and Routes. This proves configuration readability, not
 Provider access or client compatibility. Failure preserves both program files
 and the original configuration; `aigw config migrate --rollback` can restore the
 exact retained predecessor state before retrying program rollback. The verifier
@@ -710,7 +710,7 @@ Change. The durable trade-offs are:
     inspectable without forwarding stages or compressed literals.
 - **Arguments six**
   - **Decision and semantic reason:** Do not adopt the trial; keep the machine
-    limit at seven. A fixture declares an Account and Profile; artifact ordering
+    limit at seven. A fixture declares an Account and Route; artifact ordering
     consumes a target plus before/after configuration, state and catalogue.
     Positional snapshot grouping alone would add a carrier rather than reduce
     caller knowledge.
@@ -841,7 +841,7 @@ cleanup is storage maintenance, not evidence of release or product completion.
 
 ## Product Boundary
 
-AIGW owns Accounts, credentials, Profiles, Client Bindings, storage policy, and explicit
+AIGW owns Accounts, credentials, Routes, Client Bindings, storage policy, and explicit
 client projections. It does not carry API traffic, manage an external proxy,
 control IDE state, or mutate Codex JSONL, SQLite, historical messages, or model
 metadata. Optional Responses services are ordinary configured endpoints and

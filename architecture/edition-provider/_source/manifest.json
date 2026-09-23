@@ -2,23 +2,23 @@
   "schema": "architecture.source-bundle/v1",
   "source": {
     "id": "dig/misc/tools/llm-third-party-api/aigw-cli",
-    "revision": "e6b1497d5789560dfa540c2737329bba3d63cb43cca0f1c5fe8b38475dda3556"
+    "revision": "6efa138fb78e446f040afcdcba9ad007671d7458519fac36b93cc56235d1c98f"
   },
   "files": [
     {
       "path": "semantic.json",
       "bytes": 15397,
-      "sha256": "fdf318a311b5655f87e5808d4382b5da544a71cd974ec4c44a5c47fb104b85ea"
+      "sha256": "09999bd41c0d95405a97ee4691ce4fb0937afc934b87c11bf8620116cd72bfe0"
     },
     {
       "path": "source/internal/client/adapters.go",
-      "bytes": 15248,
-      "sha256": "6b8ba641c7ba312fb13f27bc53f58dedb8cb1a97c36348d54be0e670f4fd3fa4"
+      "bytes": 15246,
+      "sha256": "26d5cb7b49e9de9cf5e9e25e9573d58f45e6ea4f577d141f55151c3b102a4ac5"
     },
     {
       "path": "source/internal/claude/settings.go",
-      "bytes": 17303,
-      "sha256": "e70a72bc1fdd4634f88c902577d5a5b82dc3393780506ef584904b43f22b0b95"
+      "bytes": 17299,
+      "sha256": "2cc85e1a5447ac5d3369f1a17716816be623038a61c70a01b44214bb430d84f3"
     },
     {
       "path": "source/internal/claude/desktop/configuration.go",
@@ -27,8 +27,8 @@
     },
     {
       "path": "source/internal/cli/app.go",
-      "bytes": 15421,
-      "sha256": "ab0f2a0f4188e098bdb1d792dd3a2023f37c6501cc340d82e2f96dfc5e10c7c4"
+      "bytes": 15403,
+      "sha256": "299378dba50f98c1b4ec634634b397dc2c995e48df7879325e2cfdf11890424f"
     },
     {
       "path": "source/internal/codex/reconcile.go",
@@ -37,8 +37,8 @@
     },
     {
       "path": "source/internal/configuration/model.go",
-      "bytes": 22218,
-      "sha256": "4566784c79a74d64afdd00fe373b6dffeba9bb7297631ebb81894932b7ec8db9"
+      "bytes": 22208,
+      "sha256": "1a53546e39d185d42557eb97f1a58fa39b615b61f7ff02e868938f500c910af5"
     },
     {
       "path": "source/internal/secrets/store.go",
@@ -72,13 +72,13 @@
     },
     {
       "path": "source/internal/client/registry.go",
-      "bytes": 10109,
-      "sha256": "001e050e8b9194d270ddd5136bc2a86e88ded713a63c132d474d1095dd169729"
+      "bytes": 10105,
+      "sha256": "e463f0a3e1abe7020a376c7c375389cfb488810116684c60abfb1419f6229cda"
     },
     {
       "path": "source/internal/synchronization/synchronizer.go",
-      "bytes": 3966,
-      "sha256": "660d672fa9751ff2f2e46f17eb6bbb164ca5eec1f9cfe1cb2129c61cea684309"
+      "bytes": 3962,
+      "sha256": "061b0a3102f9ca94d23eae581751ec1e07e65cb0b7d93e2c3d3566d3b6c255fc"
     }
   ]
 }

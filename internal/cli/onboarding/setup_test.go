@@ -292,7 +292,7 @@ func TestGuidedSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *t
 		Out:       io.Discard,
 		RenderOut: io.Discard,
 	}
-	request := Request{Account: "team", Profile: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: configuration.ClientClaude, Model: "claude-test", TokenStdin: true}
+	request := Request{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: configuration.ClientClaude, Model: "claude-test", TokenStdin: true}
 
 	err := runSetup(context.Background(), runtime, request)
 	if err == nil || !strings.Contains(err.Error(), "setup failed") || !strings.Contains(err.Error(), "credential rollback also failed") || !strings.Contains(err.Error(), "credential postimage changed") {
@@ -329,7 +329,7 @@ func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
 		}),
 		In: strings.NewReader("token\n"), Out: io.Discard, RenderOut: io.Discard,
 	}
-	err = runSetup(t.Context(), run, Request{Account: "team", Profile: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: configuration.ClientClaude, Model: "claude-test", TokenStdin: true})
+	err = runSetup(t.Context(), run, Request{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: configuration.ClientClaude, Model: "claude-test", TokenStdin: true})
 	if err == nil || !strings.Contains(err.Error(), "credential postimage changed") {
 		t.Fatalf("setup error = %v, want uncompensated credential", err)
 	}
@@ -477,7 +477,7 @@ func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
 		RenderOut:   io.Discard,
 		Interactive: false,
 	}
-	request := Request{Account: "team", Profile: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: configuration.ClientClaude, Model: "claude-test"}
+	request := Request{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: configuration.ClientClaude, Model: "claude-test"}
 	if err := runSetup(context.Background(), runtime, request); err != nil {
 		t.Fatal(err)
 	}

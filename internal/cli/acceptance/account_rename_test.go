@@ -14,7 +14,7 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-func TestAccountRenameInteractiveCopiesCredentialsAndUpdatesEveryProfile(t *testing.T) {
+func TestAccountRenameInteractiveCopiesCredentialsAndUpdatesEveryRoute(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
 	cfg := accountRenameConfig()
 	if err := app.Config.Save(cfg); err != nil {
@@ -104,7 +104,7 @@ func TestAccountRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	if result.Resource != "account" || result.OldID != "zeta-old" || result.NewID != "zeta-new" || result.Status != "planned" {
 		t.Fatalf("rename result = %#v", result)
 	}
-	wantReferences := []string{"profiles.claude-profile.account", "profiles.codex-profile.account"}
+	wantReferences := []string{"routes.claude-route.account", "routes.codex-route.account"}
 	if !reflect.DeepEqual(result.AffectedReferences, wantReferences) {
 		t.Fatalf("affected references = %q, want %q", result.AffectedReferences, wantReferences)
 	}
@@ -439,8 +439,8 @@ func TestAccountRenameNonCurrentCodexAccountDoesNotReauthenticate(t *testing.T) 
 	app, _, secretStore, runner, _ := testApp(t, "")
 	cfg := accountRenameConfig()
 	cfg.Accounts["active"] = configuration.Account{Label: "Active", Endpoints: configuration.Endpoints{OpenAIResponses: "https://active.test/v1"}}
-	cfg.Routes["active-profile"] = qualifiedRoute("Active", "active", "active-model", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "active-profile")
+	cfg.Routes["active-route"] = qualifiedRoute("Active", "active", "active-model", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "active-route")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{filepath.Join(t.TempDir(), "codex", "configuration.toml")})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -517,15 +517,15 @@ func accountRenameConfig() configuration.Config {
 		},
 		AccountProbe: &configuration.AccountProbe{Kind: "future-provider", BaseURL: "https://probe.zeta.test"},
 	}
-	cfg.Routes["codex-profile"] = qualifiedRoute("Codex", "zeta-old", "codex-model", configuration.ProtocolOpenAIResponses)
-	codexRoute := cfg.Routes["codex-profile"]
+	cfg.Routes["codex-route"] = qualifiedRoute("Codex", "zeta-old", "codex-model", configuration.ProtocolOpenAIResponses)
+	codexRoute := cfg.Routes["codex-route"]
 	codexRoute.Purpose = "Codex purpose"
-	cfg.Routes["codex-profile"] = codexRoute
-	cfg.Routes["claude-profile"] = qualifiedRoute("Claude", "zeta-old", "claude-model", configuration.ProtocolAnthropic)
-	claudeRoute := cfg.Routes["claude-profile"]
+	cfg.Routes["codex-route"] = codexRoute
+	cfg.Routes["claude-route"] = qualifiedRoute("Claude", "zeta-old", "claude-model", configuration.ProtocolAnthropic)
+	claudeRoute := cfg.Routes["claude-route"]
 	claudeRoute.Purpose = "Claude purpose"
-	cfg.Routes["claude-profile"] = claudeRoute
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex-profile")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude-profile")
+	cfg.Routes["claude-route"] = claudeRoute
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex-route")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude-route")
 	return cfg
 }

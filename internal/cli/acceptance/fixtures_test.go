@@ -182,7 +182,7 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, secrets.Store
 	return app, out, secretStore, runner, httpClient
 }
 
-func addAccountProfile(cfg *configuration.Config, profileName, accountName, label string, endpoints configuration.Endpoints, client, model string) {
+func addAccountRoute(cfg *configuration.Config, routeName, accountName, label string, endpoints configuration.Endpoints, client, model string) {
 	if _, exists := cfg.Accounts[accountName]; !exists {
 		cfg.Accounts[accountName] = configuration.Account{Label: label, Endpoints: endpoints}
 	}
@@ -196,7 +196,7 @@ func addAccountProfile(cfg *configuration.Config, profileName, accountName, labe
 	if err != nil {
 		panic("test fixture cannot resolve a wire interface: " + err.Error())
 	}
-	cfg.Routes[profileName] = qualifiedRoute(label, accountName, model, protocol)
+	cfg.Routes[routeName] = qualifiedRoute(label, accountName, model, protocol)
 }
 
 func qualifiedRoute(label, account, model string, protocol configuration.EndpointProtocol) configuration.Route {
@@ -233,10 +233,10 @@ func executableName(name string) string {
 	return name
 }
 
-func saveCommandProfile(t *testing.T, app *cli.App, endpoints configuration.Endpoints, client, model string) {
+func saveCommandRoute(t *testing.T, app *cli.App, endpoints configuration.Endpoints, client, model string) {
 	t.Helper()
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One", endpoints, client, model)
+	addAccountRoute(&cfg, "one", "one", "One", endpoints, client, model)
 	cfg.SetSelectedRoute(client, "one")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -328,7 +328,7 @@ func TestCredentialFixturePreservesRealStateAcrossInjectedFailures(t *testing.T)
 	}
 }
 
-func saveProbeProfile(t *testing.T, appConfig configuration.Store) {
+func saveProbeRoute(t *testing.T, appConfig configuration.Store) {
 	t.Helper()
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{
@@ -343,10 +343,10 @@ func saveProbeProfile(t *testing.T, appConfig configuration.Store) {
 	}
 }
 
-func twoProfileConfig() configuration.Config {
+func twoRouteConfig() configuration.Config {
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One Gateway", configuration.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "model-one")
-	addAccountProfile(&cfg, "two", "two", "Two Gateway", configuration.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, configuration.ClientCodex, "model-two")
+	addAccountRoute(&cfg, "one", "one", "One Gateway", configuration.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "model-one")
+	addAccountRoute(&cfg, "two", "two", "Two Gateway", configuration.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, configuration.ClientCodex, "model-two")
 	for _, routeID := range []string{"one", "two"} {
 		route := cfg.Routes[routeID]
 		route.Interfaces[configuration.ProtocolAnthropic] = []configuration.Capability{}

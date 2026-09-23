@@ -75,7 +75,7 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 
 func assertAccountConnectionOutput(t *testing.T, output string) {
 	t.Helper()
-	for _, want := range []string{"Account connected", "Account ID", "Profile ID", "Client", "Model", "Token"} {
+	for _, want := range []string{"Account connected", "Account ID", "Route ID", "Client", "Model", "Token"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("add output lacks %q:\n%s", want, output)
 		}
@@ -89,7 +89,7 @@ func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 	app, _, credentials, _, _ := testApp(t, "new-token\n")
 	claudeExecutable := executableFixture(t, "claude")
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: claudeExecutable}}}
-	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://old.test"}, configuration.ClientClaude, "old-model")
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://old.test"}, configuration.ClientClaude, "old-model")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 func TestAddPreservesExistingAccountWithDifferentRouteID(t *testing.T) {
 	app, _, credentials, _, _ := testApp(t, "new-token\n")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "existing-profile", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "old-model")
+	addAccountRoute(&cfg, "existing-route", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "old-model")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestAddPreservesExistingAccountWithDifferentRouteID(t *testing.T) {
 	}
 }
 
-func TestAddRejectsInvalidProfileName(t *testing.T) {
+func TestAddRejectsInvalidRouteName(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
 	err := cli.Execute(app, []string{"add", "not valid!", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "Invalid account ID") {
@@ -166,7 +166,7 @@ func TestAddSurfacesConfigLoadFailure(t *testing.T) {
 	}
 }
 
-func TestAddRejectsDuplicateProfile(t *testing.T) {
+func TestAddRejectsDuplicateRoute(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
 	if err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"}); err != nil {
 		t.Fatal(err)
@@ -177,7 +177,7 @@ func TestAddRejectsDuplicateProfile(t *testing.T) {
 	}
 }
 
-func TestAddWithoutLabelDefaultsToProfileName(t *testing.T) {
+func TestAddWithoutLabelDefaultsToRouteName(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
 	if err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"}); err != nil {
 		t.Fatal(err)
@@ -187,7 +187,7 @@ func TestAddWithoutLabelDefaultsToProfileName(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.Routes["dmx"].Label != "dmx" || cfg.Accounts["dmx"].Label != "dmx" {
-		t.Fatalf("profile/account label = %#v, want the profile name as a default", cfg.Routes["dmx"])
+		t.Fatalf("route/account label = %#v, want the route name as a default", cfg.Routes["dmx"])
 	}
 }
 
@@ -214,7 +214,7 @@ func TestAddSurfacesSecretStoreSetFailure(t *testing.T) {
 		t.Fatal(loadErr)
 	}
 	if _, exists := cfg.Routes["dmx"]; exists {
-		t.Fatal("a failed secret write must not leave a persisted profile")
+		t.Fatal("a failed secret write must not leave a persisted route")
 	}
 }
 
@@ -246,7 +246,7 @@ func TestAddCompensatesCredentialAfterConfigurationFailure(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			app, _, backend, _, _ := testApp(t, "token\n")
-			saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://current.test"}, configuration.ClientClaude, "current")
+			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://current.test"}, configuration.ClientClaude, "current")
 			before := readFile(t, app.Config.Path())
 			if err := os.Mkdir(app.Config.Path()+".bak", 0o700); err != nil {
 				t.Fatal(err)
@@ -273,7 +273,7 @@ func TestAddCompensatesCredentialAfterConfigurationFailure(t *testing.T) {
 	}
 }
 
-func TestAddWithTokenStdinCreatesProfileWithoutPrintingSecret(t *testing.T) {
+func TestAddWithTokenStdinCreatesRouteWithoutPrintingSecret(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "top-secret\n")
 	err := cli.Execute(app, []string{"add", "dmx", "--label", "DMXAPI", "--openai-url", "https://example.test/v1", "--anthropic-url", "https://example.test", "--for", "codex", "--model", "gpt-test", "--token-stdin"})
 	if err != nil {

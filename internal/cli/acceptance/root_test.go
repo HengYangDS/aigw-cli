@@ -20,7 +20,7 @@ func TestJSONCommandFailuresRemainMachineReadable(t *testing.T) {
 		{"repair", "--json"},
 		{"catalog", "--json"},
 		{"setup", "--json"},
-		{"profile", "rename", "old", "new", "--dry-run", "--json"},
+		{"route", "rename", "old", "new", "--dry-run", "--json"},
 		{"account", "rename", "old", "new", "--dry-run", "--json"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
@@ -183,9 +183,8 @@ func TestCoreValidationFailuresUseEnglishGuidance(t *testing.T) {
 	}{
 		{args: []string{"test", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, or hermes"},
 		{args: []string{"verify", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, hermes, or all"},
-		{args: []string{"setup", "--profile", "new-profile", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, or hermes"},
-		{args: []string{"profile", "add", "new-profile"}, want: "--account, --model, and --protocol are required"},
-		{args: []string{"route"}, want: "unknown command \"route\""},
+		{args: []string{"setup", "--route", "new-route", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, or hermes"},
+		{args: []string{"route", "add", "new-route"}, want: "--account, --model, and --protocol are required"},
 		{args: []string{"adapter"}, want: "unknown command \"adapter\""},
 		{args: []string{"client", "enable", "other"}, want: "Client must be claude, claude-desktop, codex, or hermes"},
 	} {
@@ -210,10 +209,10 @@ func TestExecuteReturnsHumanOutputFailure(t *testing.T) {
 
 func TestFailureSuggestionUsesCommandNamedInEnglishGuidance(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	if err := app.Config.Save(twoProfileConfig()); err != nil {
+	if err := app.Config.Save(twoRouteConfig()); err != nil {
 		t.Fatal(err)
 	}
-	err := cli.Execute(app, []string{"setup", "--profile", "new-profile"})
+	err := cli.Execute(app, []string{"setup", "--route", "new-route"})
 	if err == nil || !strings.Contains(out.String(), "AIGW is already configured") || !strings.Contains(out.String(), "aigw add") {
 		t.Fatalf("err=%v output=%s", err, out.String())
 	}
@@ -225,12 +224,12 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 		{"check", "--json"},
 		{"doctor", "--json"},
 		{"catalog", "--json"},
-		{"profile", "show", "claude", "--json"},
+		{"route", "show", "claude", "--json"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
 			cfg := configuration.NewConfig()
-			addAccountProfile(&cfg, "claude", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+			addAccountRoute(&cfg, "claude", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}

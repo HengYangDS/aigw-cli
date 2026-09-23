@@ -179,7 +179,7 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/invocation",
   "internal/cli/manifest",
   "internal/cli/onboarding",
-  "internal/cli/profile",
+  "internal/cli/route",
   "internal/cli/readiness",
   "internal/cli/recovery",
   "internal/cli/renaming",
@@ -276,7 +276,7 @@ allowed_import_edges."internal/cli/verification" = [
   "internal/configuration",
   "internal/presentation",
 ]
-allowed_import_edges."internal/cli/profile" = [
+allowed_import_edges."internal/cli/route" = [
   "internal/cli/invocation",
   "internal/configuration",
   "internal/presentation",

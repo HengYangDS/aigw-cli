@@ -16,7 +16,7 @@ import (
 
 func TestUseSurfacesCredentialObservationFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
 	want := errors.New("credential observation failed")
 	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: want}
 
@@ -25,7 +25,7 @@ func TestUseSurfacesCredentialObservationFailure(t *testing.T) {
 	}
 }
 
-func TestUseSelectsClientNativeProfileWithoutAccessingAccountTokens(t *testing.T) {
+func TestUseSelectsClientNativeRouteWithoutAccessingAccountTokens(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	credentials := &recordingCredentialStore[string]{backend: secrets.NewMemoryStore()}
 	app.Secrets = credentials
@@ -61,7 +61,7 @@ func TestUseSelectsClientNativeProfileWithoutAccessingAccountTokens(t *testing.T
 	}
 
 	if err := cli.Execute(app, []string{"use", "--for", "codex", "bedrock"}); err != nil {
-		t.Fatalf("select client-native profile: %v", err)
+		t.Fatalf("select client-native route: %v", err)
 	}
 	if len(credentials.getCalls)+len(credentials.existsCalls)+len(credentials.setCalls)+len(credentials.deleteCalls) != 0 {
 		t.Fatal("client-native selection accessed AIGW credentials")
@@ -146,7 +146,7 @@ func TestUseForClaudeLeavesUnselectedCodexDriftUntouched(t *testing.T) {
 
 func TestUseForCodexLeavesUnselectedClaudeDriftUntouched(t *testing.T) {
 	app, _, credentials, _, _ := testApp(t, "")
-	cfg := twoProfileConfig()
+	cfg := twoRouteConfig()
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -204,8 +204,8 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 		}},
 	}}
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "claude", "claude-gateway", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
-	addAccountProfile(&cfg, "codex", "codex-gateway", "Codex", configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}, configuration.ClientCodex, "gpt-test")
+	addAccountRoute(&cfg, "claude", "claude-gateway", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
+	addAccountRoute(&cfg, "codex", "codex-gateway", "Codex", configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}, configuration.ClientCodex, "gpt-test")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -262,7 +262,7 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 	}
 }
 
-func TestRepeatedUseOfActiveProfileDoesNotRewriteOwnedState(t *testing.T) {
+func TestRepeatedUseOfActiveRouteDoesNotRewriteOwnedState(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
 	if err := secretStore.Set("gateway", "existing-token"); err != nil {
 		t.Fatal(err)
@@ -277,7 +277,7 @@ func TestRepeatedUseOfActiveProfileDoesNotRewriteOwnedState(t *testing.T) {
 		configuration.ClientClaude: claudeExecutable,
 	}}}
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "claude", "gateway", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
+	addAccountRoute(&cfg, "claude", "gateway", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +324,7 @@ func TestRepeatedUseOfActiveProfileDoesNotRewriteOwnedState(t *testing.T) {
 	if err := cli.Execute(app, []string{"use", "--for", "claude", "claude"}); err != nil {
 		t.Fatalf("repeat active selection: %v", err)
 	}
-	if text := out.String(); !strings.Contains(text, "Profile already selected") || strings.Contains(text, "Profile selected") {
+	if text := out.String(); !strings.Contains(text, "Route already selected") || strings.Contains(text, "Route selected") {
 		t.Fatalf("repeated use did not report its no-op semantics:\n%s", text)
 	}
 
@@ -385,7 +385,7 @@ func TestUseActivatesClaudeInstalledAfterManifestSetup(t *testing.T) {
 		t.Fatalf("read Claude projection: %v", err)
 	}
 	if !strings.Contains(string(settings), "https://dmxapi.test") || !strings.Contains(string(settings), "claude-test") {
-		t.Fatalf("use did not project the selected Claude profile:\n%s", settings)
+		t.Fatalf("use did not project the selected Claude route:\n%s", settings)
 	}
 
 	out.Reset()
@@ -405,8 +405,8 @@ func TestUseRollsBackRouteWhenAdapterSyncFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-one")
-	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{OpenAIResponses: "https://two.test/v1"}, configuration.ClientCodex, "gpt-two")
+	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-one")
+	addAccountRoute(&cfg, "two", "two", "Two", configuration.Endpoints{OpenAIResponses: "https://two.test/v1"}, configuration.ClientCodex, "gpt-two")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "one")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/missing/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
@@ -425,7 +425,7 @@ func TestUseRollsBackRouteWhenAdapterSyncFails(t *testing.T) {
 	}
 }
 
-func TestUseCodexProfileOnSameAccountDoesNotRebindCredentials(t *testing.T) {
+func TestUseCodexRouteOnSameAccountDoesNotRebindCredentials(t *testing.T) {
 	app, _, secretStore, runner, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
@@ -468,17 +468,17 @@ func TestUseSurfacesConfigLoadFailure(t *testing.T) {
 	}
 }
 
-func TestUseRejectsUnknownProfile(t *testing.T) {
+func TestUseRejectsUnknownRoute(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
+	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "one")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("one", "one-secret")
 	err := cli.Execute(app, []string{"use", "--for", "claude", "does-not-exist"})
-	if err == nil || !strings.Contains(err.Error(), "unknown profile") {
+	if err == nil || !strings.Contains(err.Error(), "unknown route") {
 		t.Fatalf("error = %v", err)
 	}
 }

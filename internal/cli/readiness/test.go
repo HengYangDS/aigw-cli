@@ -16,15 +16,15 @@ import (
 )
 
 type endpointTestResult struct {
-	client    string
-	profileID string
-	status    int
-	detail    string
+	client  string
+	routeID string
+	status  int
+	detail  string
 }
 
 // NewTestCommand constructs the live endpoint verification command.
 func NewTestCommand(runtime invocation.Context) *cobra.Command {
-	var client, profileName, configPath, tokenFormat string
+	var client, routeName, configPath, tokenFormat string
 	var tokenStdin bool
 	cmd := &cobra.Command{
 		Use:   "test",
@@ -39,31 +39,31 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if len(cfg.Routes) == 0 {
-				return invocation.Problem(runtime, "Not configured", "No Profiles have been created.", "No client endpoint is available to test.", "aigw setup", fmt.Errorf("not configured"))
+				return invocation.Problem(runtime, "Not configured", "No Routes have been created.", "No client endpoint is available to test.", "aigw setup", fmt.Errorf("not configured"))
 			}
-			clients, err := endpointTestClients(cfg, client, profileName)
+			clients, err := endpointTestClients(cfg, client, routeName)
 			if err != nil {
 				return err
 			}
 			if len(clients) == 0 {
-				return invocation.Problem(runtime, "No Client Binding is selected", "Profiles exist, but no client has a selected Profile.", "There is no selected endpoint to test.", "aigw use --for <client> <profile>", fmt.Errorf("no Client Binding selected"))
+				return invocation.Problem(runtime, "No Client Binding is selected", "Routes exist, but no client has a selected Route.", "There is no selected endpoint to test.", "aigw use --for <client> <route>", fmt.Errorf("no Client Binding selected"))
 			}
 			resolved := make(map[string]configuration.Runtime, len(clients))
 			for _, spec := range clients {
-				clientRuntime, err := cfg.ResolveRuntime(spec.ID, profileName)
+				clientRuntime, err := cfg.ResolveRuntime(spec.ID, routeName)
 				if err != nil {
 					return err
 				}
 				if !clientRuntime.RequiresAccountToken() {
 					return fmt.Errorf(
-						"profile %q uses client-owned authentication; run `aigw verify --for %s` to test it through %s",
+						"route %q uses client-owned authentication; run `aigw verify --for %s` to test it through %s",
 						clientRuntime.RouteID,
 						spec.ID,
 						spec.Label,
 					)
 				}
 				if clientRuntime.CredentialCommand != "" && !tokenStdin {
-					return fmt.Errorf("profile %q uses an external credential helper; run `aigw verify --for %s` or provide an explicit test Token on stdin", clientRuntime.RouteID, spec.ID)
+					return fmt.Errorf("route %q uses an external credential helper; run `aigw verify --for %s` or provide an explicit test Token on stdin", clientRuntime.RouteID, spec.ID)
 				}
 				resolved[spec.ID] = clientRuntime
 			}
@@ -89,14 +89,14 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				} else if status < http.StatusOK || status >= http.StatusMultipleChoices {
 					return fmt.Errorf("%s endpoint returned HTTP %d", invocation.Title(target), status)
 				}
-				results = append(results, endpointTestResult{client: target, profileID: clientRuntime.RouteID, status: status, detail: detail})
+				results = append(results, endpointTestResult{client: target, routeID: clientRuntime.RouteID, status: status, detail: detail})
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Connectivity test")
 			r.Detail("Endpoint HTTP observation, not model inference or native-client verification.")
 			r.Section("Endpoints")
 			for _, result := range results {
-				value := fmt.Sprintf("%s · HTTP %d", result.profileID, result.status)
+				value := fmt.Sprintf("%s · HTTP %d", result.routeID, result.status)
 				if result.detail != "" {
 					value += " · " + result.detail
 				}
@@ -106,8 +106,8 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Client whose selected Profile to test: "+configuration.AdmittedClientLabelUsage())
-	cmd.Flags().StringVar(&profileName, "profile", "", "Test this Profile for the explicit client without changing its binding")
+	cmd.Flags().StringVar(&client, "for", "", "Client whose selected Route to test: "+configuration.AdmittedClientLabelUsage())
+	cmd.Flags().StringVar(&routeName, "route", "", "Test this Route for the explicit client without changing its binding")
 	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read one bounded Token through EOF for this request only; never store it")
 	cmd.Flags().StringVar(&tokenFormat, "token-format", "raw", "Explicit stdin encoding: raw or go-keyring-base64")
 	cmd.Flags().StringVar(&configPath, "config", "", "Read an absolute configuration file for a one-time stdin Token test")
@@ -130,7 +130,7 @@ func endpointTestToken(runtime invocation.Context, account string, stdinMode boo
 	return token, instruction, err
 }
 
-func endpointTestClients(cfg configuration.Config, client, profileName string) ([]configuration.ClientSpec, error) {
+func endpointTestClients(cfg configuration.Config, client, routeName string) ([]configuration.ClientSpec, error) {
 	if client != "" {
 		spec, ok := configuration.ClientSpecFor(client)
 		if !ok {
@@ -148,7 +148,7 @@ func endpointTestClients(cfg configuration.Config, client, profileName string) (
 }
 
 func validateEndpointTestSelection(cmd *cobra.Command, _ []string) error {
-	for _, name := range []string{"for", "profile", "config", "token-format"} {
+	for _, name := range []string{"for", "route", "config", "token-format"} {
 		flag := cmd.Flags().Lookup(name)
 		if flag.Changed && strings.TrimSpace(flag.Value.String()) == "" {
 			return fmt.Errorf("--%s requires a non-empty value; run `aigw test --help`", name)
@@ -158,9 +158,9 @@ func validateEndpointTestSelection(cmd *cobra.Command, _ []string) error {
 	if client != "" && !configuration.IsAdmittedClient(client) {
 		return fmt.Errorf("--for must be %s; run `aigw test --help`", configuration.AdmittedClientUsage())
 	}
-	profileName := cmd.Flags().Lookup("profile").Value.String()
-	if profileName != "" && client == "" {
-		return fmt.Errorf("--profile requires one explicit --for client; run `aigw test --help`")
+	routeName := cmd.Flags().Lookup("route").Value.String()
+	if routeName != "" && client == "" {
+		return fmt.Errorf("--route requires one explicit --for client; run `aigw test --help`")
 	}
 	stdinMode, err := cmd.Flags().GetBool("token-stdin")
 	if err != nil {

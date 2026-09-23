@@ -147,8 +147,8 @@ func TestTypedErrorLocalizationDoesNotDependOnErrorText(t *testing.T) {
 		err  error
 		want string
 	}{
-		{name: "profile client mismatch", err: &configuration.RuntimeRouteClientMismatchError{RouteID: "one", ExpectedClient: configuration.ClientCodex, ActualClient: configuration.ClientClaude}, want: `profile "one" is for codex, not claude`},
-		{name: "profile unknown account", err: &configuration.RuntimeRouteUnknownAccountError{RouteID: "one", AccountID: "missing"}, want: `profile "one" references unknown account "missing"`},
+		{name: "route client mismatch", err: &configuration.RuntimeRouteClientMismatchError{RouteID: "one", ExpectedClient: configuration.ClientCodex, ActualClient: configuration.ClientClaude}, want: `route "one" is for codex, not claude`},
+		{name: "route unknown account", err: &configuration.RuntimeRouteUnknownAccountError{RouteID: "one", AccountID: "missing"}, want: `route "one" references unknown account "missing"`},
 		{name: "Anthropic endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolAnthropic}, want: `account "one" has no Anthropic endpoint`},
 		{name: "OpenAI Responses endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolOpenAIResponses}, want: `account "one" has no OpenAI Responses endpoint`},
 		{name: "OpenAI Chat Completions endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolOpenAIChatCompletions}, want: `account "one" has no OpenAI Chat Completions endpoint`},
@@ -172,8 +172,8 @@ func TestTypedErrorLocalizationDoesNotDependOnErrorText(t *testing.T) {
 
 func TestTypedErrorLocalizationRejectsTextualLookalikes(t *testing.T) {
 	for _, message := range []string{
-		`profile "one" is for codex, not claude`,
-		`profile "one" references unknown account "missing"`,
+		`route "one" is for codex, not claude`,
+		`route "one" references unknown account "missing"`,
 		`account "one" has no Anthropic endpoint`,
 		`account "one" has no OpenAI Responses endpoint`,
 		"validate config: unsupported config version 3; expected 2",

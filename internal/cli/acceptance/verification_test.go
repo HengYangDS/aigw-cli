@@ -136,10 +136,10 @@ func TestVerifyAdmitsTargetArgumentsBeforeReadingConfiguration(t *testing.T) {
 	}{
 		{"missing target", []string{"verify"}, "choose a verification client"},
 		{"empty client", []string{"verify", "--for="}, "choose a verification client"},
-		{"empty profile", []string{"verify", "--profile="}, "choose a verification client"},
+		{"empty route", []string{"verify", "--route="}, "choose a verification client"},
 		{"unknown client", []string{"verify", "--for", "unknown"}, "--for must be"},
-		{"profile with all", []string{"verify", "--for", "all", "--profile", "one"}, "requires one explicit client"},
-		{"explicit empty client", []string{"verify", "--for=", "--profile", "one"}, "choose a verification client"},
+		{"route with all", []string{"verify", "--for", "all", "--route", "one"}, "requires one explicit client"},
+		{"explicit empty client", []string{"verify", "--for=", "--route", "one"}, "choose a verification client"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, _, _, runner, httpClient := testApp(t, "")
@@ -173,14 +173,14 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 		want string
 	}{
 		{name: "config load", args: []string{"verify", "--for", "codex"}, prep: func(app *cli.App) { app.Config = configuration.NewStore(t.TempDir()) }, want: "read config"},
-		{name: "unknown profile", args: []string{"verify", "--for", "codex", "--profile", "missing"}, prep: func(app *cli.App) {
-			saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		{name: "unknown route", args: []string{"verify", "--for", "codex", "--route", "missing"}, prep: func(app *cli.App) {
+			saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		}, want: "unknown route"},
 		{name: "disabled Codex adapter", args: []string{"verify", "--for", "codex"}, prep: func(app *cli.App) {
-			saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+			saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		}, want: "Codex adapter is disabled"},
 		{name: "missing Claude token", args: []string{"verify", "--for", "claude"}, prep: func(app *cli.App) {
-			saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
 			cfg, err := app.Config.Load()
 			if err != nil {
 				t.Fatal(err)
@@ -338,7 +338,7 @@ func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 	}
 }
 
-func TestVerifyUsesExplicitClientWithProfileOverride(t *testing.T) {
+func TestVerifyUsesExplicitClientWithRouteOverride(t *testing.T) {
 	app, _, _, runner, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
@@ -366,7 +366,7 @@ func TestVerifyUsesExplicitClientWithProfileOverride(t *testing.T) {
 		return nil, fmt.Errorf("unexpected HTTP request to %s", req.URL)
 	}}
 
-	if err := cli.Execute(app, []string{"verify", "--for", "codex", "--profile", "gpt"}); err != nil {
+	if err := cli.Execute(app, []string{"verify", "--for", "codex", "--route", "gpt"}); err != nil {
 		t.Fatal(err)
 	}
 	if requests != 0 || len(runner.plans) != 2 {
@@ -426,9 +426,9 @@ func TestVerifyAllPreservesConfigurationChangedDuringLiveRequest(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		profile := cfg.Routes["gpt"]
-		profile.Model = "newer-model"
-		cfg.Routes["gpt"] = profile
+		route := cfg.Routes["gpt"]
+		route.Model = "newer-model"
+		cfg.Routes["gpt"] = route
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}

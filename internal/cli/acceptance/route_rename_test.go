@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestProfileRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
+func TestRouteRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
@@ -21,14 +21,14 @@ func TestProfileRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("dmx", "account-token")
-	if err := cli.Execute(app, []string{"profile", "rename", "gpt-old", "gpt-new"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "rename", "gpt-old", "gpt-new"}); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := secretStore.Get("dmx"); err != nil || got != "account-token" {
 		t.Fatalf("account token changed: %q %v", got, err)
 	}
 	if secretExists(t, secretStore, "gpt-new") || secretExists(t, secretStore, "gpt-old") {
-		t.Fatalf("profile rename created profile-level secret slots")
+		t.Fatalf("route rename created route-level secret slots")
 	}
 	got, _ := app.Config.Load()
 	if got.SelectedRoute(configuration.ClientCodex) != "gpt-new" || got.Routes["gpt-new"].Account != "dmx" {
@@ -36,9 +36,9 @@ func TestProfileRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 	}
 }
 
-func TestProfileRenameInteractiveZeroArgsSortsChoicesAndUpdatesRoutes(t *testing.T) {
+func TestRouteRenameInteractiveZeroArgsSortsChoicesAndUpdatesRoutes(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := profileRenameConfig()
+	cfg := routeRenameConfig()
 	cfg.Routes["alpha"] = qualifiedRoute("Alpha", "gateway", "alpha", configuration.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(configuration.ClientCodex, "zeta-old")
 	if err := app.Config.Save(cfg); err != nil {
@@ -51,12 +51,12 @@ func TestProfileRenameInteractiveZeroArgsSortsChoicesAndUpdatesRoutes(t *testing
 	app.Interactive = true
 	app.Prompt = prompt
 
-	if err := cli.Execute(app, []string{"profile", "rename"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "rename"}); err != nil {
 		t.Fatal(err)
 	}
 
 	if got, want := choiceValues(prompt.choices), []string{"alpha", "zeta-old"}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("profile choices = %q, want %q", got, want)
+		t.Fatalf("route choices = %q, want %q", got, want)
 	}
 	got, err := app.Config.Load()
 	if err != nil {
@@ -65,31 +65,31 @@ func TestProfileRenameInteractiveZeroArgsSortsChoicesAndUpdatesRoutes(t *testing
 	if got.SelectedRoute(configuration.ClientCodex) != "zeta-new" {
 		t.Fatalf("bindings after rename = %#v", got.Clients)
 	}
-	profile, ok := got.Routes["zeta-new"]
-	if !ok || profile.Label != "Zeta" || profile.Account != "gateway" {
-		t.Fatalf("renamed profile = %#v, present = %v", profile, ok)
+	route, ok := got.Routes["zeta-new"]
+	if !ok || route.Label != "Zeta" || route.Account != "gateway" {
+		t.Fatalf("renamed route = %#v, present = %v", route, ok)
 	}
 	if _, ok := got.Routes["zeta-old"]; ok {
-		t.Fatal("old profile remains after rename")
+		t.Fatal("old route remains after rename")
 	}
 	if token, err := secretStore.Get("gateway"); err != nil || token != "account-token" {
 		t.Fatalf("account token changed: %q, %v", token, err)
 	}
 	if secretExists(t, secretStore, "zeta-old") || secretExists(t, secretStore, "zeta-new") {
-		t.Fatal("profile rename created profile-level secret slots")
+		t.Fatal("route rename created route-level secret slots")
 	}
 }
 
-func TestProfileRenameInteractiveOneArgPromptsOnlyForTarget(t *testing.T) {
+func TestRouteRenameInteractiveOneArgPromptsOnlyForTarget(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	if err := app.Config.Save(profileRenameConfig()); err != nil {
+	if err := app.Config.Save(routeRenameConfig()); err != nil {
 		t.Fatal(err)
 	}
 	prompt := &scriptedPrompt{texts: []string{"zeta-new"}}
 	app.Interactive = true
 	app.Prompt = prompt
 
-	if err := cli.Execute(app, []string{"profile", "rename", "zeta-old"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "rename", "zeta-old"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -104,18 +104,18 @@ func TestProfileRenameInteractiveOneArgPromptsOnlyForTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, ok := got.Routes["zeta-new"]; !ok {
-		t.Fatalf("renamed profile missing: %#v", got.Routes)
+		t.Fatalf("renamed route missing: %#v", got.Routes)
 	}
 }
 
-func TestProfileRenameNonInteractiveRequiresBothIDs(t *testing.T) {
+func TestRouteRenameNonInteractiveRequiresBothIDs(t *testing.T) {
 	for _, args := range [][]string{
-		{"profile", "rename"},
-		{"profile", "rename", "zeta-old"},
+		{"route", "rename"},
+		{"route", "rename", "zeta-old"},
 	} {
 		t.Run(strings.Join(args, "_"), func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")
-			if err := app.Config.Save(profileRenameConfig()); err != nil {
+			if err := app.Config.Save(routeRenameConfig()); err != nil {
 				t.Fatal(err)
 			}
 			before, err := os.ReadFile(app.Config.Path())
@@ -138,14 +138,14 @@ func TestProfileRenameNonInteractiveRequiresBothIDs(t *testing.T) {
 	}
 }
 
-func TestProfileRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
+func TestRouteRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
-	cfg := profileRenameConfig()
+	cfg := routeRenameConfig()
 	cfg.SetSelectedRoute(configuration.ClientCodex, "zeta-old")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	const fixtureSecret = "fixture-profile-rename-secret"
+	const fixtureSecret = "fixture-route-rename-secret"
 	if err := secretStore.Set("gateway", fixtureSecret); err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestProfileRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	beforeFiles := directoryNames(t, filepath.Dir(app.Config.Path()))
 	out.Reset()
 
-	if err := cli.Execute(app, []string{"profile", "rename", "zeta-old", "zeta-new", "--dry-run", "--json"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "rename", "zeta-old", "zeta-new", "--dry-run", "--json"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -169,7 +169,7 @@ func TestProfileRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode JSON output: %v\n%s", err, out.String())
 	}
-	if result.Resource != "profile" || result.OldID != "zeta-old" || result.NewID != "zeta-new" || result.Status != "planned" {
+	if result.Resource != "route" || result.OldID != "zeta-old" || result.NewID != "zeta-new" || result.Status != "planned" {
 		t.Fatalf("rename result = %#v", result)
 	}
 	wantReferences := []string{"clients.codex.route"}
@@ -182,7 +182,7 @@ func TestProfileRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 		}
 	}
 	if result.Actions["api_token"] != "unchanged" || result.Actions["account_probe"] != "unchanged" {
-		t.Fatalf("profile rename credential actions = %#v", result.Actions)
+		t.Fatalf("route rename credential actions = %#v", result.Actions)
 	}
 	if result.ExternalTODOs == nil || len(result.ExternalTODOs) != 0 {
 		t.Fatalf("external todos = %#v, want an empty JSON array", result.ExternalTODOs)
@@ -205,11 +205,11 @@ func TestProfileRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	}
 }
 
-func TestProfileRenameRefusesInvalidOrConflictingTargetWithoutMutation(t *testing.T) {
+func TestRouteRenameRefusesInvalidOrConflictingTargetWithoutMutation(t *testing.T) {
 	for _, target := range []string{"alpha", "Invalid Target"} {
 		t.Run(target, func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")
-			cfg := profileRenameConfig()
+			cfg := routeRenameConfig()
 			cfg.Routes["alpha"] = qualifiedRoute("Alpha", "gateway", "alpha-model", configuration.ProtocolOpenAIResponses)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -219,7 +219,7 @@ func TestProfileRenameRefusesInvalidOrConflictingTargetWithoutMutation(t *testin
 				t.Fatal(err)
 			}
 
-			if err := cli.Execute(app, []string{"profile", "rename", "zeta-old", target, "--dry-run"}); err == nil {
+			if err := cli.Execute(app, []string{"route", "rename", "zeta-old", target, "--dry-run"}); err == nil {
 				t.Fatalf("rename to %q unexpectedly succeeded", target)
 			}
 			after, err := os.ReadFile(app.Config.Path())
@@ -233,7 +233,7 @@ func TestProfileRenameRefusesInvalidOrConflictingTargetWithoutMutation(t *testin
 	}
 }
 
-func profileRenameConfig() configuration.Config {
+func routeRenameConfig() configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	route := qualifiedRoute("Zeta", "gateway", "zeta-model", configuration.ProtocolOpenAIResponses)

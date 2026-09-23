@@ -38,7 +38,7 @@ func TestRenameCommandsPreserveInvocationAndDomainErrors(t *testing.T) {
 		name string
 		new  func(invocation.Context) *cobra.Command
 	}{
-		{name: "profile", new: NewProfileCommand},
+		{name: "route", new: NewRouteCommand},
 		{name: "account", new: NewAccountCommand},
 	} {
 		for _, test := range []struct {

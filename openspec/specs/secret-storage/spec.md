@@ -69,9 +69,9 @@ presented as the Windows protection boundary.
 Setup SHALL require Tokens only for Accounts selected by the requested Routes;
 unselected catalogue Accounts SHALL remain optional.
 
-#### Scenario: Team profile has one available provider
+#### Scenario: Team manifest has one available provider
 
-- **WHEN** a team profile declares several Accounts
+- **WHEN** a team manifest declares several Accounts
 - **AND** the selected Routes require only one Account with an available Token
 - **THEN** setup completes without requesting Tokens for unselected Accounts
 
@@ -123,7 +123,7 @@ backend failure; it SHALL NOT report a backend failure as absence.
 
 #### Scenario: Read-only journey observes a present credential
 
-- **WHEN** status, setup, sync, profile, route, adapter, manifest, doctor, or
+- **WHEN** status, setup, sync, route, adapter, manifest, doctor, or
   catalogue logic needs only credential availability
 - **THEN** AIGW queries credential metadata without retrieving the value
 - **AND** does not initiate authentication or credential mutation
@@ -177,7 +177,7 @@ Every `--token-stdin` operation SHALL read one complete Token through EOF within
 64 KiB, preserving visible ASCII except one terminal LF or CRLF.
 Malformed, incomplete, multiline, or ambiguous input SHALL fail before
 credential, configuration, or network effects. Endpoint testing SHALL resolve
-one Profile or client before consuming input and use it only for that request.
+one Route or client before consuming input and use it only for that request.
 Explicit storage-envelope decoding SHALL validate one canonical format without
 reading or changing the credential store.
 
@@ -196,15 +196,15 @@ reading or changing the credential store.
 
 #### Scenario: Endpoint test consumes an explicitly supplied Token
 
-- **WHEN** the operator selects one Account-Token Profile and supplies a valid
+- **WHEN** the operator selects one Account-Token Route and supplies a valid
   Token with `--token-stdin` and an absolute configuration file
-- **THEN** only that Profile's endpoint receives the Token
+- **THEN** only that Route's endpoint receives the Token
 - **AND** configuration, credential stores and client files remain unchanged.
 
 #### Scenario: Ephemeral input lacks an unambiguous credential owner
 
 - **WHEN** an ephemeral endpoint test omits the target, selects an unknown
-  Profile or selects client-owned authentication
+  Route or selects client-owned authentication
 - **THEN** it fails before stdin consumption, credential access or HTTP.
 
 #### Scenario: A native broker returns macOS storage bytes

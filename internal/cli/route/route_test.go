@@ -1,4 +1,4 @@
-package profile
+package route
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-func TestProfileMutationsReturnConfigurationTransactionFailures(t *testing.T) {
+func TestRouteMutationsReturnConfigurationTransactionFailures(t *testing.T) {
 	tests := []struct {
 		name    string
 		command func(invocation.Context) commandExecutor
@@ -34,7 +34,7 @@ func TestProfileMutationsReturnConfigurationTransactionFailures(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			runtime := blockedProfileRuntime(t)
+			runtime := blockedRouteRuntime(t)
 			command := test.command(runtime)
 			command.SetArgs(test.args)
 			if err := command.Execute(); err == nil {
@@ -45,8 +45,8 @@ func TestProfileMutationsReturnConfigurationTransactionFailures(t *testing.T) {
 }
 
 func TestChoiceLabelUsesRouteMetadataWithoutGlobalRanking(t *testing.T) {
-	profile := configuration.Route{Label: "UCloud · Grok 4.6", Purpose: "Coding"}
-	if got := choiceLabel(profile); got != "UCloud · Grok 4.6 · Coding" {
+	route := configuration.Route{Label: "UCloud · Grok 4.6", Purpose: "Coding"}
+	if got := choiceLabel(route); got != "UCloud · Grok 4.6 · Coding" {
 		t.Fatalf("choice label = %q", got)
 	}
 }
@@ -56,7 +56,7 @@ type commandExecutor interface {
 	Execute() error
 }
 
-func TestRemoveProfileRemovesOnlyItsRecommendation(t *testing.T) {
+func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
@@ -84,7 +84,7 @@ func TestRemoveProfileRemovesOnlyItsRecommendation(t *testing.T) {
 	}
 }
 
-func blockedProfileRuntime(t *testing.T) invocation.Context {
+func blockedRouteRuntime(t *testing.T) invocation.Context {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	store := configuration.NewStore(path)

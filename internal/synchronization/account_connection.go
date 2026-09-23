@@ -18,10 +18,10 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.C
 		return err
 	}
 	if _, exists := before.Routes[name]; exists {
-		return fmt.Errorf("Profile %q already exists; creation does not replace Profiles", name)
+		return fmt.Errorf("Route %q already exists; creation does not replace Routes", name)
 	}
 	if _, exists := before.Accounts[name]; exists {
-		return fmt.Errorf("Account %q already exists; add a Profile to that Account instead", name)
+		return fmt.Errorf("Account %q already exists; add a Route to that Account instead", name)
 	}
 	after := before.Clone()
 	account.ID = name
@@ -48,6 +48,6 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.C
 	if strings.TrimSpace(token) == "" {
 		return fmt.Errorf("Account connection requires a non-empty Token")
 	}
-	_, _, err = s.selectProfile(ctx, before, after, client, name, token)
+	_, _, err = s.selectRoute(ctx, before, after, client, name, token)
 	return err
 }

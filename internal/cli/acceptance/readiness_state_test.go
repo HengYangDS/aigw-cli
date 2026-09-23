@@ -66,7 +66,7 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: errors.New("native metadata must not select external credentials")}
-	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"profile", "list"}, {"profile", "show", "claude"}, {"use", "--for", "claude", "claude"}, {"client", "disable", "claude"}, {"client", "enable", "claude", "--executable", cfg.Clients[configuration.ClientClaude].Executable}} {
+	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"route", "list"}, {"route", "show", "claude"}, {"use", "--for", "claude", "claude"}, {"client", "disable", "claude"}, {"client", "enable", "claude", "--executable", cfg.Clients[configuration.ClientClaude].Executable}} {
 		out.Reset()
 		if err := cli.Execute(app, args); err != nil {
 			t.Fatalf("%v required a native Token: %v", args, err)
@@ -109,7 +109,7 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 			app, out, secretStore, _, httpClient := testApp(t, "")
 			app.Version = "1.0.0"
 			cfg := configuration.NewConfig()
-			addAccountProfile(
+			addAccountRoute(
 				&cfg,
 				"claude",
 				"team",
@@ -152,7 +152,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
 			app.Version = "1.0.0"
 			cfg := configuration.NewConfig()
-			addAccountProfile(
+			addAccountRoute(
 				&cfg,
 				"claude",
 				"team",
@@ -188,7 +188,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	app.Version = "1.0.0"
 	cfg := configuration.NewConfig()
-	addAccountProfile(
+	addAccountRoute(
 		&cfg,
 		"claude",
 		"team",
@@ -226,7 +226,7 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
 			app.Version = "1.0.0"
 			cfg := configuration.NewConfig()
-			addAccountProfile(
+			addAccountRoute(
 				&cfg,
 				"claude",
 				"team",
@@ -261,7 +261,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 		t.Run(command, func(t *testing.T) {
 			app, _, secretStore, runner, httpClient := testApp(t, "")
 			cfg := configuration.NewConfig()
-			addAccountProfile(
+			addAccountRoute(
 				&cfg,
 				"claude",
 				"team",
@@ -336,7 +336,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(
+	addAccountRoute(
 		&cfg,
 		"claude",
 		"team",

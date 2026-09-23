@@ -33,7 +33,7 @@ type MigrationPlan struct {
 	FromVersion     int                             `json:"from_version"`
 	ToVersion       int                             `json:"to_version"`
 	Accounts        []string                        `json:"accounts"`
-	Profiles        []string                        `json:"profiles"`
+	Routes          []string                        `json:"routes"`
 	Clients         map[string]ClientBinding        `json:"clients"`
 	Recommendations map[string]ClientRecommendation `json:"recommendations"`
 
@@ -242,7 +242,7 @@ func summarizeMigration(path string, before Snapshot, cfg Config, data []byte, r
 	}
 	return MigrationPlan{
 		Required: required, Direction: direction, FromVersion: from, ToVersion: to,
-		Accounts: slices.Sorted(maps.Keys(cfg.Accounts)), Profiles: cfg.RouteIDs(),
+		Accounts: slices.Sorted(maps.Keys(cfg.Accounts)), Routes: cfg.RouteIDs(),
 		Clients: maps.Clone(cfg.Clients), Recommendations: maps.Clone(cfg.Recommendations),
 		path: path, before: before, data: slices.Clone(data),
 	}

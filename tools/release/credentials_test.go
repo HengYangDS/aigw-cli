@@ -176,7 +176,7 @@ func runNativeEphemeralCredentials(t *testing.T, artifact string) {
 		if format == "go-keyring-base64" {
 			input = "go-keyring-base64:" + base64.StdEncoding.EncodeToString([]byte(token))
 		}
-		output := journey.runWithInput(journey.binary, input, "test", "--for", "claude", "--profile", "native-system-keyring-probe-claude", "--token-stdin", "--token-format", format, "--config", journey.config)
+		output := journey.runWithInput(journey.binary, input, "test", "--for", "claude", "--route", "native-system-keyring-probe-claude", "--token-stdin", "--token-format", format, "--config", journey.config)
 		if !bytes.Contains(output, []byte("not model inference")) || bytes.Contains(output, []byte(token)) {
 			t.Fatal("endpoint result lost its evidence or secret boundary")
 		}

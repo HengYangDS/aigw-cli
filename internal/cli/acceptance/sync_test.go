@@ -36,7 +36,7 @@ func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 			t.Fatal(err)
 		}
 		cfg := configuration.NewConfig()
-		addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		cfg.SetSelectedRoute(configuration.ClientCodex, "one")
 		cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 		if err := app.Config.Save(cfg); err != nil {
@@ -72,7 +72,7 @@ func TestCodexSyncReconcilesEachConfiguredHomeWithoutLoggingIn(t *testing.T) {
 		}
 	}
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "team-model")
+	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "team-model")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "team")
 	cfg.SetClientActivation("codex", true, "/opt/codex-real", targets)
 	if err := app.Config.Save(cfg); err != nil {
@@ -146,7 +146,7 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryAccountChoices(t *
 				t.Fatal(err)
 			}
 			cfg := configuration.NewConfig()
-			addAccountProfile(&cfg, "codex", "provider", "Provider", configuration.Endpoints{OpenAIResponses: test.endpoint}, configuration.ClientCodex, "gpt-test")
+			addAccountRoute(&cfg, "codex", "provider", "Provider", configuration.Endpoints{OpenAIResponses: test.endpoint}, configuration.ClientCodex, "gpt-test")
 			cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
 			cfg.SetClientActivation(configuration.ClientCodex, true, "/usr/local/bin/codex", []string{target})
 			if err := app.Config.Save(cfg); err != nil {
@@ -245,7 +245,7 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 	if err != nil {
 		t.Fatal(err)
 	}
-	requireProfileSelectionsUnchanged(t, cfg, after)
+	requireRouteSelectionsUnchanged(t, cfg, after)
 	adapter := after.Clients[configuration.ClientCodex]
 	if !adapter.Enabled || len(adapter.Targets) != 1 || adapter.Targets[0] != codexTarget {
 		t.Fatalf("Codex did not use the single discovered shared home: %#v", adapter)
@@ -294,12 +294,12 @@ func requireFilesUnchanged(t *testing.T, files map[string][]byte) {
 	}
 }
 
-func requireProfileSelectionsUnchanged(t *testing.T, before, after configuration.Config) {
+func requireRouteSelectionsUnchanged(t *testing.T, before, after configuration.Config) {
 	t.Helper()
 	if !reflect.DeepEqual(after.Routes, before.Routes) ||
 		after.SelectedRoute(configuration.ClientClaude) != before.SelectedRoute(configuration.ClientClaude) ||
 		after.SelectedRoute(configuration.ClientCodex) != before.SelectedRoute(configuration.ClientCodex) {
-		t.Fatalf("sync changed Profile or client-selection authority: profiles=%#v clients=%#v", after.Routes, after.Clients)
+		t.Fatalf("sync changed Route or client-selection authority: routes=%#v clients=%#v", after.Routes, after.Clients)
 	}
 }
 
@@ -316,7 +316,7 @@ func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
 	}}}
 
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "claude", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, configuration.ClientClaude, "claude-team")
+	addAccountRoute(&cfg, "claude", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, configuration.ClientClaude, "claude-team")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -342,7 +342,7 @@ func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
 	}
 	if !reflect.DeepEqual(after.Routes, cfg.Routes) ||
 		after.SelectedRoute(configuration.ClientClaude) != cfg.SelectedRoute(configuration.ClientClaude) {
-		t.Fatalf("sync changed Profile or client-selection authority: profiles=%#v clients=%#v", after.Routes, after.Clients)
+		t.Fatalf("sync changed Route or client-selection authority: routes=%#v clients=%#v", after.Routes, after.Clients)
 	}
 	if after.Clients[configuration.ClientClaude].Executable != claudeExecutable {
 		t.Fatalf("sync changed the Claude executable: %#v", after.Clients[configuration.ClientClaude])
@@ -368,7 +368,7 @@ func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
 
 func TestSyncSurfacesCredentialObservationFailure(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
+	saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)

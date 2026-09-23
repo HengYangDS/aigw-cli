@@ -11,7 +11,7 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-func TestProfileSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
+func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	before := setupConfiguration()
 	before.Routes["next"] = configuration.Route{Label: "Next", Account: "team", Model: "claude-next", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
@@ -20,7 +20,7 @@ func TestProfileSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	}
 	credentials := setupTokenStore(t, "existing-token")
 	syncer := Synchronizer{Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
-	changed, _, err := syncer.SelectProfile(t.Context(), before, configuration.ClientClaude, "next", "")
+	changed, _, err := syncer.SelectRoute(t.Context(), before, configuration.ClientClaude, "next", "")
 	if err != nil || !changed {
 		t.Fatalf("selection = %t, %v; want committed change", changed, err)
 	}
@@ -32,7 +32,7 @@ func TestProfileSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changed, _, err = syncer.SelectProfile(t.Context(), current, configuration.ClientClaude, "next", "")
+	changed, _, err = syncer.SelectRoute(t.Context(), current, configuration.ClientClaude, "next", "")
 	if err != nil || changed || credentials.writes != 0 {
 		t.Fatalf("repeated selection = %t, %v; credential writes=%d", changed, err, credentials.writes)
 	}
@@ -42,7 +42,7 @@ func TestProfileSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	}
 }
 
-func TestProfileSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
+func TestRouteSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 	for _, phase := range []string{"cancelled", "discovery", "persistence"} {
 		t.Run(phase, func(t *testing.T) {
 			before := setupConfiguration()
@@ -61,7 +61,7 @@ func TestProfileSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 				syncer.Discovery = setupDiscovery(cancel)
 				failure = context.Canceled
 			}
-			_, _, err := syncer.SelectProfile(ctx, before, configuration.ClientClaude, "claude", "new-token")
+			_, _, err := syncer.SelectRoute(ctx, before, configuration.ClientClaude, "claude", "new-token")
 			if !errors.Is(err, failure) {
 				t.Fatalf("selection error = %v, want %v", err, failure)
 			}
@@ -75,9 +75,9 @@ func TestProfileSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 	}
 }
 
-func TestProfileSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
-	for _, profile := range []string{"unknown", "native"} {
-		t.Run(profile, func(t *testing.T) {
+func TestRouteSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
+	for _, route := range []string{"unknown", "native"} {
+		t.Run(route, func(t *testing.T) {
 			cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
 			cfg.Routes["native"] = configuration.Route{Label: "Native", Account: "gateway", Model: "model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 			binding := cfg.Clients[configuration.ClientCodex]
@@ -87,10 +87,10 @@ func TestProfileSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
 			credentials := &setupCredentials{Store: secrets.NewMemoryStore()}
 			client := configuration.ClientClaude
-			if profile == "native" {
+			if route == "native" {
 				client = configuration.ClientCodex
 			}
-			_, _, err := (Synchronizer{Config: store, Secrets: credentials}).SelectProfile(t.Context(), cfg, client, profile, "token")
+			_, _, err := (Synchronizer{Config: store, Secrets: credentials}).SelectRoute(t.Context(), cfg, client, route, "token")
 			if err == nil || credentials.writes != 0 {
 				t.Fatalf("invalid selection reached credential mutation: writes=%d, error=%v", credentials.writes, err)
 			}

@@ -479,7 +479,7 @@ func TestEnablePropagatesRuntimeResolutionError(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := executeAdapter(t, runtime, "enable", configuration.ClientClaude, "--executable", "/opt/claude")
-	if err == nil || !strings.Contains(err.Error(), "no Profile selected") {
+	if err == nil || !strings.Contains(err.Error(), "no Route selected") {
 		t.Fatalf("runtime error = %v", err)
 	}
 }

@@ -78,7 +78,7 @@ parser, never comment spans. One canonical rendering of complete owned values
 SHALL define the projection hash; equivalent syntax SHALL preserve ownership,
 while invalid, missing, unknown, or changed owned values fail before writing.
 `requires_openai_auth` SHALL retain absent, true, or false identity until a
-matching projection is reconciled to the current Profile; reading it SHALL NOT
+matching projection is reconciled to the current Route; reading it SHALL NOT
 enable it in a new projection.
 
 #### Scenario: The native client edits another configuration table
@@ -138,7 +138,7 @@ strings rather than equivalent JSON escapes.
 #### Scenario: The user changes or removes the projected model
 
 - **WHEN** the previous model reconstructs the recorded managed hash
-- **THEN** synchronization projects the selected Profile's model
+- **THEN** synchronization projects the selected Route's model
 - **AND** preview reports Claude's pending projection without writing any file
 - **AND** withdrawal preserves the user's later model preference, including absence.
 

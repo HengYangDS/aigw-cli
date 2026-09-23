@@ -17,7 +17,7 @@ func resolveIDs(runtime invocation.Context, resource string, args []string) (str
 	if err != nil {
 		return "", "", err
 	}
-	choices := profileChoices(cfg)
+	choices := routeChoices(cfg)
 	if resource == "account" {
 		choices = accountChoices(cfg)
 	}
@@ -41,7 +41,7 @@ func resolveIDs(runtime invocation.Context, resource string, args []string) (str
 	return oldID, strings.TrimSpace(newID), nil
 }
 
-func profileChoices(cfg configuration.Config) []prompt.Choice {
+func routeChoices(cfg configuration.Config) []prompt.Choice {
 	names := make([]string, 0, len(cfg.Routes))
 	for name := range cfg.Routes {
 		names = append(names, name)
@@ -49,9 +49,9 @@ func profileChoices(cfg configuration.Config) []prompt.Choice {
 	sort.Strings(names)
 	choices := make([]prompt.Choice, 0, len(names))
 	for _, name := range names {
-		profile := cfg.Routes[name]
-		label := profile.Label
-		if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
+		route := cfg.Routes[name]
+		label := route.Label
+		if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 			label += " · " + purpose
 		}
 		choices = append(choices, prompt.Choice{Value: name, Label: label})

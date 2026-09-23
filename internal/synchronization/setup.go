@@ -9,11 +9,11 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-// AdmitSetup requires an installation without Profiles before first-time setup.
+// AdmitSetup requires an installation without Routes before first-time setup.
 // Existing installations use configuration import, selection or Token rotation.
 func (Synchronizer) AdmitSetup(before configuration.Config) error {
 	if len(before.Routes) > 0 {
-		return fmt.Errorf("AIGW is already configured; run `aigw add` to add an account, `aigw profile add` to add a model profile, or `aigw config import` to merge a reviewed manifest")
+		return fmt.Errorf("AIGW is already configured; run `aigw add` to add an account, `aigw route add` to add a model route, or `aigw config import` to merge a reviewed manifest")
 	}
 	return nil
 }
@@ -44,7 +44,7 @@ func (s Synchronizer) Setup(ctx context.Context, before, after configuration.Con
 		}
 		binding := after.Clients[client]
 		if binding.Route == "" {
-			return configuration.Config{}, fmt.Errorf("setup client %q has no selected profile", client)
+			return configuration.Config{}, fmt.Errorf("setup client %q has no selected route", client)
 		}
 		binding.Enabled = true
 		after.Clients[client] = binding

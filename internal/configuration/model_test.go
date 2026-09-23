@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestConfigQueriesOwnAccountAndProfileSelectionSemantics(t *testing.T) {
+func TestConfigQueriesOwnAccountAndRouteSelectionSemantics(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["gateway"] = Account{
 		Label:     "Gateway",
@@ -22,7 +22,7 @@ func TestConfigQueriesOwnAccountAndProfileSelectionSemantics(t *testing.T) {
 	}
 	accountID, providerAccount, err := cfg.ResolveAccount("alpha")
 	if err != nil || accountID != "gateway" || providerAccount.ID != "gateway" {
-		t.Fatalf("ResolveAccount(profile) = %q, %#v, %v", accountID, providerAccount, err)
+		t.Fatalf("ResolveAccount(route) = %q, %#v, %v", accountID, providerAccount, err)
 	}
 	accountID, _, err = cfg.ResolveAccount("gateway")
 	if err != nil || accountID != "gateway" {
@@ -277,7 +277,7 @@ func TestValidateAllowsProviderNeutralExplicitDiagnostics(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsRuntimeProfileReferencingUnknownAccountOrInvalidClientOptions(t *testing.T) {
+func TestValidateRejectsRuntimeRouteReferencingUnknownAccountOrInvalidClientOptions(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["dmx"] = Account{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
 	cfg.Routes["codex"] = testRoute("Codex", "missing", "gpt-5.6", ProtocolOpenAIResponses)
@@ -298,13 +298,13 @@ func TestValidateRequiresEachSelectedBindingsClientProtocol(t *testing.T) {
 			cfg := validConfig()
 			cfg.Normalize()
 			cfg.Models["model"] = Model{Label: "Model"}
-			cfg.Routes = map[string]Route{"selected-profile": {
-				Label: "Selected Profile", Account: "dmx", Model: "model",
+			cfg.Routes = map[string]Route{"selected-route": {
+				Label: "Selected Route", Account: "dmx", Model: "model",
 				Interfaces: map[EndpointProtocol][]Capability{client.EndpointProtocols[0]: {}},
 			}}
-			cfg.Clients = map[string]ClientBinding{client.ID: {Route: "selected-profile", Protocol: client.EndpointProtocols[0]}}
+			cfg.Clients = map[string]ClientBinding{client.ID: {Route: "selected-route", Protocol: client.EndpointProtocols[0]}}
 			if err := cfg.Validate(); err != nil {
-				t.Fatalf("compatible profile: %v", err)
+				t.Fatalf("compatible route: %v", err)
 			}
 			account := cfg.Accounts["dmx"]
 			switch client.EndpointProtocols[0] {
@@ -320,10 +320,10 @@ func TestValidateRequiresEachSelectedBindingsClientProtocol(t *testing.T) {
 			err := cfg.Validate()
 			var missing *RuntimeMissingEndpointError
 			if !errors.As(err, &missing) || missing.AccountID != "dmx" || missing.Protocol != client.EndpointProtocols[0] {
-				t.Fatalf("incompatible profile error = %v; want Account dmx protocol %s", err, client.EndpointProtocols[0])
+				t.Fatalf("incompatible route error = %v; want Account dmx protocol %s", err, client.EndpointProtocols[0])
 			}
-			if !strings.Contains(err.Error(), "selected-profile") {
-				t.Fatalf("validation error omits Profile: %v", err)
+			if !strings.Contains(err.Error(), "selected-route") {
+				t.Fatalf("validation error omits Route: %v", err)
 			}
 			if !reflect.DeepEqual(cfg, before) {
 				t.Fatal("validation changed configuration")
@@ -338,13 +338,13 @@ func TestValidateRequiresAValidModel(t *testing.T) {
 		edit func(*Route)
 		want string
 	}{
-		{name: "missing model", edit: func(profile *Route) { profile.Model = " " }, want: "must reference a model"},
+		{name: "missing model", edit: func(route *Route) { route.Model = " " }, want: "must reference a model"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			cfg := validConfig()
-			profile := cfg.Routes["dmx"]
-			testCase.edit(&profile)
-			cfg.Routes["dmx"] = profile
+			route := cfg.Routes["dmx"]
+			testCase.edit(&route)
+			cfg.Routes["dmx"] = route
 			err := cfg.Validate()
 			if err == nil || !strings.Contains(err.Error(), testCase.want) {
 				t.Fatalf("error = %v, want substring %q", err, testCase.want)
@@ -354,30 +354,30 @@ func TestValidateRequiresAValidModel(t *testing.T) {
 }
 
 func TestValidateTreatsRouteIDAsTransparentConfiguration(t *testing.T) {
-	const profileID = "gpt-5.6-terra-cdx"
+	const routeID = "gpt-5.6-terra-cdx"
 	cfg := validConfig()
 	cfg.Normalize()
 	cfg.Models["upstream-model"] = Model{Label: "Upstream Model"}
-	profile := cfg.Routes["dmx"]
-	profile.Model = "upstream-model"
-	profile.Interfaces = map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}
+	route := cfg.Routes["dmx"]
+	route.Model = "upstream-model"
+	route.Interfaces = map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}
 	delete(cfg.Routes, "dmx")
-	cfg.Routes[profileID] = profile
+	cfg.Routes[routeID] = route
 	delete(cfg.Clients, ClientClaude)
-	cfg.SetSelectedRoute(ClientCodex, profileID)
+	cfg.SetSelectedRoute(ClientCodex, routeID)
 
 	if err := cfg.Validate(); err != nil {
-		t.Fatalf("valid profile ID must not be rejected by product-specific naming policy: %v", err)
+		t.Fatalf("valid route ID must not be rejected by product-specific naming policy: %v", err)
 	}
 }
 
 func TestValidateTreatsUpstreamModelIDAsTransparentConfiguration(t *testing.T) {
 	const modelID = "gpt-5.6-terra-cdx"
 	cfg := validConfig()
-	profile := cfg.Routes["dmx"]
-	profile.UpstreamModel = modelID
-	profile.Interfaces = map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}
-	cfg.Routes["dmx"] = profile
+	route := cfg.Routes["dmx"]
+	route.UpstreamModel = modelID
+	route.Interfaces = map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}
+	cfg.Routes["dmx"] = route
 	delete(cfg.Clients, ClientClaude)
 	cfg.SetSelectedRoute(ClientCodex, "dmx")
 
@@ -457,7 +457,7 @@ func TestValidateRejectsEmptyLabelsAndUnnamedOrUnendpointedAccounts(t *testing.T
 			a.AccountProbe = &AccountProbe{Kind: "future", BaseURL: "not-a-url"}
 			c.Accounts["dmx"] = a
 		}, "account probe"},
-		{"profile missing account", func(c *Config) {
+		{"route missing account", func(c *Config) {
 			p := c.Routes["dmx"]
 			p.Account = ""
 			c.Routes["dmx"] = p

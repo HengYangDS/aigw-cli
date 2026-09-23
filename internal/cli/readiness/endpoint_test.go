@@ -25,7 +25,7 @@ func TestEndpointTestExplicitKeyringFormatDecodesExactlyOnce(t *testing.T) {
 		runtime.In = strings.NewReader(envelope)
 		runtime.Secrets = nil
 		want := envelope
-		args := []string{"--for", "codex", "--profile", "codex", "--token-stdin"}
+		args := []string{"--for", "codex", "--route", "codex", "--token-stdin"}
 		if explicit {
 			want = token
 			args = append(args, "--token-format", "go-keyring-base64")
@@ -54,7 +54,7 @@ func TestEndpointTestRejectsMalformedKeyringFormatBeforeHTTP(t *testing.T) {
 		requests := 0
 		runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) { requests++; return nil, errors.New("unexpected request") })
 		command := NewTestCommand(runtime)
-		command.SetArgs([]string{"--for", "codex", "--profile", "codex", "--token-stdin", "--token-format", "go-keyring-base64"})
+		command.SetArgs([]string{"--for", "codex", "--route", "codex", "--token-stdin", "--token-format", "go-keyring-base64"})
 		if err := executeCommand(command); err == nil || requests != 0 {
 			t.Fatalf("invalid decoded token reached HTTP: error=%v requests=%d", err, requests)
 		}
@@ -112,7 +112,7 @@ func TestEndpointTestUsesOneEphemeralTokenAndExplicitConfig(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}"))}, nil
 			})
 			command := NewTestCommand(runtime)
-			command.SetArgs([]string{"--for", client, "--profile", client, "--token-stdin", "--config", configPath})
+			command.SetArgs([]string{"--for", client, "--route", client, "--token-stdin", "--config", configPath})
 			if err := executeCommand(command); err != nil {
 				t.Fatal(err)
 			}
@@ -135,10 +135,10 @@ func TestEndpointTestRejectsAmbiguousEphemeralInputsBeforeEffects(t *testing.T) 
 	for _, args := range [][]string{
 		{"--token-stdin"},
 		{"--token-stdin", "--for", "all"},
-		{"--token-stdin", "--profile", "missing"},
-		{"--token-stdin", "--for", "codex", "--profile", "codex", "--config", "relative.toml"},
-		{"--token-stdin", "--for", "codex", "--profile", "codex", "--config", ""},
-		{"--for", "codex", "--profile", "codex", "--config", "/unrelated/config.toml"},
+		{"--token-stdin", "--route", "missing"},
+		{"--token-stdin", "--for", "codex", "--route", "codex", "--config", "relative.toml"},
+		{"--token-stdin", "--for", "codex", "--route", "codex", "--config", ""},
+		{"--for", "codex", "--route", "codex", "--config", "/unrelated/config.toml"},
 	} {
 		runtime, _, _ := configuredReadinessRuntime(t)
 		store := &observingSecretStore{}
@@ -187,7 +187,7 @@ func TestEndpointTestRequiresASelectedClientBindingByDefault(t *testing.T) {
 		return nil, nil
 	})
 	runtime.Problem = func(title, evidence, impact, fix string, cause error) error {
-		if title != "No Client Binding is selected" || evidence != "Profiles exist, but no client has a selected Profile." || impact != "There is no selected endpoint to test." || fix != "aigw use --for <client> <profile>" {
+		if title != "No Client Binding is selected" || evidence != "Routes exist, but no client has a selected Route." || impact != "There is no selected endpoint to test." || fix != "aigw use --for <client> <route>" {
 			t.Fatalf("problem = %q, %q, %q, %q", title, evidence, impact, fix)
 		}
 		return cause
@@ -288,7 +288,7 @@ func TestEndpointTestRejectsClientNativeBeforeCredentialOrNetworkAccess(t *testi
 }
 
 func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
-	t.Run("profile overrides the explicit client selection", func(t *testing.T) {
+	t.Run("route overrides the explicit client selection", func(t *testing.T) {
 		runtime, _, _ := configuredReadinessRuntime(t)
 		if err := runtime.Secrets.Set("one", "token"); err != nil {
 			t.Fatal(err)
@@ -302,7 +302,7 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}"))}, nil
 		})
 		command := NewTestCommand(runtime)
-		command.SetArgs([]string{"--for", "codex", "--profile", "codex"})
+		command.SetArgs([]string{"--for", "codex", "--route", "codex"})
 		if err := executeCommand(command); err != nil {
 			t.Fatal(err)
 		}
@@ -311,10 +311,10 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 		}
 	})
 
-	t.Run("unknown profile is rejected", func(t *testing.T) {
+	t.Run("unknown route is rejected", func(t *testing.T) {
 		runtime, _, _ := configuredReadinessRuntime(t)
 		command := NewTestCommand(runtime)
-		command.SetArgs([]string{"--for", "codex", "--profile", "missing"})
+		command.SetArgs([]string{"--for", "codex", "--route", "missing"})
 		if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), "unknown route") {
 			t.Fatalf("error = %v", err)
 		}

@@ -1,5 +1,5 @@
-// Package profile owns model-profile command behavior.
-package profile
+// Package route owns model-route command behavior.
+package route
 
 import (
 	"fmt"
@@ -13,11 +13,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCommand constructs the profile command tree. renameCommand is supplied
+// NewCommand constructs the route command tree. renameCommand is supplied
 // by the rename domain because rename is a credential-aware transaction, not
-// ordinary profile metadata editing.
+// ordinary route metadata editing.
 func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra.Command {
-	root := &cobra.Command{Use: "profile", Short: "Manage Profiles"}
+	root := &cobra.Command{Use: "route", Short: "Manage Routes"}
 	root.AddCommand(newAddCommand(runtime), newListCommand(runtime), newShowCommand(runtime), newEditCommand(runtime), renameCommand, newRemoveCommand(runtime))
 	return root
 }
@@ -25,10 +25,10 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 func newAddCommand(runtime invocation.Context) *cobra.Command {
 	var accountName, model, label, purpose, protocolName string
 	cmd := &cobra.Command{
-		Use: "add <profile>", Short: "Add a model profile to an existing account",
+		Use: "add <route>", Short: "Add a model route to an existing account",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
 			if !configuration.ValidIdentifier(args[0]) {
-				return fmt.Errorf("Invalid profile ID %q; use letters, numbers, dots, hyphens, or underscores; run `%s --help`", args[0], cmd.CommandPath())
+				return fmt.Errorf("Invalid route ID %q; use letters, numbers, dots, hyphens, or underscores; run `%s --help`", args[0], cmd.CommandPath())
 			}
 			if accountName != "" && !configuration.ValidIdentifier(accountName) {
 				return fmt.Errorf("Invalid account ID %q; run `%s --help`", accountName, cmd.CommandPath())
@@ -45,40 +45,40 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			}
 		}),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			profileName := args[0]
+			routeName := args[0]
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
 			}
-			if _, exists := cfg.Routes[profileName]; exists {
-				return fmt.Errorf("Profile %q already exists", profileName)
+			if _, exists := cfg.Routes[routeName]; exists {
+				return fmt.Errorf("Route %q already exists", routeName)
 			}
 			_, exists := cfg.Accounts[accountName]
 			if !exists {
 				return fmt.Errorf("Unknown account %q; first run `aigw add %s ...`", accountName, accountName)
 			}
 			if label == "" {
-				label = profileName
+				label = routeName
 			}
 			before := cfg.Clone()
 			protocol := configuration.EndpointProtocol(protocolName)
-			cfg.Routes[profileName] = configuration.Route{
+			cfg.Routes[routeName] = configuration.Route{
 				Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Model: model,
 				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
 			}
-			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "profile add"); err != nil {
+			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "route add"); err != nil {
 				return err
 			}
 			r := invocation.Renderer(runtime)
-			r.ProductTitle("Model profile added")
-			r.Row("Configuration", profileName)
+			r.ProductTitle("Model route added")
+			r.Row("Route", routeName)
 			r.Row("Account", accountName)
 			r.Row("Model", model)
 			if purpose := strings.TrimSpace(purpose); purpose != "" {
 				r.Row("Purpose", purpose)
 			}
 			r.Success("Reused the existing Account; no client selection was changed")
-			r.Next("aigw use --for <client> " + profileName)
+			r.Next("aigw use --for <client> " + routeName)
 			return nil
 		},
 	}
@@ -93,27 +93,27 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 func newListCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
 	command := &cobra.Command{
-		Use: "list", Short: "List Profiles", Args: cobra.NoArgs,
+		Use: "list", Short: "List Routes", Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
 			}
-			result := profileListOutput{Profiles: make([]profileListItem, 0, len(cfg.Routes))}
+			result := routeListOutput{Routes: make([]routeListItem, 0, len(cfg.Routes))}
 			for _, name := range cfg.RouteIDs() {
-				item, collectErr := collectProfileListItem(runtime, cfg, name)
+				item, collectErr := collectRouteListItem(runtime, cfg, name)
 				if collectErr != nil {
 					return collectErr
 				}
-				result.Profiles = append(result.Profiles, item)
+				result.Routes = append(result.Routes, item)
 			}
 			if jsonMode {
 				return presentation.WriteJSON(runtime.Out, result)
 			}
 			r := invocation.Renderer(runtime)
-			r.ProductTitle("Profiles")
-			r.Section("Available profiles")
-			for _, item := range result.Profiles {
+			r.ProductTitle("Routes")
+			r.Section("Available routes")
+			for _, item := range result.Routes {
 				state, stateText := presentation.Info, "Available"
 				if len(item.SelectedClients) > 0 {
 					state, stateText = presentation.OK, "Selected for "+strings.Join(item.SelectedClients, ", ")
@@ -122,7 +122,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				if len(item.CompatibleClients) > 0 {
 					detail = append(detail, "Clients "+strings.Join(item.CompatibleClients, ", "))
 				}
-				r.StatusLine(state, "Configuration", item.ID)
+				r.StatusLine(state, "Route", item.ID)
 				r.Detail(strings.Join(detail, " · "))
 			}
 			r.Next("aigw use")
@@ -133,11 +133,11 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 	return command
 }
 
-type profileListOutput struct {
-	Profiles []profileListItem `json:"profiles"`
+type routeListOutput struct {
+	Routes []routeListItem `json:"routes"`
 }
 
-type profileListItem struct {
+type routeListItem struct {
 	ID                string   `json:"id"`
 	Label             string   `json:"label"`
 	Purpose           string   `json:"purpose,omitempty"`
@@ -147,32 +147,32 @@ type profileListItem struct {
 	Model             string   `json:"model"`
 }
 
-func collectProfileListItem(runtime invocation.Context, cfg configuration.Config, name string) (profileListItem, error) {
-	profile := cfg.Routes[name]
+func collectRouteListItem(runtime invocation.Context, cfg configuration.Config, name string) (routeListItem, error) {
+	route := cfg.Routes[name]
 	compatible, err := cfg.CompatibleClientIDs(name)
 	if err != nil {
-		return profileListItem{}, err
+		return routeListItem{}, err
 	}
-	return profileListItem{
-		ID: name, Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account,
-		CompatibleClients: compatible, SelectedClients: cfg.SelectedClientsForRoute(name), Model: profile.Model,
+	return routeListItem{
+		ID: name, Label: route.Label, Purpose: route.Purpose, Account: route.Account,
+		CompatibleClients: compatible, SelectedClients: cfg.SelectedClientsForRoute(name), Model: route.Model,
 	}, nil
 }
 
 func newShowCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
 	cmd := &cobra.Command{
-		Use: "show <profile>", Short: "Show secret-free profile metadata", Args: cobra.ExactArgs(1),
+		Use: "show <route>", Short: "Show secret-free route metadata", Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
 			}
-			profile, ok := cfg.Routes[args[0]]
+			route, ok := cfg.Routes[args[0]]
 			if !ok {
-				return fmt.Errorf("Unknown profile %q", args[0])
+				return fmt.Errorf("Unknown route %q", args[0])
 			}
-			accountName := profile.Account
+			accountName := route.Account
 			account := cfg.Accounts[accountName]
 			compatible, err := cfg.CompatibleClientIDs(args[0])
 			if err != nil {
@@ -181,23 +181,23 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			selected := cfg.SelectedClientsForRoute(args[0])
 			if jsonMode {
 				result := map[string]any{
-					"id": args[0], "label": profile.Label, "purpose": profile.Purpose,
-					"account": accountName, "model": profile.Model,
+					"id": args[0], "label": route.Label, "purpose": route.Purpose,
+					"account": accountName, "model": route.Model,
 					"compatible_clients": compatible, "selected_clients": selected,
 					"endpoints": account.Endpoints,
 				}
 				return presentation.WriteJSON(runtime.Out, result)
 			}
 			r := invocation.Renderer(runtime)
-			r.ProductTitle("Profile details")
-			r.Section("Profile")
-			r.Row("Profile ID", args[0])
-			r.Row("Name", profile.Label)
-			if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
+			r.ProductTitle("Route details")
+			r.Section("Route")
+			r.Row("Route ID", args[0])
+			r.Row("Name", route.Label)
+			if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 				r.Row("Purpose", purpose)
 			}
 			r.Row("Account", accountName)
-			r.Row("Model", profile.Model)
+			r.Row("Model", route.Model)
 			r.Row("Compatible clients", strings.Join(compatible, ", "))
 			if len(selected) > 0 {
 				r.Row("Selected for", strings.Join(selected, ", "))
@@ -218,10 +218,10 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 func newEditCommand(runtime invocation.Context) *cobra.Command {
 	var label, purpose string
 	cmd := &cobra.Command{
-		Use: "edit <profile>", Short: "Update profile display metadata",
+		Use: "edit <route>", Short: "Update route display metadata",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
 			if !configuration.ValidIdentifier(args[0]) {
-				return fmt.Errorf("Invalid profile ID %q; run `%s --help`", args[0], cmd.CommandPath())
+				return fmt.Errorf("Invalid route ID %q; run `%s --help`", args[0], cmd.CommandPath())
 			}
 			if cmd.Flags().Changed("label") && strings.TrimSpace(label) == "" {
 				return fmt.Errorf("--label requires a non-empty value; run `%s --help`", cmd.CommandPath())
@@ -234,24 +234,24 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			before := cfg.Clone()
-			profile, ok := cfg.Routes[args[0]]
+			route, ok := cfg.Routes[args[0]]
 			if !ok {
-				return fmt.Errorf("Unknown profile %q", args[0])
+				return fmt.Errorf("Unknown route %q", args[0])
 			}
 			if label != "" {
-				profile.Label = label
+				route.Label = label
 			}
 			if cmd.Flags().Changed("purpose") {
-				profile.Purpose = strings.TrimSpace(purpose)
+				route.Purpose = strings.TrimSpace(purpose)
 			}
-			cfg.Routes[args[0]] = profile
-			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "profile"); err != nil {
+			cfg.Routes[args[0]] = route
+			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "route"); err != nil {
 				return err
 			}
 			r := invocation.Renderer(runtime)
-			r.ProductTitle("Profile updated")
-			r.Row("Configuration", args[0])
-			r.Success("Profile metadata saved")
+			r.ProductTitle("Route updated")
+			r.Row("Route", args[0])
+			r.Success("Route metadata saved")
 			r.Next("aigw check")
 			return nil
 		},
@@ -264,10 +264,10 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 
 func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 	return &cobra.Command{
-		Use: "remove <profile>", Short: "Remove an unused profile",
+		Use: "remove <route>", Short: "Remove an unused route",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
 			if !configuration.ValidIdentifier(args[0]) {
-				return fmt.Errorf("Invalid profile ID %q; run `%s --help`", args[0], cmd.CommandPath())
+				return fmt.Errorf("Invalid route ID %q; run `%s --help`", args[0], cmd.CommandPath())
 			}
 			return nil
 		}),
@@ -278,13 +278,13 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 			}
 			before := cfg.Clone()
 			name := args[0]
-			profile, ok := cfg.Routes[name]
+			route, ok := cfg.Routes[name]
 			if !ok {
-				return fmt.Errorf("Unknown profile %q", name)
+				return fmt.Errorf("Unknown route %q", name)
 			}
 			for client, binding := range cfg.Clients {
 				if binding.Route == name {
-					return fmt.Errorf("Profile %q is selected for %s; first run `aigw use --for %s <other-profile>`", name, client, client)
+					return fmt.Errorf("Route %q is selected for %s; first run `aigw use --for %s <other-route>`", name, client, client)
 				}
 			}
 			delete(cfg.Routes, name)
@@ -304,22 +304,22 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 				recommendation.Alternatives = recommendation.Alternatives[1:]
 				cfg.Recommendations[client] = recommendation
 			}
-			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "profile remove"); err != nil {
+			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "route remove"); err != nil {
 				return err
 			}
 			r := invocation.Renderer(runtime)
-			r.ProductTitle("Profile removed")
-			r.Row("Configuration", name)
-			r.Row("Account", profile.Account)
+			r.ProductTitle("Route removed")
+			r.Row("Route", name)
+			r.Row("Account", route.Account)
 			r.Success("The account and token remain in place")
 			return nil
 		},
 	}
 }
 
-func choiceLabel(profile configuration.Route) string {
-	label := profile.Label
-	if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
+func choiceLabel(route configuration.Route) string {
+	label := route.Label
+	if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 		return label + " · " + purpose
 	}
 	return label

@@ -27,15 +27,15 @@ func TestConfigImportRefusesAccountConflictUntilExplicitReplacementAndPreservesT
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
 	manifest := `version = 7
 [recommendations.claude.primary]
-route = "team-profile"
+route = "team-route"
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
 anthropic = "https://team.example.test"
 [models.team-model]
 label = "Team Model"
-[routes.team-profile]
-label = "Team Profile"
+[routes.team-route]
+label = "Team Route"
 account = "team"
 model = "team-model"
 upstream_model = "team-model"
@@ -75,7 +75,7 @@ interfaces = { anthropic = ["text"] }
 	}
 }
 
-func TestConfigImportReportsMissingAccountTokensNotProfileTokens(t *testing.T) {
+func TestConfigImportReportsMissingAccountTokensNotRouteTokens(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
 	manifest := `version = 7
@@ -115,7 +115,7 @@ interfaces = { anthropic = ["text"] }
 	}
 	text := out.String()
 	if strings.Contains(text, "Token required") || strings.Contains(text, "gpt-long-model  ") || strings.Contains(text, "claude-long-model  ") {
-		t.Fatalf("import reported profile-level missing tokens despite account token:\n%s", text)
+		t.Fatalf("import reported route-level missing tokens despite account token:\n%s", text)
 	}
 	for _, want := range []string{"Accounts", "Account Token", "dmx", "Token available", "aigw sync"} {
 		if !strings.Contains(text, want) {
@@ -166,7 +166,7 @@ interfaces = { anthropic = ["text"] }
 		t.Fatalf("import did not point to missing account token:\n%s", text)
 	}
 	if strings.Contains(text, "gpt-long-model") || strings.Contains(text, "claude-long-model") {
-		t.Fatalf("import should not report profile names as missing token slots:\n%s", text)
+		t.Fatalf("import should not report route names as missing token slots:\n%s", text)
 	}
 }
 
@@ -204,7 +204,7 @@ func TestConfigCommandIOFailures(t *testing.T) {
 
 	t.Run("export output", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
 		want := errors.New("output failed")
 		app.Out = failingOutput{err: want}
 		if err := cli.Execute(app, []string{"config", "export"}); !errors.Is(err, want) {
@@ -269,7 +269,7 @@ interfaces = { anthropic = ["text"] }
 	}
 }
 
-func TestConfigImportRefusesProfileConflictUntilExplicitReplacement(t *testing.T) {
+func TestConfigImportRefusesRouteConflictUntilExplicitReplacement(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
@@ -311,6 +311,6 @@ interfaces = { openai_responses = ["text"] }
 		t.Fatal(err)
 	}
 	if got.Routes["shared"].Model != "team-model" {
-		t.Fatalf("explicit profile replacement = %#v", got.Routes["shared"])
+		t.Fatalf("explicit route replacement = %#v", got.Routes["shared"])
 	}
 }

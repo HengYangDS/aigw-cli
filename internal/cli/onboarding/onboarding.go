@@ -19,12 +19,12 @@ import (
 
 // Request contains the explicit setup inputs before discovery and validation resolve their effects.
 type Request struct {
-	From, Account, Profile, Label string
-	OpenAIURL, AnthropicURL       string
-	Client, Model                 string
-	TokenStdin                    bool
-	PromptToken                   bool
-	JSON                          bool
+	From, Account, Route, Label string
+	OpenAIURL, AnthropicURL     string
+	Client, Model               string
+	TokenStdin                  bool
+	PromptToken                 bool
+	JSON                        bool
 }
 
 // NewCommand constructs the setup command and binds it to one invocation context.
@@ -70,17 +70,17 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return runSetup(cmd.Context(), runtime, request)
 		},
 	}
-	cmd.Flags().StringVar(&request.From, "from", "", "Set up all profiles from a token-free configuration manifest")
-	cmd.Flags().StringVar(&request.Account, "account", "", "Account ID; uses the first Profile ID when omitted")
-	cmd.Flags().StringVar(&request.Profile, "profile", "", "First profile ID")
+	cmd.Flags().StringVar(&request.From, "from", "", "Set up all routes from a token-free configuration manifest")
+	cmd.Flags().StringVar(&request.Account, "account", "", "Account ID; uses the first Route ID when omitted")
+	cmd.Flags().StringVar(&request.Route, "route", "", "First route ID")
 	cmd.Flags().StringVar(&request.Label, "label", "", "Provider display name")
 	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses base URL")
 	cmd.Flags().StringVar(&request.AnthropicURL, "anthropic-url", "", "Anthropic base URL")
-	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first profile: "+configuration.AdmittedClientUsage())
+	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first route: "+configuration.AdmittedClientUsage())
 	cmd.Flags().StringVar(&request.Model, "model", "", "Upstream model ID for --for")
 	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one token line from standard input")
 	cmd.Flags().BoolVar(&request.JSON, "json", false, "Write the manifest setup result as JSON")
-	for _, name := range []string{"profile", "label", "openai-url", "anthropic-url", "for", "model"} {
+	for _, name := range []string{"route", "label", "openai-url", "anthropic-url", "for", "model"} {
 		cmd.MarkFlagsMutuallyExclusive("from", name)
 	}
 	return cmd
@@ -91,7 +91,7 @@ type setupPlan struct {
 	before            configuration.Config
 	config            configuration.Config
 	account           configuration.Account
-	profile           configuration.Route
+	route             configuration.Route
 	validationClients []string
 }
 
@@ -136,19 +136,19 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 
 func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 	plan := setupPlan{request: request, before: cfg.Clone(), config: cfg}
-	plan.request.Profile = strings.TrimSpace(plan.request.Profile)
+	plan.request.Route = strings.TrimSpace(plan.request.Route)
 	plan.request.Account = strings.TrimSpace(plan.request.Account)
-	if plan.request.Profile == "" {
-		return setupPlan{}, fmt.Errorf("--profile is required; import the reviewed team manifest with `aigw setup --from <path>` or run `aigw setup --help`")
+	if plan.request.Route == "" {
+		return setupPlan{}, fmt.Errorf("--route is required; import the reviewed team manifest with `aigw setup --from <path>` or run `aigw setup --help`")
 	}
 	if plan.request.Account == "" {
-		plan.request.Account = plan.request.Profile
+		plan.request.Account = plan.request.Route
 	}
 	if !configuration.ValidIdentifier(plan.request.Account) {
 		return setupPlan{}, fmt.Errorf("Invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Account)
 	}
-	if !configuration.ValidIdentifier(plan.request.Profile) {
-		return setupPlan{}, fmt.Errorf("Invalid profile ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Profile)
+	if !configuration.ValidIdentifier(plan.request.Route) {
+		return setupPlan{}, fmt.Errorf("Invalid route ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Route)
 	}
 	if plan.request.Label == "" {
 		plan.request.Label = plan.request.Account
@@ -158,7 +158,7 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 		Anthropic:       strings.TrimRight(strings.TrimSpace(plan.request.AnthropicURL), "/"),
 	}
 	if plan.request.Client == "" {
-		return setupPlan{}, fmt.Errorf("--for is required and must be %s; a model profile belongs to exactly one client", configuration.AdmittedClientUsage())
+		return setupPlan{}, fmt.Errorf("--for is required and must be %s; a model route belongs to exactly one client", configuration.AdmittedClientUsage())
 	}
 	spec, ok := configuration.ClientSpecFor(plan.request.Client)
 	if !ok {
@@ -179,13 +179,13 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 	storedAccount := configuration.Account{Label: plan.request.Label, Endpoints: endpoints}
 	plan.account = storedAccount
 	plan.account.ID = plan.request.Account
-	plan.profile = configuration.Route{
+	plan.route = configuration.Route{
 		Label: plan.request.Label, Account: plan.request.Account, Model: strings.TrimSpace(plan.request.Model),
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
 	}
 	plan.config.Accounts[plan.request.Account] = storedAccount
-	plan.config.Routes[plan.request.Profile] = plan.profile
-	plan.config.Clients[plan.request.Client] = configuration.ClientBinding{Route: plan.request.Profile, Enabled: true, Protocol: protocol}
+	plan.config.Routes[plan.request.Route] = plan.route
+	plan.config.Clients[plan.request.Client] = configuration.ClientBinding{Route: plan.request.Route, Enabled: true, Protocol: protocol}
 	if err := plan.config.Validate(); err != nil {
 		return setupPlan{}, err
 	}
@@ -197,8 +197,8 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 	r.ProductTitle("First-time setup")
 	r.Section("Account")
 	r.Row("Account", plan.request.Account)
-	r.Row("Profile", plan.request.Profile)
-	r.Row("Model", plan.profile.Model)
+	r.Row("Route", plan.request.Route)
+	r.Row("Model", plan.route.Model)
 	r.Status(presentation.OK, "API Token", "Validated")
 }
 
@@ -219,7 +219,7 @@ func renderSetupClients(runtime invocation.Context, cfg configuration.Config) {
 		r.Next("aigw sync")
 		return
 	}
-	r.Success("Ready. You can add more model profiles for this account.")
+	r.Success("Ready. You can add more model routes for this account.")
 	r.Next("aigw check")
 }
 
@@ -272,7 +272,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
-	client, err := runtime.Prompt.Select("Client for the first profile: ", []prompt.Choice{
+	client, err := runtime.Prompt.Select("Client for the first route: ", []prompt.Choice{
 		{Value: configuration.ClientCodex, Label: "Codex (OpenAI Responses)"},
 		{Value: configuration.ClientClaude, Label: "Claude (Anthropic)"},
 	})
@@ -287,7 +287,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
-	profile, err := runtime.Prompt.Text("Profile ID (for example, gpt-5.6-terra): ")
+	route, err := runtime.Prompt.Text("Route ID (for example, gpt-5.6-terra): ")
 	if err != nil {
 		return err
 	}
@@ -295,7 +295,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
-	request := Request{Account: account, Profile: profile, Label: label, Client: client, Model: model, PromptToken: true}
+	request := Request{Account: account, Route: route, Label: label, Client: client, Model: model, PromptToken: true}
 	if client == configuration.ClientCodex {
 		request.OpenAIURL = endpoint
 	} else {

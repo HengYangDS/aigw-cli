@@ -117,8 +117,8 @@ func TestAutomaticSelectionFailedMutationDoesNotPersist(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Select() error = %v", err)
 	}
-	if err := store.Set("invalid profile", "token"); err == nil {
-		t.Fatal("Set() accepted invalid profile")
+	if err := store.Set("invalid account", "token"); err == nil {
+		t.Fatal("Set() accepted invalid account")
 	}
 	if _, err := os.Stat(filepath.Join(root, "backend")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("failed mutation persisted backend selection: %v", err)

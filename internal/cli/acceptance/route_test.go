@@ -13,55 +13,55 @@ import (
 	"testing"
 )
 
-func TestProfileAddValidation(t *testing.T) {
-	t.Run("profile add invalid id", func(t *testing.T) {
+func TestRouteAddValidation(t *testing.T) {
+	t.Run("route add invalid id", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		err := cli.Execute(app, []string{"profile", "add", "bad id", "--account", "one", "--model", "m"})
-		if err == nil || !strings.Contains(err.Error(), "Invalid profile ID") {
+		err := cli.Execute(app, []string{"route", "add", "bad id", "--account", "one", "--model", "m"})
+		if err == nil || !strings.Contains(err.Error(), "Invalid route ID") {
 			t.Fatalf("error = %v", err)
 		}
 	})
 
-	t.Run("profile add load", func(t *testing.T) {
+	t.Run("route add load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Config = configuration.NewStore(t.TempDir())
-		if err := cli.Execute(app, []string{"profile", "add", "two", "--account", "one", "--model", "m"}); err == nil {
+		if err := cli.Execute(app, []string{"route", "add", "two", "--account", "one", "--model", "m"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
 	})
 
-	t.Run("profile add duplicate", func(t *testing.T) {
+	t.Run("route add duplicate", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
-		err := cli.Execute(app, []string{"profile", "add", "one", "--account", "one", "--model", "m", "--protocol", "anthropic"})
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		err := cli.Execute(app, []string{"route", "add", "one", "--account", "one", "--model", "m", "--protocol", "anthropic"})
 		if err == nil || !strings.Contains(err.Error(), "already exists") {
 			t.Fatalf("error = %v", err)
 		}
 	})
 
-	t.Run("profile add unknown account", func(t *testing.T) {
+	t.Run("route add unknown account", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
-		err := cli.Execute(app, []string{"profile", "add", "two", "--account", "missing", "--model", "m", "--protocol", "anthropic"})
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		err := cli.Execute(app, []string{"route", "add", "two", "--account", "missing", "--model", "m", "--protocol", "anthropic"})
 		if err == nil || !strings.Contains(err.Error(), "Unknown account") {
 			t.Fatalf("error = %v", err)
 		}
 	})
 
-	t.Run("profile add default label", func(t *testing.T) {
+	t.Run("route add default label", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
-		if err := cli.Execute(app, []string{"profile", "add", "two", "--account", "one", "--model", "m2", "--protocol", "anthropic"}); err != nil {
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		if err := cli.Execute(app, []string{"route", "add", "two", "--account", "one", "--model", "m2", "--protocol", "anthropic"}); err != nil {
 			t.Fatal(err)
 		}
 		cfg, _ := app.Config.Load()
 		if cfg.Routes["two"].Label != "two" {
-			t.Fatalf("profile = %#v", cfg.Routes["two"])
+			t.Fatalf("route = %#v", cfg.Routes["two"])
 		}
 	})
 }
 
-func TestProfileRemoveLeavesAccountAndTokenIntact(t *testing.T) {
+func TestRouteRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
@@ -72,7 +72,7 @@ func TestProfileRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("dmx", "account-token")
-	if err := cli.Execute(app, []string{"profile", "remove", "gpt-unused"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "remove", "gpt-unused"}); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := secretStore.Get("dmx"); err != nil || got != "account-token" {
@@ -84,10 +84,10 @@ func TestProfileRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 	}
 }
 
-func TestProfileAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
+func TestRouteAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "gpt", "dmx", "GPT", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}, configuration.ClientCodex, "gpt-test")
+	addAccountRoute(&cfg, "gpt", "dmx", "GPT", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}, configuration.ClientCodex, "gpt-test")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -96,44 +96,44 @@ func TestProfileAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"profile", "add", "claude", "--account", "dmx", "--model", "claude-test", "--protocol", "anthropic", "--label", "Claude Test"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "add", "claude", "--account", "dmx", "--model", "claude-test", "--protocol", "anthropic", "--label", "Claude Test"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	profile := got.Routes["claude"]
-	if profile.Account != "dmx" || profile.Model != "claude-test" {
-		t.Fatalf("added profile = %#v", profile)
+	route := got.Routes["claude"]
+	if route.Account != "dmx" || route.Model != "claude-test" {
+		t.Fatalf("added route = %#v", route)
 	}
 	if got.SelectedRoute(configuration.ClientCodex) != "gpt" || !secretExists(t, secretStore, "dmx") || secretExists(t, secretStore, "claude") {
 		t.Fatalf("selection or token slots changed: clients=%#v dmx=%v claude=%v", got.Clients, secretExists(t, secretStore, "dmx"), secretExists(t, secretStore, "claude"))
 	}
 }
 
-func TestProfileAddDoesNotConflateProfileCreationWithClientCompatibility(t *testing.T) {
+func TestRouteAddDoesNotConflateRouteCreationWithClientCompatibility(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "gpt", "openai-only", "OpenAI Only", configuration.Endpoints{OpenAIResponses: "https://openai.test/v1"}, configuration.ClientCodex, "gpt-test")
+	addAccountRoute(&cfg, "gpt", "openai-only", "OpenAI Only", configuration.Endpoints{OpenAIResponses: "https://openai.test/v1"}, configuration.ClientCodex, "gpt-test")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"profile", "add", "claude", "--account", "openai-only", "--model", "claude-test", "--protocol", "openai_responses"}); err != nil {
-		t.Fatalf("profile creation should remain client-independent: %v", err)
+	if err := cli.Execute(app, []string{"route", "add", "claude", "--account", "openai-only", "--model", "claude-test", "--protocol", "openai_responses"}); err != nil {
+		t.Fatalf("route creation should remain client-independent: %v", err)
 	}
 	got, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	profile, exists := got.Routes["claude"]
-	if !exists || profile.Account != "openai-only" || profile.Model != "claude-test" {
-		t.Fatalf("created Profile = %#v, exists=%v", profile, exists)
+	route, exists := got.Routes["claude"]
+	if !exists || route.Account != "openai-only" || route.Model != "claude-test" {
+		t.Fatalf("created Route = %#v, exists=%v", route, exists)
 	}
 	if got.SelectedRoute(configuration.ClientClaude) != "" {
-		t.Fatalf("profile creation selected a Claude binding: %#v", got.Clients)
+		t.Fatalf("route creation selected a Claude binding: %#v", got.Clients)
 	}
 
 	err = cli.Execute(app, []string{"use", "--for", "claude", "claude"})
@@ -142,23 +142,23 @@ func TestProfileAddDoesNotConflateProfileCreationWithClientCompatibility(t *test
 	}
 }
 
-func TestProfileReadsDoNotInspectCredentials(t *testing.T) {
+func TestRouteReadsDoNotInspectCredentials(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+	saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 	observed := &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: errors.New("credential observation must not run")}
 	app.Secrets = observed
 
-	for _, args := range [][]string{{"profile", "list"}, {"profile", "show", "one"}} {
+	for _, args := range [][]string{{"route", "list"}, {"route", "show", "one"}} {
 		if err := cli.Execute(app, args); err != nil {
 			t.Fatalf("%v: %v", args, err)
 		}
 	}
 	if len(observed.existsCalls)+len(observed.getCalls) != 0 {
-		t.Fatalf("Profile reads inspected credentials: exists=%q get=%q", observed.existsCalls, observed.getCalls)
+		t.Fatalf("Route reads inspected credentials: exists=%q get=%q", observed.existsCalls, observed.getCalls)
 	}
 }
 
-func TestProfileReadsKeepClientAuthenticationInTheBinding(t *testing.T) {
+func TestRouteReadsKeepClientAuthenticationInTheBinding(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["native"] = configuration.Account{
@@ -185,22 +185,22 @@ func TestProfileReadsKeepClientAuthenticationInTheBinding(t *testing.T) {
 	observed := &recordingCredentialStore[string]{backend: secretStore}
 	app.Secrets = observed
 
-	if err := cli.Execute(app, []string{"profile", "list"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "list"}); err != nil {
 		t.Fatal(err)
 	}
 	if len(observed.existsCalls) != 0 || len(observed.getCalls) != 0 {
-		t.Fatalf("profile list accessed client-native credentials: exists=%q get=%q", observed.existsCalls, observed.getCalls)
+		t.Fatalf("route list accessed client-native credentials: exists=%q get=%q", observed.existsCalls, observed.getCalls)
 	}
 	if text := out.String(); strings.Contains(text, "Authentication") || strings.Contains(text, "Token") {
-		t.Fatalf("profile list = %q", text)
+		t.Fatalf("route list = %q", text)
 	}
 
 	out.Reset()
-	if err := cli.Execute(app, []string{"profile", "show", "native", "--json"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "show", "native", "--json"}); err != nil {
 		t.Fatal(err)
 	}
 	if len(observed.existsCalls) != 0 || len(observed.getCalls) != 0 {
-		t.Fatalf("profile show accessed client-native credentials: exists=%q get=%q", observed.existsCalls, observed.getCalls)
+		t.Fatalf("route show accessed client-native credentials: exists=%q get=%q", observed.existsCalls, observed.getCalls)
 	}
 	var result map[string]any
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
@@ -208,20 +208,20 @@ func TestProfileReadsKeepClientAuthenticationInTheBinding(t *testing.T) {
 	}
 	for _, clientField := range []string{"authentication", "model_provider", "secret_available", "credential_ownership"} {
 		if _, exists := result[clientField]; exists {
-			t.Fatalf("Profile JSON contains client-binding field %q: %s", clientField, out.String())
+			t.Fatalf("Route JSON contains client-binding field %q: %s", clientField, out.String())
 		}
 	}
 
 	out.Reset()
-	if err := cli.Execute(app, []string{"profile", "show", "native"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "show", "native"}); err != nil {
 		t.Fatal(err)
 	}
 	if text := out.String(); strings.Contains(text, "Authentication") || strings.Contains(text, "Token") {
-		t.Fatalf("profile show = %q", text)
+		t.Fatalf("route show = %q", text)
 	}
 }
 
-func TestProfileListJSONIsStableAndClientIndependent(t *testing.T) {
+func TestRouteListJSONIsStableAndClientIndependent(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["shared"] = configuration.Account{Label: "Shared", Endpoints: configuration.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
@@ -239,35 +239,35 @@ func TestProfileListJSONIsStableAndClientIndependent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"profile", "list", "--json"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "list", "--json"}); err != nil {
 		t.Fatal(err)
 	}
 	var result struct {
-		Profiles []struct {
+		Routes []struct {
 			ID              string   `json:"id"`
 			SelectedClients []string `json:"selected_clients"`
-		} `json:"profiles"`
+		} `json:"routes"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Profiles) != 2 || result.Profiles[0].ID != "alpha" || result.Profiles[1].ID != "zeta" {
-		t.Fatalf("profile order = %#v", result.Profiles)
+	if len(result.Routes) != 2 || result.Routes[0].ID != "alpha" || result.Routes[1].ID != "zeta" {
+		t.Fatalf("route order = %#v", result.Routes)
 	}
-	if !slices.Equal(result.Profiles[0].SelectedClients, []string{configuration.ClientCodex}) {
-		t.Fatalf("Codex-selected Profile = %#v", result.Profiles[0])
+	if !slices.Equal(result.Routes[0].SelectedClients, []string{configuration.ClientCodex}) {
+		t.Fatalf("Codex-selected Route = %#v", result.Routes[0])
 	}
-	if !slices.Equal(result.Profiles[1].SelectedClients, []string{configuration.ClientClaude}) {
-		t.Fatalf("Claude-selected Profile = %#v", result.Profiles[1])
+	if !slices.Equal(result.Routes[1].SelectedClients, []string{configuration.ClientClaude}) {
+		t.Fatalf("Claude-selected Route = %#v", result.Routes[1])
 	}
 	for _, forbidden := range []string{"never-print-this-token", "authentication", "credential_ownership", "secret_available"} {
 		if strings.Contains(out.String(), forbidden) {
-			t.Fatalf("profile list exposed client or credential field %q: %s", forbidden, out.String())
+			t.Fatalf("route list exposed client or credential field %q: %s", forbidden, out.String())
 		}
 	}
 }
 
-func TestProfileShowRendersEverySecretFreeField(t *testing.T) {
+func TestRouteShowRendersEverySecretFreeField(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["shared"] = configuration.Account{Label: "Shared", Endpoints: configuration.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
@@ -282,7 +282,7 @@ func TestProfileShowRendersEverySecretFreeField(t *testing.T) {
 	if err := secretStore.Set("shared", "never-render-this"); err != nil {
 		t.Fatal(err)
 	}
-	if err := cli.Execute(app, []string{"profile", "show", "codex"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "show", "codex"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"Codex Model", "Daily work", "shared", "codex", "gpt-test", "https://shared.test/v1", "https://shared.test"} {
@@ -294,7 +294,7 @@ func TestProfileShowRendersEverySecretFreeField(t *testing.T) {
 		t.Fatalf("human output leaked token: %s", out.String())
 	}
 	out.Reset()
-	if err := cli.Execute(app, []string{"profile", "show", "codex", "--json"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "show", "codex", "--json"}); err != nil {
 		t.Fatal(err)
 	}
 	var result map[string]any
@@ -306,11 +306,11 @@ func TestProfileShowRendersEverySecretFreeField(t *testing.T) {
 	}
 }
 
-func TestAdvancedProfileReadEditAndRemoveErrors(t *testing.T) {
+func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 	t.Run("list load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Config = configuration.NewStore(t.TempDir())
-		if err := cli.Execute(app, []string{"profile", "list"}); err == nil {
+		if err := cli.Execute(app, []string{"route", "list"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
 	})
@@ -318,22 +318,22 @@ func TestAdvancedProfileReadEditAndRemoveErrors(t *testing.T) {
 	t.Run("show load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Config = configuration.NewStore(t.TempDir())
-		if err := cli.Execute(app, []string{"profile", "show", "one"}); err == nil {
+		if err := cli.Execute(app, []string{"route", "show", "one"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
 	})
 
 	t.Run("show unknown", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		err := cli.Execute(app, []string{"profile", "show", "missing"})
-		if err == nil || !strings.Contains(err.Error(), "Unknown profile") {
+		err := cli.Execute(app, []string{"route", "show", "missing"})
+		if err == nil || !strings.Contains(err.Error(), "Unknown route") {
 			t.Fatalf("error = %v", err)
 		}
 	})
 
 	t.Run("edit requires change", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		if err := cli.Execute(app, []string{"profile", "edit", "one"}); err == nil {
+		if err := cli.Execute(app, []string{"route", "edit", "one"}); err == nil {
 			t.Fatal("expected nothing-to-update error")
 		}
 	})
@@ -341,16 +341,16 @@ func TestAdvancedProfileReadEditAndRemoveErrors(t *testing.T) {
 	t.Run("edit load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Config = configuration.NewStore(t.TempDir())
-		if err := cli.Execute(app, []string{"profile", "edit", "one", "--label", "New"}); err == nil {
+		if err := cli.Execute(app, []string{"route", "edit", "one", "--label", "New"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
 	})
 
 	t.Run("edit unknown", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
-		err := cli.Execute(app, []string{"profile", "edit", "missing", "--label", "New"})
-		if err == nil || !strings.Contains(err.Error(), "Unknown profile") {
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		err := cli.Execute(app, []string{"route", "edit", "missing", "--label", "New"})
+		if err == nil || !strings.Contains(err.Error(), "Unknown route") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -358,16 +358,16 @@ func TestAdvancedProfileReadEditAndRemoveErrors(t *testing.T) {
 	t.Run("remove load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Config = configuration.NewStore(t.TempDir())
-		if err := cli.Execute(app, []string{"profile", "remove", "one"}); err == nil {
+		if err := cli.Execute(app, []string{"route", "remove", "one"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
 	})
 
 	t.Run("remove unknown", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
-		err := cli.Execute(app, []string{"profile", "remove", "missing"})
-		if err == nil || !strings.Contains(err.Error(), "Unknown profile") {
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		err := cli.Execute(app, []string{"route", "remove", "missing"})
+		if err == nil || !strings.Contains(err.Error(), "Unknown route") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -375,56 +375,56 @@ func TestAdvancedProfileReadEditAndRemoveErrors(t *testing.T) {
 	t.Run("remove override", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		cfg := configuration.NewConfig()
-		addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}, configuration.ClientClaude, "m1")
-		addAccountProfile(&cfg, "two", "one", "Two", configuration.Endpoints{}, configuration.ClientCodex, "m2")
+		addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}, configuration.ClientClaude, "m1")
+		addAccountRoute(&cfg, "two", "one", "Two", configuration.Endpoints{}, configuration.ClientCodex, "m2")
 		cfg.SetSelectedRoute(configuration.ClientClaude, "one")
 		cfg.SetSelectedRoute(configuration.ClientCodex, "two")
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
-		err := cli.Execute(app, []string{"profile", "remove", "two"})
+		err := cli.Execute(app, []string{"route", "remove", "two"})
 		if err == nil || !strings.Contains(err.Error(), "selected for codex") {
 			t.Fatalf("error = %v", err)
 		}
 	})
 }
 
-func TestProfileEditSynchronizesActiveCodexProjection(t *testing.T) {
+func TestRouteEditSynchronizesActiveCodexProjection(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "one")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("one", "token")
-	if err := cli.Execute(app, []string{"profile", "edit", "one", "--label", "New Label"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "edit", "one", "--label", "New Label"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Profile metadata saved") {
+	if !strings.Contains(out.String(), "Route metadata saved") {
 		t.Fatalf("output = %q", out.String())
 	}
 	projected, err := os.ReadFile(target)
 	if err != nil || !strings.Contains(string(projected), "AIGW: New Label") {
-		t.Fatalf("profile label was not projected: %s, %v", projected, err)
+		t.Fatalf("route label was not projected: %s, %v", projected, err)
 	}
 }
 
-func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
+func TestRoutePurposeIsOptionalHumanGuidance(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "current", "team", "Team Gateway", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-current")
+	addAccountRoute(&cfg, "current", "team", "Team Gateway", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-current")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "current")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"profile", "add", "claude-fable-5", "--account", "team", "--model", "claude-fable-5", "--protocol", "anthropic", "--label", "Claude Fable 5", "--purpose", "Default agent"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "add", "claude-fable-5", "--account", "team", "--model", "claude-fable-5", "--protocol", "anthropic", "--label", "Claude Fable 5", "--purpose", "Default agent"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
@@ -448,15 +448,15 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 	}
 
 	out.Reset()
-	if err := cli.Execute(app, []string{"profile", "list"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "list"}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "Default agent") {
-		t.Fatalf("profile list lacks purpose:\n%s", out.String())
+		t.Fatalf("route list lacks purpose:\n%s", out.String())
 	}
 
 	out.Reset()
-	if err := cli.Execute(app, []string{"profile", "show", "claude-fable-5", "--json"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "show", "claude-fable-5", "--json"}); err != nil {
 		t.Fatal(err)
 	}
 	var result struct {
@@ -466,10 +466,10 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 		t.Fatal(err)
 	}
 	if result.Purpose != "Default agent" {
-		t.Fatalf("profile JSON lacks purpose:\n%s", out.String())
+		t.Fatalf("route JSON lacks purpose:\n%s", out.String())
 	}
 
-	if err := cli.Execute(app, []string{"profile", "edit", "claude-fable-5", "--purpose", "Deep agent"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "edit", "claude-fable-5", "--purpose", "Deep agent"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err = app.Config.Load()
@@ -479,7 +479,7 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 	if got.Routes["claude-fable-5"].Purpose != "Deep agent" {
 		t.Fatalf("edited purpose = %q", got.Routes["claude-fable-5"].Purpose)
 	}
-	if err := cli.Execute(app, []string{"profile", "edit", "claude-fable-5", "--purpose", ""}); err != nil {
+	if err := cli.Execute(app, []string{"route", "edit", "claude-fable-5", "--purpose", ""}); err != nil {
 		t.Fatal(err)
 	}
 	got, err = app.Config.Load()
@@ -491,10 +491,10 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 	}
 }
 
-func TestProfileListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T) {
+func TestRouteListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "gpt", "team", "Team Gateway", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "gpt-test")
+	addAccountRoute(&cfg, "gpt", "team", "Team Gateway", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "gpt-test")
 	cfg.Routes["gpt"] = qualifiedRoute("GPT Test", "team", "gpt-test", configuration.ProtocolOpenAIResponses)
 	route := cfg.Routes["gpt"]
 	route.Purpose = "native Codex picker-aligned daily default"
@@ -507,31 +507,31 @@ func TestProfileListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"profile", "list"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "list"}); err != nil {
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"Profiles", "Available profiles", "Configuration  gpt", "GPT Test · native Codex picker-aligned daily default · Selected for codex · Account team · Clients codex"} {
+	for _, want := range []string{"Routes", "Available routes", "Route  gpt", "GPT Test · native Codex picker-aligned daily default · Selected for codex · Account team · Clients codex"} {
 		if !strings.Contains(text, want) {
-			t.Fatalf("profile list lacks %q:\n%s", want, text)
+			t.Fatalf("route list lacks %q:\n%s", want, text)
 		}
 	}
-	for _, retired := range []string{"Service profiles\n", "Profile  gpt"} {
+	for _, retired := range []string{"Service routes\n", "Profile  gpt"} {
 		if strings.Contains(text, retired) {
-			t.Fatalf("profile list retained product label %q:\n%s", retired, text)
+			t.Fatalf("route list retained product label %q:\n%s", retired, text)
 		}
 	}
 }
 
-func TestProfileRemoveRefusesActiveProfile(t *testing.T) {
+func TestRouteRemoveRefusesActiveRoute(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
+	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "team")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	err := cli.Execute(app, []string{"profile", "remove", "team"})
+	err := cli.Execute(app, []string{"route", "remove", "team"})
 	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "selected for claude") {
 		t.Fatalf("error = %v", err)
 	}

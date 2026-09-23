@@ -8,7 +8,7 @@ client when its prerequisites are available.
 
 1. Download the reviewed token-free
    [`manifests/team.toml`](../../manifests/team.toml).
-2. Add only reviewed Account endpoints and admitted Profiles.
+2. Add only reviewed Account endpoints and admitted Routes.
 3. Keep Tokens, personal paths, identities, and release credentials out.
 4. Validate the manifest in a clean repository environment.
 5. Publish it through the team's ordinary configuration channel.
@@ -20,7 +20,7 @@ HTML page. The portable program archive does not include this team-specific
 configuration. Keep the selected revision with the team's rollout instructions
 so members receive the same public configuration without cloning the repository.
 
-A manifest should contain the minimum Profile set users need. Provider catalogs
+A manifest should contain the minimum Route set users need. Provider catalogs
 are discovery input, not automatic routing policy. Teams own model choice;
 AIGW does not infer capability, quality or version policy from a model ID.
 Adding a compatible model to an existing Account and admitted client changes
@@ -31,9 +31,9 @@ boundaries follow [Adapter admission](../governance/adapter-admission.md).
 
 The team manifest is a curated catalogue, not a collection of personal notes.
 
-- **Profile ID:** stable selection key: Account ID + `-` + the exact provider
+- **Route ID:** stable selection key: Account ID + `-` + the exact provider
   model ID, including its channel suffix.
-- **`account`:** explicit reference to the credential-owning Account; Profiles
+- **`account`:** explicit reference to the credential-owning Account; Routes
   remain reusable and do not declare a client.
 - **`model`:** exact provider request identifier, preserving version
   punctuation and channel suffix.
@@ -47,19 +47,19 @@ The team manifest is a curated catalogue, not a collection of personal notes.
   append `· CHANNEL` with a separating space when needed.
 - **`purpose`:** optional workflow description; omit throughout this
   model catalogue.
-- **`recommendations.<client>`:** sole team recommendation owner, one Profile
+- **`recommendations.<client>`:** sole team recommendation owner, one Route
   per client; recommendations do not belong in display text.
 
 Use product capitalization, dotted display versions, uppercase channel names,
 and spaces around `·`. Labels contain identity, not performance promises,
 review status, or instructions. The catalogue assigns no workflow roles, so
-every Profile consistently omits `purpose`; do not invent use cases to fill it.
-Profile keys preserve provider spelling: `dmxapi-claude-fable-5-1` requests
+every Route consistently omits `purpose`; do not invent use cases to fill it.
+Route keys preserve provider spelling: `dmxapi-claude-fable-5-1` requests
 `claude-fable-5-1`; its display label is `DMXAPI · Claude Fable 5.1`.
-The `-cc` Profile is a separate channel, not the ordinary model.
+The `-cc` Route is a separate channel, not the ordinary model.
 
 Use the native `aigw config export` layout: version, recommendations, Accounts,
-then Profiles; map keys follow stable lexical order and fields follow schema
+then Routes; map keys follow stable lexical order and fields follow schema
 order. Existing manifest tests check display structure and byte-identical
 native export, without another formatter or model-name registry.
 
@@ -98,12 +98,12 @@ vendor pricing, benchmarks, or universal superiority.
 All three configured Accounts listed those model IDs in the authenticated
 catalogue observation on September 21, 2026. The selected protocols were also
 tested with minimal inference calls. AIHubMix and DMXAPI used OpenAI Responses
-for the 12 general profiles. UCloud used Responses except for Gemini 3.1 Pro
+for the 12 general routes. UCloud used Responses except for Gemini 3.1 Pro
 Preview, Gemini 3.8 Flash, and Kimi K2.7 Code Highspeed, which used Chat
 Completions. Catalogue membership and one successful text call remain narrower
 than complete tool, streaming, long-context, cost, or latency qualification.
 
-DMXAPI's retained CC, SSVIP and CDX channels remain separate Profiles within
+DMXAPI's retained CC, SSVIP and CDX channels remain separate Routes within
 the Claude and GPT families; other Accounts use their ordinary model
 identifiers. Channel names are not substitutes for the native model selected
 in an existing Codex conversation.
@@ -124,7 +124,7 @@ refresh that separate evidence before rollout.
 
 The recommendation applies when its Account is connected. With another
 Account, setup prefers the same model if that Account offers it, otherwise an
-available Profile for that client. No provider Token is mandatory, and an
+available Route for that client. No provider Token is mandatory, and an
 import preserves existing personal Client Bindings.
 
 Reasoning effort remains a native client preference, outside manifest schema
@@ -167,10 +167,10 @@ second executable. Claude Code's
 are distinct; choose deliberately when compatibility requires a channel change.
 The recommended [Fable 5.1](https://code.claude.com/docs/en/model-config#work-with-fable)
 requires Claude Code **2.1.257 or later**. A passing Sonnet request on an older
-client does not qualify the Fable recommendation; verify the selected Profile
+client does not qualify the Fable recommendation; verify the selected Route
 with the actual client version that team members will use.
 
-A successful short request proves only that client, Profile and invocation.
+A successful short request proves only that client, Route and invocation.
 It does not establish Desktop behavior, other operating systems, full-window
 capacity, tool replay, or installation and update correctness. Verify those
 journeys separately when the rollout depends on them.
@@ -193,7 +193,7 @@ aigw setup --from team.toml
 Setup:
 
 - validates all public metadata first;
-- preserves every reviewed Account and Profile;
+- preserves every reviewed Account and Route;
 - connects no Account unless a Token already exists or the user selects one;
 - configures only installed admitted clients;
 - compensates failed projections only where its owned writes remain unchanged,
@@ -215,10 +215,10 @@ ASCII characters; embedded whitespace, extra lines and control characters fail
 before validation or storage.
 
 For a one-time endpoint test,
-`aigw test --for <client> --profile <profile> --token-stdin` consumes that Token
+`aigw test --for <client> --route <route> --token-stdin` consumes that Token
 without reading or writing the credential store. Supply
 `--config /absolute/path/to/config.toml` when the calling process intentionally
-has no ordinary user HOME. One explicit Profile or client is required so input
+has no ordinary user HOME. One explicit Route or client is required so input
 cannot be reused across unrelated Accounts. This command reports HTTP endpoint
 observation only; use the ordinary native-client `verify` journey for inference.
 
@@ -230,7 +230,7 @@ encoding before HTTP. It does not infer a format, recursively decode, or rewrite
 Keychain items. Linux and Windows native stores do not imply this macOS format.
 
 If the catalogue is already imported, do not repeat setup. Add or replace one
-Account Token, then select its Profile:
+Account Token, then select its Route:
 
 ```bash
 aigw rotate dmxapi
@@ -241,10 +241,10 @@ aigw check
 One connected Account is enough to begin. Accounts without Tokens remain
 available but do not make another Account fail. With no enabled client, `check`
 and `doctor` validate local configuration without requiring the recommended
-Profiles' Tokens; their success is not a client or inference proof.
+Routes' Tokens; their success is not a client or inference proof.
 
-Interactive `aigw use --for <client> <profile>` can also prompt for that
-Account's missing Token. Interactive use may prompt for the client or Profile;
+Interactive `aigw use --for <client> <route>` can also prompt for that
+Account's missing Token. Interactive use may prompt for the client or Route;
 non-interactive use requires both explicitly. If the Token is already available
 and the binding is unchanged, selection performs no writes. A cancelled or
 failed selection compensates its own credential writes; it preserves a newer
@@ -252,7 +252,7 @@ credential and reports any incomplete recovery. An output error after commit
 does not undo the selection. Run `aigw status` before retrying.
 
 Rotation validates and replaces only the selected Account's Token. It does not
-select a Profile, rewrite client configuration or invoke a native client. The
+select a Route, rewrite client configuration or invoke a native client. The
 credential helper reads the new Token when next invoked; client caching may
 require a reload. Use `aigw sync` for configuration changes. Failed storage
 updates use guarded compensation, preserving newer Tokens rather than
@@ -302,21 +302,21 @@ aigw config import manifest.toml
 Review the exported file against the incoming manifest before importing.
 `config import` applies a merge; it has no preview or JSON-output mode.
 Conflicting public metadata requires an explicit `--replace-account <id>` or
-`--replace-profile <id>` after review. Tokens are neither exported nor replaced.
+`--replace-route <id>` after review. Tokens are neither exported nor replaced.
 
 | Collision                          | Default behavior     | Explicit action                          |
 | ---------------------------------- | -------------------- | ---------------------------------------- |
-| Same semantic Account/Profile      | Reuse                | None                                     |
+| Same semantic Account/Route        | Reuse                | None                                     |
 | Same ID, different public metadata | Stop before mutation | Review and use the specific replace flag |
-| Local-only Profile not in manifest | Preserve             | Remove explicitly if obsolete            |
+| Local-only Route not in manifest   | Preserve             | Remove explicitly if obsolete            |
 | Existing Token                     | Preserve             | Rotate explicitly if required            |
 
 Import preserves existing client bindings and stores manifest recommendations
 separately. Importing a recommendation does not select it. First-time setup may
-bind recommendations to Profiles reachable through the Accounts explicitly
+bind recommendations to Routes reachable through the Accounts explicitly
 connected during that operation. `sync` never invents a binding; it reconciles
 only enabled bindings. An existing selection is preserved even if its Token is
-unavailable; use `aigw use --for <client> <profile>` to change it explicitly.
+unavailable; use `aigw use --for <client> <route>` to change it explicitly.
 Client-native authentication does not require an AIGW Token. Import reconciles
 enabled native projections through the ordinary guarded transaction; a failed
 projection leaves the import uncommitted.
@@ -328,12 +328,12 @@ client path, or workstation-only endpoint. Import it as reviewed, then keep
 local intent in AIGW's own configuration commands:
 
 ```bash
-aigw use --for <client> <profile>
+aigw use --for <client> <route>
 aigw account edit <account> --openai-url <url>
-aigw profile add <profile> --account <account> --model <model>
+aigw route add <route> --account <account> --model <model>
 ```
 
-`aigw use` changes only the named client binding. Account and Profile commands
+`aigw use` changes only the named client binding. Account and Route commands
 change local configuration and are not written back into [distributed team manifest](../../manifests/team.toml).
 To publish a team change, review the manifest itself and distribute the new
 token-free revision.
@@ -373,7 +373,7 @@ and restoring the executable does not restore configuration backups.
 | Pilot           | Clean install, setup, check, and rollback on each required platform |
 | Team release    | Protected Forge publication and artifact verification               |
 | Member adoption | Local setup/check results; no shared Token collection               |
-| Closeout        | Deprecated manifest/profile references removed intentionally        |
+| Closeout        | Deprecated manifest/route references removed intentionally          |
 
 ## Automated rollout
 

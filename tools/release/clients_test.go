@@ -67,7 +67,7 @@ func TestNativeClientInputs(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !reflect.DeepEqual(prepared.Routes, manifest.Routes) || !reflect.DeepEqual(prepared.Recommendations, manifest.Recommendations) {
-			t.Fatal("native preparation substituted its own profile or model for the supplied recommendation")
+			t.Fatal("native preparation substituted its own route or model for the supplied recommendation")
 		}
 	})
 }
@@ -134,7 +134,7 @@ func TestNativeClientJourney(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(manifest.Recommendations) != len(configuration.AdmittedClientIDs()) {
-		t.Fatal("team manifest must recommend one profile for every admitted client")
+		t.Fatal("team manifest must recommend one route for every admitted client")
 	}
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
 	for _, path := range []string{candidate, archive, checksums} {
@@ -147,7 +147,7 @@ func TestNativeClientJourney(t *testing.T) {
 	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex, configuration.ClientHermes} {
 		t.Run(client, func(t *testing.T) { plan.run(t, client) })
 	}
-	t.Run("codex-general-profiles", plan.runCodexGeneralProfiles)
+	t.Run("codex-general-routes", plan.runCodexGeneralRoutes)
 }
 
 type nativeClientJourneyPlan struct {

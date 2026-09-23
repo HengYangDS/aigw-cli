@@ -217,10 +217,10 @@ func prepareSettingsChange(path string, disabled bool, runtime configuration.Run
 		return change, nil
 	}
 	if runtime.Endpoint == "" {
-		return settingsChange{}, fmt.Errorf("profile %q has no Claude endpoint", runtime.RouteID)
+		return settingsChange{}, fmt.Errorf("route %q has no Claude endpoint", runtime.RouteID)
 	}
 	if runtime.AccountID == "" {
-		return settingsChange{}, fmt.Errorf("profile %q has no account", runtime.RouteID)
+		return settingsChange{}, fmt.Errorf("route %q has no account", runtime.RouteID)
 	}
 	executable, err = validateExecutable(executable)
 	if err != nil {

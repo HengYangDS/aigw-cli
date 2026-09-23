@@ -14,7 +14,7 @@ import (
 
 // NewCommand constructs the real-client verification command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	var client, profileName string
+	var client, routeName string
 	cmd := &cobra.Command{
 		Use:   "verify",
 		Short: "Run one minimal live request to verify the model protocol path",
@@ -25,8 +25,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if client != "" && client != "all" && !configuration.IsAdmittedClient(client) {
 				return fmt.Errorf("--for must be %s; run `aigw verify --help`", configuration.AdmittedClientUsage("all"))
 			}
-			if client == "all" && profileName != "" {
-				return fmt.Errorf("--profile requires one explicit client, not --for all; run `aigw verify --help`")
+			if client == "all" && routeName != "" {
+				return fmt.Errorf("--route requires one explicit client, not --for all; run `aigw verify --help`")
 			}
 			return nil
 		}),
@@ -45,7 +45,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			clientRuntimes := make(map[string]configuration.Runtime, len(clients))
 			for _, target := range clients {
-				clientRuntime, err := cfg.ResolveRuntime(target, profileName)
+				clientRuntime, err := cfg.ResolveRuntime(target, routeName)
 				if err != nil {
 					return err
 				}
@@ -64,7 +64,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			r.Detail("This makes one minimal model request; it does not modify client configuration or restart clients.")
 			for _, target := range clients {
 				clientRuntime := clientRuntimes[target]
-				result, err := synchronizer.Verify(cmd.Context(), cfg, target, clientRuntime, profileName)
+				result, err := synchronizer.Verify(cmd.Context(), cfg, target, clientRuntime, routeName)
 				if err != nil {
 					return err
 				}
@@ -83,7 +83,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Client whose selected Profile to verify: "+configuration.AdmittedClientLabelUsage("all")+"; all means enabled clients")
-	cmd.Flags().StringVar(&profileName, "profile", "", "Verify this Profile for the explicit client without changing its binding")
+	cmd.Flags().StringVar(&client, "for", "", "Client whose selected Route to verify: "+configuration.AdmittedClientLabelUsage("all")+"; all means enabled clients")
+	cmd.Flags().StringVar(&routeName, "route", "", "Verify this Route for the explicit client without changing its binding")
 	return cmd
 }

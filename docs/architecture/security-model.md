@@ -171,6 +171,6 @@ and redirect failures are terminal.
 
 Uninstall first withdraws AIGW-owned client projections, including marked
 configuration blocks, sidecars, generated catalogues, and credential helpers.
-It then removes the selected program and its rollback copy. Accounts, Profiles,
+It then removes the selected program and its rollback copy. Accounts, Routes,
 Client Bindings, Tokens, explicit configuration backup, client conversations, and
 neighboring user-authored settings remain intact.

@@ -159,14 +159,14 @@ func unstableAuthentication(attempts int, detail string) Result {
 	}
 }
 
-// Probe performs one bounded authenticated diagnostic request against the selected profile endpoint.
+// Probe performs one bounded authenticated diagnostic request against the selected route endpoint.
 func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string) Result {
 	if strings.TrimSpace(runtime.Endpoint) == "" {
-		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Fix: "Check the protocol endpoint for the current profile's account"}
+		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Fix: "Check the protocol endpoint for the current route's account"}
 	}
 	req, err := credential.ProbeRequest(ctx, runtime.Client, runtime.Endpoint, token, runtime.Protocol)
 	if err != nil {
-		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Detail: err.Error(), Fix: "Check the endpoint for the active profile"}
+		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Detail: err.Error(), Fix: "Check the endpoint for the active route"}
 	}
 	resp, err := credential.DoProbe(client, req)
 	if err != nil {

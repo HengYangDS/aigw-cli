@@ -30,7 +30,7 @@ func TestEndpointTestKeepsCredentialsAtTheirSelectedOrigin(t *testing.T) {
 			t.Cleanup(origin.Close)
 			app, _, credentials, _, _ := testApp(t, "")
 			cfg := configuration.NewConfig()
-			addAccountProfile(&cfg, "selected", "team", "Team", configuration.Endpoints{Anthropic: origin.URL, OpenAIResponses: origin.URL}, client, "model")
+			addAccountRoute(&cfg, "selected", "team", "Team", configuration.Endpoints{Anthropic: origin.URL, OpenAIResponses: origin.URL}, client, "model")
 			cfg.SetSelectedRoute(client, "selected")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -66,7 +66,7 @@ func TestTestCommandSurfacesOperationalFailures(t *testing.T) {
 
 	t.Run("missing token", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		err := cli.Execute(app, []string{"test", "--for", "codex"})
 		if err == nil || !strings.Contains(err.Error(), "is unavailable") {
 			t.Fatalf("error = %v", err)
@@ -75,7 +75,7 @@ func TestTestCommandSurfacesOperationalFailures(t *testing.T) {
 
 	t.Run("transport", func(t *testing.T) {
 		app, _, secretStore, _, httpClient := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		_ = secretStore.Set("one", "token")
 		want := errors.New("network down")
 		httpClient.handler = func(*http.Request) (*http.Response, error) { return nil, want }
@@ -86,7 +86,7 @@ func TestTestCommandSurfacesOperationalFailures(t *testing.T) {
 
 	t.Run("response close", func(t *testing.T) {
 		app, _, secretStore, _, httpClient := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		_ = secretStore.Set("one", "token")
 		want := errors.New("close failed")
 		httpClient.handler = func(req *http.Request) (*http.Response, error) {
@@ -99,7 +99,7 @@ func TestTestCommandSurfacesOperationalFailures(t *testing.T) {
 
 	t.Run("server status", func(t *testing.T) {
 		app, _, secretStore, _, httpClient := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		_ = secretStore.Set("one", "token")
 		httpClient.status = http.StatusInternalServerError
 		err := cli.Execute(app, []string{"test", "--for", "codex"})
@@ -112,7 +112,7 @@ func TestTestCommandSurfacesOperationalFailures(t *testing.T) {
 func TestTestCommandAuthenticatesWithoutPrintingAuthorizationHeader(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMX", configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}, configuration.ClientCodex, "gpt-test")
+	addAccountRoute(&cfg, "dmx", "dmx", "DMX", configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}, configuration.ClientCodex, "gpt-test")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "dmx")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -135,7 +135,7 @@ func TestTestCommandAuthenticatesWithoutPrintingAuthorizationHeader(t *testing.T
 func TestTestCommandReturnsResponseReadFailure(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMX", configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}, configuration.ClientCodex, "gpt-test")
+	addAccountRoute(&cfg, "dmx", "dmx", "DMX", configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}, configuration.ClientCodex, "gpt-test")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "dmx")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -157,7 +157,7 @@ func TestTestCommandReturnsResponseReadFailure(t *testing.T) {
 func TestTestCommandKeepsRequestContextAliveUntilResponseIsDrained(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMX", configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}, configuration.ClientCodex, "gpt-test")
+	addAccountRoute(&cfg, "dmx", "dmx", "DMX", configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}, configuration.ClientCodex, "gpt-test")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "dmx")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -181,7 +181,7 @@ func TestTestCommandKeepsRequestContextAliveUntilResponseIsDrained(t *testing.T)
 func TestTestCommandDistinguishesReachabilityFromCredentialAcceptance(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMX", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-test")
+	addAccountRoute(&cfg, "dmx", "dmx", "DMX", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-test")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "dmx")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -199,7 +199,7 @@ func TestTestCommandDistinguishesReachabilityFromCredentialAcceptance(t *testing
 func TestTestCommandRejectsAuthenticationFailure(t *testing.T) {
 	app, _, secretStore, _, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMX", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-test")
+	addAccountRoute(&cfg, "dmx", "dmx", "DMX", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-test")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "dmx")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -212,7 +212,7 @@ func TestTestCommandRejectsAuthenticationFailure(t *testing.T) {
 	}
 }
 
-func TestTestCommandRequiresClientScopeForProfileOverride(t *testing.T) {
+func TestTestCommandRequiresClientScopeForRouteOverride(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
@@ -222,12 +222,12 @@ func TestTestCommandRequiresClientScopeForProfileOverride(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := cli.Execute(app, []string{"test", "--profile", "gpt"})
+	err := cli.Execute(app, []string{"test", "--route", "gpt"})
 	if err == nil {
 		t.Fatal("test command unexpectedly succeeded")
 	}
 	text := out.String()
-	for _, want := range []string{"--profile requires one explicit --for client", "Recommended action", "aigw test --help"} {
+	for _, want := range []string{"--route requires one explicit --for client", "Recommended action", "aigw test --help"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("localized terminal error lacks %q:\n%s", want, text)
 		}
@@ -244,12 +244,12 @@ func TestTestCommandExplainsUnconfiguredStateBeforeResolvingRoutes(t *testing.T)
 		t.Fatal("test command unexpectedly succeeded")
 	}
 	text := out.String()
-	for _, want := range []string{"Not configured", "No Profiles have been created.", "aigw setup"} {
+	for _, want := range []string{"Not configured", "No Routes have been created.", "aigw setup"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("unconfigured test output lacks %q:\n%s", want, text)
 		}
 	}
-	for _, unwanted := range []string{"Connectivity test", `unknown profile ""`} {
+	for _, unwanted := range []string{"Connectivity test", `unknown route ""`} {
 		if strings.Contains(text, unwanted) {
 			t.Fatalf("unconfigured test output retained %q:\n%s", unwanted, text)
 		}
@@ -263,10 +263,10 @@ func TestEndpointTestAdmitsSelectorsBeforeConfigurationAndCredentials(t *testing
 		want string
 	}{
 		{"empty client", []string{"test", "--for="}, "--for requires a non-empty value"},
-		{"empty profile", []string{"test", "--profile="}, "--profile requires a non-empty value"},
-		{"blank profile", []string{"test", "--profile", " "}, "--profile requires a non-empty value"},
+		{"empty route", []string{"test", "--route="}, "--route requires a non-empty value"},
+		{"blank route", []string{"test", "--route", " "}, "--route requires a non-empty value"},
 		{"unknown client", []string{"test", "--for", "future"}, "--for must be"},
-		{"profile without client", []string{"test", "--profile", "gpt"}, "--profile requires one explicit --for client"},
+		{"route without client", []string{"test", "--route", "gpt"}, "--route requires one explicit --for client"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, _, secrets, runner, httpClient := testApp(t, "")
@@ -297,7 +297,7 @@ func TestEndpointTestAdmitsSelectorsBeforeConfigurationAndCredentials(t *testing
 func TestTestCommandUsesAnthropicAPIKeyHeader(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "claude", "anthropic", "Anthropic", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-test")
+	addAccountRoute(&cfg, "claude", "anthropic", "Anthropic", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-test")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -320,7 +320,7 @@ func TestTestCommandUsesAnthropicAPIKeyHeader(t *testing.T) {
 	}
 }
 
-func TestTestCommandUsesAccountTokenForRuntimeProfile(t *testing.T) {
+func TestTestCommandUsesAccountTokenForRuntimeRoute(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
@@ -434,7 +434,7 @@ func TestCheckUsesBoundedAuthenticationStabilityWithoutMutation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			app, out, secretStore, _, httpClient := testApp(t, "")
 			cfg := configuration.NewConfig()
-			addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, configuration.ClientClaude, "claude-test")
+			addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, configuration.ClientClaude, "claude-test")
 			cfg.SetSelectedRoute(configuration.ClientClaude, "dmx")
 			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
@@ -492,7 +492,7 @@ func TestCheckUsesBoundedAuthenticationStabilityWithoutMutation(t *testing.T) {
 func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "local", "local", "Local Endpoint", configuration.Endpoints{Anthropic: "http://127.0.0.2:4567"}, configuration.ClientClaude, "model-test")
+	addAccountRoute(&cfg, "local", "local", "Local Endpoint", configuration.Endpoints{Anthropic: "http://127.0.0.2:4567"}, configuration.ClientClaude, "model-test")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "local")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)

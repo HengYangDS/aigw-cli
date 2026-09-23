@@ -378,7 +378,7 @@ semantics before further restructuring:
 - setup projects only the intersection of installed clients and usable bindings;
 - installing a client or making its Token available later is completed by
   `aigw sync` for an existing enabled binding or an explicit
-  `aigw use --for <client> <profile>`, without repeating setup;
+  `aigw use --for <client> <route>`, without repeating setup;
 - independent Claude and Codex selections remain independent, and `aigw check`
   accepts both without a hidden global or bulk-selection step;
 - cancellation, invalid backend state, projection failure, persistence failure,
@@ -439,11 +439,11 @@ Task 4.5 admits Hermes through the same Client Binding and transaction owners
 as the existing clients. Setup may retain enabled intent before Hermes is
 installed; later discovery and synchronization select its native
 `config.yaml`, while explicit re-enablement retains that target. Projection
-groups every connected Account's reviewed, compatible Profiles into
+groups every connected Account's reviewed, compatible Routes into
 deterministic native providers by Account and protocol, publishes their explicit
 model allowlists with discovery disabled, and keeps the explicit Client Binding
 as the one active provider/model. Disconnected Accounts and unverified manual
-Profiles are omitted. Each projected provider receives its own Account-scoped
+Routes are omitted. Each projected provider receives its own Account-scoped
 credential command rather than a Token. The transaction preserves unrelated
 YAML and session files, rejects a changed preimage, and removes only AIGW-owned
 providers on disable or uninstall. Verification uses Hermes' documented bounded
@@ -454,7 +454,7 @@ disable, re-enable, and uninstall in an isolated home. This is macOS evidence;
 Linux and Windows native qualification remain tasks 9.3 and 9.4.
 The current native catalogue acceptance additionally loads two connected
 Accounts through the installed Hermes runtime, observes every compatible
-reviewed Profile under its Account-and-protocol provider, and proves that an
+reviewed Route under its Account-and-protocol provider, and proves that an
 unconnected Account is not projected.
 
 Task 4.7 now has a source-level Claude Desktop Adapter using the product's
@@ -464,7 +464,7 @@ manufacture a Desktop executable or claim native client support. The Adapter
 owns one stable UUID configuration, the corresponding metadata entry,
 deployment-mode values and a compact ownership sidecar; it preserves unrelated
 JSON fields, rejects managed drift, compensates partial writes and removes only
-its own state. The team manifest recommends the same UCloud Fable Profile
+its own state. The team manifest recommends the same UCloud Fable Route
 independently for Claude Code and Claude Desktop. An isolated macOS run
 discovered the installed Claude Desktop 2.2553.1 executable, imported the
 shipped manifest, projected three compatible UCloud models, executed the
@@ -488,12 +488,12 @@ statement coverage. Hosted macOS, Linux, and Windows reruns remain required
 before this evidence closes Task 4.7 or the platform obligations in Task 9.
 
 The installed Claude Desktop 2.2553.1 schema independently identifies Chat,
-Cowork, and Code as configurable third-party surfaces. The AIGW-owned profile
+Cowork, and Code as configurable third-party surfaces. The AIGW-owned Claude Desktop profile
 enables all three explicitly instead of inheriting release-specific client
-defaults. Native diagnostics on 2026-09-22 exposed that the former profile ID
+defaults. Native diagnostics on 2026-09-22 exposed that the former Claude Desktop profile ID
 `aigw` violated Claude Desktop's UUID contract: the application reported an
 applied four-character non-ID, retained the persisted `3p` choice, but resolved
-effective mode `1P` with no inference provider. Reusing the same profile under
+effective mode `1P` with no inference provider. Reusing the same native profile under
 the stable UUID `6500fbf3-029c-5c0d-842a-48ee47e228c5` changed the real
 application to `app://localhost`, exposed `UCloud · Claude Fable 5.1`, completed
 an authenticated Cowork response and ran a Code session with tool activity. The
@@ -516,7 +516,7 @@ meaning. Ownership validation already compared only the managed semantic
 fields, but plan construction compared the complete re-encoded document byte
 for byte and therefore reported a false projection change. Plan construction
 now preserves existing bytes for semantically equivalent shared JSON documents;
-AIGW-owned profile and state files remain exact. A regression reproduces the
+The Claude Desktop profile and AIGW ownership state files remain exact. A regression reproduces the
 host reserialization and proves a no-op plan does not rewrite any shared file.
 
 Credential portability is accepted at signed commit `3863e05e`. The ordinary
@@ -608,7 +608,7 @@ A candidate-built AIGW 0.2.0 and native Codex CLI 0.155.1 also completed one
 authenticated Responses stream for each AIHubMix Flagship and Daily Profile:
 the 12 reviewed Grok, Gemini, DeepSeek, Qwen, GLM, and Kimi models. The fixture
 rejected an unknown model, a missing credential, non-streaming input, or effort
-other than `high`; each explicit `verify --profile` used an isolated projection
+other than `high`; each explicit `verify --route` used an isolated projection
 and preserved the selected Client Binding byte for byte. This evidence proves
 the declared compatible protocol and exact requested model, not the upstream
 vendor's serving identity or broader tool, cancellation, continuation, and
@@ -683,7 +683,7 @@ The bounded upstream review on 2026-09-20 produced these decisions:
   1.21.0](https://github.com/spf13/viper/releases/tag/v1.21.0) declares ten
   direct and seven indirect requirements. Both own generic source loading and
   merging. Neither removes AIGW's strict schema, unknown-field rejection,
-  Account/Profile/Client Binding validation, explicit conflict admission, atomic store,
+  Account/Model/Route/Client Binding validation, explicit conflict admission, atomic store,
   or source-preserving client projection. Their alias, default, watch, or
   ambient-source behavior would introduce a second configuration semantic, so
   neither is adopted.
@@ -877,10 +877,10 @@ development binaries; candidate artifacts and verification results remain until
 their active acceptance consumers finish.
 
 Task 5.6 narrows the remaining domain language around the objects AIGW actually
-owns. The guided `add` journey now connects an Account and its first Profile;
+owns. The guided `add` journey now connects an Account and its first Route;
 optional provider-platform credentials live under `account diagnostics`, so
 they cannot be confused with an Account Token or with connectivity itself.
-Account identifiers, labels, Tokens, Profile identifiers, Client Bindings, endpoint
+Account identifiers, labels, Tokens, Route identifiers, Client Bindings, endpoint
 runtimes, and native credential services retain distinct names in code and
 human output. The former generic renaming `Service` is now `Renamer`, while
 Codex and Claude projection transitions use closed action types at their owning
@@ -923,7 +923,7 @@ current AIGW responsibility without adding another build, execution,
 environment, or policy authority. CUE 0.17.1 remains the stable locked CI model
 because it already replaces separately maintained Forge workflows. CEL may be
 reconsidered only for a future data-plane product that needs operator-authored,
-high-frequency runtime predicates; AIGW's explicit Profile and Client Binding model has
+high-frequency runtime predicates; AIGW's explicit Route and Client Binding model has
 no such requirement. Pants, Dagger, and Nix require the same future test: remove
 more owned execution and environment complexity than they introduce, without
 weakening native macOS, Linux, or Windows evidence.

@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-// RenameProfile updates one Profile identity and all Client Binding references as one transaction.
-func (s Renamer) RenameProfile(ctx context.Context, oldID, newID string, dryRun bool) (Plan, error) {
+// RenameRoute updates one Route identity and all Client Binding references as one transaction.
+func (s Renamer) RenameRoute(ctx context.Context, oldID, newID string, dryRun bool) (Plan, error) {
 	if err := ctx.Err(); err != nil {
 		return Plan{}, err
 	}
@@ -14,11 +14,11 @@ func (s Renamer) RenameProfile(ctx context.Context, oldID, newID string, dryRun 
 	if err != nil {
 		return Plan{}, err
 	}
-	plan, err := planProfile(cfg, oldID, newID)
+	plan, err := planRoute(cfg, oldID, newID)
 	if err != nil || dryRun {
 		return plan, err
 	}
-	if err := s.Synchronizer.Commit(ctx, cfg, plan.Config, "profile rename"); err != nil {
+	if err := s.Synchronizer.Commit(ctx, cfg, plan.Config, "route rename"); err != nil {
 		return Plan{}, err
 	}
 	plan.Status, plan.Actions.Backup = StatusApplied, "refreshed"

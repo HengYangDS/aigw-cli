@@ -406,7 +406,7 @@ lock or executing an operation. Cobra SHALL own shared flag validation.
 #### Scenario: Supply invalid manifest setup arguments
 
 - **WHEN** the manifest path or explicitly selected Account ID is blank,
-  manifest mode is combined with single-profile options, JSON output is
+  manifest mode is combined with single-route options, JSON output is
   requested without manifest mode, or manifest-mode Token input has no Account
   owner
 - **THEN** setup SHALL reject the invocation before creating configuration

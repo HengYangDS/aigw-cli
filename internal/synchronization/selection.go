@@ -10,23 +10,23 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-// SelectProfile commits one client's Profile selection and projection, optionally storing
+// SelectRoute commits one client's Route selection and projection, optionally storing
 // its validated Account Token. Failure compensates owned credential writes;
 // success leaves no rollback obligation with the caller. The result reports
 // configuration change, not Token acquisition or live inference.
-func (s Synchronizer) SelectProfile(ctx context.Context, before configuration.Config, client, profileID, token string) (changed bool, binding configuration.ClientBinding, resultErr error) {
-	return s.selectProfile(ctx, before, before.Clone(), client, profileID, token)
+func (s Synchronizer) SelectRoute(ctx context.Context, before configuration.Config, client, routeID, token string) (changed bool, binding configuration.ClientBinding, resultErr error) {
+	return s.selectRoute(ctx, before, before.Clone(), client, routeID, token)
 }
 
-func (s Synchronizer) selectProfile(ctx context.Context, before, after configuration.Config, client, profileID, token string) (changed bool, binding configuration.ClientBinding, resultErr error) {
+func (s Synchronizer) selectRoute(ctx context.Context, before, after configuration.Config, client, routeID, token string) (changed bool, binding configuration.ClientBinding, resultErr error) {
 	if err := ctx.Err(); err != nil {
 		return false, configuration.ClientBinding{}, err
 	}
-	_, exists := after.Routes[profileID]
+	_, exists := after.Routes[routeID]
 	if !exists {
-		return false, configuration.ClientBinding{}, fmt.Errorf("unknown profile %q", profileID)
+		return false, configuration.ClientBinding{}, fmt.Errorf("unknown route %q", routeID)
 	}
-	after.SetSelectedRoute(client, profileID)
+	after.SetSelectedRoute(client, routeID)
 	binding = after.Clients[client]
 	binding.Enabled = true
 	after.Clients[client] = binding
@@ -37,7 +37,7 @@ func (s Synchronizer) selectProfile(ctx context.Context, before, after configura
 	var tokens map[string]string
 	if token != "" {
 		if !selected.RequiresAccountToken() {
-			return false, configuration.ClientBinding{}, fmt.Errorf("profile %q uses client-owned authentication; Account Token storage is not part of selection", profileID)
+			return false, configuration.ClientBinding{}, fmt.Errorf("route %q uses client-owned authentication; Account Token storage is not part of selection", routeID)
 		}
 		tokens = map[string]string{selected.AccountID: token}
 	}

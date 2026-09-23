@@ -18,7 +18,7 @@ func TestCurrentSchemaRemovesLegacySelectionFields(t *testing.T) {
 	}
 	for _, field := range []string{"Client", "ModelProvider", "Authentication"} {
 		if _, exists := reflect.TypeFor[Route]().FieldByName(field); exists {
-			t.Errorf("Profile still exposes client concern %s", field)
+			t.Errorf("Route still exposes client concern %s", field)
 		}
 	}
 }
@@ -120,10 +120,10 @@ func TestClientBindingOwnsSelectionAndClientSpecificOptions(t *testing.T) {
 		t.Fatal(err)
 	}
 	if claude.RouteID != "reasoning" || hermes.RouteID != "reasoning" {
-		t.Fatalf("shared profile resolution = %#v, %#v", claude, hermes)
+		t.Fatalf("shared Route resolution = %#v, %#v", claude, hermes)
 	}
 	if claude.Client != ClientClaude || hermes.Client != ClientHermes {
-		t.Fatalf("client identity leaked from Profile = %#v, %#v", claude, hermes)
+		t.Fatalf("client identity leaked from Route = %#v, %#v", claude, hermes)
 	}
 }
 

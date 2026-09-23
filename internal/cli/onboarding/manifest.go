@@ -15,7 +15,7 @@ import (
 
 type manifestSetupImported struct {
 	Accounts []string `json:"accounts"`
-	Profiles []string `json:"profiles"`
+	Routes   []string `json:"routes"`
 }
 
 type manifestSetupResult struct {
@@ -56,7 +56,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	}
 	for _, accountName := range accountNames {
 		if len(configuredClientsForAccount(cfg, accountName)) == 0 {
-			return fmt.Errorf("Account %q is not referenced by any configuration profile; remove it or add an explicit client profile before setup", accountName)
+			return fmt.Errorf("Account %q is not referenced by any configuration route; remove it or add an explicit client route before setup", accountName)
 		}
 	}
 
@@ -119,7 +119,7 @@ func buildManifestSetupResult(
 	result := manifestSetupResult{
 		Imported: manifestSetupImported{
 			Accounts: append([]string(nil), accountNames...),
-			Profiles: cfg.RouteIDs(),
+			Routes:   cfg.RouteIDs(),
 		},
 		ConnectedAccounts: make([]string, 0, len(connected)),
 		SelectedBindings:  make(map[string]string, len(cfg.Clients)),
@@ -178,7 +178,7 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 	r.ProductTitle("Configuration catalogue imported")
 	r.Section("Imported capability")
 	r.Row("Accounts", strings.Join(result.Imported.Accounts, ", "))
-	r.Row("Profiles", strings.Join(result.Imported.Profiles, ", "))
+	r.Row("Routes", strings.Join(result.Imported.Routes, ", "))
 	r.Row("Connected accounts", fmt.Sprintf("%d of %d", len(result.ConnectedAccounts), len(result.Imported.Accounts)))
 	r.Section("Account connections")
 	for _, account := range result.Imported.Accounts {
@@ -190,12 +190,12 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 	}
 	r.Section("Selected Client Bindings")
 	for _, spec := range configuration.AdmittedClientSpecs() {
-		profile, selected := result.SelectedBindings[spec.ID]
+		route, selected := result.SelectedBindings[spec.ID]
 		if !selected {
 			r.Status(presentation.Info, spec.Label, "Deferred")
 			continue
 		}
-		r.Status(presentation.OK, spec.Label, profile)
+		r.Status(presentation.OK, spec.Label, route)
 	}
 	r.Section("Projected clients")
 	if len(result.ProjectedClients) == 0 {
@@ -205,7 +205,7 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 		spec, _ := configuration.ClientSpecFor(client)
 		r.Status(presentation.OK, spec.Label, "Projected")
 	}
-	r.Success("Reviewed Accounts and Profiles are available; Tokens remain outside configuration")
+	r.Success("Reviewed Accounts and Routes are available; Tokens remain outside configuration")
 	for _, detail := range result.DeferredActions {
 		r.Detail(detail)
 	}
@@ -277,11 +277,11 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg configurati
 
 func configuredClientsForAccount(cfg configuration.Config, accountName string) []string {
 	seen := map[string]bool{}
-	for profileID, profile := range cfg.Routes {
-		if profile.Account != accountName {
+	for routeID, route := range cfg.Routes {
+		if route.Account != accountName {
 			continue
 		}
-		clients, err := cfg.CompatibleClientIDs(profileID)
+		clients, err := cfg.CompatibleClientIDs(routeID)
 		if err != nil {
 			continue
 		}

@@ -1,16 +1,17 @@
 # Product Concepts
 
-AIGW has four operational concepts: Account, Profile, Client Binding, and Native
-Projection. A Client Binding selects one reusable Profile for one client. The
-Profile refers to an Account, and the projection writes only AIGW-owned native
+AIGW has five operational concepts: Account, Model, Route, Client Binding, and
+Native Projection. A Client Binding selects one reusable Route for one client. The
+Route refers to an Account, and the projection writes only AIGW-owned native
 configuration. Account Tokens stay in a separate credential backend.
 
 ```mermaid
 flowchart TB
     accTitle: References among the four configuration entities
-    accDescr: A Client Binding selects a reusable Profile, which names an Account. The binding is projected into one native client while Account Tokens remain in a separate backend.
-    B["Client Binding"] -->|selects| P["Profile"]
-    P -->|references| A["Account"]
+    accDescr: A Client Binding selects a reusable Route, which names an Account. The binding is projected into one native client while Account Tokens remain in a separate backend.
+    B["Client Binding"] -->|selects| R["Route"]
+    R -->|uses| A["Account"]
+    R -->|exposes| M["Model"]
     B -->|produces| N["Native Projection"]
 ```
 
@@ -25,20 +26,26 @@ An Account contains:
 - an Account Token slot in the selected backend when authentication requires it;
 - an optional provider-native diagnostic declaration.
 
-Accounts can be imported before a Token is available. A client-native Profile
+Accounts can be imported before a Token is available. A client-native Route
 delegates authentication to its client instead of requiring that Account slot.
 Configuration and manifests never contain the Token.
 The reviewed distribution is [`manifests/team.toml`](../../manifests/team.toml);
 it is the sole tracked team configuration and is directly consumable by
 `aigw setup --from`.
 
-### Profile
+### Model
 
-A Profile identifies one Account and one upstream model independently of client
-branding. The team manifest carries reviewed Profile and model IDs; operators
-may bind the same compatible Profile to more than one client.
+A Model identifies one canonical upstream product independently of Account,
+wire protocol, provider channel, recommendation, and client state.
 
-Profile and model IDs are transparent operator-defined strings. AIGW does not
+### Route
+
+A Route identifies one Account, one canonical Model, the exact upstream model
+identifier, and the protocol interfaces qualified for that pairing. The team
+manifest carries reviewed Models and Routes; operators may bind the same
+compatible Route to more than one client.
+
+Route and Model IDs are transparent operator-defined strings. AIGW does not
 infer a provider, capability, or version policy from their spelling.
 
 Authentication defaults to `account-token`, which uses the Account's selected
@@ -55,7 +62,7 @@ aigw use --for codex dmxapi-gpt-5.6-sol
 aigw use --for claude dmxapi-claude-fable-5-1
 ```
 
-Each binding owns one client's Profile selection, enabled intent, native target,
+Each binding owns one client's Route selection, enabled intent, native target,
 protocol, authentication mode, and genuinely client-specific options. There is
 no global default, inheritance, or cross-client fallback. AIGW selects before
 the request; it does not retry traffic through another endpoint or model.
@@ -122,16 +129,16 @@ continuation, or compaction.
 ## Manifest import
 
 A token-free team manifest adds or reconciles public metadata. Same-named
-Accounts and Profiles must match or import stops before mutation. Explicit
+Accounts and Routes must match or import stops before mutation. Explicit
 replacement changes metadata only; it never changes the Token slot.
 
 ## Rename
 
-- **`profile rename`**
-  - **Changes:** Profile ID, Client Bindings and recommendations
+- **`route rename`**
+  - **Changes:** Route ID, Client Bindings and recommendations
   - **Preserves:** Account and Token
 - **`account rename`**
-  - **Changes:** Account ID and Profile references
+  - **Changes:** Account ID and Route references
   - **Preserves:** Token through a two-phase migration
 - **`account rename --finalize`**
   - **Changes:** Removes verified old credential slots
@@ -165,7 +172,7 @@ predecessor-path rule.
 
 Normal commands read only the current schema. The explicit
 `aigw config migrate --dry-run` operation is the sole reader for the immediately
-preceding supported schema. Its preview lists retained Accounts, Profiles,
+preceding supported schema. Its preview lists retained Accounts, Routes,
 recommendations, Client Bindings and native targets without reading Tokens or
 writing client files. `aigw config migrate` commits the new schema with the
 existing guarded configuration writer and retains the exact predecessor as the

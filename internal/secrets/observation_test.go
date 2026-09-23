@@ -5,11 +5,11 @@ import (
 	"testing"
 )
 
-func mustExist(t testing.TB, store Store, profile string) bool {
+func mustExist(t testing.TB, store Store, account string) bool {
 	t.Helper()
-	present, err := store.Exists(profile)
+	present, err := store.Exists(account)
 	if err != nil {
-		t.Fatalf("Exists(%q): %v", profile, err)
+		t.Fatalf("Exists(%q): %v", account, err)
 	}
 	return present
 }

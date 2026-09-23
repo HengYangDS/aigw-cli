@@ -103,7 +103,7 @@ interfaces = { anthropic = [] }
 		t.Fatalf("personal adapter changed: %#v", got.Clients)
 	}
 	if got.Routes["team"].Label != "Team Gateway" {
-		t.Fatalf("imported profile missing: %#v", got.Routes)
+		t.Fatalf("imported route missing: %#v", got.Routes)
 	}
 }
 
@@ -115,8 +115,8 @@ label = "Team Gateway"
 [accounts.team.endpoints]
 anthropic = "https://team.example.test"
 
-[routes.team-profile]
-label = "TeamProfile"
+[routes.team-route]
+label = "TeamRoute"
 account = "team"
 model = "claude-team"
 interfaces = { anthropic = [] }
@@ -138,12 +138,12 @@ interfaces = { anthropic = [] }
 	if got := cfg.Accounts["team"].Endpoints.Anthropic; got != "https://personal.example.test" {
 		t.Fatalf("conflicting merge mutated existing endpoint: %q", got)
 	}
-	if _, exists := cfg.Routes["team-profile"]; exists {
-		t.Fatalf("conflicting merge partially imported profile: %#v", cfg.Routes)
+	if _, exists := cfg.Routes["team-route"]; exists {
+		t.Fatalf("conflicting merge partially imported route: %#v", cfg.Routes)
 	}
 }
 
-func TestMergeRejectsConflictingExistingProfileWithoutMutatingLocalConfig(t *testing.T) {
+func TestMergeRejectsConflictingExistingRouteWithoutMutatingLocalConfig(t *testing.T) {
 	team, err := Parse([]byte(`version = 7
 
 [accounts.team]
@@ -169,7 +169,7 @@ interfaces = { openai_responses = [] }
 		t.Fatalf("merge error = %v", err)
 	}
 	if got := cfg.Routes["shared"].Model; got != "personal-model" {
-		t.Fatalf("conflicting merge mutated active profile model: %q", got)
+		t.Fatalf("conflicting merge mutated active route model: %q", got)
 	}
 }
 
@@ -182,7 +182,7 @@ label = "Team Gateway"
 anthropic = "https://team.example.test"
 
 [routes.shared]
-label = "TeamProfile"
+label = "TeamRoute"
 purpose = "Default agent"
 account = "team"
 model = "claude-team"
@@ -193,7 +193,7 @@ interfaces = { anthropic = [] }
 	}
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team Gateway", Endpoints: Endpoints{Anthropic: "https://team.example.test/"}}
-	cfg.Routes["shared"] = testRoute("TeamProfile", "team", "claude-team", ProtocolAnthropic)
+	cfg.Routes["shared"] = testRoute("TeamRoute", "team", "claude-team", ProtocolAnthropic)
 	route := cfg.Routes["shared"]
 	route.Purpose = "Default agent"
 	cfg.Routes["shared"] = route
@@ -242,7 +242,7 @@ interfaces = { openai_responses = [] }
 		t.Fatalf("account replacement = %#v", got.Accounts["team"])
 	}
 	if got.Routes["shared"].Model != "team-model" {
-		t.Fatalf("profile replacement = %#v", got.Routes["shared"])
+		t.Fatalf("route replacement = %#v", got.Routes["shared"])
 	}
 }
 
@@ -254,8 +254,8 @@ label = "Team Gateway"
 [accounts.team.endpoints]
 anthropic = "https://team.example.test"
 
-[routes.team-profile]
-label = "TeamProfile"
+[routes.team-route]
+label = "TeamRoute"
 account = "team"
 model = "claude-team"
 interfaces = { anthropic = [] }
@@ -346,7 +346,7 @@ func TestMergeWithOptionsRejectsNonCanonicalConfigurationManifestVersion(t *test
 	}
 }
 
-func TestMergeDefaultsToFirstImportedProfileWhenNeitherSideChoosesADefault(t *testing.T) {
+func TestMergeDefaultsToFirstImportedRouteWhenNeitherSideChoosesADefault(t *testing.T) {
 	team, err := Parse([]byte(`version = 7
 [accounts.team]
 label = "Team"
@@ -370,14 +370,14 @@ interfaces = { anthropic = [] }
 	}
 }
 
-func TestMergeRejectsConflictingModelOverrideWithOtherwiseIdenticalProfile(t *testing.T) {
+func TestMergeRejectsConflictingModelOverrideWithOtherwiseIdenticalRoute(t *testing.T) {
 	team, err := Parse([]byte(`version = 7
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
 openai_responses = "https://team.example.test/v1"
 [routes.shared]
-label = "TeamProfile"
+label = "TeamRoute"
 account = "team"
 model = "team-model"
 interfaces = { openai_responses = [] }
@@ -387,7 +387,7 @@ interfaces = { openai_responses = [] }
 	}
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team Gateway", Endpoints: Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
-	cfg.Routes["shared"] = testRoute("TeamProfile", "team", "personal-model", ProtocolOpenAIResponses)
+	cfg.Routes["shared"] = testRoute("TeamRoute", "team", "personal-model", ProtocolOpenAIResponses)
 
 	if _, err := Merge(cfg, team); err == nil || !strings.Contains(err.Error(), `route "shared" conflicts`) {
 		t.Fatalf("model-only conflict error = %v", err)

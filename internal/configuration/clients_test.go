@@ -52,10 +52,10 @@ func TestAdmittedClientRegistryReturnsDefensiveCopies(t *testing.T) {
 	}
 }
 
-func TestProfileOwnsModelIdentityWithoutClientState(t *testing.T) {
-	profile := Route{Model: "claude-test"}
-	if profile.Model != "claude-test" {
-		t.Fatalf("profile = %#v", profile)
+func TestRouteOwnsModelIdentityWithoutClientState(t *testing.T) {
+	route := Route{Model: "claude-test"}
+	if route.Model != "claude-test" {
+		t.Fatalf("route = %#v", route)
 	}
 }
 

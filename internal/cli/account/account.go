@@ -20,13 +20,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewAddCommand constructs the guided command that connects one Account and its first Profile.
+// NewAddCommand constructs the guided command that connects one Account and its first Route.
 func NewAddCommand(runtime invocation.Context) *cobra.Command {
 	var label, openAIURL, anthropicURL, client, model string
 	var tokenStdin bool
 	cmd := &cobra.Command{
 		Use:   "add <account>",
-		Short: "Add and connect one Account with its first Profile",
+		Short: "Add and connect one Account with its first Route",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
 			if !configuration.ValidIdentifier(args[0]) {
 				return fmt.Errorf("Invalid account ID %q; use letters, numbers, dots, hyphens, or underscores; run `%s --help`", args[0], cmd.CommandPath())
@@ -55,12 +55,12 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			profile := configuration.Route{
+			route := configuration.Route{
 				Label: label, Account: name, Model: strings.TrimSpace(model),
 				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
 			}
 			acquireToken := func() (string, error) { return invocation.ReadToken(runtime, tokenStdin, true) }
-			if err := invocation.Synchronizer(runtime).ConnectAccount(cmd.Context(), cfg, name, client, account, profile, acquireToken); err != nil {
+			if err := invocation.Synchronizer(runtime).ConnectAccount(cmd.Context(), cfg, name, client, account, route, acquireToken); err != nil {
 				return fmt.Errorf("%w; run `%s --help`", err, cmd.CommandPath())
 			}
 			r := invocation.Renderer(runtime)
@@ -68,9 +68,9 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 			r.Section("Selection")
 			r.Row("Account", label)
 			r.Row("Account ID", name)
-			r.Row("Profile ID", name)
+			r.Row("Route ID", name)
 			r.Row("Client", invocation.Title(client))
-			r.Row("Model", profile.Model)
+			r.Row("Model", route.Model)
 			r.Status(presentation.OK, "Token", "Securely stored")
 			r.Next("aigw check")
 			return nil
@@ -86,7 +86,7 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 }
 
 // newEditCommand constructs account metadata editing. Account endpoints and
-// labels belong to the account command surface, not to profile management.
+// labels belong to the account command surface, not to route management.
 func newEditCommand(runtime invocation.Context) *cobra.Command {
 	var label, openAIURL, anthropicURL string
 	cmd := &cobra.Command{
@@ -129,7 +129,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Account updated")
 			r.Row("Account", args[0])
-			r.Success("Profiles using this account now use the same endpoints; token was not changed")
+			r.Success("Routes using this account now use the same endpoints; token was not changed")
 			r.Next("aigw check")
 			return nil
 		},
@@ -317,7 +317,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 			for _, account := range result.Accounts {
 				render.Row(account.ID, account.Label)
 			}
-			render.Next("aigw profile list")
+			render.Next("aigw route list")
 			return render.Err()
 		},
 	}

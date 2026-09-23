@@ -81,11 +81,11 @@ func TestRendererUsesTheBoundRenderWriter(t *testing.T) {
 
 func TestRendererFallsBackToOutputAndDiscard(t *testing.T) {
 	var out bytes.Buffer
-	Renderer(Context{Out: &out, Width: 80}).Row("Profile", "portable")
+	Renderer(Context{Out: &out, Width: 80}).Row("Route", "portable")
 	if !strings.Contains(out.String(), "portable") {
 		t.Fatalf("Renderer() output = %q, want output fallback", out.String())
 	}
-	Renderer(Context{}).Row("Profile", "discarded")
+	Renderer(Context{}).Row("Route", "discarded")
 }
 
 func TestDiscoverRequiresAndUsesTheBoundDiscoverer(t *testing.T) {

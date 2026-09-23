@@ -69,7 +69,7 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 	renderer.ProductTitle(title)
 	renderer.Row("Schema", fmt.Sprintf("%d → %d", result.FromVersion, result.ToVersion))
 	renderer.Row("Accounts", fmt.Sprintf("%d", len(result.Accounts)))
-	renderer.Row("Profiles", fmt.Sprintf("%d", len(result.Profiles)))
+	renderer.Row("Routes", fmt.Sprintf("%d", len(result.Routes)))
 	renderMigrationClients(renderer, result.Clients)
 	if len(result.Recommendations) > 0 {
 		recommendations := make([]string, 0, len(result.Recommendations))

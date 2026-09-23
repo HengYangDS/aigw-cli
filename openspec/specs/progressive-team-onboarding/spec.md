@@ -10,7 +10,7 @@ clients that are present on the current host.
 
 ### Requirement: Team setup imports capability before activation
 
-`aigw setup --from` SHALL import a credential-free Account and Profile
+`aigw setup --from` SHALL import a credential-free Account and Route
 catalogue independently from Account connection, Route activation, client
 installation, and external endpoint availability. No particular Account,
 client, or external Responses service SHALL be mandatory for import. Setup
@@ -29,7 +29,7 @@ already available through the selected credential backend.
 
 - **WHEN** exactly one manifest Account is explicitly selected or has a locally
   available Token
-- **THEN** setup SHALL select compatible profiles for that Account
+- **THEN** setup SHALL select compatible routes for that Account
 - **AND** other manifest Accounts SHALL remain available but unconnected
 - **AND** their missing Tokens SHALL NOT block setup
 
@@ -43,14 +43,14 @@ already available through the selected credential backend.
 ### Requirement: Activation follows present capabilities
 
 Setup SHALL validate and project only discovered clients whose selected
-Profiles have usable declared authentication: a required Account Token or
+Routes have usable declared authentication: a required Account Token or
 client-native ownership. A later synchronization SHALL rediscover and adopt a
 newly installed admitted client without requiring
 manifest re-import.
 
 #### Scenario: Only Claude Code is installed
 
-- **WHEN** a connected Account has both Anthropic and Responses profiles but
+- **WHEN** a connected Account has both Anthropic and Responses routes but
   only Claude Code is discovered
 - **THEN** setup SHALL validate and configure only the Claude route
 - **AND** an unavailable loopback Responses endpoint SHALL NOT block setup.
@@ -88,7 +88,7 @@ semantic result, and never expose credentials.
 - **AND** SHALL state that AIGW owns configuration rather than endpoint
   lifecycle
 - **AND** SHALL offer checking that endpoint or selecting another Responses
-  profile without inferring the endpoint implementation.
+  route without inferring the endpoint implementation.
 
 #### Scenario: No Token is available through a writable backend
 
@@ -124,7 +124,7 @@ semantic result, and never expose credentials.
 #### Scenario: Manifest setup is consumed by automation
 
 - **WHEN** an operator runs manifest-based setup with `--json`
-- **THEN** setup SHALL return the imported Account and Profile counts,
+- **THEN** setup SHALL return the imported Account and Route counts,
   connected Accounts, client states, alternative activation choices, and next
   safe action as machine-readable data
 - **AND** SHALL NOT include an Account Token or credential value.
@@ -155,7 +155,7 @@ requiring every Token or client. `aigw sync` SHALL later converge newly
 available credentials and clients without repeated setup or hidden bulk
 selection. Recommendations SHALL remain distinct from selected Routes. Setup
 and sync SHALL fill only unselected Routes, preferring a usable recommendation,
-its model, then the first usable Profile in stable identifier order. Existing
+its model, then the first usable Route in stable identifier order. Existing
 selections SHALL remain unchanged.
 
 #### Scenario: Any one Account is available
@@ -169,7 +169,7 @@ selections SHALL remain unchanged.
 #### Scenario: A Token becomes available later
 
 - **WHEN** an Account Token becomes available after manifest import
-- **THEN** synchronization activates its compatible Profiles for unselected
+- **THEN** synchronization activates its compatible Routes for unselected
   clients without requiring the originally recommended Account
 - **AND** existing independent Routes are preserved.
 
@@ -177,19 +177,19 @@ selections SHALL remain unchanged.
 
 - **WHEN** setup imports a recommendation while no required Token is available
 - **THEN** the recommendation is persisted without becoming a selected Route
-- **AND** a later usable recommendation wins over lexical Profile order.
+- **AND** a later usable recommendation wins over lexical Route order.
 
 #### Scenario: Explicit selection is temporarily unavailable
 
-- **WHEN** a client has a selected Profile whose Token is absent and another
+- **WHEN** a client has a selected Route whose Token is absent and another
   compatible Account becomes connected
-- **THEN** setup and synchronization preserve that selected Profile
+- **THEN** setup and synchronization preserve that selected Route
 - **AND** they do not replace its selection with the recommendation or another
   available Account.
 
-#### Scenario: Recommended Profile is renamed or removed
+#### Scenario: Recommended Route is renamed or removed
 
-- **WHEN** a Profile is renamed or an unselected Profile is removed
+- **WHEN** a Route is renamed or an unselected Route is removed
 - **THEN** its recommendation reference is renamed or removed in the same
   configuration transaction
 - **AND** other recommendations and selected Routes remain unchanged.

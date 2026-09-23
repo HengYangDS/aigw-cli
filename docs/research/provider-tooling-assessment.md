@@ -233,7 +233,7 @@ source also states that live files are not created for applications that have
 not initialized their own configuration. [CLI source][cc-cli-head], [release
 notes][cc-cli-release-5105]. AIGW's [documented
 boundary](../architecture/authority-and-projection-boundary.md) is narrower:
-provider Accounts, reusable model Profiles, explicit client bindings and
+provider Accounts, reusable model Routes, explicit client bindings and
 credential integration, without owning sessions or a traffic service.
 
 CC Switch CLI's breadth is a real benefit if it replaces several tools the user needs. AIGW's restraint is useful only if it makes setup, diagnosis, preservation and removal materially more predictable. Optional competitor features need not be enabled; comparing AIGW's minimal mode to a competitor's maximal deployment would bias the result. Conversely, the CLI's Windows foreground-proxy boundary must not be hidden by a generic platform checkmark.

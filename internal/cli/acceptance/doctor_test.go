@@ -77,7 +77,7 @@ func TestDoctorAcceptsDeferredTeamSetupWithoutTokensOrClients(t *testing.T) {
 
 func TestDoctorReportsCredentialObservationFailure(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -105,10 +105,10 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := qualifiedRoute("GPT 5.6 Sol Codex", "dmx", "gpt-5.6-sol", configuration.ProtocolOpenAIResponses)
+	route := qualifiedRoute("GPT 5.6 Sol Codex", "dmx", "gpt-5.6-sol", configuration.ProtocolOpenAIResponses)
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Routes["gpt-5.6-sol"] = profile
+	cfg.Routes["gpt-5.6-sol"] = route
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-5.6-sol")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
@@ -164,7 +164,7 @@ func TestDoctorReportsGlobalClientTokenEnvironmentWithoutLeakingValue(t *testing
 
 func TestDoctorPreservesUnrelatedEnvironment(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
 	if err := secretStore.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,7 @@ func TestDoctorHumanOutputUsesConciseCheckLabels(t *testing.T) {
 func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
+	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "team")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
@@ -226,10 +226,10 @@ func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T
 func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "configuration.toml")
-	profile := qualifiedRoute("GPT", "team", "gpt-test", configuration.ProtocolOpenAIResponses)
+	route := qualifiedRoute("GPT", "team", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}}
-	cfg.Routes["gpt"] = profile
+	cfg.Routes["gpt"] = route
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
@@ -335,7 +335,7 @@ func TestDoctorFormatsPreserveTheDiagnosticOutcome(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
 			if test.configured {
-				saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+				saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
 				if err := secretStore.Set("one", "token"); err != nil {
 					t.Fatal(err)
 				}

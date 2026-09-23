@@ -115,15 +115,15 @@ func IsAdmittedClient(id string) bool {
 }
 
 // ResolveEndpoint selects an explicitly requested protocol or the sole available
-// supported endpoint. Multiple choices require a Profile-level selection.
+// supported endpoint. Multiple choices require a Route-level selection.
 func (s ClientSpec) ResolveEndpoint(account Account, requested EndpointProtocol) (string, EndpointProtocol, error) {
 	return s.resolveEndpoint(account, nil, requested)
 }
 
 // ResolveRouteEndpoint selects one endpoint admitted by the client, Account,
 // and Route interface declaration.
-func (s ClientSpec) ResolveRouteEndpoint(account Account, profile Route, requested EndpointProtocol) (string, EndpointProtocol, error) {
-	return s.resolveEndpoint(account, routeAdmittedProtocols(profile), requested)
+func (s ClientSpec) ResolveRouteEndpoint(account Account, route Route, requested EndpointProtocol) (string, EndpointProtocol, error) {
+	return s.resolveEndpoint(account, routeAdmittedProtocols(route), requested)
 }
 
 func (s ClientSpec) resolveEndpoint(account Account, admitted []EndpointProtocol, requested EndpointProtocol) (string, EndpointProtocol, error) {
@@ -137,7 +137,7 @@ func (s ClientSpec) resolveEndpoint(account Account, admitted []EndpointProtocol
 				continue
 			}
 			if protocol != "" {
-				return "", "", fmt.Errorf("client %q has multiple compatible endpoints; select a profile protocol", s.ID)
+				return "", "", fmt.Errorf("client %q has multiple compatible endpoints; select a route protocol", s.ID)
 			}
 			protocol = candidate
 		}
@@ -149,7 +149,7 @@ func (s ClientSpec) resolveEndpoint(account Account, admitted []EndpointProtocol
 		return "", "", fmt.Errorf("client %q does not support endpoint protocol %q", s.ID, protocol)
 	}
 	if admitted != nil && !slices.Contains(admitted, protocol) {
-		return "", "", fmt.Errorf("profile does not admit endpoint protocol %q for client %q", protocol, s.ID)
+		return "", "", fmt.Errorf("route does not admit endpoint protocol %q for client %q", protocol, s.ID)
 	}
 	switch protocol {
 	case ProtocolAnthropic, ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions:
@@ -171,8 +171,8 @@ func (s ClientSpec) CompatibleProtocols(account Account) []EndpointProtocol {
 
 // CompatibleRouteProtocols returns the client protocols admitted by both
 // the Account endpoints and the Route's verified interface declaration.
-func (s ClientSpec) CompatibleRouteProtocols(account Account, profile Route) []EndpointProtocol {
-	return s.compatibleProtocols(account, routeAdmittedProtocols(profile))
+func (s ClientSpec) CompatibleRouteProtocols(account Account, route Route) []EndpointProtocol {
+	return s.compatibleProtocols(account, routeAdmittedProtocols(route))
 }
 
 func routeAdmittedProtocols(route Route) []EndpointProtocol {

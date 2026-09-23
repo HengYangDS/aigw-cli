@@ -19,7 +19,7 @@ func TestPrepareMigrationTranslatesImmediatePredecessorWithoutInventingCapabilit
 		t.Fatal(err)
 	}
 	if plan.FromVersion != LegacyConfigVersion || plan.ToVersion != ConfigVersion ||
-		len(plan.Accounts) != 1 || len(plan.Profiles) != 2 ||
+		len(plan.Accounts) != 1 || len(plan.Routes) != 2 ||
 		len(plan.Clients) != 2 || len(plan.Recommendations) != 1 {
 		t.Fatalf("migration plan = %#v", plan)
 	}

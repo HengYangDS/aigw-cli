@@ -402,10 +402,10 @@ func renamedAccountConfig(cfg configuration.Config) configuration.Config {
 	providerAccount := cfg.Accounts["zeta-old"]
 	delete(cfg.Accounts, "zeta-old")
 	cfg.Accounts["zeta-new"] = providerAccount
-	for profileID, profile := range cfg.Routes {
-		if profile.Account == "zeta-old" {
-			profile.Account = "zeta-new"
-			cfg.Routes[profileID] = profile
+	for routeID, route := range cfg.Routes {
+		if route.Account == "zeta-old" {
+			route.Account = "zeta-new"
+			cfg.Routes[routeID] = route
 		}
 	}
 	return cfg

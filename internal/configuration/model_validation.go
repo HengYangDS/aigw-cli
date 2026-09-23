@@ -46,7 +46,7 @@ func (c *Config) Normalize() {
 	}
 }
 
-// Validate checks schema, accounts, profiles, recommendations, then client bindings without mutation.
+// Validate checks schema, accounts, routes, recommendations, then client bindings without mutation.
 // Within each collection, lexical key order determines the first diagnostic.
 func (c *Config) Validate() error {
 	if err := c.validateCollections(); err != nil {

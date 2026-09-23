@@ -1,4 +1,4 @@
-# DR-0004: Use Account, Profile, and Client Binding as Configuration Authority
+# DR-0004: Use Account, Route, and Client Binding as Configuration Authority
 
 - Status: accepted
 - Date: 2026-08-07
@@ -7,20 +7,20 @@
 ## Context
 
 Provider endpoints, credentials, reusable model definitions, and per-client
-choices have different lifecycles. Encoding client identity in every Profile or
+choices have different lifecycles. Encoding client identity in every Route or
 maintaining separate Route and Adapter selections duplicates state and creates
 ambiguous fallback.
 
 ## Decision
 
-An Account owns provider endpoints and one logical Token boundary. A Profile
-owns one reusable `account + model` identity plus the protocols verified for
-that exact pairing. Its optional Flagship/Daily tier is catalogue guidance, not
-runtime policy. A Client Binding selects one compatible Profile for one client
+An Account owns provider endpoints and one logical Token boundary. A Model owns
+canonical model identity independently of provider access. A Route owns one
+Account-to-Model path, its exact upstream identifier, and the protocols and
+capabilities verified for that pairing. A Client Binding selects one compatible Route for one client
 and owns enabled intent, the active protocol, authentication, native targets,
 and genuinely client-specific options.
 
-Accounts, Profiles, recommendations, and Client Bindings form the configuration
+Accounts, Routes, recommendations, and Client Bindings form the configuration
 SSOT. A recommendation is import guidance, not a local selection. Setup may use
 it only when the corresponding binding is unselected. Explicit bindings survive
 missing credentials, newly imported Accounts, and discovery of unrelated
@@ -29,7 +29,7 @@ clients.
 An admitted Client Adapter implements discovery, guarded native projection,
 inspection, verification, compensation, and withdrawal. It does not own another
 selection state. Provider diagnostics are optional Account capabilities and
-cannot create a Profile, Client Binding, or hidden provider fallback.
+cannot create a Route, Client Binding, or hidden provider fallback.
 
 The immediately preceding schema is readable only by the explicit
 `aigw config migrate` operation. Normal runtime accepts the current schema and

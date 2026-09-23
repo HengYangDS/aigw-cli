@@ -19,7 +19,7 @@ func TestCatalogUnconfiguredPointsToSetup(t *testing.T) {
 		t.Fatal("catalog succeeded without configuration")
 	}
 	text := out.String() + "\n" + err.Error()
-	if !strings.Contains(text, "aigw setup") || strings.Contains(text, "aigw profile add") {
+	if !strings.Contains(text, "aigw setup") || strings.Contains(text, "aigw route add") {
 		t.Fatalf("catalog should direct first use to setup:\n%s", text)
 	}
 }
@@ -308,7 +308,7 @@ func TestModelsCommandReportsCatalogMembershipWithoutClaimingReachability(t *tes
 	}
 }
 
-func TestModelsCommandKeepsLongProfileNamesOnOneLine(t *testing.T) {
+func TestModelsCommandKeepsLongRouteNamesOnOneLine(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
@@ -327,7 +327,7 @@ func TestModelsCommandKeepsLongProfileNamesOnOneLine(t *testing.T) {
 	}
 	text := out.String()
 	if strings.Contains(text, "claude-opus-4-8-\n") || strings.Contains(text, "thinking      ") {
-		t.Fatalf("long profile name was wrapped or column-padded badly:\n%s", text)
+		t.Fatalf("long route name was wrapped or column-padded badly:\n%s", text)
 	}
 	if !strings.Contains(text, "Route  claude-opus-5") || !strings.Contains(text, "claude-opus-5 · Anthropic Messages · Listed · account dmx") {
 		t.Fatalf("models output should use detail layout for long Route names:\n%s", text)

@@ -24,8 +24,8 @@ func (s Synchronizer) Inspect(ctx context.Context, cfg configuration.Config, cli
 }
 
 // Verify runs one explicit live request through the admitted client adapter.
-func (s Synchronizer) Verify(ctx context.Context, cfg configuration.Config, clientID string, runtime configuration.Runtime, explicitProfile string) (client.Verification, error) {
-	return s.registry().Verify(ctx, s.clientDependencies(), cfg, clientID, runtime, explicitProfile)
+func (s Synchronizer) Verify(ctx context.Context, cfg configuration.Config, clientID string, runtime configuration.Runtime, explicitRoute string) (client.Verification, error) {
+	return s.registry().Verify(ctx, s.clientDependencies(), cfg, clientID, runtime, explicitRoute)
 }
 
 // ReconcileClient projects one unchanged Route without saving configuration or

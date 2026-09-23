@@ -321,7 +321,7 @@ import (
 		t.Fatalf("allowed/self/non-peer imports were rejected: %+v", report.Findings)
 	}
 
-	writeFile(t, filepath.Join(root, "internal", "cli", "account", "account.go"), "package account\n\nimport _ \"fixture/internal/cli/profile\"\n")
+	writeFile(t, filepath.Join(root, "internal", "cli", "account", "account.go"), "package account\n\nimport _ \"fixture/internal/cli/route\"\n")
 	if err := checkPeerPackageImports(root, files, p, &report); err != nil {
 		t.Fatal(err)
 	}

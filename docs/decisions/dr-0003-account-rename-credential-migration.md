@@ -23,7 +23,7 @@ Implement a two-phase "copy-then-delete" migration for `aigw account rename`:
 
 `aigw account rename [old] [new]` performs the following:
 
-1. **Configuration Migration**: Moves the Account key in the TOML configuration and updates all `Profile.Account` references to the new ID.
+1. **Configuration Migration**: Moves the Account key in the TOML configuration and updates all `Route.Account` references to the new ID.
 2. **Credential Adoption**: For the Token and optional account-probe credential, a missing target slot is copied from the old slot and read back before configuration is committed.
 3. **Fail-Closed Consistency**:
    - If a target credential slot already contains the same value, the migration is resumable.

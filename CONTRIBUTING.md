@@ -226,7 +226,7 @@ aigw verify --for codex
 ```
 
 The command runs the configured Codex executable once with an ephemeral
-session, one deterministic synchronized target, and the selected Profile. A
+session, one deterministic synchronized target, and the selected Route. A
 successful result reports the measured client version and executable SHA-256;
 it does not print the Account Token or model response. Do not replace this
 evidence with a direct HTTP probe, a mocked client, or a skipped test when Codex
@@ -605,7 +605,7 @@ distributions and only their required companion tools. The test requires all
 four absolute inputs and never substitutes a stub or downloads software. It
 uses synthetic environment credentials and temporary client homes, not the
 operator's accounts or native credential store. It consumes the reviewed
-`manifests/team.toml`, preserving Profiles and recommendations while directing
+`manifests/team.toml`, preserving Routes and recommendations while directing
 Account endpoints to the isolated server. The server requires the recommended
 model, configured effort and streaming protocol; a different model cannot
 silently satisfy acceptance. Both clients execute at the

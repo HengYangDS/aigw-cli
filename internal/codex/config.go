@@ -87,7 +87,7 @@ func SyncConfig(path string, runtime configuration.Runtime) error {
 }
 
 // ValidateConfig verifies that a Codex target still matches the resolved
-// AIGW profile. It never changes the target; callers can safely use it for
+// AIGW Route. It never changes the target; callers can safely use it for
 // diagnostics before offering an explicit sync.
 func ValidateConfig(path string, runtime configuration.Runtime) error {
 	if runtime.RequiresAccountToken() && runtime.CredentialCommand == "" {
@@ -135,7 +135,7 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 			return err
 		}
 		if !isManagedSelection(modelLine, "model", model) {
-			return fmt.Errorf("Codex config model selection does not match profile %q", runtime.RouteID)
+			return fmt.Errorf("Codex config model selection does not match Route %q", runtime.RouteID)
 		}
 	}
 	actualBlock, err := codexManagedBlockForProviderIn(text, provider)
@@ -143,10 +143,10 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 		return err
 	}
 	if hashText(actualBlock) != hashText(expectedBlock) {
-		return fmt.Errorf("Codex config provider block does not match profile %q", runtime.RouteID)
+		return fmt.Errorf("Codex config provider block does not match Route %q", runtime.RouteID)
 	}
 	if !managedBlockHashMatches(state.ManagedBlockHash, actualBlock) {
-		return fmt.Errorf("Codex config AIGW state does not match profile %q", runtime.RouteID)
+		return fmt.Errorf("Codex config AIGW state does not match Route %q", runtime.RouteID)
 	}
 	if err := validateCodexScheduler(text); err != nil {
 		return err
@@ -261,14 +261,14 @@ func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot) (st
 
 func codexEndpoint(runtime configuration.Runtime) (string, error) {
 	if runtime.Endpoint == "" {
-		return "", fmt.Errorf("profile %q has no Codex endpoint", runtime.RouteID)
+		return "", fmt.Errorf("Route %q has no Codex endpoint", runtime.RouteID)
 	}
 	if runtime.RequiresAccountToken() {
 		if runtime.CredentialCommand == "" {
-			return "", fmt.Errorf("profile %q account-token Codex provider requires a credential command", runtime.RouteID)
+			return "", fmt.Errorf("Route %q account-token Codex provider requires a credential command", runtime.RouteID)
 		}
 		if !filepath.IsAbs(runtime.CredentialCommand) {
-			return "", fmt.Errorf("profile %q account-token Codex provider credential command must be absolute", runtime.RouteID)
+			return "", fmt.Errorf("Route %q account-token Codex provider credential command must be absolute", runtime.RouteID)
 		}
 	}
 	return runtime.Endpoint, nil

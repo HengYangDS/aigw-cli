@@ -24,13 +24,13 @@ func planAccount(cfg configuration.Config, oldID, newID string) (Plan, error) {
 	providerAccount.ID = newID
 	next.Accounts[newID] = providerAccount
 	references := make([]string, 0, len(next.Routes))
-	for profileID, profile := range next.Routes {
-		if profile.Account != oldID {
+	for routeID, route := range next.Routes {
+		if route.Account != oldID {
 			continue
 		}
-		profile.Account = newID
-		next.Routes[profileID] = profile
-		references = append(references, "profiles."+profileID+".account")
+		route.Account = newID
+		next.Routes[routeID] = route
+		references = append(references, "routes."+routeID+".account")
 	}
 	sort.Strings(references)
 	if err := next.Validate(); err != nil {
@@ -44,7 +44,7 @@ func planAccount(cfg configuration.Config, oldID, newID string) (Plan, error) {
 		Status:             StatusPlanned,
 		AffectedReferences: references,
 		Actions: Actions{
-			Configuration: "rename-and-update-profile-references",
+			Configuration: "rename-and-update-route-references",
 			APIToken:      "inspect",
 			AccountProbe:  "inspect",
 			Backup:        "refresh-on-apply",
@@ -55,21 +55,21 @@ func planAccount(cfg configuration.Config, oldID, newID string) (Plan, error) {
 	}, nil
 }
 
-func planProfile(cfg configuration.Config, oldID, newID string) (Plan, error) {
+func planRoute(cfg configuration.Config, oldID, newID string) (Plan, error) {
 	if !configuration.ValidIdentifier(newID) {
-		return Plan{}, fmt.Errorf("Invalid new profile ID %q", newID)
+		return Plan{}, fmt.Errorf("Invalid new route ID %q", newID)
 	}
-	profile, ok := cfg.Routes[oldID]
+	route, ok := cfg.Routes[oldID]
 	if !ok {
-		return Plan{}, fmt.Errorf("Unknown profile %q", oldID)
+		return Plan{}, fmt.Errorf("Unknown route %q", oldID)
 	}
 	if _, exists := cfg.Routes[newID]; exists {
-		return Plan{}, fmt.Errorf("Profile %q already exists", newID)
+		return Plan{}, fmt.Errorf("Route %q already exists", newID)
 	}
 
 	next := cfg.Clone()
 	delete(next.Routes, oldID)
-	next.Routes[newID] = profile
+	next.Routes[newID] = route
 	references := make([]string, 0, len(next.Clients)+len(next.Recommendations))
 	for client, binding := range next.Clients {
 		if binding.Route == oldID {
@@ -99,11 +99,11 @@ func planProfile(cfg configuration.Config, oldID, newID string) (Plan, error) {
 	}
 	sort.Strings(references)
 	if err := next.Validate(); err != nil {
-		return Plan{}, fmt.Errorf("Validate profile rename: %w", err)
+		return Plan{}, fmt.Errorf("Validate route rename: %w", err)
 	}
 
 	return Plan{
-		Resource:           ResourceProfile,
+		Resource:           ResourceRoute,
 		OldID:              oldID,
 		NewID:              newID,
 		Status:             StatusPlanned,
@@ -116,6 +116,6 @@ func planProfile(cfg configuration.Config, oldID, newID string) (Plan, error) {
 		},
 		ExternalTODOs: []string{},
 		Config:        next,
-		Profile:       profile,
+		Route:         route,
 	}, nil
 }

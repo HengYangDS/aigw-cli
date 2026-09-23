@@ -14,27 +14,27 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		wantAction string
 	}{
 		{
-			name:       "profile is available but not selected",
-			facts:      ClientFacts{SuggestedProfile: "claude", BindingAction: "aigw use --for claude claude"},
+			name:       "route is available but not selected",
+			facts:      ClientFacts{SuggestedRoute: "claude", BindingAction: "aigw use --for claude claude"},
 			wantState:  Deferred,
 			wantAction: "aigw use --for claude claude",
 		},
 		{
-			name:       "no compatible profile exists",
+			name:       "no compatible route exists",
 			facts:      ClientFacts{},
 			wantState:  Deferred,
-			wantAction: "aigw profile add",
+			wantAction: "aigw route add",
 		},
 		{
 			name:       "selected account is not connected",
-			facts:      ClientFacts{Profile: "claude", Account: "team", CredentialRequired: true},
+			facts:      ClientFacts{Route: "claude", Account: "team", CredentialRequired: true},
 			wantState:  Deferred,
 			wantAction: "aigw rotate team",
 		},
 		{
 			name: "credential metadata is unavailable",
 			facts: ClientFacts{
-				Profile:                    "claude",
+				Route:                      "claude",
 				Account:                    "team",
 				CredentialRequired:         true,
 				CredentialObservationIssue: "Credential metadata is unavailable",
@@ -45,7 +45,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "client is intentionally absent",
 			facts: ClientFacts{
-				Profile:             "claude",
+				Route:               "claude",
 				Account:             "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
@@ -56,7 +56,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "enabled projection is invalid",
 			facts: ClientFacts{
-				Profile:             "codex",
+				Route:               "codex",
 				Account:             "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
@@ -70,7 +70,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "invalid projection defaults to repair",
 			facts: ClientFacts{
-				Profile:             "claude",
+				Route:               "claude",
 				Account:             "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
@@ -83,7 +83,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "local prerequisites are configured",
 			facts: ClientFacts{
-				Profile:             "claude",
+				Route:               "claude",
 				Account:             "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
@@ -126,11 +126,11 @@ func TestStateLabelUsesTheCanonicalVocabulary(t *testing.T) {
 
 func TestClassifyClientIncludesRouteFailures(t *testing.T) {
 	got := ClassifyClient(ClientFacts{
-		Profile:       "missing",
-		BindingIssue:  "unknown profile \"missing\"",
-		BindingAction: "aigw use <claude-profile>",
+		Route:         "missing",
+		BindingIssue:  "unknown route \"missing\"",
+		BindingAction: "aigw use <claude-route>",
 	})
-	if got.State != Invalid || got.Detail != `unknown profile "missing"` || got.NextAction != "aigw use <claude-profile>" {
+	if got.State != Invalid || got.Detail != `unknown route "missing"` || got.NextAction != "aigw use <claude-route>" {
 		t.Fatalf("ClassifyClient() = %#v", got)
 	}
 }
@@ -138,7 +138,7 @@ func TestClassifyClientIncludesRouteFailures(t *testing.T) {
 func TestClassifyClientPrioritizesObservedProjectionFailure(t *testing.T) {
 	for _, metadataIssue := range []string{"", "Credential metadata is unavailable"} {
 		got := ClassifyClient(ClientFacts{
-			Profile: "codex", Account: "team", CredentialRequired: true,
+			Route: "codex", Account: "team", CredentialRequired: true,
 			CredentialObservationIssue: metadataIssue,
 			ProjectionEnabled:          true, ProjectionIssue: "projection drift", ProjectionAction: "aigw sync",
 		})
@@ -149,7 +149,7 @@ func TestClassifyClientPrioritizesObservedProjectionFailure(t *testing.T) {
 }
 
 func TestWithProbeMapsDiagnosticSemantics(t *testing.T) {
-	configured := Client{State: Configured, Profile: "codex", Account: "team"}
+	configured := Client{State: Configured, Route: "codex", Account: "team"}
 	tests := []struct {
 		name string
 		kind diagnostics.Kind

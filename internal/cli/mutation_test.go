@@ -18,18 +18,18 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 		want string
 		next string
 	}{
-		{[]string{"use"}, "requires a Profile", "aigw use --for <client> <profile>"},
-		{[]string{"use", "profile"}, "requires --for", "aigw use --for <client> <profile>"},
+		{[]string{"use"}, "requires a Route", "aigw use --for <client> <route>"},
+		{[]string{"use", "route"}, "requires --for", "aigw use --for <client> <route>"},
 		{[]string{"setup", "--from", "missing-manifest.toml", "--token-stdin"}, "--token-stdin requires --account", "aigw setup --help"},
 		{[]string{"account", "rename", "old", "--finalize"}, "requires explicit <old> <new>", "aigw account rename --help"},
 		{[]string{"account", "rename"}, "requires <old> <new>", "aigw account rename --help"},
 		{[]string{"account", "rename", "old"}, "requires <old> <new>", "aigw account rename --help"},
-		{[]string{"profile", "rename"}, "requires <old> <new>", "aigw profile rename --help"},
-		{[]string{"profile", "rename", "old"}, "requires <old> <new>", "aigw profile rename --help"},
+		{[]string{"route", "rename"}, "requires <old> <new>", "aigw route rename --help"},
+		{[]string{"route", "rename", "old"}, "requires <old> <new>", "aigw route rename --help"},
 		{[]string{"account", "rename", "", "new"}, "Invalid account ID", "aigw account rename --help"},
 		{[]string{"account", "rename", "old", "bad id"}, "Invalid account ID", "aigw account rename --help"},
-		{[]string{"profile", "rename", "bad id", "new"}, "Invalid profile ID", "aigw profile rename --help"},
-		{[]string{"profile", "rename", "old", ""}, "Invalid profile ID", "aigw profile rename --help"},
+		{[]string{"route", "rename", "bad id", "new"}, "Invalid route ID", "aigw route rename --help"},
+		{[]string{"route", "rename", "old", ""}, "Invalid route ID", "aigw route rename --help"},
 		{[]string{"account", "rename", "bad id", "new", "--finalize"}, "Invalid account ID", "aigw account rename --help"},
 		{[]string{"account", "rename", "old", "bad id", "--finalize", "--dry-run"}, "Invalid account ID", "aigw account rename --help"},
 		{[]string{"account", "rename", "old", "new", "--confirm-api-token-rotation"}, "confirmations require --finalize", "aigw account rename --help"},
@@ -44,20 +44,20 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 		{[]string{"add", "bad id"}, "Invalid account ID", "aigw add --help"},
 		{[]string{"add", "new", "--for", "unknown", "--model", "model"}, "--for and --model are required", "aigw add --help"},
 		{[]string{"add", "new", "--for", "codex", "--model", " "}, "--for and --model are required", "aigw add --help"},
-		{[]string{"profile", "add", "new"}, "--account, --model, and --protocol are required", "aigw profile add --help"},
-		{[]string{"profile", "add", "bad id"}, "Invalid profile ID", "aigw profile add --help"},
-		{[]string{"profile", "add", "new", "--account", "bad id", "--model", "model"}, "Invalid account ID", "aigw profile add --help"},
-		{[]string{"profile", "add", "new", "--account", "account", "--model", " "}, "--account, --model, and --protocol are required", "aigw profile add --help"},
+		{[]string{"route", "add", "new"}, "--account, --model, and --protocol are required", "aigw route add --help"},
+		{[]string{"route", "add", "bad id"}, "Invalid route ID", "aigw route add --help"},
+		{[]string{"route", "add", "new", "--account", "bad id", "--model", "model"}, "Invalid account ID", "aigw route add --help"},
+		{[]string{"route", "add", "new", "--account", "account", "--model", " "}, "--account, --model, and --protocol are required", "aigw route add --help"},
 		{[]string{"config", "import", " "}, "manifest path must not be blank", "aigw config import --help"},
 		{[]string{"account", "edit", "account"}, "at least one of the flags", "aigw account edit --help"},
 		{[]string{"account", "edit", "bad id", "--label", "Name"}, "Invalid account ID", "aigw account edit --help"},
 		{[]string{"account", "edit", "account", "--label", " "}, "--label requires a non-empty value", "aigw account edit --help"},
 		{[]string{"account", "edit", "account", "--openai-url", ""}, "--openai-url requires a non-empty value", "aigw account edit --help"},
 		{[]string{"account", "edit", "account", "--anthropic-url", " "}, "--anthropic-url requires a non-empty value", "aigw account edit --help"},
-		{[]string{"profile", "edit", "profile"}, "at least one of the flags", "aigw profile edit --help"},
-		{[]string{"profile", "edit", "bad id", "--label", "Name"}, "Invalid profile ID", "aigw profile edit --help"},
-		{[]string{"profile", "edit", "profile", "--label", " "}, "--label requires a non-empty value", "aigw profile edit --help"},
-		{[]string{"profile", "remove", " "}, "Invalid profile ID", "aigw profile remove --help"},
+		{[]string{"route", "edit", "route"}, "at least one of the flags", "aigw route edit --help"},
+		{[]string{"route", "edit", "bad id", "--label", "Name"}, "Invalid route ID", "aigw route edit --help"},
+		{[]string{"route", "edit", "route", "--label", " "}, "--label requires a non-empty value", "aigw route edit --help"},
+		{[]string{"route", "remove", " "}, "Invalid route ID", "aigw route remove --help"},
 		{[]string{"account", "diagnostics", "enable", "account"}, "requires an interactive terminal", "aigw account diagnostics enable --help"},
 	} {
 		t.Run(strings.Join(test.args, "/"), func(t *testing.T) {
@@ -96,15 +96,15 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 		{name: "account rename dry-run false", args: []string{"account", "rename", "old", "new", "--dry-run=false"}, want: true},
 		{name: "account rename finalize", args: []string{"account", "rename", "old", "new", "--finalize"}, want: true},
 		{name: "account rename finalize dry-run", args: []string{"account", "rename", "old", "new", "--finalize", "--dry-run"}, want: false},
-		{name: "profile add", args: []string{"profile", "add", "profile"}, want: true},
-		{name: "profile edit", args: []string{"profile", "edit", "profile"}, want: true},
-		{name: "profile rename", args: []string{"profile", "rename", "old", "new"}, want: true},
-		{name: "profile rename dry-run", args: []string{"profile", "rename", "old", "new", "--dry-run"}, want: false},
-		{name: "profile rename dry-run equals", args: []string{"profile", "rename", "old", "new", "--dry-run=true"}, want: false},
-		{name: "profile rename dry-run false", args: []string{"profile", "rename", "old", "new", "--dry-run=false"}, want: true},
-		{name: "profile remove", args: []string{"profile", "remove", "profile"}, want: true},
-		{name: "profile list", args: []string{"profile", "list"}, want: false},
-		{name: "profile show", args: []string{"profile", "show", "profile"}, want: false},
+		{name: "route add", args: []string{"route", "add", "route"}, want: true},
+		{name: "route edit", args: []string{"route", "edit", "route"}, want: true},
+		{name: "route rename", args: []string{"route", "rename", "old", "new"}, want: true},
+		{name: "route rename dry-run", args: []string{"route", "rename", "old", "new", "--dry-run"}, want: false},
+		{name: "route rename dry-run equals", args: []string{"route", "rename", "old", "new", "--dry-run=true"}, want: false},
+		{name: "route rename dry-run false", args: []string{"route", "rename", "old", "new", "--dry-run=false"}, want: true},
+		{name: "route remove", args: []string{"route", "remove", "route"}, want: true},
+		{name: "route list", args: []string{"route", "list"}, want: false},
+		{name: "route show", args: []string{"route", "show", "route"}, want: false},
 		{name: "account list", args: []string{"account", "list"}, want: false},
 		{name: "repair apply", args: []string{"repair"}, want: true},
 		{name: "repair dry-run", args: []string{"repair", "--dry-run"}, want: false},
@@ -119,7 +119,7 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 		{name: "update", args: []string{"update"}, want: true},
 		{name: "uninstall", args: []string{"uninstall"}, want: true},
 		{name: "bare account", args: []string{"account"}, want: false},
-		{name: "bare profile", args: []string{"profile"}, want: false},
+		{name: "bare route", args: []string{"route"}, want: false},
 		{name: "bare client", args: []string{"client"}, want: false},
 		{name: "client enable", args: []string{"client", "enable", "codex"}, want: true},
 		{name: "client disable", args: []string{"client", "disable", "codex"}, want: true},
@@ -153,12 +153,12 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 func TestConfigurationLockForInteractiveOnboarding(t *testing.T) {
 	emptyStore := App{Config: configuration.NewStore(filepath.Join(t.TempDir(), "missing.toml")), Interactive: true}
 	if !requiresConfigurationLock(&emptyStore, NewRoot(&emptyStore)) {
-		t.Fatal("an interactive terminal with no profiles should trigger the onboarding wizard lock")
+		t.Fatal("an interactive terminal with no routes should trigger the onboarding wizard lock")
 	}
 
 	nonInteractive := App{Config: configuration.NewStore(filepath.Join(t.TempDir(), "missing.toml")), Interactive: false}
 	if requiresConfigurationLock(&nonInteractive, NewRoot(&nonInteractive)) {
-		t.Fatal("a non-interactive session with no profiles must not take a mutation lock")
+		t.Fatal("a non-interactive session with no routes must not take a mutation lock")
 	}
 
 	path := filepath.Join(t.TempDir(), "configuration.toml")

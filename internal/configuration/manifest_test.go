@@ -90,7 +90,7 @@ func TestManifestAccountNamesReturnsEveryCredentialOwnerOnce(t *testing.T) {
 
 func TestCredentialDetectionDescendsIntoArrays(t *testing.T) {
 	value := []any{map[string]any{"metadata": map[string]any{"api_token": "secret"}}}
-	if got := findCredentialKey(value, "profiles"); got != "profiles.metadata.api_token" {
+	if got := findCredentialKey(value, "routes"); got != "routes.metadata.api_token" {
 		t.Fatalf("credential path = %q", got)
 	}
 }
@@ -212,7 +212,7 @@ func TestExportRejectsRouteThatCannotBeParsedBack(t *testing.T) {
 	}
 }
 
-func TestParseRejectsProfileWithoutItsClientProtocol(t *testing.T) {
+func TestParseRejectsRouteWithoutItsClientProtocol(t *testing.T) {
 	_, err := Parse([]byte(`version = 7
 
 [recommendations.codex.primary]
@@ -273,7 +273,7 @@ interfaces = { anthropic = [] }
 	}
 }
 
-func TestParseRejectsProfileOwnedEndpointResidue(t *testing.T) {
+func TestParseRejectsRouteOwnedEndpointResidue(t *testing.T) {
 	raw := []byte(`version = 7
 
 [routes.team]
@@ -285,7 +285,7 @@ model = "claude-team"
 openai_responses = "https://gateway.test/v1"
 `)
 	if _, err := Parse(raw); err == nil {
-		t.Fatalf("legacyProfile endpoint error = %v", err)
+		t.Fatalf("legacyRoute endpoint error = %v", err)
 	}
 }
 
@@ -324,7 +324,7 @@ model = "claude-team"
 	}
 }
 
-func TestParseInitializesMissingAccountsAndDefaultsToFirstProfile(t *testing.T) {
+func TestParseInitializesMissingAccountsAndDefaultsToFirstRoute(t *testing.T) {
 	raw := []byte(`version = 7
 [routes.solo]
 label = "Solo"

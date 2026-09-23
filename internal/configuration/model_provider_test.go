@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestProfileModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
+func TestRouteModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	cfg := modelProviderConfig()
 	cfg.Routes["native"] = Route{
 		Label:   "Native",
@@ -49,9 +49,9 @@ func TestProfileModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	}
 
 	claude := modelProviderConfig()
-	profile := claude.Routes["default"]
-	profile.Model = "claude-fable-5"
-	claude.Routes["default"] = profile
+	route := claude.Routes["default"]
+	route.Model = "claude-fable-5"
+	claude.Routes["default"] = route
 	runtime, err = claude.ResolveRuntime(ClientClaude, "default")
 	if err != nil {
 		t.Fatal(err)
@@ -185,7 +185,7 @@ func TestSelectRoutesForConnectedAccountsHonorsRecommendationAuthentication(t *t
 		t.Fatal(err)
 	}
 	if got := withoutTokens.SelectedRoute(ClientCodex); got != "native" {
-		t.Fatalf("selection without Tokens = %q, want client-native profile", got)
+		t.Fatalf("selection without Tokens = %q, want client-native route", got)
 	}
 
 	token := cfg.Clone()
@@ -199,7 +199,7 @@ func TestSelectRoutesForConnectedAccountsHonorsRecommendationAuthentication(t *t
 		t.Fatal(err)
 	}
 	if got := withToken.SelectedRoute(ClientCodex); got != "token" {
-		t.Fatalf("selection with connected Token = %q, want account-token profile", got)
+		t.Fatalf("selection with connected Token = %q, want account-token route", got)
 	}
 }
 

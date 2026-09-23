@@ -116,8 +116,8 @@ func TestRunDetectsCoreViolations(t *testing.T) {
 	writeFile(t, filepath.Join(root, "internal", "cli", "setup.go"), "package cli\n")
 	writeFile(t, filepath.Join(root, "tools", "release", "main.go"), "package main\n")
 	writeFile(t, filepath.Join(root, "tools", "release", "legacy.go"), "package main\n")
-	writeFile(t, filepath.Join(root, "internal", "cli", "account", "account.go"), "package account\n\nimport _ \"fixture/internal/cli/profile\"\n")
-	writeFile(t, filepath.Join(root, "internal", "cli", "profile", "profile.go"), "package profile\n\nimport _ \"fixture/internal/cli/invocation\"\n")
+	writeFile(t, filepath.Join(root, "internal", "cli", "account", "account.go"), "package account\n\nimport _ \"fixture/internal/cli/route\"\n")
+	writeFile(t, filepath.Join(root, "internal", "cli", "route", "route.go"), "package route\n\nimport _ \"fixture/internal/cli/invocation\"\n")
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

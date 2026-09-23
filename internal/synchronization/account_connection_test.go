@@ -11,19 +11,19 @@ import (
 )
 
 func TestAccountConnectionAdmitsStateBeforeTokenAcquisition(t *testing.T) {
-	for _, phase := range []string{"cancelled", "profile collision", "account collision", "invalid configuration"} {
+	for _, phase := range []string{"cancelled", "route collision", "account collision", "invalid configuration"} {
 		t.Run(phase, func(t *testing.T) {
 			before := setupConfiguration()
 			original := before.Clone()
 			account := configuration.Account{Label: "New", Endpoints: configuration.Endpoints{Anthropic: "https://new.test"}}
-			profile := configuration.Route{Label: "New", Model: "new-model"}
+			route := configuration.Route{Label: "New", Model: "new-model"}
 			name := "new"
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			switch phase {
 			case "cancelled":
 				cancel()
-			case "profile collision":
+			case "route collision":
 				name = "claude"
 			case "account collision":
 				name = "team"
@@ -31,7 +31,7 @@ func TestAccountConnectionAdmitsStateBeforeTokenAcquisition(t *testing.T) {
 				account.Endpoints.Anthropic = "invalid-endpoint"
 			}
 			acquired := false
-			err := (Synchronizer{}).ConnectAccount(ctx, before, name, configuration.ClientClaude, account, profile, func() (string, error) {
+			err := (Synchronizer{}).ConnectAccount(ctx, before, name, configuration.ClientClaude, account, route, func() (string, error) {
 				acquired = true
 				return "token", nil
 			})

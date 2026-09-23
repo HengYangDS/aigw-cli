@@ -192,7 +192,7 @@ func nativePerformanceJourney(t *testing.T, program, backend string) *journeyFix
 	} else {
 		j.runWithInput(j.binary, token+"\n", append(args, "--token-stdin")...)
 	}
-	j.run("profile", "add", "performance-second", "--account", account, "--for", "claude", "--model", "claude-second")
+	j.run("route", "add", "performance-second", "--account", account, "--for", "claude", "--model", "claude-second")
 	j.requireClaudeCredential(token)
 	return j
 }

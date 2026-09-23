@@ -16,7 +16,7 @@ func writeResult(runtime invocation.Context, plan renaming.Plan, jsonMode bool) 
 	isPlan := plan.Status != renaming.StatusApplied
 	referenceLabel := "Client Binding references"
 	if plan.Resource == renaming.ResourceAccount {
-		referenceLabel = "Profile references"
+		referenceLabel = "Route references"
 		switch {
 		case plan.Finalize && plan.Status == renaming.StatusFinalized:
 			r.ProductTitle("Account finalization complete")
@@ -34,13 +34,13 @@ func writeResult(runtime invocation.Context, plan renaming.Plan, jsonMode bool) 
 		r.Row("Label", plan.Account.Label)
 	} else {
 		if isPlan {
-			r.ProductTitle("Profile rename plan")
+			r.ProductTitle("Route rename plan")
 		} else {
-			r.ProductTitle("Profile renamed")
+			r.ProductTitle("Route renamed")
 		}
-		r.Row("Previous profile", plan.OldID)
-		r.Row("New profile", plan.NewID)
-		r.Row("Account", plan.Profile.Account)
+		r.Row("Previous route", plan.OldID)
+		r.Row("New route", plan.NewID)
+		r.Row("Account", plan.Route.Account)
 	}
 	if len(plan.AffectedReferences) > 0 {
 		r.Row(referenceLabel, fmt.Sprintf("%d", len(plan.AffectedReferences)))

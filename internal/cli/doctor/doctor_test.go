@@ -265,7 +265,7 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	deps, out, secretStore := doctorDependencies(t, cfg)
 	deps.Inspect = func(configuration.Config) map[string]domainreadiness.Client {
 		return map[string]domainreadiness.Client{
-			configuration.ClientClaude: {State: domainreadiness.Configured, Profile: "claude", Account: "team"},
+			configuration.ClientClaude: {State: domainreadiness.Configured, Route: "claude", Account: "team"},
 			configuration.ClientCodex:  {State: domainreadiness.Deferred, NextAction: "aigw sync"},
 		}
 	}
@@ -384,7 +384,7 @@ func TestCommandPreservesCanonicalClientsWhenInspectionFails(t *testing.T) {
 		return map[string]domainreadiness.Client{
 			configuration.ClientClaude: {
 				State:      domainreadiness.Unavailable,
-				Profile:    "claude",
+				Route:      "claude",
 				Account:    "team",
 				Detail:     "Credential metadata is unavailable",
 				NextAction: "aigw doctor",

@@ -11,9 +11,10 @@ separate evidence.
 
 ### Changed
 
-- Align the public CLI with the Account, Profile, Route, and Adapter model;
-  provider diagnostics now use `aigw account diagnostics enable|disable` instead
-  of the former `connect|disconnect` commands.
+- Align the public CLI and configuration with the Account, Model, Route, Client
+  Binding, and Adapter model; replace the superseded `profile` command, flags,
+  and output fields with `route`, and move provider diagnostics to
+  `aigw account diagnostics enable|disable`.
 - Use one bounded native credential implementation across macOS Keychain, Linux
   Secret Service, and Windows Credential Manager while preserving explicit file,
   environment, and operator-owned credential-command modes.

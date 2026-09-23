@@ -1,4 +1,4 @@
-// Package renaming owns account and profile identity migration.
+// Package renaming owns account and route identity migration.
 package renaming
 
 import (
@@ -29,8 +29,8 @@ type Resource string
 const (
 	// ResourceAccount identifies an Account rename.
 	ResourceAccount Resource = "account"
-	// ResourceProfile identifies a Profile rename.
-	ResourceProfile Resource = "profile"
+	// ResourceRoute identifies a Route rename.
+	ResourceRoute Resource = "route"
 )
 
 // Status identifies the lifecycle state of a rename plan.
@@ -68,7 +68,7 @@ type Plan struct {
 	ExternalTODOs      []string `json:"external_todos"`
 
 	Config               configuration.Config  `json:"-"`
-	Profile              configuration.Route   `json:"-"`
+	Route                configuration.Route   `json:"-"`
 	Account              configuration.Account `json:"-"`
 	tokenCopy            tokenCopy             `json:"-"`
 	probeCopy            probeCopy             `json:"-"`

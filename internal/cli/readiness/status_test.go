@@ -222,7 +222,7 @@ func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	if err := RunStatus(emptyRuntime, true); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(emptyOut.String(), `"profiles": 0`) {
+	if !strings.Contains(emptyOut.String(), `"routes": 0`) {
 		t.Fatalf("json status = %q", emptyOut.String())
 	}
 
@@ -346,11 +346,11 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 	}
 }
 
-func TestStatusReportsSelectedUnknownProfile(t *testing.T) {
+func TestStatusReportsSelectedUnknownRoute(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
 	cfg.SetSelectedRoute(configuration.ClientClaude, "missing")
 	state := inspectStatusClients(runtime, cfg)[configuration.ClientClaude]
-	if state.State != domainreadiness.Invalid || state.Profile != "missing" || !strings.Contains(state.Detail, `unknown route "missing"`) {
+	if state.State != domainreadiness.Invalid || state.Route != "missing" || !strings.Contains(state.Detail, `unknown route "missing"`) {
 		t.Fatalf("Claude status = %#v", state)
 	}
 }

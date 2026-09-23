@@ -1,4 +1,4 @@
-// Package selection owns explicit client Profile selection.
+// Package selection owns explicit client Route selection.
 package selection
 
 import (
@@ -14,18 +14,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewUseCommand constructs the daily client Profile selection command.
+// NewUseCommand constructs the daily client Route selection command.
 func NewUseCommand(runtime invocation.Context) *cobra.Command {
 	var client string
 	cmd := &cobra.Command{
-		Use:   "use <profile>",
-		Short: "Select a Profile for one client",
+		Use:   "use <route>",
+		Short: "Select a Route for one client",
 		Args: cobra.MatchAll(cobra.MaximumNArgs(1), func(_ *cobra.Command, args []string) error {
 			if len(args) == 0 && !runtime.Interactive {
-				return fmt.Errorf("non-interactive use requires a Profile; run `aigw use --for <client> <profile>`")
+				return fmt.Errorf("non-interactive use requires a Route; run `aigw use --for <client> <route>`")
 			}
 			if len(args) == 1 && client == "" && !runtime.Interactive {
-				return fmt.Errorf("non-interactive use requires --for; run `aigw use --for <client> <profile>`")
+				return fmt.Errorf("non-interactive use requires --for; run `aigw use --for <client> <route>`")
 			}
 			if client != "" && !configuration.IsAdmittedClient(client) {
 				return fmt.Errorf("--for must be %s; run `aigw use --help`", configuration.AdmittedClientUsage())
@@ -44,33 +44,33 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			profile, ok := cfg.Routes[name]
+			route, ok := cfg.Routes[name]
 			if !ok {
-				return fmt.Errorf("unknown profile %q; run `aigw profile list`", name)
+				return fmt.Errorf("unknown route %q; run `aigw route list`", name)
 			}
 			token, err := selectionToken(cmd.Context(), runtime, cfg, client, name)
 			if err != nil {
 				return err
 			}
 			synchronizer := invocation.Synchronizer(runtime)
-			configurationChanged, binding, err := synchronizer.SelectProfile(cmd.Context(), cfg, client, name, token)
+			configurationChanged, binding, err := synchronizer.SelectRoute(cmd.Context(), cfg, client, name, token)
 			if err != nil {
 				return err
 			}
-			title, detail := "Profile already selected", "Selected client configuration synchronized; binding unchanged"
+			title, detail := "Route already selected", "Selected client configuration synchronized; binding unchanged"
 			switch {
 			case configurationChanged && token != "":
-				title, detail = "Profile selected", "Account token stored; client configuration synchronized"
+				title, detail = "Route selected", "Account token stored; client configuration synchronized"
 			case configurationChanged:
-				title, detail = "Profile selected", "Client configuration synchronized"
+				title, detail = "Route selected", "Client configuration synchronized"
 			case token != "":
 				title, detail = "Token stored", "Account token stored; selected client configuration synchronized"
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle(title)
 			r.Section("Current selection")
-			r.Row("Profile", profile.Label)
-			if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
+			r.Row("Route", route.Label)
+			if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 				r.Row("Purpose", purpose)
 			}
 			r.Row("Client", invocation.Title(client))
@@ -103,23 +103,23 @@ func resolveUseSelection(runtime invocation.Context, cfg configuration.Config, c
 				return "", "", err
 			}
 		}
-		profile, err := chooseProfile(runtime, cfg, client, "Select the Profile to use: ")
-		return client, profile, err
+		route, err := chooseRoute(runtime, cfg, client, "Select the Route to use: ")
+		return client, route, err
 	}
 
-	profile := args[0]
-	if _, ok := cfg.Routes[profile]; !ok {
-		return "", "", fmt.Errorf("unknown profile %q; run `aigw profile list`", profile)
+	route := args[0]
+	if _, ok := cfg.Routes[route]; !ok {
+		return "", "", fmt.Errorf("unknown route %q; run `aigw route list`", route)
 	}
 	if client != "" {
-		return client, profile, nil
+		return client, route, nil
 	}
-	compatible, err := cfg.CompatibleClientIDs(profile)
+	compatible, err := cfg.CompatibleClientIDs(route)
 	if err != nil {
 		return "", "", err
 	}
 	client, err = chooseClientIDs(runtime, compatible)
-	return client, profile, err
+	return client, route, err
 }
 
 func chooseClient(runtime invocation.Context, specs []configuration.ClientSpec) (string, error) {
@@ -140,7 +140,7 @@ func chooseClientIDs(runtime invocation.Context, clients []string) (string, erro
 }
 
 func selectionToken(ctx context.Context, runtime invocation.Context, cfg configuration.Config, client, name string) (string, error) {
-	profile := cfg.Routes[name]
+	route := cfg.Routes[name]
 	selected, err := cfg.ResolveRuntime(client, name)
 	if err != nil {
 		return "", err
@@ -148,46 +148,46 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg configu
 	if !selected.UsesAIGWCredentialStore() {
 		return "", nil
 	}
-	available, err := runtime.Secrets.Exists(profile.Account)
+	available, err := runtime.Secrets.Exists(route.Account)
 	if err != nil {
-		return "", fmt.Errorf("cannot inspect Account %q credential: %w", profile.Account, err)
+		return "", fmt.Errorf("cannot inspect Account %q credential: %w", route.Account, err)
 	}
 	if available {
 		return "", nil
 	}
-	instruction, writable := credential.TokenRecovery(runtime.Secrets, profile.Account)
+	instruction, writable := credential.TokenRecovery(runtime.Secrets, route.Account)
 	if !writable {
-		return "", fmt.Errorf("account %q is missing a token; %s; then run `aigw use --for %s %s`", profile.Account, instruction, client, name)
+		return "", fmt.Errorf("account %q is missing a token; %s; then run `aigw use --for %s %s`", route.Account, instruction, client, name)
 	}
 	if !runtime.Interactive {
-		return "", fmt.Errorf("account %q is missing a token; %s", profile.Account, instruction)
+		return "", fmt.Errorf("account %q is missing a token; %s", route.Account, instruction)
 	}
-	account := cfg.Accounts[profile.Account]
+	account := cfg.Accounts[route.Account]
 	token, err := runtime.Prompt.Secret("Paste " + account.Label + " token: ")
 	if err != nil {
 		return "", err
 	}
-	account.ID = profile.Account
+	account.ID = route.Account
 	if err := credential.Validate(ctx, runtime.HTTP, account, token, client); err != nil {
 		return "", fmt.Errorf("token validation failed: %w", err)
 	}
 	return token, nil
 }
 
-func chooseProfile(runtime invocation.Context, cfg configuration.Config, client, label string) (string, error) {
+func chooseRoute(runtime invocation.Context, cfg configuration.Config, client, label string) (string, error) {
 	choices := make([]prompt.Choice, 0, len(cfg.Routes))
 	for _, id := range cfg.RouteIDs() {
 		if _, err := cfg.ResolveRuntime(client, id); err != nil {
 			continue
 		}
-		choices = append(choices, prompt.Choice{Value: id, Label: profileChoiceLabel(cfg.Routes[id])})
+		choices = append(choices, prompt.Choice{Value: id, Label: routeChoiceLabel(cfg.Routes[id])})
 	}
 	return runtime.Prompt.Select(label, choices)
 }
 
-func profileChoiceLabel(profile configuration.Route) string {
-	label := profile.Label
-	if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
+func routeChoiceLabel(route configuration.Route) string {
+	label := route.Label
+	if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 		return label + " · " + purpose
 	}
 	return label

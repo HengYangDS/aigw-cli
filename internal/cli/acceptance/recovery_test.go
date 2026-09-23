@@ -28,7 +28,7 @@ func TestClaudeModelDriftRecoveryThroughPublicCommands(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, credentials, runner, _ := testApp(t, "")
-			saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
 			if err := credentials.Set("one", "test-token"); err != nil {
 				t.Fatal(err)
 			}
@@ -37,10 +37,10 @@ func TestClaudeModelDriftRecoveryThroughPublicCommands(t *testing.T) {
 				t.Fatal(err)
 			}
 			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
-			profile := cfg.Routes["one"]
-			profile.Model = "claude-next"
-			profile.UpstreamModel = "claude-next"
-			cfg.Routes["next"] = profile
+			route := cfg.Routes["one"]
+			route.Model = "claude-next"
+			route.UpstreamModel = "claude-next"
+			cfg.Routes["next"] = route
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -136,7 +136,7 @@ func TestRecoveryJSONSeparatesPreviewFromAppliedProjection(t *testing.T) {
 	} {
 		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
 			app, out, credentials, _, _ := testApp(t, "")
-			saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
 			cfg, err := app.Config.Load()
 			if err != nil {
 				t.Fatal(err)
@@ -194,7 +194,7 @@ func TestRecoveryJSONOutputFailurePreservesCommittedProjection(t *testing.T) {
 	for _, command := range []string{"sync", "repair"} {
 		t.Run(command, func(t *testing.T) {
 			app, _, credentials, _, _ := testApp(t, "")
-			saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
 			cfg, err := app.Config.Load()
 			if err != nil {
 				t.Fatal(err)

@@ -130,10 +130,10 @@ func (route Route) AdmittedProtocols() []EndpointProtocol {
 	return protocols
 }
 
-// Runtime is the resolved, immutable input used to project or invoke one client profile.
+// Runtime is the resolved, immutable input used to project or invoke one client route.
 type Runtime struct {
-	RouteID           string           `json:"profile_id"`
-	RouteLabel        string           `json:"profile_label"`
+	RouteID           string           `json:"route_id"`
+	RouteLabel        string           `json:"route_label"`
 	AccountID         string           `json:"account_id"`
 	AccountLabel      string           `json:"account_label"`
 	Client            string           `json:"client"`
@@ -145,9 +145,9 @@ type Runtime struct {
 	CredentialCommand string           `json:"-"`
 }
 
-// RequiresAccountToken reports whether the selected Profile uses Account Token
+// RequiresAccountToken reports whether the selected Route uses Account Token
 // authentication on the wire. The zero value preserves the ordinary Account
-// Token behavior for Profiles created before authentication was explicit.
+// Token behavior for Routes created before authentication was explicit.
 func (runtime Runtime) RequiresAccountToken() bool {
 	return runtime.Authentication == "" || runtime.Authentication == AuthenticationAccountToken
 }

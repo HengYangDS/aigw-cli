@@ -123,7 +123,7 @@ func TestSetupRejectsInvalidConfigurationBeforeCredentialMutation(t *testing.T) 
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
 	credentials := setupTokenStore(t, "original")
 	after := setupConfiguration()
-	after.SetSelectedRoute(configuration.ClientClaude, "missing-profile")
+	after.SetSelectedRoute(configuration.ClientClaude, "missing-route")
 	_, err := (Synchronizer{Config: store, Secrets: credentials}).Setup(t.Context(), configuration.NewConfig(), after, map[string]string{"team": "replacement"})
 	if err == nil {
 		t.Fatal("setup accepted an unresolved route")

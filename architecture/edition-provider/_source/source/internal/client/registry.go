@@ -238,12 +238,12 @@ func (registry Registry) Inspect(ctx context.Context, deps Dependencies, cfg con
 }
 
 // Verify runs one explicit live verification through the admitted adapter.
-func (registry Registry) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, clientID string, runtime configuration.Runtime, explicitProfile string) (Verification, error) {
+func (registry Registry) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, clientID string, runtime configuration.Runtime, explicitRoute string) (Verification, error) {
 	adapter, err := registry.adapter(clientID)
 	if err != nil {
 		return Verification{}, err
 	}
-	return adapter.Verify(ctx, deps, cfg, runtime, explicitProfile)
+	return adapter.Verify(ctx, deps, cfg, runtime, explicitRoute)
 }
 
 // Withdraw removes the selected adapter from desired configuration. The

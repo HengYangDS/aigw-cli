@@ -146,7 +146,7 @@ func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *test
 	var result struct {
 		Imported struct {
 			Accounts []string `json:"accounts"`
-			Profiles []string `json:"profiles"`
+			Routes   []string `json:"routes"`
 		} `json:"imported"`
 		ConnectedAccounts []string          `json:"connected_accounts"`
 		SelectedBindings  map[string]string `json:"selected_bindings"`
@@ -161,7 +161,7 @@ func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *test
 		t.Fatalf("setup JSON retained the removed Route authority: %s", out.String())
 	}
 	if !slices.Equal(result.Imported.Accounts, []string{"aihubmix", "dmxapi"}) ||
-		!slices.Equal(result.Imported.Profiles, []string{"aihubmix-claude", "dmxapi-claude", "dmxapi-gpt"}) ||
+		!slices.Equal(result.Imported.Routes, []string{"aihubmix-claude", "dmxapi-claude", "dmxapi-gpt"}) ||
 		len(result.ConnectedAccounts) != 0 {
 		t.Fatalf("setup JSON catalogue state = %#v", result)
 	}
@@ -330,7 +330,7 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 				t.Fatal(err)
 			}
 			if selected := cfg.SelectedRoute(configuration.ClientCodex); selected != "dmxapi-gpt" {
-				t.Fatalf("Codex selected Profile = %q", selected)
+				t.Fatalf("Codex selected Route = %q", selected)
 			}
 			projectedRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 			if err != nil {

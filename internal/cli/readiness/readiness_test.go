@@ -374,7 +374,7 @@ func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	}
 	want := map[string]json.RawMessage{
 		"state":               json.RawMessage(`"configured"`),
-		"profile":             json.RawMessage(`"codex"`),
+		"route":               json.RawMessage(`"codex"`),
 		"account":             json.RawMessage(`"one"`),
 		"detail":              json.RawMessage(`"Projection ready; client-owned authentication is not proven"`),
 		"authentication":      json.RawMessage(`"client-native"`),

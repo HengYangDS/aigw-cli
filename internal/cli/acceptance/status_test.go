@@ -111,7 +111,7 @@ func TestStatusGuidesClientSpecificRouteInsteadOfBlankRepair(t *testing.T) {
 	if strings.Contains(text, "Claude             ·") || strings.Contains(text, "aigw repair") {
 		t.Fatalf("status should not show blank Claude route or misleading repair:\n%s", text)
 	}
-	for _, want := range []string{"Claude", "No Claude profile selected", "aigw use --for claude claude-fable-5"} {
+	for _, want := range []string{"Claude", "No Claude route selected", "aigw use --for claude claude-fable-5"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("status lacks %q:\n%s", want, text)
 		}
@@ -133,7 +133,7 @@ func TestStatusKeepsTheFirstRunNextActionSimple(t *testing.T) {
 func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-test")
+	addAccountRoute(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-test")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude-real", nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -153,8 +153,8 @@ func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 func TestStatusShowsIndependentRoutesAndJSONNeverContainsToken(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "codex", "dmx", "Codex", configuration.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, configuration.ClientCodex, "gpt-test")
-	addAccountProfile(&cfg, "claude", "dmx", "Claude", configuration.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, configuration.ClientClaude, "claude-test")
+	addAccountRoute(&cfg, "codex", "dmx", "Codex", configuration.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, configuration.ClientCodex, "gpt-test")
+	addAccountRoute(&cfg, "claude", "dmx", "Claude", configuration.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, configuration.ClientClaude, "claude-test")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 	if err := app.Config.Save(cfg); err != nil {
@@ -171,7 +171,7 @@ func TestStatusShowsIndependentRoutesAndJSONNeverContainsToken(t *testing.T) {
 	if err := cli.Execute(app, []string{"status", "--json"}); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(out.String(), "never-print-this-secret") || !strings.Contains(out.String(), `"authentication": "account-token"`) || strings.Contains(out.String(), `"routes"`) {
+	if strings.Contains(out.String(), "never-print-this-secret") || !strings.Contains(out.String(), `"authentication": "account-token"`) || strings.Contains(out.String(), `"profiles"`) {
 		t.Fatalf("unsafe JSON status = %s", out.String())
 	}
 }
@@ -193,7 +193,7 @@ func TestStatusReportsRouteTransport(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
 			app.Config = configuration.NewStore(filepath.Join(t.TempDir(), "localhost-4567-configuration.toml"))
 			cfg := configuration.NewConfig()
-			addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: tc.endpoint}, configuration.ClientCodex, "model-test")
+			addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: tc.endpoint}, configuration.ClientCodex, "model-test")
 			cfg.SetSelectedRoute(configuration.ClientCodex, "team")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -216,7 +216,7 @@ func TestStatusReportsRouteTransport(t *testing.T) {
 			}
 			want := map[string]json.RawMessage{
 				"state":               json.RawMessage(`"deferred"`),
-				"profile":             json.RawMessage(`"team"`),
+				"route":               json.RawMessage(`"team"`),
 				"account":             json.RawMessage(`"team"`),
 				"detail":              json.RawMessage(`"The client is not installed or enabled"`),
 				"next_action":         json.RawMessage(`"aigw sync"`),
@@ -234,7 +234,7 @@ func TestStatusReportsRouteTransport(t *testing.T) {
 	}
 }
 
-func TestStatusLabelsProfileCountAsModelConfigurations(t *testing.T) {
+func TestStatusLabelsRouteCountAsModelConfigurations(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}

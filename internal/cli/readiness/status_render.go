@@ -14,12 +14,12 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	if len(cfg.Routes) == 0 {
 		r.ProductTitle("Not configured")
 		r.Section("Get started")
-		r.Text("Run the guided setup once to add an Account, Token, and first Profile.")
+		r.Text("Run the guided setup once to add an Account, Token, and first Route.")
 		r.Next("aigw setup")
 		return
 	}
 	r.ProductTitle("Configuration status")
-	r.Text("The selected Profiles, client readiness, and the smallest next action.")
+	r.Text("The selected Routes, client readiness, and the smallest next action.")
 	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
 	attention, nextAction := renderClientStatus(r, result, clientIDs)
 	renderTransportStatus(r, result, clientIDs)
@@ -40,7 +40,7 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 	nextAction := ""
 	for _, client := range clientIDs {
 		clientStatus := result.Clients[client]
-		message := clientStatus.Profile + " · " + clientStatus.State.Label()
+		message := clientStatus.Route + " · " + clientStatus.State.Label()
 		state := presentation.Info
 		switch clientStatus.State {
 		case domainreadiness.EndpointChecked:
@@ -48,15 +48,15 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 		case domainreadiness.Configured:
 			state = presentation.Info
 		case domainreadiness.Deferred:
-			if clientStatus.Profile == "" {
-				message = "No " + invocation.Title(client) + " profile selected"
+			if clientStatus.Route == "" {
+				message = "No " + invocation.Title(client) + " route selected"
 			}
 		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
 			state = presentation.Warn
 			attention = true
 		}
-		if clientStatus.Detail != "" && clientStatus.Profile != "" {
-			message = clientStatus.Profile + " · " + clientStatus.State.Label() + " · " + clientStatus.Detail
+		if clientStatus.Detail != "" && clientStatus.Route != "" {
+			message = clientStatus.Route + " · " + clientStatus.State.Label() + " · " + clientStatus.Detail
 		}
 		if len(clientStatus.QualifiedModes) > 0 && len(clientStatus.QualifiedPlatforms) > 0 {
 			message += " · Qualified: " + strings.Join(clientStatus.QualifiedModes, ", ") + " · " + strings.Join(clientStatus.QualifiedPlatforms, ", ")

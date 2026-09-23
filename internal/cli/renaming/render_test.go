@@ -19,9 +19,9 @@ func TestWriteRenameResultHumanStatuses(t *testing.T) {
 		{"Account already finalized", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "already-finalized", Finalize: true, Account: configuration.Account{Label: "New"}}},
 		{"Account finalization complete", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "finalized", Finalize: true, Account: configuration.Account{Label: "New"}}},
 		{"Account rename plan", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "planned", Account: configuration.Account{Label: "New"}}},
-		{"Profile rename plan", renaming.Plan{Resource: "profile", OldID: "old", NewID: "new", Status: "planned", Profile: configuration.Route{Account: "account"}, AffectedReferences: []string{"routes.codex"}}},
-		{"Account renamed", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "applied", Account: configuration.Account{Label: "New"}, AffectedReferences: []string{"profiles.codex.account"}}},
-		{"Profile renamed", renaming.Plan{Resource: "profile", OldID: "old", NewID: "new", Status: "applied", Profile: configuration.Route{Account: "account"}}},
+		{"Route rename plan", renaming.Plan{Resource: "route", OldID: "old", NewID: "new", Status: "planned", Route: configuration.Route{Account: "account"}, AffectedReferences: []string{"routes.codex"}}},
+		{"Account renamed", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "applied", Account: configuration.Account{Label: "New"}, AffectedReferences: []string{"routes.codex.account"}}},
+		{"Route renamed", renaming.Plan{Resource: "route", OldID: "old", NewID: "new", Status: "applied", Route: configuration.Route{Account: "account"}}},
 	}
 	for _, test := range statuses {
 		t.Run(test.title+"/"+string(test.plan.Status), func(t *testing.T) {

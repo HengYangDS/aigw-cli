@@ -143,7 +143,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	}
 	for _, client := range evaluation.clients {
 		status := clients[client.client]
-		status.Profile = client.runtime.RouteID
+		status.Route = client.runtime.RouteID
 		status.Account = client.runtime.AccountID
 		status.Authentication = client.runtime.Authentication
 		status.EndpointConfigured = client.endpointConfigured
@@ -193,7 +193,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		return err
 	}
 	if len(cfg.Routes) == 0 {
-		return invocation.Problem(runtime, "Not configured", "No Profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
+		return invocation.Problem(runtime, "Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
 	renderer := invocation.Renderer(runtime)
@@ -210,7 +210,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		}
 		result, _ := evaluation.client(client)
 		if result.resolveErr != nil {
-			return invocation.Problem(runtime, invocation.Title(client)+" binding cannot be resolved", result.resolveErr.Error(), invocation.Title(client)+" cannot determine which Profile to use.", "aigw use --for "+client+" <profile>", result.resolveErr)
+			return invocation.Problem(runtime, invocation.Title(client)+" binding cannot be resolved", result.resolveErr.Error(), invocation.Title(client)+" cannot determine which Route to use.", "aigw use --for "+client+" <route>", result.resolveErr)
 		}
 		if result.credentialErr != nil {
 			instruction, _ := credential.TokenRecovery(runtime.Secrets, result.runtime.AccountID)
@@ -224,7 +224,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			)
 		}
 		if !result.adapter {
-			impact := invocation.Title(client) + " cannot receive its AIGW Profile, Token, or configuration projection."
+			impact := invocation.Title(client) + " cannot receive its AIGW Route, Token, or configuration projection."
 			return invocation.Problem(runtime, invocation.Title(client)+" projection is not ready", result.issue, impact, result.fix, fmt.Errorf("%s projection not ready", client))
 		}
 		if !result.runtime.UsesAIGWCredentialStore() {

@@ -16,7 +16,7 @@ traffic hop, a client launcher, or an agent-state manager.
   - **AIGW role:** Select and use one Account Token backend
   - **Other owner:** Native credential service or AIGW owner-only store
 - **Client intent**
-  - **AIGW role:** Select a Profile through a Client Binding
+  - **AIGW role:** Select a Route through a Client Binding
   - **Other owner:** AIGW configuration
 - **Native client configuration**
   - **AIGW role:** Project one admitted, bounded region
@@ -38,22 +38,22 @@ not this design contract.
 
 ## Authority
 
-| Owner                     | Authoritative state                                               |
-| ------------------------- | ----------------------------------------------------------------- |
-| AIGW configuration        | Accounts, Profiles, recommendations, and explicit Client Bindings |
-| Selected Token store      | Account Tokens; the selection policy belongs to AIGW              |
-| Codex                     | Conversations, JSONL, SQLite, model metadata, Desktop GUI state   |
-| Claude Code               | Session and client runtime behavior                               |
-| External endpoint product | Traffic normalization, retries, service lifecycle                 |
-| Local Git                 | Signed commit and annotated-tag objects                           |
-| GitLab / GitHub           | Independent hosting, CI observations, Release records and assets  |
+| Owner                     | Authoritative state                                              |
+| ------------------------- | ---------------------------------------------------------------- |
+| AIGW configuration        | Accounts, Routes, recommendations, and explicit Client Bindings  |
+| Selected Token store      | Account Tokens; the selection policy belongs to AIGW             |
+| Codex                     | Conversations, JSONL, SQLite, model metadata, Desktop GUI state  |
+| Claude Code               | Session and client runtime behavior                              |
+| External endpoint product | Traffic normalization, retries, service lifecycle                |
+| Local Git                 | Signed commit and annotated-tag objects                          |
+| GitLab / GitHub           | Independent hosting, CI observations, Release records and assets |
 
 AIGW never edits conversation state and never manages an external endpoint
 process.
 
 ## Semantic packages
 
-- **[Configuration](../../internal/configuration/):** Account, Profile, recommendation, Client Binding, schema migration, and persistence
+- **[Configuration](../../internal/configuration/):** Account, Route, recommendation, Client Binding, schema migration, and persistence
 - **[Secret storage](../../internal/secrets/):** Account credential backends, typed diagnostic credentials and replacement
 - **[Diagnostic contract](../../internal/providers/diagnostic/):** Optional provider-account diagnostic results
 - **[Codex integration](../../internal/codex/):** Projection planning and reconciliation
@@ -97,10 +97,10 @@ together. Review line counts as signals, not reasons to create shallow modules.
 
 ## Configuration admission
 
-Configuration admission checks every declared Profile protocol against its
-Account's corresponding endpoint, including Profiles not selected by a Client
-Binding. Runtime resolution intersects that explicit Profile capability with
-the selected client's protocol contract. A manually authored Profile may omit
+Configuration admission checks every declared Route protocol against its
+Account's corresponding endpoint, including Routes not selected by a Client
+Binding. Runtime resolution intersects that explicit Route capability with
+the selected client's protocol contract. A manually authored Route may omit
 the capability set until it is qualified, but the reviewed team catalogue does
 not. Manifest import and local persistence share that validation. This is a
 structural check, not evidence of credentials, installed clients, endpoint
@@ -108,19 +108,19 @@ availability, or successful inference.
 
 Imported recommendations and actual selections have separate meanings in that
 same configuration. Import retains the recommendation; setup and sync select
-only for clients without a selected Profile. They prefer an available recommendation, then
-its model on another usable Account, then stable Profile identifier order.
+only for clients without a selected Route. They prefer an available recommendation, then
+its model on another usable Account, then stable Route identifier order.
 Unavailable credentials do not authorize replacing an existing selection.
 
 Configuration cloning owns independence of nested Account diagnostics and
 Adapter target slices as well as maps. Read-only runtime resolution observes
-the selected Profile and Account directly; it neither clones the whole
+the selected Route and Account directly; it neither clones the whole
 configuration nor initializes its collections. Behavioral tests cover those
 contracts instead of enumerating names of removed APIs.
 
 ## Synchronization and setup
 
-Setup creates the first Profiles; it is not configuration replacement or Token
+Setup creates the first Routes; it is not configuration replacement or Token
 rotation for an existing installation. Synchronization owns that admission
 rule. All setup command forms check it before prompting or probing, and the
 transaction checks it again before discovery or credential writes. An existing
@@ -166,10 +166,10 @@ independently of the cancelled context and retains both cancellation and
 ownership conflicts. Cancellation after the last admitted adapter completes
 does not retroactively fail the completed transaction.
 
-`Synchronizer.SelectProfile` owns daily selection, optional validated Token
+`Synchronizer.SelectRoute` owns daily selection, optional validated Token
 storage and the selected client's projection. CLI selection collects and
 validates input, then renders the committed result without a rollback handle.
-The Profile's client scope reaches discovery, preflight and projection writes;
+The requested Client Binding's scope reaches discovery, preflight and projection writes;
 drift in another client's files neither blocks nor changes this selection.
 Repeated selection reconciles only that client without rewriting unchanged
 configuration or checkpoints. Rendering failure does not undo a committed
@@ -214,7 +214,7 @@ authorization.
 to the single `DiagnosticCredential` schema. It performs no diagnostics and
 does not select a backend. Memory, file, environment and native backends share
 that adapter; tests do not use a parallel diagnostic storage implementation.
-Credential identifiers refer to Accounts, never Profiles. `Exists` observes
+Credential identifiers refer to Accounts, never Routes. `Exists` observes
 slot presence without reading or validating its contents; `Get` reads and
 requires both credential fields, distinguishing absence from invalid stored
 data. Neither observation proves that the Provider accepts those credentials.
@@ -255,7 +255,7 @@ budget reports an incomplete search, not proof that the Token is absent.
 ## Identity migration
 
 Identity migration follows the same boundary: the [renaming owner](../../internal/renaming/model.go) owns
-Profile renaming, Account credential preparation and commit, and verified
+Route renaming, Account credential preparation and commit, and verified
 finalization. CLI commands only resolve operator intent and render the result.
 The owner has no command, prompt, or presentation dependency. Cancellation
 observed before credential preparation or finalization admission starts no
@@ -430,7 +430,7 @@ are explicit Adapter targets. AIGW owns the recorded provider tables, root
 selections, configured scheduler fields, derived catalogue and sidecar, including
 its credential-helper configuration. Decorative markers are not the ownership
 boundary. Dry-run exposes
-the plan without reading credentials or changing files. A Codex-scoped Profile
+the plan without reading credentials or changing files. A Codex-scoped Route
 may select one explicit native provider identity. AIGW then projects that exact
 table with the Account endpoint and an absolute command-authentication helper;
 the Account still owns the Token and Codex still owns conversation state.
@@ -494,7 +494,7 @@ provider-named implementation of all of them.
   - **AIGW implementation consequence:** Configuration only
 - **Distinct credential exchange**
   - **Extension path:** Existing client-native authentication when supported
-  - **AIGW implementation consequence:** Declare the Profile's authentication owner; extend a credential boundary only when the admitted client cannot supply it
+  - **AIGW implementation consequence:** Declare the Route's authentication owner; extend a credential boundary only when the admitted client cannot supply it
 - **New local configuration target**
   - **Extension path:** Client Adapter
   - **AIGW implementation consequence:** Add one complete client transaction
@@ -502,9 +502,9 @@ provider-named implementation of all of them.
   - **Extension path:** Independent data plane
   - **AIGW implementation consequence:** Select its endpoint; do not add transport to AIGW
 
-Account admission owns protocol endpoints and credential references. Profiles
-own Account/model identity and verified protocol capability; an optional
-Flagship/Daily tier is curated presentation metadata only. Client Bindings own
+Account admission owns protocol endpoints and credential references. Models own
+canonical identity. Routes own exact Account-to-Model access paths and verified
+protocol capabilities. Client Bindings own
 selection and native client options. Catalogue
 observations, authenticated probes and client verification provide separate
 evidence rather than becoming configuration facts. Code is needed only when
@@ -514,7 +514,7 @@ own proven wire incompatibilities.
 
 An ordinary OpenAI Responses endpoint using Bearer authentication, or an
 Anthropic endpoint using an API-key header, is Account data rather than a new
-provider class. A Codex Profile may instead declare `authentication =
+provider class. A Codex Route may instead declare `authentication =
 "client-native"` with an explicit `model_provider` when that client already
 owns the required credential chain and signing. AIGW projects the selection
 without reading client credentials or adding a signer. The selected client,
@@ -525,7 +525,7 @@ AWS-specific AIGW core:
 
 | Required behavior                                                                       | AIGW path                                              | Owner                                                            |
 | --------------------------------------------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------- |
-| OpenAI-compatible endpoint with an ordinary bearer Token                                | Account endpoint and Profile data                      | AIGW stores the selected Account Token                           |
+| OpenAI-compatible endpoint with an ordinary bearer Token                                | Account endpoint and Route data                        | AIGW stores the selected Account Token                           |
 | Codex `amazon-bedrock` provider using a Bedrock API key or the AWS SDK credential chain | Client Binding with `authentication = "client-native"` | Codex and AWS own credentials, signing, refresh, Region, and IAM |
 | A capability unavailable through either admitted endpoint                               | Independently selected protocol adapter                | The adapter owns wire translation and runtime lifecycle          |
 
@@ -533,7 +533,7 @@ For new Responses workloads, AWS recommends the regional `bedrock-runtime`
 endpoint and retains `bedrock-mantle` for capabilities that are not yet
 available there. Those endpoints are not interchangeable: model identifiers,
 discovery, stored-response behavior, server-side tools, projects, quotas, and
-regional availability differ. An AWS Profile therefore records only the exact
+regional availability differ. An AWS Route therefore records only the exact
 endpoint and model already reviewed for its client; it never infers support
 from the Provider name. Cost acceptance likewise binds the model, Region, and
 inference tier to the current AWS price sheet instead of hard-coding a price in

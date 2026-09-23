@@ -15,12 +15,12 @@ The readiness command SHALL accept `--json` and emit a stable JSON document with
 #### Scenario: Configured routes are reported as structured facts
 
 - **WHEN** `aigw check --json` runs with valid configuration and enabled client routes
-- **THEN** it emits one JSON document containing each enabled route's client, selected profile, account, endpoint readiness, adapter readiness, and overall result
+- **THEN** it emits one JSON document containing each enabled route's client, selected route, account, endpoint readiness, adapter readiness, and overall result
 - **AND** the command uses the same readiness evaluation as human-readable `aigw check`
 
 #### Scenario: Optional catalogue entries do not block readiness
 
-- **WHEN** the configuration contains unselected Accounts or Profiles without Tokens
+- **WHEN** the configuration contains unselected Accounts or Routes without Tokens
 - **THEN** `aigw check --json` does not require their Tokens
 - **AND** the result identifies only active routes as readiness requirements
 
@@ -45,7 +45,7 @@ configured, deferred, endpoint_checked, degraded, invalid, and unavailable as on
 state vocabulary. Commands SHALL classify only the evidence they actually
 observe: a deeper authenticated probe may refine configured into endpoint_checked,
 degraded, invalid, or unavailable. Human and JSON output SHALL identify the
-affected Account, Profile, Route, client, backend, or endpoint and exactly one
+affected Account, Route, Route, client, backend, or endpoint and exactly one
 safe next action.
 
 #### Scenario: Local client prerequisites are configured
@@ -65,7 +65,7 @@ safe next action.
 
 #### Scenario: A capability is intentionally deferred
 
-- **WHEN** a Profile is present but its client is absent or its Account has not
+- **WHEN** a Route is present but its client is absent or its Account has not
   been connected
 - **THEN** read-only commands report the exact deferred capability
 - **AND** do not describe the whole installation as corrupt.

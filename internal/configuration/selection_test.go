@@ -79,17 +79,17 @@ func TestClientForRouteRequiresCanonicalScope(t *testing.T) {
 		t.Fatalf("ClientForRoute(hermes) = %q, %v", client, err)
 	}
 	if _, err := cfg.ClientForRoute("codex"); err == nil || !strings.Contains(err.Error(), "compatible with 2 clients") {
-		t.Fatalf("multi-client profile error = %v", err)
+		t.Fatalf("multi-client route error = %v", err)
 	}
 	if _, err := cfg.ClientForRoute("shared"); err == nil || !strings.Contains(err.Error(), "compatible with 4 clients") {
-		t.Fatalf("unscoped profile error = %v", err)
+		t.Fatalf("unscoped route error = %v", err)
 	}
 	if _, err := cfg.ClientForRoute("missing"); err == nil || !strings.Contains(err.Error(), "unknown route") {
 		t.Fatalf("unknown route error = %v", err)
 	}
 }
 
-func TestResolveRuntimeRejectsUnknownProfileAccountAndEndpoint(t *testing.T) {
+func TestResolveRuntimeRejectsUnknownRouteAccountAndEndpoint(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["dmx"] = Account{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Routes["codex"] = testRoute("Codex", "dmx", "gpt-test", ProtocolOpenAIResponses)
@@ -108,10 +108,10 @@ func TestResolveRuntimeRejectsUnknownProfileAccountAndEndpoint(t *testing.T) {
 		t.Fatalf("unknown account error = %v", err)
 	}
 
-	claudeProfile := cfg.Routes["codex"]
-	claudeProfile.Model = "claude-test"
-	claudeProfile.Interfaces = map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}
-	cfg.Routes["claude"] = claudeProfile
+	claudeRoute := cfg.Routes["codex"]
+	claudeRoute.Model = "claude-test"
+	claudeRoute.Interfaces = map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}
+	cfg.Routes["claude"] = claudeRoute
 	_, err = cfg.ResolveRuntime(ClientClaude, "claude")
 	var endpointErr *RuntimeMissingEndpointError
 	if !errors.As(err, &endpointErr) || endpointErr.AccountID != "dmx" || endpointErr.Protocol != ProtocolAnthropic {
@@ -119,7 +119,7 @@ func TestResolveRuntimeRejectsUnknownProfileAccountAndEndpoint(t *testing.T) {
 	}
 }
 
-func TestSelectRoutesForConnectedAccountsKeepsCapabilityAndChoosesUsableProfiles(t *testing.T) {
+func TestSelectRoutesForConnectedAccountsKeepsCapabilityAndChoosesUsableRoutes(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["alpha"] = Account{Label: "Alpha", Endpoints: Endpoints{Anthropic: "https://alpha.test", OpenAIResponses: "https://alpha.test/v1"}}
 	cfg.Accounts["beta"] = Account{Label: "Beta", Endpoints: Endpoints{Anthropic: "https://beta.test", OpenAIResponses: "https://beta.test/v1"}}
@@ -189,7 +189,7 @@ func TestSelectRoutesForConnectedAccountsPreservesRecommendedModels(t *testing.T
 		t.Fatalf("Codex binding lost the recommended model: %#v", selected.Clients)
 	}
 	if selected.SelectedRoute(ClientClaude) != "connected-claude" {
-		t.Fatalf("Claude profile = %q", selected.SelectedRoute(ClientClaude))
+		t.Fatalf("Claude route = %q", selected.SelectedRoute(ClientClaude))
 	}
 }
 
@@ -210,7 +210,7 @@ func TestSelectRoutesForConnectedAccountsDoesNotSubstituteAnotherRecommendedMode
 	}
 }
 
-func TestSelectProfilesPreservesUnavailableExplicitChoice(t *testing.T) {
+func TestSelectRoutesPreservesUnavailableExplicitChoice(t *testing.T) {
 	cfg := validConfig()
 	cfg.SetRecommendedRoute(ClientCodex, "backup")
 	chosen, err := cfg.SelectRoutesForConnectedAccounts(nil)
@@ -219,7 +219,7 @@ func TestSelectProfilesPreservesUnavailableExplicitChoice(t *testing.T) {
 	}
 }
 
-func TestSelectProfilesPrefersUsableRecommendationOverIdentifierOrder(t *testing.T) {
+func TestSelectRoutesPrefersUsableRecommendationOverIdentifierOrder(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["alpha"] = testRoute("Alpha", "team", "first-model", ProtocolAnthropic)
@@ -250,7 +250,7 @@ func TestSelectedAccountIDsReturnsUniqueStableActiveAccounts(t *testing.T) {
 	}
 }
 
-func TestSelectRoutesForConnectedAccountsSelectsACompatibleProfileForAnUnselectedClient(t *testing.T) {
+func TestSelectRoutesForConnectedAccountsSelectsACompatibleRouteForAnUnselectedClient(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["claude-only"] = Account{Label: "Claude only", Endpoints: Endpoints{Anthropic: "https://claude.test"}}
 	cfg.Accounts["codex"] = Account{Label: "Codex", Endpoints: Endpoints{OpenAIResponses: "https://codex.test/v1"}}
@@ -291,7 +291,7 @@ func TestSelectRoutesForConnectedAccountsDefaultsToRecommendedClients(t *testing
 	}
 }
 
-func TestSelectRoutesForConnectedAccountsPreservesRecommendedProtocolForEquivalentProfile(t *testing.T) {
+func TestSelectRoutesForConnectedAccountsPreservesRecommendedProtocolForEquivalentRoute(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["preferred"] = Account{Label: "Preferred", Endpoints: Endpoints{
 		Anthropic: "https://preferred.test", OpenAIResponses: "https://preferred.test/v1",
@@ -312,7 +312,7 @@ func TestSelectRoutesForConnectedAccountsPreservesRecommendedProtocolForEquivale
 	}
 	binding := selected.Clients[ClientHermes]
 	if binding.Route != "connected" || binding.Protocol != ProtocolAnthropic {
-		t.Fatalf("Hermes binding = %#v, want connected Profile with Anthropic protocol", binding)
+		t.Fatalf("Hermes binding = %#v, want connected Route with Anthropic protocol", binding)
 	}
 	runtime, err := selected.ResolveRuntime(ClientHermes, "")
 	if err != nil {
@@ -323,7 +323,7 @@ func TestSelectRoutesForConnectedAccountsPreservesRecommendedProtocolForEquivale
 	}
 }
 
-func TestExplicitProfileSelectionUsesUnboundRecommendationOptions(t *testing.T) {
+func TestExplicitRouteSelectionUsesUnboundRecommendationOptions(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{
 		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
@@ -345,7 +345,7 @@ func TestExplicitProfileSelectionUsesUnboundRecommendationOptions(t *testing.T) 
 	}
 }
 
-func TestSelectRoutesForConnectedAccountsSkipsProfilesWithoutTheClientEndpoint(t *testing.T) {
+func TestSelectRoutesForConnectedAccountsSkipsRoutesWithoutTheClientEndpoint(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["generic"] = testRoute("Generic", "team", "claude-test", ProtocolAnthropic)
@@ -356,7 +356,7 @@ func TestSelectRoutesForConnectedAccountsSkipsProfilesWithoutTheClientEndpoint(t
 		t.Fatal(err)
 	}
 	if selected.SelectedRoute(ClientCodex) != "" {
-		t.Fatalf("profile without Responses endpoint selected for Codex: %#v", selected.Clients)
+		t.Fatalf("route without Responses endpoint selected for Codex: %#v", selected.Clients)
 	}
 }
 
@@ -373,16 +373,16 @@ func TestEndpointForRejectsUnknownClientAndMissingProtocolEndpoint(t *testing.T)
 	}
 }
 
-func TestResolveAccountRejectsProfileWithUnknownAccount(t *testing.T) {
+func TestResolveAccountRejectsRouteWithUnknownAccount(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Routes["orphan"] = testRoute("Orphan", "missing", "", ProtocolAnthropic)
 	_, _, err := cfg.ResolveAccount("orphan")
 	if err == nil || !strings.Contains(err.Error(), "references unknown account") {
-		t.Fatalf("orphan profile error = %v", err)
+		t.Fatalf("orphan route error = %v", err)
 	}
 }
 
-func TestDomainErrorTextAndProfileSelectionBranches(t *testing.T) {
+func TestDomainErrorTextAndRouteSelectionBranches(t *testing.T) {
 	if got := endpointProtocolName(ProtocolAnthropic); got != "Anthropic" {
 		t.Fatalf("Anthropic protocol name = %q", got)
 	}
@@ -404,9 +404,9 @@ func TestDomainErrorTextAndProfileSelectionBranches(t *testing.T) {
 	cfg.Routes["a-skip"] = testRoute("Skip", "generic", "", ProtocolAnthropic)
 	cfg.Routes["b-endpoint"] = testRoute("Endpoint", "generic", "claude-endpoint", ProtocolAnthropic)
 	if got := cfg.FirstRouteForClient(ClientCodex); got != "" {
-		t.Fatalf("Codex profile = %q", got)
+		t.Fatalf("Codex route = %q", got)
 	}
 	if got := cfg.FirstRouteForClient(ClientClaude); got != "a-skip" {
-		t.Fatalf("Claude profile = %q", got)
+		t.Fatalf("Claude route = %q", got)
 	}
 }

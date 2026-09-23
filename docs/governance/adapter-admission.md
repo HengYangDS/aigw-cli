@@ -17,7 +17,7 @@ deliver. Model names and shared directories do not establish admission.
 Provider Account and Client Adapter are independent extension axes. Ordinary
 Responses Bearer authentication and Anthropic API-key authentication use the
 Account schema, not provider-specific packages. Prefer an admitted client's
-existing credential chain and signing through explicit client-native Profile
+existing credential chain and signing through explicit client-native Route
 authentication. Unsupported authentication or wire behavior needs a reviewed
 extension at its own boundary, not provider-name branching or implicit client
 admission.
@@ -27,7 +27,7 @@ Classify an extension through the
 before applying the evidence requirements below. Existing compatible Accounts
 and models need configuration admission, not a new client implementation.
 
-The admitted clients live in one static registry. Status, diagnostics, Profile
+The admitted clients live in one static registry. Status, diagnostics, Route
 compatibility, binding validation, and client discovery read from that registry. A
 new model in an account catalog does not change it.
 
@@ -52,7 +52,7 @@ registration alone is not a release support claim.
 | Hermes Agent                | Native provider and model configuration with an Account-scoped credential command                                                                                      | Verified declared endpoint protocol    |
 
 An Account Token, when required, stays in the selected backend. Client-native
-authentication stays with the client. Switching Profiles does not copy Tokens
+authentication stays with the client. Switching Routes does not copy Tokens
 into client files.
 
 Hermes has native tool-loop evidence. Claude Desktop's source Adapter,
@@ -128,7 +128,7 @@ both the required and forbidden headers and prove that neither the credential
 nor its header name appears in command output.
 
 Until a Client Adapter completes admission, it remains outside the operational
-registry and compatible Profiles. Model and Account catalogue discovery does not
-create Profiles or select Client Bindings. Comparative product observations belong to
+registry and compatible Routes. Model and Account catalogue discovery does not
+create Routes or select Client Bindings. Comparative product observations belong to
 [research](../research/provider-tooling-assessment.md), not a second admission
 registry in this policy.

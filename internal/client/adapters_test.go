@@ -453,9 +453,9 @@ func TestChangedClientsFollowPersistentCodexSemantics(t *testing.T) {
 	}
 
 	purpose := before.Clone()
-	profile := purpose.Routes["codex"]
-	profile.Purpose = "display only"
-	purpose.Routes["codex"] = profile
+	route := purpose.Routes["codex"]
+	route.Purpose = "display only"
+	purpose.Routes["codex"] = route
 	if len(adapterRegistry.ChangedClients(before, purpose)) != 0 {
 		t.Fatal("display-only purpose must not change the projection")
 	}

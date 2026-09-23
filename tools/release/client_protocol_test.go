@@ -55,11 +55,11 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 	}
 }
 
-func (p nativeClientJourneyPlan) runCodexGeneralProfiles(t *testing.T) {
+func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 	t.Helper()
 	const (
 		account = "aihubmix"
-		token   = "native-general-profile-token"
+		token   = "native-general-route-token"
 	)
 	routeIDs := make([]string, 0, len(p.manifest.Routes))
 	completions := map[string]*atomic.Int64{}
@@ -96,7 +96,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralProfiles(t *testing.T) {
 		t.Run(routeID, func(t *testing.T) {
 			before := completions[route.UpstreamModel].Load()
 			journey.testing = t
-			journey.run("verify", "--for", configuration.ClientCodex, "--profile", routeID)
+			journey.run("verify", "--for", configuration.ClientCodex, "--route", routeID)
 			if completions[route.UpstreamModel].Load() != before+1 {
 				t.Fatalf("Codex did not complete exactly one request for upstream model %q", route.UpstreamModel)
 			}

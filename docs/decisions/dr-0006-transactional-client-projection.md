@@ -23,7 +23,7 @@ transaction.
 ## Consequences
 
 Partial projection is a failed outcome rather than a tolerated steady state.
-Repair can reconcile all owned targets from the Account, Profile, and Client Binding
+Repair can reconcile all owned targets from the Account, Route, and Client Binding
 SSOT without adopting foreign state.
 
 ## Revisit Trigger

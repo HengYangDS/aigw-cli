@@ -1,7 +1,7 @@
 # AIGW CLI
 
 AIGW is a local-first control plane for teams that use reviewed third-party AI
-services. It manages Accounts, Tokens, reusable Profiles, explicit client
+services. It manages Accounts, Tokens, reusable Routes, explicit client
 bindings, and guarded native projections. It does not relay model traffic, run
 a gateway, or own conversation state.
 
@@ -11,15 +11,15 @@ the complete design.
 
 ## Start here
 
-| Goal                          | Command                             | Then                               |
-| ----------------------------- | ----------------------------------- | ---------------------------------- |
-| Connect the first Account     | `aigw setup`                        | `aigw check`                       |
-| Import reviewed team settings | `aigw setup --from team.toml`       | Connect any one Account when ready |
-| Inspect current state         | `aigw`                              | Follow **Next**                    |
-| Bind a Profile to a client    | `aigw use --for <client> <profile>` | `aigw check`                       |
-| Replace one Account Token     | `aigw rotate <account>`             | `aigw check`                       |
-| Diagnose a problem            | `aigw doctor`                       | Run its recommended action         |
-| Migrate retained local state  | `aigw config migrate --dry-run`     | Review, then apply                 |
+| Goal                          | Command                           | Then                               |
+| ----------------------------- | --------------------------------- | ---------------------------------- |
+| Connect the first Account     | `aigw setup`                      | `aigw check`                       |
+| Import reviewed team settings | `aigw setup --from team.toml`     | Connect any one Account when ready |
+| Inspect current state         | `aigw`                            | Follow **Next**                    |
+| Bind a Route to a client      | `aigw use --for <client> <route>` | `aigw check`                       |
+| Replace one Account Token     | `aigw rotate <account>`           | `aigw check`                       |
+| Diagnose a problem            | `aigw doctor`                     | Run its recommended action         |
+| Migrate retained local state  | `aigw config migrate --dry-run`   | Review, then apply                 |
 
 ## Install
 
@@ -60,7 +60,7 @@ before updating or removing one.
 
 ## Connect an Account
 
-Interactive setup creates one Account and one Profile, then binds the explicitly
+Interactive setup creates one Account and one Route, then binds the explicitly
 selected client when its prerequisites are available:
 
 ```bash
@@ -116,8 +116,8 @@ aigw check
 ```
 
 `sync` discovers installed clients and changes only AIGW-owned projection state.
-It reconciles enabled client bindings whose Profile, authentication, and native
-surface are available. It never selects a Profile, enables an unbound client,
+It reconciles enabled client bindings whose Route, authentication, and native
+surface are available. It never selects a Route, enables an unbound client,
 replaces Tokens, or creates missing clients. See the complete
 [first-member and deferred-client journey](docs/guides/team-rollout.md#new-member).
 
@@ -152,7 +152,7 @@ the [security model](docs/architecture/security-model.md#credential-storage).
 
 ```bash
 aigw
-aigw use --for <client> <profile>
+aigw use --for <client> <route>
 aigw status
 aigw check
 aigw verify --for <client>
@@ -173,14 +173,14 @@ next action; machine consumers use the command's JSON mode where available.
 
 ## Product model
 
-| Entity            | Owns                                                        |
-| ----------------- | ----------------------------------------------------------- |
-| Account           | Provider endpoints and one logical Token boundary           |
-| Profile           | `account + model` and reusable display metadata             |
-| Client binding    | One client's Profile, enabled intent, protocol, and options |
-| Native projection | The AIGW-owned portion of one client's configuration        |
+| Entity            | Owns                                                      |
+| ----------------- | --------------------------------------------------------- |
+| Account           | Provider endpoints and one logical Token boundary         |
+| Route             | `account + model` and reusable display metadata           |
+| Client binding    | One client's Route, enabled intent, protocol, and options |
+| Native projection | The AIGW-owned portion of one client's configuration      |
 
-There is no global model selection: `aigw use --for <client> <profile>` changes
+There is no global model selection: `aigw use --for <client> <route>` changes
 exactly one client binding. A present Token, synchronized file, endpoint probe,
 and successful native-client request are different readiness claims.
 
@@ -200,7 +200,7 @@ requirements.
 
 | Surface                                                         | Owner                  |
 | --------------------------------------------------------------- | ---------------------- |
-| Accounts, Tokens, Profiles, and client bindings                 | AIGW                   |
+| Accounts, Tokens, Routes, and client bindings                   | AIGW                   |
 | AIGW-marked Codex, Claude Code, Hermes, and Desktop projections | AIGW                   |
 | Codex conversations, JSONL, SQLite, and per-conversation models | Codex                  |
 | Claude sessions and unrelated settings                          | Claude Code            |
@@ -239,7 +239,7 @@ and configuration unchanged. Restore a compatible configuration explicitly with
 `aigw config migrate --rollback`, then retry `aigw update --rollback`.
 
 `aigw uninstall` withdraws AIGW-owned client projections and removes the
-portable executable plus its predecessor. It preserves Accounts, Profiles,
+portable executable plus its predecessor. It preserves Accounts, Routes,
 Client Bindings, Tokens, configuration backup, and user-authored client state.
 
 For a Homebrew installation, disable enabled clients first and let Homebrew

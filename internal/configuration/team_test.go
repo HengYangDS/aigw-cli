@@ -77,8 +77,8 @@ func TestTeamConfigurationManifestIsReviewedVersionSeven(t *testing.T) {
 				t.Fatalf("resolve %s route for Account %q: %v", client, accountID, resolveErr)
 			}
 			modelOffered := false
-			for _, profile := range parsedManifest.Routes {
-				modelOffered = modelOffered || profile.Account == accountID && profile.Model == want.model
+			for _, route := range parsedManifest.Routes {
+				modelOffered = modelOffered || route.Account == accountID && route.Model == want.model
 			}
 			if runtime.AccountID != accountID || modelOffered && runtime.Model != want.model || runtime.Protocol != want.runtimeProtocol {
 				t.Fatalf("%s route for Account %q = Account %q model %q protocol %q, want model %q protocol %q", client, accountID, runtime.AccountID, runtime.Model, runtime.Protocol, want.model, want.runtimeProtocol)
@@ -135,25 +135,25 @@ func TestTeamAccountEndpointsHaveHosts(t *testing.T) {
 func TestTeamManifestPresentationSeparatesIdentityFromRecommendation(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	channel := regexp.MustCompile(`^[A-Z][A-Z0-9]*$`)
-	for profileID, profile := range manifest.Routes {
-		if want := profile.Account + "-" + profile.UpstreamModelID(); profileID != want {
-			t.Errorf("profile ID %q must preserve Account and provider model identity: %q", profileID, want)
+	for routeID, route := range manifest.Routes {
+		if want := route.Account + "-" + route.UpstreamModelID(); routeID != want {
+			t.Errorf("route ID %q must preserve Account and provider model identity: %q", routeID, want)
 		}
-		parts := strings.Split(profile.Label, " · ")
-		if len(parts) < 2 || len(parts) > 3 || parts[0] != manifest.Accounts[profile.Account].Label {
-			t.Errorf("profile %q label must be Account · Model [· Channel]: %q", profileID, profile.Label)
+		parts := strings.Split(route.Label, " · ")
+		if len(parts) < 2 || len(parts) > 3 || parts[0] != manifest.Accounts[route.Account].Label {
+			t.Errorf("route %q label must be Account · Model [· Channel]: %q", routeID, route.Label)
 			continue
 		}
 		for _, part := range parts {
 			if part == "" || strings.Join(strings.Fields(part), " ") != part {
-				t.Errorf("profile %q has noncanonical label spacing: %q", profileID, profile.Label)
+				t.Errorf("route %q has noncanonical label spacing: %q", routeID, route.Label)
 			}
 		}
 		if len(parts) == 3 && !channel.MatchString(parts[2]) {
-			t.Errorf("profile %q channel must be the provider's uppercase channel name: %q", profileID, parts[2])
+			t.Errorf("route %q channel must be the provider's uppercase channel name: %q", routeID, parts[2])
 		}
-		if profile.Purpose != "" {
-			t.Errorf("model catalogue profile %q must omit workflow purpose", profileID)
+		if route.Purpose != "" {
+			t.Errorf("model catalogue route %q must omit workflow purpose", routeID)
 		}
 	}
 }

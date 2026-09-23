@@ -7,13 +7,11 @@ transactional client projections, and no ownership of API traffic or sessions.
 
 ### Requirement: Provider-neutral configuration
 
-AIGW SHALL model Accounts, Profiles, Routes, endpoints, authentication, and
-models without provider-specific hacks, named gateways, topology, or global
-fallback. Routes MUST bind admitted clients to compatible Profiles; Profiles
-MUST bind protocol-compatible Account endpoints. Only the current
-credential-free schema SHALL execute. Offline validation SHALL serve
-persistence and import and report the first failure deterministically. Readiness
-SHALL follow authentication ownership.
+AIGW SHALL model Accounts, canonical Models, Routes, Client Bindings,
+endpoints, and authentication without provider-specific hacks, named gateways,
+topology, or global fallback. Only the current credential-free schema SHALL
+execute. Offline validation SHALL serve persistence and import, report the first
+failure deterministically, and derive readiness from authentication ownership.
 
 #### Scenario: Diagnose several configuration problems
 
@@ -22,48 +20,55 @@ SHALL follow authentication ownership.
 - **AND** the supplied configuration, including unset collections, SHALL remain
   unchanged.
 
-#### Scenario: Import a Profile with an incompatible Account
+### Requirement: Route and binding compatibility
 
-- **WHEN** a Profile names an admitted client but its Account lacks that client's
+Every Route SHALL reference one existing Account and one canonical Model and
+SHALL declare its admitted protocol interfaces. Every Client Binding SHALL
+select one compatible Route and one protocol admitted by both that Route and
+the client.
+
+#### Scenario: Import a Route with an incompatible Account
+
+- **WHEN** a Route declares a protocol interface but its Account lacks that
   protocol endpoint
 - **THEN** configuration validation and manifest import reject it before writes
-- **AND** the error identifies the Profile, Account, and missing protocol.
+- **AND** the error identifies the Route, Account, and missing protocol.
 
-#### Scenario: Save an incompatible Profile
+#### Scenario: Save an incompatible Route
 
-- **WHEN** configuration persistence receives a Profile whose Account lacks its
+- **WHEN** configuration persistence receives a Route whose Account lacks its
   declared protocol endpoint
 - **THEN** it rejects the change and preserves the existing configuration file.
 
 #### Scenario: Select independent Claude and Codex services
 
-- **WHEN** an operator selects a Claude Profile and a Codex Profile
+- **WHEN** an operator selects a Claude Route and a Codex Route
 - **THEN** each client SHALL retain its own explicit Route
 - **AND** no global default or implicit inheritance SHALL participate in
   resolution, readiness, or projection.
 
-#### Scenario: Select a Profile without repeating its client
+#### Scenario: Interactive selection omits the client
 
-- **WHEN** an operator runs `aigw use <profile>`
-- **THEN** AIGW SHALL derive the target client from the Profile's declared
-  client
-- **AND** SHALL reject a Profile whose client is absent or unadmitted.
+- **WHEN** an interactive operator runs `aigw use <route>` without `--for`
+- **THEN** AIGW SHALL offer only admitted clients compatible with that Route
+- **AND** non-interactive invocation SHALL require `--for <client>` rather than
+  infer a client from the Route.
 
 #### Scenario: Check every enabled client Route
 
 - **WHEN** Claude and Codex are enabled with distinct selected Routes
 - **THEN** `aigw check` SHALL validate both effective Routes
-- **AND** SHALL derive each AIGW-owned authentication request from that Route's
-  declared client protocol and authentication mode
+- **AND** SHALL derive each AIGW-owned authentication request from that Client Binding's
+  selected protocol and authentication mode
 - **AND** SHALL not issue an AIGW-owned authentication request for a
   client-native Route
-- **AND** SHALL not inspect an unselected historical Profile as a fallback
+- **AND** SHALL not inspect an unselected historical Route as a fallback
 - **AND** MAY coalesce only authentication probes with an identical Account,
   endpoint, and protocol identity.
 
 #### Scenario: Check a client-native Route
 
-- **WHEN** an enabled Route selects a client-native Profile whose local client
+- **WHEN** an enabled Route selects a client-native Route whose local client
   projection is valid
 - **THEN** `aigw check` SHALL report local readiness without claiming that the
   remote authentication or model request succeeded
@@ -122,7 +127,7 @@ SHALL follow authentication ownership.
 
 #### Scenario: Diagnose a selected Account without a Token
 
-- **WHEN** an enabled client Route selects an Account-Token Profile whose Token
+- **WHEN** an enabled client Route selects an Account-Token Route whose Token
   is absent
 - **THEN** `aigw doctor` SHALL report that Account as unhealthy
 - **AND** SHALL provide the account-scoped rotation action.
@@ -145,17 +150,17 @@ SHALL follow authentication ownership.
 - **THEN** `doctor` SHALL return success in human and JSON modes
 - **AND** SHALL not invent a repair continuation.
 
-#### Scenario: Diagnose a client-native Profile
+#### Scenario: Diagnose a client-native Route
 
-- **WHEN** an enabled client Route selects a client-native Profile
-- **THEN** `status`, `check`, `doctor`, `test`, `credential`, and Profile
-  inspection SHALL NOT query the AIGW Account Token store for that Profile
+- **WHEN** an enabled client Route selects a client-native Route
+- **THEN** `status`, `check`, `doctor`, `test`, `credential`, and Route
+  inspection SHALL NOT query the AIGW Account Token store for that Route
 - **AND** read-only output SHALL identify client-owned authentication and use
   `aigw verify --for <client>` for live proof where applicable.
 
 #### Scenario: Add an ordinary provider
 
-- **WHEN** an operator imports token-free Account and Profile data for a new
+- **WHEN** an operator imports token-free Account and Route data for a new
   endpoint
 - **THEN** Codex or Claude Code SHALL select it without a provider-specific CLI,
   installer, projection branch, service manager, or core dependency.
@@ -446,7 +451,7 @@ for the other.
 ### Requirement: Declarative ordinary provider extension
 
 An ordinary provider SHALL be admitted through the provider-neutral manifest,
-token-free Account, endpoint, Profile, and Route data, and an optional diagnostic
+token-free Account, endpoint, Route, and Route data, and an optional diagnostic
 registry. Adding it MUST NOT require a provider-specific command, client
 projection branch, installer case, service manager, core dependency, or edits to
 an existing client adapter, release path, or repository policy.
@@ -517,7 +522,7 @@ without changing provider policy or existing Adapters.
 
 #### Scenario: Codex authenticates an explicit native provider
 
-- **WHEN** an enabled Codex Profile selects an explicit native provider identity
+- **WHEN** an enabled Codex Route selects an explicit native provider identity
 - **THEN** its declared authentication mode SHALL determine credential ownership
 - **AND** Account-Token authentication SHALL invoke the exact installed AIGW
   helper for only the active Codex Route
@@ -526,7 +531,7 @@ without changing provider policy or existing Adapters.
 
 #### Scenario: Claude uses an Anthropic-compatible provider
 
-- **WHEN** explicit verification invokes Claude Code for an admitted Profile
+- **WHEN** explicit verification invokes Claude Code for an admitted Route
 - **THEN** the native client SHALL consume its synchronized settings in bare,
   nonpersistent mode
 - **AND** stale AIGW-owned Anthropic environment overrides SHALL be removed
@@ -557,7 +562,7 @@ without changing provider policy or existing Adapters.
 #### Scenario: Codex CLI and Desktop share one home
 
 - **WHEN** Codex uses the same configuration home for CLI and Desktop
-- **THEN** AIGW SHALL project the selected Profile once into that shared home
+- **THEN** AIGW SHALL project the selected Route once into that shared home
 - **AND** SHALL NOT create a second Desktop-specific configuration authority
 
 ### Requirement: Independent product composition
@@ -584,7 +589,7 @@ gateway MUST NOT acquire AIGW state.
 #### Scenario: Governed Codex deployment uses an external gateway
 
 - **WHEN** a governed deployment selects gateway endpoints for one or more
-  Codex Profiles
+  Codex Routes
 - **THEN** AIGW SHALL project those endpoints by the same Account and Route
   semantics used for direct HTTPS endpoints
 - **AND** runtime evidence SHALL verify each selected client path without giving
@@ -793,7 +798,7 @@ until all delivery obligations finish; archive SHALL NOT erase unfinished work.
 
 The repository SHALL publish one token-free reviewed manifest directly
 consumable by `aigw setup --from` without credentials or installed clients.
-Setup and sync SHALL preserve client and model intent, select Profiles only
+Setup and sync SHALL preserve client and model intent, select Routes only
 through usable authentication boundaries, project only AIGW-owned state, and
 never expose or rebind Tokens. Fictitious providers, workstation paths, and
 parallel example manifests SHALL NOT remain.
@@ -801,7 +806,7 @@ parallel example manifests SHALL NOT remain.
 #### Scenario: Team member imports reviewed settings
 
 - **WHEN** a team member downloads the tracked manifest and runs `aigw setup --from`
-- **THEN** AIGW SHALL import the Accounts and Profiles from the reviewed
+- **THEN** AIGW SHALL import the Accounts and Routes from the reviewed
   `manifests/team.toml` without a second provider or model-name policy
 - **AND** required Account Tokens SHALL remain outside the manifest
 - **AND** recommended selections SHALL come from that manifest rather than
@@ -810,7 +815,7 @@ parallel example manifests SHALL NOT remain.
 #### Scenario: No Account is connected during import
 
 - **WHEN** a user imports the team manifest without supplying a Token
-- **THEN** every reviewed Account and Profile SHALL be retained
+- **THEN** every reviewed Account and Route SHALL be retained
 - **AND** no client installation or credential SHALL be required
 - **AND** the next action SHALL enumerate the compatible Account connection
   choices without making one Account mandatory.
@@ -819,7 +824,7 @@ parallel example manifests SHALL NOT remain.
 
 - **WHEN** a user imports the team manifest with exactly one available Account Token
 - **THEN** setup SHALL succeed without Tokens for other Accounts
-- **AND** each route SHALL select a compatible Profile owned by the connected Account
+- **AND** each route SHALL select a compatible Route owned by the connected Account
 - **AND** selection SHALL preserve the reviewed model when that Account offers it
 - **AND** a lexical fallback MAY be used only when no equivalent model exists.
 
@@ -828,7 +833,7 @@ parallel example manifests SHALL NOT remain.
 - **WHEN** setup retained the reviewed catalogue without a connected Account
 - **AND** a Token for any compatible Account later becomes available through
   the configured credential backend
-- **THEN** `aigw sync` SHALL select compatible Profiles owned by that Account
+- **THEN** `aigw sync` SHALL select compatible Routes owned by that Account
 - **AND** SHALL preserve the reviewed client and model intent
 - **AND** SHALL NOT require Tokens for other Accounts.
 
@@ -840,9 +845,9 @@ parallel example manifests SHALL NOT remain.
 - **AND** SHALL NOT require, replace, or expose any Token
 - **AND** SHALL leave absent clients untouched.
 
-### Requirement: Profile-scoped Codex native provider
+### Requirement: Route-scoped Codex native provider
 
-A Profile SHALL remain the sole owner of its client, Account, model, and
+A Route SHALL remain the sole owner of its client, Account, model, and
 optional client-native provider selection. A missing Codex provider selection
 SHALL resolve to the canonical `aigw` provider. Provider selection SHALL NOT be
 inferred from an Account, endpoint, proxy implementation, or client-private
@@ -850,21 +855,21 @@ state. Authentication ownership SHALL be independent of the provider name.
 
 #### Scenario: Explicit Codex provider
 
-- **WHEN** a Codex-scoped Profile declares a safe `model_provider`
+- **WHEN** a Codex-scoped Route declares a safe `model_provider`
 - **THEN** its resolved Runtime carries that exact provider identity
-- **AND** Codex receives one attributed provider table using the Profile's
+- **AND** Codex receives one attributed provider table using the Route's
   Account endpoint and declared authentication mode.
 
 #### Scenario: Default Codex provider
 
-- **WHEN** a Codex-scoped Profile omits `model_provider`
+- **WHEN** a Codex-scoped Route omits `model_provider`
 - **THEN** its Runtime resolves the canonical `aigw` provider
 - **AND** Account-Token authentication uses the same command-helper contract
   as an explicit provider.
 
 #### Scenario: Provider ownership is narrow
 
-- **WHEN** a non-Codex Profile or an unsafe provider identifier declares
+- **WHEN** a non-Codex Route or an unsafe provider identifier declares
   `model_provider`
 - **THEN** configuration validation fails before persistence or projection.
 
@@ -897,7 +902,7 @@ lifecycle residue.
 
 AIGW SHALL keep configuration and client projection separate from API traffic.
 Endpoints and models SHALL enter as Account data; existing
-client-native authentication SHALL be reused through explicit Profiles. New
+client-native authentication SHALL be reused through explicit Routes. New
 clients SHALL require complete Adapters, unsupported credential contracts SHALL
 require admission, and incompatible wire behavior SHALL remain in a separate
 data plane. Gateways SHALL remain optional endpoints. Dependencies MAY be
@@ -934,23 +939,23 @@ admitted only when total owned complexity falls.
 
 ### Requirement: Real Codex client route verification
 
-AIGW SHALL verify a selected Codex Profile by running the configured and
+AIGW SHALL verify a selected Codex Route by running the configured and
 admitted Codex executable against one synchronized AIGW projection. A direct
 HTTP request made by AIGW itself MUST NOT be accepted as proof of the Codex
 client path.
 
 #### Scenario: A synchronized Codex target is verified
 
-- **WHEN** an operator verifies a Codex Profile with an available executable,
+- **WHEN** an operator verifies a Codex Route with an available executable,
   synchronized target, and usable Account Token
 - **THEN** AIGW SHALL run that executable through its non-persistent execution
-  surface using the selected target and Profile model
+  surface using the selected target and Route model
 - **AND** SHALL accept the verification only when the client's final response is
   exactly the bounded verification marker
 
 #### Scenario: Several synchronized Codex targets exist
 
-- **WHEN** an operator verifies a Codex Profile whose adapter owns several
+- **WHEN** an operator verifies a Codex Route whose adapter owns several
   synchronized targets
 - **THEN** AIGW SHALL deterministically select one target for the live request
 - **AND** SHALL NOT duplicate the quota-consuming request for equivalent targets
@@ -991,7 +996,7 @@ operating system and SHALL NOT access a network share to construct its name.
 ### Requirement: Model discovery reports catalogue evidence only
 
 `aigw catalog` and `aigw models` SHALL share one Account catalogue observation
-path. Profile comparison SHALL distinguish listed, not listed, and an unobserved
+path. Route comparison SHALL distinguish listed, not listed, and an unobserved
 catalogue with its reason. These commands MUST NOT describe catalogue membership
 as inference reachability or native-client readiness. An incomplete or oversized
 HTTP response SHALL produce a failed catalogue observation, not partial success.
@@ -1016,22 +1021,22 @@ HTTP response SHALL produce a failed catalogue observation, not partial success.
 
 ### Requirement: Control-plane convergence is client-scoped and monotonic
 
-AIGW SHALL derive operational state only from Accounts, client-scoped Profiles,
+AIGW SHALL derive operational state only from Accounts, client-scoped Routes,
 explicit per-client Routes, admitted client Adapters, and the selected
 credential backend. Setup, selection, synchronization, and readiness MUST NOT
-depend on a global Profile, an aggregate selection flag, another client's
+depend on a global Route, an aggregate selection flag, another client's
 Route, or the presence of an external compatibility product.
 
 #### Scenario: Both clients are selected independently
 
-- **WHEN** an operator selects one Codex Profile and one Claude Profile in
+- **WHEN** an operator selects one Codex Route and one Claude Route in
   separate operations
 - **THEN** both per-client Routes remain selected
 - **AND** readiness requires no additional aggregate selection operation.
 
 #### Scenario: An ordinary configuration edit affects one client
 
-- **WHEN** an Account or Profile edit changes one client's persistent projection
+- **WHEN** an Account or Route edit changes one client's persistent projection
 - **THEN** the configuration transaction SHALL plan and apply only the affected
   client set in admission order
 - **AND** another client's external edits and ownership state SHALL remain
@@ -1101,7 +1106,7 @@ Route, or the presence of an external compatibility product.
 
 #### Scenario: Setup is requested for an existing installation
 
-- **GIVEN** the current configuration already contains Profiles
+- **GIVEN** the current configuration already contains Routes
 - **WHEN** interactive, explicit, manifest or internal setup is requested
 - **THEN** the shared setup admission rejects it before prompting, Provider
   probing, client discovery or mutation
@@ -1110,7 +1115,7 @@ Route, or the presence of an external compatibility product.
 
 #### Scenario: First-time setup finds an existing credential slot
 
-- **GIVEN** the current configuration has no Profiles but an Account Token is
+- **GIVEN** the current configuration has no Routes but an Account Token is
   already available
 - **WHEN** first-time setup is requested
 - **THEN** that Token does not by itself classify the installation as configured
@@ -1118,7 +1123,7 @@ Route, or the presence of an external compatibility product.
 
 ### Requirement: Extension preserves the control-plane core
 
-An ordinary Provider SHALL be added through Account, endpoint, Profile, Route,
+An ordinary Provider SHALL be added through Account, endpoint, Route, Route,
 and optional diagnostic declarations. A new client SHALL be added through one
 admitted client Adapter and its conformance fixtures. Neither extension SHALL
 introduce Provider-name branching in the core, reuse another client's
@@ -1128,8 +1133,8 @@ projection, or make an optional product a dependency.
 
 - **WHEN** an AWS model service exposes an admitted client protocol and the
   client already owns its credential chain and request signing
-- **THEN** its Account and Profiles use the ordinary manifest path
-- **AND** the Profile declares client-native authentication
+- **THEN** its Account and Routes use the ordinary manifest path
+- **AND** the Route declares client-native authentication
 - **AND** AIGW neither stores the cloud credential nor implements a signing
   Adapter.
 
@@ -1222,7 +1227,7 @@ supply the result.
 ### Requirement: Token rotation is credential-scoped
 
 AIGW SHALL validate and replace only the selected Account's Token. Rotation
-MUST leave Accounts, Profiles, Routes, client configuration, ownership sidecars
+MUST leave Accounts, Models, Routes, Client Bindings, client configuration, ownership sidecars
 and client-owned credentials unchanged. Setup, service creation and rotation SHALL use the same
 Token replacement and compensation owner. Compensation SHALL inspect the
 written Token, preserve a different observed value, and report incomplete
@@ -1249,10 +1254,10 @@ storage recovery.
 
 ### Requirement: Service creation is an atomic client-scoped transition
 
-Service creation SHALL admit a new Account and first Profile before requesting
-its Token. It SHALL select that Profile and reconcile only its client's
+Service creation SHALL admit a new Account and first Route before requesting
+its Token. It SHALL select that Route and reconcile only its client's
 projection through the shared synchronization transaction. An existing Account
-or Profile identity SHALL NOT be implicitly replaced.
+or Route identity SHALL NOT be implicitly replaced.
 
 #### Scenario: Add and select another service
 
@@ -1264,7 +1269,7 @@ or Profile identity SHALL NOT be implicitly replaced.
 
 #### Scenario: Creation admission fails
 
-- **WHEN** the Account or Profile already exists, desired configuration is
+- **WHEN** the Account or Route already exists, desired configuration is
   invalid, or the request is cancelled before acquisition
 - **THEN** creation SHALL reject the request before requesting a Token or
   changing configuration, credentials or client projections.
@@ -1425,7 +1430,7 @@ Every Account-Token Codex provider SHALL authenticate through the absolute AIGW
 command. The helper SHALL carry the projected client, Account, and endpoint
 fingerprint and compare it with the selected Route before reading a Token. AIGW
 SHALL neither invoke native login nor change client credentials. Client-native
-Profiles SHALL project no AIGW Token helper; naming and catalogue selection
+Routes SHALL project no AIGW Token helper; naming and catalogue selection
 SHALL NOT alter credential ownership.
 
 #### Scenario: Account-Token provider projection
@@ -1438,9 +1443,9 @@ SHALL NOT alter credential ownership.
 
 #### Scenario: Return to the default provider
 
-- **WHEN** a Profile changes from an explicit provider to the default provider
+- **WHEN** a Route changes from an explicit provider to the default provider
 - **THEN** the old attributed provider table is removed transactionally
-- **AND** the Profile's declared authentication ownership is preserved.
+- **AND** the Route's declared authentication ownership is preserved.
 
 #### Scenario: A retained projection no longer matches the selected Route
 
@@ -1589,7 +1594,7 @@ lock or executing an operation. Cobra SHALL own shared flag validation.
 #### Scenario: Supply invalid manifest setup arguments
 
 - **WHEN** the manifest path or explicitly selected Account ID is blank,
-  manifest mode is combined with single-profile options, JSON output is
+  manifest mode is combined with single-route options, JSON output is
   requested without manifest mode, or manifest-mode Token input has no Account
   owner
 - **THEN** setup SHALL reject the invocation before creating configuration
@@ -1606,7 +1611,7 @@ lock or executing an operation. Cobra SHALL own shared flag validation.
 
 #### Scenario: Supply invalid rename arguments
 
-- **WHEN** noninteractive Account or Profile rename omits an identifier, an
+- **WHEN** noninteractive Account or Route rename omits an identifier, an
   explicitly supplied identifier violates the configuration identifier contract,
   or an incomplete interactive invocation has no prompt capability
 - **THEN** argument admission SHALL reject it before configuration access,
@@ -1617,7 +1622,7 @@ lock or executing an operation. Cobra SHALL own shared flag validation.
 
 #### Scenario: Supply invalid selection or adapter arguments
 
-- **WHEN** noninteractive selection omits its Profile, an adapter client is not
+- **WHEN** noninteractive selection omits its Route, an adapter client is not
   admitted, its executable is missing or blank, or a required target is missing
   or an explicitly supplied target is blank
 - **THEN** the command SHALL reject the invocation with an actionable repair
@@ -1626,7 +1631,7 @@ lock or executing an operation. Cobra SHALL own shared flag validation.
 
 #### Scenario: Supply invalid creation or import arguments
 
-- **WHEN** service or Profile creation supplies an invalid identifier, omits
+- **WHEN** service or Route creation supplies an invalid identifier, omits
   required client/model/Account flags, supplies blank required values, selects
   an inadmitted client, or configuration import supplies a blank manifest path
 - **THEN** the command SHALL reject the invocation with actionable guidance
@@ -1634,14 +1639,14 @@ lock or executing an operation. Cobra SHALL own shared flag validation.
 
 #### Scenario: Supply invalid metadata edit intent
 
-- **WHEN** Account or Profile editing supplies no editable flag, an invalid
-  identifier or a blank label or endpoint, Profile removal supplies an invalid
+- **WHEN** Account or Route editing supplies no editable flag, an invalid
+  identifier or a blank label or endpoint, Route removal supplies an invalid
   identifier, or platform-credential connection lacks an interactive terminal
 - **THEN** admission SHALL reject the invocation before configuration access or
   creation, mutation-lock acquisition or credential access
 - **AND** native flag-group failures SHALL identify the invoked command's help,
   not an unrelated readiness check
-- **AND** explicit empty Profile purpose SHALL remain a valid request to clear
+- **AND** explicit empty Route purpose SHALL remain a valid request to clear
   that optional display field.
 
 ### Requirement: Program replacement has an explicit client reconciliation boundary
@@ -1800,9 +1805,9 @@ name the exact owned resource and SHALL NOT silently report success.
   reclaimed on success or failure
 - **AND** cleanup failure SHALL retain the invocation error and exact workspace.
 
-#### Scenario: Coverage measurement succeeds but profile cleanup fails
+#### Scenario: Coverage measurement succeeds but route cleanup fails
 
-- **WHEN** a coverage command cannot remove its owned temporary profile
+- **WHEN** a coverage command cannot remove its owned temporary route
 - **THEN** its exit status SHALL indicate failure and its diagnostic SHALL name
   that file without suppressing any preceding test failure.
 

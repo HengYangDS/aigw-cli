@@ -38,7 +38,7 @@ type statusOutput struct {
 	ConfigPath        string                   `json:"config_path"`
 	CredentialBackend secrets.BackendSelection `json:"credential_backend"`
 	Clients           map[string]clientStatus  `json:"clients"`
-	Profiles          int                      `json:"profiles"`
+	Routes            int                      `json:"routes"`
 }
 
 var inspectAdapter = func(ctx context.Context, runtime invocation.Context, cfg configuration.Config, clientID string, clientRuntime configuration.Runtime) clientdomain.Status {
@@ -48,7 +48,7 @@ var inspectAdapter = func(ctx context.Context, runtime invocation.Context, cfg c
 // NewStatusCommand constructs the read-only configuration and client readiness command.
 func NewStatusCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
-	cmd := &cobra.Command{Use: "status", Short: "Show each client's selected profile and local readiness", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "status", Short: "Show each client's selected route and local readiness", Args: cobra.NoArgs}
 	cmd.RunE = func(_ *cobra.Command, _ []string) error { return RunStatus(runtime, jsonMode) }
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
 	return cmd
@@ -85,7 +85,7 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 		}
 		adapterStatus := inspectAdapter(context.Background(), runtime, cfg, clientID, clientRuntime)
 		facts := domainreadiness.ClientFacts{
-			Profile:            clientRuntime.RouteID,
+			Route:              clientRuntime.RouteID,
 			Account:            clientRuntime.AccountID,
 			CredentialRequired: clientRuntime.UsesAIGWCredentialStore(),
 			ProjectionEnabled:  cfg.Clients[clientID].Enabled,
@@ -127,16 +127,16 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 
 func unresolvedClientStatus(cfg *configuration.Config, clientID string, resolveErr error) clientStatus {
 	facts := domainreadiness.ClientFacts{}
-	if profile := cfg.SelectedRoute(clientID); profile != "" {
-		facts.Profile = profile
+	if route := cfg.SelectedRoute(clientID); route != "" {
+		facts.Route = route
 		facts.BindingIssue = resolveErr.Error()
-		facts.BindingAction = "aigw use --for " + clientID + " <profile>"
+		facts.BindingAction = "aigw use --for " + clientID + " <route>"
 	} else if suggested := cfg.RecommendedRoute(clientID); suggested != "" {
-		facts.SuggestedProfile = suggested
+		facts.SuggestedRoute = suggested
 		facts.BindingAction = "aigw use --for " + clientID + " " + suggested
 	}
 	state := domainreadiness.ClassifyClient(facts)
-	if facts.Profile == "" && facts.SuggestedProfile == "" {
+	if facts.Route == "" && facts.SuggestedRoute == "" {
 		state.NextAction = ""
 	}
 	return clientStatus{Client: state}
@@ -163,7 +163,7 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 		ConfigPath:        runtime.Config.Path(),
 		CredentialBackend: backend,
 		Clients:           clients,
-		Profiles:          len(cfg.Routes),
+		Routes:            len(cfg.Routes),
 	}
 }
 

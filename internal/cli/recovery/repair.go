@@ -47,7 +47,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 		return err
 	}
 	if len(before.Routes) == 0 {
-		return presentation.ProblemError("Not configured", "No Profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
+		return presentation.ProblemError("Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
 	synchronizer := invocation.Synchronizer(runtime)
 	after, discovered, err := synchronizer.DesiredClientConfiguration(before)

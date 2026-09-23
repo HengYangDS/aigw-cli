@@ -22,8 +22,8 @@ table. Help is available before configuration and does not create local state.
 
 Runnable commands show their invocation; command groups show `[command]`.
 A command that supports both shows both forms. The root journey uses
-`aigw use --for <client> <profile>`: the client binding, not the reusable
-Profile, owns selection. Interactive invocation may prompt for omitted values;
+`aigw use --for <client> <route>`: the client binding, not the reusable
+Route, owns selection. Interactive invocation may prompt for omitted values;
 automation must state both. The command grammar remains the automation contract.
 
 Argument admission precedes configuration locking and command execution. An
@@ -49,9 +49,9 @@ newline. The presentation owner delegates encoding to Go's standard library;
 command owners retain their schemas and exit-status decisions. Terminal width
 and color do not alter machine output.
 
-`account list`, `profile list`, and `status --json` expose deterministic,
-secret-free JSON inventories. Account and Profile IDs use lexical order;
-client-keyed state uses stable client identifiers. Profile inventory names credential
+`account list`, `route list`, and `status --json` expose deterministic,
+secret-free JSON inventories. Account and Route IDs use lexical order;
+client-keyed state uses stable client identifiers. Route inventory names credential
 ownership as `aigw`, `external`, or `client`, and only AIGW-owned credentials
 include availability metadata. Unselected Client Bindings remain explicit and
 include their next usable `aigw use` action when one exists.
@@ -100,9 +100,9 @@ Use the least powerful command that answers the current question:
 4. `aigw repair --dry-run --json` previews only AIGW-owned reconciliation;
    `aigw repair` applies that bounded plan.
 5. `aigw test` tests selected Account endpoints. `--for <client>` chooses the
-   client; optional `--profile <profile>` overrides that client's current
+   client; optional `--route <route>` overrides that client's current
    binding for this read-only request. With no selected binding it fails and
-   recommends `aigw use --for <client> <profile>` rather than reporting an empty
+   recommends `aigw use --for <client> <route>` rather than reporting an empty
    success. A one-time `--token-stdin` request requires an explicit client and
    never accesses the credential store; optional `--config` selects an absolute
    configuration file. Its result is HTTP observation, not model inference or
@@ -120,7 +120,7 @@ The JSON vocabulary follows that evidence boundary:
 
 | Field or state        | Exact meaning                                                   |
 | --------------------- | --------------------------------------------------------------- |
-| `endpoint_configured` | The selected Profile resolves an endpoint address.              |
+| `endpoint_configured` | The selected Route resolves an endpoint address.                |
 | `projection_ready`    | The local client projection passes inspection.                  |
 | `check_passed`        | The binding passed the checks applicable to its authentication. |
 | `configured`          | Local prerequisites pass; no successful endpoint evidence.      |
@@ -171,5 +171,5 @@ classification, including IPv4-mapped addresses and case-insensitive
 `localhost`. Classification performs no DNS lookup or service probe. Private
 and unspecified network addresses are not loopback and still require HTTPS.
 
-Client Binding commands manage AIGW Profile selection only. They do not inspect
+Client Binding commands manage AIGW Route selection only. They do not inspect
 or control IDEs, external proxies, desktop-only state, or conversations.

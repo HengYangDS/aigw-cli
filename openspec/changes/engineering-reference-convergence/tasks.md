@@ -15,7 +15,7 @@
 - [x] 2.4 Reconcile `use`, client-scoped selection, default selection, `use --all`, `status`, `check`, `doctor`, `test`, and `verify`; verify defaults have one human-readable meaning and explicit client selections require no hidden global step.
 - [x] 2.5 Verify setup, synchronization, selection, and repair are transactional under cancellation, output failure, concurrent external edits, and compensation failure.
 - [x] 2.6 Remove obsolete setup aliases, duplicate state transitions, and unconsumed configuration fields; verify supported manifests receive explicit migration errors rather than silent reinterpretation.
-- [x] 2.7 Replace client-bound model duplication and parallel Route/Adapter selection with reusable Profiles and one explicit client binding; verify independent choices, native options, disabled intent, unambiguous protocol selection, and unaffected clients.
+- [x] 2.7 Replace client-bound model duplication and parallel Route/Adapter selection with reusable Routes and one explicit client binding; verify independent choices, native options, disabled intent, unambiguous protocol selection, and unaffected clients.
 - [x] 2.8 Preview and execute a bounded retained-state schema migration without copying credentials or changing client sessions; verify exact guarded rollback and remove the replaced runtime schema and duplicate orchestration.
 
 ## 3. Converge credential ownership and portability
@@ -29,7 +29,7 @@
 ## 4. Converge clients, model access, and gateway composition
 
 - [x] 4.1 Trace all Proxy names, loopback defaults, lifecycle assumptions, and traffic behavior in AIGW; verify AIGW retains only provider-neutral endpoint composition and no Proxy installation or runtime ownership.
-- [x] 4.2 Verify direct provider endpoints and independently managed compatible endpoints through the same Account/Profile/Route contract, including absent and unavailable gateways.
+- [x] 4.2 Verify direct provider endpoints and independently managed compatible endpoints through the same Account/Route contract, including absent and unavailable gateways.
 - [x] 4.3 Remove mandatory Proxy-shaped defaults, duplicated compatibility behavior, and unconsumed gateway fields; verify existing supported configurations receive a precise migration path.
 - [x] 4.4 Verify ordinary Providers and non-OpenAI/non-Anthropic model families through declared protocol and capability contracts; retain synthetic extension tests and add real client evidence without adding vendor-name branches to the core.
 - [x] 4.5 Implement and admit the Hermes Adapter through its supported configuration and credential interfaces; verify discovery, the connected Accounts' protocol-grouped native model catalogue, explicit active selection, scoped projection, deferred activation, real tool use, rollback, disable, and uninstall without changing Hermes-owned sessions or services.
@@ -38,7 +38,7 @@
 - [ ] 4.8 Qualify selected cross-model routes in Codex CLI/Desktop, Claude Code, and Claude Desktop; verify exact upstream identity, streaming, tool results, cancellation, continuation, compaction, and explicit feature limits without rewriting session state or disguising the serving model.
 - [x] 4.9 Complete source-backed assessments for OpenCode, Pi, CodeBuddy CLI, WorkBuddy Desktop, Qoder CLI/IDE, and ChatGPT Chat/Work/Codex surfaces; state the supported extension path, actual platform coverage, and a bounded implementation or research disposition for each.
 - [x] 4.10 Document and validate the AWS Bedrock and other provider extension recipes; distinguish a data-only endpoint/model addition, client-native authentication, and a protocol adapter, with concrete cost and capability evidence.
-- [x] 4.11 Replace the global Flagship/Daily classification and Account-plus-model Profile conflation with canonical Models, exact Account Routes, client-scoped primary and alternative recommendations, and one bounded migration; distinguish Anthropic Messages, OpenAI Chat Completions, OpenAI Responses, Responses reasoning, tools, streaming, continuation, compaction, structured output, and multimodal capability without model-name inference, while preserving explicit Client Bindings and native model-choice authority.
+- [x] 4.11 Replace the global Flagship/Daily classification and Account-plus-model Profile conflation with canonical Models, exact Account Routes, client-scoped primary and alternative recommendations, and one bounded migration; remove Profile from the current AIGW command, output, and schema language while retaining only explicit legacy-migration and client-native meanings; distinguish Anthropic Messages, OpenAI Chat Completions, OpenAI Responses, Responses reasoning, tools, streaming, continuation, compaction, structured output, and multimodal capability without model-name inference, while preserving explicit Client Bindings and native model-choice authority.
 - [x] 4.12 Implement bounded provider-catalogue observation, normalization, deterministic difference, qualification, admission, deprecation, and retirement through the existing configuration and verification owners; verify new or missing catalogue entries never mutate the reviewed team manifest, recommendations, bindings, credentials, or native projections without explicit review and intent.
 
 ## 5. Align logical and physical repository structure

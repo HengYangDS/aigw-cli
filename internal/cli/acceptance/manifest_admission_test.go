@@ -43,7 +43,7 @@ func TestSetupAdmitsArgumentsBeforeCreatingConfiguration(t *testing.T) {
 		{"--from", " "},
 		{"--from", "team.toml", "--account="},
 		{"--from", "team.toml", "--account", "\t"},
-		{"--from", "team.toml", "--profile="},
+		{"--from", "team.toml", "--route="},
 		{"--from", "team.toml", "--label="},
 		{"--from", "team.toml", "--openai-url="},
 		{"--from", "team.toml", "--anthropic-url="},
@@ -167,7 +167,7 @@ interfaces = { anthropic = ["text"] }
 	assertManifestSetupLeavesNoConfig(t, app)
 }
 
-func TestSetupFromConfigurationManifestRejectsProfileWithoutModel(t *testing.T) {
+func TestSetupFromConfigurationManifestRejectsRouteWithoutModel(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	manifestPath := writeConfigurationManifest(t, `version = 7
 [recommendations.claude.primary]
@@ -220,7 +220,7 @@ func TestManifestSetupSurfacesManifestAndConfigFailures(t *testing.T) {
 
 	t.Run("already configured", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
 		path := writeConfigurationManifest(t, configurationManifestFixture)
 		err := cli.Execute(app, []string{"setup", "--from", path})
 		if err == nil || !strings.Contains(err.Error(), "already configured") {

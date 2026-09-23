@@ -60,7 +60,7 @@ They answer different questions; none substitutes for all the others.
   model](architecture/security-model.md) defines credentials, process boundaries
   and real-request verification.
 - **Concepts:** [Product concepts](concepts/product-concepts.md) defines Accounts,
-  Profiles, Client Bindings, Adapters, endpoints and updates.
+  Routes, Client Bindings, Adapters, endpoints and updates.
 - **Decisions:** [Decision register](decisions/decision-register.md) indexes
   durable rulings and their rationale.
 - **Experience:** [Terminal experience](experience/terminal-experience.md)

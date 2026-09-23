@@ -193,7 +193,7 @@ func TestVerifiedCheckpointAcceptsEquivalentConfigurationFormatting(t *testing.T
 	}
 }
 
-func TestLoadVerifiedCheckpointRejectsProfileOwnedEndpointResidue(t *testing.T) {
+func TestLoadVerifiedCheckpointRejectsLegacyProfileOwnedEndpointResidue(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	checkpoint := `{
   "config": {
@@ -222,7 +222,7 @@ func TestLoadVerifiedCheckpointRejectsProfileOwnedEndpointResidue(t *testing.T) 
 		t.Fatal(err)
 	}
 	if _, err := NewStore(path).LoadVerifiedCheckpoint(); err == nil {
-		t.Fatal("Profile-owned checkpoint endpoint residue was accepted")
+		t.Fatal("Legacy Profile-owned checkpoint endpoint residue was accepted")
 	}
 }
 

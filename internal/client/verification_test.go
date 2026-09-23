@@ -15,12 +15,12 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-type profileVerificationRunner struct {
+type routeVerificationRunner struct {
 	plans  []process.Plan
 	config []byte
 }
 
-func (runner *profileVerificationRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
+func (runner *routeVerificationRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
 	runner.plans = append(runner.plans, plan)
 	if slices.Equal(plan.Args, []string{"--version"}) {
 		return []byte("codex-cli 9.9.9\n"), nil
@@ -57,7 +57,7 @@ func environmentValue(environment []string, name string) string {
 	return ""
 }
 
-func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedProfile(t *testing.T) {
+func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testing.T) {
 	cfg, selected := codexVerificationFixture(t)
 	target := cfg.Clients[configuration.ClientCodex].Targets[0]
 	if err := codex.DisableConfig(target); err != nil {
@@ -83,7 +83,7 @@ func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedProfile(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	runner := &profileVerificationRunner{}
+	runner := &routeVerificationRunner{}
 	if _, err := (codexAdapter{}).Verify(context.Background(), Dependencies{
 		Runner: runner, AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
 	}, cfg, runtime, "alternate"); err != nil {
@@ -94,7 +94,7 @@ func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedProfile(t *test
 		t.Fatal(err)
 	}
 	if !slices.Equal(before, after) {
-		t.Fatal("explicit Profile verification changed the selected Codex projection")
+		t.Fatal("explicit Route verification changed the selected Codex projection")
 	}
 	request := runner.plans[len(runner.plans)-1]
 	verificationHome := ""
@@ -115,7 +115,7 @@ func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedProfile(t *test
 	}
 }
 
-func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedProfile(t *testing.T) {
+func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testing.T) {
 	root := t.TempDir()
 	executable := filepath.Join(root, "claude")
 	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
@@ -148,7 +148,7 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedProfile(t *tes
 	if err := store.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	runner := &profileVerificationRunner{}
+	runner := &routeVerificationRunner{}
 	if _, err := (claudeAdapter{}).Verify(context.Background(), Dependencies{
 		Runner: runner, Secrets: store, ClaudeSettingsPath: settings, AIGWExecutable: aigwExecutable,
 	}, cfg, runtime, "alternate"); err != nil {
@@ -159,7 +159,7 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedProfile(t *tes
 		t.Fatal(err)
 	}
 	if !slices.Equal(before, after) {
-		t.Fatal("explicit Profile verification changed the selected Claude projection")
+		t.Fatal("explicit Route verification changed the selected Claude projection")
 	}
 	request := runner.plans[len(runner.plans)-1]
 	settingsIndex := slices.Index(request.Args, "--settings")

@@ -19,7 +19,7 @@ import (
 
 func TestAdapterEnableSurfacesCredentialObservationFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
 	want := errors.New("credential observation failed")
 	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: want}
 
@@ -31,7 +31,7 @@ func TestAdapterEnableSurfacesCredentialObservationFailure(t *testing.T) {
 
 func TestAdapterEnableReportsConfigurationCommitFailure(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
 	if err := secretStore.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestAdapterValidationBranches(t *testing.T) {
 func TestAdapterStateFailureBranches(t *testing.T) {
 	t.Run("enable already enabled", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
 		cfg, _ := app.Config.Load()
 		cfg.SetClientActivation(configuration.ClientClaude, true, "/old", nil)
 		if err := app.Config.Save(cfg); err != nil {
@@ -130,17 +130,17 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 
 	t.Run("enable unresolved route", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		_ = secretStore.Set("one", "token")
 		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", "/x"})
-		if err == nil || !strings.Contains(err.Error(), "no Profile selected for client \"claude\"") {
+		if err == nil || !strings.Contains(err.Error(), "no Route selected for client \"claude\"") {
 			t.Fatalf("error = %v", err)
 		}
 	})
 
 	t.Run("enable missing token", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
 		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", "/x"})
 		if err == nil || !strings.Contains(err.Error(), "missing a token") {
 			t.Fatalf("error = %v", err)
@@ -149,7 +149,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 
 	t.Run("enable missing discovery", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		_ = secretStore.Set("one", "token")
 		app.Discovery = nil
 		err := cli.Execute(app, []string{"client", "enable", "codex", "--executable", "/x", "--target", filepath.Join(t.TempDir(), "configuration.toml")})
@@ -173,7 +173,7 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-model")
+	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-model")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "team")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -208,7 +208,7 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "gpt-model")
+	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "gpt-model")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "team")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

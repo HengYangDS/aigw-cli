@@ -427,8 +427,8 @@ func TestDefaultRegistryIgnoresOnlyAnUnselectedRoute(t *testing.T) {
 
 		t.Run(clientID+" with a broken route", func(t *testing.T) {
 			cfg := configuration.NewConfig()
-			cfg.SetSelectedRoute(clientID, "missing-profile")
-			if _, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown route "missing-profile"`) {
+			cfg.SetSelectedRoute(clientID, "missing-route")
+			if _, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown route "missing-route"`) {
 				t.Fatalf("Converge(%q) broken route error = %v", clientID, err)
 			}
 		})

@@ -352,9 +352,9 @@ func TestClientNativeModelProviderChangesProjectionWithoutAIGWCredentialHelper(t
 	}
 	before := testConfig(target)
 	after := before.Clone()
-	profile := after.Routes["gpt"]
-	profile.Model = "openai.gpt-5.6-sol"
-	after.Routes["gpt"] = profile
+	route := after.Routes["gpt"]
+	route.Model = "openai.gpt-5.6-sol"
+	after.Routes["gpt"] = route
 	binding := after.Clients[configuration.ClientCodex]
 	binding.ModelProvider = "amazon-bedrock"
 	binding.Authentication = configuration.AuthenticationClientNative

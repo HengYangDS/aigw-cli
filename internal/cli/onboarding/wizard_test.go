@@ -61,8 +61,8 @@ func TestWizardPromptFailureBranches(t *testing.T) {
 		{name: "label read", prompt: &scriptedWizardPrompt{texts: []string{"account"}, failTextAt: 2}},
 		{name: "client select", prompt: &scriptedWizardPrompt{texts: []string{"account", "Label"}, selectErr: errors.New("select failed")}},
 		{name: "endpoint read", prompt: &scriptedWizardPrompt{texts: []string{"account", "Label"}, failTextAt: 3}},
-		{name: "profile read", prompt: &scriptedWizardPrompt{texts: []string{"account", "Label", "https://one.test"}, failTextAt: 4}},
-		{name: "model read", prompt: &scriptedWizardPrompt{texts: []string{"account", "Label", "https://one.test", "profile"}, failTextAt: 5}},
+		{name: "route read", prompt: &scriptedWizardPrompt{texts: []string{"account", "Label", "https://one.test"}, failTextAt: 4}},
+		{name: "model read", prompt: &scriptedWizardPrompt{texts: []string{"account", "Label", "https://one.test", "route"}, failTextAt: 5}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

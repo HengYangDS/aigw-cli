@@ -159,7 +159,7 @@ func (codexAdapter) Inspect(_ context.Context, deps Dependencies, cfg configurat
 	}
 	status := Status{Ready: true, Checks: make([]Check, 0, len(adapter.Targets))}
 	for index, target := range adapter.Targets {
-		check := Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "profile " + runtime.RouteID}
+		check := Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "route " + runtime.RouteID}
 		if err := codex.ValidateConfig(target, runtime); err != nil {
 			check.Ready = false
 			check.Detail = err.Error()

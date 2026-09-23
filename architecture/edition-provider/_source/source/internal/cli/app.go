@@ -25,10 +25,10 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/cli/manifest"
 	"aigw-cli/internal/cli/onboarding"
-	"aigw-cli/internal/cli/profile"
 	"aigw-cli/internal/cli/readiness"
 	"aigw-cli/internal/cli/recovery"
 	"aigw-cli/internal/cli/renaming"
+	"aigw-cli/internal/cli/route"
 	"aigw-cli/internal/cli/selection"
 	updatecli "aigw-cli/internal/cli/update"
 	"aigw-cli/internal/cli/verification"
@@ -179,10 +179,10 @@ func requiresConfigurationLock(app *App, command *cobra.Command) bool {
 	switch path {
 	case "setup", "add", "use", "rotate", "rollback", "uninstall", "update",
 		"account diagnostics enable", "account diagnostics disable", "account edit",
-		"profile add", "profile edit", "profile remove",
+		"route add", "route edit", "route remove",
 		"client enable", "client disable", "config import":
 		return true
-	case "sync", "repair", "account rename", "profile rename", "config migrate":
+	case "sync", "repair", "account rename", "route rename", "config migrate":
 		dryRun, err := command.Flags().GetBool("dry-run")
 		return err != nil || !dryRun
 	default:
@@ -338,7 +338,7 @@ func NewRoot(app *App) *cobra.Command {
 	advanced := []*cobra.Command{
 		installcli.NewInspectionCommand(runtime),
 		accountcli.NewAddCommand(runtime), accountcli.NewCommand(runtime, renaming.NewAccountCommand(runtime)),
-		profile.NewCommand(runtime, renaming.NewProfileCommand(runtime)),
+		route.NewCommand(runtime, renaming.NewRouteCommand(runtime)),
 		clientcli.NewCommand(runtime),
 		manifest.NewCommand(runtime), readiness.NewTestCommand(runtime),
 		verification.NewCommand(runtime), catalog.NewModelsCommand(app.catalogDependencies()),
@@ -386,7 +386,7 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 		r.Section("Start with one path")
 		r.Rows(
 			presentation.Field{Label: command.CommandPath() + " setup", Value: "Connect the first account"},
-			presentation.Field{Label: command.CommandPath() + " use --for <client> <profile>", Value: "Select one Profile for one client"},
+			presentation.Field{Label: command.CommandPath() + " use --for <client> <route>", Value: "Select one Route for one client"},
 			presentation.Field{Label: command.CommandPath() + " check", Value: "Confirm readiness"},
 		)
 	}

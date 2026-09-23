@@ -310,13 +310,13 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 	for _, want := range []string{
 		"Start with one path",
 		"aigw setup", "Connect the first account",
-		"aigw use --for <client> <profile>", "Select one Profile for one client",
+		"aigw use --for <client> <route>", "Select one Route for one client",
 		"aigw check", "Confirm readiness",
 		"Usage", "aigw [command]",
 		"Connect", "setup",
 		"Use every day", "check", "rotate", "status", "use",
 		"Recover", "doctor", "install", "repair", "rollback", "sync", "uninstall", "update",
-		"Advanced", "account", "add", "balance", "catalog", "client", "completion", "config", "models", "profile", "test", "verify",
+		"Advanced", "account", "add", "balance", "catalog", "client", "completion", "config", "models", "route", "test", "verify",
 		"Options", "show help", "show version",
 	} {
 		_, after, found := strings.Cut(remaining, want)
@@ -344,7 +344,7 @@ func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
 			column := -1
 			for _, row := range [][2]string{
 				{"gateway setup", "Connect the first account"},
-				{"gateway use --for <client> <profile>", "Select one Profile for one client"},
+				{"gateway use --for <client> <route>", "Select one Route for one client"},
 				{"gateway check", "Confirm readiness"},
 			} {
 				if !strings.Contains(semanticHelp, row[0]) || !strings.Contains(semanticHelp, row[1]) {
@@ -409,7 +409,7 @@ func TestPublicCommandTreeCarriesOneCoherentMetadataContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if add.Use != "add <account>" || add.Short != "Add and connect one Account with its first Profile" {
+	if add.Use != "add <account>" || add.Short != "Add and connect one Account with its first Route" {
 		t.Fatalf("add metadata = %q / %q", add.Use, add.Short)
 	}
 }
@@ -453,10 +453,10 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{args: []string{"setup", "--help"}, want: []string{"Account ID; uses the first Profile ID when omitted", "First profile ID", "Read one token line from standard input"}},
-		{args: []string{"test", "--help"}, want: []string{"Test selected endpoints", "Client whose selected Profile to test: Claude, Claude Desktop, Codex, or Hermes"}},
+		{args: []string{"setup", "--help"}, want: []string{"Account ID; uses the first Route ID when omitted", "First route ID", "Read one token line from standard input"}},
+		{args: []string{"test", "--help"}, want: []string{"Test selected endpoints", "Client whose selected Route to test: Claude, Claude Desktop, Codex, or Hermes"}},
 		{args: []string{"models", "--help"}, want: []string{"Compare configured model IDs with provider catalogs", "does not test inference"}},
-		{args: []string{"verify", "--help"}, want: []string{"Client whose selected Profile to verify: Claude, Claude Desktop, Codex, Hermes, or all", "Verify this Profile for the explicit client without changing its binding"}},
+		{args: []string{"verify", "--help"}, want: []string{"Client whose selected Route to verify: Claude, Claude Desktop, Codex, Hermes, or all", "Verify this Route for the explicit client without changing its binding"}},
 		{args: []string{"rotate", "--help"}, want: []string{"Update one Account Token"}},
 		{args: []string{"completion", "--help"}, want: []string{"Generate shell completion"}},
 		{args: []string{"rollback", "--help"}, want: []string{"Restore only the immediately previous configuration backup"}},

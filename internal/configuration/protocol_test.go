@@ -176,8 +176,8 @@ func TestManifestEquivalenceIncludesEveryEndpointAndProtocol(t *testing.T) {
 	if equivalentAccount(left, right) {
 		t.Fatal("manifest import treated different Chat Completions endpoints as equivalent")
 	}
-	profile := Route{Account: "team", Model: "model", Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}}
-	if !equivalentRoute(profile, profile) {
+	route := Route{Account: "team", Model: "model", Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}}
+	if !equivalentRoute(route, route) {
 		t.Fatal("manifest import treated equal provider model identities as different")
 	}
 }

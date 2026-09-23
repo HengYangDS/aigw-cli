@@ -79,11 +79,11 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string) {
 		t.Fatal(err)
 	}
 	for _, client := range plan.clients {
-		profile := selected.SelectedRoute(client)
-		if profile == "" {
-			t.Fatalf("Account %q has no compatible recommended Profile for %s", account, client)
+		route := selected.SelectedRoute(client)
+		if route == "" {
+			t.Fatalf("Account %q has no compatible recommended Route for %s", account, client)
 		}
-		journey.run("use", "--for", client, profile)
+		journey.run("use", "--for", client, route)
 	}
 	plan.requireSelectedAccount(t, journey, account)
 }
@@ -103,8 +103,8 @@ func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *jo
 			t.Fatalf("one connected Account did not activate %s: %#v, %v", clientID, selected, err)
 		}
 		recommended := plan.manifest.Routes[plan.manifest.Recommendations[clientID].Primary.Route]
-		offered := slices.ContainsFunc(slices.Collect(maps.Values(plan.manifest.Routes)), func(profile configuration.Route) bool {
-			return profile.Account == account && profile.Model == recommended.Model
+		offered := slices.ContainsFunc(slices.Collect(maps.Values(plan.manifest.Routes)), func(route configuration.Route) bool {
+			return route.Account == account && route.Model == recommended.Model
 		})
 		if offered && selected.Model != recommended.Model {
 			t.Fatalf("%s activation lost recommended model %q: %q", clientID, recommended.Model, selected.Model)

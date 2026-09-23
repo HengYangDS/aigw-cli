@@ -161,7 +161,7 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 		t.Fatal(err)
 	}
 	if prompt.textCalls != 0 {
-		t.Fatalf("endpoint/profile text prompts = %d, want 0", prompt.textCalls)
+		t.Fatalf("endpoint/route text prompts = %d, want 0", prompt.textCalls)
 	}
 	if len(prompt.secretCalls) != 1 || !strings.Contains(prompt.secretCalls[0], "DMXAPI") {
 		t.Fatalf("secret prompts = %#v, want only the selected Account", prompt.secretCalls)
@@ -208,12 +208,12 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	if !maps.Equal(requests, wantValidationRequests) {
 		t.Fatalf("validation requests = %#v, want %#v", requests, wantValidationRequests)
 	}
-	wantProfiles := map[string]configuration.Route{
+	wantRoutes := map[string]configuration.Route{
 		"aihubmix-claude": qualifiedRoute("AIHubMix Claude", "aihubmix", "claude-test", configuration.ProtocolAnthropic),
 		"dmxapi-claude":   qualifiedRoute("DMXAPI Claude", "dmxapi", "claude-test", configuration.ProtocolAnthropic),
 		"dmxapi-gpt":      qualifiedRoute("DMXAPI GPT", "dmxapi", "gpt-test", configuration.ProtocolOpenAIResponses),
 	}
-	if !reflect.DeepEqual(cfg.Routes, wantProfiles) {
+	if !reflect.DeepEqual(cfg.Routes, wantRoutes) {
 		t.Fatalf("manifest model matrix was not preserved: %#v", cfg.Routes)
 	}
 

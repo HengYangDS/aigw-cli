@@ -97,15 +97,15 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 			if selection.Route == "" {
 				continue
 			}
-			profile, resolveErr := cfg.ResolveRuntime(client, selection.Route)
+			route, resolveErr := cfg.ResolveRuntime(client, selection.Route)
 			if resolveErr != nil {
 				continue
 			}
-			if !profile.RequiresAccountToken() {
+			if !route.RequiresAccountToken() {
 				ready = true
 				continue
 			}
-			name := profile.AccountID
+			name := route.AccountID
 			if observed[name] {
 				continue
 			}

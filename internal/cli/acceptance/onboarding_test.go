@@ -168,9 +168,9 @@ func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T)
 	if err := cli.Execute(app, []string{"sync", "--dry-run"}); err != nil {
 		t.Fatalf("render sync preview after setting one environment Token: %v", err)
 	}
-	for client, profile := range wantRoutes {
-		if !strings.Contains(out.String(), "Client · "+client) || !strings.Contains(out.String(), profile) {
-			t.Fatalf("sync preview omitted %s route %s:\n%s", client, profile, out.String())
+	for client, route := range wantRoutes {
+		if !strings.Contains(out.String(), "Client · "+client) || !strings.Contains(out.String(), route) {
+			t.Fatalf("sync preview omitted %s route %s:\n%s", client, route, out.String())
 		}
 	}
 	afterPreview, err := app.Config.Load()

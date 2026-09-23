@@ -84,7 +84,7 @@ func configuredRuntime(t *testing.T) (invocation.Context, configuration.Config, 
 	return invocation.Context{Config: store, Out: out, RenderOut: out, Width: 120, Discovery: staticDiscovery{}}, cfg, out
 }
 
-func TestUseSelectsOnlyTheProfilesDeclaredClient(t *testing.T) {
+func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
 	secretStore := secrets.NewMemoryStore()
 	runtime.Secrets = secretStore
@@ -118,7 +118,7 @@ func TestUseSelectsOnlyTheProfilesDeclaredClient(t *testing.T) {
 	if got.SelectedRoute(configuration.ClientClaude) != "claude" || got.SelectedRoute(configuration.ClientCodex) != "codex" || len(got.Clients) != 2 {
 		t.Fatalf("client bindings = %#v", got.Clients)
 	}
-	for _, want := range []string{"Profile selected", "Claude", "Team reviewer", "Client configuration synchronized", "aigw check"} {
+	for _, want := range []string{"Route selected", "Claude", "Team reviewer", "Client configuration synchronized", "aigw check"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("output lacks %q: %q", want, out.String())
 		}
@@ -132,8 +132,8 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 		want      []string
 		forbid    string
 	}{
-		{name: "restart", installed: true, want: []string{"Profile selected", "Restart required", "Restart Claude Desktop, then run `aigw check`"}},
-		{name: "deferred", want: []string{"Profile selected", "Projection", "Deferred; Claude Desktop is not installed", "Install Claude Desktop, then run `aigw sync`"}, forbid: "Restart required"},
+		{name: "restart", installed: true, want: []string{"Route selected", "Restart required", "Restart Claude Desktop, then run `aigw check`"}},
+		{name: "deferred", want: []string{"Route selected", "Projection", "Deferred; Claude Desktop is not installed", "Install Claude Desktop, then run `aigw sync`"}, forbid: "Restart required"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, out := configuredRuntime(t)
@@ -214,8 +214,8 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 		runtime func(invocation.Context) invocation.Context
 		want    string
 	}{
-		{name: "profile required", runtime: func(value invocation.Context) invocation.Context { value.Interactive = false; return value }, want: "requires a Profile"},
-		{name: "unknown profile", args: []string{"missing"}, want: "unknown profile"},
+		{name: "route required", runtime: func(value invocation.Context) invocation.Context { value.Interactive = false; return value }, want: "requires a Route"},
+		{name: "unknown route", args: []string{"missing"}, want: "unknown route"},
 		{name: "load", args: []string{"codex"}, runtime: func(value invocation.Context) invocation.Context {
 			value.Config = configuration.NewStore(t.TempDir())
 			return value
@@ -267,7 +267,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			t.Fatalf("token = %q, %v", token, err)
 		}
 		out := buffer.String()
-		for _, want := range []string{"Profile selected", "Account token stored; client configuration synchronized"} {
+		for _, want := range []string{"Route selected", "Account token stored; client configuration synchronized"} {
 			if !strings.Contains(out, want) {
 				t.Fatalf("credential acquisition output lacks %q: %q", want, out)
 			}
