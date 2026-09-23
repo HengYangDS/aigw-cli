@@ -9,6 +9,18 @@ separate evidence.
 
 ## [Unreleased]
 
+## [0.2.0-rc.3] - 2026-09-24
+
+### Fixed
+
+- Migrate the published 0.1.0 configuration schema explicitly, preserving
+  selected clients and exact predecessor bytes for rollback through unchanged
+  synchronization and verification.
+- Test published-predecessor upgrades separately from current-schema client
+  journeys, using an input manifest the released executable can read.
+- Prevent isolated Hermes verification from installing unrelated optional
+  dependencies before it tests the selected inference route.
+
 ## [0.2.0-rc.2] - 2026-09-23
 
 ### Fixed

@@ -1231,8 +1231,56 @@ acceptance passed for the same product tree.
 
 Release-policy tests now clear every supported tag-selection variable before
 constructing their private fixture. `v0.2.0-rc.1` remains immutable and has no
-Release record. The corrected source advances to `0.2.0-rc.2`; its tag and
-published assets require fresh exact-HEAD and hosted evidence.
+Release record. The corrected `v0.2.0-rc.2` tag points to accepted commit
+`59724fc336bef2cc1206962736d4ff50df6b8775`. GitHub Verify
+`35871206056` and GitLab tag pipeline `7997` passed. GitHub Release
+`394739766` and GitLab package `211` contain the same 12 files with matching
+individual SHA-256 digests; six GitHub Release platform runs and GitLab
+pipeline `7999` consumed their respective published bytes successfully.
+
+## Published predecessor and macOS distribution admission
+
+The separate GitHub historical Verify run `35875762877` failed on macOS,
+Linux, and Windows. Its fixture sent a current v7 team manifest to the real
+published `v0.1.0` executable, whose strict parser accepts v4. The ordinary
+source gate had built a predecessor from current source and therefore had not
+tested that producer. The published predecessor also persists configuration
+schema v3, while the candidate's explicit migration previously accepted only
+v5. These failures keep task 9.3 and dependent performance acceptance open;
+the successful tag and Release jobs do not supersede them.
+
+The repair derives v3 wire protocols solely from the published, explicit
+Claude and Codex client contract, preserves selected bindings and native
+options, retains exact predecessor bytes for rollback, and rejects any
+client-specific options with no selected or recommended owner. Current-schema
+fixture journeys and the actual published-predecessor transition now execute
+separately against the same selected candidate. A no-op configuration commit
+preserves operator formatting and migration rollback material; verified backup
+convergence leaves that predecessor intact. Local macOS native acceptance
+passes both journeys against the corrected worktree. A new immutable release
+candidate and hosted acceptance remain required.
+
+The real-client preflight initially stopped before Hermes inference because
+the journey looked for a fixed provider name while Hermes selected an
+Account-and-protocol-specific provider. After reading the selected provider,
+the isolated verifier still timed out before any request reached the controlled
+server: the installed Hermes runtime tried to install an unrelated optional
+Bedrock dependency into its temporary home. The verifier now disables lazy
+dependency installation only in its disposable configuration. The complete
+local `accept-native --clients` run then passed the published-predecessor
+transition, Claude Code, Codex, Hermes, and all 13 selected Codex general
+routes. This is local source acceptance; hosted candidate acceptance remains
+separate.
+
+The published rc.2 Homebrew Cask downloaded and installed into Caskroom with
+the expected archive checksum, while preserving the operator's existing AIGW
+program. The downloaded executable carried quarantine and an ad-hoc signature;
+macOS assessment rejected it before CLI startup. The temporary Cask and local
+tap were removed with the existing program and rollback copy byte-identical.
+The current Developer ID identity and neutral `notarytool` Keychain profile
+both passed read-only availability checks. The final Homebrew distribution
+must consume newly signed and accepted notarized bytes; rc.2 assets remain
+immutable evidence and must not be silently replaced.
 
 ## Initial deletion inventory
 

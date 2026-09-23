@@ -29,7 +29,7 @@ func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 					t.Fatalf("source acceptance escaped its product test owner: %#v", call)
 				}
 				workspace = strings.TrimPrefix(call.Env[1], "TMPDIR=")
-				if !filepath.IsAbs(workspace) || !slices.Equal(call.Env, []string{"AIGW_ACCEPTANCE_RELEASE=", "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace}) {
+				if !filepath.IsAbs(workspace) || !slices.Equal(call.Env, []string{"AIGW_ACCEPTANCE_RELEASE=", "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace, "AIGW_ACCEPTANCE_BASELINE="}) {
 					t.Fatalf("source acceptance environment = %#v", call.Env)
 				}
 				if err := os.WriteFile(filepath.Join(workspace, "test-owned-output"), []byte("fixture"), 0o600); err != nil {
@@ -50,6 +50,33 @@ func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 				t.Fatalf("native acceptance workspace survived: %s, %v", workspace, err)
 			}
 		})
+	}
+}
+
+func TestNativeAcceptanceRunsPublishedPredecessorSeparatelyFromCurrentSchemaJourneys(t *testing.T) {
+	baseline := filepath.Join(t.TempDir(), "published-aigw")
+	if err := os.WriteFile(baseline, []byte("published predecessor"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", baseline)
+	request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
+	var calls []toolCall
+	if err := acceptNative(request, "", false, "", func(call toolCall) error {
+		calls = append(calls, call)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 2 {
+		t.Fatalf("published predecessor acceptance calls = %d, want current-schema and published journeys", len(calls))
+	}
+	if !slices.Contains(calls[0].Env, "AIGW_ACCEPTANCE_BASELINE=") ||
+		!slices.Contains(calls[0].Args, "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney)$") {
+		t.Fatalf("current-schema journey consumed the published predecessor: %#v", calls[0])
+	}
+	if !slices.Contains(calls[1].Env, "AIGW_ACCEPTANCE_BASELINE="+baseline) ||
+		!slices.Contains(calls[1].Args, "^TestNativePublishedPredecessorJourney$") {
+		t.Fatalf("published predecessor was not selected for its exact lifecycle: %#v", calls[1])
 	}
 }
 
@@ -171,6 +198,7 @@ func TestNativeArchivePreparationRequiresVerifiedBytes(t *testing.T) {
 }
 
 func TestNativeClientAcceptanceSharesStageAndPropagatesFailure(t *testing.T) {
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
 	for _, test := range []struct {
 		name           string
 		failure, calls int
@@ -204,7 +232,7 @@ func TestNativeClientAcceptanceSharesStageAndPropagatesFailure(t *testing.T) {
 				t.Fatalf("executed %d commands with stage %q", len(calls), stage)
 			}
 			for _, call := range calls {
-				if call.Directory != request.Root || !slices.Equal(call.Env, []string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + stage, "TMP=" + stage, "TEMP=" + stage}) {
+				if call.Directory != request.Root || !slices.Equal(call.Env, []string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + stage, "TMP=" + stage, "TEMP=" + stage, "AIGW_ACCEPTANCE_BASELINE="}) {
 					t.Fatalf("acceptance lost stage ownership: %#v", call)
 				}
 			}

@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -83,6 +84,16 @@ func (s Store) Commit(before Snapshot, cfg Config) (Snapshot, error) {
 }
 
 func (s Store) commitData(before Snapshot, data []byte) (Snapshot, error) {
+	if before.Config.Exists && configurationDataEquivalent(before.Config.Data, data) {
+		current, err := s.CaptureSnapshot()
+		if err != nil {
+			return Snapshot{}, err
+		}
+		if !current.Config.Equal(before.Config) || !current.Backup.Equal(before.Backup) || !current.Verified.Equal(before.Verified) {
+			return Snapshot{}, errors.New("configuration preimage changed; refusing unchanged commit")
+		}
+		return before, nil
+	}
 	backupAfter := before.Backup
 	if before.Config.Exists {
 		var err error
@@ -114,6 +125,15 @@ func (s Store) commitData(before Snapshot, data []byte) (Snapshot, error) {
 		}
 	}
 	return Snapshot{}, errors.Join(failures...)
+}
+
+func configurationDataEquivalent(before, after []byte) bool {
+	if bytes.Equal(before, after) {
+		return true
+	}
+	previous, previousErr := decodeTOMLConfig(before)
+	next, nextErr := decodeTOMLConfig(after)
+	return previousErr == nil && nextErr == nil && reflect.DeepEqual(previous, next)
 }
 
 // CaptureVerifiedBackupState requires a current checkpoint only when clients are enabled.
@@ -166,10 +186,38 @@ func (s Store) ConvergeVerifiedBackup(expected Snapshot) error {
 	if !currentVerified.Equal(expected.Verified) {
 		return errors.New("verified checkpoint preimage changed; refusing to converge backup")
 	}
+	preserve, err := s.preserveMigrationRollbackInput(expected.Backup)
+	if err != nil {
+		return err
+	}
+	if preserve {
+		return nil
+	}
 	if _, err := transaction.WriteFileAtomicExactModeIfUnchanged(s.path+".bak", expected.Backup, expected.Config.Data, 0o600); err != nil {
 		return fmt.Errorf("converge verified config backup: %w", err)
 	}
 	return nil
+}
+
+func (s Store) preserveMigrationRollbackInput(expected transaction.FileSnapshot) (bool, error) {
+	if !expected.Exists {
+		return false, nil
+	}
+	version, err := configurationVersion(expected.Data)
+	if err != nil || (version != PublishedConfigVersion && version != LegacyConfigVersion) {
+		return false, nil
+	}
+	if _, err := migratePredecessorConfig(expected.Data, version); err != nil {
+		return false, fmt.Errorf("validate migration rollback input: %w", err)
+	}
+	current, err := transaction.CaptureFileSnapshot(s.path + ".bak")
+	if err != nil {
+		return false, err
+	}
+	if !current.Equal(expected) {
+		return false, errors.New("migration rollback input preimage changed; refusing to converge backup")
+	}
+	return true, nil
 }
 
 // RestoreSnapshot independently restores configuration, backup and checkpoint

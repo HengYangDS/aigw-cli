@@ -171,10 +171,15 @@ predecessor-path rule.
 ## Configuration migration
 
 Normal commands read only the current schema. The explicit
-`aigw config migrate --dry-run` operation is the sole reader for the immediately
-preceding supported schema. Its preview lists retained Accounts, Routes,
+`aigw config migrate --dry-run` operation accepts the published 0.1.0
+configuration schema and the immediate pre-convergence schema. For 0.1.0,
+the declared Claude and Codex clients determine their published wire protocols;
+model names never do. The later predecessor must declare its protocols explicitly.
+The preview lists retained Accounts, Routes,
 recommendations, Client Bindings and native targets without reading Tokens or
 writing client files. `aigw config migrate` commits the new schema with the
 existing guarded configuration writer and retains the exact predecessor as the
-single backup. `aigw config migrate --rollback` swaps that exact state back
-before a program rollback; it never reconstructs historical configuration.
+single backup through unchanged synchronization and verification. A substantive
+configuration edit supersedes that one-version backup. Run
+`aigw config migrate --rollback` before program rollback while the predecessor
+backup is retained; AIGW never reconstructs historical configuration.

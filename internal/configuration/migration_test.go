@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -10,6 +11,188 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 )
+
+func publishedV010Store(t *testing.T) (Store, []byte, string, string, string) {
+	t.Helper()
+	root := t.TempDir()
+	store := NewStore(filepath.Join(root, "config.toml"))
+	executable := filepath.Join(root, "bin", "codex")
+	target := filepath.Join(root, "home", ".codex", "config.toml")
+	credentialCommand := filepath.Join(root, "bin", "aigw")
+	predecessor := []byte(fmt.Sprintf(`version = 3
+
+[accounts.gateway]
+label = "Gateway"
+
+[accounts.gateway.endpoints]
+anthropic = "https://gateway.test"
+openai_responses = "https://gateway.test/v1"
+
+[profiles.claude]
+label = "Claude"
+account = "gateway"
+client = "claude"
+model = "claude-test"
+
+[profiles.codex]
+label = "Codex"
+account = "gateway"
+client = "codex"
+model = "gpt-test"
+model_provider = "amazon-bedrock"
+authentication = "client-native"
+
+[routes]
+claude = "claude"
+codex = "codex"
+
+[recommended_routes]
+codex = "codex"
+
+[adapters.claude]
+enabled = false
+
+[adapters.codex]
+enabled = true
+executable = %q
+targets = [%q]
+credential_command = %q
+`, executable, target, credentialCommand))
+	if err := os.WriteFile(store.Path(), predecessor, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return store, predecessor, executable, target, credentialCommand
+}
+
+func TestPrepareMigrationPreservesPublishedV010Selection(t *testing.T) {
+	store, predecessor, executable, target, credentialCommand := publishedV010Store(t)
+	plan, err := store.PrepareMigration(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.Required || plan.FromVersion != 3 || plan.ToVersion != ConfigVersion {
+		t.Fatalf("published predecessor migration = %#v", plan)
+	}
+	if actual := plan.Clients[ClientClaude]; !reflect.DeepEqual(actual, ClientBinding{Route: "claude", Protocol: ProtocolAnthropic}) {
+		t.Fatalf("disabled Claude selection = %#v", actual)
+	}
+	wantCodex := ClientBinding{
+		Route: "codex", Enabled: true, Protocol: ProtocolOpenAIResponses,
+		ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
+		Executable: executable, Targets: []string{target}, CredentialCommand: credentialCommand,
+	}
+	if actual := plan.Clients[ClientCodex]; !reflect.DeepEqual(actual, wantCodex) {
+		t.Fatalf("Codex selection = %#v", actual)
+	}
+	wantRecommendation := ClientRecommendation{Primary: ClientSelection{
+		Route: "codex", Protocol: ProtocolOpenAIResponses,
+		ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
+	}}
+	if actual := plan.Recommendations[ClientCodex]; !reflect.DeepEqual(actual, wantRecommendation) {
+		t.Fatalf("Codex recommendation = %#v", actual)
+	}
+	if actual, err := os.ReadFile(store.Path()); err != nil || !bytes.Equal(actual, predecessor) {
+		t.Fatalf("migration preview changed published predecessor: %v", err)
+	}
+}
+
+func appliedPublishedV010Store(t *testing.T) (Store, Config, []byte) {
+	t.Helper()
+	store, predecessor, _, _, _ := publishedV010Store(t)
+	plan, err := store.PrepareMigration(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.ApplyMigration(plan); err != nil {
+		t.Fatal(err)
+	}
+	migrated, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(migrated.Models) != 2 || len(migrated.Routes) != 2 {
+		t.Fatalf("published predecessor identities were lost: models=%d routes=%d", len(migrated.Models), len(migrated.Routes))
+	}
+	for id, route := range migrated.Routes {
+		if route.UpstreamModel != route.Model || len(route.Interfaces) != 1 {
+			t.Fatalf("route %q changed upstream identity or invented protocols: %#v", id, route)
+		}
+		for _, capabilities := range route.Interfaces {
+			if len(capabilities) != 0 {
+				t.Fatalf("route %q invented capabilities: %v", id, capabilities)
+			}
+		}
+	}
+	return store, migrated, predecessor
+}
+
+func TestPublishedV010NoOpPreservesFormattingAndRollbackInput(t *testing.T) {
+	store, migrated, predecessor := appliedPublishedV010Store(t)
+	beforeNoOp, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Save(migrated); err != nil {
+		t.Fatal(err)
+	}
+	afterNoOp, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !beforeNoOp.Config.Equal(afterNoOp.Config) || !beforeNoOp.Backup.Equal(afterNoOp.Backup) || !beforeNoOp.Verified.Equal(afterNoOp.Verified) {
+		t.Fatal("an unchanged migrated configuration rewrote its rollback input")
+	}
+	annotated := append([]byte("# operator-owned formatting\n"), afterNoOp.Config.Data...)
+	if err := os.WriteFile(store.Path(), annotated, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Save(migrated); err != nil {
+		t.Fatal(err)
+	}
+	if actual, err := os.ReadFile(store.Path()); err != nil || !bytes.Equal(actual, annotated) {
+		t.Fatalf("an unchanged migrated configuration lost operator-owned formatting: %v", err)
+	}
+	if backup, err := os.ReadFile(store.Path() + ".bak"); err != nil || !bytes.Equal(backup, predecessor) {
+		t.Fatalf("an unchanged migrated configuration lost its predecessor: %v", err)
+	}
+	if err := store.SaveVerifiedCheckpoint(t.Context(), migrated, []string{ClientCodex}); err != nil {
+		t.Fatal(err)
+	}
+	verified, err := store.CaptureVerifiedBackupState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.ConvergeVerifiedBackup(verified.Snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if backup, err := os.ReadFile(store.Path() + ".bak"); err != nil || !bytes.Equal(backup, predecessor) {
+		t.Fatalf("published predecessor rollback input changed: %v", err)
+	}
+}
+
+func TestPublishedV010RollbackRestoresExactBytes(t *testing.T) {
+	store, _, predecessor := appliedPublishedV010Store(t)
+	rollback, err := store.PrepareMigration(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rollback.FromVersion != ConfigVersion || rollback.ToVersion != 3 {
+		t.Fatalf("published predecessor rollback = %#v", rollback)
+	}
+	if err := store.ApplyMigration(rollback); err != nil {
+		t.Fatal(err)
+	}
+	if actual, err := os.ReadFile(store.Path()); err != nil || !bytes.Equal(actual, predecessor) {
+		t.Fatalf("published predecessor was not restored byte for byte: %v", err)
+	}
+}
+
+func TestPublishedConfigurationVersionDiagnosticOffersExplicitMigration(t *testing.T) {
+	message := (&UnsupportedConfigVersionError{Version: PublishedConfigVersion, ExpectedVersion: ConfigVersion}).Error()
+	if !strings.Contains(message, "aigw config migrate --dry-run") {
+		t.Fatalf("published predecessor diagnostic omitted its admitted migration: %s", message)
+	}
+}
 
 func TestPrepareMigrationTranslatesImmediatePredecessorWithoutInventingCapabilities(t *testing.T) {
 	store, original := legacyStore(t)

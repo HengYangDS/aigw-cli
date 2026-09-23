@@ -477,15 +477,14 @@ An explicitly supplied archive is consumed unchanged and is never
 replaced by a source build. Private fixture signing does not establish
 authorization to credentials created by a historical released executable.
 It tests portable update mechanics, not compatibility with a historical
-release. The historical product journey retains the predecessor's projections
-during the first replacement. The real-client journey keeps each Adapter enabled
-through upgrade, rollback and re-upgrade. Every transition preserves the AIGW
-configuration byte-for-byte, checks the exact active program and executes the
-selected client against a controlled stream. Neither substitutes for the other:
-the first checks packaged lifecycle mechanics, the second checks retained
-native-client integration for the selected release pair. To repeat only the
-packaged lifecycle against a historical release,
-supply an extracted native binary from an independently verified archive:
+release. An explicit published baseline adds a separate journey using a
+manifest the released predecessor can actually read. That journey installs the
+exact candidate, previews and applies its schema migration, synchronizes,
+restores the predecessor's exact configuration, rolls back the program, and
+repeats the forward transition. The current-schema package and real-client
+journeys retain their own predecessor fixture. To exercise the published
+transition, supply an extracted native binary from an independently verified
+archive:
 
 ```bash
 AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
@@ -494,16 +493,16 @@ AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
 
 On Windows, set the same environment variable to the extracted `aigw.exe`.
 The candidate uses the [canonical version](VERSION) and must be newer than the baseline.
-An invalid explicit baseline fails rather than falling back to a fixture.
-Each run installs into a temporary home, uses an environment credential and a
-stub client, verifies upgrade, rollback, re-upgrade and uninstall, and compares
-the installed binary hashes. By default it does not modify the operator's
-installation or use the host credential store.
+An invalid explicit baseline fails rather than falling back to a fixture in
+the published journey. Each path installs into a temporary home and compares
+the installed binary bytes. The published transition uses an environment
+credential and a stub client; the current-schema path also verifies deferred
+activation and native projections. Neither modifies the operator's installation.
 
 Ordinary Go tests use provider doubles and do not touch the host credential
 store. On a disposable native test host, `AIGW_VERIFY_SYSTEM_KEYRING=1` exercises
-the selected predecessor and packaged candidate through the system credential
-store. It verifies rotation, upgrade, rollback, re-upgrade, uninstall, reinstall,
+the current-schema predecessor fixture and packaged candidate through the system
+credential store. It verifies rotation, upgrade, rollback, re-upgrade, uninstall, reinstall,
 retained helper credentials, and exact test-slot deletion. Each replacement
 keeps the Adapter enabled and checks configuration bytes before `sync` can
 change them. macOS additionally
@@ -543,9 +542,10 @@ AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
 The command verifies signatures, provenance and complete inventory before
 executing anything from the matrix. It copies only the native archive and
 checksum file into owned scratch, extracts through the product's verified
-archive reader, and runs the existing lifecycle. Source artifacts remain
+archive reader, and runs both the current-schema lifecycle and the separate
+published-predecessor migration when a baseline is supplied. Source artifacts remain
 unchanged; success and failure both reclaim scratch. `--clients` adds the same
-real-client journey described below. The same candidate also runs the reviewed
+current-schema real-client journey described below. The same candidate also runs the reviewed
 team manifest through import without Tokens or clients, each Account becoming
 available independently, deferred client synchronization, stable repeated sync,
 credential-helper execution and uninstall. Client discovery uses fixtures here;
@@ -567,7 +567,7 @@ tracked test also accepts an extracted native directory:
 AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
 AIGW_ACCEPTANCE_RELEASE=/absolute/path/to/verified/candidate \
   mise exec --locked -- go test ./tools/release \
-  -run '^TestNativeProductJourney$/portable_artifact_lifecycle$' -count=1 -v
+  -run '^TestNativePublishedPredecessorJourney$' -count=1 -v
 ```
 
 The candidate directory contains its native archive, `checksums.txt`, and the
@@ -590,10 +590,10 @@ The tracked real-client journey reuses the same native installation and
 replacement fixtures, with a controlled authenticated streaming endpoint:
 
 ```bash
-AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
 AIGW_ACCEPTANCE_RELEASE=/absolute/path/to/verified/candidate \
 AIGW_ACCEPTANCE_CODEX=/absolute/path/to/codex \
 AIGW_ACCEPTANCE_CLAUDE=/absolute/path/to/claude \
+AIGW_ACCEPTANCE_HERMES=/absolute/path/to/hermes \
 AIGW_ACCEPTANCE_CLIENT_PATH=/usr/bin:/bin \
   mise exec --locked -- go test -tags=client_acceptance ./tools/release \
   -run '^TestNativeClientJourney$' -count=1 -v
@@ -601,15 +601,15 @@ AIGW_ACCEPTANCE_CLIENT_PATH=/usr/bin:/bin \
 
 Set equivalent environment variables on Windows, using native executable
 paths and a semicolon-separated client tool path. Supply complete client
-distributions and only their required companion tools. The test requires all
-four absolute inputs and never substitutes a stub or downloads software. It
+distributions and only their required companion tools. The test requires the
+candidate and explicit client inputs and never substitutes a client stub or downloads software. It
 uses synthetic environment credentials and temporary client homes, not the
 operator's accounts or native credential store. It consumes the reviewed
 `manifests/team.toml`, preserving Routes and recommendations while directing
 Account endpoints to the isolated server. The server requires the recommended
 model, configured effort and streaming protocol; a different model cannot
-silently satisfy acceptance. Both clients execute at the
-published predecessor, candidate, rollback and re-upgrade; uninstall preserves
+silently satisfy acceptance. The admitted clients execute at the current-schema
+predecessor fixture, exact candidate, rollback and re-upgrade; uninstall preserves
 post-setup authentication presence and bytes, plus user files. An absent
 `auth.json` stays absent; an existing empty file is distinct from absence. The
 verification fixture observes authentication storage without rewriting it.

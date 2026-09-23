@@ -272,11 +272,15 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 		return Verification{}, err
 	}
 	defer func() { result = errors.Join(result, robustio.RemoveAll(home)) }()
+	verificationConfig := filepath.Join(home, "config.yaml")
+	if err := os.WriteFile(verificationConfig, []byte("security:\n  allow_lazy_installs: false\n"), 0o600); err != nil {
+		return Verification{}, fmt.Errorf("prepare isolated Hermes verification policy: %w", err)
+	}
 	desired, err := hermesDesired(deps, cfg, selected)
 	if err != nil {
 		return Verification{}, err
 	}
-	plan, err := hermesconfig.Prepare(filepath.Join(home, "config.yaml"), &desired)
+	plan, err := hermesconfig.Prepare(verificationConfig, &desired)
 	if err != nil {
 		return Verification{}, err
 	}

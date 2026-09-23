@@ -90,7 +90,7 @@ func typedErrorMessage(err error) (string, bool) {
 			version.Version,
 			version.ExpectedVersion,
 		)
-		if version.Version == configuration.LegacyConfigVersion && version.ExpectedVersion == configuration.ConfigVersion {
+		if (version.Version == configuration.LegacyConfigVersion || version.Version == configuration.PublishedConfigVersion) && version.ExpectedVersion == configuration.ConfigVersion {
 			message += "; run `aigw config migrate --dry-run`"
 		}
 		return message, true

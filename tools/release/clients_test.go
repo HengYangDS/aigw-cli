@@ -11,11 +11,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -137,12 +139,13 @@ func TestNativeClientJourney(t *testing.T) {
 		t.Fatal("team manifest must recommend one route for every admitted client")
 	}
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
+	baseline := buildNativeProgram(t, root, "0.0.0")
 	for _, path := range []string{candidate, archive, checksums} {
 		t.Logf("artifact %s sha256=%x", filepath.Base(path), sha256.Sum256(readFile(t, path)))
 	}
 	plan := nativeClientJourneyPlan{
 		version: version, team: team, manifest: manifest,
-		candidate: candidate, archive: archive, checksums: checksums,
+		baseline: baseline, candidate: candidate, archive: archive, checksums: checksums,
 	}
 	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex, configuration.ClientHermes} {
 		t.Run(client, func(t *testing.T) { plan.run(t, client) })
@@ -151,18 +154,14 @@ func TestNativeClientJourney(t *testing.T) {
 }
 
 type nativeClientJourneyPlan struct {
-	version                       string
-	team                          []byte
-	manifest                      configuration.Manifest
-	candidate, archive, checksums string
+	version                                 string
+	team                                    []byte
+	manifest                                configuration.Manifest
+	baseline, candidate, archive, checksums string
 }
 
 func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	t.Helper()
-	baseline, err := requiredClientInput("AIGW_ACCEPTANCE_BASELINE", false)
-	if err != nil {
-		t.Fatal(err)
-	}
 	executable, err := requiredClientInput("AIGW_ACCEPTANCE_"+strings.ToUpper(client), false)
 	if err != nil {
 		t.Fatal(err)
@@ -180,9 +179,24 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	if client == configuration.ClientHermes {
 		requiredEffort = ""
 	}
-	server := httptest.NewServer(clientResponseHandler(protocol, map[string]*atomic.Int64{route.UpstreamModel: &completions}, token, requiredEffort))
+	handler := clientResponseHandler(protocol, map[string]*atomic.Int64{route.UpstreamModel: &completions}, token, requiredEffort)
+	requests := map[string]int{}
+	var requestsMu sync.Mutex
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		requestsMu.Lock()
+		requests[request.Method+" "+request.URL.Path]++
+		requestsMu.Unlock()
+		handler.ServeHTTP(response, request)
+	}))
 	t.Cleanup(server.Close)
-	journey := newNativeJourney(t, baseline, server.URL+"/v1", false)
+	t.Cleanup(func() {
+		if t.Failed() {
+			requestsMu.Lock()
+			defer requestsMu.Unlock()
+			t.Logf("client request paths: %v", requests)
+		}
+	})
+	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
 	if client == configuration.ClientHermes {
 		journey.run("update", "--candidate", p.archive, "--checksums", p.checksums)
 		journey.requireVersion(p.version)

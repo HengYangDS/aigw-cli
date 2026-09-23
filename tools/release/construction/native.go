@@ -91,23 +91,35 @@ func acceptNative(request buildRequest, artifacts string, clients bool, performa
 			return err
 		}
 	}
+	baseline := os.Getenv("AIGW_ACCEPTANCE_BASELINE")
+	commonEnvironment := []string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace}
+	currentEnvironment := append(append([]string{}, commonEnvironment...), "AIGW_ACCEPTANCE_BASELINE=")
+	publishedEnvironment := append(append([]string{}, commonEnvironment...), "AIGW_ACCEPTANCE_BASELINE="+baseline)
 	call := toolCall{
 		Name: "go", Directory: request.Root,
 		Args: []string{"test", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney)$", "-count=1", "-v"},
-		Env:  []string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace},
+		Env:  currentEnvironment,
 	}
 	if err := run(call); err != nil {
 		return err
 	}
+	if baseline != "" {
+		call.Args = []string{"test", "./tools/release", "-run", "^TestNativePublishedPredecessorJourney$", "-count=1", "-v"}
+		call.Env = publishedEnvironment
+		if err := run(call); err != nil {
+			return err
+		}
+	}
 	if clients {
 		call.Args = []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClientJourney$", "-count=1", "-v"}
+		call.Env = currentEnvironment
 		if err := run(call); err != nil {
 			return err
 		}
 	}
 	if performance != "" {
 		call.Args = []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}
-		call.Env = append(call.Env, "AIGW_PERFORMANCE_OUTPUT="+performance)
+		call.Env = append(publishedEnvironment, "AIGW_PERFORMANCE_OUTPUT="+performance)
 		if err := run(call); err != nil {
 			return err
 		}

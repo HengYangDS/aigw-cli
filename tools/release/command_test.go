@@ -3,9 +3,7 @@ package main
 import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/upgrade"
 	"aigw-cli/tools/release/artifact"
-	"aigw-cli/tools/release/readiness"
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
@@ -74,66 +72,6 @@ func TestNativeJourneyOwnsWorkingDirectory(t *testing.T) {
 	if output := journey.run("--help"); !bytes.Contains(output, []byte("Usage")) {
 		t.Fatalf("native help is unavailable: %s", output)
 	}
-	journey.uninstallAndRequireOwnedFilesAbsent()
-}
-
-func TestNativeRollbackConfigurationAdmission(t *testing.T) {
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	version, err := readiness.ReadProductVersion(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	baseline := requireNativeLifecycleBaseline(t, func() string { return buildNativeProgram(t, root, "0.0.0") })
-	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
-	journey := newNativeJourney(t, baseline, "https://unused.example.test", false)
-	journey.run("setup", "--from", journey.manifest)
-	original := readFile(t, journey.config)
-	journey.run("update", "--candidate", archive, "--checksums", checksums)
-	journey.run("config", "import", journey.manifest)
-	compatibility := exec.CommandContext(t.Context(), baseline, "config", "export")
-	compatibility.Env = journey.environment
-	_, compatibilityErr := compatibility.CombinedOutput()
-	injected := compatibilityErr == nil
-	if injected {
-		unsupported := append([]byte("unsupported_future_field = true\n"), readFile(t, journey.config)...)
-		if err := os.WriteFile(journey.config, unsupported, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	want := map[string][]byte{
-		journey.binary:                       readFile(t, journey.binary),
-		upgrade.RollbackPath(journey.binary): readFile(t, upgrade.RollbackPath(journey.binary)),
-		journey.config:                       readFile(t, journey.config),
-		journey.config + ".bak":              readFile(t, journey.config+".bak"),
-	}
-	command := exec.CommandContext(t.Context(), journey.binary, "update", "--rollback")
-	command.Env = journey.environment
-	output, err := command.CombinedOutput()
-	if err == nil || !strings.Contains(string(output), "incompatible with the current configuration") {
-		t.Fatalf("unsafe predecessor activation: %v\n%s", err, output)
-	}
-	for path, expected := range want {
-		if actual := readFile(t, path); !bytes.Equal(actual, expected) {
-			t.Fatalf("rejected rollback changed %s", path)
-		}
-	}
-	journey.requireInstalledProgramFiles()
-	if injected {
-		if err := os.WriteFile(journey.config, original, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	} else {
-		journey.run("rollback", "--last-change")
-	}
-	journey.run("update", "--rollback")
-	journey.run("config", "export")
-	journey.requireProgramBytes(baseline)
-	journey.run("update", "--candidate", archive, "--checksums", checksums)
-	journey.requireProgramBytes(candidate)
-	journey.run("config", "export")
 	journey.uninstallAndRequireOwnedFilesAbsent()
 }
 

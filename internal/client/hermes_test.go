@@ -11,7 +11,10 @@ import (
 
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+
+	"go.yaml.in/yaml/v3"
 )
 
 func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
@@ -100,6 +103,26 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
+	runner.observe = func(plan process.Plan) {
+		if len(plan.Args) == 0 || plan.Args[0] != "chat" {
+			return
+		}
+		data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var projected struct {
+			Security struct {
+				AllowLazyInstalls *bool `yaml:"allow_lazy_installs"`
+			} `yaml:"security"`
+		}
+		if err := yaml.Unmarshal(data, &projected); err != nil {
+			t.Fatal(err)
+		}
+		if projected.Security.AllowLazyInstalls == nil || *projected.Security.AllowLazyInstalls {
+			t.Fatal("isolated Hermes verification permits runtime dependency installation")
+		}
+	}
 	if _, err := (hermesAdapter{}).Verify(context.Background(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, clientRuntime, ""); err != nil {
 		t.Fatal(err)
 	}

@@ -40,6 +40,9 @@ func (j *journeyFixture) retainedCredential(client string) process.Plan {
 	}
 	if client == configuration.ClientHermes {
 		var config struct {
+			Model struct {
+				Provider string `yaml:"provider"`
+			} `yaml:"model"`
 			Providers map[string]struct {
 				KeyCommand string `yaml:"key_cmd"`
 			} `yaml:"providers"`
@@ -48,7 +51,10 @@ func (j *journeyFixture) retainedCredential(client string) process.Plan {
 		if err := yaml.Unmarshal(readFile(j.testing, path), &config); err != nil {
 			j.testing.Fatal(err)
 		}
-		command := config.Providers["aigw"].KeyCommand
+		if config.Model.Provider == "" {
+			j.testing.Fatal("Hermes projection lacks a selected provider")
+		}
+		command := config.Providers[config.Model.Provider].KeyCommand
 		if command == "" {
 			j.testing.Fatal("Hermes projection lacks a credential command")
 		}

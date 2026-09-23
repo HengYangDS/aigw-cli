@@ -42,9 +42,13 @@ type captureAdapterRunner struct {
 	deadlines []bool
 	plans     []process.Plan
 	outputs   [][]byte
+	observe   func(process.Plan)
 }
 
 func (runner *captureAdapterRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
+	if runner.observe != nil {
+		runner.observe(plan)
+	}
 	runner.plans = append(runner.plans, plan)
 	runner.calls++
 	_, hasDeadline := ctx.Deadline()

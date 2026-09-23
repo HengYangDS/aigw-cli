@@ -21,7 +21,7 @@ type UnsupportedConfigVersionError struct {
 // Error formats the unsupported-version failure without exposing configuration contents.
 func (e *UnsupportedConfigVersionError) Error() string {
 	action := "restore a configuration supported by this program or use the matching AIGW release"
-	if e.Version == LegacyConfigVersion && e.ExpectedVersion == ConfigVersion {
+	if (e.Version == LegacyConfigVersion || e.Version == PublishedConfigVersion) && e.ExpectedVersion == ConfigVersion {
 		action = "run `aigw config migrate --dry-run`, review the replacement, then run `aigw config migrate`"
 	}
 	return fmt.Sprintf(
