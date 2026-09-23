@@ -222,6 +222,9 @@ func TestRunArtifactCommands(t *testing.T) {
 }
 
 func TestRunReleasePolicyCommands(t *testing.T) {
+	for _, name := range []string{"AIGW_CHANGELOG_RELEASE_TAG", "CI_COMMIT_TAG", "GITHUB_REF_NAME", "GITHUB_REF_TYPE"} {
+		t.Setenv(name, "")
+	}
 	prepareSignedRelease(t, "1.2.3")
 	module := "go.mod"
 	if err := os.WriteFile(module, []byte("module example\n\ngo "+strings.TrimPrefix(runtime.Version(), "go")+"\n"), 0o600); err != nil {

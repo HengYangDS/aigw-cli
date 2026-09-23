@@ -1219,6 +1219,21 @@ clean checkout reconstructs local Node dependencies and rejects ambient tool
 fallbacks. Duplicate entry-point prose and stale release-detail copies were
 removed; current navigation remains complete after that deletion.
 
+## Release-candidate tag isolation
+
+The signed `v0.2.0-rc.1` tag preserved the accepted source object, and its
+GitHub quality gate passed. Its Linux native job exposed a test-only environment
+leak: `TestRunReleasePolicyCommands` inherited the real Forge tag while its
+fixture intentionally described version `1.2.3`. The selected tag therefore
+overrode the fixture and caused changelog validation to reject the unrelated
+version. Accepted-branch Linux, macOS, and Windows evidence and local artifact
+acceptance passed for the same product tree.
+
+Release-policy tests now clear every supported tag-selection variable before
+constructing their private fixture. `v0.2.0-rc.1` remains immutable and has no
+Release record. The corrected source advances to `0.2.0-rc.2`; its tag and
+published assets require fresh exact-HEAD and hosted evidence.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:
