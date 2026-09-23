@@ -9,6 +9,32 @@ separate evidence.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-24
+
+### Added
+
+- Configure Hermes and Claude Desktop through independent Client Bindings,
+  reporting qualified capabilities and platform limits for each client.
+
+### Changed
+
+- Replace public Profile selection with canonical Models, exact Account Routes,
+  and client-scoped bindings. Existing 0.1.0 configuration requires an explicit,
+  previewed migration.
+- Recommend UCloud GPT-6 Sol over OpenAI Responses for Codex and Hermes,
+  retaining reviewed alternatives without changing existing client selections.
+- Bound native Keychain, Secret Service, and Credential Manager operations in an
+  isolated subprocess while retaining explicit environment, file, and
+  operator-owned credential-command modes.
+
+### Fixed
+
+- Reconcile AIGW-owned Codex provider and model projection after native clients
+  remove decorative comments, while rejecting semantic drift and preserving
+  unrelated settings and session state.
+- Preserve selected Routes and retained credentials through published-predecessor
+  upgrade, rollback, and forward recovery.
+
 ## [0.2.0-rc.3] - 2026-09-24
 
 ### Fixed
