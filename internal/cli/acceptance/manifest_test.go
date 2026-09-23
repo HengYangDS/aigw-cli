@@ -16,8 +16,8 @@ func TestConfigImportRefusesAccountConflictUntilExplicitReplacementAndPreservesT
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Personal Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://personal.example.test"}}
-	cfg.Profiles["local"] = configuration.Profile{Label: "Local", Account: "team", Model: "local-model"}
-	cfg.SetSelectedProfile(configuration.ClientClaude, "local")
+	cfg.Routes["local"] = qualifiedRoute("Local", "team", "local-model", configuration.ProtocolAnthropic)
+	cfg.SetSelectedRoute(configuration.ClientClaude, "local")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -25,17 +25,21 @@ func TestConfigImportRefusesAccountConflictUntilExplicitReplacementAndPreservesT
 		t.Fatal(err)
 	}
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 6
-[recommendations.claude]
-profile = "team-profile"
+	manifest := `version = 7
+[recommendations.claude.primary]
+route = "team-profile"
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
 anthropic = "https://team.example.test"
-[profiles.team-profile]
+[models.team-model]
+label = "Team Model"
+[routes.team-profile]
 label = "Team Profile"
 account = "team"
 model = "team-model"
+upstream_model = "team-model"
+interfaces = { anthropic = ["text"] }
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
@@ -49,7 +53,7 @@ model = "team-model"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["team"].Endpoints.Anthropic != "https://personal.example.test" || got.SelectedProfile(configuration.ClientClaude) != "local" {
+	if got.Accounts["team"].Endpoints.Anthropic != "https://personal.example.test" || got.SelectedRoute(configuration.ClientClaude) != "local" {
 		t.Fatalf("default import mutated local identity: %#v", got)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "personal-token" {
@@ -63,7 +67,7 @@ model = "team-model"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["team"].Endpoints.Anthropic != "https://team.example.test" || got.SelectedProfile(configuration.ClientClaude) != "local" {
+	if got.Accounts["team"].Endpoints.Anthropic != "https://team.example.test" || got.SelectedRoute(configuration.ClientClaude) != "local" {
 		t.Fatalf("explicit replacement result: %#v", got)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "personal-token" {
@@ -74,25 +78,33 @@ model = "team-model"
 func TestConfigImportReportsMissingAccountTokensNotProfileTokens(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 6
-[recommendations.codex]
-profile = "gpt-long-model"
+	manifest := `version = 7
+[recommendations.codex.primary]
+route = "gpt-long-model"
 
-[recommendations.claude]
-profile = "claude-long-model"
+[recommendations.claude.primary]
+route = "claude-long-model"
 [accounts.dmx]
 label = "DMXAPI"
 [accounts.dmx.endpoints]
 openai_responses = "https://dmx.test/v1"
 anthropic = "https://dmx.test"
-[profiles."gpt-long-model"]
+[models.gpt-long-model]
+label = "GPT Long Model"
+[models.claude-long-model]
+label = "Claude Long Model"
+[routes."gpt-long-model"]
 label = "GPT Long Model"
 account = "dmx"
 model = "gpt-long-model"
-[profiles."claude-long-model"]
+upstream_model = "gpt-long-model"
+interfaces = { openai_responses = ["text"] }
+[routes."claude-long-model"]
 label = "Claude Long Model"
 account = "dmx"
 model = "claude-long-model"
+upstream_model = "claude-long-model"
+interfaces = { anthropic = ["text"] }
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
@@ -115,25 +127,33 @@ model = "claude-long-model"
 func TestConfigImportReportsOnlyMissingAccounts(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 6
-[recommendations.codex]
-profile = "gpt-long-model"
+	manifest := `version = 7
+[recommendations.codex.primary]
+route = "gpt-long-model"
 
-[recommendations.claude]
-profile = "claude-long-model"
+[recommendations.claude.primary]
+route = "claude-long-model"
 [accounts.dmx]
 label = "DMXAPI"
 [accounts.dmx.endpoints]
 openai_responses = "https://dmx.test/v1"
 anthropic = "https://dmx.test"
-[profiles."gpt-long-model"]
+[models.gpt-long-model]
+label = "GPT Long Model"
+[models.claude-long-model]
+label = "Claude Long Model"
+[routes."gpt-long-model"]
 label = "GPT Long Model"
 account = "dmx"
 model = "gpt-long-model"
-[profiles."claude-long-model"]
+upstream_model = "gpt-long-model"
+interfaces = { openai_responses = ["text"] }
+[routes."claude-long-model"]
 label = "Claude Long Model"
 account = "dmx"
 model = "claude-long-model"
+upstream_model = "claude-long-model"
+interfaces = { anthropic = ["text"] }
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
@@ -214,18 +234,22 @@ func TestConfigCommandIOFailures(t *testing.T) {
 func TestConfigImportAndExportAreSecretFree(t *testing.T) {
 	app, out, secrets, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 6
-[recommendations.claude]
-profile = "team"
+	manifest := `version = 7
+[recommendations.claude.primary]
+route = "team"
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
 anthropic = "https://team.test"
-[profiles.team]
+[models.claude-model]
+label = "Claude Model"
+[routes.team]
 label = "Team Gateway"
 purpose = "Default agent"
 account = "team"
 model = "claude-model"
+upstream_model = "claude-model"
+interfaces = { anthropic = ["text"] }
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
@@ -249,40 +273,44 @@ func TestConfigImportRefusesProfileConflictUntilExplicitReplacement(t *testing.T
 	app, _, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
-	cfg.Profiles["shared"] = configuration.Profile{Label: "Personal Model", Account: "team", Model: "personal-model"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "shared")
+	cfg.Routes["shared"] = qualifiedRoute("Personal Model", "team", "personal-model", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "shared")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 6
-[recommendations.codex]
-profile = "shared"
+	manifest := `version = 7
+[recommendations.codex.primary]
+route = "shared"
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
 openai_responses = "https://team.example.test/v1"
-[profiles.shared]
+[models.team-model]
+label = "Team Model"
+[routes.shared]
 label = "Team Model"
 account = "team"
 model = "team-model"
+upstream_model = "team-model"
+interfaces = { openai_responses = ["text"] }
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
 	err := cli.Execute(app, []string{"config", "import", manifestPath})
-	if err == nil || !strings.Contains(err.Error(), "--replace-profile shared") {
+	if err == nil || !strings.Contains(err.Error(), "--replace-route shared") {
 		t.Fatalf("default import error = %v", err)
 	}
-	if err := cli.Execute(app, []string{"config", "import", manifestPath, "--replace-profile", "shared"}); err != nil {
+	if err := cli.Execute(app, []string{"config", "import", manifestPath, "--replace-route", "shared"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Profiles["shared"].Model != "team-model" {
-		t.Fatalf("explicit profile replacement = %#v", got.Profiles["shared"])
+	if got.Routes["shared"].Model != "team-model" {
+		t.Fatalf("explicit profile replacement = %#v", got.Routes["shared"])
 	}
 }

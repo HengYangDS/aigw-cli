@@ -82,7 +82,7 @@ func NewModelsCommand(deps Dependencies) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(cfg.Profiles) == 0 {
+			if len(cfg.Routes) == 0 {
 				return fmt.Errorf("not configured; run `aigw setup`")
 			}
 			rows := modelRows(cfg, discoverCatalog(cmd.Context(), deps, cfg))
@@ -110,8 +110,8 @@ func modelRows(cfg configuration.Config, catalog catalogOutput) []modelRow {
 		accounts[account.ID] = account
 	}
 	rows := []modelRow{}
-	for _, name := range cfg.ProfileIDs() {
-		profile := cfg.Profiles[name]
+	for _, name := range cfg.RouteIDs() {
+		profile := cfg.Routes[name]
 		membership := "Catalog not observed"
 		if account, ok := accounts[profile.Account]; ok {
 			membership = catalogStatusText(account.Status)
@@ -139,7 +139,7 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		if len(cfg.Profiles) == 0 {
+		if len(cfg.Routes) == 0 {
 			if jsonMode {
 				return presentation.WriteJSON(deps.Out, catalogOutput{Accounts: []catalogAccount{}})
 			}
@@ -243,7 +243,7 @@ func catalogModelDisplay(model catalogModel) (presentation.State, string) {
 // ConfiguredProfiles returns profiles that select model from account.
 func ConfiguredProfiles(cfg configuration.Config, accountName, model string) []string {
 	profiles := []string{}
-	for name, profile := range cfg.Profiles {
+	for name, profile := range cfg.Routes {
 		if profile.Account != accountName {
 			continue
 		}

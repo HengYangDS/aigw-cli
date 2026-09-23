@@ -115,7 +115,7 @@ func TestLoadOfMissingConfigReturnsDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Version != ConfigVersion || len(got.Profiles) != 0 {
+	if got.Version != ConfigVersion || len(got.Routes) != 0 {
 		t.Fatalf("default config = %#v", got)
 	}
 }

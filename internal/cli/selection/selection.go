@@ -44,7 +44,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			profile, ok := cfg.Profiles[name]
+			profile, ok := cfg.Routes[name]
 			if !ok {
 				return fmt.Errorf("unknown profile %q; run `aigw profile list`", name)
 			}
@@ -108,7 +108,7 @@ func resolveUseSelection(runtime invocation.Context, cfg configuration.Config, c
 	}
 
 	profile := args[0]
-	if _, ok := cfg.Profiles[profile]; !ok {
+	if _, ok := cfg.Routes[profile]; !ok {
 		return "", "", fmt.Errorf("unknown profile %q; run `aigw profile list`", profile)
 	}
 	if client != "" {
@@ -140,7 +140,7 @@ func chooseClientIDs(runtime invocation.Context, clients []string) (string, erro
 }
 
 func selectionToken(ctx context.Context, runtime invocation.Context, cfg configuration.Config, client, name string) (string, error) {
-	profile := cfg.Profiles[name]
+	profile := cfg.Routes[name]
 	selected, err := cfg.ResolveRuntime(client, name)
 	if err != nil {
 		return "", err
@@ -175,21 +175,18 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg configu
 }
 
 func chooseProfile(runtime invocation.Context, cfg configuration.Config, client, label string) (string, error) {
-	choices := make([]prompt.Choice, 0, len(cfg.Profiles))
-	for _, id := range cfg.ProfileIDs() {
+	choices := make([]prompt.Choice, 0, len(cfg.Routes))
+	for _, id := range cfg.RouteIDs() {
 		if _, err := cfg.ResolveRuntime(client, id); err != nil {
 			continue
 		}
-		choices = append(choices, prompt.Choice{Value: id, Label: profileChoiceLabel(cfg.Profiles[id])})
+		choices = append(choices, prompt.Choice{Value: id, Label: profileChoiceLabel(cfg.Routes[id])})
 	}
 	return runtime.Prompt.Select(label, choices)
 }
 
-func profileChoiceLabel(profile configuration.Profile) string {
+func profileChoiceLabel(profile configuration.Route) string {
 	label := profile.Label
-	if profile.Tier != "" {
-		label += " · " + strings.ToUpper(string(profile.Tier[:1])) + string(profile.Tier[1:])
-	}
 	if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
 		return label + " · " + purpose
 	}

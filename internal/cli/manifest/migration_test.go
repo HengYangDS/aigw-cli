@@ -38,7 +38,7 @@ func TestMigrationPreviewAndApplyPreserveCredentialsAndClientFiles(t *testing.T)
 	if err := executeManifestCommand(preview); err != nil {
 		t.Fatal(err)
 	}
-	if text := out.String(); !strings.Contains(text, `"from_version": 3`) || !strings.Contains(text, `"to_version": 5`) || strings.Contains(text, "must-remain-secret") {
+	if text := out.String(); !strings.Contains(text, `"from_version": 5`) || !strings.Contains(text, `"to_version": 6`) || strings.Contains(text, "must-remain-secret") {
 		t.Fatalf("migration preview = %s", text)
 	}
 	if actual, err := os.ReadFile(path); err != nil || !bytes.Equal(actual, legacy) {
@@ -137,15 +137,19 @@ func (store *observedSecretStore) reset() {
 func legacyMigrationFixture(t *testing.T, target string) []byte {
 	t.Helper()
 	data, err := toml.Marshal(map[string]any{
-		"version": 3,
+		"version": configuration.LegacyConfigVersion,
 		"accounts": map[string]any{"gateway": map[string]any{
 			"label": "Gateway", "endpoints": map[string]string{"openai_responses": "https://gateway.test/v1"},
 		}},
-		"profiles": map[string]any{"codex": map[string]string{
-			"label": "Codex", "account": "gateway", "client": "codex", "model": "gpt-test",
+		"profiles": map[string]any{"codex": map[string]any{
+			"label": "Codex", "account": "gateway", "model": "gpt-test",
+			"protocols": []string{"openai_responses"},
 		}},
-		"routes": map[string]string{"codex": "codex"},
-		"adapters": map[string]any{"codex": map[string]any{
+		"recommendations": map[string]any{"codex": map[string]string{
+			"profile": "codex", "protocol": "openai_responses",
+		}},
+		"clients": map[string]any{"codex": map[string]any{
+			"profile": "codex", "protocol": "openai_responses",
 			"enabled": true, "executable": filepath.Join(filepath.Dir(target), "codex"), "targets": []string{target},
 		}},
 	})

@@ -16,18 +16,22 @@ func TestHermesSetupDeferredSyncCredentialCheckAndWithdrawal(t *testing.T) {
 	app, output, credentials, runner, httpClient := testApp(t, "")
 	root := t.TempDir()
 	manifest := filepath.Join(root, "team.toml")
-	writeFile(t, manifest, []byte(`version = 6
-[recommendations.hermes]
-profile = "team-model"
+	writeFile(t, manifest, []byte(`version = 7
+[recommendations.hermes.primary]
+route = "team-model"
 protocol = "anthropic"
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
 anthropic = "https://provider.test"
-[profiles.team-model]
+[models.model-test]
+label = "Model Test"
+[routes.team-model]
 label = "Team Model"
 account = "team"
 model = "model-test"
+upstream_model = "model-test"
+interfaces = { anthropic = ["text", "streaming", "tools"] }
 `), 0o600)
 	if err := credentials.Set("team", "public-fixture-token"); err != nil {
 		t.Fatal(err)
@@ -39,7 +43,7 @@ model = "model-test"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.Clients[configuration.ClientHermes].Enabled || cfg.SelectedProfile(configuration.ClientHermes) != "team-model" {
+	if !cfg.Clients[configuration.ClientHermes].Enabled || cfg.SelectedRoute(configuration.ClientHermes) != "team-model" {
 		t.Fatal("deferred setup lost selected or enabled intent")
 	}
 	target := filepath.Join(root, "hermes", "config.yaml")

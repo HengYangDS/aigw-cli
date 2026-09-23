@@ -26,8 +26,12 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 			cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{Anthropic: "https://old.test", OpenAIResponses: "https://old.test/v1"}}
 			paths := map[string]string{configuration.ClientCodex: target, configuration.ClientClaude: app.ClaudeSettingsPath}
 			for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
-				cfg.Profiles[id] = configuration.Profile{Label: id, Account: "old", Model: "old-model"}
-				cfg.SetSelectedProfile(id, id)
+				protocol := configuration.ProtocolOpenAIResponses
+				if id == configuration.ClientClaude {
+					protocol = configuration.ProtocolAnthropic
+				}
+				cfg.Routes[id] = qualifiedRoute(id, "old", "old-model", protocol)
+				cfg.SetSelectedRoute(id, id)
 				cfg.SetClientActivation(id, true, executableFixture(t, id), nil)
 			}
 			adapter := cfg.Clients[configuration.ClientCodex]
@@ -56,7 +60,7 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 			}
 			assertAccountConnectionOutput(t, out.String())
 			current, err := app.Config.Load()
-			if err != nil || current.SelectedProfile(clientID) != "new" || current.SelectedProfile(other) != other {
+			if err != nil || current.SelectedRoute(clientID) != "new" || current.SelectedRoute(other) != other {
 				t.Fatalf("creation bindings = %v, %v", current.Clients, err)
 			}
 			if !bytes.Contains(readFile(t, paths[clientID]), []byte("new-model")) {
@@ -121,7 +125,7 @@ func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 	}
 }
 
-func TestAddPreservesExistingAccountWithDifferentProfileID(t *testing.T) {
+func TestAddPreservesExistingAccountWithDifferentRouteID(t *testing.T) {
 	app, _, credentials, _, _ := testApp(t, "new-token\n")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "existing-profile", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "old-model")
@@ -182,8 +186,8 @@ func TestAddWithoutLabelDefaultsToProfileName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Profiles["dmx"].Label != "dmx" || cfg.Accounts["dmx"].Label != "dmx" {
-		t.Fatalf("profile/account label = %#v, want the profile name as a default", cfg.Profiles["dmx"])
+	if cfg.Routes["dmx"].Label != "dmx" || cfg.Accounts["dmx"].Label != "dmx" {
+		t.Fatalf("profile/account label = %#v, want the profile name as a default", cfg.Routes["dmx"])
 	}
 }
 
@@ -209,7 +213,7 @@ func TestAddSurfacesSecretStoreSetFailure(t *testing.T) {
 	if loadErr != nil {
 		t.Fatal(loadErr)
 	}
-	if _, exists := cfg.Profiles["dmx"]; exists {
+	if _, exists := cfg.Routes["dmx"]; exists {
 		t.Fatal("a failed secret write must not leave a persisted profile")
 	}
 }
@@ -282,7 +286,7 @@ func TestAddWithTokenStdinCreatesProfileWithoutPrintingSecret(t *testing.T) {
 		t.Fatalf("secret leaked in output: %s", out.String())
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || cfg.SelectedProfile(configuration.ClientCodex) != "dmx" || cfg.Profiles["dmx"].Label != "DMXAPI" {
+	if err != nil || cfg.SelectedRoute(configuration.ClientCodex) != "dmx" || cfg.Routes["dmx"].Label != "DMXAPI" {
 		t.Fatalf("config = %#v, %v", cfg, err)
 	}
 }

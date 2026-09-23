@@ -42,14 +42,14 @@ func resolveIDs(runtime invocation.Context, resource string, args []string) (str
 }
 
 func profileChoices(cfg configuration.Config) []prompt.Choice {
-	names := make([]string, 0, len(cfg.Profiles))
-	for name := range cfg.Profiles {
+	names := make([]string, 0, len(cfg.Routes))
+	for name := range cfg.Routes {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 	choices := make([]prompt.Choice, 0, len(names))
 	for _, name := range names {
-		profile := cfg.Profiles[name]
+		profile := cfg.Routes[name]
 		label := profile.Label
 		if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
 			label += " · " + purpose

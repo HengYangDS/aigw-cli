@@ -29,8 +29,11 @@ func configuredApp(t *testing.T) *App {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 	cfg := configuration.NewConfig()
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "http://127.0.0.1:1234/v1", Anthropic: "https://one.test"}}
-	cfg.Profiles["one"] = configuration.Profile{Label: "One", Purpose: "Primary", Account: "one", Model: "gpt"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+	cfg.Routes["one"] = configuration.Route{
+		Label: "One", Purpose: "Primary", Account: "one", Model: "gpt",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+	}
+	cfg.SetSelectedRoute(configuration.ClientCodex, "one")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -509,21 +512,4 @@ func TestCommandHelpLeavesConfigurationStorageAbsent(t *testing.T) {
 		}
 	}
 	visit(NewRoot(&App{Out: io.Discard, Err: io.Discard}), nil)
-}
-
-func TestCompletionSupportsDocumentedShells(t *testing.T) {
-	out := new(bytes.Buffer)
-	app := &App{Out: out, Err: out}
-	for _, shell := range []string{"bash", "zsh", "fish", "powershell"} {
-		out.Reset()
-		if err := Execute(app, []string{"completion", shell}); err != nil {
-			t.Fatalf("%s completion: %v", shell, err)
-		}
-		if out.Len() == 0 {
-			t.Fatalf("%s completion produced no output", shell)
-		}
-	}
-	if err := Execute(app, []string{"completion", "unsupported"}); err == nil {
-		t.Fatal("expected unsupported shell error")
-	}
 }

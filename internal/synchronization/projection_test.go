@@ -20,10 +20,10 @@ func TestDesiredClientConfigurationScopesDiscoveryToRequestedClient(t *testing.T
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-test"}
-	before.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Model: "gpt-test"}
-	before.SetSelectedProfile(configuration.ClientClaude, "claude")
-	before.SetSelectedProfile(configuration.ClientCodex, "codex")
+	before.Routes["claude"] = configuration.Route{Label: "Claude", Account: "gateway", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	before.Routes["codex"] = configuration.Route{Label: "Codex", Account: "gateway", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	before.SetSelectedRoute(configuration.ClientClaude, "claude")
+	before.SetSelectedRoute(configuration.ClientCodex, "codex")
 	before.SetClientActivation(configuration.ClientCodex, true, "/existing/codex", []string{"/explicit/config.toml"})
 	secretStore := secrets.NewMemoryStore()
 	if err := secretStore.Set("gateway", "token"); err != nil {
@@ -37,7 +37,7 @@ func TestDesiredClientConfigurationScopesDiscoveryToRequestedClient(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if adapter := after.Clients[configuration.ClientClaude]; adapter.Enabled || adapter.Profile != "claude" || adapter.Executable != "" {
+	if adapter := after.Clients[configuration.ClientClaude]; adapter.Enabled || adapter.Route != "claude" || adapter.Executable != "" {
 		t.Fatalf("discovery changed disabled Claude intent: %#v", adapter)
 	}
 	if got := after.Clients[configuration.ClientCodex]; !got.Enabled || got.Executable != "/existing/codex" || len(got.Targets) != 1 || got.Targets[0] != "/explicit/config.toml" {
@@ -49,9 +49,9 @@ func TestDesiredClientConfigurationDoesNotReselectRoutes(t *testing.T) {
 	before := configuration.NewConfig()
 	before.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
 	before.Accounts["two"] = configuration.Account{Label: "Two", Endpoints: configuration.Endpoints{Anthropic: "https://two.test"}}
-	before.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "claude-test"}
-	before.Profiles["two"] = configuration.Profile{Label: "Two", Account: "two", Model: "claude-test"}
-	before.SetSelectedProfile(configuration.ClientClaude, "one")
+	before.Routes["one"] = configuration.Route{Label: "One", Account: "one", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	before.Routes["two"] = configuration.Route{Label: "Two", Account: "two", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	before.SetSelectedRoute(configuration.ClientClaude, "one")
 	secretStore := secrets.NewMemoryStore()
 	if err := secretStore.Set("two", "token"); err != nil {
 		t.Fatal(err)
@@ -61,7 +61,7 @@ func TestDesiredClientConfigurationDoesNotReselectRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := after.SelectedProfile(configuration.ClientClaude); got != "one" {
+	if got := after.SelectedRoute(configuration.ClientClaude); got != "one" {
 		t.Fatalf("client discovery reselected route = %q, want one", got)
 	}
 }
@@ -72,10 +72,10 @@ func TestDesiredClientConfigurationSurfacesCredentialObservationFailures(t *test
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-test"}
-	before.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Model: "gpt-test"}
-	before.SetSelectedProfile(configuration.ClientClaude, "claude")
-	before.SetSelectedProfile(configuration.ClientCodex, "codex")
+	before.Routes["claude"] = configuration.Route{Label: "Claude", Account: "gateway", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	before.Routes["codex"] = configuration.Route{Label: "Codex", Account: "gateway", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	before.SetSelectedRoute(configuration.ClientClaude, "claude")
+	before.SetSelectedRoute(configuration.ClientCodex, "codex")
 	want := errors.New("credential observation failed")
 	syncer := Synchronizer{Secrets: secretReadStub{err: want}, Discovery: staticDiscovery{}}
 
@@ -93,9 +93,9 @@ func TestDesiredClientConfigurationDoesNotActivateUnboundClients(t *testing.T) {
 	before.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{
 		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
 	}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Model: "claude-test"}
-	before.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Model: "gpt-test"}
-	before.SetRecommendedProfile(configuration.ClientClaude, "claude")
+	before.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	before.Routes["codex"] = configuration.Route{Label: "Codex", Account: "team", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	before.SetRecommendedRoute(configuration.ClientClaude, "claude")
 	store := secrets.NewMemoryStore()
 	if err := store.Set("team", "token"); err != nil {
 		t.Fatal(err)
@@ -118,7 +118,7 @@ func TestProjectionPlanningValidatesEnabledClients(t *testing.T) {
 	}
 
 	invalid := testConfig("/target")
-	delete(invalid.Profiles, "gpt")
+	delete(invalid.Routes, "gpt")
 	if _, err := (Synchronizer{Discovery: staticDiscovery{}}).Plan(invalid, invalid); err == nil {
 		t.Fatal("planning accepted an invalid runtime")
 	}
@@ -129,8 +129,8 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 	settingsPath := filepath.Join(dir, "settings.json")
 	before := configuration.NewConfig()
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-team"}
-	before.SetSelectedProfile(configuration.ClientClaude, "claude")
+	before.Routes["claude"] = configuration.Route{Label: "Claude", Account: "gateway", Model: "claude-team", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	before.SetSelectedRoute(configuration.ClientClaude, "claude")
 	after := before.Clone()
 	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	syncer := Synchronizer{Config: configuration.NewStore(filepath.Join(dir, "aigw.toml")), Discovery: staticDiscovery{}, ClaudeSettingsPath: settingsPath, AIGWExecutable: filepath.Join(dir, "aigw")}
@@ -154,8 +154,8 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 func TestPlanReportsClaudePlanningFailures(t *testing.T) {
 	before := configuration.NewConfig()
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-team"}
-	before.SetSelectedProfile(configuration.ClientClaude, "claude")
+	before.Routes["claude"] = configuration.Route{Label: "Claude", Account: "gateway", Model: "claude-team", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	before.SetSelectedRoute(configuration.ClientClaude, "claude")
 	after := before.Clone()
 	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 
@@ -166,7 +166,7 @@ func TestPlanReportsClaudePlanningFailures(t *testing.T) {
 		t.Fatalf("missing AIGW executable error = %v", err)
 	}
 	invalid := after.Clone()
-	delete(invalid.Profiles, "claude")
+	delete(invalid.Routes, "claude")
 	if _, err := (Synchronizer{Discovery: staticDiscovery{}, ClaudeSettingsPath: "/settings", AIGWExecutable: "/aigw"}).Plan(before, invalid); err == nil {
 		t.Fatal("invalid enabled Claude runtime was accepted")
 	}
@@ -184,8 +184,8 @@ func TestCommitReconcilesOnlyClientsWhoseProjectionChanges(t *testing.T) {
 			account := before.Accounts["gateway"]
 			account.Endpoints.Anthropic = "https://gateway.test"
 			before.Accounts["gateway"] = account
-			before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-original"}
-			before.SetSelectedProfile(configuration.ClientClaude, "claude")
+			before.Routes["claude"] = configuration.Route{Label: "Claude", Account: "gateway", Model: "claude-original", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+			before.SetSelectedRoute(configuration.ClientClaude, "claude")
 			before.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 			store := configuration.NewStore(filepath.Join(root, "aigw.toml"))
 			syncer := Synchronizer{Config: store, Discovery: targetDiscovery(targets[configuration.ClientCodex]), ClaudeSettingsPath: targets[configuration.ClientClaude], AIGWExecutable: filepath.Join(root, "aigw")}
@@ -352,9 +352,9 @@ func TestClientNativeModelProviderChangesProjectionWithoutAIGWCredentialHelper(t
 	}
 	before := testConfig(target)
 	after := before.Clone()
-	profile := after.Profiles["gpt"]
+	profile := after.Routes["gpt"]
 	profile.Model = "openai.gpt-5.6-sol"
-	after.Profiles["gpt"] = profile
+	after.Routes["gpt"] = profile
 	binding := after.Clients[configuration.ClientCodex]
 	binding.ModelProvider = "amazon-bedrock"
 	binding.Authentication = configuration.AuthenticationClientNative

@@ -44,7 +44,7 @@ func VerifyCodexInvocation(ctx context.Context, runner process.CaptureRunner, cf
 		return codex.ExecutableIdentity{}, fmt.Errorf("Codex configuration target is missing; run `aigw repair`")
 	}
 	if clientRuntime.Model == "" {
-		return codex.ExecutableIdentity{}, fmt.Errorf("Profile %q has no Codex model", clientRuntime.ProfileID)
+		return codex.ExecutableIdentity{}, fmt.Errorf("Profile %q has no Codex model", clientRuntime.RouteID)
 	}
 	targets := append([]string(nil), adapter.Targets...)
 	sort.Strings(targets)
@@ -106,7 +106,7 @@ func readBoundedFile(path string, limit int64) ([]byte, error) {
 // VerifyClaudeRuntime performs one bounded Claude CLI request.
 func VerifyClaudeRuntime(ctx context.Context, runner process.CaptureRunner, executable, settingsPath string, clientRuntime configuration.Runtime, token string) error {
 	if clientRuntime.Model == "" {
-		return fmt.Errorf("Profile %q has no Claude model", clientRuntime.ProfileID)
+		return fmt.Errorf("Profile %q has no Claude model", clientRuntime.RouteID)
 	}
 	plan, err := claude.VerificationPlan(executable, settingsPath, "Reply with exactly: AIGW_OK", os.Environ(), clientRuntime)
 	if err != nil {

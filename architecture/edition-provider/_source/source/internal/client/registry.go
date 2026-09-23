@@ -39,9 +39,10 @@ type Dependencies struct {
 
 // ProjectionPlan describes one side-effect-free client projection change.
 type ProjectionPlan struct {
-	Client string `json:"client"`
-	Target string `json:"target"`
-	Action string `json:"action"`
+	Client       string `json:"client"`
+	Target       string `json:"target"`
+	Action       string `json:"action"`
+	ChangesState bool   `json:"-"`
 }
 
 // ProjectionReceipt can compensate an applied client projection while its

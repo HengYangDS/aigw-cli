@@ -281,18 +281,9 @@ func TestMiseBootstrapReconstructsCheckoutLocalPackages(t *testing.T) {
 	if len(manifest.Dependencies) == 0 {
 		t.Fatal("repository bootstrap has no declared package consumers")
 	}
-	cacheCommand := exec.Command("mise", "-C", repository, "exec", "--locked", "--", "npm", "config", "get", "cache")
-	cacheOutput, err := cacheCommand.Output()
-	if err != nil {
-		t.Fatalf("resolve populated npm cache: %v", err)
-	}
-	cache := strings.TrimSpace(string(cacheOutput))
-	if !filepath.IsAbs(cache) {
-		t.Fatalf("npm cache must resolve to an absolute directory: %q", cache)
-	}
+	cache := filepath.Join(filepath.Dir(root), "npm-cache")
 	for name, value := range map[string]string{
 		"NPM_CONFIG_CACHE":           cache,
-		"NPM_CONFIG_OFFLINE":         "true",
 		"NPM_CONFIG_AUDIT":           "false",
 		"NPM_CONFIG_FUND":            "false",
 		"NPM_CONFIG_UPDATE_NOTIFIER": "false",
@@ -319,6 +310,11 @@ func TestMiseBootstrapReconstructsCheckoutLocalPackages(t *testing.T) {
 		{"production", ""},
 		{"", "dev"},
 	} {
+		if pass == 0 {
+			t.Setenv("NPM_CONFIG_OFFLINE", "false")
+		} else {
+			t.Setenv("NPM_CONFIG_OFFLINE", "true")
+		}
 		t.Setenv("NODE_ENV", environment.nodeEnv)
 		t.Setenv("NPM_CONFIG_OMIT", environment.omit)
 		for _, arguments := range [][]string{

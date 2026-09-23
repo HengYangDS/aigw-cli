@@ -137,9 +137,9 @@ func TestCaptureVerifiedBackupStateBindsCurrentConfiguration(t *testing.T) {
 				t.Fatal(err)
 			}
 			if changed {
-				profile := current.Profiles["current"]
+				profile := current.Routes["current"]
 				profile.Model = "unverified-model"
-				current.Profiles["current"] = profile
+				current.Routes["current"] = profile
 			}
 			data, err := encodeConfig(current)
 			if err != nil {
@@ -157,7 +157,7 @@ func TestCaptureVerifiedBackupStateBindsCurrentConfiguration(t *testing.T) {
 				if err == nil || !strings.Contains(err.Error(), "does not match current configuration") {
 					t.Fatalf("stale checkpoint admitted: %v", err)
 				}
-			} else if err != nil || !state.Snapshot.Config.Equal(before.Config) || state.Current.Profiles["current"].Model != current.Profiles["current"].Model {
+			} else if err != nil || !state.Snapshot.Config.Equal(before.Config) || state.Current.Routes["current"].Model != current.Routes["current"].Model {
 				t.Fatalf("matching checkpoint rejected or captured different bytes: %v", err)
 			}
 			after, err := store.CaptureSnapshot()
@@ -322,7 +322,7 @@ func TestCaptureVerifiedBackupStateWithoutEnabledClientsNeedsNoCheckpoint(t *tes
 func convergenceConfig(id string) Config {
 	cfg := NewConfig()
 	cfg.Accounts[id] = Account{Label: strings.ToUpper(id), Endpoints: Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
-	cfg.Profiles[id] = Profile{Label: strings.ToUpper(id), Account: id, Model: id + "-model"}
-	cfg.SetSelectedProfile(ClientCodex, id)
+	cfg.Routes[id] = testRoute(strings.ToUpper(id), id, id+"-model", ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(ClientCodex, id)
 	return cfg
 }

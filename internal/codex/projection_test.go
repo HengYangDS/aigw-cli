@@ -83,8 +83,8 @@ func TestCodexEndpointRequiresConfiguration(t *testing.T) {
 		expected string
 		wantErr  bool
 	}{
-		{"missing", configuration.Runtime{ProfileID: "p"}, "", true},
-		{"valid", configuration.Runtime{ProfileID: "p", Endpoint: "https://example.com/", Authentication: configuration.AuthenticationClientNative}, "https://example.com/", false},
+		{"missing", configuration.Runtime{RouteID: "p"}, "", true},
+		{"valid", configuration.Runtime{RouteID: "p", Endpoint: "https://example.com/", Authentication: configuration.AuthenticationClientNative}, "https://example.com/", false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -178,13 +178,13 @@ func TestValidateConfigRejectsIncompleteOrMismatchedProjection(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "configuration.toml")
 
-	err := ValidateConfig(path, configuration.Runtime{ProfileID: "p"})
+	err := ValidateConfig(path, configuration.Runtime{RouteID: "p"})
 	if err == nil || !strings.Contains(err.Error(), "no Codex endpoint") {
 		t.Errorf("expected endpoint error, got %v", err)
 	}
 
 	runtime := atomicTestRuntime()
-	runtime.ProfileID = "p"
+	runtime.RouteID = "p"
 	runtime.Endpoint = "https://e.t"
 	runtime.Model = ""
 	err = ValidateConfig(path, runtime)
@@ -324,7 +324,7 @@ func TestCodexProjectionReconcilesOwnedNativeAuthenticationPreference(t *testing
 		t.Run(preference, func(t *testing.T) {
 			runtime := atomicTestRuntime()
 			block := codexProviderTable(configuration.ModelProviderAIGW) + "\n" +
-				fmt.Sprintf("name = %q\nbase_url = %q\nwire_api = \"responses\"\nrequires_openai_auth = %s\n", "AIGW: "+runtime.ProfileLabel, runtime.Endpoint, preference) + codexEnd + "\n"
+				fmt.Sprintf("name = %q\nbase_url = %q\nwire_api = \"responses\"\nrequires_openai_auth = %s\n", "AIGW: "+runtime.RouteLabel, runtime.Endpoint, preference) + codexEnd + "\n"
 			projection, err := projectCodex("", block, runtime.Model, "", configuration.ModelProviderAIGW)
 			if err != nil {
 				t.Fatal(err)

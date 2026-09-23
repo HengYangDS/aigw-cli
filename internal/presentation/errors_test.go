@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -146,13 +147,13 @@ func TestTypedErrorLocalizationDoesNotDependOnErrorText(t *testing.T) {
 		err  error
 		want string
 	}{
-		{name: "profile client mismatch", err: &configuration.RuntimeProfileClientMismatchError{ProfileID: "one", ExpectedClient: configuration.ClientCodex, ActualClient: configuration.ClientClaude}, want: `profile "one" is for codex, not claude`},
-		{name: "profile unknown account", err: &configuration.RuntimeProfileUnknownAccountError{ProfileID: "one", AccountID: "missing"}, want: `profile "one" references unknown account "missing"`},
+		{name: "profile client mismatch", err: &configuration.RuntimeRouteClientMismatchError{RouteID: "one", ExpectedClient: configuration.ClientCodex, ActualClient: configuration.ClientClaude}, want: `profile "one" is for codex, not claude`},
+		{name: "profile unknown account", err: &configuration.RuntimeRouteUnknownAccountError{RouteID: "one", AccountID: "missing"}, want: `profile "one" references unknown account "missing"`},
 		{name: "Anthropic endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolAnthropic}, want: `account "one" has no Anthropic endpoint`},
 		{name: "OpenAI Responses endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolOpenAIResponses}, want: `account "one" has no OpenAI Responses endpoint`},
 		{name: "OpenAI Chat Completions endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolOpenAIChatCompletions}, want: `account "one" has no OpenAI Chat Completions endpoint`},
 		{name: "unsupported version", err: &configuration.UnsupportedConfigVersionError{Version: 3, ExpectedVersion: 2}, want: "unsupported configuration version: found 3, expected 2. AIGW does not reinterpret configuration schemas"},
-		{name: "migratable version", err: &configuration.UnsupportedConfigVersionError{Version: configuration.LegacyConfigVersion, ExpectedVersion: configuration.ConfigVersion}, want: "unsupported configuration version: found 3, expected 5. AIGW does not reinterpret configuration schemas; run `aigw config migrate --dry-run`"},
+		{name: "migratable version", err: &configuration.UnsupportedConfigVersionError{Version: configuration.LegacyConfigVersion, ExpectedVersion: configuration.ConfigVersion}, want: fmt.Sprintf("unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas; run `aigw config migrate --dry-run`", configuration.LegacyConfigVersion, configuration.ConfigVersion)},
 		{name: "config load", err: &configuration.LoadError{Phase: configuration.LoadPhaseRead, Err: errors.New("details changed")}, want: "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it"},
 	}
 	for _, test := range tests {

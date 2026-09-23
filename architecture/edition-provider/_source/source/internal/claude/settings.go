@@ -75,6 +75,11 @@ type SettingsPlan struct {
 	Target string         `json:"target"`
 }
 
+// ChangesState reports whether applying the plan changes owned settings.
+func (plan SettingsPlan) ChangesState() bool {
+	return plan.Action == SettingsActionProject || plan.Action == SettingsActionRestore
+}
+
 // SettingsReceipt records the settings projection that was actually applied.
 type SettingsReceipt struct {
 	SettingsPlan
@@ -212,10 +217,10 @@ func prepareSettingsChange(path string, disabled bool, runtime configuration.Run
 		return change, nil
 	}
 	if runtime.Endpoint == "" {
-		return settingsChange{}, fmt.Errorf("profile %q has no Claude endpoint", runtime.ProfileID)
+		return settingsChange{}, fmt.Errorf("profile %q has no Claude endpoint", runtime.RouteID)
 	}
 	if runtime.AccountID == "" {
-		return settingsChange{}, fmt.Errorf("profile %q has no account", runtime.ProfileID)
+		return settingsChange{}, fmt.Errorf("profile %q has no account", runtime.RouteID)
 	}
 	executable, err = validateExecutable(executable)
 	if err != nil {

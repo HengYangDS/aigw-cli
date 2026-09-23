@@ -212,19 +212,19 @@ func claudeDesktopDesired(deps Dependencies, cfg configuration.Config, selected 
 }
 
 func claudeDesktopModels(cfg configuration.Config, selected configuration.Runtime) []claudedesktop.Model {
-	models := []claudedesktop.Model{{Name: selected.Model, Label: selected.ProfileLabel}}
+	models := []claudedesktop.Model{{Name: selected.Model, Label: selected.RouteLabel}}
 	seen := map[string]bool{selected.Model: true}
 	spec := mustClientSpec(configuration.ClientClaudeDesktop)
-	for _, profileID := range cfg.ProfileIDs() {
-		if profileID == selected.ProfileID {
+	for _, profileID := range cfg.RouteIDs() {
+		if profileID == selected.RouteID {
 			continue
 		}
-		profile := cfg.Profiles[profileID]
-		if profile.Account != selected.AccountID || profile.Protocols == nil || seen[profile.Model] {
+		profile := cfg.Routes[profileID]
+		if profile.Account != selected.AccountID || seen[profile.Model] {
 			continue
 		}
 		account := cfg.Accounts[profile.Account]
-		if !slices.Contains(spec.CompatibleProfileProtocols(account, profile), selected.Protocol) {
+		if !slices.Contains(spec.CompatibleRouteProtocols(account, profile), selected.Protocol) {
 			continue
 		}
 		models = append(models, claudedesktop.Model{Name: profile.Model, Label: profile.Label})

@@ -13,10 +13,10 @@
       "packageIdentitiesSha256": "a5f59a0e668fa9279d31e4e0cc11d95f3e4e7e21242a7bc4329cad790c8293ca"
     }
   },
-  "providerManifestSha256": "6731b69ab82322d7b4ecbbefacd297d281c185628c98b54ebbcb68e32e9b4bcf",
+  "providerManifestSha256": "014eb971ddde268023442075a8b49099482eac803a008199d38e79ed46b996c4",
   "providerOutput": {
-    "manifestSha256": "b075b4ab9954a35a6b4e3bb14f25e032fd4e3d7d2b7f05d77076032710b8bace",
-    "providerMaterializationSha256": "0e57c1385c31fe72350f471d485535605859c912c3e6a97c63579e51df3138d7"
+    "manifestSha256": "abe3de4e9e6d3bb93e025c5ed63e92d582a2a2b479cf101a247fe2964d57a923",
+    "providerMaterializationSha256": "1b972f8c21e197ba5faf881a9cab53d9c487d2558c272e424d0826e6ac38dd65"
   },
   "migrationBaseline": {
     "ownerCommit": "71da0af8cbaeaeb1b59fafd5ddabe59be7248627",
@@ -31,12 +31,12 @@
       "history/registry-v1-claim-model.json": "a99ef1a4348461d622a0b357368343992af1d824f7a6586675f480c17c4a6ea4",
       "history/registry-v1-edition.json": "101e60a865f03f60bdbc0994edf2431a3027b02971aefc57682244028b2c27fb"
     },
-    "providerEvolutionSha256": "54a5c18dfe44059984d824e0c9cb01977bf9a53c959e4df711beb92d01746bb1",
+    "providerEvolutionSha256": "f4a9e37b1d7fac323fa951174b2e69bf443e216797a45793f6f44542ead911c2",
     "candidate": {
-      "manifestSha256": "7abb2c3a1d33d44fccc0148332dd5eefcd4a5496eb1a746e376ce5c784c0d266",
-      "candidateSha256": "b2035f2bde00b790aa1b6e9854d5420e51fa1d1f7a361f538b81d61bb57599b7",
-      "semanticDigest": "1ee3d12f00cd8ccd9795069c0dfdcb377a5f2ea38174ce20282abaa31cc75ed5",
-      "editionDigest": "c1b7368908923d63e9fae77e4ca00aa6b4d6277f3408cec25f2a6eab0f1c82d2",
+      "manifestSha256": "4ea8e0e4da2a591fab656b16331b6fae57f07093578c2b13e2d261ecb8d7f160",
+      "candidateSha256": "3d87f72397ceb21ef65327d05549771251c0e49472a5723eaf44ba240da62287",
+      "semanticDigest": "9e8b3baaff740930f0f338c3c7f577846e19422243d77de0862f717831ae8402",
+      "editionDigest": "7fec3c7bc4e69204d319149b00201c8b7693e2d53ca8f827d47ba08ca2acdd2e",
       "staticSceneDigest": "445f374686b71c10d52b713a25b2125fef996786f9ff01ff1196d58e2c29927a",
       "interactiveSceneDigest": "29f15c7116857d78d427a3b6687126c3a1c33543fd6877cc687def694874eea2",
       "pngSha256": "7330cac6faa872cb5bced514cc7cc848ab1d9d60cca7c0c620f7e339f43e4a04",

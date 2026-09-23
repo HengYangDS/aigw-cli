@@ -87,8 +87,8 @@ func hermesDesired(deps Dependencies, cfg configuration.Config, selected configu
 	spec := mustClientSpec(configuration.ClientHermes)
 	providers := make(map[string]hermesconfig.Provider)
 	connected := map[string]bool{selected.AccountID: true}
-	for _, profileID := range cfg.ProfileIDs() {
-		profile := cfg.Profiles[profileID]
+	for _, profileID := range cfg.RouteIDs() {
+		profile := cfg.Routes[profileID]
 		if _, observed := connected[profile.Account]; !observed {
 			available, err := secretAvailable(deps.Secrets, profile.Account)
 			if err != nil {
@@ -100,18 +100,12 @@ func hermesDesired(deps Dependencies, cfg configuration.Config, selected configu
 			continue
 		}
 		account := cfg.Accounts[profile.Account]
-		protocols := spec.CompatibleProfileProtocols(account, profile)
-		if profile.Protocols == nil {
-			if profileID != selected.ProfileID {
-				continue
-			}
-			protocols = []configuration.EndpointProtocol{selected.Protocol}
-		}
+		protocols := spec.CompatibleRouteProtocols(account, profile)
 		for _, protocol := range protocols {
 			providerID := hermesProviderID(profile.Account, protocol)
 			provider, exists := providers[providerID]
 			if !exists {
-				providerRuntime, err := cfg.ResolveProfileProtocol(configuration.ClientHermes, profileID, protocol)
+				providerRuntime, err := cfg.ResolveRouteProtocol(configuration.ClientHermes, profileID, protocol)
 				if err != nil {
 					return hermesconfig.Desired{}, err
 				}

@@ -22,7 +22,7 @@ func TestProfileMutationsReturnConfigurationTransactionFailures(t *testing.T) {
 			command: func(runtime invocation.Context) commandExecutor {
 				return newAddCommand(runtime)
 			},
-			args: []string{"new", "--account", "current", "--for", configuration.ClientCodex, "--model", "gpt-new"},
+			args: []string{"new", "--account", "current", "--model", "gpt-new", "--protocol", "openai_responses"},
 		},
 		{
 			name: "edit",
@@ -44,9 +44,9 @@ func TestProfileMutationsReturnConfigurationTransactionFailures(t *testing.T) {
 	}
 }
 
-func TestChoiceLabelPresentsCuratedTierWithoutPurposeMetadata(t *testing.T) {
-	profile := configuration.Profile{Label: "UCloud · Grok 4.6", Tier: configuration.ModelTierFlagship}
-	if got := choiceLabel(profile); got != "UCloud · Grok 4.6 · Flagship" {
+func TestChoiceLabelUsesRouteMetadataWithoutGlobalRanking(t *testing.T) {
+	profile := configuration.Route{Label: "UCloud · Grok 4.6", Purpose: "Coding"}
+	if got := choiceLabel(profile); got != "UCloud · Grok 4.6 · Coding" {
 		t.Fatalf("choice label = %q", got)
 	}
 }
@@ -60,10 +60,16 @@ func TestRemoveProfileRemovesOnlyItsRecommendation(t *testing.T) {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Model: "claude-test"}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Model: "gpt-test"}
-	cfg.SetRecommendedProfile(configuration.ClientClaude, "claude")
-	cfg.SetRecommendedProfile(configuration.ClientCodex, "codex")
+	cfg.Routes["claude"] = configuration.Route{
+		Label: "Claude", Account: "team", Model: "claude-test",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+	}
+	cfg.Routes["codex"] = configuration.Route{
+		Label: "Codex", Account: "team", Model: "gpt-test",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+	}
+	cfg.SetRecommendedRoute(configuration.ClientClaude, "claude")
+	cfg.SetRecommendedRoute(configuration.ClientCodex, "codex")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +79,7 @@ func TestRemoveProfileRemovesOnlyItsRecommendation(t *testing.T) {
 		t.Fatal(err)
 	}
 	after, err := store.Load()
-	if err != nil || after.RecommendedProfile(configuration.ClientClaude) != "" || after.RecommendedProfile(configuration.ClientCodex) != "codex" {
+	if err != nil || after.RecommendedRoute(configuration.ClientClaude) != "" || after.RecommendedRoute(configuration.ClientCodex) != "codex" {
 		t.Fatalf("removal recommendation state = %#v, %v", after.Recommendations, err)
 	}
 }
@@ -87,12 +93,15 @@ func blockedProfileRuntime(t *testing.T) invocation.Context {
 		Label:     "Current",
 		Endpoints: configuration.Endpoints{OpenAIResponses: "https://current.test/v1"},
 	}
-	cfg.Profiles["current"] = configuration.Profile{
+	cfg.Routes["current"] = configuration.Route{
 		Label:   "Current",
 		Account: "current",
 		Model:   "gpt-current",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
+			configuration.ProtocolOpenAIResponses: {},
+		},
 	}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "current")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "current")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -8,16 +8,16 @@ import (
 	"aigw-cli/internal/configuration"
 )
 
-// ConnectAccount adds one Account and its first Profile, selects the Profile for
+// ConnectAccount adds one Account and its first Model and Route, selects the Route for
 // that client, and projects only that client. Token acquisition follows identity
 // and configuration admission. Existing identities are never implicitly replaced.
 // Configuration, credential and projection failures retain their shared recovery
 // semantics; the caller owns no compensation after this operation returns.
-func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.Config, name, client string, account configuration.Account, profile configuration.Profile, acquireToken func() (string, error)) error {
+func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.Config, name, client string, account configuration.Account, route configuration.Route, acquireToken func() (string, error)) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if _, exists := before.Profiles[name]; exists {
+	if _, exists := before.Routes[name]; exists {
 		return fmt.Errorf("Profile %q already exists; creation does not replace Profiles", name)
 	}
 	if _, exists := before.Accounts[name]; exists {
@@ -25,11 +25,17 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.C
 	}
 	after := before.Clone()
 	account.ID = name
-	profile.Account = name
+	route.Account = name
+	if route.UpstreamModel == "" {
+		route.UpstreamModel = route.Model
+	}
 	after.Accounts[name] = account
-	after.Profiles[name] = profile
+	if _, exists := after.Models[route.Model]; !exists {
+		after.Models[route.Model] = configuration.Model{Label: route.Model}
+	}
+	after.Routes[name] = route
 	binding := after.Clients[client]
-	binding.Profile = name
+	binding.Route = name
 	binding.Enabled = true
 	after.Clients[client] = binding
 	if err := after.Validate(); err != nil {

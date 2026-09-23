@@ -52,8 +52,8 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://example.invalid"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "fixture"}
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "fixture", configuration.ProtocolAnthropic)
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 	command := filepath.Join(t.TempDir(), "credential adapter")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	binding := cfg.Clients[configuration.ClientClaude]
@@ -118,7 +118,7 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 				configuration.ClientClaude,
 				"claude-test",
 			)
-			cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+			cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
@@ -161,7 +161,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 				configuration.ClientClaude,
 				"claude-test",
 			)
-			cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+			cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
@@ -197,7 +197,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 		configuration.ClientClaude,
 		"claude-test",
 	)
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
@@ -235,7 +235,7 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 				configuration.ClientClaude,
 				"claude-test",
 			)
-			cfg.SetRecommendedProfile(configuration.ClientClaude, "claude")
+			cfg.SetRecommendedRoute(configuration.ClientClaude, "claude")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -275,7 +275,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 				Endpoints:    configuration.Endpoints{Anthropic: "https://team.test"},
 				AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
 			}
-			cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+			cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
@@ -350,7 +350,7 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 		Endpoints:    configuration.Endpoints{Anthropic: "https://team.test"},
 		AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
 	}
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

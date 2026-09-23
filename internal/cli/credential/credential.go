@@ -62,23 +62,16 @@ func resolveProjectedRuntime(cfg configuration.Config, client, fingerprint strin
 	if !admitted {
 		return configuration.Runtime{}, fmt.Errorf("unknown client %q", client)
 	}
-	for _, profileID := range cfg.ProfileIDs() {
-		profile := cfg.Profiles[profileID]
+	for _, profileID := range cfg.RouteIDs() {
+		profile := cfg.Routes[profileID]
 		account, exists := cfg.Accounts[profile.Account]
 		if !exists {
 			continue
 		}
 		account.ID = profile.Account
-		protocols := spec.CompatibleProfileProtocols(account, profile)
-		if profile.Protocols == nil {
-			clientRuntime, err := cfg.ResolveRuntime(client, profileID)
-			if err != nil {
-				continue
-			}
-			protocols = []configuration.EndpointProtocol{clientRuntime.Protocol}
-		}
+		protocols := spec.CompatibleRouteProtocols(account, profile)
 		for _, protocol := range protocols {
-			clientRuntime, err := cfg.ResolveProfileProtocol(client, profileID, protocol)
+			clientRuntime, err := cfg.ResolveRouteProtocol(client, profileID, protocol)
 			if err != nil {
 				continue
 			}

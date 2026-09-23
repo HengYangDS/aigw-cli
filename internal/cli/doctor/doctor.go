@@ -207,7 +207,7 @@ func Collect(ctx context.Context, deps Dependencies) []Check {
 	if err != nil {
 		return append(checks, Check{"config", false, err.Error(), "inspect or restore " + deps.Config.Path()})
 	}
-	if len(cfg.Profiles) == 0 {
+	if len(cfg.Routes) == 0 {
 		checks = append(checks, Check{"config", false, "not configured", "run `aigw setup`"})
 	} else {
 		checks = append(checks, Check{"config", true, "valid", ""})

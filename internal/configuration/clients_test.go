@@ -53,7 +53,7 @@ func TestAdmittedClientRegistryReturnsDefensiveCopies(t *testing.T) {
 }
 
 func TestProfileOwnsModelIdentityWithoutClientState(t *testing.T) {
-	profile := Profile{Model: "claude-test"}
+	profile := Route{Model: "claude-test"}
 	if profile.Model != "claude-test" {
 		t.Fatalf("profile = %#v", profile)
 	}
@@ -116,17 +116,17 @@ func TestClientSpecRejectsUnimplementedProtocol(t *testing.T) {
 func TestExplicitCredentialCommandSurvivesHostConfigRoundTrip(t *testing.T) {
 	cfg := validConfig()
 	cfg.Normalize()
-	cfg.Profiles[ClientClaudeDesktop] = Profile{Label: "Claude Desktop", Account: "dmx", Model: "model"}
-	cfg.SetSelectedProfile(ClientClaudeDesktop, ClientClaudeDesktop)
-	cfg.Profiles[ClientHermes] = Profile{Label: "Hermes", Account: "backup", Model: "model"}
-	cfg.SetSelectedProfile(ClientHermes, ClientHermes)
+	cfg.Routes[ClientClaudeDesktop] = testRoute("Claude Desktop", "dmx", "model", ProtocolAnthropic)
+	cfg.SetSelectedRoute(ClientClaudeDesktop, ClientClaudeDesktop)
+	cfg.Routes[ClientHermes] = testRoute("Hermes", "backup", "model", ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(ClientHermes, ClientHermes)
 	for _, client := range AdmittedClientIDs() {
 		command := filepath.Join(t.TempDir(), "credential adapter")
 		var adapter ClientBinding
 		if err := toml.Unmarshal([]byte(fmt.Sprintf("enabled = true\ncredential_command = %q\n", command)), &adapter); err != nil {
 			t.Fatal(err)
 		}
-		adapter.Profile = cfg.SelectedProfile(client)
+		adapter.Route = cfg.SelectedRoute(client)
 		cfg.Clients[client] = adapter
 		runtime, err := cfg.ResolveRuntime(client, "")
 		if err != nil || runtime.CredentialCommand != command {

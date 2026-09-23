@@ -21,8 +21,8 @@ func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-5.6-sol"] = configuration.Profile{Label: "GPT Profile", Account: "dmx", Model: "gpt-5.6-sol"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt-5.6-sol")
+	cfg.Routes["gpt-5.6-sol"] = qualifiedRoute("GPT Profile", "dmx", "gpt-5.6-sol", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-5.6-sol")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "new-token\n")
 		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
 		err := cli.Execute(app, []string{"rotate", "missing", "--token-stdin"})
-		if err == nil || !strings.Contains(strings.ToLower(err.Error()), "unknown account or profile") {
+		if err == nil || !strings.Contains(strings.ToLower(err.Error()), "unknown account or route") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -155,7 +155,7 @@ func TestRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "new-token\n")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
-	cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "one")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{t.TempDir()})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -182,7 +182,7 @@ func TestRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T) {
 			}
 			cfg := configuration.NewConfig()
 			addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
-			cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+			cfg.SetSelectedRoute(configuration.ClientCodex, "one")
 			cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 			wantMessage := "clients control their refresh timing"
 			if !hasTarget {
@@ -227,10 +227,10 @@ func TestRotateClaudeOnlyAccountDoesNotTouchCodexTargets(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["codex-account"] = configuration.Account{Label: "Codex", Endpoints: configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}}
 	cfg.Accounts["claude-account"] = configuration.Account{Label: "Claude", Endpoints: configuration.Endpoints{Anthropic: "https://claude.test"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "codex-account", Model: "gpt-test"}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "claude-account", Model: "claude-test"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.Routes["gpt"] = qualifiedRoute("GPT", "codex-account", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["claude"] = qualifiedRoute("Claude", "claude-account", "claude-test", configuration.ProtocolAnthropic)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/missing/codex", []string{filepath.Join(t.TempDir(), "unavailable-codex-configuration.toml")})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

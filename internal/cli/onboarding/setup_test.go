@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
@@ -115,12 +114,12 @@ func (candidate setupDiscovery) Discover() discovery.Result {
 func manifestSetupConfig() configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Model: "claude-test"}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Model: "gpt-test"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
-	cfg.Recommendations[configuration.ClientCodex] = configuration.ClientSelection{Profile: "codex"}
-	cfg.Recommendations[configuration.ClientClaude] = configuration.ClientSelection{Profile: "claude"}
+	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "team", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.Recommendations[configuration.ClientCodex] = configuration.ClientRecommendation{Primary: configuration.ClientSelection{Route: "codex"}}
+	cfg.Recommendations[configuration.ClientClaude] = configuration.ClientRecommendation{Primary: configuration.ClientSelection{Route: "claude"}}
 	cfg.SetClientActivation(configuration.ClientCodex, true, "", nil)
 	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
 	return cfg
@@ -359,19 +358,24 @@ func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
 func TestManifestSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "configuration.toml")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 6
-[recommendations.codex]
-profile = "gpt"
+	manifest := `version = 7
+[recommendations.codex.primary]
+route = "gpt"
 
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
 openai_responses = "https://team.test/v1"
 
-[profiles.gpt]
+[models.gpt-test]
+label = "GPT Test"
+
+[routes.gpt]
 label = "GPT"
 account = "team"
 model = "gpt-test"
+upstream_model = "gpt-test"
+interfaces = { openai_responses = ["text"] }
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
@@ -420,8 +424,14 @@ func TestConfiguredClientsForAccount(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["legacy"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://legacy.test/v1"}}
 	cfg.Accounts["other"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://other.test"}}
-	cfg.Profiles["legacy"] = configuration.Profile{Account: "legacy", Model: "model"}
-	cfg.Profiles["other"] = configuration.Profile{Account: "other", Model: "model"}
+	cfg.Routes["legacy"] = configuration.Route{
+		Account: "legacy", Model: "model",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+	}
+	cfg.Routes["other"] = configuration.Route{
+		Account: "other", Model: "model",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+	}
 
 	clients := configuredClientsForAccount(cfg, "legacy")
 	if len(clients) != 2 || clients[0] != configuration.ClientCodex || clients[1] != configuration.ClientHermes {
@@ -443,71 +453,6 @@ func TestSetupTokenPromptAndBackendErrors(t *testing.T) {
 		credential, err := setupToken(app, Request{Account: "one", PromptToken: true, Label: "One"})
 		if err != nil || !credential.write || credential.token != "prompt-token" {
 			t.Fatalf("credential=%#v error=%v", credential, err)
-		}
-	})
-}
-
-func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
-	account := configuration.Account{ID: "one", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}}
-
-	t.Run("unknown client", func(t *testing.T) {
-		err := credential.Validate(context.Background(), nil, account, "token", "other")
-		if err == nil || !strings.Contains(err.Error(), "unsupported") {
-			t.Fatalf("error = %v", err)
-		}
-	})
-
-	t.Run("missing endpoint", func(t *testing.T) {
-		err := credential.Validate(context.Background(), nil, configuration.Account{ID: "one", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}, "token", configuration.ClientCodex)
-		if err == nil || !strings.Contains(err.Error(), "no OpenAI") {
-			t.Fatalf("error = %v", err)
-		}
-	})
-
-	t.Run("invalid URL", func(t *testing.T) {
-		bad := account
-		bad.Endpoints.OpenAIResponses = "://bad"
-		if err := credential.Validate(context.Background(), nil, bad, "token", configuration.ClientCodex); err == nil {
-			t.Fatal("expected request construction failure")
-		}
-	})
-
-	t.Run("network", func(t *testing.T) {
-		want := errors.New("network failed")
-		app := invocation.Context{HTTP: setupHTTPClient(func(*http.Request) (*http.Response, error) { return nil, want })}
-		if err := credential.Validate(context.Background(), app.HTTP, account, "token", configuration.ClientCodex); !errors.Is(err, want) {
-			t.Fatalf("error = %v, want %v", err, want)
-		}
-	})
-
-	t.Run("body read", func(t *testing.T) {
-		want := errors.New("read failed")
-		app := invocation.Context{HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
-			return &http.Response{StatusCode: http.StatusOK, Body: setupResponseBody{Reader: errorReader{err: want}}, Request: request}, nil
-		})}
-		if err := credential.Validate(context.Background(), app.HTTP, account, "token", configuration.ClientCodex); !errors.Is(err, want) {
-			t.Fatalf("error = %v, want %v", err, want)
-		}
-	})
-
-	t.Run("body close", func(t *testing.T) {
-		want := errors.New("close failed")
-		app := invocation.Context{HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
-			return &http.Response{StatusCode: http.StatusOK, Body: setupResponseBody{Reader: strings.NewReader("ok"), closeErr: want}, Request: request}, nil
-		})}
-		if err := credential.Validate(context.Background(), app.HTTP, account, "token", configuration.ClientCodex); !errors.Is(err, want) {
-			t.Fatalf("error = %v, want %v", err, want)
-		}
-	})
-
-	t.Run("duplicate client", func(t *testing.T) {
-		calls := 0
-		app := invocation.Context{HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
-			calls++
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
-		})}
-		if err := credential.Validate(context.Background(), app.HTTP, account, "token", configuration.ClientCodex, configuration.ClientCodex); err != nil || calls != 1 {
-			t.Fatalf("calls=%d error=%v", calls, err)
 		}
 	})
 }

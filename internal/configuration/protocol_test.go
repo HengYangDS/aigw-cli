@@ -1,17 +1,18 @@
 package configuration
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
 )
 
-func TestProfileSelectsProtocolIndependentlyOfClientBrand(t *testing.T) {
+func TestRouteSelectsProtocolIndependentlyOfClientBrand(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{OpenAIResponses: "https://responses.test/v1", Anthropic: "https://messages.test", OpenAIChatCompletions: "https://chat.test/v1"}}
-	cfg.Profiles["hermes"] = Profile{Label: "Hermes", Account: "team", Model: "model-test", Protocols: []EndpointProtocol{ProtocolAnthropic}}
-	cfg.Clients[ClientHermes] = ClientBinding{Profile: "hermes", Protocol: ProtocolAnthropic}
+	cfg.Routes["hermes"] = Route{Label: "Hermes", Account: "team", Model: "model-test", Interfaces: map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}}
+	cfg.Clients[ClientHermes] = ClientBinding{Route: "hermes", Protocol: ProtocolAnthropic}
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
@@ -28,24 +29,19 @@ func TestProfileSelectsProtocolIndependentlyOfClientBrand(t *testing.T) {
 		t.Fatal(err)
 	}
 	if restored.Clients[ClientHermes].Protocol != ProtocolAnthropic {
-		t.Fatal("profile protocol did not survive round-trip")
+		t.Fatal("route protocol did not survive round-trip")
 	}
 	binding := cfg.Clients[ClientHermes]
 	binding.Protocol = ""
 	cfg.Clients[ClientHermes] = binding
 	if runtime, err := cfg.ResolveRuntime("hermes", ""); err != nil || runtime.Protocol != ProtocolAnthropic {
-		t.Fatalf("Profile capability did not resolve the sole admitted protocol: %#v, %v", runtime, err)
+		t.Fatalf("Route interface did not resolve the sole admitted protocol: %#v, %v", runtime, err)
 	}
-	profile := cfg.Profiles["hermes"]
-	profile.Protocols = nil
-	cfg.Profiles["hermes"] = profile
-	if _, err := cfg.ResolveRuntime("hermes", ""); err == nil || !strings.Contains(err.Error(), "protocol") {
-		t.Fatalf("unqualified ambiguous Profile did not require protocol selection: %v", err)
-	}
-	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{OpenAIChatCompletions: "https://chat.test/v1"}}
-	runtime, err = cfg.ResolveRuntime("hermes", "")
-	if err != nil || runtime.Protocol != ProtocolOpenAIChatCompletions {
-		t.Fatalf("only available protocol = %#v, %v", runtime, err)
+	route := cfg.Routes["hermes"]
+	route.Interfaces = nil
+	cfg.Routes["hermes"] = route
+	if _, err := cfg.ResolveRuntime("hermes", ""); err == nil || !strings.Contains(err.Error(), "compatible endpoint") {
+		t.Fatalf("unqualified Route did not reject implicit endpoint inference: %v", err)
 	}
 }
 
@@ -59,19 +55,19 @@ func TestExplicitProtocolMustBeSupportedByClient(t *testing.T) {
 	}
 }
 
-func TestProfileProtocolsConstrainClientCompatibilityAndRuntimeSelection(t *testing.T) {
+func TestRouteInterfacesConstrainClientCompatibilityAndRuntimeSelection(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{
 		OpenAIResponses:       "https://responses.test/v1",
 		OpenAIChatCompletions: "https://chat.test/v1",
 	}}
-	cfg.Profiles["chat-only"] = Profile{
-		Label:     "Chat only",
-		Account:   "team",
-		Model:     "model-test",
-		Protocols: []EndpointProtocol{ProtocolOpenAIChatCompletions},
+	cfg.Routes["chat-only"] = Route{
+		Label:      "Chat only",
+		Account:    "team",
+		Model:      "model-test",
+		Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIChatCompletions: {}},
 	}
-	cfg.Clients[ClientHermes] = ClientBinding{Profile: "chat-only", Protocol: ProtocolOpenAIChatCompletions}
+	cfg.Clients[ClientHermes] = ClientBinding{Route: "chat-only", Protocol: ProtocolOpenAIChatCompletions}
 
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
@@ -83,15 +79,15 @@ func TestProfileProtocolsConstrainClientCompatibilityAndRuntimeSelection(t *test
 	if err != nil || runtime.Protocol != ProtocolOpenAIChatCompletions {
 		t.Fatalf("chat-only runtime = %#v, %v", runtime, err)
 	}
-	cfg.Profiles["responses-only"] = Profile{
-		Label:     "Responses only",
-		Account:   "team",
-		Model:     "another-model",
-		Protocols: []EndpointProtocol{ProtocolOpenAIResponses},
+	cfg.Routes["responses-only"] = Route{
+		Label:      "Responses only",
+		Account:    "team",
+		Model:      "another-model",
+		Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}},
 	}
 	runtime, err = cfg.ResolveRuntime(ClientHermes, "responses-only")
 	if err != nil || runtime.Protocol != ProtocolOpenAIResponses {
-		t.Fatalf("explicit Profile did not replace the previous incompatible protocol: %#v, %v", runtime, err)
+		t.Fatalf("explicit Route did not replace the previous incompatible protocol: %#v, %v", runtime, err)
 	}
 
 	invalid := cfg.Clone()
@@ -99,47 +95,77 @@ func TestProfileProtocolsConstrainClientCompatibilityAndRuntimeSelection(t *test
 	binding.Protocol = ProtocolOpenAIResponses
 	invalid.Clients[ClientHermes] = binding
 	if err := invalid.Validate(); err == nil || !strings.Contains(err.Error(), "does not admit") {
-		t.Fatalf("unsupported Profile protocol error = %v", err)
+		t.Fatalf("unsupported Route protocol error = %v", err)
 	}
 }
 
-func TestProfileProtocolsRequireAUniqueKnownSet(t *testing.T) {
+func TestRouteInterfacesRejectUnknownProtocols(t *testing.T) {
 	for _, testCase := range []struct {
-		name      string
-		protocols []EndpointProtocol
+		name       string
+		interfaces map[EndpointProtocol][]Capability
 	}{
-		{name: "empty", protocols: []EndpointProtocol{}},
-		{name: "duplicate", protocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolOpenAIResponses}},
-		{name: "unknown", protocols: []EndpointProtocol{"future"}},
+		{name: "unknown", interfaces: map[EndpointProtocol][]Capability{"future": {}}},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			cfg := validConfig()
-			profile := cfg.Profiles["dmx"]
-			profile.Protocols = testCase.protocols
-			cfg.Profiles["dmx"] = profile
+			route := cfg.Routes["dmx"]
+			route.Interfaces = testCase.interfaces
+			cfg.Routes["dmx"] = route
 			if err := cfg.Validate(); err == nil {
-				t.Fatalf("accepted invalid Profile protocols: %v", testCase.protocols)
+				t.Fatalf("accepted invalid Route interfaces: %v", testCase.interfaces)
 			}
 		})
 	}
 }
 
-func TestProfileTierUsesTheCuratedFlagshipOrDailyVocabulary(t *testing.T) {
-	for _, tier := range []ModelTier{"", ModelTierFlagship, ModelTierDaily} {
-		cfg := validConfig()
-		profile := cfg.Profiles["dmx"]
-		profile.Tier = tier
-		cfg.Profiles["dmx"] = profile
-		if err := cfg.Validate(); err != nil {
-			t.Fatalf("tier %q: %v", tier, err)
-		}
+func TestRouteInterfacesKeepProtocolAndCapabilitySeparate(t *testing.T) {
+	for _, testCase := range []struct {
+		name         string
+		capabilities []Capability
+		wantError    string
+	}{
+		{name: "known", capabilities: []Capability{CapabilityText, CapabilityReasoning, CapabilityStreaming}},
+		{name: "duplicate", capabilities: []Capability{CapabilityText, CapabilityText}, wantError: "repeats capability"},
+		{name: "unknown", capabilities: []Capability{"future"}, wantError: "unknown capability"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			cfg := validConfig()
+			route := cfg.Routes["backup"]
+			route.Interfaces = map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: testCase.capabilities}
+			cfg.Routes["backup"] = route
+			err := cfg.Validate()
+			if testCase.wantError == "" && err != nil {
+				t.Fatal(err)
+			}
+			if testCase.wantError != "" && (err == nil || !strings.Contains(err.Error(), testCase.wantError)) {
+				t.Fatalf("error = %v, want %q", err, testCase.wantError)
+			}
+		})
 	}
-	cfg := validConfig()
-	profile := cfg.Profiles["dmx"]
-	profile.Tier = "premium"
-	cfg.Profiles["dmx"] = profile
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "tier") {
-		t.Fatalf("unknown tier error = %v", err)
+}
+
+func TestRouteCapabilitiesRemainScopedToTheExactWireInterface(t *testing.T) {
+	route := Route{
+		Account: "team",
+		Model:   "model",
+		Interfaces: map[EndpointProtocol][]Capability{
+			ProtocolOpenAIResponses:       {CapabilityText, CapabilityReasoning},
+			ProtocolOpenAIChatCompletions: {CapabilityText},
+		},
+	}
+	data, err := toml.Marshal(route)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored Route
+	if err := toml.Unmarshal(data, &restored); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(restored.Interfaces[ProtocolOpenAIResponses], CapabilityReasoning) {
+		t.Fatal("Responses reasoning qualification was lost")
+	}
+	if slices.Contains(restored.Interfaces[ProtocolOpenAIChatCompletions], CapabilityReasoning) {
+		t.Fatal("Responses reasoning qualification leaked into Chat Completions")
 	}
 }
 
@@ -150,8 +176,8 @@ func TestManifestEquivalenceIncludesEveryEndpointAndProtocol(t *testing.T) {
 	if equivalentAccount(left, right) {
 		t.Fatal("manifest import treated different Chat Completions endpoints as equivalent")
 	}
-	profile := Profile{Account: "team", Model: "model", Protocols: []EndpointProtocol{ProtocolOpenAIResponses}}
-	if !equivalentProfile(profile, profile) {
+	profile := Route{Account: "team", Model: "model", Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}}
+	if !equivalentRoute(profile, profile) {
 		t.Fatal("manifest import treated equal provider model identities as different")
 	}
 }

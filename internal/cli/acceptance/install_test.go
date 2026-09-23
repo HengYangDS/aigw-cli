@@ -162,10 +162,10 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	if manager == "homebrew" {
 		expectedBindings = 2
 	}
-	if len(retained.Clients) != expectedBindings || len(retained.EnabledClientIDs()) != 0 || len(retained.Accounts) != 1 || len(retained.Profiles) != 2 {
+	if len(retained.Clients) != expectedBindings || len(retained.EnabledClientIDs()) != 0 || len(retained.Accounts) != 1 || len(retained.Routes) != 2 {
 		t.Fatalf("retained capability configuration = %#v", retained)
 	}
-	if manager == "homebrew" && (retained.SelectedProfile(configuration.ClientClaude) != "claude" || retained.SelectedProfile(configuration.ClientCodex) != "codex") {
+	if manager == "homebrew" && (retained.SelectedRoute(configuration.ClientClaude) != "claude" || retained.SelectedRoute(configuration.ClientCodex) != "codex") {
 		t.Fatalf("package-managed uninstall changed retained client selections: %#v", retained.Clients)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "token" {
@@ -208,10 +208,10 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 	}}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Model: "claude-model"}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Model: "gpt-model"}
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
-	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
+	cfg.Routes["claude"] = qualifiedRoute("Claude", "team", "claude-model", configuration.ProtocolAnthropic)
+	cfg.Routes["codex"] = qualifiedRoute("Codex", "team", "gpt-model", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
 	cfg.SetClientActivation(configuration.ClientClaude, true, claudeExecutable, nil)
 	cfg.SetClientActivation(configuration.ClientCodex, true, codexExecutable, []string{codexTarget})
 	if err := app.Config.Save(cfg); err != nil {

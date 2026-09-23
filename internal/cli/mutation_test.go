@@ -44,10 +44,10 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 		{[]string{"add", "bad id"}, "Invalid account ID", "aigw add --help"},
 		{[]string{"add", "new", "--for", "unknown", "--model", "model"}, "--for and --model are required", "aigw add --help"},
 		{[]string{"add", "new", "--for", "codex", "--model", " "}, "--for and --model are required", "aigw add --help"},
-		{[]string{"profile", "add", "new"}, "--account and --model are required", "aigw profile add --help"},
+		{[]string{"profile", "add", "new"}, "--account, --model, and --protocol are required", "aigw profile add --help"},
 		{[]string{"profile", "add", "bad id"}, "Invalid profile ID", "aigw profile add --help"},
 		{[]string{"profile", "add", "new", "--account", "bad id", "--model", "model"}, "Invalid account ID", "aigw profile add --help"},
-		{[]string{"profile", "add", "new", "--account", "account", "--model", " "}, "--account and --model are required", "aigw profile add --help"},
+		{[]string{"profile", "add", "new", "--account", "account", "--model", " "}, "--account, --model, and --protocol are required", "aigw profile add --help"},
 		{[]string{"config", "import", " "}, "manifest path must not be blank", "aigw config import --help"},
 		{[]string{"account", "edit", "account"}, "at least one of the flags", "aigw account edit --help"},
 		{[]string{"account", "edit", "bad id", "--label", "Name"}, "Invalid account ID", "aigw account edit --help"},
@@ -165,8 +165,11 @@ func TestConfigurationLockForInteractiveOnboarding(t *testing.T) {
 	store := configuration.NewStore(path)
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-test"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.Routes["gpt"] = configuration.Route{
+		Label: "GPT", Account: "dmx", Model: "gpt-test",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+	}
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -8,16 +8,16 @@ import (
 )
 
 func TestCurrentSchemaRemovesLegacySelectionFields(t *testing.T) {
-	if ConfigVersion != 5 {
-		t.Fatalf("config version = %d, want 5", ConfigVersion)
+	if ConfigVersion != 6 {
+		t.Fatalf("config version = %d, want 6", ConfigVersion)
 	}
-	for _, field := range []string{"Routes", "RecommendedRoutes"} {
+	for _, field := range []string{"Profiles", "RecommendedRoutes"} {
 		if _, exists := reflect.TypeFor[Config]().FieldByName(field); exists {
 			t.Errorf("Config still exposes legacy field %s", field)
 		}
 	}
 	for _, field := range []string{"Client", "ModelProvider", "Authentication"} {
-		if _, exists := reflect.TypeFor[Profile]().FieldByName(field); exists {
+		if _, exists := reflect.TypeFor[Route]().FieldByName(field); exists {
 			t.Errorf("Profile still exposes client concern %s", field)
 		}
 	}
@@ -29,14 +29,18 @@ func TestConfigSerializationUsesClientBindingsOnly(t *testing.T) {
 		Label:     "Team",
 		Endpoints: Endpoints{Anthropic: "https://team.test/anthropic"},
 	}
-	cfg.Profiles["reasoning"] = Profile{
+	cfg.Routes["reasoning"] = Route{
 		Label:   "Reasoning",
 		Account: "team",
 		Model:   "reasoning-model",
+		Interfaces: map[EndpointProtocol][]Capability{
+			ProtocolAnthropic:             {CapabilityText},
+			ProtocolOpenAIChatCompletions: {CapabilityText},
+		},
 	}
 	cfg.Clients[ClientClaude] = ClientBinding{
 		Enabled:  true,
-		Profile:  "reasoning",
+		Route:    "reasoning",
 		Protocol: ProtocolAnthropic,
 	}
 
@@ -48,7 +52,7 @@ func TestConfigSerializationUsesClientBindingsOnly(t *testing.T) {
 	if err := toml.Unmarshal(encoded, &document); err != nil {
 		t.Fatal(err)
 	}
-	for _, legacy := range []string{"routes", "recommended_routes", "adapters"} {
+	for _, legacy := range []string{"profiles", "recommended_routes", "adapters"} {
 		if _, exists := document[legacy]; exists {
 			t.Fatalf("serialized configuration retained legacy %q state:\n%s", legacy, encoded)
 		}
@@ -60,17 +64,17 @@ func TestConfigSerializationUsesClientBindingsOnly(t *testing.T) {
 	if _, ok := clients[ClientClaude]; !ok {
 		t.Fatalf("serialized configuration has no Claude binding:\n%s", encoded)
 	}
-	profiles, ok := document["profiles"].(map[string]any)
+	routes, ok := document["routes"].(map[string]any)
 	if !ok {
-		t.Fatalf("serialized configuration has no profiles table:\n%s", encoded)
+		t.Fatalf("serialized configuration has no routes table:\n%s", encoded)
 	}
-	profile, ok := profiles["reasoning"].(map[string]any)
+	route, ok := routes["reasoning"].(map[string]any)
 	if !ok {
-		t.Fatalf("serialized configuration has no reasoning profile:\n%s", encoded)
+		t.Fatalf("serialized configuration has no reasoning route:\n%s", encoded)
 	}
 	for _, clientConcern := range []string{"client", "protocol", "model_provider", "authentication"} {
-		if _, exists := profile[clientConcern]; exists {
-			t.Fatalf("serialized Profile retained client concern %q:\n%s", clientConcern, encoded)
+		if _, exists := route[clientConcern]; exists {
+			t.Fatalf("serialized Route retained client concern %q:\n%s", clientConcern, encoded)
 		}
 	}
 }
@@ -84,19 +88,23 @@ func TestClientBindingOwnsSelectionAndClientSpecificOptions(t *testing.T) {
 			OpenAIChatCompletions: "https://team.test/openai/v1",
 		},
 	}
-	cfg.Profiles["reasoning"] = Profile{
+	cfg.Routes["reasoning"] = Route{
 		Label:   "Reasoning",
 		Account: "team",
 		Model:   "reasoning-model",
+		Interfaces: map[EndpointProtocol][]Capability{
+			ProtocolAnthropic:             {CapabilityText},
+			ProtocolOpenAIChatCompletions: {CapabilityText},
+		},
 	}
 	cfg.Clients[ClientClaude] = ClientBinding{
 		Enabled:  true,
-		Profile:  "reasoning",
+		Route:    "reasoning",
 		Protocol: ProtocolAnthropic,
 	}
 	cfg.Clients[ClientHermes] = ClientBinding{
 		Enabled:  true,
-		Profile:  "reasoning",
+		Route:    "reasoning",
 		Protocol: ProtocolAnthropic,
 	}
 
@@ -111,7 +119,7 @@ func TestClientBindingOwnsSelectionAndClientSpecificOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if claude.ProfileID != "reasoning" || hermes.ProfileID != "reasoning" {
+	if claude.RouteID != "reasoning" || hermes.RouteID != "reasoning" {
 		t.Fatalf("shared profile resolution = %#v, %#v", claude, hermes)
 	}
 	if claude.Client != ClientClaude || hermes.Client != ClientHermes {
@@ -125,10 +133,10 @@ func TestClientBindingOwnsNativeAuthentication(t *testing.T) {
 		Label:     "Native",
 		Endpoints: Endpoints{OpenAIResponses: "https://native.test/v1"},
 	}
-	cfg.Profiles["model"] = Profile{Label: "Model", Account: "native", Model: "model-id"}
+	cfg.Routes["model"] = testRoute("Model", "native", "model-id", ProtocolOpenAIResponses)
 	cfg.Clients[ClientCodex] = ClientBinding{
 		Enabled:        true,
-		Profile:        "model",
+		Route:          "model",
 		Protocol:       ProtocolOpenAIResponses,
 		ModelProvider:  "amazon-bedrock",
 		Authentication: AuthenticationClientNative,
@@ -149,7 +157,7 @@ func TestClientBindingOwnsNativeAuthentication(t *testing.T) {
 func TestSetClientActivationPreservesSelectionAndClientOptions(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Clients[ClientCodex] = ClientBinding{
-		Profile:           "reasoning",
+		Route:             "reasoning",
 		Protocol:          ProtocolOpenAIResponses,
 		ModelProvider:     "provider",
 		Authentication:    AuthenticationClientNative,
@@ -159,7 +167,7 @@ func TestSetClientActivationPreservesSelectionAndClientOptions(t *testing.T) {
 	cfg.SetClientActivation(ClientCodex, true, "/opt/codex", []string{"/one/config.toml", "/two/config.toml"})
 
 	got := cfg.Clients[ClientCodex]
-	if got.Profile != "reasoning" || got.Protocol != ProtocolOpenAIResponses || got.ModelProvider != "provider" || got.Authentication != AuthenticationClientNative || got.CredentialCommand != "/existing/helper" {
+	if got.Route != "reasoning" || got.Protocol != ProtocolOpenAIResponses || got.ModelProvider != "provider" || got.Authentication != AuthenticationClientNative || got.CredentialCommand != "/existing/helper" {
 		t.Fatalf("activation replaced client selection or options: %#v", got)
 	}
 	if !got.Enabled || got.Executable != "/opt/codex" || !reflect.DeepEqual(got.Targets, []string{"/one/config.toml", "/two/config.toml"}) {

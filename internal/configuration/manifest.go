@@ -13,14 +13,15 @@ import (
 
 var credentialKey = regexp.MustCompile(`(?i)(^|[_-])(token|secret|password|api[_-]?key|auth|authorization(?:[_-]?header)?|credential)($|[_-])`)
 
-const currentVersion = 6
+const currentVersion = 7
 
 // Manifest is the credential-free team capability document accepted by setup and export.
 type Manifest struct {
-	Version         int                        `toml:"version"`
-	Recommendations map[string]ClientSelection `toml:"recommendations,omitempty"`
-	Accounts        map[string]Account         `toml:"accounts,omitempty"`
-	Profiles        map[string]Profile         `toml:"profiles"`
+	Version         int                             `toml:"version"`
+	Recommendations map[string]ClientRecommendation `toml:"recommendations,omitempty"`
+	Accounts        map[string]Account              `toml:"accounts,omitempty"`
+	Models          map[string]Model                `toml:"models"`
+	Routes          map[string]Route                `toml:"routes"`
 }
 
 // MergeOptions makes every local-identity replacement explicit. Configuration
@@ -28,7 +29,8 @@ type Manifest struct {
 // existing local Account and its system-held Token to a different endpoint.
 type MergeOptions struct {
 	ReplaceAccounts map[string]bool
-	ReplaceProfiles map[string]bool
+	ReplaceModels   map[string]bool
+	ReplaceRoutes   map[string]bool
 }
 
 // ManifestAccountNames returns every credential owner referenced by a
@@ -53,33 +55,45 @@ func Parse(data []byte) (Manifest, error) {
 	if key := findCredentialKey(raw, ""); key != "" {
 		return Manifest{}, fmt.Errorf("configuration manifest contains forbidden credential field %q", key)
 	}
+	var header struct {
+		Version int `toml:"version"`
+	}
+	if err := toml.Unmarshal(data, &header); err != nil {
+		return Manifest{}, fmt.Errorf("parse configuration manifest: %w", err)
+	}
+	if header.Version != currentVersion {
+		return Manifest{}, unsupportedManifestVersionError(header.Version)
+	}
 	var result Manifest
 	decoder := toml.NewDecoder(strings.NewReader(string(data)))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&result); err != nil {
 		return Manifest{}, fmt.Errorf("validate configuration manifest shape: %w", err)
 	}
-	if result.Version != currentVersion {
-		return Manifest{}, unsupportedManifestVersionError(result.Version)
-	}
 	if result.Accounts == nil {
 		result.Accounts = map[string]Account{}
 	}
 	if result.Recommendations == nil {
-		result.Recommendations = map[string]ClientSelection{}
+		result.Recommendations = map[string]ClientRecommendation{}
 	}
-	if len(result.Profiles) == 0 {
-		return Manifest{}, fmt.Errorf("configuration manifest must define at least one profile")
+	if len(result.Routes) == 0 {
+		return Manifest{}, fmt.Errorf("configuration manifest must define at least one route")
 	}
 	check := NewConfig()
 	check.Accounts = result.Accounts
-	check.Profiles = result.Profiles
-	for client, selection := range result.Recommendations {
+	check.Models = result.Models
+	check.Routes = result.Routes
+	check.Normalize()
+	result.Models = check.Models
+	result.Routes = check.Routes
+	for client, recommendation := range result.Recommendations {
 		if !IsAdmittedClient(client) {
 			return Manifest{}, fmt.Errorf("recommendation uses unsupported client %q", client)
 		}
-		if _, ok := result.Profiles[selection.Profile]; !ok {
-			return Manifest{}, fmt.Errorf("%s recommendation references unknown profile %q", client, selection.Profile)
+		for _, selection := range append([]ClientSelection{recommendation.Primary}, recommendation.Alternatives...) {
+			if _, ok := result.Routes[selection.Route]; !ok {
+				return Manifest{}, fmt.Errorf("%s recommendation references unknown route %q", client, selection.Route)
+			}
 		}
 	}
 	check.Recommendations = result.Recommendations
@@ -139,18 +153,31 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 		}
 		merged.Accounts[name] = account
 	}
-	for name, profile := range incoming.Profiles {
-		if existing, exists := merged.Profiles[name]; exists {
-			if equivalentProfile(existing, profile) {
+	for name, model := range incoming.Models {
+		if existing, exists := merged.Models[name]; exists {
+			if existing == model {
 				continue
 			}
-			if !options.ReplaceProfiles[name] {
-				return Config{}, fmt.Errorf("profile %q conflicts with local configuration; re-run with `aigw config import <toml> --replace-profile %s` to explicitly replace it", name, name)
+			if !options.ReplaceModels[name] {
+				return Config{}, fmt.Errorf("model %q conflicts with local configuration; re-run with `aigw config import <toml> --replace-model %s` to explicitly replace it", name, name)
 			}
 		}
-		merged.Profiles[name] = profile
+		merged.Models[name] = model
 	}
+	for name, route := range incoming.Routes {
+		if existing, exists := merged.Routes[name]; exists {
+			if equivalentRoute(existing, route) {
+				continue
+			}
+			if !options.ReplaceRoutes[name] {
+				return Config{}, fmt.Errorf("route %q conflicts with local configuration; re-run with `aigw config import <toml> --replace-route %s` to explicitly replace it", name, name)
+			}
+		}
+		merged.Routes[name] = route
+	}
+	maps.Copy(merged.Models, incoming.Models)
 	maps.Copy(merged.Recommendations, incoming.Recommendations)
+	merged.Normalize()
 	if err := merged.Validate(); err != nil {
 		return Config{}, fmt.Errorf("merge configuration manifest: %w", err)
 	}
@@ -171,9 +198,14 @@ func validateReplacementSelectors(incoming Manifest, options MergeOptions) error
 			return fmt.Errorf("--replace-account %q does not name an Account in the imported configuration manifest", name)
 		}
 	}
-	for name := range options.ReplaceProfiles {
-		if _, exists := incoming.Profiles[name]; !exists {
-			return fmt.Errorf("--replace-profile %q does not name a Profile in the imported configuration manifest", name)
+	for name := range options.ReplaceModels {
+		if _, exists := incoming.Models[name]; !exists {
+			return fmt.Errorf("--replace-model %q does not name a Model in the imported configuration manifest", name)
+		}
+	}
+	for name := range options.ReplaceRoutes {
+		if _, exists := incoming.Routes[name]; !exists {
+			return fmt.Errorf("--replace-route %q does not name a Route in the imported configuration manifest", name)
 		}
 	}
 	return nil
@@ -196,28 +228,43 @@ func equivalentProbe(left, right *AccountProbe) bool {
 
 func normalizeEndpoint(value string) string { return strings.TrimRight(strings.TrimSpace(value), "/") }
 
-func equivalentProfile(left, right Profile) bool {
+func equivalentRoute(left, right Route) bool {
 	return left.Label == right.Label &&
 		left.Purpose == right.Purpose &&
 		left.Account == right.Account &&
 		left.Model == right.Model &&
-		left.Tier == right.Tier &&
-		slices.Equal(left.Protocols, right.Protocols)
+		upstreamModel(left) == upstreamModel(right) &&
+		equalInterfaces(left.Interfaces, right.Interfaces)
+}
+
+func equalInterfaces(left, right map[EndpointProtocol][]Capability) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for protocol, capabilities := range left {
+		if !slices.Equal(capabilities, right[protocol]) {
+			return false
+		}
+	}
+	return true
 }
 
 // Export projects configuration into the canonical credential-free team manifest form.
 func Export(cfg Config) ([]byte, error) {
+	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	recommendations := make(map[string]ClientSelection, len(cfg.Recommendations)+len(cfg.Clients))
+	recommendations := make(map[string]ClientRecommendation, len(cfg.Recommendations)+len(cfg.Clients))
 	maps.Copy(recommendations, cfg.Recommendations)
 	for client, binding := range cfg.Clients {
-		if binding.Profile != "" {
-			recommendations[client] = binding.selection()
+		if binding.Route != "" {
+			recommendation := recommendations[client]
+			recommendation.Primary = binding.selection()
+			recommendations[client] = recommendation
 		}
 	}
-	data, err := toml.Marshal(Manifest{Version: currentVersion, Recommendations: recommendations, Accounts: cfg.Accounts, Profiles: cfg.Profiles})
+	data, err := toml.Marshal(Manifest{Version: currentVersion, Recommendations: recommendations, Accounts: cfg.Accounts, Models: cfg.Models, Routes: cfg.Routes})
 	if err != nil {
 		return nil, err
 	}

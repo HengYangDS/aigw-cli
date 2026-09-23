@@ -83,7 +83,7 @@ func TestAccountEditUpdatesSharedEndpointWithoutProfileDuplication(t *testing.T)
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "gpt", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}, configuration.ClientCodex, "gpt-test")
 	addAccountProfile(&cfg, "claude", "dmx", "DMXAPI", configuration.Endpoints{}, configuration.ClientClaude, "claude-test")
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func TestAccountEditUpdatesSharedEndpointWithoutProfileDuplication(t *testing.T)
 	if got.Accounts["dmx"].Endpoints.OpenAIResponses != "https://new.test/v1" {
 		t.Fatalf("account endpoint = %#v", got.Accounts["dmx"])
 	}
-	for _, profile := range got.Profiles {
+	for _, profile := range got.Routes {
 		if profile.Account != "dmx" {
 			t.Fatalf("shared profile lost account reference: %#v", profile)
 		}

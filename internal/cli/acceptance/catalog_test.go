@@ -38,10 +38,10 @@ func TestCatalogDiscoversSortedModelsWithoutWritingConfigOrLeakingToken(t *testi
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
-	cfg.Profiles["gpt-configured"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-5.6"}
-	cfg.Profiles["claude-configured"] = configuration.Profile{Label: "Claude", Account: "dmx", Model: "gpt-5.6"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt-configured")
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude-configured")
+	cfg.Routes["gpt-configured"] = qualifiedRoute("GPT", "dmx", "gpt-5.6", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["claude-configured"] = qualifiedRoute("Claude", "dmx", "gpt-5.6", configuration.ProtocolAnthropic)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-configured")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude-configured")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -99,8 +99,8 @@ func TestCatalogDefaultHumanOutputShowsOnlyConfiguredModels(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Profiles["configured"] = configuration.Profile{Label: "Configured", Account: "gateway", Model: "configured-model"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "configured")
+	cfg.Routes["configured"] = qualifiedRoute("Configured", "gateway", "configured-model", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "configured")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -129,8 +129,8 @@ func TestCatalogAllHumanOutputIncludesEveryModelAsReadableRecord(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Profiles["configured"] = configuration.Profile{Label: "Configured", Account: "gateway", Model: "configured-model"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "configured")
+	cfg.Routes["configured"] = qualifiedRoute("Configured", "gateway", "configured-model", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "configured")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -169,8 +169,8 @@ func TestCatalogReportsUnavailableAccountWithoutBlockingHealthyAccount(t *testin
 	cfg.Accounts["healthy"] = configuration.Account{Label: "Healthy", Endpoints: configuration.Endpoints{OpenAIResponses: "https://healthy.test/v1"}}
 	cfg.Accounts["missing-token"] = configuration.Account{Label: "Missing Token", Endpoints: configuration.Endpoints{OpenAIResponses: "https://missing.test/v1"}}
 	cfg.Accounts["anthropic-only"] = configuration.Account{Label: "Anthropic Only", Endpoints: configuration.Endpoints{Anthropic: "https://anthropic.test"}}
-	cfg.Profiles["healthy-model"] = configuration.Profile{Label: "Healthy", Account: "healthy", Model: "healthy-model"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "healthy-model")
+	cfg.Routes["healthy-model"] = qualifiedRoute("Healthy", "healthy", "healthy-model", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "healthy-model")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -199,8 +199,8 @@ func TestCatalogReportsMalformedAccountPayloadWithoutBlockingHealthyAccount(t *t
 	cfg := configuration.NewConfig()
 	cfg.Accounts["broken"] = configuration.Account{Label: "Broken", Endpoints: configuration.Endpoints{OpenAIResponses: "https://broken.test/v1"}}
 	cfg.Accounts["healthy"] = configuration.Account{Label: "Healthy", Endpoints: configuration.Endpoints{OpenAIResponses: "https://healthy.test/v1"}}
-	cfg.Profiles["healthy-model"] = configuration.Profile{Label: "Healthy", Account: "healthy", Model: "healthy-model"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "healthy-model")
+	cfg.Routes["healthy-model"] = qualifiedRoute("Healthy", "healthy", "healthy-model", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "healthy-model")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -231,9 +231,9 @@ func TestModelsCommandReportsCatalogMembershipWithoutClaimingReachability(t *tes
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-5.6-sol"] = configuration.Profile{Label: "GPT-5.6 Sol Codex", Account: "dmx", Model: "gpt-5.6-sol"}
-	cfg.Profiles["gpt-5.6"] = configuration.Profile{Label: "GPT-5.6", Account: "dmx", Model: "gpt-5.6"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt-5.6-sol")
+	cfg.Routes["gpt-5.6-sol"] = qualifiedRoute("GPT-5.6 Sol Codex", "dmx", "gpt-5.6-sol", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["gpt-5.6"] = qualifiedRoute("GPT-5.6", "dmx", "gpt-5.6", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-5.6-sol")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -258,8 +258,8 @@ func TestModelsCommandKeepsLongProfileNamesOnOneLine(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
-	cfg.Profiles["claude-opus-5"] = configuration.Profile{Label: "Claude Opus 5", Account: "dmx", Model: "claude-opus-5"}
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude-opus-5")
+	cfg.Routes["claude-opus-5"] = qualifiedRoute("Claude Opus 5", "dmx", "claude-opus-5", configuration.ProtocolAnthropic)
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude-opus-5")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

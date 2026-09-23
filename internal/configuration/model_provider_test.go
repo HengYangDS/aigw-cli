@@ -9,13 +9,16 @@ import (
 
 func TestProfileModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	cfg := modelProviderConfig()
-	cfg.Profiles["native"] = Profile{
+	cfg.Routes["native"] = Route{
 		Label:   "Native",
 		Account: "gateway",
 		Model:   "openai.gpt-5.6-sol",
+		Interfaces: map[EndpointProtocol][]Capability{
+			ProtocolOpenAIResponses: {},
+		},
 	}
 	cfg.Clients[ClientCodex] = ClientBinding{
-		Profile:        "native",
+		Route:          "native",
 		ModelProvider:  "amazon-bedrock",
 		Authentication: AuthenticationClientNative,
 	}
@@ -46,9 +49,9 @@ func TestProfileModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	}
 
 	claude := modelProviderConfig()
-	profile := claude.Profiles["default"]
+	profile := claude.Routes["default"]
 	profile.Model = "claude-fable-5"
-	claude.Profiles["default"] = profile
+	claude.Routes["default"] = profile
 	runtime, err = claude.ResolveRuntime(ClientClaude, "default")
 	if err != nil {
 		t.Fatal(err)
@@ -91,19 +94,19 @@ func TestClientModelProviderPersistsAndParticipatesInManifestSelection(t *testin
 	incoming := Manifest{
 		Version:  currentVersion,
 		Accounts: map[string]Account{"gateway": cfg.Accounts["gateway"]},
-		Profiles: map[string]Profile{"default": cfg.Profiles["default"]},
-		Recommendations: map[string]ClientSelection{
-			ClientCodex: {Profile: "default", ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative},
+		Routes:   map[string]Route{"default": cfg.Routes["default"]},
+		Recommendations: map[string]ClientRecommendation{
+			ClientCodex: {Primary: ClientSelection{Route: "default", ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative}},
 		},
 	}
-	merged, err := MergeWithOptions(modelProviderConfig(), incoming, MergeOptions{ReplaceProfiles: map[string]bool{"default": true}})
+	merged, err := MergeWithOptions(modelProviderConfig(), incoming, MergeOptions{ReplaceRoutes: map[string]bool{"default": true}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := merged.Recommendations[ClientCodex].ModelProvider; got != "amazon-bedrock" {
+	if got := merged.Recommendations[ClientCodex].Primary.ModelProvider; got != "amazon-bedrock" {
 		t.Fatalf("merged model provider = %q", got)
 	}
-	if got := merged.Recommendations[ClientCodex].Authentication; got != AuthenticationClientNative {
+	if got := merged.Recommendations[ClientCodex].Primary.Authentication; got != AuthenticationClientNative {
 		t.Fatalf("merged authentication = %q", got)
 	}
 }
@@ -121,7 +124,7 @@ func TestClientBindingModelProviderRejectsUnsafeOrNonCodexValues(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			cfg := modelProviderConfig()
 			cfg.Clients = map[string]ClientBinding{
-				testCase.client: {Profile: "default", ModelProvider: testCase.provider},
+				testCase.client: {Route: "default", ModelProvider: testCase.provider},
 			}
 			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), testCase.want) {
 				t.Fatalf("validation error = %v, want %q", err, testCase.want)
@@ -142,7 +145,7 @@ func TestClientBindingAuthenticationRejectsInvalidValuesAndClientNativeWithoutPr
 		t.Run(name, func(t *testing.T) {
 			cfg := modelProviderConfig()
 			cfg.Clients[ClientCodex] = ClientBinding{
-				Profile: "default", ModelProvider: testCase.provider, Authentication: testCase.authentication,
+				Route: "default", ModelProvider: testCase.provider, Authentication: testCase.authentication,
 			}
 			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), testCase.want) {
 				t.Fatalf("validation error = %v, want %q", err, testCase.want)
@@ -152,14 +155,14 @@ func TestClientBindingAuthenticationRejectsInvalidValuesAndClientNativeWithoutPr
 
 	claude := modelProviderConfig()
 	claude.Clients = map[string]ClientBinding{
-		ClientClaude: {Profile: "default", Authentication: AuthenticationClientNative},
+		ClientClaude: {Route: "default", Authentication: AuthenticationClientNative},
 	}
 	if err := claude.Validate(); err == nil || !strings.Contains(err.Error(), "only supported for codex") {
 		t.Fatalf("Claude client-native validation error = %v", err)
 	}
 }
 
-func TestSelectProfilesForConnectedAccountsHonorsRecommendationAuthentication(t *testing.T) {
+func TestSelectRoutesForConnectedAccountsHonorsRecommendationAuthentication(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["native"] = Account{
 		Label:     "Native",
@@ -169,33 +172,33 @@ func TestSelectProfilesForConnectedAccountsHonorsRecommendationAuthentication(t 
 		Label:     "Token",
 		Endpoints: Endpoints{OpenAIResponses: "https://token.test/v1"},
 	}
-	cfg.Profiles["native"] = Profile{Label: "Native", Account: "native", Model: "native-model"}
-	cfg.Profiles["token"] = Profile{Label: "Token", Account: "token", Model: "token-model"}
-	cfg.Recommendations[ClientCodex] = ClientSelection{
-		Profile:        "native",
+	cfg.Routes["native"] = testRoute("Native", "native", "native-model", ProtocolOpenAIResponses)
+	cfg.Routes["token"] = testRoute("Token", "token", "token-model", ProtocolOpenAIResponses)
+	cfg.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{
+		Route:          "native",
 		ModelProvider:  "native-provider",
 		Authentication: AuthenticationClientNative,
-	}
+	}}
 
-	withoutTokens, err := cfg.SelectProfilesForConnectedAccounts(nil)
+	withoutTokens, err := cfg.SelectRoutesForConnectedAccounts(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := withoutTokens.SelectedProfile(ClientCodex); got != "native" {
+	if got := withoutTokens.SelectedRoute(ClientCodex); got != "native" {
 		t.Fatalf("selection without Tokens = %q, want client-native profile", got)
 	}
 
 	token := cfg.Clone()
-	token.Recommendations[ClientCodex] = ClientSelection{
-		Profile:        "token",
+	token.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{
+		Route:          "token",
 		ModelProvider:  "token-provider",
 		Authentication: AuthenticationAccountToken,
-	}
-	withToken, err := token.SelectProfilesForConnectedAccounts([]string{"token"})
+	}}
+	withToken, err := token.SelectRoutesForConnectedAccounts([]string{"token"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := withToken.SelectedProfile(ClientCodex); got != "token" {
+	if got := withToken.SelectedRoute(ClientCodex); got != "token" {
 		t.Fatalf("selection with connected Token = %q, want account-token profile", got)
 	}
 }
@@ -209,11 +212,15 @@ func modelProviderConfig() Config {
 			Anthropic:       "https://gateway.test/anthropic",
 		},
 	}
-	cfg.Profiles["default"] = Profile{
+	cfg.Routes["default"] = Route{
 		Label:   "Default",
 		Account: "gateway",
 		Model:   "gpt-5.6-sol",
+		Interfaces: map[EndpointProtocol][]Capability{
+			ProtocolOpenAIResponses: {},
+			ProtocolAnthropic:       {},
+		},
 	}
-	cfg.SetSelectedProfile(ClientCodex, "default")
+	cfg.SetSelectedRoute(ClientCodex, "default")
 	return cfg
 }

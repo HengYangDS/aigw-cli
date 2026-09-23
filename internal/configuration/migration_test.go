@@ -11,7 +11,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-func TestPrepareMigrationTranslatesLegacySelectionOwnership(t *testing.T) {
+func TestPrepareMigrationTranslatesImmediatePredecessorWithoutInventingCapabilities(t *testing.T) {
 	store, original := legacyStore(t)
 
 	plan, err := store.PrepareMigration(false)
@@ -27,48 +27,50 @@ func TestPrepareMigrationTranslatesLegacySelectionOwnership(t *testing.T) {
 		t.Fatalf("preview changed configuration: %q, %v", actual, err)
 	}
 
-	claude := plan.Clients[ClientClaude]
 	root := filepath.Dir(store.Path())
-	wantClaude := ClientBinding{Profile: "claude", Protocol: ProtocolAnthropic, Executable: filepath.Join(root, "bin", "claude")}
-	if !reflect.DeepEqual(claude, wantClaude) {
-		t.Fatalf("Claude binding = %#v", claude)
+	wantClaude := ClientBinding{Route: "claude", Protocol: ProtocolAnthropic, Executable: filepath.Join(root, "bin", "claude")}
+	if actual := plan.Clients[ClientClaude]; !reflect.DeepEqual(actual, wantClaude) {
+		t.Fatalf("Claude binding = %#v", actual)
 	}
-	codex := plan.Clients[ClientCodex]
 	wantCodex := ClientBinding{
-		Profile: "codex", Enabled: true, Protocol: ProtocolOpenAIResponses,
+		Route: "codex", Enabled: true, Protocol: ProtocolOpenAIResponses,
 		ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
 		Executable: filepath.Join(root, "bin", "codex"), Targets: []string{filepath.Join(root, "home", ".codex", "config.toml")},
 		CredentialCommand: filepath.Join(root, "bin", "aigw"),
 	}
-	if !reflect.DeepEqual(codex, wantCodex) {
-		t.Fatalf("Codex binding = %#v", codex)
+	if actual := plan.Clients[ClientCodex]; !reflect.DeepEqual(actual, wantCodex) {
+		t.Fatalf("Codex binding = %#v", actual)
 	}
-	wantRecommendation := ClientSelection{
-		Profile: "codex", Protocol: ProtocolOpenAIResponses,
+	wantRecommendation := ClientRecommendation{Primary: ClientSelection{
+		Route: "codex", Protocol: ProtocolOpenAIResponses,
 		ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
+	}}
+	if actual := plan.Recommendations[ClientCodex]; !reflect.DeepEqual(actual, wantRecommendation) {
+		t.Fatalf("Codex recommendation = %#v", actual)
 	}
-	if recommendation := plan.Recommendations[ClientCodex]; !reflect.DeepEqual(recommendation, wantRecommendation) {
-		t.Fatalf("Codex recommendation = %#v", recommendation)
-	}
-}
 
-func TestPrepareMigrationPreservesExplicitDisabledIntentWithoutASelection(t *testing.T) {
-	store, _ := legacyStoreWith(t, func(config *legacyConfig) {
-		delete(config.Routes, ClientClaude)
-		config.Adapters[ClientClaude] = legacyAdapter{}
-	})
-
-	plan, err := store.PrepareMigration(false)
+	legacy, err := decodeLegacyConfig(original)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if binding, exists := plan.Clients[ClientClaude]; !exists || !reflect.DeepEqual(binding, ClientBinding{}) {
-		t.Fatalf("disabled intent = %#v, exists = %t", binding, exists)
+	migrated, err := migrateLegacyConfig(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, route := range migrated.Routes {
+		if route.UpstreamModel != route.Model {
+			t.Fatalf("route %q upstream model = %q, want exact predecessor model %q", id, route.UpstreamModel, route.Model)
+		}
+		for protocol, capabilities := range route.Interfaces {
+			if len(capabilities) != 0 {
+				t.Fatalf("route %q interface %q invented capabilities: %v", id, protocol, capabilities)
+			}
+		}
 	}
 }
 
-func TestApplyMigrationRetainsExactLegacyBytesAndRollbackSwapsThemBack(t *testing.T) {
-	store, legacy := legacyStore(t)
+func TestApplyMigrationRetainsExactPredecessorBytesAndRollbackSwapsThemBack(t *testing.T) {
+	store, predecessor := legacyStore(t)
 	plan, err := store.PrepareMigration(false)
 	if err != nil {
 		t.Fatal(err)
@@ -80,12 +82,12 @@ func TestApplyMigrationRetainsExactLegacyBytesAndRollbackSwapsThemBack(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Contains(migrated, []byte("[routes]")) || bytes.Contains(migrated, []byte("[adapters")) ||
-		!bytes.Contains(migrated, []byte("[clients.codex]")) {
-		t.Fatalf("migration retained parallel selection state:\n%s", migrated)
+	if bytes.Contains(migrated, []byte("[profiles]")) || bytes.Contains(migrated, []byte("tier =")) ||
+		bytes.Contains(migrated, []byte("protocols =")) || !bytes.Contains(migrated, []byte("[clients.codex]")) {
+		t.Fatalf("migration retained predecessor authority:\n%s", migrated)
 	}
-	if backup, err := os.ReadFile(store.Path() + ".bak"); err != nil || !bytes.Equal(backup, legacy) {
-		t.Fatalf("legacy rollback input = %q, %v", backup, err)
+	if backup, err := os.ReadFile(store.Path() + ".bak"); err != nil || !bytes.Equal(backup, predecessor) {
+		t.Fatalf("predecessor rollback input = %q, %v", backup, err)
 	}
 
 	rollback, err := store.PrepareMigration(true)
@@ -98,8 +100,8 @@ func TestApplyMigrationRetainsExactLegacyBytesAndRollbackSwapsThemBack(t *testin
 	if err := store.ApplyMigration(rollback); err != nil {
 		t.Fatal(err)
 	}
-	if restored, err := os.ReadFile(store.Path()); err != nil || !bytes.Equal(restored, legacy) {
-		t.Fatalf("restored legacy configuration = %q, %v", restored, err)
+	if restored, err := os.ReadFile(store.Path()); err != nil || !bytes.Equal(restored, predecessor) {
+		t.Fatalf("restored predecessor configuration = %q, %v", restored, err)
 	}
 	if backup, err := os.ReadFile(store.Path() + ".bak"); err != nil || !bytes.Equal(backup, migrated) {
 		t.Fatalf("forward-recovery input = %q, %v", backup, err)
@@ -112,7 +114,7 @@ func TestApplyMigrationRejectsChangedPreimage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	newer := []byte("version = 3\n# newer operator state\n")
+	newer := []byte("version = 5\n# newer operator state\n")
 	if err := os.WriteFile(store.Path(), newer, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -128,8 +130,11 @@ func TestCurrentConfigurationMigrationIsANoOp(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
 	cfg := NewConfig()
 	cfg.Accounts["gateway"] = Account{Label: "Gateway", Endpoints: Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Profiles["codex"] = Profile{Label: "Codex", Account: "gateway", Model: "gpt-test"}
-	cfg.SetSelectedProfile(ClientCodex, "codex")
+	cfg.Routes["codex"] = Route{
+		Label: "Codex", Account: "gateway", Model: "gpt-test",
+		Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}},
+	}
+	cfg.SetSelectedRoute(ClientCodex, "codex")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -156,21 +161,14 @@ func TestCurrentConfigurationMigrationIsANoOp(t *testing.T) {
 	}
 }
 
-func TestPrepareMigrationRejectsAmbiguousLegacyClientOptions(t *testing.T) {
-	store, _ := legacyStoreWith(t, func(config *legacyConfig) { delete(config.Routes, ClientCodex) })
-	if _, err := store.PrepareMigration(false); err == nil || !strings.Contains(err.Error(), "client-specific options") {
-		t.Fatalf("ambiguous migration error = %v", err)
-	}
-}
-
-func TestPrepareMigrationRejectsInvalidLegacyProfileClient(t *testing.T) {
+func TestPrepareMigrationRejectsUnqualifiedPredecessorRoute(t *testing.T) {
 	store, _ := legacyStoreWith(t, func(config *legacyConfig) {
-		profile := config.Profiles[ClientClaude]
-		profile.Client = "unknown"
-		config.Profiles[ClientClaude] = profile
+		profile := config.Profiles[ClientCodex]
+		profile.Protocols = nil
+		config.Profiles[ClientCodex] = profile
 	})
-	if _, err := store.PrepareMigration(false); err == nil || !strings.Contains(err.Error(), "unknown client") {
-		t.Fatalf("invalid legacy client error = %v", err)
+	if _, err := store.PrepareMigration(false); err == nil || !strings.Contains(err.Error(), "cannot be migrated without guessing") {
+		t.Fatalf("unqualified predecessor error = %v", err)
 	}
 }
 
@@ -184,23 +182,24 @@ func legacyStoreWith(t *testing.T, mutate func(*legacyConfig)) (Store, []byte) {
 	path := filepath.Join(root, "config.toml")
 	config := legacyConfig{
 		Version: LegacyConfigVersion,
-		Accounts: map[string]legacyAccount{"gateway": {
-			Label: "Gateway", Endpoints: legacyEndpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"},
+		Accounts: map[string]Account{"gateway": {
+			Label: "Gateway", Endpoints: Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"},
 		}},
 		Profiles: map[string]legacyProfile{
-			ClientClaude: {Label: "Claude", Purpose: "Conversation", Account: "gateway", Client: ClientClaude, Model: "claude-test"},
-			ClientCodex: {
-				Label: "Codex", Account: "gateway", Client: ClientCodex, Model: "gpt-test",
-				ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
-			},
+			ClientClaude: {Label: "Claude", Purpose: "Conversation", Account: "gateway", Model: "claude-test", Protocols: []EndpointProtocol{ProtocolAnthropic}},
+			ClientCodex:  {Label: "Codex", Account: "gateway", Model: "gpt-test", Tier: "flagship", Protocols: []EndpointProtocol{ProtocolOpenAIResponses}},
 		},
-		Routes:            map[string]string{ClientClaude: ClientClaude, ClientCodex: ClientCodex},
-		RecommendedRoutes: map[string]string{ClientCodex: ClientCodex},
-		Adapters: map[string]legacyAdapter{
-			ClientClaude: {Executable: filepath.Join(root, "bin", "claude")},
+		Recommendations: map[string]legacySelection{ClientCodex: {
+			Profile: ClientCodex, Protocol: ProtocolOpenAIResponses,
+			ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
+		}},
+		Clients: map[string]legacyBinding{
+			ClientClaude: {Profile: ClientClaude, Protocol: ProtocolAnthropic, Executable: filepath.Join(root, "bin", "claude")},
 			ClientCodex: {
-				Enabled: true, Executable: filepath.Join(root, "bin", "codex"),
-				Targets: []string{filepath.Join(root, "home", ".codex", "config.toml")}, CredentialCommand: filepath.Join(root, "bin", "aigw"),
+				Profile: ClientCodex, Enabled: true, Protocol: ProtocolOpenAIResponses,
+				ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
+				Executable: filepath.Join(root, "bin", "codex"), Targets: []string{filepath.Join(root, "home", ".codex", "config.toml")},
+				CredentialCommand: filepath.Join(root, "bin", "aigw"),
 			},
 		},
 	}

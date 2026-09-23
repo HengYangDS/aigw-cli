@@ -66,7 +66,7 @@ func TestNativeClientInputs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(prepared.Profiles, manifest.Profiles) || !reflect.DeepEqual(prepared.Recommendations, manifest.Recommendations) {
+		if !reflect.DeepEqual(prepared.Routes, manifest.Routes) || !reflect.DeepEqual(prepared.Recommendations, manifest.Recommendations) {
 			t.Fatal("native preparation substituted its own profile or model for the supplied recommendation")
 		}
 	})
@@ -167,8 +167,8 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	selection := p.manifest.Recommendations[client]
-	profile := p.manifest.Profiles[selection.Profile]
+	selection := p.manifest.Recommendations[client].Primary
+	route := p.manifest.Routes[selection.Route]
 	const token = "native-real-client-token"
 	var completions atomic.Int64
 	protocol := selection.Protocol
@@ -180,7 +180,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	if client == configuration.ClientHermes {
 		requiredEffort = ""
 	}
-	server := httptest.NewServer(clientResponseHandler(protocol, map[string]*atomic.Int64{profile.Model: &completions}, token, requiredEffort))
+	server := httptest.NewServer(clientResponseHandler(protocol, map[string]*atomic.Int64{route.UpstreamModel: &completions}, token, requiredEffort))
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, baseline, server.URL+"/v1", false)
 	if client == configuration.ClientHermes {
@@ -190,8 +190,8 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	}
 	journey.prepareNativeClient(client, executable, p.team)
 	journey.isolateNativeClientManifest(client)
-	journey.setEnvironment(secrets.EnvironmentKey(profile.Account), token)
-	journey.run("setup", "--from", journey.manifest, "--account", profile.Account)
+	journey.setEnvironment(secrets.EnvironmentKey(route.Account), token)
+	journey.run("setup", "--from", journey.manifest, "--account", route.Account)
 	journey.enableNativeClient(client, executable)
 	retainedCredential := journey.retainedCredential(client)
 	before := journey.preserveClientFiles(client)
@@ -224,7 +224,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	journey.verifyNativeConfigEditing(client, executable)
 	const renamedAccount = "renamed-client-account"
 	journey.setEnvironment(secrets.EnvironmentKey(renamedAccount), token)
-	journey.run("account", "rename", profile.Account, renamedAccount)
+	journey.run("account", "rename", route.Account, renamedAccount)
 	count := completions.Load()
 	journey.run("verify", "--for", "all")
 	if completions.Load() <= count {
@@ -234,12 +234,12 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	if err != nil || len(checkpoint.Clients) != 1 || checkpoint.Clients[0] != client {
 		t.Fatalf("single-client checkpoint = %v: %v", checkpoint.Clients, err)
 	}
-	journey.environment = environmentWithout(journey.environment, secrets.EnvironmentKey(profile.Account))
-	journey.run("account", "rename", profile.Account, renamedAccount, "--finalize")
+	journey.environment = environmentWithout(journey.environment, secrets.EnvironmentKey(route.Account))
+	journey.run("account", "rename", route.Account, renamedAccount, "--finalize")
 	var retirement struct {
 		Status string `json:"status"`
 	}
-	if err := json.Unmarshal(journey.run("account", "rename", profile.Account, renamedAccount, "--finalize", "--dry-run", "--json"), &retirement); err != nil || retirement.Status != "already-finalized" {
+	if err := json.Unmarshal(journey.run("account", "rename", route.Account, renamedAccount, "--finalize", "--dry-run", "--json"), &retirement); err != nil || retirement.Status != "already-finalized" {
 		t.Fatalf("repeated retirement = %q: %v", retirement.Status, err)
 	}
 	journey.requireExternalCredentialClient(client, executable, renamedAccount, completions.Load)

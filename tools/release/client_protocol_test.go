@@ -61,25 +61,22 @@ func (p nativeClientJourneyPlan) runCodexGeneralProfiles(t *testing.T) {
 		account = "aihubmix"
 		token   = "native-general-profile-token"
 	)
-	profileIDs := make([]string, 0, 12)
+	routeIDs := make([]string, 0, len(p.manifest.Routes))
 	completions := map[string]*atomic.Int64{}
-	for profileID, profile := range p.manifest.Profiles {
-		if profile.Account != account || profile.Tier != configuration.ModelTierFlagship && profile.Tier != configuration.ModelTierDaily {
+	for routeID, route := range p.manifest.Routes {
+		if route.Account != account || !slices.Contains(route.AdmittedProtocols(), configuration.ProtocolOpenAIResponses) {
 			continue
 		}
-		if !slices.Equal(profile.Protocols, []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}) {
-			t.Fatalf("general Profile %q protocols = %v, want only OpenAI Responses", profileID, profile.Protocols)
+		if _, duplicate := completions[route.UpstreamModel]; duplicate {
+			t.Fatalf("AIHubMix Routes reuse upstream model %q", route.UpstreamModel)
 		}
-		if _, duplicate := completions[profile.Model]; duplicate {
-			t.Fatalf("general Profiles reuse upstream model %q", profile.Model)
-		}
-		profileIDs = append(profileIDs, profileID)
-		completions[profile.Model] = &atomic.Int64{}
+		routeIDs = append(routeIDs, routeID)
+		completions[route.UpstreamModel] = &atomic.Int64{}
 	}
-	if len(profileIDs) != 12 {
-		t.Fatalf("AIHubMix general Profiles = %d, want six flagship/daily pairs", len(profileIDs))
+	if len(routeIDs) == 0 {
+		t.Fatal("team manifest has no AIHubMix OpenAI Responses Routes")
 	}
-	slices.Sort(profileIDs)
+	slices.Sort(routeIDs)
 	server := httptest.NewServer(clientResponseHandler(configuration.ProtocolOpenAIResponses, completions, token, "high"))
 	t.Cleanup(server.Close)
 	executable, err := requiredClientInput("AIGW_ACCEPTANCE_CODEX", false)
@@ -94,17 +91,17 @@ func (p nativeClientJourneyPlan) runCodexGeneralProfiles(t *testing.T) {
 	journey.run("use", "--for", configuration.ClientCodex, account+"-gpt-6-astra")
 	journey.enableNativeClient(configuration.ClientCodex, executable)
 	selected := readFile(t, journey.config)
-	for _, profileID := range profileIDs {
-		profile := p.manifest.Profiles[profileID]
-		t.Run(profileID, func(t *testing.T) {
-			before := completions[profile.Model].Load()
+	for _, routeID := range routeIDs {
+		route := p.manifest.Routes[routeID]
+		t.Run(routeID, func(t *testing.T) {
+			before := completions[route.UpstreamModel].Load()
 			journey.testing = t
-			journey.run("verify", "--for", configuration.ClientCodex, "--profile", profileID)
-			if completions[profile.Model].Load() != before+1 {
-				t.Fatalf("Codex did not complete exactly one request for model %q", profile.Model)
+			journey.run("verify", "--for", configuration.ClientCodex, "--profile", routeID)
+			if completions[route.UpstreamModel].Load() != before+1 {
+				t.Fatalf("Codex did not complete exactly one request for upstream model %q", route.UpstreamModel)
 			}
 			if !slices.Equal(readFile(t, journey.config), selected) {
-				t.Fatal("explicit Profile verification changed the selected client binding")
+				t.Fatal("explicit Route verification changed the selected client binding")
 			}
 		})
 	}

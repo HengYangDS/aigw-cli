@@ -91,7 +91,7 @@ type setupPlan struct {
 	before            configuration.Config
 	config            configuration.Config
 	account           configuration.Account
-	profile           configuration.Profile
+	profile           configuration.Route
 	validationClients []string
 }
 
@@ -165,7 +165,8 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 		return setupPlan{}, fmt.Errorf("--for must be %s; run `aigw setup --help`", configuration.AdmittedClientUsage())
 	}
 	account := configuration.Account{ID: plan.request.Account, Endpoints: endpoints}
-	if _, _, err := spec.ResolveEndpoint(account, ""); err != nil {
+	_, protocol, err := spec.ResolveEndpoint(account, "")
+	if err != nil {
 		if _, ok := errors.AsType[*configuration.RuntimeMissingEndpointError](err); !ok {
 			return setupPlan{}, err
 		}
@@ -178,10 +179,13 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 	storedAccount := configuration.Account{Label: plan.request.Label, Endpoints: endpoints}
 	plan.account = storedAccount
 	plan.account.ID = plan.request.Account
-	plan.profile = configuration.Profile{Label: plan.request.Label, Account: plan.request.Account, Model: strings.TrimSpace(plan.request.Model)}
+	plan.profile = configuration.Route{
+		Label: plan.request.Label, Account: plan.request.Account, Model: strings.TrimSpace(plan.request.Model),
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
+	}
 	plan.config.Accounts[plan.request.Account] = storedAccount
-	plan.config.Profiles[plan.request.Profile] = plan.profile
-	plan.config.Clients[plan.request.Client] = configuration.ClientBinding{Profile: plan.request.Profile, Enabled: true}
+	plan.config.Routes[plan.request.Profile] = plan.profile
+	plan.config.Clients[plan.request.Client] = configuration.ClientBinding{Route: plan.request.Profile, Enabled: true, Protocol: protocol}
 	if err := plan.config.Validate(); err != nil {
 		return setupPlan{}, err
 	}

@@ -2,11 +2,13 @@
 package desktop
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -14,12 +16,6 @@ import (
 	"strings"
 
 	"aigw-cli/internal/transaction"
-)
-
-const (
-	profileID   = "aigw"
-	profileName = "AIGW"
-	stateSuffix = ".aigw-state.json"
 )
 
 // Action describes the observable projection transition.
@@ -77,6 +73,9 @@ type Plan struct {
 	changes []fileChange
 }
 
+// ChangesState reports whether applying the plan changes an owned file.
+func (plan Plan) ChangesState() bool { return len(plan.changes) > 0 }
+
 // Receipt compensates one applied projection while its postimages remain unchanged.
 type Receipt struct{ changes []appliedChange }
 
@@ -116,12 +115,12 @@ type appliedChange struct {
 }
 
 type projectedFiles struct {
-	standard   document
-	thirdParty document
-	profile    []byte
-	metadata   document
-	state      []byte
-	original   originalState
+	standard, thirdParty document
+	profile, state       []byte
+	metadata             document
+	legacyProfile        []byte
+	legacyState          []byte
+	original             originalState
 }
 
 // Prepare builds a guarded projection or withdrawal plan.
@@ -142,10 +141,10 @@ func Prepare(paths Paths, desired *Desired) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	if desired == nil && !before.state.Exists {
+	if desired == nil && !before.state.Exists && !before.legacyState.Exists {
 		return Plan{Action: ActionUnchanged}, nil
 	}
-	state, err := prepareState(before, standard, thirdParty, metadata, desired)
+	state, err := prepareState(before, standard, thirdParty, metadata)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -153,7 +152,7 @@ func Prepare(paths Paths, desired *Desired) (Plan, error) {
 	if desired == nil {
 		restoreValue(standard, "deploymentMode", state.Original.StandardMode)
 		restoreValue(thirdParty, "deploymentMode", state.Original.ThirdPartyMode)
-		if err := removeProfileEntry(metadata); err != nil {
+		if err := removeProfileEntries(metadata); err != nil {
 			return Plan{}, err
 		}
 		restoreValue(metadata, "appliedId", state.Original.AppliedID)
@@ -172,7 +171,7 @@ func Prepare(paths Paths, desired *Desired) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	state.ManagedSHA256, err = managedHash(standard, thirdParty, profile, metadata)
+	state.ManagedSHA256, err = managedHash(profileID, standard, thirdParty, profile, metadata)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -183,38 +182,6 @@ func Prepare(paths Paths, desired *Desired) (Plan, error) {
 	return buildPlan(ActionProject, paths, before, projectedFiles{
 		standard: standard, thirdParty: thirdParty, profile: profile, metadata: metadata, state: stateBytes, original: state.Original,
 	})
-}
-
-func prepareState(before snapshots, standard, thirdParty, metadata document, desired *Desired) (ownershipState, error) {
-	if before.state.Exists {
-		var state ownershipState
-		if err := json.Unmarshal(before.state.Data, &state); err != nil || state.Version != 1 || state.WriterID != "aigw-cli" {
-			return ownershipState{}, errors.New("Claude Desktop ownership state is unavailable or invalid")
-		}
-		currentHash, err := managedHash(standard, thirdParty, before.profile.Data, metadata)
-		if err != nil {
-			return ownershipState{}, err
-		}
-		if currentHash != state.ManagedSHA256 {
-			return ownershipState{}, errors.New("managed Claude Desktop configuration changed outside AIGW; refusing to overwrite user edits")
-		}
-		return state, nil
-	}
-	if before.profile.Exists || hasProfileEntry(metadata) {
-		return ownershipState{}, errors.New("Claude Desktop AIGW profile already exists without AIGW ownership")
-	}
-	return ownershipState{
-		Version:  1,
-		WriterID: "aigw-cli",
-		Original: originalState{
-			StandardExists:   before.standard.Exists,
-			ThirdPartyExists: before.thirdParty.Exists,
-			MetadataExists:   before.metadata.Exists,
-			StandardMode:     captureValue(standard, "deploymentMode"),
-			ThirdPartyMode:   captureValue(thirdParty, "deploymentMode"),
-			AppliedID:        captureValue(metadata, "appliedId"),
-		},
-	}, nil
 }
 
 func buildPlan(action Action, paths Paths, before snapshots, projected projectedFiles) (Plan, error) {
@@ -230,15 +197,21 @@ func buildPlan(action Action, paths Paths, before snapshots, projected projected
 	if err != nil {
 		return Plan{}, err
 	}
+	standardBytes = preserveEquivalentJSON(standardBytes, before.standard)
+	thirdPartyBytes = preserveEquivalentJSON(thirdPartyBytes, before.thirdParty)
+	metadataBytes = preserveEquivalentJSON(metadataBytes, before.metadata)
 	after := []transaction.FileSnapshot{
 		snapshot(standardBytes, before.standard),
 		snapshot(thirdPartyBytes, before.thirdParty),
 		snapshot(projected.profile, before.profile),
 		snapshot(metadataBytes, before.metadata),
 		snapshot(projected.state, before.state),
+		snapshot(projected.legacyProfile, before.legacyProfile),
+		snapshot(projected.legacyState, before.legacyState),
 	}
-	pathList := []string{paths.StandardConfig, paths.ThirdPartyConfig, paths.Profile, paths.Metadata, paths.State}
-	beforeList := []transaction.FileSnapshot{before.standard, before.thirdParty, before.profile, before.metadata, before.state}
+	legacyProfile, legacyState := legacyPaths(paths)
+	pathList := []string{paths.StandardConfig, paths.ThirdPartyConfig, paths.Profile, paths.Metadata, paths.State, legacyProfile, legacyState}
+	beforeList := []transaction.FileSnapshot{before.standard, before.thirdParty, before.profile, before.metadata, before.state, before.legacyProfile, before.legacyState}
 	changes := make([]fileChange, 0, len(pathList))
 	for index, path := range pathList {
 		if beforeList[index].Equal(after[index]) {
@@ -281,18 +254,18 @@ func (receipt Receipt) Rollback() error {
 }
 
 type snapshots struct {
-	standard   transaction.FileSnapshot
-	thirdParty transaction.FileSnapshot
-	profile    transaction.FileSnapshot
-	metadata   transaction.FileSnapshot
-	state      transaction.FileSnapshot
+	standard, thirdParty       transaction.FileSnapshot
+	profile, state             transaction.FileSnapshot
+	legacyProfile, legacyState transaction.FileSnapshot
+	metadata                   transaction.FileSnapshot
 }
 
 func capture(paths Paths) (snapshots, error) {
 	values := []*transaction.FileSnapshot{}
 	result := snapshots{}
-	values = append(values, &result.standard, &result.thirdParty, &result.profile, &result.metadata, &result.state)
-	pathList := []string{paths.StandardConfig, paths.ThirdPartyConfig, paths.Profile, paths.Metadata, paths.State}
+	values = append(values, &result.standard, &result.thirdParty, &result.profile, &result.metadata, &result.state, &result.legacyProfile, &result.legacyState)
+	legacyProfile, legacyState := legacyPaths(paths)
+	pathList := []string{paths.StandardConfig, paths.ThirdPartyConfig, paths.Profile, paths.Metadata, paths.State, legacyProfile, legacyState}
 	for index, path := range pathList {
 		snapshot, err := transaction.CaptureFileSnapshot(path)
 		if err != nil {
@@ -327,6 +300,8 @@ func encodeProfile(desired Desired) ([]byte, error) {
 		models = append(models, entry)
 	}
 	return encode(document{
+		"chatTabEnabled":                raw(true),
+		"coworkTabEnabled":              raw(true),
 		"inferenceCredentialHelper":     raw(desired.CredentialExecutable),
 		"inferenceCredentialHelperArgs": raw(desired.CredentialArguments),
 		"inferenceCredentialKind":       raw("helper-script"),
@@ -334,6 +309,7 @@ func encodeProfile(desired Desired) ([]byte, error) {
 		"inferenceGatewayBaseUrl":       raw(strings.TrimRight(desired.BaseURL, "/")),
 		"inferenceModels":               raw(models),
 		"inferenceProvider":             raw("gateway"),
+		"isClaudeCodeForDesktopEnabled": raw(true),
 		"modelDiscoveryEnabled":         raw(false),
 	})
 }
@@ -365,17 +341,17 @@ func addProfileEntry(metadata document) error {
 		return err
 	}
 	entry, _ := json.Marshal(map[string]string{"id": profileID, "name": profileName})
-	entries = append(removeOwnedEntry(entries), entry)
+	entries = append(removeOwnedEntries(entries, profileID, legacyRouteID), entry)
 	metadata["entries"] = raw(entries)
 	return nil
 }
 
-func removeProfileEntry(metadata document) error {
+func removeProfileEntries(metadata document) error {
 	entries, err := metadataEntries(metadata)
 	if err != nil {
 		return err
 	}
-	entries = removeOwnedEntry(entries)
+	entries = removeOwnedEntries(entries, profileID, legacyRouteID)
 	if len(entries) == 0 {
 		delete(metadata, "entries")
 	} else {
@@ -396,18 +372,18 @@ func metadataEntries(metadata document) ([]json.RawMessage, error) {
 	return entries, nil
 }
 
-func removeOwnedEntry(entries []json.RawMessage) []json.RawMessage {
+func removeOwnedEntries(entries []json.RawMessage, ids ...string) []json.RawMessage {
 	return slices.DeleteFunc(entries, func(entry json.RawMessage) bool {
 		var value struct {
 			ID string `json:"id"`
 		}
-		return json.Unmarshal(entry, &value) == nil && value.ID == profileID
+		return json.Unmarshal(entry, &value) == nil && slices.Contains(ids, value.ID)
 	})
 }
 
-func hasProfileEntry(metadata document) bool {
+func hasProfileEntry(metadata document, ids ...string) bool {
 	entries, err := metadataEntries(metadata)
-	return err == nil && len(removeOwnedEntry(slices.Clone(entries))) != len(entries)
+	return err == nil && len(removeOwnedEntries(slices.Clone(entries), ids...)) != len(entries)
 }
 
 func captureValue(value document, key string) optionalValue {
@@ -423,7 +399,7 @@ func restoreValue(value document, key string, original optionalValue) {
 	delete(value, key)
 }
 
-func managedHash(standard, thirdParty document, profile []byte, metadata document) (string, error) {
+func managedHash(id string, standard, thirdParty document, profile []byte, metadata document) (string, error) {
 	entry := optionalValue{}
 	entries, err := metadataEntries(metadata)
 	if err != nil {
@@ -433,7 +409,7 @@ func managedHash(standard, thirdParty document, profile []byte, metadata documen
 		var value struct {
 			ID string `json:"id"`
 		}
-		if json.Unmarshal(candidate, &value) == nil && value.ID == profileID {
+		if json.Unmarshal(candidate, &value) == nil && value.ID == id {
 			entry = optionalValue{Present: true, Value: slices.Clone(candidate)}
 			break
 		}
@@ -482,4 +458,30 @@ func snapshot(data []byte, before transaction.FileSnapshot) transaction.FileSnap
 		mode = before.Mode
 	}
 	return transaction.NewFileSnapshot(data, mode)
+}
+
+func preserveEquivalentJSON(data []byte, before transaction.FileSnapshot) []byte {
+	if !before.Exists || data == nil {
+		return data
+	}
+	current, currentOK := canonicalJSON(before.Data)
+	desired, desiredOK := canonicalJSON(data)
+	if currentOK && desiredOK && bytes.Equal(current, desired) {
+		return slices.Clone(before.Data)
+	}
+	return data
+}
+
+func canonicalJSON(data []byte) ([]byte, bool) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return nil, false
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return nil, false
+	}
+	normalized, err := json.Marshal(value)
+	return normalized, err == nil
 }

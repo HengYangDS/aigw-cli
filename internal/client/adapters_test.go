@@ -26,6 +26,16 @@ type fixedDiscoverer struct{ result discovery.Result }
 
 func (discoverer fixedDiscoverer) Discover() discovery.Result { return discoverer.result }
 
+func qualifiedRoute(label, account, model string, protocols ...configuration.EndpointProtocol) configuration.Route {
+	interfaces := make(map[configuration.EndpointProtocol][]configuration.Capability, len(protocols))
+	for _, protocol := range protocols {
+		interfaces[protocol] = []configuration.Capability{}
+	}
+	return configuration.Route{
+		Label: label, Account: account, Model: model, UpstreamModel: model, Interfaces: interfaces,
+	}
+}
+
 type captureAdapterRunner struct {
 	err       error
 	calls     int
@@ -59,8 +69,8 @@ func TestBuiltInAdapterVerificationBoundsClientProcesses(t *testing.T) {
 	}
 	claudeConfig := configuration.NewConfig()
 	claudeConfig.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	claudeConfig.Profiles["claude"] = configuration.Profile{Account: "gateway", Model: "claude-test"}
-	claudeConfig.SetSelectedProfile(configuration.ClientClaude, "claude")
+	claudeConfig.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
+	claudeConfig.SetSelectedRoute(configuration.ClientClaude, "claude")
 	claudeConfig.SetClientActivation(configuration.ClientClaude, true, claudeExecutable, nil)
 	claudeRuntime, err := claudeConfig.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
@@ -85,8 +95,8 @@ func TestBuiltInAdapterVerificationBoundsClientProcesses(t *testing.T) {
 func codexConfiguration(target string) configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Profiles["codex"] = configuration.Profile{Account: "gateway", Model: "gpt-test"}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Profile: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Route: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
 }
 
@@ -135,8 +145,8 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		}
 		cfg := configuration.NewConfig()
 		cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-		cfg.Profiles["codex"] = configuration.Profile{Account: "gateway", Model: "gpt-test"}
-		cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Profile: "codex", Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
+		cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
+		cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Route: "codex", Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
 		runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 		if err != nil {
 			t.Fatal(err)
@@ -230,13 +240,9 @@ func TestCodexAdapterProjectsCredentialHelperOnlyForAccountTokenProviders(t *tes
 			target := filepath.Join(t.TempDir(), "config.toml")
 			cfg := configuration.NewConfig()
 			cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-			cfg.Profiles["codex"] = configuration.Profile{
-				Label:   "Codex",
-				Account: "gateway",
-				Model:   "gpt-test",
-			}
+			cfg.Routes["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
 			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
-				Profile: "codex", Enabled: true, ModelProvider: test.provider,
+				Route: "codex", Enabled: true, ModelProvider: test.provider,
 				Authentication: test.authentication, Executable: "/usr/bin/codex", Targets: []string{target},
 			}
 			discovered := discovery.Result{
@@ -287,8 +293,8 @@ func TestClaudeAdapterApplyValidatesIntentAndRestoresObservedPreimage(t *testing
 
 	configured := configuration.NewConfig()
 	configured.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	configured.Profiles["claude"] = configuration.Profile{Account: "gateway", Model: "claude-test"}
-	configured.SetSelectedProfile(configuration.ClientClaude, "claude")
+	configured.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
+	configured.SetSelectedRoute(configuration.ClientClaude, "claude")
 	configured.SetClientActivation(configuration.ClientClaude, true, "/usr/bin/claude", nil)
 	if _, err := (claudeAdapter{}).Apply(context.Background(), Dependencies{}, configuration.NewConfig(), configured); err == nil || !strings.Contains(err.Error(), "settings path is empty") {
 		t.Fatalf("Apply() error = %v", err)
@@ -326,7 +332,7 @@ func TestClaudeVerificationRequiresTheSynchronizedProjection(t *testing.T) {
 	}
 	runner := &captureAdapterRunner{err: errors.New("client must not start")}
 	deps := Dependencies{Runner: runner, Secrets: store, ClaudeSettingsPath: filepath.Join(root, "settings.json"), AIGWExecutable: filepath.Join(root, "aigw")}
-	runtime := configuration.Runtime{AccountID: "gateway", ProfileID: "claude", Model: "claude-model", Endpoint: "https://gateway.test"}
+	runtime := configuration.Runtime{AccountID: "gateway", RouteID: "claude", Model: "claude-model", Endpoint: "https://gateway.test"}
 	_, err := (claudeAdapter{}).Verify(context.Background(), deps, cfg, runtime, "")
 	if err == nil || !strings.Contains(err.Error(), "not synchronized") || runner.calls != 0 {
 		t.Fatalf("unsynchronized projection: calls=%d error=%v", runner.calls, err)
@@ -360,7 +366,7 @@ func TestClaudeInspectionRequiresTheSynchronizedProjection(t *testing.T) {
 			cfg := configuration.NewConfig()
 			cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
 			deps := Dependencies{ClaudeSettingsPath: filepath.Join(root, "settings.json"), AIGWExecutable: filepath.Join(root, "aigw")}
-			runtime := configuration.Runtime{AccountID: "gateway", ProfileID: "claude", Model: "claude-model", Endpoint: "https://gateway.test"}
+			runtime := configuration.Runtime{AccountID: "gateway", RouteID: "claude", Model: "claude-model", Endpoint: "https://gateway.test"}
 			if test.sync {
 				if _, err := claude.ReconcileSettings(deps.ClaudeSettingsPath, false, runtime, deps.AIGWExecutable, runtime.Model); err != nil {
 					t.Fatal(err)
@@ -447,9 +453,9 @@ func TestChangedClientsFollowPersistentCodexSemantics(t *testing.T) {
 	}
 
 	purpose := before.Clone()
-	profile := purpose.Profiles["codex"]
+	profile := purpose.Routes["codex"]
 	profile.Purpose = "display only"
-	purpose.Profiles["codex"] = profile
+	purpose.Routes["codex"] = profile
 	if len(adapterRegistry.ChangedClients(before, purpose)) != 0 {
 		t.Fatal("display-only purpose must not change the projection")
 	}
@@ -460,8 +466,8 @@ func TestChangedClientsRetainsAdmissionOrderAndIndependentResults(t *testing.T) 
 	account := before.Accounts["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Accounts["gateway"] = account
-	before.Profiles["claude"] = configuration.Profile{Account: "gateway", Model: "claude-test"}
-	before.SetSelectedProfile(configuration.ClientClaude, "claude")
+	before.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
+	before.SetSelectedRoute(configuration.ClientClaude, "claude")
 	before.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	after := before.Clone()
 	account.Endpoints = configuration.Endpoints{OpenAIResponses: "https://replacement.test/v1", Anthropic: "https://replacement.test"}
@@ -482,8 +488,8 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 	t.Run("invalid enabled Codex runtime", func(t *testing.T) {
 		before := codexConfiguration("/target")
 		after := before.Clone()
-		delete(before.Profiles, "codex")
-		delete(after.Profiles, "codex")
+		delete(before.Routes, "codex")
+		delete(after.Routes, "codex")
 		if changed := DefaultRegistry().ChangedClients(before, after); len(changed) != 1 || changed[0] != configuration.ClientCodex {
 			t.Fatal("invalid Codex runtime was treated as unchanged")
 		}
@@ -501,12 +507,12 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 	t.Run("invalid enabled Claude runtime", func(t *testing.T) {
 		before := configuration.NewConfig()
 		before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-		before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-test"}
-		before.SetSelectedProfile(configuration.ClientClaude, "claude")
+		before.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
+		before.SetSelectedRoute(configuration.ClientClaude, "claude")
 		before.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 		after := before.Clone()
-		delete(before.Profiles, "claude")
-		delete(after.Profiles, "claude")
+		delete(before.Routes, "claude")
+		delete(after.Routes, "claude")
 		if changed := DefaultRegistry().ChangedClients(before, after); len(changed) != 1 || changed[0] != configuration.ClientClaude {
 			t.Fatal("invalid Claude runtime was treated as unchanged")
 		}

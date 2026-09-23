@@ -14,7 +14,7 @@ import (
 
 func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+	runtime := configuration.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
 
 	t.Run("settings snapshot", func(t *testing.T) {
 		withSettingsTransaction(t,
@@ -103,7 +103,7 @@ func TestSettingsDisableFailuresPreserveManagedProjection(t *testing.T) {
 	if err := os.WriteFile(path, []byte(`{"theme":"dark"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+	runtime := configuration.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
 	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +164,7 @@ func TestSettingsDisableAbsentFileReportsRemovalFailures(t *testing.T) {
 	for _, failAt := range []int{1, 2} {
 		t.Run(fmt.Sprintf("remove-%d", failAt), func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+			runtime := configuration.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
 			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
 				t.Fatal(err)
 			}

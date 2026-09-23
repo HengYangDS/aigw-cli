@@ -184,7 +184,7 @@ func TestCoreValidationFailuresUseEnglishGuidance(t *testing.T) {
 		{args: []string{"test", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, or hermes"},
 		{args: []string{"verify", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, hermes, or all"},
 		{args: []string{"setup", "--profile", "new-profile", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, or hermes"},
-		{args: []string{"profile", "add", "new-profile"}, want: "--account and --model are required"},
+		{args: []string{"profile", "add", "new-profile"}, want: "--account, --model, and --protocol are required"},
 		{args: []string{"route"}, want: "unknown command \"route\""},
 		{args: []string{"adapter"}, want: "unknown command \"adapter\""},
 		{args: []string{"client", "enable", "other"}, want: "Client must be claude, claude-desktop, codex, or hermes"},

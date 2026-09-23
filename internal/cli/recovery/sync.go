@@ -43,7 +43,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				NextAction string                  `json:"next_action"`
 			}{DryRun: dryRun, Selections: map[string]string{}, NextAction: "aigw check"}
 			for _, client := range configuration.AdmittedClientIDs() {
-				if profile := after.SelectedProfile(client); profile != "" {
+				if profile := after.SelectedRoute(client); profile != "" {
 					result.Selections[client] = profile
 				}
 			}
@@ -70,7 +70,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				r.ProductTitle("Synchronization preview")
 				var bindings []presentation.Field
 				for _, client := range configuration.AdmittedClientIDs() {
-					bindings = append(bindings, presentation.Field{Label: "Client · " + client, Value: after.SelectedProfile(client)})
+					bindings = append(bindings, presentation.Field{Label: "Client · " + client, Value: after.SelectedRoute(client)})
 				}
 				r.Rows(bindings...)
 				if len(result.Targets) == 0 {

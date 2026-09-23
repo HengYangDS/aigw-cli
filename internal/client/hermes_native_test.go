@@ -128,7 +128,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	connectedAccounts := []string{"aihubmix", "ucloud"}
-	cfg, err = cfg.SelectProfilesForConnectedAccounts(connectedAccounts, configuration.ClientHermes)
+	cfg, err = cfg.SelectRoutesForConnectedAccounts(connectedAccounts, configuration.ClientHermes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +186,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 		if !connected[profile.Account] {
 			continue
 		}
-		for _, protocol := range profile.Protocols {
+		for _, protocol := range profile.AdmittedProtocols() {
 			providerID := hermesProviderID(profile.Account, protocol)
 			want[providerID] = append(want[providerID], profile.Model)
 		}

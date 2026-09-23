@@ -19,8 +19,8 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	source := discovery.System{GOOS: runtime.GOOS, Home: home, Path: home}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://provider.test"}}
-	cfg.Profiles["hermes"] = configuration.Profile{Label: "Hermes", Account: "team", Model: "model-test"}
-	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Profile: "hermes", Enabled: true, Protocol: configuration.ProtocolAnthropic}
+	cfg.Routes["hermes"] = qualifiedRoute("Hermes", "team", "model-test", configuration.ProtocolAnthropic)
+	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: configuration.ProtocolAnthropic}
 	store := secrets.NewMemoryStore()
 	if err := store.Set("team", "fixture-token"); err != nil {
 		t.Fatal(err)
@@ -89,8 +89,8 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Profiles["hermes"] = configuration.Profile{Account: "gateway", Model: "claude-test"}
-	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Profile: "hermes", Enabled: true, Protocol: configuration.ProtocolAnthropic, Executable: executable}
+	cfg.Routes["hermes"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
+	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: configuration.ProtocolAnthropic, Executable: executable}
 	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
 	if err != nil {
 		t.Fatal(err)
@@ -124,12 +124,12 @@ func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *
 	cfg.Accounts["offline"] = configuration.Account{Label: "Offline", Endpoints: configuration.Endpoints{
 		OpenAIResponses: "https://offline.test/v1",
 	}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Model: "claude-fable-5-1", Protocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic}}
-	cfg.Profiles["grok"] = configuration.Profile{Label: "Grok", Account: "team", Model: "grok-4.6", Protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
-	cfg.Profiles["gemini"] = configuration.Profile{Label: "Gemini", Account: "team", Model: "gemini-3.8-flash", Protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIChatCompletions}}
-	cfg.Profiles["qwen"] = configuration.Profile{Label: "Qwen", Account: "connected", Model: "qwen-max", Protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
-	cfg.Profiles["deepseek"] = configuration.Profile{Label: "DeepSeek", Account: "offline", Model: "deepseek-v3", Protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
-	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Profile: "claude", Enabled: true, Protocol: configuration.ProtocolAnthropic, Targets: []string{target}}
+	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-fable-5-1", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.Routes["grok"] = configuration.Route{Label: "Grok", Account: "team", Model: "grok-4.6", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	cfg.Routes["gemini"] = configuration.Route{Label: "Gemini", Account: "team", Model: "gemini-3.8-flash", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIChatCompletions: {}}}
+	cfg.Routes["qwen"] = configuration.Route{Label: "Qwen", Account: "connected", Model: "qwen-max", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	cfg.Routes["deepseek"] = configuration.Route{Label: "DeepSeek", Account: "offline", Model: "deepseek-v3", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "claude", Enabled: true, Protocol: configuration.ProtocolAnthropic, Targets: []string{target}}
 	store := secrets.NewMemoryStore()
 	for _, accountID := range []string{"team", "connected"} {
 		if err := store.Set(accountID, "fixture-token"); err != nil {

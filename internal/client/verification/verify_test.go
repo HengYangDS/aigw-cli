@@ -98,10 +98,10 @@ func verificationConfig() configuration.Config {
 		OpenAIResponses: "https://one.test/v1",
 		Anthropic:       "https://one.test",
 	}}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Model: "gpt-test"}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Model: "claude-test"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "one", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "one", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 	return cfg
 }
 
@@ -265,8 +265,8 @@ func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 		t.Fatalf("missing executable file error = %v", err)
 	}
 	drifted := cfg.Clone()
-	drifted.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Model: "other"}
-	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, drifted, configuration.Runtime{ProfileID: "codex", Model: "other"}); err == nil || !strings.Contains(err.Error(), "synchronized") {
+	drifted.Routes["codex"] = configuration.Route{Label: "Codex", Account: "one", Model: "other"}
+	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, drifted, configuration.Runtime{RouteID: "codex", Model: "other"}); err == nil || !strings.Contains(err.Error(), "synchronized") {
 		t.Fatalf("projection error = %v", err)
 	}
 }
@@ -337,7 +337,7 @@ func TestVerifyClaude(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := errors.New("launch /Users/operator/private/claude: exit status 1")
-	if err := VerifyClaudeRuntime(context.Background(), nil, "claude", settings, configuration.Runtime{ProfileID: "one"}, "token"); err == nil || !strings.Contains(err.Error(), "no Claude model") {
+	if err := VerifyClaudeRuntime(context.Background(), nil, "claude", settings, configuration.Runtime{RouteID: "one"}, "token"); err == nil || !strings.Contains(err.Error(), "no Claude model") {
 		t.Fatalf("model error = %v", err)
 	}
 	if err := VerifyClaudeRuntime(context.Background(), nil, "", settings, runtime, "token"); err == nil || !strings.Contains(err.Error(), "executable is not configured") {

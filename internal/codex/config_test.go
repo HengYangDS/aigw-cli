@@ -16,8 +16,8 @@ func codexRuntime(profileID, label, endpoint, model string) configuration.Runtim
 	}
 	return configuration.Runtime{
 		CredentialCommand: executable,
-		ProfileID:         profileID,
-		ProfileLabel:      label,
+		RouteID:           profileID,
+		RouteLabel:        label,
 		AccountID:         "dmx",
 		Client:            configuration.ClientCodex,
 		Endpoint:          endpoint,

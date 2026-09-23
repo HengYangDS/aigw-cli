@@ -56,9 +56,6 @@ func (s System) ClaudeDesktopExecutable() string {
 	if available, _ := executableAvailable(s.GOOS, s.ClaudeDesktopApp); available {
 		return s.ClaudeDesktopApp
 	}
-	if s.GOOS == "linux" {
-		return s.find("claude-desktop")
-	}
 	for _, candidate := range platform.ClaudeDesktopApplicationPathsFor(s.GOOS, map[string]string{
 		"HOME": s.Home, "LOCALAPPDATA": s.LocalAppData,
 	}) {

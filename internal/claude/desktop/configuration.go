@@ -341,7 +341,7 @@ func addProfileEntry(metadata document) error {
 		return err
 	}
 	entry, _ := json.Marshal(map[string]string{"id": profileID, "name": profileName})
-	entries = append(removeOwnedEntries(entries, profileID, legacyProfileID), entry)
+	entries = append(removeOwnedEntries(entries, profileID, legacyRouteID), entry)
 	metadata["entries"] = raw(entries)
 	return nil
 }
@@ -351,7 +351,7 @@ func removeProfileEntries(metadata document) error {
 	if err != nil {
 		return err
 	}
-	entries = removeOwnedEntries(entries, profileID, legacyProfileID)
+	entries = removeOwnedEntries(entries, profileID, legacyRouteID)
 	if len(entries) == 0 {
 		delete(metadata, "entries")
 	} else {

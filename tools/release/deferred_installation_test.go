@@ -29,19 +29,23 @@ func runDeferredClientInstallation(t *testing.T, artifact, endpoint string) {
 	for _, clientID := range deferredJourneyClientIDs() {
 		t.Run(clientID, func(t *testing.T) {
 			journey := newNativeJourney(t, artifact, endpoint, false)
-			manifest := fmt.Sprintf(`version = 6
+			manifest := fmt.Sprintf(`version = 7
 
 [recommendations.claude]
-profile = 'native-system-keyring-probe-claude'
+[recommendations.claude.primary]
+route = 'native-system-keyring-probe-claude'
 
 [recommendations.claude-desktop]
-profile = 'native-system-keyring-probe-claude'
+[recommendations.claude-desktop.primary]
+route = 'native-system-keyring-probe-claude'
 
 [recommendations.codex]
-profile = 'native-system-keyring-probe-codex'
+[recommendations.codex.primary]
+route = 'native-system-keyring-probe-codex'
 
 [recommendations.hermes]
-profile = 'native-system-keyring-probe-claude'
+[recommendations.hermes.primary]
+route = 'native-system-keyring-probe-claude'
 protocol = 'anthropic'
 
 [accounts.native-system-keyring-probe]
@@ -51,17 +55,25 @@ label = 'Native System Keyring Probe'
 anthropic = %[1]q
 openai_responses = %[1]q
 
-[profiles.native-system-keyring-probe-claude]
+[models.claude-test]
+label = 'Claude Test'
+
+[models.gpt-test]
+label = 'GPT Test'
+
+[routes.native-system-keyring-probe-claude]
 label = 'Native System Keyring Probe Claude'
 account = 'native-system-keyring-probe'
 model = 'claude-test'
-protocols = ['anthropic']
+upstream_model = 'claude-test'
+interfaces = { anthropic = [] }
 
-[profiles.native-system-keyring-probe-codex]
+[routes.native-system-keyring-probe-codex]
 label = 'Native System Keyring Probe Codex'
 account = 'native-system-keyring-probe'
 model = 'gpt-test'
-protocols = ['openai_responses']
+upstream_model = 'gpt-test'
+interfaces = { openai_responses = [] }
 `, journey.endpoint)
 			if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 				t.Fatal(err)

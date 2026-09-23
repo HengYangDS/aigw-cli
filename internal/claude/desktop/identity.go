@@ -7,10 +7,10 @@ import (
 )
 
 const (
-	profileID       = "6500fbf3-029c-5c0d-842a-48ee47e228c5"
-	legacyProfileID = "aigw"
-	profileName     = "AIGW"
-	stateSuffix     = ".aigw-state.json"
+	profileID     = "6500fbf3-029c-5c0d-842a-48ee47e228c5"
+	legacyRouteID = "aigw"
+	profileName   = "AIGW"
+	stateSuffix   = ".aigw-state.json"
 )
 
 func prepareState(before snapshots, standard, thirdParty, metadata document) (ownershipState, error) {
@@ -27,9 +27,9 @@ func prepareState(before snapshots, standard, thirdParty, metadata document) (ow
 		if before.profile.Exists {
 			return ownershipState{}, errors.New("current Claude Desktop profile exists beside the legacy ownership state")
 		}
-		return readOwnedState(before.legacyState.Data, legacyProfileID, standard, thirdParty, before.legacyProfile.Data, metadata)
+		return readOwnedState(before.legacyState.Data, legacyRouteID, standard, thirdParty, before.legacyProfile.Data, metadata)
 	}
-	if before.profile.Exists || before.legacyProfile.Exists || hasProfileEntry(metadata, profileID, legacyProfileID) {
+	if before.profile.Exists || before.legacyProfile.Exists || hasProfileEntry(metadata, profileID, legacyRouteID) {
 		return ownershipState{}, errors.New("Claude Desktop AIGW profile already exists without AIGW ownership")
 	}
 	return ownershipState{
@@ -63,6 +63,6 @@ func readOwnedState(data []byte, id string, standard, thirdParty document, profi
 
 func legacyPaths(paths Paths) (string, string) {
 	directory := filepath.Dir(paths.Profile)
-	profile := filepath.Join(directory, legacyProfileID+".json")
+	profile := filepath.Join(directory, legacyRouteID+".json")
 	return profile, profile + stateSuffix
 }

@@ -85,7 +85,7 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 		}
 		adapterStatus := inspectAdapter(context.Background(), runtime, cfg, clientID, clientRuntime)
 		facts := domainreadiness.ClientFacts{
-			Profile:            clientRuntime.ProfileID,
+			Profile:            clientRuntime.RouteID,
 			Account:            clientRuntime.AccountID,
 			CredentialRequired: clientRuntime.UsesAIGWCredentialStore(),
 			ProjectionEnabled:  cfg.Clients[clientID].Enabled,
@@ -127,11 +127,11 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 
 func unresolvedClientStatus(cfg *configuration.Config, clientID string, resolveErr error) clientStatus {
 	facts := domainreadiness.ClientFacts{}
-	if profile := cfg.SelectedProfile(clientID); profile != "" {
+	if profile := cfg.SelectedRoute(clientID); profile != "" {
 		facts.Profile = profile
 		facts.BindingIssue = resolveErr.Error()
 		facts.BindingAction = "aigw use --for " + clientID + " <profile>"
-	} else if suggested := cfg.RecommendedProfile(clientID); suggested != "" {
+	} else if suggested := cfg.RecommendedRoute(clientID); suggested != "" {
 		facts.SuggestedProfile = suggested
 		facts.BindingAction = "aigw use --for " + clientID + " " + suggested
 	}
@@ -163,7 +163,7 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 		ConfigPath:        runtime.Config.Path(),
 		CredentialBackend: backend,
 		Clients:           clients,
-		Profiles:          len(cfg.Profiles),
+		Profiles:          len(cfg.Routes),
 	}
 }
 

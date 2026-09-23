@@ -21,7 +21,7 @@ import (
 func catalogDependencies(t *testing.T, cfg configuration.Config, secretValues map[string]string, client HTTPDoer) (Dependencies, *bytes.Buffer) {
 	t.Helper()
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-	if len(cfg.Profiles) > 0 {
+	if len(cfg.Routes) > 0 {
 		if err := store.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -47,9 +47,15 @@ func executeCatalogCommand(t *testing.T, command *cobra.Command, args ...string)
 func configuredCatalog() configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Model: "gpt-codex"}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "gpt-claude"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
+	cfg.Routes["codex"] = configuration.Route{
+		Label: "Codex", Account: "gateway", Model: "gpt-codex",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+	}
+	cfg.Routes["claude"] = configuration.Route{
+		Label: "Claude", Account: "gateway", Model: "gpt-claude",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+	}
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
 	return cfg
 }
 
@@ -70,7 +76,7 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 
 	cfg := configuredCatalog()
 	cfg.Accounts["anthropic"] = configuration.Account{Label: "Anthropic", Endpoints: configuration.Endpoints{Anthropic: "https://anthropic.test"}}
-	cfg.Profiles["anthropic"] = configuration.Profile{Label: "Anthropic", Account: "anthropic", Model: "claude-only"}
+	cfg.Routes["anthropic"] = configuration.Route{Label: "Anthropic", Account: "anthropic", Model: "claude-only"}
 	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt-codex"]}`)), Request: request}, nil
 	})
@@ -129,10 +135,10 @@ func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
 	cfg.Accounts["missing"] = configuration.Account{Label: "Missing", Endpoints: configuration.Endpoints{OpenAIResponses: "https://missing.test/v1"}}
 	cfg.Accounts["denied"] = configuration.Account{Label: "Denied", Endpoints: configuration.Endpoints{OpenAIResponses: "https://denied.test/v1"}}
 	cfg.Accounts["broken"] = configuration.Account{Label: "Broken", Endpoints: configuration.Endpoints{OpenAIResponses: "https://broken.test/v1"}}
-	cfg.Profiles["anthropic"] = configuration.Profile{Label: "Anthropic", Account: "anthropic", Model: "claude"}
-	cfg.Profiles["missing"] = configuration.Profile{Label: "Missing", Account: "missing", Model: "missing"}
-	cfg.Profiles["denied"] = configuration.Profile{Label: "Denied", Account: "denied", Model: "denied"}
-	cfg.Profiles["broken"] = configuration.Profile{Label: "Broken", Account: "broken", Model: "broken"}
+	cfg.Routes["anthropic"] = configuration.Route{Label: "Anthropic", Account: "anthropic", Model: "claude"}
+	cfg.Routes["missing"] = configuration.Route{Label: "Missing", Account: "missing", Model: "missing"}
+	cfg.Routes["denied"] = configuration.Route{Label: "Denied", Account: "denied", Model: "denied"}
+	cfg.Routes["broken"] = configuration.Route{Label: "Broken", Account: "broken", Model: "broken"}
 	secretStore := &faultingSecrets{values: map[string]string{"gateway": "token", "denied": "token", "broken": "token"}, failAccount: "denied", getErr: errors.New("denied")}
 	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		if request.URL.Host == "broken.test" {
@@ -259,8 +265,8 @@ func writeUnreadableConfig(path string) error {
 
 func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
 	cfg := configuration.NewConfig()
-	cfg.Profiles["other"] = configuration.Profile{Account: "other", Model: "gpt"}
-	cfg.Profiles["matching"] = configuration.Profile{Account: "one", Model: "gpt"}
+	cfg.Routes["other"] = configuration.Route{Account: "other", Model: "gpt"}
+	cfg.Routes["matching"] = configuration.Route{Account: "one", Model: "gpt"}
 	if got := ConfiguredProfiles(cfg, "one", "gpt"); len(got) != 1 || got[0] != "matching" {
 		t.Fatalf("profiles = %#v", got)
 	}

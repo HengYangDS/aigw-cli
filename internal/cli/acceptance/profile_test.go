@@ -33,7 +33,7 @@ func TestProfileAddValidation(t *testing.T) {
 	t.Run("profile add duplicate", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
-		err := cli.Execute(app, []string{"profile", "add", "one", "--account", "one", "--model", "m"})
+		err := cli.Execute(app, []string{"profile", "add", "one", "--account", "one", "--model", "m", "--protocol", "anthropic"})
 		if err == nil || !strings.Contains(err.Error(), "already exists") {
 			t.Fatalf("error = %v", err)
 		}
@@ -42,7 +42,7 @@ func TestProfileAddValidation(t *testing.T) {
 	t.Run("profile add unknown account", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
-		err := cli.Execute(app, []string{"profile", "add", "two", "--account", "missing", "--model", "m"})
+		err := cli.Execute(app, []string{"profile", "add", "two", "--account", "missing", "--model", "m", "--protocol", "anthropic"})
 		if err == nil || !strings.Contains(err.Error(), "Unknown account") {
 			t.Fatalf("error = %v", err)
 		}
@@ -51,12 +51,12 @@ func TestProfileAddValidation(t *testing.T) {
 	t.Run("profile add default label", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
-		if err := cli.Execute(app, []string{"profile", "add", "two", "--account", "one", "--model", "m2"}); err != nil {
+		if err := cli.Execute(app, []string{"profile", "add", "two", "--account", "one", "--model", "m2", "--protocol", "anthropic"}); err != nil {
 			t.Fatal(err)
 		}
 		cfg, _ := app.Config.Load()
-		if cfg.Profiles["two"].Label != "two" {
-			t.Fatalf("profile = %#v", cfg.Profiles["two"])
+		if cfg.Routes["two"].Label != "two" {
+			t.Fatalf("profile = %#v", cfg.Routes["two"])
 		}
 	})
 }
@@ -65,9 +65,9 @@ func TestProfileRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-default"] = configuration.Profile{Label: "GPT Default", Account: "dmx", Model: "gpt-default"}
-	cfg.Profiles["gpt-unused"] = configuration.Profile{Label: "GPT Unused", Account: "dmx", Model: "gpt-unused"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt-default")
+	cfg.Routes["gpt-default"] = qualifiedRoute("GPT Default", "dmx", "gpt-default", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["gpt-unused"] = qualifiedRoute("GPT Unused", "dmx", "gpt-unused", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-default")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestProfileRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 		t.Fatalf("account token changed: %q %v", got, err)
 	}
 	got, _ := app.Config.Load()
-	if _, ok := got.Profiles["gpt-unused"]; ok || got.Accounts["dmx"].Label != "DMXAPI" {
+	if _, ok := got.Routes["gpt-unused"]; ok || got.Accounts["dmx"].Label != "DMXAPI" {
 		t.Fatalf("remove config = %#v", got)
 	}
 }
@@ -88,7 +88,7 @@ func TestProfileAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "gpt", "dmx", "GPT", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}, configuration.ClientCodex, "gpt-test")
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -96,18 +96,18 @@ func TestProfileAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"profile", "add", "claude", "--account", "dmx", "--model", "claude-test", "--label", "Claude Test"}); err != nil {
+	if err := cli.Execute(app, []string{"profile", "add", "claude", "--account", "dmx", "--model", "claude-test", "--protocol", "anthropic", "--label", "Claude Test"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	profile := got.Profiles["claude"]
+	profile := got.Routes["claude"]
 	if profile.Account != "dmx" || profile.Model != "claude-test" {
 		t.Fatalf("added profile = %#v", profile)
 	}
-	if got.SelectedProfile(configuration.ClientCodex) != "gpt" || !secretExists(t, secretStore, "dmx") || secretExists(t, secretStore, "claude") {
+	if got.SelectedRoute(configuration.ClientCodex) != "gpt" || !secretExists(t, secretStore, "dmx") || secretExists(t, secretStore, "claude") {
 		t.Fatalf("selection or token slots changed: clients=%#v dmx=%v claude=%v", got.Clients, secretExists(t, secretStore, "dmx"), secretExists(t, secretStore, "claude"))
 	}
 }
@@ -116,28 +116,28 @@ func TestProfileAddDoesNotConflateProfileCreationWithClientCompatibility(t *test
 	app, _, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "gpt", "openai-only", "OpenAI Only", configuration.Endpoints{OpenAIResponses: "https://openai.test/v1"}, configuration.ClientCodex, "gpt-test")
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"profile", "add", "claude", "--account", "openai-only", "--model", "claude-test"}); err != nil {
+	if err := cli.Execute(app, []string{"profile", "add", "claude", "--account", "openai-only", "--model", "claude-test", "--protocol", "openai_responses"}); err != nil {
 		t.Fatalf("profile creation should remain client-independent: %v", err)
 	}
 	got, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	profile, exists := got.Profiles["claude"]
+	profile, exists := got.Routes["claude"]
 	if !exists || profile.Account != "openai-only" || profile.Model != "claude-test" {
 		t.Fatalf("created Profile = %#v, exists=%v", profile, exists)
 	}
-	if got.SelectedProfile(configuration.ClientClaude) != "" {
+	if got.SelectedRoute(configuration.ClientClaude) != "" {
 		t.Fatalf("profile creation selected a Claude binding: %#v", got.Clients)
 	}
 
 	err = cli.Execute(app, []string{"use", "--for", "claude", "claude"})
-	if err == nil || !strings.Contains(err.Error(), "no Anthropic endpoint") {
+	if err == nil || !strings.Contains(err.Error(), `does not admit endpoint protocol "anthropic"`) {
 		t.Fatalf("client selection error = %v", err)
 	}
 }
@@ -167,13 +167,16 @@ func TestProfileReadsKeepClientAuthenticationInTheBinding(t *testing.T) {
 			OpenAIResponses: "https://native.test/v1",
 		},
 	}
-	cfg.Profiles["native"] = configuration.Profile{
+	cfg.Routes["native"] = configuration.Route{
 		Label:   "Native",
 		Account: "native",
 		Model:   "native-model",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
+			configuration.ProtocolOpenAIResponses: {},
+		},
 	}
 	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
-		Profile: "native", ModelProvider: "amazon-bedrock",
+		Route: "native", ModelProvider: "amazon-bedrock",
 		Authentication: configuration.AuthenticationClientNative,
 	}
 	if err := app.Config.Save(cfg); err != nil {
@@ -222,13 +225,13 @@ func TestProfileListJSONIsStableAndClientIndependent(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["shared"] = configuration.Account{Label: "Shared", Endpoints: configuration.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
-	cfg.Profiles["zeta"] = configuration.Profile{Label: "Zeta", Account: "shared", Model: "claude-test"}
-	cfg.Profiles["alpha"] = configuration.Profile{Label: "Alpha", Account: "shared", Model: "gpt-test"}
+	cfg.Routes["zeta"] = qualifiedRoute("Zeta", "shared", "claude-test", configuration.ProtocolAnthropic)
+	cfg.Routes["alpha"] = qualifiedRoute("Alpha", "shared", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
-		Profile: "alpha", ModelProvider: "amazon-bedrock",
+		Route: "alpha", ModelProvider: "amazon-bedrock",
 		Authentication: configuration.AuthenticationClientNative,
 	}
-	cfg.SetSelectedProfile(configuration.ClientClaude, "zeta")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "zeta")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -268,8 +271,11 @@ func TestProfileShowRendersEverySecretFreeField(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["shared"] = configuration.Account{Label: "Shared", Endpoints: configuration.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex Model", Purpose: "Daily work", Account: "shared", Model: "gpt-test"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
+	cfg.Routes["codex"] = qualifiedRoute("Codex Model", "shared", "gpt-test", configuration.ProtocolOpenAIResponses)
+	route := cfg.Routes["codex"]
+	route.Purpose = "Daily work"
+	cfg.Routes["codex"] = route
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -371,8 +377,8 @@ func TestAdvancedProfileReadEditAndRemoveErrors(t *testing.T) {
 		cfg := configuration.NewConfig()
 		addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}, configuration.ClientClaude, "m1")
 		addAccountProfile(&cfg, "two", "one", "Two", configuration.Endpoints{}, configuration.ClientCodex, "m2")
-		cfg.SetSelectedProfile(configuration.ClientClaude, "one")
-		cfg.SetSelectedProfile(configuration.ClientCodex, "two")
+		cfg.SetSelectedRoute(configuration.ClientClaude, "one")
+		cfg.SetSelectedRoute(configuration.ClientCodex, "two")
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -391,7 +397,7 @@ func TestProfileEditSynchronizesActiveCodexProjection(t *testing.T) {
 	}
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
-	cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "one")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -413,20 +419,20 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "current", "team", "Team Gateway", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-current")
-	cfg.SetSelectedProfile(configuration.ClientClaude, "current")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "current")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"profile", "add", "claude-fable-5", "--account", "team", "--model", "claude-fable-5", "--label", "Claude Fable 5", "--purpose", "Default agent"}); err != nil {
+	if err := cli.Execute(app, []string{"profile", "add", "claude-fable-5", "--account", "team", "--model", "claude-fable-5", "--protocol", "anthropic", "--label", "Claude Fable 5", "--purpose", "Default agent"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Profiles["claude-fable-5"].Purpose != "Default agent" {
-		t.Fatalf("purpose = %q", got.Profiles["claude-fable-5"].Purpose)
+	if got.Routes["claude-fable-5"].Purpose != "Default agent" {
+		t.Fatalf("purpose = %q", got.Routes["claude-fable-5"].Purpose)
 	}
 	if err := secretStore.Set("team", "team-token"); err != nil {
 		t.Fatal(err)
@@ -470,8 +476,8 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Profiles["claude-fable-5"].Purpose != "Deep agent" {
-		t.Fatalf("edited purpose = %q", got.Profiles["claude-fable-5"].Purpose)
+	if got.Routes["claude-fable-5"].Purpose != "Deep agent" {
+		t.Fatalf("edited purpose = %q", got.Routes["claude-fable-5"].Purpose)
 	}
 	if err := cli.Execute(app, []string{"profile", "edit", "claude-fable-5", "--purpose", ""}); err != nil {
 		t.Fatal(err)
@@ -480,8 +486,8 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Profiles["claude-fable-5"].Purpose != "" {
-		t.Fatalf("cleared purpose = %q", got.Profiles["claude-fable-5"].Purpose)
+	if got.Routes["claude-fable-5"].Purpose != "" {
+		t.Fatalf("cleared purpose = %q", got.Routes["claude-fable-5"].Purpose)
 	}
 }
 
@@ -489,13 +495,11 @@ func TestProfileListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "gpt", "team", "Team Gateway", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "gpt-test")
-	cfg.Profiles["gpt"] = configuration.Profile{
-		Label:   "GPT Test",
-		Purpose: "native Codex picker-aligned daily default",
-		Account: "team",
-		Model:   "gpt-test",
-	}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.Routes["gpt"] = qualifiedRoute("GPT Test", "team", "gpt-test", configuration.ProtocolOpenAIResponses)
+	route := cfg.Routes["gpt"]
+	route.Purpose = "native Codex picker-aligned daily default"
+	cfg.Routes["gpt"] = route
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -523,7 +527,7 @@ func TestProfileRemoveRefusesActiveProfile(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
-	cfg.SetSelectedProfile(configuration.ClientClaude, "team")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "team")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

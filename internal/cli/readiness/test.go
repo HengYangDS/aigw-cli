@@ -38,7 +38,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(cfg.Profiles) == 0 {
+			if len(cfg.Routes) == 0 {
 				return invocation.Problem(runtime, "Not configured", "No Profiles have been created.", "No client endpoint is available to test.", "aigw setup", fmt.Errorf("not configured"))
 			}
 			clients, err := endpointTestClients(cfg, client, profileName)
@@ -57,13 +57,13 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				if !clientRuntime.RequiresAccountToken() {
 					return fmt.Errorf(
 						"profile %q uses client-owned authentication; run `aigw verify --for %s` to test it through %s",
-						clientRuntime.ProfileID,
+						clientRuntime.RouteID,
 						spec.ID,
 						spec.Label,
 					)
 				}
 				if clientRuntime.CredentialCommand != "" && !tokenStdin {
-					return fmt.Errorf("profile %q uses an external credential helper; run `aigw verify --for %s` or provide an explicit test Token on stdin", clientRuntime.ProfileID, spec.ID)
+					return fmt.Errorf("profile %q uses an external credential helper; run `aigw verify --for %s` or provide an explicit test Token on stdin", clientRuntime.RouteID, spec.ID)
 				}
 				resolved[spec.ID] = clientRuntime
 			}
@@ -89,7 +89,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				} else if status < http.StatusOK || status >= http.StatusMultipleChoices {
 					return fmt.Errorf("%s endpoint returned HTTP %d", invocation.Title(target), status)
 				}
-				results = append(results, endpointTestResult{client: target, profileID: clientRuntime.ProfileID, status: status, detail: detail})
+				results = append(results, endpointTestResult{client: target, profileID: clientRuntime.RouteID, status: status, detail: detail})
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Connectivity test")
@@ -140,7 +140,7 @@ func endpointTestClients(cfg configuration.Config, client, profileName string) (
 	}
 	selected := make([]configuration.ClientSpec, 0, len(cfg.Clients))
 	for _, spec := range configuration.AdmittedClientSpecs() {
-		if cfg.SelectedProfile(spec.ID) != "" {
+		if cfg.SelectedRoute(spec.ID) != "" {
 			selected = append(selected, spec)
 		}
 	}

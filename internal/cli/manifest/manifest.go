@@ -53,7 +53,7 @@ func newExportCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func newImportCommand(runtime invocation.Context) *cobra.Command {
-	var replaceAccounts, replaceProfiles []string
+	var replaceAccounts, replaceModels, replaceRoutes []string
 	cmd := &cobra.Command{Use: "import <configuration.toml>", Short: "Merge a secret-free configuration manifest", Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
 		if strings.TrimSpace(args[0]) == "" {
 			return fmt.Errorf("Configuration manifest path must not be blank; run `%s --help`", cmd.CommandPath())
@@ -73,7 +73,11 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		}
 		before := cfg.Clone()
-		cfg, err = configuration.MergeWithOptions(cfg, incoming, configuration.MergeOptions{ReplaceAccounts: ReplacementSet(replaceAccounts), ReplaceProfiles: ReplacementSet(replaceProfiles)})
+		cfg, err = configuration.MergeWithOptions(cfg, incoming, configuration.MergeOptions{
+			ReplaceAccounts: ReplacementSet(replaceAccounts),
+			ReplaceModels:   ReplacementSet(replaceModels),
+			ReplaceRoutes:   ReplacementSet(replaceRoutes),
+		})
 		if err != nil {
 			return err
 		}
@@ -86,14 +90,14 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		observed := map[string]bool{}
 		r := invocation.Renderer(runtime)
 		r.ProductTitle("Configuration manifest imported")
-		r.Row("Profiles", fmt.Sprintf("%d", len(incoming.Profiles)))
+		r.Row("Routes", fmt.Sprintf("%d", len(incoming.Routes)))
 		r.Row("Accounts", fmt.Sprintf("%d", len(accountNames)))
 		for _, client := range configuration.AdmittedClientIDs() {
-			selection := cfg.Recommendations[client]
-			if selection.Profile == "" {
+			selection := cfg.Recommendations[client].Primary
+			if selection.Route == "" {
 				continue
 			}
-			profile, resolveErr := cfg.ResolveRuntime(client, selection.Profile)
+			profile, resolveErr := cfg.ResolveRuntime(client, selection.Route)
 			if resolveErr != nil {
 				continue
 			}
@@ -135,7 +139,8 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		return nil
 	}}
 	cmd.Flags().StringSliceVar(&replaceAccounts, "replace-account", nil, "Explicitly replace conflicting account metadata; system tokens remain unchanged")
-	cmd.Flags().StringSliceVar(&replaceProfiles, "replace-profile", nil, "Explicitly replace conflicting model profiles")
+	cmd.Flags().StringSliceVar(&replaceModels, "replace-model", nil, "Explicitly replace conflicting canonical model metadata")
+	cmd.Flags().StringSliceVar(&replaceRoutes, "replace-route", nil, "Explicitly replace conflicting model routes")
 	return cmd
 }
 

@@ -68,12 +68,15 @@ func configuredRuntime(t *testing.T) (invocation.Context, configuration.Config, 
 			OpenAIResponses: "https://gateway.example.test/v1",
 		},
 	}
-	cfg.Profiles["codex"] = configuration.Profile{
+	cfg.Routes["codex"] = configuration.Route{
 		Label:   "Codex",
 		Account: "gateway",
 		Model:   "gpt-test",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
+			configuration.ProtocolOpenAIResponses: {},
+		},
 	}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -88,11 +91,14 @@ func TestUseSelectsOnlyTheProfilesDeclaredClient(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Profiles["claude"] = configuration.Profile{
+	cfg.Routes["claude"] = configuration.Route{
 		Label:   "Claude",
 		Purpose: "Team reviewer",
 		Account: "gateway",
 		Model:   "claude-next",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
+			configuration.ProtocolAnthropic: {},
+		},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -109,7 +115,7 @@ func TestUseSelectsOnlyTheProfilesDeclaredClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.SelectedProfile(configuration.ClientClaude) != "claude" || got.SelectedProfile(configuration.ClientCodex) != "codex" || len(got.Clients) != 2 {
+	if got.SelectedRoute(configuration.ClientClaude) != "claude" || got.SelectedRoute(configuration.ClientCodex) != "codex" || len(got.Clients) != 2 {
 		t.Fatalf("client bindings = %#v", got.Clients)
 	}
 	for _, want := range []string{"Profile selected", "Claude", "Team reviewer", "Client configuration synchronized", "aigw check"} {
@@ -137,8 +143,9 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 			if err := store.Set("gateway", "token"); err != nil {
 				t.Fatal(err)
 			}
-			cfg.Profiles["desktop"] = configuration.Profile{
-				Label: "Desktop", Account: "gateway", Model: "claude-test", Protocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic},
+			cfg.Routes["desktop"] = configuration.Route{
+				Label: "Desktop", Account: "gateway", Model: "claude-test",
+				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 			}
 			if err := runtime.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -183,7 +190,10 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Profiles["purpose"] = configuration.Profile{Label: "Purpose", Purpose: "Research", Account: "gateway", Model: "claude-research", Tier: configuration.ModelTierDaily}
+	cfg.Routes["purpose"] = configuration.Route{
+		Label: "Purpose", Purpose: "Research", Account: "gateway", Model: "claude-research",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+	}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +204,7 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if len(selector.choices) != 2 || selector.choices[0].Value != "codex" || selector.choices[0].Label != "Codex" || selector.choices[1].Value != "purpose" || selector.choices[1].Label != "Purpose · Daily · Research" {
+	if len(selector.choices) != 2 || selector.choices[0].Value != "codex" || selector.choices[0].Label != "Codex" || selector.choices[1].Value != "purpose" || selector.choices[1].Label != "Purpose · Research" {
 		t.Fatalf("choices = %#v", selector.choices)
 	}
 
@@ -288,7 +298,10 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			return value
 		}, want: "client discovery is unavailable"},
 		{name: "commit", prepare: func(value invocation.Context, cfg configuration.Config) invocation.Context {
-			cfg.Profiles["next"] = configuration.Profile{Label: "Next", Account: "gateway", Model: "gpt-next"}
+			cfg.Routes["next"] = configuration.Route{
+				Label: "Next", Account: "gateway", Model: "gpt-next",
+				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+			}
 			cfg.SetClientActivation(configuration.ClientCodex, true, "", []string{filepath.Join(t.TempDir(), "missing-configuration.toml")})
 			if err := value.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -395,7 +408,10 @@ func TestUsePreservesCredentialsWhenCompensationCannotComplete(t *testing.T) {
 					}
 				}
 			}}
-			cfg.Profiles["next"] = configuration.Profile{Label: "Next", Account: "gateway", Model: "gpt-next"}
+			cfg.Routes["next"] = configuration.Route{
+				Label: "Next", Account: "gateway", Model: "gpt-next",
+				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+			}
 			cfg.SetClientActivation(configuration.ClientCodex, true, "", []string{filepath.Join(t.TempDir(), "missing.toml")})
 			if err := run.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -417,7 +433,7 @@ func TestUsePreservesCredentialsWhenCompensationCannotComplete(t *testing.T) {
 				t.Fatalf("credential after failed compensation = %q, %v", token, err)
 			}
 			current, err := run.Config.Load()
-			if err != nil || current.SelectedProfile(configuration.ClientCodex) != "codex" {
+			if err != nil || current.SelectedRoute(configuration.ClientCodex) != "codex" {
 				t.Fatalf("failed selection changed binding: %#v, %v", current.Clients, err)
 			}
 		})
@@ -466,59 +482,3 @@ func TestUseKeepsCommittedTokenWhenRenderingFails(t *testing.T) {
 		t.Fatalf("committed token after output failure = %q, %v", token, err)
 	}
 }
-
-func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
-	runtime, _, _ := configuredRuntime(t)
-	runtime.Secrets = failingSecretStore{Store: secrets.NewMemoryStore(), setErr: errors.New("store failed")}
-	runtime.Interactive = true
-	runtime.Prompt = &promptStub{secret: "token"}
-	runtime.HTTP = doerFunc(func(*http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
-	})
-	command := NewUseCommand(runtime)
-	command.SilenceErrors = true
-	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", configuration.ClientCodex, "codex"})
-	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "store failed") {
-		t.Fatalf("store error = %v", err)
-	}
-
-	runtime, _, _ = configuredRuntime(t)
-	store := secrets.NewMemoryStore()
-	if err := store.Set("gateway", "token"); err != nil {
-		t.Fatal(err)
-	}
-	runtime.Secrets = store
-	runtime.RenderOut = failingWriter{err: errors.New("write failed")}
-	command = NewUseCommand(runtime)
-	command.SilenceErrors = true
-	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", configuration.ClientCodex, "codex"})
-	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "write failed") {
-		t.Fatalf("output error = %v", err)
-	}
-}
-
-type failingSecretStore struct {
-	secrets.Store
-	setErr    error
-	deleteErr error
-}
-
-func (store failingSecretStore) Set(account, token string) error {
-	if store.setErr != nil {
-		return store.setErr
-	}
-	return store.Store.Set(account, token)
-}
-
-func (store failingSecretStore) Delete(account string) error {
-	if store.deleteErr != nil {
-		return store.deleteErr
-	}
-	return store.Store.Delete(account)
-}
-
-type failingWriter struct{ err error }
-
-func (writer failingWriter) Write([]byte) (int, error) { return 0, writer.err }

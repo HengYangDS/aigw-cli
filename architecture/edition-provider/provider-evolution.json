@@ -60,25 +60,19 @@
         "cli": {
           "type": "interface",
           "label": "CLI",
-          "qualifiers": {
-            "role": "command composition"
-          },
+          "qualifiers": { "role": "command composition" },
           "provenance": ["synchronizer"]
         },
         "synchronizer": {
           "type": "coordinator",
           "label": "Synchronizer",
-          "qualifiers": {
-            "role": "transaction coordination"
-          },
+          "qualifiers": { "role": "transaction coordination" },
           "provenance": ["synchronizer"]
         },
         "registry": {
           "type": "registry",
           "label": "Ordered client registry",
-          "qualifiers": {
-            "role": "sole admitted operational registry"
-          },
+          "qualifiers": { "role": "sole admitted operational registry" },
           "provenance": ["registry"]
         },
         "adapter-contract": {
@@ -100,17 +94,13 @@
         "codex": {
           "type": "client",
           "label": "Codex adapter",
-          "qualifiers": {
-            "projection": "native Codex configuration"
-          },
+          "qualifiers": { "projection": "native Codex configuration" },
           "provenance": ["adapters"]
         },
         "claude": {
           "type": "client",
           "label": "Claude Code adapter",
-          "qualifiers": {
-            "projection": "native Claude Code configuration"
-          },
+          "qualifiers": { "projection": "native Claude Code configuration" },
           "provenance": ["adapters"]
         }
       },
@@ -126,18 +116,14 @@
           "type": "delegates",
           "subject": "synchronizer",
           "object": "registry",
-          "qualifiers": {
-            "selection": "requested clients in admission order"
-          },
+          "qualifiers": { "selection": "requested clients in admission order" },
           "provenance": ["synchronizer", "registry"]
         },
         "registry-contract": {
           "type": "dispatches",
           "subject": "registry",
           "object": "adapter-contract",
-          "qualifiers": {
-            "order": "admission order"
-          },
+          "qualifiers": { "order": "admission order" },
           "provenance": ["registry"]
         },
         "contract-codex": {
@@ -166,12 +152,7 @@
           "scope": {},
           "maturity": "implemented",
           "validity": "affirmed",
-          "dependsOn": [
-            {
-              "section": "relations",
-              "id": "cli-synchronizer"
-            }
-          ],
+          "dependsOn": [{ "section": "relations", "id": "cli-synchronizer" }],
           "coverage": "complete",
           "provenance": ["synchronizer"]
         },
@@ -182,16 +163,11 @@
           "value": null,
           "plane": "implemented",
           "condition": {},
-          "scope": {
-            "selection": "requested clients in admission order"
-          },
+          "scope": { "selection": "requested clients in admission order" },
           "maturity": "implemented",
           "validity": "affirmed",
           "dependsOn": [
-            {
-              "section": "relations",
-              "id": "synchronizer-registry"
-            }
+            { "section": "relations", "id": "synchronizer-registry" }
           ],
           "coverage": "complete",
           "provenance": ["synchronizer", "registry"]
@@ -203,17 +179,10 @@
           "value": null,
           "plane": "implemented",
           "condition": {},
-          "scope": {
-            "order": "admission order"
-          },
+          "scope": { "order": "admission order" },
           "maturity": "implemented",
           "validity": "affirmed",
-          "dependsOn": [
-            {
-              "section": "relations",
-              "id": "registry-contract"
-            }
-          ],
+          "dependsOn": [{ "section": "relations", "id": "registry-contract" }],
           "coverage": "complete",
           "provenance": ["registry"]
         },
@@ -227,12 +196,7 @@
           "scope": {},
           "maturity": "implemented",
           "validity": "affirmed",
-          "dependsOn": [
-            {
-              "section": "relations",
-              "id": "contract-codex"
-            }
-          ],
+          "dependsOn": [{ "section": "relations", "id": "contract-codex" }],
           "coverage": "complete",
           "provenance": ["adapters"]
         },
@@ -246,12 +210,7 @@
           "scope": {},
           "maturity": "implemented",
           "validity": "affirmed",
-          "dependsOn": [
-            {
-              "section": "relations",
-              "id": "contract-claude"
-            }
-          ],
+          "dependsOn": [{ "section": "relations", "id": "contract-claude" }],
           "coverage": "complete",
           "provenance": ["adapters"]
         }
@@ -280,11 +239,7 @@
           "digest": "452838f749a959887a1c2f35567f2ce5d84f9c6ae2f08879649296ea25805b3f"
         },
         "title": "AIGW Client Projection",
-        "audiences": {
-          "maintainer": {
-            "label": "AIGW maintainers"
-          }
-        },
+        "audiences": { "maintainer": { "label": "AIGW maintainers" } },
         "questions": {
           "overview": {
             "audience": "maintainer",
@@ -336,18 +291,12 @@
             "client": "cloud"
           },
           "relationTypes": {
-            "delegates": {
-              "label": "delegates",
-              "variant": "emphasis"
-            },
+            "delegates": { "label": "delegates", "variant": "emphasis" },
             "dispatches": {
               "label": "ordered dispatch",
               "variant": "emphasis"
             },
-            "realized-by": {
-              "label": "realized by",
-              "variant": "default"
-            }
+            "realized-by": { "label": "realized by", "variant": "default" }
           },
           "principles": [
             "Complete selected structure",
@@ -368,11 +317,7 @@
             ],
             "composition": {
               "groups": [
-                {
-                  "id": "command",
-                  "label": "Command",
-                  "entities": ["cli"]
-                },
+                { "id": "command", "label": "Command", "entities": ["cli"] },
                 {
                   "id": "coordination",
                   "label": "Coordination",
@@ -437,11 +382,7 @@
               ],
               "composition": {
                 "groups": [
-                  {
-                    "id": "command",
-                    "label": "Command",
-                    "entities": ["cli"]
-                  },
+                  { "id": "command", "label": "Command", "entities": ["cli"] },
                   {
                     "id": "coordination",
                     "label": "Coordination",
@@ -656,14 +597,14 @@
       },
       "sources": {
         "cli": {
-          "sha256": "2e0121133846b7a481e4bae55cc9a0d2fcc160d370d526b69857c84905f2db3f",
+          "sha256": "ab0f2a0f4188e098bdb1d792dd3a2023f37c6501cc340d82e2f96dfc5e10c7c4",
           "locator": "source/internal/cli/app.go",
           "authority": "AIGW command composition at the selected product revision"
         },
         "configuration": {
-          "sha256": "b77cfb304f7d9d202841d6f0c7949503a9667e8e76d4b5fea5f4047a7be70975",
+          "sha256": "df5a6a4edfa85de2e63ba6d7fbd1aced1ab60248303920a048aad379f92a4070",
           "locator": "source/internal/configuration/model.go",
-          "authority": "AIGW Account, Profile, and Client Binding authority"
+          "authority": "AIGW Account, Model, Route, recommendation, and Client Binding authority"
         },
         "credentials": {
           "sha256": "42228ed5c0bd0f3e76677965af1286f9f67f888b2e96e98b2965aa33e03b87e0",
@@ -671,17 +612,17 @@
           "authority": "AIGW Account Token storage contract"
         },
         "discovery": {
-          "sha256": "9bac6d9cccdafff3b8a7b9f6ccda2da03b10f08b2359b0227a00526da45d2ab6",
+          "sha256": "c69a92a49a2bf4ae65a470259b5b063670cc4d16dd6434b9a20a89c3357c035d",
           "locator": "source/internal/discovery/discovery.go",
           "authority": "AIGW read-only native client discovery contract"
         },
         "registry": {
-          "sha256": "68b8206b537145447cba5c20e8940ef9308519a559a7df0b77baf1050cd8382a",
+          "sha256": "001e050e8b9194d270ddd5136bc2a86e88ded713a63c132d474d1095dd169729",
           "locator": "source/internal/client/registry.go",
           "authority": "AIGW ordered client registry and Adapter contract"
         },
         "adapters": {
-          "sha256": "614dd5fb40d79acf8c44c7493990d1665f80cd7986717755e3bcd7fa301f982e",
+          "sha256": "6b8ba641c7ba312fb13f27bc53f58dedb8cb1a97c36348d54be0e670f4fd3fa4",
           "locator": "source/internal/client/adapters.go",
           "authority": "AIGW built-in Adapter composition"
         },
@@ -706,17 +647,17 @@
           "authority": "AIGW native Codex projection"
         },
         "claude-code": {
-          "sha256": "e681487255462d87b8d96025d929ec9de7ec8ffbdc422cb61e046f48ee5274d2",
+          "sha256": "e70a72bc1fdd4634f88c902577d5a5b82dc3393780506ef584904b43f22b0b95",
           "locator": "source/internal/claude/settings.go",
           "authority": "AIGW native Claude Code projection"
         },
         "claude-desktop": {
-          "sha256": "1f156da7018ce1eac08faaee6d40ff9d542920a80b52d274997d5dfac90c3c88",
+          "sha256": "aef8db9e4ebe26b018e9af456c43deeeab22e782d6d92ee356eafcdc428dab70",
           "locator": "source/internal/claude/desktop/configuration.go",
           "authority": "AIGW Claude Desktop third-party inference projection"
         },
         "hermes": {
-          "sha256": "16be53527f4a33850f55d8092c056f0c9c06cc5542c031c89fdbc2bebe549b56",
+          "sha256": "5975266007f953a90a520ce8001391b3d3763e50f5e2f33b5c0fc3a744ab5aab",
           "locator": "source/internal/hermes/configuration/projection.go",
           "authority": "AIGW native Hermes provider projection"
         },
@@ -730,49 +671,45 @@
         "cli": {
           "type": "interface",
           "label": "CLI",
-          "qualifiers": {
-            "role": "operator intent"
-          },
+          "qualifiers": { "role": "operator intent" },
           "provenance": ["cli"]
         },
         "configuration": {
           "type": "authority",
           "label": "Configuration",
           "qualifiers": {
-            "owns": ["accounts", "profiles", "client bindings"]
+            "owns": [
+              "accounts",
+              "models",
+              "routes",
+              "recommendations",
+              "client bindings"
+            ]
           },
           "provenance": ["configuration"]
         },
         "credentials": {
           "type": "authority",
           "label": "Credential store",
-          "qualifiers": {
-            "owns": "account tokens"
-          },
+          "qualifiers": { "owns": "account tokens" },
           "provenance": ["credentials"]
         },
         "discovery": {
           "type": "observer",
           "label": "Native discovery",
-          "qualifiers": {
-            "effect": "read-only"
-          },
+          "qualifiers": { "effect": "read-only" },
           "provenance": ["discovery"]
         },
         "synchronizer": {
           "type": "coordinator",
           "label": "Synchronizer",
-          "qualifiers": {
-            "role": "desired-state coordination"
-          },
+          "qualifiers": { "role": "desired-state coordination" },
           "provenance": ["synchronizer", "projection-transaction"]
         },
         "registry": {
           "type": "registry",
           "label": "Client registry",
-          "qualifiers": {
-            "order": "admission order"
-          },
+          "qualifiers": { "order": "admission order" },
           "provenance": ["registry", "adapters"]
         },
         "adapter-contract": {
@@ -794,41 +731,31 @@
         "transaction": {
           "type": "boundary",
           "label": "Guarded transaction",
-          "qualifiers": {
-            "recovery": "reverse compensation"
-          },
+          "qualifiers": { "recovery": "reverse compensation" },
           "provenance": ["projection-transaction", "file-transaction"]
         },
         "codex": {
           "type": "client",
           "label": "Codex",
-          "qualifiers": {
-            "surface": "native configuration"
-          },
+          "qualifiers": { "surface": "native configuration" },
           "provenance": ["adapters", "codex"]
         },
         "claude-code": {
           "type": "client",
           "label": "Claude Code",
-          "qualifiers": {
-            "surface": "native settings"
-          },
+          "qualifiers": { "surface": "native settings" },
           "provenance": ["adapters", "claude-code"]
         },
         "claude-desktop": {
           "type": "client",
           "label": "Claude Desktop",
-          "qualifiers": {
-            "surface": "third-party inference library"
-          },
+          "qualifiers": { "surface": "third-party inference library" },
           "provenance": ["adapters", "claude-desktop"]
         },
         "hermes": {
           "type": "client",
           "label": "Hermes",
-          "qualifiers": {
-            "surface": "native provider catalogue"
-          },
+          "qualifiers": { "surface": "native provider catalogue" },
           "provenance": ["adapters", "hermes"]
         }
       },
@@ -844,54 +771,42 @@
           "type": "configures",
           "subject": "configuration",
           "object": "synchronizer",
-          "qualifiers": {
-            "state": "desired client bindings"
-          },
+          "qualifiers": { "state": "desired client bindings" },
           "provenance": ["configuration", "synchronizer"]
         },
         "discovery-synchronizer": {
           "type": "reports-to",
           "subject": "discovery",
           "object": "synchronizer",
-          "qualifiers": {
-            "state": "observed native surfaces"
-          },
+          "qualifiers": { "state": "observed native surfaces" },
           "provenance": ["discovery", "synchronizer"]
         },
         "credentials-contract": {
           "type": "supplies-credentials",
           "subject": "credentials",
           "object": "adapter-contract",
-          "qualifiers": {
-            "scope": "selected account"
-          },
+          "qualifiers": { "scope": "selected account" },
           "provenance": ["credentials", "registry"]
         },
         "synchronizer-registry": {
           "type": "delegates",
           "subject": "synchronizer",
           "object": "registry",
-          "qualifiers": {
-            "selection": "requested clients in admission order"
-          },
+          "qualifiers": { "selection": "requested clients in admission order" },
           "provenance": ["synchronizer", "registry"]
         },
         "registry-contract": {
           "type": "dispatches",
           "subject": "registry",
           "object": "adapter-contract",
-          "qualifiers": {
-            "order": "admission order"
-          },
+          "qualifiers": { "order": "admission order" },
           "provenance": ["registry"]
         },
         "contract-transaction": {
           "type": "guards",
           "subject": "adapter-contract",
           "object": "transaction",
-          "qualifiers": {
-            "effects": "preflight then compensated apply"
-          },
+          "qualifiers": { "effects": "preflight then compensated apply" },
           "provenance": [
             "registry",
             "projection-transaction",
@@ -938,12 +853,7 @@
           "scope": {},
           "maturity": "implemented",
           "validity": "affirmed",
-          "dependsOn": [
-            {
-              "section": "relations",
-              "id": "cli-synchronizer"
-            }
-          ],
+          "dependsOn": [{ "section": "relations", "id": "cli-synchronizer" }],
           "coverage": "complete",
           "provenance": ["cli", "synchronizer"]
         },
@@ -954,16 +864,11 @@
           "value": null,
           "plane": "implemented",
           "condition": {},
-          "scope": {
-            "state": "desired client bindings"
-          },
+          "scope": { "state": "desired client bindings" },
           "maturity": "implemented",
           "validity": "affirmed",
           "dependsOn": [
-            {
-              "section": "relations",
-              "id": "configuration-synchronizer"
-            }
+            { "section": "relations", "id": "configuration-synchronizer" }
           ],
           "coverage": "complete",
           "provenance": ["configuration", "synchronizer"]
@@ -975,16 +880,11 @@
           "value": null,
           "plane": "implemented",
           "condition": {},
-          "scope": {
-            "state": "observed native surfaces"
-          },
+          "scope": { "state": "observed native surfaces" },
           "maturity": "implemented",
           "validity": "affirmed",
           "dependsOn": [
-            {
-              "section": "relations",
-              "id": "discovery-synchronizer"
-            }
+            { "section": "relations", "id": "discovery-synchronizer" }
           ],
           "coverage": "complete",
           "provenance": ["discovery", "synchronizer"]
@@ -996,16 +896,11 @@
           "value": null,
           "plane": "implemented",
           "condition": {},
-          "scope": {
-            "scope": "selected account"
-          },
+          "scope": { "scope": "selected account" },
           "maturity": "implemented",
           "validity": "affirmed",
           "dependsOn": [
-            {
-              "section": "relations",
-              "id": "credentials-contract"
-            }
+            { "section": "relations", "id": "credentials-contract" }
           ],
           "coverage": "complete",
           "provenance": ["credentials", "registry"]
@@ -1017,16 +912,11 @@
           "value": null,
           "plane": "implemented",
           "condition": {},
-          "scope": {
-            "selection": "requested clients in admission order"
-          },
+          "scope": { "selection": "requested clients in admission order" },
           "maturity": "implemented",
           "validity": "affirmed",
           "dependsOn": [
-            {
-              "section": "relations",
-              "id": "synchronizer-registry"
-            }
+            { "section": "relations", "id": "synchronizer-registry" }
           ],
           "coverage": "complete",
           "provenance": ["synchronizer", "registry"]
@@ -1038,17 +928,10 @@
           "value": null,
           "plane": "implemented",
           "condition": {},
-          "scope": {
-            "order": "admission order"
-          },
+          "scope": { "order": "admission order" },
           "maturity": "implemented",
           "validity": "affirmed",
-          "dependsOn": [
-            {
-              "section": "relations",
-              "id": "registry-contract"
-            }
-          ],
+          "dependsOn": [{ "section": "relations", "id": "registry-contract" }],
           "coverage": "complete",
           "provenance": ["registry"]
         },
@@ -1059,16 +942,11 @@
           "value": null,
           "plane": "implemented",
           "condition": {},
-          "scope": {
-            "effects": "preflight then compensated apply"
-          },
+          "scope": { "effects": "preflight then compensated apply" },
           "maturity": "implemented",
           "validity": "affirmed",
           "dependsOn": [
-            {
-              "section": "relations",
-              "id": "contract-transaction"
-            }
+            { "section": "relations", "id": "contract-transaction" }
           ],
           "coverage": "complete",
           "provenance": [
@@ -1087,12 +965,7 @@
           "scope": {},
           "maturity": "implemented",
           "validity": "affirmed",
-          "dependsOn": [
-            {
-              "section": "relations",
-              "id": "contract-codex"
-            }
-          ],
+          "dependsOn": [{ "section": "relations", "id": "contract-codex" }],
           "coverage": "complete",
           "provenance": ["adapters", "codex"]
         },
@@ -1107,10 +980,7 @@
           "maturity": "implemented",
           "validity": "affirmed",
           "dependsOn": [
-            {
-              "section": "relations",
-              "id": "contract-claude-code"
-            }
+            { "section": "relations", "id": "contract-claude-code" }
           ],
           "coverage": "complete",
           "provenance": ["adapters", "claude-code"]
@@ -1126,10 +996,7 @@
           "maturity": "implemented",
           "validity": "affirmed",
           "dependsOn": [
-            {
-              "section": "relations",
-              "id": "contract-claude-desktop"
-            }
+            { "section": "relations", "id": "contract-claude-desktop" }
           ],
           "coverage": "complete",
           "provenance": ["adapters", "claude-desktop"]
@@ -1144,18 +1011,13 @@
           "scope": {},
           "maturity": "implemented",
           "validity": "affirmed",
-          "dependsOn": [
-            {
-              "section": "relations",
-              "id": "contract-hermes"
-            }
-          ],
+          "dependsOn": [{ "section": "relations", "id": "contract-hermes" }],
           "coverage": "complete",
           "provenance": ["adapters", "hermes"]
         }
       },
       "context": {
-        "revision": "dcfb274c4cb5bc8c87d9d1a21867768ea39cffdc",
+        "revision": "9d589f4e9c5f98fa8850c794459d1ca24824b67fdab794942b552fa361e5b0c0",
         "scope": "Selected AIGW control-plane owners; not automatic inference or exhaustive implementation coverage"
       }
     },
@@ -1168,21 +1030,17 @@
         "product": {
           "name": "Architecture Publisher",
           "schema": "architecture.publisher/v1",
-          "version": "0.2.0-alpha.0"
+          "version": "0.3.0-alpha.1"
         },
         "source": {
-          "manifestSha256": "455f20c4c7285fccdf05faeeb6025d4aa56b901df721cc409857590186627414"
+          "manifestSha256": "137e8f7863e84a0d0f59ce0bcae7dc071c7271fc1012bc9e4e2a740a47b26904"
         },
         "claimModel": {
           "schema": "architecture.claim-model/v2",
-          "digest": "1ee3d12f00cd8ccd9795069c0dfdcb377a5f2ea38174ce20282abaa31cc75ed5"
+          "digest": "9e8b3baaff740930f0f338c3c7f577846e19422243d77de0862f717831ae8402"
         },
         "title": "AIGW Client Projection",
-        "audiences": {
-          "maintainer": {
-            "label": "AIGW maintainers"
-          }
-        },
+        "audiences": { "maintainer": { "label": "AIGW maintainers" } },
         "questions": {
           "overview": {
             "audience": "maintainer",
@@ -1263,34 +1121,16 @@
             "client": "cloud"
           },
           "relationTypes": {
-            "delegates": {
-              "label": "delegates",
-              "variant": "emphasis"
-            },
-            "configures": {
-              "label": "configures",
-              "variant": "default"
-            },
-            "reports-to": {
-              "label": "reports to",
-              "variant": "dashed"
-            },
+            "delegates": { "label": "delegates", "variant": "emphasis" },
+            "configures": { "label": "configures", "variant": "default" },
+            "reports-to": { "label": "reports to", "variant": "dashed" },
             "supplies-credentials": {
               "label": "supplies credentials",
               "variant": "security"
             },
-            "dispatches": {
-              "label": "dispatches",
-              "variant": "emphasis"
-            },
-            "guards": {
-              "label": "guards",
-              "variant": "security"
-            },
-            "realized-by": {
-              "label": "realized by",
-              "variant": "default"
-            }
+            "dispatches": { "label": "dispatches", "variant": "emphasis" },
+            "guards": { "label": "guards", "variant": "security" },
+            "realized-by": { "label": "realized by", "variant": "default" }
           },
           "principles": [
             "Authority before effect",
@@ -1712,7 +1552,7 @@
           "recovery": [],
           "human": []
         },
-        "scope": "Selected AIGW control-plane owners at commit dcfb274c4cb5bc8c87d9d1a21867768ea39cffdc; curated from exact source bytes without inferred implementation completeness."
+        "scope": "Selected AIGW control-plane owners at source revision 9d589f4e9c5f98fa8850c794459d1ca24824b67fdab794942b552fa361e5b0c0; curated from exact source bytes without inferred implementation completeness."
       }
     ]
   },

@@ -144,9 +144,9 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	want := Config{
 		Version:         ConfigVersion,
 		Accounts:        map[string]Account{"dmx": {Label: "DMXAPI", Endpoints: Endpoints{Anthropic: "https://example.test"}}},
-		Profiles:        map[string]Profile{"dmx": {Label: "DMXAPI", Account: "dmx", Model: "claude-test"}},
-		Recommendations: map[string]ClientSelection{ClientClaude: {Profile: "dmx"}},
-		Clients:         map[string]ClientBinding{ClientClaude: {Profile: "dmx"}},
+		Routes:          map[string]Route{"dmx": testRoute("DMXAPI", "dmx", "claude-test", ProtocolAnthropic)},
+		Recommendations: map[string]ClientRecommendation{ClientClaude: {Primary: ClientSelection{Route: "dmx"}}},
+		Clients:         map[string]ClientBinding{ClientClaude: {Route: "dmx"}},
 	}
 	if err := store.Save(want); err != nil {
 		t.Fatal(err)
@@ -162,7 +162,7 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["dmx"].Endpoints.Anthropic != "https://example.test" || got.SelectedProfile(ClientClaude) != "dmx" || got.RecommendedProfile(ClientClaude) != "dmx" {
+	if got.Accounts["dmx"].Endpoints.Anthropic != "https://example.test" || got.SelectedRoute(ClientClaude) != "dmx" || got.RecommendedRoute(ClientClaude) != "dmx" {
 		t.Fatalf("round trip = %#v", got)
 	}
 }
@@ -175,14 +175,10 @@ func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
 		Accounts: map[string]Account{
 			"dmx": {Label: "DMXAPI", Endpoints: Endpoints{Anthropic: "https://example.test"}},
 		},
-		Profiles: map[string]Profile{
-			"claude": {
-				Label:   "Claude",
-				Account: "dmx",
-				Model:   "claude-test",
-			},
+		Routes: map[string]Route{
+			"claude": testRoute("Claude", "dmx", "claude-test", ProtocolAnthropic),
 		},
-		Clients: map[string]ClientBinding{ClientClaude: {Profile: "claude"}},
+		Clients: map[string]ClientBinding{ClientClaude: {Route: "claude"}},
 	}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -247,8 +243,8 @@ func TestRestoreSnapshotRestoresAnAbsentConfigurationAndBackup(t *testing.T) {
 	cfg := Config{
 		Version:  ConfigVersion,
 		Accounts: map[string]Account{"gateway": {Label: "Gateway", Endpoints: Endpoints{Anthropic: "https://gateway.test"}}},
-		Profiles: map[string]Profile{"gateway": {Label: "Gateway", Account: "gateway", Model: "claude-test"}},
-		Clients:  map[string]ClientBinding{ClientClaude: {Profile: "gateway"}},
+		Routes:   map[string]Route{"gateway": testRoute("Gateway", "gateway", "claude-test", ProtocolAnthropic)},
+		Clients:  map[string]ClientBinding{ClientClaude: {Route: "gateway"}},
 	}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -307,16 +303,16 @@ func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	first := Config{
 		Version:  ConfigVersion,
 		Accounts: map[string]Account{"one": {Label: "One", Endpoints: Endpoints{Anthropic: "https://one.test"}}},
-		Profiles: map[string]Profile{"one": {Label: "One", Account: "one", Model: "claude-one"}},
-		Clients:  map[string]ClientBinding{ClientClaude: {Profile: "one"}},
+		Routes:   map[string]Route{"one": testRoute("One", "one", "claude-one", ProtocolAnthropic)},
+		Clients:  map[string]ClientBinding{ClientClaude: {Route: "one"}},
 	}
 	if err := store.Save(first); err != nil {
 		t.Fatal(err)
 	}
 	second := first
 	second.Accounts = map[string]Account{"two": {Label: "Two", Endpoints: Endpoints{Anthropic: "https://two.test"}}}
-	second.Profiles = map[string]Profile{"two": {Label: "Two", Account: "two", Model: "claude-two"}}
-	second.Clients = map[string]ClientBinding{ClientClaude: {Profile: "two"}}
+	second.Routes = map[string]Route{"two": testRoute("Two", "two", "claude-two", ProtocolAnthropic)}
+	second.Clients = map[string]ClientBinding{ClientClaude: {Route: "two"}}
 	if err := store.Save(second); err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +320,7 @@ func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(backup), `[profiles.one]`) || strings.Contains(strings.ToLower(string(backup)), "token") {
+	if !strings.Contains(string(backup), `[routes.one]`) || strings.Contains(strings.ToLower(string(backup)), "token") {
 		t.Fatalf("backup = %s", backup)
 	}
 }

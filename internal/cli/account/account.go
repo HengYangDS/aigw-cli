@@ -50,10 +50,15 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 				Anthropic:       strings.TrimRight(anthropicURL, "/"),
 			}}
 			account.ID = name
-			if _, err := account.EndpointFor(client); err != nil {
+			spec, _ := configuration.ClientSpecFor(client)
+			_, protocol, err := spec.ResolveEndpoint(account, "")
+			if err != nil {
 				return err
 			}
-			profile := configuration.Profile{Label: label, Account: name, Model: strings.TrimSpace(model)}
+			profile := configuration.Route{
+				Label: label, Account: name, Model: strings.TrimSpace(model),
+				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
+			}
 			acquireToken := func() (string, error) { return invocation.ReadToken(runtime, tokenStdin, true) }
 			if err := invocation.Synchronizer(runtime).ConnectAccount(cmd.Context(), cfg, name, client, account, profile, acquireToken); err != nil {
 				return fmt.Errorf("%w; run `%s --help`", err, cmd.CommandPath())

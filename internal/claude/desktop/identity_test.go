@@ -30,12 +30,12 @@ func TestProjectionMigratesTheInvalidLegacyProfileIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	entry, err := json.Marshal(map[string]string{"id": legacyProfileID, "name": profileName})
+	entry, err := json.Marshal(map[string]string{"id": legacyRouteID, "name": profileName})
 	if err != nil {
 		t.Fatal(err)
 	}
-	metadata := document{"appliedId": raw(legacyProfileID), "entries": raw([]json.RawMessage{entry})}
-	hash, err := managedHash(legacyProfileID, standard, thirdParty, profile, metadata)
+	metadata := document{"appliedId": raw(legacyRouteID), "entries": raw([]json.RawMessage{entry})}
+	hash, err := managedHash(legacyRouteID, standard, thirdParty, profile, metadata)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -174,7 +174,7 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-model")
-	cfg.SetSelectedProfile(configuration.ClientClaude, "team")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "team")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +209,7 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 	}
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "gpt-model")
-	cfg.SetSelectedProfile(configuration.ClientCodex, "team")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "team")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -244,8 +244,12 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		executable := filepath.Join(root, id)
 		writeFile(t, executable, []byte("public fixture"), 0o700)
-		cfg.Profiles[id] = configuration.Profile{Label: id, Account: "gateway", Model: "fixture-model"}
-		cfg.SetSelectedProfile(id, id)
+		protocol := configuration.ProtocolOpenAIResponses
+		if id == configuration.ClientClaude {
+			protocol = configuration.ProtocolAnthropic
+		}
+		cfg.Routes[id] = qualifiedRoute(id, "gateway", "fixture-model", protocol)
+		cfg.SetSelectedRoute(id, id)
 		cfg.SetClientActivation(id, true, executable, nil)
 	}
 	adapter := cfg.Clients[configuration.ClientCodex]
@@ -350,8 +354,8 @@ func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *t
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://example.invalid"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "fixture-model"}
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "fixture-model", configuration.ProtocolAnthropic)
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 	command := filepath.Join(t.TempDir(), "explicit-helper")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	binding := cfg.Clients[configuration.ClientClaude]

@@ -91,13 +91,10 @@ func (u Updater) verifyProgram(ctx context.Context, binary []byte, version strin
 		plan.Args = []string{"config", "export"}
 		output, runErr := u.Runner.RunCapture(verificationContext, plan)
 		var manifest struct {
-			Version  int `toml:"version"`
-			Profiles map[string]struct {
-				Model string `toml:"model"`
-			} `toml:"profiles"`
+			Version int `toml:"version"`
 		}
 		parseErr := toml.Unmarshal(output, &manifest)
-		if runErr != nil || parseErr != nil || manifest.Version <= 0 || len(manifest.Profiles) == 0 {
+		if runErr != nil || parseErr != nil || manifest.Version <= 0 {
 			return errors.Join(ErrRollbackConfiguration, runErr)
 		}
 	}

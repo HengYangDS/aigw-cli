@@ -17,7 +17,7 @@ func TestSettingsReconcilesOnlyProvenModelPreferenceDrift(t *testing.T) {
 	for _, changedModel := range []string{"", `"user-selected-model"`} {
 		t.Run(changedModel, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			selected := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
+			selected := configuration.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
 			if _, err := ReconcileSettings(path, false, selected, testExecutable(), selected.Model); err != nil {
 				t.Fatal(err)
 			}
@@ -75,7 +75,7 @@ func TestSettingsWithdrawalPreservesLaterModelPreference(t *testing.T) {
 			if err := os.WriteFile(path, []byte(`{"model":"original","theme":"dark"}`), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
+			runtime := configuration.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
 			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), ""); err != nil {
 				t.Fatal(err)
 			}
@@ -111,7 +111,7 @@ func TestSettingsModelRecoveryRequiresUnchangedConnectionOwnership(t *testing.T)
 	for _, field := range []string{"apiKeyHelper", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL"} {
 		t.Run(field, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
+			runtime := configuration.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
 			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), ""); err != nil {
 				t.Fatal(err)
 			}
@@ -171,7 +171,7 @@ func TestSettingsReceiptRestoresExactObservedFiles(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+			runtime := configuration.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
 			if test.projected {
 				if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
 					t.Fatal(err)
@@ -211,7 +211,7 @@ func TestSettingsReceiptPreservesNewerFiles(t *testing.T) {
 	for _, suffix := range []string{"", settingsStateSuffix} {
 		t.Run("edited"+suffix, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+			runtime := configuration.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
 			receipt, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model)
 			if err != nil {
 				t.Fatal(err)

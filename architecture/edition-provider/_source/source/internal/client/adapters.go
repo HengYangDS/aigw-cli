@@ -104,7 +104,7 @@ func (codexAdapter) Plan(deps Dependencies, before, after configuration.Config) 
 	}
 	result := make([]ProjectionPlan, 0, len(plans))
 	for _, plan := range plans {
-		result = append(result, ProjectionPlan{Client: configuration.ClientCodex, Target: plan.Target, Action: string(plan.Action)})
+		result = append(result, ProjectionPlan{Client: configuration.ClientCodex, Target: plan.Target, Action: string(plan.Action), ChangesState: plan.ChangesState()})
 	}
 	return result, nil
 }
@@ -135,8 +135,8 @@ func (codexAdapter) ProjectionChanged(before, after configuration.Config) bool {
 		return true
 	}
 	return beforeRuntime.AccountID != afterRuntime.AccountID ||
-		beforeRuntime.ProfileID != afterRuntime.ProfileID ||
-		beforeRuntime.ProfileLabel != afterRuntime.ProfileLabel ||
+		beforeRuntime.RouteID != afterRuntime.RouteID ||
+		beforeRuntime.RouteLabel != afterRuntime.RouteLabel ||
 		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
 		beforeRuntime.Model != afterRuntime.Model ||
 		beforeRuntime.ModelProvider != afterRuntime.ModelProvider ||
@@ -159,7 +159,7 @@ func (codexAdapter) Inspect(_ context.Context, deps Dependencies, cfg configurat
 	}
 	status := Status{Ready: true, Checks: make([]Check, 0, len(adapter.Targets))}
 	for index, target := range adapter.Targets {
-		check := Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "profile " + runtime.ProfileID}
+		check := Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "profile " + runtime.RouteID}
 		if err := codex.ValidateConfig(target, runtime); err != nil {
 			check.Ready = false
 			check.Detail = err.Error()
@@ -230,7 +230,7 @@ func (claudeAdapter) Plan(deps Dependencies, before, after configuration.Config)
 	if err != nil {
 		return nil, err
 	}
-	return []ProjectionPlan{{Client: configuration.ClientClaude, Target: plan.Target, Action: string(plan.Action)}}, nil
+	return []ProjectionPlan{{Client: configuration.ClientClaude, Target: plan.Target, Action: string(plan.Action), ChangesState: plan.ChangesState()}}, nil
 }
 
 func (claudeAdapter) Apply(_ context.Context, deps Dependencies, before, after configuration.Config) (ProjectionReceipt, error) {

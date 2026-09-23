@@ -332,7 +332,7 @@ func TestCodexReconciliationRecognizesOwnedState(t *testing.T) {
 func TestCodexReconciliationRejectsManagedDrift(t *testing.T) {
 	driftPath := t.TempDir() + "/drift.toml"
 	driftRuntime := atomicTestRuntime()
-	driftRuntime.ProfileLabel = "P"
+	driftRuntime.RouteLabel = "P"
 	if err := os.WriteFile(driftPath, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}

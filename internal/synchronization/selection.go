@@ -22,11 +22,11 @@ func (s Synchronizer) selectProfile(ctx context.Context, before, after configura
 	if err := ctx.Err(); err != nil {
 		return false, configuration.ClientBinding{}, err
 	}
-	_, exists := after.Profiles[profileID]
+	_, exists := after.Routes[profileID]
 	if !exists {
 		return false, configuration.ClientBinding{}, fmt.Errorf("unknown profile %q", profileID)
 	}
-	after.SetSelectedProfile(client, profileID)
+	after.SetSelectedRoute(client, profileID)
 	binding = after.Clients[client]
 	binding.Enabled = true
 	after.Clients[client] = binding

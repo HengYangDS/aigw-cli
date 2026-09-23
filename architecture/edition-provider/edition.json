@@ -6,21 +6,17 @@
   "product": {
     "name": "Architecture Publisher",
     "schema": "architecture.publisher/v1",
-    "version": "0.2.0-alpha.0"
+    "version": "0.3.0-alpha.1"
   },
   "source": {
-    "manifestSha256": "455f20c4c7285fccdf05faeeb6025d4aa56b901df721cc409857590186627414"
+    "manifestSha256": "137e8f7863e84a0d0f59ce0bcae7dc071c7271fc1012bc9e4e2a740a47b26904"
   },
   "claimModel": {
     "schema": "architecture.claim-model/v2",
-    "digest": "1ee3d12f00cd8ccd9795069c0dfdcb377a5f2ea38174ce20282abaa31cc75ed5"
+    "digest": "9e8b3baaff740930f0f338c3c7f577846e19422243d77de0862f717831ae8402"
   },
   "title": "AIGW Client Projection",
-  "audiences": {
-    "maintainer": {
-      "label": "AIGW maintainers"
-    }
-  },
+  "audiences": { "maintainer": { "label": "AIGW maintainers" } },
   "questions": {
     "overview": {
       "audience": "maintainer",
@@ -101,34 +97,16 @@
       "client": "cloud"
     },
     "relationTypes": {
-      "delegates": {
-        "label": "delegates",
-        "variant": "emphasis"
-      },
-      "configures": {
-        "label": "configures",
-        "variant": "default"
-      },
-      "reports-to": {
-        "label": "reports to",
-        "variant": "dashed"
-      },
+      "delegates": { "label": "delegates", "variant": "emphasis" },
+      "configures": { "label": "configures", "variant": "default" },
+      "reports-to": { "label": "reports to", "variant": "dashed" },
       "supplies-credentials": {
         "label": "supplies credentials",
         "variant": "security"
       },
-      "dispatches": {
-        "label": "dispatches",
-        "variant": "emphasis"
-      },
-      "guards": {
-        "label": "guards",
-        "variant": "security"
-      },
-      "realized-by": {
-        "label": "realized by",
-        "variant": "default"
-      }
+      "dispatches": { "label": "dispatches", "variant": "emphasis" },
+      "guards": { "label": "guards", "variant": "security" },
+      "realized-by": { "label": "realized by", "variant": "default" }
     },
     "principles": [
       "Authority before effect",
@@ -535,5 +513,5 @@
     "recovery": [],
     "human": []
   },
-  "scope": "Selected AIGW control-plane owners at commit dcfb274c4cb5bc8c87d9d1a21867768ea39cffdc; curated from exact source bytes without inferred implementation completeness."
+  "scope": "Selected AIGW control-plane owners at source revision 9d589f4e9c5f98fa8850c794459d1ca24824b67fdab794942b552fa361e5b0c0; curated from exact source bytes without inferred implementation completeness."
 }

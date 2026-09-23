@@ -92,8 +92,8 @@ func TestBalanceExplainsWhenConfiguredDiagnosticDriverIsNotBundled(t *testing.T)
 		Endpoints:    configuration.Endpoints{OpenAIResponses: "https://future.test/v1"},
 		AccountProbe: &configuration.AccountProbe{Kind: "future-provider", BaseURL: "https://future.test"},
 	}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "future", Model: "gpt-test"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.Routes["gpt"] = qualifiedRoute("GPT", "future", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestBalanceExplainsOptionalAccountBinding(t *testing.T) {
 	account := cfg.Accounts["dmx"]
 	account.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
 	cfg.Accounts["dmx"] = account
-	cfg.SetSelectedProfile(configuration.ClientCodex, "dmx")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "dmx")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func TestAccountDiagnosticsEnableStoresSeparateCredentialAndBalanceShowsDetails(
 	providerAccount := cfg.Accounts["dmx"]
 	providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
 	cfg.Accounts["dmx"] = providerAccount
-	cfg.SetSelectedProfile(configuration.ClientCodex, "dmx")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "dmx")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

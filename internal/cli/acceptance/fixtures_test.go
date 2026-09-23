@@ -186,7 +186,24 @@ func addAccountProfile(cfg *configuration.Config, profileName, accountName, labe
 	if _, exists := cfg.Accounts[accountName]; !exists {
 		cfg.Accounts[accountName] = configuration.Account{Label: label, Endpoints: endpoints}
 	}
-	cfg.Profiles[profileName] = configuration.Profile{Label: label, Account: accountName, Model: model}
+	account := cfg.Accounts[accountName]
+	account.ID = accountName
+	spec, admitted := configuration.ClientSpecFor(client)
+	if !admitted {
+		panic("test fixture uses an unadmitted client: " + client)
+	}
+	_, protocol, err := spec.ResolveEndpoint(account, "")
+	if err != nil {
+		panic("test fixture cannot resolve a wire interface: " + err.Error())
+	}
+	cfg.Routes[profileName] = qualifiedRoute(label, accountName, model, protocol)
+}
+
+func qualifiedRoute(label, account, model string, protocol configuration.EndpointProtocol) configuration.Route {
+	return configuration.Route{
+		Label: label, Account: account, Model: model, UpstreamModel: model,
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
+	}
 }
 
 func synchronizeClaudeProjection(t *testing.T, app *cli.App, cfg configuration.Config) {
@@ -220,7 +237,7 @@ func saveCommandProfile(t *testing.T, app *cli.App, endpoints configuration.Endp
 	t.Helper()
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One", endpoints, client, model)
-	cfg.SetSelectedProfile(client, "one")
+	cfg.SetSelectedRoute(client, "one")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -319,8 +336,8 @@ func saveProbeProfile(t *testing.T, appConfig configuration.Store) {
 		Endpoints:    configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 		AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"},
 	}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-test"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.Routes["gpt"] = configuration.Route{Label: "GPT", Account: "dmx", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	if err := appConfig.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +347,12 @@ func twoProfileConfig() configuration.Config {
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "one", "one", "One Gateway", configuration.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "model-one")
 	addAccountProfile(&cfg, "two", "two", "Two Gateway", configuration.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, configuration.ClientCodex, "model-two")
-	cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+	for _, routeID := range []string{"one", "two"} {
+		route := cfg.Routes[routeID]
+		route.Interfaces[configuration.ProtocolAnthropic] = []configuration.Capability{}
+		cfg.Routes[routeID] = route
+	}
+	cfg.SetSelectedRoute(configuration.ClientCodex, "one")
 	return cfg
 }
 
@@ -347,12 +369,15 @@ func directoryNames(t *testing.T, path string) []string {
 	return names
 }
 
-const configurationManifestFixture = `version = 6
-[recommendations.claude]
-profile = "aihubmix-claude"
+const configurationManifestFixture = `version = 7
+[recommendations.claude.primary]
+route = "aihubmix-claude"
 
-[recommendations.codex]
-profile = "dmxapi-gpt"
+[[recommendations.claude.alternatives]]
+route = "dmxapi-claude"
+
+[recommendations.codex.primary]
+route = "dmxapi-gpt"
 
 [accounts.aihubmix]
 label = "AIHubMix"
@@ -366,20 +391,32 @@ label = "DMXAPI"
 openai_responses = "https://dmxapi.test/v1"
 anthropic = "https://dmxapi.test"
 
-[profiles.aihubmix-claude]
+[models.claude-test]
+label = "Claude Test"
+
+[models.gpt-test]
+label = "GPT Test"
+
+[routes.aihubmix-claude]
 label = "AIHubMix Claude"
 account = "aihubmix"
 model = "claude-test"
+upstream_model = "claude-test"
+interfaces = { anthropic = [] }
 
-[profiles.dmxapi-claude]
+[routes.dmxapi-claude]
 label = "DMXAPI Claude"
 account = "dmxapi"
 model = "claude-test"
+upstream_model = "claude-test"
+interfaces = { anthropic = [] }
 
-[profiles.dmxapi-gpt]
+[routes.dmxapi-gpt]
 label = "DMXAPI GPT"
 account = "dmxapi"
 model = "gpt-test"
+upstream_model = "gpt-test"
+interfaces = { openai_responses = [] }
 `
 
 func writeConfigurationManifest(t *testing.T, body string) string {

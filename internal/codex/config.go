@@ -135,7 +135,7 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 			return err
 		}
 		if !isManagedSelection(modelLine, "model", model) {
-			return fmt.Errorf("Codex config model selection does not match profile %q", runtime.ProfileID)
+			return fmt.Errorf("Codex config model selection does not match profile %q", runtime.RouteID)
 		}
 	}
 	actualBlock, err := codexManagedBlockForProviderIn(text, provider)
@@ -143,10 +143,10 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 		return err
 	}
 	if hashText(actualBlock) != hashText(expectedBlock) {
-		return fmt.Errorf("Codex config provider block does not match profile %q", runtime.ProfileID)
+		return fmt.Errorf("Codex config provider block does not match profile %q", runtime.RouteID)
 	}
 	if !managedBlockHashMatches(state.ManagedBlockHash, actualBlock) {
-		return fmt.Errorf("Codex config AIGW state does not match profile %q", runtime.ProfileID)
+		return fmt.Errorf("Codex config AIGW state does not match profile %q", runtime.RouteID)
 	}
 	if err := validateCodexScheduler(text); err != nil {
 		return err
@@ -261,14 +261,14 @@ func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot) (st
 
 func codexEndpoint(runtime configuration.Runtime) (string, error) {
 	if runtime.Endpoint == "" {
-		return "", fmt.Errorf("profile %q has no Codex endpoint", runtime.ProfileID)
+		return "", fmt.Errorf("profile %q has no Codex endpoint", runtime.RouteID)
 	}
 	if runtime.RequiresAccountToken() {
 		if runtime.CredentialCommand == "" {
-			return "", fmt.Errorf("profile %q account-token Codex provider requires a credential command", runtime.ProfileID)
+			return "", fmt.Errorf("profile %q account-token Codex provider requires a credential command", runtime.RouteID)
 		}
 		if !filepath.IsAbs(runtime.CredentialCommand) {
-			return "", fmt.Errorf("profile %q account-token Codex provider credential command must be absolute", runtime.ProfileID)
+			return "", fmt.Errorf("profile %q account-token Codex provider credential command must be absolute", runtime.RouteID)
 		}
 	}
 	return runtime.Endpoint, nil
@@ -312,7 +312,7 @@ func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
 	provider := codexRuntimeProvider(runtime)
 	projection := codexProviderProjection{BaseURL: endpoint, WireAPI: "responses"}
 	if provider == configuration.ModelProviderAIGW {
-		name := "AIGW: " + runtime.ProfileLabel
+		name := "AIGW: " + runtime.RouteLabel
 		projection.Name = &name
 	}
 	if runtime.RequiresAccountToken() {

@@ -136,9 +136,9 @@ func TestSetupFromConfigurationManifestRejectsUnreferencedAccountBeforePrompt(t 
 	app.Interactive = true
 	prompt := &scriptedPrompt{secrets: []string{"must-not-be-read"}}
 	app.Prompt = prompt
-	manifestPath := writeConfigurationManifest(t, `version = 6
-[recommendations.claude]
-profile = "used"
+	manifestPath := writeConfigurationManifest(t, `version = 7
+[recommendations.claude.primary]
+route = "used"
 [accounts.used]
 label = "Used"
 [accounts.used.endpoints]
@@ -147,10 +147,14 @@ anthropic = "https://used.test"
 label = "Unused"
 [accounts.unused.endpoints]
 anthropic = "https://unused.test"
-[profiles.used]
+[models.claude-test]
+label = "Claude Test"
+[routes.used]
 label = "Used"
 account = "used"
 model = "claude-test"
+upstream_model = "claude-test"
+interfaces = { anthropic = ["text"] }
 `)
 
 	err := cli.Execute(app, []string{"setup", "--from", manifestPath})
@@ -165,21 +169,22 @@ model = "claude-test"
 
 func TestSetupFromConfigurationManifestRejectsProfileWithoutModel(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	manifestPath := writeConfigurationManifest(t, `version = 6
-[recommendations.claude]
-profile = "team"
+	manifestPath := writeConfigurationManifest(t, `version = 7
+[recommendations.claude.primary]
+route = "team"
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
 openai_responses = "https://team.test/v1"
 anthropic = "https://team.test"
-[profiles.team]
+[routes.team]
 label = "Team"
 account = "team"
+interfaces = { anthropic = ["text"] }
 `)
 
 	err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--account", "team"})
-	if err == nil || !strings.Contains(err.Error(), `profile "team" must define a model`) {
+	if err == nil || !strings.Contains(err.Error(), `route "team" must reference a model`) {
 		t.Fatalf("error = %v", err)
 	}
 	if secretExists(t, secretStore, "team") {

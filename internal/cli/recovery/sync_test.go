@@ -38,8 +38,11 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 			cfg := configuration.NewConfig()
 			cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-			cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "gpt-test"}
-			cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+			cfg.Routes["one"] = configuration.Route{
+				Label: "One", Account: "one", Model: "gpt-test",
+				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+			}
+			cfg.SetSelectedRoute(configuration.ClientCodex, "one")
 			cfg.SetClientActivation(configuration.ClientCodex, true, "/portable/codex", []string{"/portable/config.toml"})
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -75,8 +78,11 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 		store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 		cfg := configuration.NewConfig()
 		cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-		cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "gpt-test"}
-		cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+		cfg.Routes["one"] = configuration.Route{
+			Label: "One", Account: "one", Model: "gpt-test",
+			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		}
+		cfg.SetSelectedRoute(configuration.ClientCodex, "one")
 		cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{""})
 		if err := store.Save(cfg); err != nil {
 			t.Fatal(err)
@@ -96,9 +102,15 @@ func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 	cfg.Accounts["two"] = configuration.Account{Label: "Two", Endpoints: configuration.Endpoints{OpenAIResponses: "https://two.test/v1"}}
-	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "gpt-test"}
-	cfg.Profiles["two"] = configuration.Profile{Label: "Two", Account: "two", Model: "gpt-test"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+	cfg.Routes["one"] = configuration.Route{
+		Label: "One", Account: "one", Model: "gpt-test",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+	}
+	cfg.Routes["two"] = configuration.Route{
+		Label: "Two", Account: "two", Model: "gpt-test",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+	}
+	cfg.SetSelectedRoute(configuration.ClientCodex, "one")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{t.TempDir()})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -118,7 +130,7 @@ func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := after.SelectedProfile(configuration.ClientCodex); got != "one" {
+	if got := after.SelectedRoute(configuration.ClientCodex); got != "one" {
 		t.Fatalf("failed sync left Client Binding %q, want rolled-back binding one", got)
 	}
 }
@@ -128,8 +140,11 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 	target := t.TempDir()
 	cfg := configuration.NewConfig()
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "gpt-test"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "one")
+	cfg.Routes["one"] = configuration.Route{
+		Label: "One", Account: "one", Model: "gpt-test",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+	}
+	cfg.SetSelectedRoute(configuration.ClientCodex, "one")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -185,8 +200,11 @@ func rollbackStore(t *testing.T) configuration.Store {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 	cfg := configuration.NewConfig()
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Model: "claude-test"}
-	cfg.SetSelectedProfile(configuration.ClientClaude, "one")
+	cfg.Routes["one"] = configuration.Route{
+		Label: "One", Account: "one", Model: "claude-test",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+	}
+	cfg.SetSelectedRoute(configuration.ClientClaude, "one")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

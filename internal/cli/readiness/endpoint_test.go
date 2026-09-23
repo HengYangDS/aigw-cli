@@ -315,7 +315,7 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 		runtime, _, _ := configuredReadinessRuntime(t)
 		command := NewTestCommand(runtime)
 		command.SetArgs([]string{"--for", "codex", "--profile", "missing"})
-		if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), "unknown profile") {
+		if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), "unknown route") {
 			t.Fatalf("error = %v", err)
 		}
 	})

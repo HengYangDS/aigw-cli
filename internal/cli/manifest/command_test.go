@@ -17,10 +17,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const importManifest = `version = 6
+const importManifest = `version = 7
 
-[recommendations.codex]
-profile = "remote"
+[recommendations.codex.primary]
+route = "remote"
 
 [accounts.gateway]
 label = "Gateway"
@@ -28,10 +28,15 @@ label = "Gateway"
 [accounts.gateway.endpoints]
 openai_responses = "https://gateway.example/v1"
 
-[profiles.remote]
+[models.gpt-remote]
+label = "GPT Remote"
+
+[routes.remote]
 label = "Remote"
 account = "gateway"
 model = "gpt-remote"
+upstream_model = "gpt-remote"
+interfaces = { openai_responses = ["text"] }
 `
 
 func executeManifestCommand(command *cobra.Command) error {
@@ -103,7 +108,7 @@ func TestExportWritesASecretFreeRoundTripManifest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse exported manifest: %v\n%s", err, data)
 	}
-	if parsed.Recommendations[configuration.ClientCodex].Profile != "local" || parsed.Profiles["local"].Account != "local" {
+	if parsed.Recommendations[configuration.ClientCodex].Primary.Route != "local" || parsed.Routes["local"].Account != "local" {
 		t.Fatalf("exported manifest = %#v", parsed)
 	}
 }
@@ -132,7 +137,7 @@ func TestExportSurfacesLoadAndOutputFailures(t *testing.T) {
 func TestExportSurfacesManifestValidationFailure(t *testing.T) {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "missing.toml"))
 	command := newExportCommand(invocation.Context{Config: store, Out: io.Discard})
-	if err := executeManifestCommand(command); err == nil || !strings.Contains(err.Error(), "at least one profile") {
+	if err := executeManifestCommand(command); err == nil || !strings.Contains(err.Error(), "at least one route") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -150,11 +155,11 @@ func TestImportMergesConfigurationAndReportsOneMissingToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Profiles["remote"].Account != "gateway" {
+	if loaded.Routes["remote"].Account != "gateway" {
 		t.Fatalf("imported config = %#v", loaded)
 	}
 	output := renderOut.String()
-	for _, want := range []string{"Configuration manifest imported", "Profiles", "Accounts", "Token not connected", "aigw rotate gateway", "aigw sync"} {
+	for _, want := range []string{"Configuration manifest imported", "Routes", "Accounts", "Token not connected", "aigw rotate gateway", "aigw sync"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output %q does not contain %q", output, want)
 		}
@@ -223,7 +228,7 @@ func TestImportReplacementFlagsMakeIdentityChangesExplicit(t *testing.T) {
 	}
 
 	withConsent := newImportCommand(runtime)
-	withConsent.SetArgs([]string{manifestPath, "--replace-account", "local", "--replace-profile", "local"})
+	withConsent.SetArgs([]string{manifestPath, "--replace-account", "local", "--replace-model", "gpt-local", "--replace-route", "local"})
 	if err := executeManifestCommand(withConsent); err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +236,7 @@ func TestImportReplacementFlagsMakeIdentityChangesExplicit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Accounts["local"].Label != "Gateway" || loaded.Profiles["local"].Label != "Remote" {
+	if loaded.Accounts["local"].Label != "Gateway" || loaded.Routes["local"].Label != "Remote" {
 		t.Fatalf("explicit replacement did not converge: %#v", loaded)
 	}
 }
@@ -348,8 +353,11 @@ func savedRuntime(t *testing.T, cfg configuration.Config) (invocation.Context, s
 func localConfig() configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["local"] = configuration.Account{Label: "Local", Endpoints: configuration.Endpoints{OpenAIResponses: "https://local.example/v1"}}
-	cfg.Profiles["local"] = configuration.Profile{Label: "Local", Account: "local", Model: "gpt-local"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "local")
+	cfg.Routes["local"] = configuration.Route{
+		Label: "Local", Account: "local", Model: "gpt-local",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+	}
+	cfg.SetSelectedRoute(configuration.ClientCodex, "local")
 	return cfg
 }
 
@@ -363,18 +371,23 @@ func writeManifest(t *testing.T, data string) string {
 }
 
 func twoAccountManifest() string {
-	return strings.Replace(importManifest, "[profiles.remote]", `[accounts.backup]
+	return strings.Replace(importManifest, "[routes.remote]", `[accounts.backup]
 label = "Backup"
 
 [accounts.backup.endpoints]
 openai_responses = "https://backup.example/v1"
 
-[profiles.backup]
+[models.gpt-backup]
+label = "GPT Backup"
+
+[routes.backup]
 label = "Backup"
 account = "backup"
 model = "gpt-backup"
+upstream_model = "gpt-backup"
+interfaces = { openai_responses = ["text"] }
 
-[profiles.remote]`, 1)
+[routes.remote]`, 1)
 }
 
 type failingWriter struct{}

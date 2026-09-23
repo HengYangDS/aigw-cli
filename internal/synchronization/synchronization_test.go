@@ -73,8 +73,8 @@ func (s *configStoreStub) RestoreSnapshot(configuration.Snapshot, configuration.
 func testConfig(target string) configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "gateway", Model: "gpt-test"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.Routes["gpt"] = configuration.Route{Label: "GPT", Account: "gateway", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	return cfg
 }
@@ -348,8 +348,11 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	}
 	before := configuration.NewConfig()
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-team"}
-	before.SetSelectedProfile(configuration.ClientClaude, "claude")
+	before.Routes["claude"] = configuration.Route{
+		Label: "Claude", Account: "gateway", Model: "claude-team",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+	}
+	before.SetSelectedRoute(configuration.ClientClaude, "claude")
 	after := before.Clone()
 	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))
@@ -403,8 +406,11 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 	}
 	before := configuration.NewConfig()
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-team"}
-	before.SetSelectedProfile(configuration.ClientClaude, "claude")
+	before.Routes["claude"] = configuration.Route{
+		Label: "Claude", Account: "gateway", Model: "claude-team",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+	}
+	before.SetSelectedRoute(configuration.ClientClaude, "claude")
 	after := before.Clone()
 	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))

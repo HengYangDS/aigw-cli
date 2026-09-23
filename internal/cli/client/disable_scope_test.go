@@ -12,10 +12,11 @@ import (
 
 func TestDisableScopesProjectionToTheSelectedClient(t *testing.T) {
 	cfg := adapterConfig()
-	cfg.Profiles["desktop"] = configuration.Profile{
-		Label: "Desktop", Account: "gateway", Model: "claude-test", Protocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic},
+	cfg.Routes["desktop"] = configuration.Route{
+		Label: "Desktop", Account: "gateway", Model: "claude-test",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedProfile(configuration.ClientClaudeDesktop, "desktop")
+	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "desktop")
 	runtime, _, secretStore, _ := adapterRuntime(t, cfg)
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
@@ -36,7 +37,7 @@ func TestDisableScopesProjectionToTheSelectedClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	configured.SetSelectedProfile(configuration.ClientHermes, "desktop")
+	configured.SetSelectedRoute(configuration.ClientHermes, "desktop")
 	configured.SetClientActivation(configuration.ClientHermes, true, "/missing/hermes", nil)
 	if err := runtime.Config.Save(configured); err != nil {
 		t.Fatal(err)

@@ -146,10 +146,10 @@ func (store *faultProbeStore) Exists(id string) (bool, error) {
 func migrationConfig() configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "old", Model: "gpt"}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "old", Model: "claude"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "old", Model: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "old", Model: "claude", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 	return cfg
 }
 
@@ -158,9 +158,9 @@ func renamedConfig() configuration.Config {
 	providerAccount := cfg.Accounts["old"]
 	delete(cfg.Accounts, "old")
 	cfg.Accounts["new"] = providerAccount
-	for id, profile := range cfg.Profiles {
+	for id, profile := range cfg.Routes {
 		profile.Account = "new"
-		cfg.Profiles[id] = profile
+		cfg.Routes[id] = profile
 	}
 	return cfg
 }
@@ -296,7 +296,7 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 	}
 
 	invalid := cfg.Clone()
-	invalid.SetSelectedProfile(configuration.ClientCodex, "missing")
+	invalid.SetSelectedRoute(configuration.ClientCodex, "missing")
 	if _, err := planAccount(invalid, "old", "new"); err == nil || !strings.Contains(err.Error(), "Validate") {
 		t.Fatalf("account error = %v", err)
 	}
@@ -304,12 +304,12 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 		t.Fatalf("profile error = %v", err)
 	}
 
-	cfg.SetRecommendedProfile(configuration.ClientClaude, "claude")
-	cfg.SetRecommendedProfile(configuration.ClientCodex, "codex")
+	cfg.SetRecommendedRoute(configuration.ClientClaude, "claude")
+	cfg.SetRecommendedRoute(configuration.ClientCodex, "codex")
 	plan, err := planProfile(cfg, "codex", "new-codex")
-	if err != nil || plan.Config.SelectedProfile(configuration.ClientClaude) != "claude" ||
-		plan.Config.RecommendedProfile(configuration.ClientCodex) != "new-codex" ||
-		plan.Config.RecommendedProfile(configuration.ClientClaude) != "claude" {
+	if err != nil || plan.Config.SelectedRoute(configuration.ClientClaude) != "claude" ||
+		plan.Config.RecommendedRoute(configuration.ClientCodex) != "new-codex" ||
+		plan.Config.RecommendedRoute(configuration.ClientClaude) != "claude" {
 		t.Fatalf("plan=%#v error=%v", plan, err)
 	}
 }

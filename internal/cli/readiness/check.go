@@ -131,7 +131,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if err != nil {
 		return writeJSONFailure(runtime, domainreadiness.Invalid, "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it", "aigw doctor", err)
 	}
-	if len(cfg.Profiles) == 0 {
+	if len(cfg.Routes) == 0 {
 		return writeJSONFailure(runtime, domainreadiness.Deferred, "not configured", "aigw setup", fmt.Errorf("not configured"))
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
@@ -143,7 +143,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	}
 	for _, client := range evaluation.clients {
 		status := clients[client.client]
-		status.Profile = client.runtime.ProfileID
+		status.Profile = client.runtime.RouteID
 		status.Account = client.runtime.AccountID
 		status.Authentication = client.runtime.Authentication
 		status.EndpointConfigured = client.endpointConfigured
@@ -192,7 +192,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
-	if len(cfg.Profiles) == 0 {
+	if len(cfg.Routes) == 0 {
 		return invocation.Problem(runtime, "Not configured", "No Profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
@@ -228,7 +228,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			return invocation.Problem(runtime, invocation.Title(client)+" projection is not ready", result.issue, impact, result.fix, fmt.Errorf("%s projection not ready", client))
 		}
 		if !result.runtime.UsesAIGWCredentialStore() {
-			renderer.Status(presentation.OK, invocation.Title(client), result.runtime.ProfileLabel+" · Local projection checked")
+			renderer.Status(presentation.OK, invocation.Title(client), result.runtime.RouteLabel+" · Local projection checked")
 			detail := "Client-owned authentication requires an explicit live verification"
 			if result.runtime.CredentialCommand != "" {
 				detail = "External credential helper requires an explicit live verification"
@@ -248,7 +248,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			}
 			return invocation.Problem(runtime, diagnostic.Summary, evidence, invocation.Title(client)+" is unavailable.", diagnostic.Fix, fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
 		}
-		renderer.Status(presentation.OK, invocation.Title(client), result.runtime.ProfileLabel+" · Endpoint checked")
+		renderer.Status(presentation.OK, invocation.Title(client), result.runtime.RouteLabel+" · Endpoint checked")
 		if diagnostic.RecoveredTransient {
 			renderer.Detail(invocation.Title(client) + " authentication recovered after a transient response")
 		}

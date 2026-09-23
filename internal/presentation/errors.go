@@ -75,11 +75,11 @@ func localizedErrorMessage(err error) string {
 }
 
 func typedErrorMessage(err error) (string, bool) {
-	if mismatch, ok := errors.AsType[*configuration.RuntimeProfileClientMismatchError](err); ok {
-		return fmt.Sprintf("profile %q is for %s, not %s", mismatch.ProfileID, mismatch.ExpectedClient, mismatch.ActualClient), true
+	if mismatch, ok := errors.AsType[*configuration.RuntimeRouteClientMismatchError](err); ok {
+		return fmt.Sprintf("profile %q is for %s, not %s", mismatch.RouteID, mismatch.ExpectedClient, mismatch.ActualClient), true
 	}
-	if unknownAccount, ok := errors.AsType[*configuration.RuntimeProfileUnknownAccountError](err); ok {
-		return fmt.Sprintf("profile %q references unknown account %q", unknownAccount.ProfileID, unknownAccount.AccountID), true
+	if unknownAccount, ok := errors.AsType[*configuration.RuntimeRouteUnknownAccountError](err); ok {
+		return fmt.Sprintf("profile %q references unknown account %q", unknownAccount.RouteID, unknownAccount.AccountID), true
 	}
 	if missingEndpoint, ok := errors.AsType[*configuration.RuntimeMissingEndpointError](err); ok {
 		return missingEndpoint.Error(), true

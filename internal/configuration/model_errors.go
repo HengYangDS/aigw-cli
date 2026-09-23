@@ -32,27 +32,27 @@ func (e *UnsupportedConfigVersionError) Error() string {
 	)
 }
 
-// RuntimeProfileClientMismatchError reports a profile selected for a different client.
-type RuntimeProfileClientMismatchError struct {
-	ProfileID      string
+// RuntimeRouteClientMismatchError reports a profile selected for a different client.
+type RuntimeRouteClientMismatchError struct {
+	RouteID        string
 	ExpectedClient string
 	ActualClient   string
 }
 
 // Error formats the expected and actual client identities for a mismatched profile.
-func (e *RuntimeProfileClientMismatchError) Error() string {
-	return fmt.Sprintf("profile %q is for %s, not %s", e.ProfileID, e.ExpectedClient, e.ActualClient)
+func (e *RuntimeRouteClientMismatchError) Error() string {
+	return fmt.Sprintf("profile %q is for %s, not %s", e.RouteID, e.ExpectedClient, e.ActualClient)
 }
 
-// RuntimeProfileUnknownAccountError reports a profile whose referenced account is absent.
-type RuntimeProfileUnknownAccountError struct {
-	ProfileID string
+// RuntimeRouteUnknownAccountError reports a profile whose referenced account is absent.
+type RuntimeRouteUnknownAccountError struct {
+	RouteID   string
 	AccountID string
 }
 
 // Error formats the unresolved account reference for a profile.
-func (e *RuntimeProfileUnknownAccountError) Error() string {
-	return fmt.Sprintf("profile %q references unknown account %q", e.ProfileID, e.AccountID)
+func (e *RuntimeRouteUnknownAccountError) Error() string {
+	return fmt.Sprintf("profile %q references unknown account %q", e.RouteID, e.AccountID)
 }
 
 // RuntimeMissingEndpointError reports that an account lacks the protocol endpoint required by its client.

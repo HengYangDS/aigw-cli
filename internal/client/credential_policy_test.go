@@ -30,12 +30,15 @@ func configuredClient(t *testing.T, id string) (configuration.Config, client.Dep
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	spec, _ := configuration.ClientSpecFor(id)
-	cfg.Profiles[id] = configuration.Profile{Account: "gateway", Model: "fixture"}
+	cfg.Routes[id] = configuration.Route{
+		Account: "gateway", Model: "fixture", UpstreamModel: "fixture",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{spec.EndpointProtocols[0]: {}},
+	}
 	target := filepath.Join(root, "config.toml")
 	if id == configuration.ClientClaudeDesktop {
 		target = filepath.Join(root, "Claude-3p", "configLibrary")
 	}
-	adapter := configuration.ClientBinding{Profile: id, Enabled: true, Protocol: spec.EndpointProtocols[0], Executable: executable}
+	adapter := configuration.ClientBinding{Route: id, Enabled: true, Protocol: spec.EndpointProtocols[0], Executable: executable}
 	if id != configuration.ClientClaude {
 		adapter.Targets = []string{target}
 	}

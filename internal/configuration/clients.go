@@ -120,11 +120,10 @@ func (s ClientSpec) ResolveEndpoint(account Account, requested EndpointProtocol)
 	return s.resolveEndpoint(account, nil, requested)
 }
 
-// ResolveProfileEndpoint selects one endpoint admitted by the client, Account,
-// and Profile capability declaration. A nil declaration preserves manually
-// configured Profiles that have not yet been qualified by protocol.
-func (s ClientSpec) ResolveProfileEndpoint(account Account, profile Profile, requested EndpointProtocol) (string, EndpointProtocol, error) {
-	return s.resolveEndpoint(account, profile.Protocols, requested)
+// ResolveRouteEndpoint selects one endpoint admitted by the client, Account,
+// and Route interface declaration.
+func (s ClientSpec) ResolveRouteEndpoint(account Account, profile Route, requested EndpointProtocol) (string, EndpointProtocol, error) {
+	return s.resolveEndpoint(account, routeAdmittedProtocols(profile), requested)
 }
 
 func (s ClientSpec) resolveEndpoint(account Account, admitted []EndpointProtocol, requested EndpointProtocol) (string, EndpointProtocol, error) {
@@ -170,10 +169,14 @@ func (s ClientSpec) CompatibleProtocols(account Account) []EndpointProtocol {
 	return s.compatibleProtocols(account, nil)
 }
 
-// CompatibleProfileProtocols returns the client protocols admitted by both
-// the Account endpoints and the Profile's verified capability declaration.
-func (s ClientSpec) CompatibleProfileProtocols(account Account, profile Profile) []EndpointProtocol {
-	return s.compatibleProtocols(account, profile.Protocols)
+// CompatibleRouteProtocols returns the client protocols admitted by both
+// the Account endpoints and the Route's verified interface declaration.
+func (s ClientSpec) CompatibleRouteProtocols(account Account, profile Route) []EndpointProtocol {
+	return s.compatibleProtocols(account, routeAdmittedProtocols(profile))
+}
+
+func routeAdmittedProtocols(route Route) []EndpointProtocol {
+	return route.AdmittedProtocols()
 }
 
 func (s ClientSpec) compatibleProtocols(account Account, admitted []EndpointProtocol) []EndpointProtocol {
@@ -200,19 +203,35 @@ func (endpoints Endpoints) For(protocol EndpointProtocol) string {
 	}
 }
 
-// ClientSelection identifies one Profile and the client-specific choices needed
-// to resolve it without coupling the Profile to a client brand.
+// ClientSelection identifies one Route and the client-specific choices needed
+// to resolve it without coupling the Route to a client brand.
 type ClientSelection struct {
-	Profile        string           `json:"profile,omitempty"            toml:"profile,omitempty"`
+	Route          string           `json:"route,omitempty"              toml:"route,omitempty"`
 	Protocol       EndpointProtocol `json:"protocol,omitempty"           toml:"protocol,omitempty"`
 	ModelProvider  string           `json:"model_provider,omitempty"     toml:"model_provider,omitempty"`
 	Authentication Authentication   `json:"authentication,omitempty"     toml:"authentication,omitempty"`
 }
 
+// ClientRecommendation orders reviewed choices without creating an active
+// selection or a global ranking attached to a Model or Route.
+type ClientRecommendation struct {
+	Primary      ClientSelection   `json:"primary"                toml:"primary"`
+	Alternatives []ClientSelection `json:"alternatives,omitempty" toml:"alternatives,omitempty"`
+}
+
+// Selections returns the reviewed choices in preference order.
+func (recommendation ClientRecommendation) Selections() []ClientSelection {
+	selections := make([]ClientSelection, 0, 1+len(recommendation.Alternatives))
+	if recommendation.Primary.Route != "" {
+		selections = append(selections, recommendation.Primary)
+	}
+	return append(selections, recommendation.Alternatives...)
+}
+
 // ClientBinding records one client's explicit selection, enabled intent, and
 // owned native targets.
 type ClientBinding struct {
-	Profile           string           `json:"profile,omitempty"            toml:"profile,omitempty"`
+	Route             string           `json:"route,omitempty"              toml:"route,omitempty"`
 	Enabled           bool             `json:"enabled"                      toml:"enabled"`
 	Protocol          EndpointProtocol `json:"protocol,omitempty"           toml:"protocol,omitempty"`
 	ModelProvider     string           `json:"model_provider,omitempty"     toml:"model_provider,omitempty"`
@@ -224,7 +243,7 @@ type ClientBinding struct {
 
 func (binding ClientBinding) selection() ClientSelection {
 	return ClientSelection{
-		Profile:        binding.Profile,
+		Route:          binding.Route,
 		Protocol:       binding.Protocol,
 		ModelProvider:  binding.ModelProvider,
 		Authentication: binding.Authentication,
@@ -232,7 +251,7 @@ func (binding ClientBinding) selection() ClientSelection {
 }
 
 func (binding ClientBinding) withSelection(selection ClientSelection) ClientBinding {
-	binding.Profile = selection.Profile
+	binding.Route = selection.Route
 	binding.Protocol = selection.Protocol
 	binding.ModelProvider = selection.ModelProvider
 	binding.Authentication = selection.Authentication

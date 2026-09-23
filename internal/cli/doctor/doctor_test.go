@@ -35,10 +35,10 @@ func validDoctorConfig() configuration.Config {
 			OpenAIResponses: "https://team.test/v1",
 		},
 	}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Model: "claude-test"}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Model: "gpt-test"}
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
-	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
+	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "team", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
 	return cfg
 }
 
@@ -133,7 +133,7 @@ func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.
 			OpenAIResponses: "https://optional.test/v1",
 		},
 	}
-	cfg.Profiles["optional"] = configuration.Profile{Label: "Optional", Account: "optional", Model: "gpt-optional"}
+	cfg.Routes["optional"] = configuration.Route{Label: "Optional", Account: "optional", Model: "gpt-optional"}
 	deps, _, secretStore := doctorDependencies(t, cfg)
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
@@ -161,13 +161,16 @@ func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 			OpenAIResponses: "https://native.test/v1",
 		},
 	}
-	cfg.Profiles["native"] = configuration.Profile{
+	cfg.Routes["native"] = configuration.Route{
 		Label:   "Native",
 		Account: "native",
 		Model:   "native-model",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
+			configuration.ProtocolOpenAIResponses: {},
+		},
 	}
 	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
-		Profile: "native", Enabled: true, ModelProvider: "amazon-bedrock",
+		Route: "native", Enabled: true, ModelProvider: "amazon-bedrock",
 		Authentication: configuration.AuthenticationClientNative,
 	}
 	deps, _, secretStore := doctorDependencies(t, cfg)

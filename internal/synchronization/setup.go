@@ -12,7 +12,7 @@ import (
 // AdmitSetup requires an installation without Profiles before first-time setup.
 // Existing installations use configuration import, selection or Token rotation.
 func (Synchronizer) AdmitSetup(before configuration.Config) error {
-	if len(before.Profiles) > 0 {
+	if len(before.Routes) > 0 {
 		return fmt.Errorf("AIGW is already configured; run `aigw add` to add an account, `aigw profile add` to add a model profile, or `aigw config import` to merge a reviewed manifest")
 	}
 	return nil
@@ -43,7 +43,7 @@ func (s Synchronizer) Setup(ctx context.Context, before, after configuration.Con
 			return configuration.Config{}, fmt.Errorf("setup client %q has no admitted operational adapter", client)
 		}
 		binding := after.Clients[client]
-		if binding.Profile == "" {
+		if binding.Route == "" {
 			return configuration.Config{}, fmt.Errorf("setup client %q has no selected profile", client)
 		}
 		binding.Enabled = true

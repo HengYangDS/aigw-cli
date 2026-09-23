@@ -6,12 +6,12 @@ import (
 )
 
 func TestRecommendationsAreValidatedExportedAndDoNotOverridePersonalChoices(t *testing.T) {
-	raw := []byte(`version = 6
-[recommendations.claude]
-profile = "team-claude"
+	raw := []byte(`version = 7
+[recommendations.claude.primary]
+route = "team-claude"
 
-[recommendations.codex]
-profile = "team-codex"
+[recommendations.codex.primary]
+route = "team-codex"
 
 [accounts.team]
 label = "Team"
@@ -19,15 +19,17 @@ label = "Team"
 openai_responses = "https://team.test/v1"
 anthropic = "https://team.test"
 
-[profiles.team-claude]
+[routes.team-claude]
 label = "Team Claude"
 account = "team"
 model = "claude-test"
+interfaces = { anthropic = [] }
 
-[profiles.team-codex]
+[routes.team-codex]
 label = "Team Codex"
 account = "team"
 model = "gpt-test"
+interfaces = { openai_responses = [] }
 `)
 	team, err := Parse(raw)
 	if err != nil {
@@ -42,13 +44,13 @@ model = "gpt-test"
 	}
 
 	got.Accounts["personal"] = Account{Label: "Personal", Endpoints: Endpoints{Anthropic: "https://personal.test"}}
-	got.Profiles["personal-claude"] = Profile{Label: "Personal Claude", Account: "personal", Model: "personal-model"}
-	got.SetSelectedProfile(ClientClaude, "personal-claude")
+	got.Routes["personal-claude"] = testRoute("Personal Claude", "personal", "personal-model", ProtocolAnthropic)
+	got.SetSelectedRoute(ClientClaude, "personal-claude")
 	merged, err := Merge(got, team)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if merged.SelectedProfile(ClientClaude) != "personal-claude" || merged.SelectedProfile(ClientCodex) != "" {
+	if merged.SelectedRoute(ClientClaude) != "personal-claude" || merged.SelectedRoute(ClientCodex) != "" {
 		t.Fatalf("merge replaced a personal client selection: %#v", merged.Clients)
 	}
 
@@ -60,13 +62,13 @@ model = "gpt-test"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if exportedTeam.Recommendations[ClientClaude].Profile != "personal-claude" || exportedTeam.Recommendations[ClientCodex].Profile != "team-codex" {
+	if exportedTeam.Recommendations[ClientClaude].Primary.Route != "personal-claude" || exportedTeam.Recommendations[ClientCodex].Primary.Route != "team-codex" {
 		t.Fatalf("exported recommendations = %#v", exportedTeam.Recommendations)
 	}
 }
 
 func TestParseConfigurationManifestAndMergePreservesPersonalState(t *testing.T) {
-	raw := []byte(`version = 6
+	raw := []byte(`version = 7
 
 [accounts.team]
 label = "Team Gateway"
@@ -75,10 +77,11 @@ label = "Team Gateway"
 openai_responses = "https://gateway.test/v1"
 anthropic = "https://gateway.test"
 
-[profiles.team]
+[routes.team]
 label = "Team Gateway"
 account = "team"
 model = "claude-team"
+interfaces = { anthropic = [] }
 `)
 	m, err := Parse(raw)
 	if err != nil {
@@ -86,43 +89,44 @@ model = "claude-team"
 	}
 	cfg := NewConfig()
 	cfg.SetClientActivation(ClientClaude, true, "/personal/claude", nil)
-	cfg.SetSelectedProfile(ClientClaude, "personal")
+	cfg.SetSelectedRoute(ClientClaude, "personal")
 	cfg.Accounts["personal"] = Account{Label: "Personal", Endpoints: Endpoints{Anthropic: "https://personal.test"}}
-	cfg.Profiles["personal"] = Profile{Label: "Personal", Account: "personal", Model: "claude-personal"}
+	cfg.Routes["personal"] = testRoute("Personal", "personal", "claude-personal", ProtocolAnthropic)
 	got, err := Merge(cfg, m)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.SelectedProfile(ClientClaude) != "personal" {
+	if got.SelectedRoute(ClientClaude) != "personal" {
 		t.Fatalf("personal selection changed: %#v", got.Clients)
 	}
 	if got.Clients[ClientClaude].Executable != "/personal/claude" {
 		t.Fatalf("personal adapter changed: %#v", got.Clients)
 	}
-	if got.Profiles["team"].Label != "Team Gateway" {
-		t.Fatalf("imported profile missing: %#v", got.Profiles)
+	if got.Routes["team"].Label != "Team Gateway" {
+		t.Fatalf("imported profile missing: %#v", got.Routes)
 	}
 }
 
 func TestMergeRejectsConflictingExistingAccountWithoutMutatingLocalConfig(t *testing.T) {
-	team, err := Parse([]byte(`version = 6
+	team, err := Parse([]byte(`version = 7
 
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
 anthropic = "https://team.example.test"
 
-[profiles.team-profile]
+[routes.team-profile]
 label = "TeamProfile"
 account = "team"
 model = "claude-team"
+interfaces = { anthropic = [] }
 `))
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Personal Gateway", Endpoints: Endpoints{Anthropic: "https://personal.example.test"}}
-	cfg.Profiles["local"] = Profile{Label: "Local", Account: "team", Model: "claude-local"}
+	cfg.Routes["local"] = testRoute("Local", "team", "claude-local", ProtocolAnthropic)
 
 	_, err = Merge(cfg, team)
 	if err == nil || !strings.Contains(err.Error(), `account "team" conflicts`) {
@@ -134,66 +138,71 @@ model = "claude-team"
 	if got := cfg.Accounts["team"].Endpoints.Anthropic; got != "https://personal.example.test" {
 		t.Fatalf("conflicting merge mutated existing endpoint: %q", got)
 	}
-	if _, exists := cfg.Profiles["team-profile"]; exists {
-		t.Fatalf("conflicting merge partially imported profile: %#v", cfg.Profiles)
+	if _, exists := cfg.Routes["team-profile"]; exists {
+		t.Fatalf("conflicting merge partially imported profile: %#v", cfg.Routes)
 	}
 }
 
 func TestMergeRejectsConflictingExistingProfileWithoutMutatingLocalConfig(t *testing.T) {
-	team, err := Parse([]byte(`version = 6
+	team, err := Parse([]byte(`version = 7
 
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
 openai_responses = "https://team.example.test/v1"
 
-[profiles.shared]
+[routes.shared]
 label = "Team Model"
 account = "team"
 model = "team-model"
+interfaces = { openai_responses = [] }
 `))
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team Gateway", Endpoints: Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
-	cfg.Profiles["shared"] = Profile{Label: "Personal Model", Account: "team", Model: "personal-model"}
+	cfg.Routes["shared"] = testRoute("Personal Model", "team", "personal-model", ProtocolOpenAIResponses)
 
 	_, err = Merge(cfg, team)
-	if err == nil || !strings.Contains(err.Error(), `profile "shared" conflicts`) {
+	if err == nil || !strings.Contains(err.Error(), `route "shared" conflicts`) {
 		t.Fatalf("merge error = %v", err)
 	}
-	if got := cfg.Profiles["shared"].Model; got != "personal-model" {
+	if got := cfg.Routes["shared"].Model; got != "personal-model" {
 		t.Fatalf("conflicting merge mutated active profile model: %q", got)
 	}
 }
 
 func TestMergeAcceptsEquivalentExistingIdentityWithoutReplacingLocalState(t *testing.T) {
-	team, err := Parse([]byte(`version = 6
+	team, err := Parse([]byte(`version = 7
 
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
 anthropic = "https://team.example.test"
 
-[profiles.shared]
+[routes.shared]
 label = "TeamProfile"
 purpose = "Default agent"
 account = "team"
 model = "claude-team"
+interfaces = { anthropic = [] }
 `))
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team Gateway", Endpoints: Endpoints{Anthropic: "https://team.example.test/"}}
-	cfg.Profiles["shared"] = Profile{Label: "TeamProfile", Purpose: "Default agent", Account: "team", Model: "claude-team"}
+	cfg.Routes["shared"] = testRoute("TeamProfile", "team", "claude-team", ProtocolAnthropic)
+	route := cfg.Routes["shared"]
+	route.Purpose = "Default agent"
+	cfg.Routes["shared"] = route
 
 	got, err := Merge(cfg, team)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Profiles["shared"].Model != "claude-team" {
+	if got.Routes["shared"].Model != "claude-team" {
 		t.Fatalf("equivalent merge = %#v", got)
 	}
 	if got.Accounts["team"].Endpoints.Anthropic != "https://team.example.test/" {
@@ -202,28 +211,29 @@ model = "claude-team"
 }
 
 func TestMergeWithOptionsReplacesOnlyExplicitConflictingIdentity(t *testing.T) {
-	team, err := Parse([]byte(`version = 6
+	team, err := Parse([]byte(`version = 7
 
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
 openai_responses = "https://team.example.test/v1"
 
-[profiles.shared]
+[routes.shared]
 label = "Team Model"
 account = "team"
 model = "team-model"
+interfaces = { openai_responses = [] }
 `))
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Personal Gateway", Endpoints: Endpoints{OpenAIResponses: "https://personal.example.test/v1"}}
-	cfg.Profiles["shared"] = Profile{Label: "Personal Model", Account: "team", Model: "personal-model"}
+	cfg.Routes["shared"] = testRoute("Personal Model", "team", "personal-model", ProtocolOpenAIResponses)
 
 	got, err := MergeWithOptions(cfg, team, MergeOptions{
 		ReplaceAccounts: map[string]bool{"team": true},
-		ReplaceProfiles: map[string]bool{"shared": true},
+		ReplaceRoutes:   map[string]bool{"shared": true},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -231,53 +241,55 @@ model = "team-model"
 	if got.Accounts["team"].Endpoints.OpenAIResponses != "https://team.example.test/v1" {
 		t.Fatalf("account replacement = %#v", got.Accounts["team"])
 	}
-	if got.Profiles["shared"].Model != "team-model" {
-		t.Fatalf("profile replacement = %#v", got.Profiles["shared"])
+	if got.Routes["shared"].Model != "team-model" {
+		t.Fatalf("profile replacement = %#v", got.Routes["shared"])
 	}
 }
 
 func TestMergeWithOptionsRejectsUnusedReplacementSelectors(t *testing.T) {
-	team, err := Parse([]byte(`version = 6
+	team, err := Parse([]byte(`version = 7
 
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
 anthropic = "https://team.example.test"
 
-[profiles.team-profile]
+[routes.team-profile]
 label = "TeamProfile"
 account = "team"
 model = "claude-team"
+interfaces = { anthropic = [] }
 `))
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg := NewConfig()
 	cfg.Accounts["local"] = Account{Label: "Local", Endpoints: Endpoints{Anthropic: "https://local.example.test"}}
-	cfg.Profiles["local"] = Profile{Label: "Local", Account: "local", Model: "claude-local"}
+	cfg.Routes["local"] = testRoute("Local", "local", "claude-local", ProtocolAnthropic)
 
 	_, err = MergeWithOptions(cfg, team, MergeOptions{ReplaceAccounts: map[string]bool{"missing": true}})
 	if err == nil || !strings.Contains(err.Error(), `--replace-account "missing"`) {
 		t.Fatalf("unused account replacement error = %v", err)
 	}
-	_, err = MergeWithOptions(cfg, team, MergeOptions{ReplaceProfiles: map[string]bool{"missing": true}})
-	if err == nil || !strings.Contains(err.Error(), `--replace-profile "missing"`) {
-		t.Fatalf("unused profile replacement error = %v", err)
+	_, err = MergeWithOptions(cfg, team, MergeOptions{ReplaceRoutes: map[string]bool{"missing": true}})
+	if err == nil || !strings.Contains(err.Error(), `--replace-route "missing"`) {
+		t.Fatalf("unused Route replacement error = %v", err)
 	}
 }
 
 func TestMergeWithOptionsDoesNotNormalizeOrMutateRejectedInput(t *testing.T) {
-	team, err := Parse([]byte(`version = 6
+	team, err := Parse([]byte(`version = 7
 
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
 anthropic = "https://team.example.test"
 
-[profiles.team]
+[routes.team]
 label = "Team"
 account = "team"
 model = "claude-team"
+interfaces = { anthropic = [] }
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -287,7 +299,7 @@ model = "claude-team"
 		Accounts: map[string]Account{
 			"team": {Label: "Personal Gateway", Endpoints: Endpoints{Anthropic: "https://personal.example.test"}},
 		},
-		Profiles: map[string]Profile{
+		Routes: map[string]Route{
 			"local": {Label: "Local", Account: "team"},
 		},
 		Clients: nil,
@@ -303,16 +315,17 @@ model = "claude-team"
 }
 
 func TestMergeRejectsNonCanonicalLocalSchemaVersion(t *testing.T) {
-	team, err := Parse([]byte(`version = 6
+	team, err := Parse([]byte(`version = 7
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
 anthropic = "https://gateway.test"
-[profiles.team]
+[routes.team]
 label = "Team"
 purpose = "Default agent"
 account = "team"
 model = "claude-team"
+interfaces = { anthropic = [] }
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -320,29 +333,30 @@ model = "claude-team"
 	cfg := NewConfig()
 	cfg.Version = 1
 	cfg.Accounts["local"] = Account{Label: "Local", Endpoints: Endpoints{Anthropic: "https://local.test"}}
-	cfg.Profiles["local"] = Profile{Label: "Local", Account: "local", Model: "claude-local"}
+	cfg.Routes["local"] = testRoute("Local", "local", "claude-local", ProtocolAnthropic)
 	if _, err := Merge(cfg, team); err == nil || !strings.Contains(err.Error(), "unsupported config version 1") {
 		t.Fatalf("merge error = %v", err)
 	}
 }
 
 func TestMergeWithOptionsRejectsNonCanonicalConfigurationManifestVersion(t *testing.T) {
-	team := Manifest{Version: 99, Profiles: map[string]Profile{"team": {Label: "Team", Account: "team"}}}
+	team := Manifest{Version: 99, Routes: map[string]Route{"team": {Label: "Team", Account: "team"}}}
 	if _, err := MergeWithOptions(NewConfig(), team, MergeOptions{}); err == nil || !strings.Contains(err.Error(), "unsupported configuration manifest version 99") {
 		t.Fatalf("unsupported manifest version error = %v", err)
 	}
 }
 
 func TestMergeDefaultsToFirstImportedProfileWhenNeitherSideChoosesADefault(t *testing.T) {
-	team, err := Parse([]byte(`version = 6
+	team, err := Parse([]byte(`version = 7
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
 anthropic = "https://team.test"
-[profiles.solo]
+[routes.solo]
 label = "Solo"
 account = "team"
 model = "claude-solo"
+interfaces = { anthropic = [] }
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -357,30 +371,31 @@ model = "claude-solo"
 }
 
 func TestMergeRejectsConflictingModelOverrideWithOtherwiseIdenticalProfile(t *testing.T) {
-	team, err := Parse([]byte(`version = 6
+	team, err := Parse([]byte(`version = 7
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
 openai_responses = "https://team.example.test/v1"
-[profiles.shared]
+[routes.shared]
 label = "TeamProfile"
 account = "team"
 model = "team-model"
+interfaces = { openai_responses = [] }
 `))
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team Gateway", Endpoints: Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
-	cfg.Profiles["shared"] = Profile{Label: "TeamProfile", Account: "team", Model: "personal-model"}
+	cfg.Routes["shared"] = testRoute("TeamProfile", "team", "personal-model", ProtocolOpenAIResponses)
 
-	if _, err := Merge(cfg, team); err == nil || !strings.Contains(err.Error(), `profile "shared" conflicts`) {
+	if _, err := Merge(cfg, team); err == nil || !strings.Contains(err.Error(), `route "shared" conflicts`) {
 		t.Fatalf("model-only conflict error = %v", err)
 	}
 }
 
 func TestMergeTreatsIdenticalAccountProbesAsEquivalent(t *testing.T) {
-	team, err := Parse([]byte(`version = 6
+	team, err := Parse([]byte(`version = 7
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
@@ -388,10 +403,11 @@ anthropic = "https://team.example.test"
 [accounts.team.account_probe]
 kind = "dmxapi"
 base_url = "https://team.example.test/probe"
-[profiles.team]
+[routes.team]
 label = "Team"
 account = "team"
 model = "claude-team"
+interfaces = { anthropic = [] }
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -402,7 +418,7 @@ model = "claude-team"
 		Endpoints:    Endpoints{Anthropic: "https://team.example.test"},
 		AccountProbe: &AccountProbe{Kind: "dmxapi", BaseURL: "https://team.example.test/probe/"},
 	}
-	cfg.Profiles["local"] = Profile{Label: "Local", Account: "team", Model: "claude-local"}
+	cfg.Routes["local"] = testRoute("Local", "team", "claude-local", ProtocolAnthropic)
 
 	got, err := Merge(cfg, team)
 	if err != nil {

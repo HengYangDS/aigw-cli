@@ -23,8 +23,8 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{Anthropic: "https://example.test"}}
-	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude Fable", Account: "dmx", Model: "claude-fable-5"}
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude-fable-5")
+	cfg.Routes["claude-fable-5"] = qualifiedRoute("Claude Fable", "dmx", "claude-fable-5", configuration.ProtocolAnthropic)
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude-fable-5")
 	cfg.SetClientActivation(configuration.ClientClaude, true, claudeExecutable, nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -55,10 +55,10 @@ func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-test"}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "dmx", Model: "claude-test"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", configuration.ProtocolAnthropic)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	cfg.SetClientActivation(configuration.ClientCodex, true, "", nil)
 	synchronizeClaudeProjection(t, app, cfg)
@@ -175,7 +175,7 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 		{name: "config load", args: []string{"verify", "--for", "codex"}, prep: func(app *cli.App) { app.Config = configuration.NewStore(t.TempDir()) }, want: "read config"},
 		{name: "unknown profile", args: []string{"verify", "--for", "codex", "--profile", "missing"}, prep: func(app *cli.App) {
 			saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
-		}, want: "unknown profile"},
+		}, want: "unknown route"},
 		{name: "disabled Codex adapter", args: []string{"verify", "--for", "codex"}, prep: func(app *cli.App) {
 			saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		}, want: "Codex adapter is disabled"},
@@ -194,10 +194,10 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 		{name: "all with unavailable Codex executable", args: []string{"verify", "--for", "all"}, prep: func(app *cli.App) {
 			cfg := configuration.NewConfig()
 			cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}}
-			cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Model: "claude-test"}
-			cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Model: "gpt-test"}
-			cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
-			cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
+			cfg.Routes["claude"] = qualifiedRoute("Claude", "one", "claude-test", configuration.ProtocolAnthropic)
+			cfg.Routes["codex"] = qualifiedRoute("Codex", "one", "gpt-test", configuration.ProtocolOpenAIResponses)
+			cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+			cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
 			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 			cfg.SetClientActivation(configuration.ClientCodex, true, "", nil)
 			synchronizeClaudeProjection(t, app, cfg)
@@ -224,8 +224,8 @@ func TestVerifyCodexRunsTheConfiguredClientOnceAndReportsItsIdentity(t *testing.
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-test"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	executable := executableFixture(t, "codex")
 	root := t.TempDir()
 	targets := []string{
@@ -293,12 +293,8 @@ func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 			OpenAIResponses: "https://example.test/v1",
 		},
 	}
-	cfg.Profiles["gpt"] = configuration.Profile{
-		Label:   "GPT",
-		Account: "dmx",
-		Model:   "gpt-test",
-	}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -346,8 +342,8 @@ func TestVerifyUsesExplicitClientWithProfileOverride(t *testing.T) {
 	app, _, _, runner, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-test"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
+	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -383,10 +379,10 @@ func readyVerificationApp(t *testing.T) (*cli.App, *fakeRunner) {
 	app, _, secretStore, runner, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Model: "gpt-test"}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "dmx", Model: "claude-test"}
-	cfg.SetSelectedProfile(configuration.ClientCodex, "gpt")
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
+	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", configuration.ProtocolAnthropic)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
@@ -430,9 +426,9 @@ func TestVerifyAllPreservesConfigurationChangedDuringLiveRequest(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		profile := cfg.Profiles["gpt"]
+		profile := cfg.Routes["gpt"]
 		profile.Model = "newer-model"
-		cfg.Profiles["gpt"] = profile
+		cfg.Routes["gpt"] = profile
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -448,7 +444,7 @@ func TestVerifyAllPreservesConfigurationChangedDuringLiveRequest(t *testing.T) {
 		t.Fatalf("stale live verification was accepted: %v", err)
 	}
 	current, err := app.Config.Load()
-	if err != nil || current.Profiles["gpt"].Model != "newer-model" {
+	if err != nil || current.Routes["gpt"].Model != "newer-model" {
 		t.Fatalf("newer configuration was lost: %v", err)
 	}
 	checkpoint, err := os.ReadFile(app.Config.Path() + ".verified.json")
@@ -469,7 +465,7 @@ func TestVerifyAllWritesVerifiedCheckpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(checkpoint.Clients) != 2 || checkpoint.Config.SelectedProfile(configuration.ClientCodex) != "gpt" {
+	if len(checkpoint.Clients) != 2 || checkpoint.Config.SelectedRoute(configuration.ClientCodex) != "gpt" {
 		t.Fatalf("checkpoint = %#v", checkpoint)
 	}
 }

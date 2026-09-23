@@ -66,10 +66,12 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 		t.Fatalf("enabled diagnostic status = %q", got)
 	}
 
-	cfg.Profiles["codex-only"] = configuration.Profile{Label: "Codex only", Purpose: "Selection", Account: "one", Model: "gpt-test"}
+	cfg.Routes["codex-only"] = configuration.Route{
+		Label: "Codex only", Purpose: "Selection", Account: "one", Model: "gpt-test",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+	}
 	delete(cfg.Clients, configuration.ClientCodex)
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude only", Account: "one", Model: "claude-test"}
-	cfg.SetRecommendedProfile(configuration.ClientCodex, "claude")
+	cfg.SetRecommendedRoute(configuration.ClientCodex, "codex-only")
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +79,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := buffer.String(); !strings.Contains(got, "aigw use --for codex claude") {
+	if got := buffer.String(); !strings.Contains(got, "aigw use --for codex codex-only") {
 		t.Fatalf("route selection status = %q", got)
 	}
 }
@@ -310,7 +312,7 @@ func TestStatusFallsBackToRepairForUnclassifiedAttention(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Out: out, RenderOut: out, Width: 120}
 	cfg := configuration.NewConfig()
-	cfg.Profiles["available"] = configuration.Profile{Label: "Available"}
+	cfg.Routes["available"] = configuration.Route{Label: "Available"}
 	clients := map[string]clientStatus{}
 	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		state := domainreadiness.Client{State: domainreadiness.Invalid}
@@ -346,9 +348,9 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 
 func TestStatusReportsSelectedUnknownProfile(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	cfg.SetSelectedProfile(configuration.ClientClaude, "missing")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "missing")
 	state := inspectStatusClients(runtime, cfg)[configuration.ClientClaude]
-	if state.State != domainreadiness.Invalid || state.Profile != "missing" || !strings.Contains(state.Detail, `unknown profile "missing"`) {
+	if state.State != domainreadiness.Invalid || state.Profile != "missing" || !strings.Contains(state.Detail, `unknown route "missing"`) {
 		t.Fatalf("Claude status = %#v", state)
 	}
 }

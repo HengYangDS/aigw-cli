@@ -93,7 +93,7 @@ func TestFileSHA256RejectsADirectory(t *testing.T) {
 }
 
 func TestVerificationPlanRejectsIncompleteInputs(t *testing.T) {
-	runtime := configuration.Runtime{ProfileID: "codex", Model: "gpt-test"}
+	runtime := configuration.Runtime{RouteID: "codex", Model: "gpt-test"}
 	for _, test := range []struct {
 		name       string
 		executable string
@@ -104,7 +104,7 @@ func TestVerificationPlanRejectsIncompleteInputs(t *testing.T) {
 	}{
 		{name: "missing executable", configPath: "config.toml", outputPath: "output.txt", runtime: runtime, want: "not configured"},
 		{name: "missing config", executable: "codex", outputPath: "output.txt", runtime: runtime, want: "target is not configured"},
-		{name: "missing model", executable: "codex", configPath: "config.toml", outputPath: "output.txt", runtime: configuration.Runtime{ProfileID: "codex"}, want: "has no Codex model"},
+		{name: "missing model", executable: "codex", configPath: "config.toml", outputPath: "output.txt", runtime: configuration.Runtime{RouteID: "codex"}, want: "has no Codex model"},
 		{name: "missing output", executable: "codex", configPath: "config.toml", runtime: runtime, want: "output path is not configured"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -121,7 +121,7 @@ func TestVerificationPlanPreservesCredentialHelperEnvironment(t *testing.T) {
 	t.Setenv("AIGW_TOKEN_GATEWAY", "fixture-token")
 	t.Setenv("CODEX_HOME", filepath.Join(t.TempDir(), "ambient-home"))
 	home := t.TempDir()
-	plan, err := VerificationPlan("codex", filepath.Join(home, "config.toml"), filepath.Join(t.TempDir(), "output.txt"), configuration.Runtime{ProfileID: "codex", Model: "gpt-test"})
+	plan, err := VerificationPlan("codex", filepath.Join(home, "config.toml"), filepath.Join(t.TempDir(), "output.txt"), configuration.Runtime{RouteID: "codex", Model: "gpt-test"})
 	if err != nil {
 		t.Fatal(err)
 	}

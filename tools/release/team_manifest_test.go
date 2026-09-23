@@ -74,12 +74,12 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected, err = selected.SelectProfilesForConnectedAccounts([]string{account}, plan.clients...)
+	selected, err = selected.SelectRoutesForConnectedAccounts([]string{account}, plan.clients...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, client := range plan.clients {
-		profile := selected.SelectedProfile(client)
+		profile := selected.SelectedRoute(client)
 		if profile == "" {
 			t.Fatalf("Account %q has no compatible recommended Profile for %s", account, client)
 		}
@@ -94,7 +94,7 @@ func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *jo
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Accounts) != len(plan.manifest.Accounts) || len(cfg.Profiles) != len(plan.manifest.Profiles) {
+	if len(cfg.Accounts) != len(plan.manifest.Accounts) || len(cfg.Routes) != len(plan.manifest.Routes) {
 		t.Fatal("setup lost reviewed team capabilities")
 	}
 	for _, clientID := range plan.clients {
@@ -102,8 +102,8 @@ func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *jo
 		if err != nil || selected.AccountID != account || !cfg.Clients[clientID].Enabled {
 			t.Fatalf("one connected Account did not activate %s: %#v, %v", clientID, selected, err)
 		}
-		recommended := plan.manifest.Profiles[plan.manifest.Recommendations[clientID].Profile]
-		offered := slices.ContainsFunc(slices.Collect(maps.Values(plan.manifest.Profiles)), func(profile configuration.Profile) bool {
+		recommended := plan.manifest.Routes[plan.manifest.Recommendations[clientID].Primary.Route]
+		offered := slices.ContainsFunc(slices.Collect(maps.Values(plan.manifest.Routes)), func(profile configuration.Route) bool {
 			return profile.Account == account && profile.Model == recommended.Model
 		})
 		if offered && selected.Model != recommended.Model {

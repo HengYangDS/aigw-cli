@@ -74,8 +74,8 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 	if len(result.Recommendations) > 0 {
 		recommendations := make([]string, 0, len(result.Recommendations))
 		for _, client := range configuration.AdmittedClientIDs() {
-			if selection, exists := result.Recommendations[client]; exists {
-				recommendations = append(recommendations, client+"="+selection.Profile)
+			if recommendation, exists := result.Recommendations[client]; exists {
+				recommendations = append(recommendations, client+"="+recommendation.Primary.Route)
 			}
 		}
 		renderer.Row("Recommendations", strings.Join(recommendations, ", "))
@@ -98,7 +98,7 @@ func renderMigrationClients(renderer *presentation.Renderer, bindings map[string
 		if !exists {
 			continue
 		}
-		detail := binding.Profile
+		detail := binding.Route
 		if detail == "" {
 			detail = "disabled"
 		}

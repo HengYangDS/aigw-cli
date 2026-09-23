@@ -31,7 +31,7 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Accounts) != 2 || len(cfg.Profiles) != 3 {
+	if len(cfg.Accounts) != 2 || len(cfg.Routes) != 3 {
 		t.Fatalf("imported catalogue = %#v", cfg)
 	}
 	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
@@ -82,9 +82,9 @@ func TestSetupFromConfigurationManifestProjectsClientNativeCodexWithoutAccountTo
 			AutoManaged: true,
 		}},
 	}}
-	manifestPath := writeConfigurationManifest(t, `version = 6
-[recommendations.codex]
-profile = "bedrock"
+	manifestPath := writeConfigurationManifest(t, `version = 7
+[recommendations.codex.primary]
+route = "bedrock"
 model_provider = "amazon-bedrock"
 authentication = "client-native"
 
@@ -93,10 +93,15 @@ label = "AWS"
 [accounts.aws.endpoints]
 openai_responses = "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"
 
-[profiles.bedrock]
+[models.gpt-5-6-sol]
+label = "GPT-5.6 Sol"
+
+[routes.bedrock]
 label = "AWS Bedrock"
 account = "aws"
-model = "openai.gpt-5.6-sol"
+model = "gpt-5-6-sol"
+upstream_model = "openai.gpt-5.6-sol"
+interfaces = { openai_responses = ["text", "reasoning", "streaming", "tools"] }
 `)
 
 	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--json"}); err != nil {
@@ -238,7 +243,7 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 			}
 			for _, client := range configuration.AdmittedClientIDs() {
 				_, installed := test.installed[client]
-				selected := cfg.SelectedProfile(client) != ""
+				selected := cfg.SelectedRoute(client) != ""
 				if cfg.Clients[client].Enabled != selected {
 					t.Errorf("%s enabled intent = %v, want %v", client, cfg.Clients[client].Enabled, selected)
 				}
@@ -324,7 +329,7 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if selected := cfg.SelectedProfile(configuration.ClientCodex); selected != "dmxapi-gpt" {
+			if selected := cfg.SelectedRoute(configuration.ClientCodex); selected != "dmxapi-gpt" {
 				t.Fatalf("Codex selected Profile = %q", selected)
 			}
 			projectedRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")

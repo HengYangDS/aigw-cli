@@ -19,8 +19,8 @@ func atomicTestRuntime() configuration.Runtime {
 	}
 	return configuration.Runtime{
 		CredentialCommand: executable,
-		ProfileID:         "gpt-5.6-terra",
-		ProfileLabel:      "GPT-5.6 Terra",
+		RouteID:           "gpt-5.6-terra",
+		RouteLabel:        "GPT-5.6 Terra",
 		AccountID:         "gateway",
 		Client:            configuration.ClientCodex,
 		Endpoint:          "http://127.0.0.1:48721/v1",

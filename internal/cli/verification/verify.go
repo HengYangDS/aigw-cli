@@ -71,7 +71,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if result.Version != "" || result.SHA256 != "" {
 					r.Detail(fmt.Sprintf("%s client: %s · SHA-256 %s", invocation.Title(target), result.Version, result.SHA256))
 				}
-				r.Status(presentation.OK, invocation.Title(target), clientRuntime.ProfileID+" · Completed")
+				r.Status(presentation.OK, invocation.Title(target), clientRuntime.RouteID+" · Completed")
 			}
 			if client == "all" {
 				if err := runtime.Config.SaveVerifiedCheckpoint(cmd.Context(), cfg, clients); err != nil {

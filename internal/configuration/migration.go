@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 )
 
 // LegacyConfigVersion is the sole predecessor schema accepted by the explicit
 // migration operation. Normal configuration reads accept ConfigVersion only.
-const LegacyConfigVersion = 3
+const LegacyConfigVersion = 5
 
 // MigrationDirection identifies the only two bounded schema transitions.
 type MigrationDirection string
@@ -27,14 +28,14 @@ const (
 // MigrationPlan is a secret-free preview bound to the exact configuration
 // preimage from which it was prepared.
 type MigrationPlan struct {
-	Required        bool                       `json:"required"`
-	Direction       MigrationDirection         `json:"direction"`
-	FromVersion     int                        `json:"from_version"`
-	ToVersion       int                        `json:"to_version"`
-	Accounts        []string                   `json:"accounts"`
-	Profiles        []string                   `json:"profiles"`
-	Clients         map[string]ClientBinding   `json:"clients"`
-	Recommendations map[string]ClientSelection `json:"recommendations"`
+	Required        bool                            `json:"required"`
+	Direction       MigrationDirection              `json:"direction"`
+	FromVersion     int                             `json:"from_version"`
+	ToVersion       int                             `json:"to_version"`
+	Accounts        []string                        `json:"accounts"`
+	Profiles        []string                        `json:"profiles"`
+	Clients         map[string]ClientBinding        `json:"clients"`
+	Recommendations map[string]ClientRecommendation `json:"recommendations"`
 
 	path   string
 	before Snapshot
@@ -42,40 +43,38 @@ type MigrationPlan struct {
 }
 
 type legacyConfig struct {
-	Version           int                      `toml:"version"`
-	Accounts          map[string]legacyAccount `toml:"accounts"`
-	Profiles          map[string]legacyProfile `toml:"profiles"`
-	Routes            map[string]string        `toml:"routes"`
-	RecommendedRoutes map[string]string        `toml:"recommended_routes,omitempty"`
-	Adapters          map[string]legacyAdapter `toml:"adapters,omitempty"`
-}
-
-type legacyAccount struct {
-	Label        string          `toml:"label"`
-	Endpoints    legacyEndpoints `toml:"endpoints"`
-	AccountProbe *AccountProbe   `toml:"account_probe,omitempty"`
-}
-
-type legacyEndpoints struct {
-	OpenAIResponses string `toml:"openai_responses,omitempty"`
-	Anthropic       string `toml:"anthropic,omitempty"`
+	Version         int                        `toml:"version"`
+	Accounts        map[string]Account         `toml:"accounts"`
+	Profiles        map[string]legacyProfile   `toml:"profiles"`
+	Recommendations map[string]legacySelection `toml:"recommendations,omitempty"`
+	Clients         map[string]legacyBinding   `toml:"clients,omitempty"`
 }
 
 type legacyProfile struct {
-	Label          string         `toml:"label"`
-	Purpose        string         `toml:"purpose,omitempty"`
-	Account        string         `toml:"account"`
-	Client         string         `toml:"client"`
-	Model          string         `toml:"model"`
-	ModelProvider  string         `toml:"model_provider,omitempty"`
-	Authentication Authentication `toml:"authentication,omitempty"`
+	Label     string             `toml:"label"`
+	Purpose   string             `toml:"purpose,omitempty"`
+	Account   string             `toml:"account"`
+	Model     string             `toml:"model"`
+	Tier      string             `toml:"tier,omitempty"`
+	Protocols []EndpointProtocol `toml:"protocols,omitempty"`
 }
 
-type legacyAdapter struct {
-	Enabled           bool     `toml:"enabled"`
-	Executable        string   `toml:"executable,omitempty"`
-	Targets           []string `toml:"targets,omitempty"`
-	CredentialCommand string   `toml:"credential_command,omitempty"`
+type legacySelection struct {
+	Profile        string           `toml:"profile,omitempty"`
+	Protocol       EndpointProtocol `toml:"protocol,omitempty"`
+	ModelProvider  string           `toml:"model_provider,omitempty"`
+	Authentication Authentication   `toml:"authentication,omitempty"`
+}
+
+type legacyBinding struct {
+	Profile           string           `toml:"profile,omitempty"`
+	Enabled           bool             `toml:"enabled"`
+	Protocol          EndpointProtocol `toml:"protocol,omitempty"`
+	ModelProvider     string           `toml:"model_provider,omitempty"`
+	Authentication    Authentication   `toml:"authentication,omitempty"`
+	Executable        string           `toml:"executable,omitempty"`
+	Targets           []string         `toml:"targets,omitempty"`
+	CredentialCommand string           `toml:"credential_command,omitempty"`
 }
 
 // PrepareMigration reads either the current configuration or its one-version
@@ -181,62 +180,44 @@ func configurationVersion(data []byte) (int, error) {
 func migrateLegacyConfig(legacy legacyConfig) (Config, error) {
 	cfg := NewConfig()
 	for id, account := range legacy.Accounts {
-		cfg.Accounts[id] = migratedAccount(account)
+		if account.AccountProbe != nil {
+			probe := *account.AccountProbe
+			account.AccountProbe = &probe
+		}
+		cfg.Accounts[id] = account
 	}
 	for _, id := range slices.Sorted(maps.Keys(legacy.Profiles)) {
 		profile := legacy.Profiles[id]
-		if !legacyClient(profile.Client) {
-			return Config{}, fmt.Errorf("profile %q has unknown client %q", id, profile.Client)
+		if strings.TrimSpace(profile.Model) == "" {
+			return Config{}, fmt.Errorf("profile %q has no model", id)
 		}
-		account, exists := cfg.Accounts[profile.Account]
-		if !exists {
+		if _, exists := cfg.Accounts[profile.Account]; !exists {
 			return Config{}, fmt.Errorf("profile %q references unknown account %q", id, profile.Account)
 		}
-		account.ID = profile.Account
-		_, protocol, err := mustClientSpec(profile.Client).ResolveEndpoint(account, "")
-		if err != nil {
-			return Config{}, fmt.Errorf("profile %q: %w", id, err)
+		if len(profile.Protocols) == 0 {
+			return Config{}, fmt.Errorf("profile %q has no explicit protocol and cannot be migrated without guessing", id)
 		}
-		cfg.Profiles[id] = Profile{Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account, Model: profile.Model, Protocols: []EndpointProtocol{protocol}}
+		if _, exists := cfg.Models[profile.Model]; !exists {
+			cfg.Models[profile.Model] = Model{Label: profile.Model}
+		}
+		interfaces := make(map[EndpointProtocol][]Capability, len(profile.Protocols))
+		for _, protocol := range profile.Protocols {
+			interfaces[protocol] = []Capability{}
+		}
+		cfg.Routes[id] = Route{
+			Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account,
+			Model: profile.Model, UpstreamModel: profile.Model, Interfaces: interfaces,
+		}
 	}
-	for client, profileID := range legacy.RecommendedRoutes {
-		selection, err := migrateLegacySelection(legacy, client, profileID)
-		if err != nil {
-			return Config{}, fmt.Errorf("recommended route %q: %w", client, err)
-		}
-		cfg.Recommendations[client] = selection
+	for client, selection := range legacy.Recommendations {
+		cfg.Recommendations[client] = ClientRecommendation{Primary: migrateLegacySelection(selection)}
 	}
-	for client, profileID := range legacy.Routes {
-		selection, err := migrateLegacySelection(legacy, client, profileID)
-		if err != nil {
-			return Config{}, fmt.Errorf("route %q: %w", client, err)
-		}
-		adapter := legacy.Adapters[client]
+	for client, binding := range legacy.Clients {
 		cfg.Clients[client] = ClientBinding{
-			Profile: selection.Profile, Protocol: selection.Protocol,
-			ModelProvider: selection.ModelProvider, Authentication: selection.Authentication,
-			Enabled: adapter.Enabled, Executable: adapter.Executable,
-			Targets: slices.Clone(adapter.Targets), CredentialCommand: adapter.CredentialCommand,
-		}
-	}
-	for client, adapter := range legacy.Adapters {
-		if !legacyClient(client) {
-			return Config{}, fmt.Errorf("unknown adapter %q", client)
-		}
-		if _, selected := cfg.Clients[client]; selected {
-			continue
-		}
-		if adapter.Enabled || adapter.Executable != "" || len(adapter.Targets) > 0 || adapter.CredentialCommand != "" {
-			return Config{}, fmt.Errorf("adapter %q has client-specific options but no selected route", client)
-		}
-		cfg.Clients[client] = ClientBinding{}
-	}
-	for id, profile := range legacy.Profiles {
-		if profile.ModelProvider == "" && profile.Authentication == "" {
-			continue
-		}
-		if legacy.Routes[profile.Client] != id && legacy.RecommendedRoutes[profile.Client] != id {
-			return Config{}, fmt.Errorf("profile %q has client-specific options without an active or recommended selection", id)
+			Route: binding.Profile, Enabled: binding.Enabled, Protocol: binding.Protocol,
+			ModelProvider: binding.ModelProvider, Authentication: binding.Authentication,
+			Executable: binding.Executable, Targets: slices.Clone(binding.Targets),
+			CredentialCommand: binding.CredentialCommand,
 		}
 	}
 	if err := cfg.Validate(); err != nil {
@@ -245,42 +226,11 @@ func migrateLegacyConfig(legacy legacyConfig) (Config, error) {
 	return cfg, nil
 }
 
-func migrateLegacySelection(legacy legacyConfig, client, profileID string) (ClientSelection, error) {
-	if !legacyClient(client) {
-		return ClientSelection{}, fmt.Errorf("unknown client %q", client)
-	}
-	profile, exists := legacy.Profiles[profileID]
-	if !exists {
-		return ClientSelection{}, fmt.Errorf("references unknown profile %q", profileID)
-	}
-	if profile.Client != client {
-		return ClientSelection{}, fmt.Errorf("profile %q is for %s, not %s", profileID, profile.Client, client)
-	}
-	account := migratedAccount(legacy.Accounts[profile.Account])
-	account.ID = profile.Account
-	_, protocol, err := mustClientSpec(client).ResolveEndpoint(account, "")
-	if err != nil {
-		return ClientSelection{}, err
-	}
+func migrateLegacySelection(selection legacySelection) ClientSelection {
 	return ClientSelection{
-		Profile: profileID, Protocol: protocol,
-		ModelProvider: profile.ModelProvider, Authentication: profile.Authentication,
-	}, nil
-}
-
-func migratedAccount(account legacyAccount) Account {
-	return Account{
-		Label: account.Label,
-		Endpoints: Endpoints{
-			OpenAIResponses: account.Endpoints.OpenAIResponses,
-			Anthropic:       account.Endpoints.Anthropic,
-		},
-		AccountProbe: account.AccountProbe,
+		Route: selection.Profile, Protocol: selection.Protocol,
+		ModelProvider: selection.ModelProvider, Authentication: selection.Authentication,
 	}
-}
-
-func legacyClient(client string) bool {
-	return client == ClientClaude || client == ClientCodex
 }
 
 func summarizeMigration(path string, before Snapshot, cfg Config, data []byte, required bool, direction MigrationDirection) MigrationPlan {
@@ -292,7 +242,7 @@ func summarizeMigration(path string, before Snapshot, cfg Config, data []byte, r
 	}
 	return MigrationPlan{
 		Required: required, Direction: direction, FromVersion: from, ToVersion: to,
-		Accounts: slices.Sorted(maps.Keys(cfg.Accounts)), Profiles: cfg.ProfileIDs(),
+		Accounts: slices.Sorted(maps.Keys(cfg.Accounts)), Profiles: cfg.RouteIDs(),
 		Clients: maps.Clone(cfg.Clients), Recommendations: maps.Clone(cfg.Recommendations),
 		path: path, before: before, data: slices.Clone(data),
 	}

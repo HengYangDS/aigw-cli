@@ -74,7 +74,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 			tokens[item.account] = item.token
 		}
 	}
-	cfg, err = cfg.SelectProfilesForConnectedAccounts(connectedAccounts)
+	cfg, err = cfg.SelectRoutesForConnectedAccounts(connectedAccounts)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func buildManifestSetupResult(
 	result := manifestSetupResult{
 		Imported: manifestSetupImported{
 			Accounts: append([]string(nil), accountNames...),
-			Profiles: cfg.ProfileIDs(),
+			Profiles: cfg.RouteIDs(),
 		},
 		ConnectedAccounts: make([]string, 0, len(connected)),
 		SelectedBindings:  make(map[string]string, len(cfg.Clients)),
@@ -139,8 +139,8 @@ func buildManifestSetupResult(
 		}
 	}
 	for client, binding := range cfg.Clients {
-		if binding.Profile != "" {
-			result.SelectedBindings[client] = binding.Profile
+		if binding.Route != "" {
+			result.SelectedBindings[client] = binding.Route
 		}
 	}
 	needsAccountToken := len(accountVariables) > 0
@@ -153,7 +153,7 @@ func buildManifestSetupResult(
 	}
 	for _, spec := range configuration.AdmittedClientSpecs() {
 		binding, selected := cfg.Clients[spec.ID]
-		if !selected || binding.Profile == "" || !binding.Enabled || slices.Contains(result.ProjectedClients, spec.ID) {
+		if !selected || binding.Route == "" || !binding.Enabled || slices.Contains(result.ProjectedClients, spec.ID) {
 			continue
 		}
 		if !availableClients[spec.ID] {
@@ -277,7 +277,7 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg configurati
 
 func configuredClientsForAccount(cfg configuration.Config, accountName string) []string {
 	seen := map[string]bool{}
-	for profileID, profile := range cfg.Profiles {
+	for profileID, profile := range cfg.Routes {
 		if profile.Account != accountName {
 			continue
 		}
@@ -299,10 +299,12 @@ func configuredClientsForAccount(cfg configuration.Config, accountName string) [
 }
 
 func accountHasRecommendedTokenSelection(cfg configuration.Config, accountName string) bool {
-	for _, selection := range cfg.Recommendations {
-		profile := cfg.Profiles[selection.Profile]
-		if profile.Account == accountName && selection.Authentication != configuration.AuthenticationClientNative {
-			return true
+	for _, recommendation := range cfg.Recommendations {
+		for _, selection := range recommendation.Selections() {
+			route := cfg.Routes[selection.Route]
+			if route.Account == accountName && selection.Authentication != configuration.AuthenticationClientNative {
+				return true
+			}
 		}
 	}
 	return false

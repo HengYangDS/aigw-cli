@@ -109,10 +109,16 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, configuration
 			OpenAIResponses: "https://codex.example.test/v1",
 		},
 	}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Model: "claude-test"}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Model: "gpt-test"}
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
-	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
+	cfg.Routes["claude"] = configuration.Route{
+		Label: "Claude", Account: "one", Model: "claude-test",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+	}
+	cfg.Routes["codex"] = configuration.Route{
+		Label: "Codex", Account: "one", Model: "gpt-test",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+	}
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

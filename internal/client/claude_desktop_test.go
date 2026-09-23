@@ -40,11 +40,11 @@ func newClaudeDesktopFixture(t *testing.T) claudeDesktopFixture {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test/v1"}}
 	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{Anthropic: "https://other.test/v1"}}
-	cfg.Profiles["alternate"] = configuration.Profile{Label: "Opus 5", Account: "gateway", Model: "claude-opus-5", Protocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic}}
-	cfg.Profiles["manual"] = configuration.Profile{Label: "Manual", Account: "gateway", Model: "manual-model"}
-	cfg.Profiles["other-account"] = configuration.Profile{Label: "Other", Account: "other", Model: "other-model", Protocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic}}
-	cfg.Profiles["selected"] = configuration.Profile{Label: "Fable 5.1", Account: "gateway", Model: "claude-fable-5-1", Protocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic}}
-	cfg.SetSelectedProfile(configuration.ClientClaudeDesktop, "selected")
+	cfg.Routes["alternate"] = configuration.Route{Label: "Opus 5", Account: "gateway", Model: "claude-opus-5", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.Routes["manual"] = configuration.Route{Label: "Manual", Account: "gateway", Model: "manual-model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.Routes["other-account"] = configuration.Route{Label: "Other", Account: "other", Model: "other-model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.Routes["selected"] = configuration.Route{Label: "Fable 5.1", Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "selected")
 	cfg.SetClientActivation(configuration.ClientClaudeDesktop, true, executable, []string{library})
 	store := secrets.NewMemoryStore()
 	if err := store.Set("gateway", "secret"); err != nil {
@@ -90,10 +90,10 @@ func TestClaudeDesktopAdapterProjectsSelectedAccountCatalogue(t *testing.T) {
 		t.Fatal(err)
 	}
 	models, ok := profile["inferenceModels"].([]any)
-	if !ok || len(models) != 2 {
+	if !ok || len(models) != 3 {
 		t.Fatalf("models = %#v", profile["inferenceModels"])
 	}
-	for index, want := range []string{"claude-fable-5-1", "claude-opus-5"} {
+	for index, want := range []string{"claude-fable-5-1", "claude-opus-5", "manual-model"} {
 		model, ok := models[index].(map[string]any)
 		if !ok || model["name"] != want {
 			t.Fatalf("model %d = %#v, want %q", index, models[index], want)
@@ -163,7 +163,7 @@ func TestClaudeDesktopProjectionChangeDetection(t *testing.T) {
 		t.Fatal("target change was not detected")
 	}
 	recatalogued := fixture.cfg.Clone()
-	recatalogued.Profiles["daily"] = configuration.Profile{Label: "Daily", Account: "gateway", Model: "claude-daily", Protocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic}}
+	recatalogued.Routes["daily"] = configuration.Route{Label: "Daily", Account: "gateway", Model: "claude-daily", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	if !fixture.adapter.ProjectionChanged(fixture.cfg, recatalogued) {
 		t.Fatal("catalogue change was not detected")
 	}
@@ -181,8 +181,8 @@ func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *test
 	library := filepath.Join(root, "Claude-3p", "configLibrary")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test/v1"}}
-	cfg.Profiles["selected"] = configuration.Profile{Account: "gateway", Model: "claude-fable-5-1", Protocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic}}
-	cfg.SetSelectedProfile(configuration.ClientClaudeDesktop, "selected")
+	cfg.Routes["selected"] = configuration.Route{Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "selected")
 	cfg.SetClientActivation(configuration.ClientClaudeDesktop, true, "", nil)
 	store := secrets.NewMemoryStore()
 	if err := store.Set("gateway", "secret"); err != nil {

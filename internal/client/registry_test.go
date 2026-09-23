@@ -218,10 +218,10 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 			OpenAIResponses: "http://127.0.0.1:9876/v1",
 		},
 	}
-	before.Profiles["claude"] = configuration.Profile{Account: "direct", Model: "claude-test"}
-	before.Profiles["codex"] = configuration.Profile{Account: "gateway", Model: "gpt-test"}
-	before.SetSelectedProfile(configuration.ClientClaude, "claude")
-	before.SetSelectedProfile(configuration.ClientCodex, "codex")
+	before.Routes["claude"] = qualifiedRoute("", "direct", "claude-test", configuration.ProtocolAnthropic)
+	before.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
+	before.SetSelectedRoute(configuration.ClientClaude, "claude")
+	before.SetSelectedRoute(configuration.ClientCodex, "codex")
 	before.SetClientActivation(configuration.ClientClaude, true, "/clients/claude", nil)
 	before.SetClientActivation(configuration.ClientCodex, true, "/clients/codex", []string{"/clients/codex.toml"})
 	wantUnchanged := before.Clone()
@@ -387,10 +387,10 @@ func TestDefaultRegistryConvergesConfiguredExecutablesConservatively(t *testing.
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
-	cfg.Profiles["claude"] = configuration.Profile{Account: "gateway", Model: "claude-test"}
-	cfg.Profiles["codex"] = configuration.Profile{Account: "gateway", Model: "gpt-test"}
-	cfg.SetSelectedProfile(configuration.ClientClaude, "claude")
-	cfg.SetSelectedProfile(configuration.ClientCodex, "codex")
+	cfg.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
+	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
 	cfg.SetClientActivation(configuration.ClientClaude, true, missing, nil)
 
 	after, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, configuration.ClientClaude)
@@ -427,8 +427,8 @@ func TestDefaultRegistryIgnoresOnlyAnUnselectedRoute(t *testing.T) {
 
 		t.Run(clientID+" with a broken route", func(t *testing.T) {
 			cfg := configuration.NewConfig()
-			cfg.SetSelectedProfile(clientID, "missing-profile")
-			if _, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown profile "missing-profile"`) {
+			cfg.SetSelectedRoute(clientID, "missing-profile")
+			if _, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown route "missing-profile"`) {
 				t.Fatalf("Converge(%q) broken route error = %v", clientID, err)
 			}
 		})
@@ -438,8 +438,9 @@ func TestDefaultRegistryIgnoresOnlyAnUnselectedRoute(t *testing.T) {
 func TestDefaultRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Profiles["claude"] = configuration.Profile{
-		Account: "gateway", Model: "claude-test", Protocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic},
+	cfg.Routes["claude"] = configuration.Route{
+		Account: "gateway", Model: "claude-test",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
 	store := secrets.NewMemoryStore()
 	if err := store.Set("gateway", "fixture-token"); err != nil {
@@ -450,7 +451,7 @@ func TestDefaultRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 	for _, clientID := range []string{configuration.ClientClaudeDesktop, configuration.ClientHermes} {
 		t.Run(clientID, func(t *testing.T) {
 			deferred := cfg.Clone()
-			deferred.SetSelectedProfile(clientID, "claude")
+			deferred.SetSelectedRoute(clientID, "claude")
 			deferred.SetClientActivation(clientID, true, "", nil)
 			plans, err := DefaultRegistry().Plan(deps, configuration.NewConfig(), deferred, clientID)
 			if err != nil {
@@ -486,10 +487,10 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Model: "claude-test"}
-	before.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Model: "gpt-test"}
-	before.SetSelectedProfile(configuration.ClientClaude, "claude")
-	before.SetSelectedProfile(configuration.ClientCodex, "codex")
+	before.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
+	before.Routes["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
+	before.SetSelectedRoute(configuration.ClientClaude, "claude")
+	before.SetSelectedRoute(configuration.ClientCodex, "codex")
 	after := before.Clone()
 	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	after.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{codexTarget})

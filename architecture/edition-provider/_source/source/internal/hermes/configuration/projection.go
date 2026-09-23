@@ -82,6 +82,9 @@ type Plan struct {
 	removeConfig bool
 }
 
+// ChangesState reports whether applying the plan changes owned configuration.
+func (plan *Plan) ChangesState() bool { return plan.Action == "write" || plan.Action == "remove" }
+
 // Receipt retains the exact file snapshots needed for guarded compensation.
 type Receipt struct {
 	path         string

@@ -22,7 +22,7 @@ func response(status int, body string) *http.Response {
 }
 
 func runtime() configuration.Runtime {
-	return configuration.Runtime{ProfileID: "dmx", ProfileLabel: "DMXAPI", AccountID: "dmx", AccountLabel: "DMXAPI", Client: configuration.ClientCodex, Endpoint: "https://service.test/v1"}
+	return configuration.Runtime{RouteID: "dmx", RouteLabel: "DMXAPI", AccountID: "dmx", AccountLabel: "DMXAPI", Client: configuration.ClientCodex, Endpoint: "https://service.test/v1"}
 }
 
 func TestProbeClassifiesUsefulFailureCauses(t *testing.T) {

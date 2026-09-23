@@ -13,7 +13,7 @@ import (
 
 func TestProfileSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	before := setupConfiguration()
-	before.Profiles["next"] = configuration.Profile{Label: "Next", Account: "team", Model: "claude-next"}
+	before.Routes["next"] = configuration.Route{Label: "Next", Account: "team", Model: "claude-next", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
@@ -25,7 +25,7 @@ func TestProfileSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 		t.Fatalf("selection = %t, %v; want committed change", changed, err)
 	}
 	current, err := store.Load()
-	if err != nil || current.SelectedProfile(configuration.ClientClaude) != "next" || before.SelectedProfile(configuration.ClientClaude) != "claude" {
+	if err != nil || current.SelectedRoute(configuration.ClientClaude) != "next" || before.SelectedRoute(configuration.ClientClaude) != "claude" {
 		t.Fatalf("selection mutated its input or failed persistence: %v", err)
 	}
 	snapshot, err := store.CaptureSnapshot()
@@ -68,7 +68,7 @@ func TestProfileSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 			if token, err := credentials.Get("team"); !errors.Is(err, secrets.ErrNotFound) || token != "" {
 				t.Fatalf("failed selection retained credential: %v", err)
 			}
-			if before.SelectedProfile(configuration.ClientClaude) != "" || (phase != "persistence" && store.commits != 0) {
+			if before.SelectedRoute(configuration.ClientClaude) != "" || (phase != "persistence" && store.commits != 0) {
 				t.Fatal("failed selection modified its configuration input or committed after cancellation")
 			}
 		})
@@ -79,7 +79,7 @@ func TestProfileSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 	for _, profile := range []string{"unknown", "native"} {
 		t.Run(profile, func(t *testing.T) {
 			cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
-			cfg.Profiles["native"] = configuration.Profile{Label: "Native", Account: "gateway", Model: "model"}
+			cfg.Routes["native"] = configuration.Route{Label: "Native", Account: "gateway", Model: "model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 			binding := cfg.Clients[configuration.ClientCodex]
 			binding.ModelProvider = "provider"
 			binding.Authentication = configuration.AuthenticationClientNative

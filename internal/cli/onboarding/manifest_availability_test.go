@@ -27,10 +27,11 @@ func TestManifestCredentialVerificationUsesResolvedProtocolOnce(t *testing.T) {
 		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
 	}}
 	for _, clientID := range []string{configuration.ClientClaudeDesktop, configuration.ClientHermes} {
-		cfg.Profiles[clientID] = configuration.Profile{
-			Label: clientID, Account: "team", Model: "claude-test", Protocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic},
+		cfg.Routes[clientID] = configuration.Route{
+			Label: clientID, Account: "team", Model: "claude-test",
+			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 		}
-		cfg.SetSelectedProfile(clientID, clientID)
+		cfg.SetSelectedRoute(clientID, clientID)
 		binding := cfg.Clients[clientID]
 		binding.Protocol = configuration.ProtocolAnthropic
 		binding.Enabled = true

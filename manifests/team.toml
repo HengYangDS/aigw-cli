@@ -1,17 +1,47 @@
-version = 6
+version = 7
 
 [recommendations]
 [recommendations.claude]
-profile = 'ucloud-claude-fable-5-1'
+[recommendations.claude.primary]
+route = 'ucloud-claude-fable-5-1'
+
+[[recommendations.claude.alternatives]]
+route = 'aihubmix-claude-fable-5-1'
+
+[[recommendations.claude.alternatives]]
+route = 'dmxapi-claude-fable-5-1'
 
 [recommendations.claude-desktop]
-profile = 'ucloud-claude-fable-5-1'
+[recommendations.claude-desktop.primary]
+route = 'ucloud-claude-fable-5-1'
+
+[[recommendations.claude-desktop.alternatives]]
+route = 'aihubmix-claude-fable-5-1'
+
+[[recommendations.claude-desktop.alternatives]]
+route = 'dmxapi-claude-fable-5-1'
 
 [recommendations.codex]
-profile = 'ucloud-gpt-6-astra'
+[recommendations.codex.primary]
+route = 'ucloud-gpt-6-astra'
+
+[[recommendations.codex.alternatives]]
+route = 'aihubmix-gpt-6-astra'
+
+[[recommendations.codex.alternatives]]
+route = 'dmxapi-gpt-6-astra'
 
 [recommendations.hermes]
-profile = 'ucloud-claude-fable-5-1'
+[recommendations.hermes.primary]
+route = 'ucloud-claude-fable-5-1'
+protocol = 'anthropic'
+
+[[recommendations.hermes.alternatives]]
+route = 'aihubmix-claude-fable-5-1'
+protocol = 'anthropic'
+
+[[recommendations.hermes.alternatives]]
+route = 'dmxapi-claude-fable-5-1'
 protocol = 'anthropic'
 
 [accounts]
@@ -41,459 +71,691 @@ openai_chat_completions = 'https://api.modelverse.cn/v1'
 openai_responses = 'https://api.modelverse.cn/v1'
 anthropic = 'https://api.modelverse.cn'
 
-[profiles]
-[profiles.aihubmix-claude-fable-5-1]
+[models]
+[models.claude-fable-5-1]
+label = 'Claude Fable 5.1'
+
+[models.claude-opus-5]
+label = 'Claude Opus 5'
+
+[models.claude-sonnet-5]
+label = 'Claude Sonnet 5'
+
+[models.deepseek-v4-flash-0731]
+label = 'DeepSeek V4 Flash 0731'
+
+[models.deepseek-v4-pro-0813]
+label = 'DeepSeek V4 Pro 0813'
+
+[models.'gemini-3.1-pro-preview']
+label = 'Gemini 3.1 Pro Preview'
+
+[models.'gemini-3.8-flash']
+label = 'Gemini 3.8 Flash'
+
+[models.'glm-5.3']
+label = 'GLM 5.3'
+
+[models.'glm-5.3-flash']
+label = 'GLM 5.3 Flash'
+
+[models.'gpt-5.6-luna']
+label = 'GPT-5.6 Luna'
+
+[models.'gpt-5.6-sol']
+label = 'GPT-5.6 Sol'
+
+[models.'gpt-5.6-terra']
+label = 'GPT-5.6 Terra'
+
+[models.gpt-6-astra]
+label = 'GPT-6 Astra'
+
+[models.'grok-4.3']
+label = 'Grok 4.3'
+
+[models.'grok-4.6']
+label = 'Grok 4.6'
+
+[models.'kimi-k2.7-code-highspeed']
+label = 'Kimi K2.7 Code Highspeed'
+
+[models.kimi-k3]
+label = 'Kimi K3'
+
+[models.'qwen3.7-plus']
+label = 'Qwen 3.7 Plus'
+
+[models.'qwen3.8-max']
+label = 'Qwen 3.8 Max'
+
+[routes]
+[routes.aihubmix-claude-fable-5-1]
 label = 'AIHubMix · Claude Fable 5.1'
 account = 'aihubmix'
 model = 'claude-fable-5-1'
-protocols = ['anthropic']
+upstream_model = 'claude-fable-5-1'
 
-[profiles.aihubmix-claude-opus-5]
+[routes.aihubmix-claude-fable-5-1.interfaces]
+anthropic = []
+
+[routes.aihubmix-claude-opus-5]
 label = 'AIHubMix · Claude Opus 5'
 account = 'aihubmix'
 model = 'claude-opus-5'
-protocols = ['anthropic']
+upstream_model = 'claude-opus-5'
 
-[profiles.aihubmix-claude-sonnet-5]
+[routes.aihubmix-claude-opus-5.interfaces]
+anthropic = []
+
+[routes.aihubmix-claude-sonnet-5]
 label = 'AIHubMix · Claude Sonnet 5'
 account = 'aihubmix'
 model = 'claude-sonnet-5'
-protocols = ['anthropic']
+upstream_model = 'claude-sonnet-5'
 
-[profiles.aihubmix-deepseek-v4-flash-0731]
+[routes.aihubmix-claude-sonnet-5.interfaces]
+anthropic = []
+
+[routes.aihubmix-deepseek-v4-flash-0731]
 label = 'AIHubMix · DeepSeek V4 Flash 0731'
 account = 'aihubmix'
 model = 'deepseek-v4-flash-0731'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'deepseek-v4-flash-0731'
 
-[profiles.aihubmix-deepseek-v4-pro-0813]
+[routes.aihubmix-deepseek-v4-flash-0731.interfaces]
+openai_responses = []
+
+[routes.aihubmix-deepseek-v4-pro-0813]
 label = 'AIHubMix · DeepSeek V4 Pro 0813'
 account = 'aihubmix'
 model = 'deepseek-v4-pro-0813'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'deepseek-v4-pro-0813'
 
-[profiles.'aihubmix-gemini-3.1-pro-preview']
+[routes.aihubmix-deepseek-v4-pro-0813.interfaces]
+openai_responses = []
+
+[routes.'aihubmix-gemini-3.1-pro-preview']
 label = 'AIHubMix · Gemini 3.1 Pro Preview'
 account = 'aihubmix'
 model = 'gemini-3.1-pro-preview'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'gemini-3.1-pro-preview'
 
-[profiles.'aihubmix-gemini-3.8-flash']
+[routes.'aihubmix-gemini-3.1-pro-preview'.interfaces]
+openai_responses = []
+
+[routes.'aihubmix-gemini-3.8-flash']
 label = 'AIHubMix · Gemini 3.8 Flash'
 account = 'aihubmix'
 model = 'gemini-3.8-flash'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'gemini-3.8-flash'
 
-[profiles.'aihubmix-glm-5.3']
+[routes.'aihubmix-gemini-3.8-flash'.interfaces]
+openai_responses = []
+
+[routes.'aihubmix-glm-5.3']
 label = 'AIHubMix · GLM 5.3'
 account = 'aihubmix'
 model = 'glm-5.3'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'glm-5.3'
 
-[profiles.'aihubmix-glm-5.3-flash']
+[routes.'aihubmix-glm-5.3'.interfaces]
+openai_responses = []
+
+[routes.'aihubmix-glm-5.3-flash']
 label = 'AIHubMix · GLM 5.3 Flash'
 account = 'aihubmix'
 model = 'glm-5.3-flash'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'glm-5.3-flash'
 
-[profiles.'aihubmix-gpt-5.6-luna']
+[routes.'aihubmix-glm-5.3-flash'.interfaces]
+openai_responses = []
+
+[routes.'aihubmix-gpt-5.6-luna']
 label = 'AIHubMix · GPT-5.6 Luna'
 account = 'aihubmix'
 model = 'gpt-5.6-luna'
-protocols = ['openai_responses']
+upstream_model = 'gpt-5.6-luna'
 
-[profiles.'aihubmix-gpt-5.6-sol']
+[routes.'aihubmix-gpt-5.6-luna'.interfaces]
+openai_responses = []
+
+[routes.'aihubmix-gpt-5.6-sol']
 label = 'AIHubMix · GPT-5.6 Sol'
 account = 'aihubmix'
 model = 'gpt-5.6-sol'
-protocols = ['openai_responses']
+upstream_model = 'gpt-5.6-sol'
 
-[profiles.'aihubmix-gpt-5.6-terra']
+[routes.'aihubmix-gpt-5.6-sol'.interfaces]
+openai_responses = []
+
+[routes.'aihubmix-gpt-5.6-terra']
 label = 'AIHubMix · GPT-5.6 Terra'
 account = 'aihubmix'
 model = 'gpt-5.6-terra'
-protocols = ['openai_responses']
+upstream_model = 'gpt-5.6-terra'
 
-[profiles.aihubmix-gpt-6-astra]
+[routes.'aihubmix-gpt-5.6-terra'.interfaces]
+openai_responses = []
+
+[routes.aihubmix-gpt-6-astra]
 label = 'AIHubMix · GPT-6 Astra'
 account = 'aihubmix'
 model = 'gpt-6-astra'
-protocols = ['openai_responses']
+upstream_model = 'gpt-6-astra'
 
-[profiles.'aihubmix-grok-4.3']
+[routes.aihubmix-gpt-6-astra.interfaces]
+openai_responses = []
+
+[routes.'aihubmix-grok-4.3']
 label = 'AIHubMix · Grok 4.3'
 account = 'aihubmix'
 model = 'grok-4.3'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'grok-4.3'
 
-[profiles.'aihubmix-grok-4.6']
+[routes.'aihubmix-grok-4.3'.interfaces]
+openai_responses = []
+
+[routes.'aihubmix-grok-4.6']
 label = 'AIHubMix · Grok 4.6'
 account = 'aihubmix'
 model = 'grok-4.6'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'grok-4.6'
 
-[profiles.'aihubmix-kimi-k2.7-code-highspeed']
+[routes.'aihubmix-grok-4.6'.interfaces]
+openai_responses = []
+
+[routes.'aihubmix-kimi-k2.7-code-highspeed']
 label = 'AIHubMix · Kimi K2.7 Code Highspeed'
 account = 'aihubmix'
 model = 'kimi-k2.7-code-highspeed'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'kimi-k2.7-code-highspeed'
 
-[profiles.aihubmix-kimi-k3]
+[routes.'aihubmix-kimi-k2.7-code-highspeed'.interfaces]
+openai_responses = []
+
+[routes.aihubmix-kimi-k3]
 label = 'AIHubMix · Kimi K3'
 account = 'aihubmix'
 model = 'kimi-k3'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'kimi-k3'
 
-[profiles.'aihubmix-qwen3.7-plus']
+[routes.aihubmix-kimi-k3.interfaces]
+openai_responses = []
+
+[routes.'aihubmix-qwen3.7-plus']
 label = 'AIHubMix · Qwen 3.7 Plus'
 account = 'aihubmix'
 model = 'qwen3.7-plus'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'qwen3.7-plus'
 
-[profiles.'aihubmix-qwen3.8-max']
+[routes.'aihubmix-qwen3.7-plus'.interfaces]
+openai_responses = []
+
+[routes.'aihubmix-qwen3.8-max']
 label = 'AIHubMix · Qwen 3.8 Max'
 account = 'aihubmix'
 model = 'qwen3.8-max'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'qwen3.8-max'
 
-[profiles.dmxapi-claude-fable-5-1]
+[routes.'aihubmix-qwen3.8-max'.interfaces]
+openai_responses = []
+
+[routes.dmxapi-claude-fable-5-1]
 label = 'DMXAPI · Claude Fable 5.1'
 account = 'dmxapi'
 model = 'claude-fable-5-1'
-protocols = ['anthropic']
+upstream_model = 'claude-fable-5-1'
 
-[profiles.dmxapi-claude-fable-5-1-cc]
+[routes.dmxapi-claude-fable-5-1.interfaces]
+anthropic = []
+
+[routes.dmxapi-claude-fable-5-1-cc]
 label = 'DMXAPI · Claude Fable 5.1 · CC'
 account = 'dmxapi'
-model = 'claude-fable-5-1-cc'
-protocols = ['anthropic']
+model = 'claude-fable-5-1'
+upstream_model = 'claude-fable-5-1-cc'
 
-[profiles.dmxapi-claude-opus-5]
+[routes.dmxapi-claude-fable-5-1-cc.interfaces]
+anthropic = []
+
+[routes.dmxapi-claude-opus-5]
 label = 'DMXAPI · Claude Opus 5'
 account = 'dmxapi'
 model = 'claude-opus-5'
-protocols = ['anthropic']
+upstream_model = 'claude-opus-5'
 
-[profiles.dmxapi-claude-opus-5-cc]
+[routes.dmxapi-claude-opus-5.interfaces]
+anthropic = []
+
+[routes.dmxapi-claude-opus-5-cc]
 label = 'DMXAPI · Claude Opus 5 · CC'
 account = 'dmxapi'
-model = 'claude-opus-5-cc'
-protocols = ['anthropic']
+model = 'claude-opus-5'
+upstream_model = 'claude-opus-5-cc'
 
-[profiles.dmxapi-claude-opus-5-ssvip]
+[routes.dmxapi-claude-opus-5-cc.interfaces]
+anthropic = []
+
+[routes.dmxapi-claude-opus-5-ssvip]
 label = 'DMXAPI · Claude Opus 5 · SSVIP'
 account = 'dmxapi'
-model = 'claude-opus-5-ssvip'
-protocols = ['anthropic']
+model = 'claude-opus-5'
+upstream_model = 'claude-opus-5-ssvip'
 
-[profiles.dmxapi-claude-sonnet-5]
+[routes.dmxapi-claude-opus-5-ssvip.interfaces]
+anthropic = []
+
+[routes.dmxapi-claude-sonnet-5]
 label = 'DMXAPI · Claude Sonnet 5'
 account = 'dmxapi'
 model = 'claude-sonnet-5'
-protocols = ['anthropic']
+upstream_model = 'claude-sonnet-5'
 
-[profiles.dmxapi-claude-sonnet-5-cc]
+[routes.dmxapi-claude-sonnet-5.interfaces]
+anthropic = []
+
+[routes.dmxapi-claude-sonnet-5-cc]
 label = 'DMXAPI · Claude Sonnet 5 · CC'
 account = 'dmxapi'
-model = 'claude-sonnet-5-cc'
-protocols = ['anthropic']
+model = 'claude-sonnet-5'
+upstream_model = 'claude-sonnet-5-cc'
 
-[profiles.dmxapi-claude-sonnet-5-ssvip]
+[routes.dmxapi-claude-sonnet-5-cc.interfaces]
+anthropic = []
+
+[routes.dmxapi-claude-sonnet-5-ssvip]
 label = 'DMXAPI · Claude Sonnet 5 · SSVIP'
 account = 'dmxapi'
-model = 'claude-sonnet-5-ssvip'
-protocols = ['anthropic']
+model = 'claude-sonnet-5'
+upstream_model = 'claude-sonnet-5-ssvip'
 
-[profiles.dmxapi-deepseek-v4-flash-0731]
+[routes.dmxapi-claude-sonnet-5-ssvip.interfaces]
+anthropic = []
+
+[routes.dmxapi-deepseek-v4-flash-0731]
 label = 'DMXAPI · DeepSeek V4 Flash 0731'
 account = 'dmxapi'
 model = 'deepseek-v4-flash-0731'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'deepseek-v4-flash-0731'
 
-[profiles.dmxapi-deepseek-v4-pro-0813]
+[routes.dmxapi-deepseek-v4-flash-0731.interfaces]
+openai_responses = []
+
+[routes.dmxapi-deepseek-v4-pro-0813]
 label = 'DMXAPI · DeepSeek V4 Pro 0813'
 account = 'dmxapi'
 model = 'deepseek-v4-pro-0813'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'deepseek-v4-pro-0813'
 
-[profiles.'dmxapi-gemini-3.1-pro-preview']
+[routes.dmxapi-deepseek-v4-pro-0813.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-gemini-3.1-pro-preview']
 label = 'DMXAPI · Gemini 3.1 Pro Preview'
 account = 'dmxapi'
 model = 'gemini-3.1-pro-preview'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'gemini-3.1-pro-preview'
 
-[profiles.'dmxapi-gemini-3.8-flash']
+[routes.'dmxapi-gemini-3.1-pro-preview'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-gemini-3.8-flash']
 label = 'DMXAPI · Gemini 3.8 Flash'
 account = 'dmxapi'
 model = 'gemini-3.8-flash'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'gemini-3.8-flash'
 
-[profiles.'dmxapi-glm-5.3']
+[routes.'dmxapi-gemini-3.8-flash'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-glm-5.3']
 label = 'DMXAPI · GLM 5.3'
 account = 'dmxapi'
 model = 'glm-5.3'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'glm-5.3'
 
-[profiles.'dmxapi-glm-5.3-flash']
+[routes.'dmxapi-glm-5.3'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-glm-5.3-flash']
 label = 'DMXAPI · GLM 5.3 Flash'
 account = 'dmxapi'
 model = 'glm-5.3-flash'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'glm-5.3-flash'
 
-[profiles.'dmxapi-gpt-5.6-luna']
+[routes.'dmxapi-glm-5.3-flash'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-gpt-5.6-luna']
 label = 'DMXAPI · GPT-5.6 Luna'
 account = 'dmxapi'
 model = 'gpt-5.6-luna'
-protocols = ['openai_responses']
+upstream_model = 'gpt-5.6-luna'
 
-[profiles.'dmxapi-gpt-5.6-luna-cdx']
+[routes.'dmxapi-gpt-5.6-luna'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-gpt-5.6-luna-cdx']
 label = 'DMXAPI · GPT-5.6 Luna · CDX'
 account = 'dmxapi'
-model = 'gpt-5.6-luna-cdx'
-protocols = ['openai_responses']
+model = 'gpt-5.6-luna'
+upstream_model = 'gpt-5.6-luna-cdx'
 
-[profiles.'dmxapi-gpt-5.6-luna-ssvip']
+[routes.'dmxapi-gpt-5.6-luna-cdx'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-gpt-5.6-luna-ssvip']
 label = 'DMXAPI · GPT-5.6 Luna · SSVIP'
 account = 'dmxapi'
-model = 'gpt-5.6-luna-ssvip'
-protocols = ['openai_responses']
+model = 'gpt-5.6-luna'
+upstream_model = 'gpt-5.6-luna-ssvip'
 
-[profiles.'dmxapi-gpt-5.6-sol']
+[routes.'dmxapi-gpt-5.6-luna-ssvip'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-gpt-5.6-sol']
 label = 'DMXAPI · GPT-5.6 Sol'
 account = 'dmxapi'
 model = 'gpt-5.6-sol'
-protocols = ['openai_responses']
+upstream_model = 'gpt-5.6-sol'
 
-[profiles.'dmxapi-gpt-5.6-sol-cdx']
+[routes.'dmxapi-gpt-5.6-sol'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-gpt-5.6-sol-cdx']
 label = 'DMXAPI · GPT-5.6 Sol · CDX'
 account = 'dmxapi'
-model = 'gpt-5.6-sol-cdx'
-protocols = ['openai_responses']
+model = 'gpt-5.6-sol'
+upstream_model = 'gpt-5.6-sol-cdx'
 
-[profiles.'dmxapi-gpt-5.6-sol-ssvip']
+[routes.'dmxapi-gpt-5.6-sol-cdx'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-gpt-5.6-sol-ssvip']
 label = 'DMXAPI · GPT-5.6 Sol · SSVIP'
 account = 'dmxapi'
-model = 'gpt-5.6-sol-ssvip'
-protocols = ['openai_responses']
+model = 'gpt-5.6-sol'
+upstream_model = 'gpt-5.6-sol-ssvip'
 
-[profiles.'dmxapi-gpt-5.6-terra']
+[routes.'dmxapi-gpt-5.6-sol-ssvip'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-gpt-5.6-terra']
 label = 'DMXAPI · GPT-5.6 Terra'
 account = 'dmxapi'
 model = 'gpt-5.6-terra'
-protocols = ['openai_responses']
+upstream_model = 'gpt-5.6-terra'
 
-[profiles.'dmxapi-gpt-5.6-terra-cdx']
+[routes.'dmxapi-gpt-5.6-terra'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-gpt-5.6-terra-cdx']
 label = 'DMXAPI · GPT-5.6 Terra · CDX'
 account = 'dmxapi'
-model = 'gpt-5.6-terra-cdx'
-protocols = ['openai_responses']
+model = 'gpt-5.6-terra'
+upstream_model = 'gpt-5.6-terra-cdx'
 
-[profiles.'dmxapi-gpt-5.6-terra-ssvip']
+[routes.'dmxapi-gpt-5.6-terra-cdx'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-gpt-5.6-terra-ssvip']
 label = 'DMXAPI · GPT-5.6 Terra · SSVIP'
 account = 'dmxapi'
-model = 'gpt-5.6-terra-ssvip'
-protocols = ['openai_responses']
+model = 'gpt-5.6-terra'
+upstream_model = 'gpt-5.6-terra-ssvip'
 
-[profiles.dmxapi-gpt-6-astra]
+[routes.'dmxapi-gpt-5.6-terra-ssvip'.interfaces]
+openai_responses = []
+
+[routes.dmxapi-gpt-6-astra]
 label = 'DMXAPI · GPT-6 Astra'
 account = 'dmxapi'
 model = 'gpt-6-astra'
-protocols = ['openai_responses']
+upstream_model = 'gpt-6-astra'
 
-[profiles.dmxapi-gpt-6-astra-cdx]
+[routes.dmxapi-gpt-6-astra.interfaces]
+openai_responses = []
+
+[routes.dmxapi-gpt-6-astra-cdx]
 label = 'DMXAPI · GPT-6 Astra · CDX'
 account = 'dmxapi'
-model = 'gpt-6-astra-cdx'
-protocols = ['openai_responses']
+model = 'gpt-6-astra'
+upstream_model = 'gpt-6-astra-cdx'
 
-[profiles.dmxapi-gpt-6-astra-ssvip]
+[routes.dmxapi-gpt-6-astra-cdx.interfaces]
+openai_responses = []
+
+[routes.dmxapi-gpt-6-astra-ssvip]
 label = 'DMXAPI · GPT-6 Astra · SSVIP'
 account = 'dmxapi'
-model = 'gpt-6-astra-ssvip'
-protocols = ['openai_responses']
+model = 'gpt-6-astra'
+upstream_model = 'gpt-6-astra-ssvip'
 
-[profiles.'dmxapi-grok-4.3']
+[routes.dmxapi-gpt-6-astra-ssvip.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-grok-4.3']
 label = 'DMXAPI · Grok 4.3'
 account = 'dmxapi'
 model = 'grok-4.3'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'grok-4.3'
 
-[profiles.'dmxapi-grok-4.6']
+[routes.'dmxapi-grok-4.3'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-grok-4.6']
 label = 'DMXAPI · Grok 4.6'
 account = 'dmxapi'
 model = 'grok-4.6'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'grok-4.6'
 
-[profiles.'dmxapi-kimi-k2.7-code-highspeed']
+[routes.'dmxapi-grok-4.6'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-kimi-k2.7-code-highspeed']
 label = 'DMXAPI · Kimi K2.7 Code Highspeed'
 account = 'dmxapi'
 model = 'kimi-k2.7-code-highspeed'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'kimi-k2.7-code-highspeed'
 
-[profiles.dmxapi-kimi-k3]
+[routes.'dmxapi-kimi-k2.7-code-highspeed'.interfaces]
+openai_responses = []
+
+[routes.dmxapi-kimi-k3]
 label = 'DMXAPI · Kimi K3'
 account = 'dmxapi'
 model = 'kimi-k3'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'kimi-k3'
 
-[profiles.'dmxapi-qwen3.7-plus']
+[routes.dmxapi-kimi-k3.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-qwen3.7-plus']
 label = 'DMXAPI · Qwen 3.7 Plus'
 account = 'dmxapi'
 model = 'qwen3.7-plus'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'qwen3.7-plus'
 
-[profiles.'dmxapi-qwen3.8-max']
+[routes.'dmxapi-qwen3.7-plus'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-qwen3.8-max']
 label = 'DMXAPI · Qwen 3.8 Max'
 account = 'dmxapi'
 model = 'qwen3.8-max'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'qwen3.8-max'
 
-[profiles.ucloud-claude-fable-5-1]
+[routes.'dmxapi-qwen3.8-max'.interfaces]
+openai_responses = []
+
+[routes.ucloud-claude-fable-5-1]
 label = 'UCloud · Claude Fable 5.1'
 account = 'ucloud'
 model = 'claude-fable-5-1'
-protocols = ['anthropic']
+upstream_model = 'claude-fable-5-1'
 
-[profiles.ucloud-claude-opus-5]
+[routes.ucloud-claude-fable-5-1.interfaces]
+anthropic = []
+
+[routes.ucloud-claude-opus-5]
 label = 'UCloud · Claude Opus 5'
 account = 'ucloud'
 model = 'claude-opus-5'
-protocols = ['anthropic']
+upstream_model = 'claude-opus-5'
 
-[profiles.ucloud-claude-sonnet-5]
+[routes.ucloud-claude-opus-5.interfaces]
+anthropic = []
+
+[routes.ucloud-claude-sonnet-5]
 label = 'UCloud · Claude Sonnet 5'
 account = 'ucloud'
 model = 'claude-sonnet-5'
-protocols = ['anthropic']
+upstream_model = 'claude-sonnet-5'
 
-[profiles.ucloud-deepseek-v4-flash-0731]
+[routes.ucloud-claude-sonnet-5.interfaces]
+anthropic = []
+
+[routes.ucloud-deepseek-v4-flash-0731]
 label = 'UCloud · DeepSeek V4 Flash 0731'
 account = 'ucloud'
 model = 'deepseek-v4-flash-0731'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'deepseek-v4-flash-0731'
 
-[profiles.ucloud-deepseek-v4-pro-0813]
+[routes.ucloud-deepseek-v4-flash-0731.interfaces]
+openai_responses = []
+
+[routes.ucloud-deepseek-v4-pro-0813]
 label = 'UCloud · DeepSeek V4 Pro 0813'
 account = 'ucloud'
 model = 'deepseek-v4-pro-0813'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'deepseek-v4-pro-0813'
 
-[profiles.'ucloud-gemini-3.1-pro-preview']
+[routes.ucloud-deepseek-v4-pro-0813.interfaces]
+openai_responses = []
+
+[routes.'ucloud-gemini-3.1-pro-preview']
 label = 'UCloud · Gemini 3.1 Pro Preview'
 account = 'ucloud'
 model = 'gemini-3.1-pro-preview'
-tier = 'flagship'
-protocols = ['openai_chat_completions']
+upstream_model = 'gemini-3.1-pro-preview'
 
-[profiles.'ucloud-gemini-3.8-flash']
+[routes.'ucloud-gemini-3.1-pro-preview'.interfaces]
+openai_chat_completions = []
+
+[routes.'ucloud-gemini-3.8-flash']
 label = 'UCloud · Gemini 3.8 Flash'
 account = 'ucloud'
 model = 'gemini-3.8-flash'
-tier = 'daily'
-protocols = ['openai_chat_completions']
+upstream_model = 'gemini-3.8-flash'
 
-[profiles.'ucloud-glm-5.3']
+[routes.'ucloud-gemini-3.8-flash'.interfaces]
+openai_chat_completions = []
+
+[routes.'ucloud-glm-5.3']
 label = 'UCloud · GLM 5.3'
 account = 'ucloud'
 model = 'glm-5.3'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'glm-5.3'
 
-[profiles.'ucloud-glm-5.3-flash']
+[routes.'ucloud-glm-5.3'.interfaces]
+openai_responses = []
+
+[routes.'ucloud-glm-5.3-flash']
 label = 'UCloud · GLM 5.3 Flash'
 account = 'ucloud'
 model = 'glm-5.3-flash'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'glm-5.3-flash'
 
-[profiles.'ucloud-gpt-5.6-luna']
+[routes.'ucloud-glm-5.3-flash'.interfaces]
+openai_responses = []
+
+[routes.'ucloud-gpt-5.6-luna']
 label = 'UCloud · GPT-5.6 Luna'
 account = 'ucloud'
 model = 'gpt-5.6-luna'
-protocols = ['openai_responses']
+upstream_model = 'gpt-5.6-luna'
 
-[profiles.'ucloud-gpt-5.6-sol']
+[routes.'ucloud-gpt-5.6-luna'.interfaces]
+openai_responses = []
+
+[routes.'ucloud-gpt-5.6-sol']
 label = 'UCloud · GPT-5.6 Sol'
 account = 'ucloud'
 model = 'gpt-5.6-sol'
-protocols = ['openai_responses']
+upstream_model = 'gpt-5.6-sol'
 
-[profiles.'ucloud-gpt-5.6-terra']
+[routes.'ucloud-gpt-5.6-sol'.interfaces]
+openai_responses = []
+
+[routes.'ucloud-gpt-5.6-terra']
 label = 'UCloud · GPT-5.6 Terra'
 account = 'ucloud'
 model = 'gpt-5.6-terra'
-protocols = ['openai_responses']
+upstream_model = 'gpt-5.6-terra'
 
-[profiles.ucloud-gpt-6-astra]
+[routes.'ucloud-gpt-5.6-terra'.interfaces]
+openai_responses = []
+
+[routes.ucloud-gpt-6-astra]
 label = 'UCloud · GPT-6 Astra'
 account = 'ucloud'
 model = 'gpt-6-astra'
-protocols = ['openai_responses']
+upstream_model = 'gpt-6-astra'
 
-[profiles.'ucloud-grok-4.3']
+[routes.ucloud-gpt-6-astra.interfaces]
+openai_responses = []
+
+[routes.'ucloud-grok-4.3']
 label = 'UCloud · Grok 4.3'
 account = 'ucloud'
 model = 'grok-4.3'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'grok-4.3'
 
-[profiles.'ucloud-grok-4.6']
+[routes.'ucloud-grok-4.3'.interfaces]
+openai_responses = []
+
+[routes.'ucloud-grok-4.6']
 label = 'UCloud · Grok 4.6'
 account = 'ucloud'
 model = 'grok-4.6'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'grok-4.6'
 
-[profiles.'ucloud-kimi-k2.7-code-highspeed']
+[routes.'ucloud-grok-4.6'.interfaces]
+openai_responses = []
+
+[routes.'ucloud-kimi-k2.7-code-highspeed']
 label = 'UCloud · Kimi K2.7 Code Highspeed'
 account = 'ucloud'
 model = 'kimi-k2.7-code-highspeed'
-tier = 'daily'
-protocols = ['openai_chat_completions']
+upstream_model = 'kimi-k2.7-code-highspeed'
 
-[profiles.ucloud-kimi-k3]
+[routes.'ucloud-kimi-k2.7-code-highspeed'.interfaces]
+openai_chat_completions = []
+
+[routes.ucloud-kimi-k3]
 label = 'UCloud · Kimi K3'
 account = 'ucloud'
 model = 'kimi-k3'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'kimi-k3'
 
-[profiles.'ucloud-qwen3.7-plus']
+[routes.ucloud-kimi-k3.interfaces]
+openai_responses = []
+
+[routes.'ucloud-qwen3.7-plus']
 label = 'UCloud · Qwen 3.7 Plus'
 account = 'ucloud'
 model = 'qwen3.7-plus'
-tier = 'daily'
-protocols = ['openai_responses']
+upstream_model = 'qwen3.7-plus'
 
-[profiles.'ucloud-qwen3.8-max']
+[routes.'ucloud-qwen3.7-plus'.interfaces]
+openai_responses = []
+
+[routes.'ucloud-qwen3.8-max']
 label = 'UCloud · Qwen 3.8 Max'
 account = 'ucloud'
 model = 'qwen3.8-max'
-tier = 'flagship'
-protocols = ['openai_responses']
+upstream_model = 'qwen3.8-max'
+
+[routes.'ucloud-qwen3.8-max'.interfaces]
+openai_responses = []

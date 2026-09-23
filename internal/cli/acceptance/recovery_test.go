@@ -37,9 +37,10 @@ func TestClaudeModelDriftRecoveryThroughPublicCommands(t *testing.T) {
 				t.Fatal(err)
 			}
 			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
-			profile := cfg.Profiles["one"]
+			profile := cfg.Routes["one"]
 			profile.Model = "claude-next"
-			cfg.Profiles["next"] = profile
+			profile.UpstreamModel = "claude-next"
+			cfg.Routes["next"] = profile
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}

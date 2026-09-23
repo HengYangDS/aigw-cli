@@ -23,6 +23,21 @@ async function regularBytes(relative) {
   return fs.readFile(file);
 }
 
+async function filesBelow(directory, prefix = "") {
+  const files = [];
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+    assert.equal(entry.isSymbolicLink(), false, relative);
+    if (entry.isDirectory())
+      files.push(
+        ...(await filesBelow(path.join(directory, entry.name), relative)),
+      );
+    else if (entry.isFile()) files.push(relative);
+    else assert.fail(`unsupported Source Bundle member: ${relative}`);
+  }
+  return files.sort();
+}
+
 test("AIGW owns one closed declarative Edition Provider", async () => {
   const [provider, selection, source] = await Promise.all([
     json("provider.json"),
@@ -95,11 +110,29 @@ test("the checked-in Source Bundle closes exact AIGW provenance", async () => {
   const paths = source.files.map(({ path: relative }) => relative);
   assert.equal(new Set(paths).size, paths.length);
   assert.equal(paths.includes(provider.delivery.semanticMember), true);
+  assert.deepEqual(
+    await filesBelow(path.join(providerRoot, "_source")),
+    ["manifest.json", ...paths].sort(),
+  );
 
   for (const member of source.files) {
     const bytes = await regularBytes(`_source/${member.path}`);
     assert.equal(bytes.length, member.bytes, member.path);
     assert.equal(sha256(bytes), member.sha256, member.path);
+    if (member.path.startsWith("source/")) {
+      const livePath = path.join(
+        repositoryRoot,
+        ...member.path.slice("source/".length).split("/"),
+      );
+      const liveStat = await fs.lstat(livePath);
+      assert.equal(liveStat.isFile(), true, member.path);
+      assert.equal(liveStat.isSymbolicLink(), false, member.path);
+      assert.deepEqual(
+        bytes,
+        await fs.readFile(livePath),
+        `${member.path} differs from its live repository source`,
+      );
+    }
   }
   for (const [id, provenance] of Object.entries(semantic.sources)) {
     const member = source.files.find(
@@ -108,10 +141,6 @@ test("the checked-in Source Bundle closes exact AIGW provenance", async () => {
     assert(member, id);
     assert.equal(member.sha256, provenance.sha256, id);
   }
-  assert.equal(
-    sha256(await regularBytes("_source/semantic.json")),
-    selection.migrationBaseline.files["claim-model.json"],
-  );
   const comparison = await json("evolution.json");
   const providerEvolution = await json("provider-evolution.json");
   const selected = async ({ path: relative, sha256: expected }) => {
@@ -140,6 +169,7 @@ test("the provider has one source owner and no executable integration", async ()
     "README.md",
     "edition.json",
     "evolution.json",
+    "materialize.mjs",
     "provider.json",
     "provider-evolution.json",
     "selection.json",

@@ -32,10 +32,10 @@ func loadTeamManifest(t *testing.T) ([]byte, Manifest) {
 	return data, parsedManifest
 }
 
-func TestTeamConfigurationManifestIsReviewedVersionSix(t *testing.T) {
+func TestTeamConfigurationManifestIsReviewedVersionSeven(t *testing.T) {
 	_, parsedManifest := loadTeamManifest(t)
-	if parsedManifest.Version != 6 || len(parsedManifest.Accounts) != 3 || len(parsedManifest.Profiles) == 0 {
-		t.Fatalf("team manifest = version %d, %d Accounts, %d profiles", parsedManifest.Version, len(parsedManifest.Accounts), len(parsedManifest.Profiles))
+	if parsedManifest.Version != 7 || len(parsedManifest.Accounts) != 3 || len(parsedManifest.Models) == 0 || len(parsedManifest.Routes) == 0 {
+		t.Fatalf("team manifest = version %d, %d Accounts, %d Models, %d Routes", parsedManifest.Version, len(parsedManifest.Accounts), len(parsedManifest.Models), len(parsedManifest.Routes))
 	}
 	for _, accountID := range []string{"aihubmix", "dmxapi", "ucloud"} {
 		if _, ok := parsedManifest.Accounts[accountID]; !ok {
@@ -56,9 +56,10 @@ func TestTeamConfigurationManifestIsReviewedVersionSix(t *testing.T) {
 		t.Fatalf("team manifest recommended routes = %#v", parsedManifest.Recommendations)
 	}
 	for client, want := range recommendations {
-		profile := parsedManifest.Profiles[parsedManifest.Recommendations[client].Profile]
-		if profile.Model != want.model || parsedManifest.Recommendations[client].Protocol != want.storedProtocol {
-			t.Fatalf("recommended %s profile = %#v with stored protocol %q, want model %q with stored protocol %q", client, profile, parsedManifest.Recommendations[client].Protocol, want.model, want.storedProtocol)
+		recommendation := parsedManifest.Recommendations[client].Primary
+		route := parsedManifest.Routes[recommendation.Route]
+		if route.Model != want.model || recommendation.Protocol != want.storedProtocol {
+			t.Fatalf("recommended %s Route = %#v with stored protocol %q, want Model %q with stored protocol %q", client, route, recommendation.Protocol, want.model, want.storedProtocol)
 		}
 	}
 	for accountID := range parsedManifest.Accounts {
@@ -66,7 +67,7 @@ func TestTeamConfigurationManifestIsReviewedVersionSix(t *testing.T) {
 		if mergeErr != nil {
 			t.Fatal(mergeErr)
 		}
-		selected, selectErr := cfg.SelectProfilesForConnectedAccounts([]string{accountID})
+		selected, selectErr := cfg.SelectRoutesForConnectedAccounts([]string{accountID})
 		if selectErr != nil {
 			t.Fatal(selectErr)
 		}
@@ -76,7 +77,7 @@ func TestTeamConfigurationManifestIsReviewedVersionSix(t *testing.T) {
 				t.Fatalf("resolve %s route for Account %q: %v", client, accountID, resolveErr)
 			}
 			modelOffered := false
-			for _, profile := range parsedManifest.Profiles {
+			for _, profile := range parsedManifest.Routes {
 				modelOffered = modelOffered || profile.Account == accountID && profile.Model == want.model
 			}
 			if runtime.AccountID != accountID || modelOffered && runtime.Model != want.model || runtime.Protocol != want.runtimeProtocol {
@@ -86,9 +87,9 @@ func TestTeamConfigurationManifestIsReviewedVersionSix(t *testing.T) {
 	}
 }
 
-func TestTeamManifestProvidesFlagshipAndDailyProfilesForEachGeneralModelFamily(t *testing.T) {
+func TestTeamManifestSeparatesGeneralModelsFromAccountRoutes(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	want := map[string][2]string{
+	want := map[string][]string{
 		"grok":     {"grok-4.6", "grok-4.3"},
 		"gemini":   {"gemini-3.1-pro-preview", "gemini-3.8-flash"},
 		"deepseek": {"deepseek-v4-pro-0813", "deepseek-v4-flash-0731"},
@@ -98,19 +99,18 @@ func TestTeamManifestProvidesFlagshipAndDailyProfilesForEachGeneralModelFamily(t
 	}
 	for accountID := range manifest.Accounts {
 		for family, models := range want {
-			for index, model := range models {
-				profileID := accountID + "-" + model
-				profile, ok := manifest.Profiles[profileID]
+			for _, modelID := range models {
+				if _, ok := manifest.Models[modelID]; !ok {
+					t.Errorf("team manifest missing %s Model %q", family, modelID)
+				}
+				routeID := accountID + "-" + modelID
+				route, ok := manifest.Routes[routeID]
 				if !ok {
-					t.Errorf("team manifest missing %s %s Profile %q", accountID, family, profileID)
+					t.Errorf("team manifest missing %s %s Route %q", accountID, family, routeID)
 					continue
 				}
-				wantTier := ModelTierFlagship
-				if index == 1 {
-					wantTier = ModelTierDaily
-				}
-				if profile.Account != accountID || profile.Model != model || profile.Tier != wantTier || len(profile.Protocols) == 0 {
-					t.Errorf("team Profile %q = %#v", profileID, profile)
+				if route.Account != accountID || route.Model != modelID || len(routeAdmittedProtocols(route)) == 0 {
+					t.Errorf("team Route %q = %#v", routeID, route)
 				}
 			}
 		}
@@ -135,8 +135,8 @@ func TestTeamAccountEndpointsHaveHosts(t *testing.T) {
 func TestTeamManifestPresentationSeparatesIdentityFromRecommendation(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	channel := regexp.MustCompile(`^[A-Z][A-Z0-9]*$`)
-	for profileID, profile := range manifest.Profiles {
-		if want := profile.Account + "-" + profile.Model; profileID != want {
+	for profileID, profile := range manifest.Routes {
+		if want := profile.Account + "-" + upstreamModel(profile); profileID != want {
 			t.Errorf("profile ID %q must preserve Account and provider model identity: %q", profileID, want)
 		}
 		parts := strings.Split(profile.Label, " · ")
@@ -164,7 +164,7 @@ func TestTeamManifestSelectsRecommendedModelsForAIHubMix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected, err := cfg.SelectProfilesForConnectedAccounts([]string{"aihubmix"})
+	selected, err := cfg.SelectRoutesForConnectedAccounts([]string{"aihubmix"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +183,8 @@ func TestTeamManifestUsesNativeExportLayout(t *testing.T) {
 	data, manifest := loadTeamManifest(t)
 	cfg := NewConfig()
 	cfg.Accounts = manifest.Accounts
-	cfg.Profiles = manifest.Profiles
+	cfg.Models = manifest.Models
+	cfg.Routes = manifest.Routes
 	cfg.Recommendations = manifest.Recommendations
 	canonical, err := Export(cfg)
 	if err != nil {
