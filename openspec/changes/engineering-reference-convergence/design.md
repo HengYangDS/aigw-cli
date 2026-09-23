@@ -1078,6 +1078,21 @@ proves that the release and accepted refs name the same object without spending
 a second platform matrix on identical source, locks, toolchain, and claimed
 facts. Both Forge files remain generated projections of this decision.
 
+The final client-qualification source closure is signed commit `28bad717`. Its
+local `mise run check` passed every declared source and governance gate at
+95.13% statement coverage. ETHOS exact-HEAD proof emitted Attestation
+`09276006ed5724278053755133385b06151a48ead8336a99c334f1776ea57a28`
+with no required gap. GitHub PR 144 and GitLab MR 164 each accepted that same
+object without a squash or generated merge commit after review run
+`35849157001` and pipeline `7976` passed. The governed accepted closeout used
+Attestation `df69d2aaf24d38e4b37ee0036637d3f32971e4335d2dc3e0cb429ed67b31e596`
+to advance both peer `dev` refs by compare-and-swap. GitHub accepted run
+`35851292109` then passed quality and native macOS, Linux, and Windows, and
+GitLab accepted pipeline `7978` passed for the identical commit. These facts
+close tasks 9.1 and 9.2; artifact publication, published-candidate lifecycle,
+performance, final audit, archive, and stable promotion retain their separate
+tasks.
+
 ## Supply-chain closure
 
 Tasks 7.1–7.3 treat authored manifests as dependency truth and upstream release

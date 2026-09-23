@@ -80,8 +80,8 @@
 
 ## 9. Prove product and repository acceptance
 
-- [ ] 9.1 Run the complete local quality graph at one signed clean HEAD; verify every declared gate and generated projection passes without warnings.
-- [ ] 9.2 Run exact-HEAD proof and proposal review admission; verify developer and maintainer paths preserve the same object, signature, review, and branch-role semantics.
+- [x] 9.1 Run the complete local quality graph at one signed clean HEAD; verify every declared gate and generated projection passes without warnings.
+- [x] 9.2 Run exact-HEAD proof and proposal review admission; verify developer and maintainer paths preserve the same object, signature, review, and branch-role semantics.
 - [ ] 9.3 On macOS, Linux, and Windows, consume immutable candidate artifacts and verify build provenance, install, setup, credential mode, projection, update, rollback, forward recovery, uninstall, and cleanup before stable publication.
 - [x] 9.4 Verify real Codex, Claude Code, Hermes, and Claude Desktop journeys for the selected routes and each supported surface; distinguish provider documentation, controlled client execution, live inference, and platform limitations.
 - [ ] 9.5 Verify GitHub and GitLab CI are deterministic projections of one graph and both observe the accepted source; verify developer review, updated proposals, maintainer integration, and release promotion select the required checks.

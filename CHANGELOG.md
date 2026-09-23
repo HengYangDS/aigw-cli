@@ -9,6 +9,8 @@ separate evidence.
 
 ## [Unreleased]
 
+## [0.2.0-rc.1] - 2026-09-23
+
 ### Changed
 
 - Recover Codex projections when the native client removes only decorative
