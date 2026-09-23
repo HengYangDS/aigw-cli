@@ -254,122 +254,6 @@ repository-specific merge blacklists.
 - **AND** the positive owner, dependency, portability, security, and evidence
   contracts SHALL determine the verdict.
 
-### Requirement: complete delivery evidence
-
-Quality completion SHALL require independent evidence for local gates, exact
-source identity, hosted native execution, peer publication, immutable artifacts,
-installation, runtime acceptance, and housekeeping. A release SHALL bind one
-signed tag to identical selected-peer assets and supported-platform results.
-Credential continuity, distribution trust, and platform capacity SHALL be
-verified by their dedicated owners; none may be inferred from another boundary.
-
-#### Scenario: A maintainer qualifies an updated Windows toolchain
-
-- **WHEN** manual verification explicitly selects Windows and full quality
-- **THEN** the Windows native job SHALL run its existing complete quality,
-  source and packaged lifecycle commands without launching unrelated native jobs
-- **AND** source quality SHALL remain selected and other required platforms
-  SHALL retain their independent evidence obligations.
-
-#### Scenario: A platform selector is supplied during release or review admission
-
-- **WHEN** a tag, review or accepted-branch push triggers verification
-- **THEN** its complete available native set SHALL remain selected
-- **AND** manual qualification SHALL NOT replace missing review checks.
-
-#### Scenario: A user consumes the publisher's signed release
-
-- **WHEN** a user installs and invokes published AIGW
-- **THEN** no developer membership or private signing key SHALL be required
-- **AND** the exact reader's native credential permission SHALL remain a separate
-  acceptance obligation from the artifact signature and distribution trust.
-
-#### Scenario: A proposed adapter survives only CLI-only updates
-
-- **WHEN** unchanged adapter bytes retain item access while the CLI changes
-- **THEN** actual adapter replacement, rollback and caller authorization SHALL
-  remain unproved until their own retained-item journeys pass
-- **AND** preserving a vulnerable old reader SHALL NOT satisfy safe updates.
-
-#### Scenario: A client retains its credential command across an update
-
-- **GIVEN** a client has already loaded a valid credential command and environment
-- **WHEN** the installed AIGW program is replaced without changing its route
-- **THEN** that retained invocation SHALL return the original authorized Token
-  before synchronization or client restart
-- **AND** updated projections or success from a new helper SHALL NOT substitute
-  for that invocation
-- **AND** native credential denial SHALL block production acceptance rather than
-  trigger an alternate reader, ACL change or repeated authorization attempt.
-
-#### Scenario: Ordinary source verification isolates native credentials
-
-- **WHEN** source verification exercises the macOS credential worker
-- **THEN** it SHALL use the injected provider boundary without accessing the
-  operator Keychain
-- **AND** this result SHALL NOT qualify retained system credentials.
-
-#### Scenario: Explicit Keychain qualification has no disposable-host scope
-
-- **WHEN** macOS native qualification enables system credentials without
-  `AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host`
-- **THEN** it SHALL fail before executing any quality, test or release command
-- **AND** directly selected integration tests SHALL reject that scope before
-  native credential access.
-
-#### Scenario: Explicit Keychain qualification uses a disposable host
-
-- **WHEN** macOS native qualification selects both system credentials and the
-  disposable-host scope
-- **THEN** the existing coverage invocation SHALL include integration tests once
-- **AND** selecting full quality SHALL preserve that same inclusion and scope.
-
-#### Scenario: Internal archives are rebuilt without publisher credentials
-
-- **WHEN** construction uses identical source, toolchain and release epoch on
-  either side of a wall-clock boundary without publisher credentials
-- **THEN** the complete archive matrix SHALL be byte-identical
-- **AND** extracted macOS binaries SHALL pass native signature verification
-  with ad-hoc signatures and Hardened Runtime
-- **AND** that result SHALL NOT establish publisher trust, notarization or
-  access to retained credentials.
-
-#### Scenario: Native acceptance builds its asset
-
-- **WHEN** native acceptance runs on macOS, Linux or Windows without Apple
-  signing credentials
-- **THEN** it SHALL build only its current operating system's declared targets
-- **AND** full release construction SHALL still require the complete matrix
-- **AND** construction SHALL leave existing credentials and host trust intact.
-
-#### Scenario: both publication planes complete
-
-- **WHEN** GitLab and GitHub independently publish one accepted product release
-- **THEN** their commit and annotated tag object identifiers SHALL equal local
-  Git exactly
-- **AND** their asset manifests and supported-platform semantics SHALL agree.
-
-#### Scenario: local proof passes but delivery is incomplete
-
-- **WHEN** hosted CI, a selected peer, exact object identity, asset integrity,
-  installation, runtime acceptance, or lane retirement remains unverified
-- **THEN** the repository SHALL report that stage as incomplete and SHALL NOT
-  claim terminal completion.
-
-#### Scenario: terminal closeout succeeds
-
-- **WHEN** every delivery stage passes for the exact accepted product object
-  and obsolete lanes, policies, compatibility paths, temporary assets, and
-  stale runtime residue are retired
-- **THEN** the repository MAY report completion with receipts for each
-  independent boundary.
-
-#### Scenario: release metadata exists without publication
-
-- **WHEN** `VERSION` and `CHANGELOG` name a release but either selected peer
-  lacks its exact signed tag object, Release record, or assets
-- **THEN** delivery SHALL remain incomplete.
-
 ### Requirement: Independent Forge parity
 
 GitLab and GitHub SHALL be independent projections of one local Git object
@@ -391,11 +275,22 @@ namespaces, identity replay, and commit maps SHALL NOT be accepted as parity.
 
 ### Requirement: Portable exact-version CI bootstrap
 
-GitLab Linux bootstrap SHALL consume the exact mise image version and digest
-from the CUE authority and install the declared tool closure from repository
-locks. Native distribution clients SHALL own transport and bounded failure
-handling; the repository SHALL NOT retain a second installer, force an
-incidental HTTP version, or invent a mirror-package requirement.
+GitLab Linux bootstrap SHALL use the exact Mise image version and digest
+projected by CUE and the repository-locked tool closure. Native distribution
+clients SHALL own bounded transport failure handling. Linux jobs SHALL inherit
+this owner rather than duplicate installation, substitute an image or installer,
+or weaken integrity policy.
+
+#### Scenario: The repository graph needs a Linux host capability
+
+- **WHEN** a locked tool, trust check, native compiler path, or race-enabled test
+  needs an operating-system capability absent from the selected Linux image
+- **THEN** the CUE-owned Linux toolchain SHALL declare and install the minimal
+  complete package set before invoking Mise or the repository graph
+- **AND** all GitLab Linux jobs SHALL inherit the same preparation without
+  job-local copies, alternate images, or unbounded retries
+- **AND** jobs that exercise CGO-dependent behavior SHALL explicitly enable CGO
+  through the same CUE projection.
 
 #### Scenario: Transient HTTP transport failure
 
@@ -407,12 +302,14 @@ incidental HTTP version, or invent a mirror-package requirement.
 
 ### Requirement: Forge capability projection
 
-One product evidence graph and deterministic CI topology SHALL separate product
-evidence from each Forge's executor capacity. A Forge projection MUST contain
-only native jobs it can run, while aggregate evidence retains every supported
-platform. Missing capacity on one Forge MUST NOT create optional, indefinitely
-pending, or `allow_failure` substitutes, weaken product support, or let
-cross-compilation stand in for native evidence.
+One evidence graph and CI topology SHALL separate product proof from Forge
+capacity. Each projection includes only runnable native jobs; aggregate proof
+retains every supported platform. Manual qualification MAY select one platform;
+omitted or `all` keeps the available set.
+
+Review, accepted-branch, and tag events keep their required source and native
+set. Missing capacity stays explicit. Partial, cross-built, optional, pending,
+or `allow_failure` results do not count as native or release proof.
 
 #### Scenario: one Forge lacks a Windows executor
 
@@ -426,6 +323,20 @@ cross-compilation stand in for native evidence.
 - **WHEN** GitLab gains a qualified Windows executor
 - **THEN** one capability declaration SHALL restore the generated native Windows job
 - **AND** no parallel workflow or compatibility switch SHALL be introduced.
+
+#### Scenario: A maintainer qualifies an updated Windows toolchain
+
+- **WHEN** manual verification explicitly selects Windows and full quality
+- **THEN** the Windows native job SHALL run its existing complete quality,
+  source and packaged lifecycle commands without launching unrelated native jobs
+- **AND** source quality SHALL remain selected and other required platforms
+  SHALL retain their independent evidence obligations.
+
+#### Scenario: A platform selector is supplied during release or review admission
+
+- **WHEN** a tag, review, or accepted-branch push triggers verification
+- **THEN** its complete available native set SHALL remain selected
+- **AND** manual qualification SHALL NOT replace missing review checks.
 
 ### Requirement: Source acceptance precedes delivery completion
 
@@ -716,3 +627,67 @@ shell syntax.
 - **WHEN** every public command renders help at supported narrow and wide widths
 - **THEN** headings, descriptions, usage grammar and options SHALL fit those widths
 - **AND** native option meaning and credential-free help SHALL remain intact.
+
+### Requirement: Engineering-reference quality is demonstrated by behavior
+
+AIGW SHALL qualify as an engineering reference only when its necessary product behavior is expressed through cohesive owners, narrow interfaces, deterministic configuration, observable failure semantics, and tests capable of disproving the design. Additional abstractions, frameworks, rules, documents, or generated artifacts SHALL NOT count as quality unless they remove greater accidental complexity or protect a named risk.
+
+#### Scenario: An implementation is proposed as a reference pattern
+
+- **WHEN** a maintainer evaluates a product path for reference quality
+- **THEN** the path SHALL demonstrate its invariant through public behavior, focused adversarial tests, and a reproducible contributor journey
+- **AND** every retained abstraction and dependency SHALL identify the responsibility or maintenance cost it removes.
+
+#### Scenario: A simpler complete design exists
+
+- **WHEN** two implementations satisfy the same supported behavior and evidence obligations
+- **THEN** AIGW SHALL retain the design with fewer authorities, states, dependencies, and failure modes
+- **AND** delete the superseded implementation and its unconsumed tests, configuration, and documentation.
+
+### Requirement: Quality constraints are comprehensive and proportionate
+
+The repository quality graph SHALL cover every tracked source, test, configuration, documentation, schema, workflow, and generated projection with the mature native tool for each concern where it provides net value. Numeric limits SHALL be derived from observed risk and reviewed distributions; a tighter number SHALL be adopted only when it improves maintainability without fragmenting coherent logic or encouraging cosmetic restructuring.
+
+#### Scenario: A quality threshold is tightened
+
+- **WHEN** a maintainer proposes a lower size, complexity, nesting, parameter, coverage, or performance threshold
+- **THEN** the proposal SHALL include current distribution, affected semantic owners, false-positive cost, and remediation path
+- **AND** the accepted limit SHALL preserve coherent domain expression.
+
+#### Scenario: A tracked format has no effective gate
+
+- **WHEN** repository inventory finds a current format or generated projection outside the executable quality graph
+- **THEN** the existing quality authority SHALL add the appropriate mature validator or explicitly remove the unsupported carrier
+- **AND** a hand-written duplicate checker SHALL not be introduced when a maintained tool supplies the contract.
+
+### Requirement: Delivery completion is evidence-bound
+
+Quality completion SHALL require separate proof of local gates, exact source,
+hosted CI, peer publication, Git identity, artifact integrity, installation,
+runtime acceptance, and housekeeping.
+
+Release completion SHALL bind one signed tag to immutable assets, checksums,
+native Release records, and supported-platform results. Each peer verifies its
+own objects and assets. The aggregate executor set MAY supply native platform
+evidence without duplicating unavailable runners.
+
+#### Scenario: Both publication planes complete
+
+- **WHEN** both selected publication planes satisfy their Forge-object and
+  distribution-byte contracts for one accepted release
+- **THEN** the aggregate publication stage SHALL be complete.
+
+#### Scenario: Local proof passes but delivery is incomplete
+
+- **WHEN** hosted CI, a selected peer, exact object identity, asset integrity,
+  installation, runtime acceptance, or lane retirement remains unverified
+- **THEN** the repository SHALL report that stage as incomplete and SHALL NOT
+  claim terminal completion.
+
+#### Scenario: Terminal closeout succeeds
+
+- **WHEN** every delivery stage passes for the exact accepted product object
+  and obsolete lanes, policies, compatibility paths, temporary assets, and
+  stale runtime residue are retired
+- **THEN** the repository MAY report completion with receipts for each
+  independent boundary.

@@ -48,6 +48,9 @@ meaning. Projection and withdrawal SHALL preserve unrelated source bytes, includ
 same-named keys inside named profiles, dotted keys, arrays of tables, and strings.
 Replacement values SHALL be literal data, never regular-expression substitution
 syntax. Invalid or ambiguous selections SHALL fail before applying file changes.
+Root provider and model ownership SHALL derive from the attributed sidecar and
+the recorded semantic values; decorative ownership comments SHALL NOT be the
+sole authorization boundary.
 
 #### Scenario: Project and withdraw a literal model selection
 
@@ -70,6 +73,28 @@ syntax. Invalid or ambiguous selections SHALL fail before applying file changes.
   inadmissible control character
 - **THEN** the operation reports the input error without normalizing it into a
   different model or applying configuration writes.
+
+#### Scenario: The native client removes decorative ownership comments
+
+- **GIVEN** the attributed sidecar, provider values, scheduler values, and
+  catalogue still match the last AIGW projection
+- **WHEN** the native client rewrites the root provider and model assignments
+  without their decorative ownership comments
+- **THEN** inspection SHALL accept unchanged semantic values
+- **AND** synchronization SHALL restore the canonical comments without changing
+  unrelated client configuration.
+
+#### Scenario: A root selection changes outside explicit Route selection
+
+- **WHEN** the root provider or model value no longer matches the attributed
+  AIGW projection
+- **THEN** ordinary synchronization and repair SHALL reject the conflict before
+  writing configuration, sidecar, catalogue, or credential state
+- **AND** an explicit Route verification MAY replace the values only in its
+  private projection copy
+- **AND** an explicit operator Route selection MAY replace the root values only
+  after the provider block, scheduler, catalogue, and sidecar still prove the
+  existing AIGW projection.
 
 ### Requirement: Codex provider ownership follows TOML values
 

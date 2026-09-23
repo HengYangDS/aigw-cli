@@ -80,7 +80,7 @@ Chat/Work/Codex receive bounded source-backed dispositions. Their assessment
 does not promise an unimplemented Adapter or silently remove Hermes and Claude
 Desktop from delivery. AWS Bedrock and other provider recipes distinguish
 native client authentication from compatible gateway composition. The existing
-[research assessment](../../../docs/research/provider-tooling-assessment.md#client-surfaces-and-cross-model-inference)
+[research assessment](../../../../docs/research/provider-tooling-assessment.md#client-surfaces-and-cross-model-inference)
 owns source evidence; tasks own implementation progress.
 
 Task 4.10 closes the Provider-extension decision with one three-way contract.
@@ -639,7 +639,7 @@ client to omit that parameter instead of misrepresenting support. These results
 qualify the selected routes and their observed limits without changing session
 history or model metadata. Candidate installation remains part of Task 9.3.
 
-Task 4.11 previously closed on the version 6 [`team.toml`](../../../manifests/team.toml),
+Task 4.11 previously closed on the version 6 [`team.toml`](../../../../manifests/team.toml),
 whose SHA-256 is `71540fec516305bc84407b5a0d802a679c617335939d0dab15dae8310b40413f`.
 It contains three Accounts, 70 credential-free Profiles, and one independent
 recommendation for each admitted client. Profile identifiers retain the exact
