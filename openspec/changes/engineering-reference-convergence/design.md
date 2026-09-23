@@ -654,6 +654,18 @@ capabilities remain verification evidence; reviewed Routes are admitted,
 `lifecycle = "deprecated"` preserves existing bindings while excluding
 recommendations, and removal after reference checks is retirement.
 
+The September 23, 2026 UCloud refresh observed 276 authenticated model IDs;
+the normalized sorted-ID set has SHA-256
+`49ae1980099b71410233b281ca75a17e49eb096ff9f62fe90427cd1f19eec39e`.
+Both `gpt-6-sol` and `gpt-6-luna` completed minimal OpenAI Responses requests
+and are admitted as Codex alternatives behind `gpt-6-astra`. The catalogue did
+not contain Claude Opus 5.5, and the plausible identifiers
+`claude-opus-5-5` and `claude-opus-5.5` were rejected by Anthropic Messages;
+the existing `claude-opus-5` Route remains distinct and no false alias is
+introduced. These calls prove model identity and basic text connectivity only;
+task 4.8 still owns tools, streaming, continuation, compaction, cancellation,
+and real-client qualification.
+
 A synthetic `future` Client passes the complete registry contract for discovery,
 convergence, preflight, guarded projection, change detection, inspection, live
 verification, compensation, disable, and withdrawal. The same registry rejects

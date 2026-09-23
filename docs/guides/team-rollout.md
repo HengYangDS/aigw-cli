@@ -87,21 +87,23 @@ Catalogue refresh performs none of those transitions.
 
 ### Reviewed model defaults
 
-The catalogue contains GPT-6 Astra, GPT-5.6 Sol, Terra and Luna, Claude Fable
-5.1, Opus 5 and Sonnet 5. It also offers a deliberately small two-tier set for
-each general model family: Grok 4.6/4.3, Gemini 3.1 Pro Preview/3.8 Flash,
-DeepSeek V4 Pro 0813/V4 Flash 0731, Qwen 3.8 Max/3.7 Plus, GLM 5.3/5.3 Flash,
-and Kimi K3/K2.7 Code Highspeed. The first model in each pair is the reviewed
-`flagship`; the second is `daily`. This is team curation, not a claim about
-vendor pricing, benchmarks, or universal superiority.
+The catalogue contains GPT-6 Astra, GPT-6 Sol, GPT-6 Luna, GPT-5.6 Sol, Terra
+and Luna, Claude Fable 5.1, Opus 5 and Sonnet 5. It also keeps a deliberately
+small reviewed set for each general model family: Grok 4.6/4.3, Gemini 3.1 Pro
+Preview/3.8 Flash, DeepSeek V4 Pro 0813/V4 Flash 0731, Qwen 3.8 Max/3.7 Plus,
+GLM 5.3/5.3 Flash, and Kimi K3/K2.7 Code Highspeed. Model entries carry
+identity only; client-scoped recommendations express preference without a
+global ranking or a claim about pricing, benchmarks, or universal superiority.
 
-All three configured Accounts listed those model IDs in the authenticated
-catalogue observation on September 21, 2026. The selected protocols were also
-tested with minimal inference calls. AIHubMix and DMXAPI used OpenAI Responses
-for the 12 general routes. UCloud used Responses except for Gemini 3.1 Pro
-Preview, Gemini 3.8 Flash, and Kimi K2.7 Code Highspeed, which used Chat
-Completions. Catalogue membership and one successful text call remain narrower
-than complete tool, streaming, long-context, cost, or latency qualification.
+All three configured Accounts listed the September 21 set in authenticated
+catalogue observations, and their selected protocols completed minimal
+inference calls. On September 23, 2026, UCloud additionally listed `gpt-6-sol`
+and `gpt-6-luna`; both completed minimal OpenAI Responses requests and are now
+Codex alternatives behind GPT-6 Astra. UCloud did not list Claude Opus 5.5,
+and both plausible upstream identifiers were rejected, so the team catalogue
+does not mislabel or admit it. Catalogue membership and one successful text
+call remain narrower than complete tool, streaming, long-context, cost, or
+latency qualification.
 
 DMXAPI's retained CC, SSVIP and CDX channels remain separate Routes within
 the Claude and GPT families; other Accounts use their ordinary model

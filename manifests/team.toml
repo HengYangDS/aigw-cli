@@ -26,6 +26,12 @@ route = 'dmxapi-claude-fable-5-1'
 route = 'ucloud-gpt-6-astra'
 
 [[recommendations.codex.alternatives]]
+route = 'ucloud-gpt-6-sol'
+
+[[recommendations.codex.alternatives]]
+route = 'ucloud-gpt-6-luna'
+
+[[recommendations.codex.alternatives]]
 route = 'aihubmix-gpt-6-astra'
 
 [[recommendations.codex.alternatives]]
@@ -110,6 +116,12 @@ label = 'GPT-5.6 Terra'
 
 [models.gpt-6-astra]
 label = 'GPT-6 Astra'
+
+[models.gpt-6-luna]
+label = 'GPT-6 Luna'
+
+[models.gpt-6-sol]
+label = 'GPT-6 Sol'
 
 [models.'grok-4.3']
 label = 'Grok 4.3'
@@ -704,6 +716,24 @@ model = 'gpt-6-astra'
 upstream_model = 'gpt-6-astra'
 
 [routes.ucloud-gpt-6-astra.interfaces]
+openai_responses = []
+
+[routes.ucloud-gpt-6-luna]
+label = 'UCloud · GPT-6 Luna'
+account = 'ucloud'
+model = 'gpt-6-luna'
+upstream_model = 'gpt-6-luna'
+
+[routes.ucloud-gpt-6-luna.interfaces]
+openai_responses = []
+
+[routes.ucloud-gpt-6-sol]
+label = 'UCloud · GPT-6 Sol'
+account = 'ucloud'
+model = 'gpt-6-sol'
+upstream_model = 'gpt-6-sol'
+
+[routes.ucloud-gpt-6-sol.interfaces]
 openai_responses = []
 
 [routes.'ucloud-grok-4.3']

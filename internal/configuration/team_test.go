@@ -115,6 +115,30 @@ func TestTeamManifestSeparatesGeneralModelsFromAccountRoutes(t *testing.T) {
 			}
 		}
 	}
+	for _, modelID := range []string{"gpt-6-astra", "gpt-6-sol", "gpt-6-luna"} {
+		if _, ok := manifest.Models[modelID]; !ok {
+			t.Errorf("team manifest missing GPT-6 Model %q", modelID)
+		}
+		routeID := "ucloud-" + modelID
+		route, ok := manifest.Routes[routeID]
+		if !ok {
+			t.Errorf("team manifest missing UCloud GPT-6 Route %q", routeID)
+			continue
+		}
+		if route.Account != "ucloud" || route.Model != modelID || route.UpstreamModelID() != modelID || len(routeAdmittedProtocols(route)) == 0 {
+			t.Errorf("team Route %q = %#v", routeID, route)
+		}
+	}
+	wantCodexRoutes := []string{"ucloud-gpt-6-astra", "ucloud-gpt-6-sol", "ucloud-gpt-6-luna"}
+	codexRoutes := manifest.Recommendations[ClientCodex].Selections()
+	if len(codexRoutes) < len(wantCodexRoutes) {
+		t.Fatalf("Codex recommendations = %#v, want at least %#v", codexRoutes, wantCodexRoutes)
+	}
+	for index, selection := range codexRoutes[:len(wantCodexRoutes)] {
+		if selection.Route != wantCodexRoutes[index] {
+			t.Errorf("Codex recommendation %d = %q, want %q", index, selection.Route, wantCodexRoutes[index])
+		}
+	}
 }
 
 func TestTeamAccountEndpointsHaveHosts(t *testing.T) {
