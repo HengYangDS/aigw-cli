@@ -124,7 +124,14 @@ func isolateCodexProjection(cfg configuration.Config, runtime configuration.Runt
 	after := before
 	after.Executable = adapter.Executable
 	after.CreateIfAbsent = true
-	if _, err := codex.ReconcileConfigs([]codex.TargetRef{before}, []codex.TargetRef{after}, runtime); err != nil {
+	selected, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		return configuration.Config{}, workspace, fmt.Errorf("resolve selected Codex projection: %w", err)
+	}
+	if selected.RequiresAccountToken() {
+		selected.CredentialCommand = selected.CredentialExecutable(runtime.CredentialCommand)
+	}
+	if _, err := codex.ReconcileConfigsAuthorizedTransition([]codex.TargetRef{before}, []codex.TargetRef{after}, selected, runtime); err != nil {
 		return configuration.Config{}, workspace, fmt.Errorf("prepare isolated Codex verification projection: %w", err)
 	}
 	isolated := cfg.Clone()

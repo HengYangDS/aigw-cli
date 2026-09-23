@@ -115,6 +115,49 @@ func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testin
 	}
 }
 
+func TestCodexVerificationRepairsCosmeticRootSelectionDriftInIsolation(t *testing.T) {
+	cfg, selected := codexVerificationFixture(t)
+	target := cfg.Clients[configuration.ClientCodex].Targets[0]
+	projected, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unmarked := strings.Replace(string(projected), `model_provider = "aigw" # managed by AIGW`, `model_provider = "aigw"`, 1)
+	unmarked = strings.Replace(unmarked, `model = "gpt-selected" # managed by AIGW`, `model = "gpt-selected"`, 1)
+	if err := os.WriteFile(target, []byte(unmarked), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Routes["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", configuration.ProtocolOpenAIResponses)
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "alternate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner := &routeVerificationRunner{}
+	if _, err := (codexAdapter{}).Verify(context.Background(), Dependencies{
+		Runner: runner, AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
+	}, cfg, runtime, "alternate"); err != nil {
+		t.Fatalf("explicit Route verification rejected cosmetic root selection drift: %v", err)
+	}
+	after, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(before, after) {
+		t.Fatal("isolated verification changed the selected Codex projection")
+	}
+	if !strings.Contains(string(runner.config), `model = "gpt-alternate" # managed by AIGW`) {
+		t.Fatalf("isolated projection did not select alternate Route:\n%s", runner.config)
+	}
+	if !strings.Contains(string(runner.config), `model_provider = "aigw" # managed by AIGW`) {
+		t.Fatalf("isolated projection did not restore cosmetic ownership markers:\n%s", runner.config)
+	}
+	_ = selected
+}
+
 func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testing.T) {
 	root := t.TempDir()
 	executable := filepath.Join(root, "claude")

@@ -15,12 +15,12 @@
   "after": {
     "claimModel": {
       "path": "_source/semantic.json",
-      "sha256": "09999bd41c0d95405a97ee4691ce4fb0937afc934b87c11bf8620116cd72bfe0"
+      "sha256": "fc12aeef70916801b5bb25615b7b9db698471abc29bf4998f22b6482cf7b6672"
     },
     "editions": [
       {
         "path": "edition.json",
-        "sha256": "e94e1c4d37f42adc17e1e87a6d2c221e5c5eb4af64f8a5bcb70fcf52d25f7387"
+        "sha256": "f47e892259b2b20a3d344e585e1d75332e36048bd160fb9deac459564bf5ca41"
       }
     ]
   },

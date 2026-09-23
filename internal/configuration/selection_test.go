@@ -32,6 +32,32 @@ func TestResolveRuntimeClassifiesAnUnselectedRoute(t *testing.T) {
 	}
 }
 
+func TestSetSelectedRouteUsesTheNewRoutesOnlyAdmittedProtocol(t *testing.T) {
+	cfg := validConfig()
+	cfg.Clients[ClientHermes] = ClientBinding{
+		Route:    "dmx",
+		Enabled:  true,
+		Protocol: ProtocolAnthropic,
+	}
+
+	cfg.SetSelectedRoute(ClientHermes, "backup")
+
+	binding := cfg.Clients[ClientHermes]
+	if binding.Route != "backup" {
+		t.Fatalf("selected Route = %q, want backup", binding.Route)
+	}
+	if binding.Protocol != ProtocolOpenAIResponses {
+		t.Fatalf("selected protocol = %q, want %q", binding.Protocol, ProtocolOpenAIResponses)
+	}
+	runtime, err := cfg.ResolveRuntime(ClientHermes, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.Protocol != ProtocolOpenAIResponses {
+		t.Fatalf("runtime protocol = %q, want %q", runtime.Protocol, ProtocolOpenAIResponses)
+	}
+}
+
 func BenchmarkResolveRuntime(b *testing.B) {
 	cfg := validConfig()
 	b.ReportAllocs()

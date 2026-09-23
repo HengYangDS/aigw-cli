@@ -400,3 +400,39 @@ func TestCodexResyncAcceptsUnmarkedOwnedProjection(t *testing.T) {
 		t.Fatalf("unchanged provider without cosmetic markers rejected: %v", err)
 	}
 }
+
+func TestCodexResyncRestoresCosmeticRootSelectionMarkers(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "configuration.toml")
+	if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime := codexRuntime("gpt", "GPT", "https://example.test/v1", "gpt-test")
+	if err := codex.SyncConfig(path, runtime); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unmarked := strings.Replace(string(projected), `model_provider = "aigw" # managed by AIGW`, `model_provider = "aigw"`, 1)
+	unmarked = strings.Replace(unmarked, `model = "gpt-test" # managed by AIGW`, `model = "gpt-test"`, 1)
+	if err := os.WriteFile(path, []byte(unmarked), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := codex.SyncConfig(path, runtime); err != nil {
+		t.Fatalf("SyncConfig() rejected unchanged root values without cosmetic markers: %v", err)
+	}
+	repaired, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`model_provider = "aigw" # managed by AIGW`,
+		`model = "gpt-test" # managed by AIGW`,
+	} {
+		if !strings.Contains(string(repaired), want) {
+			t.Fatalf("repaired projection lacks %q:\n%s", want, repaired)
+		}
+	}
+}

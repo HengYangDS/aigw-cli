@@ -74,7 +74,7 @@
       "authority": "AIGW command composition at the selected product revision"
     },
     "configuration": {
-      "sha256": "1a53546e39d185d42557eb97f1a58fa39b615b61f7ff02e868938f500c910af5",
+      "sha256": "627838f6f2f362ea6c6b97663fd33e2974fca1e0bd803f0d53248515c3ea85bf",
       "locator": "source/internal/configuration/model.go",
       "authority": "AIGW Account, Model, Route, recommendation, and Client Binding authority"
     },
@@ -89,17 +89,17 @@
       "authority": "AIGW read-only native client discovery contract"
     },
     "registry": {
-      "sha256": "e463f0a3e1abe7020a376c7c375389cfb488810116684c60abfb1419f6229cda",
+      "sha256": "f4f023b3d8b87c726ad7159a4e01e190e9612d9eb2ebe4b7e022a25a3cbbcb90",
       "locator": "source/internal/client/registry.go",
       "authority": "AIGW ordered client registry and Adapter contract"
     },
     "adapters": {
-      "sha256": "26d5cb7b49e9de9cf5e9e25e9573d58f45e6ea4f577d141f55151c3b102a4ac5",
+      "sha256": "de7a0d00853a264dae2269f8047df3a04886aa8dd709cf572bd91d6645e7a26c",
       "locator": "source/internal/client/adapters.go",
       "authority": "AIGW built-in Adapter composition"
     },
     "synchronizer": {
-      "sha256": "061b0a3102f9ca94d23eae581751ec1e07e65cb0b7d93e2c3d3566d3b6c255fc",
+      "sha256": "4439de4c6158232214d6575b887888be3a814961c2c52e37d916b99f92a5e5c8",
       "locator": "source/internal/synchronization/synchronizer.go",
       "authority": "AIGW client convergence coordinator"
     },
@@ -114,7 +114,7 @@
       "authority": "AIGW guarded filesystem mutation boundary"
     },
     "codex": {
-      "sha256": "a66cec749793c2b434bb815a23e7c0ada6dc483b56d7f2b1da9c93667fecd9e3",
+      "sha256": "62e332afb57f7ac0df54a8ee420f417cab2a93e40bfe4a21f2d8606d5bae1c24",
       "locator": "source/internal/codex/reconcile.go",
       "authority": "AIGW native Codex projection"
     },
@@ -471,7 +471,7 @@
     }
   },
   "context": {
-    "revision": "6efa138fb78e446f040afcdcba9ad007671d7458519fac36b93cc56235d1c98f",
+    "revision": "50c3b089c8ea58692efead459aa671815222db06bf2b30b4f2d6b477769ccc59",
     "scope": "Selected AIGW control-plane owners; not automatic inference or exhaustive implementation coverage"
   }
 }

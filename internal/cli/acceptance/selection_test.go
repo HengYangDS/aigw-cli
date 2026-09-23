@@ -166,6 +166,12 @@ func TestUseForCodexLeavesUnselectedClaudeDriftUntouched(t *testing.T) {
 	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatal(err)
 	}
+	codexProjection := string(readFile(t, target))
+	codexProjection = strings.Replace(codexProjection, `model_provider = "aigw" # managed by AIGW`, `model_provider = "native"`, 1)
+	codexProjection = strings.Replace(codexProjection, `model = "model-one" # managed by AIGW`, `model = "model-user"`, 1)
+	if err := os.WriteFile(target, []byte(codexProjection), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	state := readFile(t, app.ClaudeSettingsPath+".aigw-state.json")
 	foreign := []byte(`{"apiKeyHelper":"user-owned-helper"}`)
 	if err := os.WriteFile(app.ClaudeSettingsPath, foreign, 0o600); err != nil {

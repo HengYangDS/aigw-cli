@@ -87,9 +87,9 @@ Catalogue refresh performs none of those transitions.
 
 ### Reviewed model defaults
 
-The catalogue contains GPT-6 Astra, GPT-6 Sol, GPT-6 Luna, GPT-5.6 Sol, Terra
-and Luna, Claude Fable 5.1, Opus 5 and Sonnet 5. It also keeps a deliberately
-small reviewed set for each general model family: Grok 4.6/4.3, Gemini 3.1 Pro
+The catalogue contains GPT-6 Astra, Sol, and Luna, plus Claude Fable 5.1, Opus 5,
+and Sonnet 5. It also keeps a deliberately small reviewed set for each general
+model family: Grok 4.6/4.3, Gemini 3.1 Pro
 Preview/3.8 Flash, DeepSeek V4 Pro 0813/V4 Flash 0731, Qwen 3.8 Max/3.7 Plus,
 GLM 5.3/5.3 Flash, and Kimi K3/K2.7 Code Highspeed. Model entries carry
 identity only; client-scoped recommendations express preference without a
@@ -99,7 +99,8 @@ All three configured Accounts listed the September 21 set in authenticated
 catalogue observations, and their selected protocols completed minimal
 inference calls. On September 23, 2026, UCloud additionally listed `gpt-6-sol`
 and `gpt-6-luna`; both completed minimal OpenAI Responses requests and are now
-Codex alternatives behind GPT-6 Astra. UCloud did not list Claude Opus 5.5,
+Codex and Hermes choices, with Sol as the primary Route. UCloud did not list
+Claude Opus 5.5,
 and both plausible upstream identifiers were rejected, so the team catalogue
 does not mislabel or admit it. Catalogue membership and one successful text
 call remain narrower than complete tool, streaming, long-context, cost, or
@@ -112,12 +113,13 @@ in an existing Codex conversation.
 
 The reviewed [DMXAPI public catalogue](https://rmb.dmxapi.cn/) lists ordinary
 and CC Fable 5.1, ordinary/CC/SSVIP Opus 5 and Sonnet 5, and ordinary/CDX/SSVIP
-GPT-5.6 Luna, Terra, Sol and GPT-6 Astra. All 20 entries are represented.
-Luna CDX is marked supply-constrained; inclusion does not imply availability.
+GPT-6 Astra. The current manifest keeps those Claude channels and the GPT-6
+Astra channels; the superseded GPT-5.6 entries are retired.
 No Fable 5.1 SSVIP entry was listed in this observation.
 
-The team recommends UCloud GPT-6 Astra for Codex and UCloud Claude Fable 5.1
-for Claude Code. AIHubMix now includes those two models and uses the
+The team recommends UCloud GPT-6 Sol for Codex and Hermes, and UCloud Claude
+Fable 5.1 for Claude Code and Claude Desktop. AIHubMix includes GPT-6 Astra
+and Claude Fable 5.1 and uses the
 [documented backup API domain](https://docs.aihubmix.com/en/quick-start),
 `api.inferera.com`: `/v1` is the Responses base path; the Anthropic base is the
 domain root. Its public model catalogue lists both identifiers. Listing and
@@ -236,7 +238,7 @@ Account Token, then select its Route:
 
 ```bash
 aigw rotate dmxapi
-aigw use --for codex dmxapi-gpt-5.6-sol
+aigw use --for codex dmxapi-gpt-6-astra
 aigw check
 ```
 

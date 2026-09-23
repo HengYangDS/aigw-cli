@@ -11,8 +11,13 @@ separate evidence.
 
 ### Changed
 
-- Admit UCloud GPT-6 Sol and GPT-6 Luna as verified OpenAI Responses Routes and
-  client-scoped Codex alternatives; retain GPT-6 Astra as the primary choice.
+- Recover Codex projections when the native client removes only decorative
+  ownership comments; preserve fail-closed behavior for semantic provider,
+  model, scheduler, catalogue, and authentication drift, while explicit
+  `use` and isolated `verify` retain their bounded Route-selection authority.
+- Admit UCloud GPT-6 Sol and Luna as OpenAI Responses Routes; recommend Sol for
+  Codex and Hermes, retain Astra and Luna as alternatives, and retire GPT-5.6
+  from the team catalogue.
 - Align the public CLI and configuration with the Account, Model, Route, Client
   Binding, and Adapter model; replace the superseded `profile` command, flags,
   and output fields with `route`, and move provider diagnostics to

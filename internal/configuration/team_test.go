@@ -49,8 +49,8 @@ func TestTeamConfigurationManifestIsReviewedVersionSeven(t *testing.T) {
 	}{
 		ClientClaude:        {model: "claude-fable-5-1", runtimeProtocol: ProtocolAnthropic},
 		ClientClaudeDesktop: {model: "claude-fable-5-1", runtimeProtocol: ProtocolAnthropic},
-		ClientCodex:         {model: "gpt-6-astra", runtimeProtocol: ProtocolOpenAIResponses},
-		ClientHermes:        {model: "claude-fable-5-1", storedProtocol: ProtocolAnthropic, runtimeProtocol: ProtocolAnthropic},
+		ClientCodex:         {model: "gpt-6-sol", runtimeProtocol: ProtocolOpenAIResponses},
+		ClientHermes:        {model: "gpt-6-sol", storedProtocol: ProtocolOpenAIResponses, runtimeProtocol: ProtocolOpenAIResponses},
 	}
 	if len(parsedManifest.Recommendations) != len(recommendations) {
 		t.Fatalf("team manifest recommended routes = %#v", parsedManifest.Recommendations)
@@ -129,7 +129,7 @@ func TestTeamManifestSeparatesGeneralModelsFromAccountRoutes(t *testing.T) {
 			t.Errorf("team Route %q = %#v", routeID, route)
 		}
 	}
-	wantCodexRoutes := []string{"ucloud-gpt-6-astra", "ucloud-gpt-6-sol", "ucloud-gpt-6-luna"}
+	wantCodexRoutes := []string{"ucloud-gpt-6-sol", "ucloud-gpt-6-astra", "ucloud-gpt-6-luna"}
 	codexRoutes := manifest.Recommendations[ClientCodex].Selections()
 	if len(codexRoutes) < len(wantCodexRoutes) {
 		t.Fatalf("Codex recommendations = %#v, want at least %#v", codexRoutes, wantCodexRoutes)
@@ -192,7 +192,7 @@ func TestTeamManifestSelectsRecommendedModelsForAIHubMix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for client, model := range map[string]string{ClientClaude: "claude-fable-5-1", ClientCodex: "gpt-6-astra", ClientHermes: "claude-fable-5-1"} {
+	for client, model := range map[string]string{ClientClaude: "claude-fable-5-1", ClientCodex: "gpt-6-astra", ClientHermes: "gpt-6-astra"} {
 		runtime, resolveErr := selected.ResolveRuntime(client, "")
 		if resolveErr != nil {
 			t.Fatal(resolveErr)

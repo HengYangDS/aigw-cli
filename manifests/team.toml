@@ -23,10 +23,10 @@ route = 'dmxapi-claude-fable-5-1'
 
 [recommendations.codex]
 [recommendations.codex.primary]
-route = 'ucloud-gpt-6-astra'
+route = 'ucloud-gpt-6-sol'
 
 [[recommendations.codex.alternatives]]
-route = 'ucloud-gpt-6-sol'
+route = 'ucloud-gpt-6-astra'
 
 [[recommendations.codex.alternatives]]
 route = 'ucloud-gpt-6-luna'
@@ -39,16 +39,24 @@ route = 'dmxapi-gpt-6-astra'
 
 [recommendations.hermes]
 [recommendations.hermes.primary]
-route = 'ucloud-claude-fable-5-1'
-protocol = 'anthropic'
+route = 'ucloud-gpt-6-sol'
+protocol = 'openai_responses'
 
 [[recommendations.hermes.alternatives]]
-route = 'aihubmix-claude-fable-5-1'
-protocol = 'anthropic'
+route = 'ucloud-gpt-6-astra'
+protocol = 'openai_responses'
 
 [[recommendations.hermes.alternatives]]
-route = 'dmxapi-claude-fable-5-1'
-protocol = 'anthropic'
+route = 'ucloud-gpt-6-luna'
+protocol = 'openai_responses'
+
+[[recommendations.hermes.alternatives]]
+route = 'aihubmix-gpt-6-astra'
+protocol = 'openai_responses'
+
+[[recommendations.hermes.alternatives]]
+route = 'dmxapi-gpt-6-astra'
+protocol = 'openai_responses'
 
 [accounts]
 [accounts.aihubmix]
@@ -104,15 +112,6 @@ label = 'GLM 5.3'
 
 [models.'glm-5.3-flash']
 label = 'GLM 5.3 Flash'
-
-[models.'gpt-5.6-luna']
-label = 'GPT-5.6 Luna'
-
-[models.'gpt-5.6-sol']
-label = 'GPT-5.6 Sol'
-
-[models.'gpt-5.6-terra']
-label = 'GPT-5.6 Terra'
 
 [models.gpt-6-astra]
 label = 'GPT-6 Astra'
@@ -221,33 +220,6 @@ model = 'glm-5.3-flash'
 upstream_model = 'glm-5.3-flash'
 
 [routes.'aihubmix-glm-5.3-flash'.interfaces]
-openai_responses = []
-
-[routes.'aihubmix-gpt-5.6-luna']
-label = 'AIHubMix · GPT-5.6 Luna'
-account = 'aihubmix'
-model = 'gpt-5.6-luna'
-upstream_model = 'gpt-5.6-luna'
-
-[routes.'aihubmix-gpt-5.6-luna'.interfaces]
-openai_responses = []
-
-[routes.'aihubmix-gpt-5.6-sol']
-label = 'AIHubMix · GPT-5.6 Sol'
-account = 'aihubmix'
-model = 'gpt-5.6-sol'
-upstream_model = 'gpt-5.6-sol'
-
-[routes.'aihubmix-gpt-5.6-sol'.interfaces]
-openai_responses = []
-
-[routes.'aihubmix-gpt-5.6-terra']
-label = 'AIHubMix · GPT-5.6 Terra'
-account = 'aihubmix'
-model = 'gpt-5.6-terra'
-upstream_model = 'gpt-5.6-terra'
-
-[routes.'aihubmix-gpt-5.6-terra'.interfaces]
 openai_responses = []
 
 [routes.aihubmix-gpt-6-astra]
@@ -439,87 +411,6 @@ upstream_model = 'glm-5.3-flash'
 [routes.'dmxapi-glm-5.3-flash'.interfaces]
 openai_responses = []
 
-[routes.'dmxapi-gpt-5.6-luna']
-label = 'DMXAPI · GPT-5.6 Luna'
-account = 'dmxapi'
-model = 'gpt-5.6-luna'
-upstream_model = 'gpt-5.6-luna'
-
-[routes.'dmxapi-gpt-5.6-luna'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-gpt-5.6-luna-cdx']
-label = 'DMXAPI · GPT-5.6 Luna · CDX'
-account = 'dmxapi'
-model = 'gpt-5.6-luna'
-upstream_model = 'gpt-5.6-luna-cdx'
-
-[routes.'dmxapi-gpt-5.6-luna-cdx'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-gpt-5.6-luna-ssvip']
-label = 'DMXAPI · GPT-5.6 Luna · SSVIP'
-account = 'dmxapi'
-model = 'gpt-5.6-luna'
-upstream_model = 'gpt-5.6-luna-ssvip'
-
-[routes.'dmxapi-gpt-5.6-luna-ssvip'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-gpt-5.6-sol']
-label = 'DMXAPI · GPT-5.6 Sol'
-account = 'dmxapi'
-model = 'gpt-5.6-sol'
-upstream_model = 'gpt-5.6-sol'
-
-[routes.'dmxapi-gpt-5.6-sol'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-gpt-5.6-sol-cdx']
-label = 'DMXAPI · GPT-5.6 Sol · CDX'
-account = 'dmxapi'
-model = 'gpt-5.6-sol'
-upstream_model = 'gpt-5.6-sol-cdx'
-
-[routes.'dmxapi-gpt-5.6-sol-cdx'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-gpt-5.6-sol-ssvip']
-label = 'DMXAPI · GPT-5.6 Sol · SSVIP'
-account = 'dmxapi'
-model = 'gpt-5.6-sol'
-upstream_model = 'gpt-5.6-sol-ssvip'
-
-[routes.'dmxapi-gpt-5.6-sol-ssvip'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-gpt-5.6-terra']
-label = 'DMXAPI · GPT-5.6 Terra'
-account = 'dmxapi'
-model = 'gpt-5.6-terra'
-upstream_model = 'gpt-5.6-terra'
-
-[routes.'dmxapi-gpt-5.6-terra'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-gpt-5.6-terra-cdx']
-label = 'DMXAPI · GPT-5.6 Terra · CDX'
-account = 'dmxapi'
-model = 'gpt-5.6-terra'
-upstream_model = 'gpt-5.6-terra-cdx'
-
-[routes.'dmxapi-gpt-5.6-terra-cdx'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-gpt-5.6-terra-ssvip']
-label = 'DMXAPI · GPT-5.6 Terra · SSVIP'
-account = 'dmxapi'
-model = 'gpt-5.6-terra'
-upstream_model = 'gpt-5.6-terra-ssvip'
-
-[routes.'dmxapi-gpt-5.6-terra-ssvip'.interfaces]
-openai_responses = []
-
 [routes.dmxapi-gpt-6-astra]
 label = 'DMXAPI · GPT-6 Astra'
 account = 'dmxapi'
@@ -680,33 +571,6 @@ model = 'glm-5.3-flash'
 upstream_model = 'glm-5.3-flash'
 
 [routes.'ucloud-glm-5.3-flash'.interfaces]
-openai_responses = []
-
-[routes.'ucloud-gpt-5.6-luna']
-label = 'UCloud · GPT-5.6 Luna'
-account = 'ucloud'
-model = 'gpt-5.6-luna'
-upstream_model = 'gpt-5.6-luna'
-
-[routes.'ucloud-gpt-5.6-luna'.interfaces]
-openai_responses = []
-
-[routes.'ucloud-gpt-5.6-sol']
-label = 'UCloud · GPT-5.6 Sol'
-account = 'ucloud'
-model = 'gpt-5.6-sol'
-upstream_model = 'gpt-5.6-sol'
-
-[routes.'ucloud-gpt-5.6-sol'.interfaces]
-openai_responses = []
-
-[routes.'ucloud-gpt-5.6-terra']
-label = 'UCloud · GPT-5.6 Terra'
-account = 'ucloud'
-model = 'gpt-5.6-terra'
-upstream_model = 'gpt-5.6-terra'
-
-[routes.'ucloud-gpt-5.6-terra'.interfaces]
 openai_responses = []
 
 [routes.ucloud-gpt-6-astra]

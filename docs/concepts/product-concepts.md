@@ -58,7 +58,7 @@ combination; verify the actual invocation.
 ### Client Binding
 
 ```bash
-aigw use --for codex dmxapi-gpt-5.6-sol
+aigw use --for codex dmxapi-gpt-6-astra
 aigw use --for claude dmxapi-claude-fable-5-1
 ```
 

@@ -30,11 +30,12 @@ type DiscoverySource interface {
 
 // Dependencies are the shared capabilities supplied to one adapter operation.
 type Dependencies struct {
-	Secrets            secrets.Store
-	Runner             process.CaptureRunner
-	Discovery          discovery.Discoverer
-	ClaudeSettingsPath string
-	AIGWExecutable     string
+	Secrets                      secrets.Store
+	Runner                       process.CaptureRunner
+	Discovery                    discovery.Discoverer
+	ClaudeSettingsPath           string
+	AIGWExecutable               string
+	AuthorizeCodexRouteSelection bool
 }
 
 // ProjectionPlan describes one side-effect-free client projection change.

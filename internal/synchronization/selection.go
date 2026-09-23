@@ -58,10 +58,12 @@ func (s Synchronizer) selectRoute(ctx context.Context, before, after configurati
 		return false, configuration.ClientBinding{}, err
 	}
 	binding = after.Clients[client]
+	selector := s
+	selector.AuthorizeCodexRouteSelection = client == configuration.ClientCodex
 	if reflect.DeepEqual(before, after) {
-		return false, binding, s.ReconcileClient(ctx, after, client)
+		return false, binding, selector.ReconcileClient(ctx, after, client)
 	}
-	if err := s.commit(ctx, before, after, "client selection", true, client); err != nil {
+	if err := selector.commit(ctx, before, after, "client selection", true, client); err != nil {
 		return false, configuration.ClientBinding{}, err
 	}
 	return true, binding, nil

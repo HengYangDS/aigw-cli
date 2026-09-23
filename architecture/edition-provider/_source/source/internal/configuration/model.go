@@ -281,6 +281,12 @@ func (c *Config) SetSelectedRoute(client, routeID string) {
 		binding = binding.withSelection(c.recommendedSelection(client))
 	}
 	binding.Route = routeID
+	if route, exists := c.Routes[routeID]; exists && !routeAdmitsProtocol(route, binding.Protocol) {
+		binding.Protocol = ""
+		if protocols := route.AdmittedProtocols(); len(protocols) == 1 {
+			binding.Protocol = protocols[0]
+		}
+	}
 	c.Clients[client] = binding
 }
 

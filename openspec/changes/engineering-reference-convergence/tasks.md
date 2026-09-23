@@ -12,7 +12,7 @@
 - [x] 2.1 Exercise first-time interactive setup with each supported credential mode and no installed clients; verify one available Account is sufficient and no unrelated Token is required.
 - [x] 2.2 Exercise `setup --from` with zero, one, and several available Accounts; verify token-free import, partial activation, and precise next actions.
 - [x] 2.3 Verify deferred installation and later synchronization for Claude Code, Codex, Hermes, and Claude Desktop without re-importing team configuration or changing unrelated client state; report availability for each actual platform and surface.
-- [x] 2.4 Reconcile `use`, client-scoped selection, default selection, `use --all`, `status`, `check`, `doctor`, `test`, and `verify`; verify defaults have one human-readable meaning and explicit client selections require no hidden global step.
+- [x] 2.4 Reconcile `use`, client-scoped selection, default selection, `use --all`, `status`, `check`, `doctor`, `test`, and `verify`; verify defaults have one human-readable meaning, explicit client selections require no hidden global step, and Codex-native removal of decorative root-selection markers cannot deadlock explicit selection or isolated verification.
 - [x] 2.5 Verify setup, synchronization, selection, and repair are transactional under cancellation, output failure, concurrent external edits, and compensation failure.
 - [x] 2.6 Remove obsolete setup aliases, duplicate state transitions, and unconsumed configuration fields; verify supported manifests receive explicit migration errors rather than silent reinterpretation.
 - [x] 2.7 Replace client-bound model duplication and parallel Route/Adapter selection with reusable Routes and one explicit client binding; verify independent choices, native options, disabled intent, unambiguous protocol selection, and unaffected clients.
@@ -58,7 +58,7 @@
 - [x] 6.3 Enable the highest-value stable checks from Go, Markdown, TOML, YAML, JSON, CUE, shell, OpenSpec, spelling, links, secrets, vulnerabilities, and dependency analysis; verify each tool replaces rather than duplicates custom logic.
 - [x] 6.4 Measure executable lines, cyclomatic and cognitive complexity, nesting, parameters, test size, coverage, binary size, startup, steady-state latency, and memory; set strict but coherent thresholds with scope, rationale, and remediation.
 - [x] 6.5 Eliminate all repository-owned warnings and ambiguous skips; verify expected platform exclusions and external-capacity limits are explicit structured outcomes.
-- [x] 6.6 Add adversarial tests for invalid inputs, partial state, concurrency, cancellation, interrupted I/O, ownership drift, stale sidecars, unavailable services, and rollback failure; verify each former defect fails before its minimal repair.
+- [x] 6.6 Add adversarial tests for invalid inputs, partial state, concurrency, cancellation, interrupted I/O, ownership drift including cosmetic Codex marker loss versus semantic root-selection changes, stale sidecars, unavailable services, and rollback failure; verify each former defect fails before its minimal repair.
 - [x] 6.7 Run focused checks after each semantic closure and the complete local graph only after prerequisites stabilize; verify no failure is hidden by retries, broad exclusions, or generated-file drift.
 
 ## 7. Upgrade and lock the development supply chain

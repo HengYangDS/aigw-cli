@@ -94,11 +94,16 @@ func (codexAdapter) Converge(deps Dependencies, cfg *configuration.Config, disco
 }
 
 func (codexAdapter) Plan(deps Dependencies, before, after configuration.Config) ([]ProjectionPlan, error) {
-	beforeRefs, afterRefs, runtime, err := codexReconciliationInputs(deps, before, after)
+	beforeRefs, afterRefs, previous, runtime, err := codexReconciliationInputs(deps, before, after)
 	if err != nil {
 		return nil, err
 	}
-	plans, err := codex.PlanReconciliation(beforeRefs, afterRefs, runtime)
+	var plans []codex.ProjectionPlan
+	if deps.AuthorizeCodexRouteSelection {
+		plans, err = codex.PlanReconciliationAuthorizedTransition(beforeRefs, afterRefs, previous, runtime)
+	} else {
+		plans, err = codex.PlanReconciliationTransition(beforeRefs, afterRefs, previous, runtime)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -110,11 +115,14 @@ func (codexAdapter) Plan(deps Dependencies, before, after configuration.Config) 
 }
 
 func (codexAdapter) Apply(_ context.Context, deps Dependencies, before, after configuration.Config) (ProjectionReceipt, error) {
-	beforeRefs, afterRefs, runtime, err := codexReconciliationInputs(deps, before, after)
+	beforeRefs, afterRefs, previous, runtime, err := codexReconciliationInputs(deps, before, after)
 	if err != nil {
 		return nil, err
 	}
-	return codex.ReconcileConfigs(beforeRefs, afterRefs, runtime)
+	if deps.AuthorizeCodexRouteSelection {
+		return codex.ReconcileConfigsAuthorizedTransition(beforeRefs, afterRefs, previous, runtime)
+	}
+	return codex.ReconcileConfigsTransition(beforeRefs, afterRefs, previous, runtime)
 }
 
 func (codexAdapter) ProjectionChanged(before, after configuration.Config) bool {
@@ -345,35 +353,39 @@ func codexTargets(discovered discovery.Result, current []string) []string {
 	return targets
 }
 
-func codexReconciliationInputs(deps Dependencies, before, after configuration.Config) ([]codex.TargetRef, []codex.TargetRef, configuration.Runtime, error) {
+func codexReconciliationInputs(deps Dependencies, before, after configuration.Config) ([]codex.TargetRef, []codex.TargetRef, configuration.Runtime, configuration.Runtime, error) {
 	beforeAdapter := before.Clients[configuration.ClientCodex]
 	afterAdapter := after.Clients[configuration.ClientCodex]
 	if !beforeAdapter.Enabled && !afterAdapter.Enabled {
-		return nil, nil, configuration.Runtime{}, nil
+		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, nil
 	}
 	discovered, err := discover(deps)
 	if err != nil {
-		return nil, nil, configuration.Runtime{}, err
+		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
 	}
 	beforeRefs, err := codexTargetRefs(discovered, beforeAdapter.Targets, codexExecutable(discovered, beforeAdapter))
 	if err != nil {
-		return nil, nil, configuration.Runtime{}, err
+		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
 	}
 	afterRefs, err := codexTargetRefs(discovered, afterAdapter.Targets, codexExecutable(discovered, afterAdapter))
 	if err != nil {
-		return nil, nil, configuration.Runtime{}, err
+		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
+	}
+	previous, _ := before.ResolveRuntime(configuration.ClientCodex, "")
+	if previous.RequiresAccountToken() {
+		previous.CredentialCommand = previous.CredentialExecutable(deps.AIGWExecutable)
 	}
 	if !afterAdapter.Enabled {
-		return beforeRefs, nil, configuration.Runtime{}, nil
+		return beforeRefs, nil, previous, configuration.Runtime{}, nil
 	}
 	runtime, err := after.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
-		return nil, nil, configuration.Runtime{}, err
+		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
 	}
 	if runtime.RequiresAccountToken() {
 		runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
 	}
-	return beforeRefs, afterRefs, runtime, nil
+	return beforeRefs, afterRefs, previous, runtime, nil
 }
 
 func discover(deps Dependencies) (discovery.Result, error) {

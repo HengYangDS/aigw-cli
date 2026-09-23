@@ -110,7 +110,7 @@ repeating setup:
 
 ```bash
 aigw rotate dmxapi
-aigw use --for codex dmxapi-gpt-5.6-sol
+aigw use --for codex dmxapi-gpt-6-astra
 aigw sync
 aigw check
 ```

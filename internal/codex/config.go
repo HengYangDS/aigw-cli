@@ -44,6 +44,7 @@ type codexState struct {
 	CatalogClientVersion         string          `json:"catalog_client_version,omitempty"`
 	CatalogClientSHA256          string          `json:"catalog_client_sha256,omitempty"`
 	ProjectedProvider            string          `json:"projected_provider,omitempty"`
+	ProjectedModel               string          `json:"projected_model,omitempty"`
 	ProjectionMode               string          `json:"projection_mode,omitempty"`
 	WriterID                     string          `json:"writer_id,omitempty"`
 	TransactionID                string          `json:"transaction_id,omitempty"`
@@ -126,7 +127,7 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 	if err != nil {
 		return err
 	}
-	if !isManagedSelection(providerLine, "model_provider", provider) {
+	if !selectionHasValue(providerLine, "model_provider", provider) {
 		return fmt.Errorf("Codex config provider selection does not match AIGW")
 	}
 	if model := runtime.Model; model != "" {
@@ -134,7 +135,7 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 		if err != nil {
 			return err
 		}
-		if !isManagedSelection(modelLine, "model", model) {
+		if !selectionHasValue(modelLine, "model", model) {
 			return fmt.Errorf("Codex config model selection does not match Route %q", runtime.RouteID)
 		}
 	}
@@ -227,6 +228,10 @@ func DisableConfig(path string) error {
 }
 
 func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot) (string, codexState, error) {
+	return codexUserConfigTransition(configSnapshot, stateSnapshot, configuration.Runtime{}, false)
+}
+
+func codexUserConfigTransition(configSnapshot, stateSnapshot transaction.FileSnapshot, previous configuration.Runtime, replaceRootSelections bool) (string, codexState, error) {
 	text := string(configSnapshot.Data)
 	if !stateSnapshot.Exists {
 		scheduler, err := captureCodexScheduler(text)
@@ -252,7 +257,7 @@ func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot) (st
 	if err != nil {
 		return "", codexState{}, err
 	}
-	base, err := removeCodexProjection(text, state)
+	base, err := removeCodexProjectionTransition(text, state, previous, replaceRootSelections)
 	if err != nil {
 		return "", codexState{}, err
 	}
@@ -325,20 +330,42 @@ func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
 }
 
 func removeCodexProjection(current string, state codexState) (string, error) {
+	return removeCodexProjectionTransition(current, state, configuration.Runtime{}, false)
+}
+
+func removeCodexProjectionTransition(current string, state codexState, previous configuration.Runtime, replaceRootSelections bool) (string, error) {
 	provider := codexStateProvider(state)
-	providerLine, err := codexSelectionLine(current, "model_provider")
-	if err != nil {
-		return "", err
-	}
-	if !isManagedSelection(providerLine, "model_provider", provider) {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits")
-	}
 	block, err := codexManagedBlockForProviderIn(current, provider)
 	if err != nil {
 		return "", err
 	}
 	if !managedBlockHashMatches(state.ManagedBlockHash, block) {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits")
+	}
+	providerLine, err := codexSelectionLine(current, "model_provider")
+	if err != nil {
+		return "", err
+	}
+	if !replaceRootSelections && !selectionHasValue(providerLine, "model_provider", provider) {
+		return "", fmt.Errorf("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits")
+	}
+	projectedModel := state.ProjectedModel
+	if projectedModel == "" && previous.Model != "" && hashText(codexManagedBlock(previous, previous.Endpoint)) == state.ManagedBlockHash {
+		projectedModel = previous.Model
+	}
+	modelLine, err := codexSelectionLine(current, "model")
+	if err != nil {
+		return "", err
+	}
+	if replaceRootSelections {
+		// Explicit Route selection owns these root values. Provider tables,
+		// scheduler state, and catalogue bytes remain independently guarded.
+	} else if projectedModel == "" {
+		if !isManagedSelection(modelLine, "model", selectionStringValue(modelLine)) {
+			return "", fmt.Errorf("Codex config conflict: AIGW-managed model selection cannot be attributed; refusing to overwrite user edits")
+		}
+	} else if !selectionHasValue(modelLine, "model", projectedModel) {
+		return "", fmt.Errorf("Codex config conflict: AIGW-managed model selection changed; refusing to overwrite user edits")
 	}
 	if err := validateCodexSchedulerOwnership(state, current); err != nil {
 		return "", err
@@ -389,6 +416,31 @@ func isManagedSelection(line, key, value string) bool {
 	return err == nil && isManagedAssignment(line, key, encoded)
 }
 
+func selectionHasValue(line, key, value string) bool {
+	encoded, err := codexTOMLString(value)
+	if err != nil {
+		return false
+	}
+	pattern := `^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=[ \t]*` + regexp.QuoteMeta(encoded) + `(?:[ \t]*#[^\r\n]*)?[ \t]*$`
+	return regexp.MustCompile(pattern).MatchString(line)
+}
+
+func selectionStringValue(line string) string {
+	_, value, found := strings.Cut(line, "=")
+	if !found {
+		return ""
+	}
+	value = strings.TrimSpace(value)
+	if comment := strings.IndexByte(value, '#'); comment >= 0 {
+		value = strings.TrimSpace(value[:comment])
+	}
+	var decoded string
+	if err := json.Unmarshal([]byte(value), &decoded); err != nil {
+		return ""
+	}
+	return decoded
+}
+
 // isManagedAssignment is the same check for a value that is already rendered as
 // a TOML string, which a path must be: it may contain characters that require
 // escaping and so cannot be compared as a bare literal.
@@ -423,7 +475,7 @@ func restoreModelSelection(base, originalModel string) (string, error) {
 	if originalModel != "" {
 		return setCodexSelection(base, "model", originalModel)
 	}
-	return removeManagedCodexLine(base, "model")
+	return setCodexSelection(base, "model", "")
 }
 
 // removeManagedCodexLine drops the top-level assignment AIGW owns for one key.
