@@ -98,7 +98,7 @@ func TestNativePerformance(t *testing.T) {
 			program := programs[index]
 			for _, backend := range backends {
 				t.Run(fmt.Sprintf("block-%d/%s/%s", block+1, program.Variant, backend), func(t *testing.T) {
-					journey := nativePerformanceJourney(t, program.Path, backend)
+					journey := nativePerformanceJourney(t, program.Path, program.Variant, backend)
 					rows := journey.measurePerformance(hyperfine, output, program.Variant, backend, block+1)
 					measurements = append(measurements, rows...)
 					if backend == "env" {
@@ -174,7 +174,7 @@ func nativePerformancePrograms(t *testing.T) []performanceProgram {
 	return programs
 }
 
-func nativePerformanceJourney(t *testing.T, program, backend string) *journeyFixture {
+func nativePerformanceJourney(t *testing.T, program, variant, backend string) *journeyFixture {
 	t.Helper()
 	const account, token = "native-system-keyring-probe", "synthetic-performance-token"
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
@@ -183,6 +183,36 @@ func nativePerformanceJourney(t *testing.T, program, backend string) *journeyFix
 	}))
 	t.Cleanup(server.Close)
 	j := newNativeJourney(t, program, server.URL, true)
+	var manifest []byte
+	switch variant {
+	case "baseline":
+		manifest = []byte(publishedPredecessorManifest(server.URL) + `
+
+[profiles.performance-second]
+label = "Performance Second"
+account = "native-system-keyring-probe"
+client = "claude"
+model = "claude-second"
+`)
+	case "candidate":
+		manifest = append(readFile(t, j.manifest), []byte(`
+
+[models.claude-second]
+label = "Claude Second"
+
+[routes.performance-second]
+label = "Performance Second"
+account = "native-system-keyring-probe"
+model = "claude-second"
+upstream_model = "claude-second"
+interfaces = { anthropic = ["text"] }
+`)...)
+	default:
+		t.Fatalf("unknown performance variant %q", variant)
+	}
+	if err := os.WriteFile(j.manifest, manifest, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	j.preparePerformanceCredentials(backend, account)
 	t.Cleanup(j.uninstallAndRequireOwnedFilesAbsent)
 	args := []string{"setup", "--from", j.manifest, "--account", account}
@@ -192,7 +222,6 @@ func nativePerformanceJourney(t *testing.T, program, backend string) *journeyFix
 	} else {
 		j.runWithInput(j.binary, token+"\n", append(args, "--token-stdin")...)
 	}
-	j.run("route", "add", "performance-second", "--account", account, "--for", "claude", "--model", "claude-second")
 	j.requireClaudeCredential(token)
 	return j
 }
@@ -233,12 +262,18 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 		}
 		helper = performanceCommand(os.Getenv("ComSpec"), "/d", "/c", "credential.cmd")
 	}
+	selectArgs := []string{j.binary, "use", "performance-second"}
+	resetArgs := []string{j.binary, "use", "native-system-keyring-probe-claude"}
+	if variant == "candidate" {
+		selectArgs = []string{j.binary, "use", "--for", "claude", "performance-second"}
+		resetArgs = []string{j.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
+	}
 	cases := []struct {
 		name, command, prepare string
 		budget                 float64
 	}{
 		{"credential", helper, "", 0.1},
-		{"projection", performanceCommand(j.binary, "use", "--for", "claude", "performance-second"), performanceCommand(j.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"), 0.25},
+		{"projection", performanceCommand(selectArgs...), performanceCommand(resetArgs...), 0.25},
 	}
 	if backend == "env" {
 		for _, args := range [][]string{{"version", "--version"}, {"help", "--help"}, {"status", "status", "--json"}, {"export", "config", "export"}} {

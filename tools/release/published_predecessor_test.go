@@ -54,9 +54,8 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 	journey.rollbackAndRecover(t)
 }
 
-func (state *publishedNativeJourney) prepare(t *testing.T, endpoint string) {
-	journey := state.journey
-	manifest := fmt.Sprintf(`version = 4
+func publishedPredecessorManifest(endpoint string) string {
+	return fmt.Sprintf(`version = 4
 
 [recommended_routes]
 claude = "native-system-keyring-probe-claude"
@@ -73,6 +72,11 @@ account = "native-system-keyring-probe"
 client = "claude"
 model = "claude-test"
 `, endpoint)
+}
+
+func (state *publishedNativeJourney) prepare(t *testing.T, endpoint string) {
+	journey := state.journey
+	manifest := publishedPredecessorManifest(endpoint)
 	if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
 	}
