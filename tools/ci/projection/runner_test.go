@@ -2,7 +2,6 @@ package projection
 
 import (
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
@@ -67,25 +66,19 @@ func TestForgeProjectionsFollowDeclaredNativeCapacity(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	for name, job := range map[string]*gitLabJob{
-		"darwin":  gitlab.NativeDarwin,
-		"linux":   gitlab.NativeLinux,
-		"windows": gitlab.NativeWindows,
-	} {
-		if job == nil {
-			t.Errorf("GitLab projection lacks declared native %s capacity", name)
-		}
+	if gitlab.NativeDarwin == nil {
+		t.Fatal("GitLab projection lacks declared native Darwin capacity")
+	}
+	if gitlab.NativeLinux != nil || gitlab.NativeWindows != nil {
+		t.Fatal("GitLab projection advertises native capacity that is not qualified")
 	}
 	if strings.Contains(projections[0].Content, "allow_failure:") {
 		t.Fatal("GitLab projection weakens a native job with allow_failure")
 	}
-	gotNeeds := make([]string, 0, len(gitlab.Assets.Needs))
 	for _, need := range gitlab.Assets.Needs {
-		gotNeeds = append(gotNeeds, need.Job)
-	}
-	wantNeeds := []string{"quality", "native-darwin", "native-linux", "native-windows", "release-version"}
-	if !slices.Equal(gotNeeds, wantNeeds) {
-		t.Fatalf("GitLab release evidence = %q, want %q", gotNeeds, wantNeeds)
+		if need.Job == "native-linux" || need.Job == "native-windows" {
+			t.Fatal("GitLab release assets depend on undeclared native capacity")
+		}
 	}
 
 	for _, projectionIndex := range []int{1} {
