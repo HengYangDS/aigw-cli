@@ -143,6 +143,53 @@ func TestProbeRequestRejectsUnknownClient(t *testing.T) {
 	}
 }
 
+func TestModelCatalogRequestKeepsProtocolAuthenticationDistinct(t *testing.T) {
+	tests := []struct {
+		name        string
+		endpoint    string
+		protocol    configuration.EndpointProtocol
+		wantURL     string
+		wantBearer  string
+		wantAPIKey  string
+		wantVersion string
+	}{
+		{
+			name:       "OpenAI Chat Completions",
+			endpoint:   "https://chat.test/v1",
+			protocol:   configuration.ProtocolOpenAIChatCompletions,
+			wantURL:    "https://chat.test/v1/models",
+			wantBearer: "Bearer token",
+		},
+		{
+			name:       "OpenAI Responses",
+			endpoint:   "https://responses.test/v1",
+			protocol:   configuration.ProtocolOpenAIResponses,
+			wantURL:    "https://responses.test/v1/models",
+			wantBearer: "Bearer token",
+		},
+		{
+			name:        "Anthropic Messages",
+			endpoint:    "https://anthropic.test",
+			protocol:    configuration.ProtocolAnthropic,
+			wantURL:     "https://anthropic.test/v1/models",
+			wantAPIKey:  "token",
+			wantVersion: "2023-06-01",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request, err := ModelCatalogRequest(context.Background(), test.endpoint, test.protocol, "token")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if request.URL.String() != test.wantURL || request.Header.Get("Authorization") != test.wantBearer ||
+				request.Header.Get("X-Api-Key") != test.wantAPIKey || request.Header.Get("Anthropic-Version") != test.wantVersion {
+				t.Fatalf("request = %#v headers=%#v", request.URL, request.Header)
+			}
+		})
+	}
+}
+
 func TestValidateHTTPClientDoesNotFollowRedirects(t *testing.T) {
 	t.Parallel()
 

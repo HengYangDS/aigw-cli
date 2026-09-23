@@ -2,13 +2,13 @@
   "schema": "architecture.source-bundle/v1",
   "source": {
     "id": "dig/misc/tools/llm-third-party-api/aigw-cli",
-    "revision": "9d589f4e9c5f98fa8850c794459d1ca24824b67fdab794942b552fa361e5b0c0"
+    "revision": "ec58e2ea22dfe9c2fb69fd7bb0eaafcd451dd84242d39468ebc52aaf04822402"
   },
   "files": [
     {
       "path": "semantic.json",
       "bytes": 15397,
-      "sha256": "4e1f671c636f1480de54957de84eb06e28a0e31514ed544404d6dd34fec2a415"
+      "sha256": "a53531851ced61e878a9cfdcd312e682337bfd6d78e84e1be6f2fe074e2e8a58"
     },
     {
       "path": "source/internal/client/adapters.go",
@@ -37,8 +37,8 @@
     },
     {
       "path": "source/internal/configuration/model.go",
-      "bytes": 21450,
-      "sha256": "df5a6a4edfa85de2e63ba6d7fbd1aced1ab60248303920a048aad379f92a4070"
+      "bytes": 21537,
+      "sha256": "6c34d81832c598f3f628b6fb271ad1c2f7c9075d3345848fa37fef1c25864aca"
     },
     {
       "path": "source/internal/secrets/store.go",

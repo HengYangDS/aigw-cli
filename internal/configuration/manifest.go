@@ -233,7 +233,7 @@ func equivalentRoute(left, right Route) bool {
 		left.Purpose == right.Purpose &&
 		left.Account == right.Account &&
 		left.Model == right.Model &&
-		upstreamModel(left) == upstreamModel(right) &&
+		left.UpstreamModelID() == right.UpstreamModelID() &&
 		equalInterfaces(left.Interfaces, right.Interfaces)
 }
 

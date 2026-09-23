@@ -386,6 +386,15 @@ func TestValidateTreatsUpstreamModelIDAsTransparentConfiguration(t *testing.T) {
 	}
 }
 
+func TestRouteUpstreamModelIDPreservesExactProviderIdentity(t *testing.T) {
+	if got := (Route{Model: "canonical"}).UpstreamModelID(); got != "canonical" {
+		t.Fatalf("fallback upstream model = %q", got)
+	}
+	if got := (Route{Model: "canonical", UpstreamModel: "provider/exact"}).UpstreamModelID(); got != "provider/exact" {
+		t.Fatalf("explicit upstream model = %q", got)
+	}
+}
+
 func TestNormalizeFillsEveryNilCollection(t *testing.T) {
 	cfg := Config{}
 	cfg.Normalize()

@@ -85,7 +85,7 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 	if err := executeCatalogCommand(t, NewModelsCommand(deps)); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Listed", "OpenAI Responses endpoint is not configured", "gpt-codex", "claude-only"} {
+	for _, want := range []string{"Listed", "Catalog not observed", "gpt-codex", "claude-only", "OpenAI Responses"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("models output lacks %q:\n%s", want, out.String())
 		}
@@ -122,7 +122,7 @@ func TestModelsCommandExplainsCredentialAndCatalogFailures(t *testing.T) {
 func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
 	emptyDeps, emptyOut := catalogDependencies(t, configuration.NewConfig(), nil, catalogHTTPClient(nil))
 	command := NewCatalogCommand(emptyDeps)
-	if err := executeCatalogCommand(t, command, "--json"); err != nil || !strings.Contains(emptyOut.String(), `"accounts": []`) {
+	if err := executeCatalogCommand(t, command, "--json"); err != nil || !strings.Contains(emptyOut.String(), `"observations": []`) {
 		t.Fatalf("empty JSON output=%q error=%v", emptyOut.String(), err)
 	}
 	emptyDeps, _ = catalogDependencies(t, configuration.NewConfig(), nil, catalogHTTPClient(nil))
@@ -157,7 +157,7 @@ func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
 	if err := executeCatalogCommand(t, command, "--json"); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`"status": "ok"`, `"status": "openai_responses_unavailable"`, `"status": "token_unavailable"`, `"status": "request_failed"`} {
+	for _, want := range []string{`"status": "ok"`, `"status": "token_unavailable"`, `"status": "request_failed"`, `"protocol": "anthropic"`, `"protocol": "openai_responses"`} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("catalog JSON lacks %q:\n%s", want, out.String())
 		}
@@ -168,7 +168,7 @@ func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
 	if err := executeCatalogCommand(t, command, "--all"); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"OpenAI Responses endpoint is not configured", "Token unavailable", "Catalog request failed", "Not configured", "Configured:"} {
+	for _, want := range []string{"Anthropic Messages", "OpenAI Responses", "Token unavailable", "Catalog request failed", "Candidate", "Admitted Routes:"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("catalog human output lacks %q:\n%s", want, out.String())
 		}
@@ -206,15 +206,15 @@ func TestCatalogOutputFailuresAndHelpers(t *testing.T) {
 		t.Fatalf("empty model title = %q", got)
 	}
 	rows := modelRows(cfg, catalogOutput{})
-	if len(rows) != 2 || rows[0].Profile != "claude" || rows[1].Profile != "codex" {
-		t.Fatalf("profile rows = %#v", rows)
+	if len(rows) != 2 || rows[0].Route != "claude" || rows[1].Route != "codex" {
+		t.Fatalf("route rows = %#v", rows)
 	}
 	cfg.Accounts["alpha"] = configuration.Account{Label: "Alpha"}
-	accounts := discoverCatalog(context.Background(), deps, cfg).Accounts
-	if len(accounts) != 2 || accounts[0].ID != "alpha" || accounts[1].ID != "gateway" {
-		t.Fatalf("catalog accounts = %#v", accounts)
+	observations := discoverCatalog(context.Background(), deps, cfg).Observations
+	if len(observations) != 3 || observations[0].Account != "alpha" || observations[1].Account != "gateway" || observations[2].Account != "gateway" {
+		t.Fatalf("catalog observations = %#v", observations)
 	}
-	if state, detail := catalogModelDisplay(catalogModel{ID: "plain"}); state == 0 || detail != "Not configured" {
+	if state, detail := catalogModelDisplay(catalogModel{ID: "plain", State: catalogCandidate}); state == 0 || !strings.Contains(detail, "Candidate") {
 		t.Fatalf("model display state=%v detail=%q", state, detail)
 	}
 }
@@ -265,13 +265,14 @@ func writeUnreadableConfig(path string) error {
 
 func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
 	cfg := configuration.NewConfig()
-	cfg.Routes["other"] = configuration.Route{Account: "other", Model: "gpt"}
-	cfg.Routes["matching"] = configuration.Route{Account: "one", Model: "gpt"}
-	if got := ConfiguredProfiles(cfg, "one", "gpt"); len(got) != 1 || got[0] != "matching" {
-		t.Fatalf("profiles = %#v", got)
+	cfg.Routes["other"] = configuration.Route{Account: "other", Model: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	cfg.Routes["matching"] = configuration.Route{Account: "one", Model: "canonical", UpstreamModel: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	models, missing := catalogDifference(cfg, "one", configuration.ProtocolOpenAIResponses, []string{"gpt"})
+	if len(models) != 1 || models[0].State != catalogAdmitted || len(models[0].Routes) != 1 || models[0].Routes[0].ID != "matching" || len(missing) != 0 {
+		t.Fatalf("difference models=%#v missing=%#v", models, missing)
 	}
 	for status, want := range map[catalogStatus]string{
-		catalogEndpointUnavailable: "OpenAI Responses",
+		catalogEndpointUnavailable: "No supported",
 		catalogTokenUnavailable:    "Token unavailable",
 		catalogRequestFailed:       "Catalog request failed",
 		"future":                   "future",
@@ -290,7 +291,7 @@ func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
 		{name: "invalid JSON", body: `{`, fail: true},
 		{name: "missing data", body: `{}`, fail: true},
 		{name: "non-array", body: `{"data":{}}`, fail: true},
-		{name: "all shapes", body: `{"data":["z",{"id":"a"},{"model":"b"},{"name":"c"},{"id":"a"},{"id":3},null]}`, want: []string{"a", "b", "c", "z"}},
+		{name: "all shapes", body: `{"data":["z",{"id":"a"},{"model":"b"},{"name":"c"},{"id":"a"}]}`, want: []string{"a", "b", "c", "z"}},
 	}
 	for _, test := range parseTests {
 		t.Run(test.name, func(t *testing.T) {
@@ -309,15 +310,15 @@ func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
 }
 
 func TestFetchModelIDsRequestErrorsAndEndpointForms(t *testing.T) {
-	account := configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "://bad"}}
-	if _, err := FetchIDs(context.Background(), catalogHTTPClient(nil), account, "token"); err == nil {
+	endpoint := "://bad"
+	if _, _, err := FetchIDs(context.Background(), catalogHTTPClient(nil), endpoint, configuration.ProtocolOpenAIResponses, "token"); err == nil {
 		t.Fatal("expected URL error")
 	}
 
 	want := errors.New("network failed")
-	account.Endpoints.OpenAIResponses = "https://one.test/v1"
+	endpoint = "https://one.test/v1"
 	client := catalogHTTPClient(func(*http.Request) (*http.Response, error) { return nil, want })
-	if _, err := FetchIDs(context.Background(), client, account, "token"); !errors.Is(err, want) {
+	if _, _, err := FetchIDs(context.Background(), client, endpoint, configuration.ProtocolOpenAIResponses, "token"); !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
 	}
 
@@ -329,19 +330,21 @@ func TestFetchModelIDsRequestErrorsAndEndpointForms(t *testing.T) {
 				}
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt"]}`)), Request: request}, nil
 			})
-			account.Endpoints.OpenAIResponses = endpoint
-			ids, err := FetchIDs(context.Background(), client, account, "token")
+			ids, source, err := FetchIDs(context.Background(), client, endpoint, configuration.ProtocolOpenAIResponses, "token")
 			if err != nil || len(ids) != 1 || ids[0] != "gpt" {
 				t.Fatalf("ids=%#v error=%v", ids, err)
+			}
+			if !strings.HasSuffix(source, "/models") {
+				t.Fatalf("source = %q", source)
 			}
 		})
 	}
 
-	account.Endpoints.OpenAIResponses = "https://one.test/v1"
+	endpoint = "https://one.test/v1"
 	client = catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusBadGateway, Body: io.NopCloser(strings.NewReader("bad")), Request: request}, nil
 	})
-	if _, err := FetchIDs(context.Background(), client, account, "token"); err == nil || !strings.Contains(err.Error(), "HTTP 502") {
+	if _, _, err := FetchIDs(context.Background(), client, endpoint, configuration.ProtocolOpenAIResponses, "token"); err == nil || !strings.Contains(err.Error(), "HTTP 502") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -356,11 +359,10 @@ func TestCatalogMembershipRequiresACompleteResponse(t *testing.T) {
 		{name: "oversized response", body: strings.NewReader(`{"data":[{"id":"listed"}]}` + strings.Repeat(" ", 4<<20))},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			account := configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://catalog.test/v1"}}
 			client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(test.body), Request: request}, nil
 			})
-			if ids, err := FetchIDs(context.Background(), client, account, "token"); err == nil || len(ids) != 0 {
+			if ids, _, err := FetchIDs(context.Background(), client, "https://catalog.test/v1", configuration.ProtocolOpenAIResponses, "token"); err == nil || len(ids) != 0 {
 				t.Fatalf("incomplete catalog established membership: ids=%v error=%v", ids, err)
 			}
 		})
@@ -386,9 +388,7 @@ func (client *recordingClient) Do(request *http.Request) (*http.Response, error)
 
 func TestFetchIDsOwnsCatalogProtocol(t *testing.T) {
 	client := &recordingClient{}
-	ids, err := FetchIDs(context.Background(), client, configuration.Account{
-		Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"},
-	}, "token")
+	ids, _, err := FetchIDs(context.Background(), client, "https://gateway.test/v1", configuration.ProtocolOpenAIResponses, "token")
 	if err != nil {
 		t.Fatal(err)
 	}

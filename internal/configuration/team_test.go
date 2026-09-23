@@ -136,7 +136,7 @@ func TestTeamManifestPresentationSeparatesIdentityFromRecommendation(t *testing.
 	_, manifest := loadTeamManifest(t)
 	channel := regexp.MustCompile(`^[A-Z][A-Z0-9]*$`)
 	for profileID, profile := range manifest.Routes {
-		if want := profile.Account + "-" + upstreamModel(profile); profileID != want {
+		if want := profile.Account + "-" + profile.UpstreamModelID(); profileID != want {
 			t.Errorf("profile ID %q must preserve Account and provider model identity: %q", profileID, want)
 		}
 		parts := strings.Split(profile.Label, " · ")

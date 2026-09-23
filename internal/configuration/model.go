@@ -95,6 +95,14 @@ type Route struct {
 	Interfaces    map[EndpointProtocol][]Capability `json:"interfaces,omitempty"      toml:"interfaces,omitempty"`
 }
 
+// UpstreamModelID returns the exact identifier sent to this Route's provider.
+func (route Route) UpstreamModelID() string {
+	if route.UpstreamModel != "" {
+		return route.UpstreamModel
+	}
+	return route.Model
+}
+
 // AdmittedProtocols returns the Route's wire interfaces in stable order.
 func (route Route) AdmittedProtocols() []EndpointProtocol {
 	protocols := make([]EndpointProtocol, 0, len(route.Interfaces))
@@ -516,18 +524,11 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		Client:            client,
 		Endpoint:          endpoint,
 		Protocol:          protocol,
-		Model:             upstreamModel(route),
+		Model:             route.UpstreamModelID(),
 		ModelProvider:     selectedModelProvider(client, selection),
 		Authentication:    selectedAuthentication(selection),
 		CredentialCommand: c.Clients[client].CredentialCommand,
 	}, nil
-}
-
-func upstreamModel(route Route) string {
-	if route.UpstreamModel != "" {
-		return route.UpstreamModel
-	}
-	return route.Model
 }
 
 func routeLabel(route Route, model Model) string {

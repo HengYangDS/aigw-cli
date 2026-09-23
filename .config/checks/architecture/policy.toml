@@ -244,6 +244,7 @@ allowed_import_edges."internal/cli/recovery" = [
 ]
 allowed_import_edges."internal/cli/catalog" = [
   "internal/configuration",
+  "internal/credential",
   "internal/presentation",
   "internal/secrets",
 ]

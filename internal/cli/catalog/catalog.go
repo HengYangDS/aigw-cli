@@ -2,16 +2,11 @@
 package catalog
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"maps"
 	"net/http"
 	"slices"
-	"sort"
 	"strings"
-	"time"
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
@@ -37,38 +32,11 @@ type Dependencies struct {
 }
 
 type modelRow struct {
-	Profile string
-	Account string
-	Model   string
-	Catalog string
-}
-
-type catalogModel struct {
-	ID       string   `json:"id"`
-	Profiles []string `json:"profiles,omitempty"`
-}
-
-type catalogAccount struct {
-	ID              string                         `json:"id"`
-	Label           string                         `json:"label"`
-	Source          configuration.EndpointProtocol `json:"source"`
-	SecretAvailable bool                           `json:"secret_available"`
-	Status          catalogStatus                  `json:"status"`
-	Models          []catalogModel                 `json:"models"`
-}
-
-type catalogStatus string
-
-const (
-	catalogOK                    catalogStatus = "ok"
-	catalogEndpointUnavailable   catalogStatus = "openai_responses_unavailable"
-	catalogCredentialUnavailable catalogStatus = "credential_backend_failed"
-	catalogTokenUnavailable      catalogStatus = "token_unavailable"
-	catalogRequestFailed         catalogStatus = "request_failed"
-)
-
-type catalogOutput struct {
-	Accounts []catalogAccount `json:"accounts"`
+	Route    string
+	Account  string
+	Protocol configuration.EndpointProtocol
+	Model    string
+	Catalog  string
 }
 
 // NewModelsCommand constructs the configured-model availability command.
@@ -88,15 +56,15 @@ func NewModelsCommand(deps Dependencies) *cobra.Command {
 			rows := modelRows(cfg, discoverCatalog(cmd.Context(), deps, cfg))
 			r := renderer(deps)
 			r.ProductTitle("Configured model catalog")
-			r.Detail("Catalog membership does not prove inference or client readiness.")
-			r.Section("Profiles")
+			r.Detail("Catalog membership does not prove protocol capabilities, inference, or client readiness.")
+			r.Section("Routes")
 			for _, row := range rows {
 				state := presentation.Warn
 				if row.Catalog == "Listed" || row.Catalog == "Not listed" {
 					state = presentation.Info
 				}
-				r.StatusLine(state, "Profile", row.Profile)
-				r.Detail(fmt.Sprintf("%s · %s · account %s", row.Model, row.Catalog, row.Account))
+				r.StatusLine(state, "Route", row.Route)
+				r.Detail(fmt.Sprintf("%s · %s · %s · account %s", row.Model, protocolTitle(row.Protocol), row.Catalog, row.Account))
 			}
 			r.Next("aigw use")
 			return r.Err()
@@ -105,24 +73,31 @@ func NewModelsCommand(deps Dependencies) *cobra.Command {
 }
 
 func modelRows(cfg configuration.Config, catalog catalogOutput) []modelRow {
-	accounts := make(map[string]catalogAccount, len(catalog.Accounts))
-	for _, account := range catalog.Accounts {
-		accounts[account.ID] = account
+	observations := make(map[string]catalogObservation, len(catalog.Observations))
+	for _, observation := range catalog.Observations {
+		observations[observationKey(observation.Account, observation.Source.Protocol)] = observation
 	}
 	rows := []modelRow{}
-	for _, name := range cfg.RouteIDs() {
-		profile := cfg.Routes[name]
-		membership := "Catalog not observed"
-		if account, ok := accounts[profile.Account]; ok {
-			membership = catalogStatusText(account.Status)
-			if account.Status == catalogOK {
-				membership = "Not listed"
-				if slices.ContainsFunc(account.Models, func(model catalogModel) bool { return model.ID == profile.Model }) {
-					membership = "Listed"
+	for _, routeID := range cfg.RouteIDs() {
+		route := cfg.Routes[routeID]
+		protocols := route.AdmittedProtocols()
+		if len(protocols) == 0 {
+			rows = append(rows, modelRow{Route: routeID, Account: route.Account, Model: route.UpstreamModelID(), Catalog: "Catalog not observed"})
+			continue
+		}
+		for _, protocol := range protocols {
+			membership := "Catalog not observed"
+			if observation, ok := observations[observationKey(route.Account, protocol)]; ok {
+				membership = catalogStatusText(observation.Status)
+				if observation.Status == catalogOK {
+					membership = "Not listed"
+					if slices.ContainsFunc(observation.Models, func(model catalogModel) bool { return model.ID == route.UpstreamModelID() }) {
+						membership = "Listed"
+					}
 				}
 			}
+			rows = append(rows, modelRow{Route: routeID, Account: route.Account, Protocol: protocol, Model: route.UpstreamModelID(), Catalog: membership})
 		}
-		rows = append(rows, modelRow{name, profile.Account, profile.Model, membership})
 	}
 	return rows
 }
@@ -141,7 +116,7 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 		}
 		if len(cfg.Routes) == 0 {
 			if jsonMode {
-				return presentation.WriteJSON(deps.Out, catalogOutput{Accounts: []catalogAccount{}})
+				return presentation.WriteJSON(deps.Out, catalogOutput{Observations: []catalogObservation{}})
 			}
 			return fmt.Errorf("not configured; run `aigw setup`")
 		}
@@ -151,17 +126,25 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 		}
 		r := renderer(deps)
 		r.ProductTitle("Authenticated model catalog")
-		for _, account := range result.Accounts {
-			r.Section(account.Label + " · " + account.ID)
-			if account.Status != catalogOK {
-				r.Status(presentation.Warn, "Catalog", catalogStatusText(account.Status))
+		r.Detail("Each observation proves catalogue membership only for its named protocol source.")
+		for _, observation := range result.Observations {
+			title := observation.Label + " · " + observation.Account
+			if observation.Source.Protocol != "" {
+				title += " · " + protocolTitle(observation.Source.Protocol)
+			}
+			r.Section(title)
+			if observation.Status != catalogOK {
+				r.Status(presentation.Warn, "Catalog", catalogStatusText(observation.Status))
 				continue
 			}
-			if len(account.Models) == 0 {
+			r.Row("Observation", observation.ObservationID)
+			r.Row("Source", observation.Source.Endpoint)
+			if len(observation.Models) == 0 {
 				r.Status(presentation.Info, "model", "Upstream returned an empty catalog")
-				continue
+			} else {
+				renderCatalogObservation(r, observation, all)
 			}
-			renderCatalogAccount(r, account, all)
+			renderMissingRoutes(r, observation.MissingRoutes)
 		}
 		r.Next("aigw profile add <profile> --account <account> --for <" + strings.Join(configuration.AdmittedClientIDs(), "|") + "> --model <model>")
 		return r.Err()
@@ -171,88 +154,49 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 	return cmd
 }
 
-func discoverCatalog(ctx context.Context, deps Dependencies, cfg configuration.Config) catalogOutput {
-	result := catalogOutput{Accounts: make([]catalogAccount, 0, len(cfg.Accounts))}
-	for _, accountName := range slices.Sorted(maps.Keys(cfg.Accounts)) {
-		account := cfg.Accounts[accountName]
-		entry := catalogAccount{ID: accountName, Label: account.Label, Source: configuration.ProtocolOpenAIResponses, Models: []catalogModel{}}
-		secretAvailable, observationErr := deps.Secrets.Exists(accountName)
-		entry.SecretAvailable = secretAvailable
-		switch {
-		case account.Endpoints.OpenAIResponses == "":
-			entry.Status = catalogEndpointUnavailable
-		case observationErr != nil:
-			entry.Status = catalogCredentialUnavailable
-		case !entry.SecretAvailable:
-			entry.Status = catalogTokenUnavailable
-		default:
-			token, err := deps.Secrets.Get(accountName)
-			if err != nil {
-				entry.Status = catalogTokenUnavailable
-				break
-			}
-			ids, err := FetchIDs(ctx, deps.HTTP, account, token)
-			if err != nil {
-				entry.Status = catalogRequestFailed
-				break
-			}
-			entry.Status = catalogOK
-			for _, id := range ids {
-				entry.Models = append(entry.Models, catalogModel{ID: id, Profiles: ConfiguredProfiles(cfg, accountName, id)})
-			}
-		}
-		result.Accounts = append(result.Accounts, entry)
-	}
-	return result
-}
-
-func renderCatalogAccount(r *presentation.Renderer, account catalogAccount, all bool) {
-	configured := make([]catalogModel, 0, len(account.Models))
-	for _, model := range account.Models {
-		if len(model.Profiles) > 0 {
-			configured = append(configured, model)
+func renderCatalogObservation(r *presentation.Renderer, observation catalogObservation, all bool) {
+	admitted := make([]catalogModel, 0, len(observation.Models))
+	for _, model := range observation.Models {
+		if model.State == catalogAdmitted {
+			admitted = append(admitted, model)
 		}
 	}
-	r.Row("Models", fmt.Sprintf("%d models", len(account.Models)))
-	r.Row("Configured", fmt.Sprintf("%d configured", len(configured)))
+	r.Row("Models", fmt.Sprintf("%d observed", len(observation.Models)))
+	r.Row("Admitted", fmt.Sprintf("%d admitted", len(admitted)))
 	if all {
-		for _, model := range account.Models {
+		for _, model := range observation.Models {
 			state, detail := catalogModelDisplay(model)
 			r.StatusLine(state, "model", model.ID)
 			r.Detail(detail)
 		}
 		return
 	}
-	for _, model := range configured {
+	for _, model := range admitted {
 		_, detail := catalogModelDisplay(model)
 		r.Status(presentation.OK, "model", model.ID)
 		r.Detail(detail)
 	}
-	if remaining := len(account.Models) - len(configured); remaining > 0 {
-		r.Detail(fmt.Sprintf("%d more models are unconfigured; full catalog: aigw catalog --all", remaining))
+	if remaining := len(observation.Models) - len(admitted); remaining > 0 {
+		r.Detail(fmt.Sprintf("%d candidate models require qualification; full catalog: aigw catalog --all", remaining))
 	}
 }
 
 func catalogModelDisplay(model catalogModel) (presentation.State, string) {
-	if len(model.Profiles) == 0 {
-		return presentation.Info, "Not configured"
+	if model.State == catalogCandidate {
+		return presentation.Info, "Candidate; protocol and client capabilities are unqualified"
 	}
-	return presentation.OK, "Configured: " + strings.Join(model.Profiles, ", ")
+	routes := make([]string, 0, len(model.Routes))
+	for _, route := range model.Routes {
+		routes = append(routes, route.ID)
+	}
+	return presentation.OK, "Admitted Routes: " + strings.Join(routes, ", ")
 }
 
-// ConfiguredProfiles returns profiles that select model from account.
-func ConfiguredProfiles(cfg configuration.Config, accountName, model string) []string {
-	profiles := []string{}
-	for name, profile := range cfg.Routes {
-		if profile.Account != accountName {
-			continue
-		}
-		if profile.Model == model {
-			profiles = append(profiles, name)
-		}
+func renderMissingRoutes(r *presentation.Renderer, routes []catalogRoute) {
+	for _, route := range routes {
+		r.StatusLine(presentation.Warn, "Route", route.ID)
+		r.Detail(route.UpstreamModel + " · missing from this observation; requalification required")
 	}
-	sort.Strings(profiles)
-	return profiles
 }
 
 func catalogStatusText(status catalogStatus) string {
@@ -260,7 +204,7 @@ func catalogStatusText(status catalogStatus) string {
 	case catalogOK:
 		return string(status)
 	case catalogEndpointUnavailable:
-		return "OpenAI Responses endpoint is not configured"
+		return "No supported model catalogue endpoint is configured"
 	case catalogTokenUnavailable:
 		return "Token unavailable"
 	case catalogCredentialUnavailable:
@@ -270,77 +214,6 @@ func catalogStatusText(status catalogStatus) string {
 	default:
 		return string(status)
 	}
-}
-
-// FetchIDs fetches and parses an OpenAI-compatible model catalog.
-func FetchIDs(parent context.Context, client HTTPDoer, account configuration.Account, token string) ([]string, error) {
-	endpoint := strings.TrimRight(account.Endpoints.OpenAIResponses, "/")
-	if !strings.HasSuffix(endpoint, "/models") {
-		endpoint += "/models"
-	}
-	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("model catalog endpoint returned HTTP %d", resp.StatusCode)
-	}
-	const maximumCatalogBytes = 4 << 20
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maximumCatalogBytes+1))
-	if err != nil {
-		return nil, fmt.Errorf("model catalog response could not be read completely")
-	}
-	if len(body) > maximumCatalogBytes {
-		return nil, fmt.Errorf("model catalog response exceeds the %d-byte limit", maximumCatalogBytes)
-	}
-	return ParseIDs(body)
-}
-
-// ParseIDs accepts common OpenAI-compatible model item shapes.
-func ParseIDs(data []byte) ([]string, error) {
-	var payload map[string]any
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return nil, err
-	}
-	dataField, exists := payload["data"]
-	if !exists {
-		return nil, fmt.Errorf("model catalog response is missing the data field")
-	}
-	items, ok := dataField.([]any)
-	if !ok {
-		return nil, fmt.Errorf("model catalog response data field is not an array")
-	}
-	ids := []string{}
-	seen := map[string]bool{}
-	for _, item := range items {
-		id := ""
-		switch typed := item.(type) {
-		case string:
-			id = typed
-		case map[string]any:
-			for _, key := range []string{"id", "model", "name"} {
-				if value, ok := typed[key].(string); ok && value != "" {
-					id = value
-					break
-				}
-			}
-		}
-		if id != "" && !seen[id] {
-			seen[id] = true
-			ids = append(ids, id)
-		}
-	}
-	sort.Strings(ids)
-	return ids, nil
 }
 
 func renderer(deps Dependencies) *presentation.Renderer {
@@ -356,4 +229,17 @@ func modelTitle(value string) string {
 		return ""
 	}
 	return strings.ToUpper(value[:1]) + value[1:]
+}
+
+func protocolTitle(protocol configuration.EndpointProtocol) string {
+	switch protocol {
+	case configuration.ProtocolAnthropic:
+		return "Anthropic Messages"
+	case configuration.ProtocolOpenAIChatCompletions:
+		return "OpenAI Chat Completions"
+	case configuration.ProtocolOpenAIResponses:
+		return "OpenAI Responses"
+	default:
+		return string(protocol)
+	}
 }
