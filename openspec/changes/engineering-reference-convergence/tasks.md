@@ -82,10 +82,13 @@
 
 - [x] 9.1 Run the complete local quality graph at one signed clean HEAD; verify every declared gate and generated projection passes without warnings.
 - [x] 9.2 Run exact-HEAD proof and proposal review admission; verify developer and maintainer paths preserve the same object, signature, review, and branch-role semantics.
-- [ ] 9.3 On macOS, Linux, and Windows, consume immutable candidate artifacts and verify build provenance, install, setup, credential mode, projection, update, rollback, forward recovery, uninstall, and cleanup before stable publication.
+- [x] 9.3 On macOS, Linux, and Windows, consume immutable candidate artifacts and verify build provenance, install, setup, credential mode, projection, update, rollback, forward recovery, uninstall, and cleanup before stable publication.
+      Evidence: GitHub Verify run [35918119955](https://github.com/HengYangDS/aigw-cli/actions/runs/35918119955) passed the published 0.1.0 to rc.3 lifecycle on all three native hosts; macOS Keychain run 35911515333 and Windows real-client run 35915821144 passed their separate credential and client journeys.
 - [x] 9.4 Verify real Codex, Claude Code, Hermes, and Claude Desktop journeys for the selected routes and each supported surface; distinguish provider documentation, controlled client execution, live inference, and platform limitations.
 - [ ] 9.5 Verify GitHub and GitLab CI are deterministic projections of one graph and both observe the accepted source; verify developer review, updated proposals, maintainer integration, and release promotion select the required checks.
-- [ ] 9.6 Compare performance, memory, and artifact size with the accepted baseline under equivalent inputs; resolve material regressions or record an explicit justified decision.
+- [x] 9.6 Compare performance, memory, and artifact size with the accepted baseline under equivalent inputs; resolve material regressions or record an explicit justified decision.
+      Evidence: Run [35918119955](https://github.com/HengYangDS/aigw-cli/actions/runs/35918119955) retained both 40-sample blocks and raw outlier warnings for each case on macOS, Linux, and Windows. Every candidate timing block met its declared budget; peak memory grew 1.55% to 3.43% and executable size grew 5.76% to 5.89% across the measured platforms.
+      Decision: Accept the Windows native credential helper's pooled p95 increase from 47.5 ms to 82.5 ms (candidate blocks 82.5/79.4 ms; 100 ms budget). The bounded credential subprocess replaces the predecessor's in-process Windows credential read and gives native operations a five-second deadline without weakening the credential boundary.
 - [ ] 9.7 Audit every requirement and task against current source, tests, native runs, hosted runs, installed behavior, remote objects, and residue; reopen any contradicted checkbox.
 
 ## 10. Prepare distribution and close the Change
