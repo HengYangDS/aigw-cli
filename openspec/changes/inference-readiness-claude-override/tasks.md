@@ -48,10 +48,16 @@
 - [x] 4.2 Carry the proven native-model-override fact through Claude's
       Adapter without treating the alias as a Route wire model. Verify:
       `go test ./internal/client/...`.
-- [x] 4.3 Keep status and doctor locally truthful, and make check use endpoint
+- [ ] 4.3 Keep status and doctor locally truthful, and make check use endpoint
       scope for a proven Claude override with
       `aigw verify --for claude` as continuation. Verify: focused human and
-      JSON acceptance tests plus a real nonpersistent native Claude request.
+      JSON acceptance tests plus a candidate-bound real nonpersistent native
+      Claude request in an owned isolated context with noninteractive
+      credentials. Preserve the user's current host settings and sidecar bytes.
+      The prior `opus[1m]` result is historical: at the 2026-09-24 12:11 UTC
+      read, the host settings had no top-level model after a later edit. If an
+      isolated request cannot authenticate without UI, report that limit and
+      leave native override acceptance open.
 
 ## 5. Expose the check scope
 

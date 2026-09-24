@@ -72,6 +72,11 @@ check may authenticate the endpoint but may not claim inference for the
 native alias. Explicit `aigw use` and synchronization retain their existing
 guarded projection behavior.
 
+Native-client evidence is time-bound. When the host no longer carries the
+observed alias, exercise a real request in an owned isolated Claude context
+with noninteractive credentials or leave that acceptance open. Never modify
+the user's model selection or sidecar to recreate an earlier observation.
+
 The rejected alternatives are silently projecting the old Route default,
 inventing a provider Route from a client alias, or treating the changed model
 as a changed AIGW credential. Each would confuse a separate owner.
