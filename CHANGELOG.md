@@ -9,6 +9,23 @@ separate evidence.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-24
+
+### Changed
+
+- Make `aigw check` send one capped inference request with the selected Route's
+  exact upstream model by default. Use `--endpoint-only` for a model-free
+  authentication check without an inference request.
+- Preserve a sidecar-proven Claude Code native model preference while reporting
+  only endpoint evidence for that client and directing native model verification
+  to `aigw verify --for claude`.
+
+### Fixed
+
+- Classify an HTTP 503 with no available model channel, including the Chinese
+  distributor response, as a retryable model-unavailable result without
+  repeating the inference request.
+
 ## [0.2.0] - 2026-09-24
 
 ### Added
