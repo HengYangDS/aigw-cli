@@ -267,7 +267,7 @@ func TestTeamManifestKeepsQualifiedAdditionalVendorRoutes(t *testing.T) {
 		wire     string
 		protocol EndpointProtocol
 	}{
-		"aihubmix-command-a-03-2025":              {"command-a-03-2025", "command-a-03-2025", ProtocolOpenAIChatCompletions},
+		"aihubmix-command-a-03-2025":               {"command-a-03-2025", "command-a-03-2025", ProtocolOpenAIChatCompletions},
 		"aihubmix-ernie-5.1":                       {"ernie-5.1", "ernie-5.1", ProtocolOpenAIResponses},
 		"aihubmix-hy3":                             {"hy3", "hy3", ProtocolOpenAIChatCompletions},
 		"aihubmix-laguna-s-2.1":                    {"laguna-s-2.1", "laguna-s-2.1", ProtocolOpenAIChatCompletions},
