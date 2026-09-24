@@ -478,13 +478,14 @@ replaced by a source build. Private fixture signing does not establish
 authorization to credentials created by a historical released executable.
 It tests portable update mechanics, not compatibility with a historical
 release. An explicit published baseline adds a separate journey using a
-manifest the released predecessor can actually read. That journey installs the
-exact candidate, previews and applies its schema migration, synchronizes,
-restores the predecessor's exact configuration, rolls back the program, and
-repeats the forward transition. The current-schema package and real-client
+manifest the released predecessor can actually read. A 0.1.0 baseline proves
+the required schema migration and exact configuration rollback. A 0.2.0
+baseline proves that no migration is needed, synchronization preserves the
+configuration bytes, and program rollback and forward recovery remain usable.
+The current-schema package and real-client
 journeys retain their own predecessor fixture. To exercise the published
 transition, supply an extracted native binary from an independently verified
-archive:
+archive. A Homebrew-managed executable is not a portable installation input:
 
 ```bash
 AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
@@ -492,6 +493,8 @@ AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
 ```
 
 On Windows, set the same environment variable to the extracted `aigw.exe`.
+Keep this variable scoped to `accept-native`; setting it for `mise run native`
+also changes the ordinary Go test environment.
 The candidate uses the [canonical version](VERSION) and must be newer than the baseline.
 An invalid explicit baseline fails rather than falling back to a fixture in
 the published journey. Each path installs into a temporary home and compares
@@ -543,7 +546,7 @@ The command verifies signatures, provenance and complete inventory before
 executing anything from the matrix. It copies only the native archive and
 checksum file into owned scratch, extracts through the product's verified
 archive reader, and runs both the current-schema lifecycle and the separate
-published-predecessor migration when a baseline is supplied. Source artifacts remain
+published-predecessor lifecycle when a baseline is supplied. Source artifacts remain
 unchanged; success and failure both reclaim scratch. `--clients` adds the same
 current-schema real-client journey described below. The same candidate also runs the reviewed
 team manifest through import without Tokens or clients, each Account becoming
