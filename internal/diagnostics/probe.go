@@ -238,7 +238,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 	case resp.StatusCode == http.StatusNotFound:
 		result.Kind, result.Summary = EndpointMismatch, "API URL or path does not match"
 		result.Fix = "Check whether the configured protocol endpoint requires /v1 and whether its host is correct"
-	case resp.StatusCode == http.StatusServiceUnavailable && containsAny(lower, "model", "channel"):
+	case resp.StatusCode == http.StatusServiceUnavailable && containsAny(lower, "model", "channel", "无可用渠道"):
 		result.Kind, result.Summary, result.Retryable = ModelUnavailable, "Current model or channel is unavailable", true
 		result.Fix = "Confirm the model name and token model restrictions, or try again later"
 	case resp.StatusCode >= 500:

@@ -34,7 +34,7 @@ func TestInferenceScopeCarriesExactModelAndClassifiesDistributorRefusal(t *testi
 		if body["model"] != "gpt-6-sol" {
 			t.Fatalf("model = %v", body["model"])
 		}
-		return response(http.StatusServiceUnavailable, `{"message":"group default has no available channel (distributor) for model gpt-6-sol"}`), nil
+		return response(http.StatusServiceUnavailable, `{"message":"分组 default 下模型 gpt-6-sol 无可用渠道（distributor）"}`), nil
 	})
 	result := diagnostics.ProbeStable(context.Background(), doer, inferenceRuntime(), "fixture-token", diagnostics.ScopeInference, immediateStabilityPolicy())
 	if calls != 1 || result.Kind != diagnostics.ModelUnavailable || result.Scope != diagnostics.ScopeInference ||
