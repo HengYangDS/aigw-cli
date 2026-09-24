@@ -304,7 +304,7 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	if err := executeDoctorCommand(cmd); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "No problems found") {
+	if !strings.Contains(out.String(), "No client is enabled") || !strings.Contains(out.String(), "Local diagnostics passed") {
 		t.Fatalf("human output = %s", out.String())
 	}
 
@@ -325,7 +325,7 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	if err := executeDoctorCommand(NewCommand(deps)); err != nil {
 		t.Fatal(err)
 	}
-	if out.Len() != 0 || !strings.Contains(render.String(), "No problems found") ||
+	if out.Len() != 0 || !strings.Contains(render.String(), "No client is enabled") ||
 		!strings.Contains(render.String(), "Claude") || !strings.Contains(render.String(), "Configured") ||
 		!strings.Contains(render.String(), "Codex") || !strings.Contains(render.String(), "Deferred") {
 		t.Fatalf("out=%q render=%q", out.String(), render.String())

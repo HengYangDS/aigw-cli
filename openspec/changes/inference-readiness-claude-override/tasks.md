@@ -72,6 +72,16 @@
 - [x] 5.3 Update the terminal experience guidance for the two check scopes,
       metered request cost, time-bound inference result, and native Claude
       verification boundary. Verify: `mise run check`.
+- [x] 5.4 Treat a reviewed catalogue with no enabled Client Binding as
+      deferred activation. `check` must return a nonzero, single-document
+      `ok: false` result without a probe; `status` and `doctor` must expose
+      zero enabled clients and an Account-aware continuation. Keep `doctor`
+      success scoped to local diagnostics rather than usability, and keep
+      `sync` from recommending `check` after an empty selection. Verify a
+      RED/GREEN public-command journey with the actual `manifests/team.toml`,
+      an isolated environment credential backend, no Tokens or clients,
+      closed stdin, and zero client or network calls. Preserve existing
+      enabled-client outcomes and native preferences.
 
 ## 6. Prove the exact product
 

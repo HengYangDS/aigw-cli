@@ -16,6 +16,7 @@ go_roots = ["cmd", "internal", "tools"]
 # the declared providers owner.
 package_children."cmd" = ["aigw"]
 package_children."internal" = [
+  "activation",
   "claude",
   "cli",
   "client",
@@ -169,6 +170,12 @@ allowed_import_edges."internal/discovery" = [
 ]
 allowed_import_edges."internal/surface" = []
 allowed_import_edges."internal/readiness" = ["internal/diagnostics"]
+allowed_import_edges."internal/activation" = [
+  "internal/configuration",
+  "internal/credential",
+  "internal/readiness",
+  "internal/secrets",
+]
 allowed_import_edges."internal/cli" = [
   "internal/cli/account",
   "internal/cli/catalog",
@@ -236,6 +243,7 @@ allowed_import_edges."internal/cli/renaming" = [
   "internal/renaming",
 ]
 allowed_import_edges."internal/cli/recovery" = [
+  "internal/activation",
   "internal/cli/invocation",
   "internal/client",
   "internal/configuration",
@@ -256,6 +264,7 @@ allowed_import_edges."internal/cli/manifest" = [
   "internal/secrets",
 ]
 allowed_import_edges."internal/cli/doctor" = [
+  "internal/activation",
   "internal/configuration",
   "internal/credential",
   "internal/presentation",
@@ -282,6 +291,7 @@ allowed_import_edges."internal/cli/route" = [
   "internal/presentation",
 ]
 allowed_import_edges."internal/cli/readiness" = [
+  "internal/activation",
   "internal/cli/invocation",
   "internal/client",
   "internal/configuration",

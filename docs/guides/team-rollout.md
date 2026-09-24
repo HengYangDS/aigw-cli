@@ -286,8 +286,10 @@ aigw check
 
 One connected Account is enough to begin. Accounts without Tokens remain
 available but do not make another Account fail. With no enabled client, `check`
-and `doctor` validate local configuration without requiring the recommended
-Routes' Tokens; their success is not a client or inference proof.
+returns a deferred, nonzero result without probing a provider. `doctor` may
+pass local diagnostics, but reports zero enabled clients and does not claim
+client or inference readiness. Neither command requires Tokens for unselected
+recommended Routes.
 
 Interactive `aigw use --for <client> <route>` can also prompt for that
 Account's missing Token. Interactive use may prompt for the client or Route;

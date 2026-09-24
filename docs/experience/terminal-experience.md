@@ -113,8 +113,9 @@ Use the least powerful command that answers the current question:
 6. `aigw verify` invokes the real native client to prove its selected model
    path. This request may consume quota even when `check` has already passed.
 
-`check` exits successfully when enabled Client Bindings pass the applicable
-scope. With no enabled client, success covers configuration only. For
+`check` exits successfully when at least one enabled Client Binding passes its
+applicable scope. With no enabled client, it returns a deferred nonzero result
+without contacting an endpoint; an empty check is not health evidence. For
 client-native authentication it checks the local projection without accessing
 client credentials or calling the endpoint. A selected Account-Token Route
 normally receives one model-carrying inference diagnostic; the default request
@@ -137,7 +138,9 @@ The JSON vocabulary follows that evidence boundary:
 | `configured`            | Local prerequisites pass; no successful endpoint evidence.  |
 | `endpoint_checked`      | A model-free authenticated endpoint request succeeded.      |
 | `inference_checked`     | One exact Route-model inference request succeeded.          |
-| `ok`                    | The command's applicable checks passed.                     |
+| `ok`                    | The command's stated check scope passed.                    |
+| `ok_scope`              | Doctor's `local_diagnostics` scope, not client usability.   |
+| `enabled_clients`       | Number of enabled Client Bindings examined.                 |
 | `next_action`           | The next explicit action, not necessarily a repair.         |
 
 Neither `ok` nor `inference_checked` proves real-client execution, future
@@ -151,8 +154,12 @@ no enabled clients produces an explicit error, not an empty success. Account
 rename finalization accepts that current scope. Without enabled clients, it
 checks credential and backup continuity without requiring an inference proof.
 
-`doctor` uses the same outcome for human and JSON output. Failed diagnostics or
-invalid, degraded, or unavailable client observations produce a nonzero exit
+`doctor` uses the same outcome for human and JSON output. With zero enabled
+clients, `doctor` may return `ok: true` only for `local_diagnostics`; it also
+reports `state: deferred`, `enabled_clients: 0`, and the next activation step.
+Its human result says no client is enabled. This does not establish that a
+client can authenticate or infer. Failed diagnostics or invalid, degraded, or
+unavailable client observations produce a nonzero exit
 status and `ok: false`. Deferred clients are not failures by themselves. A JSON
 report remains one document on failure, with `next_action` carrying the same
 continuation shown in human output. Writing the report successfully does not
@@ -160,8 +167,10 @@ make a failed diagnosis successful.
 
 For `sync` and `repair`, `--json` selects output format, not execution mode.
 Add `--dry-run` to preview without writes; omit it to apply. A successful
-result contains `dry_run` and `next_action`: previews point to the apply
-command, while applied results point to `aigw check`. Projection plans appear
+result contains `dry_run` and `next_action`: previews with state changes point
+to the apply command, while a converged active `sync` binding points to
+`aigw check`. An empty `sync` selection instead reports deferred activation
+and an Account or client prerequisite. Projection plans appear
 only in previews; applied output does not present an earlier plan as observed
 per-target completion. Neither operation changes credentials.
 

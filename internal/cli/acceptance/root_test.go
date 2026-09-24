@@ -233,8 +233,8 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
-			if err := cli.Execute(app, args); err != nil {
-				t.Fatalf("command failed: %v\n%s", err, out)
+			if err := cli.Execute(app, args); (err != nil) != (args[0] == "check") {
+				t.Fatalf("unexpected command outcome: %v\n%s", err, out)
 			}
 			var expected bytes.Buffer
 			if err := json.Indent(&expected, bytes.TrimSpace(out.Bytes()), "", "  "); err != nil {

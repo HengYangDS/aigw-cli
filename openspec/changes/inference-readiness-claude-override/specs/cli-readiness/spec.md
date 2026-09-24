@@ -65,6 +65,21 @@ next action.
 - **THEN** read-only commands report the exact deferred capability
 - **AND** do not describe the whole installation as corrupt.
 
+#### Scenario: A catalogue has no enabled client
+
+- **WHEN** a reviewed manifest has been imported but no compatible Account
+  Token or Client Binding has been activated
+- **THEN** `status`, `check`, and `doctor` SHALL expose zero enabled clients
+  and the deferred activation state in human and JSON output
+- **AND** `check` SHALL return a nonzero status and `ok: false` in one JSON
+  document without making an endpoint or inference request
+- **AND** `doctor` MAY return success only for the explicitly named local
+  diagnostic scope; it SHALL not imply that any client can infer
+- **AND** an environment-backed continuation SHALL name one compatible
+  Account variable using availability metadata, without exposing its value or
+  requiring every Account
+- **AND** an empty `sync` selection SHALL not recommend `aigw check`.
+
 #### Scenario: Optional account diagnostics are unavailable
 
 - **WHEN** an enabled client Route passes its configuration, projection,

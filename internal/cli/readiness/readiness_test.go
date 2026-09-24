@@ -409,13 +409,10 @@ func TestCheckJSONReportsOutputFailure(t *testing.T) {
 
 func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 	t.Run("no enabled clients", func(t *testing.T) {
-		runtime, _, buffer := configuredReadinessRuntime(t)
+		runtime, _, _ := configuredReadinessRuntime(t)
 		runtime.Version = "1.0.0"
-		if err := RunCheck(&cobra.Command{}, runtime); err != nil {
-			t.Fatal(err)
-		}
-		if got := buffer.String(); !strings.Contains(got, "no clients are enabled") {
-			t.Fatalf("RunCheck() output = %q", got)
+		if err := RunCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(err.Error(), "no enabled Client Bindings") {
+			t.Fatalf("RunCheck() error = %v", err)
 		}
 	})
 

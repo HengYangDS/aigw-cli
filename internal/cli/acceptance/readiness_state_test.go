@@ -240,8 +240,8 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if err := cli.Execute(app, []string{command, "--json"}); err != nil {
-				t.Fatalf("%s failed for a deferred capability: %v\n%s", command, err, out.String())
+			if err := cli.Execute(app, []string{command, "--json"}); (err != nil) != (command == "check") {
+				t.Fatalf("%s empty-scope outcome = %v\n%s", command, err, out.String())
 			}
 			var document canonicalReadinessDocument
 			if err := json.Unmarshal(out.Bytes(), &document); err != nil {

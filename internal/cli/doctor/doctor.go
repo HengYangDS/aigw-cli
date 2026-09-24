@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	clientactivation "aigw-cli/internal/activation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
@@ -44,6 +45,9 @@ type commandResult struct {
 	Checks            []Check                           `json:"checks"`
 	Clients           map[string]domainreadiness.Client `json:"clients"`
 	OK                bool                              `json:"ok"`
+	OKScope           string                            `json:"ok_scope"`
+	EnabledClients    int                               `json:"enabled_clients"`
+	State             domainreadiness.State             `json:"state,omitempty"`
 	NextAction        string                            `json:"next_action,omitempty"`
 }
 
@@ -93,6 +97,12 @@ func NewCommand(deps Dependencies) *cobra.Command {
 				return presentation.Presented(fmt.Errorf("doctor found problems"))
 			}
 			r.Section("Result")
+			if result.State == domainreadiness.Deferred {
+				r.Status(presentation.Info, "Client activation", "No client is enabled")
+				r.Detail("Local diagnostics passed; no client endpoint or model was checked")
+				r.Next(result.NextAction)
+				return r.Err()
+			}
 			r.Success("No problems found")
 			return r.Err()
 		},
@@ -116,6 +126,7 @@ func collectResult(ctx context.Context, deps Dependencies) commandResult {
 		Checks:            checks,
 		Clients:           inspectClients(deps),
 		OK:                AllOK(checks),
+		OKScope:           "local_diagnostics",
 	}
 	if !result.OK {
 		result.NextAction = NextAction(checks)
@@ -139,6 +150,17 @@ func collectResult(ctx context.Context, deps Dependencies) commandResult {
 			if result.NextAction == "" {
 				result.NextAction = "aigw doctor --json"
 			}
+		}
+	}
+	if cfg, err := deps.Config.Load(); err == nil {
+		activation := clientactivation.AssessActivation(cfg, deps.Secrets)
+		result.EnabledClients = activation.EnabledClients
+		result.State = activation.State
+		if activation.State == domainreadiness.Unavailable {
+			result.OK = false
+			result.NextAction = activation.NextAction
+		} else if result.OK && activation.State == domainreadiness.Deferred {
+			result.NextAction = activation.NextAction
 		}
 	}
 	return result

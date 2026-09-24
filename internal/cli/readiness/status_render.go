@@ -22,11 +22,22 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	r.Text("The selected Routes, client readiness, and the smallest next action.")
 	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
 	attention, nextAction := renderClientStatus(r, result, clientIDs)
+	if result.State == domainreadiness.Deferred {
+		r.Section("Activation")
+		r.Status(presentation.Info, "Client activation", "No client is enabled")
+		r.Detail("The catalogue is available, but no client endpoint or model has been checked")
+	}
 	renderTransportStatus(r, result, clientIDs)
 	renderDiagnosticStatus(runtime, r, cfg)
 	switch {
+	case attention && nextAction != "":
+		r.Next(nextAction)
+	case result.State == domainreadiness.Deferred && strings.HasPrefix(result.NextAction, "set environment variable "):
+		r.Next(result.NextAction)
 	case nextAction != "":
 		r.Next(nextAction)
+	case result.State == domainreadiness.Deferred:
+		r.Next(result.NextAction)
 	case attention:
 		r.Next("aigw repair")
 	default:

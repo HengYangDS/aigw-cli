@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -34,12 +35,13 @@ func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 }
 
 type checkJSON struct {
-	ConfigPath string                  `json:"config_path"`
-	Clients    map[string]clientStatus `json:"clients"`
-	OK         bool                    `json:"ok"`
-	State      domainreadiness.State   `json:"state,omitempty"`
-	NextAction string                  `json:"next_action,omitempty"`
-	Error      string                  `json:"error,omitempty"`
+	ConfigPath     string                  `json:"config_path"`
+	Clients        map[string]clientStatus `json:"clients"`
+	EnabledClients int                     `json:"enabled_clients"`
+	OK             bool                    `json:"ok"`
+	State          domainreadiness.State   `json:"state,omitempty"`
+	NextAction     string                  `json:"next_action,omitempty"`
+	Error          string                  `json:"error,omitempty"`
 }
 
 type evaluatedClient struct {
@@ -126,6 +128,9 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg configur
 }
 
 func (e checkEvaluation) ok() bool {
+	if len(e.clients) == 0 {
+		return false
+	}
 	for _, client := range e.clients {
 		if !client.checkPassed {
 			return false
@@ -151,12 +156,29 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if len(cfg.Routes) == 0 {
 		return writeJSONFailure(runtime, domainreadiness.Deferred, "not configured", "aigw setup", fmt.Errorf("not configured"))
 	}
+	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
+	if activation.EnabledClients == 0 {
+		result := checkJSON{
+			ConfigPath:     runtime.Config.Path(),
+			Clients:        inspectStatusClients(runtime, cfg),
+			EnabledClients: 0,
+			OK:             false,
+			State:          activation.State,
+			NextAction:     activation.NextAction,
+			Error:          "No client is enabled; no endpoint or model was checked",
+		}
+		if err := presentation.WriteJSON(runtime.Out, result); err != nil {
+			return err
+		}
+		return presentation.Presented(fmt.Errorf("no enabled Client Bindings"))
+	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
 	clients := inspectStatusClients(runtime, cfg)
 	result := checkJSON{
-		ConfigPath: evaluation.configPath,
-		Clients:    clients,
-		OK:         evaluation.ok(),
+		ConfigPath:     evaluation.configPath,
+		Clients:        clients,
+		EnabledClients: activation.EnabledClients,
+		OK:             evaluation.ok(),
 	}
 	for _, client := range evaluation.clients {
 		status := clients[client.client]
@@ -218,6 +240,10 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if len(cfg.Routes) == 0 {
 		return invocation.Problem(runtime, "Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
+	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
+	if activation.EnabledClients == 0 {
+		return invocation.Problem(runtime, "No client is enabled", "The imported Routes are available, but no Client Binding is active.", "No endpoint or model was checked.", activation.NextAction, fmt.Errorf("no enabled Client Bindings"))
+	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
 	renderer := invocation.Renderer(runtime)
 	renderer.ProductTitle("Health check")
@@ -243,10 +269,6 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		inferenceUnverified = inferenceUnverified || unchecked
 	}
 	renderer.Section("Result")
-	if len(evaluation.clients) == 0 {
-		renderer.Success("Configuration is healthy; no clients are enabled")
-		return nil
-	}
 	// Passing this command establishes only the scopes reported per client.
 	renderer.Success("All enabled client checks passed")
 	if inferenceUnverified {

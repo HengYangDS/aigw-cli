@@ -3,6 +3,7 @@ package recovery
 import (
 	"errors"
 
+	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
@@ -37,11 +38,19 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				)
 			}
 			result := struct {
-				DryRun     bool                    `json:"dry_run"`
-				Selections map[string]string       `json:"selections"`
-				Targets    []client.ProjectionPlan `json:"targets,omitempty"`
-				NextAction string                  `json:"next_action"`
+				DryRun         bool                    `json:"dry_run"`
+				Selections     map[string]string       `json:"selections"`
+				Targets        []client.ProjectionPlan `json:"targets,omitempty"`
+				EnabledClients int                     `json:"enabled_clients"`
+				State          string                  `json:"state,omitempty"`
+				NextAction     string                  `json:"next_action"`
 			}{DryRun: dryRun, Selections: map[string]string{}, NextAction: "aigw check"}
+			activation := clientactivation.AssessActivation(after, runtime.Secrets)
+			result.EnabledClients = activation.EnabledClients
+			result.State = string(activation.State)
+			if activation.EnabledClients == 0 {
+				result.NextAction = activation.NextAction
+			}
 			for _, client := range configuration.AdmittedClientIDs() {
 				if route := after.SelectedRoute(client); route != "" {
 					result.Selections[client] = route
@@ -85,6 +94,11 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				r.Success("Preview did not write configuration, state files, authentication, or conversations")
 			} else {
 				r.ProductTitle("Synchronization completed")
+			}
+			if result.EnabledClients == 0 {
+				r.Status(presentation.Info, "Client activation", "No client is enabled")
+				r.Detail("Authentication was unchanged; connect one compatible Account, then synchronize")
+			} else if !dryRun {
 				r.Success("Client configuration is aligned; authentication was unchanged")
 			}
 			r.Next(result.NextAction)

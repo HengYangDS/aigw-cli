@@ -25,6 +25,18 @@ about provider retention and future availability.
 
 ## Decisions
 
+### Keep empty activation distinct from diagnostic success
+
+An imported catalogue may have valid Routes while every client remains
+deferred. `check` has no subject in that state, so an empty loop cannot prove
+health and must return a deferred nonzero result without probing. `status`
+and `doctor` name the zero enabled-client scope. `doctor` may still pass its
+local configuration diagnostics, but its JSON and human result must state
+that no client is active. `sync` cannot use `check` as the continuation after
+an empty selection. For the read-only environment backend, the continuation
+names one compatible Account variable and leaves client activation to a later
+`sync`. No new Keychain observation of unselected Accounts is admitted.
+
 ### One explicit diagnostic scope
 
 `diagnostics.Scope` is an argument to `Probe` and `ProbeStable`, and
