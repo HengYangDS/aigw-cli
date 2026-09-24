@@ -115,9 +115,15 @@ non-inference commands.
    native projections. Check global vendor cardinality, exact Account Route
    semantics, and per-Route inference; review any lost Account coverage before
    replacing a vendor's one general Model.
-9. Verify focused behavior, exact HEAD quality and native gates, selected
-   released bytes, live routes, publication, installation, rollback, and owned
-   cleanup in that order. tasks.md is the only progress ledger.
+9. Project ordinary GitLab verification, tag-version validation, and published
+   artifact verification to the disposable macOS CI runner. The authorized
+   macOS host alone performs Developer ID signing and Apple notarization;
+   those operations are separate from the GitLab jobs. Verify the generated
+   pipeline and each relevant job's actual runner identity and exact source
+   SHA. An older successful VM job does not qualify the current candidate.
+10. Verify focused behavior, exact HEAD quality and native gates, selected
+    released bytes, live routes, publication, installation, rollback, and owned
+    cleanup in that order. tasks.md is the only progress ledger.
 
 ## Risks and mitigations
 

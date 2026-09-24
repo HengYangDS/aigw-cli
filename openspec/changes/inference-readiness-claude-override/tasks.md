@@ -115,8 +115,14 @@
       7.4 inference observation for every admitted Route. Preserve personal
       recommendations, credentials, native preferences, and foreign fields;
       any lost Account coverage requires an explicit reviewed Route retirement.
-- [ ] 7.6 Re-run source, native, packaged-manifest, exact-HEAD, and hosted
-      evidence for the changed release inputs before publication.
+- [ ] 7.6 Route GitLab quality, native Darwin, accepted-ref parity, release
+      version validation, and artifact verification to the disposable macOS CI
+      runner. Keep Developer ID signing and Apple notarization on the
+      authorized host. Verify the rendered CI projection and, on the final
+      candidate HEAD, the actual job SHA, runner ID, system ID, tag, and
+      status. Older VM jobs prove capacity only. Re-run source, native,
+      packaged-manifest, and hosted evidence for changed release inputs before
+      publication.
 
 ## 8. Publish and install
 
@@ -125,7 +131,9 @@
       inherited scenarios.
 - [ ] 8.2 Publish one signed stable release with identical assets and
       checksums through the existing GitHub and GitLab workflows. Verify
-      remote refs, hosted CI, release objects, and every published asset byte.
+      remote refs, exact-tag CI job runners, release objects, and every
+      published asset byte; separately retain host signing and accepted Apple
+      notarization evidence for the exact macOS candidate.
 - [ ] 8.3 Publish and install the matching Homebrew Cask, exercise a bounded
       rollback and forward restoration, then verify the installed executable,
       UCloud routes, Claude preference preservation, and both check scopes.

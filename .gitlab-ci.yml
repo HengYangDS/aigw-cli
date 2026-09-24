@@ -6,7 +6,7 @@ native-darwin:
     - mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
   stage: verify
   tags:
-    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+    - aigw-ci-macos-arm64
   variables:
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee,github:indygreg/apple-platform-rs
   rules:
@@ -60,7 +60,7 @@ quality:
     - mise exec --locked -- go run ./tools/ci quality
   stage: verify
   tags:
-    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+    - aigw-ci-macos-arm64
   variables:
     CGO_ENABLED: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee
@@ -82,7 +82,7 @@ accepted-ref-parity:
     - mise exec --locked -- go run ./tools/forge refs --remote origin --expect "main=$CI_COMMIT_SHA" --expect "dev=$CI_COMMIT_SHA"
   stage: verify
   tags:
-    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+    - aigw-ci-macos-arm64
   variables:
     MISE_ENABLE_TOOLS: go
   rules:
@@ -94,7 +94,7 @@ release-version:
     - mise exec --locked -- go run ./tools/release validate-version-tag
   stage: verify
   tags:
-    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+    - aigw-ci-macos-arm64
   variables:
     MISE_ENABLE_TOOLS: go
   rules:
@@ -108,7 +108,7 @@ release-assets:
     - mise exec --locked -- go run ./tools/release verify-artifacts dist
   stage: release
   tags:
-    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+    - aigw-ci-macos-arm64
   variables:
     AIGW_RELEASE_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ALLOWED_SIGNERS
     AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS

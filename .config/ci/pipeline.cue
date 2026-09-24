@@ -112,10 +112,12 @@ forgeCapabilities: {
 
 // This map owns native execution evidence only. Product release targets remain
 // solely owned by .config/release/goreleaser.yaml.
+// GitLab verification runs on the disposable macOS CI runner. Developer ID
+// signing and Apple notarization stay on the authorized host outside CI.
 nativeEvidence: {
 	darwin: {
 		name: "macOS"
-		gitlab: tags: ["$AIGW_GITLAB_DARWIN_RUNNER_TAG"]
+		gitlab: tags: ["aigw-ci-macos-arm64"]
 		github: runner: "macos-26-intel"
 	}
 	linux: {

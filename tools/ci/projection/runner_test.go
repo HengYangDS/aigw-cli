@@ -2,11 +2,41 @@ package projection
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"go.yaml.in/yaml/v3"
 )
+
+func TestGitLabVerificationUsesDisposableMacOSRunner(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pipeline struct {
+		Parity         gitLabJob `yaml:"accepted-ref-parity"`
+		Quality        gitLabJob `yaml:"quality"`
+		NativeDarwin   gitLabJob `yaml:"native-darwin"`
+		ReleaseVersion gitLabJob `yaml:"release-version"`
+		ReleaseAssets  gitLabJob `yaml:"release-assets"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	for name, job := range map[string]gitLabJob{
+		"accepted-ref-parity": pipeline.Parity,
+		"quality":             pipeline.Quality,
+		"native-darwin":       pipeline.NativeDarwin,
+		"release-version":     pipeline.ReleaseVersion,
+		"release-assets":      pipeline.ReleaseAssets,
+	} {
+		if want := []string{"aigw-ci-macos-arm64"}; !slices.Equal(job.Tags, want) {
+			t.Errorf("%s runner tags = %q, want %q", name, job.Tags, want)
+		}
+	}
+}
 
 func TestGitHubNativeJobsUseHostedRunners(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
