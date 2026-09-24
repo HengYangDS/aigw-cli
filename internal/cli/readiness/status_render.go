@@ -43,7 +43,7 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 		message := clientStatus.Route + " · " + clientStatus.State.Label()
 		state := presentation.Info
 		switch clientStatus.State {
-		case domainreadiness.EndpointChecked:
+		case domainreadiness.EndpointChecked, domainreadiness.InferenceChecked:
 			state = presentation.OK
 		case domainreadiness.Configured:
 			state = presentation.Info

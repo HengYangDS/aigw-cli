@@ -126,7 +126,7 @@ func collectResult(ctx context.Context, deps Dependencies) commandResult {
 			continue
 		}
 		switch client.State {
-		case domainreadiness.Configured, domainreadiness.Deferred, domainreadiness.EndpointChecked:
+		case domainreadiness.Configured, domainreadiness.Deferred, domainreadiness.EndpointChecked, domainreadiness.InferenceChecked:
 			continue
 		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
 			result.OK = false
@@ -168,7 +168,7 @@ func renderClients(renderer *presentation.Renderer, clients map[string]domainrea
 		}
 		state := presentation.Info
 		switch client.State {
-		case domainreadiness.EndpointChecked:
+		case domainreadiness.EndpointChecked, domainreadiness.InferenceChecked:
 			state = presentation.OK
 		case domainreadiness.Configured, domainreadiness.Deferred:
 			state = presentation.Info

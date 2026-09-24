@@ -155,7 +155,11 @@ func TestCheckPreservesClaudeNativeOverrideAndUsesEndpointScope(t *testing.T) {
 	if !bytes.Equal(changed, afterSettings) || !bytes.Equal(beforeSidecar, afterSidecar) {
 		t.Fatal("check changed Claude settings or sidecar")
 	}
+	assertClaudeNativeOverrideOutput(t, runtime, output)
+}
 
+func assertClaudeNativeOverrideOutput(t *testing.T, runtime invocation.Context, output *bytes.Buffer) {
+	t.Helper()
 	output.Reset()
 	if err := RunStatus(runtime, true); err != nil {
 		t.Fatal(err)

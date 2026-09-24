@@ -114,6 +114,7 @@ func TestResultClassifiesObservedClientStates(t *testing.T) {
 		{domainreadiness.Configured, true},
 		{domainreadiness.Deferred, true},
 		{domainreadiness.EndpointChecked, true},
+		{domainreadiness.InferenceChecked, true},
 		{domainreadiness.Invalid, false},
 		{domainreadiness.Degraded, false},
 		{domainreadiness.Unavailable, false},

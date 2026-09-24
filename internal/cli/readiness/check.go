@@ -233,63 +233,14 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			continue
 		}
 		result, _ := evaluation.client(client)
-		if result.resolveErr != nil {
-			return invocation.Problem(runtime, invocation.Title(client)+" binding cannot be resolved", result.resolveErr.Error(), invocation.Title(client)+" cannot determine which Route to use.", "aigw use --for "+client+" <route>", result.resolveErr)
+		command, unchecked, err := renderCheckedClient(runtime, renderer, result)
+		if err != nil {
+			return err
 		}
-		if result.credentialErr != nil {
-			instruction, _ := credential.TokenRecovery(runtime.Secrets, result.runtime.AccountID)
-			return invocation.Problem(
-				runtime,
-				invocation.Title(client)+" account token is unavailable",
-				"Account "+result.runtime.AccountID+" has no available Token.",
-				invocation.Title(client)+" cannot authenticate to its selected endpoint.",
-				instruction,
-				fmt.Errorf("%s account token unavailable: %w", client, result.credentialErr),
-			)
+		if command != "" {
+			verificationCommands = append(verificationCommands, command)
 		}
-		if !result.adapter {
-			impact := invocation.Title(client) + " cannot receive its AIGW Route, Token, or configuration projection."
-			return invocation.Problem(runtime, invocation.Title(client)+" projection is not ready", result.issue, impact, result.fix, fmt.Errorf("%s projection not ready", client))
-		}
-		if !result.runtime.UsesAIGWCredentialStore() {
-			renderer.Status(presentation.OK, invocation.Title(client), result.runtime.RouteLabel+" · Local projection checked")
-			detail := "Client-owned authentication requires an explicit live verification"
-			if result.runtime.CredentialCommand != "" {
-				detail = "External credential helper requires an explicit live verification"
-			}
-			renderer.Detail(detail)
-			verificationCommands = append(verificationCommands, result.fix)
-			inferenceUnverified = true
-			continue
-		}
-		diagnostic := result.diagnostic
-		if diagnostic.Kind != diagnostics.Healthy {
-			evidence := diagnostic.Detail
-			if diagnostic.HTTPStatus != 0 {
-				evidence = fmt.Sprintf("HTTP %d", diagnostic.HTTPStatus)
-				if diagnostic.Detail != "" {
-					evidence += " · " + diagnostic.Detail
-				}
-			}
-			return invocation.Problem(runtime, diagnostic.Summary, evidence, invocation.Title(client)+" is unavailable.", diagnostic.Fix, fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
-		}
-		label := "Endpoint checked"
-		if diagnostic.Scope == diagnostics.ScopeInference {
-			label = "Inference checked"
-		} else {
-			inferenceUnverified = true
-		}
-		renderer.Status(presentation.OK, invocation.Title(client), result.runtime.RouteLabel+" · "+label)
-		if result.nativeModelOverride {
-			renderer.Detail("Claude Code uses a native model preference; this endpoint check does not verify that model")
-			verificationCommands = append(verificationCommands, "aigw verify --for claude")
-		}
-		if diagnostic.RecoveredTransient {
-			renderer.Detail(invocation.Title(client) + " authentication recovered after a transient response")
-		}
-		if endpointTransport(result.runtime.Endpoint) == endpointTransportExternalLoopback {
-			renderer.Detail(invocation.Title(client) + " uses a loopback endpoint; AIGW does not manage the endpoint runtime")
-		}
+		inferenceUnverified = inferenceUnverified || unchecked
 	}
 	renderer.Section("Result")
 	if len(evaluation.clients) == 0 {
@@ -306,4 +257,65 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		renderer.Next(command)
 	}
 	return nil
+}
+
+func renderCheckedClient(runtime invocation.Context, renderer *presentation.Renderer, result evaluatedClient) (string, bool, error) {
+	client := result.client
+	if result.resolveErr != nil {
+		return "", false, invocation.Problem(runtime, invocation.Title(client)+" binding cannot be resolved", result.resolveErr.Error(), invocation.Title(client)+" cannot determine which Route to use.", "aigw use --for "+client+" <route>", result.resolveErr)
+	}
+	if result.credentialErr != nil {
+		instruction, _ := credential.TokenRecovery(runtime.Secrets, result.runtime.AccountID)
+		return "", false, invocation.Problem(
+			runtime,
+			invocation.Title(client)+" account token is unavailable",
+			"Account "+result.runtime.AccountID+" has no available Token.",
+			invocation.Title(client)+" cannot authenticate to its selected endpoint.",
+			instruction,
+			fmt.Errorf("%s account token unavailable: %w", client, result.credentialErr),
+		)
+	}
+	if !result.adapter {
+		impact := invocation.Title(client) + " cannot receive its AIGW Route, Token, or configuration projection."
+		return "", false, invocation.Problem(runtime, invocation.Title(client)+" projection is not ready", result.issue, impact, result.fix, fmt.Errorf("%s projection not ready", client))
+	}
+	if !result.runtime.UsesAIGWCredentialStore() {
+		renderer.Status(presentation.OK, invocation.Title(client), result.runtime.RouteLabel+" · Local projection checked")
+		detail := "Client-owned authentication requires an explicit live verification"
+		if result.runtime.CredentialCommand != "" {
+			detail = "External credential helper requires an explicit live verification"
+		}
+		renderer.Detail(detail)
+		return result.fix, true, nil
+	}
+	diagnostic := result.diagnostic
+	if diagnostic.Kind != diagnostics.Healthy {
+		evidence := diagnostic.Detail
+		if diagnostic.HTTPStatus != 0 {
+			evidence = fmt.Sprintf("HTTP %d", diagnostic.HTTPStatus)
+			if diagnostic.Detail != "" {
+				evidence += " · " + diagnostic.Detail
+			}
+		}
+		return "", false, invocation.Problem(runtime, diagnostic.Summary, evidence, invocation.Title(client)+" is unavailable.", diagnostic.Fix, fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
+	}
+	label := "Endpoint checked"
+	inferenceUnverified := true
+	if diagnostic.Scope == diagnostics.ScopeInference {
+		label = "Inference checked"
+		inferenceUnverified = false
+	}
+	renderer.Status(presentation.OK, invocation.Title(client), result.runtime.RouteLabel+" · "+label)
+	command := ""
+	if result.nativeModelOverride {
+		renderer.Detail("Claude Code uses a native model preference; this endpoint check does not verify that model")
+		command = "aigw verify --for claude"
+	}
+	if diagnostic.RecoveredTransient {
+		renderer.Detail(invocation.Title(client) + " authentication recovered after a transient response")
+	}
+	if endpointTransport(result.runtime.Endpoint) == endpointTransportExternalLoopback {
+		renderer.Detail(invocation.Title(client) + " uses a loopback endpoint; AIGW does not manage the endpoint runtime")
+	}
+	return command, inferenceUnverified, nil
 }

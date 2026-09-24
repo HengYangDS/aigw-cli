@@ -330,6 +330,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 	runtime := invocation.Context{Out: &bytes.Buffer{}, Width: 120}
 	for _, state := range []domainreadiness.State{
 		domainreadiness.EndpointChecked,
+		domainreadiness.InferenceChecked,
 		domainreadiness.Configured,
 		domainreadiness.Deferred,
 		domainreadiness.Invalid,

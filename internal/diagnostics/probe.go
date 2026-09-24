@@ -22,7 +22,9 @@ type Kind string
 type Scope string
 
 const (
-	ScopeEndpoint  Scope = "endpoint"
+	// ScopeEndpoint authenticates with a model-free endpoint request.
+	ScopeEndpoint Scope = "endpoint"
+	// ScopeInference sends a request carrying the selected Route's wire model.
 	ScopeInference Scope = "inference"
 )
 
