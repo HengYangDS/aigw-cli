@@ -158,7 +158,7 @@
       5.3 to its completed Chat Completions protocol. Keep Cohere Command A
       and Poolside Laguna S 2.1 as single canonical Models with their
       exact-wire AIHubMix Chat Routes; the newer Command A+ returned HTTP 400.
-- [ ] 7.3 Reconcile only team-owned local Models and Routes through the AIGW
+- [x] 7.3 Reconcile only team-owned local Models and Routes through the AIGW
       configuration owner after a complete dry-run. Preserve Accounts,
       credentials, client selections, native preferences, and foreign state.
       Read back every Route protocol key, including UCloud GLM 5.3 Chat
@@ -191,7 +191,7 @@
       a claim about the strongest Gemini Flash does not rank it above Gemini
       Pro. Stop if credentials require Keychain UI, reporting uncalled Routes
       as unverified.
-- [ ] 7.5 Accept the final candidate-bound `manifests/team.toml` and the
+- [x] 7.5 Accept the final candidate-bound `manifests/team.toml` and the
       installed profile exported by `aigw config export` as one semantic
       catalogue across AIHubMix, DMXAPI, and UCloud. Compare Model IDs,
       Account endpoint/probe metadata, and Route Account/protocol/wire IDs;
