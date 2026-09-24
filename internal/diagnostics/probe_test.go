@@ -184,6 +184,9 @@ func TestDefaultStabilityPolicyUsesBoundedRecovery(t *testing.T) {
 	if policy.AttemptTimeout != 5*time.Second {
 		t.Fatalf("AttemptTimeout = %s, want 5s", policy.AttemptTimeout)
 	}
+	if policy.InferenceAttemptTimeout != 60*time.Second {
+		t.Fatalf("InferenceAttemptTimeout = %s, want 60s", policy.InferenceAttemptTimeout)
+	}
 }
 
 func TestProbeStableRecoversOnlyAfterThreeHealthyObservations(t *testing.T) {

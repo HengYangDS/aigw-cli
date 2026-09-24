@@ -45,14 +45,13 @@ func TestTeamConfigurationManifestIsReviewedVersionSeven(t *testing.T) {
 		}
 	}
 	recommendations := map[string]struct {
-		model           string
-		storedProtocol  EndpointProtocol
-		runtimeProtocol EndpointProtocol
+		model          string
+		storedProtocol EndpointProtocol
 	}{
-		ClientClaude:        {model: "claude-fable-5-1", runtimeProtocol: ProtocolAnthropic},
-		ClientClaudeDesktop: {model: "claude-fable-5-1", runtimeProtocol: ProtocolAnthropic},
-		ClientCodex:         {model: "gpt-6-sol", runtimeProtocol: ProtocolOpenAIResponses},
-		ClientHermes:        {model: "gpt-6-sol", storedProtocol: ProtocolOpenAIResponses, runtimeProtocol: ProtocolOpenAIResponses},
+		ClientClaude:        {model: "claude-opus-5-5"},
+		ClientClaudeDesktop: {model: "claude-opus-5-5"},
+		ClientCodex:         {model: "gpt-6-sol"},
+		ClientHermes:        {model: "gpt-6-sol", storedProtocol: ProtocolOpenAIResponses},
 	}
 	if len(parsedManifest.Recommendations) != len(recommendations) {
 		t.Fatalf("team manifest recommended routes = %#v", parsedManifest.Recommendations)
@@ -64,6 +63,14 @@ func TestTeamConfigurationManifestIsReviewedVersionSeven(t *testing.T) {
 			t.Fatalf("recommended %s Route = %#v with stored protocol %q, want Model %q with stored protocol %q", client, route, recommendation.Protocol, want.model, want.storedProtocol)
 		}
 	}
+}
+
+func TestTeamManifestActivatesAnyOneConnectedAccount(t *testing.T) {
+	_, parsedManifest := loadTeamManifest(t)
+	protocols := map[string]EndpointProtocol{
+		ClientClaude: ProtocolAnthropic, ClientClaudeDesktop: ProtocolAnthropic,
+		ClientCodex: ProtocolOpenAIResponses, ClientHermes: ProtocolOpenAIResponses,
+	}
 	for accountID := range parsedManifest.Accounts {
 		cfg, mergeErr := Merge(NewConfig(), parsedManifest)
 		if mergeErr != nil {
@@ -74,7 +81,7 @@ func TestTeamConfigurationManifestIsReviewedVersionSeven(t *testing.T) {
 			t.Fatal(selectErr)
 		}
 		activated := 0
-		for client, want := range recommendations {
+		for client, recommendation := range parsedManifest.Recommendations {
 			routeID := selected.SelectedRoute(client)
 			if routeID == "" {
 				continue
@@ -83,17 +90,21 @@ func TestTeamConfigurationManifestIsReviewedVersionSeven(t *testing.T) {
 			if resolveErr != nil {
 				t.Fatalf("resolve %s route for Account %q: %v", client, accountID, resolveErr)
 			}
-			modelOffered := false
-			for _, route := range parsedManifest.Routes {
-				modelOffered = modelOffered || route.Account == accountID && route.Model == want.model
+			expectedModel := ""
+			for _, option := range recommendation.Selections() {
+				candidate := parsedManifest.Routes[option.Route]
+				if candidate.Account == accountID {
+					expectedModel = candidate.Model
+					break
+				}
 			}
-			if runtime.AccountID != accountID || modelOffered && selected.Routes[routeID].Model != want.model || runtime.Protocol != want.runtimeProtocol {
-				t.Fatalf("%s route for Account %q = Account %q canonical Model %q protocol %q, want Model %q protocol %q", client, accountID, runtime.AccountID, selected.Routes[routeID].Model, runtime.Protocol, want.model, want.runtimeProtocol)
+			if expectedModel == "" || runtime.AccountID != accountID || selected.Routes[routeID].Model != expectedModel || runtime.Protocol != protocols[client] {
+				t.Fatalf("%s route for Account %q = Account %q canonical Model %q protocol %q, want Model %q protocol %q", client, accountID, runtime.AccountID, selected.Routes[routeID].Model, runtime.Protocol, expectedModel, protocols[client])
 			}
 			activated++
 		}
-		if activated == 0 {
-			t.Fatalf("Account %q has no usable recommended Client Binding", accountID)
+		if activated != len(parsedManifest.Recommendations) {
+			t.Fatalf("Account %q activates %d of %d recommended Clients", accountID, activated, len(parsedManifest.Recommendations))
 		}
 	}
 }
@@ -128,9 +139,11 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	want := []string{
 		"claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5",
-		"deepseek-v4-pro-0813", "gemini-3.1-pro-preview", "glm-5.3",
-		"gpt-6-astra", "gpt-6-luna", "gpt-6-sol", "grok-4.6",
-		"kimi-k3", "minimax-m3", "qwen3.8-max",
+		"deepseek-v4.1-flash", "doubao-seed-2-1-pro-260628", "ernie-5.1", "gemini-3.1-pro-preview", "glm-5.3",
+		"gpt-6-astra", "gpt-6-luna", "gpt-6-sol", "grok-4.7",
+		"hy3", "kimi-k3", "ling-3.0-flash", "longcat-2.0", "mercury-2.5", "mimo-v2.6-pro",
+		"minimax-m3", "mistral-large-3", "muse-spark-1.3", "nemotron-3-ultra-550b-a55b",
+		"qwen3.8-max", "solar-pro4", "step-3.7-flash",
 	}
 	if got := slices.Sorted(maps.Keys(manifest.Models)); !slices.Equal(got, want) {
 		t.Fatalf("team logical Models = %v, want %v", got, want)
@@ -138,9 +151,136 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 	if manifest.Models["claude-opus-5-5"].Label != "Claude Opus 5.5" {
 		t.Errorf("Opus 5.5 identity = %#v", manifest.Models["claude-opus-5-5"])
 	}
-	for routeID, route := range manifest.Routes {
-		if route.Model == "claude-opus-5-5" || route.Model == "minimax-m3" {
-			t.Errorf("unverified provider Route %q was admitted", routeID)
+	for _, account := range []string{"aihubmix", "dmxapi", "ucloud"} {
+		for _, model := range []string{"claude-opus-5-5"} {
+			id := account + "-" + model
+			route, ok := manifest.Routes[id]
+			if !ok || route.Account != account || route.Model != model || route.UpstreamModelID() != model {
+				t.Errorf("verified Route %q = %+v, want exact Account, Model, and wire identity", id, route)
+			}
+		}
+		for _, model := range []string{"deepseek-v4.1-flash", "doubao-seed-2-1-pro-260628"} {
+			id := account + "-" + model
+			route, ok := manifest.Routes[id]
+			if !ok || route.Account != account || route.Model != model || route.UpstreamModelID() != model {
+				t.Errorf("qualified general Route %q = %+v", id, route)
+			}
+		}
+	}
+}
+
+func TestTeamManifestGPTAccountRoutesFollowInferenceEvidence(t *testing.T) {
+	_, manifest := loadTeamManifest(t)
+	want := map[string][]string{
+		"gpt-6-astra": {"aihubmix", "dmxapi", "ucloud"},
+		"gpt-6-luna":  {"aihubmix", "dmxapi", "ucloud"},
+		"gpt-6-sol":   {"aihubmix", "ucloud"},
+	}
+	for model, accounts := range want {
+		for _, account := range accounts {
+			id := account + "-" + model
+			route, ok := manifest.Routes[id]
+			if !ok || route.Account != account || route.Model != model || route.UpstreamModelID() != model ||
+				!slices.Equal(route.AdmittedProtocols(), []EndpointProtocol{ProtocolOpenAIResponses}) {
+				t.Errorf("verified GPT Route %q = %+v", id, route)
+			}
+		}
+	}
+	if _, admitted := manifest.Routes["dmxapi-gpt-6-sol"]; admitted {
+		t.Error("currently unavailable DMXAPI GPT-6 Sol Route was shipped")
+	}
+}
+
+func TestTeamManifestGrokUpgradeKeepsAllThreeAccounts(t *testing.T) {
+	_, manifest := loadTeamManifest(t)
+	for _, account := range []string{"aihubmix", "dmxapi", "ucloud"} {
+		id := account + "-grok-4.7"
+		route, ok := manifest.Routes[id]
+		if !ok || route.Account != account || route.Model != "grok-4.7" || route.UpstreamModelID() != "grok-4.7" ||
+			!slices.Equal(route.AdmittedProtocols(), []EndpointProtocol{ProtocolOpenAIResponses}) {
+			t.Errorf("qualified Grok Route %q = %+v", id, route)
+		}
+	}
+	if _, present := manifest.Models["grok-4.6"]; present {
+		t.Error("retired Grok 4.6 remains a logical Model")
+	}
+}
+
+func TestTeamManifestKeepsOnlyQualifiedMiniMaxAndMuseRoutes(t *testing.T) {
+	_, manifest := loadTeamManifest(t)
+	if _, admitted := manifest.Routes["dmxapi-minimax-m3"]; admitted {
+		t.Error("timed-out DMXAPI MiniMax M3 Route was admitted")
+	}
+	for _, account := range []string{"aihubmix", "ucloud"} {
+		id := account + "-minimax-m3"
+		route, ok := manifest.Routes[id]
+		wire := "minimax-m3"
+		if account == "ucloud" {
+			wire = "MiniMax-M3"
+		}
+		if !ok || route.Account != account || route.Model != "minimax-m3" || route.UpstreamModelID() != wire {
+			t.Errorf("MiniMax Route %q = %+v, want wire %q", id, route, wire)
+		}
+	}
+	muse, ok := manifest.Routes["aihubmix-muse-spark-1.3"]
+	if !ok || muse.Account != "aihubmix" || muse.Model != "muse-spark-1.3" || muse.UpstreamModelID() != "muse-spark-1.3" {
+		t.Errorf("verified Meta Route = %+v", muse)
+	}
+	for _, account := range []string{"dmxapi", "ucloud"} {
+		if _, admitted := manifest.Routes[account+"-muse-spark-1.3"]; admitted {
+			t.Errorf("unverified Meta Route on %s was admitted", account)
+		}
+	}
+}
+
+func TestTeamManifestKeepsOnlyQualifiedMiMoRoutes(t *testing.T) {
+	_, manifest := loadTeamManifest(t)
+	for _, account := range []string{"aihubmix", "ucloud"} {
+		id := account + "-mimo-v2.6-pro"
+		route, ok := manifest.Routes[id]
+		if !ok || route.Account != account || route.Model != "mimo-v2.6-pro" || route.UpstreamModelID() != "mimo-v2.6-pro" ||
+			!slices.Contains(route.AdmittedProtocols(), ProtocolOpenAIResponses) {
+			t.Errorf("qualified MiMo Route %q = %+v", id, route)
+		}
+	}
+	if _, admitted := manifest.Routes["dmxapi-mimo-v2.6-pro"]; admitted {
+		t.Error("unverified DMXAPI MiMo Route was admitted")
+	}
+}
+
+func TestTeamManifestUsesQualifiedChatProtocolForUCloudGLM(t *testing.T) {
+	_, manifest := loadTeamManifest(t)
+	route, ok := manifest.Routes["ucloud-glm-5.3"]
+	if !ok || !slices.Equal(route.AdmittedProtocols(), []EndpointProtocol{ProtocolOpenAIChatCompletions}) {
+		t.Fatalf("UCloud GLM 5.3 protocols = %v, want Chat Completions", route.AdmittedProtocols())
+	}
+}
+
+func TestTeamManifestKeepsQualifiedAdditionalVendorRoutes(t *testing.T) {
+	_, manifest := loadTeamManifest(t)
+	if manifest.Accounts["aihubmix"].Endpoints.OpenAIChatCompletions != "https://api.inferera.com/v1" {
+		t.Errorf("AIHubMix Chat Completions endpoint = %q", manifest.Accounts["aihubmix"].Endpoints.OpenAIChatCompletions)
+	}
+	want := map[string]struct {
+		model    string
+		wire     string
+		protocol EndpointProtocol
+	}{
+		"aihubmix-ernie-5.1":                       {"ernie-5.1", "ernie-5.1", ProtocolOpenAIResponses},
+		"aihubmix-hy3":                             {"hy3", "hy3", ProtocolOpenAIChatCompletions},
+		"aihubmix-ling-3.0-flash":                  {"ling-3.0-flash", "ling-3.0-flash", ProtocolOpenAIChatCompletions},
+		"aihubmix-longcat-2.0":                     {"longcat-2.0", "longcat-2.0", ProtocolOpenAIChatCompletions},
+		"aihubmix-mercury-2.5":                     {"mercury-2.5", "mercury-2.5", ProtocolOpenAIChatCompletions},
+		"aihubmix-mistral-large-3":                 {"mistral-large-3", "mistral-large-3", ProtocolOpenAIChatCompletions},
+		"aihubmix-nemotron-3-ultra-550b-a55b-free": {"nemotron-3-ultra-550b-a55b", "nemotron-3-ultra-550b-a55b-free", ProtocolOpenAIChatCompletions},
+		"aihubmix-solar-pro4":                      {"solar-pro4", "solar-pro4", ProtocolOpenAIChatCompletions},
+		"aihubmix-step-3.7-flash":                  {"step-3.7-flash", "step-3.7-flash", ProtocolOpenAIChatCompletions},
+	}
+	for id, expected := range want {
+		route, ok := manifest.Routes[id]
+		if !ok || route.Account != "aihubmix" || route.Model != expected.model || route.UpstreamModelID() != expected.wire ||
+			!slices.Equal(route.AdmittedProtocols(), []EndpointProtocol{expected.protocol}) {
+			t.Errorf("qualified vendor Route %q = %+v, want %+v", id, route, expected)
 		}
 	}
 }
@@ -181,16 +321,25 @@ func TestTeamManifestRoutesUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 	}
 }
 
-func TestTeamManifestPrefersUCloudGPTSixRoutes(t *testing.T) {
+func TestTeamManifestRecommendsCurrentVerifiedModelsWithoutChangingSelections(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	wantCodexRoutes := []string{"ucloud-gpt-6-sol", "ucloud-gpt-6-astra", "ucloud-gpt-6-luna"}
-	codexRoutes := manifest.Recommendations[ClientCodex].Selections()
-	if len(codexRoutes) < len(wantCodexRoutes) {
-		t.Fatalf("Codex recommendations = %#v, want at least %#v", codexRoutes, wantCodexRoutes)
-	}
-	for index, selection := range codexRoutes[:len(wantCodexRoutes)] {
-		if selection.Route != wantCodexRoutes[index] {
-			t.Errorf("Codex recommendation %d = %q, want %q", index, selection.Route, wantCodexRoutes[index])
+	for client, model := range map[string]string{
+		ClientClaude: "claude-opus-5-5", ClientClaudeDesktop: "claude-opus-5-5",
+		ClientCodex: "gpt-6-sol", ClientHermes: "gpt-6-sol",
+	} {
+		choices := manifest.Recommendations[client].Selections()
+		want := []string{"dmxapi-" + model, "aihubmix-" + model, "ucloud-" + model}
+		if client == ClientCodex || client == ClientHermes {
+			want = []string{"ucloud-" + model, "aihubmix-" + model, "dmxapi-gpt-6-luna"}
+		}
+		if len(choices) != len(want) {
+			t.Errorf("%s recommendations = %#v, want %q", client, choices, want)
+			continue
+		}
+		for index, selection := range choices {
+			if selection.Route != want[index] {
+				t.Errorf("%s recommendation %d = %q, want %q", client, index, selection.Route, want[index])
+			}
 		}
 	}
 }
@@ -277,7 +426,7 @@ func TestTeamManifestSelectsRecommendedModelsForAIHubMix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for client, model := range map[string]string{ClientClaude: "claude-fable-5-1", ClientCodex: "gpt-6-astra", ClientHermes: "gpt-6-astra"} {
+	for client, model := range map[string]string{ClientClaude: "claude-opus-5-5", ClientCodex: "gpt-6-sol", ClientHermes: "gpt-6-sol"} {
 		runtime, resolveErr := selected.ResolveRuntime(client, "")
 		if resolveErr != nil {
 			t.Fatal(resolveErr)

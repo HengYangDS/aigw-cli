@@ -173,7 +173,7 @@ func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
 	requests := 0
 	runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		requests++
-		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
+		return successfulReadinessResponse(request)
 	})
 	command := &cobra.Command{}
 	command.SetContext(context.Background())
@@ -244,9 +244,7 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
-	})
+	runtime.HTTP = roundTripFunc(successfulReadinessResponse)
 	command := NewCheckCommand(runtime)
 	command.SetContext(t.Context())
 	if evaluation := evaluateCheck(command, runtime, cfg); !evaluation.ok() {
@@ -467,9 +465,7 @@ func TestCheckEndpointReadinessIsIndependentOfDiagnosticCredentials(t *testing.T
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
-	})
+	runtime.HTTP = roundTripFunc(successfulReadinessResponse)
 	for _, mode := range []string{"human", "json"} {
 		t.Run(mode, func(t *testing.T) {
 			store.reads = 0

@@ -73,7 +73,7 @@ func TestCheckReportsThePerformedInferenceOrEndpointScope(t *testing.T) {
 						t.Fatalf("wire model = %v", body["model"])
 					}
 				}
-				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"id":"ok"}`)), Request: request}, nil
+				return successfulReadinessResponse(request)
 			})
 			command := NewCheckCommand(runtime)
 			command.SetArgs(test.args)
@@ -200,9 +200,7 @@ func TestHumanCheckNamesTheScopeActuallyPerformed(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, output := configuredCodexScopedCheck(t)
-			runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
-				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"id":"ok"}`)), Request: request}, nil
-			})
+			runtime.HTTP = roundTripFunc(successfulReadinessResponse)
 			command := NewCheckCommand(runtime)
 			command.SetArgs(test.args)
 			command.SetContext(t.Context())

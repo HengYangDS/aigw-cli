@@ -38,6 +38,13 @@
 - [x] 3.3 Map a healthy inference observation to `inference_checked` and a
       healthy catalogue observation to `endpoint_checked`, preserving typed
       failure classes. Verify: `go test ./internal/readiness/...`.
+- [x] 3.4 Require protocol-shaped assistant output before an HTTP 2xx inference
+      observation is healthy. Reject incomplete Responses, empty outputs, and
+      200 error bodies without retrying or disclosing credentials; use an
+      explicit short-answer prompt, a 512-token output cap, and separate
+      five-second endpoint versus 60-second inference attempt bounds. Verify: RED/GREEN
+      diagnostics tests for all three protocols, affected CLI acceptance, and
+      the full quality and native gates.
 
 ## 4. Preserve Claude's native model preference
 
@@ -93,42 +100,85 @@
       endpoint-only mode, and fixture-backed distributor 503 classification.
 - [ ] 6.3 Obtain native macOS, Linux, and Windows evidence for the same
       product tree and verify exact commit signatures and the introduced
-      range under repository policy.
+      range under repository policy. Linux ordinary native acceptance must
+      exercise secure-file fallback without a session bus; qualify real Secret
+      Service separately in an ephemeral D-Bus/keyring environment.
 
 ## 7. Curate the three-provider team catalogue and local configuration
 
-- [x] 7.1 Reconcile public provider catalogues, the current team manifest,
+- [ ] 7.1 Reconcile public provider catalogues, the current team manifest,
       local configuration, and prior inference evidence. Keep unauthenticated
       DMXAPI 401 and model listings distinct from unavailable or verified
-      inference.
-- [x] 7.2 Curate `manifests/team.toml` as the shipped Account / canonical Model /
+      inference. Audit vendors missing from the curated manifest, not just
+      newer IDs within its existing families. AIHubMix currently lists
+      Cohere Command A+, Baidu ERNIE 5.1, Mistral Large 3, Xiaomi MiMo 2.6
+      Pro, Step 5 Preview, NVIDIA Nemotron 3 Ultra, Upstage Solar Pro 4,
+      Inception Mercury 2.5, Meituan LongCat 2.0, and InclusionAI Ling;
+      UCloud also lists MiMo 2.6 Pro. Xiaomi's primary model guidance and
+      completed text inference on both listed Accounts admit MiMo. Review
+      primary positioning and exact inference for ERNIE 5.1, Mistral Large 3,
+      Nemotron 3 Ultra, Solar Pro 4, Mercury 2.5, LongCat 2.0, HY3, stable
+      Step 3.7 Flash, and Ling 3.0 Flash; keep the unsupported Command A+
+      and preview MAI Thinking 1/Step 5 out. Preserve catalog observations
+      and exclusions without mirroring every listed ID into `team.toml`.
+- [ ] 7.2 Curate `manifests/team.toml` as the shipped Account / canonical Model /
       provider Route / per-client Recommendation contract. Keep canonical and
       Route IDs lower-case, exact-case wire IDs, and one canonical Model per
-      other vendor. Declare MiniMax M3 without inventing a provider Route;
+      other vendor. Admit MiniMax M3 only on proven Account Routes;
       remove redundant ordinary Route labels and derive Account / Model names
       at presentation, preserving channel overrides and explicit client choices.
       Replace full-matrix and Route-ID-equals-wire tests with asymmetric-Account,
       exact-wire, channel-base, native-export, and public-command regressions.
       Do not add tier, purpose, proxy, or unproven Route data.
+      Set Claude Opus 5.5 as the primary Claude model on DMXAPI. Set UCloud
+      GPT-6 Sol as the Codex and Hermes primary with AIHubMix as the same-model
+      alternative and DMXAPI Luna as the fallback for a sole connected DMXAPI
+      Account; a current DMXAPI direct GPT-6 Sol request returned HTTP 503.
+      Keep DMXAPI direct Responses acceptance distinct from its locally
+      configured Proxy transport; omit the currently failing Sol Route from
+      the shipped manifest while preserving any explicit local binding.
+      Add AIHubMix and DMXAPI Luna Routes only after completed exact-wire
+      Responses calls. Preserve explicit UCloud Client Bindings.
+      Replace the one DeepSeek identity only after stronger vendor positioning
+      and three-Account inference, and add one qualified Doubao Seed 2.1 Pro
+      identity with exact provider wire IDs. Preserve any explicit binding to
+      a retired incumbent Route until its owner explicitly changes it.
+      Replace Grok 4.6 with vendor-positioned Grok 4.7 after complete Responses
+      inference on all three Accounts, without losing Account coverage.
+      Include Meta Muse Spark 1.3 only on AIHubMix after complete model-carrying
+      output; do not confuse DMXAPI Spark IDs with Meta Muse. Include Xiaomi
+      MiMo V2.6 Pro only on AIHubMix and UCloud after the vendor's general-model
+      positioning and completed exact-wire Responses calls. Add each further
+      qualified vendor only on its completed AIHubMix Responses or Chat Route,
+      with one base NVIDIA Model for the `-free` channel. Correct UCloud GLM
+      5.3 to its completed Chat Completions protocol.
 - [ ] 7.3 Reconcile only team-owned local Models and Routes through the AIGW
       configuration owner after a complete dry-run. Preserve Accounts,
       credentials, client selections, native preferences, and foreign state.
-- [ ] 7.4 Prepare exact wire-ID probes from the public catalogues. For
+- [x] 7.4 Prepare exact wire-ID probes from the public catalogues. For
       AIHubMix, try `gpt-6-sol`, `gpt-6-luna`, `claude-opus-5-5`,
       `deepseek-v4.1-flash`, `minimax-m3`, `cc-minimax-m3`, and
-      `grok-4.7`; for UCloud, try `deepseek-v4.1-flash` and
-      `MiniMax-M3`. Record Account, attempted protocol, and wire ID for
-      each bounded noninteractive inference call, then call every retained
-      Route once. A listing or omission is not availability evidence:
+      `grok-4.7`; extend the qualified shortlist from 7.1 to new vendors,
+      including `command-a-plus-05-2026`, `ernie-5.1`, `mistral-large-3`,
+      and `mimo-v2.6-pro` on AIHubMix. For UCloud, try
+      `deepseek-v4.1-flash`, `MiniMax-M3`, and `mimo-v2.6-pro`. Record Account,
+      attempted protocol, and wire ID for each bounded noninteractive call.
+      Verify every retained Route: 54 unchanged Route/Account tuples from the
+      57-Route `2ad9c411` matrix plus three newly called Grok 4.7 Routes
+      cover the current `76094075` manifest at the product-shaped 512-token
+      cap. Retain the source and delta observations under
+      `build/verification/765cb24c77bc15bed815d576387ea7c71a5f5ed0/catalog-*`.
+      A listing or omission is not availability evidence:
       retain private UCloud GPT/Claude Routes, leave DMXAPI 401 unknown,
       and do not infer CC/coding prefix semantics or admit H3 as general
       text. A successful call proves availability, not comparative general
       strength. Replace a retained general Model only with current primary
       vendor evidence of stronger general-purpose positioning, successful
       exact inference, and the 7.5 Account-coverage and global-cardinality
-      review. Keep Grok 4.6 until Grok 4.7 passes those gates; a claim about
-      the strongest Gemini Flash does not rank it above Gemini Pro. Stop if
-      credentials require Keychain UI, reporting uncalled Routes as unverified.
+      review. Grok 4.7 passed vendor-positioning and three-Account inference;
+      a claim about the strongest Gemini Flash does not rank it above Gemini
+      Pro. Stop if credentials require Keychain UI, reporting uncalled Routes
+      as unverified.
 - [ ] 7.5 Accept the final candidate-bound `manifests/team.toml` and the
       installed profile exported by `aigw config export` as one semantic
       catalogue across AIHubMix, DMXAPI, and UCloud. Compare Model IDs,

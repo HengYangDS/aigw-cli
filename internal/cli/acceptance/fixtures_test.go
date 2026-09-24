@@ -147,9 +147,22 @@ func (f *fakeHTTP) Do(req *http.Request) (*http.Response, error) {
 	}
 	body := f.body
 	if body == "" {
-		body = "{}"
+		body = fixtureResponseBody(req)
 	}
 	return &http.Response{StatusCode: f.status, Body: io.NopCloser(strings.NewReader(body)), Request: req}, nil
+}
+
+func fixtureResponseBody(req *http.Request) string {
+	switch {
+	case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/responses"):
+		return `{"status":"completed","output":[{"type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"pong"}]}]}`
+	case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/messages"):
+		return `{"type":"message","role":"assistant","content":[{"type":"text","text":"pong"}],"stop_reason":"end_turn"}`
+	case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/chat/completions"):
+		return `{"choices":[{"message":{"role":"assistant","content":"pong"},"finish_reason":"stop"}]}`
+	default:
+		return "{}"
+	}
 }
 
 func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, secrets.Store, *fakeRunner, *fakeHTTP) {

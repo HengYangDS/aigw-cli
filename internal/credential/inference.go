@@ -12,6 +12,9 @@ import (
 	configuration "aigw-cli/internal/configuration"
 )
 
+const inferenceProbeMaxTokens = 512
+const inferenceProbePrompt = "Reply with exactly pong."
+
 // ModelInferenceRequest constructs one capped, non-streaming request carrying
 // the Route's exact upstream model. It does not read credentials or responses.
 func ModelInferenceRequest(ctx context.Context, endpoint string, protocol configuration.EndpointProtocol, token, model string) (*http.Request, error) {
@@ -37,7 +40,7 @@ func ModelInferenceRequest(ctx context.Context, endpoint string, protocol config
 			Model     string            `json:"model"`
 			MaxTokens int               `json:"max_tokens"`
 			Messages  []inferencePrompt `json:"messages"`
-		}{Model: model, MaxTokens: 1, Messages: []inferencePrompt{{Role: "user", Content: "ping"}}}
+		}{Model: model, MaxTokens: inferenceProbeMaxTokens, Messages: []inferencePrompt{{Role: "user", Content: inferenceProbePrompt}}}
 	case configuration.ProtocolOpenAIResponses:
 		path = "/responses"
 		body = struct {
@@ -45,14 +48,14 @@ func ModelInferenceRequest(ctx context.Context, endpoint string, protocol config
 			Input           string `json:"input"`
 			MaxOutputTokens int    `json:"max_output_tokens"`
 			Store           bool   `json:"store"`
-		}{Model: model, Input: "ping", MaxOutputTokens: 16, Store: false}
+		}{Model: model, Input: inferenceProbePrompt, MaxOutputTokens: inferenceProbeMaxTokens, Store: false}
 	case configuration.ProtocolOpenAIChatCompletions:
 		path = "/chat/completions"
 		body = struct {
 			Model     string            `json:"model"`
 			MaxTokens int               `json:"max_tokens"`
 			Messages  []inferencePrompt `json:"messages"`
-		}{Model: model, MaxTokens: 1, Messages: []inferencePrompt{{Role: "user", Content: "ping"}}}
+		}{Model: model, MaxTokens: inferenceProbeMaxTokens, Messages: []inferencePrompt{{Role: "user", Content: inferenceProbePrompt}}}
 	default:
 		return nil, fmt.Errorf("unsupported inference protocol %q", protocol)
 	}

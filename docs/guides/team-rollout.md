@@ -72,6 +72,10 @@ byte-identical native export without another formatter or model-name registry.
 Verify exact provider identifiers before admitting Routes. `aigw catalog`
 observes every configured catalogue surface separately and records its Account,
 protocol, endpoint, normalized IDs, and deterministic observation identity.
+The default human view expands admitted and deprecated IDs and counts other
+candidates. Use `aigw catalog --all` to see every observed candidate, or
+`aigw catalog --json` for the complete machine-readable observation. Neither
+view promises every model a provider can serve through private routes.
 Anthropic Messages, OpenAI Chat Completions, and OpenAI Responses observations
 are not interchangeable. A Chat Completions result cannot qualify Responses;
 a Responses text call cannot qualify reasoning, tools, continuation, or
@@ -96,24 +100,38 @@ Catalogue refresh performs none of those transitions.
 ### Reviewed model defaults
 
 The catalogue contains only GPT-6 Astra, Sol, and Luna in the GPT family and
-Claude Fable 5.1, Opus 5.5, and Sonnet 5 in the Claude family. Opus 5.5 is a
-known Model identity without an admitted Route until an exact Account,
-protocol, and wire ID pass authenticated inference. MiniMax M3 is also a
-canonical Model identity with no admitted Route; AIHubMix and UCloud wire IDs
-remain inference candidates. Each other admitted general-model family keeps
-one logical Model globally, with separately evidenced Routes: Grok 4.6,
-Gemini 3.1 Pro Preview, DeepSeek V4 Pro 0813, Qwen 3.8 Max, GLM 5.3, and
-Kimi K3. Model entries carry identity only; client-scoped
+Claude Fable 5.1, Opus 5.5, and Sonnet 5 in the Claude family. Each other
+admitted vendor keeps one general logical Model globally, with separately
+evidenced Routes: Grok 4.7, Gemini 3.1 Pro Preview, DeepSeek V4.1 Flash,
+Doubao Seed 2.1 Pro 260628, ERNIE 5.1, Qwen 3.8 Max, GLM 5.3, Kimi K3,
+Hunyuan HY3, Ling 3.0 Flash, LongCat 2.0, Mercury 2.5, MiMo V2.6 Pro,
+MiniMax M3, Mistral Large 3, Meta Muse Spark 1.3, NVIDIA Nemotron 3 Ultra,
+Solar Pro 4, and Step 3.7 Flash.
+This candidate set is not a complete competitive-vendor audit. The public
+AIHubMix catalogue also lists Cohere Command A+ and Microsoft's MAI Thinking 1.
+Command A+ returned HTTP 400 on the tested Responses and Chat endpoints;
+Microsoft documents MAI Thinking 1 as preview. Step 5 Preview is also outside
+the stable-model selection. These listings are not admitted Routes.
+MiniMax M3 has AIHubMix and UCloud Routes; its DMXAPI candidate timed out.
+Muse Spark 1.3 has an AIHubMix Route only; DMXAPI's unrelated Spark IDs are
+not Meta models, and no UCloud Muse Route was observed.
+Model entries carry identity only; client-scoped
 recommendations express preference without a global benchmark or cost claim.
 
 All three configured Accounts listed the retained September 21 set in
 authenticated catalogue observations, and their selected protocols completed
 minimal inference calls at that time. On September 23, 2026, UCloud also
 listed `gpt-6-sol` and `gpt-6-luna`; both completed minimal OpenAI Responses
-requests and are now Codex and Hermes choices, with Sol as primary. The two
-Opus 5.5 wire IDs tried on UCloud on that date were rejected. That bounded
-observation does not establish permanent absence. Catalogue membership and
-one successful text call remain narrower than complete tool, streaming,
+requests. On September 25, all three Accounts completed minimal authenticated
+Opus 5.5 requests; AIHubMix and UCloud also completed GPT-6 Sol requests.
+DMXAPI GPT-6 Sol previously completed through the locally configured Proxy
+transport and once through its direct Responses endpoint. Repeated direct
+requests on September 25 returned HTTP 503, so the new shipped manifest omits
+that Route. AIHubMix and DMXAPI GPT-6 Luna completed exact Responses requests;
+all three Accounts now have evidenced Luna Routes. Existing local Route and
+Client Binding state is reconciled separately, without rewriting user choices.
+The earlier two rejected UCloud Opus IDs remain historical observations.
+Catalogue membership and one successful text call remain narrower than complete tool, streaming,
 long-context, cost, or latency qualification.
 
 DMXAPI's retained CC, SSVIP, and CDX channels remain separate Routes within
@@ -150,32 +168,91 @@ describes a multimodal generation model that outputs video with sound. H3
 family names in a provider catalogue are not evidence of a general text
 model. Its [M3 announcement](https://www.minimax.io/blog/minimax-m3)
 positions M3 as an LLM for coding and agentic work. AIHubMix's `minimax-m3`
-and UCloud's `MiniMax-M3` are general-text candidates pending inference.
+and UCloud's `MiniMax-M3` completed bounded text inference; DMXAPI's
+`MiniMax-M3` timed out and remains unadmitted.
 
 DeepSeek's [V4.1 Flash announcement](https://www.deepseek.com/en/news/deepseek-v4-1-flash/)
 claims benchmark results ahead of V4 Pro and says `deepseek-v4-pro` requests
 on DeepSeek's own API now route to V4.1 Flash. That does not establish what
-an aggregator serves for `deepseek-v4-pro-0813`. Probe the exact
-`deepseek-v4.1-flash` ID on AIHubMix and UCloud first. Preserve one DeepSeek
-logical Model globally: switch only after DMXAPI also passes, or after an
-explicit reviewed decision to retire its incumbent Route and lose that
-Account coverage. Until then, keep the current Pro 0813 Routes; do not publish
-a mixed Pro/V4.1 two-model catalogue. Do not rank model quality from `Pro`,
-`Max`, or `Flash` in an ID.
+an aggregator serves for `deepseek-v4-pro-0813`. The exact
+`deepseek-v4.1-flash` ID completed bounded text inference on all three
+Accounts, so it replaces V4 Pro 0813 in the shipped one-DeepSeek catalogue.
+Existing explicit local selections of the old Route are not deleted by a
+manifest import. Do not rank model quality from `Pro`, `Max`, or `Flash` in an ID.
+
+ByteDance [positions Seed2.1](https://seed.bytedance.com/en/seed2_1) for
+general agent and coding work. All three Accounts completed bounded text
+inference for `doubao-seed-2-1-pro-260628`, the exact version listed in their
+catalogues. A newer `260915` appears in the vendor's documentation but was
+not listed by these Accounts, so the shipped Route does not claim it.
+
+Meta [positions Muse Spark 1.3](https://research.meta.ai/blog/introducing-muse-spark-1-3)
+for general agentic and coding tasks. AIHubMix listed the exact
+`muse-spark-1.3` ID. A 16-token Responses probe returned HTTP 200 but an
+incomplete result without output. One earlier 128-token call completed, but
+later short `ping` calls at that cap were incomplete; a 512-token explicit
+short-answer request completed with text. The bounded AIGW probe now allows
+512 output tokens and still rejects an incomplete HTTP 200 response.
+
+Xiaomi's [MiMo model guide](https://mimo.mi.com/docs/en-US/quick-start/summary/model)
+recommends `mimo-v2.6-pro` for complex projects and long-running work; its
+[V2.6 release](https://mimo.mi.com/docs/en-US/news/latest/v2-6) describes Pro
+as the stronger model in that series. The exact lower-case ID returned
+completed text through the configured AIHubMix and UCloud Responses endpoints
+on September 25. A later AIHubMix `ping` call was incomplete even at 512
+tokens, while the explicit short-answer request completed. No DMXAPI MiMo
+Route was inferred from those observations.
+
+Baidu [positions ERNIE 5.1](https://ernie.baidu.com/blog/posts/ernie-5.1-0508-release/)
+as its current general reasoning model; the exact AIHubMix Responses ID
+completed with text at a 512-token cap. Mistral calls
+[Large 3](https://mistral.ai/news/mistral-3/) its most capable general model;
+the exact AIHubMix Chat Completions ID completed with text. The same configured
+AIHubMix Chat endpoint produced text for NVIDIA's
+[Nemotron 3 Ultra](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16),
+Upstage's [Solar Pro 4](https://www.upstage.ai/blog/en/solar-pro-4),
+Inception's [Mercury 2.5](https://www.inceptionlabs.ai/blog/introducing-mercury-2-5),
+Meituan's [LongCat 2.0](https://huggingface.co/meituan-longcat/LongCat-2.0),
+Tencent's [HY3](https://huggingface.co/tencent/Hy3),
+StepFun's [Step 3.7 Flash](https://huggingface.co/stepfun-ai/Step-3.7-Flash),
+and InclusionAI's [Ling 3.0 Flash](https://huggingface.co/inclusionAI/Ling-3.0-flash).
+The Nemotron wire ID carries AIHubMix's `-free` channel suffix; it is one
+canonical NVIDIA Model, not a second logical model.
+
+xAI's current [model guide](https://docs.x.ai/developers/models) calls Grok
+4.7 its flagship for code and other general tasks. The exact `grok-4.7`
+Responses ID completed text inference on AIHubMix, DMXAPI, and UCloud, so it
+replaces Grok 4.6 without losing Account coverage. Existing explicit local
+bindings to Grok 4.6 are not silently rewritten by the team manifest.
+
+UCloud returned a 200 response with nonstandard `response` and `type` fields
+for `glm-5.3` on `/v1/responses`, without a completed Responses output.
+Its `/v1/chat/completions` endpoint returned standard assistant text at 512
+tokens, so the UCloud GLM Route declares Chat Completions only.
+
+AIHubMix Gemini 3.1 Pro Preview timed out once at a 30-second transport limit,
+then returned completed text in 48 seconds with a longer bounded deadline.
+`aigw check` keeps endpoint-only attempts at five seconds and allows one
+60-second inference attempt; neither a timeout nor an HTTP 200 without usable
+output is reported as healthy.
 
 The public UCloud response is not a complete substitute for the earlier
 authenticated GPT and Claude observations. Admit any new Route only after a
 bounded noninteractive call to its exact Account, protocol, and wire model
 succeeds.
 
-The team recommends UCloud GPT-6 Sol for Codex and Hermes, and UCloud Claude
-Fable 5.1 for Claude Code and Claude Desktop. AIHubMix includes GPT-6 Astra
-and Claude Fable 5.1 and uses the
+The team recommends UCloud GPT-6 Sol for Codex and Hermes, with AIHubMix as
+the same-model alternative. If only DMXAPI is connected, its verified GPT-6
+Luna Route is the fallback for those clients. DMXAPI GPT-6 Sol is not in the
+new team manifest because its direct channel returned HTTP 503; importing the
+manifest must not silently erase an existing explicit local binding. Claude
+Code and Claude Desktop retain DMXAPI Opus 5.5
+as the team default, with AIHubMix and UCloud alternatives. Recommendations
+are selectable, not automatic failover. AIHubMix uses the
 [documented backup API domain](https://docs.aihubmix.com/en/quick-start),
-`api.inferera.com`: `/v1` is the Responses base path; the Anthropic base is the
-domain root. Its public model catalogue lists both identifiers. Listing and
-configuration do not prove authenticated inference or real-client acceptance;
-refresh that separate evidence before rollout.
+`api.inferera.com`: `/v1` is the Responses and Chat Completions base path; the
+Anthropic base is the domain root. A successful minimal request remains narrower than full real-client
+tool, continuation, streaming, and long-context acceptance.
 
 The recommendation applies when its Account is connected. With another
 Account, setup prefers the same model if that Account offers it, otherwise an

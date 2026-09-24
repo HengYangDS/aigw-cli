@@ -4,6 +4,7 @@ package diagnostics
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -77,21 +78,27 @@ type Result struct {
 
 // StabilityPolicy bounds retry delays and each diagnostic attempt.
 type StabilityPolicy struct {
-	RecoveryDelays []time.Duration
-	AttemptTimeout time.Duration
+	RecoveryDelays          []time.Duration
+	AttemptTimeout          time.Duration
+	InferenceAttemptTimeout time.Duration
 }
 
 // DefaultStabilityPolicy returns the production retry and timeout bounds for a live diagnostic.
 func DefaultStabilityPolicy() StabilityPolicy {
 	return StabilityPolicy{
-		RecoveryDelays: []time.Duration{250 * time.Millisecond, 500 * time.Millisecond, time.Second},
-		AttemptTimeout: 5 * time.Second,
+		RecoveryDelays:          []time.Duration{250 * time.Millisecond, 500 * time.Millisecond, time.Second},
+		AttemptTimeout:          5 * time.Second,
+		InferenceAttemptTimeout: 60 * time.Second,
 	}
 }
 
 // ProbeStable retries only admitted transient outcomes and returns the final classified result.
 func ProbeStable(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, scope Scope, policy StabilityPolicy) Result {
-	result := probeWithTimeout(ctx, client, runtime, token, scope, policy.AttemptTimeout)
+	timeout := policy.AttemptTimeout
+	if scope == ScopeInference && policy.InferenceAttemptTimeout > 0 {
+		timeout = policy.InferenceAttemptTimeout
+	}
+	result := probeWithTimeout(ctx, client, runtime, token, scope, timeout)
 	result.Attempts = 1
 	if scope == ScopeInference || result.Kind != InvalidToken {
 		return result
@@ -216,10 +223,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 	result := Result{HTTPStatus: resp.StatusCode, Scope: scope, Detail: compact(message, token)}
 	switch {
 	case resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices:
-		result.Kind, result.Summary = Healthy, "Endpoint diagnostic returned a successful response"
-		if scope == ScopeInference {
-			result.Summary = "Inference diagnostic returned a successful response"
-		}
+		result = classifySuccessfulResponse(result, runtime.Protocol, body)
 	case resp.StatusCode == http.StatusUnauthorized:
 		result.Kind, result.Summary = InvalidToken, "Account Token is invalid or does not belong to the configured endpoint"
 		result.Fix = "Run `aigw rotate " + runtime.AccountID + "` to enter the token again, and confirm that the configured endpoint belongs to this Account"
@@ -249,6 +253,82 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 		result.Fix = "Run `aigw doctor` for detailed status"
 	}
 	return result
+}
+
+func classifySuccessfulResponse(result Result, protocol configuration.EndpointProtocol, body []byte) Result {
+	if result.Scope == ScopeInference {
+		if !hasInferenceOutput(protocol, body) {
+			result.Kind, result.Summary = Unexpected, "Inference response did not contain usable model output"
+			result.Fix = "Check the selected Route's model and protocol, then try again"
+			return result
+		}
+		result.Kind, result.Summary = Healthy, "Inference diagnostic returned a successful response"
+		return result
+	}
+	result.Kind, result.Summary = Healthy, "Endpoint diagnostic returned a successful response"
+	return result
+}
+
+func hasInferenceOutput(protocol configuration.EndpointProtocol, body []byte) bool {
+	var payload struct {
+		Type    string `json:"type"`
+		Role    string `json:"role"`
+		Status  string `json:"status"`
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+		Output []struct {
+			Type    string `json:"type"`
+			Role    string `json:"role"`
+			Status  string `json:"status"`
+			Content []struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"output"`
+		Choices []struct {
+			Message struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if json.Unmarshal(body, &payload) != nil {
+		return false
+	}
+	switch protocol {
+	case configuration.ProtocolAnthropic:
+		if payload.Type != "message" || payload.Role != "assistant" {
+			return false
+		}
+		for _, content := range payload.Content {
+			if content.Type == "text" && strings.TrimSpace(content.Text) != "" {
+				return true
+			}
+		}
+	case configuration.ProtocolOpenAIResponses:
+		if payload.Status != "completed" {
+			return false
+		}
+		for _, output := range payload.Output {
+			if output.Type != "message" || output.Role != "assistant" || (output.Status != "" && output.Status != "completed") {
+				continue
+			}
+			for _, content := range output.Content {
+				if content.Type == "output_text" && strings.TrimSpace(content.Text) != "" {
+					return true
+				}
+			}
+		}
+	case configuration.ProtocolOpenAIChatCompletions:
+		for _, choice := range payload.Choices {
+			if choice.Message.Role == "assistant" && strings.TrimSpace(choice.Message.Content) != "" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func containsAny(value string, candidates ...string) bool {

@@ -11,8 +11,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,11 +55,7 @@ func TestNativeProductJourney(t *testing.T) {
 	}
 	artifact := requireNativeLifecycleBaseline(t, func() string { return buildNativeProgram(t, root, "0.0.0") })
 
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-		response.Header().Set("Content-Type", "application/json")
-		_, _ = response.Write([]byte(`{"data":[]}`))
-	}))
-	t.Cleanup(server.Close)
+	server := newNativeJourneyServer(t)
 
 	t.Run("ephemeral endpoint credentials", func(t *testing.T) {
 		candidate, _, _ := nativeReleaseCandidate(t, root, newVersion)
@@ -135,13 +129,6 @@ func TestNativeProductJourney(t *testing.T) {
 		runNativeReleaseLifecycle(t, root, artifact, newVersion, server.URL+"/v1")
 	})
 
-	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") != "1" {
-		return
-	}
-	t.Run("system credential store", func(t *testing.T) {
-		runNativeCredentialJourney(t, root, artifact, server.URL+"/v1", newVersion)
-	})
-
 	if runtime.GOOS == "linux" {
 		t.Run("secure file fallback without session bus", func(t *testing.T) {
 			journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
@@ -164,6 +151,12 @@ func TestNativeProductJourney(t *testing.T) {
 				t.Fatalf("persisted backend = %q, want file", got)
 			}
 			journey.uninstallAndRequireOwnedFilesAbsent()
+		})
+	}
+
+	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" {
+		t.Run("system credential store", func(t *testing.T) {
+			runNativeCredentialJourney(t, root, artifact, server.URL+"/v1", newVersion)
 		})
 	}
 }

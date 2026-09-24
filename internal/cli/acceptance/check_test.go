@@ -7,6 +7,7 @@ import (
 	"aigw-cli/internal/secrets"
 	"bytes"
 	"encoding/json"
+	"io"
 	"maps"
 	"net/http"
 	"os"
@@ -328,7 +329,7 @@ func TestCheckProbesEveryEnabledClientRouteAndIgnoresUnselectedRoute(t *testing.
 	seen := map[string]int{}
 	httpClient.handler = func(req *http.Request) (*http.Response, error) {
 		seen[req.URL.Host]++
-		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody, Request: req}, nil
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(fixtureResponseBody(req))), Request: req}, nil
 	}
 
 	if err := cli.Execute(app, []string{"check"}); err != nil {

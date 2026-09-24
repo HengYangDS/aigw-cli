@@ -34,8 +34,8 @@ func TestModelInferenceRequestUsesExactWireModelAndProtocol(t *testing.T) {
 			wantValue:  "fixture-token",
 			wantBody: map[string]any{
 				"model":      "claude-opus-5-5[1m]",
-				"max_tokens": float64(1),
-				"messages":   []any{map[string]any{"role": "user", "content": "ping"}},
+				"max_tokens": float64(512),
+				"messages":   []any{map[string]any{"role": "user", "content": "Reply with exactly pong."}},
 			},
 		},
 		{
@@ -48,8 +48,8 @@ func TestModelInferenceRequestUsesExactWireModelAndProtocol(t *testing.T) {
 			wantValue:  "Bearer fixture-token",
 			wantBody: map[string]any{
 				"model":             "gpt-6-sol",
-				"input":             "ping",
-				"max_output_tokens": float64(16),
+				"input":             "Reply with exactly pong.",
+				"max_output_tokens": float64(512),
 				"store":             false,
 			},
 		},
@@ -63,8 +63,8 @@ func TestModelInferenceRequestUsesExactWireModelAndProtocol(t *testing.T) {
 			wantValue:  "Bearer fixture-token",
 			wantBody: map[string]any{
 				"model":      "chat-model",
-				"max_tokens": float64(1),
-				"messages":   []any{map[string]any{"role": "user", "content": "ping"}},
+				"max_tokens": float64(512),
+				"messages":   []any{map[string]any{"role": "user", "content": "Reply with exactly pong."}},
 			},
 		},
 	}

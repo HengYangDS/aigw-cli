@@ -34,8 +34,48 @@ Route requires successful authenticated inference on its declared client and
 protocol; Account symmetry does not require a full Route matrix. DMXAPI CC,
 SSVIP, and CDX variants are distinct Routes to one canonical Model, never
 additional logical Models. A Model identity with no admitted Route is not a
-claim of provider availability. The MiniMax M3 identity may be declared now;
-its AIHubMix and UCloud Routes remain absent until exact-wire inference passes.
+claim of provider availability. MiniMax M3 has exact-wire text inference on
+AIHubMix and UCloud; its DMXAPI candidate timed out and is not admitted.
+DeepSeek V4.1 Flash replaces V4 Pro 0813 after exact-wire inference on all
+three Accounts and the vendor's stronger general-model positioning. Doubao
+Seed 2.1 Pro 260628 has three exact-wire text Routes; newer vendor versions
+without Account acceptance remain outside the manifest.
+xAI now positions Grok 4.7 as its general flagship; all three Accounts
+completed exact-wire Responses calls, so it replaces Grok 4.6 with no Account
+coverage loss. Existing explicit local bindings remain outside this manifest
+change's authority.
+Xiaomi's documented general recommendation is `mimo-v2.6-pro`. Its exact
+Responses wire ID returned completed text on AIHubMix and UCloud on September
+25; no DMXAPI MiMo Route is admitted.
+Additional vendor models are admitted only on AIHubMix after primary-vendor
+positioning and one complete text call on their declared protocol: ERNIE 5.1
+uses Responses; Mistral Large 3, Nemotron 3 Ultra, Solar Pro 4, Mercury 2.5,
+LongCat 2.0, HY3, Step 3.7 Flash, and Ling 3.0 Flash use the now-qualified
+Chat Completions endpoint. The `-free` Nemotron wire ID is one Route for its
+base canonical Model. Preview MAI Thinking 1 and Step 5, and Command A+ with
+HTTP 400, are not admitted.
+Meta Muse Spark 1.3 has one AIHubMix Route. Although an earlier 128-token
+Responses request completed once, repeated short `ping` calls at that cap
+were incomplete. A 512-token explicit short-answer request completed with
+text; the bounded probe budget is raised to 512 and still rejects incomplete
+HTTP 200 results.
+Unrelated Spark IDs on DMXAPI do not establish a Meta Route.
+UCloud GLM 5.3's Responses path returned HTTP 200 without a standard
+Responses output; Chat Completions returned assistant text at 512 tokens, so
+that Route declares Chat Completions only.
+Opus 5.5 Routes for all three Accounts and GPT-6 Sol Routes for AIHubMix and
+UCloud passed selected-protocol requests on September 25. DMXAPI GPT-6 Sol
+previously passed through a locally configured Proxy endpoint and once through
+the manifest's direct Responses endpoint, but repeated September 25 direct
+requests returned HTTP 503 while UCloud completed the same model. The new
+shipped manifest omits the DMXAPI Sol Route; any existing local binding is
+preserved until its owner changes it. AIHubMix and DMXAPI Luna passed direct
+Responses requests and are admitted alongside UCloud Luna. The
+team preference is DMXAPI Opus 5.5 for Claude clients, and UCloud GPT-6 Sol
+for Codex and Hermes with AIHubMix as the same-model alternative. DMXAPI Luna
+is the fallback when it is the only connected Account. These
+Recommendations do not rewrite existing Client Bindings or
+provide automatic failover.
 
 An ordinary Route has no stored label. Presentation derives `Account · Model`
 from the declared Account and Model labels; only channel-specific or deliberate
@@ -79,12 +119,13 @@ a fallback or construction error.
 `internal/credential` adds a model-carrying request beside the existing
 catalogue request. It requires a nonempty `Runtime.Model`, uses the selected
 protocol and endpoint, does not stream, and caps both requested output and the
-body read. Anthropic Messages uses `max_tokens: 1`; OpenAI Responses uses
-`max_output_tokens: 16` and `store: false`; Chat Completions uses
-`max_tokens: 1`. AIGW stores no response
-conversation. For protocols without a no-storage switch, it makes no
-provider-retention claim. The existing endpoint join and authentication
-header conventions remain the wire authority.
+body read. All three protocols request at most 512 output tokens with the
+short prompt `Reply with exactly pong.`; Responses also sets `store: false`.
+Endpoint-only probes keep a five-second attempt limit, while inference gets
+one 60-second attempt after a Gemini 3.1 Pro response completed in 48 seconds.
+AIGW stores no response conversation. For protocols without a no-storage
+switch, it makes no provider-retention claim. The existing endpoint join and
+authentication header conventions remain the wire authority.
 
 A catalogue diff is insufficient: the incident model was listed while its
 distributor refused inference. Constructing a malformed request or receiving

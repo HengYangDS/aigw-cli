@@ -94,7 +94,7 @@ func TestShippedTeamManifestWithoutAccountOrClientIsDeferred(t *testing.T) {
 	app, out, _, runner, httpClient := testApp(t, "")
 	app.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
 	app.Discovery = fakeDiscovery{}
-	wantAction := "set environment variable " + secrets.EnvironmentKey("ucloud")
+	wantAction := "set environment variable " + secrets.EnvironmentKey("dmxapi")
 
 	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
 		t.Fatalf("setup shipped catalogue: %v\n%s", err, out)
