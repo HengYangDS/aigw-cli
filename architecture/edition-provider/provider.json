@@ -2,11 +2,11 @@
   "schema": "architecture.edition-provider/v1",
   "provider": {
     "id": "aigw-client-projection-edition",
-    "revision": "source-set:b4a7cd6f461cb3d460ad57a518be6ac46d04936c5678532c35b634a50bd5d59a"
+    "revision": "source-set:7915527c43865d917645cb5b5c4ecd6f78f9c4ffa532243e5d89e61925da4f06"
   },
   "subject": {
     "id": "dig/misc/tools/llm-third-party-api/aigw-cli",
-    "revision": "50c3b089c8ea58692efead459aa671815222db06bf2b30b4f2d6b477769ccc59"
+    "revision": "e1972e7211d8835b82e628b77a4de80fbc9b05960074142fbaf830b8e03d4ac7"
   },
   "contracts": {
     "sourceBundle": "architecture.source-bundle/v1",
@@ -17,18 +17,18 @@
   "delivery": {
     "kind": "declarative",
     "sourceManifest": "_source/manifest.json",
-    "sourceManifestSha256": "b4a7cd6f461cb3d460ad57a518be6ac46d04936c5678532c35b634a50bd5d59a",
+    "sourceManifestSha256": "7915527c43865d917645cb5b5c4ecd6f78f9c4ffa532243e5d89e61925da4f06",
     "semanticMember": "semantic.json",
     "edition": "edition.json",
-    "editionSha256": "f47e892259b2b20a3d344e585e1d75332e36048bd160fb9deac459564bf5ca41",
+    "editionSha256": "d7ee26e15e603285046f74577296d85fe8a211df601f3f96a86b7cedda2020de",
     "evolution": "provider-evolution.json",
-    "evolutionSha256": "62dbdf7f636cf95596de8190792de4021605b193933aeb46c2a162b21b49024d"
+    "evolutionSha256": "e51a46be7b4d2c2612d2a2399da9285e8de57a6f61b24c9e910721c9ea17ba46"
   },
   "expected": {
-    "sourceManifestSha256": "b4a7cd6f461cb3d460ad57a518be6ac46d04936c5678532c35b634a50bd5d59a",
-    "claimModelDigest": "d8625deb4aa3f1d877049c50353e8fbdef677f7c6e488a6c2fab7e8fbd6649e5",
-    "editionDigest": "a0fe46c7d87b28e1f3a7782901436b7ecbdba18aecef6d6608cdba66d510903b",
-    "evolutionSha256": "62dbdf7f636cf95596de8190792de4021605b193933aeb46c2a162b21b49024d"
+    "sourceManifestSha256": "7915527c43865d917645cb5b5c4ecd6f78f9c4ffa532243e5d89e61925da4f06",
+    "claimModelDigest": "039cb424690307c3767d25eb9e469b6c04108793a148513a722a6cdfff1ceb2c",
+    "editionDigest": "fd16e3ab235a007a3819bb52d97930e38f762493eca87fe3820f5c9971e8f983",
+    "evolutionSha256": "e51a46be7b4d2c2612d2a2399da9285e8de57a6f61b24c9e910721c9ea17ba46"
   },
   "limits": {
     "inputs": 32,

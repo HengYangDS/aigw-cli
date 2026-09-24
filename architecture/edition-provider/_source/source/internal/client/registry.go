@@ -54,10 +54,11 @@ type ProjectionReceipt interface {
 
 // Status is one adapter's read-only local readiness observation.
 type Status struct {
-	Ready        bool
-	Issue        string
-	RepairAction string
-	Checks       []Check
+	Ready               bool
+	NativeModelOverride bool
+	Issue               string
+	RepairAction        string
+	Checks              []Check
 }
 
 // Check is one adapter-owned, read-only diagnostic observation.

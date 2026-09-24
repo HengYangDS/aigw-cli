@@ -2,23 +2,23 @@
   "schema": "architecture.source-bundle/v1",
   "source": {
     "id": "dig/misc/tools/llm-third-party-api/aigw-cli",
-    "revision": "50c3b089c8ea58692efead459aa671815222db06bf2b30b4f2d6b477769ccc59"
+    "revision": "e1972e7211d8835b82e628b77a4de80fbc9b05960074142fbaf830b8e03d4ac7"
   },
   "files": [
     {
       "path": "semantic.json",
       "bytes": 15397,
-      "sha256": "fc12aeef70916801b5bb25615b7b9db698471abc29bf4998f22b6482cf7b6672"
+      "sha256": "26b7c1d16adc112f8bff9c0c03e44e4800e24cb63106fb86124791c31232563c"
     },
     {
       "path": "source/internal/client/adapters.go",
-      "bytes": 15992,
-      "sha256": "de7a0d00853a264dae2269f8047df3a04886aa8dd709cf572bd91d6645e7a26c"
+      "bytes": 16056,
+      "sha256": "41bd0fb7f86b321907c87f386cd577d4ade9dd5053a1dc6f2af6d0546ba7c4c5"
     },
     {
       "path": "source/internal/claude/settings.go",
-      "bytes": 17299,
-      "sha256": "2cc85e1a5447ac5d3369f1a17716816be623038a61c70a01b44214bb430d84f3"
+      "bytes": 19459,
+      "sha256": "6f6e7cfa3c0b87ec48f083371f3dce64bed05456ebbd593f48421ca64fb99321"
     },
     {
       "path": "source/internal/claude/desktop/configuration.go",
@@ -72,8 +72,8 @@
     },
     {
       "path": "source/internal/client/registry.go",
-      "bytes": 10190,
-      "sha256": "f4f023b3d8b87c726ad7159a4e01e190e9612d9eb2ebe4b7e022a25a3cbbcb90"
+      "bytes": 10244,
+      "sha256": "56b51549cb81cf36658cdc57ee376eef325b20571526edb088e69c149dccd1e8"
     },
     {
       "path": "source/internal/synchronization/synchronizer.go",
