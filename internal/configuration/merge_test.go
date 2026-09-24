@@ -246,6 +246,49 @@ interfaces = { openai_responses = [] }
 	}
 }
 
+func TestMergeWithOptionsDistinguishesEmptyCapabilityListsByProtocol(t *testing.T) {
+	team, err := Parse([]byte(`version = 7
+
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+openai_responses = "https://team.example.test/v1"
+openai_chat_completions = "https://team.example.test/v1"
+
+[routes.shared]
+label = "Team Model"
+account = "team"
+model = "team-model"
+interfaces = { openai_chat_completions = [] }
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := NewConfig()
+	cfg.Accounts["team"] = Account{
+		Label: "Team Gateway",
+		Endpoints: Endpoints{
+			OpenAIResponses:       "https://team.example.test/v1",
+			OpenAIChatCompletions: "https://team.example.test/v1",
+		},
+	}
+	cfg.Routes["shared"] = testRoute("Team Model", "team", "team-model", ProtocolOpenAIResponses)
+
+	if _, err := MergeWithOptions(cfg, team, MergeOptions{}); err == nil || !strings.Contains(err.Error(), `route "shared" conflicts`) {
+		t.Fatalf("different protocol keys must conflict even when capabilities are empty: %v", err)
+	}
+	got, err := MergeWithOptions(cfg, team, MergeOptions{ReplaceRoutes: map[string]bool{"shared": true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, oldProtocol := got.Routes["shared"].Interfaces[ProtocolOpenAIResponses]; oldProtocol {
+		t.Fatalf("Responses protocol remained after explicit Route replacement: %#v", got.Routes["shared"].Interfaces)
+	}
+	if _, newProtocol := got.Routes["shared"].Interfaces[ProtocolOpenAIChatCompletions]; !newProtocol {
+		t.Fatalf("Chat Completions protocol was not applied: %#v", got.Routes["shared"].Interfaces)
+	}
+}
+
 func TestMergeWithOptionsRejectsUnusedReplacementSelectors(t *testing.T) {
 	team, err := Parse([]byte(`version = 7
 

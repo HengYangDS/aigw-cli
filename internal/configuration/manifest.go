@@ -242,7 +242,8 @@ func equalInterfaces(left, right map[EndpointProtocol][]Capability) bool {
 		return false
 	}
 	for protocol, capabilities := range left {
-		if !slices.Equal(capabilities, right[protocol]) {
+		other, present := right[protocol]
+		if !present || !slices.Equal(capabilities, other) {
 			return false
 		}
 	}

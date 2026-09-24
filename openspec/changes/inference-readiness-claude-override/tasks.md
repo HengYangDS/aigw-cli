@@ -161,6 +161,10 @@
 - [ ] 7.3 Reconcile only team-owned local Models and Routes through the AIGW
       configuration owner after a complete dry-run. Preserve Accounts,
       credentials, client selections, native preferences, and foreign state.
+      Read back every Route protocol key, including UCloud GLM 5.3 Chat
+      Completions, and prove Hermes projection convergence. Preserve the
+      locally configured DMXAPI GPT-6 Sol Proxy Route separately from the
+      shipped direct-provider manifest.
 - [x] 7.4 Prepare exact wire-ID probes from the public catalogues. For
       AIHubMix, try `gpt-6-sol`, `gpt-6-luna`, `claude-opus-5-5`,
       `deepseek-v4.1-flash`, `minimax-m3`, `cc-minimax-m3`, and
