@@ -92,10 +92,13 @@
 - [x] 7.3 Reconcile only team-owned local Models and Routes through the AIGW
       configuration owner after a complete dry-run. Preserve Accounts,
       credentials, client selections, native preferences, and foreign state.
-- [ ] 7.4 Make one bounded noninteractive inference call for each retained
-      Route and admit newly listed models only after their exact protocol and
-      Account pass. Stop at a credential boundary that requires Keychain UI;
-      report such calls as unverified.
+- [ ] 7.4 First probe AIHubMix/UCloud `deepseek-v4.1-flash` and AIHubMix
+      `minimax-m3` / UCloud `MiniMax-M3` with bounded noninteractive inference,
+      recording each exact Account, attempted protocol, and wire ID. Keep H3
+      outside general-text Routes and DMXAPI candidates unknown on
+      unauthenticated 401. Admit or replace Routes only after successful calls,
+      then call each retained Route once. Stop at a credential boundary that
+      requires Keychain UI; report such calls as unverified.
 - [ ] 7.5 Re-run source, native, packaged-manifest, exact-HEAD, and hosted
       evidence for the changed release inputs before publication.
 

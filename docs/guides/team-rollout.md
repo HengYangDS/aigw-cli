@@ -120,12 +120,32 @@ admitted. An unauthenticated DMXAPI model request returning 401 establishes
 neither presence nor absence of an individual model.
 
 The public AIHubMix `/v1/models` response observed on September 24, 2026,
-listed Opus 5.5, all three GPT-6 IDs, MiniMax M3, and Doubao Seed 2.1 Pro.
-UCloud's public `/v1/models` response listed MiniMax M3 and Doubao Seed 2.1
-Pro. These are discovery candidates, not newly qualified Routes. The public
-UCloud response is not a complete substitute for the earlier authenticated
-GPT and Claude observations. Admit any new Route only after a bounded
-noninteractive call to its exact Account, protocol, and wire model succeeds.
+listed Opus 5.5, all three GPT-6 IDs, `minimax-m3`,
+`deepseek-v4.1-flash`, and Doubao Seed 2.1 Pro. UCloud's public
+`/v1/models` response listed `MiniMax-M3`, `deepseek-v4.1-flash`, Doubao
+Seed 2.1 Pro, and `MiniMax-H3-Max`. These listings are discovery evidence,
+not newly qualified Routes.
+
+MiniMax's [H3 announcement](https://www.minimax.io/blog/minimax-h3)
+describes a multimodal generation model that outputs video with sound. H3
+family names in a provider catalogue are not evidence of a general text
+model. Its [M3 announcement](https://www.minimax.io/blog/minimax-m3)
+positions M3 as an LLM for coding and agentic work. AIHubMix's `minimax-m3`
+and UCloud's `MiniMax-M3` are general-text candidates pending inference.
+
+DeepSeek's [V4.1 Flash announcement](https://www.deepseek.com/en/news/deepseek-v4-1-flash/)
+claims benchmark results ahead of V4 Pro and says `deepseek-v4-pro` requests
+on DeepSeek's own API now route to V4.1 Flash. That does not establish what
+an aggregator serves for `deepseek-v4-pro-0813`. Test the exact
+`deepseek-v4.1-flash` ID on AIHubMix and UCloud before replacing their Pro
+0813 Routes. Keep DMXAPI's current Route until its own catalogue and inference
+can be verified. Do not rank model quality from `Pro`, `Max`, or `Flash` in
+an ID.
+
+The public UCloud response is not a complete substitute for the earlier
+authenticated GPT and Claude observations. Admit any new Route only after a
+bounded noninteractive call to its exact Account, protocol, and wire model
+succeeds.
 
 The team recommends UCloud GPT-6 Sol for Codex and Hermes, and UCloud Claude
 Fable 5.1 for Claude Code and Claude Desktop. AIHubMix includes GPT-6 Astra
