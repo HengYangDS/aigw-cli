@@ -3,6 +3,8 @@
 package native
 
 import (
+	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,6 +16,19 @@ func TestObserveCredentialReportsSecretServiceConnectionFailure(t *testing.T) {
 	_, err := observeCredential("aigw-test", "missing")
 	if err == nil || !strings.Contains(err.Error(), "connect to Secret Service") {
 		t.Fatalf("observeCredential() error = %v", err)
+	}
+}
+
+func TestExistsFailsClosedWithoutSecretServiceSession(t *testing.T) {
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path="+filepath.Join(t.TempDir(), "missing-session-bus.sock"))
+
+	present, err := Exists(executable, "AIGW_TOKEN", "missing")
+	if present || !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("credential presence without Secret Service = %v, %v", present, err)
 	}
 }
 
