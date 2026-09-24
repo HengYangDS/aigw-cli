@@ -74,7 +74,7 @@
       "authority": "AIGW command composition at the selected product revision"
     },
     "configuration": {
-      "sha256": "627838f6f2f362ea6c6b97663fd33e2974fca1e0bd803f0d53248515c3ea85bf",
+      "sha256": "591495a93972c0e538f330cc595fe766bf23ede3daa1bbffc7ce8db119edb88d",
       "locator": "source/internal/configuration/model.go",
       "authority": "AIGW Account, Model, Route, recommendation, and Client Binding authority"
     },
@@ -471,7 +471,7 @@
     }
   },
   "context": {
-    "revision": "e1972e7211d8835b82e628b77a4de80fbc9b05960074142fbaf830b8e03d4ac7",
+    "revision": "febda80ffa9025bca0a534638bcdfbe164a6ea9f03ddc05eca020c80352b10af",
     "scope": "Selected AIGW control-plane owners; not automatic inference or exhaustive implementation coverage"
   }
 }

@@ -63,6 +63,24 @@ func newClaudeDesktopFixture(t *testing.T) claudeDesktopFixture {
 	}
 }
 
+func TestClaudeDesktopCatalogueDerivesUnlabeledAlternative(t *testing.T) {
+	fixture := newClaudeDesktopFixture(t)
+	route := fixture.cfg.Routes["alternate"]
+	route.Label = ""
+	fixture.cfg.Routes["alternate"] = route
+	fixture.cfg.Models["claude-opus-5"] = configuration.Model{Label: "Claude Opus 5"}
+	models := claudeDesktopModels(fixture.cfg, fixture.runtime)
+	for _, model := range models {
+		if model.Name == "claude-opus-5" {
+			if model.Label != "Gateway · Claude Opus 5" {
+				t.Fatalf("derived Claude Desktop label = %q", model.Label)
+			}
+			return
+		}
+	}
+	t.Fatal("Claude Desktop alternative was omitted")
+}
+
 func (fixture claudeDesktopFixture) apply(t *testing.T) {
 	t.Helper()
 	if _, err := fixture.adapter.Apply(t.Context(), fixture.deps, configuration.NewConfig(), fixture.cfg); err != nil {

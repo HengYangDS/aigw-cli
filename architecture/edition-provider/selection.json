@@ -13,10 +13,10 @@
       "packageIdentitiesSha256": "a5f59a0e668fa9279d31e4e0cc11d95f3e4e7e21242a7bc4329cad790c8293ca"
     }
   },
-  "providerManifestSha256": "47bcec1a8db6bb06ffc7a8148df9f4a6eb3ff097a537112d9373b9553a39350b",
+  "providerManifestSha256": "9d9a4b72833d185312b62dcc2b3b65b5239dd6de6a1a8948bb0ae607e316c0b3",
   "providerOutput": {
-    "manifestSha256": "97af4138fe473c70139429618ee47e2864168741aecf632549ebf7536df94476",
-    "providerMaterializationSha256": "86c579ecbdb01caa646765035a84fa77457d02aa5a5378f21d91e86e18f119b4"
+    "manifestSha256": "ac15a6b00f47ed50329cb22940a971fb87f6dae4e9409642e55786cfee9b3a29",
+    "providerMaterializationSha256": "0503f135661e9ac14ddfeae9da610311cc67d26e71518e9f571c8f204a5306ac"
   },
   "migrationBaseline": {
     "ownerCommit": "71da0af8cbaeaeb1b59fafd5ddabe59be7248627",
@@ -31,12 +31,12 @@
       "history/registry-v1-claim-model.json": "a99ef1a4348461d622a0b357368343992af1d824f7a6586675f480c17c4a6ea4",
       "history/registry-v1-edition.json": "101e60a865f03f60bdbc0994edf2431a3027b02971aefc57682244028b2c27fb"
     },
-    "providerEvolutionSha256": "e51a46be7b4d2c2612d2a2399da9285e8de57a6f61b24c9e910721c9ea17ba46",
+    "providerEvolutionSha256": "64fc711f6079fd29623a3a3938e3cf32d2e7038911d6bf49bf585531ad6e2305",
     "candidate": {
-      "manifestSha256": "bf22f7d2c959850a33110acd14fe93a5f6ada098c7e263b9032f294c1753190d",
-      "candidateSha256": "a3640f106dd403858650ff55f897f0cfc16fd7c659f614b83558b1ee14b03b4f",
-      "semanticDigest": "039cb424690307c3767d25eb9e469b6c04108793a148513a722a6cdfff1ceb2c",
-      "editionDigest": "fd16e3ab235a007a3819bb52d97930e38f762493eca87fe3820f5c9971e8f983",
+      "manifestSha256": "1fa5871bad570f3722e2f0f196a008a37f882c51838991c4edbd8332a579e03d",
+      "candidateSha256": "66f0ff251b9a3c7cca4bfdcc723fd5ba612a7dea9ebaf3e3474745abab0db69d",
+      "semanticDigest": "7548ada0f5e5bc7eadbeec05a79f4c9d14e6efb0716899d8f7f3372ff0bcbca0",
+      "editionDigest": "1abf6c382249da8d33258b2b8c9a9f100bdf14f6821b6133777f31911269ec41",
       "staticSceneDigest": "445f374686b71c10d52b713a25b2125fef996786f9ff01ff1196d58e2c29927a",
       "interactiveSceneDigest": "29f15c7116857d78d427a3b6687126c3a1c33543fd6877cc687def694874eea2",
       "pngSha256": "7330cac6faa872cb5bced514cc7cc848ab1d9d60cca7c0c620f7e339f43e4a04",

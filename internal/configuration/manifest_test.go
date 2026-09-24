@@ -6,7 +6,75 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/pelletier/go-toml/v2"
 )
+
+func TestManifestExportOmitsDerivedRouteLabelsAndPreservesWireCase(t *testing.T) {
+	cfg := NewConfig()
+	cfg.Accounts["dmxapi"] = Account{
+		Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1"},
+	}
+	cfg.Models["gpt-6-astra"] = Model{Label: "GPT-6 Astra"}
+	cfg.Routes["dmxapi-gpt-6-astra"] = Route{
+		Label: "DMXAPI · GPT-6 Astra", Account: "dmxapi", Model: "gpt-6-astra",
+		UpstreamModel: "GPT-6-Astra", Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {CapabilityText}},
+	}
+	cfg.Routes["dmxapi-gpt-6-astra-cdx"] = Route{
+		Label: "DMXAPI · GPT-6 Astra · CDX", Account: "dmxapi", Model: "gpt-6-astra",
+		UpstreamModel: "GPT-6-Astra-CDX", Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {CapabilityText}},
+	}
+	data, err := Export(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw struct {
+		Routes map[string]map[string]any `toml:"routes"`
+	}
+	if err := toml.Unmarshal(data, &raw); err != nil {
+		t.Fatal(err)
+	}
+	if _, stored := raw.Routes["dmxapi-gpt-6-astra"]["label"]; stored {
+		t.Fatalf("derived label was duplicated in export: %s", data)
+	}
+	if got := raw.Routes["dmxapi-gpt-6-astra-cdx"]["label"]; got != "DMXAPI · GPT-6 Astra · CDX" {
+		t.Fatalf("channel override = %#v", got)
+	}
+	if got := raw.Routes["dmxapi-gpt-6-astra"]["upstream_model"]; got != "GPT-6-Astra" {
+		t.Fatalf("provider wire spelling = %#v", got)
+	}
+	parsed, err := Parse(data)
+	if err != nil || parsed.Routes["dmxapi-gpt-6-astra"].Label != "" {
+		t.Fatalf("parsed derived Route label was materialized: %#v, %v", parsed.Routes["dmxapi-gpt-6-astra"], err)
+	}
+}
+
+func TestManifestMergeTreatsOldPlainLabelAsDerivedButPreservesCustomOverride(t *testing.T) {
+	current := NewConfig()
+	current.Accounts["ucloud"] = Account{Label: "UCloud", Endpoints: Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
+	current.Models["gpt-6-sol"] = Model{Label: "GPT-6 Sol"}
+	route := Route{Label: "UCloud · GPT-6 Sol", Account: "ucloud", Model: "gpt-6-sol", UpstreamModel: "gpt-6-sol", Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {CapabilityText}}}
+	current.Routes["ucloud-gpt-6-sol"] = route
+	current.SetSelectedRoute(ClientCodex, "ucloud-gpt-6-sol")
+	incoming := Manifest{
+		Version:  currentVersion,
+		Accounts: map[string]Account{"ucloud": current.Accounts["ucloud"]},
+		Models:   map[string]Model{"gpt-6-sol": current.Models["gpt-6-sol"]},
+		Routes: map[string]Route{"ucloud-gpt-6-sol": {
+			Account: route.Account, Model: route.Model, UpstreamModel: route.UpstreamModel, Interfaces: route.Interfaces,
+		}},
+	}
+	merged, err := Merge(current, incoming)
+	if err != nil || merged.SelectedRoute(ClientCodex) != "ucloud-gpt-6-sol" || merged.Routes["ucloud-gpt-6-sol"].Label != route.Label {
+		t.Fatalf("derived-label merge changed the explicit Client Binding or old label: %+v, %v", merged.Clients, err)
+	}
+	custom := current.Clone()
+	route.Label = "Personal Sol"
+	custom.Routes["ucloud-gpt-6-sol"] = route
+	if _, err := Merge(custom, incoming); err == nil || !strings.Contains(err.Error(), "--replace-route") {
+		t.Fatalf("custom Route label was silently overwritten: %v", err)
+	}
+}
 
 func TestManifestSeparatesCanonicalModelsFromQualifiedAccountRoutes(t *testing.T) {
 	manifest, err := Parse([]byte(`version = 7

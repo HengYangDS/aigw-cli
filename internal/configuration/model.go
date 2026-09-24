@@ -95,7 +95,7 @@ type Model struct {
 // of client selection and native configuration.
 type Route struct {
 	ID            string                            `json:"id,omitempty"             toml:"-"`
-	Label         string                            `json:"label"                    toml:"label"`
+	Label         string                            `json:"label"                    toml:"label,omitempty"`
 	Purpose       string                            `json:"purpose,omitempty"        toml:"purpose,omitempty"`
 	Account       string                            `json:"account"                  toml:"account"`
 	Model         string                            `json:"model"                    toml:"model"`
@@ -269,6 +269,16 @@ func (c *Config) CompatibleClientIDs(name string) ([]string, error) {
 
 // SelectedRoute returns the Route explicitly selected by one client.
 func (c *Config) SelectedRoute(client string) string { return c.Clients[client].Route }
+
+// RouteLabel returns an explicit display override or derives Account · Model
+// from the two labels already declared by configuration.
+func (c *Config) RouteLabel(routeID string) string {
+	route, ok := c.Routes[routeID]
+	if !ok {
+		return routeID
+	}
+	return routeLabel(route, c.Accounts[route.Account], c.Models[route.Model])
+}
 
 // SetSelectedRoute changes one client's selected Route while preserving
 // enabled intent and native options.
@@ -541,7 +551,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 	}
 	return Runtime{
 		RouteID:           name,
-		RouteLabel:        routeLabel(route, c.Models[route.Model]),
+		RouteLabel:        routeLabel(route, account, c.Models[route.Model]),
 		AccountID:         account.ID,
 		AccountLabel:      account.Label,
 		Client:            client,
@@ -554,14 +564,19 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 	}, nil
 }
 
-func routeLabel(route Route, model Model) string {
+func routeLabel(route Route, account Account, model Model) string {
 	if route.Label != "" {
 		return route.Label
 	}
-	if model.Label != "" {
-		return model.Label
+	accountLabel := account.Label
+	if accountLabel == "" {
+		accountLabel = route.Account
 	}
-	return route.Model
+	modelLabel := model.Label
+	if modelLabel == "" {
+		modelLabel = route.Model
+	}
+	return accountLabel + " · " + modelLabel
 }
 
 func selectedModelProvider(client string, selection ClientSelection) string {

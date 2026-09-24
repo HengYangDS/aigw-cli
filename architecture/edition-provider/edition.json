@@ -9,11 +9,11 @@
     "version": "0.3.0-alpha.1"
   },
   "source": {
-    "manifestSha256": "7915527c43865d917645cb5b5c4ecd6f78f9c4ffa532243e5d89e61925da4f06"
+    "manifestSha256": "9fae12502b30e9c1e72731a17b3d02e886c39a7be23a8d832257019339cf956b"
   },
   "claimModel": {
     "schema": "architecture.claim-model/v2",
-    "digest": "039cb424690307c3767d25eb9e469b6c04108793a148513a722a6cdfff1ceb2c"
+    "digest": "7548ada0f5e5bc7eadbeec05a79f4c9d14e6efb0716899d8f7f3372ff0bcbca0"
   },
   "title": "AIGW Client Projection",
   "audiences": { "maintainer": { "label": "AIGW maintainers" } },
@@ -513,5 +513,5 @@
     "recovery": [],
     "human": []
   },
-  "scope": "Selected AIGW control-plane owners at source revision e1972e7211d8835b82e628b77a4de80fbc9b05960074142fbaf830b8e03d4ac7; curated from exact source bytes without inferred implementation completeness."
+  "scope": "Selected AIGW control-plane owners at source revision febda80ffa9025bca0a534638bcdfbe164a6ea9f03ddc05eca020c80352b10af; curated from exact source bytes without inferred implementation completeness."
 }

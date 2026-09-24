@@ -69,7 +69,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			r := invocation.Renderer(runtime)
 			r.ProductTitle(title)
 			r.Section("Current selection")
-			r.Row("Route", route.Label)
+			r.Row("Route", cfg.RouteLabel(name))
 			if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 				r.Row("Purpose", purpose)
 			}
@@ -180,13 +180,14 @@ func chooseRoute(runtime invocation.Context, cfg configuration.Config, client, l
 		if _, err := cfg.ResolveRuntime(client, id); err != nil {
 			continue
 		}
-		choices = append(choices, prompt.Choice{Value: id, Label: routeChoiceLabel(cfg.Routes[id])})
+		choices = append(choices, prompt.Choice{Value: id, Label: routeChoiceLabel(cfg, id)})
 	}
 	return runtime.Prompt.Select(label, choices)
 }
 
-func routeChoiceLabel(route configuration.Route) string {
-	label := route.Label
+func routeChoiceLabel(cfg configuration.Config, routeID string) string {
+	label := cfg.RouteLabel(routeID)
+	route := cfg.Routes[routeID]
 	if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 		return label + " · " + purpose
 	}

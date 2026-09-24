@@ -2,6 +2,7 @@ package route
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,6 +11,46 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
+
+func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	cfg := configuration.NewConfig()
+	cfg.Accounts["ucloud"] = configuration.Account{Label: "UCloud", Endpoints: configuration.Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
+	cfg.Models["gpt-6-sol"] = configuration.Model{Label: "GPT-6 Sol"}
+	cfg.Routes["ucloud-gpt-6-sol"] = configuration.Route{
+		Account: "ucloud", Model: "gpt-6-sol", UpstreamModel: "GPT-6-Sol",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {configuration.CapabilityText}},
+	}
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	out := &bytes.Buffer{}
+	runtime := invocation.Context{Config: store, Out: out, RenderOut: out}
+	list := newListCommand(runtime)
+	list.SetArgs([]string{"--json"})
+	if err := list.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var listed routeListOutput
+	if err := json.Unmarshal(out.Bytes(), &listed); err != nil {
+		t.Fatal(err)
+	}
+	if len(listed.Routes) != 1 || listed.Routes[0].Label != "UCloud · GPT-6 Sol" {
+		t.Fatalf("derived route inventory = %+v", listed.Routes)
+	}
+	out.Reset()
+	show := newShowCommand(runtime)
+	show.SetArgs([]string{"ucloud-gpt-6-sol", "--json"})
+	if err := show.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var shown struct {
+		Label string `json:"label"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &shown); err != nil || shown.Label != "UCloud · GPT-6 Sol" {
+		t.Fatalf("derived route detail = %+v, %v", shown, err)
+	}
+}
 
 func TestRouteMutationsReturnConfigurationTransactionFailures(t *testing.T) {
 	tests := []struct {

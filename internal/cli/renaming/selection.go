@@ -50,7 +50,7 @@ func routeChoices(cfg configuration.Config) []prompt.Choice {
 	choices := make([]prompt.Choice, 0, len(names))
 	for _, name := range names {
 		route := cfg.Routes[name]
-		label := route.Label
+		label := cfg.RouteLabel(name)
 		if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 			label += " · " + purpose
 		}

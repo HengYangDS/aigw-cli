@@ -85,13 +85,13 @@
 
 ## 6. Prove the exact product
 
-- [x] 6.1 Run `mise run check` and `mise run native` on the same committed
+- [ ] 6.1 Run `mise run check` and `mise run native` on the same committed
       product HEAD, with all focused regressions green.
-- [x] 6.2 Exercise the actual packaged candidate and shipped team manifest,
+- [ ] 6.2 Exercise the actual packaged candidate and shipped team manifest,
       binding every selected native journey to its candidate digest. Verify
       explicit UCloud GPT-6 Sol inference, Claude Code's native override,
       endpoint-only mode, and fixture-backed distributor 503 classification.
-- [x] 6.3 Obtain native macOS, Linux, and Windows evidence for the same
+- [ ] 6.3 Obtain native macOS, Linux, and Windows evidence for the same
       product tree and verify exact commit signatures and the introduced
       range under repository policy.
 
@@ -101,11 +101,16 @@
       local configuration, and prior inference evidence. Keep unauthenticated
       DMXAPI 401 and model listings distinct from unavailable or verified
       inference.
-- [x] 7.2 Curate `manifests/team.toml` to the requested logical families,
-      retaining only evidenced Route variants and exactly one previously
-      qualified general model per other admitted vendor. Verify canonical
-      native export and semantic Route/model tests.
-- [x] 7.3 Reconcile only team-owned local Models and Routes through the AIGW
+- [x] 7.2 Curate `manifests/team.toml` as the shipped Account / canonical Model /
+      provider Route / per-client Recommendation contract. Keep canonical and
+      Route IDs lower-case, exact-case wire IDs, and one canonical Model per
+      other vendor. Declare MiniMax M3 without inventing a provider Route;
+      remove redundant ordinary Route labels and derive Account / Model names
+      at presentation, preserving channel overrides and explicit client choices.
+      Replace full-matrix and Route-ID-equals-wire tests with asymmetric-Account,
+      exact-wire, channel-base, native-export, and public-command regressions.
+      Do not add tier, purpose, proxy, or unproven Route data.
+- [ ] 7.3 Reconcile only team-owned local Models and Routes through the AIGW
       configuration owner after a complete dry-run. Preserve Accounts,
       credentials, client selections, native preferences, and foreign state.
 - [ ] 7.4 Prepare exact wire-ID probes from the public catalogues. For

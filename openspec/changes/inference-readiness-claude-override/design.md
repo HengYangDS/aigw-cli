@@ -25,6 +25,27 @@ about provider retention and future availability.
 
 ## Decisions
 
+### Keep the team manifest curated and labels derived
+
+The shipped manifest declares three Accounts, stable lower-case canonical
+Model and Route IDs, exact provider `upstream_model` spellings, and per-client
+Recommendations. It is not a copy of three provider catalogues. A provider
+Route requires successful authenticated inference on its declared client and
+protocol; Account symmetry does not require a full Route matrix. DMXAPI CC,
+SSVIP, and CDX variants are distinct Routes to one canonical Model, never
+additional logical Models. A Model identity with no admitted Route is not a
+claim of provider availability. The MiniMax M3 identity may be declared now;
+its AIHubMix and UCloud Routes remain absent until exact-wire inference passes.
+
+An ordinary Route has no stored label. Presentation derives `Account · Model`
+from the declared Account and Model labels; only channel-specific or deliberate
+user overrides retain a Route label. Native manifest export omits a redundant
+derived label even when an older local configuration stored it. Route and Model
+IDs remain independent of the provider's exact-case wire ID. Setup needs no
+Token to import the catalogue, activates whichever one compatible Account is
+connected, and preserves every explicit Client Binding. The manifest contains
+no proxy endpoint.
+
 ### Keep empty activation distinct from diagnostic success
 
 An imported catalogue may have valid Routes while every client remains

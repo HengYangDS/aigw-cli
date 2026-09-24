@@ -154,7 +154,7 @@ func collectRouteListItem(runtime invocation.Context, cfg configuration.Config, 
 		return routeListItem{}, err
 	}
 	return routeListItem{
-		ID: name, Label: route.Label, Purpose: route.Purpose, Account: route.Account,
+		ID: name, Label: cfg.RouteLabel(name), Purpose: route.Purpose, Account: route.Account,
 		CompatibleClients: compatible, SelectedClients: cfg.SelectedClientsForRoute(name), Model: route.Model,
 	}, nil
 }
@@ -181,7 +181,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			selected := cfg.SelectedClientsForRoute(args[0])
 			if jsonMode {
 				result := map[string]any{
-					"id": args[0], "label": route.Label, "purpose": route.Purpose,
+					"id": args[0], "label": cfg.RouteLabel(args[0]), "purpose": route.Purpose,
 					"account": accountName, "model": route.Model,
 					"compatible_clients": compatible, "selected_clients": selected,
 					"endpoints": account.Endpoints,
@@ -192,7 +192,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			r.ProductTitle("Route details")
 			r.Section("Route")
 			r.Row("Route ID", args[0])
-			r.Row("Name", route.Label)
+			r.Row("Name", cfg.RouteLabel(args[0]))
 			if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 				r.Row("Purpose", purpose)
 			}

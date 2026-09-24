@@ -31,8 +31,9 @@ boundaries follow [Adapter admission](../governance/adapter-admission.md).
 
 The team manifest is a curated catalogue, not a collection of personal notes.
 
-- **Route ID:** stable selection key: Account ID + `-` + the exact provider
-  wire model ID, including its channel suffix.
+- **Route ID:** stable lower-case selection key, independent of the provider's
+  exact-case wire spelling. An Account prefix and channel suffix may make the
+  key readable without making the wire ID its authority.
 - **`account`:** explicit reference to the credential-owning Account; Routes
   remain reusable and do not declare a client.
 - **`model`:** canonical logical Model identity. Channel suffixes do not create
@@ -42,26 +43,31 @@ The team manifest is a curated catalogue, not a collection of personal notes.
 - **`interfaces`:** explicit wire protocols admitted for that exact Account
   and upstream model. A client may select only the intersection of its native
   protocols, the Account endpoints, and this set.
-- **`label`:** human-readable identity: `Account label · Model display name`;
-  append `· CHANNEL` with a separating space when needed.
+- **`label`:** optional display override. Ordinary Routes derive
+  `Account label · Model display name` from the declared labels; channel Routes
+  retain an explicit `· CHANNEL` distinction when needed.
 - **`purpose`:** optional workflow description; omit throughout this
   model catalogue.
-- **`recommendations.<client>`:** sole team recommendation owner, one Route
-  per client; recommendations do not belong in display text.
+- **`recommendations.<client>`:** sole team recommendation owner, with a
+  primary Route and optional reviewed alternatives; recommendations do not
+  belong in display text.
 
 Use product capitalization, dotted display versions, uppercase channel names,
 and spaces around `·`. Labels contain identity, not performance promises,
 review status, or instructions. The catalogue assigns no workflow roles, so
 every Route consistently omits `purpose`; do not invent use cases to fill it.
-Route keys preserve provider spelling: `dmxapi-claude-fable-5-1` requests
-`claude-fable-5-1`; its display label is `DMXAPI · Claude Fable 5.1`.
+The lower-case key `dmxapi-claude-fable-5-1` selects the exact
+`upstream_model = 'claude-fable-5-1'`; its derived display label is
+`DMXAPI · Claude Fable 5.1`. Another provider may require a differently cased
+wire ID without changing the canonical Model or stable Route ID.
 The `-cc` Route is a separate channel whose `model` remains the base logical
 Model and whose `upstream_model` carries `-cc`.
 
 Use the native `aigw config export` layout: version, recommendations, Accounts,
-then Routes; map keys follow stable lexical order and fields follow schema
-order. Existing manifest tests check display structure and byte-identical
-native export, without another formatter or model-name registry.
+Models, then Routes. Map keys follow stable lexical order and fields follow
+schema order. Export omits a stored Route label when it equals the derived
+Account and Model label. Manifest tests check the display behavior and
+byte-identical native export without another formatter or model-name registry.
 
 Verify exact provider identifiers before admitting Routes. `aigw catalog`
 observes every configured catalogue surface separately and records its Account,
@@ -78,9 +84,11 @@ reported for requalification without changing configuration. Missing
 credentials, a failed request, an incomplete response, or an absent catalogue
 endpoint remain unknown observations, not unavailable models.
 
-Qualification requires `aigw verify --for <client>` and the capability-specific
-native evidence required by the selected client. Admission is a reviewed Model
-and Route change. Deprecation sets `lifecycle = "deprecated"`, removes the Route
+Route admission requires a successful authenticated inference call carrying
+the exact Account, protocol, and `upstream_model`, plus compatibility with the
+selected client and its native verification where required. A directory
+listing alone never admits a Route. Admission is a reviewed Model and Route
+change. Deprecation sets `lifecycle = "deprecated"`, removes the Route
 from recommendations, and preserves existing explicit bindings. Retirement is
 an explicit Route removal after no binding or recommendation depends on it.
 Catalogue refresh performs none of those transitions.
@@ -90,11 +98,12 @@ Catalogue refresh performs none of those transitions.
 The catalogue contains only GPT-6 Astra, Sol, and Luna in the GPT family and
 Claude Fable 5.1, Opus 5.5, and Sonnet 5 in the Claude family. Opus 5.5 is a
 known Model identity without an admitted Route until an exact Account,
-protocol, and wire ID pass authenticated inference. Each other admitted
-general-model family retains one previously qualified logical Model across
-configured Accounts, with separately evidenced Routes: Grok 4.6, Gemini 3.1
-Pro Preview, DeepSeek V4 Pro 0813, Qwen 3.8 Max, GLM 5.3, and Kimi K3. Model
-entries carry identity only; client-scoped
+protocol, and wire ID pass authenticated inference. MiniMax M3 is also a
+canonical Model identity with no admitted Route; AIHubMix and UCloud wire IDs
+remain inference candidates. Each other admitted general-model family keeps
+one logical Model globally, with separately evidenced Routes: Grok 4.6,
+Gemini 3.1 Pro Preview, DeepSeek V4 Pro 0813, Qwen 3.8 Max, GLM 5.3, and
+Kimi K3. Model entries carry identity only; client-scoped
 recommendations express preference without a global benchmark or cost claim.
 
 All three configured Accounts listed the retained September 21 set in

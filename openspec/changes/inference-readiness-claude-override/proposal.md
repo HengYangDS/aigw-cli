@@ -30,6 +30,11 @@ user's selected model.
   `aigw verify --for claude` for native-model proof.
 - Keep authentication failures and other refused inference observations bounded
   and classified without mutating configuration or client files.
+- Curate the shipped team manifest as Account, canonical Model, provider Route,
+  and per-client Recommendation declarations. Keep stable IDs lower-case and
+  provider wire IDs exact; derive ordinary Route names from Account and Model
+  labels while retaining explicit channel distinctions. A provider catalogue
+  listing alone does not admit a Route.
 
 ## Capabilities
 
@@ -49,8 +54,9 @@ None.
 ## Impact
 
 Affected owners are `internal/credential`, `internal/diagnostics`,
-`internal/readiness`, `internal/claude`, `internal/client`, and
-`internal/cli/readiness`. The terminal experience documentation and native
+`internal/readiness`, `internal/configuration`, `internal/claude`,
+`internal/client`, and the affected CLI presentation packages. The terminal
+experience documentation and native
 acceptance journeys change. An ordinary `check` incurs one capped inference
 request per enabled Account-Token client whose exact wire model AIGW owns;
 `--endpoint-only` retains the previous request scope.

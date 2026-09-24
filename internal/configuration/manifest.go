@@ -166,7 +166,7 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 	}
 	for name, route := range incoming.Routes {
 		if existing, exists := merged.Routes[name]; exists {
-			if equivalentRoute(existing, route) {
+			if equivalentRoute(existing, route) && routeLabel(existing, merged.Accounts[route.Account], merged.Models[route.Model]) == routeLabel(route, merged.Accounts[route.Account], merged.Models[route.Model]) {
 				continue
 			}
 			if !options.ReplaceRoutes[name] {
@@ -229,8 +229,7 @@ func equivalentProbe(left, right *AccountProbe) bool {
 func normalizeEndpoint(value string) string { return strings.TrimRight(strings.TrimSpace(value), "/") }
 
 func equivalentRoute(left, right Route) bool {
-	return left.Label == right.Label &&
-		left.Purpose == right.Purpose &&
+	return left.Purpose == right.Purpose &&
 		left.Account == right.Account &&
 		left.Model == right.Model &&
 		left.UpstreamModelID() == right.UpstreamModelID() &&
@@ -252,6 +251,7 @@ func equalInterfaces(left, right map[EndpointProtocol][]Capability) bool {
 
 // Export projects configuration into the canonical credential-free team manifest form.
 func Export(cfg Config) ([]byte, error) {
+	cfg = cfg.Clone()
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -263,6 +263,13 @@ func Export(cfg Config) ([]byte, error) {
 			recommendation := recommendations[client]
 			recommendation.Primary = binding.selection()
 			recommendations[client] = recommendation
+		}
+	}
+	for routeID, route := range cfg.Routes {
+		derived := routeLabel(Route{Account: route.Account, Model: route.Model}, cfg.Accounts[route.Account], cfg.Models[route.Model])
+		if route.Label == derived {
+			route.Label = ""
+			cfg.Routes[routeID] = route
 		}
 	}
 	data, err := toml.Marshal(Manifest{Version: currentVersion, Recommendations: recommendations, Accounts: cfg.Accounts, Models: cfg.Models, Routes: cfg.Routes})

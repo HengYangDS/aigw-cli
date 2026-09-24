@@ -84,6 +84,20 @@ func configuredRuntime(t *testing.T) (invocation.Context, configuration.Config, 
 	return invocation.Context{Config: store, Out: out, RenderOut: out, Width: 120, Discovery: staticDiscovery{}}, cfg, out
 }
 
+func TestInteractiveRouteChoiceDerivesUnlabeledRouteName(t *testing.T) {
+	runtime, cfg, _ := configuredRuntime(t)
+	route := cfg.Routes["codex"]
+	route.Label = ""
+	cfg.Routes["codex"] = route
+	cfg.Models["gpt-test"] = configuration.Model{Label: "GPT Test"}
+	choice := &promptStub{selected: "codex"}
+	runtime.Prompt = choice
+	selected, err := chooseRoute(runtime, cfg, configuration.ClientCodex, "Select Route")
+	if err != nil || selected != "codex" || len(choice.choices) != 1 || choice.choices[0].Label != "Gateway · GPT Test" {
+		t.Fatalf("derived interactive Route choice = %q, %+v, %v", selected, choice.choices, err)
+	}
+}
+
 func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
 	secretStore := secrets.NewMemoryStore()

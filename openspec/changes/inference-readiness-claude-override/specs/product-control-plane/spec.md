@@ -70,7 +70,7 @@ the client.
 #### Scenario: No client is enabled
 
 - **WHEN** configuration is valid but no admitted client Adapter is enabled
-- **THEN** `aigw check` SHALL report configuration readiness
+- **THEN** `aigw check` SHALL report deferred activation and return nonzero
 - **AND** SHALL not claim that an arbitrary gateway or model is healthy.
 
 #### Scenario: Inspect an endpoint address without probing it
@@ -173,3 +173,39 @@ the client.
 - **WHEN** an imported manifest contains a token, password, authorization
   header, API key, or equivalent credential field
 - **THEN** AIGW SHALL reject the manifest without changing local configuration.
+
+## ADDED Requirements
+
+### Requirement: Shipped team catalogue is a curated capability contract
+
+The shipped team manifest SHALL separate Account, canonical Model, provider
+Route, and per-client Recommendation. Canonical Model IDs and Route IDs SHALL
+be stable lower-case identifiers; `upstream_model` SHALL retain the provider's
+exact wire spelling and channel. A Route SHALL be admitted only after a real
+authenticated inference request and compatible client/protocol acceptance.
+The manifest SHALL not infer a full Account-by-Model matrix from provider
+catalogue listings, require every Account Token during setup, change an
+explicit Client Binding, or contain a proxy endpoint.
+
+#### Scenario: One Account offers a subset of Models
+
+- **WHEN** one connected Account has a compatible recommended Route but lacks
+  Routes for other canonical Models or clients
+- **THEN** setup SHALL activate only its usable unselected Client Bindings
+- **AND** preserve explicit selections and defer unavailable capabilities.
+
+#### Scenario: A provider uses a channel-specific wire ID
+
+- **WHEN** DMXAPI exposes a CC, SSVIP, or CDX channel variant of one Model
+- **THEN** that Route SHALL reference the same canonical Model as its base
+  Route and carry its exact provider wire ID
+- **AND** its lower-case Route ID SHALL not be derived from wire spelling.
+
+#### Scenario: Ordinary Route display needs no duplicate label
+
+- **WHEN** a Route omits `label`
+- **THEN** human, JSON, and native-client presentation SHALL derive
+  `Account · Model` from the declared labels
+- **AND** an explicit channel or user label SHALL override that derivation
+- **AND** native manifest export SHALL omit a stored label equal to the
+  derived form while preserving an explicit distinct label.

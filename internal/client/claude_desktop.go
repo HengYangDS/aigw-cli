@@ -227,7 +227,7 @@ func claudeDesktopModels(cfg configuration.Config, selected configuration.Runtim
 		if !slices.Contains(spec.CompatibleRouteProtocols(account, route), selected.Protocol) {
 			continue
 		}
-		models = append(models, claudedesktop.Model{Name: route.Model, Label: route.Label})
+		models = append(models, claudedesktop.Model{Name: route.Model, Label: cfg.RouteLabel(routeID)})
 		seen[route.Model] = true
 	}
 	return models

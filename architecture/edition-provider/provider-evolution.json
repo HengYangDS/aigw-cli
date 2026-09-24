@@ -602,7 +602,7 @@
           "authority": "AIGW command composition at the selected product revision"
         },
         "configuration": {
-          "sha256": "627838f6f2f362ea6c6b97663fd33e2974fca1e0bd803f0d53248515c3ea85bf",
+          "sha256": "591495a93972c0e538f330cc595fe766bf23ede3daa1bbffc7ce8db119edb88d",
           "locator": "source/internal/configuration/model.go",
           "authority": "AIGW Account, Model, Route, recommendation, and Client Binding authority"
         },
@@ -1017,7 +1017,7 @@
         }
       },
       "context": {
-        "revision": "e1972e7211d8835b82e628b77a4de80fbc9b05960074142fbaf830b8e03d4ac7",
+        "revision": "febda80ffa9025bca0a534638bcdfbe164a6ea9f03ddc05eca020c80352b10af",
         "scope": "Selected AIGW control-plane owners; not automatic inference or exhaustive implementation coverage"
       }
     },
@@ -1033,11 +1033,11 @@
           "version": "0.3.0-alpha.1"
         },
         "source": {
-          "manifestSha256": "7915527c43865d917645cb5b5c4ecd6f78f9c4ffa532243e5d89e61925da4f06"
+          "manifestSha256": "9fae12502b30e9c1e72731a17b3d02e886c39a7be23a8d832257019339cf956b"
         },
         "claimModel": {
           "schema": "architecture.claim-model/v2",
-          "digest": "039cb424690307c3767d25eb9e469b6c04108793a148513a722a6cdfff1ceb2c"
+          "digest": "7548ada0f5e5bc7eadbeec05a79f4c9d14e6efb0716899d8f7f3372ff0bcbca0"
         },
         "title": "AIGW Client Projection",
         "audiences": { "maintainer": { "label": "AIGW maintainers" } },
@@ -1552,7 +1552,7 @@
           "recovery": [],
           "human": []
         },
-        "scope": "Selected AIGW control-plane owners at source revision e1972e7211d8835b82e628b77a4de80fbc9b05960074142fbaf830b8e03d4ac7; curated from exact source bytes without inferred implementation completeness."
+        "scope": "Selected AIGW control-plane owners at source revision febda80ffa9025bca0a534638bcdfbe164a6ea9f03ddc05eca020c80352b10af; curated from exact source bytes without inferred implementation completeness."
       }
     ]
   },

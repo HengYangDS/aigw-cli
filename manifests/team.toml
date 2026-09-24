@@ -119,12 +119,14 @@ label = 'Grok 4.6'
 [models.kimi-k3]
 label = 'Kimi K3'
 
+[models.minimax-m3]
+label = 'MiniMax M3'
+
 [models.'qwen3.8-max']
 label = 'Qwen 3.8 Max'
 
 [routes]
 [routes.aihubmix-claude-fable-5-1]
-label = 'AIHubMix · Claude Fable 5.1'
 account = 'aihubmix'
 model = 'claude-fable-5-1'
 upstream_model = 'claude-fable-5-1'
@@ -133,7 +135,6 @@ upstream_model = 'claude-fable-5-1'
 anthropic = []
 
 [routes.aihubmix-claude-sonnet-5]
-label = 'AIHubMix · Claude Sonnet 5'
 account = 'aihubmix'
 model = 'claude-sonnet-5'
 upstream_model = 'claude-sonnet-5'
@@ -142,7 +143,6 @@ upstream_model = 'claude-sonnet-5'
 anthropic = []
 
 [routes.aihubmix-deepseek-v4-pro-0813]
-label = 'AIHubMix · DeepSeek V4 Pro 0813'
 account = 'aihubmix'
 model = 'deepseek-v4-pro-0813'
 upstream_model = 'deepseek-v4-pro-0813'
@@ -151,7 +151,6 @@ upstream_model = 'deepseek-v4-pro-0813'
 openai_responses = []
 
 [routes.'aihubmix-gemini-3.1-pro-preview']
-label = 'AIHubMix · Gemini 3.1 Pro Preview'
 account = 'aihubmix'
 model = 'gemini-3.1-pro-preview'
 upstream_model = 'gemini-3.1-pro-preview'
@@ -160,7 +159,6 @@ upstream_model = 'gemini-3.1-pro-preview'
 openai_responses = []
 
 [routes.'aihubmix-glm-5.3']
-label = 'AIHubMix · GLM 5.3'
 account = 'aihubmix'
 model = 'glm-5.3'
 upstream_model = 'glm-5.3'
@@ -169,7 +167,6 @@ upstream_model = 'glm-5.3'
 openai_responses = []
 
 [routes.aihubmix-gpt-6-astra]
-label = 'AIHubMix · GPT-6 Astra'
 account = 'aihubmix'
 model = 'gpt-6-astra'
 upstream_model = 'gpt-6-astra'
@@ -178,7 +175,6 @@ upstream_model = 'gpt-6-astra'
 openai_responses = []
 
 [routes.'aihubmix-grok-4.6']
-label = 'AIHubMix · Grok 4.6'
 account = 'aihubmix'
 model = 'grok-4.6'
 upstream_model = 'grok-4.6'
@@ -187,7 +183,6 @@ upstream_model = 'grok-4.6'
 openai_responses = []
 
 [routes.aihubmix-kimi-k3]
-label = 'AIHubMix · Kimi K3'
 account = 'aihubmix'
 model = 'kimi-k3'
 upstream_model = 'kimi-k3'
@@ -196,7 +191,6 @@ upstream_model = 'kimi-k3'
 openai_responses = []
 
 [routes.'aihubmix-qwen3.8-max']
-label = 'AIHubMix · Qwen 3.8 Max'
 account = 'aihubmix'
 model = 'qwen3.8-max'
 upstream_model = 'qwen3.8-max'
@@ -205,7 +199,6 @@ upstream_model = 'qwen3.8-max'
 openai_responses = []
 
 [routes.dmxapi-claude-fable-5-1]
-label = 'DMXAPI · Claude Fable 5.1'
 account = 'dmxapi'
 model = 'claude-fable-5-1'
 upstream_model = 'claude-fable-5-1'
@@ -223,7 +216,6 @@ upstream_model = 'claude-fable-5-1-cc'
 anthropic = []
 
 [routes.dmxapi-claude-sonnet-5]
-label = 'DMXAPI · Claude Sonnet 5'
 account = 'dmxapi'
 model = 'claude-sonnet-5'
 upstream_model = 'claude-sonnet-5'
@@ -250,7 +242,6 @@ upstream_model = 'claude-sonnet-5-ssvip'
 anthropic = []
 
 [routes.dmxapi-deepseek-v4-pro-0813]
-label = 'DMXAPI · DeepSeek V4 Pro 0813'
 account = 'dmxapi'
 model = 'deepseek-v4-pro-0813'
 upstream_model = 'deepseek-v4-pro-0813'
@@ -259,7 +250,6 @@ upstream_model = 'deepseek-v4-pro-0813'
 openai_responses = []
 
 [routes.'dmxapi-gemini-3.1-pro-preview']
-label = 'DMXAPI · Gemini 3.1 Pro Preview'
 account = 'dmxapi'
 model = 'gemini-3.1-pro-preview'
 upstream_model = 'gemini-3.1-pro-preview'
@@ -268,7 +258,6 @@ upstream_model = 'gemini-3.1-pro-preview'
 openai_responses = []
 
 [routes.'dmxapi-glm-5.3']
-label = 'DMXAPI · GLM 5.3'
 account = 'dmxapi'
 model = 'glm-5.3'
 upstream_model = 'glm-5.3'
@@ -277,7 +266,6 @@ upstream_model = 'glm-5.3'
 openai_responses = []
 
 [routes.dmxapi-gpt-6-astra]
-label = 'DMXAPI · GPT-6 Astra'
 account = 'dmxapi'
 model = 'gpt-6-astra'
 upstream_model = 'gpt-6-astra'
@@ -304,7 +292,6 @@ upstream_model = 'gpt-6-astra-ssvip'
 openai_responses = []
 
 [routes.'dmxapi-grok-4.6']
-label = 'DMXAPI · Grok 4.6'
 account = 'dmxapi'
 model = 'grok-4.6'
 upstream_model = 'grok-4.6'
@@ -313,7 +300,6 @@ upstream_model = 'grok-4.6'
 openai_responses = []
 
 [routes.dmxapi-kimi-k3]
-label = 'DMXAPI · Kimi K3'
 account = 'dmxapi'
 model = 'kimi-k3'
 upstream_model = 'kimi-k3'
@@ -322,7 +308,6 @@ upstream_model = 'kimi-k3'
 openai_responses = []
 
 [routes.'dmxapi-qwen3.8-max']
-label = 'DMXAPI · Qwen 3.8 Max'
 account = 'dmxapi'
 model = 'qwen3.8-max'
 upstream_model = 'qwen3.8-max'
@@ -331,7 +316,6 @@ upstream_model = 'qwen3.8-max'
 openai_responses = []
 
 [routes.ucloud-claude-fable-5-1]
-label = 'UCloud · Claude Fable 5.1'
 account = 'ucloud'
 model = 'claude-fable-5-1'
 upstream_model = 'claude-fable-5-1'
@@ -340,7 +324,6 @@ upstream_model = 'claude-fable-5-1'
 anthropic = []
 
 [routes.ucloud-claude-sonnet-5]
-label = 'UCloud · Claude Sonnet 5'
 account = 'ucloud'
 model = 'claude-sonnet-5'
 upstream_model = 'claude-sonnet-5'
@@ -349,7 +332,6 @@ upstream_model = 'claude-sonnet-5'
 anthropic = []
 
 [routes.ucloud-deepseek-v4-pro-0813]
-label = 'UCloud · DeepSeek V4 Pro 0813'
 account = 'ucloud'
 model = 'deepseek-v4-pro-0813'
 upstream_model = 'deepseek-v4-pro-0813'
@@ -358,7 +340,6 @@ upstream_model = 'deepseek-v4-pro-0813'
 openai_responses = []
 
 [routes.'ucloud-gemini-3.1-pro-preview']
-label = 'UCloud · Gemini 3.1 Pro Preview'
 account = 'ucloud'
 model = 'gemini-3.1-pro-preview'
 upstream_model = 'gemini-3.1-pro-preview'
@@ -367,7 +348,6 @@ upstream_model = 'gemini-3.1-pro-preview'
 openai_chat_completions = []
 
 [routes.'ucloud-glm-5.3']
-label = 'UCloud · GLM 5.3'
 account = 'ucloud'
 model = 'glm-5.3'
 upstream_model = 'glm-5.3'
@@ -376,7 +356,6 @@ upstream_model = 'glm-5.3'
 openai_responses = []
 
 [routes.ucloud-gpt-6-astra]
-label = 'UCloud · GPT-6 Astra'
 account = 'ucloud'
 model = 'gpt-6-astra'
 upstream_model = 'gpt-6-astra'
@@ -385,7 +364,6 @@ upstream_model = 'gpt-6-astra'
 openai_responses = []
 
 [routes.ucloud-gpt-6-luna]
-label = 'UCloud · GPT-6 Luna'
 account = 'ucloud'
 model = 'gpt-6-luna'
 upstream_model = 'gpt-6-luna'
@@ -394,7 +372,6 @@ upstream_model = 'gpt-6-luna'
 openai_responses = []
 
 [routes.ucloud-gpt-6-sol]
-label = 'UCloud · GPT-6 Sol'
 account = 'ucloud'
 model = 'gpt-6-sol'
 upstream_model = 'gpt-6-sol'
@@ -403,7 +380,6 @@ upstream_model = 'gpt-6-sol'
 openai_responses = []
 
 [routes.'ucloud-grok-4.6']
-label = 'UCloud · Grok 4.6'
 account = 'ucloud'
 model = 'grok-4.6'
 upstream_model = 'grok-4.6'
@@ -412,7 +388,6 @@ upstream_model = 'grok-4.6'
 openai_responses = []
 
 [routes.ucloud-kimi-k3]
-label = 'UCloud · Kimi K3'
 account = 'ucloud'
 model = 'kimi-k3'
 upstream_model = 'kimi-k3'
@@ -421,7 +396,6 @@ upstream_model = 'kimi-k3'
 openai_responses = []
 
 [routes.'ucloud-qwen3.8-max']
-label = 'UCloud · Qwen 3.8 Max'
 account = 'ucloud'
 model = 'qwen3.8-max'
 upstream_model = 'qwen3.8-max'
