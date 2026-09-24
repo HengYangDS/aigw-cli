@@ -9,13 +9,22 @@ separate evidence.
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-09-24
+## [0.3.0] - 2026-09-25
+
+### Added
+
+- Curate 27 canonical models and 59 inference-checked Account Routes across
+  AIHubMix, DMXAPI, and UCloud, including Meta Muse Spark, MiniMax M3,
+  Xiaomi MiMo V2.6 Pro, Cohere Command A, and Poolside Laguna S 2.1.
 
 ### Changed
 
 - Make `aigw check` send one capped inference request with the selected Route's
   exact upstream model by default. Use `--endpoint-only` for a model-free
   authentication check without an inference request.
+- Treat a reviewed catalogue with no enabled Client Binding as deferred
+  activation. `check` reports `ok: false` without probing, while setup, sync,
+  status, and doctor provide an Account-aware continuation.
 - Preserve a sidecar-proven Claude Code native model preference while reporting
   only endpoint evidence for that client and directing native model verification
   to `aigw verify --for claude`.
@@ -25,6 +34,8 @@ separate evidence.
 - Classify an HTTP 503 with no available model channel, including the Chinese
   distributor response, as a retryable model-unavailable result without
   repeating the inference request.
+- Preserve an explicit Route protocol mapping when its capability list is empty,
+  including UCloud GLM 5.3's Chat Completions mapping during configuration merge.
 
 ## [0.2.0] - 2026-09-24
 
