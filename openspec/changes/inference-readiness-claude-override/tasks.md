@@ -75,7 +75,7 @@
       binding every selected native journey to its candidate digest. Verify
       explicit UCloud GPT-6 Sol inference, Claude Code's native override,
       endpoint-only mode, and fixture-backed distributor 503 classification.
-- [ ] 6.3 Obtain native macOS, Linux, and Windows evidence for the same
+- [x] 6.3 Obtain native macOS, Linux, and Windows evidence for the same
       product tree and verify exact commit signatures and the introduced
       range under repository policy.
 
