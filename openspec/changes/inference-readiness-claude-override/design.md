@@ -101,15 +101,21 @@ non-inference commands.
 6. Reconcile the three-provider team catalogue against current public IDs and
    prior inference evidence. Keep GPT Astra/Sol/Luna and Claude Fable 5.1,
    Opus 5.5, and Sonnet 5 as the requested logical identities; an unverified
-   identity has no Route. Retain one previously qualified general Route per
-   other vendor and map DMXAPI channel variants to their base Model while
-   preserving exact wire IDs.
+   identity has no Route. Retain one previously qualified general Model per
+   other vendor globally, with separately evidenced Account Routes. Map
+   DMXAPI channel variants to their base Model while preserving exact wire
+   IDs; do not retain a second general Model to hide lost Account coverage.
 7. Reconcile team-owned local Models and Routes through AIGW's configuration
    owner. The before/after plan must preserve Accounts, Tokens, client
    selections, projections, native preferences, and foreign content. Public
    catalogue listings and an unauthenticated 401 are not inference evidence;
    a Keychain UI requirement stops dependent live probes.
-8. Verify focused behavior, exact HEAD quality and native gates, selected
+8. Bind the final candidate team manifest to the actual installed local
+   profile through public export, then read back explicit Client Bindings and
+   native projections. Check global vendor cardinality, exact Account Route
+   semantics, and per-Route inference; review any lost Account coverage before
+   replacing a vendor's one general Model.
+9. Verify focused behavior, exact HEAD quality and native gates, selected
    released bytes, live routes, publication, installation, rollback, and owned
    cleanup in that order. tasks.md is the only progress ledger.
 

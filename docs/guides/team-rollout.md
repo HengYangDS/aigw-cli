@@ -91,9 +91,10 @@ The catalogue contains only GPT-6 Astra, Sol, and Luna in the GPT family and
 Claude Fable 5.1, Opus 5.5, and Sonnet 5 in the Claude family. Opus 5.5 is a
 known Model identity without an admitted Route until an exact Account,
 protocol, and wire ID pass authenticated inference. Each other admitted
-general-model family retains one previously qualified choice per Account:
-Grok 4.6, Gemini 3.1 Pro Preview, DeepSeek V4 Pro 0813, Qwen 3.8 Max,
-GLM 5.3, and Kimi K3. Model entries carry identity only; client-scoped
+general-model family retains one previously qualified logical Model across
+configured Accounts, with separately evidenced Routes: Grok 4.6, Gemini 3.1
+Pro Preview, DeepSeek V4 Pro 0813, Qwen 3.8 Max, GLM 5.3, and Kimi K3. Model
+entries carry identity only; client-scoped
 recommendations express preference without a global benchmark or cost claim.
 
 All three configured Accounts listed the retained September 21 set in
@@ -136,11 +137,13 @@ and UCloud's `MiniMax-M3` are general-text candidates pending inference.
 DeepSeek's [V4.1 Flash announcement](https://www.deepseek.com/en/news/deepseek-v4-1-flash/)
 claims benchmark results ahead of V4 Pro and says `deepseek-v4-pro` requests
 on DeepSeek's own API now route to V4.1 Flash. That does not establish what
-an aggregator serves for `deepseek-v4-pro-0813`. Test the exact
-`deepseek-v4.1-flash` ID on AIHubMix and UCloud before replacing their Pro
-0813 Routes. Keep DMXAPI's current Route until its own catalogue and inference
-can be verified. Do not rank model quality from `Pro`, `Max`, or `Flash` in
-an ID.
+an aggregator serves for `deepseek-v4-pro-0813`. Probe the exact
+`deepseek-v4.1-flash` ID on AIHubMix and UCloud first. Preserve one DeepSeek
+logical Model globally: switch only after DMXAPI also passes, or after an
+explicit reviewed decision to retire its incumbent Route and lose that
+Account coverage. Until then, keep the current Pro 0813 Routes; do not publish
+a mixed Pro/V4.1 two-model catalogue. Do not rank model quality from `Pro`,
+`Max`, or `Flash` in an ID.
 
 The public UCloud response is not a complete substitute for the earlier
 authenticated GPT and Claude observations. Admit any new Route only after a

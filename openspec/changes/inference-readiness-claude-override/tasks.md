@@ -99,7 +99,18 @@
       unauthenticated 401. Admit or replace Routes only after successful calls,
       then call each retained Route once. Stop at a credential boundary that
       requires Keychain UI; report such calls as unverified.
-- [ ] 7.5 Re-run source, native, packaged-manifest, exact-HEAD, and hosted
+- [ ] 7.5 Accept the final candidate-bound `manifests/team.toml` and the
+      installed profile exported by `aigw config export` as one semantic
+      catalogue across AIHubMix, DMXAPI, and UCloud. Compare Model IDs,
+      Account endpoint/probe metadata, and Route Account/protocol/wire IDs;
+      separately read back explicit Client Bindings and native projections.
+      Require only GPT-6 Astra/Sol/Luna, Claude Fable 5.1/Opus 5.5/Sonnet 5
+      identities with Routes only where verified, one qualified general Model
+      per other vendor globally, DMXAPI variants mapped to base Models, and a
+      7.4 inference observation for every admitted Route. Preserve personal
+      recommendations, credentials, native preferences, and foreign fields;
+      any lost Account coverage requires an explicit reviewed Route retirement.
+- [ ] 7.6 Re-run source, native, packaged-manifest, exact-HEAD, and hosted
       evidence for the changed release inputs before publication.
 
 ## 8. Publish and install
