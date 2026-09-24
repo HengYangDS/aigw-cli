@@ -13,7 +13,7 @@
 
 ## 2. Construct model-carrying requests
 
-- [ ] 2.1 Add an inference request for Anthropic Messages, OpenAI Responses,
+- [x] 2.1 Add an inference request for Anthropic Messages, OpenAI Responses,
       and OpenAI Chat Completions using each selected endpoint, protocol,
       credential header, exact Route wire model, and capped output. Verify:
       focused request-shape tests in `./internal/credential/...` fail before
