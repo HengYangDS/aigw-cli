@@ -105,6 +105,10 @@ non-inference commands.
    other vendor globally, with separately evidenced Account Routes. Map
    DMXAPI channel variants to their base Model while preserving exact wire
    IDs; do not retain a second general Model to hide lost Account coverage.
+   A public ID and successful inference establish route availability, not a
+   model's relative general strength. Replacing a retained general Model also
+   requires current primary-vendor general-purpose positioning and reviewed
+   Account coverage. A class-relative Flash claim cannot rank it above Pro.
 7. Reconcile team-owned local Models and Routes through AIGW's configuration
    owner. The before/after plan must preserve Accounts, Tokens, client
    selections, projections, native preferences, and foreign content. Public

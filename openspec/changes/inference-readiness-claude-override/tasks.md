@@ -101,9 +101,13 @@
       Route once. A listing or omission is not availability evidence:
       retain private UCloud GPT/Claude Routes, leave DMXAPI 401 unknown,
       and do not infer CC/coding prefix semantics or admit H3 as general
-      text. Admit or replace only after the exact call succeeds and 7.5
-      global vendor cardinality holds; stop if credentials require
-      Keychain UI, reporting uncalled Routes as unverified.
+      text. A successful call proves availability, not comparative general
+      strength. Replace a retained general Model only with current primary
+      vendor evidence of stronger general-purpose positioning, successful
+      exact inference, and the 7.5 Account-coverage and global-cardinality
+      review. Keep Grok 4.6 until Grok 4.7 passes those gates; a claim about
+      the strongest Gemini Flash does not rank it above Gemini Pro. Stop if
+      credentials require Keychain UI, reporting uncalled Routes as unverified.
 - [ ] 7.5 Accept the final candidate-bound `manifests/team.toml` and the
       installed profile exported by `aigw config export` as one semantic
       catalogue across AIHubMix, DMXAPI, and UCloud. Compare Model IDs,
