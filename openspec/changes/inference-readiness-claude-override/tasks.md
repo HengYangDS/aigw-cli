@@ -92,7 +92,7 @@
 
 ## 6. Prove the exact product
 
-- [ ] 6.1 Run `mise run check` and `mise run native` on the same committed
+- [x] 6.1 Run `mise run check` and `mise run native` on the same committed
       product HEAD, with all focused regressions green.
 - [ ] 6.2 Exercise the actual packaged candidate and shipped team manifest,
       binding every selected native journey to its candidate digest. Verify
