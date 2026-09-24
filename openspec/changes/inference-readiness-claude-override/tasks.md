@@ -92,13 +92,18 @@
 - [x] 7.3 Reconcile only team-owned local Models and Routes through the AIGW
       configuration owner after a complete dry-run. Preserve Accounts,
       credentials, client selections, native preferences, and foreign state.
-- [ ] 7.4 First probe AIHubMix/UCloud `deepseek-v4.1-flash` and AIHubMix
-      `minimax-m3` / UCloud `MiniMax-M3` with bounded noninteractive inference,
-      recording each exact Account, attempted protocol, and wire ID. Keep H3
-      outside general-text Routes and DMXAPI candidates unknown on
-      unauthenticated 401. Admit or replace Routes only after successful calls,
-      then call each retained Route once. Stop at a credential boundary that
-      requires Keychain UI; report such calls as unverified.
+- [ ] 7.4 Prepare exact wire-ID probes from the public catalogues. For
+      AIHubMix, try `gpt-6-sol`, `gpt-6-luna`, `claude-opus-5-5`,
+      `deepseek-v4.1-flash`, `minimax-m3`, `cc-minimax-m3`, and
+      `grok-4.7`; for UCloud, try `deepseek-v4.1-flash` and
+      `MiniMax-M3`. Record Account, attempted protocol, and wire ID for
+      each bounded noninteractive inference call, then call every retained
+      Route once. A listing or omission is not availability evidence:
+      retain private UCloud GPT/Claude Routes, leave DMXAPI 401 unknown,
+      and do not infer CC/coding prefix semantics or admit H3 as general
+      text. Admit or replace only after the exact call succeeds and 7.5
+      global vendor cardinality holds; stop if credentials require
+      Keychain UI, reporting uncalled Routes as unverified.
 - [ ] 7.5 Accept the final candidate-bound `manifests/team.toml` and the
       installed profile exported by `aigw config export` as one semantic
       catalogue across AIHubMix, DMXAPI, and UCloud. Compare Model IDs,

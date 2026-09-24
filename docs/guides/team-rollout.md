@@ -127,6 +127,15 @@ listed Opus 5.5, all three GPT-6 IDs, `minimax-m3`,
 Seed 2.1 Pro, and `MiniMax-H3-Max`. These listings are discovery evidence,
 not newly qualified Routes.
 
+A second read on September 24, 2026 at 10:28 UTC returned 416
+[AIHubMix catalogue IDs](https://api.inferera.com/v1/models) and 132
+[UCloud catalogue IDs](https://api.modelverse.cn/v1/models). AIHubMix also
+listed `cc-minimax-m3`, `coding-minimax-m3`, and `grok-4.7`. The public UCloud
+response listed no GPT-6 or Claude IDs; that omission does not contradict
+prior authenticated UCloud inference. Neither catalogue identifies a model's
+protocol, and a prefixed MiniMax wire ID is not a separate logical Model by
+itself.
+
 MiniMax's [H3 announcement](https://www.minimax.io/blog/minimax-h3)
 describes a multimodal generation model that outputs video with sound. H3
 family names in a provider catalogue are not evidence of a general text
