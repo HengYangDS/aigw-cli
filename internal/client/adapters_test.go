@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -345,14 +346,17 @@ func TestClaudeVerificationRequiresTheSynchronizedProjection(t *testing.T) {
 
 func TestClaudeInspectionRequiresTheSynchronizedProjection(t *testing.T) {
 	tests := []struct {
-		name     string
-		sync     bool
-		model    string
-		settings string
-		ready    bool
+		name        string
+		sync        bool
+		model       string
+		nativeModel string
+		settings    string
+		ready       bool
+		override    bool
 	}{
 		{name: "missing", model: "claude-model"},
 		{name: "converged", sync: true, model: "claude-model", ready: true},
+		{name: "native model preference", sync: true, model: "claude-model", nativeModel: "opus[1m]", ready: true, override: true},
 		{name: "selected model changed", sync: true, model: "another-model"},
 		{name: "malformed", sync: true, model: "claude-model", settings: "{"},
 		{name: "externally changed", sync: true, model: "claude-model", settings: `{"model":"external-model"}`},
@@ -377,6 +381,21 @@ func TestClaudeInspectionRequiresTheSynchronizedProjection(t *testing.T) {
 				}
 			}
 			runtime.Model = test.model
+			if test.nativeModel != "" {
+				data, err := os.ReadFile(deps.ClaudeSettingsPath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var document map[string]json.RawMessage
+				if err := json.Unmarshal(data, &document); err != nil {
+					t.Fatal(err)
+				}
+				document["model"], _ = json.Marshal(test.nativeModel)
+				data, _ = json.MarshalIndent(document, "", "  ")
+				if err := os.WriteFile(deps.ClaudeSettingsPath, append(data, '\n'), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
 			if test.settings != "" {
 				if err := os.WriteFile(deps.ClaudeSettingsPath, []byte(test.settings), 0o600); err != nil {
 					t.Fatal(err)
@@ -391,8 +410,8 @@ func TestClaudeInspectionRequiresTheSynchronizedProjection(t *testing.T) {
 				files[path] = data
 			}
 			status := (claudeAdapter{}).Inspect(context.Background(), deps, cfg, runtime)
-			if status.Ready != test.ready {
-				t.Errorf("inspection = %+v, want ready=%t", status, test.ready)
+			if status.Ready != test.ready || status.NativeModelOverride != test.override {
+				t.Errorf("inspection = %+v, want ready=%t override=%t", status, test.ready, test.override)
 			}
 			if !test.ready && (!strings.Contains(status.Issue, "not synchronized") || status.RepairAction != "aigw sync") {
 				t.Errorf("missing synchronization diagnosis: %+v", status)

@@ -285,10 +285,11 @@ func (claudeAdapter) Inspect(_ context.Context, deps Dependencies, cfg configura
 	if !ready {
 		return Status{Issue: "Claude executable is unavailable", RepairAction: "aigw repair"}
 	}
-	if err := claude.ValidateSettings(deps.ClaudeSettingsPath, runtime, runtime.CredentialExecutable(deps.AIGWExecutable)); err != nil {
+	inspection, err := claude.InspectSettings(deps.ClaudeSettingsPath, runtime, runtime.CredentialExecutable(deps.AIGWExecutable))
+	if err != nil {
 		return Status{Issue: err.Error(), RepairAction: "aigw sync"}
 	}
-	return Status{Ready: true}
+	return Status{Ready: true, NativeModelOverride: inspection.NativeModelOverride}
 }
 
 func (claudeAdapter) Withdraw(cfg *configuration.Config) {

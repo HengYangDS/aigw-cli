@@ -41,11 +41,11 @@
 
 ## 4. Preserve Claude's native model preference
 
-- [ ] 4.1 Inspect the existing sidecar read-only and recognize only a
+- [x] 4.1 Inspect the existing sidecar read-only and recognize only a
       model-only change reconstructed from the previous Route. Reject helper,
       endpoint, and managed-credential edits. Verify: RED/GREEN tests in
       `./internal/claude/...` and byte equality of settings and sidecar.
-- [ ] 4.2 Carry the proven native-model-override fact through Claude's
+- [x] 4.2 Carry the proven native-model-override fact through Claude's
       Adapter without treating the alias as a Route wire model. Verify:
       `go test ./internal/client/...`.
 - [ ] 4.3 Keep status and doctor locally truthful, and make check use endpoint
