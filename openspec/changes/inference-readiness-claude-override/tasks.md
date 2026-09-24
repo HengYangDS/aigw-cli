@@ -55,16 +55,13 @@
 - [x] 4.2 Carry the proven native-model-override fact through Claude's
       Adapter without treating the alias as a Route wire model. Verify:
       `go test ./internal/client/...`.
-- [ ] 4.3 Keep status and doctor locally truthful, and make check use endpoint
+- [x] 4.3 Keep status and doctor locally truthful, and make check use endpoint
       scope for a proven Claude override with
       `aigw verify --for claude` as continuation. Verify: focused human and
       JSON acceptance tests plus a candidate-bound real nonpersistent native
       Claude request in an owned isolated context with noninteractive
-      credentials. Preserve the user's current host settings and sidecar bytes.
-      The prior `opus[1m]` result is historical: at the 2026-09-24 12:11 UTC
-      read, the host settings had no top-level model after a later edit. If an
-      isolated request cannot authenticate without UI, report that limit and
-      leave native override acceptance open.
+      credentials. Preserve the user's current host settings and sidecar bytes;
+      a host model equal to the selected Route does not prove an override.
 
 ## 5. Expose the check scope
 
@@ -94,7 +91,7 @@
 
 - [x] 6.1 Run `mise run check` and `mise run native` on the same committed
       product HEAD, with all focused regressions green.
-- [ ] 6.2 Exercise the actual packaged candidate and shipped team manifest,
+- [x] 6.2 Exercise the actual packaged candidate and shipped team manifest,
       binding every selected native journey to its candidate digest. Verify
       explicit UCloud GPT-6 Sol inference, Claude Code's native override,
       endpoint-only mode, and fixture-backed distributor 503 classification.
