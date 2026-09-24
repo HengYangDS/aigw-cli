@@ -18,7 +18,7 @@
       credential header, exact Route wire model, and capped output. Verify:
       focused request-shape tests in `./internal/credential/...` fail before
       implementation and pass afterward.
-- [ ] 2.2 Reject an empty or unresolvable wire model without falling back to
+- [x] 2.2 Reject an empty or unresolvable wire model without falling back to
       the catalogue request, and bound response reads without retaining a
       conversation. Verify: focused negative and size-bound tests in
       `./internal/credential/...`.
@@ -28,10 +28,10 @@
 
 ## 3. Classify scoped observations
 
-- [ ] 3.1 Pass an explicit endpoint or inference scope through
+- [x] 3.1 Pass an explicit endpoint or inference scope through
       `diagnostics.Probe`, `ProbeStable`, and `Result`. Verify: focused
       diagnostics tests demonstrate the same scope in request and result.
-- [ ] 3.2 Make one inference request that receives `503 no available channel`
+- [x] 3.2 Make one inference request that receives `503 no available channel`
       classify as retryable `ModelUnavailable` without a second request.
       Fail unchanged 401/403 without repeated probes. Verify: request-count
       and classification tests in `./internal/diagnostics/...`.

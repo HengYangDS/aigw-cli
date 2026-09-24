@@ -18,6 +18,14 @@ import (
 // Kind classifies a provider endpoint diagnostic outcome.
 type Kind string
 
+// Scope states what the authenticated request actually observes.
+type Scope string
+
+const (
+	ScopeEndpoint  Scope = "endpoint"
+	ScopeInference Scope = "inference"
+)
+
 const (
 	// Healthy identifies a successful authenticated provider probe.
 	Healthy Kind = "healthy"
@@ -35,6 +43,8 @@ const (
 	RateLimited Kind = "rate_limited"
 	// ModelUnavailable identifies a configured model that the provider cannot currently serve.
 	ModelUnavailable Kind = "model_unavailable"
+	// ModelUnresolved identifies a Route without an exact upstream model for inference.
+	ModelUnresolved Kind = "model_unresolved"
 	// UpstreamFailure identifies a failure returned by the selected endpoint.
 	UpstreamFailure Kind = "upstream_failure"
 	// EndpointMismatch identifies a configured URL that does not expose the expected protocol path.
@@ -53,6 +63,7 @@ type HTTPDoer interface {
 // Result is the stable, non-secret diagnostic classification returned to commands and JSON consumers.
 type Result struct {
 	Kind               Kind   `json:"kind"`
+	Scope              Scope  `json:"scope,omitempty"`
 	Summary            string `json:"summary"`
 	Detail             string `json:"detail,omitempty"`
 	Fix                string `json:"fix,omitempty"`
@@ -77,19 +88,19 @@ func DefaultStabilityPolicy() StabilityPolicy {
 }
 
 // ProbeStable retries only admitted transient outcomes and returns the final classified result.
-func ProbeStable(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, policy StabilityPolicy) Result {
-	result := probeWithTimeout(ctx, client, runtime, token, policy.AttemptTimeout)
+func ProbeStable(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, scope Scope, policy StabilityPolicy) Result {
+	result := probeWithTimeout(ctx, client, runtime, token, scope, policy.AttemptTimeout)
 	result.Attempts = 1
-	if result.Kind != InvalidToken {
+	if scope == ScopeInference || result.Kind != InvalidToken {
 		return result
 	}
 
 	recovery := make([]Result, 0, len(policy.RecoveryDelays))
 	for _, delay := range policy.RecoveryDelays {
 		if err := waitForRecovery(ctx, delay); err != nil {
-			return unstableAuthentication(result.Attempts, err.Error())
+			return unstableAuthentication(result.Attempts, scope, err.Error())
 		}
-		observation := probeWithTimeout(ctx, client, runtime, token, policy.AttemptTimeout)
+		observation := probeWithTimeout(ctx, client, runtime, token, scope, policy.AttemptTimeout)
 		recovery = append(recovery, observation)
 		result.Attempts++
 	}
@@ -105,16 +116,16 @@ func ProbeStable(ctx context.Context, client HTTPDoer, runtime configuration.Run
 		persistent.Attempts = result.Attempts
 		return persistent
 	}
-	return unstableAuthentication(result.Attempts, "Authentication responses were inconsistent across bounded recovery attempts")
+	return unstableAuthentication(result.Attempts, scope, "Authentication responses were inconsistent across bounded recovery attempts")
 }
 
-func probeWithTimeout(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, timeout time.Duration) Result {
+func probeWithTimeout(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, scope Scope, timeout time.Duration) Result {
 	if timeout <= 0 {
-		return Probe(ctx, client, runtime, token)
+		return Probe(ctx, client, runtime, token, scope)
 	}
 	attemptCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	return Probe(attemptCtx, client, runtime, token)
+	return Probe(attemptCtx, client, runtime, token, scope)
 }
 
 func waitForRecovery(ctx context.Context, delay time.Duration) error {
@@ -148,8 +159,9 @@ func allKind(results []Result, kind Kind) bool {
 	return true
 }
 
-func unstableAuthentication(attempts int, detail string) Result {
+func unstableAuthentication(attempts int, scope Scope, detail string) Result {
 	return Result{
+		Scope:     scope,
 		Kind:      AuthenticationUnstable,
 		Summary:   "Authentication could not be confirmed consistently",
 		Detail:    detail,
@@ -160,23 +172,36 @@ func unstableAuthentication(attempts int, detail string) Result {
 }
 
 // Probe performs one bounded authenticated diagnostic request against the selected route endpoint.
-func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string) Result {
-	if strings.TrimSpace(runtime.Endpoint) == "" {
-		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Fix: "Check the protocol endpoint for the current route's account"}
+func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, scope Scope) Result {
+	if scope != ScopeEndpoint && scope != ScopeInference {
+		return Result{Kind: Unexpected, Scope: scope, Summary: "Unsupported diagnostic scope", Fix: "Run `aigw doctor` for detailed status"}
 	}
-	req, err := credential.ProbeRequest(ctx, runtime.Client, runtime.Endpoint, token, runtime.Protocol)
+	if strings.TrimSpace(runtime.Endpoint) == "" {
+		return Result{Kind: EndpointMismatch, Scope: scope, Summary: "Invalid API URL", Fix: "Check the protocol endpoint for the current route's account"}
+	}
+	var req *http.Request
+	var err error
+	if scope == ScopeInference {
+		if strings.TrimSpace(runtime.Model) == "" {
+			return Result{Kind: ModelUnresolved, Scope: scope, Summary: "Route has no upstream model for inference", Fix: "Check the selected Route's upstream model"}
+		}
+		req, err = credential.ModelInferenceRequest(ctx, runtime.Endpoint, runtime.Protocol, token, runtime.Model)
+	} else {
+		req, err = credential.ProbeRequest(ctx, runtime.Client, runtime.Endpoint, token, runtime.Protocol)
+	}
 	if err != nil {
-		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Detail: err.Error(), Fix: "Check the endpoint for the active route"}
+		return Result{Kind: EndpointMismatch, Scope: scope, Summary: "Cannot construct the diagnostic request", Detail: err.Error(), Fix: "Check the endpoint and protocol for the active route"}
 	}
 	resp, err := credential.DoProbe(client, req)
 	if err != nil {
-		return Result{Kind: NetworkFailure, Summary: "Cannot reach the endpoint", Detail: redaction.Text(err.Error(), token), Fix: "Check the configured endpoint and network, then try again", Retryable: true}
+		return Result{Kind: NetworkFailure, Scope: scope, Summary: "Cannot reach the endpoint", Detail: redaction.Text(err.Error(), token), Fix: "Check the configured endpoint and network, then try again", Retryable: true}
 	}
 	defer func() { _ = resp.Body.Close() }()
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 	if readErr != nil {
 		return Result{
 			Kind:       NetworkFailure,
+			Scope:      scope,
 			Summary:    "Cannot read the endpoint response",
 			Detail:     redaction.Text(readErr.Error(), token),
 			Fix:        "Check the configured endpoint and network, then try again",
@@ -186,10 +211,13 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 	}
 	message := strings.TrimSpace(string(body))
 	lower := strings.ToLower(message)
-	result := Result{HTTPStatus: resp.StatusCode, Detail: compact(message, token)}
+	result := Result{HTTPStatus: resp.StatusCode, Scope: scope, Detail: compact(message, token)}
 	switch {
 	case resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices:
 		result.Kind, result.Summary = Healthy, "Endpoint diagnostic returned a successful response"
+		if scope == ScopeInference {
+			result.Summary = "Inference diagnostic returned a successful response"
+		}
 	case resp.StatusCode == http.StatusUnauthorized:
 		result.Kind, result.Summary = InvalidToken, "Account Token is invalid or does not belong to the configured endpoint"
 		result.Fix = "Run `aigw rotate " + runtime.AccountID + "` to enter the token again, and confirm that the configured endpoint belongs to this Account"

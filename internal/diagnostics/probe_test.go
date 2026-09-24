@@ -43,7 +43,7 @@ func TestProbeClassifiesUsefulFailureCauses(t *testing.T) {
 	for _, tt := range tests {
 		result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 			return response(tt.status, tt.body), nil
-		}), runtime(), "secret")
+		}), runtime(), "secret", diagnostics.ScopeEndpoint)
 		if result.Kind != tt.kind || result.Fix == "" || result.Summary == "" {
 			t.Errorf("status %d body %s => %#v", tt.status, tt.body, result)
 		}
@@ -57,7 +57,7 @@ func TestProbeUsesModelsEndpointAndNeverReturnsCredential(t *testing.T) {
 		requestURL = req.URL.String()
 		authorization = req.Header.Get("Authorization")
 		return response(200, `{"data":[]}`), nil
-	}), runtime(), secret)
+	}), runtime(), secret, diagnostics.ScopeEndpoint)
 	if result.Kind != diagnostics.Healthy || requestURL != "https://service.test/v1/models" || authorization != "Bearer "+secret {
 		t.Fatalf("result=%#v url=%q auth=%q", result, requestURL, authorization)
 	}
@@ -73,7 +73,7 @@ func TestProbeRedactsAnAccountTokenEchoedByTheEndpoint(t *testing.T) {
 	secret := "aigw-test-account-token-never-leaks"
 	result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 		return response(http.StatusForbidden, `{"message":"rejected token aigw-test-account-token-never-leaks"}`), nil
-	}), runtime(), secret)
+	}), runtime(), secret, diagnostics.ScopeEndpoint)
 	if strings.Contains(result.Detail, secret) {
 		t.Fatalf("endpoint response leaked Account Token: %#v", result)
 	}
@@ -150,7 +150,7 @@ func TestProbeUsesEndpointNeutralFailures(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 				return response(test.status, test.body), nil
-			}), runtime(), "secret")
+			}), runtime(), "secret", diagnostics.ScopeEndpoint)
 			if result.Kind != test.wantKind || result.Summary != test.wantSummary || result.Fix != test.wantFix {
 				t.Fatalf("Probe() = %#v", result)
 			}
@@ -164,7 +164,7 @@ func TestProbeUsesEndpointNeutralFailures(t *testing.T) {
 func TestProbeClassifiesNetworkFailure(t *testing.T) {
 	result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 		return nil, errors.New("dial tcp: network unreachable")
-	}), runtime(), "secret")
+	}), runtime(), "secret", diagnostics.ScopeEndpoint)
 	if result.Kind != diagnostics.NetworkFailure || !result.Retryable {
 		t.Fatalf("result = %#v", result)
 	}
@@ -194,7 +194,7 @@ func TestProbeStableRecoversOnlyAfterThreeHealthyObservations(t *testing.T) {
 		{status: http.StatusOK, body: `{"data":[]}`},
 	})
 
-	result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", immediateStabilityPolicy())
+	result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", diagnostics.ScopeEndpoint, immediateStabilityPolicy())
 
 	if result.Kind != diagnostics.Healthy || result.Attempts != 4 || !result.RecoveredTransient {
 		t.Fatalf("result = %#v, want recovered healthy result after four attempts", result)
@@ -209,7 +209,7 @@ func TestProbeStableConfirmsPersistentInvalidToken(t *testing.T) {
 		{status: http.StatusUnauthorized, body: `{"message":"invalid api key"}`},
 	})
 
-	result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", immediateStabilityPolicy())
+	result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", diagnostics.ScopeEndpoint, immediateStabilityPolicy())
 
 	if result.Kind != diagnostics.InvalidToken || result.Attempts != 4 || result.RecoveredTransient {
 		t.Fatalf("result = %#v, want persistent invalid token after four attempts", result)
@@ -227,7 +227,7 @@ func TestProbeStableClassifiesMixedAuthenticationOutcomesAsUnstable(t *testing.T
 		{status: http.StatusOK, body: `{"data":[]}`},
 	})
 
-	result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", immediateStabilityPolicy())
+	result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", diagnostics.ScopeEndpoint, immediateStabilityPolicy())
 
 	if result.Kind != diagnostics.AuthenticationUnstable || result.Attempts != 4 || !result.Retryable {
 		t.Fatalf("result = %#v, want retryable authentication instability", result)
@@ -251,7 +251,7 @@ func TestProbeStableCancellationStopsRecoveryPromptly(t *testing.T) {
 	}
 	started := time.Now()
 
-	result := diagnostics.ProbeStable(ctx, client, runtime(), "secret", policy)
+	result := diagnostics.ProbeStable(ctx, client, runtime(), "secret", diagnostics.ScopeEndpoint, policy)
 
 	if elapsed := time.Since(started); elapsed > 250*time.Millisecond {
 		t.Fatalf("ProbeStable took %s after cancellation", elapsed)
@@ -287,7 +287,7 @@ func TestProbeStableTreatsRecoveryBodyReadTimeoutsAsAuthenticationUnstable(t *te
 				AttemptTimeout: 10 * time.Millisecond,
 			}
 
-			result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", policy)
+			result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", diagnostics.ScopeEndpoint, policy)
 
 			if calls != 4 || closed != 3 {
 				t.Fatalf("calls=%d closed=%d, want four calls and three closed recovery bodies", calls, closed)
@@ -318,7 +318,7 @@ func TestProbeStableClosesEveryResponse(t *testing.T) {
 		}, nil
 	})
 
-	result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", immediateStabilityPolicy())
+	result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", diagnostics.ScopeEndpoint, immediateStabilityPolicy())
 
 	if result.Kind != diagnostics.Healthy || closed != 4 {
 		t.Fatalf("result=%#v closed=%d, want four closed responses", result, closed)
@@ -334,7 +334,7 @@ func TestProbeStableNeverReturnsCredential(t *testing.T) {
 		{status: http.StatusOK, body: `{"message":"accepted aigw-stability-token-never-leaks"}`},
 	})
 
-	result := diagnostics.ProbeStable(context.Background(), client, runtime(), secret, immediateStabilityPolicy())
+	result := diagnostics.ProbeStable(context.Background(), client, runtime(), secret, diagnostics.ScopeEndpoint, immediateStabilityPolicy())
 
 	if strings.Contains(result.Summary+result.Detail+result.Fix, secret) {
 		t.Fatalf("credential leaked: %#v", result)

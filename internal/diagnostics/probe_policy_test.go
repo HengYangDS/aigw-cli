@@ -28,7 +28,7 @@ func TestWaitForRecoveryWithNoDelay(t *testing.T) {
 }
 
 func TestProbeWithNoTimeoutUsesProbe(t *testing.T) {
-	result := probeWithTimeout(context.Background(), http.DefaultClient, configuration.Runtime{}, "secret", 0)
+	result := probeWithTimeout(context.Background(), http.DefaultClient, configuration.Runtime{}, "secret", ScopeEndpoint, 0)
 	if result.Kind != EndpointMismatch || result.Summary != "Invalid API URL" {
 		t.Fatalf("probeWithTimeout() = %#v", result)
 	}

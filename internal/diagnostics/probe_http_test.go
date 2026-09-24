@@ -26,7 +26,7 @@ func TestDiagnosticProbeKeepsCredentialsAtTheirSelectedOrigin(t *testing.T) {
 				http.Redirect(writer, request, target.URL, http.StatusFound)
 			}))
 			t.Cleanup(origin.Close)
-			result := diagnostics.Probe(t.Context(), origin.Client(), configuration.Runtime{Client: client, Endpoint: origin.URL}, "synthetic-token")
+			result := diagnostics.Probe(t.Context(), origin.Client(), configuration.Runtime{Client: client, Endpoint: origin.URL}, "synthetic-token", diagnostics.ScopeEndpoint)
 			if followed.Load() != 0 || result.HTTPStatus != http.StatusFound || result.Kind == diagnostics.Healthy {
 				t.Fatalf("diagnostic followed=%d result=%#v; want selected-origin redirect rejection", followed.Load(), result)
 			}
@@ -50,7 +50,7 @@ func TestProbeStableUsesRealHTTPRecoveryBoundary(t *testing.T) {
 		}))
 		defer server.Close()
 
-		result := diagnostics.ProbeStable(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL + "/v1"}, secret, diagnostics.StabilityPolicy{
+		result := diagnostics.ProbeStable(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL + "/v1"}, secret, diagnostics.ScopeEndpoint, diagnostics.StabilityPolicy{
 			RecoveryDelays: []time.Duration{time.Millisecond},
 			AttemptTimeout: time.Second,
 		})
@@ -76,7 +76,7 @@ func TestProbeStableUsesRealHTTPRecoveryBoundary(t *testing.T) {
 		}))
 		defer server.Close()
 
-		result := diagnostics.ProbeStable(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL + "/v1"}, "secret", diagnostics.StabilityPolicy{
+		result := diagnostics.ProbeStable(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL + "/v1"}, "secret", diagnostics.ScopeEndpoint, diagnostics.StabilityPolicy{
 			RecoveryDelays: []time.Duration{time.Millisecond, 2 * time.Millisecond},
 			AttemptTimeout: time.Second,
 		})
@@ -133,7 +133,7 @@ func TestProbeUsesDeclaredClientProtocol(t *testing.T) {
 				context.Background(),
 				server.Client(),
 				configuration.Runtime{Client: test.client, Endpoint: server.URL + test.endpointSuffix},
-				"secret",
+				"secret", diagnostics.ScopeEndpoint,
 			)
 			if result.Kind != diagnostics.Healthy {
 				t.Fatalf("result = %#v, want healthy", result)
@@ -168,7 +168,7 @@ func TestProbeClassifiesRealHTTPResponses(t *testing.T) {
 			}))
 			defer server.Close()
 
-			result := diagnostics.Probe(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL}, "secret")
+			result := diagnostics.Probe(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL}, "secret", diagnostics.ScopeEndpoint)
 			if result.Kind != tt.kind || result.HTTPStatus != tt.status || result.Summary == "" || result.Fix == "" {
 				t.Fatalf("Probe() = %#v", result)
 			}
@@ -177,7 +177,7 @@ func TestProbeClassifiesRealHTTPResponses(t *testing.T) {
 }
 
 func TestProbeRejectsEmptyEndpointBeforeHTTP(t *testing.T) {
-	result := diagnostics.Probe(context.Background(), http.DefaultClient, configuration.Runtime{}, "secret")
+	result := diagnostics.Probe(context.Background(), http.DefaultClient, configuration.Runtime{}, "secret", diagnostics.ScopeEndpoint)
 	if result.Kind != diagnostics.EndpointMismatch || result.HTTPStatus != 0 || result.Summary != "Invalid API URL" || result.Fix == "" {
 		t.Fatalf("Probe() = %#v", result)
 	}
@@ -207,7 +207,7 @@ func TestProbeReportsTruncatedHTTPResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result := diagnostics.Probe(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL}, secret)
+	result := diagnostics.Probe(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL}, secret, diagnostics.ScopeEndpoint)
 	if result.Kind != diagnostics.NetworkFailure || result.HTTPStatus != http.StatusOK || !result.Retryable || result.Summary != "Cannot read the endpoint response" || !strings.Contains(result.Detail, "unexpected EOF") {
 		t.Fatalf("Probe() = %#v", result)
 	}

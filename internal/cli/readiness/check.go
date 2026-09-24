@@ -99,7 +99,7 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg configur
 		result.fix = "aigw rotate " + clientRuntime.AccountID
 		return result
 	}
-	result.diagnostic = diagnostics.ProbeStable(cmd.Context(), runtime.HTTP, clientRuntime, token, diagnostics.DefaultStabilityPolicy())
+	result.diagnostic = diagnostics.ProbeStable(cmd.Context(), runtime.HTTP, clientRuntime, token, diagnostics.ScopeEndpoint, diagnostics.DefaultStabilityPolicy())
 	if result.diagnostic.Kind != diagnostics.Healthy {
 		result.issue = result.diagnostic.Summary
 		result.fix = result.diagnostic.Fix
