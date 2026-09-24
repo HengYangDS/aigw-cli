@@ -191,7 +191,7 @@ func TestGitLabLinuxToolchainRemainsDormantWithoutQualifiedCapacity(t *testing.T
 	if len(pipeline.Quality.Extends) != 0 || pipeline.Quality.Variables["CGO_ENABLED"] != "1" {
 		t.Fatalf("GitLab quality must use the selected control executor directly: %#v", pipeline.Quality)
 	}
-	if !slices.Equal(pipeline.Quality.Tags, []string{"aigw-ci-macos-arm64"}) {
+	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_GITLAB_DARWIN_RUNNER_TAG"}) {
 		t.Fatalf("GitLab quality runner tags = %q", pipeline.Quality.Tags)
 	}
 	if len(pipeline.Quality.Script) < 2 || pipeline.Quality.Script[0] != "env GODEBUG=http2client=0 mise install --locked" || pipeline.Quality.Script[1] != "mise run bootstrap" {
@@ -410,7 +410,7 @@ func TestQualityJobsUseTheirExactToolClosure(t *testing.T) {
 	if qualityTools == "" {
 		t.Fatal("GitLab quality job must declare its native toolchain")
 	}
-	if !slices.Equal(pipeline.Quality.Tags, []string{"aigw-ci-macos-arm64"}) {
+	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_GITLAB_DARWIN_RUNNER_TAG"}) {
 		t.Fatalf("GitLab quality runner tags = %q", pipeline.Quality.Tags)
 	}
 	if len(pipeline.Quality.Script) < 2 || pipeline.Quality.Script[0] != "env GODEBUG=http2client=0 mise install --locked" || pipeline.Quality.Script[1] != "mise run bootstrap" {

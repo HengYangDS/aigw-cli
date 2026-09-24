@@ -9,7 +9,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-func TestGitLabVerificationUsesDisposableMacOSRunner(t *testing.T) {
+func TestGitLabJobsShareConfiguredDarwinSelector(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
@@ -32,7 +32,7 @@ func TestGitLabVerificationUsesDisposableMacOSRunner(t *testing.T) {
 		"release-version":     pipeline.ReleaseVersion,
 		"release-assets":      pipeline.ReleaseAssets,
 	} {
-		if want := []string{"aigw-ci-macos-arm64"}; !slices.Equal(job.Tags, want) {
+		if want := []string{"$AIGW_GITLAB_DARWIN_RUNNER_TAG"}; !slices.Equal(job.Tags, want) {
 			t.Errorf("%s runner tags = %q, want %q", name, job.Tags, want)
 		}
 	}

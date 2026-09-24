@@ -119,14 +119,17 @@
       7.4 inference observation for every admitted Route. Preserve personal
       recommendations, credentials, native preferences, and foreign fields;
       any lost Account coverage requires an explicit reviewed Route retirement.
-- [ ] 7.6 Route GitLab quality, native Darwin, accepted-ref parity, release
-      version validation, and artifact verification to the disposable macOS CI
-      runner. Keep Developer ID signing and Apple notarization on the
-      authorized host. Verify the rendered CI projection and, on the final
-      candidate HEAD, the actual job SHA, runner ID, system ID, tag, and
-      status. Older VM jobs prove capacity only. Re-run source, native,
-      packaged-manifest, and hosted evidence for changed release inputs before
-      publication.
+- [ ] 7.6 Preserve the existing GitLab Darwin tag variable as the single
+      selector for native Darwin, quality, accepted-ref parity, release-version,
+      and release-assets. Keep the current host binding while re-running source,
+      native, packaged-manifest, exact-HEAD, and hosted evidence for changed
+      release inputs. Before any VM98 cutover, prove its eligible-ref access and
+      actual execution of the declared native and control jobs on the exact
+      candidate HEAD; verify job SHA, runner ID, system ID, tag, status, and
+      work. An older protected-branch job or an unassigned proposal job is not
+      proof. Tag-only jobs need their own exact-tag evidence. Decide whether
+      changing the existing variable suffices only after those observations;
+      do not add a separate host-release CI lane.
 
 ## 8. Publish and install
 
