@@ -127,18 +127,18 @@ upstream wire model. Status and doctor make no inference request.
 
 The JSON vocabulary follows that evidence boundary:
 
-| Field or state          | Exact meaning                                                   |
-| ----------------------- | --------------------------------------------------------------- |
-| `endpoint_configured`   | The selected Route resolves an endpoint address.                |
-| `projection_ready`      | The local client projection passes inspection.                  |
-| `native_model_override` | Claude has a sidecar-proven native model preference.             |
-| `diagnostic_scope`      | `endpoint` or `inference`, whichever request was performed.     |
-| `check_passed`          | The binding passed the checks applicable to its scope.          |
-| `configured`            | Local prerequisites pass; no successful endpoint evidence.      |
-| `endpoint_checked`      | A model-free authenticated endpoint request succeeded.          |
-| `inference_checked`     | One exact Route-model inference request succeeded.              |
-| `ok`                    | The command's applicable checks passed.                         |
-| `next_action`           | The next explicit action, not necessarily a repair.             |
+| Field or state          | Exact meaning                                               |
+| ----------------------- | ----------------------------------------------------------- |
+| `endpoint_configured`   | The selected Route resolves an endpoint address.            |
+| `projection_ready`      | The local client projection passes inspection.              |
+| `native_model_override` | Claude has a sidecar-proven native model preference.        |
+| `diagnostic_scope`      | `endpoint` or `inference`, whichever request was performed. |
+| `check_passed`          | The binding passed the checks applicable to its scope.      |
+| `configured`            | Local prerequisites pass; no successful endpoint evidence.  |
+| `endpoint_checked`      | A model-free authenticated endpoint request succeeded.      |
+| `inference_checked`     | One exact Route-model inference request succeeded.          |
+| `ok`                    | The command's applicable checks passed.                     |
+| `next_action`           | The next explicit action, not necessarily a repair.         |
 
 Neither `ok` nor `inference_checked` proves real-client execution, future
 availability, or the provider's retention policy. `endpoint_checked` does not

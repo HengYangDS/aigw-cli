@@ -158,15 +158,15 @@ aigw check
 aigw verify --for <client>
 ```
 
-| Command    | Contract                                                                |
-| ---------- | ----------------------------------------------------------------------- |
-| `status`   | Observe Client Bindings and projection readiness without reading Tokens |
+| Command    | Contract                                                                    |
+| ---------- | --------------------------------------------------------------------------- |
+| `status`   | Observe Client Bindings and projection readiness without reading Tokens     |
 | `check`    | Check credentials and projections, then selected-model inference by default |
-| `doctor`   | Explain current problems without mutation                               |
-| `repair`   | Reconcile bounded AIGW-owned client state                               |
-| `test`     | Test an endpoint without proving native-client behavior                 |
-| `verify`   | Run one explicit native-client request that may consume quota           |
-| `rollback` | Restore a verified AIGW configuration checkpoint                        |
+| `doctor`   | Explain current problems without mutation                                   |
+| `repair`   | Reconcile bounded AIGW-owned client state                                   |
+| `test`     | Test an endpoint without proving native-client behavior                     |
+| `verify`   | Run one explicit native-client request that may consume quota               |
+| `rollback` | Restore a verified AIGW configuration checkpoint                            |
 
 Use `aigw repair --dry-run --json` before repairing drift. Human output gives one
 next action; machine consumers use the command's JSON mode where available.
