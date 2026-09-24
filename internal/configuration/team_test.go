@@ -139,9 +139,10 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	want := []string{
 		"claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5",
+		"command-a-03-2025",
 		"deepseek-v4.1-flash", "doubao-seed-2-1-pro-260628", "ernie-5.1", "gemini-3.1-pro-preview", "glm-5.3",
 		"gpt-6-astra", "gpt-6-luna", "gpt-6-sol", "grok-4.7",
-		"hy3", "kimi-k3", "ling-3.0-flash", "longcat-2.0", "mercury-2.5", "mimo-v2.6-pro",
+		"hy3", "kimi-k3", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.0", "mercury-2.5", "mimo-v2.6-pro",
 		"minimax-m3", "mistral-large-3", "muse-spark-1.3", "nemotron-3-ultra-550b-a55b",
 		"qwen3.8-max", "solar-pro4", "step-3.7-flash",
 	}
@@ -266,8 +267,10 @@ func TestTeamManifestKeepsQualifiedAdditionalVendorRoutes(t *testing.T) {
 		wire     string
 		protocol EndpointProtocol
 	}{
+		"aihubmix-command-a-03-2025":              {"command-a-03-2025", "command-a-03-2025", ProtocolOpenAIChatCompletions},
 		"aihubmix-ernie-5.1":                       {"ernie-5.1", "ernie-5.1", ProtocolOpenAIResponses},
 		"aihubmix-hy3":                             {"hy3", "hy3", ProtocolOpenAIChatCompletions},
+		"aihubmix-laguna-s-2.1":                    {"laguna-s-2.1", "laguna-s-2.1", ProtocolOpenAIChatCompletions},
 		"aihubmix-ling-3.0-flash":                  {"ling-3.0-flash", "ling-3.0-flash", ProtocolOpenAIChatCompletions},
 		"aihubmix-longcat-2.0":                     {"longcat-2.0", "longcat-2.0", ProtocolOpenAIChatCompletions},
 		"aihubmix-mercury-2.5":                     {"mercury-2.5", "mercury-2.5", ProtocolOpenAIChatCompletions},

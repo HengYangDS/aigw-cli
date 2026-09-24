@@ -102,19 +102,40 @@ Catalogue refresh performs none of those transitions.
 The catalogue contains only GPT-6 Astra, Sol, and Luna in the GPT family and
 Claude Fable 5.1, Opus 5.5, and Sonnet 5 in the Claude family. Each other
 admitted vendor keeps one general logical Model globally, with separately
-evidenced Routes: Grok 4.7, Gemini 3.1 Pro Preview, DeepSeek V4.1 Flash,
-Doubao Seed 2.1 Pro 260628, ERNIE 5.1, Qwen 3.8 Max, GLM 5.3, Kimi K3,
+evidenced Routes: Cohere Command A, Grok 4.7, Gemini 3.1 Pro Preview,
+DeepSeek V4.1 Flash, Doubao Seed 2.1 Pro 260628, ERNIE 5.1, Qwen 3.8 Max,
+GLM 5.3, Kimi K3,
 Hunyuan HY3, Ling 3.0 Flash, LongCat 2.0, Mercury 2.5, MiMo V2.6 Pro,
 MiniMax M3, Mistral Large 3, Meta Muse Spark 1.3, NVIDIA Nemotron 3 Ultra,
-Solar Pro 4, and Step 3.7 Flash.
-This candidate set is not a complete competitive-vendor audit. The public
+Poolside Laguna S 2.1, Solar Pro 4, and Step 3.7 Flash.
+
+At the September 25, 2026 read, the public
+[AIHubMix](https://api.inferera.com/v1/models) and
+[UCloud](https://api.modelverse.cn/v1/models) endpoints returned 416 and 132
+IDs respectively. This is a dated provider listing, not Route inference or a
+claim that private catalogues contain no further models. OpenAI/Openai,
+InclusionAI/Inclusionai, and ByteDance/Doubao owner labels refer to the same
+vendors; Llama entries belong to Meta, already represented by Muse Spark.
+Those labels do not create extra general-model slots.
+
+The public
 AIHubMix catalogue also lists Cohere Command A+ and Microsoft's MAI Thinking 1.
 Command A+ returned HTTP 400 on the tested Responses and Chat endpoints;
 Microsoft documents MAI Thinking 1 as preview. Step 5 Preview is also outside
 the stable-model selection. These listings are not admitted Routes.
+
+AIHubMix's `agnes-3.0-flash` returned Chat text, but the [model card](https://huggingface.co/Agnes-AI/Agnes-3.0-Flash)
+calls it a preview, so it is not admitted. `intern-s2-free` also returned Chat
+text, but that aggregator alias is not bound to the exact current InternAI
+model version in the [vendor's model guide](https://internlm.intern-ai.org.cn/docEn/docs/Models/).
+
+Specialized, small, preview, or unidentified public catalogue entries from
+Jina AI, Liquid, Dots Studio, Sao10k, and Stealth are not general-model Routes.
+
 MiniMax M3 has AIHubMix and UCloud Routes; its DMXAPI candidate timed out.
 Muse Spark 1.3 has an AIHubMix Route only; DMXAPI's unrelated Spark IDs are
 not Meta models, and no UCloud Muse Route was observed.
+
 Model entries carry identity only; client-scoped
 recommendations express preference without a global benchmark or cost claim.
 
@@ -218,6 +239,16 @@ StepFun's [Step 3.7 Flash](https://huggingface.co/stepfun-ai/Step-3.7-Flash),
 and InclusionAI's [Ling 3.0 Flash](https://huggingface.co/inclusionAI/Ling-3.0-flash).
 The Nemotron wire ID carries AIHubMix's `-free` channel suffix; it is one
 canonical NVIDIA Model, not a second logical model.
+
+Cohere's [Command A guide](https://docs.cohere.com/docs/command-a) identifies
+`command-a-03-2025` as a general agent model. AIHubMix completed Chat text
+inference for that exact ID. Its newer listed Command A+ returned HTTP 400
+on both tested protocols, so Command A is the strongest completed Cohere Route
+on this configured Account, not a claim about Cohere's overall strongest model.
+Poolside [positions Laguna S 2.1](https://poolside.ai/blog/introducing-laguna-s-2-1)
+for long-horizon agentic coding; its [model card](https://huggingface.co/poolside/Laguna-S-2.1)
+also documents text-to-text Chat use. It is the strongest S/XS model listed
+by AIHubMix, and its exact `laguna-s-2.1` Chat Route completed text inference.
 
 xAI's current [model guide](https://docs.x.ai/developers/models) calls Grok
 4.7 its flagship for code and other general tasks. The exact `grok-4.7`

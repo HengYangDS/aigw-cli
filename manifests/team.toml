@@ -82,6 +82,9 @@ label = 'Claude Opus 5.5'
 [models.claude-sonnet-5]
 label = 'Claude Sonnet 5'
 
+[models.command-a-03-2025]
+label = 'Cohere Command A'
+
 [models.'deepseek-v4.1-flash']
 label = 'DeepSeek V4.1 Flash'
 
@@ -114,6 +117,9 @@ label = 'Hunyuan HY3'
 
 [models.kimi-k3]
 label = 'Kimi K3'
+
+[models.'laguna-s-2.1']
+label = 'Poolside Laguna S 2.1'
 
 [models.'ling-3.0-flash']
 label = 'Ling 3.0 Flash'
@@ -172,6 +178,14 @@ upstream_model = 'claude-sonnet-5'
 
 [routes.aihubmix-claude-sonnet-5.interfaces]
 anthropic = []
+
+[routes.aihubmix-command-a-03-2025]
+account = 'aihubmix'
+model = 'command-a-03-2025'
+upstream_model = 'command-a-03-2025'
+
+[routes.aihubmix-command-a-03-2025.interfaces]
+openai_chat_completions = []
 
 [routes.'aihubmix-deepseek-v4.1-flash']
 account = 'aihubmix'
@@ -260,6 +274,14 @@ upstream_model = 'kimi-k3'
 
 [routes.aihubmix-kimi-k3.interfaces]
 openai_responses = []
+
+[routes.'aihubmix-laguna-s-2.1']
+account = 'aihubmix'
+model = 'laguna-s-2.1'
+upstream_model = 'laguna-s-2.1'
+
+[routes.'aihubmix-laguna-s-2.1'.interfaces]
+openai_chat_completions = []
 
 [routes.'aihubmix-ling-3.0-flash']
 account = 'aihubmix'

@@ -106,7 +106,7 @@
 
 ## 7. Curate the three-provider team catalogue and local configuration
 
-- [ ] 7.1 Reconcile public provider catalogues, the current team manifest,
+- [x] 7.1 Reconcile public provider catalogues, the current team manifest,
       local configuration, and prior inference evidence. Keep unauthenticated
       DMXAPI 401 and model listings distinct from unavailable or verified
       inference. Audit vendors missing from the curated manifest, not just
@@ -114,14 +114,18 @@
       Cohere Command A+, Baidu ERNIE 5.1, Mistral Large 3, Xiaomi MiMo 2.6
       Pro, Step 5 Preview, NVIDIA Nemotron 3 Ultra, Upstage Solar Pro 4,
       Inception Mercury 2.5, Meituan LongCat 2.0, and InclusionAI Ling;
-      UCloud also lists MiMo 2.6 Pro. Xiaomi's primary model guidance and
+      UCloud also lists MiMo 2.6 Pro. The public owner audit additionally
+      surfaced Cohere Command A, Poolside Laguna S 2.1, Agnes 3.0 Flash,
+      and Intern S2 aliases: admit the first two on exact Chat text evidence,
+      retain the Agnes preview and unresolved Intern alias as exclusions.
+      Xiaomi's primary model guidance and
       completed text inference on both listed Accounts admit MiMo. Review
       primary positioning and exact inference for ERNIE 5.1, Mistral Large 3,
       Nemotron 3 Ultra, Solar Pro 4, Mercury 2.5, LongCat 2.0, HY3, stable
       Step 3.7 Flash, and Ling 3.0 Flash; keep the unsupported Command A+
       and preview MAI Thinking 1/Step 5 out. Preserve catalog observations
       and exclusions without mirroring every listed ID into `team.toml`.
-- [ ] 7.2 Curate `manifests/team.toml` as the shipped Account / canonical Model /
+- [x] 7.2 Curate `manifests/team.toml` as the shipped Account / canonical Model /
       provider Route / per-client Recommendation contract. Keep canonical and
       Route IDs lower-case, exact-case wire IDs, and one canonical Model per
       other vendor. Admit MiniMax M3 only on proven Account Routes;
@@ -151,7 +155,9 @@
       positioning and completed exact-wire Responses calls. Add each further
       qualified vendor only on its completed AIHubMix Responses or Chat Route,
       with one base NVIDIA Model for the `-free` channel. Correct UCloud GLM
-      5.3 to its completed Chat Completions protocol.
+      5.3 to its completed Chat Completions protocol. Keep Cohere Command A
+      and Poolside Laguna S 2.1 as single canonical Models with their
+      exact-wire AIHubMix Chat Routes; the newer Command A+ returned HTTP 400.
 - [ ] 7.3 Reconcile only team-owned local Models and Routes through the AIGW
       configuration owner after a complete dry-run. Preserve Accounts,
       credentials, client selections, native preferences, and foreign state.
@@ -165,9 +171,11 @@
       attempted protocol, and wire ID for each bounded noninteractive call.
       Verify every retained Route: 54 unchanged Route/Account tuples from the
       57-Route `2ad9c411` matrix plus three newly called Grok 4.7 Routes
-      cover the current `76094075` manifest at the product-shaped 512-token
-      cap. Retain the source and delta observations under
-      `build/verification/765cb24c77bc15bed815d576387ea7c71a5f5ed0/catalog-*`.
+      and two AIHubMix Chat Routes for Cohere and Poolside cover all 59 Routes
+      in the `db724161` manifest at the product-shaped 512-token cap. Retain
+      the source and Grok observations under
+      `build/verification/765cb24c77bc15bed815d576387ea7c71a5f5ed0/catalog-*`,
+      and the new vendor calls under the `00f6aac3` verification directory.
       A listing or omission is not availability evidence:
       retain private UCloud GPT/Claude Routes, leave DMXAPI 401 unknown,
       and do not infer CC/coding prefix semantics or admit H3 as general
