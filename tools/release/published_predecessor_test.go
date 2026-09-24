@@ -7,8 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,11 +38,7 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 		t.Fatal(err)
 	}
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-		response.Header().Set("Content-Type", "application/json")
-		_, _ = response.Write([]byte(`{"data":[]}`))
-	}))
-	t.Cleanup(server.Close)
+	server := newNativeJourneyServer(t)
 	journey := publishedNativeJourney{
 		journey:  newNativeJourney(t, baseline, server.URL+"/v1", true),
 		baseline: baseline, candidate: candidate, archive: archive, checksums: checksums, version: version,
