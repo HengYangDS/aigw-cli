@@ -32,16 +32,15 @@ boundaries follow [Adapter admission](../governance/adapter-admission.md).
 The team manifest is a curated catalogue, not a collection of personal notes.
 
 - **Route ID:** stable selection key: Account ID + `-` + the exact provider
-  model ID, including its channel suffix.
+  wire model ID, including its channel suffix.
 - **`account`:** explicit reference to the credential-owning Account; Routes
   remain reusable and do not declare a client.
-- **`model`:** exact provider request identifier, preserving version
-  punctuation and channel suffix.
-- **`tier`:** optional curated role. Use `flagship` for the family's primary
-  capability choice and `daily` for its balanced everyday choice. The tier is
-  presentation metadata; it never changes routing or capability.
-- **`protocols`:** the explicit set of wire protocols verified for that exact
-  Account and model. A client may select only the intersection of its native
+- **`model`:** canonical logical Model identity. Channel suffixes do not create
+  another Model.
+- **`upstream_model`:** exact identifier sent to the provider, preserving
+  version punctuation and any channel suffix.
+- **`interfaces`:** explicit wire protocols admitted for that exact Account
+  and upstream model. A client may select only the intersection of its native
   protocols, the Account endpoints, and this set.
 - **`label`:** human-readable identity: `Account label · Model display name`;
   append `· CHANNEL` with a separating space when needed.
@@ -56,7 +55,8 @@ review status, or instructions. The catalogue assigns no workflow roles, so
 every Route consistently omits `purpose`; do not invent use cases to fill it.
 Route keys preserve provider spelling: `dmxapi-claude-fable-5-1` requests
 `claude-fable-5-1`; its display label is `DMXAPI · Claude Fable 5.1`.
-The `-cc` Route is a separate channel, not the ordinary model.
+The `-cc` Route is a separate channel whose `model` remains the base logical
+Model and whose `upstream_model` carries `-cc`.
 
 Use the native `aigw config export` layout: version, recommendations, Accounts,
 then Routes; map keys follow stable lexical order and fields follow schema
@@ -87,35 +87,45 @@ Catalogue refresh performs none of those transitions.
 
 ### Reviewed model defaults
 
-The catalogue contains GPT-6 Astra, Sol, and Luna, plus Claude Fable 5.1, Opus 5,
-and Sonnet 5. It also keeps a deliberately small reviewed set for each general
-model family: Grok 4.6/4.3, Gemini 3.1 Pro
-Preview/3.8 Flash, DeepSeek V4 Pro 0813/V4 Flash 0731, Qwen 3.8 Max/3.7 Plus,
-GLM 5.3/5.3 Flash, and Kimi K3/K2.7 Code Highspeed. Model entries carry
-identity only; client-scoped recommendations express preference without a
-global ranking or a claim about pricing, benchmarks, or universal superiority.
+The catalogue contains only GPT-6 Astra, Sol, and Luna in the GPT family and
+Claude Fable 5.1, Opus 5.5, and Sonnet 5 in the Claude family. Opus 5.5 is a
+known Model identity without an admitted Route until an exact Account,
+protocol, and wire ID pass authenticated inference. Each other admitted
+general-model family retains one previously qualified choice per Account:
+Grok 4.6, Gemini 3.1 Pro Preview, DeepSeek V4 Pro 0813, Qwen 3.8 Max,
+GLM 5.3, and Kimi K3. Model entries carry identity only; client-scoped
+recommendations express preference without a global benchmark or cost claim.
 
-All three configured Accounts listed the September 21 set in authenticated
-catalogue observations, and their selected protocols completed minimal
-inference calls. On September 23, 2026, UCloud additionally listed `gpt-6-sol`
-and `gpt-6-luna`; both completed minimal OpenAI Responses requests and are now
-Codex and Hermes choices, with Sol as the primary Route. UCloud did not list
-Claude Opus 5.5,
-and both plausible upstream identifiers were rejected, so the team catalogue
-does not mislabel or admit it. Catalogue membership and one successful text
-call remain narrower than complete tool, streaming, long-context, cost, or
-latency qualification.
+All three configured Accounts listed the retained September 21 set in
+authenticated catalogue observations, and their selected protocols completed
+minimal inference calls at that time. On September 23, 2026, UCloud also
+listed `gpt-6-sol` and `gpt-6-luna`; both completed minimal OpenAI Responses
+requests and are now Codex and Hermes choices, with Sol as primary. The two
+Opus 5.5 wire IDs tried on UCloud on that date were rejected. That bounded
+observation does not establish permanent absence. Catalogue membership and
+one successful text call remain narrower than complete tool, streaming,
+long-context, cost, or latency qualification.
 
-DMXAPI's retained CC, SSVIP and CDX channels remain separate Routes within
-the Claude and GPT families; other Accounts use their ordinary model
-identifiers. Channel names are not substitutes for the native model selected
-in an existing Codex conversation.
+DMXAPI's retained CC, SSVIP, and CDX channels remain separate Routes within
+the Claude and GPT families. Each Route retains its exact wire ID while its
+`model` names the base logical Model; a channel is not another logical model.
+Other Accounts use their ordinary model identifiers. Channel names are not
+substitutes for the native model selected in an existing Codex conversation.
 
-The reviewed [DMXAPI public catalogue](https://rmb.dmxapi.cn/) lists ordinary
-and CC Fable 5.1, ordinary/CC/SSVIP Opus 5 and Sonnet 5, and ordinary/CDX/SSVIP
-GPT-6 Astra. The current manifest keeps those Claude channels and the GPT-6
-Astra channels; the superseded GPT-5.6 entries are retired.
-No Fable 5.1 SSVIP entry was listed in this observation.
+The reviewed [DMXAPI public catalogue](https://rmb.dmxapi.cn/) listed ordinary
+and CC Fable 5.1, ordinary/CC/SSVIP Sonnet 5, and ordinary/CDX/SSVIP GPT-6
+Astra. The current manifest keeps those previously qualified channels. Opus 5
+channels are outside the requested logical set; no Opus 5.5 channel has been
+admitted. An unauthenticated DMXAPI model request returning 401 establishes
+neither presence nor absence of an individual model.
+
+The public AIHubMix `/v1/models` response observed on September 24, 2026,
+listed Opus 5.5, all three GPT-6 IDs, MiniMax M3, and Doubao Seed 2.1 Pro.
+UCloud's public `/v1/models` response listed MiniMax M3 and Doubao Seed 2.1
+Pro. These are discovery candidates, not newly qualified Routes. The public
+UCloud response is not a complete substitute for the earlier authenticated
+GPT and Claude observations. Admit any new Route only after a bounded
+noninteractive call to its exact Account, protocol, and wire model succeeds.
 
 The team recommends UCloud GPT-6 Sol for Codex and Hermes, and UCloud Claude
 Fable 5.1 for Claude Code and Claude Desktop. AIHubMix includes GPT-6 Astra
@@ -132,7 +142,7 @@ available Route for that client. No provider Token is mandatory, and an
 import preserves existing personal Client Bindings.
 
 Reasoning effort remains a native client preference, outside manifest schema
-version 6. The team preference is `medium`: set `model_reasoning_effort = "medium"`
+version 7. The team preference is `medium`: set `model_reasoning_effort = "medium"`
 in the active Codex Home's `config.toml`, and `"effortLevel": "medium"` in the
 active Claude configuration directory's `settings.json`. Merge those fields
 into existing settings; do not replace either document. Importing the team

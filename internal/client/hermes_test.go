@@ -85,6 +85,44 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	}
 }
 
+func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
+	before := configuration.NewConfig()
+	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	before.Routes["selected"] = qualifiedRoute("Selected", "gateway", "gpt-6-sol", configuration.ProtocolOpenAIResponses)
+	before.Routes["extra"] = qualifiedRoute("Extra", "gateway", "grok-4.6", configuration.ProtocolOpenAIResponses)
+	before.SetSelectedRoute(configuration.ClientHermes, "selected")
+	before.SetClientActivation(configuration.ClientHermes, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
+	before.Normalize()
+	after := before.Clone()
+	delete(after.Routes, "extra")
+	oldRuntime, oldErr := before.ResolveRuntime(configuration.ClientHermes, "")
+	newRuntime, newErr := after.ResolveRuntime(configuration.ClientHermes, "")
+	if oldErr != nil || newErr != nil || oldRuntime != newRuntime {
+		t.Fatalf("selected Hermes Route changed: before=%#v (%v), after=%#v (%v)", oldRuntime, oldErr, newRuntime, newErr)
+	}
+	if got := DefaultRegistry().ChangedClients(before, after); !slices.Equal(got, []string{configuration.ClientHermes}) {
+		t.Fatalf("removing an unselected provider Model affected clients %v, want Hermes", got)
+	}
+}
+
+func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
+	before := configuration.NewConfig()
+	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	before.Routes["selected"] = qualifiedRoute("Selected", "gateway", "gpt-6-sol", configuration.ProtocolOpenAIResponses)
+	before.Routes["extra"] = qualifiedRoute("Extra", "gateway", "grok-4.6", configuration.ProtocolOpenAIResponses)
+	before.SetSelectedRoute(configuration.ClientHermes, "selected")
+	before.SetClientActivation(configuration.ClientHermes, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
+	before.Normalize()
+	after := before.Clone()
+	route := after.Routes["extra"]
+	route.Label = "Edited display label"
+	route.Purpose = "Edited purpose"
+	after.Routes["extra"] = route
+	if got := DefaultRegistry().ChangedClients(before, after); len(got) != 0 {
+		t.Fatalf("display-only edit affected clients %v", got)
+	}
+}
+
 func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	executable := filepath.Join(t.TempDir(), "hermes")
 	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {

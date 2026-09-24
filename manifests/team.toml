@@ -89,14 +89,11 @@ anthropic = 'https://api.modelverse.cn'
 [models.claude-fable-5-1]
 label = 'Claude Fable 5.1'
 
-[models.claude-opus-5]
-label = 'Claude Opus 5'
+[models.claude-opus-5-5]
+label = 'Claude Opus 5.5'
 
 [models.claude-sonnet-5]
 label = 'Claude Sonnet 5'
-
-[models.deepseek-v4-flash-0731]
-label = 'DeepSeek V4 Flash 0731'
 
 [models.deepseek-v4-pro-0813]
 label = 'DeepSeek V4 Pro 0813'
@@ -104,14 +101,8 @@ label = 'DeepSeek V4 Pro 0813'
 [models.'gemini-3.1-pro-preview']
 label = 'Gemini 3.1 Pro Preview'
 
-[models.'gemini-3.8-flash']
-label = 'Gemini 3.8 Flash'
-
 [models.'glm-5.3']
 label = 'GLM 5.3'
-
-[models.'glm-5.3-flash']
-label = 'GLM 5.3 Flash'
 
 [models.gpt-6-astra]
 label = 'GPT-6 Astra'
@@ -122,20 +113,11 @@ label = 'GPT-6 Luna'
 [models.gpt-6-sol]
 label = 'GPT-6 Sol'
 
-[models.'grok-4.3']
-label = 'Grok 4.3'
-
 [models.'grok-4.6']
 label = 'Grok 4.6'
 
-[models.'kimi-k2.7-code-highspeed']
-label = 'Kimi K2.7 Code Highspeed'
-
 [models.kimi-k3]
 label = 'Kimi K3'
-
-[models.'qwen3.7-plus']
-label = 'Qwen 3.7 Plus'
 
 [models.'qwen3.8-max']
 label = 'Qwen 3.8 Max'
@@ -150,15 +132,6 @@ upstream_model = 'claude-fable-5-1'
 [routes.aihubmix-claude-fable-5-1.interfaces]
 anthropic = []
 
-[routes.aihubmix-claude-opus-5]
-label = 'AIHubMix · Claude Opus 5'
-account = 'aihubmix'
-model = 'claude-opus-5'
-upstream_model = 'claude-opus-5'
-
-[routes.aihubmix-claude-opus-5.interfaces]
-anthropic = []
-
 [routes.aihubmix-claude-sonnet-5]
 label = 'AIHubMix · Claude Sonnet 5'
 account = 'aihubmix'
@@ -167,15 +140,6 @@ upstream_model = 'claude-sonnet-5'
 
 [routes.aihubmix-claude-sonnet-5.interfaces]
 anthropic = []
-
-[routes.aihubmix-deepseek-v4-flash-0731]
-label = 'AIHubMix · DeepSeek V4 Flash 0731'
-account = 'aihubmix'
-model = 'deepseek-v4-flash-0731'
-upstream_model = 'deepseek-v4-flash-0731'
-
-[routes.aihubmix-deepseek-v4-flash-0731.interfaces]
-openai_responses = []
 
 [routes.aihubmix-deepseek-v4-pro-0813]
 label = 'AIHubMix · DeepSeek V4 Pro 0813'
@@ -195,15 +159,6 @@ upstream_model = 'gemini-3.1-pro-preview'
 [routes.'aihubmix-gemini-3.1-pro-preview'.interfaces]
 openai_responses = []
 
-[routes.'aihubmix-gemini-3.8-flash']
-label = 'AIHubMix · Gemini 3.8 Flash'
-account = 'aihubmix'
-model = 'gemini-3.8-flash'
-upstream_model = 'gemini-3.8-flash'
-
-[routes.'aihubmix-gemini-3.8-flash'.interfaces]
-openai_responses = []
-
 [routes.'aihubmix-glm-5.3']
 label = 'AIHubMix · GLM 5.3'
 account = 'aihubmix'
@@ -211,15 +166,6 @@ model = 'glm-5.3'
 upstream_model = 'glm-5.3'
 
 [routes.'aihubmix-glm-5.3'.interfaces]
-openai_responses = []
-
-[routes.'aihubmix-glm-5.3-flash']
-label = 'AIHubMix · GLM 5.3 Flash'
-account = 'aihubmix'
-model = 'glm-5.3-flash'
-upstream_model = 'glm-5.3-flash'
-
-[routes.'aihubmix-glm-5.3-flash'.interfaces]
 openai_responses = []
 
 [routes.aihubmix-gpt-6-astra]
@@ -231,15 +177,6 @@ upstream_model = 'gpt-6-astra'
 [routes.aihubmix-gpt-6-astra.interfaces]
 openai_responses = []
 
-[routes.'aihubmix-grok-4.3']
-label = 'AIHubMix · Grok 4.3'
-account = 'aihubmix'
-model = 'grok-4.3'
-upstream_model = 'grok-4.3'
-
-[routes.'aihubmix-grok-4.3'.interfaces]
-openai_responses = []
-
 [routes.'aihubmix-grok-4.6']
 label = 'AIHubMix · Grok 4.6'
 account = 'aihubmix'
@@ -249,15 +186,6 @@ upstream_model = 'grok-4.6'
 [routes.'aihubmix-grok-4.6'.interfaces]
 openai_responses = []
 
-[routes.'aihubmix-kimi-k2.7-code-highspeed']
-label = 'AIHubMix · Kimi K2.7 Code Highspeed'
-account = 'aihubmix'
-model = 'kimi-k2.7-code-highspeed'
-upstream_model = 'kimi-k2.7-code-highspeed'
-
-[routes.'aihubmix-kimi-k2.7-code-highspeed'.interfaces]
-openai_responses = []
-
 [routes.aihubmix-kimi-k3]
 label = 'AIHubMix · Kimi K3'
 account = 'aihubmix'
@@ -265,15 +193,6 @@ model = 'kimi-k3'
 upstream_model = 'kimi-k3'
 
 [routes.aihubmix-kimi-k3.interfaces]
-openai_responses = []
-
-[routes.'aihubmix-qwen3.7-plus']
-label = 'AIHubMix · Qwen 3.7 Plus'
-account = 'aihubmix'
-model = 'qwen3.7-plus'
-upstream_model = 'qwen3.7-plus'
-
-[routes.'aihubmix-qwen3.7-plus'.interfaces]
 openai_responses = []
 
 [routes.'aihubmix-qwen3.8-max']
@@ -303,33 +222,6 @@ upstream_model = 'claude-fable-5-1-cc'
 [routes.dmxapi-claude-fable-5-1-cc.interfaces]
 anthropic = []
 
-[routes.dmxapi-claude-opus-5]
-label = 'DMXAPI · Claude Opus 5'
-account = 'dmxapi'
-model = 'claude-opus-5'
-upstream_model = 'claude-opus-5'
-
-[routes.dmxapi-claude-opus-5.interfaces]
-anthropic = []
-
-[routes.dmxapi-claude-opus-5-cc]
-label = 'DMXAPI · Claude Opus 5 · CC'
-account = 'dmxapi'
-model = 'claude-opus-5'
-upstream_model = 'claude-opus-5-cc'
-
-[routes.dmxapi-claude-opus-5-cc.interfaces]
-anthropic = []
-
-[routes.dmxapi-claude-opus-5-ssvip]
-label = 'DMXAPI · Claude Opus 5 · SSVIP'
-account = 'dmxapi'
-model = 'claude-opus-5'
-upstream_model = 'claude-opus-5-ssvip'
-
-[routes.dmxapi-claude-opus-5-ssvip.interfaces]
-anthropic = []
-
 [routes.dmxapi-claude-sonnet-5]
 label = 'DMXAPI · Claude Sonnet 5'
 account = 'dmxapi'
@@ -357,15 +249,6 @@ upstream_model = 'claude-sonnet-5-ssvip'
 [routes.dmxapi-claude-sonnet-5-ssvip.interfaces]
 anthropic = []
 
-[routes.dmxapi-deepseek-v4-flash-0731]
-label = 'DMXAPI · DeepSeek V4 Flash 0731'
-account = 'dmxapi'
-model = 'deepseek-v4-flash-0731'
-upstream_model = 'deepseek-v4-flash-0731'
-
-[routes.dmxapi-deepseek-v4-flash-0731.interfaces]
-openai_responses = []
-
 [routes.dmxapi-deepseek-v4-pro-0813]
 label = 'DMXAPI · DeepSeek V4 Pro 0813'
 account = 'dmxapi'
@@ -384,15 +267,6 @@ upstream_model = 'gemini-3.1-pro-preview'
 [routes.'dmxapi-gemini-3.1-pro-preview'.interfaces]
 openai_responses = []
 
-[routes.'dmxapi-gemini-3.8-flash']
-label = 'DMXAPI · Gemini 3.8 Flash'
-account = 'dmxapi'
-model = 'gemini-3.8-flash'
-upstream_model = 'gemini-3.8-flash'
-
-[routes.'dmxapi-gemini-3.8-flash'.interfaces]
-openai_responses = []
-
 [routes.'dmxapi-glm-5.3']
 label = 'DMXAPI · GLM 5.3'
 account = 'dmxapi'
@@ -400,15 +274,6 @@ model = 'glm-5.3'
 upstream_model = 'glm-5.3'
 
 [routes.'dmxapi-glm-5.3'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-glm-5.3-flash']
-label = 'DMXAPI · GLM 5.3 Flash'
-account = 'dmxapi'
-model = 'glm-5.3-flash'
-upstream_model = 'glm-5.3-flash'
-
-[routes.'dmxapi-glm-5.3-flash'.interfaces]
 openai_responses = []
 
 [routes.dmxapi-gpt-6-astra]
@@ -438,15 +303,6 @@ upstream_model = 'gpt-6-astra-ssvip'
 [routes.dmxapi-gpt-6-astra-ssvip.interfaces]
 openai_responses = []
 
-[routes.'dmxapi-grok-4.3']
-label = 'DMXAPI · Grok 4.3'
-account = 'dmxapi'
-model = 'grok-4.3'
-upstream_model = 'grok-4.3'
-
-[routes.'dmxapi-grok-4.3'.interfaces]
-openai_responses = []
-
 [routes.'dmxapi-grok-4.6']
 label = 'DMXAPI · Grok 4.6'
 account = 'dmxapi'
@@ -456,15 +312,6 @@ upstream_model = 'grok-4.6'
 [routes.'dmxapi-grok-4.6'.interfaces]
 openai_responses = []
 
-[routes.'dmxapi-kimi-k2.7-code-highspeed']
-label = 'DMXAPI · Kimi K2.7 Code Highspeed'
-account = 'dmxapi'
-model = 'kimi-k2.7-code-highspeed'
-upstream_model = 'kimi-k2.7-code-highspeed'
-
-[routes.'dmxapi-kimi-k2.7-code-highspeed'.interfaces]
-openai_responses = []
-
 [routes.dmxapi-kimi-k3]
 label = 'DMXAPI · Kimi K3'
 account = 'dmxapi'
@@ -472,15 +319,6 @@ model = 'kimi-k3'
 upstream_model = 'kimi-k3'
 
 [routes.dmxapi-kimi-k3.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-qwen3.7-plus']
-label = 'DMXAPI · Qwen 3.7 Plus'
-account = 'dmxapi'
-model = 'qwen3.7-plus'
-upstream_model = 'qwen3.7-plus'
-
-[routes.'dmxapi-qwen3.7-plus'.interfaces]
 openai_responses = []
 
 [routes.'dmxapi-qwen3.8-max']
@@ -501,15 +339,6 @@ upstream_model = 'claude-fable-5-1'
 [routes.ucloud-claude-fable-5-1.interfaces]
 anthropic = []
 
-[routes.ucloud-claude-opus-5]
-label = 'UCloud · Claude Opus 5'
-account = 'ucloud'
-model = 'claude-opus-5'
-upstream_model = 'claude-opus-5'
-
-[routes.ucloud-claude-opus-5.interfaces]
-anthropic = []
-
 [routes.ucloud-claude-sonnet-5]
 label = 'UCloud · Claude Sonnet 5'
 account = 'ucloud'
@@ -518,15 +347,6 @@ upstream_model = 'claude-sonnet-5'
 
 [routes.ucloud-claude-sonnet-5.interfaces]
 anthropic = []
-
-[routes.ucloud-deepseek-v4-flash-0731]
-label = 'UCloud · DeepSeek V4 Flash 0731'
-account = 'ucloud'
-model = 'deepseek-v4-flash-0731'
-upstream_model = 'deepseek-v4-flash-0731'
-
-[routes.ucloud-deepseek-v4-flash-0731.interfaces]
-openai_responses = []
 
 [routes.ucloud-deepseek-v4-pro-0813]
 label = 'UCloud · DeepSeek V4 Pro 0813'
@@ -546,15 +366,6 @@ upstream_model = 'gemini-3.1-pro-preview'
 [routes.'ucloud-gemini-3.1-pro-preview'.interfaces]
 openai_chat_completions = []
 
-[routes.'ucloud-gemini-3.8-flash']
-label = 'UCloud · Gemini 3.8 Flash'
-account = 'ucloud'
-model = 'gemini-3.8-flash'
-upstream_model = 'gemini-3.8-flash'
-
-[routes.'ucloud-gemini-3.8-flash'.interfaces]
-openai_chat_completions = []
-
 [routes.'ucloud-glm-5.3']
 label = 'UCloud · GLM 5.3'
 account = 'ucloud'
@@ -562,15 +373,6 @@ model = 'glm-5.3'
 upstream_model = 'glm-5.3'
 
 [routes.'ucloud-glm-5.3'.interfaces]
-openai_responses = []
-
-[routes.'ucloud-glm-5.3-flash']
-label = 'UCloud · GLM 5.3 Flash'
-account = 'ucloud'
-model = 'glm-5.3-flash'
-upstream_model = 'glm-5.3-flash'
-
-[routes.'ucloud-glm-5.3-flash'.interfaces]
 openai_responses = []
 
 [routes.ucloud-gpt-6-astra]
@@ -600,15 +402,6 @@ upstream_model = 'gpt-6-sol'
 [routes.ucloud-gpt-6-sol.interfaces]
 openai_responses = []
 
-[routes.'ucloud-grok-4.3']
-label = 'UCloud · Grok 4.3'
-account = 'ucloud'
-model = 'grok-4.3'
-upstream_model = 'grok-4.3'
-
-[routes.'ucloud-grok-4.3'.interfaces]
-openai_responses = []
-
 [routes.'ucloud-grok-4.6']
 label = 'UCloud · Grok 4.6'
 account = 'ucloud'
@@ -618,15 +411,6 @@ upstream_model = 'grok-4.6'
 [routes.'ucloud-grok-4.6'.interfaces]
 openai_responses = []
 
-[routes.'ucloud-kimi-k2.7-code-highspeed']
-label = 'UCloud · Kimi K2.7 Code Highspeed'
-account = 'ucloud'
-model = 'kimi-k2.7-code-highspeed'
-upstream_model = 'kimi-k2.7-code-highspeed'
-
-[routes.'ucloud-kimi-k2.7-code-highspeed'.interfaces]
-openai_chat_completions = []
-
 [routes.ucloud-kimi-k3]
 label = 'UCloud · Kimi K3'
 account = 'ucloud'
@@ -634,15 +418,6 @@ model = 'kimi-k3'
 upstream_model = 'kimi-k3'
 
 [routes.ucloud-kimi-k3.interfaces]
-openai_responses = []
-
-[routes.'ucloud-qwen3.7-plus']
-label = 'UCloud · Qwen 3.7 Plus'
-account = 'ucloud'
-model = 'qwen3.7-plus'
-upstream_model = 'qwen3.7-plus'
-
-[routes.'ucloud-qwen3.7-plus'.interfaces]
 openai_responses = []
 
 [routes.'ucloud-qwen3.8-max']

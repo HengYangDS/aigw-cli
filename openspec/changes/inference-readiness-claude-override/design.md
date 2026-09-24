@@ -98,7 +98,18 @@ non-inference commands.
    the client Adapter.
 5. Select scope and render matching human/JSON results in check, status, and
    doctor; update terminal guidance.
-6. Verify focused behavior, exact HEAD quality and native gates, selected
+6. Reconcile the three-provider team catalogue against current public IDs and
+   prior inference evidence. Keep GPT Astra/Sol/Luna and Claude Fable 5.1,
+   Opus 5.5, and Sonnet 5 as the requested logical identities; an unverified
+   identity has no Route. Retain one previously qualified general Route per
+   other vendor and map DMXAPI channel variants to their base Model while
+   preserving exact wire IDs.
+7. Reconcile team-owned local Models and Routes through AIGW's configuration
+   owner. The before/after plan must preserve Accounts, Tokens, client
+   selections, projections, native preferences, and foreign content. Public
+   catalogue listings and an unauthenticated 401 are not inference evidence;
+   a Keychain UI requirement stops dependent live probes.
+8. Verify focused behavior, exact HEAD quality and native gates, selected
    released bytes, live routes, publication, installation, rollback, and owned
    cleanup in that order. tasks.md is the only progress ledger.
 
@@ -117,6 +128,9 @@ non-inference commands.
 - A platform's native client or credential store behaves differently: require
   the existing multi-platform native acceptance and explicit selected-route
   journey before distribution.
+- A public catalogue advertises a new ID that cannot be called without
+  interaction: record it as a candidate, keep it out of selectable Routes, and
+  resume only through an authorized noninteractive credential path.
 
 ## Migration and rollback
 

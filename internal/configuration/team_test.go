@@ -2,10 +2,12 @@ package configuration
 
 import (
 	"bytes"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -87,48 +89,81 @@ func TestTeamConfigurationManifestIsReviewedVersionSeven(t *testing.T) {
 	}
 }
 
-func TestTeamManifestSeparatesGeneralModelsFromAccountRoutes(t *testing.T) {
+func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	want := map[string][]string{
-		"grok":     {"grok-4.6", "grok-4.3"},
-		"gemini":   {"gemini-3.1-pro-preview", "gemini-3.8-flash"},
-		"deepseek": {"deepseek-v4-pro-0813", "deepseek-v4-flash-0731"},
-		"qwen":     {"qwen3.8-max", "qwen3.7-plus"},
-		"glm":      {"glm-5.3", "glm-5.3-flash"},
-		"kimi":     {"kimi-k3", "kimi-k2.7-code-highspeed"},
+	want := []string{
+		"claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5",
+		"deepseek-v4-pro-0813", "gemini-3.1-pro-preview", "glm-5.3",
+		"gpt-6-astra", "gpt-6-luna", "gpt-6-sol", "grok-4.6",
+		"kimi-k3", "qwen3.8-max",
 	}
-	for accountID := range manifest.Accounts {
-		for family, models := range want {
-			for _, modelID := range models {
-				if _, ok := manifest.Models[modelID]; !ok {
-					t.Errorf("team manifest missing %s Model %q", family, modelID)
-				}
-				routeID := accountID + "-" + modelID
-				route, ok := manifest.Routes[routeID]
-				if !ok {
-					t.Errorf("team manifest missing %s %s Route %q", accountID, family, routeID)
-					continue
-				}
-				if route.Account != accountID || route.Model != modelID || len(routeAdmittedProtocols(route)) == 0 {
-					t.Errorf("team Route %q = %#v", routeID, route)
-				}
+	if got := slices.Sorted(maps.Keys(manifest.Models)); !slices.Equal(got, want) {
+		t.Fatalf("team logical Models = %v, want %v", got, want)
+	}
+	if manifest.Models["claude-opus-5-5"].Label != "Claude Opus 5.5" {
+		t.Errorf("Opus 5.5 identity = %#v", manifest.Models["claude-opus-5-5"])
+	}
+	for routeID, route := range manifest.Routes {
+		if route.Model == "claude-opus-5-5" {
+			t.Errorf("unverified Opus 5.5 Route %q was admitted", routeID)
+		}
+	}
+}
+
+func TestTeamManifestRetainsOnlyQualifiedAccountRoutes(t *testing.T) {
+	_, manifest := loadTeamManifest(t)
+	wantWireIDs := map[string][]string{
+		"aihubmix": {
+			"claude-fable-5-1", "claude-sonnet-5", "deepseek-v4-pro-0813",
+			"gemini-3.1-pro-preview", "glm-5.3", "gpt-6-astra", "grok-4.6",
+			"kimi-k3", "qwen3.8-max",
+		},
+		"dmxapi": {
+			"claude-fable-5-1", "claude-fable-5-1-cc", "claude-sonnet-5",
+			"claude-sonnet-5-cc", "claude-sonnet-5-ssvip", "deepseek-v4-pro-0813",
+			"gemini-3.1-pro-preview", "glm-5.3", "gpt-6-astra",
+			"gpt-6-astra-cdx", "gpt-6-astra-ssvip", "grok-4.6", "kimi-k3",
+			"qwen3.8-max",
+		},
+		"ucloud": {
+			"claude-fable-5-1", "claude-sonnet-5", "deepseek-v4-pro-0813",
+			"gemini-3.1-pro-preview", "glm-5.3", "gpt-6-astra", "gpt-6-luna",
+			"gpt-6-sol", "grok-4.6", "kimi-k3", "qwen3.8-max",
+		},
+	}
+	for accountID, wires := range wantWireIDs {
+		want := make([]string, 0, len(wires))
+		got := make([]string, 0, len(wires))
+		for _, wire := range wires {
+			want = append(want, accountID+"-"+wire)
+		}
+		for routeID, route := range manifest.Routes {
+			if route.Account == accountID {
+				got = append(got, routeID)
 			}
 		}
-	}
-	for _, modelID := range []string{"gpt-6-astra", "gpt-6-sol", "gpt-6-luna"} {
-		if _, ok := manifest.Models[modelID]; !ok {
-			t.Errorf("team manifest missing GPT-6 Model %q", modelID)
-		}
-		routeID := "ucloud-" + modelID
-		route, ok := manifest.Routes[routeID]
-		if !ok {
-			t.Errorf("team manifest missing UCloud GPT-6 Route %q", routeID)
-			continue
-		}
-		if route.Account != "ucloud" || route.Model != modelID || route.UpstreamModelID() != modelID || len(routeAdmittedProtocols(route)) == 0 {
-			t.Errorf("team Route %q = %#v", routeID, route)
+		slices.Sort(want)
+		slices.Sort(got)
+		if !slices.Equal(got, want) {
+			t.Errorf("%s Routes = %v, want %v", accountID, got, want)
 		}
 	}
+	for routeID, route := range manifest.Routes {
+		if route.UpstreamModelID() != strings.TrimPrefix(routeID, route.Account+"-") {
+			t.Errorf("Route %q wire identity = %q", routeID, route.UpstreamModelID())
+		}
+		base := route.UpstreamModelID()
+		for _, suffix := range []string{"-cc", "-ssvip", "-cdx"} {
+			base = strings.TrimSuffix(base, suffix)
+		}
+		if route.Model != base || len(routeAdmittedProtocols(route)) == 0 {
+			t.Errorf("Route %q uses Model %q and protocols %v, want Model %q", routeID, route.Model, routeAdmittedProtocols(route), base)
+		}
+	}
+}
+
+func TestTeamManifestPrefersUCloudGPTSixRoutes(t *testing.T) {
+	_, manifest := loadTeamManifest(t)
 	wantCodexRoutes := []string{"ucloud-gpt-6-sol", "ucloud-gpt-6-astra", "ucloud-gpt-6-luna"}
 	codexRoutes := manifest.Recommendations[ClientCodex].Selections()
 	if len(codexRoutes) < len(wantCodexRoutes) {

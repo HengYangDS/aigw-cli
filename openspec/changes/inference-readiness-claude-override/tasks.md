@@ -79,17 +79,37 @@
       product tree and verify exact commit signatures and the introduced
       range under repository policy.
 
-## 7. Publish and install
+## 7. Curate the three-provider team catalogue and local configuration
 
-- [ ] 7.1 Archive the completed Change through the official OpenSpec and
+- [x] 7.1 Reconcile public provider catalogues, the current team manifest,
+      local configuration, and prior inference evidence. Keep unauthenticated
+      DMXAPI 401 and model listings distinct from unavailable or verified
+      inference.
+- [x] 7.2 Curate `manifests/team.toml` to the requested logical families,
+      retaining only evidenced Route variants and exactly one previously
+      qualified general model per other admitted vendor. Verify canonical
+      native export and semantic Route/model tests.
+- [x] 7.3 Reconcile only team-owned local Models and Routes through the AIGW
+      configuration owner after a complete dry-run. Preserve Accounts,
+      credentials, client selections, native preferences, and foreign state.
+- [ ] 7.4 Make one bounded noninteractive inference call for each retained
+      Route and admit newly listed models only after their exact protocol and
+      Account pass. Stop at a credential boundary that requires Keychain UI;
+      report such calls as unverified.
+- [ ] 7.5 Re-run source, native, packaged-manifest, exact-HEAD, and hosted
+      evidence for the changed release inputs before publication.
+
+## 8. Publish and install
+
+- [ ] 8.1 Archive the completed Change through the official OpenSpec and
       ETHOS transition after checking merged canonical requirements and
       inherited scenarios.
-- [ ] 7.2 Publish one signed stable release with identical assets and
+- [ ] 8.2 Publish one signed stable release with identical assets and
       checksums through the existing GitHub and GitLab workflows. Verify
       remote refs, hosted CI, release objects, and every published asset byte.
-- [ ] 7.3 Publish and install the matching Homebrew Cask, exercise a bounded
+- [ ] 8.3 Publish and install the matching Homebrew Cask, exercise a bounded
       rollback and forward restoration, then verify the installed executable,
       UCloud routes, Claude preference preservation, and both check scopes.
-- [ ] 7.4 Preserve recovery material and foreign state, retire only proven
+- [ ] 8.4 Preserve recovery material and foreign state, retire only proven
       owned Lane residue, and verify exact worktree, ref, lease, and artifact
       outcomes.
