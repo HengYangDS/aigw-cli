@@ -15,6 +15,9 @@ const (
 	// EndpointChecked identifies a configured route with a successful endpoint diagnostic.
 	// It does not prove model inference or real-client execution.
 	EndpointChecked State = "endpoint_checked"
+	// InferenceChecked identifies a successful request carrying the Route's exact wire model.
+	// It does not prove native-client behavior or future availability.
+	InferenceChecked State = "inference_checked"
 	// Degraded identifies a route that remains configured but has a recoverable operational problem.
 	Degraded State = "degraded"
 	// Invalid identifies configuration or owned state that cannot be safely used.
@@ -36,6 +39,8 @@ func (state State) Label() string {
 		return "Deferred"
 	case EndpointChecked:
 		return "Endpoint checked"
+	case InferenceChecked:
+		return "Inference checked"
 	case Degraded:
 		return "Degraded"
 	case Invalid:
@@ -131,10 +136,21 @@ func WithProbe(state Client, result diagnostics.Result) Client {
 	state.NextAction = result.Fix
 	switch result.Kind {
 	case diagnostics.Healthy:
-		state.State = EndpointChecked
-		state.NextAction = ""
+		switch result.Scope {
+		case diagnostics.ScopeEndpoint:
+			state.State = EndpointChecked
+			state.NextAction = ""
+		case diagnostics.ScopeInference:
+			state.State = InferenceChecked
+			state.NextAction = ""
+		default:
+			state.State = Unavailable
+			state.Detail = "Diagnostic scope is unavailable"
+			state.NextAction = "aigw doctor"
+		}
 	case diagnostics.InvalidToken, diagnostics.TokenDisabled,
-		diagnostics.TokenRestricted, diagnostics.EndpointMismatch:
+		diagnostics.TokenRestricted, diagnostics.EndpointMismatch,
+		diagnostics.ModelUnresolved:
 		state.State = Invalid
 	case diagnostics.AuthenticationUnstable, diagnostics.QuotaExhausted,
 		diagnostics.RateLimited, diagnostics.ModelUnavailable,

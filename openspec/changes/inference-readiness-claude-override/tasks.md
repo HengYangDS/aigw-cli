@@ -35,7 +35,7 @@
       classify as retryable `ModelUnavailable` without a second request.
       Fail unchanged 401/403 without repeated probes. Verify: request-count
       and classification tests in `./internal/diagnostics/...`.
-- [ ] 3.3 Map a healthy inference observation to `inference_checked` and a
+- [x] 3.3 Map a healthy inference observation to `inference_checked` and a
       healthy catalogue observation to `endpoint_checked`, preserving typed
       failure classes. Verify: `go test ./internal/readiness/...`.
 

@@ -112,6 +112,7 @@ func TestStateLabelUsesTheCanonicalVocabulary(t *testing.T) {
 		{state: Configured, want: "Configured"},
 		{state: Deferred, want: "Deferred"},
 		{state: EndpointChecked, want: "Endpoint checked"},
+		{state: InferenceChecked, want: "Inference checked"},
 		{state: Degraded, want: "Degraded"},
 		{state: Invalid, want: "Invalid"},
 		{state: Unavailable, want: "Unavailable"},
@@ -164,6 +165,7 @@ func TestWithProbeMapsDiagnosticSemantics(t *testing.T) {
 		{name: "quota exhausted", kind: diagnostics.QuotaExhausted, want: Degraded},
 		{name: "rate limited", kind: diagnostics.RateLimited, want: Degraded},
 		{name: "model unavailable", kind: diagnostics.ModelUnavailable, want: Degraded},
+		{name: "model unresolved", kind: diagnostics.ModelUnresolved, want: Invalid},
 		{name: "upstream failure", kind: diagnostics.UpstreamFailure, want: Degraded},
 		{name: "network failure", kind: diagnostics.NetworkFailure, want: Degraded},
 		{name: "unknown result", kind: diagnostics.Unexpected, want: Unavailable},
@@ -173,6 +175,7 @@ func TestWithProbeMapsDiagnosticSemantics(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := WithProbe(configured, diagnostics.Result{
 				Kind:    test.kind,
+				Scope:   diagnostics.ScopeEndpoint,
 				Summary: "observed result",
 				Fix:     "aigw check",
 			})
@@ -191,5 +194,28 @@ func TestWithProbeDoesNotOverrideDeferredState(t *testing.T) {
 	got := WithProbe(deferred, diagnostics.Result{Kind: diagnostics.Healthy})
 	if got != deferred {
 		t.Fatalf("WithProbe() = %#v, want %#v", got, deferred)
+	}
+}
+
+func TestWithProbeDistinguishesSuccessfulInferenceFromEndpointEvidence(t *testing.T) {
+	configured := Client{State: Configured, Route: "codex", Account: "team"}
+
+	inference := WithProbe(configured, diagnostics.Result{
+		Kind: diagnostics.Healthy, Scope: diagnostics.ScopeInference, Summary: "Inference diagnostic returned a successful response",
+	})
+	if inference.State != InferenceChecked || inference.NextAction != "" {
+		t.Fatalf("inference result = %#v", inference)
+	}
+
+	endpoint := WithProbe(configured, diagnostics.Result{
+		Kind: diagnostics.Healthy, Scope: diagnostics.ScopeEndpoint, Summary: "Endpoint diagnostic returned a successful response",
+	})
+	if endpoint.State != EndpointChecked || endpoint.NextAction != "" {
+		t.Fatalf("endpoint result = %#v", endpoint)
+	}
+
+	unscoped := WithProbe(configured, diagnostics.Result{Kind: diagnostics.Healthy, Summary: "ambiguous success"})
+	if unscoped.State != Unavailable {
+		t.Fatalf("unscoped success = %#v, want unavailable", unscoped)
 	}
 }
