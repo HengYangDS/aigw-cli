@@ -8,8 +8,9 @@ AIGW human output answers three questions:
 
 Readiness is decomposed rather than inferred. `status` reports selection and
 local projection readiness without reading Tokens or invoking clients.
-`check` adds endpoint checks; `verify --for <client>` runs a real client.
-A synchronized projection is not proof of authentication or inference.
+`check` adds one bounded Route-model inference by default or an endpoint-only
+check when requested; `verify --for <client>` runs a real client. A synchronized
+projection alone is not proof of authentication or inference.
 `sync` changes only AIGW-owned configuration, never client-owned credentials.
 
 ## Navigation
@@ -93,8 +94,10 @@ stdout carries only the requested credential, never root-level diagnostics.
 Use the least powerful command that answers the current question:
 
 1. `aigw status` reports selected Client Bindings and the next useful action.
-2. `aigw check` validates configuration, credentials, installed-client
-   projections, and selected endpoints without making a model request.
+2. `aigw check` validates configuration, credentials, and client projections,
+   then makes one capped inference request carrying each eligible selected
+   Route's exact upstream model. `--endpoint-only` instead authenticates through
+   a model-free catalogue request and incurs no inference call.
 3. `aigw doctor` explains structural or host integration failures without
    mutation.
 4. `aigw repair --dry-run --json` previews only AIGW-owned reconciliation;
@@ -107,29 +110,39 @@ Use the least powerful command that answers the current question:
    never accesses the credential store; optional `--config` selects an absolute
    configuration file. Its result is HTTP observation, not model inference or
    native-client proof.
-6. `aigw verify` is the explicit quota-consuming real model request.
+6. `aigw verify` invokes the real native client to prove its selected model
+   path. This request may consume quota even when `check` has already passed.
 
-`check` exits successfully when the enabled Client Bindings pass their applicable
-checks. With no enabled client, success covers configuration only. For
+`check` exits successfully when enabled Client Bindings pass the applicable
+scope. With no enabled client, success covers configuration only. For
 client-native authentication it checks the local projection without accessing
-client credentials or calling the endpoint. An Account-Token Client Binding
-also receives an endpoint diagnostic; a successful response is not model or
-client proof.
+client credentials or calling the endpoint. A selected Account-Token Route
+normally receives one model-carrying inference diagnostic; the default request
+is metered and establishes only that time-bound request's acceptance.
+`--endpoint-only` preserves the cheaper model-free endpoint scope. If Claude
+Code has changed only its native model and the AIGW sidecar still proves the
+endpoint and helper, `check` uses endpoint scope for Claude and recommends
+`aigw verify --for claude`; it never treats the native alias as the Route's
+upstream wire model. Status and doctor make no inference request.
 
 The JSON vocabulary follows that evidence boundary:
 
-| Field or state        | Exact meaning                                                   |
-| --------------------- | --------------------------------------------------------------- |
-| `endpoint_configured` | The selected Route resolves an endpoint address.                |
-| `projection_ready`    | The local client projection passes inspection.                  |
-| `check_passed`        | The binding passed the checks applicable to its authentication. |
-| `configured`          | Local prerequisites pass; no successful endpoint evidence.      |
-| `endpoint_checked`    | Local prerequisites and the endpoint diagnostic passed.         |
-| `ok`                  | The command's applicable checks passed.                         |
-| `next_action`         | The next explicit action, not necessarily a repair.             |
+| Field or state          | Exact meaning                                                   |
+| ----------------------- | --------------------------------------------------------------- |
+| `endpoint_configured`   | The selected Route resolves an endpoint address.                |
+| `projection_ready`      | The local client projection passes inspection.                  |
+| `native_model_override` | Claude has a sidecar-proven native model preference.             |
+| `diagnostic_scope`      | `endpoint` or `inference`, whichever request was performed.     |
+| `check_passed`          | The binding passed the checks applicable to its scope.          |
+| `configured`            | Local prerequisites pass; no successful endpoint evidence.      |
+| `endpoint_checked`      | A model-free authenticated endpoint request succeeded.          |
+| `inference_checked`     | One exact Route-model inference request succeeded.              |
+| `ok`                    | The command's applicable checks passed.                         |
+| `next_action`           | The next explicit action, not necessarily a repair.             |
 
-Model inference and real-client execution require their own verification;
-neither `ok` nor `endpoint_checked` establishes them.
+Neither `ok` nor `inference_checked` proves real-client execution, future
+availability, or the provider's retention policy. `endpoint_checked` does not
+establish model inference.
 
 `verify --for all` means all enabled client bindings. It checks their local
 prerequisites before invoking any client, then writes a checkpoint only after

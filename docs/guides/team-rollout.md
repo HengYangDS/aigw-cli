@@ -280,9 +280,10 @@ aigw verify --for codex
 ```
 
 `aigw status` observes selection and projection readiness without client
-execution or Token reads. `aigw check` adds endpoint checks; real-client
-verification is separate. Configuration success alone is not authentication
-or inference proof.
+execution or Token reads. `aigw check` adds one bounded inference request per
+eligible selected Route by default; `--endpoint-only` keeps the model-free
+authentication check. Real-client verification remains separate. Configuration
+success alone is not authentication or inference proof.
 
 Optional balance credentials do not participate in `aigw check`, in either
 human or JSON output. Use `aigw account diagnostics enable <account>` to configure them

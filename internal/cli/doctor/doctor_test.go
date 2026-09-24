@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/claude"
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/synchronization"
@@ -229,6 +230,24 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 		t.Fatalf("adapter check = %#v", check)
 	}
 
+	data, err := os.ReadFile(deps.Clients.ClaudeSettingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]json.RawMessage
+	if err := json.Unmarshal(data, &document); err != nil {
+		t.Fatal(err)
+	}
+	document["model"] = json.RawMessage(`"opus[1m]"`)
+	data, _ = json.MarshalIndent(document, "", "  ")
+	if err := os.WriteFile(deps.Clients.ClaudeSettingsPath, append(data, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	checks = Collect(context.Background(), deps)
+	if check := findCheck(t, checks, "adapter:claude"); !check.OK || !strings.Contains(check.Detail, "native model preference") {
+		t.Fatalf("native Claude model preference check = %#v", check)
+	}
+
 	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", []string{filepath.Join(t.TempDir(), "missing.toml")})
 	deps, _, _ = doctorDependencies(t, cfg)
 	check := findCheck(t, Collect(context.Background(), deps), "codex:target-1")
@@ -449,5 +468,26 @@ func TestCommandPropagatesWriterFailureWhilePresentingProblems(t *testing.T) {
 func TestCommandConstructorExposesStableName(t *testing.T) {
 	if got := NewCommand(Dependencies{}).Name(); got != "doctor" {
 		t.Fatalf("doctor command = %q", got)
+	}
+}
+
+func TestHumanDoctorNamesNativeClaudeModelPreferenceAndVerification(t *testing.T) {
+	var output bytes.Buffer
+	renderer := presentation.NewWithWidth(&output, false, 100)
+	renderClients(renderer, map[string]domainreadiness.Client{
+		configuration.ClientClaude: {
+			State:               domainreadiness.Configured,
+			Route:               "fable",
+			NativeModelOverride: true,
+			Detail:              "Claude Code uses a native model preference",
+			NextAction:          "aigw verify --for claude",
+		},
+	})
+	if err := renderer.Err(); err != nil {
+		t.Fatal(err)
+	}
+	rendered := output.String()
+	if !strings.Contains(rendered, "native model preference") || !strings.Contains(rendered, "aigw verify --for claude") {
+		t.Fatalf("doctor output = %q", rendered)
 	}
 }

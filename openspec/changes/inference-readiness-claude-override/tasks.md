@@ -22,7 +22,7 @@
       the catalogue request, and bound response reads without retaining a
       conversation. Verify: focused negative and size-bound tests in
       `./internal/credential/...`.
-- [ ] 2.3 Preserve the existing model-free catalogue request for endpoint-only
+- [x] 2.3 Preserve the existing model-free catalogue request for endpoint-only
       checks, setup, rotation, and `aigw test`. Verify:
       `go test ./internal/credential/... ./internal/cli/...`.
 
@@ -55,11 +55,11 @@
 
 ## 5. Expose the check scope
 
-- [ ] 5.1 Default `aigw check` to inference and add `--endpoint-only`.
+- [x] 5.1 Default `aigw check` to inference and add `--endpoint-only`.
       Keep client-native authentication local and skip inference for a proven
       Claude model override. Verify: RED/GREEN CLI tests on request count and
       model identity in `./internal/cli/readiness/...`.
-- [ ] 5.2 Render `diagnostic_scope`, `inference_checked`, failures, and
+- [x] 5.2 Render `diagnostic_scope`, `inference_checked`, failures, and
       native-model override consistently in human and JSON status, check, and
       doctor output. Verify: `go test ./internal/cli/...` and no secret or
       ambiguous `ready` claim in either projection.

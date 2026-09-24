@@ -213,7 +213,7 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 	if err := cli.Execute(app, []string{"check"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Configuration file", "Claude", "Endpoint checked", "All enabled client checks passed", "Model inference and real-client execution were not verified"} {
+	for _, want := range []string{"Configuration file", "Claude", "Inference checked", "All enabled client checks passed", "Real-client execution was not verified"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("check lacks %q:\n%s", want, out.String())
 		}
@@ -445,7 +445,7 @@ func TestCheckKeepsGenericHealthAvailableWhenExactDiagnosticDriverIsNotBundled(t
 	if err := cli.Execute(app, []string{"check"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Endpoint checked") || strings.Contains(out.String(), "aigw balance") {
+	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Inference checked") || strings.Contains(out.String(), "aigw balance") {
 		t.Fatalf("check output = %s", out.String())
 	}
 }

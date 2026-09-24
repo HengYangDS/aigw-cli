@@ -458,7 +458,7 @@ func TestCheckUsesBoundedAuthenticationStabilityWithoutMutation(t *testing.T) {
 				return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(`{"message":"bounded observation"}`)), Request: req}, nil
 			}
 
-			err := cli.Execute(app, []string{"check"})
+			err := cli.Execute(app, []string{"check", "--endpoint-only"})
 			if (err != nil) != tt.wantError {
 				t.Fatalf("check error = %v, wantError=%v\n%s", err, tt.wantError, out.String())
 			}

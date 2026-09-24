@@ -161,7 +161,7 @@ aigw verify --for <client>
 | Command    | Contract                                                                |
 | ---------- | ----------------------------------------------------------------------- |
 | `status`   | Observe Client Bindings and projection readiness without reading Tokens |
-| `check`    | Add credential availability, client configuration, and endpoint checks  |
+| `check`    | Check credentials and projections, then selected-model inference by default |
 | `doctor`   | Explain current problems without mutation                               |
 | `repair`   | Reconcile bounded AIGW-owned client state                               |
 | `test`     | Test an endpoint without proving native-client behavior                 |

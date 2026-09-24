@@ -9,6 +9,7 @@ import (
 	clientdomain "aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
@@ -26,6 +27,7 @@ type clientStatus struct {
 	QualifiedPlatforms []string                     `json:"qualified_platforms,omitempty"`
 	CheckPassed        *bool                        `json:"check_passed,omitempty"`
 	DiagnosticKind     string                       `json:"diagnostic_kind,omitempty"`
+	DiagnosticScope    diagnostics.Scope            `json:"diagnostic_scope,omitempty"`
 	Attempts           int                          `json:"attempts,omitempty"`
 	Retryable          bool                         `json:"retryable,omitempty"`
 }
@@ -103,6 +105,11 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 			}
 		}
 		state := domainreadiness.ClassifyClient(facts)
+		if adapterStatus.NativeModelOverride && state.State == domainreadiness.Configured {
+			state.NativeModelOverride = true
+			state.Detail = "Claude Code uses a native model preference; its AIGW endpoint and credential helper remain configured"
+			state.NextAction = "aigw verify --for claude"
+		}
 		client := clientStatus{
 			Client:             state,
 			Authentication:     clientRuntime.Authentication,

@@ -130,7 +130,7 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 			httpClient.status = test.status
 			httpClient.body = test.body
 
-			err := cli.Execute(app, []string{"check", "--json"})
+			err := cli.Execute(app, []string{"check", "--json", "--endpoint-only"})
 			if (err != nil) != test.wantError {
 				t.Fatalf("check error = %v, want error %v\n%s", err, test.wantError, out.String())
 			}
@@ -206,7 +206,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
-	if err := cli.Execute(app, []string{"check", "--json"}); err != nil {
+	if err := cli.Execute(app, []string{"check", "--json", "--endpoint-only"}); err != nil {
 		t.Fatalf("check failed: %v\n%s", err, out.String())
 	}
 	var document canonicalReadinessDocument

@@ -350,7 +350,7 @@ func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 		t.Fatalf("client-native check used AIGW authentication capabilities: get=%d exists=%d HTTP=%d", store.getCalls, store.existsCalls, requests)
 	}
 	human := buffer.String()
-	for _, want := range []string{"Local projection checked", "Client-owned authentication", "aigw verify --for codex", "All enabled client checks passed", "Model inference and real-client execution were not verified"} {
+	for _, want := range []string{"Local projection checked", "Client-owned authentication", "aigw verify --for codex", "All enabled client checks passed", "Model inference was not verified", "Real-client execution was not verified"} {
 		if !strings.Contains(strings.ToLower(human), strings.ToLower(want)) {
 			t.Fatalf("client-native check output = %q, want %q", human, want)
 		}

@@ -175,7 +175,14 @@ func renderClients(renderer *presentation.Renderer, clients map[string]domainrea
 		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
 			state = presentation.Warn
 		}
-		renderer.Status(state, spec.Label, client.State.Label())
+		message := client.State.Label()
+		if client.NativeModelOverride {
+			message += " · " + client.Detail
+		}
+		renderer.Status(state, spec.Label, message)
+		if client.NativeModelOverride && client.NextAction != "" {
+			renderer.Detail("Verify the native model: " + client.NextAction)
+		}
 	}
 }
 
@@ -248,6 +255,9 @@ func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cf
 		status := clients.Inspect(ctx, cfg, clientID, runtime)
 		adapterReady := status.Ready || len(status.Checks) > 0
 		detail, fix := "enabled", ""
+		if status.NativeModelOverride {
+			detail = "enabled; native model preference requires explicit verification"
+		}
 		if !adapterReady {
 			detail, fix = status.Issue, commandFix(status.RepairAction)
 		}

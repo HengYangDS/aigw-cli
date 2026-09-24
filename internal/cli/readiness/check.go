@@ -29,6 +29,7 @@ func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
+	cmd.Flags().Bool("endpoint-only", false, "Use model-free endpoint authentication instead of inference")
 	return cmd
 }
 
@@ -42,21 +43,30 @@ type checkJSON struct {
 }
 
 type evaluatedClient struct {
-	client             string
-	runtime            configuration.Runtime
-	resolveErr         error
-	credentialErr      error
-	fix                string
-	checkPassed        bool
-	issue              string
-	adapter            bool
-	endpointConfigured bool
-	diagnostic         diagnostics.Result
+	client              string
+	runtime             configuration.Runtime
+	resolveErr          error
+	credentialErr       error
+	fix                 string
+	checkPassed         bool
+	issue               string
+	adapter             bool
+	endpointConfigured  bool
+	nativeModelOverride bool
+	diagnostic          diagnostics.Result
 }
 
 type checkEvaluation struct {
 	configPath string
 	clients    []evaluatedClient
+}
+
+func selectedCheckScope(cmd *cobra.Command) diagnostics.Scope {
+	endpointOnly, err := cmd.Flags().GetBool("endpoint-only")
+	if err == nil && endpointOnly {
+		return diagnostics.ScopeEndpoint
+	}
+	return diagnostics.ScopeInference
 }
 
 func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config) checkEvaluation {
@@ -82,6 +92,7 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg configur
 	result.endpointConfigured = strings.TrimSpace(clientRuntime.Endpoint) != ""
 	status := invocation.Synchronizer(runtime).Inspect(cmd.Context(), cfg, client, clientRuntime)
 	result.adapter = status.Ready
+	result.nativeModelOverride = status.NativeModelOverride
 	result.issue = status.Issue
 	result.fix = status.RepairAction
 	if !result.adapter {
@@ -99,10 +110,16 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg configur
 		result.fix = "aigw rotate " + clientRuntime.AccountID
 		return result
 	}
-	result.diagnostic = diagnostics.ProbeStable(cmd.Context(), runtime.HTTP, clientRuntime, token, diagnostics.ScopeEndpoint, diagnostics.DefaultStabilityPolicy())
+	scope := selectedCheckScope(cmd)
+	if result.nativeModelOverride {
+		scope = diagnostics.ScopeEndpoint
+	}
+	result.diagnostic = diagnostics.ProbeStable(cmd.Context(), runtime.HTTP, clientRuntime, token, scope, diagnostics.DefaultStabilityPolicy())
 	if result.diagnostic.Kind != diagnostics.Healthy {
 		result.issue = result.diagnostic.Summary
 		result.fix = result.diagnostic.Fix
+	} else if result.nativeModelOverride {
+		result.fix = "aigw verify --for claude"
 	}
 	result.checkPassed = result.issue == ""
 	return result
@@ -151,6 +168,8 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		status.CheckPassed = new(bool)
 		*status.CheckPassed = client.checkPassed
 		status.DiagnosticKind = string(client.diagnostic.Kind)
+		status.DiagnosticScope = client.diagnostic.Scope
+		status.NativeModelOverride = client.nativeModelOverride
 		status.Attempts = client.diagnostic.Attempts
 		status.Retryable = client.diagnostic.Retryable
 		if client.issue != "" {
@@ -161,6 +180,10 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		}
 		if client.diagnostic.Kind != "" && status.State == domainreadiness.Configured {
 			status.Client = domainreadiness.WithProbe(status.Client, client.diagnostic)
+		}
+		if client.nativeModelOverride && client.checkPassed {
+			status.NativeModelOverride = true
+			status.NextAction = "aigw verify --for claude"
 		}
 		clients[client.client] = status
 	}
@@ -186,7 +209,7 @@ func writeJSONFailure(runtime invocation.Context, state domainreadiness.State, m
 }
 
 // RunCheck verifies selected client bindings, configured projections, and
-// endpoint authentication without mutating configuration or credentials.
+// the performed endpoint or inference scope without mutating local state.
 func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
@@ -202,6 +225,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	renderer.Status(presentation.OK, "Configuration file", "Healthy")
 	renderer.Section("Client")
 	verificationCommands := []string{}
+	inferenceUnverified := false
 	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
 		adapter := cfg.Clients[client]
 		if !adapter.Enabled {
@@ -235,6 +259,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			}
 			renderer.Detail(detail)
 			verificationCommands = append(verificationCommands, result.fix)
+			inferenceUnverified = true
 			continue
 		}
 		diagnostic := result.diagnostic
@@ -248,7 +273,17 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			}
 			return invocation.Problem(runtime, diagnostic.Summary, evidence, invocation.Title(client)+" is unavailable.", diagnostic.Fix, fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
 		}
-		renderer.Status(presentation.OK, invocation.Title(client), result.runtime.RouteLabel+" · Endpoint checked")
+		label := "Endpoint checked"
+		if diagnostic.Scope == diagnostics.ScopeInference {
+			label = "Inference checked"
+		} else {
+			inferenceUnverified = true
+		}
+		renderer.Status(presentation.OK, invocation.Title(client), result.runtime.RouteLabel+" · "+label)
+		if result.nativeModelOverride {
+			renderer.Detail("Claude Code uses a native model preference; this endpoint check does not verify that model")
+			verificationCommands = append(verificationCommands, "aigw verify --for claude")
+		}
 		if diagnostic.RecoveredTransient {
 			renderer.Detail(invocation.Title(client) + " authentication recovered after a transient response")
 		}
@@ -261,10 +296,12 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		renderer.Success("Configuration is healthy; no clients are enabled")
 		return nil
 	}
-	// Passing this command establishes only the checks it actually performed.
-	// Endpoint diagnostics do not execute a model or a real client.
+	// Passing this command establishes only the scopes reported per client.
 	renderer.Success("All enabled client checks passed")
-	renderer.Detail("Model inference and real-client execution were not verified")
+	if inferenceUnverified {
+		renderer.Detail("Model inference was not verified for endpoint-only or client-native checks")
+	}
+	renderer.Detail("Real-client execution was not verified")
 	for _, command := range verificationCommands {
 		renderer.Next(command)
 	}

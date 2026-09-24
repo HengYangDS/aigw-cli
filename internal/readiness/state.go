@@ -56,11 +56,12 @@ func (state State) Label() string {
 // client. Detail explains the observation; NextAction is empty only when no
 // operator action is required.
 type Client struct {
-	State      State  `json:"state"`
-	Route      string `json:"route,omitempty"`
-	Account    string `json:"account,omitempty"`
-	Detail     string `json:"detail,omitempty"`
-	NextAction string `json:"next_action,omitempty"`
+	State               State  `json:"state"`
+	Route               string `json:"route,omitempty"`
+	Account             string `json:"account,omitempty"`
+	Detail              string `json:"detail,omitempty"`
+	NextAction          string `json:"next_action,omitempty"`
+	NativeModelOverride bool   `json:"native_model_override,omitempty"`
 }
 
 // ClientFacts are the local observations that determine one client's state.
