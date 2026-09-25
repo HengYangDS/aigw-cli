@@ -34,7 +34,8 @@
 - [x] 3.2 Make one inference request that receives `503 no available channel`
       classify as retryable `ModelUnavailable` without a second request.
       Fail unchanged 401/403 without repeated probes. Verify: request-count
-      and classification tests in `./internal/diagnostics/...`.
+      and classification tests in `./internal/diagnostics/...`. Consider both
+      top-level and nested error text, not unrelated model metadata.
 - [x] 3.3 Map a healthy inference observation to `inference_checked` and a
       healthy catalogue observation to `endpoint_checked`, preserving typed
       failure classes. Verify: `go test ./internal/readiness/...`.
@@ -101,11 +102,18 @@
       binding every selected native journey to its candidate digest. Verify
       explicit UCloud GPT-6 Sol inference, Claude Code's native override,
       endpoint-only mode, and fixture-backed distributor 503 classification.
-- [ ] 6.3 Obtain native macOS, Linux, and Windows evidence for the same
+- [x] 6.3 Obtain native macOS, Linux, and Windows evidence for the same
       product tree and verify exact commit signatures and the introduced
       range under repository policy. Linux ordinary native acceptance must
       exercise secure-file fallback without a session bus; qualify real Secret
-      Service separately in an ephemeral D-Bus/keyring environment.
+      Service separately in an ephemeral D-Bus/keyring environment. At signed
+      `6588bb09`, [GitHub dev run 36104586192](https://github.com/HengYangDS/aigw-cli/actions/runs/36104586192)
+      passed all three native jobs and quality; its Linux log shows both
+      `secure_file_fallback_without_session_bus` and the isolated
+      `system_credential_store` subtest passing. GitLab [dev 8259](http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/pipelines/8259)
+      and [main 8260](http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/pipelines/8260)
+      succeeded at the same SHA. All six commits in `v0.3.0..6588bb09`
+      pass `git verify-commit` and the declared subject policy.
 
 ## 7. Curate the three-provider team catalogue and local configuration
 
@@ -205,7 +213,7 @@
       7.4 inference observation for every admitted Route. Preserve personal
       recommendations, credentials, native preferences, and foreign fields;
       any lost Account coverage requires an explicit reviewed Route retirement.
-- [ ] 7.6 Preserve the existing GitLab Darwin tag variable as the single
+- [x] 7.6 Preserve the existing GitLab Darwin tag variable as the single
       selector for native Darwin, quality, accepted-ref parity, release-version,
       and release-assets. Keep the current host binding while re-running source,
       native, packaged-manifest, exact-HEAD, and hosted evidence for changed
@@ -215,7 +223,13 @@
       work. An older protected-branch job or an unassigned proposal job is not
       proof. Tag-only jobs need their own exact-tag evidence. Decide whether
       changing the existing variable suffices only after those observations;
-      do not add a separate host-release CI lane.
+      do not add a separate host-release CI lane. The existing unprotected
+      `AIGW_GITLAB_DARWIN_RUNNER_TAG=aigw-release-macos-arm64` selects all five
+      jobs in the generated pipeline. At `6588bb09`, GitLab dev jobs 44182
+      (native) and 44183 (quality), and main job 44184 (ref parity), succeeded
+      on runner 53, system `s_7a09155b2f84`; their traces show the declared
+      work. Retain this binding: VM98 is not qualified or selected. Exact-tag
+      release job evidence remains required by 8.1.
 
 ## 8. Publish and install
 

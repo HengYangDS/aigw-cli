@@ -256,30 +256,36 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 }
 
 func providerErrorMessage(body []byte) string {
-	var envelope struct {
-		Message string          `json:"message"`
-		Code    string          `json:"code"`
-		Error   json.RawMessage `json:"error"`
-	}
-	if json.Unmarshal(body, &envelope) != nil {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(body, &fields) != nil {
+		var plain string
+		if json.Unmarshal(body, &plain) == nil {
+			return plain
+		}
+		if json.Valid(body) {
+			return ""
+		}
 		return string(body)
 	}
-	var nested struct {
-		Message string `json:"message"`
-		Code    string `json:"code"`
+	values := make([]string, 0, 7)
+	collect := func(source map[string]json.RawMessage) {
+		for _, key := range []string{"message", "code", "detail"} {
+			var value string
+			if json.Unmarshal(source[key], &value) == nil && value != "" {
+				values = append(values, value)
+			}
+		}
 	}
-	if json.Unmarshal(envelope.Error, &nested) == nil && (nested.Message != "" || nested.Code != "") {
-		return strings.TrimSpace(nested.Message + " " + nested.Code)
+	collect(fields)
+	var nested map[string]json.RawMessage
+	if json.Unmarshal(fields["error"], &nested) == nil {
+		collect(nested)
 	}
-	var errorText string
-	if json.Unmarshal(envelope.Error, &errorText) == nil && errorText != "" {
-		return errorText
+	var plain string
+	if json.Unmarshal(fields["error"], &plain) == nil && plain != "" {
+		values = append(values, plain)
 	}
-	message := strings.TrimSpace(envelope.Message + " " + envelope.Code)
-	if message == "" {
-		return string(body)
-	}
-	return message
+	return strings.Join(values, " ")
 }
 
 func classifySuccessfulResponse(result Result, protocol configuration.EndpointProtocol, body []byte) Result {

@@ -2,12 +2,23 @@
 
 All notable, user-relevant changes are recorded here. This chronicle follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic
-Versioning](https://semver.org/). A published section must correspond to an
-existing Git tag; it is not a plan, a branch name, or an inferred version.
+Versioning](https://semver.org/). The first versioned section may be the single
+pending release named by `VERSION`; it becomes published only when its signed
+Git tag exists. A heading is not a plan, branch name, or publication proof.
 Artifact publication, platform acceptance, signing, and GA status remain
 separate evidence.
 
 ## [Unreleased]
+
+## [0.3.1] - 2026-09-25
+
+### Fixed
+
+- Preserve a sidecar-proven Claude Code native model preference when the
+  AIGW-managed connection is unchanged or only its credential executable moves;
+  continue rejecting unrelated managed connection edits.
+- Classify failed inference responses using structured provider error messages,
+  including nested error fields.
 
 ## [0.3.0] - 2026-09-25
 

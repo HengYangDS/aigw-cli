@@ -48,10 +48,10 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 		journey.prepare(t, publishedPredecessorManifest(server.URL+"/v1"), configuration.PublishedConfigVersion)
 		journey.upgrade(t)
 		journey.rollbackAndRecover(t)
-	case "0.2.0":
+	case "0.2.0", "0.3.0":
 		journey.prepare(t, publishedStablePredecessorManifest(server.URL+"/v1"), configuration.ConfigVersion)
 		journey.upgradeCurrentSchema(t)
-		journey.rollbackCurrentSchemaAndRecover(t)
+		journey.rollbackCurrentSchemaAndRecover(t, predecessorVersion)
 	default:
 		t.Fatalf("unsupported published predecessor version %q", predecessorVersion)
 	}
@@ -226,10 +226,10 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T) {
 	state.finish(t)
 }
 
-func (state *publishedNativeJourney) rollbackCurrentSchemaAndRecover(t *testing.T) {
+func (state *publishedNativeJourney) rollbackCurrentSchemaAndRecover(t *testing.T, predecessorVersion string) {
 	journey := state.journey
 	journey.run("update", "--rollback")
-	journey.requireVersion("0.2.0")
+	journey.requireVersion(predecessorVersion)
 	journey.requireProgramBytes(state.baseline)
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
 		t.Fatal("current-schema rollback changed published configuration")

@@ -57,8 +57,10 @@ func TestInferenceScopeClassifiesDecodedProviderMessage(t *testing.T) {
 		{"escaped top-level message", `{"message":"\u65e0\u53ef\u7528\u6e20\u9053"}`, diagnostics.ModelUnavailable},
 		{"plain-text message", "no available channel for model", diagnostics.ModelUnavailable},
 		{"semantic error code", `{"error":{"message":"service unavailable","code":"model_unavailable"}}`, diagnostics.ModelUnavailable},
+		{"top-level channel with nested generic error", `{"message":"no available channel for model","error":{"message":"upstream service unavailable"}}`, diagnostics.ModelUnavailable},
 		{"unknown envelope fallback", `{"detail":"no available channel for model"}`, diagnostics.ModelUnavailable},
 		{"unrelated model field", `{"error":{"message":"service unavailable","model":"gpt-6-sol"}}`, diagnostics.UpstreamFailure},
+		{"metadata-only model field", `{"model":"gpt-6-sol"}`, diagnostics.UpstreamFailure},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			calls := 0

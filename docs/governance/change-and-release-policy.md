@@ -360,11 +360,13 @@ selected peers.
 
 ## Release Chronicle
 
-[release chronology](../../CHANGELOG.md) starts with `## [Unreleased]` and contains only changes after the
-latest published version. Published headings are unique SemVer entries in
-descending order and correspond to an existing signed `v<semver>` tag and its
-date. [canonical version](../../VERSION) is the release-version SSOT; branch names and planned versions
-are not chronology.
+The [release chronology](../../CHANGELOG.md) starts with `## [Unreleased]`;
+that section contains only changes after the latest published version.
+Versioned headings are unique SemVer entries in descending order. The first may
+be the single pending release named by [canonical version](../../VERSION);
+every older heading identifies an existing signed `v<semver>` tag and its date.
+The tag, not the heading, establishes publication. Branch names and planned
+versions are not chronology.
 
 Changelog headings and selected tags use the existing strict SemVer library
 shared by release construction and update admission, not a second regex or
