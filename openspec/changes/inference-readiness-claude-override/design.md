@@ -206,6 +206,11 @@ non-inference commands.
    that variable alone can change. GitLab release-assets verifies published
    signed bytes; it does not sign or notarize them. Stable signing and Apple
    notarization belong to the release publication owner, not another CI lane.
+   Select exactly one native `notarytool` authentication mode: a validated
+   Keychain profile or an existing protected App Store Connect API key file,
+   key ID, and issuer when required. Never retry a failed profile through a
+   guessed credential, prompt, or silent fallback. The same accepted Apple log
+   must bind the uploaded ZIP and both final macOS executables in either mode.
 10. Verify focused behavior, exact HEAD quality and native gates, selected
     released bytes, live routes, publication, installation, rollback, and owned
     cleanup in that order. tasks.md is the only progress ledger.

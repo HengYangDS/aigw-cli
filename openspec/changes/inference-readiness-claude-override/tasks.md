@@ -220,7 +220,9 @@
       checksums through the existing GitHub and GitLab workflows. Verify
       remote refs, exact-tag CI job runners, release objects, and every
       published asset byte; separately retain host signing and accepted Apple
-      notarization evidence for the exact macOS candidate.
+      notarization evidence for the exact macOS candidate. Use one explicit
+      noninteractive native authentication mode, rejecting mixed or incomplete
+      Keychain-profile and API-key inputs without prompting or fallback.
 - [ ] 8.3 Publish and install the matching Homebrew Cask, exercise a bounded
       rollback and forward restoration, then verify the installed executable,
       UCloud routes, Claude preference preservation, and both check scopes.

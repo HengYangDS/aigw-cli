@@ -159,6 +159,42 @@ func TestRunArtifactCommands(t *testing.T) {
 	}
 }
 
+func TestVerifyMacOSDistributionAcceptsExplicitNativeAuth(t *testing.T) {
+	prefix := []string{
+		"verify-macos-distribution", "missing-artifacts", "1.2.3", strings.Repeat("a", 40),
+		"upload.zip", "submission-id",
+	}
+	for _, auth := range [][]string{
+		{"api-key", "AuthKey.p8", "KEYID", "issuer-id"},
+		{"api-key", "AuthKey.p8", "KEYID"},
+		{"keychain-profile", "release-profile"},
+	} {
+		err := run(append(append([]string(nil), prefix...), auth...), io.Discard)
+		if err == nil || strings.HasPrefix(err.Error(), "usage:") {
+			t.Fatalf("native authentication %q rejected before archive verification: %v", auth, err)
+		}
+	}
+}
+
+func TestStablePublisherSelectsOneNoninteractiveNotaryAuthMode(t *testing.T) {
+	t.Setenv("AIGW_MACOS_SIGNING_IDENTITY", strings.Repeat("a", 40))
+	t.Setenv("AIGW_MACOS_NOTARY_ARCHIVE", "upload.zip")
+	t.Setenv("AIGW_MACOS_NOTARY_SUBMISSION", "submission-id")
+	t.Setenv("AIGW_MACOS_NOTARY_PROFILE", "")
+	t.Setenv("AIGW_MACOS_NOTARY_API_KEY_FILE", "AuthKey.p8")
+	t.Setenv("AIGW_MACOS_NOTARY_API_KEY_ID", "KEYID")
+	t.Setenv("AIGW_MACOS_NOTARY_API_ISSUER_ID", "issuer-id")
+
+	err := verifyMacOSPublication(t.Context(), t.TempDir(), "1.2.3")
+	if err == nil || strings.Contains(err.Error(), "authentication") || strings.Contains(err.Error(), "Keychain") {
+		t.Fatalf("complete API-key mode did not reach archive verification: %v", err)
+	}
+	t.Setenv("AIGW_MACOS_NOTARY_PROFILE", "release-profile")
+	if err := verifyMacOSPublication(t.Context(), t.TempDir(), "1.2.3"); err == nil || !strings.Contains(err.Error(), "exactly one authentication mode") {
+		t.Fatalf("mixed notarization authentication was admitted: %v", err)
+	}
+}
+
 func TestRunReleasePolicyCommands(t *testing.T) {
 	for _, name := range []string{"AIGW_CHANGELOG_RELEASE_TAG", "CI_COMMIT_TAG", "GITHUB_REF_NAME", "GITHUB_REF_TYPE"} {
 		t.Setenv(name, "")

@@ -86,10 +86,13 @@ restores force push to disabled. A changed tip invalidates the prepared command.
 
 ## macOS signing and notarization
 
-Use an existing Developer ID Application identity and an already validated
-`notarytool` Keychain profile on the authorized macOS host. Do not export the
-signing private key to enable this workflow. The signing identity and archive
-verification contract are defined in the [release policy](../governance/change-and-release-policy.md#quality-and-platform-evidence).
+Use an existing Developer ID Application identity and one explicitly selected
+`notarytool` authentication mode on the authorized macOS host: a validated
+Keychain profile, or an already protected App Store Connect API key file and its
+key ID. Team API keys also require the issuer ID; Individual API keys must omit
+it. Do not export the signing private key or copy the API key into the repository.
+The signing identity and archive verification contract are defined in the
+[release policy](../governance/change-and-release-policy.md#quality-and-platform-evidence).
 
 Keep the signed candidate immutable while Apple processes it. Prepare one ZIP
 containing the exact signed executables extracted from both macOS archives,
@@ -99,24 +102,33 @@ Use an explicit, new operation directory under the checkout's
 until the release decision is resolved. Never upload credentials or source-state
 directories with the executables.
 
-With `NOTARY_ZIP`, `NOTARY_PROFILE`, and `EVIDENCE_DIRECTORY` set to those
-reviewed inputs, submit once:
+Set `NOTARY_ZIP` and `EVIDENCE_DIRECTORY` to those reviewed inputs. Select one
+authentication argument list; never fall back silently after an authorization
+failure. For a Team API key already held in a protected file:
 
-```sh
+```zsh
+NOTARY_AUTH=(--key "$NOTARY_KEY_FILE" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID")
+```
+
+For a validated Keychain profile instead, use
+`NOTARY_AUTH=(--keychain-profile "$NOTARY_PROFILE")`. For an Individual API key,
+omit `--issuer` and its value. Then submit once:
+
+```zsh
 mise run release:notary submit "$NOTARY_ZIP" \
-  --keychain-profile "$NOTARY_PROFILE" --no-wait --output-format json \
+  "${NOTARY_AUTH[@]}" --no-wait --output-format json \
   < /dev/null > "$EVIDENCE_DIRECTORY/submission.json"
 ```
 
 Set `SUBMISSION_ID` to the returned Apple `id`. Query or resume that same
 submission rather than uploading again:
 
-```sh
+```zsh
 mise run release:notary info "$SUBMISSION_ID" \
-  --keychain-profile "$NOTARY_PROFILE" --output-format json < /dev/null
+  "${NOTARY_AUTH[@]}" --output-format json < /dev/null
 
 mise run release:notary wait "$SUBMISSION_ID" \
-  --keychain-profile "$NOTARY_PROFILE" --timeout 4m --output-format json \
+  "${NOTARY_AUTH[@]}" --timeout 4m --output-format json \
   < /dev/null > "$EVIDENCE_DIRECTORY/wait.json"
 ```
 
@@ -131,9 +143,9 @@ Only `Accepted` permits proceeding. Retrieve Apple's log, then run the
 [final archive verifier](../governance/change-and-release-policy.md#quality-and-platform-evidence)
 against the retained candidate before publication:
 
-```sh
+```zsh
 mise run release:notary log "$SUBMISSION_ID" \
-  --keychain-profile "$NOTARY_PROFILE" \
+  "${NOTARY_AUTH[@]}" \
   "$EVIDENCE_DIRECTORY/notarization-log.json" < /dev/null
 ```
 

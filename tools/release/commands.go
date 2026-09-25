@@ -104,10 +104,23 @@ func policyCommands() commandSet {
 func artifactCommands(ctx context.Context) commandSet {
 	return commandSet{
 		"verify-macos-distribution": func(args []string, _ io.Writer) error {
-			if err := requireArguments(args, 6, "usage: release verify-macos-distribution <artifact-directory> <version> <certificate-fingerprint> <uploaded-zip> <submission-id> <keychain-profile>"); err != nil {
-				return err
+			const usage = "usage: release verify-macos-distribution <artifact-directory> <version> <certificate-fingerprint> <uploaded-zip> <submission-id> (keychain-profile <profile> | api-key <key-file> <key-id> [issuer-id])"
+			if len(args) < 7 || len(args) > 9 {
+				return errors.New(usage)
 			}
-			return construction.VerifyMacOSDistribution(ctx, args[0], args[1], args[2], construction.Notarization{Archive: args[3], SubmissionID: args[4], KeychainProfile: args[5]})
+			submission := construction.Notarization{Archive: args[3], SubmissionID: args[4]}
+			switch {
+			case args[5] == "keychain-profile" && len(args) == 7:
+				submission.KeychainProfile = args[6]
+			case args[5] == "api-key" && (len(args) == 8 || len(args) == 9):
+				submission.APIKeyFile, submission.APIKeyID = args[6], args[7]
+				if len(args) == 9 {
+					submission.APIIssuerID = args[8]
+				}
+			default:
+				return errors.New(usage)
+			}
+			return construction.VerifyMacOSDistribution(ctx, args[0], args[1], args[2], submission)
 		},
 		"validate-artifacts": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 2, "usage: release validate-artifacts <directory> <version>"); err != nil {
@@ -208,6 +221,8 @@ func verifyArtifacts(ctx context.Context, directory string) error {
 
 func verifyMacOSPublication(ctx context.Context, directory, version string) error {
 	return construction.VerifyMacOSDistribution(ctx, directory, version, os.Getenv("AIGW_MACOS_SIGNING_IDENTITY"), construction.Notarization{
-		Archive: os.Getenv("AIGW_MACOS_NOTARY_ARCHIVE"), SubmissionID: os.Getenv("AIGW_MACOS_NOTARY_SUBMISSION"), KeychainProfile: os.Getenv("AIGW_MACOS_NOTARY_PROFILE"),
+		Archive: os.Getenv("AIGW_MACOS_NOTARY_ARCHIVE"), SubmissionID: os.Getenv("AIGW_MACOS_NOTARY_SUBMISSION"),
+		KeychainProfile: os.Getenv("AIGW_MACOS_NOTARY_PROFILE"), APIKeyFile: os.Getenv("AIGW_MACOS_NOTARY_API_KEY_FILE"),
+		APIKeyID: os.Getenv("AIGW_MACOS_NOTARY_API_KEY_ID"), APIIssuerID: os.Getenv("AIGW_MACOS_NOTARY_API_ISSUER_ID"),
 	})
 }

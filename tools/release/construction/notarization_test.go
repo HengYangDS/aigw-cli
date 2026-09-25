@@ -10,9 +10,34 @@ import (
 
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
+
+func TestNotarizationRequiresOneExplicitNativeAuthenticationMode(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		input   Notarization
+		want    []string
+		wantErr bool
+	}{
+		{name: "keychain", input: Notarization{KeychainProfile: "release-profile"}, want: []string{"--keychain-profile", "release-profile"}},
+		{name: "team API key", input: Notarization{APIKeyFile: "AuthKey.p8", APIKeyID: "KEYID", APIIssuerID: "issuer-id"}, want: []string{"--key", "AuthKey.p8", "--key-id", "KEYID", "--issuer", "issuer-id"}},
+		{name: "individual API key", input: Notarization{APIKeyFile: "AuthKey.p8", APIKeyID: "KEYID"}, want: []string{"--key", "AuthKey.p8", "--key-id", "KEYID"}},
+		{name: "missing", wantErr: true},
+		{name: "mixed", input: Notarization{KeychainProfile: "release-profile", APIKeyFile: "AuthKey.p8", APIKeyID: "KEYID"}, wantErr: true},
+		{name: "partial API key", input: Notarization{APIKeyFile: "AuthKey.p8"}, wantErr: true},
+		{name: "issuer without API key", input: Notarization{APIIssuerID: "issuer-id"}, wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			actual, err := test.input.authArguments()
+			if (err != nil) != test.wantErr || !slices.Equal(actual, test.want) {
+				t.Fatalf("authentication arguments = %q, %v; want %q, error=%t", actual, err, test.want, test.wantErr)
+			}
+		})
+	}
+}
 
 func TestNotarizationBindsAcceptedUploadToBothFinalPrograms(t *testing.T) {
 	for _, scenario := range []string{"accepted", "pending", "invalid", "wrong-job", "wrong-upload", "wrong-program", "query-failed"} {
@@ -41,7 +66,7 @@ func TestNotarizationBindsAcceptedUploadToBothFinalPrograms(t *testing.T) {
 			if err := os.WriteFile(path, payload.Bytes(), 0600); err != nil {
 				t.Fatal(err)
 			}
-			submission := Notarization{Archive: path, SubmissionID: "12345678-1234-1234-1234-123456789abc", KeychainProfile: "test-profile"}
+			submission := Notarization{Archive: path, SubmissionID: "12345678-1234-1234-1234-123456789abc", APIKeyFile: "AuthKey.p8", APIKeyID: "KEYID", APIIssuerID: "issuer-id"}
 			status, job, digest := "Accepted", submission.SubmissionID, fmt.Sprintf("%x", sha256.Sum256(payload.Bytes()))
 			switch scenario {
 			case "pending":
