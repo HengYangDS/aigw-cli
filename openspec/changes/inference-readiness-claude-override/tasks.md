@@ -62,6 +62,12 @@
       Claude request in an owned isolated context with noninteractive
       credentials. Preserve the user's current host settings and sidecar bytes;
       a host model equal to the selected Route does not prove an override.
+- [x] 4.4 Keep a sidecar-proven native model preference during an unchanged
+      synchronization or an AIGW-owned helper path update. Reproject the Route
+      model when the Account, endpoint, or Route model changes; reject foreign
+      connection edits and preserve byte-exact rollback. Verify focused
+      RED/GREEN Claude projection tests, the existing read-only inspection
+      and Adapter suites, and the full source and native gates.
 
 ## 5. Expose the check scope
 

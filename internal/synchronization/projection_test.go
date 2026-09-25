@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/secrets"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -148,6 +149,57 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 	plans, err = syncer.Plan(after, before)
 	if err != nil || len(plans) != 1 || plans[0].Client != configuration.ClientClaude || plans[0].Action != "restore" {
 		t.Fatalf("restore plans = %#v, %v", plans, err)
+	}
+}
+
+func TestCommitProjectionPreservesClaudeModelAcrossHelperChange(t *testing.T) {
+	root := t.TempDir()
+	settings := filepath.Join(root, "settings.json")
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "gateway", Model: "claude-opus-5-5", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
+	syncer := Synchronizer{
+		Config:    configuration.NewStore(filepath.Join(root, "aigw.toml")),
+		Discovery: staticDiscovery{}, ClaudeSettingsPath: settings,
+		AIGWExecutable: filepath.Join(root, "old-aigw"),
+	}
+	if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), cfg, "initial Claude projection"); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edited := bytes.Replace(before, []byte(`"claude-opus-5-5"`), []byte(`"opus[1m]"`), 1)
+	if bytes.Equal(before, edited) {
+		t.Fatal("native model edit did not change the projection")
+	}
+	if err := os.WriteFile(settings, edited, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	syncer.AIGWExecutable = filepath.Join(root, "new-aigw")
+	plans, err := syncer.Plan(cfg, cfg)
+	if err != nil || len(plans) != 1 || plans[0].Action != "project" {
+		t.Fatalf("helper migration plan = %#v, %v", plans, err)
+	}
+	if err := syncer.CommitProjection(t.Context(), cfg, cfg, "Claude helper migration"); err != nil {
+		t.Fatal(err)
+	}
+	var projected struct {
+		Model        string `json:"model"`
+		APIKeyHelper string `json:"apiKeyHelper"`
+	}
+	data, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &projected); err != nil {
+		t.Fatal(err)
+	}
+	if projected.Model != "opus[1m]" || !strings.Contains(projected.APIKeyHelper, syncer.AIGWExecutable) {
+		t.Fatalf("helper migration lost native model or target helper: %#v", projected)
 	}
 }
 

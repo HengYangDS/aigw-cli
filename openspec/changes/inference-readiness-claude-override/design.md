@@ -143,8 +143,12 @@ does not adopt the current model as a Route model or change the sidecar.
 `internal/client` carries the observation to readiness. Status and doctor
 report local connection readiness and the native verification continuation;
 check may authenticate the endpoint but may not claim inference for the
-native alias. Explicit `aigw use` and synchronization retain their existing
-guarded projection behavior.
+native alias. Synchronization leaves a proven native preference untouched
+while the Route model and Account/endpoint credential scope remain the same.
+An AIGW-owned helper path update changes the helper but not that preference;
+a changed model or credential scope projects the selected Route model.
+External edits to the helper or other managed connection fields still fail
+the sidecar guard.
 
 Native-client evidence is time-bound. When the host no longer carries the
 observed alias, exercise a real request in an owned isolated Claude context

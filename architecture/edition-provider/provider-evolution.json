@@ -647,7 +647,7 @@
           "authority": "AIGW native Codex projection"
         },
         "claude-code": {
-          "sha256": "6f6e7cfa3c0b87ec48f083371f3dce64bed05456ebbd593f48421ca64fb99321",
+          "sha256": "409a5e66315aa72c6e08e508bc34cd38528bd0b7ee7c4ce097f9b0e41df89fd0",
           "locator": "source/internal/claude/settings.go",
           "authority": "AIGW native Claude Code projection"
         },
@@ -1017,7 +1017,7 @@
         }
       },
       "context": {
-        "revision": "febda80ffa9025bca0a534638bcdfbe164a6ea9f03ddc05eca020c80352b10af",
+        "revision": "b4a57abb2b544acc9267742cacc7cd6f3a23f62f848ffc8026dbf159875cc694",
         "scope": "Selected AIGW control-plane owners; not automatic inference or exhaustive implementation coverage"
       }
     },
@@ -1033,11 +1033,11 @@
           "version": "0.3.0-alpha.1"
         },
         "source": {
-          "manifestSha256": "9fae12502b30e9c1e72731a17b3d02e886c39a7be23a8d832257019339cf956b"
+          "manifestSha256": "4aec46faa19c4334a374134ad9afeca10d4d52c5fa900edebd5447dabc0509f0"
         },
         "claimModel": {
           "schema": "architecture.claim-model/v2",
-          "digest": "7548ada0f5e5bc7eadbeec05a79f4c9d14e6efb0716899d8f7f3372ff0bcbca0"
+          "digest": "99457fb99830c6119da9881fa64ce880dad6d1746df974cfd3aac6d9d487d9e4"
         },
         "title": "AIGW Client Projection",
         "audiences": { "maintainer": { "label": "AIGW maintainers" } },
@@ -1552,7 +1552,7 @@
           "recovery": [],
           "human": []
         },
-        "scope": "Selected AIGW control-plane owners at source revision febda80ffa9025bca0a534638bcdfbe164a6ea9f03ddc05eca020c80352b10af; curated from exact source bytes without inferred implementation completeness."
+        "scope": "Selected AIGW control-plane owners at source revision b4a57abb2b544acc9267742cacc7cd6f3a23f62f848ffc8026dbf159875cc694; curated from exact source bytes without inferred implementation completeness."
       }
     ]
   },

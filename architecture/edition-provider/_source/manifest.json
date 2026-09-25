@@ -2,13 +2,13 @@
   "schema": "architecture.source-bundle/v1",
   "source": {
     "id": "dig/misc/tools/llm-third-party-api/aigw-cli",
-    "revision": "febda80ffa9025bca0a534638bcdfbe164a6ea9f03ddc05eca020c80352b10af"
+    "revision": "b4a57abb2b544acc9267742cacc7cd6f3a23f62f848ffc8026dbf159875cc694"
   },
   "files": [
     {
       "path": "semantic.json",
       "bytes": 15397,
-      "sha256": "2eb43f05acb7757d1b5bce12e3475208d2aefcf89807bf6726ac3dd0c934efbe"
+      "sha256": "1975b7af02b3e28268feb9b4ed7fab88caac6e7bb44df484a6f133275775dabd"
     },
     {
       "path": "source/internal/client/adapters.go",
@@ -17,8 +17,8 @@
     },
     {
       "path": "source/internal/claude/settings.go",
-      "bytes": 19459,
-      "sha256": "6f6e7cfa3c0b87ec48f083371f3dce64bed05456ebbd593f48421ca64fb99321"
+      "bytes": 17357,
+      "sha256": "409a5e66315aa72c6e08e508bc34cd38528bd0b7ee7c4ce097f9b0e41df89fd0"
     },
     {
       "path": "source/internal/claude/desktop/configuration.go",

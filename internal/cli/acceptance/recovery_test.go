@@ -14,17 +14,17 @@ import (
 	"testing"
 )
 
-func TestClaudeModelDriftRecoveryThroughPublicCommands(t *testing.T) {
+func TestClaudeNativeModelPreferenceThroughPublicCommands(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		args    []string
 		model   string
 		preview bool
 	}{
-		{"sync", []string{"sync"}, `"claude-test"`, true},
-		{"repair", []string{"repair"}, `"claude-test"`, true},
+		{"sync", []string{"sync"}, "", true},
+		{"repair", []string{"repair"}, "", true},
 		{"use", []string{"use", "--for", "claude", "next"}, `"claude-next"`, false},
-		{"repeat-use", []string{"use", "--for", "claude", "one"}, `"claude-test"`, false},
+		{"repeat-use", []string{"use", "--for", "claude", "one"}, "", false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, credentials, runner, _ := testApp(t, "")
@@ -62,8 +62,9 @@ func TestClaudeModelDriftRecoveryThroughPublicCommands(t *testing.T) {
 			if err := os.WriteFile(app.ClaudeSettingsPath, data, 0o600); err != nil {
 				t.Fatal(err)
 			}
+			settingsBefore := append([]byte(nil), data...)
 			if test.preview {
-				assertClaudeModelRepairPreview(t, app, out, test.name, data)
+				assertClaudeNativePreferencePreview(t, app, out, test.name, data)
 			}
 			if err := cli.Execute(app, test.args); err != nil {
 				t.Fatal(err)
@@ -78,6 +79,9 @@ func TestClaudeModelDriftRecoveryThroughPublicCommands(t *testing.T) {
 			if string(settings["model"]) != test.model || string(settings["theme"]) != `"dark"` {
 				t.Fatalf("settings=%s", data)
 			}
+			if test.model == "" && !bytes.Equal(data, settingsBefore) {
+				t.Fatal("unchanged Route rewrote native model preference")
+			}
 			if len(runner.plans) != 0 {
 				t.Fatal("configuration recovery started a client")
 			}
@@ -85,7 +89,7 @@ func TestClaudeModelDriftRecoveryThroughPublicCommands(t *testing.T) {
 	}
 }
 
-func assertClaudeModelRepairPreview(t *testing.T, app *cli.App, out *bytes.Buffer, command string, settings []byte) {
+func assertClaudeNativePreferencePreview(t *testing.T, app *cli.App, out *bytes.Buffer, command string, settings []byte) {
 	t.Helper()
 	before, err := app.Config.CaptureSnapshot()
 	if err != nil {
@@ -108,7 +112,7 @@ func assertClaudeModelRepairPreview(t *testing.T, app *cli.App, out *bytes.Buffe
 	if command == "repair" {
 		preview.Targets = preview.Projections
 	}
-	if len(preview.Targets) != 1 || preview.Targets[0].Client != configuration.ClientClaude || preview.Targets[0].Action != "project" {
+	if len(preview.Targets) != 1 || preview.Targets[0].Client != configuration.ClientClaude || preview.Targets[0].Action != "already-converged" {
 		t.Fatalf("preview=%+v", preview)
 	}
 	after, err := app.Config.CaptureSnapshot()

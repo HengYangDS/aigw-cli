@@ -58,8 +58,8 @@ func TestInspectSettingsPreservesSidecarProvenNativeModelPreference(t *testing.T
 				t.Fatalf("model-only native preference became invalid: %v", err)
 			}
 			plan, err := PlanSettings(path, false, selected, testExecutable(), selected.Model)
-			if err != nil || plan.Action != SettingsActionProject {
-				t.Fatalf("explicit sync preview = %#v, %v", plan, err)
+			if err != nil || plan.Action != SettingsActionAlreadyConverged {
+				t.Fatalf("unchanged connection preview = %#v, %v", plan, err)
 			}
 			afterSettings, _ := os.ReadFile(path)
 			afterSidecar, _ := os.ReadFile(path + settingsStateSuffix)

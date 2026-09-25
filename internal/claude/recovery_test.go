@@ -5,7 +5,6 @@ import (
 	"aigw-cli/internal/transaction"
 	"bytes"
 	"encoding/json"
-	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -27,8 +26,6 @@ func TestSettingsReconcilesOnlyProvenModelPreferenceDrift(t *testing.T) {
 				document["model"] = json.RawMessage(changedModel)
 			}
 			document["theme"] = json.RawMessage(`"dark"`)
-			want := maps.Clone(document)
-			want["model"] = json.RawMessage(`"claude-team"`)
 			before := encodeSettings(document)
 			before = bytes.ReplaceAll(before, []byte("/"), []byte(`\/`))
 			before = bytes.ReplaceAll(before, []byte("user-selected-model"), []byte(`\u0075ser-selected-model`))
@@ -36,24 +33,116 @@ func TestSettingsReconcilesOnlyProvenModelPreferenceDrift(t *testing.T) {
 				t.Fatal(err)
 			}
 			plan, err := PlanSettings(path, false, selected, testExecutable(), selected.Model)
-			if err != nil || plan.Action != SettingsActionProject {
+			if err != nil || plan.Action != SettingsActionAlreadyConverged {
 				t.Fatalf("recoverable model drift: %+v, %v", plan, err)
 			}
 			if after, err := os.ReadFile(path); err != nil || !bytes.Equal(after, before) {
 				t.Fatal("preview changed settings")
 			}
 			receipt, err := ReconcileSettings(path, false, selected, testExecutable(), selected.Model)
-			if err != nil {
-				t.Fatal(err)
+			if err != nil || receipt.Action != SettingsActionAlreadyConverged {
+				t.Fatalf("unchanged connection reconciliation = %#v, %v", receipt, err)
 			}
-			if got := readSettingsFile(t, path); !reflect.DeepEqual(got, want) {
-				t.Fatalf("projection=%s, want=%s", encodeSettings(got), encodeSettings(want))
+			if after, err := os.ReadFile(path); err != nil || !bytes.Equal(after, before) {
+				t.Fatal("unchanged connection rewrote native model preference")
 			}
 			if err := receipt.Rollback(); err != nil {
 				t.Fatal(err)
 			}
 			if after, err := os.ReadFile(path); err != nil || !bytes.Equal(after, before) {
 				t.Fatal("rollback lost observed user preference")
+			}
+		})
+	}
+}
+
+func TestHelperOnlyMigrationRetainsNativeModelPreference(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "settings.json")
+	oldHelper := filepath.Join(root, "old-aigw")
+	newHelper := filepath.Join(root, "new-aigw")
+	runtime := configuration.Runtime{
+		RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-opus-5-5",
+	}
+	if _, err := ReconcileSettings(path, false, runtime, oldHelper, ""); err != nil {
+		t.Fatal(err)
+	}
+	document := readSettingsFile(t, path)
+	document["model"] = encodeRaw("opus[1m]")
+	before := encodeSettings(document)
+	if err := os.WriteFile(path, before, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stateBefore, err := os.ReadFile(path + settingsStateSuffix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := PlanSettings(path, false, runtime, newHelper, runtime.Model)
+	if err != nil || plan.Action != SettingsActionProject {
+		t.Fatalf("helper-only plan = %#v, %v", plan, err)
+	}
+	if data, err := os.ReadFile(path); err != nil || !bytes.Equal(data, before) {
+		t.Fatal("helper-only preview changed settings")
+	}
+	receipt, err := ReconcileSettings(path, false, runtime, newHelper, runtime.Model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected := readSettingsFile(t, path)
+	if string(projected["model"]) != string(encodeRaw("opus[1m]")) {
+		t.Fatalf("native model choice became %s", projected["model"])
+	}
+	if string(projected["apiKeyHelper"]) != string(encodeRaw(credentialHelper(newHelper, runtime.CredentialProjectionFingerprint(configuration.ClientClaude)))) {
+		t.Fatal("helper migration did not project the new executable")
+	}
+	if inspection, err := InspectSettings(path, runtime, newHelper); err != nil || !inspection.NativeModelOverride {
+		t.Fatalf("native model preference inspection = %#v, %v", inspection, err)
+	}
+	if err := receipt.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(path); err != nil || !bytes.Equal(data, before) {
+		t.Fatal("helper rollback lost user settings")
+	}
+	if data, err := os.ReadFile(path + settingsStateSuffix); err != nil || !bytes.Equal(data, stateBefore) {
+		t.Fatal("helper rollback lost ownership state")
+	}
+}
+
+func TestHelperMigrationDoesNotCarryModelPreferenceAcrossRouteChanges(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		change func(*configuration.Runtime)
+	}{
+		{name: "account", change: func(runtime *configuration.Runtime) { runtime.AccountID = "another" }},
+		{name: "endpoint", change: func(runtime *configuration.Runtime) { runtime.Endpoint = "https://another.test" }},
+		{name: "model", change: func(runtime *configuration.Runtime) { runtime.Model = "claude-sonnet-5" }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			path := filepath.Join(root, "settings.json")
+			previous := configuration.Runtime{
+				RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-opus-5-5",
+			}
+			if _, err := ReconcileSettings(path, false, previous, filepath.Join(root, "old-aigw"), ""); err != nil {
+				t.Fatal(err)
+			}
+			document := readSettingsFile(t, path)
+			document["model"] = encodeRaw("opus[1m]")
+			if err := os.WriteFile(path, encodeSettings(document), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			next := previous
+			test.change(&next)
+			newHelper := filepath.Join(root, "new-aigw")
+			if _, err := ReconcileSettings(path, false, next, newHelper, previous.Model); err != nil {
+				t.Fatal(err)
+			}
+			if got := readSettingsFile(t, path)["model"]; string(got) != string(encodeRaw(next.Model)) {
+				t.Fatalf("route change retained a native preference: %s", got)
+			}
+			if inspection, err := InspectSettings(path, next, newHelper); err != nil || inspection.NativeModelOverride {
+				t.Fatalf("route change inspection = %#v, %v", inspection, err)
 			}
 		})
 	}
