@@ -103,8 +103,8 @@ func TestGitHubLinuxNativeJourneyUsesTheLockedProductCommand(t *testing.T) {
 	var workflow struct {
 		Jobs map[string]struct {
 			Steps []struct {
-				Run string `yaml:"run"`
-				If  string `yaml:"if"`
+				Name string `yaml:"name"`
+				Run  string `yaml:"run"`
 			} `yaml:"steps"`
 		} `yaml:"jobs"`
 	}
@@ -113,7 +113,7 @@ func TestGitHubLinuxNativeJourneyUsesTheLockedProductCommand(t *testing.T) {
 	}
 	githubCommands := make([]string, 0, len(workflow.Jobs["native-linux"].Steps))
 	for _, step := range workflow.Jobs["native-linux"].Steps {
-		if step.Run != "" && (step.If == "" || step.If == "github.event_name != 'workflow_dispatch' || !inputs.full_quality") {
+		if step.Name == "Prepare locked dependencies" || step.Name == "Run native Linux acceptance" {
 			githubCommands = append(githubCommands, step.Run)
 		}
 	}
@@ -121,6 +121,24 @@ func TestGitHubLinuxNativeJourneyUsesTheLockedProductCommand(t *testing.T) {
 	if !reflect.DeepEqual(githubCommands, want) {
 		t.Fatalf("GitHub native Linux commands = %q, want locked dependencies then one product journey", githubCommands)
 	}
+	for _, step := range workflow.Jobs["native-linux"].Steps {
+		if step.Name != "Qualify Linux Secret Service" {
+			continue
+		}
+		for _, required := range []string{
+			"dbus-x11 gnome-keyring",
+			"dbus-run-session",
+			"SetAlias default /org/freedesktop/secrets/collection/session",
+			"AIGW_VERIFY_SYSTEM_KEYRING=1",
+			"TestNativeProductJourney/system_credential_store",
+		} {
+			if !strings.Contains(step.Run, required) {
+				t.Fatalf("Linux Secret Service qualification omits %q", required)
+			}
+		}
+		return
+	}
+	t.Fatal("native Linux CI does not qualify real Secret Service")
 }
 
 func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
