@@ -213,19 +213,16 @@
 
 ## 8. Publish and install
 
-- [ ] 8.1 Archive the completed Change through the official OpenSpec and
-      ETHOS transition after checking merged canonical requirements and
-      inherited scenarios.
-- [ ] 8.2 Publish one signed stable release with identical assets and
+- [ ] 8.1 Publish one signed stable release with identical assets and
       checksums through the existing GitHub and GitLab workflows. Verify
       remote refs, exact-tag CI job runners, release objects, and every
       published asset byte; separately retain host signing and accepted Apple
       notarization evidence for the exact macOS candidate. Use one explicit
       noninteractive native authentication mode, rejecting mixed or incomplete
       Keychain-profile and API-key inputs without prompting or fallback.
-- [ ] 8.3 Publish and install the matching Homebrew Cask, exercise a bounded
+- [ ] 8.2 Publish and install the matching Homebrew Cask, exercise a bounded
       rollback and forward restoration, then verify the installed executable,
       UCloud routes, Claude preference preservation, and both check scopes.
-- [ ] 8.4 Preserve recovery material and foreign state, retire only proven
-      owned Lane residue, and verify exact worktree, ref, lease, and artifact
-      outcomes.
+- [ ] 8.3 Preserve recovery material and foreign state, remove only proven
+      disposable release-stage residue, and verify exact worktree, ref, lease,
+      and artifact inventory before OpenSpec and ETHOS closeout.
