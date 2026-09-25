@@ -80,9 +80,6 @@ const (
 
 // ProbeBounded makes one authenticated request within the selected scope's deadline.
 func ProbeBounded(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, scope Scope) Result {
-	if scope != ScopeEndpoint && scope != ScopeInference {
-		return Probe(ctx, client, runtime, token, scope)
-	}
 	timeout := endpointTimeout
 	if scope == ScopeInference {
 		timeout = inferenceTimeout
