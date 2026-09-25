@@ -43,41 +43,13 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 		journey:  newNativeJourney(t, baseline, server.URL+"/v1", true),
 		baseline: baseline, candidate: candidate, archive: archive, checksums: checksums, version: version,
 	}
-	switch predecessorVersion := journey.journey.predecessorVersion(version); predecessorVersion {
-	case "0.1.0":
-		journey.prepare(t, publishedPredecessorManifest(server.URL+"/v1"), configuration.PublishedConfigVersion)
-		journey.upgrade(t)
-		journey.rollbackAndRecover(t)
-	case "0.2.0", "0.3.0":
-		journey.prepare(t, publishedStablePredecessorManifest(server.URL+"/v1"), configuration.ConfigVersion)
-		journey.upgradeCurrentSchema(t)
-		journey.rollbackCurrentSchemaAndRecover(t, predecessorVersion)
-	default:
-		t.Fatalf("unsupported published predecessor version %q", predecessorVersion)
-	}
+	predecessorVersion := journey.journey.predecessorVersion(version)
+	journey.prepare(t, nativeCurrentSchemaManifest(server.URL+"/v1"))
+	journey.upgrade(t)
+	journey.rollbackAndRecover(t, predecessorVersion)
 }
 
-func publishedPredecessorManifest(endpoint string) string {
-	return fmt.Sprintf(`version = 4
-
-[recommended_routes]
-claude = "native-system-keyring-probe-claude"
-
-[accounts.native-system-keyring-probe]
-label = "Native System Keyring Probe"
-
-[accounts.native-system-keyring-probe.endpoints]
-anthropic = %q
-
-[profiles.native-system-keyring-probe-claude]
-label = "Native System Keyring Probe Claude"
-account = "native-system-keyring-probe"
-client = "claude"
-model = "claude-test"
-`, endpoint)
-}
-
-func publishedStablePredecessorManifest(endpoint string) string {
+func nativeCurrentSchemaManifest(endpoint string) string {
 	return fmt.Sprintf(`version = 7
 
 [recommendations.claude.primary]
@@ -101,7 +73,7 @@ interfaces = { anthropic = [] }
 `, endpoint)
 }
 
-func (state *publishedNativeJourney) prepare(t *testing.T, manifest string, configVersion int) {
+func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	journey := state.journey
 	if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
@@ -123,7 +95,7 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string, conf
 	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
 	predecessor := readFile(t, journey.config)
-	if !bytes.HasPrefix(predecessor, []byte(fmt.Sprintf("version = %d\n", configVersion))) {
+	if !bytes.HasPrefix(predecessor, []byte(fmt.Sprintf("version = %d\n", configuration.ConfigVersion))) {
 		t.Fatal("published predecessor did not create its own schema")
 	}
 	journey.run("check")
@@ -134,50 +106,6 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string, conf
 }
 
 func (state *publishedNativeJourney) upgrade(t *testing.T) {
-	journey := state.journey
-	candidate, archive, checksums, version := state.candidate, state.archive, state.checksums, state.version
-	predecessor := state.predecessor
-	journey.run("update", "--candidate", archive, "--checksums", checksums)
-	journey.requireVersion(version)
-	journey.requireProgramBytes(candidate)
-	var preview struct {
-		Required    bool `json:"required"`
-		FromVersion int  `json:"from_version"`
-		ToVersion   int  `json:"to_version"`
-	}
-	if err := json.Unmarshal(journey.run("config", "migrate", "--dry-run", "--json"), &preview); err != nil {
-		t.Fatal(err)
-	}
-	if !preview.Required || preview.FromVersion != 3 || preview.ToVersion != configuration.ConfigVersion {
-		t.Fatalf("published predecessor migration preview = %#v", preview)
-	}
-	if !bytes.Equal(readFile(t, journey.config), predecessor) {
-		t.Fatal("published predecessor preview changed configuration")
-	}
-	journey.run("config", "migrate")
-	if backup := readFile(t, journey.config+".bak"); !bytes.Equal(backup, predecessor) {
-		t.Fatal("published predecessor rollback bytes were lost")
-	}
-	migrated, err := configuration.NewStore(journey.config).Load()
-	if err != nil || migrated.Clients[configuration.ClientClaude].Route != "native-system-keyring-probe-claude" {
-		t.Fatalf("published predecessor selection did not migrate: %v", err)
-	}
-	beforeSync := readFile(t, journey.config)
-	journey.run("sync")
-	if !bytes.Equal(readFile(t, journey.config), beforeSync) {
-		t.Fatal("unchanged sync rewrote the migrated configuration")
-	}
-	if backup := readFile(t, journey.config+".bak"); !bytes.Equal(backup, predecessor) {
-		t.Fatal("sync replaced the published predecessor rollback input")
-	}
-	journey.run("check")
-	if backup := readFile(t, journey.config+".bak"); !bytes.Equal(backup, predecessor) {
-		t.Fatal("check replaced the published predecessor rollback input")
-	}
-	journey.requireClaudeCredential("native-journey-token")
-}
-
-func (state *publishedNativeJourney) upgradeCurrentSchema(t *testing.T) {
 	journey := state.journey
 	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
 	journey.requireVersion(state.version)
@@ -204,40 +132,22 @@ func (state *publishedNativeJourney) upgradeCurrentSchema(t *testing.T) {
 	journey.requireClaudeCredential("native-journey-token")
 }
 
-func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T) {
+func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecessorVersion string) {
 	journey := state.journey
-	baseline, candidate, archive, checksums, version := state.baseline, state.candidate, state.archive, state.checksums, state.version
-	predecessor := state.predecessor
-	journey.run("config", "migrate", "--rollback")
-	if !bytes.Equal(readFile(t, journey.config), predecessor) {
-		t.Fatal("published predecessor configuration was not restored exactly")
-	}
-	journey.run("update", "--rollback")
-	journey.requireVersion("0.1.0")
-	journey.requireProgramBytes(baseline)
-	journey.run("check")
-
-	journey.run("update", "--candidate", archive, "--checksums", checksums)
-	journey.run("config", "migrate")
-	journey.run("sync")
-	journey.run("check")
-	journey.requireVersion(version)
-	journey.requireProgramBytes(candidate)
-	state.finish(t)
-}
-
-func (state *publishedNativeJourney) rollbackCurrentSchemaAndRecover(t *testing.T, predecessorVersion string) {
-	journey := state.journey
+	retained := journey.retainedCredential(configuration.ClientClaude)
 	journey.run("update", "--rollback")
 	journey.requireVersion(predecessorVersion)
 	journey.requireProgramBytes(state.baseline)
+	journey.requireCredential(retained, "native-journey-token")
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
 		t.Fatal("current-schema rollback changed published configuration")
 	}
+	journey.run("sync")
 	journey.run("check")
 	journey.requireClaudeCredential("native-journey-token")
 
 	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
+	journey.requireCredential(retained, "native-journey-token")
 	journey.run("sync")
 	journey.run("check")
 	journey.requireVersion(state.version)

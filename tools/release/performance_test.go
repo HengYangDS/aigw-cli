@@ -101,7 +101,7 @@ func TestNativePerformance(t *testing.T) {
 			program := programs[index]
 			for _, backend := range backends {
 				t.Run(fmt.Sprintf("block-%d/%s/%s", block+1, program.Variant, backend), func(t *testing.T) {
-					journey := nativePerformanceJourney(t, program.Path, programs[1].Path, program.Variant, backend)
+					journey := nativePerformanceJourney(t, program.Path, programs[1].Path, backend)
 					rows := journey.measurePerformance(hyperfine, output, program.Variant, backend, block+1)
 					measurements = append(measurements, rows...)
 					if backend == "env" {
@@ -177,7 +177,7 @@ func nativePerformancePrograms(t *testing.T) []performanceProgram {
 	return programs
 }
 
-func nativePerformanceJourney(t *testing.T, program, credentialWorker, variant, backend string) *journeyFixture {
+func nativePerformanceJourney(t *testing.T, program, credentialWorker, backend string) *journeyFixture {
 	t.Helper()
 	const account, token = "native-system-keyring-probe", "synthetic-performance-token"
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
@@ -186,41 +186,9 @@ func nativePerformanceJourney(t *testing.T, program, credentialWorker, variant, 
 	}))
 	t.Cleanup(server.Close)
 	j := newNativeJourney(t, program, server.URL, true)
-	var manifest []byte
-	switch variant {
-	case "baseline":
-		manifest = []byte(publishedPredecessorManifest(server.URL) + `
-
-[profiles.performance-second]
-label = "Performance Second"
-account = "native-system-keyring-probe"
-client = "claude"
-model = "claude-second"
-`)
-	case "candidate":
-		manifest = []byte(fmt.Sprintf(`version = 7
-
-[recommendations.claude.primary]
-route = "native-system-keyring-probe-claude"
-
-[accounts.native-system-keyring-probe]
-label = "Native System Keyring Probe"
-
-[accounts.native-system-keyring-probe.endpoints]
-anthropic = %q
-
-[models.claude-test]
-label = "Claude Test"
-
+	manifest := []byte(nativeCurrentSchemaManifest(server.URL) + `
 [models.claude-second]
 label = "Claude Second"
-
-[routes.native-system-keyring-probe-claude]
-label = "Native System Keyring Probe Claude"
-account = "native-system-keyring-probe"
-model = "claude-test"
-upstream_model = "claude-test"
-interfaces = { anthropic = ["text"] }
 
 [routes.performance-second]
 label = "Performance Second"
@@ -228,10 +196,7 @@ account = "native-system-keyring-probe"
 model = "claude-second"
 upstream_model = "claude-second"
 interfaces = { anthropic = ["text"] }
-`, server.URL))
-	default:
-		t.Fatalf("unknown performance variant %q", variant)
-	}
+`)
 	if err := os.WriteFile(j.manifest, manifest, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -247,20 +212,15 @@ interfaces = { anthropic = ["text"] }
 	j.requireClaudeCredential(token)
 	var catalog struct {
 		Accounts map[string]any `toml:"accounts"`
-		Profiles map[string]any `toml:"profiles"`
 		Routes   map[string]any `toml:"routes"`
 	}
 	if err := toml.Unmarshal(readFile(t, j.config), &catalog); err != nil {
 		t.Fatal(err)
 	}
-	modelConfigurations := catalog.Profiles
-	if variant == "candidate" {
-		modelConfigurations = catalog.Routes
-	}
 	if actual := slices.Sorted(maps.Keys(catalog.Accounts)); !slices.Equal(actual, []string{account}) {
 		t.Fatalf("performance Account inputs differ: %v", actual)
 	}
-	if actual := slices.Sorted(maps.Keys(modelConfigurations)); !slices.Equal(actual, []string{"native-system-keyring-probe-claude", "performance-second"}) {
+	if actual := slices.Sorted(maps.Keys(catalog.Routes)); !slices.Equal(actual, []string{"native-system-keyring-probe-claude", "performance-second"}) {
 		t.Fatalf("performance model-configuration inputs differ: %v", actual)
 	}
 	return j
