@@ -81,7 +81,7 @@ func TestGitHubNativeJobsUseHostedRunners(t *testing.T) {
 	}
 }
 
-func TestForgeProjectionsFollowDeclaredNativeCapacity(t *testing.T) {
+func TestForgeProjectionsIncludeTheCompleteNativeMatrix(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
@@ -96,19 +96,18 @@ func TestForgeProjectionsFollowDeclaredNativeCapacity(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	if gitlab.NativeDarwin == nil {
-		t.Fatal("GitLab projection lacks declared native Darwin capacity")
-	}
-	if gitlab.NativeLinux != nil || gitlab.NativeWindows != nil {
-		t.Fatal("GitLab projection advertises native capacity that is not qualified")
+	if gitlab.NativeDarwin == nil || gitlab.NativeLinux == nil || gitlab.NativeWindows == nil {
+		t.Fatal("GitLab projection lacks required native evidence")
 	}
 	if strings.Contains(projections[0].Content, "allow_failure:") {
 		t.Fatal("GitLab projection weakens a native job with allow_failure")
 	}
+	var gotNeeds []string
 	for _, need := range gitlab.Assets.Needs {
-		if need.Job == "native-linux" || need.Job == "native-windows" {
-			t.Fatal("GitLab release assets depend on undeclared native capacity")
-		}
+		gotNeeds = append(gotNeeds, need.Job)
+	}
+	if want := []string{"quality", "native-darwin", "native-linux", "native-windows", "release-version"}; !slices.Equal(gotNeeds, want) {
+		t.Fatalf("GitLab release dependencies = %q, want %q", gotNeeds, want)
 	}
 
 	for _, projectionIndex := range []int{1} {
@@ -118,8 +117,10 @@ func TestForgeProjectionsFollowDeclaredNativeCapacity(t *testing.T) {
 		if err := yaml.Unmarshal([]byte(projections[projectionIndex].Content), &github); err != nil {
 			t.Fatal(err)
 		}
-		if _, present := github.Jobs["native-windows"]; !present {
-			t.Fatalf("GitHub projection %d lacks required native Windows evidence", projectionIndex)
+		for _, platform := range []string{"darwin", "linux", "windows"} {
+			if _, present := github.Jobs["native-"+platform]; !present {
+				t.Fatalf("GitHub projection %d lacks required native %s evidence", projectionIndex, platform)
+			}
 		}
 	}
 }

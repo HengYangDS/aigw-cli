@@ -6,34 +6,15 @@ Define stable AIGW distribution trust, immutable release-byte authority, and pac
 
 ## Requirements
 
-### Requirement: Stable identity and platform trust are distinct
+### Requirement: Version and changelog identity are consistent
 
-AIGW SHALL keep `VERSION` as the sole product-version authority and validate it
-with strict Semantic Versioning. `CHANGELOG.md` SHALL follow Keep a Changelog
-1.1.0 with exactly one leading `Unreleased` section, canonical change
-categories, and released sections in strictly descending semantic-version
-order. Every local product tag SHALL have exactly one released section. Every
-released section SHALL have a local product tag, except for at most one pending
-release section that is first, matches the current untagged `VERSION`, and is
-newer than every published version. The exact release tag, `VERSION`, first
-released section, and `HEAD` SHALL agree before publication. Version syntax and
-chronology checks SHALL NOT infer whether a change is breaking; the Change and
-release review remain responsible for selecting the SemVer increment from the
-public compatibility impact.
-
-AIGW SHALL validate version identity apart from platform trust.
-Credential-free macOS builds retain ad-hoc signatures, Hardened Runtime, and
-release-epoch timestamps. Public macOS distribution requires Developer ID
-signing and accepted notarization before publication; Windows Authenticode
-status remains explicit. Reproducibility, publisher trust, notarization, and
-credential authorization are separate claims. Consumers require no publisher
-secret or developer membership.
-
-#### Scenario: A version parses but distribution evidence is missing
-
-- **WHEN** a valid stable version lacks required product or channel evidence
-- **THEN** distribution SHALL stop with the specific missing evidence
-- **AND** version parsing alone SHALL NOT claim release readiness.
+`VERSION` SHALL be the sole strict-SemVer authority. `CHANGELOG.md` SHALL use
+Keep a Changelog 1.1.0 with one leading `Unreleased`, canonical categories,
+descending released versions, and one-to-one parity with local product tags,
+except one newer, current untagged pending release. Tag, `VERSION`, first released
+section, and `HEAD` SHALL agree before publication. Change and release review,
+not syntax or chronology, SHALL choose the SemVer increment from public
+compatibility impact.
 
 #### Scenario: Development continues between releases
 
@@ -55,18 +36,34 @@ secret or developer membership.
   section, or `HEAD`
 - **THEN** the release gate SHALL fail before construction or publication.
 
+#### Scenario: Release metadata exists without publication
+
+- **WHEN** `VERSION` and `CHANGELOG` name a release but either selected peer
+  lacks its exact signed tag object, Release record, or assets
+- **THEN** delivery SHALL remain incomplete.
+
+### Requirement: Platform trust is independent of version identity
+
+Version parsing SHALL NOT establish distribution trust. Credential-free macOS
+builds SHALL retain ad-hoc signatures, Hardened Runtime, and release-epoch
+timestamps. Public macOS distribution requires Developer ID signing and
+accepted notarization before publication; Windows Authenticode status remains explicit.
+Reproducibility, publisher trust, notarization, and credential authorization
+SHALL remain separate claims. Consumers require no publisher secret or
+developer membership.
+
+#### Scenario: A version parses but distribution evidence is missing
+
+- **WHEN** a valid stable version lacks required product or channel evidence
+- **THEN** distribution SHALL stop with the specific missing evidence
+- **AND** version parsing alone SHALL NOT claim release readiness.
+
 #### Scenario: A user consumes the publisher's signed release
 
 - **WHEN** a user installs and invokes published AIGW
 - **THEN** no developer membership or private signing key SHALL be required
 - **AND** the exact reader's native credential permission SHALL remain separate
   from artifact signature and distribution trust.
-
-#### Scenario: Release metadata exists without publication
-
-- **WHEN** `VERSION` and `CHANGELOG` name a release but either selected peer
-  lacks its exact signed tag object, Release record, or assets
-- **THEN** delivery SHALL remain incomplete.
 
 ### Requirement: Final distribution bytes have one authority
 

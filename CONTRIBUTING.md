@@ -449,19 +449,20 @@ This replaces the first Go-only check with the existing complete quality graph,
 then runs the same platform-selected tests and packaged lifecycle. It does not
 duplicate the Go check or require publication credentials. GitHub's manual
 **Verify** input `full_quality` selects this path on the selected native platforms;
-GitLab accepts `AIGW_FULL_NATIVE_QUALITY=true` for its available native jobs.
+GitLab accepts `AIGW_FULL_NATIVE_QUALITY=true` for its required native jobs.
 Ordinary review jobs retain their smaller native path and separate quality job.
 Keep source-signature admission in that quality job; native tool qualification
 does not replace it or infer signer authority from an inherited variable.
 
 For a targeted manual qualification, GitHub's `native_platform` accepts `all`
 (the default), `darwin`, `linux` or `windows`. GitLab's manual/API pipelines use
-`AIGW_NATIVE_PLATFORM` with the same values; omitted or empty means all available
-native jobs. Forge runner availability still applies. Quality runs in either
-case. Combine the selection with `full_quality` and `refresh_locks` on GitHub,
-or `AIGW_FULL_NATIVE_QUALITY=true` and `AIGW_REFRESH_LOCKS=true` on GitLab, to
-qualify one platform's complete toolchain and lock resolution without rerunning
-unrelated native jobs. Review, accepted-branch push and tag admission retain
+`AIGW_NATIVE_PLATFORM` with the same values; omitted or empty means all required
+native jobs. A paused or unavailable runner leaves that peer unverified.
+Quality runs in either case. Combine the selection with `full_quality` and
+`refresh_locks` on GitHub, or `AIGW_FULL_NATIVE_QUALITY=true` and
+`AIGW_REFRESH_LOCKS=true` on GitLab, to qualify one platform's complete
+toolchain and lock resolution without rerunning unrelated native jobs. Review,
+accepted-branch push and tag admission retain
 their full native set regardless of this manual selector. A targeted result
 proves only the selected platform, never complete CI or release readiness.
 GitHub [manual workflow checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#checks-from-some-workflow-jobs-are-not-evaluated)

@@ -96,19 +96,10 @@ lifecycle: {
 	checkoutRemote: "origin"
 }
 
-// Product evidence is explicit and shared by both Forge projections.
+// Product evidence is declared once; each Forge projects the complete matrix.
 productEvidence: native: ["darwin", "linux", "windows"]
 
-// Forge capacity is executor inventory, not product support. A Forge projects
-// only the native jobs backed by qualified runners; the aggregate product
-// evidence set remains unchanged.
-forgeCapabilities: {
-	gitlab: {
-		control: "darwin"
-		native: ["darwin"]
-	}
-	github: native: productEvidence.native
-}
+gitlabControlPlatform: #OperatingSystem & "darwin"
 
 // This map owns native execution evidence only. Product release targets remain
 // solely owned by .config/release/goreleaser.yaml.
@@ -130,54 +121,16 @@ nativeEvidence: {
 	}
 }
 
-// AIGW is an application built with one locked Go toolchain, not a Go library
-// supporting a range of compilers. Native jobs therefore form its meaningful
-// Go compatibility matrix without adding a duplicate same-version test job.
-goSourceMatrix: {
-	versionSource: "go.mod"
-	toolchainLock: "mise.lock"
-	platforms: {
-		for platform in productEvidence.native {
-			(platform): {
-				job:     "native-\(platform)"
-				command: commands.native[platform]
-			}
-		}
-	}
-}
-
-// Each event performs its own verification. Published artifacts are inputs,
-// not inherited proof; selected source, trust and complete bytes are rechecked.
-evidenceReuse: {
-	crossRun: false
-	invalidatedBy: [
-		"source",
-		"platform",
-		"environment",
-		"dependency-locks",
-		"toolchain",
-		"release-identity",
-		"claimed-fact",
-	]
-	samePipeline: []
-}
-
 graph: {
 	[#JobID]: #Job
 	"accepted-ref-parity": {stage: "verify", rank: 0, needs: [], claims: ["accepted-ref-parity"]}
 	quality: {stage: "verify", rank: 0, needs: [], claims: ["source-quality"]}
-	"native-darwin": {stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
-	"native-linux": {stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
-	"native-windows": {stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
+	for platform in productEvidence.native {
+		"native-\(platform)": {stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
+	}
 	"release-version": {stage: "verify", rank: 0, needs: [], claims: ["release-metadata"]}
-	"release-assets": {stage: "release", rank: 1, needs: ["quality", "native-darwin", "native-linux", "native-windows", "release-version"], claims: ["artifact-verification"]}
+	"release-assets": {stage: "release", rank: 1, needs: list.Concat([["quality"], [for platform in productEvidence.native {"native-\(platform)"}], ["release-version"]]), claims: ["artifact-verification"]}
 }
-
-gitlabReleaseNeeds: list.Concat([
-	["quality"],
-	[for platform in forgeCapabilities.gitlab.native {"native-\(platform)"}],
-	["release-version"],
-])
 
 gitlabVerificationCondition: {
 	tag:           "$CI_COMMIT_TAG"
@@ -548,12 +501,12 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 
 _gitlabControlJob: {
 	_commands: [...string]
-	tags: nativeEvidence[forgeCapabilities.gitlab.control].gitlab.tags
-	if forgeCapabilities.gitlab.control == "linux" {
+	tags: nativeEvidence[gitlabControlPlatform].gitlab.tags
+	if gitlabControlPlatform == "linux" {
 		extends: [".linux-toolchain"]
 		script: _commands
 	}
-	if forgeCapabilities.gitlab.control != "linux" {
+	if gitlabControlPlatform != "linux" {
 		script: list.Concat([[commands.install], _commands])
 	}
 }
@@ -615,14 +568,8 @@ gitlab: {
 			{when: "never"},
 		]
 	}
-	if list.Contains(forgeCapabilities.gitlab.native, "darwin") {
-		"native-darwin": #NativeGitLabJob & {_platform: "darwin"}
-	}
-	if list.Contains(forgeCapabilities.gitlab.native, "linux") {
-		"native-linux": #NativeGitLabJob & {_platform: "linux"}
-	}
-	if list.Contains(forgeCapabilities.gitlab.native, "windows") {
-		"native-windows": #NativeGitLabJob & {_platform: "windows"}
+	for platform in productEvidence.native {
+		"native-\(platform)": #NativeGitLabJob & {_platform: platform}
 	}
 	"release-version": _gitlabControlJob & {
 		_commands: [commands.version]
@@ -645,7 +592,7 @@ gitlab: {
 			{if: "$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == \"api\" || $CI_PIPELINE_SOURCE == \"web\")"},
 			{when: "never"},
 		]
-		needs: [for dependency in gitlabReleaseNeeds {{job: dependency}}]
+		needs: [for dependency in graph["release-assets"].needs {{job: dependency}}]
 	}
 
 }
@@ -767,7 +714,7 @@ githubVerify: {
 				},
 			]
 		}
-		for platform in forgeCapabilities.github.native {
+		for platform in productEvidence.native {
 			"native-\(platform)": #NativeGitHubJob & {_platform: platform}
 		}
 	}

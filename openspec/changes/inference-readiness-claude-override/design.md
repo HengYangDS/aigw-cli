@@ -206,14 +206,19 @@ non-inference commands.
    native projections. Check global vendor cardinality, exact Account Route
    semantics, and per-Route inference; review any lost Account coverage before
    replacing a vendor's one general Model.
-9. Keep the existing GitLab Darwin tag variable as the one selector shared by
-   native and control jobs. Its current host binding remains until VM98 proves
-   actual execution on the exact candidate HEAD under eligible refs; a
-   protected-only runner cannot qualify an unprotected proposal job. Verify
-   generated CI, job identity, and the work performed before deciding whether
-   that variable alone can change. GitLab release-assets verifies published
-   signed bytes; it does not sign or notarize them. Stable signing and Apple
-   notarization belong to the release publication owner, not another CI lane.
+9. Project the one CUE product-native matrix into both Forges. Runner selectors
+   remain peer-specific, but neither a capability list nor another peer's result
+   may shrink a required gate. Preserve GitLab's current Darwin control selector;
+   qualify Linux Docker and the on-demand Windows ARM64 runner for the exact
+   candidate review and tag events before claiming GitLab acceptance. A paused
+   Windows runner is not a green gate. GitLab release-assets verifies published
+   signed bytes after its own quality, version, and native jobs; it does not
+   sign or notarize them. Stable signing and Apple notarization belong to the
+   release publication owner, not another CI lane.
+   Peer independence means no AIGW source, policy, evidence, or asset comes
+   from the sibling product peer. GHCR images and GitHub-hosted third-party
+   tool archives are separate locked supply-chain dependencies; this change
+   does not claim survival of a global GitHub distribution outage.
    Select exactly one native `notarytool` authentication mode: a validated
    Keychain profile or an existing protected App Store Connect API key file,
    key ID, and issuer when required. Never retry a failed profile through a
@@ -222,6 +227,12 @@ non-inference commands.
 10. Verify focused behavior, exact HEAD quality and native gates, selected
     released bytes, live routes, publication, installation, rollback, and owned
     cleanup in that order. tasks.md is the only progress ledger.
+
+The existing OpenSpec gate now treats every native finding as a failed project
+check, even when the official validator labels it informational. Five overlong
+canonical requirement bodies were condensed or split without dropping their
+scenarios; this uses the existing validator rather than another specification
+parser or waiver list.
 
 ## Risks and mitigations
 

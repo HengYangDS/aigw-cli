@@ -43,7 +43,7 @@ func TestOpenSpecValidationRequiresCompleteCleanEvidence(t *testing.T) {
 		{
 			name:    "information",
 			report:  strings.Replace(withFinding, `"itemFindings":[]`, `"itemFindings":[{"id":"product-quality","issues":[{"level":"INFO","path":"requirements[0]","message":"too long"}]}]`, 1),
-			wantOut: "product-quality requirements[0] [INFO]: too long",
+			wantErr: "product-quality requirements[0] [INFO]: too long",
 		},
 		{
 			name:    "warning",
@@ -98,7 +98,7 @@ func TestOpenSpecValidationRequiresCompleteCleanEvidence(t *testing.T) {
 		{
 			name:    "failure without findings",
 			report:  strings.Replace(clean, `"passed":1,"failed":0`, `"passed":0,"failed":1`, 1),
-			wantErr: "OpenSpec validation findings (failed items: 1)",
+			wantErr: "OpenSpec validation findings (validator failures: 1, reported findings: 0)",
 		},
 	}
 
@@ -186,7 +186,7 @@ func TestOpenSpecValidationMeasuresOnlyTheRequestedCheckout(t *testing.T) {
 		{"complete checkout", root, "", "1 items, 0 findings", content},
 		{"parent fallback", child, "OpenSpec validation root", "", content},
 		{"empty checkout", empty, "OpenSpec validation checked no items", "", content},
-		{"native informational advice", root, "", "[INFO]: Requirement text is very long", strings.Replace(content, "The example SHALL complete.", strings.Repeat("The example SHALL preserve its observable contract. ", 12), 1)},
+		{"native informational advice", root, "[INFO]: Requirement text is very long", "", strings.Replace(content, "The example SHALL complete.", strings.Repeat("The example SHALL preserve its observable contract. ", 12), 1)},
 	} {
 		t.Run(item.name, func(t *testing.T) {
 			if err := os.WriteFile(spec, []byte(item.content), 0o600); err != nil {
@@ -224,17 +224,17 @@ func TestOpenSpecCommandReportsAnUnavailableValidator(t *testing.T) {
 	}
 }
 
-func TestOpenSpecInformationOutputFailure(t *testing.T) {
+func TestOpenSpecCleanOutputFailure(t *testing.T) {
 	root := t.TempDir()
 	encodedRoot, err := json.Marshal(root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	report := fmt.Sprintf(`{
-  "report":{"kind":"validation-findings","version":"1.0","scope":"all","returnedItems":1,"totalItems":1},
+  "report":{"kind":"validation-findings","version":"1.0","scope":"all","returnedItems":0,"totalItems":1},
   "root":{"path":%s},
   "summary":{"totals":{"items":1,"passed":1,"failed":0}},
-  "itemFindings":[{"id":"example","issues":[{"level":"INFO","path":"requirements[0]","message":"review cohesion"}]}]
+  "itemFindings":[]
 }`, encodedRoot)
 	output, err := os.CreateTemp(root, "closed-output")
 	if err != nil {

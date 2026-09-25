@@ -165,7 +165,7 @@ func TestGitLabToolchainUsesOfficialRunnableMiseImage(t *testing.T) {
 	}
 }
 
-func TestGitLabLinuxToolchainRemainsDormantWithoutQualifiedCapacity(t *testing.T) {
+func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
 	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {
 		t.Fatal(err)
@@ -185,8 +185,11 @@ func TestGitLabLinuxToolchainRemainsDormantWithoutQualifiedCapacity(t *testing.T
 	if got := pipeline.LinuxToolchain.BeforeScript; !slices.Equal(got, wantBootstrap) {
 		t.Fatalf("Linux bootstrap = %q, want %q", got, wantBootstrap)
 	}
-	if pipeline.NativeLinux != nil {
-		t.Fatal("GitLab projects Linux work without qualified executor capacity")
+	if pipeline.NativeLinux == nil {
+		t.Fatal("GitLab lacks the required native Linux job")
+	}
+	if !slices.Equal(pipeline.NativeLinux.Extends, []string{".linux-toolchain"}) {
+		t.Fatalf("GitLab native Linux must inherit the shared bootstrap: %#v", pipeline.NativeLinux)
 	}
 	if len(pipeline.Quality.Extends) != 0 || pipeline.Quality.Variables["CGO_ENABLED"] != "1" {
 		t.Fatalf("GitLab quality must use the selected control executor directly: %#v", pipeline.Quality)

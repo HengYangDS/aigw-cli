@@ -224,23 +224,21 @@
       definitions. The installed DMXAPI loopback is the sole Account endpoint
       exception; installed import rejects its conflict without changing config
       bytes. A current four-client `sync --dry-run --json` reports no writes.
-- [x] 7.6 Preserve the existing GitLab Darwin tag variable as the single
-      selector for native Darwin, quality, accepted-ref parity, release-version,
-      and release-assets. Keep the current host binding while re-running source,
-      native, packaged-manifest, exact-HEAD, and hosted evidence for changed
-      release inputs. Before any VM98 cutover, prove its eligible-ref access and
-      actual execution of the declared native and control jobs on the exact
-      candidate HEAD; verify job SHA, runner ID, system ID, tag, status, and
-      work. An older protected-branch job or an unassigned proposal job is not
-      proof. Tag-only jobs need their own exact-tag evidence. Decide whether
-      changing the existing variable suffices only after those observations;
-      do not add a separate host-release CI lane. The existing unprotected
-      `AIGW_GITLAB_DARWIN_RUNNER_TAG=aigw-release-macos-arm64` selects all five
-      jobs in the generated pipeline. At `6588bb09`, GitLab dev jobs 44182
-      (native) and 44183 (quality), and main job 44184 (ref parity), succeeded
-      on runner 53, system `s_7a09155b2f84`; their traces show the declared
-      work. Retain this binding: VM98 is not qualified or selected. Exact-tag
-      release job evidence remains required by 8.1.
+- [ ] 7.6 Derive both Forge pipelines from the one CUE product-native matrix;
+      remove the separate native-capacity list and stale mirror-only metadata.
+      Require each peer's macOS, Linux, and Windows jobs on review, accepted
+      branch, and tag events, with peer-local release dependencies. Verify the
+      generated projections and exact-HEAD jobs, including GitLab's Linux
+      Docker runner and on-demand Windows ARM64 runner. Keep the current Darwin
+      control selector unless a replacement proves every required job. Do not
+      count a paused, pending, skipped, or other-peer job as GitLab acceptance.
+      Separately prove that each peer consumes no AIGW source, policy, evidence,
+      or assets from its sibling; disclose third-party tool-host availability
+      separately rather than claiming global outage tolerance.
+- [x] 7.7 Remove every native OpenSpec validation finding by tightening the
+      five overlong canonical requirements without losing their scenarios.
+      Make the existing quality gate reject future `INFO` findings as well as
+      warnings and errors; verify the official report is clean.
 
 ## 8. Publish and install
 

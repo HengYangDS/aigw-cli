@@ -81,10 +81,11 @@ authority.
   input. Object signing and peer transport authentication are separate. A
   Forge may verify and host an object but must never rewrite identity, rebuild
   history, or re-sign a tag.
-- Trusted CI changes and RC releases require native source evidence for the
-  same product tree on macOS, Linux, and Windows. A Forge may consume that
-  product-level evidence without duplicating every executor; its own runner
-  availability is an infrastructure signal, not a second product gate.
+- Trusted CI changes and releases require native source evidence for the same
+  product tree on macOS, Linux, and Windows on each selected Forge. The one CUE
+  graph generates both peer pipelines; each peer executes and reports its own
+  required matrix. Runner unavailability leaves that peer unverified rather
+  than borrowing the other peer's result.
   Cross-compilation and package inspection cover additional CPU targets but do
   not replace native execution of the published portable artifact and its
   [installation lifecycle](docs/governance/change-and-release-policy.md#native-platform-evidence).

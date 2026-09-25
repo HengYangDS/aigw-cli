@@ -35,6 +35,12 @@ user's selected model.
   provider wire IDs exact; derive ordinary Route names from Account and Model
   labels while retaining explicit channel distinctions. A provider catalogue
   listing alone does not admit a Route.
+- Project one CUE-owned native CI matrix to both independent Forges. Each peer
+  must execute its own required jobs; runner availability cannot silently
+  shrink the product gate.
+- Resolve overlong OpenSpec requirements at their semantic owners and require
+  zero native validation findings, including informational advice, in the
+  existing quality gate.
 
 ## Capabilities
 
@@ -50,14 +56,16 @@ None.
   protocol, model, and performed scope.
 - `projection-format`: accept a sidecar-proven Claude model preference during
   read-only inspection without adopting connection or credential edits.
+- `ci-diagnostics` and `product-quality`: require the complete native matrix
+  on each selected Forge without a parallel CI authority.
 
 ## Impact
 
 Affected owners are `internal/credential`, `internal/diagnostics`,
 `internal/readiness`, `internal/configuration`, `internal/claude`,
-`internal/client`, and the affected CLI presentation packages. The terminal
-experience documentation and native
-acceptance journeys change. An ordinary `check` incurs one capped inference
+`internal/client`, the affected CLI presentation packages, and the CUE CI
+projection. The terminal experience documentation and native acceptance
+journeys change. An ordinary `check` incurs one capped inference
 request per enabled Account-Token client whose exact wire model AIGW owns;
 `--endpoint-only` retains the previous request scope.
 

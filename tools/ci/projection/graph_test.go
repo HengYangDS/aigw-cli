@@ -33,6 +33,9 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
+	if gitlab.Linux == nil || gitlab.Windows == nil {
+		t.Fatal("GitLab must project the complete product-native matrix")
+	}
 	wantGitLabWorkflow := []struct {
 		If   string
 		When string
@@ -53,8 +56,10 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		}
 	}
 	for name, job := range map[string]gitLabJob{
-		"quality":       gitlab.Quality,
-		"native-darwin": gitlab.Darwin,
+		"quality":        gitlab.Quality,
+		"native-darwin":  gitlab.Darwin,
+		"native-linux":   *gitlab.Linux,
+		"native-windows": *gitlab.Windows,
 	} {
 		if len(job.Rules) != len(wantGitLabWorkflow) || job.Rules[1].If != wantGitLabWorkflow[1].If {
 			t.Errorf("GitLab %s must verify reviews into both integration and release: %#v", name, job.Rules)
@@ -64,10 +69,6 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 			t.Errorf("GitLab %s accepted-push rule = %q", name, got)
 		}
 	}
-	if gitlab.Linux != nil || gitlab.Windows != nil {
-		t.Fatal("GitLab review graph includes unqualified native capacity")
-	}
-
 	var github struct {
 		On struct {
 			Push struct {
@@ -198,18 +199,33 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 			t.Fatalf("%s native paths = %d/%d, want one mutually exclusive pair", platform, ordinary, full)
 		}
 	}
+}
+
+func TestGitLabFullNativeQualityUsesTheExistingEntryPoint(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var gitlab struct {
-		Darwin gitLabJob `yaml:"native-darwin"`
+		Darwin  gitLabJob  `yaml:"native-darwin"`
+		Linux   *gitLabJob `yaml:"native-linux"`
+		Windows *gitLabJob `yaml:"native-windows"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	for platform, job := range map[string]gitLabJob{"darwin": gitlab.Darwin} {
+	if gitlab.Linux == nil || gitlab.Windows == nil {
+		t.Fatal("GitLab must project native Linux and Windows acceptance")
+	}
+	for platform, job := range map[string]gitLabJob{"darwin": gitlab.Darwin, "linux": *gitlab.Linux, "windows": *gitlab.Windows} {
 		wantRule := `($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "` + platform + `")`
 		if len(job.Rules) != 5 || job.Rules[3].If != wantRule {
 			t.Fatalf("GitLab %s lacks equivalent manual platform selection: %#v", platform, job.Rules)
 		}
 		want := "mise exec --locked -- go run ./tools/ci native --platform " + platform + ` --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"`
+		if platform == "windows" {
+			want = `mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"`
+		}
 		if !slices.Contains(job.Script, want) {
 			t.Fatalf("GitLab %s lacks the same explicit native-quality entrypoint", platform)
 		}
@@ -293,7 +309,7 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 	for _, metadata := range []string{".linux-toolchain", "stages", "variables", "workflow"} {
 		delete(gitlab, metadata)
 	}
-	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "quality", "release-assets", "release-version"}
+	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "native-windows", "quality", "release-assets", "release-version"}
 	if got := slices.Sorted(maps.Keys(gitlab)); !slices.Equal(got, wantGitLabJobs) {
 		t.Fatalf("GitLab jobs = %q, want %q", got, wantGitLabJobs)
 	}
@@ -406,7 +422,7 @@ type gitLabJob struct {
 	} `yaml:"rules"`
 }
 
-func TestSemanticGraphDefinesExactClaimsAndEvidenceReuse(t *testing.T) {
+func TestSemanticGraphDefinesExactClaims(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	export := func(expression string, target any) {
 		t.Helper()
@@ -438,43 +454,6 @@ func TestSemanticGraphDefinesExactClaimsAndEvidenceReuse(t *testing.T) {
 	}
 	if !reflect.DeepEqual(graph, wantGraph) {
 		t.Fatalf("CI graph = %#v, want %#v", graph, wantGraph)
-	}
-
-	var matrix struct {
-		VersionSource string `yaml:"versionSource"`
-		ToolchainLock string `yaml:"toolchainLock"`
-		Platforms     map[string]struct {
-			Job     string `yaml:"job"`
-			Command string `yaml:"command"`
-		} `yaml:"platforms"`
-	}
-	export("goSourceMatrix", &matrix)
-	if matrix.VersionSource != "go.mod" || matrix.ToolchainLock != "mise.lock" {
-		t.Fatalf("Go matrix authority = %#v", matrix)
-	}
-	for _, platform := range []string{"darwin", "linux", "windows"} {
-		entry, present := matrix.Platforms[platform]
-		if !present || entry.Job != "native-"+platform || entry.Command != "mise exec --locked -- go run ./tools/ci native --platform "+platform {
-			t.Fatalf("Go matrix %s = %#v", platform, entry)
-		}
-	}
-	if len(matrix.Platforms) != 3 {
-		t.Fatalf("Go matrix platforms = %#v", matrix.Platforms)
-	}
-
-	var reuse struct {
-		CrossRun      bool     `yaml:"crossRun"`
-		InvalidatedBy []string `yaml:"invalidatedBy"`
-		SamePipeline  []struct {
-			Producer  string   `yaml:"producer"`
-			Consumers []string `yaml:"consumers"`
-			Identity  string   `yaml:"identity"`
-		} `yaml:"samePipeline"`
-	}
-	export("evidenceReuse", &reuse)
-	wantInvalidators := []string{"source", "platform", "environment", "dependency-locks", "toolchain", "release-identity", "claimed-fact"}
-	if reuse.CrossRun || !slices.Equal(reuse.InvalidatedBy, wantInvalidators) || len(reuse.SamePipeline) != 0 {
-		t.Fatalf("evidence reuse = %#v", reuse)
 	}
 }
 
