@@ -10,40 +10,49 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func TestEntrypointRejectsWritableWindowsACL(t *testing.T) {
-	for _, subject := range []string{"data directory", "directory", "executable"} {
-		t.Run(subject, func(t *testing.T) {
+func TestEntrypointRejectsWritableWindowsDirectoryACL(t *testing.T) {
+	tests := []struct {
+		name      string
+		directory func(string) string
+	}{
+		{"data directory", func(target string) string { return filepath.Dir(filepath.Dir(target)) }},
+		{"credential directory", filepath.Dir},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 			root := t.TempDir()
 			source := filepath.Join(root, "source.exe")
 			target := filepath.Join(root, "data", "credential", "aigw.exe")
 			if err := os.WriteFile(source, []byte("fixture"), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			if subject != "executable" {
-				if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
-					t.Fatal(err)
-				}
-				if subject == "data directory" {
-					allowEveryoneFullControl(t, filepath.Dir(filepath.Dir(target)))
-				} else {
-					allowEveryoneFullControl(t, filepath.Dir(target))
-				}
-				if _, err := EnsureEntrypoint(source, target); err == nil {
-					t.Fatal("world-writable credential directory was accepted")
-				}
-				if _, err := os.Lstat(target); !os.IsNotExist(err) {
-					t.Fatalf("rejected directory received executable: %v", err)
-				}
-				return
-			}
-			if _, err := EnsureEntrypoint(source, target); err != nil {
+			if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			allowEveryoneFullControl(t, target)
-			if _, err := EntrypointNeeded(target); err == nil {
-				t.Fatal("world-writable credential executable was accepted")
+			allowEveryoneFullControl(t, test.directory(target))
+			if _, err := EnsureEntrypoint(source, target); err == nil {
+				t.Fatal("world-writable credential directory was accepted")
+			}
+			if _, err := os.Lstat(target); !os.IsNotExist(err) {
+				t.Fatalf("rejected directory received executable: %v", err)
 			}
 		})
+	}
+}
+
+func TestEntrypointRejectsWritableWindowsExecutableACL(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source.exe")
+	target := filepath.Join(root, "data", "credential", "aigw.exe")
+	if err := os.WriteFile(source, []byte("fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := EnsureEntrypoint(source, target); err != nil {
+		t.Fatal(err)
+	}
+	allowEveryoneFullControl(t, target)
+	if _, err := EntrypointNeeded(target); err == nil {
+		t.Fatal("world-writable credential executable was accepted")
 	}
 }
 

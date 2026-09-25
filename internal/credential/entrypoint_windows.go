@@ -83,6 +83,7 @@ func validateOwnedWindowsACL(path string) error {
 		if ace.Header.AceType != windows.ACCESS_ALLOWED_ACE_TYPE {
 			return errors.New("credential ACL contains an unsupported grant")
 		}
+		// #nosec G103 -- GetAce returns an OS-owned allow ACE with its SID inline at SidStart.
 		sid := (*windows.SID)(unsafe.Pointer(&ace.SidStart))
 		if !sid.IsValid() {
 			return errors.New("credential ACL contains an invalid principal")
