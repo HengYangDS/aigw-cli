@@ -178,7 +178,7 @@
       Completions, and prove Hermes projection convergence. Preserve the
       locally configured DMXAPI GPT-6 Sol Proxy Route separately from the
       shipped direct-provider manifest.
-- [ ] 7.4 Prepare exact wire-ID probes from the public catalogues. For
+- [x] 7.4 Prepare exact wire-ID probes from the public catalogues. For
       AIHubMix, try `gpt-6-sol`, `gpt-6-luna`, `claude-opus-5-5`,
       `deepseek-v4.1-flash`, `minimax-m3`, `cc-minimax-m3`, and
       `grok-4.7`; extend the qualified shortlist from 7.1 to new vendors,
@@ -189,14 +189,13 @@
       Verify every retained Route: 54 unchanged Route/Account tuples from the
       57-Route `2ad9c411` matrix plus three newly called Grok 4.7 Routes
       and two AIHubMix Chat Routes for Cohere and Poolside covered all 59 Routes
-      in the `db724161` manifest at the product-shaped 512-token cap. Two
-      direct DMXAPI GPT-6 Sol probes were reported at the same cap on
-      September 25, but the retained candidate-bound coverage report has only
-      59 Routes. Retain an exact-wire record for the 60th Route or repeat its
-      bounded probe through an authorized noninteractive Token path. Retain
-      the source and Grok observations under
-      `build/verification/765cb24c77bc15bed815d576387ea7c71a5f5ed0/catalog-*`,
-      and the new vendor calls under the `00f6aac3` verification directory.
+      in the `db724161` manifest at the product-shaped 512-token cap. One
+      direct DMXAPI GPT-6 Sol Responses call at the same cap completed on
+      2026-09-25: HTTP 200, completed status, and assistant text. Its probe
+      used `https://www.dmxapi.cn/v1/responses`, not the local Proxy loopback.
+      Reconciliation of that exact-wire record with the prior 59 observations
+      matches all 60 Routes in the current manifest. The observation proves
+      availability at that time, not future reliability.
       A listing or omission is not availability evidence:
       retain private UCloud GPT/Claude Routes, leave DMXAPI 401 unknown,
       and do not infer CC/coding prefix semantics or admit H3 as general
@@ -208,7 +207,7 @@
       a claim about the strongest Gemini Flash does not rank it above Gemini
       Pro. Stop if credentials require Keychain UI, reporting uncalled Routes
       as unverified.
-- [ ] 7.5 Accept the final candidate-bound `manifests/team.toml` and the
+- [x] 7.5 Accept the final candidate-bound `manifests/team.toml` and the
       installed profile exported by `aigw config export` as one semantic
       catalogue across AIHubMix, DMXAPI, and UCloud. Compare Model IDs and
       Route Account/protocol/wire IDs; compare Account endpoint/probe metadata
@@ -222,11 +221,11 @@
       7.4 inference observation for every admitted Route. Preserve personal
       recommendations, credentials, native preferences, and foreign fields;
       any lost Account coverage requires an explicit reviewed Route retirement.
-      The 60-Route candidate and installed export agree on Model and Route
-      definitions. The installed DMXAPI loopback is the sole Account endpoint
-      exception; installed import rejects its conflict without changing config
-      bytes. The September 25 four-client `sync --dry-run --json` reported no
-      writes. The missing 7.4 observation prevents final Route acceptance.
+      On 2026-09-26, the 27-Model, 60-Route candidate and installed export
+      agree on Model and Route definitions. The installed DMXAPI loopback is
+      the sole Account endpoint exception; installed import rejects its
+      conflict without changing config bytes. All four clients report
+      unchanged or already-converged in `sync --dry-run --json`.
 - [ ] 7.6 Derive both Forge pipelines from the one CUE product-native matrix;
       remove the separate native-capacity list and stale mirror-only metadata.
       Require each peer's macOS, Linux, and Windows jobs on review, accepted
