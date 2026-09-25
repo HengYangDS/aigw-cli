@@ -131,6 +131,7 @@ func TestGitHubLinuxNativeJourneyUsesTheLockedProductCommand(t *testing.T) {
 			"SetAlias default /org/freedesktop/secrets/collection/session",
 			"AIGW_VERIFY_SYSTEM_KEYRING=1",
 			"TestNativeProductJourney/system_credential_store",
+			"grep -Fq -- \"--- PASS: TestNativeProductJourney/system_credential_store\"",
 		} {
 			if !strings.Contains(step.Run, required) {
 				t.Fatalf("Linux Secret Service qualification omits %q", required)
