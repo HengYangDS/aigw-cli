@@ -63,8 +63,8 @@ the client.
 - **AND** SHALL not issue an AIGW-owned authentication request for a
   client-native Route
 - **AND** SHALL not inspect an unselected historical Route as a fallback
-- **AND** MAY coalesce only authentication probes with an identical Account,
-  endpoint, and protocol identity.
+- **AND** MAY coalesce authenticated probes only when Account, endpoint,
+  protocol, performed scope, and any carried upstream model are identical.
 
 #### Scenario: Check a client-native Route
 
@@ -75,10 +75,22 @@ the client.
 - **AND** SHALL provide `aigw verify --for <client>` as the explicit live-proof
   continuation.
 
+#### Scenario: Claude keeps a sidecar-proven native model preference
+
+- **WHEN** Claude Code changes only its top-level native model after AIGW
+  projects a Route, endpoint, and credential helper
+- **THEN** local inspection accepts the unchanged connection without treating
+  the native alias as the Route's upstream wire model
+- **AND** `aigw check` uses no model-carrying AIGW request for that client,
+  reports at most endpoint_checked with endpoint diagnostic scope, and provides
+  `aigw verify --for claude` as the native-model continuation
+- **AND** Codex and Claude Desktop retain their own selected Routes and probe
+  scopes.
+
 #### Scenario: No client is enabled
 
 - **WHEN** configuration is valid but no admitted client Adapter is enabled
-- **THEN** `aigw check` SHALL report configuration readiness
+- **THEN** `aigw check` SHALL report deferred activation and return nonzero
 - **AND** SHALL not claim that an arbitrary gateway or model is healthy.
 
 #### Scenario: Inspect an endpoint address without probing it
@@ -95,8 +107,13 @@ the client.
   or real-client readiness
 - **AND** a valid client-native projection SHALL remain `configured` without
   an AIGW-owned endpoint diagnostic
-- **AND** a configured Account-Token Route with a successful endpoint
-  diagnostic SHALL be `endpoint_checked`, not generically `ready`
+- **AND** a configured Account-Token Route SHALL report the state its performed
+  diagnostic scope supports: `endpoint_checked` for a successful model-free
+  endpoint diagnostic and `inference_checked` for a successful diagnostic that
+  carried that Route's upstream model, never generically `ready`
+- **AND** `check --json` SHALL report the performed diagnostic scope, including
+  an endpoint-only observation selected because Claude has a proven native
+  model preference
 - **AND** human output SHALL describe the same observed scope
 - **AND** `next_action` SHALL carry both repair and verification continuations
   without a duplicate `fix` field.
@@ -2023,3 +2040,35 @@ existing Account, Model, or Route identity SHALL NOT be implicitly replaced.
 - **AND** configuration and projection recovery SHALL use their existing owners
 - **AND** it SHALL preserve the original failure and any compensation error
 - **AND** failed compensation SHALL NOT be reported as restored storage.
+
+### Requirement: Shipped team catalogue is a curated capability contract
+
+Team manifests SHALL declare Accounts, canonical Models, provider Routes, and
+per-client Recommendations separately. Model and Route IDs SHALL be stable
+lower-case; provider wire IDs and channels SHALL remain exact. Route admission
+requires authenticated inference and compatible client/protocol evidence.
+Setup SHALL need only one compatible Account, preserve explicit Client
+Bindings, and exclude inferred Route matrices and proxy endpoints.
+
+#### Scenario: One Account offers a subset of Models
+
+- **WHEN** one connected Account has a compatible recommended Route but lacks
+  Routes for other canonical Models or clients
+- **THEN** setup SHALL activate only its usable unselected Client Bindings
+- **AND** preserve explicit selections and defer unavailable capabilities.
+
+#### Scenario: A provider uses a channel-specific wire ID
+
+- **WHEN** DMXAPI exposes a CC, SSVIP, or CDX channel variant of one Model
+- **THEN** that Route SHALL reference the same canonical Model as its base
+  Route and carry its exact provider wire ID
+- **AND** its lower-case Route ID SHALL not be derived from wire spelling.
+
+#### Scenario: Ordinary Route display needs no duplicate label
+
+- **WHEN** a Route omits `label`
+- **THEN** human, JSON, and native-client presentation SHALL derive
+  `Account · Model` from the declared labels
+- **AND** an explicit channel or user label SHALL override that derivation
+- **AND** native manifest export SHALL omit a stored label equal to the
+  derived form while preserving an explicit distinct label.

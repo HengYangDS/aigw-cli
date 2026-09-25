@@ -40,13 +40,11 @@ The readiness command SHALL accept `--json` and emit a stable JSON document with
 
 ### Requirement: Operational commands share one state vocabulary
 
-`setup`, `use`, `sync`, `status`, `check`, `doctor`, and `verify` SHALL use
-configured, deferred, endpoint_checked, degraded, invalid, and unavailable as one shared
-state vocabulary. Commands SHALL classify only the evidence they actually
-observe: a deeper authenticated probe may refine configured into endpoint_checked,
-degraded, invalid, or unavailable. Human and JSON output SHALL identify the
-affected Account, Route, Route, client, backend, or endpoint and exactly one
-safe next action.
+`setup`, `use`, `sync`, `status`, `check`, `doctor`, and `verify` SHALL share
+configured, deferred, endpoint_checked, inference_checked, degraded, invalid,
+and unavailable states. A bounded authenticated probe SHALL report only its
+observed scope. Human and JSON output SHALL identify the affected Account,
+Route, client, backend, or endpoint and exactly one safe next action.
 
 #### Scenario: Local client prerequisites are configured
 
@@ -57,11 +55,51 @@ safe next action.
 
 #### Scenario: An authenticated probe refines readiness
 
-- **WHEN** check observes a configured client through its bounded authenticated
-  endpoint probe
+- **WHEN** check observes a configured client through a bounded authenticated
+  probe that does not carry a model
 - **THEN** a successful probe reports endpoint_checked, not client or inference readiness
 - **AND** a typed probe failure reports degraded, invalid, or unavailable
   without changing the underlying local configuration.
+
+#### Scenario: An inference-scoped probe refines readiness
+
+- **WHEN** check sends a bounded authenticated request carrying the selected
+  Route's exact upstream model
+- **THEN** success reports inference_checked and the inference scope, not
+  real-client readiness or a guarantee of future availability
+- **AND** a distributor-level refusal of that model reports degraded and
+  identifies the Route and model without changing local configuration
+- **AND** an unresolvable upstream model fails closed rather than becoming an
+  endpoint-only success
+- **AND** AIGW retains no probe conversation, requests no storage where the
+  protocol supports it, and makes no claim about provider retention.
+
+#### Scenario: A credential rejection is terminal for one diagnostic
+
+- **WHEN** an endpoint-only or inference-scoped request receives an HTTP 401 or 403
+  credential rejection
+- **THEN** check reports the typed credential failure after exactly one request
+- **AND** it does not repeat the request, prompt for credentials, or mutate
+  configuration.
+
+#### Scenario: An operator selects endpoint-only scope
+
+- **WHEN** check runs with --endpoint-only
+- **THEN** it makes no model-carrying inference request
+- **AND** a successful authenticated diagnostic reports endpoint_checked and
+  the endpoint scope.
+
+#### Scenario: Claude Code keeps a proven native model preference
+
+- **WHEN** its attributed sidecar proves that only the projected top-level
+  model changed while the endpoint, helper, and managed credentials did not
+- **THEN** local inspection accepts the connection and identifies the native
+  model preference without rewriting it
+- **AND** check performs at most endpoint scope for that client even when
+  inference scope is the command default
+- **AND** check reports the actual scope and directs native-model proof to
+  `aigw verify --for claude`
+- **AND** an endpoint, helper, or managed-credential edit remains invalid.
 
 #### Scenario: A capability is intentionally deferred
 
@@ -70,12 +108,28 @@ safe next action.
 - **THEN** read-only commands report the exact deferred capability
 - **AND** do not describe the whole installation as corrupt.
 
+#### Scenario: A catalogue has no enabled client
+
+- **WHEN** a reviewed manifest has been imported but no compatible Account
+  Token or Client Binding has been activated
+- **THEN** `status`, `check`, and `doctor` SHALL expose zero enabled clients
+  and the deferred activation state in human and JSON output
+- **AND** `check` SHALL return a nonzero status and `ok: false` in one JSON
+  document without making an endpoint or inference request
+- **AND** `doctor` MAY return success only for the explicitly named local
+  diagnostic scope; it SHALL not imply that any client can infer
+- **AND** an environment-backed continuation SHALL name one compatible
+  Account variable using availability metadata, without exposing its value or
+  requiring every Account
+- **AND** an empty `sync` selection SHALL not recommend `aigw check`.
+
 #### Scenario: Optional account diagnostics are unavailable
 
 - **WHEN** an enabled client Route passes its configuration, projection,
   Account Token, and endpoint checks but optional balance credentials are
   unavailable
-- **THEN** human and JSON check output both report that Route as endpoint_checked
+- **THEN** human and JSON check output both report that Route in the state
+  supported by the performed diagnostic scope
 - **AND** check does not access optional diagnostic credentials
 - **AND** the dedicated account and balance commands retain responsibility for
   connecting and using those credentials.

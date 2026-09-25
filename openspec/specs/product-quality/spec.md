@@ -34,11 +34,11 @@ explicit verifier, and cross-compilation SHALL prove artifacts only.
 
 #### Scenario: A required native runner is unavailable
 
-- **WHEN** a Forge lacks an admitted executor for a supported platform
-- **THEN** its projection SHALL omit that executor explicitly while aggregate
-  product evidence still requires the platform
-- **AND** exact-commit native evidence from another admitted executor MAY satisfy
-  that platform fact; another operating system or cross-compile SHALL NOT.
+- **WHEN** a selected Forge lacks an admitted executor for a supported platform
+- **THEN** its required job SHALL remain in the projection and that peer SHALL
+  not be accepted as green
+- **AND** another peer's result, operating system, or cross-compile SHALL NOT
+  substitute for that peer-local native job.
 
 #### Scenario: a release asset is cross-compiled
 
@@ -86,8 +86,10 @@ explicit verifier, and cross-compilation SHALL prove artifacts only.
 
 #### Scenario: explicit diagnosis is required
 
-- **WHEN** a maintainer explicitly dispatches verification
-- **THEN** the selected Forge SHALL run the complete graph for the selected ref.
+- **WHEN** a maintainer explicitly dispatches verification without a platform selector
+- **THEN** the selected Forge SHALL run the complete graph for the selected ref
+- **AND** a targeted platform dispatch SHALL remain diagnostic rather than
+  complete review or release evidence.
 
 ### Requirement: portable repository text
 
@@ -299,44 +301,6 @@ or weaken integrity policy.
 - **AND** unresolved transport or integrity failure stops the job without
   claiming bootstrap success or substituting an unverified tool
 - **AND** a retry retains the selected lock and integrity requirements.
-
-### Requirement: Forge capability projection
-
-One evidence graph and CI topology SHALL separate product proof from Forge
-capacity. Each projection includes only runnable native jobs; aggregate proof
-retains every supported platform. Manual qualification MAY select one platform;
-omitted or `all` keeps the available set.
-
-Review, accepted-branch, and tag events keep their required source and native
-set. Missing capacity stays explicit. Partial, cross-built, optional, pending,
-or `allow_failure` results do not count as native or release proof.
-
-#### Scenario: one Forge lacks a Windows executor
-
-- **WHEN** another independent publication plane supplies admitted native Windows evidence
-- **THEN** the Forge without Windows capacity SHALL omit its Windows job
-- **AND** the product evidence model SHALL continue to require Windows
-- **AND** cross-compilation SHALL NOT be reported as native evidence.
-
-#### Scenario: Windows capacity is admitted later
-
-- **WHEN** GitLab gains a qualified Windows executor
-- **THEN** one capability declaration SHALL restore the generated native Windows job
-- **AND** no parallel workflow or compatibility switch SHALL be introduced.
-
-#### Scenario: A maintainer qualifies an updated Windows toolchain
-
-- **WHEN** manual verification explicitly selects Windows and full quality
-- **THEN** the Windows native job SHALL run its existing complete quality,
-  source and packaged lifecycle commands without launching unrelated native jobs
-- **AND** source quality SHALL remain selected and other required platforms
-  SHALL retain their independent evidence obligations.
-
-#### Scenario: A platform selector is supplied during release or review admission
-
-- **WHEN** a tag, review, or accepted-branch push triggers verification
-- **THEN** its complete available native set SHALL remain selected
-- **AND** manual qualification SHALL NOT replace missing review checks.
 
 ### Requirement: Source acceptance precedes delivery completion
 
@@ -571,8 +535,10 @@ comparison semantics, review condition, and remediation path.
 
 ### Requirement: Warnings are owned failures
 
-Every repository-owned warning emitted by a supported build, test, analysis,
-documentation, packaging, or CI path SHALL be resolved at its semantic owner.
+Every repository-owned warning and nonempty native validation finding emitted
+by a supported build, test, analysis, documentation, packaging, or CI path
+SHALL be resolved at its semantic owner. A validator's advisory severity does
+not waive this repository's clean-evidence policy.
 
 #### Scenario: A supported gate emits a warning
 
@@ -583,12 +549,11 @@ documentation, packaging, or CI path SHALL be resolved at its semantic owner.
 
 #### Scenario: Native validation distinguishes advice from failure
 
-- **WHEN** OpenSpec reports a complete successful validation with only `INFO`
-  findings
-- **THEN** the gate succeeds and displays every informational finding
-- **AND** `WARNING`, `ERROR`, a failed summary, unknown severity or malformed
-  evidence still fails admission
-- **AND** a diagnostic output failure remains an execution failure.
+- **WHEN** OpenSpec reports `INFO`, `WARNING`, `ERROR`, or a failed summary
+- **THEN** the repository gate fails and reports every finding without filtering
+  it, even if the native validator classifies the item as informational
+- **AND** unknown severity, malformed evidence, or diagnostic output failure
+  also fails admission.
 
 ### Requirement: Terminal layout follows semantic fields and display width
 
