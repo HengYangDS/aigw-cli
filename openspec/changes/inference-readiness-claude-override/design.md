@@ -248,3 +248,22 @@ Publish one signed stable release through the existing Forge and Homebrew
 workflow, test installed behavior and rollback, then retire only the owned
 Lane. Rolling back the program restores the previous check semantics without
 rewriting user settings or Codex session state.
+
+## Publication acceptance
+
+The signed `v0.3.1` tag peels to `d288eb5f`; both peers' `main`, `dev`, and
+tag refs match. [GitHub tag CI](https://github.com/HengYangDS/aigw-cli/actions/runs/36113077613)
+passed native macOS, Linux, and Windows acceptance. GitLab
+[pipeline #8279](http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/pipelines/8279)
+passed tag-native Darwin, quality, version, and release-asset jobs on runner 53.
+The [GitHub Release](https://github.com/HengYangDS/aigw-cli/releases/tag/v0.3.1)
+has 12 accepted asset names and matching server SHA-256 digests; five hosted
+published-asset jobs downloaded and verified the complete matrix. Direct
+GitLab package downloads matched all 12 local accepted files byte-for-byte,
+and the local signed-artifact verifier passed. Apple notarization submission
+`53086046-ac00-40e4-8044-8821db5471fc` is `Accepted`; the exact-HEAD
+[Keychain-mode native run](https://github.com/HengYangDS/aigw-cli/actions/runs/36115819929)
+passed without another credential path. Two later ad hoc GitHub CDN downloads
+timed out locally; they are not counted as byte-parity observations. Host
+rollback, forward restoration, and post-install client acceptance remain in
+Task 8.2.

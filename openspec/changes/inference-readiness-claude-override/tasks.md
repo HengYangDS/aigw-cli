@@ -233,7 +233,7 @@
 
 ## 8. Publish and install
 
-- [ ] 8.1 Publish one signed stable release with identical assets and
+- [x] 8.1 Publish one signed stable release with identical assets and
       checksums through the existing GitHub and GitLab workflows. Verify
       remote refs, exact-tag CI job runners, release objects, and every
       published asset byte; separately retain host signing and accepted Apple
