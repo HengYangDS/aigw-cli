@@ -224,6 +224,9 @@ actions: {
 	upload:   "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" // v7.0.1
 }
 
+hermesSourceCommit:    "345cd2b057a452236de401d3534b8502a7465e8d"
+hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5"
+
 #ReleaseTrustFiles: {
 	AIGW_RELEASE_ALLOWED_SIGNERS_FILE:          "$AIGW_RELEASE_ALLOWED_SIGNERS"
 	AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE: "$AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS"
@@ -311,6 +314,31 @@ actions: {
 				}
 			}
 		},
+		// Fetch the Git blob bytes; checkout can rewrite the installer's declared CRLF worktree form.
+		if _platform == "windows" {
+			name:              "Fetch pinned Hermes installer"
+			if:                "github.event_name == 'workflow_dispatch' && inputs.windows_clients && inputs.baseline_tag != ''"
+			shell:             "pwsh"
+			"timeout-minutes": 2
+			env: {
+				GH_TOKEN:           "${{ github.token }}"
+				GH_PROMPT_DISABLED: "1"
+			}
+			run: #"""
+				$ErrorActionPreference = 'Stop'
+				$PSNativeCommandUseErrorActionPreference = $true
+				$hermesCommit = '\#(hermesSourceCommit)'
+				$hermesInstallerDigest = '\#(hermesInstallerDigest)'
+				$metadata = mise exec --locked -- gh api "repos/NousResearch/hermes-agent/contents/scripts/install.ps1?ref=$hermesCommit" | ConvertFrom-Json
+				if ($LASTEXITCODE -ne 0 -or $metadata.type -ne 'file' -or $metadata.encoding -ne 'base64') { throw 'Pinned Hermes installer metadata is unavailable' }
+				$installer = Join-Path $env:RUNNER_TEMP 'aigw-hermes-install.ps1'
+				[IO.File]::WriteAllBytes($installer, [Convert]::FromBase64String($metadata.content))
+				if ((Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hermesInstallerDigest) {
+				  Remove-Item -LiteralPath $installer -Force
+				  throw 'Pinned Hermes installer checksum mismatch'
+				}
+				"""#
+		},
 		{
 			name:  "Run historical release acceptance"
 			if:    "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)"
@@ -381,9 +409,9 @@ actions: {
 				    $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
 				    $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
 				    $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-				    $hermesCommit = '345cd2b057a452236de401d3534b8502a7465e8d'
-				    $hermesInstallerDigest = '226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5'
-				    $hermesInstaller = Join-Path $scope 'hermes-install.ps1'
+				    $hermesCommit = '\#(hermesSourceCommit)'
+				    $hermesInstallerDigest = '\#(hermesInstallerDigest)'
+				    $hermesInstaller = Join-Path $env:RUNNER_TEMP 'aigw-hermes-install.ps1'
 				    $hermesHome = Join-Path $scope 'hermes'
 				    $hermesInstall = Join-Path $hermesHome 'hermes-agent'
 				    # The pinned installer changes autocrlf after cloning; set it before Git checks out LF files.
@@ -392,8 +420,7 @@ actions: {
 				    if ($LASTEXITCODE -ne 0) { throw 'Hermes Git checkout configuration failed' }
 				    $env:UV_CACHE_DIR = Join-Path $scope 'uv-cache'
 				    $env:GIT_TERMINAL_PROMPT = '0'
-				    curl.exe --fail --show-error --silent --location --connect-timeout 10 --max-time 60 "https://raw.githubusercontent.com/NousResearch/hermes-agent/$hermesCommit/scripts/install.ps1" --output $hermesInstaller
-				    if ($LASTEXITCODE -ne 0) { throw 'Pinned Hermes installer download failed' }
+				    if (-not (Test-Path -LiteralPath $hermesInstaller -PathType Leaf)) { throw 'Pinned Hermes installer is missing' }
 				    if ((Get-FileHash -LiteralPath $hermesInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hermesInstallerDigest) {
 				      throw 'Pinned Hermes installer checksum mismatch'
 				    }
@@ -436,6 +463,9 @@ actions: {
 				  }
 				  foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
 				    Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+				  }
+				  if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
+				    Remove-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'aigw-hermes-install.ps1') -Force -ErrorAction SilentlyContinue
 				  }
 				  Remove-Item -LiteralPath $scope -Recurse -Force
 				}
