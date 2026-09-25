@@ -86,6 +86,7 @@ allowed_import_edges."internal/transaction" = []
 allowed_import_edges."internal/credential" = [
   "internal/configuration",
   "internal/secrets",
+  "internal/transaction",
 ]
 allowed_import_edges."internal/configuration" = ["internal/transaction"]
 allowed_import_edges."internal/client" = [
@@ -125,6 +126,7 @@ allowed_import_edges."internal/renaming" = [
 allowed_import_edges."internal/synchronization" = [
   "internal/client",
   "internal/configuration",
+  "internal/credential",
   "internal/discovery",
   "internal/process",
   "internal/secrets",
@@ -221,6 +223,7 @@ allowed_import_edges."internal/cli/credential" = [
 ]
 allowed_import_edges."internal/cli/install" = [
   "internal/cli/invocation",
+  "internal/credential",
   "internal/presentation",
   "internal/transaction",
   "internal/upgrade",
@@ -249,6 +252,7 @@ allowed_import_edges."internal/cli/recovery" = [
   "internal/configuration",
   "internal/discovery",
   "internal/presentation",
+  "internal/synchronization",
 ]
 allowed_import_edges."internal/cli/catalog" = [
   "internal/configuration",

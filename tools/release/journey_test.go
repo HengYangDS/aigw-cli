@@ -378,9 +378,18 @@ func (j *journeyFixture) requireClaudeProjection() {
 	if err := json.Unmarshal(data, &settings); err != nil {
 		j.testing.Fatalf("decode Claude settings: %v", err)
 	}
-	if !strings.Contains(settings.APIKeyHelper, j.binary) {
-		j.testing.Fatalf("Claude apiKeyHelper %q lacks %q", settings.APIKeyHelper, j.binary)
+	if !strings.Contains(settings.APIKeyHelper, j.credentialEntrypoint()) {
+		j.testing.Fatalf("Claude apiKeyHelper %q lacks %q", settings.APIKeyHelper, j.credentialEntrypoint())
 	}
+}
+
+func (j *journeyFixture) credentialEntrypoint() string {
+	j.testing.Helper()
+	paths, err := platform.PathsFor(runtime.GOOS, environmentValues(j.environment))
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	return filepath.Join(paths.Data, "credential", paths.InstallName)
 }
 
 func (j *journeyFixture) requireClaudeCredential(want string) {
@@ -417,7 +426,7 @@ func (j *journeyFixture) requireOwnedFilesAbsent() {
 	if runtime.GOOS == "windows" {
 		backup += ".exe"
 	}
-	for _, path := range []string{j.binary, backup} {
+	for _, path := range []string{j.binary, backup, j.credentialEntrypoint(), j.credentialEntrypoint() + ".sha256"} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			j.testing.Fatalf("uninstall retained owned file %s: %v", path, err)
 		}

@@ -244,6 +244,8 @@
       keeps every retained client invocation working throughout replacement.
       Demonstrate a failing unlink-window test first; then prove concurrent
       invocation, candidate activation, rollback, and re-upgrade on macOS,
-      Linux, and Windows without Token migration, ACL changes, client reload,
-      credential prompts, or a second live selection authority. Verify owned
+      Linux, and Windows without Token migration, ACL changes, credential
+      prompts, or a second live selection authority. An active legacy caller
+      still using the manager-owned path SHALL hold the first cutover before
+      unlink, not be counted as migrated by a config rewrite. Verify owned
       cleanup and retain only artifacts with an active consumer.

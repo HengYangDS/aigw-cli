@@ -4,10 +4,12 @@ package synchronization
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
@@ -34,7 +36,26 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg configuration.Con
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return s.registry().Apply(ctx, s.clientDependencies(), cfg, cfg, clientID)
+	if _, err := s.registry().Plan(s.clientDependencies(), cfg, cfg, clientID); err != nil {
+		return err
+	}
+	undoEntrypoint, err := s.prepareCredentialEntrypoint(cfg, clientID)
+	if err != nil {
+		return err
+	}
+	err = s.registry().Apply(ctx, s.clientDependencies(), cfg, cfg, clientID)
+	if err == nil || errors.Is(err, client.ErrProjectionRollbackFailed) || undoEntrypoint == nil {
+		return err
+	}
+	return errors.Join(err, undoEntrypoint())
+}
+
+func (s Synchronizer) prepareCredentialEntrypoint(cfg configuration.Config, clientIDs ...string) (func() error, error) {
+	required, err := s.needsCredentialEntrypoint(cfg, clientIDs...)
+	if err != nil || !required {
+		return nil, err
+	}
+	return credential.EnsureEntrypoint(s.AIGWExecutable, s.CredentialPath)
 }
 
 // ConfigStore is the exact persistence capability needed by a synchronization
@@ -55,6 +76,7 @@ type Synchronizer struct {
 	Registry                     client.Registry
 	ClaudeSettingsPath           string
 	AIGWExecutable               string
+	CredentialPath               string
 	AuthorizeCodexRouteSelection bool
 }
 
@@ -92,14 +114,50 @@ func (s Synchronizer) registry() client.Registry {
 }
 
 func (s Synchronizer) clientDependencies() client.Dependencies {
+	executable := s.AIGWExecutable
+	if s.CredentialPath != "" {
+		executable = s.CredentialPath
+	}
 	return client.Dependencies{
 		Secrets:                      s.Secrets,
 		Runner:                       s.Runner,
 		Discovery:                    s.Discovery,
 		ClaudeSettingsPath:           s.ClaudeSettingsPath,
-		AIGWExecutable:               s.AIGWExecutable,
+		AIGWExecutable:               executable,
 		AuthorizeCodexRouteSelection: s.AuthorizeCodexRouteSelection,
 	}
+}
+
+func (s Synchronizer) needsCredentialEntrypoint(cfg configuration.Config, clientIDs ...string) (bool, error) {
+	if s.CredentialPath == "" {
+		return false, nil
+	}
+	if len(clientIDs) == 0 {
+		clientIDs = s.ClientIDs()
+	}
+	for _, clientID := range clientIDs {
+		if !cfg.Clients[clientID].Enabled {
+			continue
+		}
+		runtime, err := cfg.ResolveRuntime(clientID, "")
+		if err != nil {
+			return false, err
+		}
+		if runtime.RequiresAccountToken() && runtime.CredentialCommand == "" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// CredentialEntrypointPlan observes the one shared helper prerequisite without
+// creating it. A false result means no default Account-Token client needs work.
+func (s Synchronizer) CredentialEntrypointPlan(cfg configuration.Config, clientIDs ...string) (bool, error) {
+	required, err := s.needsCredentialEntrypoint(cfg, clientIDs...)
+	if err != nil || !required {
+		return false, err
+	}
+	return credential.EntrypointNeeded(s.CredentialPath)
 }
 
 func (s Synchronizer) discoveredResult() (discovery.Result, error) {

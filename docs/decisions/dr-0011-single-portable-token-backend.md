@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-23
-- Last amended: 2026-09-20
+- Last amended: 2026-09-25
 
 ## Context
 
@@ -45,11 +45,16 @@ observation remains value-free. Failure returns no Token, changes no ACL and
 does not retry through another backend. The deadline bounds AIGW's worker, but
 cannot prove that macOS itself will never present authorization UI.
 
-The host-local external-helper cutover was rejected and rolled back. It is not
-the product's credential solution. A successor must execute every retained
-original credential command before client projection refresh, then prove update,
-rollback and re-upgrade against the same item. Source-only worker tests do not
-admit deployment.
+The independent host-local helper cutover was rejected and rolled back. It is
+not the product's credential reader or Token backend. This decision does not
+forbid an AIGW-owned copy of the same executable to keep the existing
+`credential` command reachable during package-manager replacement; that
+separate delivery change remains subject to
+[native acceptance](../../openspec/changes/inference-readiness-claude-override/design.md#credential-entrypoint-during-package-replacement).
+
+A successor must execute every retained original credential command before
+client projection refresh, then prove update, rollback and re-upgrade against
+the same item. Source-only worker tests do not admit deployment.
 
 ### Release identity and credential authorization
 
@@ -85,22 +90,26 @@ distribution trust.
 
 ### Product reader and migration boundary
 
-The product path is the existing `aigw credential` command and one selected
+The product reader is the existing `aigw credential` command and one selected
 backend. On macOS, a bounded credential subprocess invokes the same go-keyring
-provider used by the published predecessor. No helper binary, host script,
-service, or permanently retained predecessor is part of this path.
+provider used by the published predecessor. The proposed user-private executable
+copy changes the command's installed location without adding a reader or Token
+backend; preservation of native item authorization still requires the retained-
+item journey. No independent helper reader, host script, service, or second
+Token backend is admitted.
 
-| Path                                      | Disposition | Reason                                                                                      |
-| ----------------------------------------- | ----------- | ------------------------------------------------------------------------------------------- |
-| Bounded go-keyring worker                 | Selected    | Preserves the published provider while bounding the AIGW-owned process and transport.       |
-| Host-local stable credential helper       | Rejected    | Adds an unapproved runtime and caller boundary.                                             |
-| Security.framework same-executable reader | Rejected    | Changes reader identity and requires unnecessary native bridge and authorization machinery. |
-| Silent backend migration                  | Rejected    | Changes credential authority without the operator's decision.                               |
+| Path                                       | Disposition | Reason                                                                                      |
+| ------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------- |
+| Bounded go-keyring worker                  | Selected    | Preserves the published provider while bounding the AIGW-owned process and transport.       |
+| Independent host-local credential helper   | Rejected    | Adds another reader and caller boundary.                                                    |
+| AIGW-owned copy of the existing executable | Pending     | Must pass original-caller and three-platform native lifecycle acceptance.                   |
+| Security.framework same-executable reader  | Rejected    | Changes reader identity and requires unnecessary native bridge and authorization machinery. |
+| Silent backend migration                   | Rejected    | Changes credential authority without the operator's decision.                               |
 
 The existing optional `credential_command` configuration is an explicit
-integration contract, not permission to install a helper or an automatic
-Keychain recovery path. Its presence does not establish an approved deployment
-consumer. Product defaults continue to use AIGW itself.
+external-integration contract, not permission to install an independent helper
+or automatic Keychain recovery path. Its presence does not establish an
+approved deployment consumer. Product defaults continue to use AIGW itself.
 
 Before a successor can replace a working installation, the existing release
 journeys must establish all of these boundaries:

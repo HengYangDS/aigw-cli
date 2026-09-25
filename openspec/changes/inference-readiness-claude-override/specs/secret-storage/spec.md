@@ -4,10 +4,11 @@
 
 Upgrade acceptance SHALL retain each enabled client's original credential
 command, arguments, environment, native item, reader implementation, and
-authorization identity. Original invocations SHALL return the same Token
-before, during, and after program replacement, including a package-manager
-unlink interval, without synchronization or client reload. A fresh client or
-helper SHALL NOT substitute for existing-caller continuity.
+authorization identity. Before manager-owned CLI replacement, every retained
+caller SHALL use an entrypoint outside that manager's unlink path or the
+cutover SHALL stop. Admitted original invocations SHALL return the same Token
+before, during, and after replacement without synchronization or reload. A
+fresh client or helper SHALL NOT substitute for existing-caller continuity.
 
 #### Scenario: A proposed adapter survives only CLI-only updates
 
@@ -29,10 +30,19 @@ helper SHALL NOT substitute for existing-caller continuity.
 
 #### Scenario: The package manager temporarily removes the CLI path
 
-- **GIVEN** enabled clients retain their original credential commands
+- **GIVEN** enabled clients retain original commands to an admitted stable
+  credential entrypoint
 - **WHEN** a package manager removes or replaces the CLI executable path
 - **THEN** every invocation issued before, during, and after that interval
   SHALL return its original authorized Token without a missing-executable gap
 - **AND** no client reload, Token migration, ACL change, or credential prompt
   SHALL be needed
 - **AND** failure SHALL preserve or restore a working original invocation.
+
+#### Scenario: A legacy client still calls the manager-owned CLI link
+
+- **WHEN** a retained caller still uses the executable path a package manager
+  will unlink
+- **THEN** production cutover SHALL stop before that unlink
+- **AND** rewriting a configuration file or testing a fresh client SHALL NOT
+  claim the cached caller was migrated.

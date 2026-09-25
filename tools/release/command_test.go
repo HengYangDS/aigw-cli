@@ -2,6 +2,7 @@ package main
 
 import (
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/artifact"
 	"archive/zip"
@@ -20,7 +21,7 @@ import (
 	"testing"
 )
 
-func TestRetainedCredentialCommandDoesNotReloadClientProjection(t *testing.T) {
+func TestSyncPreviewIncludesMissingCredentialEntrypointWithoutWriting(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -30,25 +31,34 @@ func TestRetainedCredentialCommandDoesNotReloadClientProjection(t *testing.T) {
 		_, _ = io.WriteString(w, `{"data":[]}`)
 	}))
 	t.Cleanup(server.Close)
-	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
-		t.Run(client, func(t *testing.T) {
-			journey := newNativeJourney(t, program, server.URL, true)
-			var projection string
-			if client == configuration.ClientCodex {
-				projection, _ = journey.prepareCodexLifecycle()
-			} else {
-				projection = journey.settings
-			}
-			journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
-			journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
-			retained := journey.retainedCredential(client)
-			journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "changed-after-capture")
-			if err := os.Remove(projection); err != nil {
-				t.Fatal(err)
-			}
-			journey.requireCredential(retained, "native-journey-token")
-		})
+	journey := newNativeJourney(t, program, server.URL, true)
+	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
+	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+	target := journey.credentialEntrypoint()
+	if err := credential.RemoveEntrypoint(target); err != nil {
+		t.Fatal(err)
 	}
+	before := readFile(t, journey.config)
+	var preview struct {
+		CredentialEntrypoint struct {
+			Path   string `json:"path"`
+			Action string `json:"action"`
+		} `json:"credential_entrypoint"`
+	}
+	if err := json.Unmarshal(journey.run("sync", "--dry-run", "--json"), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview.CredentialEntrypoint.Path != target || preview.CredentialEntrypoint.Action != "install" {
+		t.Fatalf("preview omits missing credential entrypoint %s: %#v", target, preview.CredentialEntrypoint)
+	}
+	if _, err := os.Lstat(target); !os.IsNotExist(err) {
+		t.Fatalf("dry-run created a credential entrypoint: %v", err)
+	}
+	if got := readFile(t, journey.config); !bytes.Equal(got, before) {
+		t.Fatal("dry-run changed configuration")
+	}
+	journey.run("sync")
+	journey.requireCredential(journey.retainedCredential(configuration.ClientClaude), "native-journey-token")
 }
 
 func TestNativeJourneyOwnsWorkingDirectory(t *testing.T) {

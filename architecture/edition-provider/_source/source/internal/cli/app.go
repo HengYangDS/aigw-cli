@@ -53,6 +53,7 @@ type App struct {
 	Now                func() time.Time
 	Version            string
 	Executable         string
+	CredentialPath     string
 	InstallTarget      string
 	ClaudeSettingsPath string
 	Config             configuration.Store
@@ -223,6 +224,7 @@ func NewDefault() (*App, error) {
 		Now:                time.Now,
 		Version:            Version,
 		Executable:         executable,
+		CredentialPath:     filepath.Join(paths.Data, "credential", paths.InstallName),
 		InstallTarget:      filepath.Join(paths.InstallDir, paths.InstallName),
 		ClaudeSettingsPath: paths.ClaudeSettings,
 		Config:             configuration.NewStore(paths.Config),
@@ -274,7 +276,7 @@ func (a *App) catalogDependencies() catalog.Dependencies {
 
 func (a *App) invocationContext() invocation.Context {
 	return invocation.Context{
-		Version: appVersion(a), Executable: a.Executable, InstallTarget: a.InstallTarget,
+		Version: appVersion(a), Executable: a.Executable, CredentialPath: a.CredentialPath, InstallTarget: a.InstallTarget,
 		ClaudeSettingsPath: a.ClaudeSettingsPath,
 		Config:             a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.outputWriter(),
 		In:        a.In,

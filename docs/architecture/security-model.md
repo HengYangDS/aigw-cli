@@ -58,6 +58,22 @@ variable names, reversible Account-ID encoding, and process scope.
 Unattended work requires an already-proven noninteractive credential boundary;
 it must not assume metadata access is sufficient.
 
+### AIGW-owned credential entrypoint
+
+For a default Account-Token Client Binding, AIGW projects the existing
+`aigw credential` protocol through one user-private executable copy under its
+platform data directory. The copy uses the same selected backend and Token
+slots; it is not another credential store or an external helper. Ordinary
+synchronization does not replace it when the package-manager CLI changes.
+Its paired SHA-256 records accidental byte drift, not release provenance or
+native-store authorization. Creation participates in projection compensation;
+uninstall removes the copy only after withdrawing projections. An already-running
+client that cached the old
+package-manager path is not migrated by rewriting settings; replacement must
+wait until that original caller is absent or independently proved migrated.
+The active [credential-continuity Change](../../openspec/changes/inference-readiness-claude-override/design.md#credential-entrypoint-during-package-replacement)
+owns native acceptance before this path can be called a released guarantee.
+
 ### External credential executable
 
 Each local Adapter may set `credential_command` to one absolute executable
@@ -69,8 +85,8 @@ installation, trust, permissions and credential source. AIGW does not discover
 an alternative reader, change native access control or install the helper.
 
 This explicit client projection does not change `aigw credential` or backend
-selection. Without it, the released AIGW executable remains the credential
-reader. Sync, check and dry-run do not execute the external helper; they cannot
+selection. Without it, the AIGW-owned credential entrypoint remains the reader.
+Sync, check and dry-run do not execute the external helper; they cannot
 prove that it can retrieve a Token. With an external helper, check and status
 report only local projection readiness and direct the operator to live
 verification instead of requiring a duplicate Token in AIGW's store.

@@ -285,7 +285,7 @@ func TestRegistryReportsCompensationFailure(t *testing.T) {
 	}
 
 	err = registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
-	if !errors.Is(err, applyFailure) || !errors.Is(err, firstRollbackFailure) || !errors.Is(err, secondRollbackFailure) {
+	if !errors.Is(err, applyFailure) || !errors.Is(err, firstRollbackFailure) || !errors.Is(err, secondRollbackFailure) || !errors.Is(err, ErrProjectionRollbackFailed) {
 		t.Fatalf("Apply() error = %v", err)
 	}
 	want := []string{"plan:first", "plan:second", "plan:third", "apply:first", "apply:second", "apply:third", "rollback:second", "rollback:first"}

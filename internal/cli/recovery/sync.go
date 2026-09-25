@@ -8,9 +8,25 @@ import (
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/synchronization"
 
 	"github.com/spf13/cobra"
 )
+
+type credentialEntrypointPlan struct {
+	Path   string `json:"path"`
+	Action string `json:"action"`
+}
+
+type syncResult struct {
+	DryRun               bool                      `json:"dry_run"`
+	Selections           map[string]string         `json:"selections"`
+	Targets              []client.ProjectionPlan   `json:"targets,omitempty"`
+	CredentialEntrypoint *credentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
+	EnabledClients       int                       `json:"enabled_clients"`
+	State                string                    `json:"state,omitempty"`
+	NextAction           string                    `json:"next_action"`
+}
 
 // NewSyncCommand constructs the command that projects current bindings to discovered clients.
 func NewSyncCommand(runtime invocation.Context) *cobra.Command {
@@ -37,14 +53,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 					err,
 				)
 			}
-			result := struct {
-				DryRun         bool                    `json:"dry_run"`
-				Selections     map[string]string       `json:"selections"`
-				Targets        []client.ProjectionPlan `json:"targets,omitempty"`
-				EnabledClients int                     `json:"enabled_clients"`
-				State          string                  `json:"state,omitempty"`
-				NextAction     string                  `json:"next_action"`
-			}{DryRun: dryRun, Selections: map[string]string{}, NextAction: "aigw check"}
+			result := syncResult{DryRun: dryRun, Selections: map[string]string{}, NextAction: "aigw check"}
 			activation := clientactivation.AssessActivation(after, runtime.Secrets)
 			result.EnabledClients = activation.EnabledClients
 			result.State = string(activation.State)
@@ -57,16 +66,8 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 			if dryRun {
-				plans, err := synchronizer.Plan(before, after)
-				if err != nil {
+				if err := prepareSyncPreview(synchronizer, before, after, runtime.CredentialPath, &result); err != nil {
 					return err
-				}
-				result.Targets = plans
-				for _, plan := range plans {
-					if plan.ChangesState {
-						result.NextAction = "aigw sync"
-						break
-					}
 				}
 			} else if err := synchronizer.CommitProjection(cmd.Context(), before, after, "sync"); err != nil {
 				return err
@@ -76,22 +77,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r := invocation.Renderer(runtime)
 			if dryRun {
-				r.ProductTitle("Synchronization preview")
-				var bindings []presentation.Field
-				for _, client := range configuration.AdmittedClientIDs() {
-					bindings = append(bindings, presentation.Field{Label: "Client · " + client, Value: after.SelectedRoute(client)})
-				}
-				r.Rows(bindings...)
-				if len(result.Targets) == 0 {
-					r.Status(presentation.OK, "Projection", "No client configuration needs changing")
-				} else {
-					targets := make([]presentation.Field, 0, len(result.Targets))
-					for _, plan := range result.Targets {
-						targets = append(targets, presentation.Field{Label: plan.Target, Value: plan.Action})
-					}
-					r.Rows(targets...)
-				}
-				r.Success("Preview did not write configuration, state files, authentication, or conversations")
+				renderSyncPreview(r, after, result)
 			} else {
 				r.ProductTitle("Synchronization completed")
 			}
@@ -108,6 +94,51 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the synchronization plan without writing configuration")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the synchronization preview or result as JSON")
 	return cmd
+}
+
+func prepareSyncPreview(synchronizer synchronization.Synchronizer, before, after configuration.Config, credentialPath string, result *syncResult) error {
+	plans, err := synchronizer.Plan(before, after)
+	if err != nil {
+		return err
+	}
+	needed, err := synchronizer.CredentialEntrypointPlan(after)
+	if err != nil {
+		return err
+	}
+	result.Targets = plans
+	if needed {
+		result.CredentialEntrypoint = &credentialEntrypointPlan{Path: credentialPath, Action: "install"}
+		result.NextAction = "aigw sync"
+	}
+	for _, plan := range plans {
+		if plan.ChangesState {
+			result.NextAction = "aigw sync"
+			break
+		}
+	}
+	return nil
+}
+
+func renderSyncPreview(r *presentation.Renderer, after configuration.Config, result syncResult) {
+	r.ProductTitle("Synchronization preview")
+	if result.CredentialEntrypoint != nil {
+		r.Row("Credential entrypoint", "Install "+result.CredentialEntrypoint.Path)
+	}
+	bindings := make([]presentation.Field, 0, len(configuration.AdmittedClientIDs()))
+	for _, client := range configuration.AdmittedClientIDs() {
+		bindings = append(bindings, presentation.Field{Label: "Client · " + client, Value: after.SelectedRoute(client)})
+	}
+	r.Rows(bindings...)
+	if len(result.Targets) == 0 {
+		r.Status(presentation.OK, "Projection", "No client configuration needs changing")
+	} else {
+		targets := make([]presentation.Field, 0, len(result.Targets))
+		for _, plan := range result.Targets {
+			targets = append(targets, presentation.Field{Label: plan.Target, Value: plan.Action})
+		}
+		r.Rows(targets...)
+	}
+	r.Success("Preview did not write configuration, state files, authentication, or conversations")
 }
 
 // NewRollbackCommand constructs the command that restores the last verified AIGW configuration checkpoint.

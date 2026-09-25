@@ -42,6 +42,7 @@ type Updater interface {
 type Context struct {
 	Version            string
 	Executable         string
+	CredentialPath     string
 	InstallTarget      string
 	ClaudeSettingsPath string
 	Config             configuration.Store
@@ -151,5 +152,6 @@ func Synchronizer(runtime Context) synchronization.Synchronizer {
 		Discovery:          runtime.Discovery,
 		ClaudeSettingsPath: runtime.ClaudeSettingsPath,
 		AIGWExecutable:     runtime.Executable,
+		CredentialPath:     runtime.CredentialPath,
 	}
 }

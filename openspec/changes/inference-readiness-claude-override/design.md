@@ -235,6 +235,34 @@ canonical requirement bodies were condensed or split without dropping their
 scenarios; this uses the existing validator rather than another specification
 parser or waiver list.
 
+### Credential entrypoint during package replacement
+
+The retained-command unlink test fails with shell status 127 when the command
+names the Homebrew-managed CLI link. Before-and-after checks cannot prove
+continuous credential delivery across that interval.
+
+- The Cask CLI link cannot be the helper entrypoint because Homebrew unlinks it.
+- Four client-specific fallbacks duplicate path and failure policy.
+- A proxy, daemon, or launcher adds an unrelated runtime.
+- One AIGW-owned executable at the platform-native data path is the candidate:
+  the package manager leaves it alone, and the existing `credential` command
+  still reads the one selected Token backend.
+
+The selected candidate copies the verified current AIGW executable only when
+an enabled default Account-Token binding needs it. Its path is stable across
+routine CLI upgrades; ordinary sync never replaces a working copy merely
+because the CLI version changed. It is a derived credential entrypoint, not a
+second CLI installation or Token store. Creation, provenance, no-op behavior,
+ownership, exact rollback, and eventual removal need native tests on each OS.
+An update to the credential reader itself is a separate admitted transition.
+
+Already-running clients may have cached the old Brew path. Rewriting their
+configuration cannot prove they adopted a new command. The first host cutover
+therefore retains the existing CLI link until those legacy callers are proved
+absent or migrated; otherwise it stops before Brew unlink. AIGW cannot promise
+continuity for an arbitrary external `brew upgrade` that bypasses this
+precondition. No live Keychain item or client is changed to make a test pass.
+
 ## Risks and mitigations
 
 - A protocol or gateway rejects a minimal output field or `store: false`:

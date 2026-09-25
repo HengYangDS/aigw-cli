@@ -356,7 +356,7 @@ func (j *journeyFixture) requireCodexProjection() {
 		j.testing.Fatal(err)
 	}
 	provider := config.ModelProviders[config.ModelProvider]
-	if config.ModelProvider != "aigw" || config.Model != "gpt-test" || !config.UserPreference || provider.BaseURL != j.endpoint || provider.Auth.Command != j.binary {
+	if config.ModelProvider != "aigw" || config.Model != "gpt-test" || !config.UserPreference || provider.BaseURL != j.endpoint || provider.Auth.Command != j.credentialEntrypoint() {
 		j.testing.Fatalf("Codex configuration differs from the selected product route: %#v", config)
 	}
 	if got := strings.TrimSpace(string(j.runWith(provider.Auth.Command, provider.Auth.Args...))); got != "native-journey-token" {

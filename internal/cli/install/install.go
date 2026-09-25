@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/transaction"
 	"aigw-cli/internal/upgrade"
@@ -110,6 +111,9 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 				if err := synchronizer.CommitProjection(cmd.Context(), before, after, "uninstall"); err != nil {
 					return err
 				}
+			}
+			if err := credential.RemoveEntrypoint(runtime.CredentialPath); err != nil {
+				return fmt.Errorf("remove AIGW credential entrypoint: %w", err)
 			}
 			if err := Uninstall(target); err != nil {
 				return err
