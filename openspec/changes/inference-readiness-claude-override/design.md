@@ -224,9 +224,10 @@ non-inference commands.
    key ID, and issuer when required. Never retry a failed profile through a
    guessed credential, prompt, or silent fallback. The same accepted Apple log
    must bind the uploaded ZIP and both final macOS executables in either mode.
-10. Verify focused behavior, exact HEAD quality and native gates, selected
-    released bytes, live routes, publication, installation, rollback, and owned
-    cleanup in that order. tasks.md is the only progress ledger.
+10. Before archive, verify focused behavior, candidate bytes, exact-HEAD
+    quality and native gates, live routes, and peer review. After archive,
+    verify signed publication, installation, rollback, and owned cleanup.
+    `tasks.md` tracks only the pre-archive implementation obligations.
 
 The existing OpenSpec gate now treats every native finding as a failed project
 check, even when the official validator labels it informational. Five overlong
@@ -253,13 +254,30 @@ parser or waiver list.
   interaction: record it as a candidate, keep it out of selectable Routes, and
   resume only through an authorized noninteractive credential path.
 
+## Post-archive delivery acceptance
+
+After all Change tasks and final source admission pass, archive the Change
+before creating a stable tag. The release owner then:
+
+1. Publishes one signed stable release with identical archives and checksums to
+   GitHub and GitLab. It verifies exact refs and tag jobs, both Release records,
+   every asset byte, macOS Developer ID signing and accepted notarization.
+   Apple authentication uses exactly one validated noninteractive mode; mixed
+   or incomplete inputs fail without prompting or fallback.
+2. Publishes and installs the matching Homebrew Cask, verifies the installed
+   executable, UCloud Routes, Claude preference, both check scopes, and the
+   original client credential calls continuously through upgrade, bounded
+   rollback, and re-upgrade.
+3. Preserves recovery material and foreign state, removes only proved
+   disposable residue, and checks the exact worktree, refs, lease, and artifact
+   inventory before ETHOS closeout. A failed delivery effect does not turn an
+   archived Change into a successful release.
+
 ## Migration and rollback
 
 No configuration schema or credential migration is required. Existing
 sidecars remain authoritative for connection ownership, and the new
 inspection is read-only. Keep the installed stable release until the
 candidate passes exact-HEAD, packaged/native, and selected-route acceptance.
-Publish one signed stable release through the existing Forge and Homebrew
-workflow, test installed behavior and rollback, then retire only the owned
-Lane. Rolling back the program restores the previous check semantics without
+Rolling back the program restores the previous check semantics without
 rewriting user settings or Codex session state.

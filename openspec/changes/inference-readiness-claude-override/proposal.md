@@ -41,6 +41,9 @@ user's selected model.
 - Resolve overlong OpenSpec requirements at their semantic owners and require
   zero native validation findings, including informational advice, in the
   existing quality gate.
+- Preserve retained client credential calls throughout package-manager program
+  replacement; candidate acceptance must cover the unlink window, not merely
+  before-and-after checks.
 
 ## Capabilities
 
@@ -58,6 +61,8 @@ None.
   read-only inspection without adopting connection or credential edits.
 - `ci-diagnostics` and `product-quality`: require the complete native matrix
   on each selected Forge without a parallel CI authority.
+- `secret-storage`: preserve original client credential invocations throughout
+  package-manager replacement, rollback, and re-upgrade.
 
 ## Impact
 

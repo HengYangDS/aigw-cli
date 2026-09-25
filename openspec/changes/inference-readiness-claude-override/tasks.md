@@ -239,19 +239,11 @@
       five overlong canonical requirements without losing their scenarios.
       Make the existing quality gate reject future `INFO` findings as well as
       warnings and errors; verify the official report is clean.
-
-## 8. Publish and install
-
-- [ ] 8.1 Publish one signed stable release with identical assets and
-      checksums through the existing GitHub and GitLab workflows. Verify
-      remote refs, exact-tag CI job runners, release objects, and every
-      published asset byte; separately retain host signing and accepted Apple
-      notarization evidence for the exact macOS candidate. Use one explicit
-      noninteractive native authentication mode, rejecting mixed or incomplete
-      Keychain-profile and API-key inputs without prompting or fallback.
-- [ ] 8.2 Publish and install the matching Homebrew Cask, exercise a bounded
-      rollback and forward restoration, then verify the installed executable,
-      UCloud routes, Claude preference preservation, and both check scopes.
-- [ ] 8.3 Preserve recovery material and foreign state, remove only proven
-      disposable release-stage residue, and verify exact worktree, ref, lease,
-      and artifact inventory before OpenSpec and ETHOS closeout.
+- [ ] 7.8 Compare stable credential-entrypoint options under package-manager
+      ownership, then implement the least complex cross-platform solution that
+      keeps every retained client invocation working throughout replacement.
+      Demonstrate a failing unlink-window test first; then prove concurrent
+      invocation, candidate activation, rollback, and re-upgrade on macOS,
+      Linux, and Windows without Token migration, ACL changes, client reload,
+      credential prompts, or a second live selection authority. Verify owned
+      cleanup and retain only artifacts with an active consumer.
