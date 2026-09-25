@@ -101,7 +101,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		}
 		cfg.SetClientActivation(client, true, executable, targets)
 		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "client enable"); err != nil {
-			return fmt.Errorf("Client enablement failed and was rolled back: %w", err)
+			return fmt.Errorf("Client enablement could not finish: %w", err)
 		}
 		renderEnabled(invocation.Renderer(runtime), spec)
 		return nil

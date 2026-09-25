@@ -155,8 +155,8 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Configuration rollback did not complete",
-		"AIGW could not restore the selected configuration and its client projections.",
-		"A rolled-back configuration was not confirmed.",
+		"One rollback step failed; the cause identifies the affected boundary.",
+		"Configuration or client projections may have changed; inspect current state before retrying.",
 		"aigw doctor",
 	} {
 		if !strings.Contains(out.String(), want) {

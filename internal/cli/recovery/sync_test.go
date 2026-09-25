@@ -9,6 +9,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
 )
@@ -16,6 +17,50 @@ import (
 type syncDiscovery struct{ result discovery.Result }
 
 func (candidate syncDiscovery) Discover() discovery.Result { return candidate.result }
+
+func TestDryRunRejectsChangedCredentialEntrypointWithoutWriting(t *testing.T) {
+	for _, command := range []string{"sync", "repair"} {
+		t.Run(command, func(t *testing.T) {
+			store, _ := configuredRepairStore(t)
+			root := t.TempDir()
+			source := filepath.Join(root, "aigw")
+			helper := filepath.Join(root, "data", "credential", "aigw")
+			if err := os.WriteFile(source, []byte("AIGW fixture"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := credential.EnsureEntrypoint(source, helper); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(helper+".sha256", []byte("changed receipt\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			before, err := os.ReadFile(store.Path())
+			if err != nil {
+				t.Fatal(err)
+			}
+			runtime := invocation.Context{Executable: source, CredentialPath: helper, Config: store, Discovery: staticDiscovery{}, Out: &bytes.Buffer{}}
+			if command == "sync" {
+				cmd := NewSyncCommand(runtime)
+				cmd.SilenceErrors = true
+				cmd.SilenceUsage = true
+				cmd.SetArgs([]string{"--dry-run", "--json"})
+				err = cmd.Execute()
+			} else {
+				err = runRepair(t.Context(), runtime, true, true)
+			}
+			if err == nil || !strings.Contains(err.Error(), "differs from its recorded bytes") {
+				t.Fatalf("%s dry-run admitted a changed entrypoint: %v", command, err)
+			}
+			after, readErr := os.ReadFile(store.Path())
+			if readErr != nil || !bytes.Equal(after, before) {
+				t.Fatalf("%s dry-run changed configuration: %v", command, readErr)
+			}
+			if _, statErr := os.Lstat(helper); statErr != nil {
+				t.Fatalf("%s dry-run removed a changed helper: %v", command, statErr)
+			}
+		})
+	}
+}
 
 func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 	t.Run("configuration load", func(t *testing.T) {

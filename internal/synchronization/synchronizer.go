@@ -6,6 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
@@ -150,14 +154,64 @@ func (s Synchronizer) needsCredentialEntrypoint(cfg configuration.Config, client
 	return false, nil
 }
 
-// CredentialEntrypointPlan observes the one shared helper prerequisite without
-// creating it. A false result means no default Account-Token client needs work.
-func (s Synchronizer) CredentialEntrypointPlan(cfg configuration.Config, clientIDs ...string) (bool, error) {
-	required, err := s.needsCredentialEntrypoint(cfg, clientIDs...)
-	if err != nil || !required {
-		return false, err
+// CredentialEntrypointAction names the one filesystem effect required by the
+// complete desired Client Binding set. An empty action means no change.
+type CredentialEntrypointAction string
+
+const (
+	// CredentialEntrypointUnchanged means the desired helper is already aligned.
+	CredentialEntrypointUnchanged CredentialEntrypointAction = ""
+	// CredentialEntrypointInstall creates the helper for a default Token consumer.
+	CredentialEntrypointInstall CredentialEntrypointAction = "install"
+	// CredentialEntrypointRemove withdraws a helper with no configured consumer.
+	CredentialEntrypointRemove CredentialEntrypointAction = "remove"
+)
+
+// CredentialEntrypointPlan observes the shared helper without changing it.
+// Every enabled client is considered even when one projection is selected.
+func (s Synchronizer) CredentialEntrypointPlan(cfg configuration.Config) (CredentialEntrypointAction, error) {
+	if s.CredentialPath == "" {
+		return CredentialEntrypointUnchanged, nil
 	}
-	return credential.EntrypointNeeded(s.CredentialPath)
+	required, err := s.needsCredentialEntrypoint(cfg)
+	if err != nil {
+		return CredentialEntrypointUnchanged, err
+	}
+	missing, err := credential.EntrypointNeeded(s.CredentialPath)
+	if err != nil {
+		return CredentialEntrypointUnchanged, err
+	}
+	switch {
+	case required && missing:
+		return CredentialEntrypointInstall, nil
+	case !required && !missing:
+		for _, clientID := range s.ClientIDs() {
+			binding := cfg.Clients[clientID]
+			if binding.Enabled && sameCredentialEntrypoint(binding.CredentialCommand, s.CredentialPath) {
+				return CredentialEntrypointUnchanged, nil
+			}
+		}
+		return CredentialEntrypointRemove, nil
+	default:
+		return CredentialEntrypointUnchanged, nil
+	}
+}
+
+func sameCredentialEntrypoint(command, owned string) bool {
+	if command == "" || owned == "" {
+		return false
+	}
+	command, owned = filepath.Clean(command), filepath.Clean(owned)
+	if runtime.GOOS == "windows" {
+		if strings.EqualFold(command, owned) {
+			return true
+		}
+	} else if command == owned {
+		return true
+	}
+	commandInfo, commandErr := os.Stat(command)
+	ownedInfo, ownedErr := os.Stat(owned)
+	return commandErr == nil && ownedErr == nil && os.SameFile(commandInfo, ownedInfo)
 }
 
 func (s Synchronizer) discoveredResult() (discovery.Result, error) {

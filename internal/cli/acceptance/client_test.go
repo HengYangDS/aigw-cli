@@ -44,8 +44,12 @@ func TestAdapterEnableReportsConfigurationCommitFailure(t *testing.T) {
 	}
 
 	err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", executableFixture(t, "claude")})
-	if err == nil || !strings.Contains(err.Error(), "Client enablement failed and was rolled back") {
+	if err == nil || !strings.Contains(err.Error(), "Client enablement could not finish") {
 		t.Fatalf("error = %v", err)
+	}
+	stored, loadErr := app.Config.Load()
+	if loadErr != nil || stored.Clients[configuration.ClientClaude].Enabled {
+		t.Fatalf("failed configuration commit enabled Claude: %#v, %v", stored.Clients, loadErr)
 	}
 }
 

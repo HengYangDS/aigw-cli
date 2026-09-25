@@ -99,12 +99,12 @@
       "authority": "AIGW built-in Adapter composition"
     },
     "synchronizer": {
-      "sha256": "2f3156d1a424e3f5ff930680f321d463499539394d3199cf0db4da740d442d34",
+      "sha256": "fbee8fe490bb14df5737799adafe212bfe0f5bc0a6445a73e575c9f3208bc48d",
       "locator": "source/internal/synchronization/synchronizer.go",
       "authority": "AIGW client convergence coordinator"
     },
     "projection-transaction": {
-      "sha256": "b1e95a1c3010fc8715bc9948d71143182dee8c4f34d7e1299c7185c0574b3a3b",
+      "sha256": "3de67d142d7711115a605df6937658614d5bbca9c5c1097902624c1d23e5a5f9",
       "locator": "source/internal/synchronization/transaction.go",
       "authority": "AIGW configuration and projection transaction"
     },
@@ -471,7 +471,7 @@
     }
   },
   "context": {
-    "revision": "eb873c8102ab6edd6679914a3c6555233ad7bd8f4782dd1faea525d7fc0b4977",
+    "revision": "ee8f54c7061ca190e6744b56771cba27633cf61e380bd7b43a7104ea65151e12",
     "scope": "Selected AIGW control-plane owners; not automatic inference or exhaustive implementation coverage"
   }
 }

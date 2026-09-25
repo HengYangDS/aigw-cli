@@ -2,13 +2,13 @@
   "schema": "architecture.source-bundle/v1",
   "source": {
     "id": "dig/misc/tools/llm-third-party-api/aigw-cli",
-    "revision": "eb873c8102ab6edd6679914a3c6555233ad7bd8f4782dd1faea525d7fc0b4977"
+    "revision": "ee8f54c7061ca190e6744b56771cba27633cf61e380bd7b43a7104ea65151e12"
   },
   "files": [
     {
       "path": "semantic.json",
       "bytes": 15397,
-      "sha256": "d747096330b9c58c40b1c55997266db531d97137af0fbb4f1ef8052916b3a6c7"
+      "sha256": "4302c65e086eef6bf0f6519373eab38f661be4a3252ae18842ef0ced86845e40"
     },
     {
       "path": "source/internal/client/adapters.go",
@@ -67,8 +67,8 @@
     },
     {
       "path": "source/internal/synchronization/transaction.go",
-      "bytes": 2994,
-      "sha256": "b1e95a1c3010fc8715bc9948d71143182dee8c4f34d7e1299c7185c0574b3a3b"
+      "bytes": 3900,
+      "sha256": "3de67d142d7711115a605df6937658614d5bbca9c5c1097902624c1d23e5a5f9"
     },
     {
       "path": "source/internal/client/registry.go",
@@ -77,8 +77,8 @@
     },
     {
       "path": "source/internal/synchronization/synchronizer.go",
-      "bytes": 5998,
-      "sha256": "2f3156d1a424e3f5ff930680f321d463499539394d3199cf0db4da740d442d34"
+      "bytes": 7744,
+      "sha256": "fbee8fe490bb14df5737799adafe212bfe0f5bc0a6445a73e575c9f3208bc48d"
     }
   ]
 }

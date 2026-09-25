@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -92,6 +93,86 @@ func TestRetainedCredentialSurvivesInstalledExecutableUnlink(t *testing.T) {
 	for err := range failures {
 		t.Fatal(err)
 	}
+}
+
+func TestSyncPreviewRemovesEntrypointAfterInterruptedLastClientWithdrawal(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	program := buildNativeProgram(t, root, "0.0.0")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"data":[]}`)
+	}))
+	t.Cleanup(server.Close)
+	journey := newNativeJourney(t, program, server.URL, true)
+	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
+	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+	store := configuration.NewStore(journey.config)
+	after, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	after.SetClientActivation(configuration.ClientClaude, false, "", nil)
+	if err := store.Save(after); err != nil {
+		t.Fatal(err)
+	}
+	helper := journey.credentialEntrypoint()
+	beforePreview := readFile(t, journey.config)
+	var preview struct {
+		CredentialEntrypoint struct {
+			Path   string `json:"path"`
+			Action string `json:"action"`
+		} `json:"credential_entrypoint"`
+	}
+	if err := json.Unmarshal(journey.run("sync", "--dry-run", "--json"), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview.CredentialEntrypoint.Path != helper || preview.CredentialEntrypoint.Action != "remove" {
+		t.Fatalf("dry-run omitted owned cleanup: %#v", preview.CredentialEntrypoint)
+	}
+	if got := readFile(t, journey.config); !bytes.Equal(got, beforePreview) {
+		t.Fatal("dry-run changed Client Bindings")
+	}
+	if _, err := os.Lstat(helper); err != nil {
+		t.Fatalf("dry-run removed credential entrypoint: %v", err)
+	}
+	journey.run("sync")
+	for _, path := range []string{helper, helper + ".sha256"} {
+		if _, err := os.Lstat(path); !os.IsNotExist(err) {
+			t.Fatalf("sync retained unused credential entrypoint %s: %v", path, err)
+		}
+	}
+}
+
+func TestClientDisableRemovesAndReenableRestoresCredentialEntrypoint(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	program := buildNativeProgram(t, root, "0.0.0")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"data":[]}`)
+	}))
+	t.Cleanup(server.Close)
+	journey := newNativeJourney(t, program, server.URL, true)
+	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
+	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+	store := configuration.NewStore(journey.config)
+	cfg, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	executable := cfg.Clients[configuration.ClientClaude].Executable
+	helper := journey.credentialEntrypoint()
+	journey.run("client", "disable", configuration.ClientClaude)
+	for _, path := range []string{helper, helper + ".sha256"} {
+		if _, err := os.Lstat(path); !os.IsNotExist(err) {
+			t.Fatalf("disable retained unused helper %s: %v", path, err)
+		}
+	}
+	journey.run("client", "enable", configuration.ClientClaude, "--executable", executable)
+	journey.requireCredential(journey.retainedCredential(configuration.ClientClaude), "native-journey-token")
 }
 
 func (j *journeyFixture) retainedCredential(client string) process.Plan {

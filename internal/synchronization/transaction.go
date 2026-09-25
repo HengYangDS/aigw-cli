@@ -7,6 +7,7 @@ import (
 
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 )
 
 // Commit persists one configuration transition and converges affected client
@@ -40,7 +41,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 	}
 	var undoEntrypoint func() error
 	if reconcileProjection {
-		undoEntrypoint, err = s.prepareCredentialEntrypoint(after, clientIDs...)
+		undoEntrypoint, err = s.prepareCredentialEntrypoint(after)
 		if err != nil {
 			return err
 		}
@@ -56,8 +57,31 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 		if err := s.applyProjection(ctx, before, after, configBefore, configAfter, undoEntrypoint, clientIDs...); err != nil {
 			return fmt.Errorf("%s %w", subject, err)
 		}
+		if err := s.finalizeCredentialEntrypoint(after); err != nil {
+			return fmt.Errorf("%s configuration and client projections completed, but credential entrypoint finalization failed: %w", subject, err)
+		}
 	}
 	return nil
+}
+
+func (s Synchronizer) finalizeCredentialEntrypoint(cfg configuration.Config) error {
+	action, err := s.CredentialEntrypointPlan(cfg)
+	if err != nil {
+		return fmt.Errorf("inspect credential entrypoint: %w", err)
+	}
+	switch action {
+	case CredentialEntrypointRemove:
+		if err := credential.RemoveEntrypoint(s.CredentialPath); err != nil {
+			return fmt.Errorf("remove unused credential entrypoint: %w", err)
+		}
+		return nil
+	case CredentialEntrypointInstall:
+		return errors.New("credential entrypoint disappeared after client projection")
+	case CredentialEntrypointUnchanged:
+		return nil
+	default:
+		return fmt.Errorf("unsupported credential entrypoint action %q", action)
+	}
 }
 
 func (s Synchronizer) applyProjection(

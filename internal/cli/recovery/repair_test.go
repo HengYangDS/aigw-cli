@@ -13,6 +13,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
 	surfaceidentity "aigw-cli/internal/surface"
@@ -30,7 +31,7 @@ func TestRenderRepairPreviewIncludesKnownAndExplicitSurfaces(t *testing.T) {
 		{Client: configuration.ClientCodex, Target: "/known", Action: "update"},
 		{Client: configuration.ClientCodex, Target: "/explicit", Action: "create"},
 	}
-	if err := renderRepairResult(runtime, true, false, true, discovered, plans); err != nil {
+	if err := renderRepairResult(runtime, true, false, true, discovered, plans, nil); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"Repair preview", "update", string(surfaceidentity.CodexHomeDefault), "codex-home-explicit", "create"} {
@@ -55,7 +56,7 @@ func TestRenderRepairPreviewJSONReportsTheSameSemanticPlan(t *testing.T) {
 	discovered := discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), ConfigPath: "/known"}}}
 	plans := []client.ProjectionPlan{{Client: configuration.ClientCodex, Target: "/known", Action: "update", ChangesState: true}}
 
-	if err := renderRepairResult(runtime, true, true, false, discovered, plans); err != nil {
+	if err := renderRepairResult(runtime, true, true, false, discovered, plans, nil); err != nil {
 		t.Fatal(err)
 	}
 	var got repairResult
@@ -242,5 +243,52 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 		if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.ConfigurationAction != test.action || result.NextAction != test.nextAction || !result.DryRun {
 			t.Fatalf("repair preview = %+v, %v; want action %s and next action %s", result, err, test.action, test.nextAction)
 		}
+	}
+}
+
+func TestRepairPreviewReportsOrphanCredentialEntrypointRemoval(t *testing.T) {
+	store, _ := configuredRepairStore(t)
+	root := t.TempDir()
+	source := filepath.Join(root, "aigw")
+	helper := filepath.Join(root, "data", "credential", "aigw")
+	if err := os.WriteFile(source, []byte("AIGW fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := credential.EnsureEntrypoint(source, helper); err != nil {
+		t.Fatal(err)
+	}
+	out := &bytes.Buffer{}
+	runtime := invocation.Context{Executable: source, CredentialPath: helper, Config: store, Discovery: staticDiscovery{}, Out: out}
+	if err := runRepair(t.Context(), runtime, true, true); err != nil {
+		t.Fatal(err)
+	}
+	var preview struct {
+		CredentialEntrypoint *struct {
+			Path   string `json:"path"`
+			Action string `json:"action"`
+		} `json:"credential_entrypoint"`
+		NextAction string `json:"next_action"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview.CredentialEntrypoint == nil || preview.CredentialEntrypoint.Path != helper || preview.CredentialEntrypoint.Action != "remove" || preview.NextAction != "aigw repair" {
+		t.Fatalf("repair preview hid owned cleanup: %+v", preview)
+	}
+	if _, err := os.Lstat(helper); err != nil {
+		t.Fatalf("repair dry-run removed the entrypoint: %v", err)
+	}
+	out.Reset()
+	if err := runRepair(t.Context(), runtime, true, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Remove "+helper) {
+		t.Fatalf("human repair preview hid owned cleanup: %s", out.String())
+	}
+	if err := runRepair(t.Context(), runtime, false, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(helper); !os.IsNotExist(err) {
+		t.Fatalf("repair retained orphan entrypoint: %v", err)
 	}
 }

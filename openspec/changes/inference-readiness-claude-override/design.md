@@ -256,6 +256,18 @@ second CLI installation or Token store. Creation, provenance, no-op behavior,
 ownership, exact rollback, and eventual removal need native tests on each OS.
 An update to the credential reader itself is a separate admitted transition.
 
+The complete desired Client Binding set, not only the selected projection,
+owns helper retention. After successful projection withdrawal of the last
+default Account-Token consumer, AIGW removes its intact copy and receipt;
+another default consumer retains both. An incomplete projection rollback
+never triggers removal. A cleanup failure after successful projection is
+reported as a committed transition with incomplete cleanup, so a later `sync`
+can retry. Dry-run names either installation or removal without writing.
+An enabled explicit credential command resolving to the same executable also
+retains it; this does not authorize AIGW to create an external helper.
+Explicit client disable revokes that binding's credential command; it is not
+equivalent to an unchanged active binding during a package-manager upgrade.
+
 Already-running clients may have cached the old Brew path. Rewriting their
 configuration cannot prove they adopted a new command. The first host cutover
 therefore retains the existing CLI link until those legacy callers are proved

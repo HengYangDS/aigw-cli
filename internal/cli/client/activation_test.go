@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 )
 
 func TestClaudeDesktopLifecycleReportsRequiredRestart(t *testing.T) {
@@ -115,5 +116,33 @@ func TestEnablePreservesExistingHermesTarget(t *testing.T) {
 	}
 	if err := executeAdapter(t, runtime, "enable", configuration.ClientHermes, "--executable", "/opt/hermes"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestEnableDoesNotClaimRollbackAfterCommittedEntrypointCleanupFailure(t *testing.T) {
+	cfg := adapterConfig()
+	root := t.TempDir()
+	external := filepath.Join(root, "external-helper")
+	binding := cfg.Clients[configuration.ClientClaude]
+	binding.CredentialCommand = external
+	cfg.Clients[configuration.ClientClaude] = binding
+	runtime, _, _, _ := adapterRuntime(t, cfg)
+	if err := os.WriteFile(runtime.Executable, []byte("AIGW fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	runtime.CredentialPath = filepath.Join(root, "data", "credential", "aigw")
+	if _, err := credential.EnsureEntrypoint(runtime.Executable, runtime.CredentialPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(runtime.CredentialPath+".sha256", []byte("changed receipt\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := executeAdapter(t, runtime, "enable", configuration.ClientClaude, "--executable", "/opt/claude")
+	if err == nil || !strings.Contains(err.Error(), "configuration and client projections completed") || strings.Contains(err.Error(), "was rolled back") {
+		t.Fatalf("enablement reported a false rollback: %v", err)
+	}
+	stored, loadErr := runtime.Config.Load()
+	if loadErr != nil || !stored.Clients[configuration.ClientClaude].Enabled {
+		t.Fatalf("committed enablement was not preserved: %#v, %v", stored.Clients, loadErr)
 	}
 }

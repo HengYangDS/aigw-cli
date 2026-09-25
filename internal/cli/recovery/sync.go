@@ -18,6 +18,14 @@ type credentialEntrypointPlan struct {
 	Action string `json:"action"`
 }
 
+func (plan credentialEntrypointPlan) humanAction() string {
+	verb := "Install"
+	if plan.Action == string(synchronization.CredentialEntrypointRemove) {
+		verb = "Remove"
+	}
+	return verb + " " + plan.Path
+}
+
 type syncResult struct {
 	DryRun               bool                      `json:"dry_run"`
 	Selections           map[string]string         `json:"selections"`
@@ -101,13 +109,13 @@ func prepareSyncPreview(synchronizer synchronization.Synchronizer, before, after
 	if err != nil {
 		return err
 	}
-	needed, err := synchronizer.CredentialEntrypointPlan(after)
+	entrypoint, err := planCredentialEntrypoint(synchronizer, after, credentialPath)
 	if err != nil {
 		return err
 	}
 	result.Targets = plans
-	if needed {
-		result.CredentialEntrypoint = &credentialEntrypointPlan{Path: credentialPath, Action: "install"}
+	result.CredentialEntrypoint = entrypoint
+	if entrypoint != nil {
 		result.NextAction = "aigw sync"
 	}
 	for _, plan := range plans {
@@ -119,10 +127,18 @@ func prepareSyncPreview(synchronizer synchronization.Synchronizer, before, after
 	return nil
 }
 
+func planCredentialEntrypoint(synchronizer synchronization.Synchronizer, after configuration.Config, path string) (*credentialEntrypointPlan, error) {
+	action, err := synchronizer.CredentialEntrypointPlan(after)
+	if err != nil || action == synchronization.CredentialEntrypointUnchanged {
+		return nil, err
+	}
+	return &credentialEntrypointPlan{Path: path, Action: string(action)}, nil
+}
+
 func renderSyncPreview(r *presentation.Renderer, after configuration.Config, result syncResult) {
 	r.ProductTitle("Synchronization preview")
 	if result.CredentialEntrypoint != nil {
-		r.Row("Credential entrypoint", "Install "+result.CredentialEntrypoint.Path)
+		r.Row("Credential entrypoint", result.CredentialEntrypoint.humanAction())
 	}
 	bindings := make([]presentation.Field, 0, len(configuration.AdmittedClientIDs()))
 	for _, client := range configuration.AdmittedClientIDs() {
@@ -187,8 +203,8 @@ func NewRollbackCommand(runtime invocation.Context) *cobra.Command {
 				return invocation.Problem(
 					runtime,
 					"Configuration rollback did not complete",
-					"AIGW could not restore the selected configuration and its client projections.",
-					"A rolled-back configuration was not confirmed.",
+					"One rollback step failed; the cause identifies the affected boundary.",
+					"Configuration or client projections may have changed; inspect current state before retrying.",
 					"aigw doctor",
 					err,
 				)

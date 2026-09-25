@@ -29,10 +29,11 @@ func NewRepairCommand(runtime invocation.Context) *cobra.Command {
 }
 
 type repairResult struct {
-	DryRun              bool                      `json:"dry_run"`
-	ConfigurationAction string                    `json:"configuration_action"`
-	Projections         []repairProjectionPreview `json:"projections,omitempty"`
-	NextAction          string                    `json:"next_action"`
+	DryRun               bool                      `json:"dry_run"`
+	ConfigurationAction  string                    `json:"configuration_action"`
+	Projections          []repairProjectionPreview `json:"projections,omitempty"`
+	CredentialEntrypoint *credentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
+	NextAction           string                    `json:"next_action"`
 }
 
 type repairProjectionPreview struct {
@@ -62,24 +63,32 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 		)
 	}
 	var plans []client.ProjectionPlan
+	var entrypoint *credentialEntrypointPlan
 	if dryRun {
 		plans, err = synchronizer.Plan(before, after)
+		if err != nil {
+			return err
+		}
+		entrypoint, err = planCredentialEntrypoint(synchronizer, after, runtime.CredentialPath)
 		if err != nil {
 			return err
 		}
 	} else if err := synchronizer.CommitProjection(ctx, before, after, "repair"); err != nil {
 		return err
 	}
-	return renderRepairResult(runtime, dryRun, jsonMode, !reflect.DeepEqual(before, after), discovered, plans)
+	return renderRepairResult(runtime, dryRun, jsonMode, !reflect.DeepEqual(before, after), discovered, plans, entrypoint)
 }
 
-func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurationChanged bool, discovered discovery.Result, plans []client.ProjectionPlan) error {
-	result := repairResult{DryRun: dryRun, ConfigurationAction: "already-converged", NextAction: "aigw check"}
+func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurationChanged bool, discovered discovery.Result, plans []client.ProjectionPlan, entrypoint *credentialEntrypointPlan) error {
+	result := repairResult{DryRun: dryRun, ConfigurationAction: "already-converged", CredentialEntrypoint: entrypoint, NextAction: "aigw check"}
 	if dryRun && configurationChanged {
 		result.NextAction = "aigw repair"
 	}
 	if configurationChanged {
 		result.ConfigurationAction = "update"
+	}
+	if entrypoint != nil {
+		result.NextAction = "aigw repair"
 	}
 	for _, plan := range plans {
 		if dryRun && plan.ChangesState {
@@ -103,6 +112,9 @@ func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurat
 		rows := []presentation.Field{{Label: "Configuration", Value: result.ConfigurationAction}}
 		for _, plan := range result.Projections {
 			rows = append(rows, presentation.Field{Label: plan.Client + " · " + plan.SurfaceID, Value: plan.Action})
+		}
+		if entrypoint != nil {
+			rows = append(rows, presentation.Field{Label: "Credential entrypoint", Value: entrypoint.humanAction()})
 		}
 		r.Rows(rows...)
 		r.Success("Preview did not write configuration, state files, authentication, client executables, or conversations")

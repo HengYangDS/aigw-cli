@@ -46,3 +46,16 @@ fresh client or helper SHALL NOT substitute for existing-caller continuity.
 - **THEN** production cutover SHALL stop before that unlink
 - **AND** rewriting a configuration file or testing a fresh client SHALL NOT
   claim the cached caller was migrated.
+
+#### Scenario: The last default Token consumer is withdrawn
+
+- **WHEN** a successful projection disables or replaces the last default
+  Account-Token Client Binding
+- **THEN** AIGW SHALL remove only its intact credential entrypoint and receipt
+  after projection completion
+- **AND** another default consumer or incomplete projection rollback SHALL
+  preserve the pair
+- **AND** an enabled explicit credential command resolving to the owned
+  executable SHALL preserve it without changing that command's owner
+- **AND** a failed removal SHALL report committed client state with incomplete
+  cleanup, not a rolled-back transition or silent success.

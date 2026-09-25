@@ -66,10 +66,15 @@ platform data directory. The copy uses the same selected backend and Token
 slots; it is not another credential store or an external helper. Ordinary
 synchronization does not replace it when the package-manager CLI changes.
 Its paired SHA-256 records accidental byte drift, not release provenance or
-native-store authorization. Creation participates in projection compensation;
-uninstall removes the copy only after withdrawing projections. An already-running
-client that cached the old
-package-manager path is not migrated by rewriting settings; replacement must
+native-store authorization. Creation participates in projection compensation.
+After successful withdrawal of the last default Token consumer, AIGW removes
+the intact copy; another default consumer, an enabled explicit binding to the
+same executable, or a failed projection keeps it. A cleanup
+failure is reported as post-commit, not as a false rollback. Uninstall also
+removes an orphan after withdrawing projections.
+
+An already-running client that cached the old package-manager path is not
+migrated by rewriting settings; replacement must
 wait until that original caller is absent or independently proved migrated.
 The active [credential-continuity Change](../../openspec/changes/inference-readiness-claude-override/design.md#credential-entrypoint-during-package-replacement)
 owns native acceptance before this path can be called a released guarantee.
