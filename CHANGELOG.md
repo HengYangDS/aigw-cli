@@ -18,6 +18,12 @@ separate evidence.
   inference. Offer it at setup to a sole connected DMXAPI Account while
   preserving existing recommendation order, client bindings, and local endpoints.
 
+### Fixed
+
+- Stop after one bounded endpoint diagnostic when a provider rejects the
+  credential with HTTP 401 or 403; remove misleading authentication recovery
+  output and repeated requests.
+
 ## [0.3.1] - 2026-09-25
 
 ### Fixed

@@ -2,12 +2,10 @@
 
 ## Context
 
-See proposal.md for the two readiness failures. Today
-`credential.ValidateRuntime` makes a model-free catalogue request, and
-`diagnostics.ProbeStable` can therefore classify a channel refusal only if a
-future caller somehow supplies one. Claude settings inspection requires an
-already-converged projection even though the settings owner can prove a
-model-only native preference and safely reconcile an explicit Route later.
+A model-free catalogue request cannot detect refusal of the selected wire
+model. Readiness therefore needs an explicit inference scope alongside the
+endpoint-only scope. Claude settings inspection must also distinguish a proven
+model-only native preference from an edit to AIGW's managed connection.
 
 A Claude Code model alias is not an AIGW wire-model identifier. A native
 `opus[1m]` request can resolve to a different concrete model, so copying the
@@ -105,9 +103,10 @@ names one compatible Account variable and leaves client activation to a later
 
 ### One explicit diagnostic scope
 
-`diagnostics.Scope` is an argument to `Probe` and `ProbeStable`, and
-`Result` carries the scope actually attempted. Scope is independent of retry
-policy: it answers what request was sent, while policy bounds how it was sent.
+`diagnostics.Scope` is an argument to `Probe` and `ProbeBounded`, and
+`Result` carries the scope actually attempted. The selected scope determines
+the request and its deadline; a credential rejection terminates after one
+request rather than entering a second recovery loop.
 `check` selects inference by default, or endpoint when `--endpoint-only`
 is present. A client-native authentication Route remains local configuration
 evidence. A proven Claude native model preference selects endpoint scope for
@@ -253,26 +252,3 @@ Publish one signed stable release through the existing Forge and Homebrew
 workflow, test installed behavior and rollback, then retire only the owned
 Lane. Rolling back the program restores the previous check semantics without
 rewriting user settings or Codex session state.
-
-## Publication acceptance
-
-The signed `v0.3.1` tag peels to `d288eb5f`; both peers' `main`, `dev`, and
-tag refs match. [GitHub tag CI](https://github.com/HengYangDS/aigw-cli/actions/runs/36113077613)
-passed native macOS, Linux, and Windows acceptance. GitLab
-[pipeline #8279](http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/pipelines/8279)
-passed tag-native Darwin, quality, version, and release-asset jobs on runner 53.
-The [GitHub Release](https://github.com/HengYangDS/aigw-cli/releases/tag/v0.3.1)
-has 12 accepted asset names and matching server SHA-256 digests; five hosted
-published-asset jobs downloaded and verified the complete matrix. Direct
-GitLab package downloads matched all 12 local accepted files byte-for-byte,
-and the local signed-artifact verifier passed. Apple notarization submission
-`53086046-ac00-40e4-8044-8821db5471fc` is `Accepted`; the exact-HEAD
-[Keychain-mode native run](https://github.com/HengYangDS/aigw-cli/actions/runs/36115819929)
-passed without another credential path. Two later ad hoc GitHub CDN downloads
-timed out locally; they are not counted as byte-parity observations. Host
-rollback, forward restoration, and post-install client acceptance remain in
-Task 8.2. The later direct DMXAPI Sol Route is an unreleased source change:
-Task 7.5 must classify the installed explicit Proxy endpoint override against
-the new candidate, and the final-manifest publication gate in Task 8.1 must
-run on a new immutable version rather than modify the accepted `v0.3.1` tag
-or assets.

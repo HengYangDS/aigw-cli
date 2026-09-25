@@ -153,7 +153,7 @@ func WithProbe(state Client, result diagnostics.Result) Client {
 		diagnostics.TokenRestricted, diagnostics.EndpointMismatch,
 		diagnostics.ModelUnresolved:
 		state.State = Invalid
-	case diagnostics.AuthenticationUnstable, diagnostics.QuotaExhausted,
+	case diagnostics.QuotaExhausted,
 		diagnostics.RateLimited, diagnostics.ModelUnavailable,
 		diagnostics.UpstreamFailure, diagnostics.NetworkFailure:
 		state.State = Degraded

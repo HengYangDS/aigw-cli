@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/diagnostics"
@@ -34,56 +33,21 @@ func TestDiagnosticProbeKeepsCredentialsAtTheirSelectedOrigin(t *testing.T) {
 	}
 }
 
-func TestProbeStableUsesRealHTTPRecoveryBoundary(t *testing.T) {
-	t.Run("immediate success", func(t *testing.T) {
-		const secret = "immediate-secret"
-		var calls atomic.Int32
-		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			calls.Add(1)
-			if request.Method != http.MethodGet || request.URL.Path != "/v1/models" || request.Header.Get("Authorization") != "Bearer "+secret {
-				t.Errorf("request = %s %s, Authorization %q", request.Method, request.URL.Path, request.Header.Get("Authorization"))
-			}
-			writer.WriteHeader(http.StatusOK)
-			if _, err := writer.Write([]byte(`{"status":"ok"}`)); err != nil {
-				t.Errorf("write response: %v", err)
-			}
-		}))
-		defer server.Close()
-
-		result := diagnostics.ProbeStable(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL + "/v1"}, secret, diagnostics.ScopeEndpoint, diagnostics.StabilityPolicy{
-			RecoveryDelays: []time.Duration{time.Millisecond},
-			AttemptTimeout: time.Second,
-		})
-		if result.Kind != diagnostics.Healthy || result.Attempts != 1 || result.RecoveredTransient || calls.Load() != 1 {
-			t.Fatalf("result = %#v, calls = %d", result, calls.Load())
+func TestProbeBoundedRealHTTPDoesNotRetryUnauthorized(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		calls.Add(1)
+		if request.Method != http.MethodGet || request.URL.Path != "/v1/models" || request.Header.Get("Authorization") != "Bearer secret" {
+			t.Errorf("request = %s %s, Authorization %q", request.Method, request.URL.Path, request.Header.Get("Authorization"))
 		}
-	})
-
-	t.Run("bounded timed recovery", func(t *testing.T) {
-		var calls atomic.Int32
-		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-			if calls.Add(1) == 1 {
-				writer.WriteHeader(http.StatusUnauthorized)
-				if _, err := writer.Write([]byte(`{"message":"temporary authentication failure"}`)); err != nil {
-					t.Errorf("write response: %v", err)
-				}
-				return
-			}
-			writer.WriteHeader(http.StatusOK)
-			if _, err := writer.Write([]byte(`{"status":"ok"}`)); err != nil {
-				t.Errorf("write response: %v", err)
-			}
-		}))
-		defer server.Close()
-
-		result := diagnostics.ProbeStable(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL + "/v1"}, "secret", diagnostics.ScopeEndpoint, diagnostics.StabilityPolicy{
-			RecoveryDelays: []time.Duration{time.Millisecond, 2 * time.Millisecond},
-			AttemptTimeout: time.Second,
-		})
-		if result.Kind != diagnostics.Healthy || result.Attempts != 3 || !result.RecoveredTransient || calls.Load() != 3 {
-			t.Fatalf("result = %#v, calls = %d", result, calls.Load())
-		}
-	})
+		writer.WriteHeader(http.StatusUnauthorized)
+		_, _ = writer.Write([]byte(`{"message":"invalid api key"}`))
+	}))
+	defer server.Close()
+	result := diagnostics.ProbeBounded(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL + "/v1"}, "secret", diagnostics.ScopeEndpoint)
+	if result.Kind != diagnostics.InvalidToken || result.Attempts != 1 || calls.Load() != 1 {
+		t.Fatalf("result=%#v calls=%d, want one terminal unauthorized request", result, calls.Load())
+	}
 }
 
 func TestProbeUsesDeclaredClientProtocol(t *testing.T) {

@@ -161,7 +161,6 @@ func TestWithProbeMapsDiagnosticSemantics(t *testing.T) {
 		{name: "disabled token", kind: diagnostics.TokenDisabled, want: Invalid},
 		{name: "restricted token", kind: diagnostics.TokenRestricted, want: Invalid},
 		{name: "endpoint mismatch", kind: diagnostics.EndpointMismatch, want: Invalid},
-		{name: "unstable authentication", kind: diagnostics.AuthenticationUnstable, want: Degraded},
 		{name: "quota exhausted", kind: diagnostics.QuotaExhausted, want: Degraded},
 		{name: "rate limited", kind: diagnostics.RateLimited, want: Degraded},
 		{name: "model unavailable", kind: diagnostics.ModelUnavailable, want: Degraded},

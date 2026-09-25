@@ -116,7 +116,7 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg configur
 	if result.nativeModelOverride {
 		scope = diagnostics.ScopeEndpoint
 	}
-	result.diagnostic = diagnostics.ProbeStable(cmd.Context(), runtime.HTTP, clientRuntime, token, scope, diagnostics.DefaultStabilityPolicy())
+	result.diagnostic = diagnostics.ProbeBounded(cmd.Context(), runtime.HTTP, clientRuntime, token, scope)
 	if result.diagnostic.Kind != diagnostics.Healthy {
 		result.issue = result.diagnostic.Summary
 		result.fix = result.diagnostic.Fix
@@ -332,9 +332,6 @@ func renderCheckedClient(runtime invocation.Context, renderer *presentation.Rend
 	if result.nativeModelOverride {
 		renderer.Detail("Claude Code uses a native model preference; this endpoint check does not verify that model")
 		command = "aigw verify --for claude"
-	}
-	if diagnostic.RecoveredTransient {
-		renderer.Detail(invocation.Title(client) + " authentication recovered after a transient response")
 	}
 	if endpointTransport(result.runtime.Endpoint) == endpointTransportExternalLoopback {
 		renderer.Detail(invocation.Title(client) + " uses a loopback endpoint; AIGW does not manage the endpoint runtime")

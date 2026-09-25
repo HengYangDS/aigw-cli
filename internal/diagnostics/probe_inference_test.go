@@ -37,7 +37,7 @@ func TestInferenceScopeCarriesExactModelAndClassifiesDistributorRefusal(t *testi
 		}
 		return response(http.StatusServiceUnavailable, `{"message":"分组 default 下模型 gpt-6-sol 无可用渠道（distributor）"}`), nil
 	})
-	result := diagnostics.ProbeStable(context.Background(), doer, inferenceRuntime(), "fixture-token", diagnostics.ScopeInference, immediateStabilityPolicy())
+	result := diagnostics.ProbeBounded(context.Background(), doer, inferenceRuntime(), "fixture-token", diagnostics.ScopeInference)
 	if calls != 1 || result.Kind != diagnostics.ModelUnavailable || result.Scope != diagnostics.ScopeInference ||
 		result.Attempts != 1 || !result.Retryable {
 		t.Fatalf("calls=%d result=%#v", calls, result)
@@ -64,10 +64,10 @@ func TestInferenceScopeClassifiesDecodedProviderMessage(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			calls := 0
-			result := diagnostics.ProbeStable(t.Context(), clientFunc(func(*http.Request) (*http.Response, error) {
+			result := diagnostics.ProbeBounded(t.Context(), clientFunc(func(*http.Request) (*http.Response, error) {
 				calls++
 				return response(http.StatusServiceUnavailable, test.body), nil
-			}), inferenceRuntime(), "fixture-token", diagnostics.ScopeInference, immediateStabilityPolicy())
+			}), inferenceRuntime(), "fixture-token", diagnostics.ScopeInference)
 			if calls != 1 || result.Kind != test.want || result.Attempts != 1 || !result.Retryable {
 				t.Fatalf("calls=%d result=%#v, want kind %s", calls, result, test.want)
 			}
@@ -82,10 +82,10 @@ func TestInferenceScopeNeverRetriesAuthenticationFailure(t *testing.T) {
 	t.Parallel()
 
 	calls := 0
-	result := diagnostics.ProbeStable(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
+	result := diagnostics.ProbeBounded(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 		calls++
 		return response(http.StatusUnauthorized, `{"message":"invalid token"}`), nil
-	}), inferenceRuntime(), "fixture-token", diagnostics.ScopeInference, immediateStabilityPolicy())
+	}), inferenceRuntime(), "fixture-token", diagnostics.ScopeInference)
 	if calls != 1 || result.Kind != diagnostics.InvalidToken || result.Scope != diagnostics.ScopeInference || result.Attempts != 1 {
 		t.Fatalf("calls=%d result=%#v", calls, result)
 	}
@@ -95,14 +95,14 @@ func TestDefaultInferenceScopeHasABoundedLongerAttempt(t *testing.T) {
 	t.Parallel()
 
 	var remaining time.Duration
-	result := diagnostics.ProbeStable(context.Background(), clientFunc(func(request *http.Request) (*http.Response, error) {
+	result := diagnostics.ProbeBounded(context.Background(), clientFunc(func(request *http.Request) (*http.Response, error) {
 		deadline, ok := request.Context().Deadline()
 		if !ok {
 			t.Fatal("inference request has no deadline")
 		}
 		remaining = time.Until(deadline)
 		return response(http.StatusOK, `{"status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"pong"}]}]}`), nil
-	}), inferenceRuntime(), "fixture-token", diagnostics.ScopeInference, diagnostics.DefaultStabilityPolicy())
+	}), inferenceRuntime(), "fixture-token", diagnostics.ScopeInference)
 	if result.Kind != diagnostics.Healthy || remaining < 55*time.Second || remaining > 61*time.Second {
 		t.Fatalf("inference result=%#v remaining=%s, want a bounded 60s attempt", result, remaining)
 	}
@@ -149,10 +149,10 @@ func TestInferenceScopeRejectsSuccessfulHTTPWithoutCompletedOutput(t *testing.T)
 			selected := inferenceRuntime()
 			selected.Protocol = test.protocol
 			calls := 0
-			result := diagnostics.ProbeStable(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
+			result := diagnostics.ProbeBounded(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 				calls++
 				return response(http.StatusOK, test.body), nil
-			}), selected, "fixture-token", diagnostics.ScopeInference, immediateStabilityPolicy())
+			}), selected, "fixture-token", diagnostics.ScopeInference)
 			if calls != 1 || result.Kind == diagnostics.Healthy || result.Scope != diagnostics.ScopeInference || result.Attempts != 1 {
 				t.Fatalf("calls=%d result=%#v", calls, result)
 			}

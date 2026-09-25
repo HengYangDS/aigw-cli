@@ -39,6 +39,14 @@ next action.
 - **AND** AIGW retains no probe conversation, requests no storage where the
   protocol supports it, and makes no claim about provider retention.
 
+#### Scenario: A credential rejection is terminal for one diagnostic
+
+- **WHEN** an endpoint-only or inference-scoped request receives an HTTP 401 or 403
+  credential rejection
+- **THEN** check reports the typed credential failure after exactly one request
+- **AND** it does not repeat the request, prompt for credentials, or mutate
+  configuration.
+
 #### Scenario: An operator selects endpoint-only scope
 
 - **WHEN** check runs with --endpoint-only

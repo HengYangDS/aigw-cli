@@ -34,8 +34,6 @@ const (
 	Healthy Kind = "healthy"
 	// InvalidToken identifies credentials rejected as invalid.
 	InvalidToken Kind = "invalid_token"
-	// AuthenticationUnstable identifies a transient authentication boundary that did not stabilize.
-	AuthenticationUnstable Kind = "authentication_unstable"
 	// QuotaExhausted identifies an otherwise valid account without available quota.
 	QuotaExhausted Kind = "quota_exhausted"
 	// TokenDisabled identifies a credential disabled by its provider.
@@ -65,122 +63,36 @@ type HTTPDoer interface {
 
 // Result is the stable, non-secret diagnostic classification returned to commands and JSON consumers.
 type Result struct {
-	Kind               Kind   `json:"kind"`
-	Scope              Scope  `json:"scope,omitempty"`
-	Summary            string `json:"summary"`
-	Detail             string `json:"detail,omitempty"`
-	Fix                string `json:"fix,omitempty"`
-	HTTPStatus         int    `json:"http_status,omitempty"`
-	Retryable          bool   `json:"retryable"`
-	Attempts           int    `json:"attempts,omitempty"`
-	RecoveredTransient bool   `json:"recovered_transient,omitempty"`
+	Kind       Kind   `json:"kind"`
+	Scope      Scope  `json:"scope,omitempty"`
+	Summary    string `json:"summary"`
+	Detail     string `json:"detail,omitempty"`
+	Fix        string `json:"fix,omitempty"`
+	HTTPStatus int    `json:"http_status,omitempty"`
+	Retryable  bool   `json:"retryable"`
+	Attempts   int    `json:"attempts,omitempty"`
 }
 
-// StabilityPolicy bounds retry delays and each diagnostic attempt.
-type StabilityPolicy struct {
-	RecoveryDelays          []time.Duration
-	AttemptTimeout          time.Duration
-	InferenceAttemptTimeout time.Duration
-}
+const (
+	endpointTimeout  = 5 * time.Second
+	inferenceTimeout = 60 * time.Second
+)
 
-// DefaultStabilityPolicy returns the production retry and timeout bounds for a live diagnostic.
-func DefaultStabilityPolicy() StabilityPolicy {
-	return StabilityPolicy{
-		RecoveryDelays:          []time.Duration{250 * time.Millisecond, 500 * time.Millisecond, time.Second},
-		AttemptTimeout:          5 * time.Second,
-		InferenceAttemptTimeout: 60 * time.Second,
-	}
-}
-
-// ProbeStable retries only admitted transient outcomes and returns the final classified result.
-func ProbeStable(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, scope Scope, policy StabilityPolicy) Result {
-	timeout := policy.AttemptTimeout
-	if scope == ScopeInference && policy.InferenceAttemptTimeout > 0 {
-		timeout = policy.InferenceAttemptTimeout
-	}
-	result := probeWithTimeout(ctx, client, runtime, token, scope, timeout)
-	result.Attempts = 1
-	if scope == ScopeInference || result.Kind != InvalidToken {
-		return result
-	}
-
-	recovery := make([]Result, 0, len(policy.RecoveryDelays))
-	for _, delay := range policy.RecoveryDelays {
-		if err := waitForRecovery(ctx, delay); err != nil {
-			return unstableAuthentication(result.Attempts, scope, err.Error())
-		}
-		observation := probeWithTimeout(ctx, client, runtime, token, scope, policy.AttemptTimeout)
-		recovery = append(recovery, observation)
-		result.Attempts++
-	}
-
-	if allKind(recovery, Healthy) {
-		recovered := recovery[len(recovery)-1]
-		recovered.Attempts = result.Attempts
-		recovered.RecoveredTransient = true
-		return recovered
-	}
-	if allKind(recovery, InvalidToken) {
-		persistent := recovery[len(recovery)-1]
-		persistent.Attempts = result.Attempts
-		return persistent
-	}
-	return unstableAuthentication(result.Attempts, scope, "Authentication responses were inconsistent across bounded recovery attempts")
-}
-
-func probeWithTimeout(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, scope Scope, timeout time.Duration) Result {
-	if timeout <= 0 {
+// ProbeBounded makes one authenticated request within the selected scope's deadline.
+func ProbeBounded(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, scope Scope) Result {
+	if scope != ScopeEndpoint && scope != ScopeInference {
 		return Probe(ctx, client, runtime, token, scope)
+	}
+	timeout := endpointTimeout
+	if scope == ScopeInference {
+		timeout = inferenceTimeout
 	}
 	attemptCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	return Probe(attemptCtx, client, runtime, token, scope)
 }
 
-func waitForRecovery(ctx context.Context, delay time.Duration) error {
-	if delay <= 0 {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			return nil
-		}
-	}
-	timer := time.NewTimer(delay)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
-}
-
-func allKind(results []Result, kind Kind) bool {
-	if len(results) == 0 {
-		return false
-	}
-	for _, result := range results {
-		if result.Kind != kind {
-			return false
-		}
-	}
-	return true
-}
-
-func unstableAuthentication(attempts int, scope Scope, detail string) Result {
-	return Result{
-		Scope:     scope,
-		Kind:      AuthenticationUnstable,
-		Summary:   "Authentication could not be confirmed consistently",
-		Detail:    detail,
-		Fix:       "Run `aigw check` again later",
-		Retryable: true,
-		Attempts:  attempts,
-	}
-}
-
-// Probe performs one bounded authenticated diagnostic request against the selected route endpoint.
+// Probe performs one authenticated diagnostic request using the caller's context.
 func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, scope Scope) Result {
 	if scope != ScopeEndpoint && scope != ScopeInference {
 		return Result{Kind: Unexpected, Scope: scope, Summary: "Unsupported diagnostic scope", Fix: "Run `aigw doctor` for detailed status"}
@@ -203,7 +115,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 	}
 	resp, err := credential.DoProbe(client, req)
 	if err != nil {
-		return Result{Kind: NetworkFailure, Scope: scope, Summary: "Cannot reach the endpoint", Detail: redaction.Text(err.Error(), token), Fix: "Check the configured endpoint and network, then try again", Retryable: true}
+		return Result{Kind: NetworkFailure, Scope: scope, Summary: "Cannot reach the endpoint", Detail: redaction.Text(err.Error(), token), Fix: "Check the configured endpoint and network, then try again", Retryable: true, Attempts: 1}
 	}
 	defer func() { _ = resp.Body.Close() }()
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
@@ -216,11 +128,12 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 			Fix:        "Check the configured endpoint and network, then try again",
 			HTTPStatus: resp.StatusCode,
 			Retryable:  true,
+			Attempts:   1,
 		}
 	}
 	message := strings.TrimSpace(string(body))
 	lower := strings.ToLower(providerErrorMessage(body))
-	result := Result{HTTPStatus: resp.StatusCode, Scope: scope, Detail: compact(message, token)}
+	result := Result{HTTPStatus: resp.StatusCode, Scope: scope, Detail: compact(message, token), Attempts: 1}
 	switch {
 	case resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices:
 		result = classifySuccessfulResponse(result, runtime.Protocol, body)

@@ -29,11 +29,11 @@
 ## 3. Classify scoped observations
 
 - [x] 3.1 Pass an explicit endpoint or inference scope through
-      `diagnostics.Probe`, `ProbeStable`, and `Result`. Verify: focused
+      `diagnostics.Probe`, `ProbeBounded`, and `Result`. Verify: focused
       diagnostics tests demonstrate the same scope in request and result.
 - [x] 3.2 Make one inference request that receives `503 no available channel`
       classify as retryable `ModelUnavailable` without a second request.
-      Fail unchanged 401/403 without repeated probes. Verify: request-count
+      Fail 401/403 after one request without repeated probes. Verify: request-count
       and classification tests in `./internal/diagnostics/...`. Consider both
       top-level and nested error text, not unrelated model metadata.
 - [x] 3.3 Map a healthy inference observation to `inference_checked` and a

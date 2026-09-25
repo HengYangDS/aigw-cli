@@ -1,38 +1,9 @@
 package diagnostics
 
 import (
-	"context"
-	"errors"
-	"net/http"
 	"strings"
 	"testing"
-
-	configuration "aigw-cli/internal/configuration"
 )
-
-func TestAllKindRejectsEmptyResults(t *testing.T) {
-	if allKind(nil, Healthy) {
-		t.Fatal("allKind(nil) = true")
-	}
-}
-
-func TestWaitForRecoveryWithNoDelay(t *testing.T) {
-	if err := waitForRecovery(context.Background(), 0); err != nil {
-		t.Fatalf("waitForRecovery(active) error = %v", err)
-	}
-	canceled, cancel := context.WithCancel(context.Background())
-	cancel()
-	if err := waitForRecovery(canceled, 0); !errors.Is(err, context.Canceled) {
-		t.Fatalf("waitForRecovery(canceled) error = %v", err)
-	}
-}
-
-func TestProbeWithNoTimeoutUsesProbe(t *testing.T) {
-	result := probeWithTimeout(context.Background(), http.DefaultClient, configuration.Runtime{}, "secret", ScopeEndpoint, 0)
-	if result.Kind != EndpointMismatch || result.Summary != "Invalid API URL" {
-		t.Fatalf("probeWithTimeout() = %#v", result)
-	}
-}
 
 func TestCompactRedactsAndBoundsDetail(t *testing.T) {
 	const secret = "compact-secret"

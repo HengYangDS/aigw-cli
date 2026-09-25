@@ -395,7 +395,7 @@ type closeFailingBody struct {
 
 func (body closeFailingBody) Close() error { return body.err }
 
-func TestCheckUsesBoundedAuthenticationStabilityWithoutMutation(t *testing.T) {
+func TestCheckUsesOneBoundedAuthenticationProbeWithoutMutation(t *testing.T) {
 	tests := []struct {
 		name       string
 		statuses   []int
@@ -410,23 +410,10 @@ func TestCheckUsesBoundedAuthenticationStabilityWithoutMutation(t *testing.T) {
 			rejectText: []string{"transient response", "aigw rotate"},
 		},
 		{
-			name:       "recovered transient",
-			statuses:   []int{http.StatusUnauthorized, http.StatusOK, http.StatusOK, http.StatusOK},
-			wantText:   []string{"Claude", "Endpoint checked", "Claude authentication recovered after a transient response", "All enabled client checks passed"},
-			rejectText: []string{"aigw rotate"},
-		},
-		{
-			name:      "persistent invalid token",
-			statuses:  []int{http.StatusUnauthorized, http.StatusUnauthorized, http.StatusUnauthorized, http.StatusUnauthorized},
+			name:      "invalid token",
+			statuses:  []int{http.StatusUnauthorized},
 			wantError: true,
 			wantText:  []string{"Account Token is invalid or does not belong to the configured endpoint", "aigw rotate dmx"},
-		},
-		{
-			name:       "unstable authentication",
-			statuses:   []int{http.StatusUnauthorized, http.StatusOK, http.StatusUnauthorized, http.StatusOK},
-			wantError:  true,
-			wantText:   []string{"Authentication could not be confirmed consistently", "aigw check"},
-			rejectText: []string{"aigw rotate"},
 		},
 	}
 
