@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -47,6 +48,11 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 	journey.prepare(t, nativeCurrentSchemaManifest(server.URL+"/v1"))
 	journey.upgrade(t)
 	journey.rollbackAndRecover(t, predecessorVersion)
+	if runtime.GOOS == "darwin" && os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" {
+		t.Run("published_keychain", func(t *testing.T) {
+			runNativeCredentialJourney(t, root, baseline, server.URL+"/v1", version)
+		})
+	}
 }
 
 func nativeCurrentSchemaManifest(endpoint string) string {
