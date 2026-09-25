@@ -175,7 +175,7 @@ func TestTeamManifestGPTAccountRoutesFollowInferenceEvidence(t *testing.T) {
 	want := map[string][]string{
 		"gpt-6-astra": {"aihubmix", "dmxapi", "ucloud"},
 		"gpt-6-luna":  {"aihubmix", "dmxapi", "ucloud"},
-		"gpt-6-sol":   {"aihubmix", "ucloud"},
+		"gpt-6-sol":   {"aihubmix", "dmxapi", "ucloud"},
 	}
 	for model, accounts := range want {
 		for _, account := range accounts {
@@ -186,9 +186,6 @@ func TestTeamManifestGPTAccountRoutesFollowInferenceEvidence(t *testing.T) {
 				t.Errorf("verified GPT Route %q = %+v", id, route)
 			}
 		}
-	}
-	if _, admitted := manifest.Routes["dmxapi-gpt-6-sol"]; admitted {
-		t.Error("currently unavailable DMXAPI GPT-6 Sol Route was shipped")
 	}
 }
 
@@ -333,7 +330,7 @@ func TestTeamManifestRecommendsCurrentVerifiedModelsWithoutChangingSelections(t 
 		choices := manifest.Recommendations[client].Selections()
 		want := []string{"dmxapi-" + model, "aihubmix-" + model, "ucloud-" + model}
 		if client == ClientCodex || client == ClientHermes {
-			want = []string{"ucloud-" + model, "aihubmix-" + model, "dmxapi-gpt-6-luna"}
+			want = []string{"ucloud-" + model, "aihubmix-" + model, "dmxapi-" + model, "dmxapi-gpt-6-luna"}
 		}
 		if len(choices) != len(want) {
 			t.Errorf("%s recommendations = %#v, want %q", client, choices, want)

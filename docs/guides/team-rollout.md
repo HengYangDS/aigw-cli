@@ -147,10 +147,14 @@ requests. On September 25, all three Accounts completed minimal authenticated
 Opus 5.5 requests; AIHubMix and UCloud also completed GPT-6 Sol requests.
 DMXAPI GPT-6 Sol previously completed through the locally configured Proxy
 transport and once through its direct Responses endpoint. Repeated direct
-requests on September 25 returned HTTP 503, so the new shipped manifest omits
-that Route. AIHubMix and DMXAPI GPT-6 Luna completed exact Responses requests;
-all three Accounts now have evidenced Luna Routes. Existing local Route and
-Client Binding state is reconciled separately, without rewriting user choices.
+requests on September 25 returned HTTP 503, so release 0.3.1 omitted that
+Route. Two later direct Responses requests completed with text, so the current
+repository manifest restores it as a setup alternative, not a claim of
+sustained availability or runtime failover. AIHubMix and DMXAPI GPT-6 Luna also
+completed exact Responses requests; all three Accounts have evidenced Luna
+Routes. Existing local Route and Client Binding state remains separate and is
+not rewritten by this catalogue change.
+
 The earlier two rejected UCloud Opus IDs remain historical observations.
 Catalogue membership and one successful text call remain narrower than complete tool, streaming,
 long-context, cost, or latency qualification.
@@ -272,14 +276,18 @@ authenticated GPT and Claude observations. Admit any new Route only after a
 bounded noninteractive call to its exact Account, protocol, and wire model
 succeeds.
 
-The team recommends UCloud GPT-6 Sol for Codex and Hermes, with AIHubMix as
-the same-model alternative. If only DMXAPI is connected, its verified GPT-6
-Luna Route is the fallback for those clients. DMXAPI GPT-6 Sol is not in the
-new team manifest because its direct channel returned HTTP 503; importing the
-manifest must not silently erase an existing explicit local binding. Claude
-Code and Claude Desktop retain DMXAPI Opus 5.5
-as the team default, with AIHubMix and UCloud alternatives. Recommendations
-are selectable, not automatic failover. AIHubMix uses the
+The team recommends UCloud GPT-6 Sol for Codex and Hermes, then AIHubMix
+GPT-6 Sol, then direct DMXAPI GPT-6 Sol at setup. A sole connected DMXAPI
+Account therefore selects Sol; Luna remains separately selectable, not an automatic
+recovery route when Sol later fails. A local Proxy endpoint override is not
+silently replaced by the team's direct endpoint. Re-importing the team manifest
+against that differing local Account fails closed; inspect it with
+`aigw config export` and replace the Account only when intentionally leaving
+the Proxy route.
+
+Claude Code and Claude Desktop retain DMXAPI Opus 5.5 as the team default, with
+AIHubMix and UCloud alternatives. Recommendations are selectable, not automatic
+failover. AIHubMix uses the
 [documented backup API domain](https://docs.aihubmix.com/en/quick-start),
 `api.inferera.com`: `/v1` is the Responses and Chat Completions base path; the
 Anthropic base is the domain root. A successful minimal request remains narrower than full real-client

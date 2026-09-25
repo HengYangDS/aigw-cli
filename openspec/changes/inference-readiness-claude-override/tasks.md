@@ -146,12 +146,14 @@
       exact-wire, channel-base, native-export, and public-command regressions.
       Do not add tier, purpose, proxy, or unproven Route data.
       Set Claude Opus 5.5 as the primary Claude model on DMXAPI. Set UCloud
-      GPT-6 Sol as the Codex and Hermes primary with AIHubMix as the same-model
-      alternative and DMXAPI Luna as the fallback for a sole connected DMXAPI
-      Account; a current DMXAPI direct GPT-6 Sol request returned HTTP 503.
-      Keep DMXAPI direct Responses acceptance distinct from its locally
-      configured Proxy transport; omit the currently failing Sol Route from
-      the shipped manifest while preserving any explicit local binding.
+      GPT-6 Sol as the Codex and Hermes primary with AIHubMix Sol then
+      recovered DMXAPI Sol as same-model setup alternatives. Keep DMXAPI Luna
+      as a separate manual Route, not automatic runtime recovery. The `v0.3.1`
+      manifest omitted DMXAPI direct Sol after repeated HTTP 503 responses;
+      two later exact-wire direct requests completed.
+      Restore it as an explicit setup alternative, not runtime failover, and
+      keep direct acceptance distinct from a local Proxy endpoint override.
+      Preserve every existing explicit Account endpoint and Client Binding.
       Add AIHubMix and DMXAPI Luna Routes only after completed exact-wire
       Responses calls. Preserve explicit UCloud Client Bindings.
       Replace the one DeepSeek identity only after stronger vendor positioning
@@ -186,8 +188,10 @@
       attempted protocol, and wire ID for each bounded noninteractive call.
       Verify every retained Route: 54 unchanged Route/Account tuples from the
       57-Route `2ad9c411` matrix plus three newly called Grok 4.7 Routes
-      and two AIHubMix Chat Routes for Cohere and Poolside cover all 59 Routes
-      in the `db724161` manifest at the product-shaped 512-token cap. Retain
+      and two AIHubMix Chat Routes for Cohere and Poolside covered all 59 Routes
+      in the `db724161` manifest at the product-shaped 512-token cap. Two
+      direct DMXAPI GPT-6 Sol probes completed at the same cap on September 25,
+      bringing the source candidate to 60 evidenced Routes. Retain
       the source and Grok observations under
       `build/verification/765cb24c77bc15bed815d576387ea7c71a5f5ed0/catalog-*`,
       and the new vendor calls under the `00f6aac3` verification directory.
@@ -204,15 +208,22 @@
       as unverified.
 - [x] 7.5 Accept the final candidate-bound `manifests/team.toml` and the
       installed profile exported by `aigw config export` as one semantic
-      catalogue across AIHubMix, DMXAPI, and UCloud. Compare Model IDs,
-      Account endpoint/probe metadata, and Route Account/protocol/wire IDs;
-      separately read back explicit Client Bindings and native projections.
+      catalogue across AIHubMix, DMXAPI, and UCloud. Compare Model IDs and
+      Route Account/protocol/wire IDs; compare Account endpoint/probe metadata
+      while classifying the installed DMXAPI Responses loopback as an explicit
+      local Proxy override of the team's direct endpoint, never replacing it
+      merely to force parity. Separately read back explicit Client Bindings
+      and native projections.
       Require only GPT-6 Astra/Sol/Luna, Claude Fable 5.1/Opus 5.5/Sonnet 5
       identities with Routes only where verified, one qualified general Model
       per other vendor globally, DMXAPI variants mapped to base Models, and a
       7.4 inference observation for every admitted Route. Preserve personal
       recommendations, credentials, native preferences, and foreign fields;
       any lost Account coverage requires an explicit reviewed Route retirement.
+      The 60-Route candidate and installed export agree on Model and Route
+      definitions. The installed DMXAPI loopback is the sole Account endpoint
+      exception; installed import rejects its conflict without changing config
+      bytes. A current four-client `sync --dry-run --json` reports no writes.
 - [x] 7.6 Preserve the existing GitLab Darwin tag variable as the single
       selector for native Darwin, quality, accepted-ref parity, release-version,
       and release-assets. Keep the current host binding while re-running source,
@@ -233,7 +244,7 @@
 
 ## 8. Publish and install
 
-- [x] 8.1 Publish one signed stable release with identical assets and
+- [ ] 8.1 Publish one signed stable release with identical assets and
       checksums through the existing GitHub and GitLab workflows. Verify
       remote refs, exact-tag CI job runners, release objects, and every
       published asset byte; separately retain host signing and accepted Apple

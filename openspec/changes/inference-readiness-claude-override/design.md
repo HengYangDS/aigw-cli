@@ -67,15 +67,20 @@ Opus 5.5 Routes for all three Accounts and GPT-6 Sol Routes for AIHubMix and
 UCloud passed selected-protocol requests on September 25. DMXAPI GPT-6 Sol
 previously passed through a locally configured Proxy endpoint and once through
 the manifest's direct Responses endpoint, but repeated September 25 direct
-requests returned HTTP 503 while UCloud completed the same model. The new
-shipped manifest omits the DMXAPI Sol Route; any existing local binding is
-preserved until its owner changes it. AIHubMix and DMXAPI Luna passed direct
-Responses requests and are admitted alongside UCloud Luna. The
+requests returned HTTP 503 while UCloud completed the same model. Release
+0.3.1 therefore omitted the direct Route. Two later noninteractive direct
+Responses probes on September 25 at 10:13 and 10:17 UTC returned HTTP 200,
+completed assistant text, and no network error with the exact
+`gpt-6-sol` wire ID. The next candidate restores that Route as explicitly
+selectable as a setup alternative after AIHubMix Sol, without changing an
+existing local Proxy endpoint or Client Binding. Two successes establish
+current availability, not a reliability promise. AIHubMix and DMXAPI Luna
+passed direct Responses requests and are admitted alongside UCloud Luna. The
 team preference is DMXAPI Opus 5.5 for Claude clients, and UCloud GPT-6 Sol
-for Codex and Hermes with AIHubMix as the same-model alternative. DMXAPI Luna
-is the fallback when it is the only connected Account. These
-Recommendations do not rewrite existing Client Bindings or
-provide automatic failover.
+for Codex and Hermes. The existing AIHubMix Sol alternative retains its order;
+DMXAPI Sol follows it. DMXAPI Luna remains a separate manual choice. These
+Recommendations do not rewrite existing Client Bindings or provide automatic
+failover.
 
 An ordinary Route has no stored label. Presentation derives `Account · Model`
 from the declared Account and Model labels; only channel-specific or deliberate
@@ -266,4 +271,8 @@ and the local signed-artifact verifier passed. Apple notarization submission
 passed without another credential path. Two later ad hoc GitHub CDN downloads
 timed out locally; they are not counted as byte-parity observations. Host
 rollback, forward restoration, and post-install client acceptance remain in
-Task 8.2.
+Task 8.2. The later direct DMXAPI Sol Route is an unreleased source change:
+Task 7.5 must classify the installed explicit Proxy endpoint override against
+the new candidate, and the final-manifest publication gate in Task 8.1 must
+run on a new immutable version rather than modify the accepted `v0.3.1` tag
+or assets.

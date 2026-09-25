@@ -10,6 +10,12 @@ separate evidence.
 
 ## [Unreleased]
 
+### Added
+
+- Restore the direct DMXAPI GPT-6 Sol Responses Route after renewed exact-wire
+  inference. Offer it at setup to a sole connected DMXAPI Account while
+  preserving existing recommendation order, client bindings, and local endpoints.
+
 ## [0.3.1] - 2026-09-25
 
 ### Fixed

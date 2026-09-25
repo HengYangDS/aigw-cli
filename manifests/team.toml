@@ -29,6 +29,9 @@ route = 'ucloud-gpt-6-sol'
 route = 'aihubmix-gpt-6-sol'
 
 [[recommendations.codex.alternatives]]
+route = 'dmxapi-gpt-6-sol'
+
+[[recommendations.codex.alternatives]]
 route = 'dmxapi-gpt-6-luna'
 
 [recommendations.hermes]
@@ -38,6 +41,10 @@ protocol = 'openai_responses'
 
 [[recommendations.hermes.alternatives]]
 route = 'aihubmix-gpt-6-sol'
+protocol = 'openai_responses'
+
+[[recommendations.hermes.alternatives]]
+route = 'dmxapi-gpt-6-sol'
 protocol = 'openai_responses'
 
 [[recommendations.hermes.alternatives]]
@@ -487,6 +494,14 @@ model = 'gpt-6-luna'
 upstream_model = 'gpt-6-luna'
 
 [routes.dmxapi-gpt-6-luna.interfaces]
+openai_responses = []
+
+[routes.dmxapi-gpt-6-sol]
+account = 'dmxapi'
+model = 'gpt-6-sol'
+upstream_model = 'gpt-6-sol'
+
+[routes.dmxapi-gpt-6-sol.interfaces]
 openai_responses = []
 
 [routes.'dmxapi-grok-4.7']
