@@ -209,12 +209,14 @@ non-inference commands.
 9. Project the one CUE product-native matrix into both Forges. Runner selectors
    remain peer-specific, but neither a capability list nor another peer's result
    may shrink a required gate. Preserve GitLab's current Darwin control selector;
-   qualify Linux Docker and the on-demand Windows ARM64 runner for the exact
-   candidate review and tag events before claiming GitLab acceptance. A paused
-   Windows runner is not a green gate. GitLab release-assets verifies published
-   signed bytes after its own quality, version, and native jobs; it does not
-   sign or notarize them. Stable signing and Apple notarization belong to the
-   release publication owner, not another CI lane.
+   qualify Linux Docker and the on-demand Windows ARM64 runner on the exact
+   candidate review before archive. Validate the tag graph before archive;
+   observe the actual tag jobs after archive before claiming GitLab release
+   acceptance. A paused Windows runner is not a green gate. GitLab
+   release-assets verifies published signed bytes after its own quality,
+   version, and native jobs; it neither signs nor notarizes them. Stable
+   signing and Apple notarization belong to the release publication owner,
+   not another CI lane.
    Peer independence means no AIGW source, policy, evidence, or asset comes
    from the sibling product peer. GHCR images and GitHub-hosted third-party
    tool archives are separate locked supply-chain dependencies; this change

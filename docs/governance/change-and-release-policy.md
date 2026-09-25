@@ -290,16 +290,20 @@ policy from the exact reviewed commit and verify the introduced range, including
 release-preparation commits. GitHub review, accepted-branch and tag events and
 GitLab merge-request, accepted-branch and tag events select that shared check
 through CUE. Each selected peer also runs the CUE-owned macOS, Linux, and
-Windows native matrix on its own runners; unavailable or pending work cannot be
-replaced by another peer's result. This peer-local guarantee does not imply
-that third-party tool distribution survives a global hosting outage. A
-release-branch push runs only accepted-ref
-parity because the publisher advances `main` and `dev` atomically to one object;
-repeating the platform matrix would observe no new product input. Reviews
-targeting `main` still receive full verification, and direct maintainer updates
-to `dev` retain the complete gate. No parallel pre-commit runner is needed to
-own these rules. An accepted-ref merge or proposal deletion is a separate delivery
-operation, not evidence implied by a valid commit message or a green review job.
+Windows native matrix on its own runners. Unavailable or pending work cannot
+be replaced by another peer's result. This peer-local guarantee does not
+imply that third-party tool distribution survives a global hosting outage.
+
+For a governed Change, review runs admit the candidate before OpenSpec archive.
+Accepted-branch and tag runs are separate delivery evidence from their actual
+publication events; a generated event graph cannot replace those runs. A
+release-branch push runs only accepted-ref parity: the publisher advances
+`main` and `dev` atomically to one object, so repeating the platform matrix
+observes no new product input. Reviews targeting `main` still receive full
+verification; direct maintainer updates to `dev` retain the complete gate.
+No parallel pre-commit runner is needed to own these rules. An accepted-ref
+merge or proposal deletion is a separate delivery operation, not evidence
+implied by a valid commit message or a green review job.
 
 Product signing and peer transport authentication are independent. GitLab and
 GitHub may use different SSH keys, PATs, OIDC identities, or host credentials

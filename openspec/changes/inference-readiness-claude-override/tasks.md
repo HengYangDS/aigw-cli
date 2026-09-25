@@ -230,11 +230,14 @@
 - [ ] 7.6 Derive both Forge pipelines from the one CUE product-native matrix;
       remove the separate native-capacity list and stale mirror-only metadata.
       Require each peer's macOS, Linux, and Windows jobs on review, accepted
-      branch, and tag events, with peer-local release dependencies. Verify the
-      generated projections and exact-HEAD jobs, including GitLab's Linux
-      Docker runner and on-demand Windows ARM64 runner. Keep the current Darwin
-      control selector unless a replacement proves every required job. Do not
-      count a paused, pending, skipped, or other-peer job as GitLab acceptance.
+      branch, and tag events, with peer-local release dependencies. Before
+      archive, verify the generated event graph and exact-HEAD review jobs,
+      including GitLab's Linux Docker runner and on-demand Windows ARM64 runner.
+      Accepted-branch and tag job outcomes are separate post-archive delivery
+      acceptance; do not infer them from the graph or review. Keep the current
+      Darwin control selector unless a replacement proves every required job.
+      Do not count a paused, pending, skipped, or other-peer job as GitLab
+      acceptance.
       Separately prove that each peer consumes no AIGW source, policy, evidence,
       or assets from its sibling; disclose third-party tool-host availability
       separately rather than claiming global outage tolerance.
