@@ -2,14 +2,11 @@
 
 ### Requirement: Operational commands share one state vocabulary
 
-`setup`, `use`, `sync`, `status`, `check`, `doctor`, and `verify` SHALL use
-configured, deferred, endpoint_checked, inference_checked, degraded,
-invalid, and unavailable as one shared state vocabulary. Commands SHALL
-classify only the evidence they actually observe: a bounded authenticated
-probe may refine configured into endpoint_checked, inference_checked,
-degraded, invalid, or unavailable. Human and JSON output SHALL identify the
-affected Account, Route, client, backend, or endpoint and exactly one safe
-next action.
+`setup`, `use`, `sync`, `status`, `check`, `doctor`, and `verify` SHALL share
+configured, deferred, endpoint_checked, inference_checked, degraded, invalid,
+and unavailable states. A bounded authenticated probe SHALL report only its
+observed scope. Human and JSON output SHALL identify the affected Account,
+Route, client, backend, or endpoint and exactly one safe next action.
 
 #### Scenario: Local client prerequisites are configured
 

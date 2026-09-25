@@ -2,13 +2,12 @@
 
 ### Requirement: Upgrade evidence preserves credential continuity
 
-Upgrade acceptance SHALL retain each enabled client's original credential
-command, arguments, environment, native item, reader implementation, and
-authorization identity. Before manager-owned CLI replacement, every retained
-caller SHALL use an entrypoint outside that manager's unlink path or the
-cutover SHALL stop. Admitted original invocations SHALL return the same Token
-before, during, and after replacement without synchronization or reload. A
-fresh client or helper SHALL NOT substitute for existing-caller continuity.
+Upgrade acceptance SHALL retain each enabled client's command, arguments,
+environment, native item, reader, and authorization identity. Before a package
+manager unlinks its CLI path, every retained caller SHALL use an external
+stable entrypoint or the cutover SHALL stop. Original invocations SHALL return
+the same Token before, during, and after replacement without reload; a fresh
+client or helper SHALL NOT substitute for existing-caller continuity.
 
 #### Scenario: A proposed adapter survives only CLI-only updates
 

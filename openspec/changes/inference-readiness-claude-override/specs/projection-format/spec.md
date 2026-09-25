@@ -2,21 +2,12 @@
 
 ### Requirement: Claude model preference and connection ownership are distinct
 
-AIGW SHALL accept a native Claude model preference when the recorded managed
-hash proves that only the top-level model changed. The prior Route supplies
-the old model; current user settings SHALL NOT establish connection ownership.
-Synchronization SHALL leave that preference and the sidecar bytes unchanged
-while the helper executable, Route model, and Account/endpoint credential
-scope remain unchanged.
-An AIGW-owned helper executable change SHALL preserve the preference while
-updating the helper projection. A changed Route model or credential scope SHALL
-project the selected Route model.
-Read-only inspection SHALL accept that proven native model preference without
-rewriting settings or sidecar state and SHALL distinguish it from the Route's
-wire-model evidence. Endpoint, helper, and managed-credential changes made
-outside AIGW SHALL remain conflicts. AIGW SHALL preserve neighboring settings
-and byte-exact compensation, and SHALL compare decoded strings rather than
-equivalent JSON escapes.
+AIGW SHALL accept Claude Code's native model preference only when its sidecar
+proves a model-only edit to an owned connection. Sync SHALL preserve it while
+Route model and credential scope are unchanged; otherwise it SHALL reproject
+the Route model. External connection edits remain conflicts. Inspection SHALL
+distinguish native preference from upstream model proof, and compensation
+SHALL preserve observed bytes.
 
 #### Scenario: A client rewrites equivalent JSON string escapes
 

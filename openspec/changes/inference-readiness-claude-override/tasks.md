@@ -226,7 +226,7 @@
       the sole Account endpoint exception; installed import rejects its
       conflict without changing config bytes. All four clients report
       unchanged or already-converged in `sync --dry-run --json`.
-- [ ] 7.6 Derive both Forge pipelines from the one CUE product-native matrix;
+- [x] 7.6 Derive both Forge pipelines from the one CUE product-native matrix;
       remove the separate native-capacity list and stale mirror-only metadata.
       Require each peer's macOS, Linux, and Windows jobs on review, accepted
       branch, and tag events, with peer-local release dependencies. Before
@@ -240,6 +240,8 @@
       Separately prove that each peer consumes no AIGW source, policy, evidence,
       or assets from its sibling; disclose third-party tool-host availability
       separately rather than claiming global outage tolerance.
+      Exact review SHA `02656215`: GitHub run `36189232637` and GitLab pipeline
+      `8305` passed; accepted-branch and tag events remain delivery obligations.
 - [x] 7.7 Remove every native OpenSpec validation finding by tightening the
       five overlong canonical requirements without losing their scenarios.
       Make the existing quality gate reject future `INFO` findings as well as

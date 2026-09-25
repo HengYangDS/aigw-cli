@@ -178,14 +178,12 @@ the client.
 
 ### Requirement: Shipped team catalogue is a curated capability contract
 
-The shipped team manifest SHALL separate Account, canonical Model, provider
-Route, and per-client Recommendation. Canonical Model IDs and Route IDs SHALL
-be stable lower-case identifiers; `upstream_model` SHALL retain the provider's
-exact wire spelling and channel. A Route SHALL be admitted only after a real
-authenticated inference request and compatible client/protocol acceptance.
-The manifest SHALL not infer a full Account-by-Model matrix from provider
-catalogue listings, require every Account Token during setup, change an
-explicit Client Binding, or contain a proxy endpoint.
+Team manifests SHALL declare Accounts, canonical Models, provider Routes, and
+per-client Recommendations separately. Model and Route IDs SHALL be stable
+lower-case; provider wire IDs and channels SHALL remain exact. Route admission
+requires authenticated inference and compatible client/protocol evidence.
+Setup SHALL need only one compatible Account, preserve explicit Client
+Bindings, and exclude inferred Route matrices and proxy endpoints.
 
 #### Scenario: One Account offers a subset of Models
 
