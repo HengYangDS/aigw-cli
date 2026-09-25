@@ -10,6 +10,8 @@ separate evidence.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-25
+
 ### Added
 
 - Restore the direct DMXAPI GPT-6 Sol Responses Route after renewed exact-wire
