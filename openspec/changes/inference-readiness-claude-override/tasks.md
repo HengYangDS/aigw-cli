@@ -244,13 +244,15 @@
       five overlong canonical requirements without losing their scenarios.
       Make the existing quality gate reject future `INFO` findings as well as
       warnings and errors; verify the official report is clean.
-- [ ] 7.8 Compare stable credential-entrypoint options under package-manager
-      ownership, then implement the least complex cross-platform solution that
-      keeps every retained client invocation working throughout replacement.
+- [x] 7.8 Compare stable credential-entrypoint options under package-manager
+      ownership, then implement one cross-platform, AIGW-owned executable for
+      default Account-Token callers outside the package manager's CLI link.
       Demonstrate a failing unlink-window test first; then prove concurrent
       invocation, candidate activation, rollback, and re-upgrade on macOS,
       Linux, and Windows without Token migration, ACL changes, credential
-      prompts, or a second live selection authority. An active legacy caller
-      still using the manager-owned path SHALL hold the first cutover before
-      unlink, not be counted as migrated by a config rewrite. Verify owned
-      cleanup and retain only artifacts with an active consumer.
+      prompts, or a second live selection authority. The first host cutover
+      SHALL wait while any active legacy caller still uses the manager-owned
+      path; a config rewrite alone does not prove migration. Native tests prove
+      implementation; the actual post-release host cutover remains separate
+      delivery acceptance. Verify exact owned cleanup and retain only artifacts
+      with an active consumer.

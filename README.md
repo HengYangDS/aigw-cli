@@ -238,6 +238,14 @@ cannot read an isolated copy of current configuration, AIGW leaves both program
 and configuration unchanged. Restore a compatible configuration explicitly with
 `aigw config migrate --rollback`, then retry `aigw update --rollback`.
 
+For the first Homebrew upgrade from an older AIGW whose clients still cache
+the Homebrew-managed `aigw` credential command, stop those clients before
+`brew upgrade aigw`. If they cannot stop, defer the upgrade: Homebrew briefly
+unlinks that command. After upgrading, run `aigw sync`, then restart the
+clients. The new AIGW-owned credential entrypoint lives outside the Cask link;
+routine later CLI replacements leave it in place. This transition does not
+require disabling clients, moving Tokens, or changing explicit custom helpers.
+
 `aigw uninstall` withdraws AIGW-owned client projections and removes the
 portable executable plus its predecessor. It preserves Accounts, Routes,
 Client Bindings, Tokens, configuration backup, and user-authored client state.
