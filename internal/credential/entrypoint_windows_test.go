@@ -56,6 +56,47 @@ func TestEntrypointRejectsWritableWindowsExecutableACL(t *testing.T) {
 	}
 }
 
+func TestWindowsCredentialOwnerMatchesTokenOwnerPrincipals(t *testing.T) {
+	user, err := windows.StringToSid("S-1-5-21-1-2-3-1001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	group, err := windows.StringToSid("S-1-5-32-544")
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := windows.StringToSid("S-1-5-21-1-2-3-1002")
+	if err != nil {
+		t.Fatal(err)
+	}
+	untrustedGroup, err := windows.CreateWellKnownSid(windows.WinBuiltinUsersSid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name   string
+		owner  *windows.SID
+		user   *windows.SID
+		groups []windows.SIDAndAttributes
+		want   bool
+	}{
+		{name: "user", owner: user, user: user, want: true},
+		{name: "owner-capable group", owner: group, user: user, groups: []windows.SIDAndAttributes{{Sid: group, Attributes: windows.SE_GROUP_OWNER}}, want: true},
+		{name: "deny-only group", owner: group, user: user, groups: []windows.SIDAndAttributes{{Sid: group, Attributes: windows.SE_GROUP_OWNER | windows.SE_GROUP_USE_FOR_DENY_ONLY}}},
+		{name: "group without owner capability", owner: group, user: user, groups: []windows.SIDAndAttributes{{Sid: group, Attributes: windows.SE_GROUP_ENABLED}}},
+		{name: "untrusted owner-capable group", owner: untrustedGroup, user: user, groups: []windows.SIDAndAttributes{{Sid: untrustedGroup, Attributes: windows.SE_GROUP_OWNER}}},
+		{name: "foreign owner", owner: foreign, user: user, groups: []windows.SIDAndAttributes{{Sid: group, Attributes: windows.SE_GROUP_OWNER}}},
+		{name: "missing owner", user: user},
+		{name: "missing token user", owner: group},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := ownerMatchesWindowsToken(test.owner, test.user, test.groups); got != test.want {
+				t.Fatalf("owner membership = %t, want %t", got, test.want)
+			}
+		})
+	}
+}
+
 func allowEveryoneFullControl(t *testing.T, path string) {
 	t.Helper()
 	descriptor, err := windows.SecurityDescriptorFromString("D:(A;;FA;;;WD)")

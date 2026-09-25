@@ -51,12 +51,17 @@ func validateOwnedWindowsACL(path string) error {
 	if owner == nil {
 		return errors.New("credential path has no owner")
 	}
-	current, err := windows.GetCurrentProcessToken().GetTokenUser()
+	token := windows.GetCurrentProcessToken()
+	current, err := token.GetTokenUser()
 	if err != nil {
 		return fmt.Errorf("inspect current Windows user: %w", err)
 	}
-	if !owner.Equals(current.User.Sid) {
-		return errors.New("credential path is not owned by the current Windows user")
+	groups, err := token.GetTokenGroups()
+	if err != nil {
+		return fmt.Errorf("inspect current Windows owner groups: %w", err)
+	}
+	if !ownerMatchesWindowsToken(owner, current.User.Sid, groups.AllGroups()) {
+		return errors.New("credential path has an untrusted Windows owner")
 	}
 	dacl, _, err := descriptor.DACL()
 	if err != nil {
@@ -96,4 +101,24 @@ func validateOwnedWindowsACL(path string) error {
 		}
 	}
 	return nil
+}
+
+func ownerMatchesWindowsToken(owner, user *windows.SID, groups []windows.SIDAndAttributes) bool {
+	if owner == nil || user == nil {
+		return false
+	}
+	if owner.Equals(user) {
+		return true
+	}
+	if !owner.IsWellKnown(windows.WinBuiltinAdministratorsSid) {
+		return false
+	}
+	for _, group := range groups {
+		if group.Sid != nil && group.Sid.Equals(owner) &&
+			group.Attributes&windows.SE_GROUP_OWNER != 0 &&
+			group.Attributes&windows.SE_GROUP_USE_FOR_DENY_ONLY == 0 {
+			return true
+		}
+	}
+	return false
 }
