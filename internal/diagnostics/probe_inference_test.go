@@ -47,6 +47,35 @@ func TestInferenceScopeCarriesExactModelAndClassifiesDistributorRefusal(t *testi
 	}
 }
 
+func TestInferenceScopeClassifiesDecodedProviderMessage(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name, body string
+		want       diagnostics.Kind
+	}{
+		{"escaped nested message", `{"error":{"message":"\u65e0\u53ef\u7528\u6e20\u9053"}}`, diagnostics.ModelUnavailable},
+		{"escaped top-level message", `{"message":"\u65e0\u53ef\u7528\u6e20\u9053"}`, diagnostics.ModelUnavailable},
+		{"plain-text message", "no available channel for model", diagnostics.ModelUnavailable},
+		{"semantic error code", `{"error":{"message":"service unavailable","code":"model_unavailable"}}`, diagnostics.ModelUnavailable},
+		{"unknown envelope fallback", `{"detail":"no available channel for model"}`, diagnostics.ModelUnavailable},
+		{"unrelated model field", `{"error":{"message":"service unavailable","model":"gpt-6-sol"}}`, diagnostics.UpstreamFailure},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			calls := 0
+			result := diagnostics.ProbeStable(t.Context(), clientFunc(func(*http.Request) (*http.Response, error) {
+				calls++
+				return response(http.StatusServiceUnavailable, test.body), nil
+			}), inferenceRuntime(), "fixture-token", diagnostics.ScopeInference, immediateStabilityPolicy())
+			if calls != 1 || result.Kind != test.want || result.Attempts != 1 || !result.Retryable {
+				t.Fatalf("calls=%d result=%#v, want kind %s", calls, result, test.want)
+			}
+			if strings.Contains(result.Detail, "fixture-token") {
+				t.Fatal("diagnostic detail disclosed the Account Token")
+			}
+		})
+	}
+}
+
 func TestInferenceScopeNeverRetriesAuthenticationFailure(t *testing.T) {
 	t.Parallel()
 

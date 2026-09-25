@@ -219,7 +219,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 		}
 	}
 	message := strings.TrimSpace(string(body))
-	lower := strings.ToLower(message)
+	lower := strings.ToLower(providerErrorMessage(body))
 	result := Result{HTTPStatus: resp.StatusCode, Scope: scope, Detail: compact(message, token)}
 	switch {
 	case resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices:
@@ -253,6 +253,33 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 		result.Fix = "Run `aigw doctor` for detailed status"
 	}
 	return result
+}
+
+func providerErrorMessage(body []byte) string {
+	var envelope struct {
+		Message string          `json:"message"`
+		Code    string          `json:"code"`
+		Error   json.RawMessage `json:"error"`
+	}
+	if json.Unmarshal(body, &envelope) != nil {
+		return string(body)
+	}
+	var nested struct {
+		Message string `json:"message"`
+		Code    string `json:"code"`
+	}
+	if json.Unmarshal(envelope.Error, &nested) == nil && (nested.Message != "" || nested.Code != "") {
+		return strings.TrimSpace(nested.Message + " " + nested.Code)
+	}
+	var errorText string
+	if json.Unmarshal(envelope.Error, &errorText) == nil && errorText != "" {
+		return errorText
+	}
+	message := strings.TrimSpace(envelope.Message + " " + envelope.Code)
+	if message == "" {
+		return string(body)
+	}
+	return message
 }
 
 func classifySuccessfulResponse(result Result, protocol configuration.EndpointProtocol, body []byte) Result {

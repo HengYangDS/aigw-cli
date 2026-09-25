@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/secrets"
 )
 
@@ -37,6 +38,7 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 				{http.MethodPost, "/wrong", "synthetic", `{"stream":true}`, http.StatusNotFound, 0},
 				{http.MethodGet, path, "synthetic", `{"stream":true}`, http.StatusMethodNotAllowed, 0},
 				{http.MethodPost, path, "synthetic", `{"stream":false}`, http.StatusBadRequest, 0},
+				{http.MethodPost, path, "synthetic", `{"model":"configured-model","stream":false}`, http.StatusBadRequest, 0},
 				{http.MethodPost, path, "synthetic", `{"stream":true}`, http.StatusBadRequest, 0},
 				{http.MethodPost, path, "synthetic", strings.ReplaceAll(body, "high", "low"), http.StatusBadRequest, 0},
 				{http.MethodPost, path, "synthetic", strings.ReplaceAll(body, "configured-model", "different-model"), http.StatusBadRequest, 0},
@@ -51,6 +53,27 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 				}
 			}
 			assertStreamEvents(t, protocol, response.Body.String())
+		})
+	}
+}
+
+func TestNativeClientInferenceEnvelope(t *testing.T) {
+	for _, protocol := range []configuration.EndpointProtocol{
+		configuration.ProtocolAnthropic,
+		configuration.ProtocolOpenAIResponses,
+		configuration.ProtocolOpenAIChatCompletions,
+	} {
+		t.Run(string(protocol), func(t *testing.T) {
+			request, err := credential.ModelInferenceRequest(t.Context(), "https://fixture.test/v1", protocol, "synthetic", "configured-model")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var completions atomic.Int64
+			response := httptest.NewRecorder()
+			clientResponseHandler(protocol, map[string]*atomic.Int64{"configured-model": &completions}, "synthetic", "high").ServeHTTP(response, request)
+			if response.Code != http.StatusOK || completions.Load() != 1 || response.Header().Get("Content-Type") != "application/json" || !json.Valid(response.Body.Bytes()) || !strings.Contains(response.Body.String(), `"pong"`) {
+				t.Fatalf("non-stream inference response: status=%d completions=%d content-type=%q body=%s", response.Code, completions.Load(), response.Header().Get("Content-Type"), response.Body.String())
+			}
 		})
 	}
 }
@@ -140,9 +163,14 @@ func clientResponseHandler(protocol configuration.EndpointProtocol, completions 
 	path, _ := streamRequest(protocol, "")
 	mux.HandleFunc("POST "+path, func(response http.ResponseWriter, request *http.Request) {
 		var input struct {
-			Model     string `json:"model"`
-			Stream    bool   `json:"stream"`
-			Reasoning struct {
+			Model           string          `json:"model"`
+			Stream          bool            `json:"stream"`
+			Input           json.RawMessage `json:"input"`
+			MaxOutputTokens int             `json:"max_output_tokens"`
+			MaxTokens       int             `json:"max_tokens"`
+			Store           bool            `json:"store"`
+			Messages        json.RawMessage `json:"messages"`
+			Reasoning       struct {
 				Effort string `json:"effort"`
 			} `json:"reasoning"`
 			OutputConfig struct {
@@ -150,13 +178,35 @@ func clientResponseHandler(protocol configuration.EndpointProtocol, completions 
 			} `json:"output_config"`
 			ReasoningEffort string `json:"reasoning_effort"`
 		}
-		if err := json.NewDecoder(request.Body).Decode(&input); err != nil || !input.Stream {
-			http.Error(response, "configured model and stream required", http.StatusBadRequest)
+		if err := json.NewDecoder(request.Body).Decode(&input); err != nil {
+			http.Error(response, "invalid model request", http.StatusBadRequest)
 			return
 		}
 		completion, expectedModel := completions[input.Model]
 		if !expectedModel {
-			http.Error(response, "configured model and stream required", http.StatusBadRequest)
+			http.Error(response, "configured model required", http.StatusBadRequest)
+			return
+		}
+		if !input.Stream {
+			var body string
+			switch protocol {
+			case configuration.ProtocolAnthropic:
+				body = `{"type":"message","role":"assistant","content":[{"type":"text","text":"pong"}],"stop_reason":"end_turn"}`
+			case configuration.ProtocolOpenAIResponses:
+				body = `{"status":"completed","output":[{"type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"pong"}]}]}`
+			case configuration.ProtocolOpenAIChatCompletions:
+				body = `{"choices":[{"message":{"role":"assistant","content":"pong"},"finish_reason":"stop"}]}`
+			}
+			valid := protocol == configuration.ProtocolOpenAIResponses && len(input.Input) > 0 && input.MaxOutputTokens > 0 && !input.Store ||
+				protocol != configuration.ProtocolOpenAIResponses && len(input.Messages) > 0 && input.MaxTokens > 0
+			if !valid || body == "" {
+				http.Error(response, "configured inference request required", http.StatusBadRequest)
+				return
+			}
+			response.Header().Set("Content-Type", "application/json")
+			if _, err := io.WriteString(response, body); err == nil {
+				completion.Add(1)
+			}
 			return
 		}
 		if requiredEffort != "" && streamEffort(protocol, input.Reasoning.Effort, input.OutputConfig.Effort, input.ReasoningEffort) != requiredEffort {
@@ -211,7 +261,7 @@ func streamRequest(protocol configuration.EndpointProtocol, model string) (strin
 	case configuration.ProtocolAnthropic:
 		return "/v1/messages", fmt.Sprintf(`{"model":%q,"stream":true,"output_config":{"effort":"high"}}`, model)
 	case configuration.ProtocolOpenAIResponses:
-		return "/v1/responses", fmt.Sprintf(`{"model":%q,"stream":true,"reasoning":{"effort":"high"}}`, model)
+		return "/v1/responses", fmt.Sprintf(`{"model":%q,"stream":true,"reasoning":{"effort":"high"},"input":[{"role":"user","content":[{"type":"input_text","text":"ping"}]}]}`, model)
 	case configuration.ProtocolOpenAIChatCompletions:
 		return "/v1/chat/completions", fmt.Sprintf(`{"model":%q,"stream":true,"reasoning_effort":"high"}`, model)
 	default:
