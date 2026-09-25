@@ -69,11 +69,11 @@ func TestGitHubNativeJobsUseHostedRunners(t *testing.T) {
 		}
 	}
 	for name, runner := range map[string]string{
-		"accepted-ref-parity": "ubuntu-latest",
-		"quality":             "ubuntu-latest",
+		"accepted-ref-parity": "ubuntu-24.04",
+		"quality":             "ubuntu-24.04",
 		"native-darwin":       "macos-26-intel",
-		"native-linux":        "ubuntu-latest",
-		"native-windows":      "windows-latest",
+		"native-linux":        "ubuntu-24.04",
+		"native-windows":      "windows-2025",
 	} {
 		if got := workflow.Jobs[name].RunsOn.Value; got != runner {
 			t.Errorf("%s runner = %q, want %q", name, got, runner)

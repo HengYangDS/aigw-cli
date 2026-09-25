@@ -113,7 +113,7 @@ func TestGitHubWindowsUsesThePortableNativeToolClosure(t *testing.T) {
 	}
 
 	job := workflow.Jobs["native-windows"]
-	const runner = "windows-latest"
+	const runner = "windows-2025"
 	if job.RunsOn.Value != runner {
 		t.Fatalf("native Windows runner selector = %q, want %q", job.RunsOn.Value, runner)
 	}

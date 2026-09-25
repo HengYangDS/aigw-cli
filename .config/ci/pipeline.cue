@@ -112,12 +112,12 @@ nativeEvidence: {
 	linux: {
 		name: "Linux"
 		gitlab: tags: ["$AIGW_GITLAB_LINUX_RUNNER_TAG"]
-		github: runner: "ubuntu-latest"
+		github: runner: "ubuntu-24.04"
 	}
 	windows: {
 		name: "Windows"
 		gitlab: tags: ["$AIGW_GITLAB_WINDOWS_RUNNER_TAG"]
-		github: runner: "windows-latest"
+		github: runner: "windows-2025"
 	}
 }
 

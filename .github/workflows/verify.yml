@@ -71,7 +71,7 @@ concurrency:
 jobs:
   accepted-ref-parity:
     name: Accepted ref parity
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     if: github.event_name == 'push' && github.ref_name == 'main'
     env:
@@ -96,7 +96,7 @@ jobs:
         run: mise exec --locked -- go run ./tools/forge refs --remote origin --expect "main=${{ github.sha }}" --expect "dev=${{ github.sha }}"
   quality:
     name: Quality and governance
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     if: github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev'
     env:
@@ -322,7 +322,7 @@ jobs:
           if-no-files-found: error
   native-linux:
     name: Native Linux acceptance
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
     env:
@@ -518,7 +518,7 @@ jobs:
           if-no-files-found: error
   native-windows:
     name: Native Windows acceptance
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'windows')
     env:
