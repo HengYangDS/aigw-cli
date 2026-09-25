@@ -76,8 +76,9 @@ removes an orphan after withdrawing projections.
 An already-running client that cached the old package-manager path is not
 migrated by rewriting settings; replacement must
 wait until that original caller is absent or independently proved migrated.
-The active [credential-continuity Change](../../openspec/changes/inference-readiness-claude-override/design.md#credential-entrypoint-during-package-replacement)
-owns native acceptance before this path can be called a released guarantee.
+The [archived credential-continuity design](../../openspec/changes/archive/2026-09-25-inference-readiness-claude-override/design.md#credential-entrypoint-during-package-replacement)
+defines native qualification. The [post-archive delivery criteria](../../openspec/changes/archive/2026-09-25-inference-readiness-claude-override/design.md#post-archive-delivery-acceptance)
+must also pass before this path is a released guarantee.
 
 ### External credential executable
 

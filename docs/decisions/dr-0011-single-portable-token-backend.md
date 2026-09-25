@@ -49,8 +49,8 @@ The independent host-local helper cutover was rejected and rolled back. It is
 not the product's credential reader or Token backend. This decision does not
 forbid an AIGW-owned copy of the same executable to keep the existing
 `credential` command reachable during package-manager replacement; that
-separate delivery change remains subject to
-[native acceptance](../../openspec/changes/inference-readiness-claude-override/design.md#credential-entrypoint-during-package-replacement).
+delivery path remains subject to
+[post-archive acceptance](../../openspec/changes/archive/2026-09-25-inference-readiness-claude-override/design.md#post-archive-delivery-acceptance).
 
 A successor must execute every retained original credential command before
 client projection refresh, then prove update, rollback and re-upgrade against
