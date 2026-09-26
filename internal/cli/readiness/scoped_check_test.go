@@ -92,6 +92,42 @@ func TestCheckEndpointReadinessIsIndependentOfDiagnosticCredentials(t *testing.T
 	}
 }
 
+func TestMixedInvalidAndDeferredClientsShareOneRecoveryAction(t *testing.T) {
+	runtime, cfg, output := configuredReadinessRuntime(t)
+	if err := runtime.Secrets.Set("one", "available-token"); err != nil {
+		t.Fatal(err)
+	}
+	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{filepath.Join(t.TempDir(), "missing.toml")})
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	command := NewCheckCommand(runtime)
+	command.SetArgs([]string{"--json"})
+	if err := executeCommand(command); err == nil {
+		t.Fatal("invalid Codex projection was accepted")
+	}
+	var result checkJSON
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Clients[configuration.ClientClaude].State != domainreadiness.Deferred || result.Clients[configuration.ClientCodex].State != domainreadiness.Invalid || result.NextAction == "" {
+		t.Fatalf("mixed JSON check = %+v", result)
+	}
+	humanAction := ""
+	runtime.Problem = func(_, _, _, action string, cause error) error {
+		humanAction = action
+		return cause
+	}
+	command = NewCheckCommand(runtime)
+	if err := executeCommand(command); err == nil {
+		t.Fatal("human check accepted invalid Codex projection")
+	}
+	if humanAction != result.NextAction {
+		t.Fatalf("human recovery %q differs from JSON action %q", humanAction, result.NextAction)
+	}
+}
+
 func TestCheckReportsThePerformedInferenceOrEndpointScope(t *testing.T) {
 	for _, test := range []struct {
 		name   string

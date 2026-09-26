@@ -1,6 +1,7 @@
 package activation
 
 import (
+	"errors"
 	"testing"
 
 	"aigw-cli/internal/configuration"
@@ -205,6 +206,15 @@ func TestNextActionForUsesOneOrderedReadinessDecision(t *testing.T) {
 			want:       "aigw repair",
 		},
 		{
+			name:       "unclassified failure before unrelated suggestion",
+			activation: Activation{EnabledClients: 1},
+			clients: []domainreadiness.Client{
+				{State: domainreadiness.Invalid},
+				{State: domainreadiness.Deferred, NextAction: "aigw use --for codex suggested-route"},
+			},
+			want: "aigw repair",
+		},
+		{
 			name:       "configured client without another action",
 			activation: Activation{EnabledClients: 1},
 			clients:    []domainreadiness.Client{{State: domainreadiness.Configured}},
@@ -214,6 +224,37 @@ func TestNextActionForUsesOneOrderedReadinessDecision(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if got := test.activation.NextActionFor(test.clients); got != test.want {
 				t.Fatalf("next action = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestPendingActionNeverRecommendsCheckBeforeKnownPrerequisites(t *testing.T) {
+	installClaude := "Install Claude, then sync"
+	installCodex := "Install Codex, then sync"
+	rotateClaude := "aigw rotate team"
+	for _, test := range []struct {
+		name       string
+		activation Activation
+		want       string
+	}{
+		{"earlier decision", Activation{NextAction: "aigw setup"}, "aigw setup"},
+		{"usable client first", Activation{
+			CredentialPrerequisites: map[string]string{configuration.ClientClaude: rotateClaude},
+			ProjectionPrerequisites: map[string]string{configuration.ClientClaude: installClaude, configuration.ClientCodex: installCodex},
+		}, installCodex},
+		{"missing Token before its projection", Activation{
+			CredentialPrerequisites: map[string]string{configuration.ClientClaude: rotateClaude},
+			ProjectionPrerequisites: map[string]string{configuration.ClientClaude: installClaude},
+		}, rotateClaude},
+		{"unavailable credential metadata", Activation{
+			ProjectionPrerequisites: map[string]string{configuration.ClientClaude: installClaude},
+			observedCredentials:     map[string]credentialObservation{"team": {err: errors.New("metadata denied")}},
+		}, "aigw doctor"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := test.activation.PendingAction(); got != test.want {
+				t.Fatalf("pending action = %q, want %q", got, test.want)
 			}
 		})
 	}

@@ -97,9 +97,12 @@ func NewCommand(deps Dependencies) *cobra.Command {
 				return presentation.Presented(fmt.Errorf("doctor found problems"))
 			}
 			r.Section("Result")
-			if result.State == domainreadiness.Deferred {
-				message := "No client is enabled"
-				if result.EnabledClients != 0 {
+			if result.NextAction != "" {
+				message := "Selected client work remains"
+				switch {
+				case result.EnabledClients == 0:
+					message = "No client is enabled"
+				case result.State == domainreadiness.Deferred:
 					message = "Selected client projection is deferred"
 				}
 				r.Status(presentation.Info, "Client activation", message)
@@ -157,17 +160,30 @@ func collectResult(ctx context.Context, deps Dependencies) commandResult {
 		}
 	}
 	if cfg, err := deps.Config.Load(); err == nil {
-		activation := clientactivation.AssessActivation(cfg, deps.Secrets)
-		result.EnabledClients = activation.EnabledClients
-		result.State = activation.State
-		if activation.State == domainreadiness.Unavailable {
-			result.OK = false
-			result.NextAction = activation.NextAction
-		} else if result.OK && activation.State == domainreadiness.Deferred {
-			result.NextAction = activation.NextAction
-		}
+		applyActivation(&result, cfg, deps.Secrets)
 	}
 	return result
+}
+
+func applyActivation(result *commandResult, cfg configuration.Config, store secrets.Store) {
+	activation := clientactivation.AssessActivation(cfg, store)
+	result.EnabledClients = activation.EnabledClients
+	result.State = activation.State
+	if activation.State == domainreadiness.Unavailable {
+		result.OK = false
+		result.NextAction = activation.NextAction
+		return
+	}
+	if !result.OK {
+		return
+	}
+	ordered := make([]domainreadiness.Client, 0, len(result.Clients))
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		ordered = append(ordered, result.Clients[spec.ID])
+	}
+	if action := activation.NextActionFor(ordered); action != "aigw check" {
+		result.NextAction = action
+	}
 }
 
 func inspectClients(deps Dependencies) map[string]domainreadiness.Client {

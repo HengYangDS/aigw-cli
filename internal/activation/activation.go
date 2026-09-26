@@ -67,17 +67,49 @@ func (a *Activation) NextActionFor(clients []domainreadiness.Client) string {
 			bestPriority = priority
 		}
 	}
+	if attention && bestPriority < 3 {
+		return "aigw repair"
+	}
 	if bestAction != "" {
 		return bestAction
 	}
 	if a.NextAction != "" {
 		return a.NextAction
 	}
-	if attention {
-		return "aigw repair"
-	}
 	if a.EnabledClients != 0 {
 		return "aigw check"
+	}
+	return ""
+}
+
+// PendingAction selects a known local prerequisite before recommending a
+// post-synchronization check. It does not infer native projection health.
+func (a *Activation) PendingAction() string {
+	if a == nil {
+		return ""
+	}
+	if a.NextAction != "" {
+		return a.NextAction
+	}
+	for _, observation := range a.observedCredentials {
+		if observation.err != nil {
+			return "aigw doctor"
+		}
+	}
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		if action := a.ProjectionPrerequisites[spec.ID]; action != "" && a.CredentialPrerequisites[spec.ID] == "" {
+			return action
+		}
+	}
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		if action := a.CredentialPrerequisites[spec.ID]; action != "" {
+			return action
+		}
+	}
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		if action := a.ProjectionPrerequisites[spec.ID]; action != "" {
+			return action
+		}
 	}
 	return ""
 }

@@ -66,8 +66,8 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			activation := clientactivation.AssessActivation(after, runtime.Secrets)
 			result.EnabledClients = activation.EnabledClients
 			result.State = string(activation.State)
-			if activation.NextAction != "" {
-				result.NextAction = activation.NextAction
+			if action := activation.PendingAction(); action != "" {
+				result.NextAction = action
 			}
 			for _, client := range configuration.AdmittedClientIDs() {
 				if route := after.SelectedRoute(client); route != "" {

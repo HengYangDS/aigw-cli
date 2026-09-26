@@ -11,7 +11,9 @@ import (
 
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
+	surfaceidentity "aigw-cli/internal/surface"
 )
 
 type deferredActivationDocument struct {
@@ -271,6 +273,83 @@ func TestShippedTeamManifestTokenRemovedBeforeClientInstallation(t *testing.T) {
 	}
 	if len(runner.plans) != 0 || httpClient.calls != 0 {
 		t.Fatalf("missing client or Token triggered external work: plans=%d http=%d", len(runner.plans), httpClient.calls)
+	}
+}
+
+func TestShippedTeamManifestMixedClientProjectionHasOneContinuation(t *testing.T) {
+	app, out, credentials, _, httpClient := testApp(t, "")
+	if err := credentials.Set("ucloud", "fixture-token"); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(t.TempDir(), "codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{configuration.ClientCodex: "/opt/codex"},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surfaceidentity.CodexHomeDefault),
+			Authority:   string(surfaceidentity.AuthorityAIGW),
+			ConfigPath:  target,
+			Present:     true,
+			AutoManaged: true,
+		}},
+	}}
+	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
+		t.Fatalf("setup mixed clients: %v\n%s", err, out)
+	}
+	before, err := app.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeProbes := httpClient.calls
+	wantAction := "Install Claude if needed, then run `aigw sync`"
+	for _, command := range []string{"sync", "status", "check", "doctor"} {
+		out.Reset()
+		args := []string{command, "--json"}
+		if command == "sync" {
+			args = []string{"sync", "--dry-run", "--json"}
+		}
+		err := cli.Execute(app, args)
+		if (err != nil) != (command == "check") {
+			t.Fatalf("%s error = %v\n%s", command, err, out)
+		}
+		var result deferredActivationDocument
+		if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+			t.Fatalf("decode %s: %v\n%s", command, err, out)
+		}
+		if result.NextAction != wantAction {
+			t.Fatalf("%s next action = %q, want %q\n%s", command, result.NextAction, wantAction, out)
+		}
+	}
+	for _, command := range []string{"sync", "status", "check", "doctor"} {
+		assertMixedClientHumanCommand(t, app, out, command, wantAction)
+	}
+	if httpClient.calls != beforeProbes+2 {
+		t.Fatalf("mixed-client check probed unavailable clients: before=%d after=%d", beforeProbes, httpClient.calls)
+	}
+	after, err := app.Config.CaptureSnapshot()
+	if err != nil || !before.Config.Equal(after.Config) || !before.Backup.Equal(after.Backup) || !before.Verified.Equal(after.Verified) {
+		t.Fatalf("observational commands changed configuration: %v", err)
+	}
+}
+
+func assertMixedClientHumanCommand(t *testing.T, app *cli.App, out *bytes.Buffer, command, wantAction string) {
+	t.Helper()
+	out.Reset()
+	args := []string{command}
+	if command == "sync" {
+		args = []string{"sync", "--dry-run"}
+	}
+	err := cli.Execute(app, args)
+	if (err != nil) != (command == "check") {
+		t.Fatalf("human %s error = %v\n%s", command, err, out)
+	}
+	if !strings.Contains(out.String(), wantAction) {
+		t.Fatalf("human %s hid %q:\n%s", command, wantAction, out)
 	}
 }
 

@@ -82,12 +82,12 @@ semantic result, and never expose credentials.
 
 #### Scenario: Enabled clients have different local readiness
 
-- **WHEN** one enabled client is locally configured and another selected client
-  has a deferred native projection
-- **THEN** human and JSON status SHALL expose the same actionable continuation
-  without declaring every selected client ready
-- **AND** a failed JSON check SHALL expose the failed client's recovery action
-  at the top level, not only inside that client's diagnostic.
+- **WHEN** an Account Token is available, its Codex projection is configured,
+  and an enabled Claude binding still lacks a native executable
+- **THEN** sync preview, status, check, and doctor SHALL retain both selections
+  and give the same installation-then-sync continuation in human and JSON output
+- **AND** check MAY probe the configured Codex Route, but SHALL NOT probe the
+  unprojected Claude Route or claim all enabled clients passed.
 
 #### Scenario: Manifest setup is consumed by automation
 
