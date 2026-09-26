@@ -15,6 +15,6 @@
 
 ## 3. Governed Integration and Distribution
 
-- [ ] 3.1 Obtain exact-HEAD ETHOS proof, land the signed source through its authorized lane and candidate path, and verify clean local `main`/`dev` plus each peer's required review and branch CI at that SHA.
+- [ ] 3.1 Obtain exact-HEAD ETHOS proof, land the signed source through its authorized candidate and local accepted paths, and verify one explicitly selected review peer's required CI on that same signed candidate; leave each peer's accepted-ref and tag CI as independent post-archive delivery obligations.
 - [x] 3.2 Qualify a signed pre-archive candidate: require Apple `Accepted` and the product verifier's exact ZIP, executable, certificate, and submission-ID match; run the Claude/Codex/Hermes real-client journey against those same bytes and the verified 0.3.1 predecessor. Do not reuse this candidate as the post-archive release matrix.
 - [x] 3.3 On a qualified quiet host, measure the same pre-archive candidate against the published predecessor in opposite-order blocks; retain raw samples and the budget verdict rather than inferring performance from functional CI.

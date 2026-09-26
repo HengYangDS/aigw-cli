@@ -293,7 +293,10 @@ func TestPerformanceHostPreparesNativeMemoryTool(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, step := range workflow.Jobs["native-linux"].Steps {
-		if step.If == "github.event_name == 'workflow_dispatch' && inputs.performance" && strings.Contains(step.Run, "apt-get install --no-install-recommends -y time") {
+		if step.If == "github.event_name == 'workflow_dispatch' && inputs.performance" &&
+			strings.Contains(step.Run, "sudo -n timeout --verbose --kill-after=5s 240s") &&
+			strings.Contains(step.Run, "Acquire::http::Timeout=30") &&
+			strings.Contains(step.Run, "install --no-install-recommends -y time") {
 			return
 		}
 	}

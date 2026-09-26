@@ -129,6 +129,8 @@ func TestNativeLinuxJourneyUsesTheLockedProductAndSecretService(t *testing.T) {
 		}
 		for _, required := range []string{
 			"dbus-x11 gnome-keyring",
+			"sudo -n timeout --verbose --kill-after=5s 240s",
+			"Acquire::http::Timeout=30",
 			"dbus-run-session",
 			"SetAlias default /org/freedesktop/secrets/collection/session",
 			"AIGW_VERIFY_SYSTEM_KEYRING=1",
@@ -161,8 +163,14 @@ func TestNativeLinuxJourneyUsesTheLockedProductAndSecretService(t *testing.T) {
 	if gitlabQualification == "" {
 		t.Fatal("GitLab native Linux CI does not qualify real Secret Service")
 	}
-	if !strings.Contains(gitlabQualification, "apt-get install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin") {
-		t.Fatal("GitLab native Linux CI does not install Secret Service prerequisites")
+	for _, required := range []string{
+		"DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s",
+		"Acquire::http::Timeout=30",
+		"install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin",
+	} {
+		if !strings.Contains(gitlabQualification, required) {
+			t.Fatalf("GitLab Secret Service preparation omits %q", required)
+		}
 	}
 	githubBus := strings.Index(githubQualification, "dbus-run-session")
 	gitlabBus := strings.Index(gitlabQualification, "dbus-run-session")

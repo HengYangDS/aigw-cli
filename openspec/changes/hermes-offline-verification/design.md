@@ -73,6 +73,11 @@ credential-entrypoint cutover and bounded package upgrade.
 Complete the source, candidate, and performance tasks before archiving this
 Change through ETHOS. Archive changes the tracked source tree, so the qualified
 pre-archive candidate and its Apple submission cannot authorize the release.
+One explicitly selected peer's exact-object review CI admits the pre-archive
+candidate; unavailable peers do not block local source acceptance. Change tasks
+end at implementation and candidate acceptance. Each peer's accepted-ref and
+tag CI, published assets, installation, and lane retirement remain binding
+post-archive obligations in the canonical specifications and this design.
 From the archived, signed commit, build one new Developer ID matrix; verify its
 exact source, real clients, predecessor transition, performance, and a new Apple
 `Accepted` submission before minting the stable tag at that same commit. Then
