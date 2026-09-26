@@ -142,7 +142,7 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	}
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
 	runner.observe = func(plan process.Plan) {
-		if len(plan.Args) == 0 || plan.Args[0] != "chat" {
+		if len(plan.Args) == 0 {
 			return
 		}
 		data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
@@ -153,12 +153,18 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 			Security struct {
 				AllowLazyInstalls *bool `yaml:"allow_lazy_installs"`
 			} `yaml:"security"`
+			Updates struct {
+				Check *bool `yaml:"check"`
+			} `yaml:"updates"`
 		}
 		if err := yaml.Unmarshal(data, &projected); err != nil {
 			t.Fatal(err)
 		}
 		if projected.Security.AllowLazyInstalls == nil || *projected.Security.AllowLazyInstalls {
 			t.Fatal("isolated Hermes verification permits runtime dependency installation")
+		}
+		if projected.Updates.Check == nil || *projected.Updates.Check {
+			t.Fatal("isolated Hermes verification permits passive software update checks")
 		}
 	}
 	if _, err := (hermesAdapter{}).Verify(context.Background(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, clientRuntime, ""); err != nil {
@@ -167,6 +173,24 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	want := []string{"chat", "--quiet", "--query-file", "-", "--oneshot", "--max-turns", "1", "--run-budget", "45", "--ignore-rules", "--source", "tool"}
 	if len(runner.plans) != 2 || !slices.Equal(runner.plans[1].Args, want) {
 		t.Fatalf("Hermes verification plans = %#v", runner.plans)
+	}
+	for _, test := range []struct {
+		name, want string
+		cause      error
+	}{
+		{"deadline", "hermes version probe timed out", context.DeadlineExceeded},
+		{"cancellation", "hermes version probe interrupted", context.Canceled},
+		{"execution", "hermes version probe failed", os.ErrPermission},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			failed := &captureAdapterRunner{err: test.cause}
+			_, err := (hermesAdapter{}).Verify(context.Background(), Dependencies{
+				Runner: failed, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
+			}, cfg, clientRuntime, "")
+			if err == nil || err.Error() != test.want {
+				t.Fatalf("Hermes version probe error = %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 

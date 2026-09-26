@@ -303,7 +303,7 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 	}
 	defer func() { result = errors.Join(result, robustio.RemoveAll(home)) }()
 	verificationConfig := filepath.Join(home, "config.yaml")
-	if err := os.WriteFile(verificationConfig, []byte("security:\n  allow_lazy_installs: false\n"), 0o600); err != nil {
+	if err := os.WriteFile(verificationConfig, []byte("security:\n  allow_lazy_installs: false\nupdates:\n  check: false\n"), 0o600); err != nil {
 		return Verification{}, fmt.Errorf("prepare isolated Hermes verification policy: %w", err)
 	}
 	desired, err := hermesDesired(deps, cfg, selected)
@@ -329,7 +329,14 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 	probe := process.Plan{Executable: configured.Executable, Directory: home, Env: environment, Args: []string{"--version"}}
 	version, err := deps.Runner.RunCapture(probeCtx, probe)
 	if err != nil {
-		return Verification{}, errors.New("hermes executable identity could not be observed")
+		switch {
+		case errors.Is(err, context.DeadlineExceeded):
+			return Verification{}, errors.New("hermes version probe timed out")
+		case errors.Is(err, context.Canceled):
+			return Verification{}, errors.New("hermes version probe interrupted")
+		default:
+			return Verification{}, errors.New("hermes version probe failed")
+		}
 	}
 	probe.Args = []string{"chat", "--quiet", "--query-file", "-", "--oneshot", "--max-turns", "1", "--run-budget", "45", "--ignore-rules", "--source", "tool"}
 	probe.Stdin = "Reply with exactly AIGW_OK."
