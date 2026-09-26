@@ -322,6 +322,12 @@ func TestVerifyArtifactsWithPublicTrust(t *testing.T) {
 	if err := run([]string{"verify-artifacts", artifacts}, io.Discard); err == nil {
 		t.Fatal("verification accepted a different release tag")
 	}
+	t.Setenv("CI_COMMIT_TAG", "")
+	t.Setenv("GITHUB_REF_TYPE", "tag")
+	t.Setenv("GITHUB_REF_NAME", "v0.1.0")
+	if err := run([]string{"verify-artifacts", artifacts}, io.Discard); err != nil {
+		t.Fatalf("GitHub tag selection failed to verify release provenance: %v", err)
+	}
 }
 
 func TestNativeArtifactAcceptanceRequiresPublicTrustBeforeExecution(t *testing.T) {
@@ -363,13 +369,13 @@ func TestNativeArtifactAcceptanceSeparatesVerifierAndProductRevisions(t *testing
 	}
 }
 
-func TestNativePerformanceRequiresExplicitPublishedInputs(t *testing.T) {
+func TestNativePerformanceRequiresExplicitCandidateAndBaseline(t *testing.T) {
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
 	for _, args := range [][]string{
 		{"accept-native", "--performance", t.TempDir()},
 		{"accept-native", "--artifacts", t.TempDir(), "--performance", t.TempDir()},
 	} {
-		if err := run(args, io.Discard); err == nil || !strings.Contains(err.Error(), "published candidate and baseline") {
+		if err := run(args, io.Discard); err == nil || !strings.Contains(err.Error(), "candidate artifact and published baseline") {
 			t.Fatalf("performance input admission = %v", err)
 		}
 	}
@@ -413,6 +419,9 @@ func TestRunReportsCommandFailures(t *testing.T) {
 
 func prepareSignedRelease(t *testing.T, version string) string {
 	t.Helper()
+	for _, name := range []string{"AIGW_CHANGELOG_RELEASE_TAG", "GITHUB_REF_TYPE", "GITHUB_REF_NAME"} {
+		t.Setenv(name, "")
+	}
 	key := artifactSigningKey(t)
 	artifacts := writeArtifactFixture(t, version, key)
 	publicKey := readFile(t, key+".pub")

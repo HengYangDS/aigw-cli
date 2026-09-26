@@ -75,7 +75,7 @@ raw = true
 timeout = "5m"
 
 [tasks.performance]
-description = "Measure explicit published native artifacts with retained Hyperfine samples."
+description = "Measure explicit signed native candidate artifacts with retained Hyperfine samples."
 tools."github:sharkdp/hyperfine" = "1.20.0"
 run = "go run ./tools/release accept-native"
 

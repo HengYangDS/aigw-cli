@@ -216,13 +216,15 @@ Service still requires the separate isolated user-bus qualification. A queued
 job, inspected archive or successful checksum does not prove native execution.
 Real-client and live-Provider acceptance remain separate from this lifecycle.
 
-### Measure published native performance
+### Measure native candidate performance
 
 The existing `accept-native` command also consumes the
 [performance budgets](../governance/change-and-release-policy.md#performance-and-completion-claims).
-Use `mise run performance --artifacts "$CANDIDATE_DIRECTORY" --performance
-"$OUTPUT_DIRECTORY"` with the same signature inputs as artifact verification
-and `AIGW_ACCEPTANCE_BASELINE` pointing to the verified predecessor executable.
+Before tagging, use `mise run performance --artifacts "$CANDIDATE_DIRECTORY"
+--candidate --performance "$OUTPUT_DIRECTORY"` with the approved artifact and
+Git source trust inputs and `AIGW_ACCEPTANCE_BASELINE` pointing to the verified
+published predecessor executable. After tagging, omit `--candidate` and select
+`CI_COMMIT_TAG` to verify the signed release tag as well.
 The output must be a new absolute directory. The task installs its locked
 Hyperfine tool only when requested; ordinary checks do not require it.
 

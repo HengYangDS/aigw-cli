@@ -22,18 +22,29 @@ func buildCommands(ctx context.Context) commandSet {
 			flags := flag.NewFlagSet("accept-native", flag.ContinueOnError)
 			clients := flags.Bool("clients", false, "Also verify real clients through the native lifecycle")
 			artifacts := flags.String("artifacts", "", "Consume an existing signed release matrix instead of building")
+			candidate := flags.Bool("candidate", false, "Verify an untagged signed candidate against HEAD")
 			performance := flags.String("performance", "", "Retain Hyperfine measurements in this absolute output directory")
 			if err := flags.Parse(args); err != nil {
 				return err
 			}
-			if err := requireArguments(flags.Args(), 0, "usage: release accept-native [--artifacts <directory>] [--clients] [--performance <absolute-directory>]"); err != nil {
+			if err := requireArguments(flags.Args(), 0, "usage: release accept-native [--artifacts <directory> [--candidate]] [--clients] [--performance <absolute-directory>]"); err != nil {
 				return err
 			}
+			if *candidate && *artifacts == "" {
+				return errors.New("candidate acceptance requires --artifacts")
+			}
+			if *candidate && readiness.SelectedReleaseTag() != "" {
+				return errors.New("candidate acceptance cannot select a release tag")
+			}
 			if *performance != "" && (*artifacts == "" || strings.TrimSpace(os.Getenv("AIGW_ACCEPTANCE_BASELINE")) == "") {
-				return errors.New("performance acceptance requires an explicit published candidate and baseline")
+				return errors.New("performance acceptance requires an explicit candidate artifact and published baseline")
 			}
 			if *artifacts != "" {
-				if err := verifyArtifacts(ctx, *artifacts); err != nil {
+				verify := verifyArtifacts
+				if *candidate {
+					verify = verifyCandidateArtifacts
+				}
+				if err := verify(ctx, *artifacts); err != nil {
 					return err
 				}
 			}
@@ -204,6 +215,14 @@ func publicationCommands(ctx context.Context) commandSet {
 }
 
 func verifyArtifacts(ctx context.Context, directory string) error {
+	return verifyArtifactSource(ctx, directory, false)
+}
+
+func verifyCandidateArtifacts(ctx context.Context, directory string) error {
+	return verifyArtifactSource(ctx, directory, true)
+}
+
+func verifyArtifactSource(ctx context.Context, directory string, candidate bool) error {
 	version, err := readiness.ReadProductVersion(".")
 	if err != nil {
 		return err
@@ -216,7 +235,10 @@ func verifyArtifacts(ctx context.Context, directory string) error {
 		return err
 	}
 	source := artifact.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
-	return artifact.VerifyProvenance(ctx, directory, os.Getenv("CI_COMMIT_TAG"), source)
+	if candidate {
+		return artifact.VerifyCandidateProvenance(ctx, directory, source)
+	}
+	return artifact.VerifyProvenance(ctx, directory, readiness.SelectedReleaseTag(), source)
 }
 
 func verifyMacOSPublication(ctx context.Context, directory, version string) error {

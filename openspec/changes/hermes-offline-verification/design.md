@@ -34,6 +34,11 @@ provider routing, credential ownership, or the behavior of other clients.
    while unlisted local tags must not manufacture release history or constrain
    `VERSION`. Verify this with and without the local-only tag. Later exact-OID
    abandonment belongs to ETHOS, not AIGW's build or a raw Git bypass.
+4. Require `accept-native --artifacts ... --candidate` before tagging. Its
+   existing matrix and provenance owners verify the approved artifact signer,
+   current signed HEAD, locked inputs, and supplied bytes. Candidate mode rejects
+   a selected or same-version local tag; `verify-artifacts` and publication keep
+   their signed-tag path. Do not create a temporary tag or a second verifier.
 
 ## Risks / Trade-offs
 
@@ -46,6 +51,8 @@ provider routing, credential ownership, or the behavior of other clients.
 - **Unpublished local tag remains visible** → Disclose it outside the release
   Changelog, validate clean remote-equivalent refs, and wait for ETHOS' native
   exact-OID abandon path rather than publishing or reusing it.
+- **Tagless acceptance masks an invalid release tag** → Require explicit
+  candidate selection and reject a same-version local tag before native tests.
 
 ## Migration Plan
 

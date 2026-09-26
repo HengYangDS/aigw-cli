@@ -493,6 +493,21 @@ AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
   mise exec --locked -- go run ./tools/release accept-native
 ```
 
+Before the stable tag exists, consume the final signed matrix without rebuilding
+it. Supply independently approved artifact and Git source trust through
+`AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE`,
+`AIGW_RELEASE_ARTIFACT_SIGNER`, and `AIGW_RELEASE_ALLOWED_SIGNERS_FILE`:
+
+```bash
+AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
+  mise exec --locked -- go run ./tools/release accept-native \
+    --artifacts /absolute/path/to/candidate-dist --candidate --clients
+```
+
+`--candidate` requires a clean signed HEAD and no selected or same-version
+release tag. After tagging, omit it and select `CI_COMMIT_TAG` so the release
+verifier also checks the signed tag. Neither mode replaces supplied artifacts.
+
 On Windows, set the same environment variable to the extracted `aigw.exe`.
 Keep this variable scoped to `accept-native`; setting it for `mise run native`
 also changes the ordinary Go test environment.
@@ -531,11 +546,11 @@ deletion leaves it empty. This is not evidence of an AIGW duplicate credential.
 Retain the warning and exact backend version in acceptance evidence; do not
 silence it, delete before replacement, or claim warning-free qualification.
 
-### Existing candidate acceptance
+### Tagged artifact acceptance
 
-To qualify a complete signed release matrix without rebuilding it, supply the
-[public trust inputs](#hosted-release-verification), set `CI_COMMIT_TAG` to its
-exact signed tag, and run:
+After tagging, qualify the complete signed release matrix without rebuilding
+it: supply the [public trust inputs](#hosted-release-verification), set
+`CI_COMMIT_TAG` to its exact signed tag, and run:
 
 ```bash
 AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
