@@ -32,7 +32,7 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	switch {
 	case attention && nextAction != "":
 		r.Next(nextAction)
-	case result.State == domainreadiness.Deferred && strings.HasPrefix(result.NextAction, "set environment variable "):
+	case result.State == domainreadiness.Deferred && result.CredentialPrerequisite:
 		r.Next(result.NextAction)
 	case nextAction != "":
 		r.Next(nextAction)

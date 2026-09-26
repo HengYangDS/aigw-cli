@@ -2,18 +2,22 @@
 package activation
 
 import (
+	"slices"
+	"strings"
+
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
 )
 
-// Activation describes the enabled-client scope, not endpoint or inference
-// health. An empty scope is deferred even when the catalogue is valid.
+// Activation describes enabled-client scope and the next prerequisite, not
+// endpoint or inference health. An empty scope is deferred despite a valid catalogue.
 type Activation struct {
-	EnabledClients int
-	State          domainreadiness.State
-	NextAction     string
+	EnabledClients         int
+	State                  domainreadiness.State
+	NextAction             string
+	CredentialPrerequisite bool
 }
 
 // AssessActivation selects a safe continuation without observing unselected
@@ -35,8 +39,9 @@ func AssessActivation(cfg configuration.Config, store secrets.Store) Activation 
 	}
 
 	firstMissing := ""
+	var alternatives []string
 	seen := map[string]bool{}
-	consider := func(client, route string) bool {
+	consider := func(client, route string, selected bool) bool {
 		if route == "" {
 			return false
 		}
@@ -62,13 +67,15 @@ func AssessActivation(cfg configuration.Config, store secrets.Store) Activation 
 			result.NextAction = "aigw sync"
 			return true
 		}
-		if firstMissing == "" {
+		if selected && firstMissing == "" {
 			firstMissing, _ = credential.TokenRecovery(store, candidate.AccountID)
+		} else if !selected {
+			alternatives = append(alternatives, secrets.EnvironmentKey(candidate.AccountID))
 		}
 		return false
 	}
 	for _, client := range configuration.AdmittedClientIDs() {
-		if consider(client, cfg.SelectedRoute(client)) {
+		if consider(client, cfg.SelectedRoute(client), true) {
 			return result
 		}
 	}
@@ -77,17 +84,22 @@ func AssessActivation(cfg configuration.Config, store secrets.Store) Activation 
 			continue
 		}
 		recommendation := cfg.Recommendations[client]
-		if consider(client, recommendation.Primary.Route) {
+		if consider(client, recommendation.Primary.Route, false) {
 			return result
 		}
 		for _, alternative := range recommendation.Alternatives {
-			if consider(client, alternative.Route) {
+			if consider(client, alternative.Route, false) {
 				return result
 			}
 		}
 	}
 	if firstMissing != "" {
 		result.NextAction = firstMissing
+		result.CredentialPrerequisite = true
+	} else if len(alternatives) > 0 {
+		slices.Sort(alternatives)
+		result.NextAction = "Set one compatible Account variable: " + strings.Join(alternatives, " or ")
+		result.CredentialPrerequisite = true
 	} else {
 		result.NextAction = "aigw use --help"
 	}

@@ -11,7 +11,7 @@
 - [ ] 1.3 Capture protected 0.3.1 installation, selected Client Bindings,
       credential backend, running callers, and rollback bytes without reading or
       logging Token values; verify metadata before any host cutover.
-- [ ] 1.4 Reproduce the installed and current-source no-Token/no-client
+- [x] 1.4 Reproduce the installed and current-source no-Token/no-client
       setup-to-sync contradiction in an isolated home, including cleanup and no host
       writes; retain one focused RED CLI regression.
 

@@ -1,6 +1,7 @@
 package onboarding
 
 import (
+	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -165,6 +166,11 @@ func buildManifestSetupResult(
 	switch {
 	case len(result.DeferredActions) == 0:
 		result.NextAction = "aigw check"
+	case needsAccountToken && secrets.IsReadOnly(runtime.Secrets):
+		result.NextAction = clientactivation.AssessActivation(cfg, runtime.Secrets).NextAction
+		if result.NextAction == "" {
+			result.NextAction = "aigw check"
+		}
 	case needsAccountToken && !secrets.IsReadOnly(runtime.Secrets):
 		result.NextAction = "aigw rotate <account>"
 	default:
@@ -207,7 +213,9 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 	}
 	r.Success("Reviewed Accounts and Routes are available; Tokens remain outside configuration")
 	for _, detail := range result.DeferredActions {
-		r.Detail(detail)
+		if detail != result.NextAction {
+			r.Detail(detail)
+		}
 	}
 	r.Next(result.NextAction)
 }

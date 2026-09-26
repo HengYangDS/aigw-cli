@@ -54,6 +54,24 @@ func TestAssessActivationChoosesOneCompatibleEnvironmentAccount(t *testing.T) {
 	}
 }
 
+func TestAssessActivationListsUnselectedCompatibleEnvironmentAccounts(t *testing.T) {
+	cfg := configuration.NewConfig()
+	cfg.Accounts["ucloud"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://ucloud.test"}}
+	cfg.Accounts["dmx"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://dmx.test"}}
+	cfg.Routes["ucloud-claude"] = configuration.Route{Account: "ucloud", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.Routes["dmx-claude"] = configuration.Route{Account: "dmx", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.SetRecommendedRoute(configuration.ClientClaude, "ucloud-claude")
+	recommendation := cfg.Recommendations[configuration.ClientClaude]
+	recommendation.Alternatives = []configuration.ClientSelection{{Route: "dmx-claude"}}
+	cfg.Recommendations[configuration.ClientClaude] = recommendation
+
+	got := AssessActivation(cfg, secrets.NewEnvironmentStore(func(string) string { return "" }))
+	want := "Set one compatible Account variable: " + secrets.EnvironmentKey("dmx") + " or " + secrets.EnvironmentKey("ucloud")
+	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextAction != want {
+		t.Fatalf("unselected alternatives = %+v, want %q", got, want)
+	}
+}
+
 func TestAssessActivationDoesNotObserveUnselectedNativeCredentials(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}

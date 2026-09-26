@@ -82,7 +82,9 @@ func assertDeferredHumanCommand(t *testing.T, app *cli.App, out *bytes.Buffer, c
 	if (err != nil) != (command == "check") {
 		t.Fatalf("human %s error = %v\n%s", command, err, out)
 	}
-	if !strings.Contains(out.String(), "No client is enabled") || !strings.Contains(out.String(), wantAction) {
+	human := strings.Join(strings.Fields(out.String()), " ")
+	action := strings.Join(strings.Fields(wantAction), " ")
+	if !strings.Contains(human, "No client is enabled") || !strings.Contains(human, action) {
 		t.Fatalf("human %s implied usable health:\n%s", command, out)
 	}
 	if command == "doctor" && strings.Contains(out.String(), "No problems found") {
@@ -94,7 +96,6 @@ func TestShippedTeamManifestWithoutAccountOrClientIsDeferred(t *testing.T) {
 	app, out, _, runner, httpClient := testApp(t, "")
 	app.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
 	app.Discovery = fakeDiscovery{}
-	wantAction := "set environment variable " + secrets.EnvironmentKey("dmxapi")
 
 	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
 		t.Fatalf("setup shipped catalogue: %v\n%s", err, out)
@@ -102,12 +103,22 @@ func TestShippedTeamManifestWithoutAccountOrClientIsDeferred(t *testing.T) {
 	var setup struct {
 		SelectedBindings map[string]string `json:"selected_bindings"`
 		DeferredActions  []string          `json:"deferred_actions"`
+		NextAction       string            `json:"next_action"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &setup); err != nil {
 		t.Fatalf("decode setup: %v\n%s", err, out)
 	}
-	if len(setup.SelectedBindings) != 0 || len(setup.DeferredActions) == 0 {
+	if len(setup.SelectedBindings) != 0 || len(setup.DeferredActions) != 1 {
 		t.Fatalf("setup activation = %+v", setup)
+	}
+	wantAction := setup.DeferredActions[0]
+	for _, account := range []string{"aihubmix", "dmxapi", "ucloud"} {
+		if !strings.Contains(wantAction, secrets.EnvironmentKey(account)) {
+			t.Fatalf("missing compatible Account %q in %q", account, wantAction)
+		}
+	}
+	if setup.NextAction != wantAction {
+		t.Fatalf("setup next action %q differs from prerequisite %q", setup.NextAction, wantAction)
 	}
 	before, err := app.Config.CaptureSnapshot()
 	if err != nil {

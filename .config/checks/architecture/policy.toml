@@ -315,6 +315,7 @@ allowed_import_edges."internal/cli/account" = [
   "internal/secrets",
 ]
 allowed_import_edges."internal/cli/onboarding" = [
+  "internal/activation",
   "internal/cli/invocation",
   "internal/configuration",
   "internal/credential",
