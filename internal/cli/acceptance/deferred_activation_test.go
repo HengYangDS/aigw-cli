@@ -139,3 +139,40 @@ func TestShippedTeamManifestWithoutAccountOrClientIsDeferred(t *testing.T) {
 		t.Fatalf("deferred activation invoked client or endpoint: plans=%d http=%d", len(runner.plans), httpClient.calls)
 	}
 }
+
+func TestShippedTeamManifestWithWritableStoreRequiresOneAccountChoice(t *testing.T) {
+	app, out, _, runner, httpClient := testApp(t, "")
+	app.Discovery = fakeDiscovery{}
+
+	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
+		t.Fatalf("setup shipped catalogue: %v\n%s", err, out)
+	}
+	var setup struct {
+		SelectedBindings map[string]string `json:"selected_bindings"`
+		DeferredActions  []string          `json:"deferred_actions"`
+		NextAction       string            `json:"next_action"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &setup); err != nil {
+		t.Fatalf("decode setup: %v\n%s", err, out)
+	}
+	if len(setup.SelectedBindings) != 0 || len(setup.DeferredActions) != 1 || setup.NextAction != setup.DeferredActions[0] {
+		t.Fatalf("setup activation = %+v", setup)
+	}
+	for _, account := range []string{"aihubmix", "dmxapi", "ucloud"} {
+		if !strings.Contains(setup.NextAction, "aigw rotate "+account) {
+			t.Fatalf("setup omitted Account choice %q: %q", account, setup.NextAction)
+		}
+	}
+	if strings.Contains(setup.NextAction, "aigw sync") {
+		t.Fatalf("setup recommended synchronization before its prerequisite: %q", setup.NextAction)
+	}
+	for _, command := range []string{"sync", "status", "check", "doctor"} {
+		assertDeferredJSONCommand(t, app, out, command, setup.NextAction)
+	}
+	for _, command := range []string{"status", "check", "doctor"} {
+		assertDeferredHumanCommand(t, app, out, command, setup.NextAction)
+	}
+	if len(runner.plans) != 0 || httpClient.calls != 0 {
+		t.Fatalf("deferred activation invoked client or endpoint: plans=%d http=%d", len(runner.plans), httpClient.calls)
+	}
+}

@@ -350,7 +350,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 func TestStatusReportsSelectedUnknownRoute(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
 	cfg.SetSelectedRoute(configuration.ClientClaude, "missing")
-	state := inspectStatusClients(runtime, cfg)[configuration.ClientClaude]
+	state := inspectStatusClients(runtime, cfg, nil)[configuration.ClientClaude]
 	if state.State != domainreadiness.Invalid || state.Route != "missing" || !strings.Contains(state.Detail, `unknown route "missing"`) {
 		t.Fatalf("Claude status = %#v", state)
 	}
@@ -367,7 +367,7 @@ func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 	}
 
 	collectStatus(runtime, cfg)
-	if store.existsCalls != len([]string{configuration.ClientClaude, configuration.ClientCodex}) || store.getCalls != 0 {
+	if store.existsCalls != 1 || store.getCalls != 0 {
 		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
 	}
 }

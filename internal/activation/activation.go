@@ -11,13 +11,30 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-// Activation describes enabled-client scope and the next prerequisite, not
-// endpoint or inference health. An empty scope is deferred despite a valid catalogue.
+// Activation describes enabled-client scope, the next prerequisite, and
+// reusable credential metadata, never Token values or inference health.
+// An empty scope is deferred despite a valid catalogue.
 type Activation struct {
 	EnabledClients         int
 	State                  domainreadiness.State
 	NextAction             string
 	CredentialPrerequisite bool
+	observedCredentials    map[string]credentialObservation
+}
+
+type credentialObservation struct {
+	available bool
+	err       error
+}
+
+// CredentialAvailability reuses metadata already observed for one selected
+// Account; it never returns or reads the Token value.
+func (a *Activation) CredentialAvailability(account string) (available bool, err error, observed bool) {
+	if a == nil {
+		return false, nil, false
+	}
+	result, observed := a.observedCredentials[account]
+	return result.available, result.err, observed
 }
 
 // AssessActivation selects a safe continuation without observing unselected
@@ -33,11 +50,16 @@ func AssessActivation(cfg configuration.Config, store secrets.Store) Activation 
 		result.NextAction = "aigw setup"
 		return result
 	}
-	if !secrets.IsReadOnly(store) {
-		result.NextAction = "aigw sync"
-		return result
+	if store == nil {
+		return Activation{EnabledClients: result.EnabledClients, State: domainreadiness.Unavailable, NextAction: "aigw doctor"}
 	}
 
+	readOnly := secrets.IsReadOnly(store)
+	choicePrefix := "Set one compatible Account variable: "
+	if !readOnly {
+		choicePrefix = "Choose one compatible Account: "
+	}
+	result.observedCredentials = map[string]credentialObservation{}
 	firstMissing := ""
 	var alternatives []string
 	seen := map[string]bool{}
@@ -57,7 +79,12 @@ func AssessActivation(cfg configuration.Config, store secrets.Store) Activation 
 			return false
 		}
 		seen[candidate.AccountID] = true
+		if !selected && !readOnly {
+			alternatives = append(alternatives, "aigw rotate "+candidate.AccountID)
+			return false
+		}
 		available, err := store.Exists(candidate.AccountID)
+		result.observedCredentials[candidate.AccountID] = credentialObservation{available: available, err: err}
 		if err != nil {
 			result.State = domainreadiness.Unavailable
 			result.NextAction = "aigw doctor"
@@ -98,7 +125,7 @@ func AssessActivation(cfg configuration.Config, store secrets.Store) Activation 
 		result.CredentialPrerequisite = true
 	} else if len(alternatives) > 0 {
 		slices.Sort(alternatives)
-		result.NextAction = "Set one compatible Account variable: " + strings.Join(alternatives, " or ")
+		result.NextAction = choicePrefix + strings.Join(alternatives, " or ")
 		result.CredentialPrerequisite = true
 	} else {
 		result.NextAction = "aigw use --help"

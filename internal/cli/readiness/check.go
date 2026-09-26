@@ -160,7 +160,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if activation.EnabledClients == 0 {
 		result := checkJSON{
 			ConfigPath:     runtime.Config.Path(),
-			Clients:        inspectStatusClients(runtime, cfg),
+			Clients:        inspectStatusClients(runtime, cfg, &activation),
 			EnabledClients: 0,
 			OK:             false,
 			State:          activation.State,
@@ -173,7 +173,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		return presentation.Presented(fmt.Errorf("no enabled Client Bindings"))
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
-	clients := inspectStatusClients(runtime, cfg)
+	clients := inspectStatusClients(runtime, cfg, &activation)
 	result := checkJSON{
 		ConfigPath:     evaluation.configPath,
 		Clients:        clients,

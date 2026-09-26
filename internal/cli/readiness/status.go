@@ -77,7 +77,7 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 
 // inspectStatusClients observes every admitted client without authenticating
 // an endpoint or reading Token values.
-func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) map[string]clientStatus {
+func inspectStatusClients(runtime invocation.Context, cfg configuration.Config, activation *clientactivation.Activation) map[string]clientStatus {
 	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
 	clients := make(map[string]clientStatus, len(clientIDs))
 	for _, clientID := range clientIDs {
@@ -101,7 +101,10 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 			ProjectionAction:   adapterStatus.RepairAction,
 		}
 		if facts.CredentialRequired && (!facts.ProjectionEnabled || facts.ProjectionReady) {
-			available, observationErr := runtime.Secrets.Exists(clientRuntime.AccountID)
+			available, observationErr, observed := activation.CredentialAvailability(clientRuntime.AccountID)
+			if !observed {
+				available, observationErr = runtime.Secrets.Exists(clientRuntime.AccountID)
+			}
 			facts.CredentialAvailable = available
 			if observationErr != nil {
 				facts.CredentialObservationIssue = "Credential metadata is unavailable"
@@ -157,7 +160,7 @@ func unresolvedClientStatus(cfg *configuration.Config, clientID string, resolveE
 // InspectClients returns the canonical, secret-free local state of every
 // admitted client without authenticating an endpoint or reading Token values.
 func InspectClients(runtime invocation.Context, cfg configuration.Config) map[string]domainreadiness.Client {
-	observed := inspectStatusClients(runtime, cfg)
+	observed := inspectStatusClients(runtime, cfg, nil)
 	clients := make(map[string]domainreadiness.Client, len(observed))
 	for client, status := range observed {
 		clients[client] = status.Client
@@ -170,8 +173,8 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 	if backendErr != nil {
 		backend.RecoveryAction = domainreadiness.CredentialBackendRecovery
 	}
-	clients := inspectStatusClients(runtime, cfg)
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
+	clients := inspectStatusClients(runtime, cfg, &activation)
 	return statusOutput{
 		ConfigPath:             runtime.Config.Path(),
 		CredentialBackend:      backend,

@@ -130,13 +130,9 @@ func buildManifestSetupResult(
 			result.ProjectedClients = append(result.ProjectedClients, client)
 		}
 	}
-	var accountVariables []string
 	for _, name := range accountNames {
 		if _, isConnected := connected[name]; isConnected {
 			result.ConnectedAccounts = append(result.ConnectedAccounts, name)
-		}
-		if accountHasRecommendedTokenSelection(cfg, name) {
-			accountVariables = append(accountVariables, secrets.EnvironmentKey(name))
 		}
 	}
 	for client, binding := range cfg.Clients {
@@ -144,13 +140,9 @@ func buildManifestSetupResult(
 			result.SelectedBindings[client] = binding.Route
 		}
 	}
-	needsAccountToken := len(accountVariables) > 0
-	if needsAccountToken {
-		if secrets.IsReadOnly(runtime.Secrets) {
-			result.DeferredActions = append(result.DeferredActions, "Set one compatible Account variable: "+strings.Join(accountVariables, " or "))
-		} else {
-			result.DeferredActions = append(result.DeferredActions, "Connect one compatible Account")
-		}
+	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
+	if activation.CredentialPrerequisite {
+		result.DeferredActions = append(result.DeferredActions, activation.NextAction)
 	}
 	for _, spec := range configuration.AdmittedClientSpecs() {
 		binding, selected := cfg.Clients[spec.ID]
@@ -166,13 +158,8 @@ func buildManifestSetupResult(
 	switch {
 	case len(result.DeferredActions) == 0:
 		result.NextAction = "aigw check"
-	case needsAccountToken && secrets.IsReadOnly(runtime.Secrets):
-		result.NextAction = clientactivation.AssessActivation(cfg, runtime.Secrets).NextAction
-		if result.NextAction == "" {
-			result.NextAction = "aigw check"
-		}
-	case needsAccountToken && !secrets.IsReadOnly(runtime.Secrets):
-		result.NextAction = "aigw rotate <account>"
+	case activation.CredentialPrerequisite:
+		result.NextAction = activation.NextAction
 	default:
 		result.NextAction = "aigw sync"
 	}

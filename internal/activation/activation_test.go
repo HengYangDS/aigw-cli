@@ -78,7 +78,7 @@ func TestAssessActivationDoesNotObserveUnselectedNativeCredentials(t *testing.T)
 	cfg.Routes["claude"] = configuration.Route{Account: "team", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.SetRecommendedRoute(configuration.ClientClaude, "claude")
 	got := AssessActivation(cfg, unobservedWritableStore{})
-	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextAction == "aigw check" || got.NextAction == "" {
+	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextAction != "Choose one compatible Account: aigw rotate team" || !got.CredentialPrerequisite {
 		t.Fatalf("native backend activation = %+v", got)
 	}
 
@@ -87,5 +87,25 @@ func TestAssessActivationDoesNotObserveUnselectedNativeCredentials(t *testing.T)
 	got = AssessActivation(cfg, unobservedWritableStore{})
 	if got.EnabledClients != 1 || got.State != "" || got.NextAction != "" {
 		t.Fatalf("enabled client activation = %+v", got)
+	}
+}
+
+func TestAssessActivationSelectedWritableAccountRequiresItsToken(t *testing.T) {
+	cfg := configuration.NewConfig()
+	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
+	cfg.Routes["claude"] = configuration.Route{Account: "team", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	store := secrets.NewMemoryStore()
+
+	got := AssessActivation(cfg, store)
+	if got.NextAction != "run `aigw rotate team`" || !got.CredentialPrerequisite {
+		t.Fatalf("selected Account without Token = %+v", got)
+	}
+	if err := store.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	got = AssessActivation(cfg, store)
+	if got.NextAction != "aigw sync" || got.CredentialPrerequisite {
+		t.Fatalf("selected Account with Token = %+v", got)
 	}
 }
