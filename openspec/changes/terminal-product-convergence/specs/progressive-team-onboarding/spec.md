@@ -59,10 +59,15 @@ semantic result, and never expose credentials.
 
 #### Scenario: Connected Account precedes client installation
 
-- **WHEN** setup connects an Account and no admitted client is installed
-- **THEN** its human and machine-readable results SHALL identify `aigw sync` as
-  the next action after client installation
-- **AND** SHALL NOT identify an observational command as the activation action.
+- **WHEN** setup or Route selection connects an Account and enables a selected
+  Client Binding without recording a native executable for its projection
+- **THEN** the Account, Token, Route, and enabled intent SHALL remain distinct
+  from the deferred native projection and unverified inference
+- **AND** setup, selection, sync preview, status, check, and doctor SHALL name
+  installation if needed followed by `aigw sync`, not immediate `aigw check`,
+  as the activation continuation
+- **AND** check SHALL NOT probe the endpoint before projection is available;
+  doctor MAY pass local diagnostics without claiming client readiness.
 
 #### Scenario: Manifest setup is consumed by automation
 

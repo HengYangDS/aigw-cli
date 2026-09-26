@@ -149,6 +149,10 @@ func buildManifestSetupResult(
 		if !selected || binding.Route == "" || !binding.Enabled || slices.Contains(result.ProjectedClients, spec.ID) {
 			continue
 		}
+		if action := activation.ProjectionPrerequisites[spec.ID]; action != "" {
+			result.DeferredActions = append(result.DeferredActions, action)
+			continue
+		}
 		if !availableClients[spec.ID] {
 			result.DeferredActions = append(result.DeferredActions, "Install "+spec.Label+", then run `aigw sync`")
 			continue
@@ -156,10 +160,10 @@ func buildManifestSetupResult(
 		result.DeferredActions = append(result.DeferredActions, "Connect the selected Account for "+spec.Label+", then run `aigw sync`")
 	}
 	switch {
+	case activation.NextAction != "":
+		result.NextAction = activation.NextAction
 	case len(result.DeferredActions) == 0:
 		result.NextAction = "aigw check"
-	case activation.CredentialPrerequisite:
-		result.NextAction = activation.NextAction
 	default:
 		result.NextAction = "aigw sync"
 	}

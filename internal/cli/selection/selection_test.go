@@ -132,7 +132,7 @@ func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 	if got.SelectedRoute(configuration.ClientClaude) != "claude" || got.SelectedRoute(configuration.ClientCodex) != "codex" || len(got.Clients) != 2 {
 		t.Fatalf("client bindings = %#v", got.Clients)
 	}
-	for _, want := range []string{"Route selected", "Claude", "Team reviewer", "Client configuration synchronized", "aigw check"} {
+	for _, want := range []string{"Route selected", "Claude", "Team reviewer", "Projection", "Install Claude if needed, then run `aigw sync`"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("output lacks %q: %q", want, out.String())
 		}
@@ -147,7 +147,7 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 		forbid    string
 	}{
 		{name: "restart", installed: true, want: []string{"Route selected", "Restart required", "Restart Claude Desktop, then run `aigw check`"}},
-		{name: "deferred", want: []string{"Route selected", "Projection", "Deferred; Claude Desktop is not installed", "Install Claude Desktop, then run `aigw sync`"}, forbid: "Restart required"},
+		{name: "deferred", want: []string{"Route selected", "Projection", "Deferred; native client projection is unavailable", "Install Claude Desktop if needed, then run `aigw sync`"}, forbid: "Restart required"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, out := configuredRuntime(t)
@@ -281,7 +281,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			t.Fatalf("token = %q, %v", token, err)
 		}
 		out := buffer.String()
-		for _, want := range []string{"Route selected", "Account token stored; client configuration synchronized"} {
+		for _, want := range []string{"Route selected", "Account Token", "Validated and stored", "Install Codex if needed, then run `aigw sync`"} {
 			if !strings.Contains(out, want) {
 				t.Fatalf("credential acquisition output lacks %q: %q", want, out)
 			}

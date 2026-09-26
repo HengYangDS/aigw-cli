@@ -98,7 +98,11 @@ func NewCommand(deps Dependencies) *cobra.Command {
 			}
 			r.Section("Result")
 			if result.State == domainreadiness.Deferred {
-				r.Status(presentation.Info, "Client activation", "No client is enabled")
+				message := "No client is enabled"
+				if result.EnabledClients != 0 {
+					message = "Selected client projection is deferred"
+				}
+				r.Status(presentation.Info, "Client activation", message)
 				r.Detail("Local diagnostics passed; no client endpoint or model was checked")
 				r.Next(result.NextAction)
 				return r.Err()
@@ -263,6 +267,7 @@ func Collect(ctx context.Context, deps Dependencies) []Check {
 
 func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cfg configuration.Config) []Check {
 	checks := make([]Check, 0)
+	projectionPrerequisites := clientactivation.ProjectionPrerequisites(cfg)
 	for _, clientID := range clients.ClientIDs() {
 		adapter := cfg.Clients[clientID]
 		if !adapter.Enabled {
@@ -272,6 +277,9 @@ func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cf
 		runtime, err := cfg.ResolveRuntime(clientID, "")
 		if err != nil {
 			checks = append(checks, Check{Name: "projection:" + clientID, Detail: err.Error(), Fix: "run `aigw use --for " + clientID + " <route>`"})
+			continue
+		}
+		if projectionPrerequisites[clientID] != "" {
 			continue
 		}
 		status := clients.Inspect(ctx, cfg, clientID, runtime)
@@ -303,6 +311,16 @@ func commandFix(action string) string {
 
 // Label maps a diagnostic identity to a stable human label.
 func Label(name string) string {
+	if clientID, ok := strings.CutPrefix(name, "adapter:"); ok {
+		if spec, admitted := configuration.ClientSpecFor(clientID); admitted {
+			return spec.Label + " adapter"
+		}
+	}
+	if clientID, ok := strings.CutPrefix(name, "projection:"); ok {
+		if spec, admitted := configuration.ClientSpecFor(clientID); admitted {
+			return spec.Label + " route"
+		}
+	}
 	switch {
 	case name == "environment:client-token":
 		return "Client token environment"
@@ -312,12 +330,6 @@ func Label(name string) string {
 		return "Credential backend"
 	case strings.HasPrefix(name, "secret:"):
 		return "Account Token"
-	case name == "adapter:claude":
-		return "Claude adapter"
-	case name == "adapter:codex":
-		return "Codex adapter"
-	case name == "projection:codex":
-		return "Codex route"
 	case strings.HasPrefix(name, "codex:target-"):
 		return "Codex configuration target " + strings.TrimPrefix(name, "codex:target-")
 	default:

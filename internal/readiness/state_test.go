@@ -54,6 +54,18 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 			wantAction: "aigw sync",
 		},
 		{
+			name: "selected client projection is deferred",
+			facts: ClientFacts{
+				Route:              "hermes-route",
+				Account:            "team",
+				ProjectionEnabled:  true,
+				ProjectionDeferred: true,
+				ProjectionAction:   "Install Hermes if needed, then run `aigw sync`",
+			},
+			wantState:  Deferred,
+			wantAction: "Install Hermes if needed, then run `aigw sync`",
+		},
+		{
 			name: "enabled projection is invalid",
 			facts: ClientFacts{
 				Route:               "codex",

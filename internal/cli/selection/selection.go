@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -79,12 +80,18 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 				r.Row("Purpose", purpose)
 			}
-			r.Row("Client", invocation.Title(client))
-			r.Row("Protocol", string(selected.Protocol))
 			spec, _ := configuration.ClientSpecFor(client)
-			if spec.RestartAfterProjection && (binding.Executable == "" || len(binding.Targets) == 0) {
-				r.Row("Projection", fmt.Sprintf("Deferred; %s is not installed", spec.Label))
-				r.Next(fmt.Sprintf("Install %s, then run `aigw sync`", spec.Label))
+			r.Row("Client", spec.Label)
+			r.Row("Protocol", string(selected.Protocol))
+			updated := cfg.Clone()
+			updated.Clients[client] = binding
+			activation := clientactivation.AssessActivation(updated, runtime.Secrets)
+			if action := activation.ProjectionPrerequisites[client]; action != "" {
+				if token != "" {
+					r.Row("Account Token", "Validated and stored")
+				}
+				r.Row("Projection", "Deferred; native client projection is unavailable")
+				r.Next(action)
 				return r.Err()
 			}
 			r.Success(detail)

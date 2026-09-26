@@ -229,6 +229,7 @@ allowed_import_edges."internal/cli/install" = [
   "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/selection" = [
+  "internal/activation",
   "internal/cli/invocation",
   "internal/configuration",
   "internal/credential",
@@ -252,6 +253,7 @@ allowed_import_edges."internal/cli/recovery" = [
   "internal/configuration",
   "internal/discovery",
   "internal/presentation",
+  "internal/readiness",
   "internal/synchronization",
 ]
 allowed_import_edges."internal/cli/catalog" = [

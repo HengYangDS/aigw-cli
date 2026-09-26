@@ -112,10 +112,13 @@ func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testi
 	if cfg.SelectedRoute(configuration.ClientClaude) != "dmxapi-claude" || cfg.SelectedRoute(configuration.ClientCodex) != "dmxapi-gpt" {
 		t.Fatalf("available Account did not become usable: %#v", cfg.Clients)
 	}
-	for _, want := range []string{"Install Claude, then run `aigw sync`", "Install Codex, then run `aigw sync`", "Next", "aigw sync"} {
+	for _, want := range []string{"Install Claude if needed, then run `aigw sync`", "Install Codex if needed, then run `aigw sync`", "Next", "aigw sync"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output missing %q:\n%s", want, out.String())
 		}
+	}
+	if !strings.HasSuffix(strings.TrimSpace(out.String()), "Install Claude if needed, then run `aigw sync`") {
+		t.Fatalf("setup omitted the selected client's installation prerequisite:\n%s", out.String())
 	}
 	if strings.Contains(out.String(), "aigw status") {
 		t.Fatalf("setup pointed to an observational command instead of activation:\n%s", out.String())

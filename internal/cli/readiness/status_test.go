@@ -30,7 +30,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
-		cfg.SetClientActivation(client, true, "", nil)
+		cfg.SetClientActivation(client, true, "/opt/"+client, nil)
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -376,6 +376,7 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
 	codexBinding := cfg.Clients[configuration.ClientCodex]
 	codexBinding.Enabled = true
+	codexBinding.Executable = "/opt/codex"
 	codexBinding.ModelProvider = "amazon-bedrock"
 	codexBinding.Authentication = configuration.AuthenticationClientNative
 	cfg.Clients[configuration.ClientCodex] = codexBinding
@@ -400,7 +401,7 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	if store.existsCalls != 1 || store.getCalls != 0 {
 		t.Fatalf("status credential observations = exists %d, get %d; want only the Claude Account-Token lookup", store.existsCalls, store.getCalls)
 	}
-	for _, want := range []string{"Client-owned authentication", "aigw verify --for codex"} {
+	for _, want := range []string{"Client-owned authentication", "Selected client projection is deferred", "aigw verify --for codex"} {
 		if !strings.Contains(strings.ToLower(human), strings.ToLower(want)) {
 			t.Fatalf("client-native status = %q, want %q", human, want)
 		}

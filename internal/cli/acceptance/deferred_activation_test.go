@@ -176,3 +176,68 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneAccountChoice(t *testing
 		t.Fatalf("deferred activation invoked client or endpoint: plans=%d http=%d", len(runner.plans), httpClient.calls)
 	}
 }
+
+func TestSelectedClientWithoutExecutableHasOneDeferredContinuation(t *testing.T) {
+	app, out, credentials, runner, httpClient := testApp(t, "")
+	app.Interactive = true
+	app.Discovery = fakeDiscovery{}
+	app.Prompt = &scriptedPrompt{
+		selections: []string{configuration.ClientHermes, string(configuration.ProtocolAnthropic)},
+		secrets:    []string{"fixture-token"},
+		texts:      []string{"team", "Team", "https://messages.test", "hermes-route", "hermes-model"},
+	}
+	if err := cli.Execute(app, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !secretExists(t, credentials, "team") {
+		t.Fatal("guided setup did not connect the selected Account")
+	}
+	wantAction := "Install Hermes if needed, then run `aigw sync`"
+	if !strings.Contains(out.String(), wantAction) {
+		t.Fatalf("guided setup action = %q", out)
+	}
+	before, err := app.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	requestsBefore := httpClient.calls
+
+	for _, command := range []string{"sync", "status", "check", "doctor"} {
+		out.Reset()
+		args := []string{command, "--json"}
+		if command == "sync" {
+			args = []string{"sync", "--dry-run", "--json"}
+		}
+		err := cli.Execute(app, args)
+		if (err != nil) != (command == "check") {
+			t.Fatalf("%s error = %v\n%s", command, err, out)
+		}
+		var result deferredActivationDocument
+		if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+			t.Fatalf("decode %s: %v\n%s", command, err, out)
+		}
+		if result.EnabledClients != 1 || result.State != "deferred" || result.NextAction != wantAction {
+			t.Fatalf("%s activation = %+v\n%s", command, result, out)
+		}
+		if command != "sync" && result.Clients[configuration.ClientHermes].State != "deferred" {
+			t.Fatalf("%s Hermes state = %+v", command, result.Clients[configuration.ClientHermes])
+		}
+	}
+	for _, command := range []string{"status", "check", "doctor"} {
+		out.Reset()
+		err := cli.Execute(app, []string{command})
+		if (err != nil) != (command == "check") {
+			t.Fatalf("human %s error = %v\n%s", command, err, out)
+		}
+		if !strings.Contains(out.String(), wantAction) || strings.Contains(out.String(), "No client is enabled") {
+			t.Fatalf("human %s continuation = %q", command, out)
+		}
+	}
+	after, err := app.Config.CaptureSnapshot()
+	if err != nil || !before.Config.Equal(after.Config) || !before.Backup.Equal(after.Backup) || !before.Verified.Equal(after.Verified) {
+		t.Fatalf("read-only commands changed configuration: %v", err)
+	}
+	if len(runner.plans) != 0 || httpClient.calls != requestsBefore {
+		t.Fatalf("deferred activation invoked client or endpoint: plans=%d http=%d, before=%d", len(runner.plans), httpClient.calls, requestsBefore)
+	}
+}

@@ -109,3 +109,24 @@ func TestAssessActivationSelectedWritableAccountRequiresItsToken(t *testing.T) {
 		t.Fatalf("selected Account with Token = %+v", got)
 	}
 }
+
+func TestAssessActivationSeparatesEnabledIntentFromDeferredProjection(t *testing.T) {
+	cfg := configuration.NewConfig()
+	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
+	cfg.Routes["hermes"] = configuration.Route{Account: "team", Model: "model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.SetSelectedRoute(configuration.ClientHermes, "hermes")
+	cfg.SetClientActivation(configuration.ClientHermes, true, "", nil)
+
+	got := AssessActivation(cfg, unobservedWritableStore{})
+	want := "Install Hermes if needed, then run `aigw sync`"
+	if got.EnabledClients != 1 || got.State != domainreadiness.Deferred || got.NextAction != want || got.ProjectionPrerequisites[configuration.ClientHermes] != want {
+		t.Fatalf("selected but unprojected client = %+v", got)
+	}
+
+	cfg.SetSelectedRoute(configuration.ClientCodex, "hermes")
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{"/opt/codex/config.toml"})
+	got = AssessActivation(cfg, unobservedWritableStore{})
+	if got.EnabledClients != 2 || got.State != "" || got.NextAction != "" || got.ProjectionPrerequisites[configuration.ClientHermes] != want {
+		t.Fatalf("mixed projected and deferred clients = %+v", got)
+	}
+}

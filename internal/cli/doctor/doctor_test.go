@@ -98,14 +98,13 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	cfg.SetClientActivation(configuration.ClientCodex, true, "", nil)
 	deps, _, _ := doctorDependencies(t, cfg)
 	checks := Collect(context.Background(), deps)
-	for _, name := range []string{"secret:team", "adapter:claude", "adapter:codex"} {
-		check := findCheck(t, checks, name)
-		if check.OK || check.Fix == "" {
-			t.Fatalf("%s = %#v", name, check)
-		}
+	if check := findCheck(t, checks, "secret:team"); check.OK || check.Fix == "" {
+		t.Fatalf("missing Account Token = %#v", check)
 	}
-	if findCheck(t, checks, "adapter:claude").Detail != "Claude executable is not configured" {
-		t.Fatalf("checks = %#v", checks)
+	for _, check := range checks {
+		if check.Name == "adapter:claude" || check.Name == "adapter:codex" {
+			t.Fatalf("deferred client must not become a failed or healthy adapter check: %#v", check)
+		}
 	}
 
 	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", nil)

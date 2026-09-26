@@ -255,7 +255,7 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 	}
 }
 
-func TestCheckAdmitsProjectionBeforeReadingCredentials(t *testing.T) {
+func TestCheckDefersUnprojectedClientBeforeReadingCredentials(t *testing.T) {
 	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		for _, jsonMode := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%t", client, jsonMode), func(t *testing.T) {
@@ -294,11 +294,11 @@ func TestCheckAdmitsProjectionBeforeReadingCredentials(t *testing.T) {
 						t.Fatal(err)
 					}
 					problemDetail, problemAction = result.Clients[client].Detail, result.Clients[client].NextAction
-					if state := result.Clients[client]; state.State != domainreadiness.Invalid || state.NextAction != problemAction || state.Detail != problemDetail {
+					if state := result.Clients[client]; state.State != domainreadiness.Deferred || state.NextAction != problemAction || state.Detail != problemDetail {
 						t.Fatalf("client status = %+v", state)
 					}
 				}
-				if !strings.Contains(problemDetail, "executable is not configured") || problemAction != "aigw repair" {
+				if !strings.Contains(strings.ToLower(problemDetail), "projection") || problemAction != "Install "+invocation.Title(client)+" if needed, then run `aigw sync`" {
 					t.Fatalf("projection recovery was lost: detail=%q action=%q", problemDetail, problemAction)
 				}
 			})

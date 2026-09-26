@@ -75,6 +75,7 @@ type ClientFacts struct {
 	CredentialAvailable        bool
 	CredentialAction           string
 	ProjectionEnabled          bool
+	ProjectionDeferred         bool
 	ProjectionReady            bool
 	ProjectionIssue            string
 	ProjectionAction           string
@@ -97,6 +98,13 @@ func ClassifyClient(facts ClientFacts) Client {
 			state.NextAction = facts.BindingAction
 		} else {
 			state.NextAction = "aigw route add"
+		}
+	case facts.ProjectionDeferred:
+		state.State = Deferred
+		state.Detail = "Selected client projection is deferred"
+		state.NextAction = facts.ProjectionAction
+		if state.NextAction == "" {
+			state.NextAction = "aigw sync"
 		}
 	case facts.ProjectionEnabled && !facts.ProjectionReady:
 		state.State = Invalid

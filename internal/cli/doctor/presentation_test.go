@@ -49,8 +49,11 @@ func TestHumanFormattingBranches(t *testing.T) {
 		"credential:backend":       "Credential backend",
 		"secret:team":              "Account Token",
 		"adapter:claude":           "Claude adapter",
+		"adapter:claude-desktop":   "Claude Desktop adapter",
 		"adapter:codex":            "Codex adapter",
+		"adapter:hermes":           "Hermes adapter",
 		"projection:codex":         "Codex route",
+		"projection:hermes":        "Hermes route",
 		"codex:target-7":           "Codex configuration target 7",
 	}
 	for name, want := range labels {

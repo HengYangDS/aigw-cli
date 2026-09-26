@@ -24,7 +24,11 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	attention, nextAction := renderClientStatus(r, result, clientIDs)
 	if result.State == domainreadiness.Deferred {
 		r.Section("Activation")
-		r.Status(presentation.Info, "Client activation", "No client is enabled")
+		message := "No client is enabled"
+		if result.EnabledClients != 0 {
+			message = "Selected client projection is deferred"
+		}
+		r.Status(presentation.Info, "Client activation", message)
 		r.Detail("The catalogue is available, but no client endpoint or model has been checked")
 	}
 	renderTransportStatus(r, result, clientIDs)
@@ -49,22 +53,29 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 	r.Section("Clients")
 	attention := false
 	nextAction := ""
+	nextPriority := -1
 	for _, client := range clientIDs {
+		spec, _ := configuration.ClientSpecFor(client)
 		clientStatus := result.Clients[client]
 		message := clientStatus.Route + " · " + clientStatus.State.Label()
 		state := presentation.Info
+		priority := 0
 		switch clientStatus.State {
 		case domainreadiness.EndpointChecked, domainreadiness.InferenceChecked:
 			state = presentation.OK
+			priority = 2
 		case domainreadiness.Configured:
 			state = presentation.Info
+			priority = 2
 		case domainreadiness.Deferred:
+			priority = 1
 			if clientStatus.Route == "" {
-				message = "No " + invocation.Title(client) + " route selected"
+				message = "No " + spec.Label + " route selected"
 			}
 		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
 			state = presentation.Warn
 			attention = true
+			priority = 3
 		}
 		if clientStatus.Detail != "" && clientStatus.Route != "" {
 			message = clientStatus.Route + " · " + clientStatus.State.Label() + " · " + clientStatus.Detail
@@ -73,10 +84,11 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 			message += " · Qualified: " + strings.Join(clientStatus.QualifiedModes, ", ") + " · " + strings.Join(clientStatus.QualifiedPlatforms, ", ")
 		}
 
-		if nextAction == "" && clientStatus.NextAction != "" {
+		if clientStatus.NextAction != "" && priority > nextPriority {
 			nextAction = clientStatus.NextAction
+			nextPriority = priority
 		}
-		r.Status(state, invocation.Title(client), message)
+		r.Status(state, spec.Label, message)
 	}
 	return attention, nextAction
 }

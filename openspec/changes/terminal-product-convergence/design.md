@@ -43,6 +43,13 @@ prerequisite. An available recommendation may fill an unselected binding;
 neither a recommendation nor an unrelated Account may replace an explicit
 selection. Delete the local next-action choosers made redundant by this owner.
 
+An enabled Client Binding records intent, not native projection. A binding with
+no recorded executable has a deferred projection prerequisite; a previously
+recorded executable or target that fails native inspection is a repairable
+failure instead. When every enabled projection is deferred, observational
+commands must not probe a provider or suggest `aigw check` as activation.
+Client-specific verification remains a separate, later claim.
+
 The existing manifest remains token-free team policy. Each Account Token is
 optional until a selected operation requires it. Native keyring, guarded file,
 and process environment are alternative backends with one recorded owner per

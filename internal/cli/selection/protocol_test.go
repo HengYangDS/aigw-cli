@@ -13,7 +13,7 @@ import (
 )
 
 func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
-	runtime, cfg, _ := configuredRuntime(t)
+	runtime, cfg, out := configuredRuntime(t)
 	store := secrets.NewMemoryStore()
 	if err := store.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
@@ -58,6 +58,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	}
 	runtime.Secrets = store
 
+	out.Reset()
 	command = NewUseCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
@@ -70,6 +71,9 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 		selected.Clients[configuration.ClientHermes].Protocol != configuration.ProtocolAnthropic ||
 		selected.SelectedRoute(configuration.ClientCodex) != "codex" {
 		t.Fatalf("explicit Hermes protocol selection = %#v, %v", selected.Clients, err)
+	}
+	if output := out.String(); !strings.Contains(output, "Install Hermes if needed, then run `aigw sync`") || strings.Contains(output, "aigw check") {
+		t.Fatalf("deferred Hermes selection = %q", output)
 	}
 
 	runtime.Interactive = true

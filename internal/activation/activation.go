@@ -15,11 +15,12 @@ import (
 // reusable credential metadata, never Token values or inference health.
 // An empty scope is deferred despite a valid catalogue.
 type Activation struct {
-	EnabledClients         int
-	State                  domainreadiness.State
-	NextAction             string
-	CredentialPrerequisite bool
-	observedCredentials    map[string]credentialObservation
+	EnabledClients          int
+	State                   domainreadiness.State
+	NextAction              string
+	CredentialPrerequisite  bool
+	ProjectionPrerequisites map[string]string
+	observedCredentials     map[string]credentialObservation
 }
 
 type credentialObservation struct {
@@ -37,13 +38,41 @@ func (a *Activation) CredentialAvailability(account string) (available bool, err
 	return result.available, result.err, observed
 }
 
+// ProjectionPrerequisites derives pending native-client work from selected
+// bindings without reading credential metadata or claiming projection health.
+func ProjectionPrerequisites(cfg configuration.Config) map[string]string {
+	prerequisites := map[string]string{}
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		binding := cfg.Clients[spec.ID]
+		if !binding.Enabled || binding.Executable != "" {
+			continue
+		}
+		prerequisites[spec.ID] = "Install " + spec.Label + " if needed, then run `aigw sync`"
+	}
+	return prerequisites
+}
+
+func assessEnabledProjection(cfg configuration.Config, result Activation) Activation {
+	result.ProjectionPrerequisites = ProjectionPrerequisites(cfg)
+	if len(result.ProjectionPrerequisites) == result.EnabledClients {
+		result.State = domainreadiness.Deferred
+		for _, spec := range configuration.AdmittedClientSpecs() {
+			if action := result.ProjectionPrerequisites[spec.ID]; action != "" {
+				result.NextAction = action
+				break
+			}
+		}
+	}
+	return result
+}
+
 // AssessActivation selects a safe continuation without observing unselected
 // native credentials. Environment credential metadata is read only when that
 // backend is explicitly selected.
 func AssessActivation(cfg configuration.Config, store secrets.Store) Activation {
 	result := Activation{EnabledClients: len(cfg.EnabledClientIDs())}
 	if result.EnabledClients != 0 {
-		return result
+		return assessEnabledProjection(cfg, result)
 	}
 	result.State = domainreadiness.Deferred
 	if len(cfg.Routes) == 0 {

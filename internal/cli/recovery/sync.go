@@ -8,6 +8,7 @@ import (
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
+	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/synchronization"
 
 	"github.com/spf13/cobra"
@@ -65,7 +66,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			activation := clientactivation.AssessActivation(after, runtime.Secrets)
 			result.EnabledClients = activation.EnabledClients
 			result.State = string(activation.State)
-			if activation.EnabledClients == 0 {
+			if activation.NextAction != "" {
 				result.NextAction = activation.NextAction
 			}
 			for _, client := range configuration.AdmittedClientIDs() {
@@ -92,6 +93,8 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			if result.EnabledClients == 0 {
 				r.Status(presentation.Info, "Client activation", "No client is enabled")
 				r.Detail("Authentication was unchanged; connect one compatible Account, then synchronize")
+			} else if activation.State == domainreadiness.Deferred {
+				r.Status(presentation.Info, "Client activation", "Selected client projection is deferred")
 			} else if !dryRun {
 				r.Success("Client configuration is aligned; authentication was unchanged")
 			}
@@ -115,11 +118,11 @@ func prepareSyncPreview(synchronizer synchronization.Synchronizer, before, after
 	}
 	result.Targets = plans
 	result.CredentialEntrypoint = entrypoint
-	if entrypoint != nil {
+	if entrypoint != nil && result.NextAction == "aigw check" {
 		result.NextAction = "aigw sync"
 	}
 	for _, plan := range plans {
-		if plan.ChangesState {
+		if plan.ChangesState && result.NextAction == "aigw check" {
 			result.NextAction = "aigw sync"
 			break
 		}
@@ -145,7 +148,9 @@ func renderSyncPreview(r *presentation.Renderer, after configuration.Config, res
 		bindings = append(bindings, presentation.Field{Label: "Client · " + client, Value: after.SelectedRoute(client)})
 	}
 	r.Rows(bindings...)
-	if len(result.Targets) == 0 {
+	if len(result.Targets) == 0 && result.EnabledClients != 0 && result.State == string(domainreadiness.Deferred) {
+		r.Status(presentation.Info, "Projection", "No selected client can be projected yet")
+	} else if len(result.Targets) == 0 {
 		r.Status(presentation.OK, "Projection", "No client configuration needs changing")
 	} else {
 		targets := make([]presentation.Field, 0, len(result.Targets))

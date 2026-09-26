@@ -78,6 +78,10 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 // inspectStatusClients observes every admitted client without authenticating
 // an endpoint or reading Token values.
 func inspectStatusClients(runtime invocation.Context, cfg configuration.Config, activation *clientactivation.Activation) map[string]clientStatus {
+	if activation == nil {
+		assessed := clientactivation.AssessActivation(cfg, runtime.Secrets)
+		activation = &assessed
+	}
 	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
 	clients := make(map[string]clientStatus, len(clientIDs))
 	for _, clientID := range clientIDs {
@@ -91,14 +95,20 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config, 
 			continue
 		}
 		adapterStatus := inspectAdapter(context.Background(), runtime, cfg, clientID, clientRuntime)
+		projectionPrerequisite := activation.ProjectionPrerequisites[clientID]
+		projectionAction := adapterStatus.RepairAction
+		if projectionPrerequisite != "" {
+			projectionAction = projectionPrerequisite
+		}
 		facts := domainreadiness.ClientFacts{
 			Route:              clientRuntime.RouteID,
 			Account:            clientRuntime.AccountID,
 			CredentialRequired: clientRuntime.UsesAIGWCredentialStore(),
 			ProjectionEnabled:  cfg.Clients[clientID].Enabled,
+			ProjectionDeferred: projectionPrerequisite != "",
 			ProjectionReady:    adapterStatus.Ready,
 			ProjectionIssue:    adapterStatus.Issue,
-			ProjectionAction:   adapterStatus.RepairAction,
+			ProjectionAction:   projectionAction,
 		}
 		if facts.CredentialRequired && (!facts.ProjectionEnabled || facts.ProjectionReady) {
 			available, observationErr, observed := activation.CredentialAvailability(clientRuntime.AccountID)

@@ -415,11 +415,18 @@ returns a deferred, nonzero result without probing a provider. `doctor` may
 pass local diagnostics, but reports zero enabled clients and does not claim
 client or inference readiness. Neither command requires Tokens for unselected
 recommended Routes.
+
 If none is connected yet, setup, status, check, and sync preview present the
 same choice of compatible Accounts. A writable credential store names each
 `aigw rotate <account>` command; the environment backend names each variable.
 Choose any one before synchronizing. Import alone does not make `aigw sync`
 useful work.
+
+When a Route is selected but its native client projection is deferred, setup,
+`use`, sync preview, status, check, and doctor retain that selection and direct
+you to install the client if needed, then run `aigw sync`. `check` does not
+probe a provider until an enabled client has a usable projection; `doctor` can
+pass local diagnostics without claiming client readiness.
 
 Interactive `aigw use --for <client> <route>` can also prompt for that
 Account's missing Token. Interactive use may prompt for the client or Route;

@@ -3,6 +3,7 @@
 package onboarding
 
 import (
+	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -214,22 +215,22 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 
 func renderSetupClients(runtime invocation.Context, cfg configuration.Config, selectedClient string) {
 	r := invocation.Renderer(runtime)
+	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	r.Section("Clients")
 	for _, spec := range configuration.AdmittedClientSpecs() {
 		binding := cfg.Clients[spec.ID]
 		switch {
 		case !binding.Enabled:
 			r.Status(presentation.Info, spec.Label, "Not configured")
-		case binding.Executable == "":
+		case activation.ProjectionPrerequisites[spec.ID] != "":
 			r.Status(presentation.Info, spec.Label, "Selected; projection deferred")
 		default:
 			r.Status(presentation.OK, spec.Label, "Projection configured")
 		}
 	}
-	if cfg.Clients[selectedClient].Executable == "" {
-		spec, _ := configuration.ClientSpecFor(selectedClient)
+	if action := activation.ProjectionPrerequisites[selectedClient]; action != "" {
 		r.Success("Account and Route are ready; selected client activation is deferred.")
-		r.Next("Install " + spec.Label + " if needed, then run `aigw sync`")
+		r.Next(action)
 		return
 	}
 	r.Success("Client projection configured; real-client use is not yet verified.")
