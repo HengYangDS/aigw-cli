@@ -233,6 +233,9 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		}
 		clients[client.client] = status
 	}
+	if !result.OK {
+		result.NextAction = activation.NextActionFor(orderedClientStates(runtime, clients))
+	}
 	if err := presentation.WriteJSON(runtime.Out, result); err != nil {
 		return err
 	}

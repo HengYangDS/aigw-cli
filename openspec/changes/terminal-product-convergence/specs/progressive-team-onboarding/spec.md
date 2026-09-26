@@ -80,6 +80,15 @@ semantic result, and never expose credentials.
 - **AND** restoring the Token SHALL reveal installation if needed followed by
   `aigw sync` as the remaining activation step.
 
+#### Scenario: Enabled clients have different local readiness
+
+- **WHEN** one enabled client is locally configured and another selected client
+  has a deferred native projection
+- **THEN** human and JSON status SHALL expose the same actionable continuation
+  without declaring every selected client ready
+- **AND** a failed JSON check SHALL expose the failed client's recovery action
+  at the top level, not only inside that client's diagnostic.
+
 #### Scenario: Manifest setup is consumed by automation
 
 - **WHEN** an operator runs manifest-based setup with `--json`

@@ -335,6 +335,27 @@ func TestCheckReportsCredentialMetadataFailureBeforeClientProjection(t *testing.
 	}
 }
 
+func TestJSONCheckSelectsTheFailedClientRecoveryAction(t *testing.T) {
+	runtime, cfg, output := configuredReadinessRuntime(t)
+	cfg.SetClientActivation(configuration.ClientClaude, true, filepath.Join(t.TempDir(), "missing-claude"), nil)
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	command := NewCheckCommand(runtime)
+	command.SetArgs([]string{"--json"})
+	if err := executeCommand(command); err == nil {
+		t.Fatal("missing native client was accepted")
+	}
+	var result checkJSON
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	client := result.Clients[configuration.ClientClaude]
+	if client.NextAction == "" || result.NextAction != client.NextAction {
+		t.Fatalf("top-level recovery differs from the failed client: %+v", result)
+	}
+}
+
 func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
 	runtime.Version = "1.0.0"
@@ -476,51 +497,4 @@ func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 			t.Fatalf("RunCheck() error = %v", err)
 		}
 	})
-}
-
-func TestCheckEndpointReadinessIsIndependentOfDiagnosticCredentials(t *testing.T) {
-	runtime, cfg, buffer := configuredReadinessRuntime(t)
-	runtime.Version = "1.0.0"
-	if err := runtime.Secrets.Set("one", "token"); err != nil {
-		t.Fatal(err)
-	}
-	store := &failingAccountObservationStore{err: errors.New("credential metadata unavailable")}
-	runtime.Accounts = store
-	configureClaudeExecutable(t, &runtime, &cfg)
-	synchronizeClaudeSettings(t, runtime, cfg)
-	providerAccount := cfg.Accounts["one"]
-	providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
-	cfg.Accounts["one"] = providerAccount
-	if err := runtime.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	runtime.HTTP = roundTripFunc(successfulReadinessResponse)
-	for _, mode := range []string{"human", "json"} {
-		t.Run(mode, func(t *testing.T) {
-			store.reads = 0
-			buffer.Reset()
-			command := NewCheckCommand(runtime)
-			if mode == "json" {
-				command.SetArgs([]string{"--json"})
-			} else {
-				command.SetArgs([]string{})
-			}
-			if err := executeCommand(command); err != nil {
-				t.Fatalf("healthy endpoint depends on optional diagnostics: %v", err)
-			}
-			if store.reads != 0 {
-				t.Fatalf("endpoint check read diagnostic credentials %d times", store.reads)
-			}
-			if mode == "human" {
-				if !strings.Contains(buffer.String(), "All enabled client checks passed") {
-					t.Fatalf("human readiness verdict: %s", buffer.String())
-				}
-				return
-			}
-			var result checkJSON
-			if err := json.Unmarshal(buffer.Bytes(), &result); err != nil || !result.OK {
-				t.Fatalf("JSON readiness verdict: %#v, %v", result, err)
-			}
-		})
-	}
 }

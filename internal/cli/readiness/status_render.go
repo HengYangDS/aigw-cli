@@ -21,7 +21,7 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	r.ProductTitle("Configuration status")
 	r.Text("The selected Routes, client readiness, and the smallest next action.")
 	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
-	attention, nextAction := renderClientStatus(r, result, clientIDs)
+	renderClientStatus(r, result, clientIDs)
 	if result.State == domainreadiness.Deferred {
 		r.Section("Activation")
 		message := "No client is enabled"
@@ -33,49 +33,27 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	}
 	renderTransportStatus(r, result, clientIDs)
 	renderDiagnosticStatus(runtime, r, cfg)
-	switch {
-	case attention && nextAction != "":
-		r.Next(nextAction)
-	case result.State == domainreadiness.Deferred && result.CredentialPrerequisite:
-		r.Next(result.NextAction)
-	case nextAction != "":
-		r.Next(nextAction)
-	case result.State == domainreadiness.Deferred:
-		r.Next(result.NextAction)
-	case attention:
-		r.Next("aigw repair")
-	default:
-		r.Next("aigw check")
-	}
+	r.Next(result.NextAction)
 }
 
-func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) (bool, string) {
+func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) {
 	r.Section("Clients")
-	attention := false
-	nextAction := ""
-	nextPriority := -1
 	for _, client := range clientIDs {
 		spec, _ := configuration.ClientSpecFor(client)
 		clientStatus := result.Clients[client]
 		message := clientStatus.Route + " · " + clientStatus.State.Label()
 		state := presentation.Info
-		priority := 0
 		switch clientStatus.State {
 		case domainreadiness.EndpointChecked, domainreadiness.InferenceChecked:
 			state = presentation.OK
-			priority = 2
 		case domainreadiness.Configured:
 			state = presentation.Info
-			priority = 2
 		case domainreadiness.Deferred:
-			priority = 1
 			if clientStatus.Route == "" {
 				message = "No " + spec.Label + " route selected"
 			}
 		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
 			state = presentation.Warn
-			attention = true
-			priority = 3
 		}
 		if clientStatus.Detail != "" && clientStatus.Route != "" {
 			message = clientStatus.Route + " · " + clientStatus.State.Label() + " · " + clientStatus.Detail
@@ -84,13 +62,8 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 			message += " · Qualified: " + strings.Join(clientStatus.QualifiedModes, ", ") + " · " + strings.Join(clientStatus.QualifiedPlatforms, ", ")
 		}
 
-		if clientStatus.NextAction != "" && priority > nextPriority {
-			nextAction = clientStatus.NextAction
-			nextPriority = priority
-		}
 		r.Status(state, spec.Label, message)
 	}
-	return attention, nextAction
 }
 
 func renderTransportStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) {

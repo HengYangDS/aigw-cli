@@ -84,6 +84,41 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	}
 }
 
+func TestStatusHumanAndJSONShareMixedClientContinuation(t *testing.T) {
+	runtime, cfg, output := configuredReadinessRuntime(t)
+	if err := runtime.Secrets.Set("one", "available-token"); err != nil {
+		t.Fatal(err)
+	}
+	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{"/opt/codex/config.toml"})
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	originalInspect := inspectAdapter
+	t.Cleanup(func() { inspectAdapter = originalInspect })
+	inspectAdapter = func(_ context.Context, _ invocation.Context, _ configuration.Config, client string, _ configuration.Runtime) clientdomain.Status {
+		return clientdomain.Status{Ready: client == configuration.ClientCodex}
+	}
+	if err := RunStatus(runtime, true); err != nil {
+		t.Fatal(err)
+	}
+	var result statusOutput
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	want := "Install Claude if needed, then run `aigw sync`"
+	if result.Clients[configuration.ClientClaude].NextAction != want || result.NextAction != want {
+		t.Fatalf("mixed-client JSON continuation = %+v", result)
+	}
+	output.Reset()
+	if err := RunStatus(runtime, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), want) {
+		t.Fatalf("human continuation differs from JSON:\n%s", output)
+	}
+}
+
 func TestStatusStatesClaudeDesktopQualifiedModesAndPlatforms(t *testing.T) {
 	runtime, _, buffer := configuredReadinessRuntime(t)
 
@@ -308,7 +343,7 @@ func TestStatusJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 	}
 }
 
-func TestStatusFallsBackToRepairForUnclassifiedAttention(t *testing.T) {
+func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Out: out, RenderOut: out, Width: 120}
 	cfg := configuration.NewConfig()
@@ -319,7 +354,7 @@ func TestStatusFallsBackToRepairForUnclassifiedAttention(t *testing.T) {
 		clients[client] = clientStatus{Client: state}
 	}
 
-	renderStatus(runtime, cfg, statusOutput{Clients: clients})
+	renderStatus(runtime, cfg, statusOutput{Clients: clients, NextAction: "aigw repair"})
 	got := out.String()
 	if !strings.Contains(got, "aigw repair") || !strings.Contains(got, "No selected account") {
 		t.Fatalf("status fallback = %q", got)
@@ -327,7 +362,6 @@ func TestStatusFallsBackToRepairForUnclassifiedAttention(t *testing.T) {
 }
 
 func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
-	runtime := invocation.Context{Out: &bytes.Buffer{}, Width: 120}
 	for _, state := range []domainreadiness.State{
 		domainreadiness.EndpointChecked,
 		domainreadiness.InferenceChecked,
@@ -335,14 +369,15 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 		domainreadiness.Deferred,
 		domainreadiness.Invalid,
 	} {
-		clientID := string(state)
-		attention, _ := renderClientStatus(
-			invocation.Renderer(runtime),
-			statusOutput{Clients: map[string]clientStatus{clientID: {Client: domainreadiness.Client{State: state}}}},
-			[]string{clientID},
-		)
-		if attention != (state == domainreadiness.Invalid) {
-			t.Fatalf("state %s attention = %v", state, attention)
+		out := &bytes.Buffer{}
+		runtime := invocation.Context{Out: out, Width: 120}
+		renderClientStatus(invocation.Renderer(runtime), statusOutput{
+			Clients: map[string]clientStatus{configuration.ClientClaude: {
+				Client: domainreadiness.Client{State: state, Route: "route"},
+			}},
+		}, []string{configuration.ClientClaude})
+		if !strings.Contains(out.String(), state.Label()) {
+			t.Fatalf("state %s rendering = %q", state, out)
 		}
 	}
 }

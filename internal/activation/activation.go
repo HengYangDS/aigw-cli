@@ -39,6 +39,49 @@ func (a *Activation) CredentialAvailability(account string) (available bool, err
 	return result.available, result.err, observed
 }
 
+// NextActionFor resolves observed client states only when no earlier activation
+// prerequisite already owns the continuation.
+func (a *Activation) NextActionFor(clients []domainreadiness.Client) string {
+	if a == nil {
+		return ""
+	}
+	if a.CredentialPrerequisite || a.State == domainreadiness.Unavailable {
+		return a.NextAction
+	}
+	bestAction := ""
+	bestPriority := -1
+	attention := false
+	for _, client := range clients {
+		priority := 0
+		switch client.State {
+		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
+			priority = 3
+			attention = true
+		case domainreadiness.Configured, domainreadiness.EndpointChecked, domainreadiness.InferenceChecked:
+			priority = 2
+		case domainreadiness.Deferred:
+			priority = 1
+		}
+		if client.NextAction != "" && priority > bestPriority {
+			bestAction = client.NextAction
+			bestPriority = priority
+		}
+	}
+	if bestAction != "" {
+		return bestAction
+	}
+	if a.NextAction != "" {
+		return a.NextAction
+	}
+	if attention {
+		return "aigw repair"
+	}
+	if a.EnabledClients != 0 {
+		return "aigw check"
+	}
+	return ""
+}
+
 // ProjectionPrerequisites derives pending native-client work from selected
 // bindings without reading credential metadata or claiming projection health.
 func ProjectionPrerequisites(cfg configuration.Config) map[string]string {

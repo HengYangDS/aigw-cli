@@ -38,14 +38,13 @@ type endpointTransportKind string
 const endpointTransportExternalLoopback endpointTransportKind = "external_loopback"
 
 type statusOutput struct {
-	ConfigPath             string                   `json:"config_path"`
-	CredentialBackend      secrets.BackendSelection `json:"credential_backend"`
-	Clients                map[string]clientStatus  `json:"clients"`
-	Routes                 int                      `json:"routes"`
-	EnabledClients         int                      `json:"enabled_clients"`
-	State                  domainreadiness.State    `json:"state,omitempty"`
-	NextAction             string                   `json:"next_action,omitempty"`
-	CredentialPrerequisite bool                     `json:"-"`
+	ConfigPath        string                   `json:"config_path"`
+	CredentialBackend secrets.BackendSelection `json:"credential_backend"`
+	Clients           map[string]clientStatus  `json:"clients"`
+	Routes            int                      `json:"routes"`
+	EnabledClients    int                      `json:"enabled_clients"`
+	State             domainreadiness.State    `json:"state,omitempty"`
+	NextAction        string                   `json:"next_action,omitempty"`
 }
 
 var inspectAdapter = func(ctx context.Context, runtime invocation.Context, cfg configuration.Config, clientID string, clientRuntime configuration.Runtime) clientdomain.Status {
@@ -189,6 +188,14 @@ func InspectClients(runtime invocation.Context, cfg configuration.Config) map[st
 	return clients
 }
 
+func orderedClientStates(runtime invocation.Context, clients map[string]clientStatus) []domainreadiness.Client {
+	ordered := make([]domainreadiness.Client, 0, len(clients))
+	for _, clientID := range invocation.Synchronizer(runtime).ClientIDs() {
+		ordered = append(ordered, clients[clientID].Client)
+	}
+	return ordered
+}
+
 func collectStatus(runtime invocation.Context, cfg configuration.Config) statusOutput {
 	backend, backendErr := secrets.Inspect(runtime.Secrets)
 	if backendErr != nil {
@@ -197,14 +204,13 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	clients := inspectStatusClients(runtime, cfg, &activation)
 	return statusOutput{
-		ConfigPath:             runtime.Config.Path(),
-		CredentialBackend:      backend,
-		Clients:                clients,
-		Routes:                 len(cfg.Routes),
-		EnabledClients:         activation.EnabledClients,
-		State:                  activation.State,
-		NextAction:             activation.NextAction,
-		CredentialPrerequisite: activation.CredentialPrerequisite,
+		ConfigPath:        runtime.Config.Path(),
+		CredentialBackend: backend,
+		Clients:           clients,
+		Routes:            len(cfg.Routes),
+		EnabledClients:    activation.EnabledClients,
+		State:             activation.State,
+		NextAction:        activation.NextActionFor(orderedClientStates(runtime, clients)),
 	}
 }
 

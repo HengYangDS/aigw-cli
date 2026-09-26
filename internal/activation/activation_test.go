@@ -169,3 +169,52 @@ func TestAssessActivationSeparatesMissingTokenFromDeferredProjection(t *testing.
 		t.Fatalf("connected Account with deferred client = %+v", got)
 	}
 }
+
+func TestNextActionForUsesOneOrderedReadinessDecision(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		activation Activation
+		clients    []domainreadiness.Client
+		want       string
+	}{
+		{
+			name:       "earlier credential prerequisite",
+			activation: Activation{EnabledClients: 2, NextAction: "set selected Account variable", CredentialPrerequisite: true},
+			clients:    []domainreadiness.Client{{State: domainreadiness.Invalid, NextAction: "aigw repair"}},
+			want:       "set selected Account variable",
+		},
+		{
+			name:       "specific route before generic synchronization",
+			activation: Activation{State: domainreadiness.Deferred, NextAction: "aigw sync"},
+			clients:    []domainreadiness.Client{{State: domainreadiness.Deferred, NextAction: "aigw use --for claude selected-route"}},
+			want:       "aigw use --for claude selected-route",
+		},
+		{
+			name:       "configured verification before deferred projection",
+			activation: Activation{EnabledClients: 2},
+			clients: []domainreadiness.Client{
+				{State: domainreadiness.Deferred, NextAction: "Install Claude, then sync"},
+				{State: domainreadiness.Configured, NextAction: "aigw verify --for codex"},
+			},
+			want: "aigw verify --for codex",
+		},
+		{
+			name:       "unclassified failure",
+			activation: Activation{EnabledClients: 1},
+			clients:    []domainreadiness.Client{{State: domainreadiness.Invalid}},
+			want:       "aigw repair",
+		},
+		{
+			name:       "configured client without another action",
+			activation: Activation{EnabledClients: 1},
+			clients:    []domainreadiness.Client{{State: domainreadiness.Configured}},
+			want:       "aigw check",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := test.activation.NextActionFor(test.clients); got != test.want {
+				t.Fatalf("next action = %q, want %q", got, test.want)
+			}
+		})
+	}
+}

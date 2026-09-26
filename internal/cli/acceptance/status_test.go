@@ -116,6 +116,16 @@ func TestStatusGuidesClientSpecificRouteInsteadOfBlankRepair(t *testing.T) {
 			t.Fatalf("status lacks %q:\n%s", want, text)
 		}
 	}
+	out.Reset()
+	if err := cli.Execute(app, []string{"status", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		NextAction string `json:"next_action"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.NextAction != "aigw use --for claude claude-fable-5" {
+		t.Fatalf("JSON status action = %+v, error = %v", result, err)
+	}
 }
 
 func TestStatusKeepsTheFirstRunNextActionSimple(t *testing.T) {
