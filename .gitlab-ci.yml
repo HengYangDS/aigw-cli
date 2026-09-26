@@ -44,6 +44,18 @@ native-linux:
     - mise run bootstrap
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
+    - |-
+      DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
+      dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
+      gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
+      gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
+      result=$(AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./tools/release -run "^TestNativeProductJourney/system_credential_store$" -count=1 -v 2>&1) || {
+        printf '%s\n' "$result"
+        exit 1
+      }
+      printf '%s\n' "$result"
+      grep -Fq -- "--- PASS: TestNativeProductJourney/system_credential_store" <<<"$result"
+      AIGW_SECRET_SERVICE
 native-windows:
   script:
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"

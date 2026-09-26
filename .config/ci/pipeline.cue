@@ -29,6 +29,25 @@ linuxToolchain: {
 	prepare: "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \(strings.Join(runtimePackages, " "))"
 }
 
+linuxSecretService: {
+	packages: "dbus-x11 gnome-keyring libglib2.0-bin"
+	journey: #"""
+		dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
+		gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
+		gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
+		result=$(AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./tools/release -run "^TestNativeProductJourney/system_credential_store$" -count=1 -v 2>&1) || {
+		  printf '%s\n' "$result"
+		  exit 1
+		}
+		printf '%s\n' "$result"
+		grep -Fq -- "--- PASS: TestNativeProductJourney/system_credential_store" <<<"$result"
+		AIGW_SECRET_SERVICE
+		"""#
+	github: "sudo apt-get update -qq\nsudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \(packages)\n\(journey)"
+	// The GitLab Mise image is root-owned; its shared before_script updates apt.
+	gitlab: "DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \(packages)\n\(journey)"
+}
+
 commands: {
 	install:      "env GODEBUG=\(installationEnvironment.GODEBUG) mise install --locked"
 	bootstrap:    "mise run bootstrap"
@@ -269,20 +288,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		},
 		if _platform == "linux" {
 			name: "Qualify Linux Secret Service"
-			run: #"""
-				sudo apt-get update -qq
-				sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
-				dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
-				gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
-				gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-				result=$(AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./tools/release -run "^TestNativeProductJourney/system_credential_store$" -count=1 -v 2>&1) || {
-				  printf '%s\n' "$result"
-				  exit 1
-				}
-				printf '%s\n' "$result"
-				grep -Fq -- "--- PASS: TestNativeProductJourney/system_credential_store" <<<"$result"
-				AIGW_SECRET_SERVICE
-				"""#
+			run:  linuxSecretService.github
 		},
 		// Fetch the Git blob bytes; checkout can rewrite the installer's declared CRLF worktree form.
 		if _platform == "windows" {
@@ -492,7 +498,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	if _platform == "linux" {
 		extends: [".linux-toolchain"]
 		variables: CGO_ENABLED: "1"
-		script: [commands.bootstrap, _refreshLocks, _native]
+		script: [commands.bootstrap, _refreshLocks, _native, linuxSecretService.gitlab]
 	}
 	if _platform != "linux" {
 		script: [_install, commands.bootstrap, _refreshLocks, _native]

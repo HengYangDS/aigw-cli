@@ -95,7 +95,7 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	}
 }
 
-func TestGitHubLinuxNativeJourneyUsesTheLockedProductCommand(t *testing.T) {
+func TestNativeLinuxJourneyUsesTheLockedProductAndSecretService(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
@@ -122,6 +122,7 @@ func TestGitHubLinuxNativeJourneyUsesTheLockedProductCommand(t *testing.T) {
 	if !reflect.DeepEqual(githubCommands, want) {
 		t.Fatalf("GitHub native Linux commands = %q, want locked dependencies then one product journey", githubCommands)
 	}
+	var githubQualification string
 	for _, step := range workflow.Jobs["native-linux"].Steps {
 		if step.Name != "Qualify Linux Secret Service" {
 			continue
@@ -138,9 +139,36 @@ func TestGitHubLinuxNativeJourneyUsesTheLockedProductCommand(t *testing.T) {
 				t.Fatalf("Linux Secret Service qualification omits %q", required)
 			}
 		}
-		return
+		githubQualification = step.Run
+		break
 	}
-	t.Fatal("native Linux CI does not qualify real Secret Service")
+	if githubQualification == "" {
+		t.Fatal("GitHub native Linux CI does not qualify real Secret Service")
+	}
+	var gitlab struct {
+		Linux gitLabJob `yaml:"native-linux"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	var gitlabQualification string
+	for _, command := range gitlab.Linux.Script {
+		if strings.Contains(command, "TestNativeProductJourney/system_credential_store") {
+			gitlabQualification = command
+			break
+		}
+	}
+	if gitlabQualification == "" {
+		t.Fatal("GitLab native Linux CI does not qualify real Secret Service")
+	}
+	if !strings.Contains(gitlabQualification, "apt-get install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin") {
+		t.Fatal("GitLab native Linux CI does not install Secret Service prerequisites")
+	}
+	githubBus := strings.Index(githubQualification, "dbus-run-session")
+	gitlabBus := strings.Index(gitlabQualification, "dbus-run-session")
+	if githubBus < 0 || gitlabBus < 0 || githubQualification[githubBus:] != gitlabQualification[gitlabBus:] {
+		t.Fatal("GitHub and GitLab native Linux jobs must run the same Secret Service journey")
+	}
 }
 
 func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
