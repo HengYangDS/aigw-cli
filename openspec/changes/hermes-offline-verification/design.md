@@ -63,15 +63,22 @@ executable and client projections unchanged until a separately verified
 credential-entrypoint cutover and bounded package upgrade.
 
 Complete the source, candidate, and performance tasks before archiving this
-Change through ETHOS. Only then mint the new signed stable tag, publish the same
-object and assets to both peers, and verify each peer's required macOS, Linux,
-and Windows tag CI and asset digests. Before changing the Homebrew link, verify
-the already-owned stable credential entrypoint; then prove installed upgrade,
-rollback, forward upgrade, and live Client Binding continuity without prompts
-or service interruption. Finally reconcile exact owned release outputs,
-temporary services, proposal refs, and Work Lane state. Disclose the local-only
-`v0.3.2` history until ETHOS provides native exact-OID abandonment. These are
-post-archive delivery obligations, not tasks that block their own archive.
+Change through ETHOS. Archive changes the tracked source tree, so the qualified
+pre-archive candidate and its Apple submission cannot authorize the release.
+From the archived, signed commit, build one new Developer ID matrix; verify its
+exact source, real clients, predecessor transition, performance, and a new Apple
+`Accepted` submission before minting the stable tag at that same commit. Then
+verify the signed tag against those unchanged bytes, publish them to both peers,
+and check each peer's macOS, Linux, and Windows tag CI and asset digests. Any
+source change after final construction restarts this exact-byte qualification.
+
+Before changing the Homebrew link, verify the already-owned stable credential
+entrypoint; then prove installed upgrade, rollback, forward upgrade, and live
+Client Binding continuity without prompts or service interruption. Finally
+reconcile exact owned release outputs, temporary services, proposal refs, and
+Work Lane state. Disclose the local-only `v0.3.2` history until ETHOS provides
+native exact-OID abandonment. These are post-archive delivery obligations, not
+tasks that block their own archive.
 
 ## Local Qualification
 
@@ -83,3 +90,18 @@ passed `go test -tags=client_acceptance ./tools/release -run
 program and local authenticated endpoint, including Account rename and
 finalization. This is focused local evidence, not a signed release or full
 client-matrix claim.
+
+The signed `538f2d69` pre-archive matrix passed `accept-native` in explicit
+`--artifacts --candidate --clients` mode with a product-verified published
+0.3.1 predecessor.
+
+Apple submission `3de53c2f-ddd5-47d7-be5d-4de5a4a250a3` returned `Accepted`;
+`verify-macos-distribution` then passed for its exact two-architecture ZIP,
+certificate, and submission ID.
+
+The first performance run exposed a test-fixture error: the published 0.3.1
+predecessor requires `aigw use --for claude` in non-interactive mode. After
+removing that unnecessary variant split, the tracked `TestNativePerformance`
+passed with 24 forty-sample blocks, 12 pooled rows, four peak-memory records,
+and all candidate budgets met. These results qualify that pre-archive candidate
+only; the archived source requires new final bytes and acceptance.

@@ -204,7 +204,11 @@ validate and integrate source, finish the Change's implementation and candidate
 acceptance tasks, then archive before stable tagging. Publication, installation,
 and retirement remain post-archive delivery obligations in the canonical specs
 and Change design, not checkboxes that require the Change's own archive. Archive
-alone does not establish delivery success.
+alone does not establish delivery success. Because archive changes the tracked
+commit and tree, pre-archive artifact provenance and notarization cannot be
+reused for a release tag on the archived commit. Build and qualify one new matrix
+from that final signed source, then tag the same commit and publish those bytes
+unchanged. A later source edit invalidates the matrix.
 
 ETHOS owns write admission, proof, archive, integration and retirement. Start
 with its current `status --json` result in the exact checkout and follow the

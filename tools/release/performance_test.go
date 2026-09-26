@@ -264,12 +264,8 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 		}
 		helper = performanceCommand(os.Getenv("ComSpec"), "/d", "/c", "credential.cmd")
 	}
-	selectArgs := []string{j.binary, "use", "performance-second"}
-	resetArgs := []string{j.binary, "use", "native-system-keyring-probe-claude"}
-	if variant == "candidate" {
-		selectArgs = []string{j.binary, "use", "--for", "claude", "performance-second"}
-		resetArgs = []string{j.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
-	}
+	selectArgs := []string{j.binary, "use", "--for", "claude", "performance-second"}
+	resetArgs := []string{j.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
 	cases := []struct {
 		name, command, prepare string
 		budget                 float64

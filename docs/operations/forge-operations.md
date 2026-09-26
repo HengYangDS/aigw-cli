@@ -225,6 +225,11 @@ Before tagging, use `mise run performance --artifacts "$CANDIDATE_DIRECTORY"
 Git source trust inputs and `AIGW_ACCEPTANCE_BASELINE` pointing to the verified
 published predecessor executable. After tagging, omit `--candidate` and select
 `CI_COMMIT_TAG` to verify the signed release tag as well.
+
+Pre-archive samples qualify only that candidate. Archive changes source identity;
+measure the newly built, exact-source matrix again before tagging, rather than
+carrying old samples into the final release verdict.
+
 The output must be a new absolute directory. The task installs its locked
 Hyperfine tool only when requested; ordinary checks do not require it.
 

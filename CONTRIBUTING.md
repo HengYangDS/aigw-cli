@@ -493,10 +493,12 @@ AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
   mise exec --locked -- go run ./tools/release accept-native
 ```
 
-Before the stable tag exists, consume the final signed matrix without rebuilding
-it. Supply independently approved artifact and Git source trust through
+Before the stable tag exists, consume the selected signed matrix without
+rebuilding it. A pre-archive candidate qualifies that source only; archiving
+changes its commit and tree, so build and qualify the final matrix again from
+the archived source. Use these independently approved trust inputs:
 `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE`,
-`AIGW_RELEASE_ARTIFACT_SIGNER`, and `AIGW_RELEASE_ALLOWED_SIGNERS_FILE`:
+`AIGW_RELEASE_ARTIFACT_SIGNER`, and `AIGW_RELEASE_ALLOWED_SIGNERS_FILE`.
 
 ```bash
 AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
