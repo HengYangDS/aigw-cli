@@ -29,7 +29,7 @@
       client's explicit binding and `aigw check` succeeds without a global
       default or `--all`; reuse the existing CLI regression rather than
       reimplementing selection.
-- [ ] 2.5 Exercise Token-before-client, client-before-Token, both-absent, and
+- [x] 2.5 Exercise Token-before-client, client-before-Token, both-absent, and
       one-of-many-Accounts journeys through the shipped `manifests/team.toml`; prove
       late `sync` and no irrelevant credential requirement.
 - [ ] 2.6 Reconcile managed projections semantically, preserving unrelated edits

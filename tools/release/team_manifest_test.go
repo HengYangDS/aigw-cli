@@ -6,6 +6,7 @@ import (
 	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"maps"
 	"os"
 	"path/filepath"
@@ -24,7 +25,12 @@ type teamManifestJourney struct {
 func TestNativeTeamManifestJourney(t *testing.T) {
 	plan := newTeamManifestJourney(t)
 	for _, account := range append([]string{""}, configuration.ManifestAccountNames(plan.manifest)...) {
-		t.Run(account, func(t *testing.T) { plan.runAccount(t, account) })
+		if account == "" {
+			t.Run("no-token-no-client", func(t *testing.T) { plan.runAccount(t, account, false) })
+			continue
+		}
+		t.Run(account+"/token-before-client", func(t *testing.T) { plan.runAccount(t, account, false) })
+		t.Run(account+"/client-before-token", func(t *testing.T) { plan.runAccount(t, account, true) })
 	}
 }
 
@@ -78,10 +84,15 @@ func newTeamManifestJourney(t *testing.T) teamManifestJourney {
 	t.Logf("team candidate version=%s sha256=%x", version, sha256.Sum256(readFile(t, program)))
 	clients := slices.Collect(maps.Keys(manifest.Recommendations))
 	slices.Sort(clients)
+	admitted := configuration.AdmittedClientIDs()
+	slices.Sort(admitted)
+	if !slices.Equal(clients, admitted) {
+		t.Fatalf("team recommendations cover %q, want every admitted client %q", clients, admitted)
+	}
 	return teamManifestJourney{program: program, team: team, manifest: manifest, clients: clients}
 }
 
-func (plan teamManifestJourney) runAccount(t *testing.T, account string) {
+func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientFirst bool) {
 	t.Helper()
 	journey := newNativeJourney(t, plan.program, "https://unused.example.test", false)
 	journey.setEnvironment("CODEX_HOME", filepath.Join(journey.root, "home", ".codex"))
@@ -96,9 +107,15 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string) {
 		journey.uninstallAndRequireOwnedFilesAbsent()
 		return
 	}
-	journey.setEnvironment(secrets.EnvironmentKey(account), "team-journey-token")
+	if !clientFirst {
+		journey.setEnvironment(secrets.EnvironmentKey(account), "team-journey-token")
+	}
 	for _, client := range plan.clients {
 		journey.installClientFixture(client)
+	}
+	if clientFirst {
+		requireNoActivationBeforeToken(t, journey)
+		journey.setEnvironment(secrets.EnvironmentKey(account), "team-journey-token")
 	}
 	journey.run("sync")
 	selected, err := configuration.Merge(configuration.NewConfig(), plan.manifest)
@@ -117,6 +134,31 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string) {
 		journey.run("use", "--for", client, route)
 	}
 	plan.requireSelectedAccount(t, journey, account)
+}
+
+func requireNoActivationBeforeToken(t *testing.T, journey *journeyFixture) {
+	t.Helper()
+	var preview struct {
+		EnabledClients       int               `json:"enabled_clients"`
+		Selections           map[string]string `json:"selections"`
+		Targets              []json.RawMessage `json:"targets"`
+		CredentialEntrypoint *json.RawMessage  `json:"credential_entrypoint"`
+	}
+	if err := json.Unmarshal(journey.run("sync", "--dry-run", "--json"), &preview); err != nil {
+		t.Fatalf("decode client-first sync preview: %v", err)
+	}
+	if preview.EnabledClients != 0 || len(preview.Selections) != 0 || len(preview.Targets) != 0 || preview.CredentialEntrypoint != nil {
+		t.Fatalf("client-first sync planned activation without a Token: %+v", preview)
+	}
+	journey.run("sync")
+	beforeToken, err := configuration.NewStore(journey.config).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(beforeToken.EnabledClientIDs()) != 0 {
+		t.Fatalf("client-first sync activated before a Token: %#v", beforeToken.Clients)
+	}
+	journey.requireNoClaudeProjection()
 }
 
 func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *journeyFixture, account string) {
