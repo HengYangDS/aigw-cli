@@ -22,11 +22,18 @@ import (
 // Keep this transport choice in the installer process, not product execution.
 installationEnvironment: GODEBUG: "http2client=0"
 
+linuxApt: {
+	deadline: "timeout --verbose --kill-after=5s 240s"
+	options:  "-o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
+	update:   "\(deadline) apt-get \(options) update"
+	install:  "\(deadline) apt-get \(options) install --no-install-recommends -y"
+}
+
 linuxToolchain: {
 	// The runnable Mise image is intentionally small. Declare the complete
 	// repository execution closure here so every Linux job inherits one owner.
 	runtimePackages: ["gcc", "libatomic1", "libc6-dev", "openssh-client", "procps"]
-	prepare: "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \(strings.Join(runtimePackages, " "))"
+	prepare: "\(linuxApt.update) && DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
 }
 
 linuxSecretService: {
@@ -43,9 +50,9 @@ linuxSecretService: {
 		grep -Fq -- "--- PASS: TestNativeProductJourney/system_credential_store" <<<"$result"
 		AIGW_SECRET_SERVICE
 		"""#
-	github: "sudo apt-get update -qq\nsudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \(packages)\n\(journey)"
+	github: "sudo -n \(linuxApt.update)\nsudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(packages)\n\(journey)"
 	// The GitLab Mise image is root-owned; its shared before_script updates apt.
-	gitlab: "DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \(packages)\n\(journey)"
+	gitlab: "DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(packages)\n\(journey)"
 }
 
 commands: {
@@ -251,7 +258,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		if _platform == "linux" {
 			name: "Prepare native memory measurement"
 			if:   "github.event_name == 'workflow_dispatch' && inputs.performance"
-			run:  "sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y time"
+			run:  "sudo -n \(linuxApt.update) && sudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) time"
 		},
 		{
 			name: "Verify native lock resolution"

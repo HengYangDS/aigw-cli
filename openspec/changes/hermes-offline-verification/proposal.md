@@ -13,6 +13,11 @@ required a stable tag, but the tag cannot precede candidate acceptance and
 Change archive. Candidate trust must bind to the signed source commit without
 weakening tag-bound publication.
 
+The current Change task also combines local source acceptance with every peer's
+later CI. Checking that task changes the commit it claims to verify, while
+archiving changes it again. Pre-archive acceptance and post-archive delivery
+must have separate owners without dropping either obligation.
+
 ## What Changes
 
 - Disable Hermes passive update checks in AIGW's disposable verification home
@@ -26,6 +31,10 @@ weakening tag-bound publication.
 - Admit an explicitly selected untagged artifact candidate against signed HEAD
   and independently trusted artifact provenance. Keep release verification and
   publication tag-bound; never mint a temporary tag to make acceptance pass.
+- Close implementation and candidate acceptance in official Change tasks before
+  archive. Keep each peer's accepted-ref and tag CI, published assets,
+  installation, and retirement as independently proved post-archive obligations
+  in canonical specifications and Change design.
 
 ## Capabilities
 
@@ -37,10 +46,14 @@ None.
 
 - `product-control-plane`: Hermes verification must use only its declared
   client and selected inference endpoint, without an unrelated update request;
-  pre-tag artifact acceptance must not weaken signed-tag publication.
+  pre-tag artifact acceptance must not weaken signed-tag publication, and
+  local source acceptance must not depend on a later peer delivery.
+- `product-quality`: Change tasks must close pre-archive implementation and
+  candidate acceptance without treating archive as proof of later delivery.
 
 ## Impact
 
 The Hermes adapter, release provenance verifier, native client gate, version
-metadata, and release evidence are affected. No new dependency, daemon, proxy,
-credential store, or client configuration owner is added.
+metadata, release evidence, and Change lifecycle contracts are affected. No
+new dependency, daemon, proxy, credential store, or client configuration owner
+is added.

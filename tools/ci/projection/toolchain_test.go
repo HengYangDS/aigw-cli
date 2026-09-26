@@ -178,12 +178,23 @@ func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	wantBootstrap := []string{
-		"apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y gcc libatomic1 libc6-dev openssh-client procps",
-		"env GODEBUG=http2client=0 mise install --locked",
+	bootstrap := pipeline.LinuxToolchain.BeforeScript
+	if len(bootstrap) != 2 || bootstrap[1] != "env GODEBUG=http2client=0 mise install --locked" {
+		t.Fatalf("Linux bootstrap does not install locked tools after native preparation: %q", bootstrap)
 	}
-	if got := pipeline.LinuxToolchain.BeforeScript; !slices.Equal(got, wantBootstrap) {
-		t.Fatalf("Linux bootstrap = %q, want %q", got, wantBootstrap)
+	for _, required := range []string{
+		"timeout --verbose --kill-after=5s 240s",
+		"Acquire::http::Timeout=30",
+		"Acquire::https::Timeout=30",
+		" update && DEBIAN_FRONTEND=noninteractive ",
+		" install --no-install-recommends -y gcc libatomic1 libc6-dev openssh-client procps",
+	} {
+		if !strings.Contains(bootstrap[0], required) {
+			t.Fatalf("Linux bootstrap omits %q: %q", required, bootstrap[0])
+		}
+	}
+	if strings.Count(bootstrap[0], "timeout --verbose --kill-after=5s 240s") != 2 || strings.Contains(bootstrap[0], "-qq") {
+		t.Fatalf("Linux apt commands are silent or unbounded: %q", bootstrap[0])
 	}
 	if pipeline.NativeLinux == nil {
 		t.Fatal("GitLab lacks the required native Linux job")
