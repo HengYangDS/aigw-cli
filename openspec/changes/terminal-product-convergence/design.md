@@ -81,26 +81,30 @@ clients are assessed against the same admission checklist. Unsupported or
 non-extensible modes are reported as such, not approximated by writing a
 plausible config file.
 
-### 4. Succeed the credential reader without a launcher
+### 4. Decide credential-command continuity before cutover
 
-The fixed private copy currently avoids a Homebrew-link gap but never upgrades
-after its first creation. Replace that implicit forever-version with immutable
-reader generations keyed by verified program identity. The existing
-`credential` and `synchronization` transaction owners prepare the successor,
-prove executable integrity and native Token access, then compare-and-swap only
-the selected AIGW-owned client projections. An old loaded command keeps its
-original bytes and Token behavior. Failed projection or reader qualification
-preserves the old command and leaves no unconsumed new reader. Rollback selects
-the previous qualified generation; uninstall removes only exact unconsumed
-owned generations.
+The accepted [credential decision](../../../docs/decisions/dr-0011-single-portable-token-backend.md)
+rejects the independent `aigw-keychain` helper. The existing private copy is
+the same AIGW executable, not another Token reader, but that decision still
+marks its deployment pending. Neither that copy nor direct immutable paths or
+a stable indirection is selected by this Change merely because source code or
+a test exists.
 
-There is no cross-platform promise of atomically replacing a running
-executable: Windows may keep it open, while a Unix symlink or shell launcher
-would introduce a second indirection and would not solve cached client
-endpoints. An older generation remains active state until its configured,
-cached, explicit, and rollback consumers are absent or safely transitioned.
-Unknown consumers block deletion; age or filename prefix never proves absence.
-The current CLI path remains package-manager-owned, not a credential reader.
+Compare the package-manager path, current AIGW-owned copy, stable indirection,
+and direct versioned paths against the same macOS, Linux, and Windows tests:
+original cached commands during update and rollback, native credential access
+without prompts, executable replacement, interrupted cutover, cleanup, and
+ongoing maintenance cost. Update the existing decision with the selected
+strategy and its rejected alternatives before changing live projections. The
+`credential` command and selected Token backend remain the only product reader;
+no independent helper, daemon, or second secret store is admitted.
+
+Whatever strategy wins, prepare and qualify its successor before changing a
+client projection. Keep every original invocation usable or stop before a
+package manager removes its path. Retain exact owned bytes while a configured,
+cached, explicit, or rollback caller may still use them; unknown consumers
+block deletion. A fixed path, Unix rename, fresh-client test, or green source
+gate alone does not establish Windows behavior or zero interruption.
 
 ### 5. One native qualification graph and one publication identity
 
@@ -136,9 +140,9 @@ ad hoc framework, or copied task list is introduced.
 
 ## Risks / Trade-offs
 
-- Versioned readers retain bytes during a real cached-client transition;
-  premature deletion breaks sessions, while indefinite retention is not an
-  acceptable terminal state. Exact ownership and a proved transition govern GC.
+- Original credential commands may outlive the configuration that created
+  them. Premature byte removal breaks sessions; indefinite retention is not a
+  terminal state. Exact ownership and a proved transition govern cleanup.
 - Client and Provider capabilities differ. A common adapter contract reduces
   core edits but cannot make unsupported native protocols work by declaration.
 - Provider catalogues drift faster than releases. Live probes qualify selected

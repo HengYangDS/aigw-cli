@@ -44,14 +44,14 @@
 - [ ] 3.1 Reproduce the fixed-path reader's inability to consume a later signed
       version without deleting its active bytes; contrast old and successor behavior
       with a failing lifecycle test.
-- [ ] 3.2 Prepare immutable reader generations from verified program bytes under
-      the existing credential owner; test identity, private permissions or ACLs,
-      tampering, interruption, and independent Windows paths.
-- [ ] 3.3 Cut selected Codex, Claude, and other admitted client projections to a
-      qualified successor through the existing guarded transaction; test retained
-      old commands, partial conflict, rollback, and no Token disclosure.
-- [ ] 3.4 Define and exercise exact-generation rollback, uninstall, and garbage
-      collection; preserve unknown, cached, explicit, or rollback consumers and
+- [ ] 3.2 Compare the current AIGW copy, stable indirection, and direct versioned
+      paths with a no-new-entity baseline on macOS, Linux, and Windows; amend
+      DR-0011 with one qualified choice before implementing a cutover.
+- [ ] 3.3 Implement only the selected strategy in the existing credential and
+      synchronization owners; test original commands, exact identity, private
+      permissions or ACLs, partial conflict, interruption, and no Token disclosure.
+- [ ] 3.4 Exercise rollback, uninstall, and exact owned-byte cleanup for that
+      strategy; preserve unknown, cached, explicit, or rollback consumers and
       reject prefix/age-based deletion.
 - [ ] 3.5 Run published-predecessor-to-successor reader journeys on macOS,
       Linux, and Windows with actual native stores or the explicit environment

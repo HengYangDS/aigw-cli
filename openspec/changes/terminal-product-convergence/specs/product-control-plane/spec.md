@@ -6,9 +6,9 @@
 
 Codex and Claude Code SHALL be independent Adapters owning discovery,
 projection, authentication, rollback, verification, status, and withdrawal of
-AIGW state. Account-Token helpers MUST use an absolute qualified credential
+AIGW state. Account-Token credential commands MUST use an absolute qualified
 reader and Route without storing Tokens in client files. A package-manager
-CLI link is not a stable reader during replacement. Client-native
+CLI link MUST NOT be assumed continuously available during replacement. Client-native
 authentication and preferences SHALL remain client-owned. Verification SHALL
 use synchronized settings without wrappers. New clients MUST add an Adapter
 without changing provider policy or existing Adapters.

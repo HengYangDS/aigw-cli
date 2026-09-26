@@ -23,10 +23,10 @@ cutover. Passing source checks cannot settle these installed-product contracts.
 - Define one client-adapter contract for ownership, native configuration,
   credentials, merge, rollback, withdrawal, and real tool-loop evidence. Extend
   beyond current clients only when that entire contract is implementable.
-- Replace the fixed-path, immutable-but-never-upgraded credential copy with a
-  cross-platform successor cutover that preserves retained callers until their
-  exact consumer is gone. Do not add a daemon, shell wrapper, or second secret
-  store to hide package-manager replacement.
+- Compare the existing AIGW executable copy, stable entrypoint, and direct
+  versioned paths against retained-caller behavior on every platform before
+  selecting a credential-command cutover. Preserve working callers; do not
+  revive an independent helper, daemon, or second secret store.
 - Close the macOS, Linux, and Windows journeys for locked bootstrap, build,
   install, setup, projection, update, rollback, uninstall, and real clients.
   Keep AIGW independent of any optional external Responses Proxy.
@@ -50,10 +50,10 @@ client will be supported.
   setup, and a next action that is usable in the current state.
 - `route-client-selection`: Explicit selection, provider recommendations, and
   advisory Provider preference without a false request-time failover claim.
-- `secret-storage`: Portable credential access and safe versioned entrypoint
-  lifecycle without unproved authorization.
+- `secret-storage`: Portable credential access and an evidenced command
+  continuity lifecycle without unproved authorization.
 - `product-control-plane`: Independent Client Adapters use a qualified
-  credential reader rather than a package-manager-owned CLI path.
+  credential command whose original callers remain valid during an update.
 
 The existing `cli-readiness`, `projection-format`, `release-distribution`,
 `ci-diagnostics`, `product-quality`, and `repository-organization` specifications

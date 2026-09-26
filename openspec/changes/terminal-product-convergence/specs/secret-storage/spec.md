@@ -33,11 +33,11 @@ selects it, while retained callers keep their original reader.
 
 #### Scenario: The package manager temporarily removes the CLI path
 
-- **GIVEN** enabled clients retain original commands to an admitted stable
-  credential entrypoint
+- **GIVEN** an update has been admitted for clients retaining original
+  credential commands
 - **WHEN** a package manager removes or replaces the CLI executable path
-- **THEN** every invocation issued before, during, and after that interval
-  SHALL return its original authorized Token without a missing-executable gap
+- **THEN** those original invocations before, during, and after that interval
+  SHALL return their authorized Token without a missing-executable gap
 - **AND** no client reload, Token migration, ACL change, or credential prompt
   SHALL be needed
 - **AND** failure SHALL preserve or restore a working original invocation.
@@ -54,10 +54,10 @@ selects it, while retained callers keep their original reader.
 
 - **WHEN** a successful projection disables or replaces the last default
   Account-Token Client Binding
-- **THEN** AIGW SHALL remove only intact, owned reader generations with no
+- **THEN** AIGW SHALL remove only intact, owned credential executables with no
   remaining configured or retained caller after projection completion
 - **AND** another default consumer or incomplete projection rollback SHALL
-  preserve the exact generation it may still invoke
+  preserve the exact executable it may still invoke
 - **AND** an enabled explicit credential command resolving to an owned reader
   SHALL preserve it without changing that command's owner
 - **AND** a failed removal SHALL report committed client state with incomplete
@@ -72,11 +72,11 @@ selects it, while retained callers keep their original reader.
 - **AND** SHALL NOT overwrite an executable still used by a retained caller
 - **AND** failure SHALL preserve the older command and Token behavior.
 
-#### Scenario: A retired reader generation has no consumer
+#### Scenario: A retired owned credential executable has no consumer
 
 - **WHEN** no configured client, retained caller, rollback target or explicit
-  external binding can invoke an owned older generation
-- **THEN** AIGW SHALL remove only that exact generation and its owned identity
+  external binding can invoke an owned older executable
+- **THEN** AIGW SHALL remove only that exact executable and its owned identity
   evidence
 - **AND** SHALL preserve unknown or foreign content rather than deleting by
   name prefix or age.
