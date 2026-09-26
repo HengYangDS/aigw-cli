@@ -8,7 +8,7 @@
 - [ ] 1.2 Map each remaining user-visible obligation to its canonical OpenSpec
       requirement, implementation owner, and native acceptance command; remove
       duplicate status prose instead of creating another ledger.
-- [ ] 1.3 Capture protected 0.3.1 installation, selected Client Bindings,
+- [x] 1.3 Capture protected 0.3.1 installation, selected Client Bindings,
       credential backend, running callers, and rollback bytes without reading or
       logging Token values; verify metadata before any host cutover.
 - [x] 1.4 Reproduce the installed and current-source no-Token/no-client
