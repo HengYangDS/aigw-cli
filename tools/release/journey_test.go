@@ -1,6 +1,7 @@
 package main
 
 import (
+	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/platform"
@@ -12,7 +13,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -344,15 +344,13 @@ func (j *journeyFixture) runWith(binary string, args ...string) []byte {
 
 func (j *journeyFixture) runWithInput(binary, input string, args ...string) []byte {
 	j.testing.Helper()
-	command := exec.Command(binary, args...)
-	command.Env = j.environment
-	command.Stdin = strings.NewReader(input)
-	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	command.Stdout, command.Stderr = stdout, stderr
-	if err := command.Run(); err != nil {
-		j.testing.Fatalf("%s %s: %v\nstdout:\n%s\nstderr:\n%s", binary, strings.Join(args, " "), err, stdout, stderr)
+	ctx, cancel := context.WithTimeout(j.testing.Context(), clientverification.ProtocolTimeout)
+	defer cancel()
+	output, err := (process.Runner{}).RunCapture(ctx, process.Plan{Executable: binary, Args: args, Env: j.environment, Stdin: input})
+	if err != nil {
+		j.testing.Fatalf("%s %s: %v\nstderr:\n%s", binary, strings.Join(args, " "), err, output)
 	}
-	return stdout.Bytes()
+	return output
 }
 
 func (j *journeyFixture) requireConfigContains(values ...string) {

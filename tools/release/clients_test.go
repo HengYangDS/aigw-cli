@@ -72,6 +72,14 @@ func TestNativeClientInputs(t *testing.T) {
 			t.Fatal("native preparation substituted its own route or model for the supplied recommendation")
 		}
 	})
+	t.Run("hermes-offline-version-preflight", func(t *testing.T) {
+		journey := &journeyFixture{
+			testing: t, root: root, manifest: filepath.Join(root, "team.toml"),
+			endpoint: "http://127.0.0.1:1/v1",
+		}
+		journey.prepareNativeClient(configuration.ClientHermes, file, readFile(t, filepath.Join("..", "..", "manifests", "team.toml")))
+		requireFileContains(t, filepath.Join(root, "home", ".hermes", "config.yaml"), "updates:\n  check: false")
+	})
 }
 
 func TestNativeClientFilePreservation(t *testing.T) {
@@ -343,7 +351,16 @@ plugins = false
 max_concurrent_threads_per_session = 16
 `,
 		configuration.ClientClaude: `{"effortLevel":"high","autoCompactWindow":180000}`,
-		configuration.ClientHermes: "model:\n  temperature: 0.3\nproviders:\n  personal:\n    base_url: https://personal.test\nterminal:\n  backend: local\n",
+		configuration.ClientHermes: `model:
+  temperature: 0.3
+providers:
+  personal:
+    base_url: https://personal.test
+terminal:
+  backend: local
+updates:
+  check: false
+`,
 	}
 	path := map[string]string{
 		configuration.ClientClaude: j.settings,
@@ -391,7 +408,16 @@ func (j *journeyFixture) enableNativeClient(client, executable string) {
 	}
 	j.run(args...)
 	j.run("sync")
-	j.testing.Logf("client %s version=%s", client, strings.TrimSpace(string(j.runWith(executable, "--version"))))
+	version := strings.TrimSpace(string(j.runWith(executable, "--version")))
+	if client == configuration.ClientHermes {
+		if strings.Contains(version, "Update available") || strings.Contains(version, "Up to date") {
+			j.testing.Fatal("isolated Hermes version probe performed a software-update check")
+		}
+		if _, err := os.Stat(filepath.Join(environmentValues(j.environment)["HERMES_HOME"], ".update_check")); !errors.Is(err, os.ErrNotExist) {
+			j.testing.Fatalf("isolated Hermes version probe wrote an update-check cache: %v", err)
+		}
+	}
+	j.testing.Logf("client %s version=%s", client, version)
 }
 
 func (j *journeyFixture) requireNativePreferences(client string) {
@@ -432,6 +458,7 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 			"temperature: 0.3",
 			"personal:",
 			"backend: local",
+			"updates:\n  check: false",
 		)
 	default:
 		j.testing.Fatalf("unsupported native client %q", client)

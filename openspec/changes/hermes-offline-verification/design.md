@@ -39,6 +39,11 @@ provider routing, credential ownership, or the behavior of other clients.
    current signed HEAD, locked inputs, and supplied bytes. Candidate mode rejects
    a selected or same-version local tag; `verify-artifacts` and publication keep
    their signed-tag path. Do not create a temporary tag or a second verifier.
+5. The real-client acceptance fixture also calls Hermes `--version` directly.
+   Set the same native update opt-out in its disposable `HERMES_HOME` before that
+   preflight, preserve it through projection, and use the existing bounded
+   process runner for fixture-owned client commands. Do not edit the user's
+   Hermes home or add a second version-probe path.
 
 ## Risks / Trade-offs
 
@@ -53,6 +58,9 @@ provider routing, credential ownership, or the behavior of other clients.
   exact-OID abandon path rather than publishing or reusing it.
 - **Tagless acceptance masks an invalid release tag** → Require explicit
   candidate selection and reject a same-version local tag before native tests.
+- **The real-client preflight reaches GitHub before model inference** → Assert
+  its isolated opt-out before invocation, then reject update-status output or
+  cache creation from the installed Hermes CLI.
 
 ## Migration Plan
 
@@ -105,3 +113,10 @@ removing that unnecessary variant split, the tracked `TestNativePerformance`
 passed with 24 forty-sample blocks, 12 pooled rows, four peak-memory records,
 and all candidate budgets met. These results qualify that pre-archive candidate
 only; the archived source requires new final bytes and acceptance.
+
+The real-client fixture's Hermes preflight initially lacked the native update
+opt-out and failed a focused policy assertion. With `updates.check: false`
+applied before the direct version call, the installed Hermes CLI completed the
+isolated client journey under a blocked external proxy without update-status
+output or an update-check cache. Fixture-owned commands now use the same
+deadline-bounded process runner as product verification.

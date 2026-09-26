@@ -5,6 +5,7 @@
 - [x] 1.1 Extend the existing Hermes adapter test to reject a verification home that permits passive update checks or exposes a raw version-probe failure; run the focused test and retain its expected RED result.
 - [x] 1.2 Use Hermes' native update-check opt-out only in the disposable verification home and classify timeout, cancellation, and other version-probe failures without raw output; rerun the focused adapter tests to GREEN.
 - [x] 1.3 Run the installed Hermes CLI against one disposable source-built test candidate and a local authenticated endpoint through the focused real-client journey; verify version, selected-model response, Account rename, finalization, and user-file preservation without treating the test bytes as a release.
+- [x] 1.4 Disable Hermes' passive update check in the real-client fixture before its direct version preflight, bound fixture-owned client processes through the existing runner, and prove the installed CLI remains offline in an isolated home.
 
 ## 2. New Release Identity and Local Acceptance
 
