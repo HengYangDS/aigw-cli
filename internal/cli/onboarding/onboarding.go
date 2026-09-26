@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -134,7 +135,7 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 		return err
 	}
 	renderSetupService(runtime, plan)
-	renderSetupClients(runtime, plan.config)
+	renderSetupClients(runtime, plan.config, plan.request.Client)
 	return nil
 }
 
@@ -211,24 +212,27 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 	r.Status(presentation.OK, "API Token", "Validated")
 }
 
-func renderSetupClients(runtime invocation.Context, cfg configuration.Config) {
+func renderSetupClients(runtime invocation.Context, cfg configuration.Config, selectedClient string) {
 	r := invocation.Renderer(runtime)
 	r.Section("Clients")
-	configured := false
-	for _, client := range configuration.AdmittedClientIDs() {
-		if cfg.Clients[client].Enabled {
-			configured = true
-			r.Status(presentation.OK, invocation.Title(client), "Configured")
-		} else {
-			r.Status(presentation.Info, invocation.Title(client), "Not configured")
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		binding := cfg.Clients[spec.ID]
+		switch {
+		case !binding.Enabled:
+			r.Status(presentation.Info, spec.Label, "Not configured")
+		case binding.Executable == "":
+			r.Status(presentation.Info, spec.Label, "Selected; projection deferred")
+		default:
+			r.Status(presentation.OK, spec.Label, "Projection configured")
 		}
 	}
-	if !configured {
-		r.Success("Account ready. Install Claude Code or Codex when needed, then synchronize its configuration.")
-		r.Next("aigw sync")
+	if cfg.Clients[selectedClient].Executable == "" {
+		spec, _ := configuration.ClientSpecFor(selectedClient)
+		r.Success("Account and Route are ready; selected client activation is deferred.")
+		r.Next("Install " + spec.Label + " if needed, then run `aigw sync`")
 		return
 	}
-	r.Success("Ready. You can add more model routes for this account.")
+	r.Success("Client projection configured; real-client use is not yet verified.")
 	r.Next("aigw check")
 }
 
@@ -287,34 +291,58 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
-	client, err := runtime.Prompt.Select("Client for the first route: ", []prompt.Choice{
-		{Value: configuration.ClientCodex, Label: "Codex (OpenAI Responses)"},
-		{Value: configuration.ClientClaude, Label: "Claude (Anthropic)"},
-	})
+	clientSpecs := configuration.AdmittedClientSpecs()
+	clientChoices := make([]prompt.Choice, 0, len(clientSpecs))
+	for _, spec := range clientSpecs {
+		clientChoices = append(clientChoices, prompt.Choice{Value: spec.ID, Label: spec.Label})
+	}
+	client, err := runtime.Prompt.Select("Client for the first Route: ", clientChoices)
 	if err != nil {
 		return err
 	}
-	endpointLabel := "OpenAI Responses URL: "
-	if client == configuration.ClientClaude {
-		endpointLabel = "Anthropic URL: "
+	spec, ok := configuration.ClientSpecFor(client)
+	if !ok || len(spec.EndpointProtocols) == 0 {
+		return fmt.Errorf("unsupported setup client %q", client)
 	}
-	endpoint, err := runtime.Prompt.Text(endpointLabel)
+	protocol := spec.EndpointProtocols[0]
+	if len(spec.EndpointProtocols) > 1 {
+		protocolChoices := make([]prompt.Choice, 0, len(spec.EndpointProtocols))
+		for _, candidate := range spec.EndpointProtocols {
+			protocolChoices = append(protocolChoices, prompt.Choice{Value: string(candidate), Label: string(candidate)})
+		}
+		selected, selectErr := runtime.Prompt.Select("Endpoint protocol: ", protocolChoices)
+		if selectErr != nil {
+			return selectErr
+		}
+		protocol = configuration.EndpointProtocol(selected)
+		if !slices.Contains(spec.EndpointProtocols, protocol) {
+			return fmt.Errorf("unsupported %s endpoint protocol %q", spec.Label, selected)
+		}
+	}
+	request := Request{Account: account, Label: label, Client: client, Protocol: string(protocol), PromptToken: true}
+	var endpointLabel string
+	var endpointURL *string
+	switch protocol {
+	case configuration.ProtocolAnthropic:
+		endpointLabel, endpointURL = "Anthropic Messages URL: ", &request.AnthropicURL
+	case configuration.ProtocolOpenAIResponses:
+		endpointLabel, endpointURL = "OpenAI Responses URL: ", &request.OpenAIURL
+	case configuration.ProtocolOpenAIChatCompletions:
+		endpointLabel, endpointURL = "OpenAI Chat Completions URL: ", &request.ChatURL
+	default:
+		return fmt.Errorf("unsupported endpoint protocol %q", protocol)
+	}
+	*endpointURL, err = runtime.Prompt.Text(endpointLabel)
 	if err != nil {
 		return err
 	}
-	route, err := runtime.Prompt.Text("Route ID (for example, gpt-5.6-terra): ")
+	request.Route, err = runtime.Prompt.Text("Route ID (for example, team-model): ")
 	if err != nil {
 		return err
 	}
-	model, err := runtime.Prompt.Text("Upstream model ID: ")
+	request.Model, err = runtime.Prompt.Text("Upstream model ID: ")
 	if err != nil {
 		return err
-	}
-	request := Request{Account: account, Route: route, Label: label, Client: client, Model: model, PromptToken: true}
-	if client == configuration.ClientCodex {
-		request.OpenAIURL = endpoint
-	} else {
-		request.AnthropicURL = endpoint
 	}
 	return runSetup(ctx, runtime, request)
 }

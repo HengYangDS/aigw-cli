@@ -13,7 +13,7 @@ the complete design.
 
 | Goal                          | Command                           | Then                               |
 | ----------------------------- | --------------------------------- | ---------------------------------- |
-| Connect the first Account     | `aigw setup`                      | `aigw check`                       |
+| Connect the first Account     | `aigw setup`                      | Follow **Next**                    |
 | Import reviewed team settings | `aigw setup --from team.toml`     | Connect any one Account when ready |
 | Inspect current state         | `aigw`                            | Follow **Next**                    |
 | Bind a Route to a client      | `aigw use --for <client> <route>` | `aigw check`                       |
@@ -66,6 +66,11 @@ selected client when its prerequisites are available:
 ```bash
 aigw setup
 ```
+
+The guided flow offers admitted clients and asks for a protocol when a client
+supports more than one. It preserves the Account, Token, Route, and selection
+if the client is not installed; install that client and run `aigw sync` later.
+`aigw check` verifies a projected binding, not the act of installing a client.
 
 To connect a direct OpenAI Responses endpoint without a team manifest:
 

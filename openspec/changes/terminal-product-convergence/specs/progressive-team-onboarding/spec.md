@@ -14,11 +14,14 @@ semantic result, and never expose credentials.
 
 #### Scenario: Guided setup completes before client installation
 
-- **WHEN** guided setup connects an Account while neither Claude Code nor Codex
-  is installed
-- **THEN** setup SHALL identify `aigw sync` as the next action after installing
-  a supported client
-- **AND** SHALL NOT identify `aigw check` as the activation action.
+- **WHEN** guided setup connects an Account for a selected admitted client that
+  is not yet installed
+- **THEN** the wizard SHALL offer the admitted clients and require an explicit
+  protocol choice when the selected client admits more than one
+- **AND** setup SHALL preserve the Account, Token, Route, and client selection
+  without claiming that native projection or inference is ready
+- **AND** SHALL name client installation followed by `aigw sync`, not
+  `aigw check`, as the activation continuation.
 
 #### Scenario: Selected Responses endpoint is unavailable
 
