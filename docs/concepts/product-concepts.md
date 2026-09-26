@@ -22,7 +22,8 @@ flowchart TB
 An Account contains:
 
 - a human label;
-- an OpenAI Responses endpoint, an Anthropic endpoint, or both;
+- OpenAI Responses, OpenAI Chat Completions, or Anthropic endpoints as supported
+  by the Account;
 - an Account Token slot in the selected backend when authentication requires it;
 - an optional provider-native diagnostic declaration.
 

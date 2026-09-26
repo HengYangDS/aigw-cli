@@ -19,12 +19,12 @@ import (
 
 // Request contains the explicit setup inputs before discovery and validation resolve their effects.
 type Request struct {
-	From, Account, Route, Label string
-	OpenAIURL, AnthropicURL     string
-	Client, Model               string
-	TokenStdin                  bool
-	PromptToken                 bool
-	JSON                        bool
+	From, Account, Route, Label      string
+	OpenAIURL, AnthropicURL, ChatURL string
+	Client, Model, Protocol          string
+	TokenStdin                       bool
+	PromptToken                      bool
+	JSON                             bool
 }
 
 // NewCommand constructs the setup command and binds it to one invocation context.
@@ -76,11 +76,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&request.Label, "label", "", "Provider display name")
 	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses base URL")
 	cmd.Flags().StringVar(&request.AnthropicURL, "anthropic-url", "", "Anthropic base URL")
+	cmd.Flags().StringVar(&request.ChatURL, "chat-url", "", "OpenAI Chat Completions base URL")
 	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first route: "+configuration.AdmittedClientUsage())
 	cmd.Flags().StringVar(&request.Model, "model", "", "Upstream model ID for --for")
+	cmd.Flags().StringVar(&request.Protocol, "protocol", "", "Endpoint protocol when more than one URL is configured")
 	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one token line from standard input")
 	cmd.Flags().BoolVar(&request.JSON, "json", false, "Write the manifest setup result as JSON")
-	for _, name := range []string{"route", "label", "openai-url", "anthropic-url", "for", "model"} {
+	for _, name := range []string{"route", "label", "openai-url", "anthropic-url", "chat-url", "for", "model", "protocol"} {
 		cmd.MarkFlagsMutuallyExclusive("from", name)
 	}
 	return cmd
@@ -154,8 +156,9 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 		plan.request.Label = plan.request.Account
 	}
 	endpoints := configuration.Endpoints{
-		OpenAIResponses: strings.TrimRight(strings.TrimSpace(plan.request.OpenAIURL), "/"),
-		Anthropic:       strings.TrimRight(strings.TrimSpace(plan.request.AnthropicURL), "/"),
+		OpenAIResponses:       strings.TrimRight(strings.TrimSpace(plan.request.OpenAIURL), "/"),
+		Anthropic:             strings.TrimRight(strings.TrimSpace(plan.request.AnthropicURL), "/"),
+		OpenAIChatCompletions: strings.TrimRight(strings.TrimSpace(plan.request.ChatURL), "/"),
 	}
 	if plan.request.Client == "" {
 		return setupPlan{}, fmt.Errorf("--for is required and must be %s; a model route belongs to exactly one client", configuration.AdmittedClientUsage())
@@ -165,12 +168,19 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 		return setupPlan{}, fmt.Errorf("--for must be %s; run `aigw setup --help`", configuration.AdmittedClientUsage())
 	}
 	account := configuration.Account{ID: plan.request.Account, Endpoints: endpoints}
-	_, protocol, err := spec.ResolveEndpoint(account, "")
+	if plan.request.Protocol == "" && len(spec.CompatibleProtocols(account)) > 1 {
+		return setupPlan{}, fmt.Errorf("--for %s has multiple compatible endpoints; specify --protocol", plan.request.Client)
+	}
+	_, protocol, err := spec.ResolveEndpoint(account, configuration.EndpointProtocol(plan.request.Protocol))
 	if err != nil {
 		if _, ok := errors.AsType[*configuration.RuntimeMissingEndpointError](err); !ok {
 			return setupPlan{}, err
 		}
-		return setupPlan{}, fmt.Errorf("--for %s requires %s", plan.request.Client, setupEndpointFlag(spec.EndpointProtocols[0]))
+		required := spec.EndpointProtocols[0]
+		if plan.request.Protocol != "" {
+			required = configuration.EndpointProtocol(plan.request.Protocol)
+		}
+		return setupPlan{}, fmt.Errorf("--for %s requires %s", plan.request.Client, setupEndpointFlag(required))
 	}
 	if strings.TrimSpace(plan.request.Model) == "" {
 		return setupPlan{}, fmt.Errorf("--for %s requires --model", plan.request.Client)
@@ -224,10 +234,16 @@ func renderSetupClients(runtime invocation.Context, cfg configuration.Config) {
 }
 
 func setupEndpointFlag(protocol configuration.EndpointProtocol) string {
-	if protocol == configuration.ProtocolAnthropic {
+	switch protocol {
+	case configuration.ProtocolAnthropic:
 		return "--anthropic-url"
+	case configuration.ProtocolOpenAIChatCompletions:
+		return "--chat-url"
+	case configuration.ProtocolOpenAIResponses:
+		return "--openai-url"
+	default:
+		return "--protocol"
 	}
-	return "--openai-url"
 }
 
 // setupToken prefers a credential that was already supplied by the active

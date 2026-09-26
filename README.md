@@ -115,6 +115,10 @@ aigw sync
 aigw check
 ```
 
+`--for` accepts `claude`, `claude-desktop`, `codex`, and `hermes`. A Route
+exposing more than one compatible protocol requires an explicit choice; see
+[client-scoped protocol selection](docs/guides/team-rollout.md#select-a-protocol-for-a-multi-protocol-route).
+
 `sync` discovers installed clients and changes only AIGW-owned projection state.
 It reconciles enabled client bindings whose Route, authentication, and native
 surface are available. It never selects a Route, enables an unbound client,

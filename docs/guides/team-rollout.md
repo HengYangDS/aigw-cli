@@ -424,6 +424,23 @@ failed selection compensates its own credential writes; it preserves a newer
 credential and reports any incomplete recovery. An output error after commit
 does not undo the selection. Run `aigw status` before retrying.
 
+### Select a protocol for a multi-protocol Route
+
+`use --for` accepts `claude`, `claude-desktop`, `codex`, and `hermes`. A Route
+may expose more than one protocol to Hermes. If no previous binding or team
+recommendation resolves that choice, interactive `use` asks which protocol to
+use; non-interactive use requires one explicitly:
+
+```bash
+aigw use --for hermes --protocol openai_responses <route>
+```
+
+The choice uses the same `anthropic`, `openai_responses`, and
+`openai_chat_completions` names as `team.toml`; AIGW never guesses from a Model
+name. Direct single-Route `setup` also accepts `--protocol` when more than one
+endpoint URL is supplied. Its `--chat-url` supplies an OpenAI Chat Completions
+endpoint for Hermes; the protocol is stored in that Client Binding.
+
 Rotation validates and replaces only the selected Account's Token. It does not
 select a Route, rewrite client configuration or invoke a native client. The
 credential helper reads the new Token when next invoked; client caching may

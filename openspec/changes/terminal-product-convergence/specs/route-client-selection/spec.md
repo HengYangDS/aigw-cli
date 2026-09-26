@@ -30,3 +30,19 @@ all recommendations until its owner changes it.
 - **THEN** AIGW SHALL NOT claim to have observed or retried that request
 - **AND** SHALL NOT silently rewrite the selected Route or replay the call
 - **AND** MAY present a tested compatible alternative for explicit switching.
+
+### Requirement: Ambiguous client protocols require an explicit choice
+
+When a Route and Client Binding admit more than one endpoint protocol, AIGW SHALL
+preserve an existing explicit protocol or require the operator to choose one.
+It SHALL NOT infer a protocol from the Model name or silently prefer an
+endpoint. Direct setup and Route selection SHALL expose that choice through
+the same protocol names used by the team manifest.
+
+#### Scenario: Hermes selects a multi-protocol Route
+
+- **WHEN** Hermes selects a Route with multiple compatible protocols and no
+  prior or recommended protocol applies
+- **THEN** non-interactive selection names the required `--protocol` choice
+- **AND** interactive selection offers each compatible protocol
+- **AND** a failed or incompatible choice leaves every Client Binding unchanged.

@@ -439,6 +439,58 @@ func TestConfiguredClientsForAccount(t *testing.T) {
 	}
 }
 
+func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
+	_, err := planSetup(configuration.NewConfig(), Request{
+		Route: "shared", Client: configuration.ClientHermes, Model: "shared-model",
+		OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
+	})
+	if err == nil || !strings.Contains(err.Error(), "--protocol") {
+		t.Fatalf("ambiguous Hermes setup error = %v, want explicit protocol guidance", err)
+	}
+	_, err = planSetup(configuration.NewConfig(), Request{
+		Route: "chat", Client: configuration.ClientHermes, Model: "chat-model",
+		Protocol: string(configuration.ProtocolOpenAIChatCompletions),
+	})
+	if err == nil || !strings.Contains(err.Error(), "--chat-url") {
+		t.Fatalf("missing Chat endpoint error = %v, want exact URL guidance", err)
+	}
+
+	for _, test := range []struct {
+		name     string
+		request  Request
+		protocol configuration.EndpointProtocol
+	}{
+		{
+			name: "Anthropic among two endpoints",
+			request: Request{
+				Route: "shared", Client: configuration.ClientHermes, Model: "shared-model",
+				OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
+				Protocol: string(configuration.ProtocolAnthropic),
+			},
+			protocol: configuration.ProtocolAnthropic,
+		},
+		{
+			name: "Chat Completions",
+			request: Request{
+				Route: "chat", Client: configuration.ClientHermes, Model: "chat-model",
+				ChatURL: "https://chat.test/v1", Protocol: string(configuration.ProtocolOpenAIChatCompletions),
+			},
+			protocol: configuration.ProtocolOpenAIChatCompletions,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			plan, err := planSetup(configuration.NewConfig(), test.request)
+			if err != nil || plan.config.Clients[configuration.ClientHermes].Protocol != test.protocol {
+				t.Fatalf("Hermes setup protocol = %#v, %v", plan.config.Clients[configuration.ClientHermes], err)
+			}
+		})
+	}
+	command := NewCommand(invocation.Context{})
+	if command.Flags().Lookup("protocol") == nil || command.Flags().Lookup("chat-url") == nil {
+		t.Fatal("guided setup does not expose the declared protocol and Chat endpoint choices")
+	}
+}
+
 func TestSetupTokenPromptAndBackendErrors(t *testing.T) {
 	t.Run("backend error", func(t *testing.T) {
 		want := errors.New("backend failed")
