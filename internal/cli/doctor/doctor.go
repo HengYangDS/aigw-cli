@@ -202,6 +202,9 @@ func renderClients(renderer *presentation.Renderer, clients map[string]domainrea
 			state = presentation.Warn
 		}
 		message := client.State.Label()
+		if client.ProjectionDeferred {
+			message += " · Native projection deferred"
+		}
 		if client.NativeModelOverride {
 			message += " · " + client.Detail
 		}

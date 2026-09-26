@@ -255,7 +255,7 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 	}
 }
 
-func TestCheckDefersUnprojectedClientBeforeReadingCredentials(t *testing.T) {
+func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
 	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		for _, jsonMode := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%t", client, jsonMode), func(t *testing.T) {
@@ -270,7 +270,7 @@ func TestCheckDefersUnprojectedClientBeforeReadingCredentials(t *testing.T) {
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
 				}
-				store := &observingSecretStore{getErr: errors.New("secret read before projection admission")}
+				store := &observingSecretStore{value: "available-token", getErr: errors.New("secret read before projection admission")}
 				runtime.Secrets = store
 				runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
 					t.Fatal("invalid projection must not authenticate an endpoint")
@@ -285,8 +285,8 @@ func TestCheckDefersUnprojectedClientBeforeReadingCredentials(t *testing.T) {
 				if err := executeCommand(command); err == nil {
 					t.Fatal("invalid projection was accepted")
 				}
-				if store.getCalls != 0 {
-					t.Fatalf("invalid projection read secret values %d times", store.getCalls)
+				if store.getCalls != 0 || store.existsCalls != 1 {
+					t.Fatalf("deferred projection observed Token value or repeated metadata lookup: get=%d exists=%d", store.getCalls, store.existsCalls)
 				}
 				if jsonMode {
 					var result checkJSON
@@ -303,6 +303,35 @@ func TestCheckDefersUnprojectedClientBeforeReadingCredentials(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestCheckReportsCredentialMetadataFailureBeforeClientProjection(t *testing.T) {
+	runtime, cfg, output := configuredReadinessRuntime(t)
+	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := &observingSecretStore{existsErr: errors.New("metadata denied")}
+	runtime.Secrets = store
+	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("unavailable credential metadata must not trigger an endpoint probe")
+		return nil, nil
+	})
+	command := NewCheckCommand(runtime)
+	command.SetArgs([]string{"--json"})
+	if err := executeCommand(command); err == nil {
+		t.Fatal("credential metadata failure was accepted")
+	}
+	var result checkJSON
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.State != domainreadiness.Unavailable || result.NextAction != "aigw doctor" || result.Clients[configuration.ClientClaude].State != domainreadiness.Unavailable {
+		t.Fatalf("metadata failure = %+v", result)
+	}
+	if store.getCalls != 0 || store.existsCalls != 1 {
+		t.Fatalf("metadata failure read Token or repeated observation: get=%d exists=%d", store.getCalls, store.existsCalls)
 	}
 }
 

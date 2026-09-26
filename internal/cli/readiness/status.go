@@ -110,18 +110,7 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config, 
 			ProjectionIssue:    adapterStatus.Issue,
 			ProjectionAction:   projectionAction,
 		}
-		if facts.CredentialRequired && (!facts.ProjectionEnabled || facts.ProjectionReady) {
-			available, observationErr, observed := activation.CredentialAvailability(clientRuntime.AccountID)
-			if !observed {
-				available, observationErr = runtime.Secrets.Exists(clientRuntime.AccountID)
-			}
-			facts.CredentialAvailable = available
-			if observationErr != nil {
-				facts.CredentialObservationIssue = "Credential metadata is unavailable"
-			} else {
-				facts.CredentialAction, _ = credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
-			}
-		}
+		applyCredentialFacts(&facts, activation, runtime.Secrets, clientID, clientRuntime.AccountID)
 		state := domainreadiness.ClassifyClient(facts)
 		if adapterStatus.NativeModelOverride && state.State == domainreadiness.Configured {
 			state.NativeModelOverride = true
@@ -148,6 +137,28 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config, 
 		clients[clientID] = client
 	}
 	return clients
+}
+
+func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *clientactivation.Activation, store secrets.Store, clientID, accountID string) {
+	if !facts.CredentialRequired {
+		return
+	}
+	available, observationErr, observed := activation.CredentialAvailability(accountID)
+	if !observed {
+		available, observationErr = store.Exists(accountID)
+	}
+	facts.CredentialAvailable = available
+	if observationErr != nil {
+		facts.CredentialObservationIssue = "Credential metadata is unavailable"
+		return
+	}
+	if available {
+		return
+	}
+	facts.CredentialAction = activation.CredentialPrerequisites[clientID]
+	if facts.CredentialAction == "" {
+		facts.CredentialAction, _ = credential.TokenRecovery(store, accountID)
+	}
 }
 
 func unresolvedClientStatus(cfg *configuration.Config, clientID string, resolveErr error) clientStatus {

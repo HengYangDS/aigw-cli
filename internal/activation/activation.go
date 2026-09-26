@@ -19,6 +19,7 @@ type Activation struct {
 	State                   domainreadiness.State
 	NextAction              string
 	CredentialPrerequisite  bool
+	CredentialPrerequisites map[string]string
 	ProjectionPrerequisites map[string]string
 	observedCredentials     map[string]credentialObservation
 }
@@ -52,17 +53,54 @@ func ProjectionPrerequisites(cfg configuration.Config) map[string]string {
 	return prerequisites
 }
 
-func assessEnabledProjection(cfg configuration.Config, result Activation) Activation {
+func assessEnabledProjection(cfg configuration.Config, store secrets.Store, result Activation) Activation {
 	result.ProjectionPrerequisites = ProjectionPrerequisites(cfg)
-	if len(result.ProjectionPrerequisites) == result.EnabledClients {
-		result.State = domainreadiness.Deferred
-		for _, spec := range configuration.AdmittedClientSpecs() {
-			if action := result.ProjectionPrerequisites[spec.ID]; action != "" {
-				result.NextAction = action
-				break
-			}
+	result.CredentialPrerequisites = map[string]string{}
+	result.observedCredentials = map[string]credentialObservation{}
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		if !cfg.Clients[spec.ID].Enabled {
+			continue
+		}
+		runtime, err := cfg.ResolveRuntime(spec.ID, "")
+		if err != nil || !runtime.UsesAIGWCredentialStore() || store == nil {
+			continue
+		}
+		observation, observed := result.observedCredentials[runtime.AccountID]
+		if !observed {
+			observation.available, observation.err = store.Exists(runtime.AccountID)
+			result.observedCredentials[runtime.AccountID] = observation
+		}
+		if observation.err == nil && !observation.available {
+			result.CredentialPrerequisites[spec.ID], _ = credential.TokenRecovery(store, runtime.AccountID)
 		}
 	}
+	if len(result.ProjectionPrerequisites) != result.EnabledClients {
+		return result
+	}
+	result.State = domainreadiness.Deferred
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		if result.ProjectionPrerequisites[spec.ID] == "" {
+			continue
+		}
+		runtime, err := cfg.ResolveRuntime(spec.ID, "")
+		if err != nil || !runtime.UsesAIGWCredentialStore() {
+			result.NextAction = result.ProjectionPrerequisites[spec.ID]
+			return result
+		}
+		if observation := result.observedCredentials[runtime.AccountID]; observation.available && observation.err == nil {
+			result.NextAction = result.ProjectionPrerequisites[spec.ID]
+			return result
+		}
+	}
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		if action := result.CredentialPrerequisites[spec.ID]; action != "" {
+			result.NextAction = action
+			result.CredentialPrerequisite = true
+			return result
+		}
+	}
+	result.State = domainreadiness.Unavailable
+	result.NextAction = "aigw doctor"
 	return result
 }
 
@@ -72,7 +110,7 @@ func assessEnabledProjection(cfg configuration.Config, result Activation) Activa
 func AssessActivation(cfg configuration.Config, store secrets.Store) Activation {
 	result := Activation{EnabledClients: len(cfg.EnabledClientIDs())}
 	if result.EnabledClients != 0 {
-		return assessEnabledProjection(cfg, result)
+		return assessEnabledProjection(cfg, store, result)
 	}
 	result.State = domainreadiness.Deferred
 	if len(cfg.Routes) == 0 {

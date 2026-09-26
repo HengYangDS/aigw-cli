@@ -22,7 +22,9 @@ type deferredActivationDocument struct {
 	NextAction     string            `json:"next_action"`
 	Selections     map[string]string `json:"selections"`
 	Clients        map[string]struct {
-		State string `json:"state"`
+		State              string `json:"state"`
+		NextAction         string `json:"next_action"`
+		ProjectionDeferred bool   `json:"projection_deferred"`
 	} `json:"clients"`
 }
 
@@ -239,5 +241,83 @@ func TestSelectedClientWithoutExecutableHasOneDeferredContinuation(t *testing.T)
 	}
 	if len(runner.plans) != 0 || httpClient.calls != requestsBefore {
 		t.Fatalf("deferred activation invoked client or endpoint: plans=%d http=%d, before=%d", len(runner.plans), httpClient.calls, requestsBefore)
+	}
+}
+
+func TestShippedTeamManifestTokenRemovedBeforeClientInstallation(t *testing.T) {
+	app, out, credentials, runner, httpClient := testApp(t, "")
+	app.Discovery = fakeDiscovery{}
+	if err := credentials.Set("ucloud", "fixture-token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
+		t.Fatalf("setup before client installation: %v\n%s", err, out)
+	}
+	if err := credentials.Delete("ucloud"); err != nil {
+		t.Fatal(err)
+	}
+	before, err := app.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantAction := "run `aigw rotate ucloud`"
+	for _, command := range []string{"sync", "status", "check", "doctor"} {
+		assertTokenRemovedJSONCommand(t, app, out, command, wantAction)
+		assertTokenRemovedHumanCommand(t, app, out, command)
+	}
+	after, err := app.Config.CaptureSnapshot()
+	if err != nil || !before.Config.Equal(after.Config) || !before.Backup.Equal(after.Backup) || !before.Verified.Equal(after.Verified) {
+		t.Fatalf("read-only diagnostics changed configuration: %v", err)
+	}
+	if len(runner.plans) != 0 || httpClient.calls != 0 {
+		t.Fatalf("missing client or Token triggered external work: plans=%d http=%d", len(runner.plans), httpClient.calls)
+	}
+}
+
+func assertTokenRemovedJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer, command, wantAction string) {
+	t.Helper()
+	out.Reset()
+	args := []string{command, "--json"}
+	if command == "sync" {
+		args = []string{"sync", "--dry-run", "--json"}
+	}
+	err := cli.Execute(app, args)
+	if (err != nil) != (command == "check" || command == "doctor") {
+		t.Fatalf("%s error = %v\n%s", command, err, out)
+	}
+	var result deferredActivationDocument
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("decode %s: %v\n%s", command, err, out)
+	}
+	wantCommandAction := wantAction
+	if command == "doctor" {
+		wantCommandAction = "aigw rotate ucloud"
+	}
+	if result.State != "deferred" || result.NextAction != wantCommandAction {
+		t.Fatalf("%s continuation = %+v\n%s", command, result, out)
+	}
+	if command == "sync" {
+		return
+	}
+	codex := result.Clients[configuration.ClientCodex]
+	if codex.State != "deferred" || codex.NextAction != wantAction || !codex.ProjectionDeferred {
+		t.Fatalf("%s selected Codex = %+v", command, codex)
+	}
+}
+
+func assertTokenRemovedHumanCommand(t *testing.T, app *cli.App, out *bytes.Buffer, command string) {
+	t.Helper()
+	out.Reset()
+	args := []string{command}
+	if command == "sync" {
+		args = []string{"sync", "--dry-run"}
+	}
+	err := cli.Execute(app, args)
+	if (err != nil) != (command == "check" || command == "doctor") {
+		t.Fatalf("human %s error = %v\n%s", command, err, out)
+	}
+	human := strings.ToLower(out.String())
+	if !strings.Contains(human, "aigw rotate ucloud") || !strings.Contains(human, "projection") {
+		t.Fatalf("human %s hid a prerequisite:\n%s", command, out)
 	}
 }

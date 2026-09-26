@@ -423,10 +423,13 @@ Choose any one before synchronizing. Import alone does not make `aigw sync`
 useful work.
 
 When a Route is selected but its native client projection is deferred, setup,
-`use`, sync preview, status, check, and doctor retain that selection and direct
-you to install the client if needed, then run `aigw sync`. `check` does not
-probe a provider until an enabled client has a usable projection; `doctor` can
-pass local diagnostics without claiming client readiness.
+`use`, sync preview, status, check, and doctor retain that selection. If its
+Account Token is available, install the client if needed, then run `aigw sync`.
+If the Token has disappeared, restore that selected Account's Token first;
+the missing Token and deferred projection remain distinct in machine-readable
+status. `check` does not probe a provider until an enabled client has a usable
+projection; `doctor` can pass local diagnostics without claiming client
+readiness.
 
 Interactive `aigw use --for <client> <route>` can also prompt for that
 Account's missing Token. Interactive use may prompt for the client or Route;

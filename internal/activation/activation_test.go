@@ -17,6 +17,18 @@ func (unobservedWritableStore) Exists(string) (bool, error) {
 	panic("unselected native Token metadata was observed")
 }
 
+type selectedMetadataStore struct{}
+
+func (selectedMetadataStore) Get(string) (string, error) { panic("Token value was read") }
+func (selectedMetadataStore) Set(string, string) error   { panic("Token was written") }
+func (selectedMetadataStore) Delete(string) error        { panic("Token was deleted") }
+func (selectedMetadataStore) Exists(account string) (bool, error) {
+	if account != "team" {
+		panic("unselected native Token metadata was observed")
+	}
+	return true, nil
+}
+
 func TestAssessActivationChoosesOneCompatibleEnvironmentAccount(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["ucloud"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://ucloud.test"}}
@@ -84,7 +96,7 @@ func TestAssessActivationDoesNotObserveUnselectedNativeCredentials(t *testing.T)
 
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
 	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
-	got = AssessActivation(cfg, unobservedWritableStore{})
+	got = AssessActivation(cfg, selectedMetadataStore{})
 	if got.EnabledClients != 1 || got.State != "" || got.NextAction != "" {
 		t.Fatalf("enabled client activation = %+v", got)
 	}
@@ -117,7 +129,7 @@ func TestAssessActivationSeparatesEnabledIntentFromDeferredProjection(t *testing
 	cfg.SetSelectedRoute(configuration.ClientHermes, "hermes")
 	cfg.SetClientActivation(configuration.ClientHermes, true, "", nil)
 
-	got := AssessActivation(cfg, unobservedWritableStore{})
+	got := AssessActivation(cfg, selectedMetadataStore{})
 	want := "Install Hermes if needed, then run `aigw sync`"
 	if got.EnabledClients != 1 || got.State != domainreadiness.Deferred || got.NextAction != want || got.ProjectionPrerequisites[configuration.ClientHermes] != want {
 		t.Fatalf("selected but unprojected client = %+v", got)
@@ -125,8 +137,35 @@ func TestAssessActivationSeparatesEnabledIntentFromDeferredProjection(t *testing
 
 	cfg.SetSelectedRoute(configuration.ClientCodex, "hermes")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{"/opt/codex/config.toml"})
-	got = AssessActivation(cfg, unobservedWritableStore{})
+	got = AssessActivation(cfg, selectedMetadataStore{})
 	if got.EnabledClients != 2 || got.State != "" || got.NextAction != "" || got.ProjectionPrerequisites[configuration.ClientHermes] != want {
 		t.Fatalf("mixed projected and deferred clients = %+v", got)
+	}
+}
+
+func TestAssessActivationSeparatesMissingTokenFromDeferredProjection(t *testing.T) {
+	cfg := configuration.NewConfig()
+	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
+	cfg.Routes["hermes"] = configuration.Route{Account: "team", Model: "model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.SetSelectedRoute(configuration.ClientHermes, "hermes")
+	cfg.SetClientActivation(configuration.ClientHermes, true, "", nil)
+
+	missing := secrets.NewEnvironmentStore(func(string) string { return "" })
+	got := AssessActivation(cfg, missing)
+	wantCredential := "set environment variable " + secrets.EnvironmentKey("team")
+	wantProjection := "Install Hermes if needed, then run `aigw sync`"
+	if got.State != domainreadiness.Deferred || !got.CredentialPrerequisite || got.NextAction != wantCredential || got.ProjectionPrerequisites[configuration.ClientHermes] != wantProjection {
+		t.Fatalf("missing Token and client = %+v", got)
+	}
+
+	connected := secrets.NewEnvironmentStore(func(key string) string {
+		if key == secrets.EnvironmentKey("team") {
+			return "available-token"
+		}
+		return ""
+	})
+	got = AssessActivation(cfg, connected)
+	if got.State != domainreadiness.Deferred || got.CredentialPrerequisite || got.NextAction != wantProjection {
+		t.Fatalf("connected Account with deferred client = %+v", got)
 	}
 }

@@ -44,6 +44,29 @@ type checkJSON struct {
 	Error          string                  `json:"error,omitempty"`
 }
 
+func activationCheckIssue(activation clientactivation.Activation) (problem, evidence, jsonError string, cause error) {
+	switch {
+	case activation.State == domainreadiness.Unavailable:
+		return "Credential metadata is unavailable",
+			"The selected Account credential backend cannot be observed.",
+			"Credential metadata is unavailable; no endpoint or model was checked",
+			fmt.Errorf("credential metadata unavailable")
+	case activation.EnabledClients != 0:
+		evidence = "A Client Binding is selected, but its native projection is not available."
+		if activation.CredentialPrerequisite {
+			evidence = "The selected Account Token is unavailable and its native projection is deferred."
+		}
+		return "Client projection is deferred", evidence,
+			"No enabled client has a native projection; no endpoint or model was checked",
+			fmt.Errorf("client projection is deferred")
+	default:
+		return "No client is enabled",
+			"The imported Routes are available, but no Client Binding is active.",
+			"No client is enabled; no endpoint or model was checked",
+			fmt.Errorf("no enabled Client Bindings")
+	}
+}
+
 type evaluatedClient struct {
 	client              string
 	runtime             configuration.Runtime
@@ -157,11 +180,8 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		return writeJSONFailure(runtime, domainreadiness.Deferred, "not configured", "aigw setup", fmt.Errorf("not configured"))
 	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
-	if activation.State == domainreadiness.Deferred {
-		issue := "No client is enabled; no endpoint or model was checked"
-		if activation.EnabledClients != 0 {
-			issue = "No enabled client has a native projection; no endpoint or model was checked"
-		}
+	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
+		_, _, issue, cause := activationCheckIssue(activation)
 		result := checkJSON{
 			ConfigPath:     runtime.Config.Path(),
 			Clients:        inspectStatusClients(runtime, cfg, &activation),
@@ -173,10 +193,6 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		}
 		if err := presentation.WriteJSON(runtime.Out, result); err != nil {
 			return err
-		}
-		cause := fmt.Errorf("no enabled Client Bindings")
-		if activation.EnabledClients != 0 {
-			cause = fmt.Errorf("client projection is deferred")
 		}
 		return presentation.Presented(cause)
 	}
@@ -249,15 +265,8 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		return invocation.Problem(runtime, "Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
-	if activation.State == domainreadiness.Deferred {
-		problem := "No client is enabled"
-		evidence := "The imported Routes are available, but no Client Binding is active."
-		cause := fmt.Errorf("no enabled Client Bindings")
-		if activation.EnabledClients != 0 {
-			problem = "Client projection is deferred"
-			evidence = "A Client Binding is selected, but its native projection is not available."
-			cause = fmt.Errorf("client projection is deferred")
-		}
+	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
+		problem, evidence, _, cause := activationCheckIssue(activation)
 		return invocation.Problem(runtime, problem, evidence, "No endpoint or model was checked.", activation.NextAction, cause)
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)

@@ -49,6 +49,11 @@ recorded executable or target that fails native inspection is a repairable
 failure instead. When every enabled projection is deferred, observational
 commands must not probe a provider or suggest `aigw check` as activation.
 Client-specific verification remains a separate, later claim.
+Selected Account availability is observed through metadata only and cached in
+the activation decision. When both its Token and projection are absent, the
+decision retains both facts and offers Token recovery first; after recovery,
+installation if needed and synchronization become the continuation. A ready
+alternative Client Binding may proceed without waiting for an unrelated Token.
 
 The existing manifest remains token-free team policy. Each Account Token is
 optional until a selected operation requires it. Native keyring, guarded file,

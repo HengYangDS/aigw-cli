@@ -69,6 +69,17 @@ semantic result, and never expose credentials.
 - **AND** check SHALL NOT probe the endpoint before projection is available;
   doctor MAY pass local diagnostics without claiming client readiness.
 
+#### Scenario: Selected Account Token disappears before client installation
+
+- **WHEN** an enabled Client Binding has no native projection and its selected
+  Account Token becomes unavailable
+- **THEN** observational commands SHALL report the missing Token and deferred
+  projection as distinct facts without reading the Token value
+- **AND** the next action SHALL restore that selected Account's Token before
+  suggesting synchronization or endpoint verification
+- **AND** restoring the Token SHALL reveal installation if needed followed by
+  `aigw sync` as the remaining activation step.
+
 #### Scenario: Manifest setup is consumed by automation
 
 - **WHEN** an operator runs manifest-based setup with `--json`
