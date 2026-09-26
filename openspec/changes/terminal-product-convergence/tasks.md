@@ -2,7 +2,7 @@
 
 ## 1. Authority and Baseline
 
-- [ ] 1.1 Reconcile the signed accepted base, the staged Hermes archive, and
+- [x] 1.1 Reconcile the signed accepted base, the staged Hermes archive, and
       every in-flight AIGW Change by semantic owner; verify exact refs, lease
       holders, and overlap before absorbing or deleting any lane.
 - [ ] 1.2 Map each remaining user-visible obligation to its canonical OpenSpec
