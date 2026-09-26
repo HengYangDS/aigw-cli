@@ -62,13 +62,10 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 					err,
 				)
 			}
-			result := syncResult{DryRun: dryRun, Selections: map[string]string{}, NextAction: "aigw check"}
 			activation := clientactivation.AssessActivation(after, runtime.Secrets)
+			result := syncResult{DryRun: dryRun, Selections: map[string]string{}, NextAction: activation.NextActionFor(nil)}
 			result.EnabledClients = activation.EnabledClients
 			result.State = string(activation.State)
-			if action := activation.PendingAction(); action != "" {
-				result.NextAction = action
-			}
 			for _, client := range configuration.AdmittedClientIDs() {
 				if route := after.SelectedRoute(client); route != "" {
 					result.Selections[client] = route

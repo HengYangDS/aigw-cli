@@ -39,8 +39,8 @@ func (a *Activation) CredentialAvailability(account string) (available bool, err
 	return result.available, result.err, observed
 }
 
-// NextActionFor resolves observed client states only when no earlier activation
-// prerequisite already owns the continuation.
+// NextActionFor selects one actionable continuation from activation metadata
+// and any additionally observed client states.
 func (a *Activation) NextActionFor(clients []domainreadiness.Client) string {
 	if a == nil {
 		return ""
@@ -76,21 +76,6 @@ func (a *Activation) NextActionFor(clients []domainreadiness.Client) string {
 	if a.NextAction != "" {
 		return a.NextAction
 	}
-	if a.EnabledClients != 0 {
-		return "aigw check"
-	}
-	return ""
-}
-
-// PendingAction selects a known local prerequisite before recommending a
-// post-synchronization check. It does not infer native projection health.
-func (a *Activation) PendingAction() string {
-	if a == nil {
-		return ""
-	}
-	if a.NextAction != "" {
-		return a.NextAction
-	}
 	for _, observation := range a.observedCredentials {
 		if observation.err != nil {
 			return "aigw doctor"
@@ -110,6 +95,9 @@ func (a *Activation) PendingAction() string {
 		if action := a.ProjectionPrerequisites[spec.ID]; action != "" {
 			return action
 		}
+	}
+	if a.EnabledClients != 0 {
+		return "aigw check"
 	}
 	return ""
 }

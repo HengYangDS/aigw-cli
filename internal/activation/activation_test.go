@@ -229,7 +229,7 @@ func TestNextActionForUsesOneOrderedReadinessDecision(t *testing.T) {
 	}
 }
 
-func TestPendingActionNeverRecommendsCheckBeforeKnownPrerequisites(t *testing.T) {
+func TestNextActionForWithoutClientInspectionHonorsKnownPrerequisites(t *testing.T) {
 	installClaude := "Install Claude, then sync"
 	installCodex := "Install Codex, then sync"
 	rotateClaude := "aigw rotate team"
@@ -253,8 +253,8 @@ func TestPendingActionNeverRecommendsCheckBeforeKnownPrerequisites(t *testing.T)
 		}, "aigw doctor"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := test.activation.PendingAction(); got != test.want {
-				t.Fatalf("pending action = %q, want %q", got, test.want)
+			if got := test.activation.NextActionFor(nil); got != test.want {
+				t.Fatalf("next action = %q, want %q", got, test.want)
 			}
 		})
 	}

@@ -159,14 +159,7 @@ func buildManifestSetupResult(
 		}
 		result.DeferredActions = append(result.DeferredActions, "Connect the selected Account for "+spec.Label+", then run `aigw sync`")
 	}
-	switch {
-	case activation.NextAction != "":
-		result.NextAction = activation.NextAction
-	case len(result.DeferredActions) == 0:
-		result.NextAction = "aigw check"
-	default:
-		result.NextAction = "aigw sync"
-	}
+	result.NextAction = activation.NextActionFor(nil)
 	return result
 }
 

@@ -301,12 +301,19 @@ func TestShippedTeamManifestMixedClientProjectionHasOneContinuation(t *testing.T
 	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
 		t.Fatalf("setup mixed clients: %v\n%s", err, out)
 	}
+	wantAction := "Install Claude if needed, then run `aigw sync`"
+	var setup deferredActivationDocument
+	if err := json.Unmarshal(out.Bytes(), &setup); err != nil {
+		t.Fatalf("decode setup: %v\n%s", err, out)
+	}
+	if setup.NextAction != wantAction {
+		t.Fatalf("setup next action = %q, want %q\n%s", setup.NextAction, wantAction, out)
+	}
 	before, err := app.Config.CaptureSnapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
 	beforeProbes := httpClient.calls
-	wantAction := "Install Claude if needed, then run `aigw sync`"
 	for _, command := range []string{"sync", "status", "check", "doctor"} {
 		out.Reset()
 		args := []string{command, "--json"}
