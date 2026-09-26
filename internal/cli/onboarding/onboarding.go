@@ -89,12 +89,10 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 }
 
 type setupPlan struct {
-	request           Request
-	before            configuration.Config
-	config            configuration.Config
-	account           configuration.Account
-	route             configuration.Route
-	validationClients []string
+	request Request
+	before  configuration.Config
+	config  configuration.Config
+	route   configuration.Route
 }
 
 type setupCredential struct {
@@ -115,11 +113,15 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	if err != nil {
 		return err
 	}
+	selected, err := plan.config.ResolveRuntime(plan.request.Client, "")
+	if err != nil {
+		return err
+	}
 	credentialChange, err := setupToken(runtime, plan.request)
 	if err != nil {
 		return err
 	}
-	if err := credential.Validate(ctx, runtime.HTTP, plan.account, credentialChange.token, plan.validationClients...); err != nil {
+	if err := credential.ValidateRuntime(ctx, runtime.HTTP, selected, credentialChange.token); err != nil {
 		return fmt.Errorf("Token validation failed: %w", err)
 	}
 
@@ -185,10 +187,7 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 	if strings.TrimSpace(plan.request.Model) == "" {
 		return setupPlan{}, fmt.Errorf("--for %s requires --model", plan.request.Client)
 	}
-	plan.validationClients = append(plan.validationClients, plan.request.Client)
 	storedAccount := configuration.Account{Label: plan.request.Label, Endpoints: endpoints}
-	plan.account = storedAccount
-	plan.account.ID = plan.request.Account
 	plan.route = configuration.Route{
 		Label: plan.request.Label, Account: plan.request.Account, Model: strings.TrimSpace(plan.request.Model),
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},

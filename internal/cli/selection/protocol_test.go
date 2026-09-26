@@ -1,6 +1,8 @@
 package selection
 
 import (
+	"io"
+	"net/http"
 	"slices"
 	"strings"
 	"testing"
@@ -75,5 +77,36 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	interactive, err := resolveUseRuntime(runtime, cfg, configuration.ClientHermes, "shared", "")
 	if err != nil || interactive.Protocol != configuration.ProtocolOpenAIResponses {
 		t.Fatalf("interactive Hermes protocol = %#v, %v", interactive, err)
+	}
+}
+
+func TestUseValidatesSelectedProtocolWhenAcquiringToken(t *testing.T) {
+	runtime, cfg, _ := configuredRuntime(t)
+	cfg.Routes["shared"] = configuration.Route{
+		Account: "gateway", Model: "shared-model",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
+			configuration.ProtocolAnthropic: {}, configuration.ProtocolOpenAIResponses: {},
+		},
+	}
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	runtime.Secrets = secrets.NewMemoryStore()
+	runtime.Interactive = true
+	runtime.Prompt = &promptStub{secret: "token"}
+	requests := 0
+	runtime.HTTP = doerFunc(func(request *http.Request) (*http.Response, error) {
+		requests++
+		if request.Header.Get("X-Api-Key") != "token" || request.Header.Get("Authorization") != "" {
+			t.Fatal("Hermes Token validation used the wrong protocol authentication")
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: request}, nil
+	})
+	command := NewUseCommand(runtime)
+	command.SilenceErrors = true
+	command.SilenceUsage = true
+	command.SetArgs([]string{"--for", configuration.ClientHermes, "--protocol", string(configuration.ProtocolAnthropic), "shared"})
+	if err := command.Execute(); err != nil || requests != 1 {
+		t.Fatalf("selected-protocol Token validation: requests=%d error=%v", requests, err)
 	}
 }

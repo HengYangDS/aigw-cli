@@ -46,3 +46,10 @@ the same protocol names used by the team manifest.
 - **THEN** non-interactive selection names the required `--protocol` choice
 - **AND** interactive selection offers each compatible protocol
 - **AND** a failed or incompatible choice leaves every Client Binding unchanged.
+
+#### Scenario: A selected protocol requires a new Account Token
+
+- **WHEN** direct setup or interactive Route selection obtains a missing Token
+  for a client with multiple compatible protocols
+- **THEN** validation probes only the explicitly selected protocol and endpoint
+- **AND** a failed probe does not store the Token or change the Client Binding.

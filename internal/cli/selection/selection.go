@@ -204,8 +204,7 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg configu
 	if err != nil {
 		return "", err
 	}
-	account.ID = selected.AccountID
-	if err := credential.Validate(ctx, runtime.HTTP, account, token, selected.Client); err != nil {
+	if err := credential.ValidateRuntime(ctx, runtime.HTTP, selected, token); err != nil {
 		return "", fmt.Errorf("token validation failed: %w", err)
 	}
 	return token, nil
