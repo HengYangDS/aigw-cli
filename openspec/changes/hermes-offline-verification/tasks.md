@@ -8,7 +8,7 @@
 
 ## 2. New Release Identity and Local Acceptance
 
-- [x] 2.1 Select the next patch version without moving or reusing the unpublished local `v0.3.2` tag; update `VERSION` and the Changelog, then run the release version and Changelog validators.
+- [x] 2.1 Select the next patch version without moving or reusing the unpublished local `v0.3.2` tag; fold its user changes into 0.3.3 and validate the Changelog with both local and clean remote-equivalent tag refs.
 - [x] 2.2 Run the complete source and native gates plus strict OpenSpec validation on the repaired tree; verify no warnings, failed subtests, or test-owned residue before exact-HEAD proof.
 
 ## 3. Governed Integration and Distribution

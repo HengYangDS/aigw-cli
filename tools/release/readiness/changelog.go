@@ -56,7 +56,7 @@ func SelectedReleaseTag() string {
 	return os.Getenv("CI_COMMIT_TAG")
 }
 
-// ValidateChangelog verifies the Keep a Changelog structure, local release
+// ValidateChangelog verifies the Keep a Changelog structure, listed release
 // provenance, and any selected release tag against the current product version.
 func ValidateChangelog(root, path, selectedTag string) error {
 	entries, err := parseChangelog(resolveChangelogPath(root, path))
@@ -242,19 +242,10 @@ func validateChangelogProvenance(root string, entries []changelogEntry, selected
 	if err != nil {
 		return err
 	}
-	entryVersions := make(map[string]struct{}, len(entries))
-	for _, entry := range entries {
-		entryVersions[entry.version.Original()] = struct{}{}
-	}
-	for version := range tags {
-		if _, ok := entryVersions[version]; !ok {
-			return fmt.Errorf("CHANGELOG.md: missing release section for Git tag v%s", version)
-		}
-	}
 	pending := ""
 	for index, entry := range entries {
 		version := entry.version.Original()
-		if _, published := tags[version]; published {
+		if _, tagged := tags[version]; tagged {
 			continue
 		}
 		if pending != "" || index != 0 || version != currentVersion {
@@ -263,11 +254,8 @@ func validateChangelogProvenance(root string, entries []changelogEntry, selected
 		pending = version
 	}
 	current, _ := semver.StrictNewVersion(currentVersion)
-	for version := range tags {
-		published, _ := semver.StrictNewVersion(version)
-		if _, currentPublished := tags[currentVersion]; !currentPublished && !current.GreaterThan(published) {
-			return fmt.Errorf("VERSION %s must not precede latest release %s", currentVersion, version)
-		}
+	if len(entries) > 0 && entries[0].version.GreaterThan(current) {
+		return fmt.Errorf("VERSION %s must not precede latest Changelog version %s", currentVersion, entries[0].version.Original())
 	}
 	return nil
 }

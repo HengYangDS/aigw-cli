@@ -28,10 +28,12 @@ provider routing, credential ownership, or the behavior of other clients.
    adapter: deadline, cancellation, and other execution failure. Keep raw child
    output out of public errors. Do not add a second process runner or retry
    policy; the selected model request remains a separate step.
-3. Leave the signed, unpublished local `v0.3.2` object and ETHOS history intact.
-   The repaired source uses the next patch version. Any later exact-OID
-   abandonment belongs to ETHOS release/effect governance, not AIGW's build or
-   a raw Git bypass.
+3. Leave the signed, unpublished local `v0.3.2` object and ETHOS history intact,
+   but fold its user changes into the pending 0.3.3 Changelog section. A local
+   tag is not proof of publication: listed historical headings require tags,
+   while unlisted local tags must not manufacture release history or constrain
+   `VERSION`. Verify this with and without the local-only tag. Later exact-OID
+   abandonment belongs to ETHOS, not AIGW's build or a raw Git bypass.
 
 ## Risks / Trade-offs
 
@@ -41,8 +43,9 @@ provider routing, credential ownership, or the behavior of other clients.
 - **A different failure shares the old generic message** → Preserve the
   failing full-client evidence, make cause categories observable, and require a
   new full client run rather than treating a focused pass as release proof.
-- **Unpublished local tag remains visible** → Disclose it, do not publish or
-  reuse its version, and wait for ETHOS' native exact-OID abandon path.
+- **Unpublished local tag remains visible** → Disclose it outside the release
+  Changelog, validate clean remote-equivalent refs, and wait for ETHOS' native
+  exact-OID abandon path rather than publishing or reusing it.
 
 ## Migration Plan
 

@@ -3,25 +3,15 @@
 All notable, user-relevant changes are recorded here. This chronicle follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic
 Versioning](https://semver.org/). The first versioned section may be the single
-pending release named by `VERSION`; a signed Git tag establishes its source
-identity, not remote asset publication. A heading is not a plan, branch name,
-or publication proof. Artifact publication, platform acceptance, signing, and
-GA status remain separate evidence.
+pending release named by `VERSION`. Older headings require published tags;
+local-only tags are not release history, and their changes belong in the next
+release. A heading is not a plan, branch name, or publication proof. Artifact
+publication, platform acceptance, signing, and GA status remain separate
+evidence.
 
 ## [Unreleased]
 
 ## [0.3.3] - 2026-09-26
-
-### Fixed
-
-- Prevent disposable Hermes verification from contacting its unrelated
-  software-update service before the selected model request.
-- Classify Hermes version-probe timeout, interruption, and execution failure
-  without exposing raw vendor output or private paths.
-
-## [0.3.2] - 2026-09-25
-
-This local signed source tag was not distributed; its changes remain in 0.3.3.
 
 ### Added
 
@@ -31,6 +21,10 @@ This local signed source tag was not distributed; its changes remain in 0.3.3.
 
 ### Fixed
 
+- Prevent disposable Hermes verification from contacting its unrelated
+  software-update service before the selected model request.
+- Classify Hermes version-probe timeout, interruption, and execution failure
+  without exposing raw vendor output or private paths.
 - Stop after one bounded endpoint diagnostic when a provider rejects the
   credential with HTTP 401 or 403; remove misleading authentication recovery
   output and repeated requests.

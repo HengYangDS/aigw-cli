@@ -133,7 +133,7 @@ func TestChangelogAllowsOnlyTheCurrentPendingRelease(t *testing.T) {
 	}
 }
 
-func TestChangelogRequiresEveryReleaseTagAndCurrentVersion(t *testing.T) {
+func TestChangelogAllowsUnlistedLocalTagAndRejectsVersionRegression(t *testing.T) {
 	root := t.TempDir()
 	git(t, root, "init", "-q", "-b", "main")
 	path := filepath.Join(root, "CHANGELOG.md")
@@ -147,11 +147,13 @@ func TestChangelogRequiresEveryReleaseTagAndCurrentVersion(t *testing.T) {
 	git(t, root, "-c", "user.name=Release Test", "-c", "user.email=release@example.test", "commit", "-q", "-m", "release")
 	git(t, root, "tag", "v1.1.0")
 	git(t, root, "tag", "v1.0.0")
-	if err := ValidateChangelog(root, path, ""); err == nil || !strings.Contains(err.Error(), "missing release section") {
-		t.Fatalf("tag without changelog release = %v", err)
+	git(t, root, "tag", "v2.0.0")
+	if err := ValidateChangelog(root, path, ""); err != nil {
+		t.Fatalf("unlisted local tag = %v", err)
 	}
 
 	git(t, root, "tag", "-d", "v1.0.0")
+	git(t, root, "tag", "-d", "v2.0.0")
 	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.0.0\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
