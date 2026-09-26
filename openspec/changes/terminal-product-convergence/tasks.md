@@ -25,9 +25,10 @@
       immediate no-op sync.
 - [ ] 2.3 Consume the same decision in sync preview, status, check, and doctor;
       assert equivalent human/JSON states and next actions on identical input.
-- [ ] 2.4 Verify `aigw use --for` preserves every other client's explicit
-      binding and never requires a global default or `--all`; run client-scoped
-      RED/GREEN and actual CLI tests.
+- [x] 2.4 Verify the accepted `aigw use --for` path preserves every other
+      client's explicit binding and `aigw check` succeeds without a global
+      default or `--all`; reuse the existing CLI regression rather than
+      reimplementing selection.
 - [ ] 2.5 Exercise Token-before-client, client-before-Token, both-absent, and
       one-of-many-Accounts journeys through the shipped `manifests/team.toml`; prove
       late `sync` and no irrelevant credential requirement.
