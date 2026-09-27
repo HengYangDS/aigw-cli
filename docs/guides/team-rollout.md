@@ -285,6 +285,16 @@ against that differing local Account fails closed; inspect it with
 `aigw config export` and replace the Account only when intentionally leaving
 the Proxy route.
 
+Codex can execute a non-OpenAI Responses Route without listing it in its
+[native `/model` chooser](https://developers.openai.com/codex/cli/slash-commands).
+On 2026-09-27, an isolated Codex CLI 0.157.1 session ran Grok 4.7 but its
+chooser listed only bundled GPT models. Separately, the AIGW-projected Grok
+Route completed an authenticated tool loop against a controlled endpoint.
+Select such Routes with [`aigw use --for codex`](../../README.md#use-it-every-day)
+and verify them through Codex. AIGW does not invent missing Codex catalogue
+metadata, alter an existing Desktop conversation's model, or infer that the
+upstream Account is currently available from this local-client result.
+
 Claude Code and Claude Desktop retain DMXAPI Opus 5.5 as the team default, with
 AIHubMix and UCloud alternatives. Recommendations are selectable, not automatic
 failover. AIHubMix uses the

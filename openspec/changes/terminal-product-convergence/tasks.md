@@ -76,7 +76,7 @@
 - [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
       Providers; no control-plane command claims request-time failover.
-- [ ] 4.4 Qualify Codex with selected non-OpenAI-family Responses-compatible
+- [x] 4.4 Qualify Codex with selected non-OpenAI-family Responses-compatible
       models using its actual model chooser, authentication and tool loop; state
       native limitations instead of forging a model list.
 - [ ] 4.5 Requalify Claude Code, Claude Desktop, Codex, and Hermes independently
