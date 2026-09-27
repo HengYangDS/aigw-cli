@@ -32,6 +32,54 @@ func TestProductObjectVerificationHasNoForgeIdentity(t *testing.T) {
 	}
 }
 
+func TestSelectedPeerDoesNotDependOnAnotherRemote(t *testing.T) {
+	for _, selected := range []string{"github", "origin"} {
+		t.Run(selected, func(t *testing.T) {
+			fixture := newForgeFixture(t)
+			healthy := newBareRepository(t)
+			missing := filepath.Join(t.TempDir(), "unavailable.git")
+			other := "origin"
+			if selected == "origin" {
+				other = "github"
+			}
+			gitTest(t, fixture.repository, "remote", "add", selected, healthy)
+			gitTest(t, fixture.repository, "remote", "add", other, missing)
+			want := gitOutputForTest(t, fixture.repository, "rev-parse", "main")
+
+			if err := run([]string{
+				"project", "--repository", fixture.repository, "--source", "main", "--remote", selected,
+				"--email", fixture.email, "--allowed-signers", fixture.allowedSigners,
+			}); err != nil {
+				t.Fatalf("publish selected peer while %s is unavailable: %v", other, err)
+			}
+			if err := run([]string{
+				"refs", "--repository", fixture.repository, "--remote", selected,
+				"--expect", "main=" + want, "--expect", "dev=" + want,
+			}); err != nil {
+				t.Fatalf("selected peer parity: %v", err)
+			}
+			if err := run([]string{
+				"refs", "--repository", fixture.repository, "--remote", other,
+				"--expect", "main=" + want,
+			}); err == nil {
+				t.Fatal("unavailable peer was reported as verified")
+			}
+			if got := gitOutputForTest(t, fixture.repository, "rev-parse", "main"); got != want {
+				t.Fatalf("local object changed: %s, want %s", got, want)
+			}
+			if err := run([]string{
+				"commits", "--repository", fixture.repository,
+				"--email", fixture.email, "--allowed-signers", fixture.allowedSigners,
+			}); err != nil {
+				t.Fatalf("local verification depended on unavailable peer: %v", err)
+			}
+			if _, err := os.Stat(missing); !os.IsNotExist(err) {
+				t.Fatalf("unavailable peer path was changed: %v", err)
+			}
+		})
+	}
+}
+
 func TestCommitVerificationRejectsInvalidInputsAndHistory(t *testing.T) {
 	fixture := newForgeFixture(t)
 	for name, arguments := range map[string][]string{

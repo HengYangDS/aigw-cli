@@ -150,7 +150,7 @@
       guarded merge, source-ref deletion, signer trust and branch protection on each
       selected peer without interactive authentication or divergent commit
       identities.
-- [ ] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
+- [x] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
       or GitHub must not turn the other selected peer or the local product into a
       hidden dependency, and parity claims remain peer-specific.
 
