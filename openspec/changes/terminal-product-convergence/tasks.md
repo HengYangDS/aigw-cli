@@ -91,7 +91,7 @@
 
 ## 5. Portable Native Product Lifecycle
 
-- [x] 5.1 Reconstruct a fresh Work Lane's locked Go, Node, npm and tool
+- [ ] 5.1 Reconstruct a fresh Work Lane's locked Go, Node, npm and tool
       environment with independent mutable state; test empty HOME/cache bootstrap
       and reject ambient compiler or global package fallback.
 - [ ] 5.2 Run Linux container and native-host setup, selected provider,

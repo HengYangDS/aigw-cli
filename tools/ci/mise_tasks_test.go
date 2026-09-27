@@ -174,10 +174,14 @@ func TestMiseTasksDelegateToCanonicalOwners(t *testing.T) {
 		got[task.Name] = task.Run
 	}
 	want := map[string][]string{
-		"bootstrap": {"mise install --locked", "go mod tidy -diff", "npm ci --include=dev --ignore-scripts"},
-		"check":     {"go run ./tools/ci source"},
-		"native":    {"go run ./tools/ci native"},
-		"release":   {"go run ./tools/release build dist"},
+		"bootstrap": {
+			"mise install --locked",
+			"mise exec --locked -- go mod tidy -diff",
+			"mise exec --locked -- npm ci --include=dev --ignore-scripts",
+		},
+		"check":   {"go run ./tools/ci source"},
+		"native":  {"go run ./tools/ci native"},
+		"release": {"go run ./tools/release build dist"},
 		"dependencies:resolve": {
 			"git diff --exit-code HEAD -- mise.toml mise.lock .mise/locks",
 			"mise lock --platform {{ os() }}-{{ arch() }}",
