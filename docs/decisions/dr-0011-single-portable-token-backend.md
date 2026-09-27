@@ -141,6 +141,11 @@ command passes its selected backend. Old copies are not removed merely because
 the current configuration points elsewhere: explicit, cached, rollback and
 unknown consumers must be accounted for before exact deletion.
 
+Explicit portable uninstall is a separate destructive operation: after
+withdrawing its managed projections, it removes that installation's current
+intact reader and receipt. A caller still caching that exact command can fail;
+older versions and another installation's readers are not swept.
+
 This choice does not retroactively protect cached 0.3.1 commands that name the
 Homebrew link. Reprojecting client files cannot prove that an existing session
 reloads its command. For that one-time bridge, prepare and verify the private

@@ -34,6 +34,9 @@ disclosed rather than represented as uninterrupted service.
 - **AND** a missing, foreign, or drifted predecessor reader SHALL remain invalid
 - **AND** updated projections or success from a new helper SHALL NOT substitute
   for that invocation
+- **AND** each later captured versioned command SHALL remain callable through
+  subsequent rollback and re-upgrade until explicitly retired after proving
+  that no consumer can invoke it
 - **AND** native credential denial SHALL block production acceptance rather than
   trigger an alternate reader, ACL change or repeated authorization attempt.
 
