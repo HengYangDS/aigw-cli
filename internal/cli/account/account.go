@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -201,7 +202,7 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 			r.Row("Account ID", accountName)
 			r.Status(presentation.OK, "Account Token", "Validated and securely stored")
 			r.Success("Credential helpers read the new Token when next invoked; clients control their refresh timing")
-			r.Next("aigw check")
+			r.Next(clientactivation.NextActionAfterAccountConnection(cfg, accountName))
 			return nil
 		},
 	}

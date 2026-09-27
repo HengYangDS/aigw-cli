@@ -422,8 +422,10 @@ recommended Routes.
 If none is connected yet, setup, status, check, and sync preview present the
 same choice of compatible Accounts. A writable credential store names each
 `aigw rotate <account>` command; the environment backend names each variable.
-Choose any one before synchronizing. Import alone does not make `aigw sync`
-useful work.
+With a writable store, rotation only writes the Token; follow its explicit
+`aigw use --for ...` action to select a client Route. With the environment
+backend, set a compatible variable before synchronizing. Import alone does not
+make `aigw sync` useful work.
 
 When a Route is selected but its native client projection is deferred, setup,
 `use`, sync preview, status, check, and doctor retain that selection. If its

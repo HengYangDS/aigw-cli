@@ -179,6 +179,28 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneAccountChoice(t *testing
 	if len(runner.plans) != 0 || httpClient.calls != 0 {
 		t.Fatalf("deferred activation invoked client or endpoint: plans=%d http=%d", len(runner.plans), httpClient.calls)
 	}
+
+	app.In = strings.NewReader("new-token\n")
+	out.Reset()
+	if err := cli.Execute(app, []string{"rotate", "dmxapi", "--token-stdin"}); err != nil {
+		t.Fatalf("connect one deferred Account: %v\n%s", err, out)
+	}
+	want := "aigw use --for claude dmxapi-claude-opus-5-5"
+	if !strings.Contains(out.String(), want) || strings.Contains(out.String(), "Next\n  aigw check") {
+		t.Fatalf("rotation did not name its next executable selection: %s", out)
+	}
+	current, err := app.Config.Load()
+	if err != nil || len(current.EnabledClientIDs()) != 0 {
+		t.Fatalf("rotation silently activated clients: %#v, %v", current.Clients, err)
+	}
+	out.Reset()
+	if err := cli.Execute(app, []string{"use", "--for", "claude", "dmxapi-claude-opus-5-5"}); err != nil {
+		t.Fatalf("suggested Route selection failed: %v\n%s", err, out)
+	}
+	selected, err := app.Config.Load()
+	if err != nil || selected.SelectedRoute(configuration.ClientClaude) != "dmxapi-claude-opus-5-5" {
+		t.Fatalf("suggested Route was not selected: %#v, %v", selected.Clients, err)
+	}
 }
 
 func TestSelectedClientWithoutExecutableHasOneDeferredContinuation(t *testing.T) {

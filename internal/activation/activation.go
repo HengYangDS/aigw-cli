@@ -128,6 +128,10 @@ func observeCredential(store secrets.Store, observed map[string]credentialObserv
 	return observation, true
 }
 
+func projectionAction(spec configuration.ClientSpec) string {
+	return "Install " + spec.Label + " if needed, then run `aigw sync`"
+}
+
 // ProjectionPrerequisites derives pending native-client work from selected
 // bindings without reading credential metadata or claiming projection health.
 func ProjectionPrerequisites(cfg configuration.Config) map[string]string {
@@ -137,7 +141,7 @@ func ProjectionPrerequisites(cfg configuration.Config) map[string]string {
 		if !binding.Enabled || binding.Executable != "" {
 			continue
 		}
-		prerequisites[spec.ID] = "Install " + spec.Label + " if needed, then run `aigw sync`"
+		prerequisites[spec.ID] = projectionAction(spec)
 	}
 	return prerequisites
 }
@@ -197,7 +201,7 @@ func (assessment *inactiveClientAssessment) consider(client, route string, selec
 		return false
 	}
 	spec, _ := configuration.ClientSpecFor(client)
-	assessment.result.ProjectionPrerequisites[client] = "Install " + spec.Label + " if needed, then run `aigw sync`"
+	assessment.result.ProjectionPrerequisites[client] = projectionAction(spec)
 	if !candidate.RequiresAccountToken() {
 		delete(assessment.result.ClientCredentialPrerequisites, client)
 		return true
@@ -283,6 +287,43 @@ func assessInactiveClients(cfg configuration.Config, store secrets.Store, result
 		}
 	}
 	return assessment.finish()
+}
+
+// NextActionAfterAccountConnection derives the next explicit client step after
+// a successful Token write. It does not inspect another Account's credential,
+// select a Route, or mutate client configuration.
+func NextActionAfterAccountConnection(cfg configuration.Config, accountID string) string {
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		runtime, resolveErr := cfg.ResolveRuntime(spec.ID, "")
+		if resolveErr != nil || runtime.AccountID != accountID {
+			continue
+		}
+		binding := cfg.Clients[spec.ID]
+		if !binding.Enabled || binding.Executable == "" {
+			return projectionAction(spec)
+		}
+		return "aigw check"
+	}
+	prospective, err := cfg.SelectRoutesForConnectedAccounts([]string{accountID})
+	if err != nil {
+		return "aigw status"
+	}
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		if cfg.SelectedRoute(spec.ID) != "" {
+			continue
+		}
+		binding := prospective.Clients[spec.ID]
+		route := prospective.Routes[binding.Route]
+		if binding.Route == "" || route.Account != accountID {
+			continue
+		}
+		action := "aigw use --for " + spec.ID
+		if len(route.Interfaces) > 1 {
+			action += " --protocol " + string(binding.Protocol)
+		}
+		return action + " " + binding.Route
+	}
+	return "aigw use --help"
 }
 
 // AssessActivation selects a safe continuation without observing unselected

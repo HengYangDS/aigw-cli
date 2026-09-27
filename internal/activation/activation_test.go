@@ -109,6 +109,49 @@ func TestAssessActivationDoesNotRequireTokenBackendBeforeItsUse(t *testing.T) {
 	}
 }
 
+func TestNextActionAfterAccountConnectionPreservesExplicitSelection(t *testing.T) {
+	cfg := configuration.NewConfig()
+	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
+	cfg.Routes["claude"] = configuration.Route{Account: "team", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.Routes["hermes"] = configuration.Route{Account: "team", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.SetRecommendedRoute(configuration.ClientClaude, "claude")
+	cfg.SetRecommendedRoute(configuration.ClientHermes, "hermes")
+	if got := NextActionAfterAccountConnection(cfg, "team"); got != "aigw use --for claude claude" || cfg.SelectedRoute(configuration.ClientClaude) != "" {
+		t.Fatalf("Account connection mutated or skipped selection: action=%q bindings=%#v", got, cfg.Clients)
+	}
+
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	if got := NextActionAfterAccountConnection(cfg, "team"); got != "Install Claude if needed, then run `aigw sync`" {
+		t.Fatalf("unprojected selected client action = %q", got)
+	}
+	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
+	if got := NextActionAfterAccountConnection(cfg, "team"); got != "aigw check" {
+		t.Fatalf("projected selected client action = %q", got)
+	}
+	cfg.SetSelectedRoute(configuration.ClientClaude, "")
+	cfg.Recommendations = map[string]configuration.ClientRecommendation{}
+	if got := NextActionAfterAccountConnection(cfg, "team"); got != "aigw use --help" {
+		t.Fatalf("Account without a recommendation action = %q", got)
+	}
+}
+
+func TestNextActionAfterAccountConnectionKeepsRequiredProtocolExplicit(t *testing.T) {
+	cfg := configuration.NewConfig()
+	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{
+		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
+	}}
+	cfg.Routes["multi"] = configuration.Route{Account: "team", Model: "model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
+		configuration.ProtocolAnthropic: {}, configuration.ProtocolOpenAIResponses: {},
+	}}
+	cfg.Recommendations[configuration.ClientHermes] = configuration.ClientRecommendation{Primary: configuration.ClientSelection{
+		Route: "multi", Protocol: configuration.ProtocolOpenAIResponses,
+	}}
+	want := "aigw use --for hermes --protocol openai_responses multi"
+	if got := NextActionAfterAccountConnection(cfg, "team"); got != want {
+		t.Fatalf("multi-protocol action = %q, want %q", got, want)
+	}
+}
+
 func TestAssessActivationListsUnselectedCompatibleEnvironmentAccounts(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["ucloud"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://ucloud.test"}}
