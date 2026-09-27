@@ -109,16 +109,19 @@ printf '%s\n' "$DMXAPI_TOKEN" \
   | aigw setup --from team.toml --account dmxapi --token-stdin
 ```
 
-Other Accounts remain available without becoming prerequisites. If a Token or
-supported client arrives later, use the existing configuration rather than
-repeating setup:
+Other Accounts remain available without becoming prerequisites. With the
+environment backend, set one [compatible Account variable](docs/guides/team-rollout.md#automated-rollout),
+then activate its unselected reviewed recommendations without repeating setup:
 
 ```bash
-aigw rotate dmxapi
-aigw use --for codex dmxapi-gpt-6-astra
 aigw sync
 aigw check
 ```
+
+With a writable credential backend, run `aigw rotate <account>`, then select
+the desired Route with `aigw use --for <client> <route>`; `use` synchronizes
+that client. An existing explicit selection is never replaced by a newly
+available recommendation.
 
 `--for` accepts `claude`, `claude-desktop`, `codex`, and `hermes`. A Route
 exposing more than one compatible protocol requires an explicit choice; see

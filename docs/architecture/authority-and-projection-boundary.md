@@ -107,9 +107,12 @@ structural check, not evidence of credentials, installed clients, endpoint
 availability, or successful inference.
 
 Imported recommendations and actual selections have separate meanings in that
-same configuration. Import retains the recommendation; setup and sync select
-only for clients without a selected Route. They prefer an available recommendation, then
-its model on another usable Account, then stable Route identifier order.
+same configuration. Import retains the recommendation; setup selects for
+explicitly connected Accounts, while later sync selects for unbound clients
+only when a read-only environment Account Token becomes available. Both use
+the reviewed recommendation order, then its model on another usable Account,
+then stable Route identifier order. Sync does not search unselected native
+credentials.
 Unavailable credentials do not authorize replacing an existing selection.
 
 Configuration cloning owns independence of nested Account diagnostics and

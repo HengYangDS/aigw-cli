@@ -117,7 +117,6 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 		requireNoActivationBeforeToken(t, journey)
 		journey.setEnvironment(secrets.EnvironmentKey(account), "team-journey-token")
 	}
-	journey.run("sync")
 	selected, err := configuration.Merge(configuration.NewConfig(), plan.manifest)
 	if err != nil {
 		t.Fatal(err)
@@ -126,12 +125,29 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 	if err != nil {
 		t.Fatal(err)
 	}
+	beforePreview := readFile(t, journey.config)
+	var preview struct {
+		Selections map[string]string `json:"selections"`
+	}
+	if err := json.Unmarshal(journey.run("sync", "--dry-run", "--json"), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(beforePreview, readFile(t, journey.config)) {
+		t.Fatal("late sync preview changed configuration")
+	}
+	journey.run("sync")
+	actual, err := configuration.NewStore(journey.config).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, client := range plan.clients {
 		route := selected.SelectedRoute(client)
 		if route == "" {
 			t.Fatalf("Account %q has no compatible recommended Route for %s", account, client)
 		}
-		journey.run("use", "--for", client, route)
+		if planned, got := preview.Selections[client], actual.SelectedRoute(client); planned != route || got != route {
+			t.Fatalf("late sync selected %s Route %q after preview %q, want %q", client, got, planned, route)
+		}
 	}
 	plan.requireSelectedAccount(t, journey, account)
 }

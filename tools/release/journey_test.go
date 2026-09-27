@@ -55,13 +55,17 @@ func TestNativeProductJourney(t *testing.T) {
 		journey.run("sync")
 		journey.requireNoClaudeProjection()
 		journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
-		preview := journey.run("sync", "--dry-run", "--json")
-		if !json.Valid(preview) {
-			t.Fatalf("sync preview is not JSON: %s", preview)
+		beforePreview := readFile(t, journey.config)
+		var preview struct {
+			Selections map[string]string `json:"selections"`
+		}
+		if err := json.Unmarshal(journey.run("sync", "--dry-run", "--json"), &preview); err != nil {
+			t.Fatal(err)
+		}
+		if preview.Selections[configuration.ClientClaude] != "native-system-keyring-probe-claude" || !bytes.Equal(beforePreview, readFile(t, journey.config)) {
+			t.Fatalf("late sync preview did not plan the available Account without writing: %+v", preview)
 		}
 		journey.run("sync")
-		journey.requireNoClaudeProjection()
-		journey.run("use", "--for", "claude", "native-system-keyring-probe-claude")
 		journey.requireClaudeProjection()
 		journey.requireCredentialBackend("native-journey-token", secrets.BackendSelection{
 			Kind:         "env",

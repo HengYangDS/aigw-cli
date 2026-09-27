@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
@@ -90,6 +92,30 @@ func (s Synchronizer) DesiredClientConfiguration(before configuration.Config, cl
 	}
 	after, err := s.registry().Converge(s.clientDependencies(), before, discovered, clientIDs...)
 	return after, discovered, err
+}
+
+// DesiredSyncConfiguration activates unselected recommendations when a
+// read-only credential source gains an Account Token after catalogue import.
+// Writable native stores are not searched for unselected credentials.
+func (s Synchronizer) DesiredSyncConfiguration(before configuration.Config) (configuration.Config, discovery.Result, error) {
+	if !secrets.IsReadOnly(s.Secrets) {
+		return s.DesiredClientConfiguration(before)
+	}
+	connected := make([]string, 0, len(before.Accounts))
+	for _, accountID := range slices.Sorted(maps.Keys(before.Accounts)) {
+		available, err := s.Secrets.Exists(accountID)
+		if err != nil {
+			return configuration.Config{}, discovery.Result{}, fmt.Errorf("inspect Account %q Token availability: %w", accountID, err)
+		}
+		if available {
+			connected = append(connected, accountID)
+		}
+	}
+	selected, err := before.SelectRoutesForConnectedAccounts(connected)
+	if err != nil {
+		return configuration.Config{}, discovery.Result{}, err
+	}
+	return s.DesiredClientConfiguration(selected)
 }
 
 // Withdraw removes selected adapters from desired configuration. With no

@@ -400,8 +400,11 @@ canonical envelope, validates the decoded Token, and rejects malformed or nested
 encoding before HTTP. It does not infer a format, recursively decode, or rewrite
 Keychain items. Linux and Windows native stores do not imply this macOS format.
 
-If the catalogue is already imported, do not repeat setup. Add or replace one
-Account Token, then select its Route:
+If the catalogue is already imported, do not repeat setup. With the
+environment backend, supplying one compatible Account variable and running
+`aigw sync` selects unbound reviewed recommendations and projects available
+clients. With a writable backend, store the Token and select its Route
+explicitly:
 
 ```bash
 aigw rotate dmxapi
@@ -523,9 +526,12 @@ Conflicting public metadata requires an explicit `--replace-account <id>` or
 Import preserves existing client bindings and stores manifest recommendations
 separately. Importing a recommendation does not select it. First-time setup may
 bind recommendations to Routes reachable through the Accounts explicitly
-connected during that operation. `sync` never invents a binding; it reconciles
-only enabled bindings. An existing selection is preserved even if its Token is
-unavailable; use `aigw use --for <client> <route>` to change it explicitly.
+connected during that operation. Later `sync` may select an unbound reviewed
+recommendation when its Account Token appears in the read-only environment
+backend; it does not search unselected native credentials. An existing
+selection is preserved even if its Token is unavailable, and a manual-only
+Route is never selected automatically. Use `aigw use --for <client> <route>`
+to change a selection explicitly.
 Client-native authentication does not require an AIGW Token. Import reconciles
 enabled native projections through the ordinary guarded transaction; a failed
 projection leaves the import uncommitted.
