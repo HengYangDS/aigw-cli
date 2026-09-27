@@ -1,4 +1,4 @@
-min_version = "2026.9.11"
+min_version = "2026.9.14"
 
 [settings]
 legacy_version_file = false
@@ -12,7 +12,7 @@ GOTOOLCHAIN = "local"
 GOWORK = "off"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.103.6@sha256:9c07736ffc4f85e26310db577696cad7dd9ca3d359bea6d0eadbb3d399caa38b"
+renovate_image = "ghcr.io/renovatebot/renovate:44.115.12@sha256:81f57864f6e70b1d44ae24406473b84fe1ab831ada96ea483bb72c51aacb6000"
 
 [tool_alias]
 # Keep npm's native precedence over Node's bundled npm on every platform.
@@ -21,15 +21,15 @@ npm = "npm:npm"
 [tools]
 # Language runtimes
 go = "1.27.1"
-node = "26.9.0"
-npm = "12.0.2"
+node = "26.10.0"
+npm = "12.1.0"
 
 # Specification and CI modeling
 cue = "0.17.1"
 
 # Release transport conformance
 gh = "2.101.0"
-glab = "1.118.0"
+glab = "1.119.0"
 
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.18.2"
@@ -46,11 +46,11 @@ taplo = "0.10.0"
 "github:boyter/scc" = "4.1.0"
 "github:editorconfig-checker/editorconfig-checker" = "4.0.2"
 "github:gitleaks/gitleaks" = "8.30.1"
-"github:golangci/golangci-lint" = "2.13.2"
+"github:golangci/golangci-lint" = "2.14.0"
 shellcheck = "0.11.0"
 "github:rhysd/actionlint" = "1.7.12"
 "github:lycheeverse/lychee" = "lychee-v0.24.2"
-typos = "1.50.2"
+typos = "1.50.3"
 
 [tasks.bootstrap]
 description = "Install this Work Lane's locked repository dependencies."

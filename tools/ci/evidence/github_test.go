@@ -31,8 +31,11 @@ func tagRunFixture() string {
 func failedLatestRunFixture() string {
 	runs := tagRunFixture()
 	const success = `"conclusion":"success"`
-	index := strings.LastIndex(runs, success)
-	return runs[:index] + `"conclusion":"failure"` + runs[index+len(success):]
+	before, after, found := strings.CutLast(runs, success)
+	if !found {
+		panic("tag run fixture has no successful conclusion")
+	}
+	return before + `"conclusion":"failure"` + after
 }
 
 func tagJobsFixture() string {

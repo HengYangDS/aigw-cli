@@ -201,7 +201,7 @@ _graphOrder: {
 	}
 }
 
-miseImage:   "ghcr.io/jdx/mise:2026.9.11-debian@sha256:12f3fe18fe6c02c54d1bbb9bdc60a492a72a320252439f0df657c6f01a04c23f"
+miseImage:   "ghcr.io/jdx/mise:2026.9.14-debian@sha256:6bc0c392dcd7dd201592d870442545a9a863de6392bcd7bd9fb3fe62a46bf268"
 miseVersion: strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
 
 actions: {
