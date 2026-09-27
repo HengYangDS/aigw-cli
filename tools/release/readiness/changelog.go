@@ -16,7 +16,7 @@ import (
 
 const unreleasedHeading = "## [Unreleased]"
 
-var releaseHeading = regexp.MustCompile(`^## \[([^]]+)] - (\d{4}-\d{2}-\d{2})$`)
+var releaseHeading = regexp.MustCompile(`^## \[([^]]+)] - (\d{4}-\d{2}-\d{2})(?: \[YANKED])?$`)
 
 var changelogCategories = map[string]struct{}{
 	"Added":      {},

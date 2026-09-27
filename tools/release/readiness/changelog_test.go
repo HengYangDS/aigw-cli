@@ -16,6 +16,8 @@ func TestChangelogRequiresKeepAChangelogStructure(t *testing.T) {
 		"duplicate unreleased":        validChangelog("## [Unreleased]\n\n## [Unreleased]\n"),
 		"malformed heading":           validChangelog("## [Unreleased]\n\n## [1.0.0] 2026-08-07\n"),
 		"invalid version":             validChangelog("## [Unreleased]\n\n## [01.0.0] - 2026-08-07\n"),
+		"invalid yanked spelling":     validChangelog("## [Unreleased]\n\n## [1.0.0] - 2026-08-07 [yanked]\n\n### Fixed\n\n- Fix.\n"),
+		"trailing yanked text":        validChangelog("## [Unreleased]\n\n## [1.0.0] - 2026-08-07 [YANKED] extra\n\n### Fixed\n\n- Fix.\n"),
 		"invalid date":                validChangelog("## [Unreleased]\n\n## [1.0.0] - 2026-02-30\n"),
 		"duplicate release":           validChangelog("## [Unreleased]\n\n## [1.0.0] - 2026-08-07\n\n### Fixed\n\n- Fix.\n\n## [1.0.0] - 2026-08-06\n\n### Fixed\n\n- Fix.\n"),
 		"ascending releases":          validChangelog("## [Unreleased]\n\n## [1.0.0] - 2026-08-06\n\n### Fixed\n\n- Fix.\n\n## [1.1.0] - 2026-08-07\n\n### Fixed\n\n- Fix.\n"),
@@ -40,6 +42,16 @@ func TestChangelogRequiresKeepAChangelogStructure(t *testing.T) {
 			"## [Unreleased]\n\n" +
 				"## [1.2.3+build.1] - 2026-08-07\n\n### Fixed\n\n- Fix one.\n\n" +
 				"## [1.2.3-rc.1] - 2026-08-06\n\n### Added\n\n- Add one.\n",
+		),
+		"historical yanked release": validChangelog(
+			"## [Unreleased]\n\n" +
+				"## [1.2.3] - 2026-08-08\n\n### Fixed\n\n- Fix one.\n\n" +
+				"## [1.2.2] - 2026-08-07 [YANKED]\n\n### Fixed\n\n- Fix two.\n",
+		),
+		"prerelease and build metadata": validChangelog(
+			"## [Unreleased]\n\n" +
+				"## [1.0.0+build.1] - 2026-08-08\n\n### Fixed\n\n- Fix one.\n\n" +
+				"## [1.0.0-alpha.1] - 2026-08-07\n\n### Added\n\n- Add one.\n",
 		),
 	} {
 		t.Run(name, func(t *testing.T) {
