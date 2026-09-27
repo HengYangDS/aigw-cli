@@ -8,8 +8,8 @@ import (
 // pipeline.cue owns CI topology. Forge files are generated projections.
 
 #OperatingSystem: "darwin" | "linux" | "windows"
-#JobID:           "accepted-ref-parity" | "quality" | "native-darwin" | "native-linux" | "native-windows" | "release-version" | "release-assets"
-#Claim:           "accepted-ref-parity" | "source-quality" | "go-source-compatibility" | "native-product-journey" | "lifecycle-acceptance" | "release-metadata" | "artifact-verification"
+#JobID:           "accepted-ref-parity" | "quality" | "native-darwin" | "native-linux" | "native-windows" | "linux-secret-service" | "release-version" | "release-assets"
+#Claim:           "accepted-ref-parity" | "source-quality" | "go-source-compatibility" | "native-product-journey" | "lifecycle-acceptance" | "linux-secret-service" | "release-metadata" | "artifact-verification"
 
 #Job: {
 	stage: "verify" | "release"
@@ -92,6 +92,7 @@ toolchainTools: {
 	links: ["github:lycheeverse/lychee"]
 	quality: list.Concat([portableQuality, links])
 	native: list.Concat([portableQuality, ["github:anchore/syft", "gh", "glab"]])
+	secretService: ["go", "github:goreleaser/goreleaser"]
 	fullNative: list.Concat([quality, ["github:anchore/syft", "gh", "glab"]])
 	darwin: ["github:indygreg/apple-platform-rs"]
 }
@@ -154,8 +155,9 @@ graph: {
 	for platform in productEvidence.native {
 		"native-\(platform)": {stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
 	}
+	"linux-secret-service": {stage: "verify", rank: 0, needs: [], claims: ["linux-secret-service"]}
 	"release-version": {stage: "verify", rank: 0, needs: [], claims: ["release-metadata"]}
-	"release-assets": {stage: "release", rank: 1, needs: list.Concat([["quality"], [for platform in productEvidence.native {"native-\(platform)"}], ["release-version"]]), claims: ["artifact-verification"]}
+	"release-assets": {stage: "release", rank: 1, needs: list.Concat([["quality"], [for platform in productEvidence.native {"native-\(platform)"}], ["linux-secret-service", "release-version"]]), claims: ["artifact-verification"]}
 }
 
 // The same declared release dependencies name the GitHub tag jobs; the
@@ -299,10 +301,6 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 					if full {CGO_ENABLED: "1"}
 				}
 			}
-		},
-		if _platform == "linux" {
-			name: "Qualify Linux Secret Service"
-			run:  linuxSecretService.github
 		},
 		// Fetch the Git blob bytes; checkout can rewrite the installer's declared CRLF worktree form.
 		if _platform == "windows" {
@@ -512,7 +510,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	if _platform == "linux" {
 		extends: [".linux-toolchain"]
 		variables: CGO_ENABLED: "1"
-		script: [commands.bootstrap, _refreshLocks, _native, linuxSecretService.gitlab]
+		script: [commands.bootstrap, _refreshLocks, _native]
 	}
 	if _platform != "linux" {
 		script: [_install, commands.bootstrap, _refreshLocks, _native]
@@ -590,6 +588,17 @@ gitlab: {
 	}
 	for platform in productEvidence.native {
 		"native-\(platform)": #NativeGitLabJob & {_platform: platform}
+	}
+	"linux-secret-service": {
+		extends: [".linux-toolchain"]
+		stage: graph["linux-secret-service"].stage
+		tags:  nativeEvidence.linux.gitlab.tags
+		variables: {
+			MISE_ENABLE_TOOLS: strings.Join(toolchainTools.secretService, ",")
+			CGO_ENABLED:       "1"
+		}
+		rules: gitlab["native-linux"].rules
+		script: [linuxSecretService.gitlab]
 	}
 	"release-version": _gitlabControlJob & {
 		_commands: [commands.version]
@@ -732,6 +741,21 @@ githubVerify: {
 					}
 					run: commands.quality
 				},
+			]
+		}
+		"linux-secret-service": {
+			name:              "Linux Secret Service"
+			"runs-on":         nativeEvidence.linux.github.runner
+			"timeout-minutes": 25
+			if:                githubVerify.jobs["native-linux"].if
+			env: {
+				MISE_ENABLE_TOOLS: strings.Join(toolchainTools.secretService, ",")
+				CGO_ENABLED:       "1"
+			}
+			steps: [
+				#SourceCheckout,
+				#Toolchain,
+				{name: "Qualify Linux Secret Service", run: linuxSecretService.github},
 			]
 		}
 		"release-version": {

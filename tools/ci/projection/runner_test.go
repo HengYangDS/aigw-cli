@@ -69,11 +69,12 @@ func TestGitHubNativeJobsUseHostedRunners(t *testing.T) {
 		}
 	}
 	for name, runner := range map[string]string{
-		"accepted-ref-parity": "ubuntu-24.04",
-		"quality":             "ubuntu-24.04",
-		"native-darwin":       "macos-26-intel",
-		"native-linux":        "ubuntu-24.04",
-		"native-windows":      "windows-2025",
+		"accepted-ref-parity":  "ubuntu-24.04",
+		"linux-secret-service": "ubuntu-24.04",
+		"quality":              "ubuntu-24.04",
+		"native-darwin":        "macos-26-intel",
+		"native-linux":         "ubuntu-24.04",
+		"native-windows":       "windows-2025",
 	} {
 		if got := workflow.Jobs[name].RunsOn.Value; got != runner {
 			t.Errorf("%s runner = %q, want %q", name, got, runner)
@@ -91,12 +92,13 @@ func TestForgeProjectionsIncludeTheCompleteNativeMatrix(t *testing.T) {
 		NativeDarwin  *gitLabJob `yaml:"native-darwin"`
 		NativeLinux   *gitLabJob `yaml:"native-linux"`
 		NativeWindows *gitLabJob `yaml:"native-windows"`
+		SecretService *gitLabJob `yaml:"linux-secret-service"`
 		Assets        gitLabJob  `yaml:"release-assets"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	if gitlab.NativeDarwin == nil || gitlab.NativeLinux == nil || gitlab.NativeWindows == nil {
+	if gitlab.NativeDarwin == nil || gitlab.NativeLinux == nil || gitlab.NativeWindows == nil || gitlab.SecretService == nil {
 		t.Fatal("GitLab projection lacks required native evidence")
 	}
 	if strings.Contains(projections[0].Content, "allow_failure:") {
@@ -106,7 +108,7 @@ func TestForgeProjectionsIncludeTheCompleteNativeMatrix(t *testing.T) {
 	for _, need := range gitlab.Assets.Needs {
 		gotNeeds = append(gotNeeds, need.Job)
 	}
-	if want := []string{"quality", "native-darwin", "native-linux", "native-windows", "release-version"}; !slices.Equal(gotNeeds, want) {
+	if want := []string{"quality", "native-darwin", "native-linux", "native-windows", "linux-secret-service", "release-version"}; !slices.Equal(gotNeeds, want) {
 		t.Fatalf("GitLab release dependencies = %q, want %q", gotNeeds, want)
 	}
 

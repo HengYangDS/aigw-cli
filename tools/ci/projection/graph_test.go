@@ -95,90 +95,6 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	}
 }
 
-func TestNativeLinuxJourneyUsesTheLockedProductAndSecretService(t *testing.T) {
-	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	projections, err := renderProjections(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var workflow struct {
-		Jobs map[string]struct {
-			Steps []struct {
-				Name string `yaml:"name"`
-				Run  string `yaml:"run"`
-			} `yaml:"steps"`
-		} `yaml:"jobs"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
-		t.Fatal(err)
-	}
-	githubCommands := make([]string, 0, len(workflow.Jobs["native-linux"].Steps))
-	for _, step := range workflow.Jobs["native-linux"].Steps {
-		if step.Name == "Prepare locked dependencies" || step.Name == "Run native Linux acceptance" {
-			githubCommands = append(githubCommands, step.Run)
-		}
-	}
-	want := []string{"mise run bootstrap", "mise exec --locked -- go run ./tools/ci native --platform linux"}
-	if !reflect.DeepEqual(githubCommands, want) {
-		t.Fatalf("GitHub native Linux commands = %q, want locked dependencies then one product journey", githubCommands)
-	}
-	var githubQualification string
-	for _, step := range workflow.Jobs["native-linux"].Steps {
-		if step.Name != "Qualify Linux Secret Service" {
-			continue
-		}
-		for _, required := range []string{
-			"dbus-x11 gnome-keyring",
-			"sudo -n timeout --verbose --kill-after=5s 240s",
-			"Acquire::http::Timeout=30",
-			"dbus-run-session",
-			"SetAlias default /org/freedesktop/secrets/collection/session",
-			"AIGW_VERIFY_SYSTEM_KEYRING=1",
-			"TestNativeProductJourney/system_credential_store",
-			"grep -Fq -- \"--- PASS: TestNativeProductJourney/system_credential_store\"",
-		} {
-			if !strings.Contains(step.Run, required) {
-				t.Fatalf("Linux Secret Service qualification omits %q", required)
-			}
-		}
-		githubQualification = step.Run
-		break
-	}
-	if githubQualification == "" {
-		t.Fatal("GitHub native Linux CI does not qualify real Secret Service")
-	}
-	var gitlab struct {
-		Linux gitLabJob `yaml:"native-linux"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
-		t.Fatal(err)
-	}
-	var gitlabQualification string
-	for _, command := range gitlab.Linux.Script {
-		if strings.Contains(command, "TestNativeProductJourney/system_credential_store") {
-			gitlabQualification = command
-			break
-		}
-	}
-	if gitlabQualification == "" {
-		t.Fatal("GitLab native Linux CI does not qualify real Secret Service")
-	}
-	for _, required := range []string{
-		"DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s",
-		"Acquire::http::Timeout=30",
-		"install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin",
-	} {
-		if !strings.Contains(gitlabQualification, required) {
-			t.Fatalf("GitLab Secret Service preparation omits %q", required)
-		}
-	}
-	githubBus := strings.Index(githubQualification, "dbus-run-session")
-	gitlabBus := strings.Index(gitlabQualification, "dbus-run-session")
-	if githubBus < 0 || gitlabBus < 0 || githubQualification[githubBus:] != gitlabQualification[gitlabBus:] {
-		t.Fatal("GitHub and GitLab native Linux jobs must run the same Secret Service journey")
-	}
-}
-
 func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {
@@ -345,7 +261,7 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 	for _, metadata := range []string{".linux-toolchain", "stages", "variables", "workflow"} {
 		delete(gitlab, metadata)
 	}
-	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "native-windows", "quality", "release-assets", "release-version"}
+	wantGitLabJobs := []string{"accepted-ref-parity", "linux-secret-service", "native-darwin", "native-linux", "native-windows", "quality", "release-assets", "release-version"}
 	if got := slices.Sorted(maps.Keys(gitlab)); !slices.Equal(got, wantGitLabJobs) {
 		t.Fatalf("GitLab jobs = %q, want %q", got, wantGitLabJobs)
 	}
@@ -370,7 +286,7 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
 		t.Fatal(err)
 	}
-	wantGitHubJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "native-windows", "quality", "release-version"}
+	wantGitHubJobs := []string{"accepted-ref-parity", "linux-secret-service", "native-darwin", "native-linux", "native-windows", "quality", "release-version"}
 	if got := slices.Sorted(maps.Keys(github.Jobs)); !slices.Equal(got, wantGitHubJobs) {
 		t.Fatalf("GitHub jobs = %q, want %q", got, wantGitHubJobs)
 	}
@@ -489,13 +405,14 @@ func TestSemanticGraphDefinesExactClaims(t *testing.T) {
 	var graph map[string]job
 	export("graph", &graph)
 	wantGraph := map[string]job{
-		"accepted-ref-parity": {Stage: "verify", Needs: []string{}, Claims: []string{"accepted-ref-parity"}},
-		"quality":             {Stage: "verify", Needs: []string{}, Claims: []string{"source-quality"}},
-		"native-darwin":       {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
-		"native-linux":        {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
-		"native-windows":      {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
-		"release-version":     {Stage: "verify", Needs: []string{}, Claims: []string{"release-metadata"}},
-		"release-assets":      {Stage: "release", Rank: 1, Needs: []string{"quality", "native-darwin", "native-linux", "native-windows", "release-version"}, Claims: []string{"artifact-verification"}},
+		"accepted-ref-parity":  {Stage: "verify", Needs: []string{}, Claims: []string{"accepted-ref-parity"}},
+		"quality":              {Stage: "verify", Needs: []string{}, Claims: []string{"source-quality"}},
+		"native-darwin":        {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
+		"native-linux":         {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
+		"native-windows":       {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
+		"linux-secret-service": {Stage: "verify", Needs: []string{}, Claims: []string{"linux-secret-service"}},
+		"release-version":      {Stage: "verify", Needs: []string{}, Claims: []string{"release-metadata"}},
+		"release-assets":       {Stage: "release", Rank: 1, Needs: []string{"quality", "native-darwin", "native-linux", "native-windows", "linux-secret-service", "release-version"}, Claims: []string{"artifact-verification"}},
 	}
 	if !reflect.DeepEqual(graph, wantGraph) {
 		t.Fatalf("CI graph = %#v, want %#v", graph, wantGraph)

@@ -2,6 +2,7 @@ package projection
 
 import (
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -23,6 +24,128 @@ func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 		}
 	}
 	t.Fatal("GitHub verification projection is missing")
+}
+
+func TestLinuxSecretServiceUsesOnlyItsLockedExecutableClosure(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const tools = "go,github:goreleaser/goreleaser"
+	var gitlab struct {
+		SecretService gitLabJob `yaml:"linux-secret-service"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	if got := gitlab.SecretService.Variables["MISE_ENABLE_TOOLS"]; got != tools {
+		t.Fatalf("GitLab Secret Service toolchain = %q, want %q", got, tools)
+	}
+	if len(gitlab.SecretService.Script) != 1 || !strings.Contains(gitlab.SecretService.Script[0], "TestNativeProductJourney/system_credential_store") {
+		t.Fatal("GitLab Secret Service job runs more than its focused qualification")
+	}
+	var github struct {
+		Jobs map[string]struct {
+			Env   map[string]string `yaml:"env"`
+			Steps []struct {
+				Name string `yaml:"name"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
+		t.Fatal(err)
+	}
+	job, present := github.Jobs["linux-secret-service"]
+	if !present || job.Env["MISE_ENABLE_TOOLS"] != tools {
+		t.Fatalf("GitHub Secret Service toolchain = %q, present=%t", job.Env["MISE_ENABLE_TOOLS"], present)
+	}
+	if len(job.Steps) != 3 || job.Steps[2].Name != "Qualify Linux Secret Service" {
+		t.Fatal("GitHub Secret Service job runs more than its focused qualification")
+	}
+}
+
+func TestLinuxSecretServiceHasItsOwnRequiredJob(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				Name string `yaml:"name"`
+				Run  string `yaml:"run"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range workflow.Jobs["native-linux"].Steps {
+		if step.Name == "Qualify Linux Secret Service" {
+			t.Fatal("native Linux job duplicates the Secret Service qualification")
+		}
+	}
+	secretService, present := workflow.Jobs["linux-secret-service"]
+	if !present {
+		t.Fatal("GitHub lacks independent Linux Secret Service evidence")
+	}
+	if len(secretService.Steps) != 3 || secretService.Steps[2].Name != "Qualify Linux Secret Service" {
+		t.Fatal("GitHub native Linux CI does not qualify real Secret Service")
+	}
+	githubQualification := secretService.Steps[2].Run
+	for _, required := range []string{
+		"dbus-x11 gnome-keyring",
+		"sudo -n timeout --verbose --kill-after=5s 240s",
+		"Acquire::http::Timeout=30",
+		"dbus-run-session",
+		"SetAlias default /org/freedesktop/secrets/collection/session",
+		"AIGW_VERIFY_SYSTEM_KEYRING=1",
+		"TestNativeProductJourney/system_credential_store",
+		"grep -Fq -- \"--- PASS: TestNativeProductJourney/system_credential_store\"",
+	} {
+		if !strings.Contains(githubQualification, required) {
+			t.Fatalf("Linux Secret Service qualification omits %q", required)
+		}
+	}
+	var gitlab struct {
+		Linux         gitLabJob  `yaml:"native-linux"`
+		SecretService *gitLabJob `yaml:"linux-secret-service"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	if gitlab.SecretService == nil {
+		t.Fatal("GitLab lacks independent Linux Secret Service evidence")
+	}
+	for _, command := range gitlab.Linux.Script {
+		if strings.Contains(command, "TestNativeProductJourney/system_credential_store") {
+			t.Fatal("GitLab native Linux job duplicates Secret Service qualification")
+		}
+	}
+	if !slices.Equal(gitlab.SecretService.Extends, []string{".linux-toolchain"}) ||
+		!slices.Equal(gitlab.SecretService.Tags, gitlab.Linux.Tags) ||
+		!reflect.DeepEqual(gitlab.SecretService.Rules, gitlab.Linux.Rules) {
+		t.Fatal("GitLab Secret Service job must use the same Linux runner and event admission")
+	}
+	if len(gitlab.SecretService.Script) != 1 {
+		t.Fatal("GitLab native Linux CI does not qualify real Secret Service")
+	}
+	gitlabQualification := gitlab.SecretService.Script[0]
+	for _, required := range []string{
+		"DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s",
+		"Acquire::http::Timeout=30",
+		"install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin",
+	} {
+		if !strings.Contains(gitlabQualification, required) {
+			t.Fatalf("GitLab Secret Service preparation omits %q", required)
+		}
+	}
+	githubBus := strings.Index(githubQualification, "dbus-run-session")
+	gitlabBus := strings.Index(gitlabQualification, "dbus-run-session")
+	if githubBus < 0 || gitlabBus < 0 || githubQualification[githubBus:] != gitlabQualification[gitlabBus:] {
+		t.Fatal("GitHub and GitLab native Linux jobs must run the same Secret Service journey")
+	}
 }
 
 func checkGitLabNativeToolClosure(t *testing.T, content string) {
