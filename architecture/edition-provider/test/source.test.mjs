@@ -100,7 +100,7 @@ test("AIGW owns one closed declarative Edition Provider", async () => {
   );
 });
 
-test("the checked-in Source Bundle closes exact AIGW provenance", async () => {
+test("the checked-in Source Bundle closes its selected revision", async () => {
   const [provider, selection, source, semantic] = await Promise.all([
     json("provider.json"),
     json("selection.json"),
@@ -110,6 +110,13 @@ test("the checked-in Source Bundle closes exact AIGW provenance", async () => {
   const paths = source.files.map(({ path: relative }) => relative);
   assert.equal(new Set(paths).size, paths.length);
   assert.equal(paths.includes(provider.delivery.semanticMember), true);
+  assert.equal(source.source.revision, semantic.context.revision);
+  assert.deepEqual(
+    paths.filter((relative) => relative.startsWith("source/")).sort(),
+    Object.values(semantic.sources)
+      .map(({ locator }) => locator)
+      .sort(),
+  );
   assert.deepEqual(
     await filesBelow(path.join(providerRoot, "_source")),
     ["manifest.json", ...paths].sort(),
@@ -119,20 +126,6 @@ test("the checked-in Source Bundle closes exact AIGW provenance", async () => {
     const bytes = await regularBytes(`_source/${member.path}`);
     assert.equal(bytes.length, member.bytes, member.path);
     assert.equal(sha256(bytes), member.sha256, member.path);
-    if (member.path.startsWith("source/")) {
-      const livePath = path.join(
-        repositoryRoot,
-        ...member.path.slice("source/".length).split("/"),
-      );
-      const liveStat = await fs.lstat(livePath);
-      assert.equal(liveStat.isFile(), true, member.path);
-      assert.equal(liveStat.isSymbolicLink(), false, member.path);
-      assert.deepEqual(
-        bytes,
-        await fs.readFile(livePath),
-        `${member.path} differs from its live repository source`,
-      );
-    }
   }
   for (const [id, provenance] of Object.entries(semantic.sources)) {
     const member = source.files.find(
