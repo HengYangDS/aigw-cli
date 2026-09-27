@@ -60,7 +60,7 @@
       measure the bounded link gap, verify captured commands immediately and
       roll back failed candidates; disclose any residual cached-caller risk.
       Later versioned commands must remain callable throughout replacement.
-- [ ] 3.6 Keep an explicitly configured external credential command outside AIGW
+- [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
 
