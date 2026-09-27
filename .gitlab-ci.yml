@@ -81,7 +81,7 @@ stages:
   - verify
   - release
 .linux-toolchain:
-  image: ghcr.io/jdx/mise:2026.9.14-debian@sha256:6bc0c392dcd7dd201592d870442545a9a863de6392bcd7bd9fb3fe62a46bf268
+  image: ghcr.io/jdx/mise:2026.9.15-debian@sha256:4cc1a45f280e362a11ba6e97641d3d97a0f79632f46e719dd7b36946bdf39b93
   variables:
     MISE_DATA_DIR: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise
     MISE_CACHE_DIR: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise/cache
@@ -90,7 +90,7 @@ stages:
       files:
         - mise.toml
         - mise.lock
-      prefix: mise-linux-6bc0c392dcd7dd201592d870442545a9a863de6392bcd7bd9fb3fe62a46bf268-build-runtime-tool-cache-.mise-installs-cache-$CI_RUNNER_ID-$CI_JOB_NAME
+      prefix: mise-linux-4cc1a45f280e362a11ba6e97641d3d97a0f79632f46e719dd7b36946bdf39b93-build-runtime-tool-cache-.mise-installs-cache-$CI_RUNNER_ID-$CI_JOB_NAME
     paths:
       - build/runtime/tool-cache/.mise/installs/
       - build/runtime/tool-cache/.mise/cache/

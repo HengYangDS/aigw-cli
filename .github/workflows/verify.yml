@@ -87,7 +87,7 @@ jobs:
         env:
           GODEBUG: http2client=0
         with:
-          version: 2026.9.14
+          version: 2026.9.15
           install: true
           install_args: --locked
           cache: true
@@ -112,7 +112,7 @@ jobs:
         env:
           GODEBUG: http2client=0
         with:
-          version: 2026.9.14
+          version: 2026.9.15
           install: true
           install_args: --locked
           cache: true
@@ -155,7 +155,7 @@ jobs:
         env:
           GODEBUG: http2client=0
         with:
-          version: 2026.9.14
+          version: 2026.9.15
           install: true
           install_args: --locked
           cache: true
@@ -192,7 +192,7 @@ jobs:
         env:
           GODEBUG: http2client=0
         with:
-          version: 2026.9.14
+          version: 2026.9.15
           install: true
           install_args: --locked
           cache: true
@@ -217,7 +217,7 @@ jobs:
         env:
           GODEBUG: http2client=0
         with:
-          version: 2026.9.14
+          version: 2026.9.15
           install: true
           install_args: --locked
           cache: true
@@ -401,7 +401,7 @@ jobs:
         env:
           GODEBUG: http2client=0
         with:
-          version: 2026.9.14
+          version: 2026.9.15
           install: true
           install_args: --locked
           cache: true
@@ -583,7 +583,7 @@ jobs:
         env:
           GODEBUG: http2client=0
         with:
-          version: 2026.9.14
+          version: 2026.9.15
           install: true
           install_args: --locked
           cache: true
