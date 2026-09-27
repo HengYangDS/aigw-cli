@@ -133,18 +133,33 @@ func (claudeDesktopAdapter) Inspect(ctx context.Context, deps Dependencies, cfg 
 	if len(binding.Targets) != 1 {
 		return Status{Issue: "Claude Desktop configuration library is missing", RepairAction: "aigw repair"}
 	}
-	desired, err := claudeDesktopDesired(deps, cfg, selected)
-	if err == nil {
-		var plan claudedesktop.Plan
-		plan, err = claudedesktop.Prepare(claudedesktop.PathsForLibrary(binding.Targets[0]), &desired)
-		if err == nil && plan.Action != claudedesktop.ActionUnchanged {
-			err = errors.New("Claude Desktop projection differs from the selected Route")
-		}
+	plan, err := claudeDesktopInspectionPlan(deps, cfg, selected, claudedesktop.PathsForLibrary(binding.Targets[0]))
+	if err == nil && plan.Action != claudedesktop.ActionUnchanged {
+		err = errors.New("Claude Desktop projection differs from the selected Route")
 	}
 	if err != nil {
 		return Status{Issue: err.Error(), RepairAction: "aigw sync"}
 	}
 	return Status{Ready: true}
+}
+
+func claudeDesktopInspectionPlan(deps Dependencies, cfg configuration.Config, selected configuration.Runtime, paths claudedesktop.Paths) (claudedesktop.Plan, error) {
+	desired, err := claudeDesktopDesired(deps, cfg, selected)
+	if err != nil {
+		return claudedesktop.Plan{}, err
+	}
+	plan, err := claudedesktop.Prepare(paths, &desired)
+	if err != nil || plan.Action == claudedesktop.ActionUnchanged || !selected.UsesAIGWCredentialStore() {
+		return plan, err
+	}
+	reader, err := retainedDefaultReader(deps.AIGWExecutable, false, func() (string, error) {
+		return plan.ObservedCredentialExecutable(), nil
+	})
+	if err != nil || reader == deps.AIGWExecutable {
+		return plan, err
+	}
+	desired.CredentialExecutable = reader
+	return claudedesktop.Prepare(paths, &desired)
 }
 
 func (claudeDesktopAdapter) Verify(context.Context, Dependencies, configuration.Config, configuration.Runtime, string) (Verification, error) {

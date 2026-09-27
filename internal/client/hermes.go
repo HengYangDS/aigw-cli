@@ -271,18 +271,64 @@ func (hermesAdapter) Inspect(ctx context.Context, deps Dependencies, cfg configu
 	if err != nil || !adapter.Enabled || !available || len(adapter.Targets) != 1 {
 		return Status{Issue: "Hermes executable or configuration home is unavailable", RepairAction: "aigw sync"}
 	}
-	desired, err := hermesDesired(deps, cfg, selected)
-	if err == nil {
-		var plan hermesconfig.Plan
-		plan, err = hermesconfig.Prepare(adapter.Targets[0], &desired)
-		if err == nil && plan.Action != "unchanged" {
-			err = errors.New("hermes configuration projection differs from the selected route")
-		}
+	plan, err := hermesInspectionPlan(deps, cfg, selected, adapter.Targets[0])
+	if err == nil && plan.Action != "unchanged" {
+		err = errors.New("hermes configuration projection differs from the selected route")
 	}
 	if err != nil {
 		return Status{Issue: err.Error(), RepairAction: "aigw sync"}
 	}
 	return Status{Ready: true}
+}
+
+func hermesInspectionPlan(deps Dependencies, cfg configuration.Config, selected configuration.Runtime, target string) (hermesconfig.Plan, error) {
+	desired, err := hermesDesired(deps, cfg, selected)
+	if err != nil {
+		return hermesconfig.Plan{}, err
+	}
+	plan, err := hermesconfig.Prepare(target, &desired)
+	if err != nil || plan.Action == "unchanged" || !selected.UsesAIGWCredentialStore() {
+		return plan, err
+	}
+	reader, err := hermesRetainedReader(cfg, desired, plan, deps.AIGWExecutable)
+	if err != nil || reader == deps.AIGWExecutable {
+		return plan, err
+	}
+	retained := deps
+	retained.AIGWExecutable = reader
+	desired, err = hermesDesired(retained, cfg, selected)
+	if err != nil {
+		return hermesconfig.Plan{}, err
+	}
+	return hermesconfig.Prepare(target, &desired)
+}
+
+func hermesRetainedReader(cfg configuration.Config, desired hermesconfig.Desired, plan hermesconfig.Plan, current string) (string, error) {
+	return retainedDefaultReader(current, false, func() (string, error) {
+		catalogue, err := hermesCatalogue(cfg)
+		if err != nil {
+			return "", err
+		}
+		var observedReader string
+		for _, item := range catalogue {
+			if !slices.ContainsFunc(desired.Providers, func(provider hermesconfig.Provider) bool { return provider.ID == item.ID }) {
+				continue
+			}
+			command, ok := plan.ObservedCredentialCommand(item.ID)
+			if !ok {
+				return "", errors.New("managed Hermes credential command is missing")
+			}
+			reader, err := credential.ExecutableFromCommand(command, configuration.ClientHermes, item.Runtime.CredentialProjectionFingerprint(configuration.ClientHermes), runtime.GOOS)
+			if err != nil {
+				return "", err
+			}
+			if observedReader != "" && observedReader != reader {
+				return "", errors.New("managed Hermes providers use different credential readers")
+			}
+			observedReader = reader
+		}
+		return observedReader, nil
+	})
 }
 
 func (hermesAdapter) Withdraw(cfg *configuration.Config) {
