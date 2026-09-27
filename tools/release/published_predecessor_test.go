@@ -1,9 +1,6 @@
 package main
 
 import (
-	"aigw-cli/internal/configuration"
-	"aigw-cli/internal/secrets"
-	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -12,6 +9,11 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/process"
+	"aigw-cli/internal/secrets"
+	"aigw-cli/tools/release/readiness"
 )
 
 type publishedNativeJourney struct {
@@ -20,6 +22,7 @@ type publishedNativeJourney struct {
 	archive, checksums, version string
 	predecessor, sessionBytes   []byte
 	session                     string
+	retained                    process.Plan
 }
 
 func TestNativePublishedPredecessorJourney(t *testing.T) {
@@ -110,6 +113,7 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	}
 	journey.run("check")
 	journey.requireClaudeCredential("native-journey-token")
+	state.retained = journey.retainedCredential(configuration.ClientClaude)
 	state.predecessor = predecessor
 	state.session = session
 	state.sessionBytes = sessionBytes
@@ -118,6 +122,7 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 func (state *publishedNativeJourney) upgrade(t *testing.T) {
 	journey := state.journey
 	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
+	journey.requireCredential(state.retained, "native-journey-token")
 	journey.requireVersion(state.version)
 	journey.requireProgramBytes(state.candidate)
 	var preview struct {
@@ -144,11 +149,12 @@ func (state *publishedNativeJourney) upgrade(t *testing.T) {
 
 func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecessorVersion string) {
 	journey := state.journey
-	retained := journey.retainedCredential(configuration.ClientClaude)
+	successor := journey.retainedCredential(configuration.ClientClaude)
 	journey.run("update", "--rollback")
 	journey.requireVersion(predecessorVersion)
 	journey.requireProgramBytes(state.baseline)
-	journey.requireCredential(retained, "native-journey-token")
+	journey.requireCredential(state.retained, "native-journey-token")
+	journey.requireCredential(successor, "native-journey-token")
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
 		t.Fatal("current-schema rollback changed published configuration")
 	}
@@ -157,7 +163,8 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 	journey.requireClaudeCredential("native-journey-token")
 
 	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
-	journey.requireCredential(retained, "native-journey-token")
+	journey.requireCredential(state.retained, "native-journey-token")
+	journey.requireCredential(successor, "native-journey-token")
 	journey.run("sync")
 	journey.run("check")
 	journey.requireVersion(state.version)
