@@ -222,6 +222,19 @@ func TestUninstallRemovesTargetReaderWithoutRemovingInvokerReader(t *testing.T) 
 			t.Fatal(err)
 		}
 	}
+	if err := os.WriteFile(target, []byte("previous target version"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	predecessorReader, err := credential.VersionedEntrypointPath(dataDir, target, "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := credential.EnsureEntrypoint(target, predecessorReader); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("installed"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	invokerReader, err := credential.VersionedEntrypointPath(dataDir, invoker, "aigw")
 	if err != nil {
 		t.Fatal(err)
@@ -247,9 +260,9 @@ func TestUninstallRemovesTargetReaderWithoutRemovingInvokerReader(t *testing.T) 
 			t.Fatalf("uninstall retained target-owned path %s: %v", path, err)
 		}
 	}
-	for _, path := range []string{invoker, invokerReader, invokerReader + ".sha256"} {
+	for _, path := range []string{invoker, invokerReader, invokerReader + ".sha256", predecessorReader, predecessorReader + ".sha256"} {
 		if _, err := os.Lstat(path); err != nil {
-			t.Fatalf("uninstall removed invoker-owned path %s: %v", path, err)
+			t.Fatalf("uninstall removed another reader's path %s: %v", path, err)
 		}
 	}
 }
