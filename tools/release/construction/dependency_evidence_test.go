@@ -252,7 +252,7 @@ func TestDependencyEvidenceRejectsMissingOrMalformedScan(t *testing.T) {
 
 func TestDependencyEvidenceRequiresCompleteSelectedSources(t *testing.T) {
 	for _, scenario := range []string{
-		"complete", "missing results", "partial", "foreign checkout", "foreign lockfile", "duplicate source", "non-lockfile source", "empty packages", "incomplete package identity", "missing package license",
+		"complete", "missing results", "partial", "foreign checkout", "foreign lockfile", "duplicate source", "non-lockfile source", "empty packages", "incomplete package identity", "missing package license", "blank package license", "unknown package license", "unasserted package license",
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			root := t.TempDir()
@@ -283,6 +283,12 @@ func TestDependencyEvidenceRequiresCompleteSelectedSources(t *testing.T) {
 				report.Results[0].Packages[0].Package.Name = ""
 			case "missing package license":
 				report.Results[0].Packages[0].Licenses = nil
+			case "blank package license":
+				report.Results[0].Packages[0].Licenses = []string{" "}
+			case "unknown package license":
+				report.Results[0].Packages[0].Licenses = []string{"UNKNOWN"}
+			case "unasserted package license":
+				report.Results[0].Packages[0].Licenses = []string{"NOASSERTION"}
 			}
 			source := filepath.Join(root, "osv.json")
 			if err := writeJSON(source, report); err != nil {
