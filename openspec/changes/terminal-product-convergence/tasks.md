@@ -51,7 +51,7 @@
 - [x] 3.3 Implement only the selected strategy in the existing credential and
       synchronization owners; test original commands, exact identity, private
       permissions or ACLs, partial conflict, interruption, and no Token disclosure.
-- [ ] 3.4 Exercise rollback, uninstall, and exact owned-byte cleanup for that
+- [x] 3.4 Exercise rollback, uninstall, and exact owned-byte cleanup for that
       strategy; preserve unknown, cached, explicit, or rollback consumers and
       reject prefix/age-based deletion.
 - [ ] 3.5 Run published-predecessor-to-successor reader journeys on macOS,

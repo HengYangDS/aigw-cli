@@ -13,6 +13,7 @@ import (
 
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/surface"
 )
@@ -98,6 +99,40 @@ func TestPortableInstallAndUninstallCommandsOwnOnlyProgramFiles(t *testing.T) {
 func TestUninstallWithdrawsOwnedClientStateAndPreservesCapabilities(t *testing.T) {
 	for _, manager := range []string{"portable", "homebrew"} {
 		t.Run(manager, func(t *testing.T) { verifyUninstallOwnership(t, manager) })
+	}
+}
+
+func TestUninstallReportsCommittedWithdrawalWhenReaderCleanupFails(t *testing.T) {
+	app, _, secretStore, _, _ := testApp(t, "")
+	root := t.TempDir()
+	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
+	app.DataDir = filepath.Join(root, "data")
+	writeFile(t, app.Executable, []byte("portable program"), 0o755)
+	reader, err := credential.VersionedEntrypointPath(app.DataDir, app.Executable, executableName("aigw"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.CredentialPath = reader
+	codexTarget := filepath.Join(root, "codex", "config.toml")
+	writeFile(t, codexTarget, []byte("approval_policy = \"on-request\"\n"), 0o600)
+	configureUninstallClients(t, app, codexTarget)
+	writeFile(t, reader+".sha256", []byte("changed receipt\n"), 0o600)
+
+	err = cli.Execute(app, []string{"uninstall"})
+	if err == nil || !strings.Contains(err.Error(), "client withdrawal committed") || !strings.Contains(err.Error(), "credential reader cleanup incomplete") {
+		t.Fatalf("incomplete uninstall error = %v", err)
+	}
+	retained, loadErr := app.Config.Load()
+	if loadErr != nil || len(retained.EnabledClientIDs()) != 0 {
+		t.Fatalf("client withdrawal was not committed: %#v, %v", retained.Clients, loadErr)
+	}
+	for _, path := range []string{app.Executable, reader, reader + ".sha256"} {
+		if _, statErr := os.Stat(path); statErr != nil {
+			t.Fatalf("incomplete cleanup removed %s: %v", path, statErr)
+		}
+	}
+	if token, getErr := secretStore.Get("team"); getErr != nil || token != "token" {
+		t.Fatalf("uninstall changed Token: %q, %v", token, getErr)
 	}
 }
 

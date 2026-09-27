@@ -125,7 +125,10 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 			if err := credential.RemoveEntrypoint(reader); err != nil {
-				return fmt.Errorf("remove AIGW credential entrypoint: %w", err)
+				if statErr == nil {
+					return fmt.Errorf("client withdrawal committed; credential reader cleanup incomplete: %w", err)
+				}
+				return fmt.Errorf("credential reader cleanup incomplete: %w", err)
 			}
 			if err := Uninstall(target); err != nil {
 				return err
