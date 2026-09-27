@@ -102,7 +102,7 @@ func TestUninstallWithdrawsOwnedClientStateAndPreservesCapabilities(t *testing.T
 	}
 }
 
-func TestUninstallReportsCommittedWithdrawalWhenReaderCleanupFails(t *testing.T) {
+func TestUninstallPreservesDriftedSharedReader(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	root := t.TempDir()
 	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
@@ -118,18 +118,21 @@ func TestUninstallReportsCommittedWithdrawalWhenReaderCleanupFails(t *testing.T)
 	configureUninstallClients(t, app, codexTarget)
 	writeFile(t, reader+".sha256", []byte("changed receipt\n"), 0o600)
 
-	err = cli.Execute(app, []string{"uninstall"})
-	if err == nil || !strings.Contains(err.Error(), "client withdrawal committed") || !strings.Contains(err.Error(), "credential reader cleanup incomplete") {
-		t.Fatalf("incomplete uninstall error = %v", err)
+	if err := cli.Execute(app, []string{"uninstall"}); err != nil {
+		t.Fatal(err)
 	}
 	retained, loadErr := app.Config.Load()
 	if loadErr != nil || len(retained.EnabledClientIDs()) != 0 {
 		t.Fatalf("client withdrawal was not committed: %#v, %v", retained.Clients, loadErr)
 	}
-	for _, path := range []string{app.Executable, reader, reader + ".sha256"} {
-		if _, statErr := os.Stat(path); statErr != nil {
-			t.Fatalf("incomplete cleanup removed %s: %v", path, statErr)
-		}
+	if _, err := os.Stat(app.Executable); !os.IsNotExist(err) {
+		t.Fatalf("uninstall retained its executable: %v", err)
+	}
+	if _, err := os.Stat(reader); err != nil {
+		t.Fatalf("uninstall removed a possibly shared reader: %v", err)
+	}
+	if got := string(readFile(t, reader+".sha256")); got != "changed receipt\n" {
+		t.Fatalf("uninstall changed a retained reader receipt: %q", got)
 	}
 	if token, getErr := secretStore.Get("team"); getErr != nil || token != "token" {
 		t.Fatalf("uninstall changed Token: %q, %v", token, getErr)
@@ -176,9 +179,12 @@ func TestPortableUninstallPreservesExternalCredentialCommand(t *testing.T) {
 	if got := string(readFile(t, external)); got != "operator-owned helper" {
 		t.Fatalf("uninstall changed external credential command: %q", got)
 	}
-	for _, path := range []string{app.Executable, reader, reader + ".sha256"} {
-		if _, err := os.Stat(path); !os.IsNotExist(err) {
-			t.Fatalf("uninstall retained AIGW-owned path %s: %v", path, err)
+	if _, err := os.Stat(app.Executable); !os.IsNotExist(err) {
+		t.Fatalf("uninstall retained its executable: %v", err)
+	}
+	for _, path := range []string{reader, reader + ".sha256"} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("uninstall removed a possibly cached reader %s: %v", path, err)
 		}
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "token" {

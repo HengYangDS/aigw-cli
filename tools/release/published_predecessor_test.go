@@ -188,7 +188,7 @@ func (state *publishedNativeJourney) finish(t *testing.T) {
 	if !strings.Contains(string(settings["theme"]), "user-dark") {
 		t.Fatal("published predecessor lifecycle changed user settings")
 	}
-	journey.uninstallWithAndRequireOwnedFilesAbsent(candidate)
+	journey.uninstallWithAndRequireInstallationRemoved(candidate)
 	if !bytes.Equal(readFile(t, session), sessionBytes) {
 		t.Fatal("published predecessor uninstall changed user session history")
 	}

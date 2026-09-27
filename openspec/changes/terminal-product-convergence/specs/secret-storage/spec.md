@@ -75,16 +75,19 @@ disclosed rather than represented as uninterrupted service.
 - **AND** a dry-run SHALL NOT propose automatic deletion based only on the
   current configured consumer count.
 
-#### Scenario: Explicit portable uninstall withdraws the current reader
+#### Scenario: Explicit portable uninstall preserves versioned readers
 
 - **WHEN** an operator explicitly uninstalls a portable AIGW installation
-- **THEN** AIGW SHALL withdraw its managed projections and remove only the
-  selected installation target's exact intact owned credential executable and
-  receipt, even if the command runs from a different AIGW binary
-- **AND** the invoking binary's separate credential executable SHALL remain
-  untouched
-- **AND** it SHALL NOT claim continuity for a cached caller that still invokes
-  that removed command or silently delete older versioned copies
+- **THEN** AIGW SHALL withdraw its managed projections and remove the selected
+  installation executable and its single rollback copy, even if the command
+  runs from a different AIGW binary
+- **AND** every existing versioned credential executable and receipt SHALL
+  remain byte-for-byte unchanged because a cached caller or another
+  installation may still use the same content-addressed reader
+- **AND** retaining reader bytes SHALL NOT authorize a Client Binding withdrawn
+  from the selected configuration
+- **AND** uninstall SHALL NOT create a reader or receipt that was absent before
+  the operation or delete older versioned copies
 - **AND** a failed removal SHALL report committed client state with incomplete
   cleanup, not a rolled-back transition or silent success.
 

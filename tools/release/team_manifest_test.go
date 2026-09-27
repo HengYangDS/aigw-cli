@@ -104,7 +104,7 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 	journey.run("doctor", "--json")
 	journey.requireNoClaudeProjection()
 	if account == "" {
-		journey.uninstallAndRequireOwnedFilesAbsent()
+		journey.uninstallAndRequireInstallationRemoved()
 		return
 	}
 	if !clientFirst {
@@ -207,5 +207,5 @@ func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *jo
 	if !bytes.Equal(before, readFile(t, journey.config)) {
 		t.Fatal("repeated team synchronization rewrote configuration")
 	}
-	journey.uninstallAndRequireOwnedFilesAbsent()
+	journey.uninstallAndRequireInstallationRemoved()
 }

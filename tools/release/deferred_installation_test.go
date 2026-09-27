@@ -141,7 +141,7 @@ interfaces = { openai_responses = [] }
 					t.Fatalf("sync for %s changed %s projection", clientID, candidate)
 				}
 			}
-			journey.uninstallAndRequireOwnedFilesAbsent()
+			journey.uninstallAndRequireInstallationRemoved()
 			for _, candidate := range configuration.AdmittedClientIDs() {
 				journey.requireNoClientProjection(candidate)
 			}

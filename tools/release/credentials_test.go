@@ -185,7 +185,7 @@ func runNativeEphemeralCredentials(t *testing.T, artifact string) {
 		t.Fatalf("ephemeral endpoint requests=%d or configuration changed", requests)
 	}
 	journey.requireNoClaudeProjection()
-	journey.uninstallAndRequireOwnedFilesAbsent()
+	journey.uninstallAndRequireInstallationRemoved()
 }
 
 func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersion string) {
@@ -245,7 +245,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	if value, err := store.Get(targetAccount); err != nil || value != replacement {
 		t.Fatalf("finalized target credential = %q, %v", value, err)
 	}
-	journey.uninstallAndRequireOwnedFilesAbsent()
+	journey.uninstallAndRequireInstallationRemoved()
 	if exists, err := store.Exists(targetAccount); err != nil || !exists {
 		t.Fatalf("uninstall removed the retained credential: exists=%t error=%v", exists, err)
 	}
@@ -255,7 +255,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	journey.run("use", "--for", configuration.ClientClaude, "native-system-keyring-probe-claude")
 	journey.requireCredentialBackend(replacement, backend)
 	journey.requireClaudeCredential(replacement)
-	journey.uninstallAndRequireOwnedFilesAbsent()
+	journey.uninstallAndRequireInstallationRemoved()
 	if err := store.Delete(targetAccount); err != nil {
 		t.Fatal(err)
 	}

@@ -76,7 +76,9 @@ func TestNativeProductJourney(t *testing.T) {
 		journey.requireClaudeCredential("native-journey-token")
 		journey.run("check")
 		journey.run("verify", "--for", "claude")
-		journey.uninstallAndRequireOwnedFilesAbsent()
+		retained := journey.retainedCredential(configuration.ClientClaude)
+		journey.uninstallAndRequireInstallationRemoved()
+		journey.requireWithdrawnCredentialDenied(retained, "native-journey-token")
 		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 	})
 
@@ -103,7 +105,7 @@ func TestNativeProductJourney(t *testing.T) {
 		journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, journey.predecessorVersion(newVersion), "native-journey-token", secrets.BackendSelection{
 			Kind: "env", Availability: "available", Mutability: "read_only", Persistence: "explicit",
 		})
-		journey.uninstallAndRequireOwnedFilesAbsent()
+		journey.uninstallAndRequireInstallationRemoved()
 	})
 
 	t.Run("portable artifact lifecycle", func(t *testing.T) {
@@ -131,7 +133,7 @@ func TestNativeProductJourney(t *testing.T) {
 			if got := strings.TrimSpace(string(readFile(t, backend))); got != "file" {
 				t.Fatalf("persisted backend = %q, want file", got)
 			}
-			journey.uninstallAndRequireOwnedFilesAbsent()
+			journey.uninstallAndRequireInstallationRemoved()
 		})
 	}
 
@@ -162,7 +164,7 @@ func TestNativeAccountRetirementWithoutClients(t *testing.T) {
 	if !bytes.Equal(readFile(t, journey.config), readFile(t, journey.config+".bak")) {
 		t.Fatal("client-free retirement did not converge backup")
 	}
-	journey.uninstallAndRequireOwnedFilesAbsent()
+	journey.uninstallAndRequireInstallationRemoved()
 }
 
 type journeyFixture struct {
@@ -393,29 +395,30 @@ func (j *journeyFixture) requireCredential(plan process.Plan, want string) {
 	}
 }
 
-func (j *journeyFixture) uninstallAndRequireOwnedFilesAbsent() {
+func (j *journeyFixture) uninstallAndRequireInstallationRemoved() {
 	j.testing.Helper()
-	j.uninstallWithAndRequireOwnedFilesAbsent(j.source)
+	j.uninstallWithAndRequireInstallationRemoved(j.source)
 	j.requireNoClaudeProjection()
 	if _, err := os.Stat(j.config + ".verified.json"); !os.IsNotExist(err) {
 		j.testing.Fatalf("uninstall retained verified checkpoint: %v", err)
 	}
 }
 
-func (j *journeyFixture) uninstallWithAndRequireOwnedFilesAbsent(binary string) {
+func (j *journeyFixture) uninstallWithAndRequireInstallationRemoved(binary string) {
 	j.testing.Helper()
-	reader := j.credentialEntrypoint()
+	reader := j.captureCredentialReader()
 	j.runWith(binary, "uninstall", "--target", j.binary)
-	j.requireOwnedFilesAbsent(reader)
+	j.requireInstallationRemoved()
+	reader.requireUnchanged(j.testing)
 }
 
-func (j *journeyFixture) requireOwnedFilesAbsent(reader string) {
+func (j *journeyFixture) requireInstallationRemoved() {
 	j.testing.Helper()
 	backup := filepath.Join(filepath.Dir(j.binary), ".aigw.previous")
 	if runtime.GOOS == "windows" {
 		backup += ".exe"
 	}
-	for _, path := range []string{j.binary, backup, reader, reader + ".sha256"} {
+	for _, path := range []string{j.binary, backup} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			j.testing.Fatalf("uninstall retained owned file %s: %v", path, err)
 		}

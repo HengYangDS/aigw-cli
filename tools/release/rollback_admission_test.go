@@ -71,5 +71,5 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 	journey.run("update", "--candidate", archive, "--checksums", checksums)
 	journey.requireProgramBytes(candidate)
 	journey.run("config", "export")
-	journey.uninstallAndRequireOwnedFilesAbsent()
+	journey.uninstallAndRequireInstallationRemoved()
 }

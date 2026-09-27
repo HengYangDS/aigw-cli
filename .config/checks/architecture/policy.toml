@@ -224,7 +224,6 @@ allowed_import_edges."internal/cli/credential" = [
 ]
 allowed_import_edges."internal/cli/install" = [
   "internal/cli/invocation",
-  "internal/credential",
   "internal/presentation",
   "internal/transaction",
   "internal/upgrade",

@@ -71,11 +71,14 @@ Creation participates in projection compensation.
 Ordinary sync, repair, and Client Binding withdrawal retain an existing copy:
 absence from current configuration does not prove cached or rollback callers
 have stopped using it. Explicit portable uninstall withdraws projections and
-removes the selected installation target's exact intact copy, even when invoked
-from a different AIGW binary; it does not promise continuity for a client that
-still invokes that removed command. Older versioned copies and unknown
-content are not deleted by prefix or age. Their exact cleanup requires proof
-that no configured, cached, explicit, or rollback caller remains.
+removes the selected installation executable and its rollback copy, even when
+invoked from a different AIGW binary. It leaves versioned readers and receipts
+unchanged: a content-addressed reader may also serve another installation or
+cached caller. It does not reauthorize a withdrawn Client Binding; a cached
+command using the withdrawn configuration must fail closed. Exact reader
+cleanup requires proof that no configured, cached, explicit, rollback, or
+other-installation caller remains; neither uninstall nor a prefix or age match
+supplies that proof.
 
 An already-running client that cached the old package-manager path is not
 migrated by rewriting settings. The one-time 0.3.1 transition preprojects the

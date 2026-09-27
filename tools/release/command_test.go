@@ -82,7 +82,7 @@ func TestNativeJourneyOwnsWorkingDirectory(t *testing.T) {
 	if output := journey.run("--help"); !bytes.Contains(output, []byte("Usage")) {
 		t.Fatalf("native help is unavailable: %s", output)
 	}
-	journey.uninstallAndRequireOwnedFilesAbsent()
+	journey.uninstallAndRequireInstallationRemoved()
 }
 
 func TestRunBuildCIAndTagReadinessInputBoundaries(t *testing.T) {

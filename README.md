@@ -259,8 +259,10 @@ routine later CLI replacements leave it in place. This transition does not
 require disabling clients, moving Tokens, or changing explicit custom helpers.
 
 `aigw uninstall` withdraws AIGW-owned client projections and removes the
-portable executable plus its predecessor. It preserves Accounts, Routes,
-Client Bindings, Tokens, configuration backup, and user-authored client state.
+portable executable plus its predecessor. It retains versioned credential
+reader files for cached or shared callers; a withdrawn Client Binding cannot
+read its Token merely because the executable remains. Accounts, Routes, Client
+Bindings, Tokens, configuration backup, and user-authored client state remain.
 
 For a Homebrew installation, disable enabled clients first and let Homebrew
 remove the package; AIGW does not overwrite or delete package-manager-owned

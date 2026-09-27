@@ -133,7 +133,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 		})
 	}
 	journey.testing = t
-	journey.uninstallWithAndRequireOwnedFilesAbsent(p.candidate)
+	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 }
 
 func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
@@ -178,7 +178,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	if got, err := os.ReadFile(output); err != nil || strings.TrimSpace(string(got)) != "AIGW_OK" {
 		t.Fatalf("Codex final tool-loop response = %q, %v", got, err)
 	}
-	journey.uninstallWithAndRequireOwnedFilesAbsent(p.candidate)
+	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 }
 
 type codexToolLoopRequest struct {

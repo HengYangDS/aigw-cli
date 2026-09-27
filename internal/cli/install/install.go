@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/transaction"
 	"aigw-cli/internal/upgrade"
@@ -98,14 +97,6 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 			if targetErr != nil && !errors.Is(targetErr, os.ErrNotExist) {
 				return fmt.Errorf("inspect installed AIGW executable: %w", targetErr)
 			}
-			reader := ""
-			if targetErr == nil && runtime.CredentialPath != "" {
-				var err error
-				reader, err = credential.VersionedEntrypointPath(runtime.DataDir, target, filepath.Base(runtime.CredentialPath))
-				if err != nil {
-					return fmt.Errorf("resolve installed AIGW credential entrypoint: %w", err)
-				}
-			}
 			_, statErr := os.Stat(runtime.Config.Path())
 			if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
 				return fmt.Errorf("inspect AIGW configuration: %w", statErr)
@@ -124,12 +115,6 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 					return err
 				}
 			}
-			if err := credential.RemoveEntrypoint(reader); err != nil {
-				if statErr == nil {
-					return fmt.Errorf("client withdrawal committed; credential reader cleanup incomplete: %w", err)
-				}
-				return fmt.Errorf("credential reader cleanup incomplete: %w", err)
-			}
 			if err := Uninstall(target); err != nil {
 				return err
 			}
@@ -137,6 +122,7 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 			render.ProductTitle("Portable uninstall")
 			render.Success("Removed AIGW client projections, executable, and its single rollback copy")
 			render.Text("Configuration and credential-store secrets were preserved.")
+			render.Text("Versioned credential readers were retained for cached or other-installation callers.")
 			return nil
 		},
 	}

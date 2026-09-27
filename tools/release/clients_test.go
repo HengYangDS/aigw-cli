@@ -266,7 +266,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		t.Fatalf("repeated retirement = %q: %v", retirement.Status, err)
 	}
 	journey.requireExternalCredentialClient(client, executable, renamedAccount, completions.Load)
-	journey.uninstallWithAndRequireOwnedFilesAbsent(p.candidate)
+	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 	journey.requireNativePreferences(client)
 	if err := before(); err != nil {
 		t.Fatal(err)

@@ -201,7 +201,7 @@ interfaces = { anthropic = ["text"] }
 		t.Fatal(err)
 	}
 	j.preparePerformanceCredentials(backend, account, credentialWorker)
-	t.Cleanup(j.uninstallAndRequireOwnedFilesAbsent)
+	t.Cleanup(j.uninstallAndRequireInstallationRemoved)
 	args := []string{"setup", "--from", j.manifest, "--account", account}
 	if backend == "env" {
 		j.setEnvironment(secrets.EnvironmentKey(account), token)

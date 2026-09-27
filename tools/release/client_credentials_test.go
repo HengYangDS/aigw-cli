@@ -277,3 +277,48 @@ func (j *journeyFixture) retainedCredentials() []process.Plan {
 	}
 	return credentials
 }
+
+type credentialReaderSnapshot struct {
+	paths    [2]string
+	contents [2][]byte
+	exists   [2]bool
+}
+
+func (j *journeyFixture) captureCredentialReader() credentialReaderSnapshot {
+	j.testing.Helper()
+	reader := j.credentialEntrypoint()
+	snapshot := credentialReaderSnapshot{paths: [2]string{reader, reader + ".sha256"}}
+	for index, path := range snapshot.paths {
+		contents, err := os.ReadFile(path)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			j.testing.Fatalf("inspect credential reader %s: %v", path, err)
+		}
+		snapshot.contents[index] = contents
+		snapshot.exists[index] = err == nil
+	}
+	return snapshot
+}
+
+func (snapshot credentialReaderSnapshot) requireUnchanged(t *testing.T) {
+	t.Helper()
+	for index, path := range snapshot.paths {
+		contents, err := os.ReadFile(path)
+		if snapshot.exists[index] {
+			if err != nil || !bytes.Equal(contents, snapshot.contents[index]) {
+				t.Fatalf("uninstall changed retained credential reader %s: %v", path, err)
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("uninstall created an absent credential reader %s: %v", path, err)
+		}
+	}
+}
+
+func (j *journeyFixture) requireWithdrawnCredentialDenied(plan process.Plan, token string) {
+	j.testing.Helper()
+	ctx, cancel := context.WithTimeout(j.testing.Context(), 10*time.Second)
+	defer cancel()
+	output, err := (process.Runner{}).RunCapture(ctx, plan)
+	if err == nil || !bytes.Contains(output, []byte("adapter is not enabled")) || bytes.Contains(output, []byte(token)) {
+		j.testing.Fatal("uninstall did not revoke the captured client's credential authorization")
+	}
+}
