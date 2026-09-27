@@ -68,12 +68,13 @@ protocol, authentication mode, and genuinely client-specific options. There is
 no global default, inheritance, or cross-client fallback. AIGW selects before
 the request; it does not retry traffic through another endpoint or model.
 
-Team recommendations are inputs to setup, not local bindings. Import retains
-them separately. Setup may bind recommendations for explicitly connected
-Accounts; `sync` only reconciles bindings that already exist. An existing
-binding survives a missing Token or a newly connected Account. See
-[team activation](../guides/team-rollout.md#local-choices) for deliberate
-selection changes.
+Team recommendations are not local bindings. Import retains them separately.
+Setup may bind recommendations for explicitly connected Accounts. Later `sync`
+may select an unbound reviewed recommendation when its Account Token appears in
+the read-only environment backend; it does not search unselected native
+credentials. An existing binding survives a missing Token or a newly connected
+Account. See [team activation](../guides/team-rollout.md#local-choices) for
+deliberate selection changes.
 
 ### Native Projection
 
