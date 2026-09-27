@@ -248,6 +248,33 @@ func TestPreparedProjectionAndRollbackProtectConcurrentEdits(t *testing.T) {
 	}
 }
 
+func TestProjectionCompensatesConfigWhenStateWriteConflicts(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	original := []byte("# User preference\nterminal: {backend: local}\n")
+	if err := os.WriteFile(path, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	desired := testDesired()
+	plan, err := Prepare(path, &desired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	statePath := path + stateSuffix
+	foreign := []byte("{\"foreign\":true}\n")
+	if err := os.WriteFile(statePath, foreign, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plan.Apply(); err == nil || !strings.Contains(err.Error(), "preimage changed for "+statePath) {
+		t.Fatalf("state conflict was not reported: %v", err)
+	}
+	if current, err := os.ReadFile(path); err != nil || !bytes.Equal(current, original) {
+		t.Fatalf("config preimage was not restored: %q, %v", current, err)
+	}
+	if current, err := os.ReadFile(statePath); err != nil || !bytes.Equal(current, foreign) {
+		t.Fatalf("foreign state was overwritten: %q, %v", current, err)
+	}
+}
+
 func TestProjectionSupportsEveryHermesWireAndScalarModel(t *testing.T) {
 	for protocol, native := range map[string]string{"openai_responses": "codex_responses", "anthropic": "anthropic_messages", "openai_chat_completions": "chat_completions"} {
 		t.Run(protocol, func(t *testing.T) {

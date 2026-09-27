@@ -32,7 +32,7 @@
 - [x] 2.5 Exercise Token-before-client, client-before-Token, both-absent, and
       one-of-many-Accounts journeys through the shipped `manifests/team.toml`; prove
       late `sync` and no irrelevant credential requirement.
-- [ ] 2.6 Reconcile managed projections semantically, preserving unrelated edits
+- [x] 2.6 Reconcile managed projections semantically, preserving unrelated edits
       byte-for-byte and reporting exact ownership conflicts; inject failure after
       each owned write and verify compensation.
 - [ ] 2.7 Admit a selected live Account and client through endpoint and

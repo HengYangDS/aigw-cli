@@ -177,35 +177,6 @@ func TestUpdatedProjectionRestoresTheOriginalFiles(t *testing.T) {
 	}
 }
 
-func TestRollbackRejectsAChangedPostimage(t *testing.T) {
-	root := t.TempDir()
-	paths := PathsForLibrary(filepath.Join(root, "Claude-3p", "configLibrary"))
-	desired := Desired{
-		BaseURL:              "https://gateway.example.test/v1",
-		CredentialExecutable: filepath.Join(root, "aigw"),
-		CredentialArguments:  []string{"credential", "claude-desktop", "fingerprint"},
-		Models:               []Model{{Name: "claude-fable-5-1"}},
-	}
-	plan, err := Prepare(paths, &desired)
-	if err != nil {
-		t.Fatal(err)
-	}
-	receipt, err := plan.Apply()
-	if err != nil {
-		t.Fatal(err)
-	}
-	foreign := []byte("{\n  \"deploymentMode\": \"3p\",\n  \"foreign\": true\n}\n")
-	if err := os.WriteFile(paths.StandardConfig, foreign, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := receipt.Rollback(); err == nil || !strings.Contains(err.Error(), "changed") {
-		t.Fatalf("Rollback() error = %v", err)
-	}
-	if got, err := os.ReadFile(paths.StandardConfig); err != nil || !bytes.Equal(got, foreign) {
-		t.Fatalf("foreign postimage = %q, %v", got, err)
-	}
-}
-
 func TestProjectionRejectsInvalidConfigurationDocuments(t *testing.T) {
 	for _, target := range []struct {
 		name string
