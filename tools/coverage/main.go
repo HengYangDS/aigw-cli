@@ -152,6 +152,10 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 		_, _ = fmt.Fprintf(stderr, "go test failed: %v\n", err)
 		return 1
 	}
+	if err := retainCoverageProfile(profilePath, *profileOutput); err != nil {
+		_, _ = fmt.Fprintf(stderr, "retain coverage profile: %v\n", err)
+		return 1
+	}
 
 	result, err := readCoverage(profilePath, policy.CoverMode)
 	if err != nil {
@@ -165,10 +169,6 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 	percent := result.Percent()
 	if percent <= policy.MinimumStatementPercent {
 		_, _ = fmt.Fprintf(stderr, "coverage %.2f%% does not exceed %.2f%% (%d/%d statements)\n", percent, policy.MinimumStatementPercent, result.Covered, result.Total)
-		return 1
-	}
-	if err := retainCoverageProfile(profilePath, *profileOutput); err != nil {
-		_, _ = fmt.Fprintf(stderr, "retain coverage profile: %v\n", err)
 		return 1
 	}
 	if _, err := fmt.Fprintf(stdout, "statement coverage: %.2f%% (%d/%d statements), required > %.2f%%\n", percent, result.Covered, result.Total, policy.MinimumStatementPercent); err != nil {
