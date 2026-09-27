@@ -120,20 +120,20 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 	} {
 		protectedPushRuleSeen := false
 		for _, rule := range job.Rules {
-			if rule.If == `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
+			if rule.If == `$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")` {
 				protectedPushRuleSeen = true
 			}
 		}
 		if !protectedPushRuleSeen {
-			t.Fatalf("GitLab %s does not admit a maintainer dev push", name)
+			t.Fatalf("GitLab %s does not admit both protected branch pushes", name)
 		}
 	}
 	for name, job := range map[string]gitLabJob{
 		"release-assets": gitlab.ReleaseAssets,
 	} {
 		for _, rule := range job.Rules {
-			if rule.If == `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
-				t.Fatalf("GitLab %s must remain tag-only, got dev rule", name)
+			if strings.Contains(rule.If, "$CI_COMMIT_BRANCH") {
+				t.Fatalf("GitLab %s must remain tag-only, got branch rule", name)
 			}
 		}
 	}
@@ -157,7 +157,7 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		if name == "accepted-ref-parity" {
 			continue
 		}
-		want := "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev'"
+		want := "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))"
 		if platform, native := strings.CutPrefix(name, "native-"); native {
 			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '" + platform + "')"
 		}

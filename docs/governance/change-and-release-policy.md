@@ -303,11 +303,11 @@ imply that third-party tool distribution survives a global hosting outage.
 
 For a governed Change, review runs admit the candidate before OpenSpec archive.
 Accepted-branch and tag runs are separate delivery evidence from their actual
-publication events; a generated event graph cannot replace those runs. A
-release-branch push runs only accepted-ref parity: the publisher advances
-`main` and `dev` atomically to one object, so repeating the platform matrix
-observes no new product input. Reviews targeting `main` still receive full
-verification; direct maintainer updates to `dev` retain the complete gate.
+publication events; a generated event graph cannot replace those runs. Both
+`dev` and `main` pushes run their own quality and native matrix; `main` also
+checks accepted-ref parity. The publisher may advance both branches to one
+object, but matching SHAs alone do not authorize reusing one branch's evidence
+for the other. Reviews targeting `main` also receive full verification.
 No parallel pre-commit runner is needed to own these rules. An accepted-ref
 merge or proposal deletion is a separate delivery operation, not evidence
 implied by a valid commit message or a green review job.

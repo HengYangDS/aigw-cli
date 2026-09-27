@@ -65,8 +65,8 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 			t.Errorf("GitLab %s must verify reviews into both integration and release: %#v", name, job.Rules)
 			continue
 		}
-		if got := job.Rules[2].If; got != `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
-			t.Errorf("GitLab %s accepted-push rule = %q", name, got)
+		if got := job.Rules[2].If; got != wantGitLabWorkflow[2].If {
+			t.Errorf("GitLab %s protected-push rule = %q", name, got)
 		}
 	}
 	var github struct {

@@ -162,7 +162,6 @@ gitlabVerificationCondition: {
 	tag:           "$CI_COMMIT_TAG"
 	review:        "$CI_PIPELINE_SOURCE == \"merge_request_event\" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.acceptedBranch)\" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.releaseBranch)\")"
 	protectedPush: "$CI_PIPELINE_SOURCE == \"push\" && ($CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\" || $CI_COMMIT_BRANCH == \"\(lifecycle.releaseBranch)\")"
-	acceptedPush:  "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\""
 	manual:        "$CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\""
 }
 
@@ -177,12 +176,12 @@ gitlabPipelineRules: [
 gitlabFullVerificationRules: [
 	{if: gitlabVerificationCondition.tag},
 	{if: gitlabVerificationCondition.review},
-	{if: gitlabVerificationCondition.acceptedPush},
+	{if: gitlabVerificationCondition.protectedPush},
 	{if: gitlabVerificationCondition.manual},
 	{when: "never"},
 ]
 
-githubFullVerificationCondition: "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == '\(lifecycle.acceptedBranch)'"
+githubFullVerificationCondition: "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == '\(lifecycle.acceptedBranch)' || github.ref_name == '\(lifecycle.releaseBranch)'))"
 
 githubCommitBase: "${{ github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || inputs.commit_base }}"
 
@@ -565,7 +564,7 @@ gitlab: {
 				variables: AIGW_COMMIT_BASE: "$CI_MERGE_REQUEST_DIFF_BASE_SHA"
 			},
 			{
-				if: gitlabVerificationCondition.acceptedPush
+				if: gitlabVerificationCondition.protectedPush
 				variables: AIGW_COMMIT_BASE: "$CI_COMMIT_BEFORE_SHA"
 			},
 			{if: gitlabVerificationCondition.manual},
