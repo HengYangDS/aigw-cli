@@ -61,21 +61,28 @@ it must not assume metadata access is sufficient.
 ### AIGW-owned credential entrypoint
 
 For a default Account-Token Client Binding, AIGW projects the existing
-`aigw credential` protocol through one user-private executable copy under its
-platform data directory. The copy uses the same selected backend and Token
-slots; it is not another credential store or an external helper. Ordinary
-synchronization does not replace it when the package-manager CLI changes.
-Its paired SHA-256 records accidental byte drift, not release provenance or
-native-store authorization. Creation participates in projection compensation.
-After successful withdrawal of the last default Token consumer, AIGW removes
-the intact copy; another default consumer, an enabled explicit binding to the
-same executable, or a failed projection keeps it. A cleanup
-failure is reported as post-commit, not as a false rollback. Uninstall also
-removes an orphan after withdrawing projections.
+`aigw credential` protocol through a user-private, SHA-256-addressed copy of
+the same executable under its platform data directory. A successor gets a new
+path rather than overwriting old bytes. It uses the same selected backend and
+Token slots; it is not another store or helper. The paired SHA-256 receipt
+detects byte drift, not release provenance or native-store authorization.
+Creation participates in projection compensation.
+
+Ordinary sync, repair, and Client Binding withdrawal retain an existing copy:
+absence from current configuration does not prove cached or rollback callers
+have stopped using it. Explicit portable uninstall withdraws projections and
+removes the selected installation target's exact intact copy, even when invoked
+from a different AIGW binary; it does not promise continuity for a client that
+still invokes that removed command. Older versioned copies and unknown
+content are not deleted by prefix or age. Their exact cleanup requires proof
+that no configured, cached, explicit, or rollback caller remains.
 
 An already-running client that cached the old package-manager path is not
-migrated by rewriting settings; replacement must
-wait until that original caller is absent or independently proved migrated.
+migrated by rewriting settings. The one-time 0.3.1 transition preprojects the
+private path and uses a bounded, measured Homebrew cutover with immediate
+acceptance and rollback. It cannot claim that every cached public-link call
+remains available during unlink/relink. Later versioned paths remain retained
+for their original callers.
 The [archived credential-continuity design](../../openspec/changes/archive/2026-09-25-inference-readiness-claude-override/design.md#credential-entrypoint-during-package-replacement)
 defines native qualification. The [post-archive delivery criteria](../../openspec/changes/archive/2026-09-25-inference-readiness-claude-override/design.md#post-archive-delivery-acceptance)
 must also pass before this path is a released guarantee.

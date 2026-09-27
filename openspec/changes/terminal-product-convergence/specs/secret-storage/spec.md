@@ -4,14 +4,15 @@
 
 ### Requirement: Upgrade evidence preserves credential continuity
 
-Upgrade acceptance SHALL retain each enabled client's command, arguments,
-environment, native item, reader, and authorization identity. Before a package
-manager unlinks its CLI path, every retained caller SHALL use a qualified
-reader independent of that path or the cutover SHALL stop. Original invocations
-SHALL return the same Token before, during, and after replacement without
-reload; a fresh client or helper SHALL NOT substitute for existing-caller
-continuity. A successor reader SHALL be qualified before any client projection
-selects it, while retained callers keep their original reader.
+Upgrade acceptance SHALL capture each enabled client's command, arguments,
+environment, native item, reader, and authorization identity. A successor
+reader SHALL be qualified before any client projection selects it. Original
+invocations using AIGW-owned versioned readers SHALL return the same Token
+before, during, and after package replacement without reload; a fresh client
+or helper SHALL NOT substitute for existing-caller continuity. The one-time
+published predecessor may retain a package-manager-owned CLI link: its
+uncontrolled unlink interval SHALL be bounded, measured, minimized, and
+disclosed rather than represented as uninterrupted service.
 
 #### Scenario: A proposed adapter survives only CLI-only updates
 
@@ -22,7 +23,8 @@ selects it, while retained callers keep their original reader.
 
 #### Scenario: A client retains its credential command across an update
 
-- **GIVEN** a client has already loaded a valid credential command and environment
+- **GIVEN** a client has already loaded a qualified AIGW-owned versioned
+  credential command and environment
 - **WHEN** the installed AIGW program is replaced without changing its route
 - **THEN** that retained invocation SHALL return the original authorized Token
   before synchronization or client restart
@@ -34,7 +36,7 @@ selects it, while retained callers keep their original reader.
 #### Scenario: The package manager temporarily removes the CLI path
 
 - **GIVEN** an update has been admitted for clients retaining original
-  credential commands
+  AIGW-owned versioned credential commands
 - **WHEN** a package manager removes or replaces the CLI executable path
 - **THEN** those original invocations before, during, and after that interval
   SHALL return their authorized Token without a missing-executable gap
@@ -46,20 +48,36 @@ selects it, while retained callers keep their original reader.
 
 - **WHEN** a retained caller still uses the executable path a package manager
   will unlink
-- **THEN** production cutover SHALL stop before that unlink
-- **AND** rewriting a configuration file or testing a fresh client SHALL NOT
-  claim the cached caller was migrated.
+- **THEN** AIGW SHALL NOT claim the cached caller was migrated by rewriting a
+  configuration file or testing a fresh client
+- **AND** the one-time cutover SHALL preproject and qualify private readers,
+  prefetch the successor, bound and measure the link gap, test captured commands
+  immediately, and restore the predecessor on failure
+- **AND** a possible cached-link call during that gap SHALL remain an explicit
+  residual risk; if that bounded cutover cannot be qualified, it SHALL stop.
 
 #### Scenario: The last default Token consumer is withdrawn
 
 - **WHEN** a successful projection disables or replaces the last default
   Account-Token Client Binding
-- **THEN** AIGW SHALL remove only intact, owned credential executables with no
-  remaining configured or retained caller after projection completion
-- **AND** another default consumer or incomplete projection rollback SHALL
-  preserve the exact executable it may still invoke
-- **AND** an enabled explicit credential command resolving to an owned reader
-  SHALL preserve it without changing that command's owner
+- **THEN** ordinary synchronization and Client Binding withdrawal SHALL retain
+  the existing credential executable because the current configuration cannot
+  prove that cached or rollback callers have stopped invoking it
+- **AND** another default consumer, an explicit command, or an incomplete
+  projection rollback SHALL retain the exact executable it may still invoke
+- **AND** a dry-run SHALL NOT propose automatic deletion based only on the
+  current configured consumer count.
+
+#### Scenario: Explicit portable uninstall withdraws the current reader
+
+- **WHEN** an operator explicitly uninstalls a portable AIGW installation
+- **THEN** AIGW SHALL withdraw its managed projections and remove only the
+  selected installation target's exact intact owned credential executable and
+  receipt, even if the command runs from a different AIGW binary
+- **AND** the invoking binary's separate credential executable SHALL remain
+  untouched
+- **AND** it SHALL NOT claim continuity for a cached caller that still invokes
+  that removed command or silently delete older versioned copies
 - **AND** a failed removal SHALL report committed client state with incomplete
   cleanup, not a rolled-back transition or silent success.
 

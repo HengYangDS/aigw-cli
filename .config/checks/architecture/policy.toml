@@ -197,6 +197,7 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/verification",
   "internal/client",
   "internal/configuration",
+  "internal/credential",
   "internal/discovery",
   "internal/platform",
   "internal/presentation",

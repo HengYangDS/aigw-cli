@@ -3,7 +3,7 @@ package main
 import (
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/configuration"
-	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
@@ -20,29 +20,6 @@ import (
 	"testing"
 	"time"
 )
-
-func TestNativeClientFixtureMatchesClaudeDesktopDiscovery(t *testing.T) {
-	root := t.TempDir()
-	clientBin := filepath.Join(root, "client bin")
-	if err := os.MkdirAll(clientBin, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	journey := &journeyFixture{testing: t, root: root, clientBin: clientBin}
-	journey.installClientFixture(configuration.ClientClaudeDesktop)
-	discovered := (discovery.System{
-		GOOS: runtime.GOOS, Home: filepath.Join(root, "home"),
-		XDGConfigHome: filepath.Join(root, "config"), LocalAppData: filepath.Join(root, "localappdata"), Path: clientBin,
-	}).ClaudeDesktopExecutable()
-	if runtime.GOOS == "linux" {
-		if discovered != "" {
-			t.Fatalf("Claude Desktop fixture was discovered on unsupported Linux host: %q", discovered)
-		}
-		return
-	}
-	if discovered == "" || !strings.HasPrefix(filepath.Clean(discovered), filepath.Clean(root)+string(filepath.Separator)) {
-		t.Fatalf("Claude Desktop fixture discovery = %q, want an executable owned by %s", discovered, root)
-	}
-}
 
 func TestNativeProductJourney(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
@@ -387,7 +364,11 @@ func (j *journeyFixture) credentialEntrypoint() string {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	return filepath.Join(paths.Data, "credential", paths.InstallName)
+	path, err := credential.VersionedEntrypointPath(paths.Data, j.binary, paths.InstallName)
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	return path
 }
 
 func (j *journeyFixture) requireClaudeCredential(want string) {
@@ -410,21 +391,27 @@ func (j *journeyFixture) requireCredential(plan process.Plan, want string) {
 
 func (j *journeyFixture) uninstallAndRequireOwnedFilesAbsent() {
 	j.testing.Helper()
-	j.runWith(j.source, "uninstall", "--target", j.binary)
-	j.requireOwnedFilesAbsent()
+	j.uninstallWithAndRequireOwnedFilesAbsent(j.source)
 	j.requireNoClaudeProjection()
 	if _, err := os.Stat(j.config + ".verified.json"); !os.IsNotExist(err) {
 		j.testing.Fatalf("uninstall retained verified checkpoint: %v", err)
 	}
 }
 
-func (j *journeyFixture) requireOwnedFilesAbsent() {
+func (j *journeyFixture) uninstallWithAndRequireOwnedFilesAbsent(binary string) {
+	j.testing.Helper()
+	reader := j.credentialEntrypoint()
+	j.runWith(binary, "uninstall", "--target", j.binary)
+	j.requireOwnedFilesAbsent(reader)
+}
+
+func (j *journeyFixture) requireOwnedFilesAbsent(reader string) {
 	j.testing.Helper()
 	backup := filepath.Join(filepath.Dir(j.binary), ".aigw.previous")
 	if runtime.GOOS == "windows" {
 		backup += ".exe"
 	}
-	for _, path := range []string{j.binary, backup, j.credentialEntrypoint(), j.credentialEntrypoint() + ".sha256"} {
+	for _, path := range []string{j.binary, backup, reader, reader + ".sha256"} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			j.testing.Fatalf("uninstall retained owned file %s: %v", path, err)
 		}

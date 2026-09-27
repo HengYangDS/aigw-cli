@@ -42,6 +42,7 @@ type Updater interface {
 type Context struct {
 	Version            string
 	Executable         string
+	DataDir            string
 	CredentialPath     string
 	InstallTarget      string
 	ClaudeSettingsPath string

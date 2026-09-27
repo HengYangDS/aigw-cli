@@ -20,11 +20,7 @@ type credentialEntrypointPlan struct {
 }
 
 func (plan credentialEntrypointPlan) humanAction() string {
-	verb := "Install"
-	if plan.Action == string(synchronization.CredentialEntrypointRemove) {
-		verb = "Remove"
-	}
-	return verb + " " + plan.Path
+	return "Install " + plan.Path
 }
 
 type syncResult struct {

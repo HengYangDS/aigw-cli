@@ -3,6 +3,7 @@ package main
 import (
 	claudedesktop "aigw-cli/internal/claude/desktop"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secrets"
 	"fmt"
@@ -11,8 +12,32 @@ import (
 	"reflect"
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 )
+
+func TestNativeClientFixtureMatchesClaudeDesktopDiscovery(t *testing.T) {
+	root := t.TempDir()
+	clientBin := filepath.Join(root, "client bin")
+	if err := os.MkdirAll(clientBin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	journey := &journeyFixture{testing: t, root: root, clientBin: clientBin}
+	journey.installClientFixture(configuration.ClientClaudeDesktop)
+	discovered := (discovery.System{
+		GOOS: runtime.GOOS, Home: filepath.Join(root, "home"),
+		XDGConfigHome: filepath.Join(root, "config"), LocalAppData: filepath.Join(root, "localappdata"), Path: clientBin,
+	}).ClaudeDesktopExecutable()
+	if runtime.GOOS == "linux" {
+		if discovered != "" {
+			t.Fatalf("Claude Desktop fixture was discovered on unsupported Linux host: %q", discovered)
+		}
+		return
+	}
+	if discovered == "" || !strings.HasPrefix(filepath.Clean(discovered), filepath.Clean(root)+string(filepath.Separator)) {
+		t.Fatalf("Claude Desktop fixture discovery = %q, want an executable owned by %s", discovered, root)
+	}
+}
 
 func deferredJourneyClientIDs() []string {
 	clients := slices.Clone(configuration.AdmittedClientIDs())

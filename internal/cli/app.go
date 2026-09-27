@@ -34,6 +34,7 @@ import (
 	"aigw-cli/internal/cli/verification"
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/presentation"
@@ -202,6 +203,10 @@ func NewDefault() (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve AIGW executable: %w", err)
 	}
+	credentialPath, err := credential.VersionedEntrypointPath(paths.Data, executable, paths.InstallName)
+	if err != nil {
+		return nil, err
+	}
 	secretStore, err := secrets.Select(secrets.Selection{
 		Backend:    env["AIGW_SECRET_BACKEND"],
 		GOOS:       runtime.GOOS,
@@ -224,7 +229,7 @@ func NewDefault() (*App, error) {
 		Now:                time.Now,
 		Version:            Version,
 		Executable:         executable,
-		CredentialPath:     filepath.Join(paths.Data, "credential", paths.InstallName),
+		CredentialPath:     credentialPath,
 		InstallTarget:      filepath.Join(paths.InstallDir, paths.InstallName),
 		ClaudeSettingsPath: paths.ClaudeSettings,
 		Config:             configuration.NewStore(paths.Config),
@@ -276,7 +281,7 @@ func (a *App) catalogDependencies() catalog.Dependencies {
 
 func (a *App) invocationContext() invocation.Context {
 	return invocation.Context{
-		Version: appVersion(a), Executable: a.Executable, CredentialPath: a.CredentialPath, InstallTarget: a.InstallTarget,
+		Version: appVersion(a), Executable: a.Executable, DataDir: a.DataDir, CredentialPath: a.CredentialPath, InstallTarget: a.InstallTarget,
 		ClaudeSettingsPath: a.ClaudeSettingsPath,
 		Config:             a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.outputWriter(),
 		In:        a.In,

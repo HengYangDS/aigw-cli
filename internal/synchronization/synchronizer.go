@@ -6,10 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
 
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
@@ -163,12 +159,11 @@ const (
 	CredentialEntrypointUnchanged CredentialEntrypointAction = ""
 	// CredentialEntrypointInstall creates the helper for a default Token consumer.
 	CredentialEntrypointInstall CredentialEntrypointAction = "install"
-	// CredentialEntrypointRemove withdraws a helper with no configured consumer.
-	CredentialEntrypointRemove CredentialEntrypointAction = "remove"
 )
 
-// CredentialEntrypointPlan observes the shared helper without changing it.
-// Every enabled client is considered even when one projection is selected.
+// CredentialEntrypointPlan prepares the current version only when a default
+// Token consumer needs it. A missing configured consumer does not prove that
+// cached or rollback callers have stopped using an earlier command.
 func (s Synchronizer) CredentialEntrypointPlan(cfg configuration.Config) (CredentialEntrypointAction, error) {
 	if s.CredentialPath == "" {
 		return CredentialEntrypointUnchanged, nil
@@ -177,41 +172,17 @@ func (s Synchronizer) CredentialEntrypointPlan(cfg configuration.Config) (Creden
 	if err != nil {
 		return CredentialEntrypointUnchanged, err
 	}
+	if !required {
+		return CredentialEntrypointUnchanged, nil
+	}
 	missing, err := credential.EntrypointNeeded(s.CredentialPath)
 	if err != nil {
 		return CredentialEntrypointUnchanged, err
 	}
-	switch {
-	case required && missing:
+	if missing {
 		return CredentialEntrypointInstall, nil
-	case !required && !missing:
-		for _, clientID := range s.ClientIDs() {
-			binding := cfg.Clients[clientID]
-			if binding.Enabled && sameCredentialEntrypoint(binding.CredentialCommand, s.CredentialPath) {
-				return CredentialEntrypointUnchanged, nil
-			}
-		}
-		return CredentialEntrypointRemove, nil
-	default:
-		return CredentialEntrypointUnchanged, nil
 	}
-}
-
-func sameCredentialEntrypoint(command, owned string) bool {
-	if command == "" || owned == "" {
-		return false
-	}
-	command, owned = filepath.Clean(command), filepath.Clean(owned)
-	if runtime.GOOS == "windows" {
-		if strings.EqualFold(command, owned) {
-			return true
-		}
-	} else if command == owned {
-		return true
-	}
-	commandInfo, commandErr := os.Stat(command)
-	ownedInfo, ownedErr := os.Stat(owned)
-	return commandErr == nil && ownedErr == nil && os.SameFile(commandInfo, ownedInfo)
+	return CredentialEntrypointUnchanged, nil
 }
 
 func (s Synchronizer) discoveredResult() (discovery.Result, error) {

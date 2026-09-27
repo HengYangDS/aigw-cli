@@ -7,7 +7,6 @@ import (
 
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/credential"
 )
 
 // Commit persists one configuration transition and converges affected client
@@ -70,11 +69,6 @@ func (s Synchronizer) finalizeCredentialEntrypoint(cfg configuration.Config) err
 		return fmt.Errorf("inspect credential entrypoint: %w", err)
 	}
 	switch action {
-	case CredentialEntrypointRemove:
-		if err := credential.RemoveEntrypoint(s.CredentialPath); err != nil {
-			return fmt.Errorf("remove unused credential entrypoint: %w", err)
-		}
-		return nil
 	case CredentialEntrypointInstall:
 		return errors.New("credential entrypoint disappeared after client projection")
 	case CredentialEntrypointUnchanged:

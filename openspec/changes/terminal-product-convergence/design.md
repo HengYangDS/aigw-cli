@@ -97,10 +97,10 @@ plausible config file.
 
 The accepted [credential decision](../../../docs/decisions/dr-0011-single-portable-token-backend.md)
 rejects the independent `aigw-keychain` helper. The existing private copy is
-the same AIGW executable, not another Token reader, but that decision still
-marks its deployment pending. Neither that copy nor direct immutable paths or
-a stable indirection is selected by this Change merely because source code or
-a test exists.
+the same AIGW executable, not another Token reader. DR-0011 now selects a
+content-addressed direct path over fixed replacement and indirection after a
+platform-contract comparison. Source implementation alone still does not admit
+an installed cutover or establish native credential authorization.
 
 Compare the package-manager path, current AIGW-owned copy, stable indirection,
 and direct versioned paths against the same macOS, Linux, and Windows tests:
@@ -111,12 +111,15 @@ strategy and its rejected alternatives before changing live projections. The
 `credential` command and selected Token backend remain the only product reader;
 no independent helper, daemon, or second secret store is admitted.
 
-Whatever strategy wins, prepare and qualify its successor before changing a
-client projection. Keep every original invocation usable or stop before a
-package manager removes its path. Retain exact owned bytes while a configured,
-cached, explicit, or rollback caller may still use them; unknown consumers
-block deletion. A fixed path, Unix rename, fresh-client test, or green source
-gate alone does not establish Windows behavior or zero interruption.
+Prepare and qualify the successor before changing a client projection. The
+one-time 0.3.1 Homebrew-link transition preprojects private paths, prefetches
+the package, bounds and measures the unlink/relink window, then verifies old
+commands and real clients with immediate rollback on failure. Its cached
+public-link risk is disclosed, not called zero interruption. Thereafter keep
+every versioned original command callable through replacement. Retain exact
+owned bytes for configured, cached, explicit and rollback callers; unknown
+consumers block deletion. A fixed path, Unix rename, fresh-client test or green
+source gate alone does not establish Windows behavior.
 
 ### 5. One native qualification graph and one publication identity
 

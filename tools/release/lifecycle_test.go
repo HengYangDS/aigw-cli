@@ -151,8 +151,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 	journey.requireRepairPreservesUserSettings("user-dark", "user-dark-after-upgrade")
 	requireUserFiles()
 
-	journey.runWith(newArtifact, "uninstall", "--target", journey.binary)
-	journey.requireOwnedFilesAbsent()
+	journey.uninstallWithAndRequireOwnedFilesAbsent(newArtifact)
 	journey.requireUserTheme("user-dark-after-upgrade")
 	if got := readFile(t, codexConfig); string(got) != originalCodex {
 		t.Fatalf("uninstall changed original Codex configuration: %q", got)

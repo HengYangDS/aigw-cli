@@ -94,6 +94,18 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 			if err := upgrade.RequirePortableOwnership(target); err != nil {
 				return err
 			}
+			_, targetErr := os.Stat(target)
+			if targetErr != nil && !errors.Is(targetErr, os.ErrNotExist) {
+				return fmt.Errorf("inspect installed AIGW executable: %w", targetErr)
+			}
+			reader := ""
+			if targetErr == nil && runtime.CredentialPath != "" {
+				var err error
+				reader, err = credential.VersionedEntrypointPath(runtime.DataDir, target, filepath.Base(runtime.CredentialPath))
+				if err != nil {
+					return fmt.Errorf("resolve installed AIGW credential entrypoint: %w", err)
+				}
+			}
 			_, statErr := os.Stat(runtime.Config.Path())
 			if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
 				return fmt.Errorf("inspect AIGW configuration: %w", statErr)
@@ -112,7 +124,7 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 					return err
 				}
 			}
-			if err := credential.RemoveEntrypoint(runtime.CredentialPath); err != nil {
+			if err := credential.RemoveEntrypoint(reader); err != nil {
 				return fmt.Errorf("remove AIGW credential entrypoint: %w", err)
 			}
 			if err := Uninstall(target); err != nil {

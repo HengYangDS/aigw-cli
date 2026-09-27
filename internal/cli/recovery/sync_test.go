@@ -18,7 +18,7 @@ type syncDiscovery struct{ result discovery.Result }
 
 func (candidate syncDiscovery) Discover() discovery.Result { return candidate.result }
 
-func TestDryRunRejectsChangedCredentialEntrypointWithoutWriting(t *testing.T) {
+func TestDryRunPreservesUnusedChangedCredentialEntrypointWithoutWriting(t *testing.T) {
 	for _, command := range []string{"sync", "repair"} {
 		t.Run(command, func(t *testing.T) {
 			store, _ := configuredRepairStore(t)
@@ -48,8 +48,8 @@ func TestDryRunRejectsChangedCredentialEntrypointWithoutWriting(t *testing.T) {
 			} else {
 				err = runRepair(t.Context(), runtime, true, true)
 			}
-			if err == nil || !strings.Contains(err.Error(), "differs from its recorded bytes") {
-				t.Fatalf("%s dry-run admitted a changed entrypoint: %v", command, err)
+			if err != nil {
+				t.Fatalf("%s dry-run inspected an unused cached entrypoint: %v", command, err)
 			}
 			after, readErr := os.ReadFile(store.Path())
 			if readErr != nil || !bytes.Equal(after, before) {

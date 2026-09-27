@@ -56,8 +56,10 @@
       reject prefix/age-based deletion.
 - [ ] 3.5 Run published-predecessor-to-successor reader journeys on macOS,
       Linux, and Windows with actual native stores or the explicit environment
-      backend; prove the original caller remains usable throughout package-link
-      replacement.
+      backend. For the one-time 0.3.1 Homebrew link, preproject and prefetch,
+      measure the bounded link gap, verify captured commands immediately and
+      roll back failed candidates; disclose any residual cached-caller risk.
+      Later versioned commands must remain callable throughout replacement.
 - [ ] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.

@@ -5,11 +5,50 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	"aigw-cli/internal/transaction"
 )
+
+const entrypointDirectory = "credential"
+
+// VersionedEntrypointPath binds a private executable path to the exact source
+// bytes without creating files or relying on an installer-owned public link.
+func VersionedEntrypointPath(dataDir, source, installName string) (path string, err error) {
+	if !filepath.IsAbs(dataDir) || !filepath.IsAbs(source) {
+		return "", errors.New("credential data directory and source must be absolute paths")
+	}
+	if installName == "" || installName == "." || installName == ".." || filepath.Base(installName) != installName {
+		return "", errors.New("credential executable name must be one file name")
+	}
+	executable, err := os.Open(source)
+	if err != nil {
+		return "", fmt.Errorf("open AIGW executable for credential identity: %w", err)
+	}
+	defer func() { err = errors.Join(err, executable.Close()) }()
+	info, err := executable.Stat()
+	if err != nil {
+		return "", fmt.Errorf("inspect AIGW executable for credential identity: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return "", errors.New("AIGW credential source is not a regular executable")
+	}
+	hash := sha256.New()
+	if _, err := io.Copy(hash, executable); err != nil {
+		return "", fmt.Errorf("hash AIGW executable for credential identity: %w", err)
+	}
+	return filepath.Join(dataDir, entrypointDirectory, hex.EncodeToString(hash.Sum(nil)), installName), nil
+}
+
+func validateVersionedDigest(path string, sum [sha256.Size]byte) error {
+	parent := filepath.Dir(path)
+	if filepath.Base(filepath.Dir(parent)) == entrypointDirectory && filepath.Base(parent) != hex.EncodeToString(sum[:]) {
+		return errors.New("credential entrypoint bytes do not match their versioned path")
+	}
+	return nil
+}
 
 // EntrypointNeeded reports whether the AIGW-owned credential executable is
 // absent. An existing non-executable or redirected path is never adopted.
@@ -68,6 +107,9 @@ func EntrypointNeeded(path string) (bool, error) {
 		return false, fmt.Errorf("read credential entrypoint receipt: %w", err)
 	}
 	sum := sha256.Sum256(data)
+	if err := validateVersionedDigest(path, sum); err != nil {
+		return false, err
+	}
 	if string(identity) != hex.EncodeToString(sum[:])+"\n" {
 		return false, fmt.Errorf("credential entrypoint differs from its recorded bytes")
 	}
@@ -99,6 +141,10 @@ func ensureEntrypoint(
 	if len(data) == 0 {
 		return nil, fmt.Errorf("AIGW credential source is empty")
 	}
+	sum := sha256.Sum256(data)
+	if err := validateVersionedDigest(target, sum); err != nil {
+		return nil, err
+	}
 	parent := filepath.Dir(target)
 	info, err := os.Lstat(parent)
 	createdParent := errors.Is(err, os.ErrNotExist)
@@ -129,7 +175,6 @@ func ensureEntrypoint(
 	if err != nil {
 		return nil, errors.Join(err, removeCreatedDirectory(parent, createdParent))
 	}
-	sum := sha256.Sum256(data)
 	identity := []byte(hex.EncodeToString(sum[:]) + "\n")
 	receiptPath := target + ".sha256"
 	receiptPost, err := write(receiptPath, transaction.FileSnapshot{}, identity, 0o600)

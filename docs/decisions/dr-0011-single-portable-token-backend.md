@@ -98,13 +98,13 @@ backend; preservation of native item authorization still requires the retained-
 item journey. No independent helper reader, host script, service, or second
 Token backend is admitted.
 
-| Path                                        | Disposition                      | Reason                                                                                      |
-| ------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------- |
-| Bounded go-keyring worker                   | Selected                         | Preserves the published provider while bounding the AIGW-owned process and transport.       |
-| Independent host-local credential helper    | Rejected                         | Adds another reader and caller boundary.                                                    |
-| Versioned AIGW-owned copy of the executable | Selected design; cutover pending | Keeps each projected command's executable bytes available across package replacement.       |
-| Security.framework same-executable reader   | Rejected                         | Changes reader identity and requires unnecessary native bridge and authorization machinery. |
-| Silent backend migration                    | Rejected                         | Changes credential authority without the operator's decision.                               |
+| Path                                      | Disposition                      | Reason                                                                                      |
+| ----------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------- |
+| Bounded go-keyring worker                 | Selected                         | Preserves the published provider while bounding the AIGW-owned process and transport.       |
+| Independent host-local credential helper  | Rejected                         | Adds another reader and caller boundary.                                                    |
+| Content-addressed AIGW executable copies  | Selected design; cutover pending | Keeps each projected command's executable bytes available across package replacement.       |
+| Security.framework same-executable reader | Rejected                         | Changes reader identity and requires unnecessary native bridge and authorization machinery. |
+| Silent backend migration                  | Rejected                         | Changes credential authority without the operator's decision.                               |
 
 The existing optional `credential_command` configuration is an explicit
 external-integration contract, not permission to install an independent helper
@@ -113,12 +113,11 @@ approved deployment consumer. Product defaults continue to use AIGW itself.
 
 ### Credential command continuity
 
-The current source creates one fixed-path AIGW executable copy and does not
-replace it during ordinary sync. That protects its original bytes but cannot
-make a later signed version available at the same path. The installed 0.3.1
-clients still invoke Homebrew's public binary link, whose lifetime is owned by
-Homebrew, not AIGW. Neither source behavior is evidence of an uninterrupted
-installed upgrade.
+The 0.3.1 predecessor and original source created one fixed-path AIGW copy.
+The current Change derives a SHA-256-addressed path from executable bytes, but
+that source behavior is not yet an installed-product guarantee. Installed
+0.3.1 clients still invoke Homebrew's public binary link, whose lifetime is
+owned by Homebrew, not AIGW.
 
 - **Package-manager path: rejected.** The installer owns its public link and
   may withdraw it before the successor is installed. AIGW cannot promise that
@@ -144,12 +143,16 @@ unknown consumers must be accounted for before exact deletion.
 
 This choice does not retroactively protect cached 0.3.1 commands that name the
 Homebrew link. Reprojecting client files cannot prove that an existing session
-reloads its command. If a retained caller still names that link, ordinary
-Homebrew upgrade cannot yet claim uninterrupted access; hold the cutover rather
-than seize Homebrew's link or call a quiet-host test zero-interruption proof.
-Native macOS Keychain, Linux backend and Windows credential tests, including
-retained state and interruption, remain release gates rather than assumed
-consequences of the path design.
+reloads its command. For that one-time bridge, prepare and verify the private
+successor, project managed clients before package replacement, and prefetch the
+verified Homebrew artifact. Upgrade in a bounded quiet window, measure any
+public-link gap, then exercise the captured old commands and real clients
+immediately; a failed candidate restores the working predecessor. A cached
+public-link call during the gap can still fail once. Report that residual risk
+and measured interval rather than claiming zero interruption or seizing
+Homebrew's link. Later versioned-path upgrades must keep old commands callable
+throughout. Native macOS Keychain, Linux backend and Windows credential tests,
+including retained state and interruption, remain release gates.
 
 The platform constraints above follow [Go's `os.Rename` contract](https://pkg.go.dev/os#Rename),
 [Windows symbolic-link requirements](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createsymboliclinkw),

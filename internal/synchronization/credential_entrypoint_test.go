@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -119,11 +118,11 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	if _, err := credential.EnsureEntrypoint(source, helper); err != nil {
 		t.Fatal(err)
 	}
-	if action, err := syncer.CredentialEntrypointPlan(disabled); err != nil || action != CredentialEntrypointRemove {
-		t.Fatalf("last client disabled plan = %q, %v; want helper removal", action, err)
+	if action, err := syncer.CredentialEntrypointPlan(disabled); err != nil || action != CredentialEntrypointUnchanged {
+		t.Fatalf("last client disabled plan = %q, %v; cached caller may remain", action, err)
 	}
-	if action, err := syncer.CredentialEntrypointPlan(external); err != nil || action != CredentialEntrypointRemove {
-		t.Fatalf("external credential plan = %q, %v; want AIGW helper removal", action, err)
+	if action, err := syncer.CredentialEntrypointPlan(external); err != nil || action != CredentialEntrypointUnchanged {
+		t.Fatalf("external credential plan = %q, %v; cached caller may remain", action, err)
 	}
 	otherActive := disabled.Clone()
 	account := otherActive.Accounts["gateway"]
@@ -134,6 +133,15 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	otherActive.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	if action, err := syncer.CredentialEntrypointPlan(otherActive); err != nil || action != CredentialEntrypointUnchanged {
 		t.Fatalf("another default Token client plan = %q, %v; want retained helper", action, err)
+	}
+	if err := os.WriteFile(helper+".sha256", []byte("changed receipt\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := syncer.CredentialEntrypointPlan(cfg); err == nil {
+		t.Fatal("active default Token consumer accepted a changed entrypoint")
+	}
+	if action, err := syncer.CredentialEntrypointPlan(disabled); err != nil || action != CredentialEntrypointUnchanged {
+		t.Fatalf("unused changed entrypoint blocked withdrawal: %q, %v", action, err)
 	}
 	explicitConsumer := otherActive.Clone()
 	binding = explicitConsumer.Clients[configuration.ClientClaude]
@@ -189,7 +197,7 @@ func TestReconcileClientPreflightRejectsInvalidTargetBeforeEntrypointCreation(t 
 	}
 }
 
-func TestDisablingLastTokenClientRemovesOwnedCredentialEntrypoint(t *testing.T) {
+func TestDisablingLastTokenClientRetainsUnprovenCachedEntrypoint(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "aigw")
 	helper := filepath.Join(root, "data", "credential", "aigw")
@@ -218,8 +226,8 @@ func TestDisablingLastTokenClientRemovesOwnedCredentialEntrypoint(t *testing.T) 
 		t.Fatal(err)
 	}
 	for _, path := range []string{helper, helper + ".sha256"} {
-		if _, err := os.Lstat(path); !os.IsNotExist(err) {
-			t.Fatalf("last consumer disabled, entrypoint still present at %s: %v", path, err)
+		if _, err := os.Lstat(path); err != nil {
+			t.Fatalf("last configured consumer disabled, cached entrypoint lost at %s: %v", path, err)
 		}
 	}
 	stored, err := store.Load()
@@ -303,27 +311,6 @@ func TestDisablingDefaultClientRetainsEntrypointForExplicitSelfReference(t *test
 	}
 }
 
-func TestCredentialEntrypointAliasRetainsTheOwnedExecutable(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows symbolic links may require a separate privilege")
-	}
-	root := t.TempDir()
-	owned := filepath.Join(root, "credential", "aigw")
-	alias := filepath.Join(root, "explicit-aigw")
-	if err := os.Mkdir(filepath.Dir(owned), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(owned, []byte("executable"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(owned, alias); err != nil {
-		t.Fatal(err)
-	}
-	if !sameCredentialEntrypoint(alias, owned) {
-		t.Fatal("a direct symbolic alias was not recognized as the owned credential executable")
-	}
-}
-
 func TestFinalizeCredentialEntrypointRejectsMissingActiveHelper(t *testing.T) {
 	root := t.TempDir()
 	syncer := Synchronizer{CredentialPath: filepath.Join(root, "data", "credential", "aigw")}
@@ -343,13 +330,7 @@ func TestFinalizeCredentialEntrypointRejectsInvalidBinding(t *testing.T) {
 	}
 }
 
-func TestCredentialEntrypointIdentityRejectsEmptyCommands(t *testing.T) {
-	if sameCredentialEntrypoint("", filepath.Join(t.TempDir(), "aigw")) {
-		t.Fatal("empty explicit credential command became an owned consumer")
-	}
-}
-
-func TestFailedEntrypointCleanupReportsCommittedClientWithdrawal(t *testing.T) {
+func TestWithdrawingLastClientPreservesChangedCachedEntrypoint(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "aigw")
 	helper := filepath.Join(root, "data", "credential", "aigw")
@@ -375,18 +356,17 @@ func TestFailedEntrypointCleanupReportsCommittedClientWithdrawal(t *testing.T) {
 	}
 	after := before.Clone()
 	after.SetClientActivation(configuration.ClientCodex, false, "", nil)
-	err := syncer.CommitProjection(t.Context(), before, after, "disable", configuration.ClientCodex)
-	if err == nil || !strings.Contains(err.Error(), "configuration and client projections completed, but credential entrypoint finalization failed: inspect credential entrypoint") {
-		t.Fatalf("partial cleanup error = %v", err)
+	if err := syncer.CommitProjection(t.Context(), before, after, "disable", configuration.ClientCodex); err != nil {
+		t.Fatalf("withdrawal should not inspect an unneeded cached entrypoint: %v", err)
 	}
 	stored, loadErr := store.Load()
 	if loadErr != nil || stored.Clients[configuration.ClientCodex].Enabled {
-		t.Fatalf("client withdrawal was falsely rolled back: %#v, %v", stored.Clients, loadErr)
+		t.Fatalf("client withdrawal was not committed: %#v, %v", stored.Clients, loadErr)
 	}
 	if got, readErr := os.ReadFile(target); readErr != nil || !bytes.Equal(got, original) {
 		t.Fatalf("client projection was not withdrawn: %q, %v", got, readErr)
 	}
 	if _, statErr := os.Lstat(helper); statErr != nil {
-		t.Fatalf("tampered helper was removed despite cleanup failure: %v", statErr)
+		t.Fatalf("changed cached entrypoint was removed: %v", statErr)
 	}
 }

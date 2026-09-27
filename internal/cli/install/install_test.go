@@ -10,6 +10,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/upgrade"
 )
 
@@ -203,6 +204,54 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 			t.Fatalf("program was removed after failed client withdrawal: %v", err)
 		}
 	})
+}
+
+func TestUninstallRemovesTargetReaderWithoutRemovingInvokerReader(t *testing.T) {
+	root := t.TempDir()
+	dataDir := filepath.Join(root, "data")
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	invoker := filepath.Join(root, "invoker", "aigw")
+	target := filepath.Join(root, "installed", "aigw")
+	for path, content := range map[string]string{invoker: "invoker", target: "installed"} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	invokerReader, err := credential.VersionedEntrypointPath(dataDir, invoker, "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetReader, err := credential.VersionedEntrypointPath(dataDir, target, "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for source, reader := range map[string]string{invoker: invokerReader, target: targetReader} {
+		if _, err := credential.EnsureEntrypoint(source, reader); err != nil {
+			t.Fatal(err)
+		}
+	}
+	command := NewUninstallCommand(invocation.Context{
+		Executable: invoker, DataDir: dataDir, CredentialPath: invokerReader, Config: configuration.NewStore(filepath.Join(root, "config.toml")),
+	})
+	command.SetArgs([]string{"--target", target})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{target, targetReader, targetReader + ".sha256"} {
+		if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("uninstall retained target-owned path %s: %v", path, err)
+		}
+	}
+	for _, path := range []string{invoker, invokerReader, invokerReader + ".sha256"} {
+		if _, err := os.Lstat(path); err != nil {
+			t.Fatalf("uninstall removed invoker-owned path %s: %v", path, err)
+		}
+	}
 }
 
 func TestInstallCopiesCurrentExecutableAndPreservesOnePredecessor(t *testing.T) {

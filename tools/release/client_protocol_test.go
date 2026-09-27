@@ -129,8 +129,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 		})
 	}
 	journey.testing = t
-	journey.runWith(p.candidate, "uninstall", "--target", journey.binary)
-	journey.requireOwnedFilesAbsent()
+	journey.uninstallWithAndRequireOwnedFilesAbsent(p.candidate)
 }
 
 func assertStreamEvents(t *testing.T, protocol configuration.EndpointProtocol, body string) {

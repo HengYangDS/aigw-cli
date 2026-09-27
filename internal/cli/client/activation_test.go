@@ -119,7 +119,7 @@ func TestEnablePreservesExistingHermesTarget(t *testing.T) {
 	}
 }
 
-func TestEnableDoesNotClaimRollbackAfterCommittedEntrypointCleanupFailure(t *testing.T) {
+func TestEnableWithExternalCredentialPreservesUnusedCachedEntrypoint(t *testing.T) {
 	cfg := adapterConfig()
 	root := t.TempDir()
 	external := filepath.Join(root, "external-helper")
@@ -137,12 +137,14 @@ func TestEnableDoesNotClaimRollbackAfterCommittedEntrypointCleanupFailure(t *tes
 	if err := os.WriteFile(runtime.CredentialPath+".sha256", []byte("changed receipt\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err := executeAdapter(t, runtime, "enable", configuration.ClientClaude, "--executable", "/opt/claude")
-	if err == nil || !strings.Contains(err.Error(), "configuration and client projections completed") || strings.Contains(err.Error(), "was rolled back") {
-		t.Fatalf("enablement reported a false rollback: %v", err)
+	if err := executeAdapter(t, runtime, "enable", configuration.ClientClaude, "--executable", "/opt/claude"); err != nil {
+		t.Fatalf("external credential enablement inspected an unused cached entrypoint: %v", err)
 	}
 	stored, loadErr := runtime.Config.Load()
 	if loadErr != nil || !stored.Clients[configuration.ClientClaude].Enabled {
 		t.Fatalf("committed enablement was not preserved: %#v, %v", stored.Clients, loadErr)
+	}
+	if _, err := os.Lstat(runtime.CredentialPath); err != nil {
+		t.Fatalf("enablement removed a possible cached command: %v", err)
 	}
 }

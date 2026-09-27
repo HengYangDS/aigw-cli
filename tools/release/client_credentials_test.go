@@ -95,7 +95,7 @@ func TestRetainedCredentialSurvivesInstalledExecutableUnlink(t *testing.T) {
 	}
 }
 
-func TestSyncPreviewRemovesEntrypointAfterInterruptedLastClientWithdrawal(t *testing.T) {
+func TestSyncPreservesRetainedEntrypointAfterInterruptedLastClientWithdrawal(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -108,11 +108,13 @@ func TestSyncPreviewRemovesEntrypointAfterInterruptedLastClientWithdrawal(t *tes
 	journey := newNativeJourney(t, program, server.URL, true)
 	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+	retained := journey.retainedCredential(configuration.ClientClaude)
 	store := configuration.NewStore(journey.config)
-	after, err := store.Load()
+	before, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
+	after := before.Clone()
 	after.SetClientActivation(configuration.ClientClaude, false, "", nil)
 	if err := store.Save(after); err != nil {
 		t.Fatal(err)
@@ -120,7 +122,7 @@ func TestSyncPreviewRemovesEntrypointAfterInterruptedLastClientWithdrawal(t *tes
 	helper := journey.credentialEntrypoint()
 	beforePreview := readFile(t, journey.config)
 	var preview struct {
-		CredentialEntrypoint struct {
+		CredentialEntrypoint *struct {
 			Path   string `json:"path"`
 			Action string `json:"action"`
 		} `json:"credential_entrypoint"`
@@ -128,8 +130,8 @@ func TestSyncPreviewRemovesEntrypointAfterInterruptedLastClientWithdrawal(t *tes
 	if err := json.Unmarshal(journey.run("sync", "--dry-run", "--json"), &preview); err != nil {
 		t.Fatal(err)
 	}
-	if preview.CredentialEntrypoint.Path != helper || preview.CredentialEntrypoint.Action != "remove" {
-		t.Fatalf("dry-run omitted owned cleanup: %#v", preview.CredentialEntrypoint)
+	if preview.CredentialEntrypoint != nil {
+		t.Fatalf("dry-run proposed deleting a cached command: %#v", preview.CredentialEntrypoint)
 	}
 	if got := readFile(t, journey.config); !bytes.Equal(got, beforePreview) {
 		t.Fatal("dry-run changed Client Bindings")
@@ -139,13 +141,18 @@ func TestSyncPreviewRemovesEntrypointAfterInterruptedLastClientWithdrawal(t *tes
 	}
 	journey.run("sync")
 	for _, path := range []string{helper, helper + ".sha256"} {
-		if _, err := os.Lstat(path); !os.IsNotExist(err) {
-			t.Fatalf("sync retained unused credential entrypoint %s: %v", path, err)
+		if _, err := os.Lstat(path); err != nil {
+			t.Fatalf("sync removed a possible cached command %s: %v", path, err)
 		}
 	}
+	if err := store.Save(before); err != nil {
+		t.Fatal(err)
+	}
+	journey.run("sync")
+	journey.requireCredential(retained, "native-journey-token")
 }
 
-func TestClientDisableRemovesAndReenableRestoresCredentialEntrypoint(t *testing.T) {
+func TestClientDisablePreservesRetainedEntrypointAcrossReenable(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -165,13 +172,15 @@ func TestClientDisableRemovesAndReenableRestoresCredentialEntrypoint(t *testing.
 	}
 	executable := cfg.Clients[configuration.ClientClaude].Executable
 	helper := journey.credentialEntrypoint()
+	retained := journey.retainedCredential(configuration.ClientClaude)
 	journey.run("client", "disable", configuration.ClientClaude)
 	for _, path := range []string{helper, helper + ".sha256"} {
-		if _, err := os.Lstat(path); !os.IsNotExist(err) {
-			t.Fatalf("disable retained unused helper %s: %v", path, err)
+		if _, err := os.Lstat(path); err != nil {
+			t.Fatalf("disable removed a possible cached command %s: %v", path, err)
 		}
 	}
 	journey.run("client", "enable", configuration.ClientClaude, "--executable", executable)
+	journey.requireCredential(retained, "native-journey-token")
 	journey.requireCredential(journey.retainedCredential(configuration.ClientClaude), "native-journey-token")
 }
 
