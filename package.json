@@ -10,8 +10,7 @@
   "overrides": {
     "@mermaid-lint/core": {
       "jsdom": {
-        ".": "30.1.0",
-        "whatwg-url": "17.1.0"
+        ".": "30.1.0"
       }
     }
   }

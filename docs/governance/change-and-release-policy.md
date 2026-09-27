@@ -147,11 +147,9 @@ resolved graph passes the repository's ordinary dependency admission. Clean
 installation, registry signatures and attestations, vulnerability scanning,
 valid and invalid fixtures, and every tracked Mermaid diagram must pass. The
 lock is also rejected whenever any selected npm package is marked deprecated.
-The same package boundary retains `whatwg-url` 17.1.0 because 17.1.1 advertises
-an npm attestation URL that returns 404; 17.1.0 has a retrievable signed
-attestation and otherwise satisfies jsdom's declared range. This is a bounded
-integrity fallback, not a second owner or a skipped verification. Remove both
-overrides when `@mermaid-lint/core` adopts an equivalent non-deprecated and
+The override is confined to jsdom; its transitive dependencies retain their
+own declared version ranges and must pass the same signature gate. Remove the
+override when `@mermaid-lint/core` adopts an equivalent non-deprecated and
 fully attestable line.
 
 [Renovate's local platform](https://docs.renovatebot.com/modules/platform/local/)
