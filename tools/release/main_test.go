@@ -15,7 +15,41 @@ func requireNativeLifecycleBaseline(t *testing.T, buildFixture func() string) st
 	if err != nil {
 		t.Fatal(err)
 	}
-	return baseline
+	if os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
+		return baseline
+	}
+	// Portable lifecycle commands cannot mutate an installer-owned source path.
+	// Staging exact bytes tests that lifecycle, not the installer link or native
+	// credential authorization of the original installation.
+	data, err := os.ReadFile(baseline)
+	if err != nil {
+		t.Fatal(err)
+	}
+	staged := filepath.Join(t.TempDir(), executableName())
+	if err := os.WriteFile(staged, data, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return staged
+}
+
+func TestExplicitNativeBaselineStagesExactBytesOutsideItsInstallation(t *testing.T) {
+	selected := filepath.Join(t.TempDir(), executableName())
+	want := []byte("published predecessor bytes")
+	mustWriteFile(t, selected, want, 0o700)
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", selected)
+	staged := requireNativeLifecycleBaseline(t, func() string {
+		t.Fatal("explicit baseline unexpectedly built a source fixture")
+		return ""
+	})
+	if staged == selected || !filepath.IsAbs(staged) {
+		t.Fatalf("explicit baseline was not staged separately: %q", staged)
+	}
+	if got := readFile(t, staged); !bytes.Equal(got, want) {
+		t.Fatalf("staged baseline bytes = %q, want %q", got, want)
+	}
+	if got := readFile(t, selected); !bytes.Equal(got, want) {
+		t.Fatalf("selected baseline was modified: %q", got)
+	}
 }
 
 func mustWriteFile(t *testing.T, path string, data []byte, mode os.FileMode) {

@@ -30,6 +30,10 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 	if !filepath.IsAbs(baseline) {
 		t.Fatal("published predecessor must be an explicit absolute executable path")
 	}
+	baseline = requireNativeLifecycleBaseline(t, func() string {
+		t.Fatal("published predecessor may not fall back to a source fixture")
+		return ""
+	})
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
