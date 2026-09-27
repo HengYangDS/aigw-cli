@@ -88,6 +88,18 @@ clients are assessed against the same admission checklist. Unsupported or
 non-extensible modes are reported as such, not approximated by writing a
 plausible config file.
 
+OpenCode is a feasibility candidate, not an admitted Adapter. On 2026-09-28,
+its installed 1.18.32 CLI listed an isolated custom model and completed a
+synthetic-Token Chat Completions `read` tool loop without user state. This
+disposable probe is not a tracked acceptance test. Its [config precedence](https://opencode.ai/docs/config/)
+lets project and managed settings override a global projection; its
+[custom Provider contract](https://opencode.ai/docs/providers/) selects different
+SDKs for Chat Completions and Responses and supports environment-based API keys.
+An AIGW-owned JSONC-preserving merge, exact withdrawal, effective-config check,
+and credential-mode contract remain unproved. Do not add the Adapter merely
+because a local endpoint responded. Pi, WorkBuddy, and Qoder likewise remain
+unadmitted without an executable and real tool-loop evidence.
+
 ### 4. Decide credential-command continuity before cutover
 
 The accepted [credential decision](../../../docs/decisions/dr-0011-single-portable-token-backend.md)
