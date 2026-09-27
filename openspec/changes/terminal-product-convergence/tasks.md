@@ -66,14 +66,14 @@
 
 ## 4. Provider, Model, and Client Extension
 
-- [ ] 4.1 Audit Account, Model, Route, protocol, capability, and recommendation
+- [x] 4.1 Audit Account, Model, Route, protocol, capability, and recommendation
       declarations for parallel inference or Provider-name branches; delete the
       duplicate owner and prove synthetic Provider admission.
 - [ ] 4.2 Review the shipped catalogue against current upstream IDs and bounded
       live inference for DMXAPI, UCloud, and AIHubMix; retain only qualified
       models/variants and one consistent naming grammar, with source and date for
       each claim.
-- [ ] 4.3 Prove that ordered existing recommendations select only usable
+- [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
       Providers; no control-plane command claims request-time failover.
 - [ ] 4.4 Qualify Codex with selected non-OpenAI-family Responses-compatible
