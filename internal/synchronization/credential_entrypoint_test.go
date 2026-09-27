@@ -2,6 +2,7 @@ package synchronization
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -11,6 +12,46 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 )
+
+func TestCancelledProjectionAfterVersionedReaderPreparationRestoresOwnedState(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "aigw")
+	target := filepath.Join(root, "codex.toml")
+	original := []byte("model_provider = \"native\"\n")
+	if err := os.WriteFile(source, []byte("AIGW executable fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	store := &configStoreStub{onCommit: func() {
+		if _, err := os.Lstat(reader); err != nil {
+			t.Fatalf("reader was not prepared before configuration commit: %v", err)
+		}
+		cancel()
+	}}
+	syncer := Synchronizer{Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
+	if err := syncer.CommitProjection(ctx, configuration.NewConfig(), testConfig(target), "test"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled projection error = %v, want context cancellation", err)
+	}
+	if store.commits != 1 || store.restores != 1 {
+		t.Fatalf("cancelled projection commits/restores = %d/%d, want 1/1", store.commits, store.restores)
+	}
+	for _, path := range []string{reader, reader + ".sha256"} {
+		if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("cancelled projection retained new reader %s: %v", path, err)
+		}
+	}
+	if got, err := os.ReadFile(target); err != nil || !bytes.Equal(got, original) {
+		t.Fatalf("cancelled projection changed client file: %q, %v", got, err)
+	}
+}
 
 func TestFailedSynchronizationRemovesOnlyItsNewCredentialEntrypoint(t *testing.T) {
 	for _, phase := range []string{"commit", "apply"} {
