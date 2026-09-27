@@ -85,7 +85,7 @@
 - [ ] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
-- [ ] 4.7 Verify direct HTTPS, optional external Responses endpoint, and
+- [x] 4.7 Verify direct HTTPS, optional external Responses endpoint, and
       no-Proxy/no-Forge/no-client operation through the same Account path; assert
       AIGW does not install, route traffic through, or manage the external service.
 

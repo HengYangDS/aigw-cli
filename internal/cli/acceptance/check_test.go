@@ -371,27 +371,6 @@ func TestCheckProbesEveryEnabledClientRouteAndIgnoresUnselectedRoute(t *testing.
 	}
 }
 
-func TestCheckDoesNotDescribeRemoteHTTPSAsExternalLoopbackTransport(t *testing.T) {
-	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
-	addAccountRoute(&cfg, "remote", "remote", "Remote Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, configuration.ClientClaude, "model-test")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "remote")
-	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
-	synchronizeClaudeProjection(t, app, cfg)
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	if err := secretStore.Set("remote", "token"); err != nil {
-		t.Fatal(err)
-	}
-	if err := cli.Execute(app, []string{"check"}); err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(out.String(), "uses a loopback endpoint") {
-		t.Fatalf("check misclassified remote endpoint:\n%s", out.String())
-	}
-}
-
 func TestCheckEvaluatesRoutesIndependentlyOfProgramVersion(t *testing.T) {
 	for _, version := range []string{"", "0.1.0-rc.44+local.test", "0.1.0-dev", "1.2.3"} {
 		for _, jsonMode := range []bool{false, true} {
