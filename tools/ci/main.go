@@ -120,6 +120,11 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 		}
 		commands = append(slices.Clone(qualityCommands), commands[1:]...)
 	}
+	if os.Getenv("AIGW_ACCEPTANCE_BASELINE") != "" {
+		for index := range commands[:len(commands)-1] {
+			commands[index].Env = append(commands[index].Env, "AIGW_ACCEPTANCE_BASELINE=")
+		}
+	}
 	return runCommands(commands, stdout, runner)
 }
 

@@ -29,6 +29,33 @@ func TestNativeAcceptanceUsesReleaseOwner(t *testing.T) {
 	}
 }
 
+func TestNativeAcceptanceScopesPublishedBaselineToRelease(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
+	for _, args := range [][]string{{"native"}, {"native", "--full-quality"}} {
+		t.Run(strings.Join(args, "-"), func(t *testing.T) {
+			var calls []command
+			if err := run(args, &bytes.Buffer{}, func(call command) error {
+				calls = append(calls, call)
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if len(calls) < 3 {
+				t.Fatalf("native command count = %d", len(calls))
+			}
+			for _, call := range calls[:len(calls)-1] {
+				if !slices.Contains(call.Env, "AIGW_ACCEPTANCE_BASELINE=") {
+					t.Fatalf("source gate inherited the published baseline: %#v", call)
+				}
+			}
+			if slices.Contains(calls[len(calls)-1].Env, "AIGW_ACCEPTANCE_BASELINE=") {
+				t.Fatalf("release acceptance lost the published baseline: %#v", calls[len(calls)-1])
+			}
+		})
+	}
+}
+
 func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "0")
 	t.Setenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE", "")
