@@ -168,9 +168,10 @@ substitutes for the native model selected in an existing Codex conversation.
 The reviewed [DMXAPI public catalogue](https://rmb.dmxapi.cn/) listed ordinary
 and CC Fable 5.1, ordinary/CC/SSVIP Sonnet 5, and ordinary/CDX/SSVIP GPT-6
 Astra. The current manifest keeps those previously qualified channels. Opus 5
-channels are outside the requested logical set; no Opus 5.5 channel has been
-admitted. An unauthenticated DMXAPI model request returning 401 establishes
-neither presence nor absence of an individual model.
+channels are outside the requested logical set. The ordinary DMXAPI Opus 5.5
+Route was admitted after authenticated inference; no Opus 5.5 CC, SSVIP, or
+CDX variant was admitted. An unauthenticated DMXAPI model request returning
+401 establishes neither presence nor absence of an individual model.
 
 The public AIHubMix `/v1/models` response observed on September 24, 2026,
 listed Opus 5.5, all three GPT-6 IDs, `minimax-m3`,
