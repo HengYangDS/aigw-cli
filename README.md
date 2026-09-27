@@ -276,7 +276,6 @@ across peers. Maintainer publication belongs to
 ## Contribute
 
 ```bash
-mise install --locked
 mise run bootstrap
 mise run check
 mise run native

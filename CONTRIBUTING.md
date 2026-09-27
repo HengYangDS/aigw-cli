@@ -260,7 +260,6 @@ Install the locked repository toolchain and this Work Lane's dependencies
 with:
 
 ```bash
-mise install --locked
 mise run bootstrap
 ```
 
@@ -276,10 +275,12 @@ a signed, deterministic non-publishing build. The Mise tasks delegate execution
 to the existing Go owners, which invoke checkout-local package entrypoints
 directly.
 
-`bootstrap` first runs `go mod tidy -diff`, then
-`npm ci --include=dev --ignore-scripts`. Development dependencies are required
-even when the caller sets `NODE_ENV=production` or npm's `omit=dev`; bootstrap
-does not change either user setting.
+`bootstrap` first installs the locked general toolchain, then runs
+`go mod tidy -diff` and `npm ci --include=dev --ignore-scripts`. This fails
+before invoking an ambient compiler when the locked tools are unavailable.
+Development dependencies remain required even when the caller sets
+`NODE_ENV=production` or npm's `omit=dev`; bootstrap does not change either
+user setting.
 
 The Go step prepares the complete source and dependency-test graph and rejects
 lock drift without rewriting the [Go module declaration](go.mod) or

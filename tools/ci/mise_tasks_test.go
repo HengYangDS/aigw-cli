@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"debug/buildinfo"
 	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -171,7 +174,7 @@ func TestMiseTasksDelegateToCanonicalOwners(t *testing.T) {
 		got[task.Name] = task.Run
 	}
 	want := map[string][]string{
-		"bootstrap": {"go mod tidy -diff", "npm ci --include=dev --ignore-scripts"},
+		"bootstrap": {"mise install --locked", "go mod tidy -diff", "npm ci --include=dev --ignore-scripts"},
 		"check":     {"go run ./tools/ci source"},
 		"native":    {"go run ./tools/ci native"},
 		"release":   {"go run ./tools/release build dist"},
@@ -187,6 +190,49 @@ func TestMiseTasksDelegateToCanonicalOwners(t *testing.T) {
 		if !reflect.DeepEqual(got[name], commands) {
 			t.Errorf("mise task %s = %#v, want %#v", name, got[name], commands)
 		}
+	}
+}
+
+func TestBootstrapRejectsAmbientGoWithEmptyToolCache(t *testing.T) {
+	root := repositoryRoot(t)
+	isolated := t.TempDir()
+	t.Setenv("MISE_DATA_DIR", filepath.Join(isolated, "mise-data"))
+	t.Setenv("MISE_CACHE_DIR", filepath.Join(isolated, "mise-cache"))
+	t.Setenv("MISE_CONFIG_DIR", filepath.Join(isolated, "mise-config"))
+	t.Setenv("MISE_OFFLINE", "true")
+	t.Setenv("MISE_AUTO_INSTALL", "false")
+	t.Setenv("MISE_TASK_RUN_AUTO_INSTALL", "true")
+	marker := filepath.Join(isolated, "ambient-go-called")
+	t.Setenv("AIGW_AMBIENT_GO_MARKER", marker)
+	shims := filepath.Join(isolated, "shims")
+	if err := os.Mkdir(shims, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	name, content := "go", "#!/bin/sh\nprintf 'called\\n' >> \"$AIGW_AMBIENT_GO_MARKER\"\nexit 99\n"
+	if runtime.GOOS == "windows" {
+		name = "go.cmd"
+		content = "@echo off\r\necho called>>\"%AIGW_AMBIENT_GO_MARKER%\"\r\nexit /b 99\r\n"
+	}
+	if err := os.WriteFile(filepath.Join(shims, name), []byte(content), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shims+string(os.PathListSeparator)+os.Getenv("PATH"))
+	if output, err := exec.Command("mise", "-C", root, "which", "go").CombinedOutput(); err == nil {
+		t.Fatalf("isolated mise unexpectedly resolved Go: %s", output)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, "mise", "-C", root, "run", "--locked", "bootstrap").CombinedOutput()
+	if ctx.Err() != nil {
+		t.Fatalf("isolated bootstrap exceeded deadline: %v\n%s", ctx.Err(), output)
+	}
+	if err == nil {
+		t.Fatalf("offline bootstrap unexpectedly succeeded with an empty tool cache: %s", output)
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatalf("bootstrap executed ambient Go instead of rejecting missing locked tools: %s", output)
+	} else if !os.IsNotExist(err) {
+		t.Fatal(err)
 	}
 }
 

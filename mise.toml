@@ -54,7 +54,7 @@ typos = "1.50.3"
 
 [tasks.bootstrap]
 description = "Install this Work Lane's locked repository dependencies."
-run = ["go mod tidy -diff", "npm ci --include=dev --ignore-scripts"]
+run = ["mise install --locked", "go mod tidy -diff", "npm ci --include=dev --ignore-scripts"]
 
 [tasks.check]
 description = "Run the complete source and governance gate."
