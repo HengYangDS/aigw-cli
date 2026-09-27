@@ -290,6 +290,9 @@ func hermesInspectionPlan(deps Dependencies, cfg configuration.Config, selected 
 	if err != nil || plan.Action == "unchanged" || !selected.UsesAIGWCredentialStore() {
 		return plan, err
 	}
+	if _, owned := plan.ObservedCredentialCommand(desired.SelectedProvider); !owned {
+		return plan, nil
+	}
 	reader, err := hermesRetainedReader(cfg, desired, plan, deps.AIGWExecutable)
 	if err != nil || reader == deps.AIGWExecutable {
 		return plan, err

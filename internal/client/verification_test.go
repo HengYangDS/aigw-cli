@@ -57,14 +57,19 @@ func TestNativeInspectionKeepsIntactRetainedVersionedReader(t *testing.T) {
 		}
 		adapter := hermesAdapter{}
 		deps := Dependencies{Secrets: store, AIGWExecutable: retained}
+		selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		unprojected := deps
+		unprojected.AIGWExecutable = current
+		if status := adapter.Inspect(t.Context(), unprojected, cfg, selected); status.Ready || !strings.Contains(status.Issue, "projection differs") {
+			t.Fatalf("unsynchronized Hermes projection = %#v", status)
+		}
 		if _, err := adapter.Apply(t.Context(), deps, configuration.NewConfig(), cfg); err != nil {
 			t.Fatal(err)
 		}
 		before, err := os.ReadFile(target)
-		if err != nil {
-			t.Fatal(err)
-		}
-		selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -98,6 +103,10 @@ func TestNativeInspectionKeepsIntactRetainedVersionedReader(t *testing.T) {
 	t.Run("Claude Desktop", func(t *testing.T) {
 		retained, current := versionedReaders(t)
 		fixture := newClaudeDesktopFixture(t)
+		fixture.deps.AIGWExecutable = current
+		if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); status.Ready || !strings.Contains(status.Issue, "projection differs") {
+			t.Fatalf("unsynchronized Claude Desktop projection = %#v", status)
+		}
 		fixture.deps.AIGWExecutable = retained
 		fixture.apply(t)
 		before, err := os.ReadFile(fixture.paths.Profile)

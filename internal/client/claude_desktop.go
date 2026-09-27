@@ -152,6 +152,9 @@ func claudeDesktopInspectionPlan(deps Dependencies, cfg configuration.Config, se
 	if err != nil || plan.Action == claudedesktop.ActionUnchanged || !selected.UsesAIGWCredentialStore() {
 		return plan, err
 	}
+	if plan.ObservedCredentialExecutable() == "" {
+		return plan, nil
+	}
 	reader, err := retainedDefaultReader(deps.AIGWExecutable, false, func() (string, error) {
 		return plan.ObservedCredentialExecutable(), nil
 	})
