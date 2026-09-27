@@ -17,6 +17,7 @@ var requiredTagJobs = []string{
 	"Native macOS acceptance",
 	"Native Linux acceptance",
 	"Native Windows acceptance",
+	"Linux Secret Service",
 	"Release version",
 }
 
@@ -98,10 +99,11 @@ func TestGitHubTagEvidenceRejectsStaleOrPartialProof(t *testing.T) {
 		{name: "wrong workflow", runs: strings.ReplaceAll(tagRunFixture(), `"path":".github/workflows/verify.yml"`, `"path":".github/workflows/other.yml"`), jobs: tagJobsFixture(), status: http.StatusOK},
 		{name: "incomplete runs", runs: strings.Replace(tagRunFixture(), `"total_count":3`, `"total_count":0`, 1), jobs: tagJobsFixture(), status: http.StatusOK},
 		{name: "missing native job", runs: tagRunFixture(), jobs: strings.Replace(tagJobsFixture(), `"name":"Native Windows acceptance"`, `"name":"other"`, 1), status: http.StatusOK},
+		{name: "missing Secret Service job", runs: tagRunFixture(), jobs: strings.Replace(tagJobsFixture(), `"name":"Linux Secret Service"`, `"name":"other"`, 1), status: http.StatusOK},
 		{name: "wrong job attempt", runs: tagRunFixture(), jobs: strings.Replace(tagJobsFixture(), `"name":"Native Linux acceptance","run_id":20,"run_attempt":2`, `"name":"Native Linux acceptance","run_id":20,"run_attempt":1`, 1), status: http.StatusOK},
 		{name: "wrong job SHA", runs: tagRunFixture(), jobs: strings.Replace(tagJobsFixture(), `"name":"Release version","run_id":20,"run_attempt":2,"head_sha":"`+testSHA+`"`, `"name":"Release version","run_id":20,"run_attempt":2,"head_sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"`, 1), status: http.StatusOK},
 		{name: "duplicate job", runs: tagRunFixture(), jobs: strings.Replace(tagJobsFixture(), `"name":"Accepted ref parity"`, `"name":"Release version"`, 1), status: http.StatusOK},
-		{name: "incomplete jobs", runs: tagRunFixture(), jobs: strings.Replace(tagJobsFixture(), `"total_count":6`, `"total_count":0`, 1), status: http.StatusOK},
+		{name: "incomplete jobs", runs: tagRunFixture(), jobs: strings.Replace(tagJobsFixture(), fmt.Sprintf(`"total_count":%d`, len(requiredTagJobs)+1), `"total_count":0`, 1), status: http.StatusOK},
 		{name: "GitHub denied", runs: tagRunFixture(), jobs: tagJobsFixture(), status: http.StatusForbidden},
 	} {
 		t.Run(test.name, func(t *testing.T) {

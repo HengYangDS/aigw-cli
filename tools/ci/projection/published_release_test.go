@@ -76,7 +76,7 @@ func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
 	for _, required := range []string{
 		"git rev-parse", "release-evidence", "--repository", "--workflow verify.yml",
 		"--tag", "--sha", "--job 'Quality and governance'", "--job 'Native macOS acceptance'",
-		"--job 'Native Linux acceptance'", "--job 'Native Windows acceptance'",
+		"--job 'Native Linux acceptance'", "--job 'Native Windows acceptance'", "--job 'Linux Secret Service'",
 		"--job 'Release version'",
 	} {
 		if !strings.Contains(evidence, required) {
