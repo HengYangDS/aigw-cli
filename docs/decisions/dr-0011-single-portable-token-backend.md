@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-23
-- Last amended: 2026-09-25
+- Last amended: 2026-09-27
 
 ## Context
 
@@ -98,18 +98,62 @@ backend; preservation of native item authorization still requires the retained-
 item journey. No independent helper reader, host script, service, or second
 Token backend is admitted.
 
-| Path                                       | Disposition | Reason                                                                                      |
-| ------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------- |
-| Bounded go-keyring worker                  | Selected    | Preserves the published provider while bounding the AIGW-owned process and transport.       |
-| Independent host-local credential helper   | Rejected    | Adds another reader and caller boundary.                                                    |
-| AIGW-owned copy of the existing executable | Pending     | Must pass original-caller and three-platform native lifecycle acceptance.                   |
-| Security.framework same-executable reader  | Rejected    | Changes reader identity and requires unnecessary native bridge and authorization machinery. |
-| Silent backend migration                   | Rejected    | Changes credential authority without the operator's decision.                               |
+| Path                                        | Disposition                      | Reason                                                                                      |
+| ------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------- |
+| Bounded go-keyring worker                   | Selected                         | Preserves the published provider while bounding the AIGW-owned process and transport.       |
+| Independent host-local credential helper    | Rejected                         | Adds another reader and caller boundary.                                                    |
+| Versioned AIGW-owned copy of the executable | Selected design; cutover pending | Keeps each projected command's executable bytes available across package replacement.       |
+| Security.framework same-executable reader   | Rejected                         | Changes reader identity and requires unnecessary native bridge and authorization machinery. |
+| Silent backend migration                    | Rejected                         | Changes credential authority without the operator's decision.                               |
 
 The existing optional `credential_command` configuration is an explicit
 external-integration contract, not permission to install an independent helper
 or automatic Keychain recovery path. Its presence does not establish an
 approved deployment consumer. Product defaults continue to use AIGW itself.
+
+### Credential command continuity
+
+The current source creates one fixed-path AIGW executable copy and does not
+replace it during ordinary sync. That protects its original bytes but cannot
+make a later signed version available at the same path. The installed 0.3.1
+clients still invoke Homebrew's public binary link, whose lifetime is owned by
+Homebrew, not AIGW. Neither source behavior is evidence of an uninterrupted
+installed upgrade.
+
+- **Package-manager path: rejected.** The installer owns its public link and
+  may withdraw it before the successor is installed. AIGW cannot promise that
+  cached callers retain that path.
+- **Fixed private copy: rejected for upgrades.** It preserves old bytes, but
+  replacement changes the pathname's identity. Go does not promise atomic
+  `os.Rename` on Windows; open-handle sharing may also reject replacement.
+- **Stable indirection: rejected as a portable default.** A Unix symlink can
+  switch targets, but unprivileged Windows symlink creation requires Developer
+  Mode. A forwarding executable adds another launcher contract.
+- **Direct immutable versioned AIGW paths: selected for implementation.**
+  Prepare and verify successor bytes before projection. Old commands keep their
+  old bytes; rollback reselects them without replacing an in-use file. Native
+  acceptance remains mandatory.
+
+The selected path is another installation of the same `aigw credential`
+reader, not an independent helper or Token store. It lives in an owner-only
+AIGW data namespace resolved on the destination host. Preparation is
+create-if-absent and byte-verified; projection switches only after the new
+command passes its selected backend. Old copies are not removed merely because
+the current configuration points elsewhere: explicit, cached, rollback and
+unknown consumers must be accounted for before exact deletion.
+
+This choice does not retroactively protect cached 0.3.1 commands that name the
+Homebrew link. Reprojecting client files cannot prove that an existing session
+reloads its command. If a retained caller still names that link, ordinary
+Homebrew upgrade cannot yet claim uninterrupted access; hold the cutover rather
+than seize Homebrew's link or call a quiet-host test zero-interruption proof.
+Native macOS Keychain, Linux backend and Windows credential tests, including
+retained state and interruption, remain release gates rather than assumed
+consequences of the path design.
+
+The platform constraints above follow [Go's `os.Rename` contract](https://pkg.go.dev/os#Rename),
+[Windows symbolic-link requirements](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createsymboliclinkw),
+and [Windows file-sharing rules](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfile3).
 
 Before a successor can replace a working installation, the existing release
 journeys must establish all of these boundaries:
