@@ -137,7 +137,7 @@
 
 ## 7. CI and Dual-Peer Admission
 
-- [ ] 7.1 Reconcile the complete CUE CI graph with generated GitHub and GitLab
+- [x] 7.1 Reconcile the complete CUE CI graph with generated GitHub and GitLab
       projections; prove no hand-edited workflow drift or missing source, native,
       release or publication owner.
 - [ ] 7.2 Cover developer proposal create/update and review SHA, maintainer
