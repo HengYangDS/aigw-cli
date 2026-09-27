@@ -5,7 +5,7 @@
 - [x] 1.1 Reconcile the signed accepted base, the staged Hermes archive, and
       every in-flight AIGW Change by semantic owner; verify exact refs, lease
       holders, and overlap before absorbing or deleting any lane.
-- [ ] 1.2 Map each remaining user-visible obligation to its canonical OpenSpec
+- [x] 1.2 Map each remaining user-visible obligation to its canonical OpenSpec
       requirement, implementation owner, and native acceptance command; remove
       duplicate status prose instead of creating another ledger.
 - [x] 1.3 Capture protected 0.3.1 installation, selected Client Bindings,
@@ -45,7 +45,7 @@
 - [ ] 3.1 Reproduce the fixed-path reader's inability to consume a later signed
       version without deleting its active bytes; contrast old and successor behavior
       with a failing lifecycle test.
-- [ ] 3.2 Compare the current AIGW copy, stable indirection, and direct versioned
+- [x] 3.2 Compare the current AIGW copy, stable indirection, and direct versioned
       paths with a no-new-entity baseline on macOS, Linux, and Windows; amend
       DR-0011 with one qualified choice before implementing a cutover.
 - [ ] 3.3 Implement only the selected strategy in the existing credential and

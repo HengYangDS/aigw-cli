@@ -2,14 +2,9 @@
 
 ## Context
 
-See [the proposal](proposal.md). The accepted base is signed `2aa58eea`; its
-Hermes delivery Change is being archived in a separate owned Work Lane. This
-Change may plan and test independently, but must refresh onto the later accepted
-archive before integration. The foreign architecture-edition Work Lane remains
-untouched until its holder provides a native handoff or its content is accepted
-through the normal lifecycle.
-
-The installed 0.3.1 program remains the protected predecessor. Current source
+See [the proposal](proposal.md). Current accepted source, Work Lane authority,
+and foreign ownership are resolved through ETHOS at execution time, not copied
+into this design. Any working installed predecessor remains protected. Current source
 already has one Account/Route/Client Binding model, an environment backend,
 native client adapters, a CUE CI projection, and an AIGW-owned credential copy.
 The terminal work is to make those owners sufficient, not add another routing
@@ -102,12 +97,10 @@ content-addressed direct path over fixed replacement and indirection after a
 platform-contract comparison. Source implementation alone still does not admit
 an installed cutover or establish native credential authorization.
 
-Compare the package-manager path, current AIGW-owned copy, stable indirection,
-and direct versioned paths against the same macOS, Linux, and Windows tests:
-original cached commands during update and rollback, native credential access
-without prompts, executable replacement, interrupted cutover, cleanup, and
-ongoing maintenance cost. Update the existing decision with the selected
-strategy and its rejected alternatives before changing live projections. The
+The comparison and rejected alternatives are recorded in DR-0011. Native
+qualification still tests original cached commands during update and rollback,
+credential access without prompts, executable replacement, interruption, and
+exact cleanup on macOS, Linux, and Windows. The
 `credential` command and selected Token backend remain the only product reader;
 no independent helper, daemon, or second secret store is admitted.
 
@@ -153,6 +146,63 @@ English, precise links, readable diagrams, and a single navigable authority
 path. `tasks.md` is the only Change-progress ledger; no secondary status file,
 ad hoc framework, or copied task list is introduced.
 
+## Requirement and acceptance routing
+
+The [task groups](tasks.md) below have one primary contract, implementation owner,
+and first executable acceptance entry below. These are routes to evidence, not
+completion claims: live Provider results, three-platform native runs, exact-SHA
+Forge CI, signing, installation, and cleanup remain separate where the task
+requires them. `mise run native` means an actual run on every claimed operating
+system, not a macOS result reused for Linux or Windows.
+
+| Task(s) | Canonical requirement                                                        | Implementation owner                                   | First acceptance entry                                                      |
+| ------- | ---------------------------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------- |
+| 1.2     | [organization] · Repository meaning is traceable through one semantic path   | OpenSpec Change                                        | `openspec validate terminal-product-convergence --strict`                   |
+| 2.6     | [projection] · Projection conflicts are rejected before configuration writes | `internal/client`, `internal/synchronization`          | `mise exec -- go test ./internal/synchronization ./internal/cli/acceptance` |
+| 2.7     | [readiness] · Endpoint observations preserve service independence            | `internal/diagnostics`, `internal/client/verification` | `mise run native`; selected live `aigw verify --for <client>`               |
+| 3.1–3.4 | [reader-delta] · Upgrade evidence preserves credential continuity            | `internal/credential`, `internal/synchronization`      | `mise exec -- go test ./internal/credential ./internal/synchronization`     |
+| 3.5     | [reader-delta] · Upgrade evidence preserves credential continuity            | `tools/release`                                        | `mise run native` on macOS, Linux, Windows                                  |
+| 3.6     | [client-delta] · Independently admitted native clients                       | `internal/client`, `internal/credential`               | `mise run native`                                                           |
+| 4.1     | [control] · Model admission follows protocol and capability                  | `internal/configuration`, `internal/providers`         | `mise run check`                                                            |
+| 4.2     | [control] · Provider catalogue evolution is observed before admission        | `manifests/team.toml`, `internal/providers`            | `mise run native`; selected live Route probe                                |
+| 4.3     | [selection] · Provider preference is advisory control-plane input            | `internal/configuration`, `internal/activation`        | `mise exec -- go test ./internal/configuration ./internal/activation`       |
+| 4.4     | [control] · Real Codex client route verification                             | `internal/codex`, `internal/client/verification`       | `mise run native`; `aigw verify --for codex`                                |
+| 4.5     | [client-delta] · Independently admitted native clients                       | `internal/client/verification`                         | `mise run native`; real-client `aigw verify`                                |
+| 4.6     | [client-delta] · Independently admitted native clients                       | `internal/client` Adapter registry                     | Source-backed admission; `mise run native` if admitted                      |
+| 4.7     | [control] · Independent product composition                                  | `internal/configuration`, `internal/client`            | `mise run native` without Proxy or Forge                                    |
+| 5.1     | [organization] · Each Work Lane reconstructs its own mutable environment     | `mise.toml`, committed locks                           | `mise install --locked`; `mise run bootstrap`                               |
+| 5.2–5.4 | [control] · Native released-artifact lifecycle acceptance                    | `tools/release`, `internal/secrets/native`             | `mise run native` on macOS, Linux, Windows                                  |
+| 5.5     | [onboarding] · Activation follows present capabilities                       | `internal/discovery`, `internal/synchronization`       | `mise run native`                                                           |
+| 5.6     | [control] · Failure recovery retains owned-resource cleanup outcomes         | `internal/transaction`, `tools/release`                | `mise run native` with failure injection                                    |
+| 6.1     | [control] · Latest stable repository-owned supply chain                      | `mise.toml`, locks, dependency policy                  | `mise run dependencies:check`; `mise run check`                             |
+| 6.2–6.3 | [quality] · Quality constraints are comprehensive and proportionate          | `.config/checks`, `tools/ci`                           | `mise run check`                                                            |
+| 6.4     | [quality] · Repository text quality has one mature owner per concern         | `.config/checks`, `tools/ci/markdown`                  | `mise run check`; online link proof remains separate                        |
+| 6.5     | [quality] · Dependency evidence binds the selected lockfiles                 | `tools/ci`, `tools/release`                            | `mise run check`; build-only `mise run release`                             |
+| 6.6     | [quality] · Quantitative policy is evidence-derived                          | `tools/release` performance owner                      | `mise run performance` with a signed candidate                              |
+| 6.7     | [quality] · Warnings are owned failures                                      | `internal/presentation`, `tools/ci`                    | `mise run check`                                                            |
+| 7.1–7.3 | [ci] · One CI graph projects to independent Forges                           | `.config/ci/pipeline.cue`, `tools/ci`                  | `mise run check`; peer-native jobs separately                               |
+| 7.4–7.5 | [ci] · Every integration path produces exact-commit evidence                 | `tools/forge`, peer policies                           | `mise run native`; exact-SHA peer/API proof separately                      |
+| 8.1     | [organization] · Logical and physical ownership are isomorphic               | Go packages, `.config/checks/architecture`             | `mise run check`                                                            |
+| 8.2–8.3 | [organization] · Semantic documentation architecture                         | `docs/`, `tools/ci/markdown`                           | `mise run check`                                                            |
+| 8.4     | [quality] · Engineering-reference quality is demonstrated by behavior        | `docs/decisions/`, affected package owner              | Source-backed comparison; `mise run check` if adopted                       |
+| 8.5     | [quality] · Delivery completion is evidence-bound                            | Git common-dir, release/ETHOS owner                    | `git worktree list --porcelain`; exact residue audit                        |
+| 9.1–9.2 | [quality] · Source acceptance precedes delivery completion                   | OpenSpec, `tools/ci`                                   | `mise run check`; strict OpenSpec validation                                |
+| 9.3     | [control] · Native released-artifact lifecycle acceptance                    | `tools/release`                                        | Build-only `mise run release`; `mise run native` on all three OSs           |
+| 9.4     | [quality] · Delivery completion is evidence-bound                            | ETHOS proof, peer CI                                   | `ethos prove --execute --expect-head <SHA>`; peer-native CI separately      |
+| 9.5     | [distribution] · Stable publication follows completed change acceptance      | OpenSpec, `tools/release`                              | Strict OpenSpec validation before official archive                          |
+
+[organization]: ../../specs/repository-organization/spec.md
+[projection]: ../../specs/projection-format/spec.md
+[readiness]: ../../specs/cli-readiness/spec.md
+[reader-delta]: specs/secret-storage/spec.md
+[client-delta]: specs/product-control-plane/spec.md
+[control]: ../../specs/product-control-plane/spec.md
+[selection]: specs/route-client-selection/spec.md
+[quality]: ../../specs/product-quality/spec.md
+[ci]: ../../specs/ci-diagnostics/spec.md
+[onboarding]: ../../specs/progressive-team-onboarding/spec.md
+[distribution]: ../../specs/release-distribution/spec.md
+
 ## Risks / Trade-offs
 
 - Original credential commands may outlive the configuration that created
@@ -173,8 +223,8 @@ ad hoc framework, or copied task list is introduced.
 
 ## Migration Plan
 
-First land the already-reviewed Hermes archive on its own lane. This Change
-then refreshes to that accepted source, closes the user journey and reader
+Resolve accepted source and lane authority from current ETHOS state. This Change
+closes the user journey and reader
 succession before changing live client projections, and applies the broader
 adapter, quality, topology, and documentation cleanup in dependency order.
 Use a published predecessor with retained state for each platform's update and

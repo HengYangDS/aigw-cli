@@ -7,10 +7,13 @@
 Setup results SHALL distinguish imported capability, connected Accounts,
 selected Routes, configured clients, and deferred work, and expose the smallest
 safe next action. With environment credentials, setup SHALL list every
-compatible variable as an equal choice and state that one is sufficient. After
-a Token or client appears, continuation is `aigw sync`; `aigw check` only
-verifies enabled Routes. Manifest setup MUST support `--json`, share one
-semantic result, and never expose credentials.
+compatible variable as an equal choice and state that one is sufficient. An
+environment Token MAY activate an unselected reviewed recommendation through
+`aigw sync`. With a writable backend, Token rotation SHALL preserve Route and
+Client Binding selection and name the required explicit `aigw use --for`
+continuation. A newly installed selected client is activated with `aigw sync`;
+`aigw check` only verifies enabled Routes. Manifest setup MUST support `--json`,
+share one semantic result, and never expose credentials.
 
 #### Scenario: Guided setup completes before client installation
 
@@ -38,6 +41,15 @@ semantic result, and never expose credentials.
 - **WHEN** a valid team manifest is imported and no Account is connected
 - **THEN** setup SHALL recommend `aigw rotate <account>`
 - **AND** SHALL NOT imply that every catalogue Account Token is required.
+
+#### Scenario: A writable Account Token arrives after import
+
+- **GIVEN** a team catalogue with no selected Client Binding
+- **WHEN** the operator rotates one compatible Account Token
+- **THEN** rotation SHALL leave Route and Client Binding selection unchanged
+- **AND** SHALL name an executable `aigw use --for` action for one reviewed
+  compatible Route of that Account, rather than immediate `aigw check` or
+  no-op synchronization.
 
 #### Scenario: No Token is available through the environment backend
 
