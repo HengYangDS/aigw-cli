@@ -190,6 +190,37 @@ func TestMiseTasksDelegateToCanonicalOwners(t *testing.T) {
 	}
 }
 
+func TestOfflineDependencyTasksNeverPullAnImage(t *testing.T) {
+	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), "mise.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	type dependencyTask struct {
+		Run     string `toml:"run"`
+		Timeout string `toml:"timeout"`
+	}
+	var configuration struct {
+		Tasks struct {
+			Check   dependencyTask `toml:"dependencies:check"`
+			Inspect dependencyTask `toml:"dependencies:inspect"`
+		} `toml:"tasks"`
+	}
+	if err := toml.Unmarshal(content, &configuration); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name string
+		task dependencyTask
+	}{
+		{name: "dependencies:check", task: configuration.Tasks.Check},
+		{name: "dependencies:inspect", task: configuration.Tasks.Inspect},
+	} {
+		if !strings.Contains(test.task.Run, "docker run --pull=never --rm --read-only --network none") || test.task.Timeout != "2m" {
+			t.Errorf("%s must use a cached image without network or an unbounded wait: %#v", test.name, test.task)
+		}
+	}
+}
+
 func TestEthosProofDelegatesStaticAnalysisToQualityOwner(t *testing.T) {
 	root := repositoryRoot(t)
 	content, err := os.ReadFile(filepath.Join(root, ".ethos", "profile.toml"))

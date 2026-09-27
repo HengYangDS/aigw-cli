@@ -90,9 +90,10 @@ run = [
 ]
 
 [tasks."dependencies:check"]
-description = "Validate the dependency policy offline with the pinned Renovate image."
+description = "Validate dependency policy with a cached pinned Renovate image."
+timeout = "2m"
 run = """
-docker run --rm --read-only --network none --tmpfs /tmp:exec,mode=1777 \
+docker run --pull=never --rm --read-only --network none --tmpfs /tmp:exec,mode=1777 \
   --mount "type=bind,source={{config_root}},target=/workspace,readonly" \
   --workdir /workspace --env HOME=/tmp \
   --entrypoint renovate-config-validator {{vars.renovate_image}} \
@@ -100,9 +101,10 @@ docker run --rm --read-only --network none --tmpfs /tmp:exec,mode=1777 \
 """
 
 [tasks."dependencies:inspect"]
-description = "Inspect the managed dependency inventory offline without writes or credentials."
+description = "Inspect dependencies with a cached pinned Renovate image."
+timeout = "2m"
 run = """
-docker run --rm --read-only --network none --tmpfs /tmp:exec,mode=1777 \
+docker run --pull=never --rm --read-only --network none --tmpfs /tmp:exec,mode=1777 \
   --mount "type=bind,source={{config_root}},target=/workspace,readonly" \
   --workdir /workspace --env HOME=/tmp --env RENOVATE_BASE_DIR=/tmp/renovate \
   --env RENOVATE_CACHE_DIR=/tmp/renovate/cache \

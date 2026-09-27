@@ -102,8 +102,9 @@ to query `github.com/google/osv-scanner/v2` while preserving the
 translation in the dependency policy, not a second extractor or the tool lock.
 
 The pinned, disposable Renovate container is maintenance tooling, not an AIGW
-runtime or ordinary development prerequisite. On a host with a Linux-container
-engine, run:
+runtime or ordinary development prerequisite. First explicitly cache the image
+declared by `vars.renovate_image` in [mise.toml](../../mise.toml) with Docker.
+On a host with a Linux-container engine, run:
 
 ```bash
 mise run dependencies:check
@@ -112,11 +113,13 @@ mise run dependencies:inspect
 
 The first command runs Renovate's strict repository-config validator. The
 second extracts the managed inventory with networking disabled and a read-only
-checkout. Neither mounts credentials, Git signing material, the Docker socket,
-or a user home. The offline extractor disables only Renovate's lookup-token
-warning: it makes no lookup and provides no freshness or vulnerability claim.
-Both containers remove their writable temporary state on exit. This container
-workflow was exercised on macOS; Windows-host invocation is not yet evidenced.
+checkout. Both require the cached image, never pull implicitly, and stop after
+two minutes. Neither mounts credentials, Git signing material, the Docker
+socket, or a user home. The offline extractor disables only Renovate's
+lookup-token warning: it makes no lookup and provides no freshness or
+vulnerability claim. Both containers remove their writable temporary state on
+exit. This container workflow was exercised on macOS; Windows-host invocation
+is not yet evidenced.
 
 CI images must select an upstream variant whose published contract already
 matches the runner. A runnable GitLab base therefore uses mise's explicit
