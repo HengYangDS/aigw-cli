@@ -9,9 +9,106 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/claude"
+	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 )
+
+func TestCodexInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
+	root := t.TempDir()
+	data := filepath.Join(root, "data")
+	target := filepath.Join(root, "codex.toml")
+	if err := os.WriteFile(target, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var sources []string
+	for _, version := range []string{"predecessor", "successor"} {
+		source := filepath.Join(root, version)
+		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		sources = append(sources, source)
+	}
+	retained, err := credential.VersionedEntrypointPath(data, sources[0], "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err := credential.VersionedEntrypointPath(data, sources[1], "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := credential.EnsureEntrypoint(sources[0], retained); err != nil {
+		t.Fatal(err)
+	}
+	cfg := testConfig(target)
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected := runtime
+	projected.CredentialCommand = retained
+	if err := codex.SyncConfig(target, projected); err != nil {
+		t.Fatal(err)
+	}
+	syncer := Synchronizer{Discovery: targetDiscovery(target), AIGWExecutable: sources[1], CredentialPath: current}
+	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientCodex, runtime); !status.Ready {
+		t.Fatalf("unchanged Route with an intact retained reader was rejected: %s", status.Issue)
+	}
+	if err := credential.RemoveEntrypoint(retained); err != nil {
+		t.Fatal(err)
+	}
+	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientCodex, runtime); status.Ready {
+		t.Fatal("missing retained reader was accepted as a healthy Codex projection")
+	}
+}
+
+func TestClaudeInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
+	root := t.TempDir()
+	data := filepath.Join(root, "data")
+	settings := filepath.Join(root, "settings.json")
+	if err := os.WriteFile(settings, []byte(`{"theme":"dark"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	paths := make([]string, 0, 2)
+	for _, version := range []string{"predecessor", "successor"} {
+		source := filepath.Join(root, version)
+		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		path, err := credential.VersionedEntrypointPath(data, source, "aigw")
+		if err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, path)
+	}
+	retained, current := paths[0], paths[1]
+	if _, err := credential.EnsureEntrypoint(filepath.Join(root, "predecessor"), retained); err != nil {
+		t.Fatal(err)
+	}
+	cfg := configuration.NewConfig()
+	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetClientActivation(configuration.ClientClaude, true, filepath.Join(root, "predecessor"), nil)
+	runtime, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := claude.ReconcileSettings(settings, false, runtime, retained, runtime.Model); err != nil {
+		t.Fatal(err)
+	}
+	syncer := Synchronizer{ClaudeSettingsPath: settings, AIGWExecutable: filepath.Join(root, "successor"), CredentialPath: current}
+	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientClaude, runtime); !status.Ready {
+		t.Fatalf("unchanged Claude Route with an intact retained reader was rejected: %s", status.Issue)
+	}
+	if err := credential.RemoveEntrypoint(retained); err != nil {
+		t.Fatal(err)
+	}
+	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientClaude, runtime); status.Ready {
+		t.Fatal("missing retained Claude reader was accepted")
+	}
+}
 
 func TestCancelledProjectionAfterVersionedReaderPreparationRestoresOwnedState(t *testing.T) {
 	root := t.TempDir()

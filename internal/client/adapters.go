@@ -152,9 +152,6 @@ func (codexAdapter) ProjectionChanged(before, after configuration.Config) bool {
 }
 
 func (codexAdapter) Inspect(_ context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime) Status {
-	if deps.AIGWExecutable != "" {
-		runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
-	}
 	adapter := cfg.Clients[configuration.ClientCodex]
 	if !adapter.Enabled {
 		return Status{Issue: "Codex adapter is disabled", RepairAction: "aigw sync"}
@@ -168,7 +165,11 @@ func (codexAdapter) Inspect(_ context.Context, deps Dependencies, cfg configurat
 	status := Status{Ready: true, Checks: make([]Check, 0, len(adapter.Targets))}
 	for index, target := range adapter.Targets {
 		check := Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "route " + runtime.RouteID}
-		if err := codex.ValidateConfig(target, runtime); err != nil {
+		observed, err := codexRetainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
+		if err == nil {
+			err = codex.ValidateConfig(target, observed)
+		}
+		if err != nil {
 			check.Ready = false
 			check.Detail = err.Error()
 			check.RepairAction = "aigw sync"
@@ -285,7 +286,11 @@ func (claudeAdapter) Inspect(_ context.Context, deps Dependencies, cfg configura
 	if !ready {
 		return Status{Issue: "Claude executable is unavailable", RepairAction: "aigw repair"}
 	}
-	inspection, err := claude.InspectSettings(deps.ClaudeSettingsPath, runtime, runtime.CredentialExecutable(deps.AIGWExecutable))
+	reader, err := claudeRetainedExecutable(deps.ClaudeSettingsPath, cfg, runtime, deps.AIGWExecutable)
+	if err != nil {
+		return Status{Issue: err.Error(), RepairAction: "aigw sync"}
+	}
+	inspection, err := claude.InspectSettings(deps.ClaudeSettingsPath, runtime, reader)
 	if err != nil {
 		return Status{Issue: err.Error(), RepairAction: "aigw sync"}
 	}

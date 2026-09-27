@@ -48,7 +48,7 @@
 - [x] 3.2 Compare the current AIGW copy, stable indirection, and direct versioned
       paths with a no-new-entity baseline on macOS, Linux, and Windows; amend
       DR-0011 with one qualified choice before implementing a cutover.
-- [x] 3.3 Implement only the selected strategy in the existing credential and
+- [ ] 3.3 Implement only the selected strategy in the existing credential and
       synchronization owners; test original commands, exact identity, private
       permissions or ACLs, partial conflict, interruption, and no Token disclosure.
 - [ ] 3.4 Exercise rollback, uninstall, and exact owned-byte cleanup for that

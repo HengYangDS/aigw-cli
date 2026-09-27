@@ -28,6 +28,10 @@ disclosed rather than represented as uninterrupted service.
 - **WHEN** the installed AIGW program is replaced without changing its route
 - **THEN** that retained invocation SHALL return the original authorized Token
   before synchronization or client restart
+- **AND** read-only inspection and verification SHALL accept the unchanged,
+  sidecar-owned projection through its intact predecessor reader without
+  rewriting it or requiring synchronization
+- **AND** a missing, foreign, or drifted predecessor reader SHALL remain invalid
 - **AND** updated projections or success from a new helper SHALL NOT substitute
   for that invocation
 - **AND** native credential denial SHALL block production acceptance rather than

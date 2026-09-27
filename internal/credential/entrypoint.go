@@ -42,6 +42,49 @@ func VersionedEntrypointPath(dataDir, source, installName string) (path string, 
 	return filepath.Join(dataDir, entrypointDirectory, hex.EncodeToString(hash.Sum(nil)), installName), nil
 }
 
+// ValidateRetainedEntrypoint accepts only an intact predecessor in the current
+// AIGW installation's versioned reader namespace. The current reader need not
+// exist yet: an update can replace the CLI before the next client sync.
+func ValidateRetainedEntrypoint(current, retained string) error {
+	if current == retained {
+		return errors.New("retained credential reader must differ from the current reader")
+	}
+	currentNamespace, currentName, currentOK := versionedEntrypointIdentity(current)
+	retainedNamespace, retainedName, retainedOK := versionedEntrypointIdentity(retained)
+	if !currentOK || !retainedOK {
+		return errors.New("credential reader path is not versioned")
+	}
+	if currentNamespace != retainedNamespace || currentName != retainedName {
+		return errors.New("retained credential reader belongs to another installation")
+	}
+	missing, err := EntrypointNeeded(retained)
+	if err != nil || missing {
+		return errors.New("retained credential reader is unavailable or invalid")
+	}
+	return nil
+}
+
+// IsVersionedEntrypointPath identifies only the owned path grammar; it does not
+// assert that executable bytes exist or remain valid.
+func IsVersionedEntrypointPath(path string) bool {
+	_, _, ok := versionedEntrypointIdentity(path)
+	return ok
+}
+
+func versionedEntrypointIdentity(path string) (namespace, name string, ok bool) {
+	parent := filepath.Dir(path)
+	digest := filepath.Base(parent)
+	decoded, err := hex.DecodeString(digest)
+	if !filepath.IsAbs(path) || err != nil || len(decoded) != sha256.Size || hex.EncodeToString(decoded) != digest {
+		return "", "", false
+	}
+	namespace = filepath.Dir(parent)
+	if filepath.Base(namespace) != entrypointDirectory {
+		return "", "", false
+	}
+	return namespace, filepath.Base(path), true
+}
+
 func validateVersionedDigest(path string, sum [sha256.Size]byte) error {
 	parent := filepath.Dir(path)
 	if filepath.Base(filepath.Dir(parent)) == entrypointDirectory && filepath.Base(parent) != hex.EncodeToString(sum[:]) {

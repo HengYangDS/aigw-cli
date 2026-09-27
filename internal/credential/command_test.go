@@ -22,3 +22,28 @@ func TestCommandQuotesOneExecutableAndScopesCredentialLookup(t *testing.T) {
 		}
 	}
 }
+
+func TestCommandExecutableRoundTripsOnlyTheExactOwnedInvocation(t *testing.T) {
+	for _, goos := range []string{"linux", "windows"} {
+		t.Run(goos, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "aigw's client")
+			command, err := Command(path, "claude", "projection", goos)
+			if err != nil {
+				t.Fatal(err)
+			}
+			observed, err := ExecutableFromCommand(command, "claude", "projection", goos)
+			if err != nil || observed != path {
+				t.Fatalf("round-trip executable = %q, %v", observed, err)
+			}
+			for _, changed := range []string{
+				command + " && echo foreign",
+				strings.Replace(command, "projection", "other-scope", 1),
+				strings.TrimPrefix(command, command[:1]),
+			} {
+				if _, err := ExecutableFromCommand(changed, "claude", "projection", goos); err == nil {
+					t.Fatal("changed credential invocation was accepted")
+				}
+			}
+		})
+	}
+}

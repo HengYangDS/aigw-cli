@@ -147,63 +147,8 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var completions atomic.Int64
-	base := clientResponseHandler(configuration.ProtocolOpenAIResponses, map[string]*atomic.Int64{"grok-4.7": &completions}, token, "high")
 	var toolOutput atomic.Bool
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Method == http.MethodPost && request.URL.Path == "/v1/responses" {
-			body, err := io.ReadAll(request.Body)
-			if err != nil {
-				http.Error(response, "read request", http.StatusBadRequest)
-				return
-			}
-			request.Body = io.NopCloser(bytes.NewReader(body))
-			var input struct {
-				Model     string `json:"model"`
-				Stream    bool   `json:"stream"`
-				Reasoning struct {
-					Effort string `json:"effort"`
-				} `json:"reasoning"`
-				Tools []struct {
-					Name string `json:"name"`
-				} `json:"tools"`
-				Input []struct {
-					Type   string          `json:"type"`
-					Output json.RawMessage `json:"output"`
-				} `json:"input"`
-			}
-			if err := json.Unmarshal(body, &input); err != nil {
-				http.Error(response, "decode request", http.StatusBadRequest)
-				return
-			}
-			if input.Model != "grok-4.7" || !input.Stream || input.Reasoning.Effort != "high" {
-				http.Error(response, "configured model and effort required", http.StatusBadRequest)
-				return
-			}
-			hasExec := false
-			for _, tool := range input.Tools {
-				hasExec = hasExec || tool.Name == "exec_command"
-			}
-			for _, item := range input.Input {
-				if item.Type == "function_call_output" {
-					result := string(item.Output)
-					if strings.Contains(result, "AIGW_TOOL_OK") &&
-						(strings.Contains(result, "Process exited with code 0") || strings.Contains(result, `"exit_code":0`)) {
-						toolOutput.Store(true)
-					}
-				}
-			}
-			if !toolOutput.Load() && hasExec {
-				if request.Header.Get("Authorization") != "Bearer "+token && request.Header.Get("X-Api-Key") != token {
-					base.ServeHTTP(response, request)
-					return
-				}
-				writeCodexToolCall(response)
-				return
-			}
-		}
-		base.ServeHTTP(response, request)
-	}))
+	server := httptest.NewServer(codexToolLoopHandler(token, &toolOutput))
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, p.candidate, server.URL+"/v1", false)
 	journey.prepareNativeClient(configuration.ClientCodex, executable, p.team)
@@ -234,6 +179,67 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 		t.Fatalf("Codex final tool-loop response = %q, %v", got, err)
 	}
 	journey.uninstallWithAndRequireOwnedFilesAbsent(p.candidate)
+}
+
+type codexToolLoopRequest struct {
+	Model     string `json:"model"`
+	Stream    bool   `json:"stream"`
+	Reasoning struct {
+		Effort string `json:"effort"`
+	} `json:"reasoning"`
+	Tools []struct {
+		Name string `json:"name"`
+	} `json:"tools"`
+	Input []struct {
+		Type   string          `json:"type"`
+		Output json.RawMessage `json:"output"`
+	} `json:"input"`
+}
+
+func codexToolLoopHandler(token string, toolOutput *atomic.Bool) http.Handler {
+	var completions atomic.Int64
+	base := clientResponseHandler(configuration.ProtocolOpenAIResponses, map[string]*atomic.Int64{"grok-4.7": &completions}, token, "high")
+	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodPost || request.URL.Path != "/v1/responses" {
+			base.ServeHTTP(response, request)
+			return
+		}
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			http.Error(response, "read request", http.StatusBadRequest)
+			return
+		}
+		request.Body = io.NopCloser(bytes.NewReader(body))
+		var input codexToolLoopRequest
+		if err := json.Unmarshal(body, &input); err != nil {
+			http.Error(response, "decode request", http.StatusBadRequest)
+			return
+		}
+		if input.Model != "grok-4.7" || !input.Stream || input.Reasoning.Effort != "high" {
+			http.Error(response, "configured model and effort required", http.StatusBadRequest)
+			return
+		}
+		for _, item := range input.Input {
+			result := string(item.Output)
+			if item.Type == "function_call_output" && strings.Contains(result, "AIGW_TOOL_OK") &&
+				(strings.Contains(result, "Process exited with code 0") || strings.Contains(result, `"exit_code":0`)) {
+				toolOutput.Store(true)
+			}
+		}
+		hasExec := false
+		for _, tool := range input.Tools {
+			hasExec = hasExec || tool.Name == "exec_command"
+		}
+		if !toolOutput.Load() && hasExec {
+			if request.Header.Get("Authorization") != "Bearer "+token && request.Header.Get("X-Api-Key") != token {
+				base.ServeHTTP(response, request)
+				return
+			}
+			writeCodexToolCall(response)
+			return
+		}
+		base.ServeHTTP(response, request)
+	})
 }
 
 func writeCodexToolCall(response http.ResponseWriter) {

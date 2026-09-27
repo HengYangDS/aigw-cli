@@ -89,6 +89,27 @@ func SyncConfig(path string, runtime configuration.Runtime) error {
 	return err
 }
 
+// ObservedCredentialCommand reads the projected command without treating it as
+// trusted. The caller must validate the intact reader and the complete owned
+// projection before executing it.
+func ObservedCredentialCommand(path string, runtime configuration.Runtime) (string, error) {
+	if !runtime.RequiresAccountToken() {
+		return "", fmt.Errorf("Codex Route %q does not use an Account Token", runtime.RouteID)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read Codex config: %w", err)
+	}
+	projection, err := codexProviderForProviderIn(string(data), codexRuntimeProvider(runtime))
+	if err != nil {
+		return "", err
+	}
+	if projection.Auth == nil {
+		return "", fmt.Errorf("Codex Route %q has no projected credential command", runtime.RouteID)
+	}
+	return projection.Auth.Command, nil
+}
+
 // ValidateConfig verifies that a Codex target still matches the resolved
 // AIGW Route. It never changes the target; callers can safely use it for
 // diagnostics before offering an explicit sync.

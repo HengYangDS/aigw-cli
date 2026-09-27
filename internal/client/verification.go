@@ -35,11 +35,71 @@ func (runner externalCredentialRunner) RunCapture(ctx context.Context, plan proc
 	return output, nil
 }
 
-func (codexAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime, explicitRoute string) (_ Verification, result error) {
-	if deps.AIGWExecutable != "" {
-		runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
+func retainedDefaultReader(current string, external bool, observe func() (string, error)) (string, error) {
+	if current == "" || external || !credential.IsVersionedEntrypointPath(current) {
+		return current, nil
 	}
+	projected, err := observe()
+	if err != nil || projected == current {
+		return current, err
+	}
+	if err := credential.ValidateRetainedEntrypoint(current, projected); err != nil {
+		return current, err
+	}
+	return projected, nil
+}
+
+func codexRetainedRuntime(target string, cfg configuration.Config, runtime configuration.Runtime, currentReader string) (configuration.Runtime, error) {
+	if !runtime.RequiresAccountToken() || currentReader == "" {
+		return runtime, nil
+	}
+	if cfg.Clients[configuration.ClientCodex].CredentialCommand != "" {
+		runtime.CredentialCommand = runtime.CredentialExecutable(currentReader)
+		return runtime, nil
+	}
+	runtime.CredentialCommand = currentReader
+	reader, err := retainedDefaultReader(currentReader, false, func() (string, error) {
+		return codex.ObservedCredentialCommand(target, runtime)
+	})
+	if err != nil {
+		return runtime, fmt.Errorf("inspect retained Codex credential reader: %w", err)
+	}
+	runtime.CredentialCommand = reader
+	return runtime, nil
+}
+
+func claudeRetainedExecutable(path string, cfg configuration.Config, runtime configuration.Runtime, currentReader string) (string, error) {
+	if !runtime.RequiresAccountToken() {
+		return runtime.CredentialExecutable(currentReader), nil
+	}
+	reader, err := retainedDefaultReader(currentReader, cfg.Clients[configuration.ClientClaude].CredentialCommand != "", func() (string, error) {
+		return claude.ObservedCredentialExecutable(path, runtime)
+	})
+	if err != nil {
+		return "", fmt.Errorf("inspect retained Claude credential reader: %w", err)
+	}
+	return runtime.CredentialExecutable(reader), nil
+}
+
+func (codexAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime, explicitRoute string) (_ Verification, result error) {
 	adapter := cfg.Clients[configuration.ClientCodex]
+	reader := deps.AIGWExecutable
+	if adapter.Enabled && adapter.Executable != "" && len(adapter.Targets) > 0 && adapter.Route != "" {
+		targets := append([]string(nil), adapter.Targets...)
+		sort.Strings(targets)
+		selected, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+		if err != nil {
+			return Verification{}, err
+		}
+		selected, err = codexRetainedRuntime(targets[0], cfg, selected, reader)
+		if err != nil {
+			return Verification{}, err
+		}
+		if selected.CredentialCommand != "" {
+			reader = selected.CredentialCommand
+		}
+	}
+	runtime.CredentialCommand = runtime.CredentialExecutable(reader)
 	if explicitRoute != "" && adapter.Enabled && adapter.Executable != "" && len(adapter.Targets) > 0 {
 		isolated, workspace, err := isolateCodexProjection(cfg, runtime, adapter)
 		if err != nil {
@@ -88,7 +148,18 @@ func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configur
 	}
 	verifyCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
 	defer cancel()
-	runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
+	reader := deps.AIGWExecutable
+	if adapter.Route != "" {
+		selected, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
+		if err != nil {
+			return Verification{}, err
+		}
+		reader, err = claudeRetainedExecutable(deps.ClaudeSettingsPath, cfg, selected, reader)
+		if err != nil {
+			return Verification{}, err
+		}
+	}
+	runtime.CredentialCommand = runtime.CredentialExecutable(reader)
 	settingsPath := deps.ClaudeSettingsPath
 	if explicitRoute != "" {
 		isolated, workspace, err := isolateClaudeProjection(cfg, runtime, deps)

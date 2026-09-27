@@ -117,3 +117,39 @@ func TestVersionedEntrypointsKeepPredecessorBytesThroughSuccessorRemoval(t *test
 		t.Fatalf("predecessor changed after successor removal: %q, %v", got, err)
 	}
 }
+
+func TestRetainedEntrypointRequiresTheSameIntactVersionedNamespace(t *testing.T) {
+	root := t.TempDir()
+	data := filepath.Join(root, "data")
+	paths := make([]string, 0, 2)
+	for _, version := range []string{"predecessor", "successor"} {
+		source := filepath.Join(root, version)
+		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		path, err := VersionedEntrypointPath(data, source, "aigw")
+		if err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, path)
+	}
+	retained, current := paths[0], paths[1]
+	if _, err := EnsureEntrypoint(filepath.Join(root, "predecessor"), retained); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateRetainedEntrypoint(current, retained); err != nil {
+		t.Fatalf("intact predecessor reader was rejected: %v", err)
+	}
+	foreign := filepath.Join(root, "foreign", "credential", filepath.Base(filepath.Dir(current)), "aigw")
+	for _, path := range []string{foreign, filepath.Join(data, "credential", "aigw")} {
+		if err := ValidateRetainedEntrypoint(path, retained); err == nil {
+			t.Fatalf("reader in a different or unversioned namespace was accepted: %s", path)
+		}
+	}
+	if err := os.WriteFile(retained+".sha256", []byte("changed\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateRetainedEntrypoint(current, retained); err == nil {
+		t.Fatal("drifted predecessor receipt was accepted")
+	}
+}
