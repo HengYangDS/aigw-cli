@@ -3,16 +3,20 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
 
+	"aigw-cli/internal/codex"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/secrets"
@@ -130,6 +134,126 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 	}
 	journey.testing = t
 	journey.uninstallWithAndRequireOwnedFilesAbsent(p.candidate)
+}
+
+func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
+	t.Helper()
+	const (
+		account = "aihubmix"
+		routeID = "aihubmix-grok-4.7"
+		token   = "native-tool-loop-token"
+	)
+	executable, err := requiredClientInput("AIGW_ACCEPTANCE_CODEX", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var completions atomic.Int64
+	base := clientResponseHandler(configuration.ProtocolOpenAIResponses, map[string]*atomic.Int64{"grok-4.7": &completions}, token, "high")
+	var toolOutput atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.Method == http.MethodPost && request.URL.Path == "/v1/responses" {
+			body, err := io.ReadAll(request.Body)
+			if err != nil {
+				http.Error(response, "read request", http.StatusBadRequest)
+				return
+			}
+			request.Body = io.NopCloser(bytes.NewReader(body))
+			var input struct {
+				Model     string `json:"model"`
+				Stream    bool   `json:"stream"`
+				Reasoning struct {
+					Effort string `json:"effort"`
+				} `json:"reasoning"`
+				Tools []struct {
+					Name string `json:"name"`
+				} `json:"tools"`
+				Input []struct {
+					Type   string          `json:"type"`
+					Output json.RawMessage `json:"output"`
+				} `json:"input"`
+			}
+			if err := json.Unmarshal(body, &input); err != nil {
+				http.Error(response, "decode request", http.StatusBadRequest)
+				return
+			}
+			if input.Model != "grok-4.7" || !input.Stream || input.Reasoning.Effort != "high" {
+				http.Error(response, "configured model and effort required", http.StatusBadRequest)
+				return
+			}
+			hasExec := false
+			for _, tool := range input.Tools {
+				hasExec = hasExec || tool.Name == "exec_command"
+			}
+			for _, item := range input.Input {
+				if item.Type == "function_call_output" {
+					result := string(item.Output)
+					if strings.Contains(result, "AIGW_TOOL_OK") &&
+						(strings.Contains(result, "Process exited with code 0") || strings.Contains(result, `"exit_code":0`)) {
+						toolOutput.Store(true)
+					}
+				}
+			}
+			if !toolOutput.Load() && hasExec {
+				if request.Header.Get("Authorization") != "Bearer "+token && request.Header.Get("X-Api-Key") != token {
+					base.ServeHTTP(response, request)
+					return
+				}
+				writeCodexToolCall(response)
+				return
+			}
+		}
+		base.ServeHTTP(response, request)
+	}))
+	t.Cleanup(server.Close)
+	journey := newNativeJourney(t, p.candidate, server.URL+"/v1", false)
+	journey.prepareNativeClient(configuration.ClientCodex, executable, p.team)
+	journey.isolateNativeClientManifest(configuration.ClientCodex)
+	journey.setEnvironment(secrets.EnvironmentKey(account), token)
+	journey.run("setup", "--from", journey.manifest)
+	journey.run("use", "--for", configuration.ClientCodex, routeID)
+	journey.enableNativeClient(configuration.ClientCodex, executable)
+	cfg, err := configuration.NewStore(journey.config).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(journey.root, "tool-response.txt")
+	plan, err := codex.VerificationPlan(executable, filepath.Join(journey.root, "home", ".codex", "config.toml"), output, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan.Args[len(plan.Args)-1] = "Use a shell tool to run echo AIGW_TOOL_OK, then reply exactly AIGW_OK."
+	journey.runWith(executable, plan.Args...)
+	if !toolOutput.Load() {
+		t.Fatal("Codex completed without a successful exec_command result")
+	}
+	if got, err := os.ReadFile(output); err != nil || strings.TrimSpace(string(got)) != "AIGW_OK" {
+		t.Fatalf("Codex final tool-loop response = %q, %v", got, err)
+	}
+	journey.uninstallWithAndRequireOwnedFilesAbsent(p.candidate)
+}
+
+func writeCodexToolCall(response http.ResponseWriter) {
+	const arguments = `{"cmd":"echo AIGW_TOOL_OK"}`
+	added := `{"id":"fc_aigw","type":"function_call","call_id":"call_aigw","name":"exec_command","arguments":"","status":"in_progress"}`
+	completed := fmt.Sprintf(`{"id":"fc_aigw","type":"function_call","call_id":"call_aigw","name":"exec_command","arguments":%q,"status":"completed"}`, arguments)
+	events := []struct{ name, data string }{
+		{"response.created", `{"type":"response.created","response":{"id":"resp_aigw_tool","object":"response","status":"in_progress","output":[]}}`},
+		{"response.output_item.added", fmt.Sprintf(`{"type":"response.output_item.added","output_index":0,"item":%s}`, added)},
+		{"response.function_call_arguments.delta", fmt.Sprintf(`{"type":"response.function_call_arguments.delta","item_id":"fc_aigw","output_index":0,"delta":%q}`, arguments)},
+		{"response.function_call_arguments.done", fmt.Sprintf(`{"type":"response.function_call_arguments.done","item_id":"fc_aigw","output_index":0,"arguments":%q}`, arguments)},
+		{"response.output_item.done", fmt.Sprintf(`{"type":"response.output_item.done","output_index":0,"item":%s}`, completed)},
+		{"response.completed", fmt.Sprintf(`{"type":"response.completed","response":{"id":"resp_aigw_tool","object":"response","status":"completed","output":[%s],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`, completed)},
+	}
+	response.Header().Set("Content-Type", "text/event-stream")
+	for _, event := range events {
+		if _, err := fmt.Fprintf(response, "event: %s\ndata: %s\n\n", event.name, event.data); err != nil {
+			return
+		}
+	}
 }
 
 func assertStreamEvents(t *testing.T, protocol configuration.EndpointProtocol, body string) {

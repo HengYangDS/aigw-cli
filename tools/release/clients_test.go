@@ -159,6 +159,7 @@ func TestNativeClientJourney(t *testing.T) {
 		t.Run(client, func(t *testing.T) { plan.run(t, client) })
 	}
 	t.Run("codex-general-routes", plan.runCodexGeneralRoutes)
+	t.Run("codex-tool-loop", plan.runCodexToolLoop)
 }
 
 type nativeClientJourneyPlan struct {

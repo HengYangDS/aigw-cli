@@ -55,7 +55,15 @@ An Account Token, when required, stays in the selected backend. Client-native
 authentication stays with the client. Switching Routes does not copy Tokens
 into client files.
 
-Hermes has native tool-loop evidence. Claude Desktop's source Adapter,
+Hermes has native tool-loop evidence. The
+[Codex real-client tool-loop fixture](../../tools/release/client_protocol_test.go)
+also runs the Grok 4.7 model ID through an isolated Responses endpoint,
+the projected credential command, an actual `exec_command` result, and a final
+model response. That proves this client/protocol combination against the local
+fixture, not live provider availability, every Codex version, Codex Desktop,
+or untested operating systems.
+
+Claude Desktop's source Adapter,
 transactional projection, discovery, environment-backed credential helper and
 withdrawal are implemented in the active Change. The official Desktop client
 supports [macOS and Windows](https://support.claude.com/en/articles/10065433-install-claude-desktop);
