@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"aigw-cli/internal/secrets/native"
+
 	keyring "github.com/zalando/go-keyring"
 )
 
@@ -99,6 +101,22 @@ func TestKeyringStoreMapsEmptyValuesAndProviderErrors(t *testing.T) {
 	}
 	if err := store.Delete("dmx"); !errors.Is(err, want) {
 		t.Fatalf("Delete error = %v", err)
+	}
+}
+
+func TestNativeKeyringStoreRequiresProductExecutable(t *testing.T) {
+	store := newKeyringStore("")
+	if present, err := store.exists(APIToken, "team"); present || !errors.Is(err, native.ErrUnavailable) {
+		t.Fatalf("credential presence without executable = %t, %v", present, err)
+	}
+	if value, err := store.get(APIToken, "team"); value != "" || !errors.Is(err, native.ErrUnavailable) {
+		t.Fatalf("credential read without executable = %q, %v", value, err)
+	}
+	if err := store.set(APIToken, "team", "synthetic-token"); !errors.Is(err, native.ErrUnavailable) {
+		t.Fatalf("credential write without executable = %v", err)
+	}
+	if err := store.delete(APIToken, "team"); !errors.Is(err, native.ErrUnavailable) {
+		t.Fatalf("credential delete without executable = %v", err)
 	}
 }
 
