@@ -98,6 +98,46 @@ func TestInteractiveRouteChoiceDerivesUnlabeledRouteName(t *testing.T) {
 	}
 }
 
+func TestUsePromptsForACompatibleClientOnASharedRoute(t *testing.T) {
+	runtime, cfg, _ := configuredRuntime(t)
+	cfg.Routes["shared"] = configuration.Route{
+		Label: "Shared", Account: "gateway", Model: "shared-model",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
+			configuration.ProtocolAnthropic:       {},
+			configuration.ProtocolOpenAIResponses: {},
+		},
+	}
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := secrets.NewMemoryStore()
+	if err := store.Set("gateway", "synthetic-token"); err != nil {
+		t.Fatal(err)
+	}
+	selector := &promptStub{selected: configuration.ClientClaude}
+	runtime.Secrets = store
+	runtime.Prompt = selector
+	runtime.Interactive = true
+	command := NewUseCommand(runtime)
+	command.SilenceErrors = true
+	command.SilenceUsage = true
+	command.SetArgs([]string{"shared"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	choices := map[string]bool{}
+	for _, choice := range selector.choices {
+		choices[choice.Value] = true
+	}
+	if !choices[configuration.ClientClaude] || !choices[configuration.ClientCodex] {
+		t.Fatalf("shared Route client choices = %#v", selector.choices)
+	}
+	stored, err := runtime.Config.Load()
+	if err != nil || stored.Clients[configuration.ClientClaude].Route != "shared" {
+		t.Fatalf("interactive client selection = %#v, %v", stored.Clients, err)
+	}
+}
+
 func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
 	secretStore := secrets.NewMemoryStore()
