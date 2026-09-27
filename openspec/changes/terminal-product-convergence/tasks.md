@@ -42,7 +42,7 @@
 
 ## 3. Credential Reader Succession
 
-- [ ] 3.1 Reproduce the fixed-path reader's inability to consume a later signed
+- [x] 3.1 Reproduce the fixed-path reader's inability to consume a later signed
       version without deleting its active bytes; contrast old and successor behavior
       with a failing lifecycle test.
 - [x] 3.2 Compare the current AIGW copy, stable indirection, and direct versioned

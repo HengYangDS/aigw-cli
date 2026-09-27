@@ -131,9 +131,6 @@ func ensureEntrypoint(
 	if err != nil {
 		return nil, err
 	}
-	if !needed {
-		return func() error { return nil }, nil
-	}
 	data, err := os.ReadFile(source)
 	if err != nil {
 		return nil, fmt.Errorf("read AIGW credential source: %w", err)
@@ -144,6 +141,17 @@ func ensureEntrypoint(
 	sum := sha256.Sum256(data)
 	if err := validateVersionedDigest(target, sum); err != nil {
 		return nil, err
+	}
+	identity := hex.EncodeToString(sum[:]) + "\n"
+	if !needed {
+		recorded, err := os.ReadFile(target + ".sha256")
+		if err != nil {
+			return nil, fmt.Errorf("read credential entrypoint receipt: %w", err)
+		}
+		if string(recorded) != identity {
+			return nil, errors.New("credential entrypoint does not match the current AIGW executable; refusing to replace active bytes")
+		}
+		return func() error { return nil }, nil
 	}
 	parent := filepath.Dir(target)
 	info, err := os.Lstat(parent)
@@ -175,9 +183,8 @@ func ensureEntrypoint(
 	if err != nil {
 		return nil, errors.Join(err, removeCreatedDirectory(parent, createdParent))
 	}
-	identity := []byte(hex.EncodeToString(sum[:]) + "\n")
 	receiptPath := target + ".sha256"
-	receiptPost, err := write(receiptPath, transaction.FileSnapshot{}, identity, 0o600)
+	receiptPost, err := write(receiptPath, transaction.FileSnapshot{}, []byte(identity), 0o600)
 	if err != nil {
 		_, cleanupErr := transaction.RemoveFileIfUnchanged(target, post)
 		return nil, errors.Join(err, cleanupErr, removeCreatedDirectory(parent, createdParent))

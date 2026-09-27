@@ -25,6 +25,50 @@ func TestVersionedEntrypointRejectsChangedSourceBeforeCreatingBytes(t *testing.T
 	}
 }
 
+func TestFixedEntrypointCannotAdoptSuccessorWithoutReplacingActiveBytes(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source")
+	dataDir := filepath.Join(root, "data")
+	fixed := filepath.Join(dataDir, "credential", "aigw")
+	predecessor := []byte("first-version")
+	if err := os.WriteFile(source, predecessor, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := EnsureEntrypoint(source, fixed); err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := os.ReadFile(fixed + ".sha256")
+	if err != nil {
+		t.Fatal(err)
+	}
+	successor := []byte("second-version")
+	if err := os.WriteFile(source, successor, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := EnsureEntrypoint(source, fixed); err == nil {
+		t.Fatal("fixed path silently claimed a newer reader without installing its bytes")
+	}
+	if current, err := os.ReadFile(fixed); err != nil || string(current) != string(predecessor) {
+		t.Fatalf("active predecessor changed: %q, %v", current, err)
+	}
+	if current, err := os.ReadFile(fixed + ".sha256"); err != nil || string(current) != string(receipt) {
+		t.Fatalf("active predecessor receipt changed: %q, %v", current, err)
+	}
+	versioned, err := VersionedEntrypointPath(dataDir, source, "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if versioned == fixed {
+		t.Fatal("successor reused the fixed path")
+	}
+	if _, err := EnsureEntrypoint(source, versioned); err != nil {
+		t.Fatal(err)
+	}
+	if current, err := os.ReadFile(versioned); err != nil || string(current) != string(successor) {
+		t.Fatalf("successor bytes were not prepared: %q, %v", current, err)
+	}
+}
+
 func TestVersionedEntrypointRejectsBytesThatMatchOnlyTheirReceipt(t *testing.T) {
 	root := t.TempDir()
 	first := sha256.Sum256([]byte("first-version"))
