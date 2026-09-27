@@ -216,10 +216,12 @@ system, not a macOS result reused for Linux or Windows.
 - A broad Change can hide partial completion. Each task therefore closes one
   independently testable semantic behavior and names its native evidence;
   task count is not a readiness percentage.
-- The current Hermes archive and the foreign architecture lane may alter the
-  base. Refresh from accepted truth, reconcile overlap at the owning requirement,
-  and rerun only evidence invalidated by changed inputs. Do not reset, cherry-pick
-  unseen work, or publish a second proposal for the same semantic content.
+- Locally accepted Hermes source `2aa58eea` has exact-HEAD ETHOS proof
+  Attestation `731c06ac` and a [GitHub proposal Verify run](https://github.com/HengYangDS/aigw-cli/actions/runs/36234147864)
+  at the same SHA. Its OpenSpec record is archived in this terminal Change;
+  equivalent later gate wiring belongs here, not in a second Hermes landing.
+  Reconcile foreign work at its owning requirement and rerun only evidence
+  invalidated by changed inputs.
 
 ## Migration Plan
 
