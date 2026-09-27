@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -10,7 +11,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
+	"time"
 
+	"aigw-cli/tools/ci/evidence"
 	"aigw-cli/tools/ci/markdown"
 	"aigw-cli/tools/ci/projection"
 	"aigw-cli/tools/release/readiness"
@@ -27,7 +31,7 @@ func main() {
 
 func run(args []string, stdout io.Writer, runner commandRunner) error {
 	if len(args) == 0 {
-		return errors.New("usage: ci <project|source|quality|openspec|links|check-format|check-go|check-source-size|check-spelling|check-toml|check-markdown|check-markdown-policy|check-mermaid|check-secrets|native|trust-input>")
+		return errors.New("usage: ci <project|source|quality|openspec|links|check-format|check-go|check-source-size|check-spelling|check-toml|check-markdown|check-markdown-policy|check-mermaid|check-secrets|native|release-evidence|trust-input>")
 	}
 	checks := map[string]func(string, commandRunner) error{
 		"links": checkLinks, "check-go": checkGo,
@@ -79,6 +83,8 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 		return projection.Reconcile(*root, *check)
 	case "native":
 		return runNative(args[1:], stdout, runner)
+	case "release-evidence":
+		return runReleaseEvidence(args[1:], stdout)
 	case "trust-input":
 		flags := flag.NewFlagSet("ci trust-input", flag.ContinueOnError)
 		flags.SetOutput(io.Discard)
@@ -96,6 +102,49 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 	default:
 		return fmt.Errorf("unknown ci command: %s", args[0])
 	}
+}
+
+type jobFlags []string
+
+func (flags *jobFlags) String() string { return strings.Join(*flags, ", ") }
+
+func (flags *jobFlags) Set(value string) error {
+	*flags = append(*flags, value)
+	return nil
+}
+
+func runReleaseEvidence(arguments []string, output io.Writer) error {
+	const usage = "usage: ci release-evidence --repository <owner/name> --workflow <file> --tag <v...> --sha <commit> --job <name>..."
+	flags := flag.NewFlagSet("ci release-evidence", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	repository := flags.String("repository", "", "selected GitHub repository")
+	workflow := flags.String("workflow", "", "verification workflow filename")
+	tag := flags.String("tag", "", "selected release tag")
+	sha := flags.String("sha", "", "peeled release commit")
+	var jobs jobFlags
+	flags.Var(&jobs, "job", "required tag workflow job")
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *repository == "" || *workflow == "" || *tag == "" || *sha == "" || len(jobs) == 0 {
+		return errors.New(usage)
+	}
+	apiBase := os.Getenv("GITHUB_API_URL")
+	if apiBase == "" {
+		apiBase = "https://api.github.com"
+	}
+	token := os.Getenv("GH_TOKEN")
+	if token == "" {
+		token = os.Getenv("GITHUB_TOKEN")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	verifier := evidence.GitHubTagVerifier{APIBase: apiBase, Repository: *repository, Workflow: *workflow, Token: token}
+	result, err := verifier.Verify(ctx, *tag, *sha, jobs)
+	if err != nil {
+		return fmt.Errorf("GitHub release evidence: %w", err)
+	}
+	if _, err := fmt.Fprintf(output, "GitHub release evidence verified: run %d attempt %d\n", result.RunID, result.Attempt); err != nil {
+		return fmt.Errorf("report verified GitHub release evidence: %w", err)
+	}
+	return nil
 }
 
 func runNative(args []string, stdout io.Writer, runner commandRunner) error {

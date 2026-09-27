@@ -27,6 +27,7 @@ env:
         default: false
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: release-${{ github.repository }}-${{ inputs.tag }}-${{ inputs.runner }}
   cancel-in-progress: false
@@ -69,6 +70,11 @@ jobs:
         env:
           AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }}
         run: mise exec --locked -- go run ./tools/ci trust-input --artifact --output "$env:RUNNER_TEMP/aigw-artifact-signers" --github-env "$env:GITHUB_ENV"
+      - name: Verify this peer's exact tag pipeline
+        run: |-
+          $tagCommit = git rev-parse --verify "$($env:CI_COMMIT_TAG)^{commit}"
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($tagCommit)) { throw 'Cannot resolve selected release tag' }
+          mise exec --locked -- go run ./tools/ci release-evidence --repository "$env:GITHUB_REPOSITORY" --workflow verify.yml --tag "$env:CI_COMMIT_TAG" --sha "$tagCommit" --job 'Quality and governance' --job 'Native macOS acceptance' --job 'Native Linux acceptance' --job 'Native Windows acceptance' --job 'Release version'
       - name: Download this peer's published artifacts
         run: mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir dist
       - name: Verify complete artifacts and signed source

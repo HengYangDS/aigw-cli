@@ -360,6 +360,7 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 
 	var github struct {
 		Jobs map[string]struct {
+			If    string   `yaml:"if"`
 			Needs []string `yaml:"needs"`
 			Steps []struct {
 				Run string `yaml:"run"`
@@ -369,9 +370,17 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
 		t.Fatal(err)
 	}
-	wantGitHubJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "native-windows", "quality"}
+	wantGitHubJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "native-windows", "quality", "release-version"}
 	if got := slices.Sorted(maps.Keys(github.Jobs)); !slices.Equal(got, wantGitHubJobs) {
 		t.Fatalf("GitHub jobs = %q, want %q", got, wantGitHubJobs)
+	}
+	version := github.Jobs["release-version"]
+	if version.If != "github.ref_type == 'tag'" || !slices.ContainsFunc(version.Steps, func(step struct {
+		Run string `yaml:"run"`
+	}) bool {
+		return step.Run == "mise exec --locked -- go run ./tools/release validate-version-tag"
+	}) {
+		t.Fatalf("GitHub tag version gate = %#v", version)
 	}
 	quality := github.Jobs["quality"]
 	if !slices.ContainsFunc(quality.Steps, func(step struct {

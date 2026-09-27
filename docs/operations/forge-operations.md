@@ -189,6 +189,14 @@ against that host's published archive, after checksum, signature and source
 verification. This does not publish, replace a tag or rebuild the candidate.
 Separate runner selections can execute independently.
 
+Before downloading assets, the workflow resolves the selected tag to its
+product commit and requires this peer's latest successful tag-push `Verify`
+attempt at that SHA. Quality, macOS, Linux, Windows and version jobs must all
+have passed in that same attempt. Branch or manual runs, an earlier attempt,
+another peer, or incomplete GitHub Actions evidence do not qualify. The
+workflow has read-only Actions access for this check; GitLab instead uses
+same-pipeline `needs` for the same five obligations.
+
 The bounded choices cover the six published OS/architecture pairs. Alongside
 the ordinary Linux, macOS and Windows hosts, `ubuntu-24.04-arm`,
 `macos-15-intel` and `windows-11-arm` execute the additional architectures.

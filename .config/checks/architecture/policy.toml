@@ -54,7 +54,7 @@ package_children."internal/client" = ["verification"]
 package_children."internal/hermes" = ["configuration"]
 allowed_import_edges."internal/hermes/configuration" = ["internal/transaction"]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
-package_children."tools/ci" = ["markdown", "projection"]
+package_children."tools/ci" = ["evidence", "markdown", "projection"]
 package_children."tools/codex" = ["catalog"]
 package_children."tools/release" = [
   "artifact",
@@ -338,10 +338,12 @@ allowed_import_edges."internal/providers/diagnostic" = []
 allowed_import_edges."internal/presentation" = ["internal/configuration"]
 allowed_import_edges."internal/process" = []
 allowed_import_edges."tools/ci" = [
+  "tools/ci/evidence",
   "tools/ci/markdown",
   "tools/ci/projection",
   "tools/release/readiness",
 ]
+allowed_import_edges."tools/ci/evidence" = []
 allowed_import_edges."tools/ci/markdown" = []
 allowed_import_edges."tools/ci/projection" = []
 allowed_import_edges."tools/release" = [

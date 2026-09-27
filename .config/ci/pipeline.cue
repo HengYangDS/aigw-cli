@@ -158,6 +158,14 @@ graph: {
 	"release-assets": {stage: "release", rank: 1, needs: list.Concat([["quality"], [for platform in productEvidence.native {"native-\(platform)"}], ["release-version"]]), claims: ["artifact-verification"]}
 }
 
+// The same declared release dependencies name the GitHub tag jobs; the
+// read-only Release workflow must not substitute another peer or attempt.
+githubTagEvidenceJobs: strings.Join([
+	for dependency in graph["release-assets"].needs {
+		"--job '\(githubVerify.jobs[dependency].name)'"
+	},
+], " ")
+
 gitlabVerificationCondition: {
 	tag:           "$CI_COMMIT_TAG"
 	review:        "$CI_PIPELINE_SOURCE == \"merge_request_event\" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.acceptedBranch)\" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.releaseBranch)\")"
@@ -726,6 +734,18 @@ githubVerify: {
 				},
 			]
 		}
+		"release-version": {
+			name:              "Release version"
+			"runs-on":         nativeEvidence.linux.github.runner
+			"timeout-minutes": 5
+			if:                "github.ref_type == 'tag'"
+			env:               goToolchain
+			steps: [
+				#SourceCheckout,
+				#Toolchain,
+				{name: "Validate tag version", run: commands.version},
+			]
+		}
 		for platform in productEvidence.native {
 			"native-\(platform)": #NativeGitHubJob & {_platform: platform}
 		}
@@ -766,7 +786,10 @@ githubRelease: {
 			}
 		}
 	}
-	permissions: contents: "read"
+	permissions: {
+		contents: "read"
+		actions:  "read"
+	}
 	concurrency: {
 		group:                "release-${{ github.repository }}-${{ inputs.tag }}-${{ inputs.runner }}"
 		"cancel-in-progress": false
@@ -796,6 +819,14 @@ githubRelease: {
 					name: "Materialize artifact signature trust"
 					env: AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }}"
 					run: "mise exec --locked -- go run ./tools/ci trust-input --artifact --output \"$env:RUNNER_TEMP/aigw-artifact-signers\" --github-env \"$env:GITHUB_ENV\""
+				},
+				{
+					name: "Verify this peer's exact tag pipeline"
+					run:  """
+						$tagCommit = git rev-parse --verify "$($env:CI_COMMIT_TAG)^{commit}"
+						if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($tagCommit)) { throw 'Cannot resolve selected release tag' }
+						mise exec --locked -- go run ./tools/ci release-evidence --repository "$env:GITHUB_REPOSITORY" --workflow verify.yml --tag "$env:CI_COMMIT_TAG" --sha "$tagCommit" \(githubTagEvidenceJobs)
+						"""
 				},
 				{
 					name: "Download this peer's published artifacts"
