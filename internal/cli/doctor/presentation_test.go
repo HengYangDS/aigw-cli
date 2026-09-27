@@ -132,7 +132,7 @@ func TestResultClassifiesObservedClientStates(t *testing.T) {
 				return map[string]domainreadiness.Client{configuration.ClientClaude: {State: test.state}}
 			}
 			result := executeJSON(t, deps, out)
-			if result.OK != test.ok || (!test.ok && result.NextAction != "aigw doctor --json") || (test.ok && result.NextAction != "aigw sync") {
+			if result.OK != test.ok || (!test.ok && result.NextAction != "aigw doctor --json") || (test.ok && result.NextAction != "Install Claude if needed, then run `aigw sync`") {
 				t.Fatalf("doctor result=%#v", result)
 			}
 		})

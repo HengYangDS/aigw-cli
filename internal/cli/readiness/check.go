@@ -53,11 +53,12 @@ func activationCheckIssue(activation clientactivation.Activation) (problem, evid
 			fmt.Errorf("credential metadata unavailable")
 	case activation.EnabledClients != 0:
 		evidence = "A Client Binding is selected, but its native projection is not available."
-		if activation.CredentialPrerequisite {
+		jsonError = "No enabled client has a native projection; no endpoint or model was checked"
+		if len(activation.ClientCredentialPrerequisites) != 0 {
 			evidence = "The selected Account Token is unavailable and its native projection is deferred."
+			jsonError = "The selected Account Token and native projection are unavailable; no endpoint or model was checked"
 		}
-		return "Client projection is deferred", evidence,
-			"No enabled client has a native projection; no endpoint or model was checked",
+		return "Client projection is deferred", evidence, jsonError,
 			fmt.Errorf("client projection is deferred")
 	default:
 		return "No client is enabled",
@@ -188,7 +189,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			EnabledClients: activation.EnabledClients,
 			OK:             false,
 			State:          activation.State,
-			NextAction:     activation.NextAction,
+			NextAction:     activation.NextActionFor(nil),
 			Error:          issue,
 		}
 		if err := presentation.WriteJSON(runtime.Out, result); err != nil {
@@ -299,7 +300,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
 		problem, evidence, _, cause := activationCheckIssue(activation)
-		return invocation.Problem(runtime, problem, evidence, "No endpoint or model was checked.", activation.NextAction, cause)
+		return invocation.Problem(runtime, problem, evidence, "No endpoint or model was checked.", activation.NextActionFor(nil), cause)
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
 	if !evaluation.ok() {

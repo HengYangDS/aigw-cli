@@ -54,6 +54,18 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 			wantAction: "aigw sync",
 		},
 		{
+			name: "selected inactive client retains its activation prerequisite",
+			facts: ClientFacts{
+				Route:               "codex",
+				Account:             "team",
+				CredentialRequired:  true,
+				CredentialAvailable: true,
+				ProjectionAction:    "Install Codex if needed, then run `aigw sync`",
+			},
+			wantState:  Deferred,
+			wantAction: "Install Codex if needed, then run `aigw sync`",
+		},
+		{
 			name: "selected client projection is deferred",
 			facts: ClientFacts{
 				Route:              "hermes-route",

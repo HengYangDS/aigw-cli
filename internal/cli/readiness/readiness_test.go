@@ -306,6 +306,26 @@ func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
 	}
 }
 
+func TestCheckExplainsBothMissingTokenAndDeferredProjection(t *testing.T) {
+	runtime, cfg, output := configuredReadinessRuntime(t)
+	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	command := NewCheckCommand(runtime)
+	command.SetArgs([]string{"--json"})
+	if err := executeCommand(command); err == nil {
+		t.Fatal("missing Token and projection were accepted")
+	}
+	var result checkJSON
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.NextAction != "run `aigw rotate one`" || !strings.Contains(result.Error, "Token") || !strings.Contains(result.Error, "projection") {
+		t.Fatalf("missing prerequisites were not explained together: %+v", result)
+	}
+}
+
 func TestCheckReportsCredentialMetadataFailureBeforeClientProjection(t *testing.T) {
 	runtime, cfg, output := configuredReadinessRuntime(t)
 	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)

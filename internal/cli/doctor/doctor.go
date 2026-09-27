@@ -171,7 +171,7 @@ func applyActivation(result *commandResult, cfg configuration.Config, store secr
 	result.State = activation.State
 	if activation.State == domainreadiness.Unavailable {
 		result.OK = false
-		result.NextAction = activation.NextAction
+		result.NextAction = activation.NextActionFor(nil)
 		return
 	}
 	if !result.OK {

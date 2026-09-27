@@ -93,7 +93,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 		return err
 	}
 
-	result := buildManifestSetupResult(runtime, cfg, accountNames, connected, availableClients, selectedClients)
+	result := buildManifestSetupResult(runtime, cfg, accountNames, connected, selectedClients)
 	if request.JSON {
 		return presentation.WriteJSON(runtime.Out, result)
 	}
@@ -114,7 +114,6 @@ func buildManifestSetupResult(
 	cfg configuration.Config,
 	accountNames []string,
 	connected map[string]setupCredential,
-	availableClients map[string]bool,
 	selectedClients []string,
 ) manifestSetupResult {
 	result := manifestSetupResult{
@@ -141,23 +140,20 @@ func buildManifestSetupResult(
 		}
 	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
-	if activation.CredentialPrerequisite {
-		result.DeferredActions = append(result.DeferredActions, activation.NextAction)
+	if activation.CredentialPrerequisite != "" {
+		result.DeferredActions = append(result.DeferredActions, activation.CredentialPrerequisite)
 	}
 	for _, spec := range configuration.AdmittedClientSpecs() {
 		binding, selected := cfg.Clients[spec.ID]
 		if !selected || binding.Route == "" || !binding.Enabled || slices.Contains(result.ProjectedClients, spec.ID) {
 			continue
 		}
+		if action := activation.ClientCredentialPrerequisites[spec.ID]; action != "" && !slices.Contains(result.DeferredActions, action) {
+			result.DeferredActions = append(result.DeferredActions, action)
+		}
 		if action := activation.ProjectionPrerequisites[spec.ID]; action != "" {
 			result.DeferredActions = append(result.DeferredActions, action)
-			continue
 		}
-		if !availableClients[spec.ID] {
-			result.DeferredActions = append(result.DeferredActions, "Install "+spec.Label+", then run `aigw sync`")
-			continue
-		}
-		result.DeferredActions = append(result.DeferredActions, "Connect the selected Account for "+spec.Label+", then run `aigw sync`")
 	}
 	result.NextAction = activation.NextActionFor(nil)
 	return result

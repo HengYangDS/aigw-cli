@@ -11,17 +11,19 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-// Activation describes enabled-client scope, the next prerequisite, and
-// reusable credential metadata, never Token values or inference health.
+// Activation separates the prerequisites for local client use and caches
+// credential availability metadata, never Token values or inference health.
 // An empty scope is deferred despite a valid catalogue.
 type Activation struct {
-	EnabledClients          int
-	State                   domainreadiness.State
-	NextAction              string
-	CredentialPrerequisite  bool
-	CredentialPrerequisites map[string]string
-	ProjectionPrerequisites map[string]string
-	observedCredentials     map[string]credentialObservation
+	EnabledClients                int
+	State                         domainreadiness.State
+	CapabilityPrerequisite        string
+	SelectionPrerequisite         string
+	CredentialPrerequisite        string
+	ClientCredentialPrerequisites map[string]string
+	ProjectionPrerequisites       map[string]string
+	VerificationPrerequisite      string
+	observedCredentials           map[string]credentialObservation
 }
 
 type credentialObservation struct {
@@ -45,9 +47,50 @@ func (a *Activation) NextActionFor(clients []domainreadiness.Client) string {
 	if a == nil {
 		return ""
 	}
-	if a.CredentialPrerequisite || a.State == domainreadiness.Unavailable {
-		return a.NextAction
+	if a.CapabilityPrerequisite != "" {
+		return a.CapabilityPrerequisite
 	}
+	if a.CredentialPrerequisite != "" {
+		return a.CredentialPrerequisite
+	}
+	if a.SelectionPrerequisite != "" {
+		return a.SelectionPrerequisite
+	}
+	for _, observation := range a.observedCredentials {
+		if observation.err != nil {
+			return "aigw doctor"
+		}
+	}
+	projectionAction := ""
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		if action := a.ProjectionPrerequisites[spec.ID]; action != "" && a.ClientCredentialPrerequisites[spec.ID] == "" {
+			projectionAction = action
+			break
+		}
+	}
+	if a.EnabledClients == 0 && projectionAction != "" {
+		return projectionAction
+	}
+	if action := observedClientAction(clients); action != "" {
+		return action
+	}
+	if projectionAction != "" {
+		return projectionAction
+	}
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		if action := a.ClientCredentialPrerequisites[spec.ID]; action != "" {
+			return action
+		}
+	}
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		if action := a.ProjectionPrerequisites[spec.ID]; action != "" {
+			return action
+		}
+	}
+	return a.VerificationPrerequisite
+}
+
+func observedClientAction(clients []domainreadiness.Client) string {
 	bestAction := ""
 	bestPriority := -1
 	attention := false
@@ -70,36 +113,19 @@ func (a *Activation) NextActionFor(clients []domainreadiness.Client) string {
 	if attention && bestPriority < 3 {
 		return "aigw repair"
 	}
-	if bestAction != "" {
-		return bestAction
+	return bestAction
+}
+
+func observeCredential(store secrets.Store, observed map[string]credentialObservation, account string) (credentialObservation, bool) {
+	if store == nil {
+		return credentialObservation{}, false
 	}
-	if a.NextAction != "" {
-		return a.NextAction
+	observation, exists := observed[account]
+	if !exists {
+		observation.available, observation.err = store.Exists(account)
+		observed[account] = observation
 	}
-	for _, observation := range a.observedCredentials {
-		if observation.err != nil {
-			return "aigw doctor"
-		}
-	}
-	for _, spec := range configuration.AdmittedClientSpecs() {
-		if action := a.ProjectionPrerequisites[spec.ID]; action != "" && a.CredentialPrerequisites[spec.ID] == "" {
-			return action
-		}
-	}
-	for _, spec := range configuration.AdmittedClientSpecs() {
-		if action := a.CredentialPrerequisites[spec.ID]; action != "" {
-			return action
-		}
-	}
-	for _, spec := range configuration.AdmittedClientSpecs() {
-		if action := a.ProjectionPrerequisites[spec.ID]; action != "" {
-			return action
-		}
-	}
-	if a.EnabledClients != 0 {
-		return "aigw check"
-	}
-	return ""
+	return observation, true
 }
 
 // ProjectionPrerequisites derives pending native-client work from selected
@@ -118,53 +144,145 @@ func ProjectionPrerequisites(cfg configuration.Config) map[string]string {
 
 func assessEnabledProjection(cfg configuration.Config, store secrets.Store, result Activation) Activation {
 	result.ProjectionPrerequisites = ProjectionPrerequisites(cfg)
-	result.CredentialPrerequisites = map[string]string{}
+	result.ClientCredentialPrerequisites = map[string]string{}
 	result.observedCredentials = map[string]credentialObservation{}
+	blocked := 0
+	metadataUnavailable := false
 	for _, spec := range configuration.AdmittedClientSpecs() {
 		if !cfg.Clients[spec.ID].Enabled {
 			continue
 		}
 		runtime, err := cfg.ResolveRuntime(spec.ID, "")
-		if err != nil || !runtime.UsesAIGWCredentialStore() || store == nil {
-			continue
+		if err == nil && runtime.UsesAIGWCredentialStore() {
+			observation, observed := observeCredential(store, result.observedCredentials, runtime.AccountID)
+			switch {
+			case !observed || observation.err != nil:
+				metadataUnavailable = true
+			case !observation.available:
+				result.ClientCredentialPrerequisites[spec.ID], _ = credential.TokenRecovery(store, runtime.AccountID)
+			}
 		}
-		observation, observed := result.observedCredentials[runtime.AccountID]
-		if !observed {
-			observation.available, observation.err = store.Exists(runtime.AccountID)
-			result.observedCredentials[runtime.AccountID] = observation
-		}
-		if observation.err == nil && !observation.available {
-			result.CredentialPrerequisites[spec.ID], _ = credential.TokenRecovery(store, runtime.AccountID)
-		}
-	}
-	if len(result.ProjectionPrerequisites) != result.EnabledClients {
-		return result
-	}
-	result.State = domainreadiness.Deferred
-	for _, spec := range configuration.AdmittedClientSpecs() {
-		if result.ProjectionPrerequisites[spec.ID] == "" {
-			continue
-		}
-		runtime, err := cfg.ResolveRuntime(spec.ID, "")
-		if err != nil || !runtime.UsesAIGWCredentialStore() {
-			result.NextAction = result.ProjectionPrerequisites[spec.ID]
-			return result
-		}
-		if observation := result.observedCredentials[runtime.AccountID]; observation.available && observation.err == nil {
-			result.NextAction = result.ProjectionPrerequisites[spec.ID]
-			return result
+		if result.ProjectionPrerequisites[spec.ID] != "" || result.ClientCredentialPrerequisites[spec.ID] != "" {
+			blocked++
 		}
 	}
-	for _, spec := range configuration.AdmittedClientSpecs() {
-		if action := result.CredentialPrerequisites[spec.ID]; action != "" {
-			result.NextAction = action
-			result.CredentialPrerequisite = true
-			return result
-		}
+	if metadataUnavailable {
+		result.State = domainreadiness.Unavailable
+		result.CredentialPrerequisite = "aigw doctor"
+	} else if len(result.ProjectionPrerequisites) == result.EnabledClients {
+		result.State = domainreadiness.Deferred
+	} else if blocked == 0 {
+		result.VerificationPrerequisite = "aigw check"
 	}
-	result.State = domainreadiness.Unavailable
-	result.NextAction = "aigw doctor"
 	return result
+}
+
+type inactiveClientAssessment struct {
+	cfg            configuration.Config
+	store          secrets.Store
+	result         Activation
+	readOnly       bool
+	seen           map[string]bool
+	alternatives   []string
+	firstMissing   string
+	backendMissing bool
+}
+
+func (assessment *inactiveClientAssessment) consider(client, route string, selected bool) bool {
+	if route == "" {
+		return false
+	}
+	candidate, err := assessment.cfg.ResolveRuntime(client, route)
+	if err != nil {
+		return false
+	}
+	spec, _ := configuration.ClientSpecFor(client)
+	assessment.result.ProjectionPrerequisites[client] = "Install " + spec.Label + " if needed, then run `aigw sync`"
+	if !candidate.RequiresAccountToken() {
+		delete(assessment.result.ClientCredentialPrerequisites, client)
+		return true
+	}
+	if assessment.store == nil {
+		assessment.result.ClientCredentialPrerequisites[client] = "aigw doctor"
+		assessment.backendMissing = true
+		return false
+	}
+	if !selected && !assessment.readOnly {
+		assessment.result.ClientCredentialPrerequisites[client], _ = credential.TokenRecovery(assessment.store, candidate.AccountID)
+		if !assessment.seen[candidate.AccountID] {
+			assessment.alternatives = append(assessment.alternatives, "aigw rotate "+candidate.AccountID)
+			assessment.seen[candidate.AccountID] = true
+		}
+		return false
+	}
+	observation, _ := observeCredential(assessment.store, assessment.result.observedCredentials, candidate.AccountID)
+	if observation.err != nil {
+		assessment.result.State = domainreadiness.Unavailable
+		assessment.result.CredentialPrerequisite = "aigw doctor"
+		return true
+	}
+	if observation.available {
+		delete(assessment.result.ClientCredentialPrerequisites, client)
+		return true
+	}
+	action, _ := credential.TokenRecovery(assessment.store, candidate.AccountID)
+	assessment.result.ClientCredentialPrerequisites[client] = action
+	if selected && assessment.firstMissing == "" {
+		assessment.firstMissing = action
+	} else if !selected && !assessment.seen[candidate.AccountID] {
+		assessment.alternatives = append(assessment.alternatives, secrets.EnvironmentKey(candidate.AccountID))
+		assessment.seen[candidate.AccountID] = true
+	}
+	return false
+}
+
+func (assessment *inactiveClientAssessment) finish() Activation {
+	switch {
+	case assessment.firstMissing != "":
+		assessment.result.CredentialPrerequisite = assessment.firstMissing
+	case len(assessment.alternatives) > 0:
+		slices.Sort(assessment.alternatives)
+		prefix := "Choose one compatible Account: "
+		if assessment.readOnly {
+			prefix = "Set one compatible Account variable: "
+		}
+		assessment.result.CredentialPrerequisite = prefix + strings.Join(assessment.alternatives, " or ")
+	case assessment.backendMissing:
+		assessment.result.State = domainreadiness.Unavailable
+		assessment.result.CredentialPrerequisite = "aigw doctor"
+	default:
+		assessment.result.SelectionPrerequisite = "aigw use --help"
+	}
+	return assessment.result
+}
+
+func assessInactiveClients(cfg configuration.Config, store secrets.Store, result Activation) Activation {
+	result.observedCredentials = map[string]credentialObservation{}
+	result.ClientCredentialPrerequisites = map[string]string{}
+	result.ProjectionPrerequisites = map[string]string{}
+	assessment := inactiveClientAssessment{
+		cfg: cfg, store: store, result: result, readOnly: secrets.IsReadOnly(store), seen: map[string]bool{},
+	}
+	for _, client := range configuration.AdmittedClientIDs() {
+		if assessment.consider(client, cfg.SelectedRoute(client), true) {
+			return assessment.result
+		}
+	}
+	for _, client := range configuration.AdmittedClientIDs() {
+		if cfg.SelectedRoute(client) != "" {
+			continue
+		}
+		recommendation := cfg.Recommendations[client]
+		if assessment.consider(client, recommendation.Primary.Route, false) {
+			return assessment.result
+		}
+		for _, alternative := range recommendation.Alternatives {
+			if assessment.consider(client, alternative.Route, false) {
+				return assessment.result
+			}
+		}
+	}
+	return assessment.finish()
 }
 
 // AssessActivation selects a safe continuation without observing unselected
@@ -177,88 +295,8 @@ func AssessActivation(cfg configuration.Config, store secrets.Store) Activation 
 	}
 	result.State = domainreadiness.Deferred
 	if len(cfg.Routes) == 0 {
-		result.NextAction = "aigw setup"
+		result.CapabilityPrerequisite = "aigw setup"
 		return result
 	}
-	if store == nil {
-		return Activation{EnabledClients: result.EnabledClients, State: domainreadiness.Unavailable, NextAction: "aigw doctor"}
-	}
-
-	readOnly := secrets.IsReadOnly(store)
-	choicePrefix := "Set one compatible Account variable: "
-	if !readOnly {
-		choicePrefix = "Choose one compatible Account: "
-	}
-	result.observedCredentials = map[string]credentialObservation{}
-	firstMissing := ""
-	var alternatives []string
-	seen := map[string]bool{}
-	consider := func(client, route string, selected bool) bool {
-		if route == "" {
-			return false
-		}
-		candidate, err := cfg.ResolveRuntime(client, route)
-		if err != nil {
-			return false
-		}
-		if !candidate.RequiresAccountToken() {
-			result.NextAction = "aigw sync"
-			return true
-		}
-		if seen[candidate.AccountID] {
-			return false
-		}
-		seen[candidate.AccountID] = true
-		if !selected && !readOnly {
-			alternatives = append(alternatives, "aigw rotate "+candidate.AccountID)
-			return false
-		}
-		available, err := store.Exists(candidate.AccountID)
-		result.observedCredentials[candidate.AccountID] = credentialObservation{available: available, err: err}
-		if err != nil {
-			result.State = domainreadiness.Unavailable
-			result.NextAction = "aigw doctor"
-			return true
-		}
-		if available {
-			result.NextAction = "aigw sync"
-			return true
-		}
-		if selected && firstMissing == "" {
-			firstMissing, _ = credential.TokenRecovery(store, candidate.AccountID)
-		} else if !selected {
-			alternatives = append(alternatives, secrets.EnvironmentKey(candidate.AccountID))
-		}
-		return false
-	}
-	for _, client := range configuration.AdmittedClientIDs() {
-		if consider(client, cfg.SelectedRoute(client), true) {
-			return result
-		}
-	}
-	for _, client := range configuration.AdmittedClientIDs() {
-		if cfg.SelectedRoute(client) != "" {
-			continue
-		}
-		recommendation := cfg.Recommendations[client]
-		if consider(client, recommendation.Primary.Route, false) {
-			return result
-		}
-		for _, alternative := range recommendation.Alternatives {
-			if consider(client, alternative.Route, false) {
-				return result
-			}
-		}
-	}
-	if firstMissing != "" {
-		result.NextAction = firstMissing
-		result.CredentialPrerequisite = true
-	} else if len(alternatives) > 0 {
-		slices.Sort(alternatives)
-		result.NextAction = choicePrefix + strings.Join(alternatives, " or ")
-		result.CredentialPrerequisite = true
-	} else {
-		result.NextAction = "aigw use --help"
-	}
-	return result
+	return assessInactiveClients(cfg, store, result)
 }

@@ -17,13 +17,13 @@
 
 ## 2. One Onboarding and Readiness Decision
 
-- [ ] 2.1 Make the existing activation owner return capability, selection,
+- [x] 2.1 Make the existing activation owner return capability, selection,
       credential, projection, and verification prerequisites separately; focused
       tests reject a next action whose precondition is absent.
-- [ ] 2.2 Consume that decision in manifest setup and guided setup; test that
+- [x] 2.2 Consume that decision in manifest setup and guided setup; test that
       zero credentials yield equal compatible Account choices and never recommend
       immediate no-op sync.
-- [ ] 2.3 Consume the same decision in sync preview, status, check, and doctor;
+- [x] 2.3 Consume the same decision in sync preview, status, check, and doctor;
       assert equivalent human/JSON states and next actions on identical input.
 - [x] 2.4 Verify the accepted `aigw use --for` path preserves every other
       client's explicit binding and `aigw check` succeeds without a global

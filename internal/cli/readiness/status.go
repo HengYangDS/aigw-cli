@@ -104,7 +104,7 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config, 
 			Account:            clientRuntime.AccountID,
 			CredentialRequired: clientRuntime.UsesAIGWCredentialStore(),
 			ProjectionEnabled:  cfg.Clients[clientID].Enabled,
-			ProjectionDeferred: projectionPrerequisite != "",
+			ProjectionDeferred: cfg.Clients[clientID].Enabled && projectionPrerequisite != "",
 			ProjectionReady:    adapterStatus.Ready,
 			ProjectionIssue:    adapterStatus.Issue,
 			ProjectionAction:   projectionAction,
@@ -154,7 +154,7 @@ func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *client
 	if available {
 		return
 	}
-	facts.CredentialAction = activation.CredentialPrerequisites[clientID]
+	facts.CredentialAction = activation.ClientCredentialPrerequisites[clientID]
 	if facts.CredentialAction == "" {
 		facts.CredentialAction, _ = credential.TokenRecovery(store, accountID)
 	}

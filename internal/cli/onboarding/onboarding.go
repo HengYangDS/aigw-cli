@@ -234,7 +234,7 @@ func renderSetupClients(runtime invocation.Context, cfg configuration.Config, se
 		return
 	}
 	r.Success("Client projection configured; real-client use is not yet verified.")
-	r.Next("aigw check")
+	r.Next(activation.NextActionFor(nil))
 }
 
 func setupEndpointFlag(protocol configuration.EndpointProtocol) string {

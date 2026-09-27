@@ -128,7 +128,10 @@ func ClassifyClient(facts ClientFacts) Client {
 	case !facts.ProjectionEnabled:
 		state.State = Deferred
 		state.Detail = "The client is not installed or enabled"
-		state.NextAction = "aigw sync"
+		state.NextAction = facts.ProjectionAction
+		if state.NextAction == "" {
+			state.NextAction = "aigw sync"
+		}
 	default:
 		state.State = Configured
 	}
