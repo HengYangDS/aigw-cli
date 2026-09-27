@@ -136,6 +136,56 @@ func TestUninstallReportsCommittedWithdrawalWhenReaderCleanupFails(t *testing.T)
 	}
 }
 
+func TestPortableUninstallPreservesExternalCredentialCommand(t *testing.T) {
+	app, _, secretStore, _, _ := testApp(t, "")
+	root := t.TempDir()
+	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
+	app.DataDir = filepath.Join(root, "data")
+	writeFile(t, app.Executable, []byte("portable program"), 0o755)
+	reader, err := credential.VersionedEntrypointPath(app.DataDir, app.Executable, executableName("aigw"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.CredentialPath = reader
+	codexTarget := filepath.Join(root, "codex", "config.toml")
+	writeFile(t, codexTarget, []byte("approval_policy = \"on-request\"\n"), 0o600)
+	configureUninstallClients(t, app, codexTarget)
+	external := filepath.Join(root, "external-credential")
+	writeFile(t, external, []byte("operator-owned helper"), 0o700)
+	cfg, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+		binding := cfg.Clients[client]
+		binding.CredentialCommand = external
+		cfg.Clients[client] = binding
+	}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(reader); err != nil {
+		t.Fatalf("external switch removed a potentially cached AIGW reader: %v", err)
+	}
+	if err := cli.Execute(app, []string{"uninstall"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(readFile(t, external)); got != "operator-owned helper" {
+		t.Fatalf("uninstall changed external credential command: %q", got)
+	}
+	for _, path := range []string{app.Executable, reader, reader + ".sha256"} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("uninstall retained AIGW-owned path %s: %v", path, err)
+		}
+	}
+	if token, err := secretStore.Get("team"); err != nil || token != "token" {
+		t.Fatalf("uninstall changed Token: %q, %v", token, err)
+	}
+}
+
 func verifyUninstallOwnership(t *testing.T, manager string) {
 	t.Helper()
 	app, _, secretStore, _, _ := testApp(t, "")
