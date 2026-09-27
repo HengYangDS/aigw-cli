@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"sort"
 	"strings"
@@ -16,6 +17,8 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/surface"
 	"aigw-cli/internal/transaction"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 const (
@@ -225,6 +228,9 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
+	if err := validateCodexCatalogPreflight(target, configSnapshot, stateSnapshot); err != nil {
+		return codexPreparedTarget{}, err
+	}
 	if !target.desired {
 		return prepareCodexRestoreTransition(target.ref, configSnapshot, stateSnapshot, catalogSnapshot, previous, replaceRootSelections)
 	}
@@ -264,8 +270,15 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	state.ProjectionMode = ProjectionFullSelection
 	state.WriterID = ProjectionWriterID
 	stateData := encodeCodexState(state)
-	converged := stateSnapshot.Exists && bytes.Equal(configSnapshot.Data, projected) &&
-		bytes.Equal(stateSnapshot.Data, stateData) && catalogSnapshot.Equal(catalogDesired)
+	converged := stateSnapshot.Exists && bytes.Equal(stateSnapshot.Data, stateData) && catalogSnapshot.Equal(catalogDesired)
+	if converged && !bytes.Equal(configSnapshot.Data, projected) {
+		current := string(configSnapshot.Data)
+		converged = !replaceRootSelections && strings.Contains(current, codexBegin) &&
+			strings.Contains(current, codexEnd) && sameCodexTOMLValues(configSnapshot.Data, projected)
+	}
+	if converged {
+		projected = configSnapshot.Data
+	}
 	if !converged {
 		state.TransactionID = transactionID
 		stateData = encodeCodexState(state)
@@ -280,6 +293,28 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 		plan:      ProjectionPlan{Target: target.ref.Path, Action: action},
 		artifacts: codexArtifactsForDesiredState(target.ref, configSnapshot, projected, stateSnapshot, stateData, catalogSnapshot, catalogDesired),
 	}, nil
+}
+
+func sameCodexTOMLValues(current, projected []byte) bool {
+	var left, right map[string]any
+	if toml.Unmarshal(current, &left) != nil || toml.Unmarshal(projected, &right) != nil || !reflect.DeepEqual(left, right) {
+		return false
+	}
+	for _, key := range []string{"model_provider", "model", "model_catalog_json"} {
+		wanted, err := codexSelectionLine(string(projected), key)
+		if err != nil {
+			return false
+		}
+		if !strings.HasSuffix(strings.TrimSpace(wanted), "# managed by AIGW") {
+			continue
+		}
+		actual, err := codexSelectionLine(string(current), key)
+		value, ok := right[key].(string)
+		if err != nil || !ok || !isManagedSelection(actual, key, value) {
+			return false
+		}
+	}
+	return true
 }
 
 func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot, catalogSnapshot transaction.FileSnapshot) (codexPreparedTarget, error) {

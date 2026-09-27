@@ -85,6 +85,54 @@ func TestReconcileConfigsProjectsAndWithdrawsTheModelCatalog(t *testing.T) {
 	}
 }
 
+func TestCodexCatalogReferenceAcceptsEquivalentTOMLButRejectsChangedTarget(t *testing.T) {
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
+	path := writeCodexTestConfig(t, "model_provider = 'native'\n")
+	target := codexHomeTarget(path)
+	target.Executable = filepath.Join(filepath.Dir(path), "codex")
+	runtimeConfig := catalogTestRuntime("openai.gpt-5.6-sol")
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	quotedPath, err := codexTOMLString(codexCatalogPath(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownedLine := "model_catalog_json = " + quotedPath + " # managed by AIGW"
+	equivalentLine := "model_catalog_json = '" + codexCatalogPath(path) + "' # managed by AIGW"
+	equivalent := strings.Replace(string(projected), ownedLine, equivalentLine, 1)
+	if equivalent == string(projected) {
+		t.Fatal("fixture did not replace the managed catalog reference")
+	}
+	if err := os.WriteFile(path, []byte(equivalent), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateConfig(path, runtimeConfig); err != nil {
+		t.Fatalf("equivalent catalog reference was rejected: %v", err)
+	}
+	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, runtimeConfig); err != nil {
+		t.Fatalf("equivalent catalog reference was not converged: %v", err)
+	}
+	if current, err := os.ReadFile(path); err != nil || string(current) != equivalent {
+		t.Fatalf("equivalent catalog spelling was rewritten: %v", err)
+	}
+
+	changed := strings.Replace(equivalent, equivalentLine, "model_catalog_json = '/foreign/catalog.json' # managed by AIGW", 1)
+	if err := os.WriteFile(path, []byte(changed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, runtimeConfig); err == nil || !strings.Contains(err.Error(), "model catalog selection") {
+		t.Fatalf("changed catalog target was not rejected: %v", err)
+	}
+	if current, err := os.ReadFile(path); err != nil || string(current) != changed {
+		t.Fatalf("conflicted catalog reference changed: %v", err)
+	}
+}
+
 // TestReconcileConfigsLeavesBareModelSelectionsAlone is the no-regression guard
 // for every profile whose id the client already knows.
 func TestReconcileConfigsLeavesBareModelSelectionsAlone(t *testing.T) {

@@ -55,6 +55,91 @@ func TestCodexSyncProjectsOwnedProviderAndPreservesOtherSettings(t *testing.T) {
 	}
 }
 
+func TestCodexManagedSelectionAcceptsEquivalentTOMLWithoutRewriting(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"original\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime := codexRuntime("team", "Team", "https://team.test/v1", "gpt-test")
+	if err := codex.SyncConfig(path, runtime); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	literal := strings.Replace(string(projected), `model_provider = "aigw" # managed by AIGW`, `model_provider = 'aigw' # managed by AIGW`, 1)
+	literal = strings.Replace(literal, `model = "gpt-test" # managed by AIGW`, `model = 'gpt-test' # managed by AIGW`, 1)
+	if literal == string(projected) {
+		t.Fatal("fixture did not change the owned selection spelling")
+	}
+	if err := os.WriteFile(path, []byte(literal), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	statePath := path + ".aigw-state.json"
+	stateBefore, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := codex.ValidateConfig(path, runtime); err != nil {
+		t.Fatalf("equivalent TOML selection became invalid: %v", err)
+	}
+	if err := codex.SyncConfig(path, runtime); err != nil {
+		t.Fatalf("equivalent TOML selection became a conflict: %v", err)
+	}
+	configAfter, err := os.ReadFile(path)
+	if err != nil || string(configAfter) != literal {
+		t.Fatalf("no-op synchronization rewrote user formatting: %v", err)
+	}
+	stateAfter, err := os.ReadFile(statePath)
+	if err != nil || string(stateAfter) != string(stateBefore) {
+		t.Fatalf("no-op synchronization rewrote owned state: %v", err)
+	}
+
+	changed := strings.Replace(literal, `model = 'gpt-test'`, `model = 'other'`, 1)
+	if err := os.WriteFile(path, []byte(changed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := codex.SyncConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "model selection changed") {
+		t.Fatalf("changed model was not rejected: %v", err)
+	}
+}
+
+func TestCodexSyncRejectsUnattributedManagedCatalogSelection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("model_provider = 'native'\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime := codexRuntime("team", "Team", "https://team.test/v1", "gpt-test")
+	if err := codex.SyncConfig(path, runtime); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign := "model_catalog_json = '/foreign/catalog.json' # managed by AIGW\n" + string(projected)
+	if err := os.WriteFile(path, []byte(foreign), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	statePath := path + ".aigw-state.json"
+	stateBefore, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := codex.SyncConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "model catalog") {
+		t.Fatalf("unattributed managed catalog selection was not rejected: %v", err)
+	}
+	configAfter, err := os.ReadFile(path)
+	if err != nil || string(configAfter) != foreign {
+		t.Fatalf("conflicted config changed: %v", err)
+	}
+	stateAfter, err := os.ReadFile(statePath)
+	if err != nil || string(stateAfter) != string(stateBefore) {
+		t.Fatalf("sidecar changed after rejected sync: %v", err)
+	}
+}
+
 func TestCodexDisablePreservesEarlierProviderTableReference(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	original := "# See [model_providers.aigw] in the generated section below.\nmodel_provider = \"native\"\nmodel = \"gpt-original\"\n"

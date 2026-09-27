@@ -52,6 +52,21 @@ type codexCatalogPlan struct {
 
 func codexCatalogPath(configPath string) string { return configPath + ".aigw-model-catalog.json" }
 
+func validateCodexCatalogPreflight(target codexReconciliationTarget, config, state transaction.FileSnapshot) error {
+	if !target.desired && !state.Exists {
+		return nil
+	}
+	attribution := codexState{}
+	if state.Exists {
+		var err error
+		attribution, err = codexStateForTarget(state)
+		if err != nil {
+			return err
+		}
+	}
+	return validateCodexCatalogReference(target.ref.Path, string(config.Data), attribution)
+}
+
 // codexCatalogProjection decides what AIGW owns for one target without writing
 // anything. It withholds a catalog whenever it cannot prove the adaptation is
 // both needed and correct, so an unrecognized model keeps the client's own
