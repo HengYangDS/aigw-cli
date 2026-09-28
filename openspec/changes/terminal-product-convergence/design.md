@@ -161,8 +161,17 @@ source gate alone does not establish Windows behavior.
 
 The repository lockfiles and `mise run bootstrap` reconstruct each Work Lane's
 mutable `node_modules` and build state. Shared content-addressed caches are
-not mutable cross-lane environments. Existing Go, OpenSpec, CUE, formatting,
-lint, type/structure, security, document, link, and supply-chain tools retain
+not mutable cross-lane environments. Task 5.1 tests the environment boundary
+in a fresh current-HEAD Git worktree, not ETHOS lease creation. At `1015e56c`,
+empty HOME, Mise, Go, and npm caches installed all 19 locked tools and 283 npm
+packages; selected Go, Node, npm, and OSV binaries came from the private Mise
+root. Authored-input hashes and tracked files were unchanged; the focused
+ambient-fallback tests passed. The exact checkout and test state were removed,
+including read-only Go module-cache files. This does not prove a formal new
+ETHOS Work Lane or any other operating system.
+
+Existing Go, OpenSpec, CUE, formatting, lint, type/structure, security,
+document, link, and supply-chain tools retain
 one property owner each; replace hand-written duplicates only after the mature
 tool proves the same failure boundary. Complexity and ELOC bounds are blocking
 where measured risk warrants them, not lower numbers chosen for appearance.

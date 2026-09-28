@@ -95,13 +95,9 @@
 
 ## 5. Portable Native Product Lifecycle
 
-- [ ] 5.1 Reconstruct a fresh Work Lane's locked Go, Node, npm and tool
-      environment with independent mutable state; test empty HOME/cache bootstrap
-      and reject ambient compiler or global package fallback.
-      A tracked-source projection of c574f384 with empty HOME and caches
-      installed 19/19 tools and 283 npm packages in 104.9 seconds, preserved
-      authored input hashes, and removed exact scratch. A new Git Work Lane's
-      integration remains to prove before closing this task.
+- [x] 5.1 Reconstruct a fresh current-HEAD Git worktree's locked Go, Node, npm
+      and tool environment with independent mutable state; test empty HOME/cache
+      bootstrap, reject ambient fallback, and remove exact owned test state.
 - [ ] 5.2 Run Linux container and native-host setup, selected provider,
       projection, update, rollback, uninstall, and cleanup journeys using exact
       release bytes and one retained predecessor state.
