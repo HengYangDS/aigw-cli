@@ -96,13 +96,16 @@ aigw setup --from team.toml
 ```
 
 Importing the team catalogue requires neither every provider Token nor an
-installed client. To connect one Account during setup, name only that Account:
+installed client. To connect one Account during setup, select only that Account.
+Its Token must be available: a writable backend prompts for it, while `env`
+mode reads `AIGW_TOKEN_DMXAPI` from the invoking process:
 
 ```bash
 aigw setup --from team.toml --account dmxapi
 ```
 
-For unattended setup, bind the stdin Token to the same Account explicitly:
+With a writable backend, unattended setup can bind the stdin Token to that
+Account explicitly:
 
 ```bash
 printf '%s\n' "$DMXAPI_TOKEN" \

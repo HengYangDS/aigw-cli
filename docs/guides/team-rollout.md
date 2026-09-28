@@ -389,9 +389,11 @@ aigw setup --from team.toml --account dmxapi
 aigw check
 ```
 
-The interactive command prompts only for the selected Account. Automation may
-pipe exactly one Token by adding `--token-stdin`; it must keep `--account` so
-the Token owner is explicit. The input is read through EOF and is limited to
+The interactive command prompts only for the selected Account with a writable
+backend. In read-only `env` mode, set `AIGW_TOKEN_DMXAPI` in the invoking process;
+`--token-stdin` cannot store it. With a writable backend, automation may pipe
+exactly one Token by adding `--token-stdin`; it must keep `--account` so the
+Token owner is explicit. The input is read through EOF and is limited to
 64 KiB, including an optional terminal LF or CRLF. A Token contains only visible
 ASCII characters; embedded whitespace, extra lines and control characters fail
 before validation or storage.
