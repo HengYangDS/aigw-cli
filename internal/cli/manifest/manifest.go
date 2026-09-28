@@ -8,9 +8,6 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/credential"
-	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/secrets"
 
 	"github.com/spf13/cobra"
 )
@@ -85,57 +82,11 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		}
 		accountNames := configuration.ManifestAccountNames(incoming)
-		missing := []string{}
-		ready := false
-		observed := map[string]bool{}
 		r := invocation.Renderer(runtime)
 		r.ProductTitle("Configuration manifest imported")
 		r.Row("Routes", fmt.Sprintf("%d", len(incoming.Routes)))
 		r.Row("Accounts", fmt.Sprintf("%d", len(accountNames)))
-		for _, client := range configuration.AdmittedClientIDs() {
-			selection := cfg.Recommendations[client].Primary
-			if selection.Route == "" {
-				continue
-			}
-			route, resolveErr := cfg.ResolveRuntime(client, selection.Route)
-			if resolveErr != nil {
-				continue
-			}
-			if !route.RequiresAccountToken() {
-				ready = true
-				continue
-			}
-			name := route.AccountID
-			if observed[name] {
-				continue
-			}
-			observed[name] = true
-			available, observationErr := runtime.Secrets.Exists(name)
-			if observationErr != nil {
-				r.Status(presentation.Warn, name, "Credential status unavailable · "+observationErr.Error())
-				continue
-			}
-			if available {
-				ready = true
-				r.Status(presentation.OK, "Account Token", name+" Token available")
-				continue
-			}
-			missing = append(missing, name)
-			instruction, _ := credential.TokenRecovery(runtime.Secrets, name)
-			r.Status(presentation.Info, name, "Token not connected · "+instruction)
-		}
-		switch {
-		case ready:
-			r.Next("aigw sync")
-		case len(missing) > 0 && secrets.IsReadOnly(runtime.Secrets):
-			r.Next("Set one compatible Account environment variable, then run `aigw sync`")
-		case len(missing) == 1:
-			r.Next("aigw rotate " + missing[0] + ", then run `aigw sync`")
-		case len(missing) > 1:
-			r.Next("aigw rotate <account>, then run `aigw sync`")
-		default:
-			r.Next("Inspect credential availability, then run `aigw sync`")
-		}
+		r.Next("aigw status")
 		return nil
 	}}
 	cmd.Flags().StringSliceVar(&replaceAccounts, "replace-account", nil, "Explicitly replace conflicting account metadata; system tokens remain unchanged")

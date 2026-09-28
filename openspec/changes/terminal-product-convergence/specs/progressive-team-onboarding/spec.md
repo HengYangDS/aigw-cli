@@ -30,6 +30,16 @@ manifest re-import.
 - **AND** an explicit `aigw check` SHALL report the provider failure without
   exposing the Token.
 
+#### Scenario: Low-level configuration import preserves explicit selection
+
+- **WHEN** `aigw config import` merges reviewed public metadata while a client
+  already selects another Route
+- **THEN** the selected Route SHALL remain unchanged
+- **AND** import SHALL NOT inspect unrelated Account credentials to infer a
+  continuation or claim projection readiness
+- **AND** it SHALL direct the operator to `aigw status`, which owns the current
+  readiness observation and next action.
+
 #### Scenario: Client is installed later
 
 - **WHEN** a manifest was imported before an admitted client was installed

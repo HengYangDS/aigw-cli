@@ -142,7 +142,7 @@ func TestExportSurfacesManifestValidationFailure(t *testing.T) {
 	}
 }
 
-func TestImportMergesConfigurationAndReportsOneMissingToken(t *testing.T) {
+func TestImportMergesPublicConfigurationAndDefersReadiness(t *testing.T) {
 	runtime, path, _, renderOut := savedRuntime(t, localConfig())
 	manifestPath := writeManifest(t, importManifest)
 	command := NewCommand(runtime)
@@ -159,59 +159,52 @@ func TestImportMergesConfigurationAndReportsOneMissingToken(t *testing.T) {
 		t.Fatalf("imported config = %#v", loaded)
 	}
 	output := renderOut.String()
-	for _, want := range []string{"Configuration manifest imported", "Routes", "Accounts", "Token not connected", "aigw rotate gateway", "aigw sync"} {
+	for _, want := range []string{"Configuration manifest imported", "Routes", "Accounts", "aigw status"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output %q does not contain %q", output, want)
 		}
 	}
+	if strings.Contains(output, "Token") || strings.Contains(output, "aigw sync") {
+		t.Fatalf("configuration import claimed credential or projection readiness: %q", output)
+	}
 }
 
-func TestImportNamesEnvironmentTokenInsteadOfRotate(t *testing.T) {
+func TestImportPreservesExplicitSelectionWithoutSuggestingNoOpSync(t *testing.T) {
 	runtime, _, _, renderOut := savedRuntime(t, localConfig())
-	runtime.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
-	command := NewCommand(runtime)
-	command.SetArgs([]string{"import", writeManifest(t, importManifest)})
+	if err := runtime.Secrets.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	command := newImportCommand(runtime)
+	command.SetArgs([]string{writeManifest(t, importManifest)})
 	if err := executeManifestCommand(command); err != nil {
 		t.Fatal(err)
 	}
-
-	output := renderOut.String()
-	if !strings.Contains(output, secrets.EnvironmentKey("gateway")) || !strings.Contains(output, "aigw sync") {
-		t.Fatalf("environment remediation is incomplete: %q", output)
+	cfg, err := runtime.Config.Load()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if strings.Contains(output, "aigw rotate") {
-		t.Fatalf("read-only environment backend received impossible rotate guidance: %q", output)
+	if got := cfg.SelectedRoute(configuration.ClientCodex); got != "local" {
+		t.Fatalf("explicit Codex Route changed to %q", got)
+	}
+	if output := strings.TrimSpace(renderOut.String()); !strings.HasSuffix(output, "aigw status") || strings.Contains(output, "Next\n  aigw sync") {
+		t.Fatalf("import suggested activation without inspecting the selected Route: %q", output)
 	}
 }
 
-func TestImportSelectsNextStepFromCredentialAvailability(t *testing.T) {
-	tests := []struct {
-		name     string
-		manifest string
-		seed     []string
-		want     string
-	}{
-		{name: "all available", manifest: importManifest, seed: []string{"gateway"}, want: "aigw sync"},
-		{name: "one available", manifest: twoAccountManifest(), seed: []string{"gateway"}, want: "aigw sync"},
-		{name: "selected account missing", manifest: twoAccountManifest(), want: "aigw rotate gateway"},
+func TestImportDoesNotInspectUnselectedAccountCredentials(t *testing.T) {
+	runtime, _, _, _ := savedRuntime(t, localConfig())
+	reads := 0
+	runtime.Secrets = secrets.NewEnvironmentStore(func(string) string {
+		reads++
+		return ""
+	})
+	command := newImportCommand(runtime)
+	command.SetArgs([]string{writeManifest(t, importManifest)})
+	if err := executeManifestCommand(command); err != nil {
+		t.Fatal(err)
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			runtime, _, _, renderOut := savedRuntime(t, localConfig())
-			for _, account := range test.seed {
-				if err := runtime.Secrets.Set(account, "token"); err != nil {
-					t.Fatal(err)
-				}
-			}
-			command := newImportCommand(runtime)
-			command.SetArgs([]string{writeManifest(t, test.manifest)})
-			if err := executeManifestCommand(command); err != nil {
-				t.Fatal(err)
-			}
-			if output := renderOut.String(); !strings.Contains(output, test.want) {
-				t.Fatalf("output %q does not contain %q", output, test.want)
-			}
-		})
+	if reads != 0 {
+		t.Fatalf("config import inspected %d Account environment values", reads)
 	}
 }
 
@@ -368,26 +361,6 @@ func writeManifest(t *testing.T, data string) string {
 		t.Fatal(err)
 	}
 	return path
-}
-
-func twoAccountManifest() string {
-	return strings.Replace(importManifest, "[routes.remote]", `[accounts.backup]
-label = "Backup"
-
-[accounts.backup.endpoints]
-openai_responses = "https://backup.example/v1"
-
-[models.gpt-backup]
-label = "GPT Backup"
-
-[routes.backup]
-label = "Backup"
-account = "backup"
-model = "gpt-backup"
-upstream_model = "gpt-backup"
-interfaces = { openai_responses = ["text"] }
-
-[routes.remote]`, 1)
 }
 
 type failingWriter struct{}

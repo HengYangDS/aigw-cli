@@ -265,9 +265,7 @@ allowed_import_edges."internal/cli/catalog" = [
 allowed_import_edges."internal/cli/manifest" = [
   "internal/cli/invocation",
   "internal/configuration",
-  "internal/credential",
   "internal/presentation",
-  "internal/secrets",
 ]
 allowed_import_edges."internal/cli/doctor" = [
   "internal/activation",

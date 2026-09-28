@@ -536,6 +536,9 @@ Review the exported file against the incoming manifest before importing.
 `config import` applies a merge; it has no preview or JSON-output mode.
 Conflicting public metadata requires an explicit `--replace-account <id>` or
 `--replace-route <id>` after review. Tokens are neither exported nor replaced.
+The import reports public changes without guessing Token or client readiness;
+run `aigw status` for the selected Route's next step. Use `aigw setup --from`
+when guided team onboarding is wanted instead.
 
 | Collision                          | Default behavior     | Explicit action                          |
 | ---------------------------------- | -------------------- | ---------------------------------------- |
