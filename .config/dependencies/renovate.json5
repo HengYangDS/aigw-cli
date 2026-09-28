@@ -48,6 +48,12 @@
   platformAutomerge: false,
   packageRules: [
     {
+      // Other ecosystems have immutable checksums or digest-pinned artifacts;
+      // their current stable release still needs its own admission evidence.
+      matchManagers: ["gomod", "mise", "custom.regex"],
+      minimumReleaseAge: "0 days",
+    },
+    {
       matchManagers: ["gomod", "mise"],
       matchDepNames: ["go"],
       groupName: "Go toolchain",

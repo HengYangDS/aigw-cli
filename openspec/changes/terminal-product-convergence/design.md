@@ -201,9 +201,13 @@ resolved graph selects `@asamuzakjp/dom-selector` 9.2.2, published
 51 attestations), vulnerability audit and Mermaid rendering pass. The ordinary
 three-day release-age rule holds proposal publication until
 2026-09-29T21:06Z. Do not add a second override just to evade that bound.
-Renovate 44.116.1 was published
-2026-09-28T14:54Z and likewise remains unadmitted. Task 6.1 stays open until
-the complete locked supply chain is qualified.
+That age rule protects npm's unpublish window; applying it to checksummed Go
+modules, locked Mise tools and digest-pinned CI artifacts adds delay without
+the same integrity benefit. Those sources instead need exact upstream identity,
+compatible behavior and native gate evidence. Renovate 44.117.0 and Mise
+2026.9.16 are selected by digest; the Windows Mise ZIP was mirrored with its
+upstream SHA-256 intact. Task 6.1 remains open until the complete locked supply
+chain is qualified.
 
 The CUE graph remains the sole CI intent. GitHub and GitLab are equal optional
 peers receiving the same signed Git objects, with separate transport credentials,

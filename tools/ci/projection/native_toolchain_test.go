@@ -26,8 +26,8 @@ func TestGitLabWindowsBootstrapsPinnedMiseBeforeRepositoryTools(t *testing.T) {
 	}
 	commands := gitlab.Windows.Script
 	if len(commands) < 2 || !strings.Contains(commands[0], ". ./tools/ci/bootstrap/mise-windows.ps1") ||
-		!strings.Contains(commands[0], "2026.9.15") ||
-		!strings.Contains(commands[0], "3db4b7aeea8cf97af4111746d11d5aa6c036bb3e58e5c9da675e4e1024a581a1") ||
+		!strings.Contains(commands[0], "2026.9.16") ||
+		!strings.Contains(commands[0], "8e021ea855f50880ee4c8515f483b2cd07b27edb6109a8b4364ff09af65136b5") ||
 		!strings.Contains(commands[1], "mise install --locked") {
 		t.Fatalf("Windows Mise bootstrap is not pinned before the locked toolchain: %v", commands)
 	}

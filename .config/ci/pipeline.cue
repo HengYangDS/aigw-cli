@@ -170,7 +170,7 @@ githubTagEvidenceJobs: strings.Join([
 ], " ")
 
 gitlabVerificationCondition: {
-	tag:           "$CI_COMMIT_TAG"
+	tag: "$CI_COMMIT_TAG"
 	// A fork MR run in the parent has a different source project ID.
 	review:        "$CI_PIPELINE_SOURCE == \"merge_request_event\" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.acceptedBranch)\" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.releaseBranch)\") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID"
 	protectedPush: "$CI_PIPELINE_SOURCE == \"push\" && ($CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\" || $CI_COMMIT_BRANCH == \"\(lifecycle.releaseBranch)\")"
@@ -205,14 +205,14 @@ _graphOrder: {
 	}
 }
 
-miseImage:               "ghcr.io/jdx/mise:2026.9.15-debian@sha256:4cc1a45f280e362a11ba6e97641d3d97a0f79632f46e719dd7b36946bdf39b93"
+miseImage:               "ghcr.io/jdx/mise:2026.9.16-debian@sha256:686fe914b791c761637be4a13494d45d2b92b3c3979e46ea61b1ca51df472de6"
 miseVersion:             strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
-miseWindowsArm64SHA256:  "3db4b7aeea8cf97af4111746d11d5aa6c036bb3e58e5c9da675e4e1024a581a1"
+miseWindowsArm64SHA256:  "8e021ea855f50880ee4c8515f483b2cd07b27edb6109a8b4364ff09af65136b5"
 windowsMiseJobDirectory: "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID"
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
-	mise:     "jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c"         // v4.3.0
+	mise:     "jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5"         // v5.0.0
 	upload:   "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" // v7.0.1
 }
 

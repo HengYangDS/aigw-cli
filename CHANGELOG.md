@@ -24,6 +24,10 @@ evidence.
   of the macOS Shell runner; macOS and Windows native checks remain required.
 - Exclude fork-source merge requests from GitLab parent-project review jobs
   without dropping same-project developer checks.
+- Refresh the locked CI Mise runtime, mise-action, and Renovate image to their
+  current stable releases while preserving exact digests and bootstrap checks.
+- Keep the automated three-day release-age gate for npm without imposing that
+  npm-specific delay on checksummed Go or digest-pinned CI tools.
 
 ## [0.3.3] - 2026-09-26
 
