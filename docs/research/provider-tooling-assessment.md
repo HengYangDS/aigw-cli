@@ -295,15 +295,16 @@ Vendor count is a poor proxy for extensibility. One new model can be a data chan
 - **New wire or replay semantics**
   - **Smallest plausible owner:** Maintained protocol adapter
   - **Evidence of genuinely low-cost extension:** Conformance tests preserve task meaning, errors and cancellation; no silent field dropping.
-- **New client such as Hermes, OpenCode or Pi**
+- **New client such as OpenCode or Pi**
   - **Smallest plausible owner:** Client-specific projection/launch adapter
   - **Evidence of genuinely low-cost extension:** Correct path, precedence, credential delivery, conflict handling and removal in the real client.
 
-CC Switch CLI declares Hermes, OpenCode and Pi support; the current AIGW source
-admits Claude Code, Codex, and Hermes, while Claude Desktop, OpenCode, Pi, and
-Qoder remain separate admission questions. That breadth difference is not a
-reason to call any future AIGW integration free. Equivalent Qoder evidence was
-not established in the assessed leading candidates. “Endpoint configured,”
+CC Switch CLI declares Hermes, OpenCode and Pi support. Compare those claims
+against AIGW's [admitted-client contract](../governance/adapter-admission.md)
+and separately qualified release evidence, not a frozen research snapshot.
+That breadth difference is not a reason to call any future AIGW integration
+free. Equivalent Qoder evidence was not established in the assessed leading
+candidates. “Endpoint configured,”
 “model visible,” “tool loop works,” “survives upgrade,” and “is published” are
 separate acceptance levels. [CLI][cc-cli], [AIGW](../../README.md).
 
@@ -423,7 +424,8 @@ configuration surface; one shared transaction owns compensation. The existing
 Proxy retains its bounded Responses-compatibility responsibility, not a new
 mandate to become a universal model gateway.
 
-Hermes and Claude Desktop remain the admitted AIGW implementation work.
+Hermes and Claude Desktop each require mode- and platform-specific native
+qualification under the [admitted-client contract](../governance/adapter-admission.md).
 OpenCode and Pi are viable future Adapter candidates because they expose
 documented noninteractive configuration and credential boundaries. CodeBuddy
 CLI is also a candidate, but its distinct OpenAI and Anthropic paths require
