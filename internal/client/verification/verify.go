@@ -21,8 +21,8 @@ import (
 	"github.com/rogpeppe/go-internal/robustio"
 )
 
-// ProtocolTimeout allows a cold Claude CLI process to initialize and complete
-// one bounded upstream request.
+// ProtocolTimeout allows a cold native client to initialize and complete a
+// bounded verification session.
 const ProtocolTimeout = time.Minute
 
 const responseSentinel = "AIGW_OK"
@@ -31,7 +31,7 @@ const responseLimit int64 = int64(len(responseSentinel) + 2)
 var removeCodexWorkspace = robustio.RemoveAll
 
 // VerifyCodexInvocation validates one synchronized Codex target, measures the
-// configured executable, and makes exactly one non-persistent client request.
+// configured executable, and runs a non-persistent native client session.
 func VerifyCodexInvocation(ctx context.Context, runner process.CaptureRunner, cfg configuration.Config, clientRuntime configuration.Runtime) (_ codex.ExecutableIdentity, result error) {
 	adapter := cfg.Clients[configuration.ClientCodex]
 	if !adapter.Enabled {

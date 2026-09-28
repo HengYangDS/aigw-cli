@@ -23,16 +23,7 @@ import (
 // It resolves real native configuration and executes the projected credential
 // command without requesting inference or touching a user's credential store.
 func TestHermesNativeProjection(t *testing.T) {
-	candidate := os.Getenv("AIGW_NATIVE_CANDIDATE")
-	python := os.Getenv("HERMES_NATIVE_PYTHON")
-	for name, path := range map[string]string{"AIGW_NATIVE_CANDIDATE": candidate, "HERMES_NATIVE_PYTHON": python} {
-		if !filepath.IsAbs(path) {
-			t.Fatalf("%s must identify an absolute installed executable", name)
-		}
-		if _, err := os.Stat(path); err != nil {
-			t.Fatalf("%s prerequisite: %v", name, err)
-		}
-	}
+	candidate, python := nativeHermesExecutables(t)
 	for _, protocol := range []configuration.EndpointProtocol{configuration.ProtocolAnthropic, configuration.ProtocolOpenAIResponses, configuration.ProtocolOpenAIChatCompletions} {
 		t.Run(string(protocol), func(t *testing.T) {
 			home := t.TempDir()
@@ -44,7 +35,10 @@ func TestHermesNativeProjection(t *testing.T) {
 			hermesHome := filepath.Join(home, "hermes")
 			cfg := configuration.NewConfig()
 			cfg.Accounts["fixture"] = configuration.Account{Label: "Fixture", Endpoints: configuration.Endpoints{Anthropic: "https://provider.invalid", OpenAIResponses: "https://provider.invalid/v1", OpenAIChatCompletions: "https://provider.invalid/v1"}}
-			cfg.Routes["hermes"] = configuration.Route{Label: "Hermes", Account: "fixture", Model: "fixture-model"}
+			cfg.Routes["hermes"] = configuration.Route{
+				Label: "Hermes", Account: "fixture", Model: "fixture-model",
+				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
+			}
 			cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
 			if err := configuration.NewStore(configPath).Save(cfg); err != nil {
 				t.Fatal(err)
@@ -54,20 +48,7 @@ func TestHermesNativeProjection(t *testing.T) {
 				t.Fatal(err)
 			}
 			env["HERMES_HOME"], env["AIGW_SECRET_BACKEND"], env["AIGW_TOKEN_FIXTURE"] = hermesHome, "env", "public-native-fixture"
-			env["PATH"] = os.Getenv("PATH")
-			if systemRoot := os.Getenv("SystemRoot"); systemRoot != "" {
-				env["SystemRoot"] = systemRoot
-			}
-			environment := make([]string, 0, len(env))
-			for key, value := range env {
-				environment = append(environment, key+"="+value)
-			}
-			ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
-			defer cancel()
-			output, err := (process.Runner{}).RunCapture(ctx, process.Plan{Executable: python, Directory: home, Env: environment, Args: []string{"-I", "-c", hermesNativeProbe}})
-			if err != nil {
-				t.Fatalf("native Hermes contract failed: %v\n%s", err, output)
-			}
+			output := runHermesNativeScript(t, python, home, env, hermesNativeProbe)
 			var result struct {
 				Model      string `json:"model"`
 				Protocol   string `json:"protocol"`
@@ -77,7 +58,7 @@ func TestHermesNativeProjection(t *testing.T) {
 			if err := json.Unmarshal(output, &result); err != nil {
 				t.Fatalf("native result: %v\n%s", err, output)
 			}
-			want := map[configuration.EndpointProtocol]string{configuration.ProtocolAnthropic: "anthropic_messages", configuration.ProtocolOpenAIResponses: "codex_responses", configuration.ProtocolOpenAIChatCompletions: "chat_completions"}[protocol]
+			want := expectedNativeHermesMode(protocol)
 			if result.Model != "fixture-model" || result.Protocol != want || !result.Credential || result.Source == "" {
 				t.Fatalf("native projection mismatch: %+v", result)
 			}
@@ -99,16 +80,7 @@ func TestHermesNativeProjection(t *testing.T) {
 // TestHermesNativeCuratedCatalog proves the real Hermes picker and runtime
 // consume AIGW's provider-native model catalogue without network discovery.
 func TestHermesNativeCuratedCatalog(t *testing.T) {
-	candidate := os.Getenv("AIGW_NATIVE_CANDIDATE")
-	python := os.Getenv("HERMES_NATIVE_PYTHON")
-	for name, path := range map[string]string{"AIGW_NATIVE_CANDIDATE": candidate, "HERMES_NATIVE_PYTHON": python} {
-		if !filepath.IsAbs(path) {
-			t.Fatalf("%s must identify an absolute installed executable", name)
-		}
-		if _, err := os.Stat(path); err != nil {
-			t.Fatalf("%s prerequisite: %v", name, err)
-		}
-	}
+	candidate, python := nativeHermesExecutables(t)
 	home := t.TempDir()
 	env := map[string]string{"HOME": home, "USERPROFILE": home, "APPDATA": home, "LOCALAPPDATA": home, "XDG_CONFIG_HOME": home, "XDG_DATA_HOME": home}
 	configPath, err := platform.ConfigPathFor(runtime.GOOS, env)
@@ -144,6 +116,10 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	binding.Executable = python
 	binding.Targets = []string{filepath.Join(hermesHome, "config.yaml")}
 	cfg.Clients[configuration.ClientHermes] = binding
+	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := configuration.NewStore(configPath).Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -154,6 +130,38 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	for _, accountID := range connectedAccounts {
 		env[secrets.EnvironmentKey(accountID)] = "public-native-fixture"
 	}
+	output := runHermesNativeScript(t, python, home, env, hermesNativeCatalogProbe)
+	var result struct {
+		Providers  map[string][]string `json:"providers"`
+		Model      string              `json:"model"`
+		Protocol   string              `json:"protocol"`
+		Credential bool                `json:"credential"`
+	}
+	if err := json.Unmarshal(output, &result); err != nil {
+		t.Fatalf("native catalogue result: %v\n%s", err, output)
+	}
+	assertNativeHermesCatalogue(t, manifest.Routes, connectedAccounts, result.Providers)
+	if result.Model != selected.Model || result.Protocol != expectedNativeHermesMode(selected.Protocol) || !result.Credential {
+		t.Fatalf("native selected route = %+v", result)
+	}
+}
+
+func nativeHermesExecutables(t *testing.T) (candidate, python string) {
+	t.Helper()
+	candidate, python = os.Getenv("AIGW_NATIVE_CANDIDATE"), os.Getenv("HERMES_NATIVE_PYTHON")
+	for name, path := range map[string]string{"AIGW_NATIVE_CANDIDATE": candidate, "HERMES_NATIVE_PYTHON": python} {
+		if !filepath.IsAbs(path) {
+			t.Fatalf("%s must identify an absolute installed executable", name)
+		}
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("%s prerequisite: %v", name, err)
+		}
+	}
+	return candidate, python
+}
+
+func runHermesNativeScript(t *testing.T, python, home string, env map[string]string, script string) []byte {
+	t.Helper()
 	env["PATH"] = os.Getenv("PATH")
 	if systemRoot := os.Getenv("SystemRoot"); systemRoot != "" {
 		env["SystemRoot"] = systemRoot
@@ -164,25 +172,21 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
-	output, err := (process.Runner{}).RunCapture(ctx, process.Plan{Executable: python, Directory: home, Env: environment, Args: []string{"-I", "-c", hermesNativeCatalogProbe}})
+	output, err := (process.Runner{}).RunCapture(ctx, process.Plan{Executable: python, Directory: home, Env: environment, Args: []string{"-I", "-c", script}})
 	if err != nil {
-		t.Fatalf("native Hermes catalogue failed: %v\n%s", err, output)
+		t.Fatalf("native Hermes script failed: %v\n%s", err, output)
 	}
-	var result struct {
-		Providers  map[string][]string `json:"providers"`
-		Model      string              `json:"model"`
-		Protocol   string              `json:"protocol"`
-		Credential bool                `json:"credential"`
-	}
-	if err := json.Unmarshal(output, &result); err != nil {
-		t.Fatalf("native catalogue result: %v\n%s", err, output)
-	}
+	return output
+}
+
+func assertNativeHermesCatalogue(t *testing.T, routes map[string]configuration.Route, accounts []string, providers map[string][]string) {
+	t.Helper()
 	connected := map[string]bool{}
-	for _, accountID := range connectedAccounts {
+	for _, accountID := range accounts {
 		connected[accountID] = true
 	}
 	want := map[string][]string{}
-	for _, route := range manifest.Routes {
+	for _, route := range routes {
 		if !connected[route.Account] {
 			continue
 		}
@@ -191,15 +195,30 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 			want[providerID] = append(want[providerID], route.Model)
 		}
 	}
+	if len(providers) != len(want) {
+		t.Fatalf("Hermes providers = %v, want %v", providers, want)
+	}
 	for providerID, models := range want {
-		for _, model := range models {
-			if !slices.Contains(result.Providers[providerID], model) {
-				t.Errorf("Hermes provider %s lacks %s: %v", providerID, model, result.Providers[providerID])
-			}
+		slices.Sort(models)
+		models = slices.Compact(models)
+		actual := slices.Clone(providers[providerID])
+		slices.Sort(actual)
+		if !slices.Equal(actual, models) {
+			t.Errorf("Hermes provider %s models = %v, want %v", providerID, actual, models)
 		}
 	}
-	if result.Model != "claude-fable-5-1" || result.Protocol != "anthropic_messages" || !result.Credential {
-		t.Fatalf("native selected route = %+v", result)
+}
+
+func expectedNativeHermesMode(protocol configuration.EndpointProtocol) string {
+	switch protocol {
+	case configuration.ProtocolAnthropic:
+		return "anthropic_messages"
+	case configuration.ProtocolOpenAIResponses:
+		return "codex_responses"
+	case configuration.ProtocolOpenAIChatCompletions:
+		return "chat_completions"
+	default:
+		return ""
 	}
 }
 

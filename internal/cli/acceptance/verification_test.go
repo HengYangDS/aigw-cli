@@ -49,6 +49,10 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	if strings.Contains(out.String(), "verify-token") || !strings.Contains(out.String(), "Live protocol verification") {
 		t.Fatalf("verify output = %s", out.String())
 	}
+	message := strings.Join(strings.Fields(out.String()), " ")
+	if strings.Contains(message, "one minimal model request") || !strings.Contains(message, "may make multiple provider requests") {
+		t.Fatalf("verify misstates provider request count: %s", out.String())
+	}
 }
 
 func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
