@@ -62,6 +62,16 @@ a required job on the other Forge.
 - **AND** the partial result does not satisfy complete review, accepted-branch,
   tag, or release readiness.
 
+#### Scenario: A maintainer omits the manual commit base
+
+- **WHEN** either Forge starts manual verification without an explicit commit base
+- **THEN** source quality checks the selected checkout and product provenance
+  verifies only the selected commit against its direct parent
+- **AND** an explicit commit base overrides that default to verify its full
+  introduced range
+- **AND** the manual result never substitutes for the required review, branch,
+  tag, or release event evidence.
+
 #### Scenario: Release assets are verified on a peer
 
 - **WHEN** a selected Forge verifies a published release's assets

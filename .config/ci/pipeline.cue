@@ -194,7 +194,7 @@ gitlabFullVerificationRules: [
 
 githubFullVerificationCondition: "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == '\(lifecycle.acceptedBranch)' || github.ref_name == '\(lifecycle.releaseBranch)'))"
 
-githubCommitBase: "${{ github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || inputs.commit_base }}"
+githubCommitBase: "${{ github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || inputs.commit_base || format('{0}^', github.sha) }}"
 
 _graphOrder: {
 	for id, job in graph {
@@ -586,7 +586,7 @@ gitlab: {
 				if: gitlabVerificationCondition.protectedPush
 				variables: AIGW_COMMIT_BASE: "$CI_COMMIT_BEFORE_SHA"
 			},
-			{if: gitlabVerificationCondition.manual},
+			{if: gitlabVerificationCondition.manual, variables: AIGW_COMMIT_BASE: "$CI_COMMIT_SHA^"},
 			{when: "never"},
 		]
 	}
@@ -688,8 +688,8 @@ githubVerify: {
 				default:     false
 			}
 			commit_base: {
-				description: "Exclusive commit base for manual verification"
-				required:    true
+				description: "Optional exclusive base; defaults to the selected commit's parent for manual diagnostics"
+				required:    false
 				type:        "string"
 			}
 			baseline_tag: {

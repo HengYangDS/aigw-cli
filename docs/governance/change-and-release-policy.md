@@ -320,6 +320,12 @@ No parallel pre-commit runner is needed to own these rules. An accepted-ref
 merge or proposal deletion is a separate delivery operation, not evidence
 implied by a valid commit message or a green review job.
 
+Manual GitHub and GitLab diagnostics default their exclusive commit base to
+the selected commit's parent; this verifies that commit, not every unreviewed
+ancestor. An explicit `commit_base` input or `AIGW_COMMIT_BASE` pipeline variable
+selects a broader introduced range. Manual results cannot replace the required
+review, accepted-branch, tag, or release event checks.
+
 Product signing and peer transport authentication are independent. GitLab and
 GitHub may use different SSH keys, PATs, OIDC identities, or host credentials
 for transport without changing the product object. A host's `Verified` display

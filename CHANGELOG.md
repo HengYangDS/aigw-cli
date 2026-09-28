@@ -18,6 +18,8 @@ evidence.
   without exposing raw backend errors or private paths.
 - Report endpoint-check failures by classification and HTTP status instead of
   publishing untrusted provider response bodies or transport error text.
+- Let manual GitHub and GitLab diagnostics verify the selected commit by
+  default while retaining an explicit base for a longer introduced range.
 
 ## [0.3.3] - 2026-09-26
 

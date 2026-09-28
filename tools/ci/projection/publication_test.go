@@ -11,7 +11,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-func TestQualityJobsProjectTheIntegrationCommitBase(t *testing.T) {
+func TestQualityJobsProjectEventCommitBases(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
@@ -29,14 +29,12 @@ func TestQualityJobsProjectTheIntegrationCommitBase(t *testing.T) {
 		"$CI_COMMIT_SHA^",
 		"$CI_MERGE_REQUEST_DIFF_BASE_SHA",
 		"$CI_COMMIT_BEFORE_SHA",
+		"$CI_COMMIT_SHA^",
 	}
 	for index, want := range wantGitLabBases {
 		if got := gitlab.Quality.Rules[index].Variables["AIGW_COMMIT_BASE"]; got != want {
 			t.Fatalf("GitLab commit base rule %d = %q, want %q", index, got, want)
 		}
-	}
-	if _, guessed := gitlab.Quality.Rules[3].Variables["AIGW_COMMIT_BASE"]; guessed {
-		t.Fatal("GitLab manual verification must require an explicit AIGW_COMMIT_BASE")
 	}
 	for index, rule := range gitlab.NativeDarwin.Rules {
 		if _, leaked := rule.Variables["AIGW_COMMIT_BASE"]; leaked {
@@ -71,6 +69,9 @@ func TestQualityJobsProjectTheIntegrationCommitBase(t *testing.T) {
 			t.Fatalf("GitHub commit base lacks %s: %q", source, githubBase)
 		}
 	}
+	if strings.Count(githubBase, "format('{0}^', github.sha)") != 2 {
+		t.Fatalf("GitHub manual run does not default to the selected commit's parent: %q", githubBase)
+	}
 
 	var manual struct {
 		On struct {
@@ -84,8 +85,8 @@ func TestQualityJobsProjectTheIntegrationCommitBase(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &manual); err != nil {
 		t.Fatal(err)
 	}
-	if input, ok := manual.On.WorkflowDispatch.Inputs["commit_base"]; !ok || !input.Required {
-		t.Fatalf("GitHub manual verification must require commit_base: %#v", manual.On.WorkflowDispatch.Inputs)
+	if input, ok := manual.On.WorkflowDispatch.Inputs["commit_base"]; !ok || input.Required {
+		t.Fatalf("GitHub manual diagnostics must allow an omitted commit_base: %#v", manual.On.WorkflowDispatch.Inputs)
 	}
 }
 
