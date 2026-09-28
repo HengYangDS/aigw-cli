@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"os"
@@ -9,9 +10,12 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/platform"
+	"aigw-cli/internal/process"
+	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
 
 	"github.com/pelletier/go-toml/v2"
@@ -65,7 +69,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	journey.runWithInput(journey.binary, replacement+"\n", "rotate", sourceAccount, "--token-stdin")
 	journey.requireClaudeCredential(replacement)
 	configurationBeforeStaging := readFile(t, journey.config)
-	journey.runWithInput(candidate, replacement+"\n", "rotate", sourceAccount, "--token-stdin")
+	stageNativeCandidateToken(t, journey, candidate, sourceAccount, replacement)
 	if !bytes.Equal(configurationBeforeStaging, readFile(t, journey.config)) {
 		t.Fatal("candidate credential staging changed retained configuration")
 	}
@@ -103,6 +107,21 @@ func configureNativeDiagnosticProbe(t *testing.T, journey *journeyFixture, accou
 	}
 	if err := os.WriteFile(journey.manifest, data, 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func stageNativeCandidateToken(t *testing.T, journey *journeyFixture, candidate, account, token string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	var stdout, stderr bytes.Buffer
+	err := (process.Runner{}).RunStream(ctx, process.Plan{
+		Executable: candidate, Args: []string{"rotate", account, "--token-stdin"},
+		Env: journey.environment, Stdin: token + "\n",
+	}, &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("candidate Token staging failed: %v\nstdout:\n%s\nstderr:\n%s", err,
+			redaction.Text(stdout.String(), token), redaction.Text(stderr.String(), token))
 	}
 }
 

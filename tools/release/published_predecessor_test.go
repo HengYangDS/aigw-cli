@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -55,7 +56,7 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 	journey := publishedNativeJourney{
 		journey:  newNativeJourney(t, baseline, server.URL+"/v1", true),
 		baseline: baseline, candidate: candidate, archive: archive, checksums: checksums, version: version,
-		clients: []string{configuration.ClientClaude, configuration.ClientClaudeDesktop, configuration.ClientCodex, configuration.ClientHermes},
+		clients: deferredJourneyClientIDs(),
 	}
 	predecessorVersion := journey.journey.predecessorVersion(version)
 	journey.prepare(t, nativeCurrentSchemaManifest(server.URL+"/v1"))
@@ -101,7 +102,9 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 		t.Fatal(err)
 	}
 	journey.prepareCodexLifecycle()
-	journey.installClientFixture(configuration.ClientClaudeDesktop)
+	if slices.Contains(state.clients, configuration.ClientClaudeDesktop) {
+		journey.installClientFixture(configuration.ClientClaudeDesktop)
+	}
 	journey.installClientFixture(configuration.ClientHermes)
 	journey.setEnvironment("HERMES_HOME", filepath.Join(journey.root, "home", ".hermes"))
 	configured, err := configuration.Parse(readFile(t, journey.manifest))
