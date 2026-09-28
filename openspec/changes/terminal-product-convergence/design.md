@@ -146,6 +146,10 @@ proof, review CI, accepted-ref CI, signed/tagged assets, installation, and
 real-client operation are distinct evidence. Freeze exact source and lock
 inputs before the expensive final matrix; do not rerun identical heavy gates
 because an observation timed out or a progress-only record changed.
+Cold-cache CI must remain executable when the sibling Forge platform and its
+tool-distribution endpoints are unavailable. Warm caches are not evidence of
+that property. Compare neutral locked sources, peer-local immutable assets, and
+runner seeds before choosing the least complex integrity-preserving route.
 
 ### 6. Delete by consumer and authority
 

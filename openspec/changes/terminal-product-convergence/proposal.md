@@ -54,12 +54,13 @@ client will be supported.
   continuity lifecycle without unproved authorization.
 - `product-control-plane`: Independent Client Adapters use a qualified
   credential command whose original callers remain valid during an update.
+- `ci-diagnostics`: A selected Forge must reconstruct complete locked CI from
+  a cold cache while the sibling Forge platform is unavailable.
 
 The existing `cli-readiness`, `projection-format`, `release-distribution`,
-`ci-diagnostics`, `product-quality`, and `repository-organization` specifications
-already state the required behavior. Their implementation, evidence, and
-obsolete carriers will be converged without restating those requirements or
-creating a second specification authority.
+`product-quality`, and `repository-organization` specifications already state
+the remaining required behavior. Their implementation, evidence, and obsolete
+carriers will be converged without creating a second specification authority.
 
 ## Impact
 

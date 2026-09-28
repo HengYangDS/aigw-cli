@@ -158,8 +158,8 @@
       hidden dependency, and parity claims remain peer-specific.
       GitLab's Linux image comes from GHCR and the locked tool closure includes
       GitHub-hosted assets. Cold-cache full CI during a GitHub platform outage
-      is unproved; reconcile the canonical third-party-distribution carve-out
-      with the required single-peer CI claim before closing this task.
+      is unproved. The `ci-diagnostics` delta removes the conflicting carve-out;
+      select and fault-test the smallest integrity-preserving distribution path.
 
 ## 8. Repository Topology, Documentation, and Deletion
 
