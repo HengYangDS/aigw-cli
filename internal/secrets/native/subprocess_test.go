@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -18,7 +17,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if handled, code := RunCredentialSubprocess(os.Args[1:], os.Stdin, os.Stdout, os.Stderr, "AIGW_TOKEN"); handled {
+	if handled, code := RunCredentialSubprocess(os.Args[1:], os.Stdin, os.Stdout, "AIGW_TOKEN"); handled {
 		os.Exit(code)
 	}
 	os.Exit(m.Run())
@@ -26,26 +25,19 @@ func TestMain(m *testing.M) {
 
 func TestReadPreservesNativeResultAndClassifiesFailure(t *testing.T) {
 	for _, test := range []struct {
-		name       string
-		code       int
-		diagnostic string
-		want       error
-		status     string
+		name string
+		code int
+		want error
 	}{
 		{name: "success"},
 		{name: "missing", code: missingExit, want: ErrNotFound},
 		{name: "denied", code: failureExit, want: ErrUnavailable},
-		{name: "Keychain status", code: failureExit, diagnostic: "aigw-native-status:-25308\n", want: ErrUnavailable, status: "Keychain status -25308"},
-		{name: "untrusted diagnostic", code: failureExit, diagnostic: "aigw-native-status:-25308\nsecret", want: ErrUnavailable},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			reader := fixtureReader{code: test.code, diagnostic: test.diagnostic}
+			reader := fixtureReader{code: test.code}
 			value, err := execute(context.Background(), reader, process.Plan{Executable: "/owned/aigw", Args: []string{readCommand, "AIGW_TOKEN", "team"}})
-			if !errors.Is(err, test.want) || test.code == 0 && value != "exact-token" || test.status != "" && !strings.Contains(err.Error(), test.status) {
+			if !errors.Is(err, test.want) || test.code == 0 && value != "exact-token" {
 				t.Fatalf("read result = %q, %v", value, err)
-			}
-			if test.name == "untrusted diagnostic" && strings.Contains(err.Error(), "secret") {
-				t.Fatal("untrusted credential subprocess output escaped")
 			}
 			if test.code != 0 && value != "" {
 				t.Fatal("failed read returned secret output")
@@ -72,10 +64,7 @@ func TestInvokeRequiresTheOwningProductExecutable(t *testing.T) {
 	}
 }
 
-type fixtureReader struct {
-	code       int
-	diagnostic string
-}
+type fixtureReader struct{ code int }
 
 func (r fixtureReader) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
 	if _, ok := ctx.Deadline(); !ok {
@@ -90,49 +79,7 @@ func (r fixtureReader) RunCapture(ctx context.Context, plan process.Plan) ([]byt
 	command := exec.Command(os.Args[0], "-test.run=^TestCredentialExitFixture$")
 	command.Env = append(os.Environ(), "AIGW_TEST_CREDENTIAL_EXIT="+strconv.Itoa(r.code))
 	err := command.Run()
-	if r.diagnostic != "" {
-		return []byte(r.diagnostic), err
-	}
 	return []byte("private diagnostic must not escape"), err
-}
-
-type codedError struct{ status int }
-
-func (failure codedError) Error() string { return "synthetic-token must not escape" }
-
-func (failure codedError) NativeStatus() int { return failure.status }
-
-func TestNativeFailureEmitsOnlyStructuredStatus(t *testing.T) {
-	var diagnostic bytes.Buffer
-	writeNativeStatus(&diagnostic, fmt.Errorf("private context: %w", codedError{status: -25308}))
-	if got := diagnostic.String(); got != "aigw-native-status:-25308\n" {
-		t.Fatalf("native failure diagnostic = %q", got)
-	}
-	diagnostic.Reset()
-	writeNativeStatus(&diagnostic, errors.New("synthetic-token must not escape"))
-	if diagnostic.Len() != 0 {
-		t.Fatalf("unclassified credential error escaped: %q", &diagnostic)
-	}
-}
-
-func TestNativeStatusParserRejectsUntrustedOutput(t *testing.T) {
-	for _, test := range []struct {
-		output string
-		valid  bool
-	}{
-		{output: "aigw-native-status:-25308\n", valid: true},
-		{output: "aigw-native-status:-25308"},
-		{output: "aigw-native-status:-25308\nsecret\n"},
-		{output: "private-error:-25308\n"},
-		{output: "aigw-native-status:invalid\n"},
-		{output: "aigw-native-status:0\n"},
-		{output: "aigw-native-status:999999999999\n"},
-	} {
-		status, valid := parseNativeStatus([]byte(test.output))
-		if valid != test.valid || valid && status != -25308 {
-			t.Fatalf("native diagnostic %q = %d, %t", test.output, status, valid)
-		}
-	}
 }
 
 func TestCredentialExitFixture(t *testing.T) {
@@ -211,7 +158,7 @@ func TestCredentialSubprocessResultOwnsExitStatusAndSecretOutput(t *testing.T) {
 			}
 		})
 	}
-	if handled, _ := RunCredentialSubprocess([]string{"--version"}, strings.NewReader(""), io.Discard, io.Discard, "AIGW_TOKEN"); handled {
+	if handled, _ := RunCredentialSubprocess([]string{"--version"}, strings.NewReader(""), io.Discard, "AIGW_TOKEN"); handled {
 		t.Fatal("ordinary command intercepted")
 	}
 	for _, out := range []io.Writer{shortWriter{}, failedWriter{}} {

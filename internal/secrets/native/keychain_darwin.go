@@ -168,19 +168,6 @@ import (
 	"unsafe"
 )
 
-type keychainStatusError struct {
-	operation string
-	status    int
-}
-
-func (failure keychainStatusError) Error() string {
-	return fmt.Sprintf("noninteractive Keychain %s failed (%d): %s", failure.operation, failure.status, ErrUnavailable)
-}
-
-func (keychainStatusError) Unwrap() error { return ErrUnavailable }
-
-func (failure keychainStatusError) NativeStatus() int { return failure.status }
-
 func observeCredentialInKeychain(service, account, path string) (bool, error) {
 	serviceName := C.CString(service)
 	accountName := C.CString(account)
@@ -196,7 +183,7 @@ func observeCredentialInKeychain(service, account, path string) (bool, error) {
 	case C.errSecItemNotFound:
 		return false, nil
 	default:
-		return false, keychainStatusError{operation: "metadata query", status: int(status)}
+		return false, fmt.Errorf("noninteractive Keychain metadata query failed (%d): %w", int(status), ErrUnavailable)
 	}
 }
 
@@ -224,7 +211,7 @@ func readCredentialFromKeychain(service, account, path string) ([]byte, error) {
 		}
 	}
 	if status != C.errSecSuccess {
-		return nil, keychainStatusError{operation: "read", status: int(status)}
+		return nil, fmt.Errorf("noninteractive Keychain read failed (%d): %w", int(status), ErrUnavailable)
 	}
 	if data == 0 {
 		return nil, ErrUnavailable
@@ -306,7 +293,7 @@ func mutateCredentialInKeychain(service, account, path string, value []byte, rem
 		return ErrNotFound
 	}
 	if status != C.errSecSuccess {
-		return keychainStatusError{operation: "mutation", status: int(status)}
+		return fmt.Errorf("noninteractive Keychain mutation failed (%d): %w", int(status), ErrUnavailable)
 	}
 	return nil
 }
