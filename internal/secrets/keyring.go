@@ -37,6 +37,10 @@ type keyringStore struct {
 	remove  func(service, slot string) error
 }
 
+// ErrNativeReaderUnverified marks a failed noninteractive access check for a
+// versioned reader. The underlying cause remains internal to the operation.
+var ErrNativeReaderUnverified = errors.New("native credential reader access was not verified")
+
 func newKeyringStore(executable string) keyringStore {
 	return keyringStore{
 		observe: func(service, account string) (bool, error) {
@@ -66,17 +70,17 @@ func VerifyNativeReaderAccess(store Store, executable string, accounts []string)
 	for _, account := range accounts {
 		present, err := store.Exists(account)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w: inspect selected Account Token: %w", ErrNativeReaderUnverified, err)
 		}
 		if !present {
 			continue
 		}
 		value, err := native.Read(executable, Service, account)
 		if err != nil {
-			return fmt.Errorf("copied credential reader cannot read the selected Account Token: %w", err)
+			return fmt.Errorf("%w: copied credential reader cannot read the selected Account Token: %w", ErrNativeReaderUnverified, err)
 		}
 		if value == "" {
-			return errors.New("copied credential reader returned an empty Account Token")
+			return fmt.Errorf("%w: copied credential reader returned an empty Account Token", ErrNativeReaderUnverified)
 		}
 	}
 	return nil

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/secrets"
 )
 
 type userError struct {
@@ -49,6 +50,13 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 	var problem Problem
 	if user, ok := errors.AsType[*userError](err); ok {
 		problem = user.problem
+	} else if errors.Is(err, secrets.ErrNativeReaderUnverified) {
+		problem = Problem{
+			Title:    "Cannot verify native Account Token access for this AIGW version",
+			Evidence: "Noninteractive native-store preflight could not establish reader access.",
+			Impact:   "No new client projection was applied; no Account Token was returned.",
+			Fix:      "Run `aigw doctor` to inspect the selected backend; explicitly restage or authorize the Account Token for this AIGW version, then run `aigw sync`.",
+		}
 	} else {
 		message := localizedErrorMessage(err)
 		problem = Problem{

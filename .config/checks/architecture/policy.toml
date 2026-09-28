@@ -332,7 +332,7 @@ allowed_import_edges."internal/diagnostics" = [
   "internal/redaction",
 ]
 allowed_import_edges."internal/providers/diagnostic" = []
-allowed_import_edges."internal/presentation" = ["internal/configuration"]
+allowed_import_edges."internal/presentation" = ["internal/configuration", "internal/secrets"]
 allowed_import_edges."internal/process" = []
 allowed_import_edges."tools/ci" = [
   "tools/ci/evidence",

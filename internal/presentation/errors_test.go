@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/secrets"
 )
 
 type rewrittenOutputError struct{ cause error }
@@ -36,6 +37,27 @@ func TestCredentialErrorUsesOnlySafeProblems(t *testing.T) {
 				t.Fatal("credential cause was lost")
 			}
 		})
+	}
+}
+
+func TestNativeReaderPreflightReportsRecoveryWithoutPrivateCause(t *testing.T) {
+	const privateCause = "private-token-fragment /Users/operator/keychain"
+	err := fmt.Errorf("%w: %s", secrets.ErrNativeReaderUnverified, privateCause)
+	for _, jsonMode := range []bool{false, true} {
+		var out bytes.Buffer
+		renderer := New(&out, false)
+		RenderError(renderer, err, jsonMode)
+		if renderer.Err() != nil {
+			t.Fatalf("json=%t render error: %v", jsonMode, renderer.Err())
+		}
+		for _, expected := range []string{"native Account Token access", "aigw doctor", "aigw sync"} {
+			if !strings.Contains(out.String(), expected) {
+				t.Fatalf("json=%t output lacks %q: %s", jsonMode, expected, &out)
+			}
+		}
+		if strings.Contains(out.String(), privateCause) || strings.Contains(out.String(), "aigw check") {
+			t.Fatalf("json=%t output exposed a private cause or misleading action: %s", jsonMode, &out)
+		}
 	}
 }
 

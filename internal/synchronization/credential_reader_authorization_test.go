@@ -68,8 +68,8 @@ func main() {
 	if err == nil {
 		t.Fatal("copied reader denied by the native store was accepted")
 	}
-	if !strings.Contains(err.Error(), "copied credential reader") {
-		t.Fatalf("failure did not identify the copied reader boundary: %v", err)
+	if !strings.Contains(err.Error(), "copied credential reader") || !errors.Is(err, secrets.ErrNativeReaderUnverified) {
+		t.Fatalf("failure lost its reader boundary or public diagnostic category: %v", err)
 	}
 	for _, path := range []string{reader, reader + ".sha256"} {
 		if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
