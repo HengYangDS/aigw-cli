@@ -198,6 +198,20 @@ The findings below separate observation, mechanism and decision implication. Rev
 
 **Implication.** Judge adoption by the responsibilities, tests and support work it lets us delete. Prefer using a product unchanged, then configuration or a public extension, before considering a fork. Reuse is attractive when its public boundary matches the required responsibility and its upgrade path is supportable.
 
+For AIGW's current control-plane boundary, the substitution decisions are:
+
+- **CUE — retain.** Its [configuration and validation model](https://cuelang.org/docs/introduction/) already owns the [dual-peer CI graph](../../.config/ci/pipeline.cue); a second pipeline language would duplicate authority.
+- **GoReleaser, Syft, and OSV Scanner — retain.** [GoReleaser archives](https://goreleaser.com/customization/package/archives/) underpin [release construction](../../.config/release/goreleaser.yaml); Syft and OSV supply the separately required all-binary and locked-dependency evidence. The remaining release code binds signing, provenance, deterministic comparison, and peer readback, not a second archive builder.
+- **CC Switch Core — do not embed.** Its [sealed adapter][core-adapter] still leaves the host responsible for I/O, credential safety, and rollback; it does not retire AIGW's client ownership. Replacing AIGW with a complete switcher remains a separate product-level choice.
+- **CLIProxyAPI SDK — do not embed.** Its [public module][cpa-module] serves a request data plane, not AIGW's native client projections; assess it under Proxy only if it can retire a proven compatibility obligation.
+- **One API and LiteLLM — do not embed.** Their [shared-gateway][one-api] and [virtual-key][litellm] responsibilities can be composed as external endpoints; copying them into AIGW would create a traffic owner it does not need.
+- **Pants — do not replace Go and Mise.** [Go support remains beta](https://www.pantsbuild.org/stable/docs/go); remote caching is real, but no measured bottleneck here justifies another build authority.
+- **Dagger — do not replace native CI.** Its [container engine](https://docs.dagger.io/) cannot stand in for the required macOS Keychain and native Windows client journeys; it would add an execution plane beside CUE.
+- **Nix — do not replace the locked environment.** Its [shared shell path](https://nix.dev/tutorials/first-steps/ad-hoc-shell-environments.html) covers Linux, macOS, and Windows through WSL, not this product's native Windows acceptance.
+- **CEL — do not embed.** It is a [safe expression evaluator](https://cel.dev/overview/cel-overview) for host-defined policy inputs; no user-authored expression policy exists here, and CUE plus Go already own the declared rules.
+
+FastAPI is not an AIGW substitute: this Go CLI has no HTTP server. Proxy must assess any server-framework replacement against its own protocol and lifecycle contract. No new substitution above retires an existing AIGW owner, so none warrants a migration or parallel implementation now.
+
 **Reversal condition.** A small missing seam that can be contributed upstream may favor adoption. A deep, unstable fork may not. Lines of code and repository size are maintenance signals, not a total-cost model or an excuse to retain custom code.
 
 ## 5. Compare products within the right scenario

@@ -174,7 +174,7 @@
 - [ ] 8.3 Review diagrams, tables, headings, lists, examples, CLI help and
       errors for readable layout and accurate links; enforce the chosen native
       formatter/linter rather than adding one-off checks.
-- [ ] 8.4 Compare mature gateway, config, client and release libraries with
+- [x] 8.4 Compare mature gateway, config, client and release libraries with
       retained AIGW differentiators; record one source-backed adopt/reject decision
       per candidate and delete any replaced hand-written owner.
 - [ ] 8.5 Inventory obsolete branches, generated outputs, records, stale tags,
