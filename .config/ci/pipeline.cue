@@ -91,9 +91,10 @@ toolchainTools: {
 	]])
 	links: ["github:lycheeverse/lychee"]
 	quality: list.Concat([portableQuality, links])
-	native: list.Concat([portableQuality, ["github:anchore/syft", "gh"]])
+	// Native Go suites execute real glab against disposable GitLab origins.
+	native: list.Concat([portableQuality, ["github:anchore/syft", "gh", "glab"]])
 	secretService: ["go", "github:goreleaser/goreleaser"]
-	fullNative: list.Concat([quality, ["github:anchore/syft", "gh"]])
+	fullNative: list.Concat([quality, ["github:anchore/syft", "gh", "glab"]])
 	darwin: ["github:indygreg/apple-platform-rs"]
 }
 
