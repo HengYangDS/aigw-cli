@@ -181,6 +181,12 @@ Cold-cache CI must remain executable when the sibling Forge platform and its
 tool-distribution endpoints are unavailable. Warm caches are not evidence of
 that property. Compare neutral locked sources, peer-local immutable assets, and
 runner seeds before choosing the least complex integrity-preserving route.
+An isolated Mise 2026.9.15 install accepted a checksum-identical OSV Scanner
+2.6.0 asset from a loopback mirror without requesting its deliberately corrupted
+SLSA file, although both GitHub attestation settings were enabled. URL rewriting
+alone therefore does not prove consumer-side provenance verification; a mirror
+must retain an independently verified, signed upstream-to-mirror chain or prove
+an equivalent native check before it can satisfy the cold-cache requirement.
 
 ### 6. Delete by consumer and authority
 
