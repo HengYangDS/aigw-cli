@@ -91,9 +91,9 @@ toolchainTools: {
 	]])
 	links: ["github:lycheeverse/lychee"]
 	quality: list.Concat([portableQuality, links])
-	native: list.Concat([portableQuality, ["github:anchore/syft", "gh", "glab"]])
+	native: list.Concat([portableQuality, ["github:anchore/syft", "gh"]])
 	secretService: ["go", "github:goreleaser/goreleaser"]
-	fullNative: list.Concat([quality, ["github:anchore/syft", "gh", "glab"]])
+	fullNative: list.Concat([quality, ["github:anchore/syft", "gh"]])
 	darwin: ["github:indygreg/apple-platform-rs"]
 }
 

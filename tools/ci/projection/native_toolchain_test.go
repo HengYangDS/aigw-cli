@@ -192,12 +192,16 @@ func checkGitLabNativeToolClosure(t *testing.T, content string) {
 		"native-linux":   *pipeline.NativeLinux,
 		"native-windows": *pipeline.NativeWindows,
 	} {
-		for _, tool := range []string{"go", "node", "npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "gh", "glab"} {
-			if !slices.Contains(strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ","), tool) {
+		enabled := strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ",")
+		for _, tool := range []string{"go", "node", "npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "gh"} {
+			if !slices.Contains(enabled, tool) {
 				t.Errorf("GitLab %s lacks native acceptance tool %s", name, tool)
 			}
 		}
-		hasDarwinSigner := slices.Contains(strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ","), "github:indygreg/apple-platform-rs")
+		if slices.Contains(enabled, "glab") {
+			t.Errorf("GitLab %s includes the release-only GitLab CLI", name)
+		}
+		hasDarwinSigner := slices.Contains(enabled, "github:indygreg/apple-platform-rs")
 		if hasDarwinSigner != (name == "native-darwin") {
 			t.Errorf("GitLab %s Darwin signer presence = %t", name, hasDarwinSigner)
 		}
@@ -228,6 +232,9 @@ func checkGitHubNativeToolClosure(t *testing.T, projection projection) {
 			if !strings.Contains(tools, required) {
 				t.Errorf("%s %s tool closure lacks %q: %q", projection.Path, name, required, tools)
 			}
+		}
+		if strings.Contains(tools, "glab") {
+			t.Errorf("%s %s depends on the GitLab CLI", projection.Path, name)
 		}
 		hasDarwinSigner := strings.Contains(tools, "github:indygreg/apple-platform-rs")
 		if hasDarwinSigner != (name == "native-darwin") {
