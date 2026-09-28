@@ -202,7 +202,9 @@ journeys must establish all of these boundaries:
    captured predecessor access and signed-successor access independently for
    each claimed capability. Environment-backed fixtures and
    new-client runs do not qualify a Keychain transition or establish recovery
-   of every existing session.
+   of every existing session. A Token rotated in the legacy item after rollback
+   makes earlier candidate staging stale; restage and verify it before
+   re-upgrade rather than inferring freshness from a readable old command.
 4. Verify bounded failure, interrupted replacement, exact rollback and uninstall
    preservation. Test the native no-UI policy separately; process timeout alone
    cannot suppress an operating-system prompt.

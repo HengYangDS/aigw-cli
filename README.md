@@ -255,8 +255,13 @@ the Homebrew-managed `aigw` credential command, stop those clients before
 `brew upgrade aigw`. If they cannot stop, defer the upgrade: Homebrew briefly
 unlinks that command. After upgrading, run `aigw sync`, then restart the
 clients. The new AIGW-owned credential entrypoint lives outside the Cask link;
-routine later CLI replacements leave it in place. This transition does not
-require disabling clients, moving Tokens, or changing explicit custom helpers.
+routine later CLI replacements leave it in place. Client bindings and explicit
+custom helpers remain unchanged. Keychain-backed 0.3.1 Accounts, however, use
+different Keychain items in the new version. Before upgrading, use the new
+executable to save each selected Token and verify its exact credential command
+without a prompt. If that cannot be done, postpone the upgrade. After rollback,
+a Token rotated in 0.3.1 must be saved in the new version again before
+re-upgrade. See the [credential succession decision](docs/decisions/dr-0011-single-portable-token-backend.md#credential-command-continuity).
 
 `aigw uninstall` withdraws AIGW-owned client projections and removes the
 portable executable plus its predecessor. It retains versioned credential

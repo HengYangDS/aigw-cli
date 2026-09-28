@@ -40,7 +40,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 	}
 	var undoEntrypoint func() error
 	if reconcileProjection {
-		undoEntrypoint, err = s.prepareCredentialEntrypoint(after)
+		undoEntrypoint, err = s.prepareCredentialEntrypoint(after, clientIDs...)
 		if err != nil {
 			return err
 		}

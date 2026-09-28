@@ -52,6 +52,36 @@ func newKeyringStore(executable string) keyringStore {
 	}
 }
 
+// VerifyNativeReaderAccess checks that a copied executable can read every
+// present Account Token from the selected native store before client files
+// point at it. Other backends have no per-executable native authorization.
+func VerifyNativeReaderAccess(store Store, executable string, accounts []string) error {
+	selection, err := Inspect(store)
+	if err != nil {
+		return err
+	}
+	if selection.Kind != "keyring" {
+		return nil
+	}
+	for _, account := range accounts {
+		present, err := store.Exists(account)
+		if err != nil {
+			return err
+		}
+		if !present {
+			continue
+		}
+		value, err := native.Read(executable, Service, account)
+		if err != nil {
+			return fmt.Errorf("copied credential reader cannot read the selected Account Token: %w", err)
+		}
+		if value == "" {
+			return errors.New("copied credential reader returned an empty Account Token")
+		}
+	}
+	return nil
+}
+
 func (store keyringStore) get(kind Kind, account string) (string, error) {
 	slot := slotName(kind, account)
 	value, err := store.read(Service, slot)

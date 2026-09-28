@@ -100,7 +100,45 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	if got, err := diagnostics.Get(sourceAccount); err != nil || got != wantDiagnostic {
 		t.Fatalf("candidate diagnostic credential did not survive update and rollback: %v", err)
 	}
-	finishNativeCredentialJourney(journey, store, sourceAccount, targetAccount, replacement, wantDiagnostic, backend)
+	activeToken := replacement
+	if runtime.GOOS == "darwin" && oldVersion == "0.3.1" {
+		bridge := publishedNativeJourney{journey: journey, candidate: candidate, archive: archive, checksums: checksums}
+		activeToken = bridge.requireLegacyRotationRestaging(t, sourceAccount, oldVersion, replacement, store, backend)
+	}
+	finishNativeCredentialJourney(journey, store, sourceAccount, targetAccount, activeToken, wantDiagnostic, backend)
+}
+
+func (state *publishedNativeJourney) requireLegacyRotationRestaging(
+	t *testing.T, account, predecessorVersion, oldToken string, store secrets.Store, backend secrets.BackendSelection,
+) string {
+	t.Helper()
+	const rotated = "native-system-keyring-rotated-after-rollback"
+	journey := state.journey
+	journey.run("update", "--rollback")
+	journey.requireVersion(predecessorVersion)
+	configurationBefore := readFile(t, journey.config)
+	journey.runWithInput(journey.binary, rotated+"\n", "rotate", account, "--token-stdin")
+	if !bytes.Equal(configurationBefore, readFile(t, journey.config)) {
+		t.Fatal("legacy Token rotation changed retained configuration")
+	}
+	if value, err := store.Get(account); err != nil || value != oldToken {
+		t.Fatalf("legacy rotation silently changed the candidate Token slot: %v", err)
+	}
+	// The legacy and candidate Keychain slots are distinct. A rollback rotation
+	// cannot make the candidate slot fresh without explicit input.
+	journey.requireVersion(predecessorVersion)
+	stageNativeCandidateToken(t, journey, state.candidate, account, rotated)
+	if value, err := store.Get(account); err != nil || value != rotated {
+		t.Fatalf("explicitly restaged candidate Token is unavailable: %v", err)
+	}
+	journey.runWith(state.candidate, "sync")
+	if !bytes.Equal(configurationBefore, readFile(t, journey.config)) {
+		t.Fatal("candidate reader preprojection changed retained configuration")
+	}
+	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
+	journey.run("sync")
+	journey.requireCredentialBackend(rotated, backend)
+	return rotated
 }
 
 func preprojectNativeCredentialJourney(t *testing.T, journey *journeyFixture, candidate, oldVersion, token string) []process.Plan {

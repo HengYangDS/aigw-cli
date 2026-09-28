@@ -53,11 +53,18 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg configuration.Con
 }
 
 func (s Synchronizer) prepareCredentialEntrypoint(cfg configuration.Config, clientIDs ...string) (func() error, error) {
-	required, err := s.needsCredentialEntrypoint(cfg, clientIDs...)
-	if err != nil || !required {
+	accounts, err := s.credentialEntrypointAccounts(cfg, clientIDs...)
+	if err != nil || len(accounts) == 0 {
 		return nil, err
 	}
-	return credential.EnsureEntrypoint(s.AIGWExecutable, s.CredentialPath)
+	undo, err := credential.EnsureEntrypoint(s.AIGWExecutable, s.CredentialPath)
+	if err != nil || s.Secrets == nil {
+		return undo, err
+	}
+	if err := secrets.VerifyNativeReaderAccess(s.Secrets, s.CredentialPath, accounts); err != nil {
+		return nil, errors.Join(err, undoCreatedEntrypoint(undo))
+	}
+	return undo, nil
 }
 
 // ConfigStore is the exact persistence capability needed by a synchronization
@@ -154,26 +161,27 @@ func (s Synchronizer) clientDependencies() client.Dependencies {
 	}
 }
 
-func (s Synchronizer) needsCredentialEntrypoint(cfg configuration.Config, clientIDs ...string) (bool, error) {
+func (s Synchronizer) credentialEntrypointAccounts(cfg configuration.Config, clientIDs ...string) ([]string, error) {
 	if s.CredentialPath == "" {
-		return false, nil
+		return nil, nil
 	}
 	if len(clientIDs) == 0 {
 		clientIDs = s.ClientIDs()
 	}
+	var accounts []string
 	for _, clientID := range clientIDs {
 		if !cfg.Clients[clientID].Enabled {
 			continue
 		}
 		runtime, err := cfg.ResolveRuntime(clientID, "")
 		if err != nil {
-			return false, err
+			return nil, err
 		}
-		if runtime.RequiresAccountToken() && runtime.CredentialCommand == "" {
-			return true, nil
+		if runtime.RequiresAccountToken() && runtime.CredentialCommand == "" && !slices.Contains(accounts, runtime.AccountID) {
+			accounts = append(accounts, runtime.AccountID)
 		}
 	}
-	return false, nil
+	return accounts, nil
 }
 
 // CredentialEntrypointAction names the one filesystem effect required by the
@@ -194,11 +202,11 @@ func (s Synchronizer) CredentialEntrypointPlan(cfg configuration.Config) (Creden
 	if s.CredentialPath == "" {
 		return CredentialEntrypointUnchanged, nil
 	}
-	required, err := s.needsCredentialEntrypoint(cfg)
+	accounts, err := s.credentialEntrypointAccounts(cfg)
 	if err != nil {
 		return CredentialEntrypointUnchanged, err
 	}
-	if !required {
+	if len(accounts) == 0 {
 		return CredentialEntrypointUnchanged, nil
 	}
 	missing, err := credential.EntrypointNeeded(s.CredentialPath)
