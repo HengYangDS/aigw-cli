@@ -57,15 +57,16 @@ func TestRunAIGWRendersCommandError(t *testing.T) {
 
 func TestRunAIGWReportsInitializationFailure(t *testing.T) {
 	setAIGWTestEnvironment(t)
-	t.Setenv("AIGW_SECRET_BACKEND", "invalid-test-backend")
+	const canary = "private-token-fragment"
+	t.Setenv("AIGW_SECRET_BACKEND", canary)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	if code := run([]string{"--version"}, &stdout, &stderr); code != 1 {
 		t.Fatalf("run() code = %d, want 1", code)
 	}
-	if !strings.Contains(stderr.String(), "aigw:") || !strings.Contains(stderr.String(), "invalid-test-backend") {
-		t.Fatalf("run() stderr = %q, want initialization diagnostic", stderr.String())
+	if strings.Contains(stderr.String(), canary) || !strings.Contains(stderr.String(), "AIGW") {
+		t.Fatalf("run() stderr = %q, want safe initialization diagnostic", stderr.String())
 	}
 }
 
