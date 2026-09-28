@@ -38,7 +38,6 @@ type endpointTransportKind string
 const endpointTransportExternalLoopback endpointTransportKind = "external_loopback"
 
 type statusOutput struct {
-	ConfigPath        string                   `json:"config_path"`
 	CredentialBackend secrets.BackendSelection `json:"credential_backend"`
 	Clients           map[string]clientStatus  `json:"clients"`
 	Routes            int                      `json:"routes"`
@@ -204,7 +203,6 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	clients := inspectStatusClients(runtime, cfg, &activation)
 	return statusOutput{
-		ConfigPath:        runtime.Config.Path(),
 		CredentialBackend: backend,
 		Clients:           clients,
 		Routes:            len(cfg.Routes),

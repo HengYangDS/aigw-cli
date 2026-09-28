@@ -11,6 +11,12 @@ evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- Omit private configuration paths from `status --json` and `check --json`;
+  classify Doctor configuration, credential, and client inspection failures
+  without exposing raw backend errors or private paths.
+
 ## [0.3.3] - 2026-09-26
 
 ### Added

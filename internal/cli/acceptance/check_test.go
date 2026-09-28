@@ -75,6 +75,9 @@ func TestCheckJSONSeparatesHardQuotaFromRateLimit(t *testing.T) {
 			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 				t.Fatalf("decode check JSON: %v\n%s", err, out.String())
 			}
+			if strings.Contains(out.String(), `"config_path"`) || strings.Contains(out.String(), app.Config.Path()) {
+				t.Fatalf("check exposed a private configuration path: %s", out.String())
+			}
 			client := result.Clients[configuration.ClientClaude]
 			if result.OK || client.DiagnosticKind != test.kind || client.Retryable != test.retryable || client.NextAction == "" {
 				t.Fatalf("check JSON = %#v", result)
@@ -223,6 +226,9 @@ func TestCheckJSONKeepsConfigurationFailureMachineReadable(t *testing.T) {
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode malformed-configuration check --json: %v\n%s", err, out.String())
+	}
+	if strings.Contains(out.String(), `"config_path"`) || strings.Contains(out.String(), app.Config.Path()) {
+		t.Fatalf("check exposed a private configuration path: %s", out.String())
 	}
 	if result.OK || result.Error == "" || result.NextAction != "aigw doctor" {
 		t.Fatalf("malformed-configuration JSON result = %#v", result)

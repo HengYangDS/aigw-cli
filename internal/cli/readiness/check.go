@@ -35,7 +35,6 @@ func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 }
 
 type checkJSON struct {
-	ConfigPath     string                  `json:"config_path"`
 	Clients        map[string]clientStatus `json:"clients"`
 	EnabledClients int                     `json:"enabled_clients"`
 	OK             bool                    `json:"ok"`
@@ -83,8 +82,7 @@ type evaluatedClient struct {
 }
 
 type checkEvaluation struct {
-	configPath string
-	clients    []evaluatedClient
+	clients []evaluatedClient
 }
 
 func selectedCheckScope(cmd *cobra.Command) diagnostics.Scope {
@@ -96,7 +94,7 @@ func selectedCheckScope(cmd *cobra.Command) diagnostics.Scope {
 }
 
 func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config) checkEvaluation {
-	evaluation := checkEvaluation{configPath: runtime.Config.Path()}
+	var evaluation checkEvaluation
 	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
 		if !cfg.Clients[client].Enabled {
 			continue
@@ -184,7 +182,6 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
 		_, _, issue, cause := activationCheckIssue(activation)
 		result := checkJSON{
-			ConfigPath:     runtime.Config.Path(),
 			Clients:        inspectStatusClients(runtime, cfg, &activation),
 			EnabledClients: activation.EnabledClients,
 			OK:             false,
@@ -200,7 +197,6 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	evaluation := evaluateCheck(cmd, runtime, cfg)
 	clients := checkedClientStatuses(runtime, cfg, &activation, evaluation)
 	result := checkJSON{
-		ConfigPath:     evaluation.configPath,
 		Clients:        clients,
 		EnabledClients: activation.EnabledClients,
 		OK:             evaluation.ok(),
