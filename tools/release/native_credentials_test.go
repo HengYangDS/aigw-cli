@@ -390,13 +390,17 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 		j.run("sync")
 		current := j.retainedCredentials()
 		reader := j.credentialEntrypoint()
-		for _, credential := range current {
+		for index, credential := range current {
 			command := credential.Executable + "\x00" + strings.Join(credential.Args, "\x00")
 			if runtime.GOOS == "windows" && strings.HasSuffix(strings.ToLower(credential.Executable), ".cmd") {
 				command += string(readFile(j.testing, credential.Executable))
 			}
 			if !strings.Contains(command, reader) {
-				j.testing.Fatal("synchronized client did not select the current versioned reader")
+				cfg, err := configuration.NewStore(j.config).Load()
+				if err != nil {
+					j.testing.Fatal(err)
+				}
+				j.testing.Fatalf("synchronized client %q did not select the current versioned reader after %s", cfg.EnabledClientIDs()[index], step.version)
 			}
 		}
 		retained = append(retained, current...)
