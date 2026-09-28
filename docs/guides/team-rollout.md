@@ -364,8 +364,8 @@ The examples below use `aigw` after its installed directory is on `PATH`; the
 installed executable's explicit path works with the same arguments. Importing
 team configuration does not install the program or change shell discovery.
 
-Import the reviewed catalogue without requiring every provider Token or either
-supported client. Save the maintainer's `team.toml` in the current directory,
+Import the reviewed catalogue without requiring every provider Token or any
+installed client. Save the maintainer's `team.toml` in the current directory,
 or pass its actual path to `--from`:
 
 ```bash

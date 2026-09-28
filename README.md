@@ -88,15 +88,15 @@ Use `--anthropic-url` and an Anthropic-compatible client for a native Anthropic
 endpoint. AIGW records the endpoint choice; it does not insert or manage a
 gateway.
 
-A team can instead distribute a reviewed, token-free manifest:
+A team can instead distribute a reviewed, token-free manifest. Save the tracked
+[`manifests/team.toml`](manifests/team.toml) as a local `team.toml`, then run:
 
 ```bash
 aigw setup --from team.toml
 ```
 
-The tracked [`manifests/team.toml`](manifests/team.toml) is the current team
-catalogue. Importing it requires neither every provider Token nor an installed
-client. To connect one Account during setup, name only that Account:
+Importing the team catalogue requires neither every provider Token nor an
+installed client. To connect one Account during setup, name only that Account:
 
 ```bash
 aigw setup --from team.toml --account dmxapi
