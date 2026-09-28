@@ -37,138 +37,136 @@ func versionedReaders(t *testing.T) (string, string) {
 	return paths[0], paths[1]
 }
 
-func TestNativeInspectionKeepsIntactRetainedVersionedReader(t *testing.T) {
-	t.Run("Hermes", func(t *testing.T) {
-		retained, current := versionedReaders(t)
-		root := t.TempDir()
-		executable := filepath.Join(root, "hermes")
-		target := filepath.Join(root, "config.yaml")
-		if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		cfg := configuration.NewConfig()
-		cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-		cfg.Routes["hermes"] = qualifiedRoute("Hermes", "team", "model-test", configuration.ProtocolAnthropic)
-		cfg.SetSelectedRoute(configuration.ClientHermes, "hermes")
-		cfg.SetClientActivation(configuration.ClientHermes, true, executable, []string{target})
-		store := secrets.NewMemoryStore()
-		if err := store.Set("team", "fixture-token"); err != nil {
-			t.Fatal(err)
-		}
-		adapter := hermesAdapter{}
-		deps := Dependencies{Secrets: store, AIGWExecutable: retained}
-		selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		unprojected := deps
-		unprojected.AIGWExecutable = current
-		if status := adapter.Inspect(t.Context(), unprojected, cfg, selected); status.Ready || !strings.Contains(status.Issue, "projection differs") {
-			t.Fatalf("unsynchronized Hermes projection = %#v", status)
-		}
-		if _, err := adapter.Apply(t.Context(), deps, configuration.NewConfig(), cfg); err != nil {
-			t.Fatal(err)
-		}
-		before, err := os.ReadFile(target)
-		if err != nil {
-			t.Fatal(err)
-		}
-		deps.AIGWExecutable = current
-		if status := adapter.Inspect(t.Context(), deps, cfg, selected); !status.Ready {
-			t.Fatalf("intact retained Hermes reader was rejected: %s", status.Issue)
-		}
-		after, err := os.ReadFile(target)
-		if err != nil || !slices.Equal(before, after) {
-			t.Fatalf("inspection changed Hermes configuration: %v", err)
-		}
-		if err := os.Remove(target); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Mkdir(target, 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if status := adapter.Inspect(t.Context(), deps, cfg, selected); status.Ready || strings.Contains(status.Issue, target) {
-			t.Fatalf("Hermes inspection exposed an unreadable target: %#v", status)
-		}
-		if err := os.Remove(target); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(target, before, 0o600); err != nil {
-			t.Fatal(err)
-		}
-		changed := cfg.Clone()
-		account := changed.Accounts["team"]
-		account.Endpoints.Anthropic = "https://changed.test"
-		changed.Accounts["team"] = account
-		changedRuntime, err := changed.ResolveRuntime(configuration.ClientHermes, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if status := adapter.Inspect(t.Context(), deps, changed, changedRuntime); status.Ready {
-			t.Fatal("an endpoint change was mistaken for a retained-reader transition")
-		}
-		if err := credential.RemoveEntrypoint(retained); err != nil {
-			t.Fatal(err)
-		}
-		if status := adapter.Inspect(t.Context(), deps, cfg, selected); status.Ready {
-			t.Fatal("missing retained Hermes reader was accepted")
-		}
-	})
+func TestHermesInspectionKeepsIntactRetainedVersionedReader(t *testing.T) {
+	retained, current := versionedReaders(t)
+	root := t.TempDir()
+	executable := filepath.Join(root, "hermes")
+	target := filepath.Join(root, "config.yaml")
+	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cfg := configuration.NewConfig()
+	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Routes["hermes"] = qualifiedRoute("Hermes", "team", "model-test", configuration.ProtocolAnthropic)
+	cfg.SetSelectedRoute(configuration.ClientHermes, "hermes")
+	cfg.SetClientActivation(configuration.ClientHermes, true, executable, []string{target})
+	store := secrets.NewMemoryStore()
+	if err := store.Set("team", "fixture-token"); err != nil {
+		t.Fatal(err)
+	}
+	adapter := hermesAdapter{}
+	deps := Dependencies{Secrets: store, AIGWExecutable: retained}
+	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	unprojected := deps
+	unprojected.AIGWExecutable = current
+	if status := adapter.Inspect(t.Context(), unprojected, cfg, selected); status.Ready || !strings.Contains(status.Issue, "projection differs") {
+		t.Fatalf("unsynchronized Hermes projection = %#v", status)
+	}
+	if _, err := adapter.Apply(t.Context(), deps, configuration.NewConfig(), cfg); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps.AIGWExecutable = current
+	if status := adapter.Inspect(t.Context(), deps, cfg, selected); !status.Ready {
+		t.Fatalf("intact retained Hermes reader was rejected: %s", status.Issue)
+	}
+	after, err := os.ReadFile(target)
+	if err != nil || !slices.Equal(before, after) {
+		t.Fatalf("inspection changed Hermes configuration: %v", err)
+	}
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(target, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if status := adapter.Inspect(t.Context(), deps, cfg, selected); status.Ready || strings.Contains(status.Issue, target) {
+		t.Fatalf("Hermes inspection exposed an unreadable target: %#v", status)
+	}
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, before, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	changed := cfg.Clone()
+	account := changed.Accounts["team"]
+	account.Endpoints.Anthropic = "https://changed.test"
+	changed.Accounts["team"] = account
+	changedRuntime, err := changed.ResolveRuntime(configuration.ClientHermes, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status := adapter.Inspect(t.Context(), deps, changed, changedRuntime); status.Ready {
+		t.Fatal("an endpoint change was mistaken for a retained-reader transition")
+	}
+	if err := credential.RemoveEntrypoint(retained); err != nil {
+		t.Fatal(err)
+	}
+	if status := adapter.Inspect(t.Context(), deps, cfg, selected); status.Ready {
+		t.Fatal("missing retained Hermes reader was accepted")
+	}
+}
 
-	t.Run("Claude Desktop", func(t *testing.T) {
-		retained, current := versionedReaders(t)
-		fixture := newClaudeDesktopFixture(t)
-		fixture.deps.AIGWExecutable = current
-		if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); status.Ready || !strings.Contains(status.Issue, "projection differs") {
-			t.Fatalf("unsynchronized Claude Desktop projection = %#v", status)
-		}
-		fixture.deps.AIGWExecutable = retained
-		fixture.apply(t)
-		before, err := os.ReadFile(fixture.paths.Profile)
-		if err != nil {
-			t.Fatal(err)
-		}
-		fixture.deps.AIGWExecutable = current
-		if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); !status.Ready {
-			t.Fatalf("intact retained Claude Desktop reader was rejected: %s", status.Issue)
-		}
-		after, err := os.ReadFile(fixture.paths.Profile)
-		if err != nil || !slices.Equal(before, after) {
-			t.Fatalf("inspection changed Claude Desktop profile: %v", err)
-		}
-		if err := os.Remove(fixture.paths.Profile); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Mkdir(fixture.paths.Profile, 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); status.Ready || strings.Contains(status.Issue, fixture.paths.Profile) {
-			t.Fatalf("Claude Desktop inspection exposed an unreadable profile: %#v", status)
-		}
-		if err := os.Remove(fixture.paths.Profile); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(fixture.paths.Profile, before, 0o600); err != nil {
-			t.Fatal(err)
-		}
-		changed := fixture.cfg.Clone()
-		account := changed.Accounts["gateway"]
-		account.Endpoints.Anthropic = "https://changed.test"
-		changed.Accounts["gateway"] = account
-		changedRuntime, err := changed.ResolveRuntime(configuration.ClientClaudeDesktop, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if status := fixture.adapter.Inspect(t.Context(), fixture.deps, changed, changedRuntime); status.Ready {
-			t.Fatal("an endpoint change was mistaken for a retained-reader transition")
-		}
-		if err := credential.RemoveEntrypoint(retained); err != nil {
-			t.Fatal(err)
-		}
-		if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); status.Ready {
-			t.Fatal("missing retained Claude Desktop reader was accepted")
-		}
-	})
+func TestClaudeDesktopInspectionKeepsIntactRetainedVersionedReader(t *testing.T) {
+	retained, current := versionedReaders(t)
+	fixture := newClaudeDesktopFixture(t)
+	fixture.deps.AIGWExecutable = current
+	if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); status.Ready || !strings.Contains(status.Issue, "projection differs") {
+		t.Fatalf("unsynchronized Claude Desktop projection = %#v", status)
+	}
+	fixture.deps.AIGWExecutable = retained
+	fixture.apply(t)
+	before, err := os.ReadFile(fixture.paths.Profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.deps.AIGWExecutable = current
+	if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); !status.Ready {
+		t.Fatalf("intact retained Claude Desktop reader was rejected: %s", status.Issue)
+	}
+	after, err := os.ReadFile(fixture.paths.Profile)
+	if err != nil || !slices.Equal(before, after) {
+		t.Fatalf("inspection changed Claude Desktop profile: %v", err)
+	}
+	if err := os.Remove(fixture.paths.Profile); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(fixture.paths.Profile, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); status.Ready || strings.Contains(status.Issue, fixture.paths.Profile) {
+		t.Fatalf("Claude Desktop inspection exposed an unreadable profile: %#v", status)
+	}
+	if err := os.Remove(fixture.paths.Profile); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(fixture.paths.Profile, before, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	changed := fixture.cfg.Clone()
+	account := changed.Accounts["gateway"]
+	account.Endpoints.Anthropic = "https://changed.test"
+	changed.Accounts["gateway"] = account
+	changedRuntime, err := changed.ResolveRuntime(configuration.ClientClaudeDesktop, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status := fixture.adapter.Inspect(t.Context(), fixture.deps, changed, changedRuntime); status.Ready {
+		t.Fatal("an endpoint change was mistaken for a retained-reader transition")
+	}
+	if err := credential.RemoveEntrypoint(retained); err != nil {
+		t.Fatal(err)
+	}
+	if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); status.Ready {
+		t.Fatal("missing retained Claude Desktop reader was accepted")
+	}
 }
 
 type routeVerificationRunner struct {
