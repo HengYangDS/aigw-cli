@@ -126,8 +126,8 @@ the stable-model selection. These listings are not admitted Routes.
 
 AIHubMix's `agnes-3.0-flash` returned Chat text, but the [model card](https://huggingface.co/Agnes-AI/Agnes-3.0-Flash)
 calls it a preview, so it is not admitted. `intern-s2-free` also returned Chat
-text, but that aggregator alias is not bound to the exact current InternAI
-model version in the [vendor's model guide](https://internlm.intern-ai.org.cn/docEn/docs/Models/).
+text, but that aggregator alias does not identify a specific release in
+[InternLM's Intern-S2 model collection](https://huggingface.co/collections/internlm/intern-s2).
 
 Specialized, small, preview, or unidentified public catalogue entries from
 Jina AI, Liquid, Dots Studio, Sao10k, and Stealth are not general-model Routes.
