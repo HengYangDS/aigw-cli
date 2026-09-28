@@ -11,13 +11,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -184,32 +181,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		spec, _ := configuration.ClientSpecFor(client)
 		protocol = spec.EndpointProtocols[0]
 	}
-	requiredEffort := "high"
-	if client == configuration.ClientHermes {
-		requiredEffort = ""
-	}
-	handler := clientResponseHandler(protocol, map[string]*atomic.Int64{route.UpstreamModel: &completions}, token, requiredEffort)
-	var hermesSession *hermesSessionRecorder
-	if client == configuration.ClientHermes {
-		hermesSession = &hermesSessionRecorder{Handler: handler, model: route.UpstreamModel}
-		handler = hermesSession
-	}
-	requests := map[string]int{}
-	var requestsMu sync.Mutex
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		requestsMu.Lock()
-		requests[request.Method+" "+request.URL.Path]++
-		requestsMu.Unlock()
-		handler.ServeHTTP(response, request)
-	}))
-	t.Cleanup(server.Close)
-	t.Cleanup(func() {
-		if t.Failed() {
-			requestsMu.Lock()
-			defer requestsMu.Unlock()
-			t.Logf("client request paths: %v", requests)
-		}
-	})
+	server, hermesSession := newNativeClientServer(t, client, protocol, route.UpstreamModel, token, &completions)
 	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
 	if client == configuration.ClientHermes {
 		journey.run("update", "--candidate", p.archive, "--checksums", p.checksums)

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -21,6 +22,37 @@ import (
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/secrets"
 )
+
+func newNativeClientServer(t *testing.T, client string, protocol configuration.EndpointProtocol, model, token string, completions *atomic.Int64) (*httptest.Server, *hermesSessionRecorder) {
+	t.Helper()
+	requiredEffort := "high"
+	if client == configuration.ClientHermes {
+		requiredEffort = ""
+	}
+	handler := clientResponseHandler(protocol, map[string]*atomic.Int64{model: completions}, token, requiredEffort)
+	var hermesSession *hermesSessionRecorder
+	if client == configuration.ClientHermes {
+		hermesSession = &hermesSessionRecorder{Handler: handler, model: model}
+		handler = hermesSession
+	}
+	requests := map[string]int{}
+	var requestsMu sync.Mutex
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		requestsMu.Lock()
+		requests[request.Method+" "+request.URL.Path]++
+		requestsMu.Unlock()
+		handler.ServeHTTP(response, request)
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(func() {
+		if t.Failed() {
+			requestsMu.Lock()
+			defer requestsMu.Unlock()
+			t.Logf("client request paths: %v", requests)
+		}
+	})
+	return server, hermesSession
+}
 
 func TestNativeClientStreamEnvelope(t *testing.T) {
 	for _, protocol := range []configuration.EndpointProtocol{
