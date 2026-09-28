@@ -61,7 +61,7 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 	predecessorVersion := journey.journey.predecessorVersion(version)
 	journey.prepare(t, nativeCurrentSchemaManifest(server.URL+"/v1"))
 	if runtime.GOOS == "darwin" {
-		journey.preprojectForLinkGap(t, predecessorVersion)
+		journey.preprojectForLinkGap(t, predecessorVersion, "native-journey-token")
 	}
 	journey.upgrade(t)
 	journey.rollbackAndRecover(t, predecessorVersion)
@@ -155,7 +155,7 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	state.sessionBytes = sessionBytes
 }
 
-func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, predecessorVersion string) {
+func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, predecessorVersion, token string) {
 	journey := state.journey
 	journey.runWith(state.candidate, "sync")
 	for _, client := range state.clients {
@@ -164,8 +164,8 @@ func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, predeces
 		if successor.Executable == predecessor.Executable && strings.Join(successor.Args, "\x00") == strings.Join(predecessor.Args, "\x00") {
 			t.Fatalf("candidate did not move the %s credential command before installation replacement", client)
 		}
-		journey.requireCredential(predecessor, "native-journey-token")
-		journey.requireCredential(successor, "native-journey-token")
+		journey.requireCredential(predecessor, token)
+		journey.requireCredential(successor, token)
 	}
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
 		t.Fatal("candidate preprojection changed the published configuration")
@@ -181,20 +181,20 @@ func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, predeces
 		}
 	}()
 	for _, client := range state.clients {
-		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
+		journey.requireCredential(journey.retainedCredential(client), token)
 		predecessor := state.retained[client]
 		legacyMutable := predecessor.Executable == journey.binary || strings.Contains(strings.Join(predecessor.Args, "\x00"), journey.binary)
 		if predecessorVersion == "0.3.1" && !legacyMutable {
 			t.Fatalf("0.3.1 %s fixture did not expose the mutable credential command", client)
 		}
 		if !legacyMutable {
-			journey.requireCredential(predecessor, "native-journey-token")
+			journey.requireCredential(predecessor, token)
 			continue
 		}
 		ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 		output, err := (process.Runner{}).RunCapture(ctx, predecessor)
 		cancel()
-		if err == nil || bytes.Contains(output, []byte("native-journey-token")) {
+		if err == nil || bytes.Contains(output, []byte(token)) {
 			t.Fatalf("cached mutable %s credential command did not expose its bounded link-gap risk", client)
 		}
 	}

@@ -92,11 +92,36 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 		t.Fatalf("candidate diagnostic credential was not staged from explicit input: %v", err)
 	}
 	journey.requireClaudeCredential(replacement)
-	journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, oldVersion, replacement, backend)
+	var predecessorReaders []process.Plan
+	if runtime.GOOS == "darwin" {
+		predecessorReaders = preprojectNativeCredentialJourney(t, journey, candidate, oldVersion, replacement)
+	}
+	journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, replacement, backend, predecessorReaders...)
 	if got, err := diagnostics.Get(sourceAccount); err != nil || got != wantDiagnostic {
 		t.Fatalf("candidate diagnostic credential did not survive update and rollback: %v", err)
 	}
 	finishNativeCredentialJourney(journey, store, sourceAccount, targetAccount, replacement, wantDiagnostic, backend)
+}
+
+func preprojectNativeCredentialJourney(t *testing.T, journey *journeyFixture, candidate, oldVersion, token string) []process.Plan {
+	t.Helper()
+	cfg, err := configuration.NewStore(journey.config).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	clients := cfg.EnabledClientIDs()
+	retained := make(map[string]process.Plan, len(clients))
+	predecessorReaders := make([]process.Plan, 0, len(clients))
+	for _, client := range clients {
+		retained[client] = journey.retainedCredential(client)
+		predecessorReaders = append(predecessorReaders, retained[client])
+	}
+	bridge := publishedNativeJourney{
+		journey: journey, candidate: candidate, predecessor: readFile(t, journey.config),
+		clients: clients, retained: retained,
+	}
+	bridge.preprojectForLinkGap(t, oldVersion, token)
+	return predecessorReaders
 }
 
 func configureNativeDiagnosticProbe(t *testing.T, journey *journeyFixture, accountID, endpoint string) {
@@ -366,10 +391,11 @@ func environmentValues(environment []string) map[string]string {
 	return values
 }
 
-func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, oldVersion, token string, backend secrets.BackendSelection) {
+func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, token string, backend secrets.BackendSelection, prior ...process.Plan) {
 	j.testing.Helper()
+	oldVersion := j.predecessorVersion(newVersion)
 	j.testing.Logf("credential baseline version=%s sha256=%x; candidate version=%s sha256=%x", oldVersion, sha256.Sum256(readFile(j.testing, j.source)), newVersion, sha256.Sum256(readFile(j.testing, candidate)))
-	retained := j.retainedCredentials()
+	retained := append(prior, j.retainedCredentials()...)
 	for _, step := range []struct {
 		version string
 		program string
@@ -389,19 +415,8 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 		}
 		j.run("sync")
 		current := j.retainedCredentials()
-		reader := j.credentialEntrypoint()
-		for index, credential := range current {
-			command := credential.Executable + "\x00" + strings.Join(credential.Args, "\x00")
-			if runtime.GOOS == "windows" && strings.HasSuffix(strings.ToLower(credential.Executable), ".cmd") {
-				command += string(readFile(j.testing, credential.Executable))
-			}
-			if !strings.Contains(command, reader) {
-				cfg, err := configuration.NewStore(j.config).Load()
-				if err != nil {
-					j.testing.Fatal(err)
-				}
-				j.testing.Fatalf("synchronized client %q did not select the current versioned reader after %s", cfg.EnabledClientIDs()[index], step.version)
-			}
+		if step.version == newVersion {
+			j.requireCurrentVersionedReaders(current, step.version)
 		}
 		retained = append(retained, current...)
 		for _, credential := range retained {
@@ -415,4 +430,23 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 		j.requireClaudeCredential(token)
 	}
 	j.source = candidate
+}
+
+func (j *journeyFixture) requireCurrentVersionedReaders(current []process.Plan, version string) {
+	j.testing.Helper()
+	cfg, err := configuration.NewStore(j.config).Load()
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	clientIDs := cfg.EnabledClientIDs()
+	reader := j.credentialEntrypoint()
+	for index, credential := range current {
+		command := credential.Executable + "\x00" + strings.Join(credential.Args, "\x00")
+		if runtime.GOOS == "windows" && strings.HasSuffix(strings.ToLower(credential.Executable), ".cmd") {
+			command += string(readFile(j.testing, credential.Executable))
+		}
+		if !strings.Contains(command, reader) {
+			j.testing.Fatalf("synchronized client %q did not select the current versioned reader after %s", clientIDs[index], version)
+		}
+	}
 }

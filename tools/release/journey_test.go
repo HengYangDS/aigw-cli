@@ -102,7 +102,7 @@ func TestNativeProductJourney(t *testing.T) {
 			t.Fatal("doctor rejected a healthy partially connected catalogue")
 		}
 		candidate, archive, checksums := nativeReleaseCandidate(t, root, newVersion)
-		journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, journey.predecessorVersion(newVersion), "native-journey-token", secrets.BackendSelection{
+		journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, "native-journey-token", secrets.BackendSelection{
 			Kind: "env", Availability: "available", Mutability: "read_only", Persistence: "explicit",
 		})
 		journey.uninstallAndRequireInstallationRemoved()
