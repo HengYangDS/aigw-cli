@@ -189,6 +189,11 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		requiredEffort = ""
 	}
 	handler := clientResponseHandler(protocol, map[string]*atomic.Int64{route.UpstreamModel: &completions}, token, requiredEffort)
+	var hermesSession *hermesSessionRecorder
+	if client == configuration.ClientHermes {
+		hermesSession = &hermesSessionRecorder{Handler: handler, model: route.UpstreamModel}
+		handler = hermesSession
+	}
 	requests := map[string]int{}
 	var requestsMu sync.Mutex
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
@@ -244,6 +249,9 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		}
 	}
 	journey.testing = t
+	if hermesSession != nil {
+		journey.requireHermesTwoTurn(executable, hermesSession, &completions)
+	}
 	journey.verifyNativeConfigEditing(client, executable)
 	const renamedAccount = "renamed-client-account"
 	journey.setEnvironment(secrets.EnvironmentKey(renamedAccount), token)
