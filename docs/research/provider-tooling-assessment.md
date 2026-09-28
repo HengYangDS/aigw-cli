@@ -338,10 +338,10 @@ Sources: [Claude connection contracts][claude-gateway-connect],
 [Ollama Codex][ollama-codex],
 [Ollama ChatGPT][ollama-chatgpt],
 [Hermes model configuration][hermes-models],
-[Hermes platform support][hermes-platforms], and
-[OpenCode providers][opencode-providers], and [Pi models][pi-models]. These are documented capabilities and
-selected source observations; no live cross-model inference was run for this
-assessment.
+[Hermes platform support][hermes-platforms],
+[OpenCode providers][opencode-providers], and [Pi models][pi-models]. These are
+documented capabilities and selected source observations; no live cross-model
+inference was run for this assessment.
 
 Vendor support and technical interoperability are different conclusions.
 Anthropic explicitly [does not support routing Claude Code to non-Claude
@@ -451,11 +451,11 @@ proof of interchangeable management would create another unsafe generic writer.
 | Qoder IDE         | The current UI accepts API keys for a documented provider catalog                                                                                            | Manual composition only. The reviewed contract does not document an arbitrary OpenAI- or Anthropic-compatible endpoint or an external credential helper, so AIGW has no safe projection boundary.                                                                          |
 | Qoder SDK         | Per-request model policy can return BYOK credentials and route by purpose                                                                                    | An embedding API for a new host application, not a configuration Adapter for the installed IDE or CLI. Using it would create a different product boundary.                                                                                                                 |
 
-This evidence makes CodeBuddy CLI a plausible additional Adapter, but does not
-supersede the requested Hermes and Claude Desktop work. WorkBuddy Desktop and
-Qoder retain documented native user journeys while automated configuration
-ownership remains unproved. Each support claim requires an installed-client
-test on the actual supported host. [CodeBuddy models][codebuddy-models], [CodeBuddy settings][codebuddy-settings],
+This evidence makes CodeBuddy CLI a plausible additional Adapter, not an
+admitted one: exact ownership, withdrawal, and a real tool loop remain unproved.
+WorkBuddy Desktop and Qoder retain documented native user journeys while
+automated configuration ownership remains unproved. Each support claim requires
+an installed-client test on the actual supported host. [CodeBuddy models][codebuddy-models], [CodeBuddy settings][codebuddy-settings],
 [CodeBuddy environment][codebuddy-env], [WorkBuddy models][workbuddy-models],
 [Qoder CLI models][qoder-cli-models], [Qoder CLI settings][qoder-cli-settings],
 [Qoder IDE models][qoder-ide-models], [Qoder SDK model policy][qoder-sdk-policy].

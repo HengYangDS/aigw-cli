@@ -86,7 +86,7 @@
 - [ ] 4.5 Requalify Claude Code, Claude Desktop, Codex, and Hermes independently
       for native protocol, model selection, credential and rollback behavior; do not
       infer Desktop from CLI or endpoint reachability from real-client success.
-- [ ] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
+- [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
 - [x] 4.7 Verify direct HTTPS, optional external Responses endpoint, and
