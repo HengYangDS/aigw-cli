@@ -137,7 +137,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 	case resp.StatusCode == http.StatusUnauthorized:
 		result.Kind, result.Summary = InvalidToken, "Account Token is invalid or does not belong to the configured endpoint"
 		result.Fix = "Run `aigw rotate " + runtime.AccountID + "` to enter the token again, and confirm that the configured endpoint belongs to this Account"
-	case resp.StatusCode == http.StatusForbidden && containsAny(lower, "quota", "balance", "insufficient", "exhaust"):
+	case isHardQuotaFailure(resp.StatusCode, lower):
 		result.Kind, result.Summary = QuotaExhausted, "Token quota is exhausted"
 		result.Fix = "Increase the Token quota for Account " + runtime.AccountID + " in the provider console"
 	case resp.StatusCode == http.StatusForbidden && containsAny(lower, "disabled", "disable"):
@@ -196,6 +196,14 @@ func providerErrorMessage(body []byte) string {
 		values = append(values, plain)
 	}
 	return strings.Join(values, " ")
+}
+
+func isHardQuotaFailure(status int, message string) bool {
+	if status == http.StatusForbidden {
+		return containsAny(message, "quota", "balance", "insufficient", "exhaust")
+	}
+	return status == http.StatusTooManyRequests && containsAny(message,
+		"insufficient_quota", "quota_exhausted", "insufficient balance", "balance exhausted", "credits exhausted")
 }
 
 func classifySuccessfulResponse(result Result, protocol configuration.EndpointProtocol, body []byte) Result {

@@ -36,6 +36,56 @@ func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
 	}
 }
 
+func TestCheckJSONSeparatesHardQuotaFromRateLimit(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		body      string
+		kind      string
+		retryable bool
+	}{
+		{"hard quota", `{"error":{"code":"insufficient_quota"}}`, "quota_exhausted", false},
+		{"rate limit", `{"error":{"code":"rate_limit_exceeded"}}`, "rate_limited", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			app, out, secretStore, _, httpClient := testApp(t, "")
+			cfg := configuration.NewConfig()
+			addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, configuration.ClientClaude, "claude-test")
+			cfg.SetSelectedRoute(configuration.ClientClaude, "dmx")
+			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+			synchronizeClaudeProjection(t, app, cfg)
+			if err := app.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := secretStore.Set("dmx", "secret"); err != nil {
+				t.Fatal(err)
+			}
+			httpClient.status = http.StatusTooManyRequests
+			httpClient.body = test.body
+			if err := cli.Execute(app, []string{"check", "--json"}); err == nil {
+				t.Fatal("check accepted a failed diagnostic")
+			}
+			var result struct {
+				OK      bool `json:"ok"`
+				Clients map[string]struct {
+					DiagnosticKind string `json:"diagnostic_kind"`
+					Retryable      bool   `json:"retryable"`
+					NextAction     string `json:"next_action"`
+				} `json:"clients"`
+			}
+			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+				t.Fatalf("decode check JSON: %v\n%s", err, out.String())
+			}
+			client := result.Clients[configuration.ClientClaude]
+			if result.OK || client.DiagnosticKind != test.kind || client.Retryable != test.retryable || client.NextAction == "" {
+				t.Fatalf("check JSON = %#v", result)
+			}
+			if strings.Contains(out.String(), "secret") {
+				t.Fatal("check JSON disclosed the Account Token")
+			}
+		})
+	}
+}
+
 func TestCheckFailsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()

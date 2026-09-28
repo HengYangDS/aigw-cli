@@ -86,3 +86,26 @@ without changing provider policy or existing Adapters.
   rollback, withdrawal and a real tool-loop journey
 - **AND** AIGW SHALL NOT advertise support based only on a writable config
   path or a successful endpoint probe.
+
+## ADDED Requirements
+
+### Requirement: Diagnostic quota and throttling remain distinct
+
+An authenticated diagnostic SHALL use explicit provider error evidence, not HTTP
+status alone, to distinguish exhausted Account credit or quota from transient
+rate or concurrency limits. Classification SHALL NOT switch Routes or retry a
+request automatically.
+
+#### Scenario: A provider reports hard quota exhaustion with HTTP 429
+
+- **WHEN** an Account diagnostic receives HTTP 429 with an unambiguous exhausted
+  quota code or insufficient balance evidence
+- **THEN** AIGW SHALL report non-retryable Account quota exhaustion and give
+  Account-scoped recovery guidance
+
+#### Scenario: A provider reports transient throttling with HTTP 429
+
+- **WHEN** an Account diagnostic receives HTTP 429 with rate-limit or ambiguous
+  concurrency-quota evidence
+- **THEN** AIGW SHALL report retryable throttling rather than exhausted credit
+- **AND** the diagnostic SHALL have made only its single admitted request.

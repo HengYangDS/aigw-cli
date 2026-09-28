@@ -50,6 +50,32 @@ func TestProbeClassifiesUsefulFailureCauses(t *testing.T) {
 	}
 }
 
+func TestProbeSeparatesHardQuotaFromTransientRateLimit(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		body      string
+		kind      diagnostics.Kind
+		retryable bool
+	}{
+		{"insufficient quota code", `{"error":{"code":"insufficient_quota","message":"Current quota exceeded"}}`, diagnostics.QuotaExhausted, false},
+		{"quota exhausted code", `{"error":{"code":"quota_exhausted"}}`, diagnostics.QuotaExhausted, false},
+		{"insufficient balance", `{"message":"Insufficient balance"}`, diagnostics.QuotaExhausted, false},
+		{"exhausted balance", `{"message":"Balance exhausted"}`, diagnostics.QuotaExhausted, false},
+		{"exhausted credits", `{"message":"Credits exhausted"}`, diagnostics.QuotaExhausted, false},
+		{"rate limit code", `{"error":{"code":"rate_limit_exceeded","message":"Too many requests"}}`, diagnostics.RateLimited, true},
+		{"concurrency quota", `{"message":"Concurrency quota exhausted; retry later"}`, diagnostics.RateLimited, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := diagnostics.Probe(t.Context(), clientFunc(func(*http.Request) (*http.Response, error) {
+				return response(http.StatusTooManyRequests, test.body), nil
+			}), runtime(), "secret", diagnostics.ScopeEndpoint)
+			if result.Kind != test.kind || result.Retryable != test.retryable || result.Attempts != 1 || result.HTTPStatus != http.StatusTooManyRequests {
+				t.Fatalf("Probe() = %#v, want kind %s retryable %t", result, test.kind, test.retryable)
+			}
+		})
+	}
+}
+
 func TestProbeUsesModelsEndpointAndNeverReturnsCredential(t *testing.T) {
 	secret := "never-return-this-token"
 	var requestURL, authorization string
