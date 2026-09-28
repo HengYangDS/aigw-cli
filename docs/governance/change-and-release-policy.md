@@ -129,6 +129,17 @@ complete image reference as the CUE-owned dependency literal so Renovate can
 observe both its version and digest; derive any action-version projection from
 that same value rather than duplicating it.
 
+GitLab's Windows shell runner bootstraps Mise before reading this repository's
+minimum version. The [CUE graph](../../.config/ci/pipeline.cue) pins the
+SHA-256 of an upstream-attested Windows ARM64 archive mirrored in this
+project's GitLab Generic Package Registry; the
+[job-local bootstrap](../../tools/ci/bootstrap/mise-windows.ps1) downloads it
+with CI_JOB_TOKEN, refuses redirects, verifies its bytes and version, and
+removes its exact job-owned files. A version update must reverify upstream
+provenance and mirror the new bytes before changing the pin. This first-byte
+independence does not qualify the remaining GitHub-hosted locked tools or
+GitLab's GHCR-based Linux image for a GitHub outage.
+
 Normal releases wait three days before proposal creation, covering npm's
 initial unpublish window. Missing publication timestamps are not guessed.
 Go and repository-tool updates are grouped separately; only non-major updates

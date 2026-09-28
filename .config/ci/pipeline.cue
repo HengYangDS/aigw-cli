@@ -203,8 +203,10 @@ _graphOrder: {
 	}
 }
 
-miseImage:   "ghcr.io/jdx/mise:2026.9.15-debian@sha256:4cc1a45f280e362a11ba6e97641d3d97a0f79632f46e719dd7b36946bdf39b93"
-miseVersion: strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
+miseImage:               "ghcr.io/jdx/mise:2026.9.15-debian@sha256:4cc1a45f280e362a11ba6e97641d3d97a0f79632f46e719dd7b36946bdf39b93"
+miseVersion:             strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
+miseWindowsArm64SHA256:  "3db4b7aeea8cf97af4111746d11d5aa6c036bb3e58e5c9da675e4e1024a581a1"
+windowsMiseJobDirectory: "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID"
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
@@ -473,14 +475,17 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 }
 
 #NativeGitLabJob: {
-	_platform:     #OperatingSystem
-	_install:      string
-	_refreshLocks: string
-	_native:       string
+	_platform:      #OperatingSystem
+	_bootstrapMise: string
+	_install:       string
+	_refreshLocks:  string
+	_native:        string
 	if _platform == "windows" {
-		_install:      "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
-		_refreshLocks: "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
-		_native:       "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
+		_bootstrapMise: ". ./tools/ci/bootstrap/mise-windows.ps1 -Version '\(miseVersion)' -Sha256 '\(miseWindowsArm64SHA256)' -Directory \"\(windowsMiseJobDirectory)\""
+		_install:       "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
+		_refreshLocks:  "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
+		_native:        "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
+		after_script: ["Remove-Item -LiteralPath \"\(windowsMiseJobDirectory)\" -Recurse -Force -ErrorAction SilentlyContinue"]
 	}
 	if _platform != "windows" {
 		_install:      commands.install
@@ -513,7 +518,12 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		script: [commands.bootstrap, _refreshLocks, _native]
 	}
 	if _platform != "linux" {
-		script: [_install, commands.bootstrap, _refreshLocks, _native]
+		if _platform == "windows" {
+			script: [_bootstrapMise, _install, commands.bootstrap, _refreshLocks, _native]
+		}
+		if _platform != "windows" {
+			script: [_install, commands.bootstrap, _refreshLocks, _native]
+		}
 	}
 }
 

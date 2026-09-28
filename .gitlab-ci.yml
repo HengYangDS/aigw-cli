@@ -45,7 +45,10 @@ native-linux:
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
 native-windows:
+  after_script:
+    - Remove-Item -LiteralPath "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID" -Recurse -Force -ErrorAction SilentlyContinue
   script:
+    - . ./tools/ci/bootstrap/mise-windows.ps1 -Version '2026.9.15' -Sha256 '3db4b7aeea8cf97af4111746d11d5aa6c036bb3e58e5c9da675e4e1024a581a1' -Directory "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID"
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - mise run bootstrap
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }

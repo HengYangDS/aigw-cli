@@ -1,4 +1,4 @@
-# Architecture layout gate — SSOT for Go repository structure checks.
+# Architecture layout gate — SSOT for repository semantic topology.
 # Consumed by tools/architecture; values are not hardcoded in the checker.
 owner = "product-toolchain"
 source = "repository architecture layout"
@@ -54,7 +54,7 @@ package_children."internal/client" = ["verification"]
 package_children."internal/hermes" = ["configuration"]
 allowed_import_edges."internal/hermes/configuration" = ["internal/transaction"]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
-package_children."tools/ci" = ["evidence", "markdown", "projection"]
+package_children."tools/ci" = ["bootstrap", "evidence", "markdown", "projection"]
 package_children."tools/codex" = ["catalog"]
 package_children."tools/release" = [
   "artifact",
@@ -343,6 +343,7 @@ allowed_import_edges."tools/ci" = [
   "tools/release/readiness",
 ]
 allowed_import_edges."tools/ci/evidence" = []
+allowed_import_edges."tools/ci/bootstrap" = []
 allowed_import_edges."tools/ci/markdown" = []
 allowed_import_edges."tools/ci/projection" = []
 allowed_import_edges."tools/release" = [
@@ -420,6 +421,11 @@ prefixes = [".ethos"]
 [tracked_carrier_classes.ci-authority]
 responsibility = "single CI semantic graph"
 exact_paths = [".config/ci/pipeline.cue"]
+
+[tracked_carrier_classes.ci-bootstrap]
+responsibility = "job-local CI toolchain bootstrap implementation"
+prefixes = ["tools/ci/bootstrap"]
+suffixes = [".ps1"]
 
 [tracked_carrier_classes.ci-projection]
 responsibility = "generated GitHub and GitLab CI projections"

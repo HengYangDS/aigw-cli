@@ -10,6 +10,32 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
+func TestGitLabWindowsBootstrapsPinnedMiseBeforeRepositoryTools(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gitlab struct {
+		Windows struct {
+			Script      []string `yaml:"script"`
+			AfterScript []string `yaml:"after_script"`
+		} `yaml:"native-windows"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	commands := gitlab.Windows.Script
+	if len(commands) < 2 || !strings.Contains(commands[0], ". ./tools/ci/bootstrap/mise-windows.ps1") ||
+		!strings.Contains(commands[0], "2026.9.15") ||
+		!strings.Contains(commands[0], "3db4b7aeea8cf97af4111746d11d5aa6c036bb3e58e5c9da675e4e1024a581a1") ||
+		!strings.Contains(commands[1], "mise install --locked") {
+		t.Fatalf("Windows Mise bootstrap is not pinned before the locked toolchain: %v", commands)
+	}
+	if len(gitlab.Windows.AfterScript) != 1 || !strings.Contains(gitlab.Windows.AfterScript[0], "ci-mise-$env:CI_JOB_ID") {
+		t.Fatalf("Windows Mise bootstrap has no exact job-owned cleanup: %v", gitlab.Windows.AfterScript)
+	}
+}
+
 func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
