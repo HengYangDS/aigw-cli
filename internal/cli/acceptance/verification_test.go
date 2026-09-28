@@ -256,17 +256,13 @@ func TestVerifyCodexRunsTheConfiguredClientOnceAndReportsItsIdentity(t *testing.
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	httpRequests := 0
 	app.HTTP = &fakeHTTP{status: 200, handler: func(req *http.Request) (*http.Response, error) {
-		httpRequests++
-		return nil, fmt.Errorf("unexpected HTTP request to %s", req.URL)
+		t.Errorf("unexpected HTTP request to %s", req.URL)
+		return nil, errors.New("unexpected HTTP request")
 	}}
 
 	if err := cli.Execute(app, []string{"verify", "--for", "codex"}); err != nil {
 		t.Fatal(err)
-	}
-	if httpRequests != 0 {
-		t.Fatalf("HTTP requests = %d, want 0", httpRequests)
 	}
 	if len(runner.plans) != 2 || !slices.Equal(runner.plans[0].Args, []string{"--version"}) {
 		t.Fatalf("plans = %#v", runner.plans)
@@ -299,26 +295,11 @@ func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 	}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
-	target := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	runtime.CredentialCommand = app.Executable
-	if err := codex.SyncConfig(target, runtime); err != nil {
-		t.Fatal(err)
-	}
-	cfg.SetClientActivation(configuration.ClientCodex, true, executableFixture(t, "codex"), []string{target})
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
+	activateSynchronizedCodex(t, app, cfg)
 	runner.output = []byte("workdir: /Users/operator/private\nsession id: secret-session\nERROR: model gpt-next is unavailable at https://gateway.example/v1 (request id: secret-request); token=must-not-leak\n")
 	runner.capture = errors.New("exit status 1")
 
-	err = cli.Execute(app, []string{"verify", "--for", "codex"})
+	err := cli.Execute(app, []string{"verify", "--for", "codex"})
 	if err == nil {
 		t.Fatal("failed Codex verification was accepted")
 	}
@@ -350,32 +331,16 @@ func TestVerifyUsesExplicitClientWithRouteOverride(t *testing.T) {
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["other-gpt"] = qualifiedRoute("Other GPT", "other", "other-gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
-	target := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	runtime.CredentialCommand = app.Executable
-	if err := codex.SyncConfig(target, runtime); err != nil {
-		t.Fatal(err)
-	}
-	cfg.SetClientActivation(configuration.ClientCodex, true, executableFixture(t, "codex"), []string{target})
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
+	target := activateSynchronizedCodex(t, app, cfg)
 	before, err := app.Config.CaptureSnapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
 	projected := readFile(t, target)
 	sidecar := readFile(t, target+".aigw-state.json")
-	requests := 0
 	app.HTTP = &fakeHTTP{status: http.StatusOK, handler: func(req *http.Request) (*http.Response, error) {
-		requests++
-		return nil, fmt.Errorf("unexpected HTTP request to %s", req.URL)
+		t.Errorf("unexpected HTTP request to %s", req.URL)
+		return nil, errors.New("unexpected HTTP request")
 	}}
 	app.Runner = verificationCompletionRunner{fakeRunner: runner, completed: func() {
 		plan := runner.plans[len(runner.plans)-1]
@@ -389,8 +354,8 @@ func TestVerifyUsesExplicitClientWithRouteOverride(t *testing.T) {
 	if err := cli.Execute(app, []string{"verify", "--for", "codex", "--route", "other-gpt"}); err != nil {
 		t.Fatal(err)
 	}
-	if requests != 0 || len(runner.plans) != 2 {
-		t.Fatalf("requests = %d, plans = %#v", requests, runner.plans)
+	if len(runner.plans) != 2 {
+		t.Fatalf("plans = %#v", runner.plans)
 	}
 	plan := runner.plans[1]
 	if planArgumentValue(plan.Args, "--model") != "other-gpt-test" {
@@ -408,6 +373,27 @@ func TestVerifyUsesExplicitClientWithRouteOverride(t *testing.T) {
 		!slices.Equal(projected, readFile(t, target)) || !slices.Equal(sidecar, readFile(t, target+".aigw-state.json")) {
 		t.Fatalf("verification modified the explicit selection or its projection: %v", err)
 	}
+}
+
+func activateSynchronizedCodex(t *testing.T, app *cli.App, cfg configuration.Config) string {
+	t.Helper()
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime.CredentialCommand = app.Executable
+	if err := codex.SyncConfig(target, runtime); err != nil {
+		t.Fatal(err)
+	}
+	cfg.SetClientActivation(configuration.ClientCodex, true, executableFixture(t, "codex"), []string{target})
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	return target
 }
 
 func readyVerificationApp(t *testing.T) (*cli.App, *fakeRunner) {

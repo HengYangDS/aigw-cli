@@ -9,7 +9,7 @@ import (
 func queryCredential(operation, service, account string, input []byte) ([]byte, error) {
 	switch operation {
 	case readCommand:
-		value, err := keyring.Get(service, account)
+		value, err := readCredential(service, account)
 		if errors.Is(err, keyring.ErrNotFound) {
 			return nil, ErrNotFound
 		}

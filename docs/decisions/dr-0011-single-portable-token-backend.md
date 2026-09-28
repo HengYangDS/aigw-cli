@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-23
-- Last amended: 2026-09-27
+- Last amended: 2026-09-28
 
 ## Context
 
@@ -33,17 +33,22 @@ implementation reads or migrates another product's credential state.
 
 ## Consequences
 
-The accepted implementation delegates macOS credential operations to
-go-keyring `v0.2.8`, whose provider invokes `/usr/bin/security`. A private AIGW
-worker preserves that provider and service/slot grammar. The worker adds a
-five-second process deadline and bounded cleanup without
-introducing a helper executable, a second backend or a credential migration.
+The private AIGW worker preserves go-keyring `v0.2.8`'s service/slot grammar
+and storage envelope. It still delegates writes and deletes to that provider.
+The macOS value read uses Security.framework in the same executable: an
+isolated denied legacy-Keychain fixture showed that `LAContext` plus the
+per-query legacy UI-fail flag still invoked SecurityAgent. The worker therefore disallows optional
+Keychain UI for the duration of its one read, then restores its process setting.
+This does not modify an item's ACL, migrate a Token, add a helper executable or
+select another backend. macOS release binaries require cgo on both CPU targets.
 
 Writes carry the logical Token through standard input, never argv or the
 environment; go-keyring applies its storage envelope exactly once. Metadata
 observation remains value-free. Failure returns no Token, changes no ACL and
 does not retry through another backend. The deadline bounds AIGW's worker, but
-cannot prove that macOS itself will never present authorization UI.
+does not substitute for the native noninteractive policy. The isolated
+allowed/denied-item regression proves this source behavior; authorization of a
+retained operator item and a signed successor still require native acceptance.
 
 The independent host-local helper cutover was rejected and rolled back. It is
 not the product's credential reader or Token backend. This decision does not
@@ -91,20 +96,21 @@ distribution trust.
 ### Product reader and migration boundary
 
 The product reader is the existing `aigw credential` command and one selected
-backend. On macOS, a bounded credential subprocess invokes the same go-keyring
-provider used by the published predecessor. The proposed user-private executable
+backend. On macOS, its bounded credential subprocess uses the existing
+go-keyring item grammar but a noninteractive Security.framework value read.
+The proposed user-private executable
 copy changes the command's installed location without adding a reader or Token
 backend; preservation of native item authorization still requires the retained-
 item journey. No independent helper reader, host script, service, or second
 Token backend is admitted.
 
-| Path                                      | Disposition                      | Reason                                                                                      |
-| ----------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------- |
-| Bounded go-keyring worker                 | Selected                         | Preserves the published provider while bounding the AIGW-owned process and transport.       |
-| Independent host-local credential helper  | Rejected                         | Adds another reader and caller boundary.                                                    |
-| Content-addressed AIGW executable copies  | Selected design; cutover pending | Keeps each projected command's executable bytes available across package replacement.       |
-| Security.framework same-executable reader | Rejected                         | Changes reader identity and requires unnecessary native bridge and authorization machinery. |
-| Silent backend migration                  | Rejected                         | Changes credential authority without the operator's decision.                               |
+| Path                                     | Disposition                      | Reason                                                                                                    |
+| ---------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Bounded AIGW credential worker           | Selected                         | Keeps one command, item grammar and backend; native macOS reads fail without authorization UI.            |
+| Independent host-local credential helper | Rejected                         | Adds another reader and caller boundary.                                                                  |
+| Content-addressed AIGW executable copies | Selected design; cutover pending | Keeps each projected command's executable bytes available across package replacement.                     |
+| Security.framework same-executable read  | Selected for macOS               | Suppresses legacy-item prompts inside the single-operation worker; retained-item access remains unproved. |
+| Silent backend migration                 | Rejected                         | Changes credential authority without the operator's decision.                                             |
 
 The existing optional `credential_command` configuration is an explicit
 external-integration contract, not permission to install an independent helper
@@ -180,7 +186,8 @@ journeys must establish all of these boundaries:
    Environment-backed fixtures and new-client runs do not qualify a Keychain
    transition or establish recovery of every existing session.
 4. Verify bounded failure, interrupted replacement, exact rollback and uninstall
-   preservation. Do not claim that process timeout suppresses operating-system UI.
+   preservation. Test the native no-UI policy separately; process timeout alone
+   cannot suppress an operating-system prompt.
 
 These are source and release acceptance requirements, not authorization to read
 operator credentials, enroll items, alter ACLs, install software or restart

@@ -21,6 +21,15 @@ disclosed rather than represented as uninterrupted service.
   remain unproved until their own retained-item journeys pass
 - **AND** preserving a vulnerable old reader SHALL NOT satisfy safe updates.
 
+#### Scenario: A native macOS item needs authorization UI
+
+- **WHEN** an exact selected Keychain item cannot be read without presenting
+  authorization UI
+- **THEN** the bounded AIGW credential worker SHALL return no Token and SHALL
+  NOT open that UI, retry, change the item's ACL, or select another backend
+- **AND** an accessible legacy item SHALL retain its logical Token value,
+  while an absent item remains distinct from denied access.
+
 #### Scenario: A client retains its credential command across an update
 
 - **GIVEN** a client has already loaded a qualified AIGW-owned versioned

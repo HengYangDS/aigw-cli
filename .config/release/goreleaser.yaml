@@ -36,6 +36,7 @@ builds:
     id: macos
     goos: [darwin]
     skip: '{{ and (ne .Env.AIGW_BUILD_OS "") (ne .Env.AIGW_BUILD_OS "darwin") }}'
+    env: [CGO_ENABLED=1]
     hooks:
       post:
         - cmd: >-

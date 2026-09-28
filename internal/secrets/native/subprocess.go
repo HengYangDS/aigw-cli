@@ -33,7 +33,7 @@ var (
 )
 
 // Read returns one exact native item through a bounded credential subprocess.
-// Native authorization UI remains controlled by the operating system.
+// A native authorization failure never triggers a retry or backend fallback.
 func Read(executable, service, account string) (string, error) {
 	return invoke(executable, readCommand, service, account, "")
 }

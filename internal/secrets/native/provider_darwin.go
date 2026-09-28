@@ -27,6 +27,11 @@ func keychainMetadataCommand(service, account string) *exec.Cmd {
 	return exec.Command("/usr/bin/security", "find-generic-password", "-s", service, "-a", account)
 }
 
+func readCredential(service, account string) (string, error) {
+	value, err := readCredentialFromKeychain(service, account, "")
+	return string(value), err
+}
+
 func nativeEnvironment(getenv func(string) string) []string {
 	return retainedEnvironment(getenv, "HOME")
 }
