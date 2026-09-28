@@ -137,7 +137,9 @@ func TestNativeProductJourney(t *testing.T) {
 		})
 	}
 
-	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" {
+	// macOS requires the published predecessor's distinct legacy Keychain slot;
+	// an ad-hoc current-source fixture is not that authorization transition.
+	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" && runtime.GOOS != "darwin" {
 		t.Run("system credential store", func(t *testing.T) {
 			runNativeCredentialJourney(t, root, artifact, server.URL+"/v1", newVersion)
 		})

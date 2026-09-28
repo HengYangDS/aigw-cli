@@ -442,6 +442,8 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 				    $output = Join-Path $env:GITHUB_WORKSPACE 'build/performance'
 				    $performance = $acceptance[1..($acceptance.Count - 1)] + @('--performance', $output)
 				    mise run performance @performance
+				  } elseif ($platform -eq 'darwin' -and $env:AIGW_VERIFY_SYSTEM_KEYRING -eq '1' -and $env:AIGW_CANDIDATE_TAG -eq '') {
+				    mise exec --locked -- go test ./tools/release -run '^TestNativePublishedPredecessorJourney/published_keychain$' -count=1 -v
 				  } else {
 				    mise exec --locked -- go run ./tools/release @acceptance
 				  }
@@ -667,7 +669,7 @@ githubVerify: {
 				default:     false
 			}
 			macos_keychain: {
-				description: "With baseline_tag, qualify retained credentials in the disposable macOS Keychain"
+				description: "With baseline_tag, qualify only the published predecessor Keychain journey on disposable macOS"
 				required:    false
 				type:        "boolean"
 				default:     false

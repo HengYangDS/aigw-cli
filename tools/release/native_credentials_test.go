@@ -68,8 +68,12 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	journey.requireClaudeCredential(token)
 	journey.runWithInput(journey.binary, replacement+"\n", "rotate", sourceAccount, "--token-stdin")
 	journey.requireClaudeCredential(replacement)
-	if exists, err := store.Exists(sourceAccount); err != nil || exists {
-		t.Fatalf("published predecessor occupied the candidate native Token slot: exists=%t error=%v", exists, err)
+	if runtime.GOOS == "darwin" {
+		if exists, err := store.Exists(sourceAccount); err != nil || exists {
+			t.Fatalf("published predecessor occupied the candidate native Token slot: exists=%t error=%v", exists, err)
+		}
+	} else if value, err := store.Get(sourceAccount); err != nil || value != replacement {
+		t.Fatalf("candidate could not read the retained native Token slot: %v", err)
 	}
 	configurationBeforeStaging := readFile(t, journey.config)
 	stageNativeCandidateToken(t, journey, candidate, sourceAccount, replacement)

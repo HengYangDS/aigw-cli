@@ -275,6 +275,9 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 		if platform == "darwin" && step.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" {
 			t.Fatal("historical macOS credentials require an ephemeral host")
 		}
+		if !strings.Contains(step.Run, "TestNativePublishedPredecessorJourney/published_keychain") {
+			t.Fatal("macOS Keychain qualification must select the published predecessor journey")
+		}
 		if !strings.Contains(step.Run, "$acceptance = @('accept-native')") || !strings.Contains(step.Run, "mise exec --locked -- go run ./tools/release @acceptance") {
 			t.Fatalf("%s historical acceptance does not consume the existing package owner", platform)
 		}
