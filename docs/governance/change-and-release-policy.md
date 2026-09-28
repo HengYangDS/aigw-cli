@@ -210,7 +210,7 @@ is its review projection, not another authoring lane. Accepted and release
 trees may retain that active Change while delivery is unfinished. Source
 acceptance, publication, installation and Change completion are distinct facts.
 
-Follow [OpenSpec's merge-then-archive convention](https://github.com/Fission-AI/OpenSpec/blob/v1.13.1/docs/team-workflow.md#when-to-archive):
+Follow [OpenSpec's merge-then-archive convention](https://github.com/Fission-AI/OpenSpec/blob/v1.13.2/docs/team-workflow.md#when-to-archive):
 validate and integrate source, finish the Change's implementation and candidate
 acceptance tasks, then archive before stable tagging. Publication, installation,
 and retirement remain post-archive delivery obligations in the canonical specs

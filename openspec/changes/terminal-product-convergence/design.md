@@ -186,6 +186,16 @@ successful links, no errors and two redirects; 197 non-HTTPS references were
 excluded from that online observation, not counted as online successes. External
 availability is time-bound, while the local source gate remains repeatable.
 
+The npm override can advance to jsdom 30.1.1, published 2026-09-22. Its
+resolved graph selects `@asamuzakjp/dom-selector` 9.2.2, published
+2026-09-26T21:06Z; clean install, `npm audit signatures` (283 signed packages,
+51 attestations), vulnerability audit and Mermaid rendering pass. The ordinary
+three-day release-age rule holds proposal publication until
+2026-09-29T21:06Z. Do not add a second override just to evade that bound.
+Renovate 44.116.1 was published
+2026-09-28T14:54Z and likewise remains unadmitted. Task 6.1 stays open until
+the complete locked supply chain is qualified.
+
 The CUE graph remains the sole CI intent. GitHub and GitLab are equal optional
 peers receiving the same signed Git objects, with separate transport credentials,
 native macOS/Linux/Windows jobs, required-status enforcement, and event coverage
