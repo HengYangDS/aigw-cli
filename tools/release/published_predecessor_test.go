@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
@@ -53,6 +55,9 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 	}
 	predecessorVersion := journey.journey.predecessorVersion(version)
 	journey.prepare(t, nativeCurrentSchemaManifest(server.URL+"/v1"))
+	if runtime.GOOS == "darwin" {
+		journey.preprojectForLinkGap(t, predecessorVersion)
+	}
 	journey.upgrade(t)
 	journey.rollbackAndRecover(t, predecessorVersion)
 	if runtime.GOOS == "darwin" && os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" {
@@ -117,6 +122,44 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	state.predecessor = predecessor
 	state.session = session
 	state.sessionBytes = sessionBytes
+}
+
+func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, predecessorVersion string) {
+	journey := state.journey
+	oldCommand := strings.Join(state.retained.Args, "\x00")
+	legacyMutable := strings.Contains(oldCommand, journey.binary)
+	if predecessorVersion == "0.3.1" && !legacyMutable {
+		t.Fatal("0.3.1 fixture did not expose the mutable credential command")
+	}
+	journey.runWith(state.candidate, "sync")
+	successor := journey.retainedCredential(configuration.ClientClaude)
+	if successor.Executable == state.retained.Executable && strings.Join(successor.Args, "\x00") == oldCommand {
+		t.Fatal("candidate did not move the credential command before installation replacement")
+	}
+	journey.requireCredential(state.retained, "native-journey-token")
+	journey.requireCredential(successor, "native-journey-token")
+	state.predecessor = readFile(t, journey.config)
+
+	hidden := journey.binary + ".precutover"
+	if err := os.Rename(journey.binary, hidden); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Rename(hidden, journey.binary); err != nil {
+			t.Errorf("restore predecessor after simulated link gap: %v", err)
+		}
+	}()
+	journey.requireCredential(successor, "native-journey-token")
+	if !legacyMutable {
+		journey.requireCredential(state.retained, "native-journey-token")
+		return
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	output, err := (process.Runner{}).RunCapture(ctx, state.retained)
+	if err == nil || bytes.Contains(output, []byte("native-journey-token")) {
+		t.Fatal("cached mutable credential command did not expose its bounded link-gap risk")
+	}
 }
 
 func (state *publishedNativeJourney) upgrade(t *testing.T) {
