@@ -122,14 +122,16 @@ exact cleanup on macOS, Linux, and Windows. The
 `credential` command and selected Token backend remain the only product reader;
 no independent helper, daemon, or second secret store is admitted.
 
-The macOS worker keeps the published go-keyring item grammar and write/delete
-path, but reads values through Security.framework. A private legacy-Keychain
+The macOS worker keeps the published go-keyring item grammar and envelope, but
+owns read, write and delete through Security.framework. A private legacy-Keychain
 fixture demonstrated that `LAContext.interactionNotAllowed` plus the legacy
-per-query UI-fail flag did not prevent an authorization prompt. The short-lived single-operation worker
-temporarily disables its own optional Keychain UI for the read and restores
-that process setting. This narrow native bridge changes neither item ACL nor
-backend selection; source tests and dual-architecture cgo builds do not
-replace retained-item or signed-artifact acceptance.
+per-query UI-fail flag did not prevent an authorization prompt. The
+single-operation worker temporarily disables its own optional Keychain UI and
+restores that process setting. An item created by the old `/usr/bin/security`
+writer may deny direct AIGW access: a successor refuses to overwrite such an
+item without authorization. The bridge changes neither ACL nor backend
+selection; source tests and dual-architecture cgo builds do not replace
+retained-item or signed-artifact acceptance.
 
 Prepare and qualify the successor before changing a client projection. The
 one-time 0.3.1 Homebrew-link transition preprojects private paths, prefetches

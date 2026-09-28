@@ -34,21 +34,22 @@ implementation reads or migrates another product's credential state.
 ## Consequences
 
 The private AIGW worker preserves go-keyring `v0.2.8`'s service/slot grammar
-and storage envelope. It still delegates writes and deletes to that provider.
-The macOS value read uses Security.framework in the same executable: an
-isolated denied legacy-Keychain fixture showed that `LAContext` plus the
-per-query legacy UI-fail flag still invoked SecurityAgent. The worker therefore disallows optional
-Keychain UI for the duration of its one read, then restores its process setting.
-This does not modify an item's ACL, migrate a Token, add a helper executable or
-select another backend. macOS release binaries require cgo on both CPU targets.
+and storage envelope. On macOS, the same AIGW executable now owns native
+read, write and delete through Security.framework. An isolated denied
+legacy-Keychain fixture showed that `LAContext` plus the per-query UI-fail
+flag still invoked SecurityAgent. Its short-lived, single-operation worker
+therefore disallows optional Keychain UI for each value operation, then
+restores the process setting. macOS release binaries require cgo on both CPU
+targets.
 
 Writes carry the logical Token through standard input, never argv or the
-environment; go-keyring applies its storage envelope exactly once. Metadata
-observation remains value-free. Failure returns no Token, changes no ACL and
-does not retry through another backend. The deadline bounds AIGW's worker, but
-does not substitute for the native noninteractive policy. The isolated
-allowed/denied-item regression proves this source behavior; authorization of a
-retained operator item and a signed successor still require native acceptance.
+environment; the native writer applies the same base64 envelope exactly once.
+Metadata observation remains value-free. A private item created by the old
+`/usr/bin/security` writer can deny the new AIGW identity. The new writer
+refuses to replace an item it cannot first read; it does not change an ACL,
+migrate a Token, retry or select another backend. New native items pass
+write/read/update/delete in an isolated Keychain, but retained operator-item
+authorization and signed-successor acceptance remain unproved.
 
 The independent host-local helper cutover was rejected and rolled back. It is
 not the product's credential reader or Token backend. This decision does not
@@ -97,20 +98,20 @@ distribution trust.
 
 The product reader is the existing `aigw credential` command and one selected
 backend. On macOS, its bounded credential subprocess uses the existing
-go-keyring item grammar but a noninteractive Security.framework value read.
-The proposed user-private executable
-copy changes the command's installed location without adding a reader or Token
+go-keyring item grammar with noninteractive Security.framework operations.
+The proposed user-private executable copy changes the command's installed
+location without adding a reader or Token
 backend; preservation of native item authorization still requires the retained-
 item journey. No independent helper reader, host script, service, or second
 Token backend is admitted.
 
-| Path                                     | Disposition                      | Reason                                                                                                    |
-| ---------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Bounded AIGW credential worker           | Selected                         | Keeps one command, item grammar and backend; native macOS reads fail without authorization UI.            |
-| Independent host-local credential helper | Rejected                         | Adds another reader and caller boundary.                                                                  |
-| Content-addressed AIGW executable copies | Selected design; cutover pending | Keeps each projected command's executable bytes available across package replacement.                     |
-| Security.framework same-executable read  | Selected for macOS               | Suppresses legacy-item prompts inside the single-operation worker; retained-item access remains unproved. |
-| Silent backend migration                 | Rejected                         | Changes credential authority without the operator's decision.                                             |
+| Path                                          | Disposition                      | Reason                                                                                                       |
+| --------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Bounded AIGW credential worker                | Selected                         | Keeps one command, item grammar and backend; native macOS reads fail without authorization UI.               |
+| Independent host-local credential helper      | Rejected                         | Adds another reader and caller boundary.                                                                     |
+| Content-addressed AIGW executable copies      | Selected design; cutover pending | Keeps each projected command's executable bytes available across package replacement.                        |
+| Security.framework same-executable operations | Selected for macOS               | Keeps new writes readable by AIGW and suppresses legacy-item prompts; retained-item access remains unproved. |
+| Silent backend migration                      | Rejected                         | Changes credential authority without the operator's decision.                                                |
 
 The existing optional `credential_command` configuration is an explicit
 external-integration contract, not permission to install an independent helper

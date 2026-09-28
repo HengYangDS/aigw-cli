@@ -32,6 +32,14 @@ func readCredential(service, account string) (string, error) {
 	return string(value), err
 }
 
+func writeCredential(service, account string, value []byte) error {
+	return writeCredentialToKeychain(service, account, "", value)
+}
+
+func deleteCredential(service, account string) error {
+	return deleteCredentialFromKeychain(service, account, "")
+}
+
 func nativeEnvironment(getenv func(string) string) []string {
 	return retainedEnvironment(getenv, "HOME")
 }

@@ -8,6 +8,7 @@ package native
 #include <Security/Security.h>
 #include <LocalAuthentication/LocalAuthentication.h>
 #include <stdlib.h>
+#include <string.h>
 
 static OSStatus aigwQueryKeychainItem(const char *service, const char *account,
                                      const char *path, CFDataRef *result) {
@@ -84,6 +85,59 @@ static OSStatus aigwReadKeychainItem(const char *service, const char *account,
 #pragma clang diagnostic pop
     return status == errSecSuccess ? restore : status;
 }
+
+static OSStatus aigwMutateKeychainItem(const char *service, const char *account,
+                                      const char *path, const void *value,
+                                      UInt32 length, Boolean removeItem) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    Boolean wasAllowed = false;
+    OSStatus status = SecKeychainGetUserInteractionAllowed(&wasAllowed);
+    if (status != errSecSuccess) return status;
+    status = SecKeychainSetUserInteractionAllowed(false);
+    if (status != errSecSuccess) return status;
+
+    SecKeychainRef keychain = NULL;
+    SecKeychainItemRef item = NULL;
+    if (path != NULL && path[0] != '\0') {
+        status = SecKeychainOpen(path, &keychain);
+    }
+    if (status == errSecSuccess) {
+        UInt32 serviceLength = (UInt32)strlen(service);
+        UInt32 accountLength = (UInt32)strlen(account);
+        status = SecKeychainFindGenericPassword(keychain, serviceLength, service,
+                                                accountLength, account,
+                                                NULL, NULL, &item);
+        if (removeItem) {
+            if (status == errSecSuccess) status = SecKeychainItemDelete(item);
+        } else if (status == errSecItemNotFound) {
+            status = SecKeychainAddGenericPassword(keychain, serviceLength, service,
+                                                   accountLength, account,
+                                                   length, value, &item);
+        } else if (status == errSecSuccess) {
+            // Do not replace a retained item whose value this identity cannot
+            // read: the mutation would commit a new Token without usable access.
+            CFDataRef previous = NULL;
+            status = aigwQueryKeychainItem(service, account, path, &previous);
+            if (previous != NULL) CFRelease(previous);
+            if (status == errSecSuccess) {
+                status = SecKeychainItemModifyAttributesAndData(item, NULL, length, value);
+            }
+        }
+    }
+    if (item != NULL) CFRelease(item);
+    if (keychain != NULL) CFRelease(keychain);
+    OSStatus restore = SecKeychainSetUserInteractionAllowed(wasAllowed);
+#pragma clang diagnostic pop
+    return status == errSecSuccess ? restore : status;
+}
+
+static void aigwClearAndFree(void *value, size_t length) {
+    if (value != NULL) {
+        (void)memset_s(value, length, 0, length);
+        free(value);
+    }
+}
 */
 import "C"
 
@@ -147,4 +201,52 @@ func readCredentialFromKeychain(service, account, path string) ([]byte, error) {
 		return nil, ErrUnavailable
 	}
 	return bytes.Clone(stored), nil
+}
+
+func writeCredentialToKeychain(service, account, path string, value []byte) error {
+	if len(value) == 0 || len(value) > maxStoredValue {
+		return ErrUnavailable
+	}
+	return mutateCredentialInKeychain(service, account, path, value, false)
+}
+
+func deleteCredentialFromKeychain(service, account, path string) error {
+	return mutateCredentialInKeychain(service, account, path, nil, true)
+}
+
+func mutateCredentialInKeychain(service, account, path string, value []byte, remove bool) error {
+	serviceName := C.CString(service)
+	accountName := C.CString(account)
+	keychainPath := C.CString(path)
+	defer C.free(unsafe.Pointer(serviceName))
+	defer C.free(unsafe.Pointer(accountName))
+	defer C.free(unsafe.Pointer(keychainPath))
+
+	var stored []byte
+	if !remove {
+		const prefix = "go-keyring-base64:"
+		stored = make([]byte, len(prefix)+base64.StdEncoding.EncodedLen(len(value)))
+		copy(stored, prefix)
+		base64.StdEncoding.Encode(stored[len(prefix):], value)
+		defer clear(stored)
+	}
+	var data unsafe.Pointer
+	if len(stored) > 0 {
+		data = C.CBytes(stored)
+		defer C.aigwClearAndFree(data, C.size_t(len(stored)))
+	}
+	var deleting C.Boolean
+	if remove {
+		deleting = 1
+	}
+	status := C.aigwMutateKeychainItem(
+		serviceName, accountName, keychainPath, data, C.UInt32(len(stored)), deleting,
+	)
+	if status == C.errSecItemNotFound {
+		return ErrNotFound
+	}
+	if status != C.errSecSuccess {
+		return fmt.Errorf("noninteractive Keychain mutation failed (%d): %w", int(status), ErrUnavailable)
+	}
+	return nil
 }

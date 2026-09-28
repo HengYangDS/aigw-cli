@@ -27,6 +27,8 @@ disclosed rather than represented as uninterrupted service.
   authorization UI
 - **THEN** the bounded AIGW credential worker SHALL return no Token and SHALL
   NOT open that UI, retry, change the item's ACL, or select another backend
+- **AND** a replacement SHALL NOT overwrite an existing item that the selected
+  AIGW identity cannot read without interaction
 - **AND** an accessible legacy item SHALL retain its logical Token value,
   while an absent item remains distinct from denied access.
 
