@@ -347,6 +347,12 @@ fresh online download or a second offline bootstrap on every invocation.
 Standalone executables are checked against the
 [complete tool declaration](mise.toml).
 
+For ordinary isolated product probes, keep the already provisioned Mise tool
+context while building into owned scratch. Give only the resulting AIGW process
+a disposable `HOME` and, when credentials are involved, an explicit environment
+backend. Changing `HOME` for `mise exec` itself can reinstall the entire locked
+toolchain; reserve that boundary for fresh-workspace acceptance.
+
 Fresh-workspace acceptance separately starts with empty HOME, mise, Go, and npm
 caches, runs `mise run bootstrap`, and verifies the selected Go, Node, and npm
 versions, checkout-local `node_modules`, and unchanged lock inputs. An offline
