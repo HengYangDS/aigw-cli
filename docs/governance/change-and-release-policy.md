@@ -94,12 +94,11 @@ the pinned CI image owns the executed mise version. Dependabot's
 do not cover the declared mise closure; a second updater would create competing
 proposals.
 
-The mise tool key identifies the executable to install, not necessarily its
-versioned Go module. The OSV Scanner rule uses Renovate's native
-[`overridePackageName`](https://docs.renovatebot.com/configuration-options/#packagerulesoverridepackagename)
-to query `github.com/google/osv-scanner/v2` while preserving the
-`go:github.com/google/osv-scanner/v2/cmd/osv-scanner` installation key. Keep this
-translation in the dependency policy, not a second extractor or the tool lock.
+Mise installs the pinned upstream OSV Scanner release directly from GitHub;
+the lock binds native asset URLs and checksums for each supported platform.
+Its release version and actual scan behavior, not the Go patch version used to
+compile it, govern acceptance. Renovate reads this authored Mise dependency
+without a package-name translation.
 
 The pinned, disposable Renovate container is maintenance tooling, not an AIGW
 runtime or ordinary development prerequisite. First explicitly cache the image

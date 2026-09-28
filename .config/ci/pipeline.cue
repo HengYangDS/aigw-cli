@@ -83,7 +83,7 @@ toolchainTools: {
 		"github:gitleaks/gitleaks",
 		"github:golangci/golangci-lint",
 		"github:goreleaser/goreleaser",
-		"go:github.com/google/osv-scanner/v2/cmd/osv-scanner",
+		"github:google/osv-scanner",
 		"github:rhysd/actionlint",
 		"shellcheck",
 		"taplo",

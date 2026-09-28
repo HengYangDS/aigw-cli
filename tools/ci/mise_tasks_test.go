@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"debug/buildinfo"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -16,7 +15,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-func TestMiseOSVScannerUsesRepositoryCompiler(t *testing.T) {
+func TestMiseOSVScannerUsesOfficialRelease(t *testing.T) {
 	root := repositoryRoot(t)
 	content, err := os.ReadFile(filepath.Join(root, "mise.toml"))
 	if err != nil {
@@ -26,16 +25,11 @@ func TestMiseOSVScannerUsesRepositoryCompiler(t *testing.T) {
 	if err := toml.Unmarshal(content, &configuration); err != nil {
 		t.Fatal(err)
 	}
-	output, err := exec.Command("mise", "-C", root, "which", "osv-scanner").CombinedOutput()
-	if err != nil {
-		t.Fatalf("resolve locked scanner: %v\n%s", err, output)
+	if configuration.Tools["github:google/osv-scanner"] == "" {
+		t.Fatal("official OSV Scanner release is not pinned")
 	}
-	info, err := buildinfo.ReadFile(strings.TrimSpace(string(output)))
-	if err != nil {
-		t.Fatalf("read scanner compiler identity: %v", err)
-	}
-	if want := "go" + configuration.Tools["go"]; info.GoVersion != want {
-		t.Fatalf("scanner compiler = %s, want %s; rebuild with mise install --force go:github.com/google/osv-scanner/v2/cmd/osv-scanner", info.GoVersion, want)
+	if configuration.Tools["go:github.com/google/osv-scanner/v2/cmd/osv-scanner"] != "" {
+		t.Fatal("source-built OSV Scanner remains a parallel installation")
 	}
 }
 

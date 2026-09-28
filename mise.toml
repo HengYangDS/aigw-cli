@@ -34,8 +34,8 @@ glab = "1.119.0"
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.18.2"
 "github:anchore/syft" = "1.52.0"
-# Build with the repository Go compiler; upstream binaries may lag its language.
-"go:github.com/google/osv-scanner/v2/cmd/osv-scanner" = "2.6.0"
+# Use the upstream verified binary; source compilation dominates cold bootstrap.
+"github:google/osv-scanner" = "2.6.0"
 # Cross-host ad-hoc macOS artifact signing.
 "github:indygreg/apple-platform-rs[version_prefix=apple-codesign/]" = "0.29.0"
 
