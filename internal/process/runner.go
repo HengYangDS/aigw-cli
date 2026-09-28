@@ -70,8 +70,18 @@ func (b *limitedBuffer) String() string { return b.buf.String() }
 // standard output on success and standard error with a child-process failure.
 // Captured bytes remain untrusted until the owning caller redacts them.
 func (runner Runner) RunCapture(ctx context.Context, plan Plan) ([]byte, error) {
+	stdout, diagnostic, err := runner.RunCaptureStreams(ctx, plan)
+	if err != nil {
+		return diagnostic, err
+	}
+	return stdout, nil
+}
+
+// RunCaptureStreams retains both bounded output streams, including when the
+// child exits unsuccessfully. Callers must redact captured bytes before logging.
+func (runner Runner) RunCaptureStreams(ctx context.Context, plan Plan) ([]byte, []byte, error) {
 	if runner.StdoutLimit < 0 {
-		return nil, fmt.Errorf("captured stdout limit must not be negative")
+		return nil, nil, fmt.Errorf("captured stdout limit must not be negative")
 	}
 	outputLimit := runner.StdoutLimit
 	if outputLimit == 0 {
@@ -80,12 +90,9 @@ func (runner Runner) RunCapture(ctx context.Context, plan Plan) ([]byte, error) 
 	stdout := &limitedBuffer{limit: outputLimit}
 	diagnostic, err := runCaptured(ctx, plan, stdout)
 	if stdout.overflow {
-		return nil, fmt.Errorf("captured stdout from %s exceeds %d bytes", plan.Executable, outputLimit)
+		return nil, nil, fmt.Errorf("captured stdout from %s exceeds %d bytes", plan.Executable, outputLimit)
 	}
-	if err != nil {
-		return diagnostic, err
-	}
-	return append([]byte(nil), stdout.Bytes()...), nil
+	return append([]byte(nil), stdout.Bytes()...), diagnostic, err
 }
 
 // RunToFile streams standard output without a memory capture limit. Failure

@@ -179,6 +179,38 @@ func TestRunnerRunCaptureReturnsStderrOnFailure(t *testing.T) {
 	}
 }
 
+func TestRunnerCaptureStreamsPreservesBoundedFailureOutput(t *testing.T) {
+	if os.Getenv("AIGW_TEST_CAPTURE_STREAMS") == "child" {
+		_, _ = os.Stdout.WriteString("failure detail on stdout")
+		_, _ = os.Stderr.WriteString("failure detail on stderr")
+		os.Exit(23)
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr, err := (Runner{}).RunCaptureStreams(t.Context(), Plan{
+		Executable: executable,
+		Args:       []string{"-test.run=^TestRunnerCaptureStreamsPreservesBoundedFailureOutput$"},
+		Env:        append(os.Environ(), "AIGW_TEST_CAPTURE_STREAMS=child"),
+	})
+	var exitError *exec.ExitError
+	if !errors.As(err, &exitError) || exitError.ExitCode() != 23 ||
+		string(stdout) != "failure detail on stdout" || string(stderr) != "failure detail on stderr" {
+		t.Fatalf("captured stdout=%q stderr=%q error=%v", stdout, stderr, err)
+	}
+	stdout, stderr, err = (Runner{}).RunCaptureStreams(t.Context(), Plan{
+		Executable: executable,
+		Args:       []string{"-test.run=^TestRunCaptureKeepsResultAndDiagnosticBudgetsSeparate$"},
+		Env: append(os.Environ(),
+			"AIGW_TEST_CAPTURE_STREAM=stdout",
+			"AIGW_TEST_CAPTURE_SIZE="+strconv.Itoa(capturedProcessOutputLimit+1)),
+	})
+	if err == nil || len(stdout) != 0 || len(stderr) != 0 {
+		t.Fatalf("oversized capture returned stdout=%d stderr=%d error=%v", len(stdout), len(stderr), err)
+	}
+}
+
 func TestRunnerRunToFileRejectsUnwritableDestination(t *testing.T) {
 	runner := Runner{}
 	destination := filepath.Join(t.TempDir(), "missing", "out")

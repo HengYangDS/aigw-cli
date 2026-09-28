@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
+	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
@@ -180,6 +181,7 @@ type journeyFixture struct {
 	settings             string
 	endpoint             string
 	environment          []string
+	sensitiveInputs      []string
 	retainedProgramNames []string
 }
 
@@ -299,6 +301,9 @@ func (j *journeyFixture) installClientFixture(client string) {
 
 func (j *journeyFixture) setEnvironment(key, value string) {
 	j.testing.Helper()
+	if strings.HasPrefix(key, "AIGW_TOKEN_") {
+		j.sensitiveInputs = append(j.sensitiveInputs, value)
+	}
 	j.environment = append(environmentWithout(j.environment, key), key+"="+value)
 }
 
@@ -329,13 +334,18 @@ func (j *journeyFixture) runWith(binary string, args ...string) []byte {
 
 func (j *journeyFixture) runWithInput(binary, input string, args ...string) []byte {
 	j.testing.Helper()
+	if input != "" {
+		j.sensitiveInputs = append(j.sensitiveInputs, input)
+	}
 	ctx, cancel := context.WithTimeout(j.testing.Context(), clientverification.ProtocolTimeout)
 	defer cancel()
-	output, err := (process.Runner{}).RunCapture(ctx, process.Plan{Executable: binary, Args: args, Env: j.environment, Stdin: input})
+	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: binary, Args: args, Env: j.environment, Stdin: input})
 	if err != nil {
-		j.testing.Fatalf("%s %s: %v\nstderr:\n%s", binary, strings.Join(args, " "), err, output)
+		j.testing.Fatalf("%s %s: %v\nstdout:\n%s\nstderr:\n%s", binary,
+			redaction.Text(strings.Join(args, " "), j.sensitiveInputs...), err,
+			redaction.Text(string(stdout), j.sensitiveInputs...), redaction.Text(string(stderr), j.sensitiveInputs...))
 	}
-	return output
+	return stdout
 }
 
 func (j *journeyFixture) requireConfigContains(values ...string) {
