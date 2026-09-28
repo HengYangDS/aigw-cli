@@ -164,7 +164,7 @@
 
 ## 8. Repository Topology, Documentation, and Deletion
 
-- [ ] 8.1 Audit `src`-equivalent Go packages, `internal/`, `cmd/`, `tools/`,
+- [x] 8.1 Audit `src`-equivalent Go packages, `internal/`, `cmd/`, `tools/`,
       tests, root and `.config` by semantic responsibility; replace suffix-flat or
       mixed owners with cohesive packages and remove forwarding facades.
 - [ ] 8.2 Reconcile tracked README, architecture, decision, operations,
