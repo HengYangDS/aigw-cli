@@ -115,6 +115,26 @@ func TestNativeFailureEmitsOnlyStructuredStatus(t *testing.T) {
 	}
 }
 
+func TestNativeStatusParserRejectsUntrustedOutput(t *testing.T) {
+	for _, test := range []struct {
+		output string
+		valid  bool
+	}{
+		{output: "aigw-native-status:-25308\n", valid: true},
+		{output: "aigw-native-status:-25308"},
+		{output: "aigw-native-status:-25308\nsecret\n"},
+		{output: "private-error:-25308\n"},
+		{output: "aigw-native-status:invalid\n"},
+		{output: "aigw-native-status:0\n"},
+		{output: "aigw-native-status:999999999999\n"},
+	} {
+		status, valid := parseNativeStatus([]byte(test.output))
+		if valid != test.valid || valid && status != -25308 {
+			t.Fatalf("native diagnostic %q = %d, %t", test.output, status, valid)
+		}
+	}
+}
+
 func TestCredentialExitFixture(t *testing.T) {
 	value := os.Getenv("AIGW_TEST_CREDENTIAL_EXIT")
 	if value != "" {

@@ -241,7 +241,7 @@ jobs:
       - env:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
         name: Run native macOS acceptance
-        if: github.event_name != 'workflow_dispatch' || !inputs.full_quality
+        if: github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '')
         run: mise exec --locked -- go run ./tools/ci native --platform darwin
       - env:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
@@ -426,7 +426,7 @@ jobs:
             .mise/locks
           include-hidden-files: true
       - name: Run native Linux acceptance
-        if: github.event_name != 'workflow_dispatch' || !inputs.full_quality
+        if: github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '')
         run: mise exec --locked -- go run ./tools/ci native --platform linux
       - env:
           CGO_ENABLED: "1"
@@ -607,7 +607,7 @@ jobs:
       - env:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
         name: Run native Windows acceptance
-        if: github.event_name != 'workflow_dispatch' || !inputs.full_quality
+        if: github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '')
         run: mise exec --locked -- go run ./tools/ci native --platform windows
       - env:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"

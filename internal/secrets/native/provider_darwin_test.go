@@ -39,6 +39,9 @@ func TestKeychainReadUsesPrivateFixtureWithoutAuthorizationUI(t *testing.T) {
 	if present, err := observeCredentialInKeychain(service, account, path); err != nil || !present {
 		t.Fatalf("authorized item metadata = %t, %v", present, err)
 	}
+	if value, err := readCredentialFromKeychain(service, nativeKeychainSlot(account), path); len(value) != 0 || !errors.Is(err, ErrNotFound) {
+		t.Fatalf("new native slot beside legacy item = %q, %v", value, err)
+	}
 	if present, err := observeCredentialInKeychain(service, "absent", path); err != nil || present {
 		t.Fatalf("missing item metadata = %t, %v", present, err)
 	}

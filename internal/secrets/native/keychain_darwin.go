@@ -217,6 +217,12 @@ func readCredentialFromKeychain(service, account, path string) ([]byte, error) {
 	if status == C.errSecItemNotFound {
 		return nil, ErrNotFound
 	}
+	if status == C.errSecAuthFailed {
+		// A value query can fail authentication even when the exact slot is absent.
+		if present, err := observeCredentialInKeychain(service, account, path); err == nil && !present {
+			return nil, ErrNotFound
+		}
+	}
 	if status != C.errSecSuccess {
 		return nil, keychainStatusError{operation: "read", status: int(status)}
 	}

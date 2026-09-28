@@ -290,7 +290,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		for full in [false, true] {
 			if !full {
 				name: "Run native \(nativeEvidence[_platform].name) acceptance"
-				if:   "github.event_name != 'workflow_dispatch' || !inputs.full_quality"
+				if:   "github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '')"
 				run:  commands.native[_platform]
 			}
 			if full {
