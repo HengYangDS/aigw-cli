@@ -94,6 +94,9 @@
 - [ ] 5.1 Reconstruct a fresh Work Lane's locked Go, Node, npm and tool
       environment with independent mutable state; test empty HOME/cache bootstrap
       and reject ambient compiler or global package fallback.
+      An isolated macOS cold-cache probe reached 18/19 tools but exceeded its
+      600-second bound while installing the Go-backed OSV Scanner. Its exact
+      process and scratch were removed; warm-cache checks do not close this task.
 - [ ] 5.2 Run Linux container and native-host setup, selected provider,
       projection, update, rollback, uninstall, and cleanup journeys using exact
       release bytes and one retained predecessor state.
@@ -153,6 +156,10 @@
 - [ ] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
       or GitHub must not turn the other selected peer or the local product into a
       hidden dependency, and parity claims remain peer-specific.
+      GitLab's Linux image comes from GHCR and the locked tool closure includes
+      GitHub-hosted assets. Cold-cache full CI during a GitHub platform outage
+      is unproved; reconcile the canonical third-party-distribution carve-out
+      with the required single-peer CI claim before closing this task.
 
 ## 8. Repository Topology, Documentation, and Deletion
 
