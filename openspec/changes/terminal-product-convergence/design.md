@@ -106,6 +106,15 @@ and credential-mode contract remain unproved. Do not add the Adapter merely
 because a local endpoint responded. Pi, WorkBuddy, and Qoder likewise remain
 unadmitted without an executable and real tool-loop evidence.
 
+At signed source `e458271e`, the tracked macOS `TestNativeClientJourney` passed
+with installed Claude Code, Codex, and Hermes executables, isolated client homes,
+synthetic environment Tokens, and a local streaming Responses server. It
+exercised Claude/Codex replacement and rollback, Codex general Routes and tool
+loop, and Hermes's retained two-turn session. This is real-client configuration
+and protocol evidence, not live Provider inference, Claude Desktop acceptance,
+another operating system, or published-artifact qualification; task 4.5 remains
+open.
+
 ### 4. Decide credential-command continuity before cutover
 
 The accepted [credential decision](../../../docs/decisions/dr-0011-single-portable-token-backend.md)
