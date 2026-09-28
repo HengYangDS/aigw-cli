@@ -44,7 +44,8 @@ targets.
 
 Writes carry the logical Token through standard input, never argv or the
 environment; the native writer applies the same base64 envelope exactly once.
-Metadata observation remains value-free. A private item created by the old
+Native metadata observation requests attributes only, under the same no-UI
+policy, without asking for password data. A private item created by the old
 `/usr/bin/security` writer can deny the new AIGW identity. The new writer
 refuses to replace an item it cannot first read; it does not change an ACL,
 migrate a Token, retry or select another backend. New native items pass
@@ -52,11 +53,13 @@ write/read/update/delete in an isolated Keychain, but retained operator-item
 authorization and signed-successor acceptance remain unproved.
 
 The legacy `/usr/bin/security` item and the new native item have different
-physical Keychain account names. The latter uses `native@` before the
-existing logical slot; service and envelope remain unchanged. This is a
+physical Keychain account names. The latter uses `native@` before each
+logical slot, including `diagnostic@<account>` for optional provider
+diagnostics; service and envelope remain unchanged. This is a
 one-time authorization boundary, not a second Token backend or a dual-read
-fallback. An operator must supply the selected Token explicitly to the
-candidate before cutover. The predecessor keeps its old item and command;
+fallback. An operator must supply the selected Token and any configured
+provider-diagnostic credential explicitly to the candidate before claiming
+those capabilities survive cutover. The predecessor keeps its old items and command;
 the candidate reads only its native item. Missing or denied native access
 blocks the switch, while rollback leaves the old item intact. Neither binary
 copies a Token from the other item's address.
@@ -194,9 +197,10 @@ journeys must establish all of these boundaries:
    replacement. Execute those snapshots before sync or client refresh after
    update, rollback and re-upgrade. Capturing a later command must not overwrite
    an earlier snapshot.
-3. Before switching a client, stage its selected Token in the native slot
-   through explicit input and prove both captured predecessor access and
-   signed-successor access independently. Environment-backed fixtures and
+3. Before switching a client, stage its selected Token and any configured
+   diagnostic credential in their native slots through explicit input. Prove
+   captured predecessor access and signed-successor access independently for
+   each claimed capability. Environment-backed fixtures and
    new-client runs do not qualify a Keychain transition or establish recovery
    of every existing session.
 4. Verify bounded failure, interrupted replacement, exact rollback and uninstall

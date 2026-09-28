@@ -36,10 +36,10 @@ disclosed rather than represented as uninterrupted service.
 
 - **GIVEN** a retained predecessor command can still use its existing item
   but the successor identity cannot read that item without interaction
-- **WHEN** an operator explicitly supplies the selected Token to the
-  successor before cutover
-- **THEN** the successor SHALL stage and verify its own native-authorized
-  item without overwriting or reading the predecessor item
+- **WHEN** an operator explicitly supplies the selected Account Token and
+  any configured provider-diagnostic credential to the successor before cutover
+- **THEN** the successor SHALL stage and verify each native-authorized
+  item without overwriting or reading its predecessor item
 - **AND** either binary SHALL read only its selected item; absence or denial
   SHALL block cutover rather than trigger a fallback or credential prompt
 - **AND** rollback SHALL retain the predecessor command and item unchanged.

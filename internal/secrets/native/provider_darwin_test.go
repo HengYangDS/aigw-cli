@@ -36,6 +36,12 @@ func TestKeychainReadUsesPrivateFixtureWithoutAuthorizationUI(t *testing.T) {
 			t.Fatalf("private item %q read = %q, %v", item.account, value, err)
 		}
 	}
+	if present, err := observeCredentialInKeychain(service, account, path); err != nil || !present {
+		t.Fatalf("authorized item metadata = %t, %v", present, err)
+	}
+	if present, err := observeCredentialInKeychain(service, "absent", path); err != nil || present {
+		t.Fatalf("missing item metadata = %t, %v", present, err)
+	}
 	assertNativeSlotPreservesLegacyItem(t, service, path, token)
 
 	if value, err := readCredentialFromKeychain(service, "absent", path); len(value) != 0 || !errors.Is(err, ErrNotFound) {
@@ -54,9 +60,27 @@ func TestKeychainReadUsesPrivateFixtureWithoutAuthorizationUI(t *testing.T) {
 		}
 	}
 	runKeychainFixtureCommand(t, "add-generic-password", "-s", service, "-a", "denied", "-w", "synthetic", "-T", "", path)
+	if present, err := observeCredentialInKeychain(service, "denied", path); err != nil || !present {
+		t.Fatalf("denied item metadata = %t, %v", present, err)
+	}
 	if value, err := readPrivateKeychainFixture(t, service, "denied", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
 		t.Fatalf("unauthorized private item = %q, %v", value, err)
 	}
+}
+
+func TestLockedKeychainMetadataDoesNotPrompt(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "locked.keychain-db")
+	runKeychainFixtureCommand(t, "create-keychain", "-p", "", path)
+	t.Cleanup(func() { runKeychainFixtureCommand(t, "delete-keychain", path) })
+	runKeychainFixtureCommand(t, "unlock-keychain", "-p", "", path)
+	runKeychainFixtureCommand(t, "add-generic-password", "-s", "aigw-private-test", "-a", "locked", "-w", "synthetic", "-A", path)
+	runKeychainFixtureCommand(t, "lock-keychain", path)
+
+	value, err := observePrivateKeychainFixture(t, "aigw-private-test", "locked", path)
+	if err == nil && string(value) == "1" || fixtureExitCode(err) == failureExit && len(value) == 0 {
+		return
+	}
+	t.Fatalf("locked Keychain metadata was reported absent or stalled: %q, %v", value, err)
 }
 
 func assertNativeSlotPreservesLegacyItem(t *testing.T, service, path, token string) {
@@ -98,10 +122,18 @@ func assertNativeSlotPreservesLegacyItem(t *testing.T, service, path, token stri
 }
 
 func readPrivateKeychainFixture(t *testing.T, service, account, path string) ([]byte, error) {
+	return runPrivateKeychainChild(t, service, account, path, "TestPrivateKeychainReadChild")
+}
+
+func observePrivateKeychainFixture(t *testing.T, service, account, path string) ([]byte, error) {
+	return runPrivateKeychainChild(t, service, account, path, "TestPrivateKeychainObserveChild")
+}
+
+func runPrivateKeychainChild(t *testing.T, service, account, path, testName string) ([]byte, error) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	command := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestPrivateKeychainReadChild$")
+	command := exec.CommandContext(ctx, os.Args[0], "-test.run=^"+testName+"$")
 	command.Env = append(os.Environ(),
 		"AIGW_TEST_KEYCHAIN_PATH="+path,
 		"AIGW_TEST_KEYCHAIN_SERVICE="+service,
@@ -112,6 +144,26 @@ func readPrivateKeychainFixture(t *testing.T, service, account, path string) ([]
 		t.Fatalf("private Keychain read did not return without UI: %v", ctx.Err())
 	}
 	return output, err
+}
+
+func TestPrivateKeychainObserveChild(t *testing.T) {
+	path := os.Getenv("AIGW_TEST_KEYCHAIN_PATH")
+	if path == "" {
+		return
+	}
+	present, err := observeCredentialInKeychain(
+		os.Getenv("AIGW_TEST_KEYCHAIN_SERVICE"),
+		os.Getenv("AIGW_TEST_KEYCHAIN_ACCOUNT"), path,
+	)
+	if err != nil {
+		os.Exit(failureExit)
+	}
+	if present {
+		_, _ = os.Stdout.WriteString("1")
+	} else {
+		_, _ = os.Stdout.WriteString("0")
+	}
+	os.Exit(0)
 }
 
 func fixtureExitCode(err error) int {
@@ -176,18 +228,21 @@ func runKeychainFixtureCommand(t *testing.T, args ...string) {
 	}
 }
 
-func TestKeychainMetadataCommandDoesNotRequestPasswordData(t *testing.T) {
-	command := keychainMetadataCommand("AIGW_TOKEN", "team")
-	want := []string{"/usr/bin/security", "find-generic-password", "-s", "AIGW_TOKEN", "-a", "native@team"}
-	if !slices.Equal(command.Args, want) {
-		t.Fatalf("Keychain metadata command = %q, want %q", command.Args, want)
-	}
-}
-
 func TestNativeEnvironmentRetainsOnlyKeychainHome(t *testing.T) {
 	values := map[string]string{"HOME": "/Users/runner", "PATH": "/untrusted"}
 	want := []string{"HOME=/Users/runner"}
 	if got := nativeEnvironment(func(name string) string { return values[name] }); !slices.Equal(got, want) {
 		t.Fatalf("native environment = %q, want %q", got, want)
+	}
+}
+
+func TestNativeKeychainSlotsSeparateCredentialPurposes(t *testing.T) {
+	for _, item := range []struct{ logical, want string }{
+		{"team", "native@team"},
+		{"diagnostic@team", "native@diagnostic@team"},
+	} {
+		if got := nativeKeychainSlot(item.logical); got != item.want {
+			t.Fatalf("native slot for %q = %q, want %q", item.logical, got, item.want)
+		}
 	}
 }

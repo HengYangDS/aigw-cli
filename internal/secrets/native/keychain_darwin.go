@@ -11,7 +11,8 @@ package native
 #include <string.h>
 
 static OSStatus aigwQueryKeychainItem(const char *service, const char *account,
-                                     const char *path, CFDataRef *result) {
+                                     const char *path, CFTypeRef *result,
+                                     Boolean returnData) {
     @autoreleasepool {
         CFStringRef serviceName = CFStringCreateWithCString(NULL, service, kCFStringEncodingUTF8);
         CFStringRef accountName = CFStringCreateWithCString(NULL, account, kCFStringEncodingUTF8);
@@ -30,7 +31,7 @@ static OSStatus aigwQueryKeychainItem(const char *service, const char *account,
         CFDictionarySetValue(query, kSecClass, kSecClassGenericPassword);
         CFDictionarySetValue(query, kSecAttrService, serviceName);
         CFDictionarySetValue(query, kSecAttrAccount, accountName);
-        CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue);
+        CFDictionarySetValue(query, returnData ? kSecReturnData : kSecReturnAttributes, kCFBooleanTrue);
         CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne);
         LAContext *context = [[LAContext alloc] init];
         context.interactionNotAllowed = YES;
@@ -56,7 +57,7 @@ static OSStatus aigwQueryKeychainItem(const char *service, const char *account,
             }
         }
         if (status == errSecSuccess) {
-            status = SecItemCopyMatching(query, (CFTypeRef *)result);
+            status = SecItemCopyMatching(query, result);
         }
         if (searchList != NULL) CFRelease(searchList);
         if (keychain != NULL) CFRelease(keychain);
@@ -80,7 +81,24 @@ static OSStatus aigwReadKeychainItem(const char *service, const char *account,
     if (status != errSecSuccess) return status;
     status = SecKeychainSetUserInteractionAllowed(false);
     if (status != errSecSuccess) return status;
-    status = aigwQueryKeychainItem(service, account, path, result);
+    status = aigwQueryKeychainItem(service, account, path, (CFTypeRef *)result, true);
+    OSStatus restore = SecKeychainSetUserInteractionAllowed(wasAllowed);
+#pragma clang diagnostic pop
+    return status == errSecSuccess ? restore : status;
+}
+
+static OSStatus aigwObserveKeychainItem(const char *service, const char *account,
+                                       const char *path) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    Boolean wasAllowed = false;
+    OSStatus status = SecKeychainGetUserInteractionAllowed(&wasAllowed);
+    if (status != errSecSuccess) return status;
+    status = SecKeychainSetUserInteractionAllowed(false);
+    if (status != errSecSuccess) return status;
+    CFTypeRef attributes = NULL;
+    status = aigwQueryKeychainItem(service, account, path, &attributes, false);
+    if (attributes != NULL) CFRelease(attributes);
     OSStatus restore = SecKeychainSetUserInteractionAllowed(wasAllowed);
 #pragma clang diagnostic pop
     return status == errSecSuccess ? restore : status;
@@ -118,7 +136,8 @@ static OSStatus aigwMutateKeychainItem(const char *service, const char *account,
             // Do not replace a retained item whose value this identity cannot
             // read: the mutation would commit a new Token without usable access.
             CFDataRef previous = NULL;
-            status = aigwQueryKeychainItem(service, account, path, &previous);
+            status = aigwQueryKeychainItem(service, account, path,
+                                           (CFTypeRef *)&previous, true);
             if (previous != NULL) CFRelease(previous);
             if (status == errSecSuccess) {
                 status = SecKeychainItemModifyAttributesAndData(item, NULL, length, value);
@@ -148,6 +167,25 @@ import (
 	"fmt"
 	"unsafe"
 )
+
+func observeCredentialInKeychain(service, account, path string) (bool, error) {
+	serviceName := C.CString(service)
+	accountName := C.CString(account)
+	keychainPath := C.CString(path)
+	defer C.free(unsafe.Pointer(serviceName))
+	defer C.free(unsafe.Pointer(accountName))
+	defer C.free(unsafe.Pointer(keychainPath))
+
+	status := C.aigwObserveKeychainItem(serviceName, accountName, keychainPath)
+	switch status {
+	case C.errSecSuccess:
+		return true, nil
+	case C.errSecItemNotFound:
+		return false, nil
+	default:
+		return false, fmt.Errorf("noninteractive Keychain metadata query failed (%d): %w", int(status), ErrUnavailable)
+	}
+}
 
 func readCredentialFromKeychain(service, account, path string) ([]byte, error) {
 	serviceName := C.CString(service)

@@ -2,6 +2,10 @@
 
 package native
 
+func observeCredentialInKeychain(string, string, string) (bool, error) {
+	return false, ErrUnavailable
+}
+
 func readCredentialFromKeychain(string, string, string) ([]byte, error) {
 	return nil, ErrUnavailable
 }
