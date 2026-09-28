@@ -338,18 +338,18 @@ inputs with the result; no verification checkout becomes an authoring lane.
 
 ### Environment reconstruction
 
-The ordinary test suite snapshots the current Go source and native mise/Go/npm
-inputs, including the early configuration, into a private checkout with spaces
-in its path. It re-resolves Go and npm locks and runs the actual bootstrap twice,
-using populated dependency caches
-offline. Before isolating npm settings, it resolves and retains npm's exact
-cache path rather than assuming a platform default. Each pass checks unchanged
-input bytes, actual tool versions, and removal of a deliberately stale
-installation file. Missing cache content fails rather than silently downloading
-or skipping; run the initial bootstrap before testing. These checks prove
-repeatable Go/npm resolution and installation, not fresh-download availability
-or mise lock refresh. Standalone executables are checked separately against
-the [complete tool declaration](mise.toml).
+The ordinary source suite checks the locked task graph, selected tool versions,
+and a negative empty-cache case that must reject ambient Go. It does not run a
+fresh online download or a second offline bootstrap on every invocation.
+Standalone executables are checked against the
+[complete tool declaration](mise.toml).
+
+Fresh-workspace acceptance separately starts with empty HOME, mise, Go, and npm
+caches, runs `mise run bootstrap`, and verifies the selected Go, Node, and npm
+versions, checkout-local `node_modules`, and unchanged lock inputs. An offline
+rerun proves only reuse of a populated cache; it cannot establish fresh-download
+availability. Keep the workspace and mutable tool state separate from other
+Work Lanes, and remove the exact owned test state after acceptance.
 
 OSV Scanner uses mise's native Go backend so its integrated call analysis can
 read the repository's Go language version. Go module checksums authenticate the
