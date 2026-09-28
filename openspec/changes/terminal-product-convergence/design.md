@@ -217,6 +217,16 @@ proof, review CI, accepted-ref CI, signed/tagged assets, installation, and
 real-client operation are distinct evidence. Freeze exact source and lock
 inputs before the expensive final matrix; do not rerun identical heavy gates
 because an observation timed out or a progress-only record changed.
+Unprotected `proposal/*` reviews must not be protected merely to reach a
+protected runner: eligible protected GitLab merge requests receive protected
+variables and runners together, while a persistent Shell account retains its
+runner credential across jobs. The fork-parent denial and same-project CUE
+guard close only the fork path. Complete GitLab review admission requires
+disposable, separately identified macOS and Windows MR executors; protected
+`dev`/`main`/`v*` jobs may use a distinct protected runner pool only after
+event-specific routing is proved. GitHub-hosted checks cannot substitute for
+GitLab's required peer-local native evidence. Until isolation exists, the
+GitLab review path remains unadmitted rather than bypassing a native gate.
 Cold-cache CI must remain executable when the sibling Forge platform and its
 tool-distribution endpoints are unavailable. Warm caches are not evidence of
 that property. Compare neutral locked sources, peer-local immutable assets, and
