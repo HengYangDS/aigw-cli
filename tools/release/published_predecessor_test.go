@@ -16,6 +16,8 @@ import (
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 type publishedNativeJourney struct {
@@ -24,7 +26,8 @@ type publishedNativeJourney struct {
 	archive, checksums, version string
 	predecessor, sessionBytes   []byte
 	session                     string
-	retained                    process.Plan
+	clients                     []string
+	retained                    map[string]process.Plan
 }
 
 func TestNativePublishedPredecessorJourney(t *testing.T) {
@@ -52,6 +55,7 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 	journey := publishedNativeJourney{
 		journey:  newNativeJourney(t, baseline, server.URL+"/v1", true),
 		baseline: baseline, candidate: candidate, archive: archive, checksums: checksums, version: version,
+		clients: []string{configuration.ClientClaude, configuration.ClientCodex, configuration.ClientHermes},
 	}
 	predecessorVersion := journey.journey.predecessorVersion(version)
 	journey.prepare(t, nativeCurrentSchemaManifest(server.URL+"/v1"))
@@ -96,6 +100,23 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	journey.prepareCodexLifecycle()
+	journey.installClientFixture(configuration.ClientHermes)
+	journey.setEnvironment("HERMES_HOME", filepath.Join(journey.root, "home", ".hermes"))
+	configured, err := configuration.Parse(readFile(t, journey.manifest))
+	if err != nil {
+		t.Fatal(err)
+	}
+	configured.Recommendations[configuration.ClientHermes] = configuration.ClientRecommendation{
+		Primary: configuration.ClientSelection{Route: "native-system-keyring-probe-claude", Protocol: configuration.ProtocolAnthropic},
+	}
+	data, err := toml.Marshal(configured)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(journey.manifest, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.MkdirAll(filepath.Dir(journey.settings), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -117,8 +138,11 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 		t.Fatal("published predecessor did not create its own schema")
 	}
 	journey.run("check")
-	journey.requireClaudeCredential("native-journey-token")
-	state.retained = journey.retainedCredential(configuration.ClientClaude)
+	state.retained = make(map[string]process.Plan, len(state.clients))
+	for _, client := range state.clients {
+		state.retained[client] = journey.retainedCredential(client)
+		journey.requireCredential(state.retained[client], "native-journey-token")
+	}
 	state.predecessor = predecessor
 	state.session = session
 	state.sessionBytes = sessionBytes
@@ -126,18 +150,16 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 
 func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, predecessorVersion string) {
 	journey := state.journey
-	oldCommand := strings.Join(state.retained.Args, "\x00")
-	legacyMutable := strings.Contains(oldCommand, journey.binary)
-	if predecessorVersion == "0.3.1" && !legacyMutable {
-		t.Fatal("0.3.1 fixture did not expose the mutable credential command")
-	}
 	journey.runWith(state.candidate, "sync")
-	successor := journey.retainedCredential(configuration.ClientClaude)
-	if successor.Executable == state.retained.Executable && strings.Join(successor.Args, "\x00") == oldCommand {
-		t.Fatal("candidate did not move the credential command before installation replacement")
+	for _, client := range state.clients {
+		predecessor := state.retained[client]
+		successor := journey.retainedCredential(client)
+		if successor.Executable == predecessor.Executable && strings.Join(successor.Args, "\x00") == strings.Join(predecessor.Args, "\x00") {
+			t.Fatalf("candidate did not move the %s credential command before installation replacement", client)
+		}
+		journey.requireCredential(predecessor, "native-journey-token")
+		journey.requireCredential(successor, "native-journey-token")
 	}
-	journey.requireCredential(state.retained, "native-journey-token")
-	journey.requireCredential(successor, "native-journey-token")
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
 		t.Fatal("candidate preprojection changed the published configuration")
 	}
@@ -151,23 +173,32 @@ func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, predeces
 			t.Errorf("restore predecessor after simulated link gap: %v", err)
 		}
 	}()
-	journey.requireCredential(successor, "native-journey-token")
-	if !legacyMutable {
-		journey.requireCredential(state.retained, "native-journey-token")
-		return
-	}
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
-	defer cancel()
-	output, err := (process.Runner{}).RunCapture(ctx, state.retained)
-	if err == nil || bytes.Contains(output, []byte("native-journey-token")) {
-		t.Fatal("cached mutable credential command did not expose its bounded link-gap risk")
+	for _, client := range state.clients {
+		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
+		predecessor := state.retained[client]
+		legacyMutable := predecessor.Executable == journey.binary || strings.Contains(strings.Join(predecessor.Args, "\x00"), journey.binary)
+		if predecessorVersion == "0.3.1" && !legacyMutable {
+			t.Fatalf("0.3.1 %s fixture did not expose the mutable credential command", client)
+		}
+		if !legacyMutable {
+			journey.requireCredential(predecessor, "native-journey-token")
+			continue
+		}
+		ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+		output, err := (process.Runner{}).RunCapture(ctx, predecessor)
+		cancel()
+		if err == nil || bytes.Contains(output, []byte("native-journey-token")) {
+			t.Fatalf("cached mutable %s credential command did not expose its bounded link-gap risk", client)
+		}
 	}
 }
 
 func (state *publishedNativeJourney) upgrade(t *testing.T) {
 	journey := state.journey
 	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
-	journey.requireCredential(state.retained, "native-journey-token")
+	for _, client := range state.clients {
+		journey.requireCredential(state.retained[client], "native-journey-token")
+	}
 	journey.requireVersion(state.version)
 	journey.requireProgramBytes(state.candidate)
 	var preview struct {
@@ -189,27 +220,38 @@ func (state *publishedNativeJourney) upgrade(t *testing.T) {
 		t.Fatal("unchanged synchronization rewrote published configuration")
 	}
 	journey.run("check")
-	journey.requireClaudeCredential("native-journey-token")
+	for _, client := range state.clients {
+		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
+	}
 }
 
 func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecessorVersion string) {
 	journey := state.journey
-	successor := journey.retainedCredential(configuration.ClientClaude)
+	successor := make(map[string]process.Plan, len(state.clients))
+	for _, client := range state.clients {
+		successor[client] = journey.retainedCredential(client)
+	}
 	journey.run("update", "--rollback")
 	journey.requireVersion(predecessorVersion)
 	journey.requireProgramBytes(state.baseline)
-	journey.requireCredential(state.retained, "native-journey-token")
-	journey.requireCredential(successor, "native-journey-token")
+	for _, client := range state.clients {
+		journey.requireCredential(state.retained[client], "native-journey-token")
+		journey.requireCredential(successor[client], "native-journey-token")
+	}
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
 		t.Fatal("current-schema rollback changed published configuration")
 	}
 	journey.run("sync")
 	journey.run("check")
-	journey.requireClaudeCredential("native-journey-token")
+	for _, client := range state.clients {
+		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
+	}
 
 	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
-	journey.requireCredential(state.retained, "native-journey-token")
-	journey.requireCredential(successor, "native-journey-token")
+	for _, client := range state.clients {
+		journey.requireCredential(state.retained[client], "native-journey-token")
+		journey.requireCredential(successor[client], "native-journey-token")
+	}
 	journey.run("sync")
 	journey.run("check")
 	journey.requireVersion(state.version)
