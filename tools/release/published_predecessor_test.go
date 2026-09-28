@@ -114,8 +114,10 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	configured.Recommendations[configuration.ClientHermes] = configuration.ClientRecommendation{
 		Primary: configuration.ClientSelection{Route: "native-system-keyring-probe-claude", Protocol: configuration.ProtocolAnthropic},
 	}
-	configured.Recommendations[configuration.ClientClaudeDesktop] = configuration.ClientRecommendation{
-		Primary: configuration.ClientSelection{Route: "native-system-keyring-probe-claude"},
+	if slices.Contains(state.clients, configuration.ClientClaudeDesktop) {
+		configured.Recommendations[configuration.ClientClaudeDesktop] = configuration.ClientRecommendation{
+			Primary: configuration.ClientSelection{Route: "native-system-keyring-probe-claude"},
+		}
 	}
 	data, err := toml.Marshal(configured)
 	if err != nil {
