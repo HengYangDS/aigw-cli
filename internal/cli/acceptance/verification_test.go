@@ -346,7 +346,9 @@ func TestVerifyUsesExplicitClientWithRouteOverride(t *testing.T) {
 	app, _, _, runner, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{OpenAIResponses: "https://other.test/v1"}}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["other-gpt"] = qualifiedRoute("Other GPT", "other", "other-gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
@@ -364,17 +366,47 @@ func TestVerifyUsesExplicitClientWithRouteOverride(t *testing.T) {
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
+	before, err := app.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected := readFile(t, target)
+	sidecar := readFile(t, target+".aigw-state.json")
 	requests := 0
 	app.HTTP = &fakeHTTP{status: http.StatusOK, handler: func(req *http.Request) (*http.Response, error) {
 		requests++
 		return nil, fmt.Errorf("unexpected HTTP request to %s", req.URL)
 	}}
+	app.Runner = verificationCompletionRunner{fakeRunner: runner, completed: func() {
+		plan := runner.plans[len(runner.plans)-1]
+		home := planEnvironmentValue(plan.Env, "CODEX_HOME")
+		data := readFile(t, filepath.Join(home, "config.toml"))
+		if !strings.Contains(string(data), "https://other.test/v1") || !strings.Contains(string(data), "other-gpt-test") {
+			t.Fatalf("route override did not reach isolated Codex projection: %s", data)
+		}
+	}}
 
-	if err := cli.Execute(app, []string{"verify", "--for", "codex", "--route", "gpt"}); err != nil {
+	if err := cli.Execute(app, []string{"verify", "--for", "codex", "--route", "other-gpt"}); err != nil {
 		t.Fatal(err)
 	}
 	if requests != 0 || len(runner.plans) != 2 {
 		t.Fatalf("requests = %d, plans = %#v", requests, runner.plans)
+	}
+	plan := runner.plans[1]
+	if planArgumentValue(plan.Args, "--model") != "other-gpt-test" {
+		t.Fatalf("explicit Route did not select its model: %#v", plan.Args)
+	}
+	home := planEnvironmentValue(plan.Env, "CODEX_HOME")
+	if home == "" || home == filepath.Dir(target) {
+		t.Fatalf("verification used the selected client home: %q", home)
+	}
+	if _, err := os.Stat(home); !os.IsNotExist(err) {
+		t.Fatalf("isolated verification home remains: %v", err)
+	}
+	after, err := app.Config.CaptureSnapshot()
+	if err != nil || !before.Config.Equal(after.Config) || !before.Backup.Equal(after.Backup) || !before.Verified.Equal(after.Verified) ||
+		!slices.Equal(projected, readFile(t, target)) || !slices.Equal(sidecar, readFile(t, target+".aigw-state.json")) {
+		t.Fatalf("verification modified the explicit selection or its projection: %v", err)
 	}
 }
 
