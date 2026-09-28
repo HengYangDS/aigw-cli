@@ -6,8 +6,145 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
+
+	"aigw-cli/internal/transaction"
 )
+
+func TestVersionedEntrypointFailureRemovesCreatedDirectoryChain(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		preexistingData bool
+		failedWrite     string
+	}{
+		{"new-data-executable", false, "executable"},
+		{"new-data-receipt", false, "receipt"},
+		{"existing-data-executable", true, "executable"},
+		{"existing-data-receipt", true, "receipt"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			source := filepath.Join(root, "source")
+			data := filepath.Join(root, "data")
+			if err := os.WriteFile(source, []byte("verified-source"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if tc.preexistingData {
+				if err := os.Mkdir(data, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			target, err := VersionedEntrypointPath(data, source, "aigw")
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := errors.New(tc.failedWrite + " write failed")
+			write := func(path string, expected transaction.FileSnapshot, content []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+				if tc.failedWrite == "executable" || path == target+".sha256" {
+					return transaction.FileSnapshot{}, want
+				}
+				return transaction.WriteFileAtomicExactModeIfUnchanged(path, expected, content, mode)
+			}
+			if _, err := ensureEntrypoint(source, target, write); !errors.Is(err, want) {
+				t.Fatalf("entrypoint failure = %v, want %v", err, want)
+			}
+			for _, path := range []string{filepath.Dir(target), filepath.Dir(filepath.Dir(target))} {
+				if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("failed installation retained created directory %s: %v", path, err)
+				}
+			}
+			_, err = os.Lstat(data)
+			if tc.preexistingData && err != nil || !tc.preexistingData && !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("data directory after failure = %v; preexisting = %t", err, tc.preexistingData)
+			}
+		})
+	}
+}
+
+func TestVersionedEntrypointRejectsWritableDataDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows data-directory rights are represented by ACLs")
+	}
+	root := t.TempDir()
+	source := filepath.Join(root, "source")
+	data := filepath.Join(root, "data")
+	if err := os.WriteFile(source, []byte("verified-source"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(data, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	target, err := VersionedEntrypointPath(data, source, "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(data, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if needed, err := EntrypointNeeded(target); err == nil {
+		t.Fatalf("writable data directory was accepted as a reader plan: needed = %t", needed)
+	}
+	if _, err := EnsureEntrypoint(source, target); err == nil {
+		t.Fatal("writable data directory received a credential reader")
+	}
+	if _, err := os.Lstat(target); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("rejected data directory received executable bytes: %v", err)
+	}
+}
+
+func TestVersionedEntrypointFailurePreservesReplacedDirectory(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source")
+	data := filepath.Join(root, "data")
+	if err := os.WriteFile(source, []byte("verified-source"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	target, err := VersionedEntrypointPath(data, source, "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent := filepath.Dir(target)
+	want := errors.New("executable write failed")
+	write := func(string, transaction.FileSnapshot, []byte, os.FileMode) (transaction.FileSnapshot, error) {
+		if err := os.Rename(parent, parent+"-original"); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(parent, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		return transaction.FileSnapshot{}, want
+	}
+	if _, err := ensureEntrypoint(source, target, write); !errors.Is(err, want) {
+		t.Fatalf("entrypoint failure = %v, want %v", err, want)
+	}
+	if info, err := os.Lstat(parent); err != nil || !info.IsDir() {
+		t.Fatalf("replacement directory was removed: %v", err)
+	}
+}
+
+func TestVersionedEntrypointUndoRemovesCreatedDirectoryChain(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source")
+	data := filepath.Join(root, "data")
+	if err := os.WriteFile(source, []byte("verified-source"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	target, err := VersionedEntrypointPath(data, source, "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	undo, err := EnsureEntrypoint(source, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := undo(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(data); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("rollback retained its created data directory: %v", err)
+	}
+}
 
 func TestVersionedEntrypointRejectsChangedSourceBeforeCreatingBytes(t *testing.T) {
 	root := t.TempDir()

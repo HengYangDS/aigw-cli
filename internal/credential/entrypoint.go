@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"aigw-cli/internal/transaction"
 )
@@ -93,33 +94,32 @@ func validateVersionedDigest(path string, sum [sha256.Size]byte) error {
 	return nil
 }
 
+func privateEntrypointDirectories(path string) []string {
+	parent := filepath.Dir(path)
+	dataRoot := filepath.Dir(parent)
+	if IsVersionedEntrypointPath(path) {
+		return []string{filepath.Dir(dataRoot), dataRoot, parent}
+	}
+	return []string{dataRoot, parent}
+}
+
 // EntrypointNeeded reports whether the AIGW-owned credential executable is
 // absent. An existing non-executable or redirected path is never adopted.
 func EntrypointNeeded(path string) (bool, error) {
 	if !filepath.IsAbs(path) {
 		return false, fmt.Errorf("credential entrypoint must be an absolute path")
 	}
-	parent := filepath.Dir(path)
-	dataRoot := filepath.Dir(parent)
-	dataInfo, dataErr := os.Lstat(dataRoot)
-	if errors.Is(dataErr, os.ErrNotExist) {
-		return true, nil
-	}
-	if dataErr != nil {
-		return false, fmt.Errorf("inspect credential data directory: %w", dataErr)
-	}
-	if err := validatePrivateDirectory(dataRoot, dataInfo); err != nil {
-		return false, err
-	}
-	info, err := os.Lstat(parent)
-	if errors.Is(err, os.ErrNotExist) {
-		return true, nil
-	}
-	if err != nil {
-		return false, fmt.Errorf("inspect credential directory: %w", err)
-	}
-	if err := validatePrivateDirectory(parent, info); err != nil {
-		return false, err
+	for _, directory := range privateEntrypointDirectories(path) {
+		info, err := os.Lstat(directory)
+		if errors.Is(err, os.ErrNotExist) {
+			return true, nil
+		}
+		if err != nil {
+			return false, fmt.Errorf("inspect credential directory: %w", err)
+		}
+		if err := validatePrivateDirectory(directory, info); err != nil {
+			return false, err
+		}
 	}
 	binary, binaryErr := os.Lstat(path)
 	receipt, receiptErr := os.Lstat(path + ".sha256")
@@ -197,46 +197,34 @@ func ensureEntrypoint(
 		return func() error { return nil }, nil
 	}
 	parent := filepath.Dir(target)
-	info, err := os.Lstat(parent)
-	createdParent := errors.Is(err, os.ErrNotExist)
-	if err != nil && !createdParent {
-		return nil, fmt.Errorf("inspect credential directory: %w", err)
-	}
-	if createdParent {
-		if err := os.MkdirAll(parent, 0o700); err != nil {
-			return nil, fmt.Errorf("create credential directory: %w", err)
-		}
-		info, err = os.Lstat(parent)
-		if err != nil {
-			return nil, fmt.Errorf("inspect created credential directory: %w", err)
-		}
-	}
-	dataRoot := filepath.Dir(parent)
-	dataInfo, err := os.Lstat(dataRoot)
+	cleanupDirectories, err := createCredentialDirectoryChain(parent)
 	if err != nil {
-		return nil, fmt.Errorf("inspect credential data directory: %w", err)
+		return nil, err
 	}
-	if err := validatePrivateDirectory(dataRoot, dataInfo); err != nil {
-		return nil, errors.Join(err, removeCreatedDirectory(parent, createdParent))
-	}
-	if err := validatePrivateDirectory(parent, info); err != nil {
-		return nil, errors.Join(err, removeCreatedDirectory(parent, createdParent))
+	for _, directory := range privateEntrypointDirectories(target) {
+		info, err := os.Lstat(directory)
+		if err != nil {
+			return nil, errors.Join(fmt.Errorf("inspect credential directory: %w", err), cleanupDirectories())
+		}
+		if err := validatePrivateDirectory(directory, info); err != nil {
+			return nil, errors.Join(err, cleanupDirectories())
+		}
 	}
 	post, err := write(target, transaction.FileSnapshot{}, data, 0o700)
 	if err != nil {
-		return nil, errors.Join(err, removeCreatedDirectory(parent, createdParent))
+		return nil, errors.Join(err, cleanupDirectories())
 	}
 	receiptPath := target + ".sha256"
 	receiptPost, err := write(receiptPath, transaction.FileSnapshot{}, []byte(identity), 0o600)
 	if err != nil {
 		_, cleanupErr := transaction.RemoveFileIfUnchanged(target, post)
-		return nil, errors.Join(err, cleanupErr, removeCreatedDirectory(parent, createdParent))
+		return nil, errors.Join(err, cleanupErr, cleanupDirectories())
 	}
 	undo := func() error {
 		if err := removeEntrypointPair(target, post, receiptPost); err != nil {
 			return err
 		}
-		return removeCreatedDirectory(parent, createdParent)
+		return cleanupDirectories()
 	}
 	if needed, err := EntrypointNeeded(target); err != nil || needed {
 		if needed {
@@ -247,14 +235,65 @@ func ensureEntrypoint(
 	return undo, nil
 }
 
-func removeCreatedDirectory(path string, created bool) error {
-	if !created {
+func createCredentialDirectoryChain(parent string) (func() error, error) {
+	var missing []string
+	for path := parent; ; path = filepath.Dir(path) {
+		info, err := os.Lstat(path)
+		if err == nil {
+			if !info.IsDir() {
+				return nil, errors.New("credential directory path contains a non-directory")
+			}
+			break
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("inspect credential directory chain: %w", err)
+		}
+		missing = append(missing, path)
+	}
+	type createdDirectory struct {
+		path string
+		info os.FileInfo
+	}
+	created := make([]createdDirectory, 0, len(missing))
+	cleanup := func() error {
+		for _, directory := range slices.Backward(created) {
+			current, err := os.Lstat(directory.path)
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("inspect created credential directory: %w", err)
+			}
+			if !os.SameFile(current, directory.info) {
+				return nil
+			}
+			if err := os.Remove(directory.path); err != nil && !errors.Is(err, os.ErrNotExist) {
+				entries, readErr := os.ReadDir(directory.path)
+				if readErr == nil && len(entries) > 0 {
+					return nil // New content is not owned by this entrypoint.
+				}
+				return errors.Join(fmt.Errorf("remove created credential directory: %w", err), readErr)
+			}
+		}
 		return nil
 	}
-	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("remove credential directory: %w", err)
+	for _, path := range slices.Backward(missing) {
+		if err := os.Mkdir(path, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
+			return nil, errors.Join(fmt.Errorf("create credential directory: %w", err), cleanup())
+		} else if errors.Is(err, os.ErrExist) {
+			info, statErr := os.Lstat(path)
+			if statErr != nil || !info.IsDir() {
+				return nil, errors.Join(errors.New("credential directory path changed during creation"), statErr, cleanup())
+			}
+			continue
+		}
+		info, err := os.Lstat(path)
+		if err != nil || !info.IsDir() {
+			return nil, errors.Join(errors.New("created credential directory changed during creation"), err, cleanup())
+		}
+		created = append(created, createdDirectory{path: path, info: info})
 	}
-	return nil
+	return cleanup, nil
 }
 
 func removeEntrypointPair(target string, binary, receipt transaction.FileSnapshot) error {
