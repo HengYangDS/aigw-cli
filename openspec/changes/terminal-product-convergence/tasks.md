@@ -119,7 +119,7 @@
       against the latest stable compatible upstream; update authored pins and locks
       once, then prove clean-context reproducibility and license/security
       admissibility.
-- [ ] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
+- [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
 - [ ] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
