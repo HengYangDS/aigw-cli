@@ -4,9 +4,11 @@ package native
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +22,7 @@ const (
 	existsCommand = "__aigw-native-credential-exists"
 	missingExit   = 2
 	failureExit   = 3
+	statusPrefix  = "aigw-native-status:"
 	// The shared runner separately bounds pipe teardown and captures at most 64 KiB.
 	operationTimeout = 5 * time.Second
 	maxStoredValue   = 64 * 1024
@@ -104,14 +107,46 @@ func execute(parent context.Context, runner process.CaptureRunner, plan process.
 		switch exit.ExitCode() {
 		case missingExit:
 			return "", ErrNotFound
+		case failureExit:
+			if status, ok := parseNativeStatus(output); ok {
+				return "", fmt.Errorf("Keychain status %d: %w", status, ErrUnavailable)
+			}
 		}
 	}
 	return "", ErrUnavailable
 }
 
+func parseNativeStatus(output []byte) (int, bool) {
+	message, ok := strings.CutSuffix(string(output), "\n")
+	if !ok {
+		return 0, false
+	}
+	code, ok := strings.CutPrefix(message, statusPrefix)
+	if !ok {
+		return 0, false
+	}
+	status, err := strconv.ParseInt(code, 10, 32)
+	return int(status), err == nil && status != 0
+}
+
 // RunCredentialSubprocess handles hidden native credential operations before CLI initialization.
-func RunCredentialSubprocess(args []string, input io.Reader, out io.Writer, service string) (bool, int) {
-	return dispatch(args, input, out, service, queryCredential)
+func RunCredentialSubprocess(args []string, input io.Reader, out, diagnostic io.Writer, service string) (bool, int) {
+	return dispatch(args, input, out, service, func(operation, service, account string, data []byte) ([]byte, error) {
+		value, err := queryCredential(operation, service, account, data)
+		writeNativeStatus(diagnostic, err)
+		return value, err
+	})
+}
+
+func writeNativeStatus(output io.Writer, err error) {
+	if output == nil || err == nil {
+		return
+	}
+	type statusCarrier interface{ NativeStatus() int }
+	var status statusCarrier
+	if errors.As(err, &status) {
+		_, _ = fmt.Fprintf(output, "%s%d\n", statusPrefix, status.NativeStatus())
+	}
 }
 
 func dispatch(args []string, input io.Reader, out io.Writer, service string, query func(string, string, string, []byte) ([]byte, error)) (bool, int) {

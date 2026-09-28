@@ -63,6 +63,11 @@ func TestKeychainReadUsesPrivateFixtureWithoutAuthorizationUI(t *testing.T) {
 	if present, err := observeCredentialInKeychain(service, "denied", path); err != nil || !present {
 		t.Fatalf("denied item metadata = %t, %v", present, err)
 	}
+	if _, err := readCredentialFromKeychain(service, "denied", path); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("denied item read = %v, want native failure", err)
+	} else if status, ok := errors.AsType[keychainStatusError](err); !ok || status.NativeStatus() == 0 {
+		t.Fatalf("denied item status = %v, want nonzero OSStatus", err)
+	}
 	if value, err := readPrivateKeychainFixture(t, service, "denied", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
 		t.Fatalf("unauthorized private item = %q, %v", value, err)
 	}
