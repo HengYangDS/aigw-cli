@@ -41,7 +41,7 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		When string
 	}{
 		{If: "$CI_COMMIT_TAG"},
-		{If: `$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")`},
+		{If: `$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID`},
 		{If: `$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")`},
 		{If: `$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"`},
 		{When: "never"},

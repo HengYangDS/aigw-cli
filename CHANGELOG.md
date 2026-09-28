@@ -22,6 +22,8 @@ evidence.
   default while retaining an explicit base for a longer introduced range.
 - Route GitLab release-asset verification to its Linux container runner instead
   of the macOS Shell runner; macOS and Windows native checks remain required.
+- Exclude fork-source merge requests from GitLab parent-project review jobs
+  without dropping same-project developer checks.
 
 ## [0.3.3] - 2026-09-26
 

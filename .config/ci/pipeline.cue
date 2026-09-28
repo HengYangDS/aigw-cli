@@ -171,7 +171,8 @@ githubTagEvidenceJobs: strings.Join([
 
 gitlabVerificationCondition: {
 	tag:           "$CI_COMMIT_TAG"
-	review:        "$CI_PIPELINE_SOURCE == \"merge_request_event\" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.acceptedBranch)\" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.releaseBranch)\")"
+	// A fork MR run in the parent has a different source project ID.
+	review:        "$CI_PIPELINE_SOURCE == \"merge_request_event\" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.acceptedBranch)\" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.releaseBranch)\") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID"
 	protectedPush: "$CI_PIPELINE_SOURCE == \"push\" && ($CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\" || $CI_COMMIT_BRANCH == \"\(lifecycle.releaseBranch)\")"
 	manual:        "$CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\""
 }

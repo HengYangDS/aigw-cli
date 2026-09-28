@@ -326,6 +326,12 @@ ancestor. An explicit `commit_base` input or `AIGW_COMMIT_BASE` pipeline variabl
 selects a broader introduced range. Manual results cannot replace the required
 review, accepted-branch, tag, or release event checks.
 
+GitLab review jobs require the merge request's source project ID to equal the
+project executing the pipeline; project policy must also disable fork pipelines
+in the parent. This preserves same-project developer review while excluding
+fork code from its project runners. It does not make developer code trusted or
+prove isolation from protected jobs on persistent Shell runners.
+
 Product signing and peer transport authentication are independent. GitLab and
 GitHub may use different SSH keys, PATs, OIDC identities, or host credentials
 for transport without changing the product object. A host's `Verified` display

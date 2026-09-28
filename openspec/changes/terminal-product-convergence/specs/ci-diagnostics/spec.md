@@ -62,6 +62,17 @@ a required job on the other Forge.
 - **AND** the partial result does not satisfy complete review, accepted-branch,
   tag, or release readiness.
 
+#### Scenario: A fork requests review execution in the parent project
+
+- **WHEN** a GitLab merge request names a source project other than the project
+  executing the parent pipeline
+- **THEN** neither the workflow nor its review jobs admit that event onto the
+  project's native runners
+- **AND** a same-project developer review retains the required quality and
+  native checks
+- **AND** this fork guard does not establish isolation between same-project
+  developer jobs and protected jobs on persistent Shell runners.
+
 #### Scenario: A maintainer omits the manual commit base
 
 - **WHEN** either Forge starts manual verification without an explicit commit base

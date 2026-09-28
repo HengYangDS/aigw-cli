@@ -135,7 +135,7 @@ func TestProjectionUsesCheckoutBranchRoles(t *testing.T) {
 	if got := gitlab.Parity.Rules[0].If; got != `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "release"` {
 		t.Fatalf("GitLab release role = %q", got)
 	}
-	if got := gitlab.Quality.Rules[1].If; got != `$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "integration" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "release")` {
+	if got := gitlab.Quality.Rules[1].If; got != `$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "integration" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "release") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID` {
 		t.Errorf("GitLab review roles = %q", got)
 	}
 	var github struct {
