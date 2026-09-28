@@ -287,9 +287,16 @@ func createCredentialDirectoryChain(parent string) (func() error, error) {
 			}
 			continue
 		}
-		info, err := os.Lstat(path)
-		if err != nil || !info.IsDir() {
+		// Stat the opened directory: Windows defers the identity in Lstat until
+		// SameFile, when the path may already name a replacement.
+		directory, err := os.Open(path)
+		if err != nil {
 			return nil, errors.Join(errors.New("created credential directory changed during creation"), err, cleanup())
+		}
+		info, statErr := directory.Stat()
+		closeErr := directory.Close()
+		if statErr != nil || closeErr != nil || !info.IsDir() {
+			return nil, errors.Join(errors.New("created credential directory changed during creation"), statErr, closeErr, cleanup())
 		}
 		created = append(created, createdDirectory{path: path, info: info})
 	}
