@@ -16,6 +16,8 @@ evidence.
 - Omit private configuration paths from `status --json` and `check --json`;
   classify Doctor configuration, credential, and client inspection failures
   without exposing raw backend errors or private paths.
+- Report endpoint-check failures by classification and HTTP status instead of
+  publishing untrusted provider response bodies or transport error text.
 
 ## [0.3.3] - 2026-09-26
 

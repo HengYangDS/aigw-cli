@@ -42,9 +42,7 @@ func TestInferenceScopeCarriesExactModelAndClassifiesDistributorRefusal(t *testi
 		result.Attempts != 1 || !result.Retryable {
 		t.Fatalf("calls=%d result=%#v", calls, result)
 	}
-	if strings.Contains(result.Detail, "fixture-token") {
-		t.Fatal("result disclosed the account token")
-	}
+	assertDiagnosticOmits(t, result, "fixture-token")
 }
 
 func TestInferenceScopeClassifiesDecodedProviderMessage(t *testing.T) {
@@ -71,9 +69,7 @@ func TestInferenceScopeClassifiesDecodedProviderMessage(t *testing.T) {
 			if calls != 1 || result.Kind != test.want || result.Attempts != 1 || !result.Retryable {
 				t.Fatalf("calls=%d result=%#v, want kind %s", calls, result, test.want)
 			}
-			if strings.Contains(result.Detail, "fixture-token") {
-				t.Fatal("diagnostic detail disclosed the Account Token")
-			}
+			assertDiagnosticOmits(t, result, "fixture-token")
 		})
 	}
 }

@@ -383,12 +383,11 @@ func renderCheckedClient(runtime invocation.Context, renderer *presentation.Rend
 	}
 	diagnostic := result.diagnostic
 	if diagnostic.Kind != diagnostics.Healthy {
-		evidence := diagnostic.Detail
+		evidence := "No HTTP response was received"
 		if diagnostic.HTTPStatus != 0 {
 			evidence = fmt.Sprintf("HTTP %d", diagnostic.HTTPStatus)
-			if diagnostic.Detail != "" {
-				evidence += " · " + diagnostic.Detail
-			}
+		} else if diagnostic.Attempts == 0 {
+			evidence = "No request was sent"
 		}
 		return "", false, invocation.Problem(runtime, diagnostic.Summary, evidence, invocation.Title(client)+" is unavailable.", recommendedAction(diagnostic.Fix), fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
 	}

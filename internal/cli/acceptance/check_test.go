@@ -29,10 +29,13 @@ func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
 	}
 	_ = secretStore.Set("dmx", "token")
 	httpClient.status = 403
-	httpClient.body = `{"message":"token quota is insufficient"}`
+	httpClient.body = `{"message":"token quota is insufficient; private /private/account-store"}`
 	err := cli.Execute(app, []string{"check"})
 	if err == nil || !strings.Contains(out.String()+err.Error(), "Token quota is exhausted") || !strings.Contains(out.String()+err.Error(), "Increase the Token quota for Account dmx in the provider console") {
 		t.Fatalf("output=%s error=%v", out.String(), err)
+	}
+	if strings.Contains(out.String(), "/private/account-store") {
+		t.Fatalf("check exposed provider response content: %s", out.String())
 	}
 }
 
