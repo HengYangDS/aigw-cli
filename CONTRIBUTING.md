@@ -166,6 +166,9 @@ not for long-lived handoffs. An operation owns cleanup, including after a
 failed child process; after a crash, remove only its exact stopped resources.
 Before retiring a worktree, preserve evidence still needed by a pending decision
 at its existing authoritative owner, then remove disposable output.
+Go module caches contain read-only extracted sources. For an operation-private
+`GOMODCACHE`, run `go clean -modcache` with that exact cache selected before
+removing its scratch; do not change permissions on a shared cache.
 
 Stored source snapshots are evidence, not packages. Save inspected Go source as
 `.go.txt` or inside an archive, preserving its original bytes and digest. Run
@@ -351,20 +354,15 @@ rerun proves only reuse of a populated cache; it cannot establish fresh-download
 availability. Keep the workspace and mutable tool state separate from other
 Work Lanes, and remove the exact owned test state after acceptance.
 
-OSV Scanner uses mise's native Go backend so its integrated call analysis can
-read the repository's Go language version. Go module checksums authenticate the
-source build; upstream binary SLSA attestations do not describe this locally
-compiled executable. The native executable-identity test also checks its
-compiler against the locked Go version. After changing Go, rebuild a cached
-scanner with `mise install --force go:github.com/google/osv-scanner/v2/cmd/osv-scanner`.
-Then rerun `mise run check`; do not disable call analysis to accept an old build.
+OSV Scanner uses Mise's checksum- and SLSA-locked official release binaries.
+The scanner's build Go patch version is not the repository's language contract.
+After changing Go, rerun the real source scan and native acceptance; do not
+rebuild the scanner from source merely to align compiler patch numbers.
 
 CI tool installation uses Go's HTTP/1.1 transport after repeated HTTP/2 stream
 resets from the module and checksum services. The CUE projection scopes
 `GODEBUG=http2client=0` to the installer process; product tests and runtime keep
 their normal transport. TLS and module checksum verification remain enabled.
-This does not select an older prebuilt scanner: its compiler must still support
-the repository's Go language version and real vulnerable-source analysis.
 
 ### Native lock refresh
 

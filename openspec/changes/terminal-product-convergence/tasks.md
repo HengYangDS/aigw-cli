@@ -98,9 +98,10 @@
 - [ ] 5.1 Reconstruct a fresh Work Lane's locked Go, Node, npm and tool
       environment with independent mutable state; test empty HOME/cache bootstrap
       and reject ambient compiler or global package fallback.
-      An isolated macOS cold-cache probe reached 18/19 tools but exceeded its
-      600-second bound while installing the Go-backed OSV Scanner. Its exact
-      process and scratch were removed; warm-cache checks do not close this task.
+      A tracked-source projection of c574f384 with empty HOME and caches
+      installed 19/19 tools and 283 npm packages in 104.9 seconds, preserved
+      authored input hashes, and removed exact scratch. A new Git Work Lane's
+      integration remains to prove before closing this task.
 - [ ] 5.2 Run Linux container and native-host setup, selected provider,
       projection, update, rollback, uninstall, and cleanup journeys using exact
       release bytes and one retained predecessor state.
