@@ -138,7 +138,9 @@ func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, predeces
 	}
 	journey.requireCredential(state.retained, "native-journey-token")
 	journey.requireCredential(successor, "native-journey-token")
-	state.predecessor = readFile(t, journey.config)
+	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
+		t.Fatal("candidate preprojection changed the published configuration")
+	}
 
 	hidden := journey.binary + ".precutover"
 	if err := os.Rename(journey.binary, hidden); err != nil {
