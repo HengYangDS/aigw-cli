@@ -195,10 +195,3 @@
       exact-byte install, predecessor upgrade/rollback, credentials and real-client
       journeys; retain the source and artifact hashes and disclose missing platform
       evidence.
-- [ ] 9.4 Obtain a current exact-HEAD ETHOS proof and independent review CI on
-      the required peer paths; resolve source, policy, Lease and staged-effect gaps
-      at their owners rather than bypassing hooks.
-- [ ] 9.5 Archive through the official governed OpenSpec transition only after
-      tasks 1–9 are accepted; re-prove the archived SHA. Tag, dual-peer Release,
-      installed cutover and final residue checks remain separate post-archive
-      obligations under the canonical release specification and design.

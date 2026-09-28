@@ -230,8 +230,6 @@ system, not a macOS result reused for Linux or Windows.
 | 8.5     | [quality] · Delivery completion is evidence-bound                            | Git common-dir, release/ETHOS owner                    | `git worktree list --porcelain`; exact residue audit                        |
 | 9.1–9.2 | [quality] · Source acceptance precedes delivery completion                   | OpenSpec, `tools/ci`                                   | `mise run check`; strict OpenSpec validation                                |
 | 9.3     | [control] · Native released-artifact lifecycle acceptance                    | `tools/release`                                        | Build-only `mise run release`; `mise run native` on all three OSs           |
-| 9.4     | [quality] · Delivery completion is evidence-bound                            | ETHOS proof, peer CI                                   | `ethos prove --execute --expect-head <SHA>`; peer-native CI separately      |
-| 9.5     | [distribution] · Stable publication follows completed change acceptance      | OpenSpec, `tools/release`                              | Strict OpenSpec validation before official archive                          |
 
 [organization]: ../../specs/repository-organization/spec.md
 [projection]: ../../specs/projection-format/spec.md
@@ -243,7 +241,6 @@ system, not a macOS result reused for Linux or Windows.
 [quality]: ../../specs/product-quality/spec.md
 [ci]: ../../specs/ci-diagnostics/spec.md
 [onboarding]: ../../specs/progressive-team-onboarding/spec.md
-[distribution]: ../../specs/release-distribution/spec.md
 
 ## Risks / Trade-offs
 
@@ -272,7 +269,12 @@ closes the user journey and reader
 succession before changing live client projections, and applies the broader
 adapter, quality, topology, and documentation cleanup in dependency order.
 Use a published predecessor with retained state for each platform's update and
-rollback proof. Only after final exact-HEAD proof and OpenSpec archive may a
-signed tag, dual-peer assets, Homebrew update, and user-host cutover be claimed.
+rollback proof. After the final checkbox is committed, obtain exact-HEAD ETHOS
+proof and independent peer review CI, resolve their gaps, integrate accepted
+source, and archive through the official governed OpenSpec transition. Re-prove
+the archived SHA; only then may a signed tag, dual-peer assets, Homebrew
+update, and user-host cutover be claimed. Proof and archive cannot be
+checkboxes in the Change they finalize, because checking either box changes
+the HEAD it would claim to have proved.
 No credential prompt, service restart, client history rewrite, or unverified
 automatic backend fallback is a migration step.
