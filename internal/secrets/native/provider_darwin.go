@@ -24,20 +24,24 @@ func observeCredential(service, account string) (bool, error) {
 }
 
 func keychainMetadataCommand(service, account string) *exec.Cmd {
-	return exec.Command("/usr/bin/security", "find-generic-password", "-s", service, "-a", account)
+	return exec.Command("/usr/bin/security", "find-generic-password", "-s", service, "-a", nativeKeychainSlot(account))
 }
 
 func readCredential(service, account string) (string, error) {
-	value, err := readCredentialFromKeychain(service, account, "")
+	value, err := readCredentialFromKeychain(service, nativeKeychainSlot(account), "")
 	return string(value), err
 }
 
 func writeCredential(service, account string, value []byte) error {
-	return writeCredentialToKeychain(service, account, "", value)
+	return writeCredentialToKeychain(service, nativeKeychainSlot(account), "", value)
 }
 
 func deleteCredential(service, account string) error {
-	return deleteCredentialFromKeychain(service, account, "")
+	return deleteCredentialFromKeychain(service, nativeKeychainSlot(account), "")
+}
+
+func nativeKeychainSlot(account string) string {
+	return "native@" + account
 }
 
 func nativeEnvironment(getenv func(string) string) []string {

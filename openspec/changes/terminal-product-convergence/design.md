@@ -122,7 +122,7 @@ exact cleanup on macOS, Linux, and Windows. The
 `credential` command and selected Token backend remain the only product reader;
 no independent helper, daemon, or second secret store is admitted.
 
-The macOS worker keeps the published go-keyring item grammar and envelope, but
+The macOS worker keeps the published go-keyring logical slot grammar and envelope, but
 owns read, write and delete through Security.framework. A private legacy-Keychain
 fixture demonstrated that `LAContext.interactionNotAllowed` plus the legacy
 per-query UI-fail flag did not prevent an authorization prompt. The
@@ -132,6 +132,15 @@ writer may deny direct AIGW access: a successor refuses to overwrite such an
 item without authorization. The bridge changes neither ACL nor backend
 selection; source tests and dual-architecture cgo builds do not replace
 retained-item or signed-artifact acceptance.
+
+The new macOS reader addresses `native@` plus the logical Account slot.
+Old `/usr/bin/security` items remain at their original addresses for cached
+predecessor commands and rollback. This is one backend with separate physical
+items across an explicit, one-time authorization transition; neither reader
+falls back to the other's item. The candidate must accept a Token supplied
+through the existing input path and prove native access before any projection
+or package link switches. Missing input or denied authorization stops the
+cutover without removing the predecessor item.
 
 Prepare and qualify the successor before changing a client projection. The
 one-time 0.3.1 Homebrew-link transition preprojects private paths, prefetches

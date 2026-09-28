@@ -56,7 +56,10 @@
       reject prefix/age-based deletion.
 - [ ] 3.5 Run published-predecessor-to-successor reader journeys on macOS,
       Linux, and Windows with actual native stores or the explicit environment
-      backend. For the one-time 0.3.1 Homebrew link, preproject and prefetch,
+      backend. On macOS, stage the selected Token by explicit input in the
+      native-authorized item while retaining the old item and captured command;
+      deny cutover if that item cannot be read without UI. For the one-time
+      0.3.1 Homebrew link, preproject and prefetch,
       measure the bounded link gap, verify captured commands immediately and
       roll back failed candidates; disclose any residual cached-caller risk.
       Later versioned commands must remain callable throughout replacement.

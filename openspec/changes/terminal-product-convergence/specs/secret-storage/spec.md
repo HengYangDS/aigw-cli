@@ -32,6 +32,18 @@ disclosed rather than represented as uninterrupted service.
 - **AND** an accessible legacy item SHALL retain its logical Token value,
   while an absent item remains distinct from denied access.
 
+#### Scenario: A legacy macOS item cannot authorize the successor
+
+- **GIVEN** a retained predecessor command can still use its existing item
+  but the successor identity cannot read that item without interaction
+- **WHEN** an operator explicitly supplies the selected Token to the
+  successor before cutover
+- **THEN** the successor SHALL stage and verify its own native-authorized
+  item without overwriting or reading the predecessor item
+- **AND** either binary SHALL read only its selected item; absence or denial
+  SHALL block cutover rather than trigger a fallback or credential prompt
+- **AND** rollback SHALL retain the predecessor command and item unchanged.
+
 #### Scenario: A client retains its credential command across an update
 
 - **GIVEN** a client has already loaded a qualified AIGW-owned versioned

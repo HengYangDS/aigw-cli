@@ -33,8 +33,8 @@ implementation reads or migrates another product's credential state.
 
 ## Consequences
 
-The private AIGW worker preserves go-keyring `v0.2.8`'s service/slot grammar
-and storage envelope. On macOS, the same AIGW executable now owns native
+The private AIGW worker preserves go-keyring `v0.2.8`'s service, logical
+Account slots and storage envelope. On macOS, the same AIGW executable now owns native
 read, write and delete through Security.framework. An isolated denied
 legacy-Keychain fixture showed that `LAContext` plus the per-query UI-fail
 flag still invoked SecurityAgent. Its short-lived, single-operation worker
@@ -50,6 +50,16 @@ refuses to replace an item it cannot first read; it does not change an ACL,
 migrate a Token, retry or select another backend. New native items pass
 write/read/update/delete in an isolated Keychain, but retained operator-item
 authorization and signed-successor acceptance remain unproved.
+
+The legacy `/usr/bin/security` item and the new native item have different
+physical Keychain account names. The latter uses `native@` before the
+existing logical slot; service and envelope remain unchanged. This is a
+one-time authorization boundary, not a second Token backend or a dual-read
+fallback. An operator must supply the selected Token explicitly to the
+candidate before cutover. The predecessor keeps its old item and command;
+the candidate reads only its native item. Missing or denied native access
+blocks the switch, while rollback leaves the old item intact. Neither binary
+copies a Token from the other item's address.
 
 The independent host-local helper cutover was rejected and rolled back. It is
 not the product's credential reader or Token backend. This decision does not
@@ -98,7 +108,8 @@ distribution trust.
 
 The product reader is the existing `aigw credential` command and one selected
 backend. On macOS, its bounded credential subprocess uses the existing
-go-keyring item grammar with noninteractive Security.framework operations.
+logical Account grammar and envelope with noninteractive Security.framework
+operations at its own physical Keychain slot.
 The proposed user-private executable copy changes the command's installed
 location without adding a reader or Token
 backend; preservation of native item authorization still requires the retained-
@@ -183,9 +194,11 @@ journeys must establish all of these boundaries:
    replacement. Execute those snapshots before sync or client refresh after
    update, rollback and re-upgrade. Capturing a later command must not overwrite
    an earlier snapshot.
-3. Prove retained-item access and real-client inference separately.
-   Environment-backed fixtures and new-client runs do not qualify a Keychain
-   transition or establish recovery of every existing session.
+3. Before switching a client, stage its selected Token in the native slot
+   through explicit input and prove both captured predecessor access and
+   signed-successor access independently. Environment-backed fixtures and
+   new-client runs do not qualify a Keychain transition or establish recovery
+   of every existing session.
 4. Verify bounded failure, interrupted replacement, exact rollback and uninstall
    preservation. Test the native no-UI policy separately; process timeout alone
    cannot suppress an operating-system prompt.

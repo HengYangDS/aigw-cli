@@ -36,36 +36,7 @@ func TestKeychainReadUsesPrivateFixtureWithoutAuthorizationUI(t *testing.T) {
 			t.Fatalf("private item %q read = %q, %v", item.account, value, err)
 		}
 	}
-	runKeychainFixtureCommand(t, "add-generic-password", "-s", service, "-a", "security-writer", "-w", "go-keyring-base64:"+base64.StdEncoding.EncodeToString([]byte(token)), path)
-	if value, err := readPrivateKeychainFixture(t, service, "security-writer", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
-		t.Fatalf("old writer's item unexpectedly bypassed authorization: %q, %v", value, err)
-	}
-	if err := writeCredentialToKeychain(service, "security-writer", path, []byte("replacement")); !errors.Is(err, ErrUnavailable) {
-		t.Fatalf("unauthorized legacy item accepted a replacement: %v", err)
-	}
-	for _, value := range [][]byte{nil, make([]byte, maxStoredValue+1)} {
-		if err := writeCredentialToKeychain(service, "native-writer", path, value); !errors.Is(err, ErrUnavailable) {
-			t.Fatalf("invalid native value was accepted: %v", err)
-		}
-	}
-	if err := writeCredentialToKeychain(service, "native-writer", path, []byte(token)); err != nil {
-		t.Fatal(err)
-	}
-	if value, err := readCredentialFromKeychain(service, "native-writer", path); err != nil || string(value) != token {
-		t.Fatalf("native writer's item = %q, %v", value, err)
-	}
-	if err := writeCredentialToKeychain(service, "native-writer", path, []byte("replacement")); err != nil {
-		t.Fatal(err)
-	}
-	if value, err := readCredentialFromKeychain(service, "native-writer", path); err != nil || string(value) != "replacement" {
-		t.Fatalf("updated native item = %q, %v", value, err)
-	}
-	if err := deleteCredentialFromKeychain(service, "native-writer", path); err != nil {
-		t.Fatal(err)
-	}
-	if value, err := readCredentialFromKeychain(service, "native-writer", path); len(value) != 0 || !errors.Is(err, ErrNotFound) {
-		t.Fatalf("deleted native item = %q, %v", value, err)
-	}
+	assertNativeSlotPreservesLegacyItem(t, service, path, token)
 
 	if value, err := readCredentialFromKeychain(service, "absent", path); len(value) != 0 || !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing private item = %q, %v", value, err)
@@ -85,6 +56,44 @@ func TestKeychainReadUsesPrivateFixtureWithoutAuthorizationUI(t *testing.T) {
 	runKeychainFixtureCommand(t, "add-generic-password", "-s", service, "-a", "denied", "-w", "synthetic", "-T", "", path)
 	if value, err := readPrivateKeychainFixture(t, service, "denied", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
 		t.Fatalf("unauthorized private item = %q, %v", value, err)
+	}
+}
+
+func assertNativeSlotPreservesLegacyItem(t *testing.T, service, path, token string) {
+	t.Helper()
+	runKeychainFixtureCommand(t, "add-generic-password", "-s", service, "-a", "security-writer", "-w", "go-keyring-base64:"+base64.StdEncoding.EncodeToString([]byte(token)), path)
+	if value, err := readPrivateKeychainFixture(t, service, "security-writer", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
+		t.Fatalf("old writer's item unexpectedly bypassed authorization: %q, %v", value, err)
+	}
+	if err := writeCredentialToKeychain(service, "security-writer", path, []byte("replacement")); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("unauthorized legacy item accepted a replacement: %v", err)
+	}
+	nativeAccount := nativeKeychainSlot("security-writer")
+	for _, value := range [][]byte{nil, make([]byte, maxStoredValue+1)} {
+		if err := writeCredentialToKeychain(service, nativeAccount, path, value); !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("invalid native value was accepted: %v", err)
+		}
+	}
+	if err := writeCredentialToKeychain(service, nativeAccount, path, []byte(token)); err != nil {
+		t.Fatal(err)
+	}
+	if value, err := readCredentialFromKeychain(service, nativeAccount, path); err != nil || string(value) != token {
+		t.Fatalf("native writer's item = %q, %v", value, err)
+	}
+	if err := writeCredentialToKeychain(service, nativeAccount, path, []byte("replacement")); err != nil {
+		t.Fatal(err)
+	}
+	if value, err := readCredentialFromKeychain(service, nativeAccount, path); err != nil || string(value) != "replacement" {
+		t.Fatalf("updated native item = %q, %v", value, err)
+	}
+	if err := deleteCredentialFromKeychain(service, nativeAccount, path); err != nil {
+		t.Fatal(err)
+	}
+	if value, err := readCredentialFromKeychain(service, nativeAccount, path); len(value) != 0 || !errors.Is(err, ErrNotFound) {
+		t.Fatalf("deleted native item = %q, %v", value, err)
+	}
+	if value, err := readPrivateKeychainFixture(t, service, "security-writer", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
+		t.Fatalf("legacy item changed during native-slot lifecycle: %q, %v", value, err)
 	}
 }
 
@@ -169,7 +178,7 @@ func runKeychainFixtureCommand(t *testing.T, args ...string) {
 
 func TestKeychainMetadataCommandDoesNotRequestPasswordData(t *testing.T) {
 	command := keychainMetadataCommand("AIGW_TOKEN", "team")
-	want := []string{"/usr/bin/security", "find-generic-password", "-s", "AIGW_TOKEN", "-a", "team"}
+	want := []string{"/usr/bin/security", "find-generic-password", "-s", "AIGW_TOKEN", "-a", "native@team"}
 	if !slices.Equal(command.Args, want) {
 		t.Fatalf("Keychain metadata command = %q, want %q", command.Args, want)
 	}
