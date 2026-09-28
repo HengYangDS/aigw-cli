@@ -178,6 +178,14 @@ where measured risk warrants them, not lower numbers chosen for appearance.
 Warnings fail at their producing owner. Formatting, links, diagrams, examples,
 and docs-code correspondence are tested from tracked content.
 
+Task 6.4's source gate passed on `b4edd0a9`: tracked Markdown, Mermaid,
+local anchors and Git-tracked link targets, structured formats, embedded shell,
+and generated projections were checked with their existing negative fixtures.
+A separate bounded HTTPS check over 29 current authored documents found 166
+successful links, no errors and two redirects; 197 non-HTTPS references were
+excluded from that online observation, not counted as online successes. External
+availability is time-bound, while the local source gate remains repeatable.
+
 The CUE graph remains the sole CI intent. GitHub and GitLab are equal optional
 peers receiving the same signed Git objects, with separate transport credentials,
 native macOS/Linux/Windows jobs, required-status enforcement, and event coverage

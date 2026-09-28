@@ -126,7 +126,7 @@
 - [ ] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.
-- [ ] 6.4 Exercise Markdown, Mermaid rendering, internal/external links, TOML,
+- [x] 6.4 Exercise Markdown, Mermaid rendering, internal/external links, TOML,
       YAML, JSON, CUE, shell and generated-text checks on tracked content; a
       malformed or unreachable authored carrier must fail the relevant gate.
 - [ ] 6.5 Verify dependency hygiene, dead-code, secrets, SBOM, vulnerabilities,
