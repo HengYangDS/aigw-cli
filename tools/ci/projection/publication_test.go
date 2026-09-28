@@ -90,6 +90,30 @@ func TestQualityJobsProjectEventCommitBases(t *testing.T) {
 	}
 }
 
+func TestGitLabReleaseAssetVerificationUsesLinuxContainer(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pipeline struct {
+		Assets       gitLabJob `yaml:"release-assets"`
+		NativeDarwin gitLabJob `yaml:"native-darwin"`
+		NativeLinux  gitLabJob `yaml:"native-linux"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(pipeline.Assets.Extends, []string{".linux-toolchain"}) ||
+		!slices.Equal(pipeline.Assets.Tags, pipeline.NativeLinux.Tags) ||
+		slices.Equal(pipeline.Assets.Tags, pipeline.NativeDarwin.Tags) {
+		t.Fatalf("release asset verifier is not isolated from the macOS Shell runner: %+v", pipeline.Assets)
+	}
+	if !slices.Contains(pipeline.Assets.Script, "mise exec --locked -- go run ./tools/release verify-artifacts dist") {
+		t.Fatalf("release artifact verification was dropped: %q", pipeline.Assets.Script)
+	}
+}
+
 func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)

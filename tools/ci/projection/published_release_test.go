@@ -148,8 +148,8 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 	if !slices.Equal(pipeline.Version.Script, []string{"env GODEBUG=http2client=0 mise install --locked", "mise exec --locked -- go run ./tools/release validate-version-tag"}) {
 		t.Fatal("tag admission is missing")
 	}
-	want := []string{"env GODEBUG=http2client=0 mise install --locked", "mkdir dist", `mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist`, "mise exec --locked -- go run ./tools/release verify-artifacts dist"}
-	if !slices.Equal(pipeline.Assets.Script, want) {
+	want := []string{"mkdir dist", `mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist`, "mise exec --locked -- go run ./tools/release verify-artifacts dist"}
+	if !slices.Equal(pipeline.Assets.Extends, []string{".linux-toolchain"}) || !slices.Equal(pipeline.Assets.Script, want) {
 		t.Fatalf("GitLab asset verification = %q", pipeline.Assets.Script)
 	}
 	variables := pipeline.Assets.Variables

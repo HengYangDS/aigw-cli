@@ -622,13 +622,15 @@ gitlab: {
 			{when: "never"},
 		]
 	}
-	"release-assets": _gitlabControlJob & {
-		_commands: [
+	"release-assets": {
+		extends: [".linux-toolchain"]
+		script: [
 			#"mkdir dist"#,
 			#"mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist"#,
 			commands.artifacts,
 		]
 		stage:     graph["release-assets"].stage
+		tags:      nativeEvidence.linux.gitlab.tags
 		variables: #ReleaseTrustFiles
 		rules: [
 			{if: "$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == \"api\" || $CI_PIPELINE_SOURCE == \"web\")"},

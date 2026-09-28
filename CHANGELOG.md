@@ -20,6 +20,8 @@ evidence.
   publishing untrusted provider response bodies or transport error text.
 - Let manual GitHub and GitLab diagnostics verify the selected commit by
   default while retaining an explicit base for a longer introduced range.
+- Route GitLab release-asset verification to its Linux container runner instead
+  of the macOS Shell runner; macOS and Windows native checks remain required.
 
 ## [0.3.3] - 2026-09-26
 

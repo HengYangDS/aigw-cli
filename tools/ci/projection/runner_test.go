@@ -20,7 +20,6 @@ func TestGitLabJobsShareConfiguredDarwinSelector(t *testing.T) {
 		Quality        gitLabJob `yaml:"quality"`
 		NativeDarwin   gitLabJob `yaml:"native-darwin"`
 		ReleaseVersion gitLabJob `yaml:"release-version"`
-		ReleaseAssets  gitLabJob `yaml:"release-assets"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
@@ -30,7 +29,6 @@ func TestGitLabJobsShareConfiguredDarwinSelector(t *testing.T) {
 		"quality":             pipeline.Quality,
 		"native-darwin":       pipeline.NativeDarwin,
 		"release-version":     pipeline.ReleaseVersion,
-		"release-assets":      pipeline.ReleaseAssets,
 	} {
 		if want := []string{"$AIGW_GITLAB_DARWIN_RUNNER_TAG"}; !slices.Equal(job.Tags, want) {
 			t.Errorf("%s runner tags = %q, want %q", name, job.Tags, want)

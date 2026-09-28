@@ -181,14 +181,15 @@ release-version:
     - if: $CI_COMMIT_TAG
     - when: never
 release-assets:
+  extends:
+    - .linux-toolchain
   script:
-    - env GODEBUG=http2client=0 mise install --locked
     - mkdir dist
     - mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist
     - mise exec --locked -- go run ./tools/release verify-artifacts dist
   stage: release
   tags:
-    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+    - $AIGW_GITLAB_LINUX_RUNNER_TAG
   variables:
     AIGW_RELEASE_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ALLOWED_SIGNERS
     AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS

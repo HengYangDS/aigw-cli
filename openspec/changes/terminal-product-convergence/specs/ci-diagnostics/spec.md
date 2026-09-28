@@ -79,6 +79,15 @@ a required job on the other Forge.
   complete native matrix for the exact release object
 - **AND** no cross-peer download or result is an input.
 
+#### Scenario: GitLab verifies release assets after native jobs
+
+- **WHEN** GitLab downloads and verifies the complete released artifact matrix
+- **THEN** its OS-independent verifier runs on the Linux container selector,
+  not the persistent macOS Shell selector that also accepts review code
+- **AND** macOS and Windows native evidence remains required on their own jobs
+- **AND** this relocation does not by itself prove Shell runner isolation for
+  review, tag, or other protected work.
+
 #### Scenario: The sibling product peer is unavailable
 
 - **WHEN** a selected AIGW Git repository, Release, and API are unavailable
