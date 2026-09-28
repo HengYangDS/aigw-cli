@@ -134,11 +134,11 @@ func (claudeDesktopAdapter) Inspect(ctx context.Context, deps Dependencies, cfg 
 		return Status{Issue: "Claude Desktop configuration library is missing", RepairAction: "aigw repair"}
 	}
 	plan, err := claudeDesktopInspectionPlan(deps, cfg, selected, claudedesktop.PathsForLibrary(binding.Targets[0]))
-	if err == nil && plan.Action != claudedesktop.ActionUnchanged {
-		err = errors.New("Claude Desktop projection differs from the selected Route")
-	}
 	if err != nil {
-		return Status{Issue: err.Error(), RepairAction: "aigw sync"}
+		return Status{Issue: "Claude Desktop projection cannot be inspected", RepairAction: "aigw sync"}
+	}
+	if plan.Action != claudedesktop.ActionUnchanged {
+		return Status{Issue: "Claude Desktop projection differs from the selected Route", RepairAction: "aigw sync"}
 	}
 	return Status{Ready: true}
 }

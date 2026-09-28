@@ -74,6 +74,7 @@ func TestHumanFormattingBranches(t *testing.T) {
 		{Check{Name: "credential:backend"}, "Credential storage is unavailable"},
 		{Check{Name: "secret:team", OK: true}, "team · available"},
 		{Check{Name: "secret:team"}, "team · missing"},
+		{Check{Name: "secret:team", Detail: "credential backend is unavailable"}, "team · credential backend unavailable"},
 		{Check{Name: "adapter:claude", OK: true, Detail: "enabled"}, "Enabled"},
 		{Check{Name: "adapter:claude", Detail: "Claude executable is not configured"}, "Enabled, but no executable is configured"},
 		{Check{Name: "adapter:codex", Detail: "Codex executable is not configured"}, "Enabled, but no executable is configured"},

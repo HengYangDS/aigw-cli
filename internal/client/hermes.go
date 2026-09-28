@@ -272,11 +272,11 @@ func (hermesAdapter) Inspect(ctx context.Context, deps Dependencies, cfg configu
 		return Status{Issue: "Hermes executable or configuration home is unavailable", RepairAction: "aigw sync"}
 	}
 	plan, err := hermesInspectionPlan(deps, cfg, selected, adapter.Targets[0])
-	if err == nil && plan.Action != "unchanged" {
-		err = errors.New("hermes configuration projection differs from the selected route")
-	}
 	if err != nil {
-		return Status{Issue: err.Error(), RepairAction: "aigw sync"}
+		return Status{Issue: "Hermes configuration projection cannot be inspected", RepairAction: "aigw sync"}
+	}
+	if plan.Action != "unchanged" {
+		return Status{Issue: "Hermes configuration projection differs from the selected Route", RepairAction: "aigw sync"}
 	}
 	return Status{Ready: true}
 }

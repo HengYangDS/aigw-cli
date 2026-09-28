@@ -40,6 +40,8 @@ type Check struct {
 	Fix    string `json:"fix,omitempty"`
 }
 
+const credentialBackendUnavailable = "credential backend is unavailable"
+
 type commandResult struct {
 	CredentialBackend secrets.BackendSelection          `json:"credential_backend"`
 	Checks            []Check                           `json:"checks"`
@@ -124,7 +126,7 @@ func collectResult(ctx context.Context, deps Dependencies) commandResult {
 	if backendErr != nil {
 		checks = append([]Check{{
 			Name:   "credential:backend",
-			Detail: "credential backend is unavailable: " + backendErr.Error(),
+			Detail: credentialBackendUnavailable,
 			Fix:    backend.RecoveryAction,
 		}}, checks...)
 	}
@@ -257,7 +259,7 @@ func Collect(ctx context.Context, deps Dependencies) []Check {
 	}
 	cfg, err := deps.Config.Load()
 	if err != nil {
-		return append(checks, Check{"config", false, err.Error(), "inspect or restore " + deps.Config.Path()})
+		return append(checks, Check{"config", false, "cannot read or validate configuration", "inspect or restore the local configuration file"})
 	}
 	if len(cfg.Routes) == 0 {
 		checks = append(checks, Check{"config", false, "not configured", "run `aigw setup`"})
@@ -267,7 +269,7 @@ func Collect(ctx context.Context, deps Dependencies) []Check {
 	for _, name := range cfg.RequiredAccountTokenIDs() {
 		ok, observationErr := deps.Secrets.Exists(name)
 		if observationErr != nil {
-			checks = append(checks, Check{"secret:" + name, false, "credential backend failed: " + observationErr.Error(), "inspect the selected credential backend"})
+			checks = append(checks, Check{"secret:" + name, false, credentialBackendUnavailable, "inspect the selected credential backend"})
 			continue
 		}
 		fix := ""
@@ -295,7 +297,7 @@ func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cf
 		}
 		runtime, err := cfg.ResolveRuntime(clientID, "")
 		if err != nil {
-			checks = append(checks, Check{Name: "projection:" + clientID, Detail: err.Error(), Fix: "run `aigw use --for " + clientID + " <route>`"})
+			checks = append(checks, Check{Name: "projection:" + clientID, Detail: "selected client route cannot be resolved", Fix: "run `aigw use --for " + clientID + " <route>`"})
 			continue
 		}
 		if projectionPrerequisites[clientID] != "" {
@@ -382,6 +384,9 @@ func Detail(check Check) string {
 		account := strings.TrimPrefix(name, "secret:")
 		if check.OK {
 			return account + " · available"
+		}
+		if detail == credentialBackendUnavailable {
+			return account + " · credential backend unavailable"
 		}
 		return account + " · missing"
 	case name == "adapter:claude" || name == "adapter:codex":

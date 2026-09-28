@@ -118,7 +118,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	broken := Collect(context.Background(), Dependencies{Config: bad, Secrets: secrets.NewMemoryStore(), Clients: synchronization.Synchronizer{Registry: client.DefaultRegistry()}})
-	if check := findCheck(t, broken, "config"); check.OK || !strings.Contains(check.Fix, bad.Path()) {
+	if check := findCheck(t, broken, "config"); check.OK || check.Detail != "cannot read or validate configuration" || check.Fix != "inspect or restore the local configuration file" {
 		t.Fatalf("config check = %#v", check)
 	}
 }
@@ -250,13 +250,13 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", []string{filepath.Join(t.TempDir(), "missing.toml")})
 	deps, _, _ = doctorDependencies(t, cfg)
 	check := findCheck(t, Collect(context.Background(), deps), "codex:target-1")
-	if check.OK || !strings.Contains(check.Detail, "read Codex config") || check.Fix != "run `aigw sync`" {
+	if check.OK || check.Detail != "Codex configuration target is unavailable" || check.Fix != "run `aigw sync`" {
 		t.Fatalf("projection check = %#v", check)
 	}
 
 	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", []string{"unused"})
 	delete(cfg.Accounts, "team")
-	if check := findCheck(t, adapterChecks(context.Background(), deps.Clients, cfg), "projection:codex"); check.OK {
+	if check := findCheck(t, adapterChecks(context.Background(), deps.Clients, cfg), "projection:codex"); check.OK || check.Detail != "selected client route cannot be resolved" {
 		t.Fatalf("route check = %#v", check)
 	}
 	if got := adapterChecks(context.Background(), deps.Clients, configuration.NewConfig()); len(got) != len(configuration.AdmittedClientIDs()) {
@@ -387,7 +387,7 @@ func TestCommandJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 		t.Fatalf("credential backend = %#v", result.CredentialBackend)
 	}
 	check := findCheck(t, result.Checks, "credential:backend")
-	if check.OK || check.Fix != "aigw doctor" || !strings.Contains(check.Detail, "invalid persisted") {
+	if check.OK || check.Fix != "aigw doctor" || check.Detail != "credential backend is unavailable" {
 		t.Fatalf("credential backend check = %#v", check)
 	}
 }

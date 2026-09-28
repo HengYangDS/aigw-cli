@@ -94,6 +94,9 @@ func assertClaudeInspectionCase(t *testing.T, test claudeInspectionCase) {
 	if !test.ready && (!strings.Contains(status.Issue, "not synchronized") || status.RepairAction != "aigw sync") {
 		t.Errorf("missing synchronization diagnosis: %+v", status)
 	}
+	if strings.Contains(status.Issue, root) {
+		t.Errorf("Claude inspection exposed a private path: %+v", status)
+	}
 	for path, before := range files {
 		after, err := transaction.CaptureFileSnapshot(path)
 		if err != nil || !after.Equal(before) {

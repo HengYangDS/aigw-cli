@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 
@@ -165,16 +166,22 @@ func (codexAdapter) Inspect(_ context.Context, deps Dependencies, cfg configurat
 	status := Status{Ready: true, Checks: make([]Check, 0, len(adapter.Targets))}
 	for index, target := range adapter.Targets {
 		check := Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "route " + runtime.RouteID}
-		observed, err := codexRetainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
-		if err == nil {
-			err = codex.ValidateConfig(target, observed)
+		observed, readerErr := codexRetainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
+		detail := ""
+		if readerErr != nil {
+			detail = "Codex credential reader cannot be inspected"
+		} else if err := codex.ValidateConfig(target, observed); err != nil {
+			detail = "Codex configuration target does not match selected binding"
+			if errors.Is(err, os.ErrNotExist) {
+				detail = "Codex configuration target is unavailable"
+			}
 		}
-		if err != nil {
+		if detail != "" {
 			check.Ready = false
-			check.Detail = err.Error()
+			check.Detail = detail
 			check.RepairAction = "aigw sync"
 			status.Ready = false
-			status.Issue = "Codex configuration projection drift: " + err.Error()
+			status.Issue = "Codex configuration projection drift: " + detail
 			status.RepairAction = "aigw sync"
 		}
 		status.Checks = append(status.Checks, check)
@@ -288,11 +295,11 @@ func (claudeAdapter) Inspect(_ context.Context, deps Dependencies, cfg configura
 	}
 	reader, err := claudeRetainedExecutable(deps.ClaudeSettingsPath, cfg, runtime, deps.AIGWExecutable)
 	if err != nil {
-		return Status{Issue: err.Error(), RepairAction: "aigw sync"}
+		return Status{Issue: "Claude credential reader is not synchronized with the selected Route", RepairAction: "aigw sync"}
 	}
 	inspection, err := claude.InspectSettings(deps.ClaudeSettingsPath, runtime, reader)
 	if err != nil {
-		return Status{Issue: err.Error(), RepairAction: "aigw sync"}
+		return Status{Issue: "Claude settings are not synchronized with the selected Route", RepairAction: "aigw sync"}
 	}
 	return Status{Ready: true, NativeModelOverride: inspection.NativeModelOverride}
 }

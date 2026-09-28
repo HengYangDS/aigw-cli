@@ -81,6 +81,21 @@ func TestNativeInspectionKeepsIntactRetainedVersionedReader(t *testing.T) {
 		if err != nil || !slices.Equal(before, after) {
 			t.Fatalf("inspection changed Hermes configuration: %v", err)
 		}
+		if err := os.Remove(target); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(target, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if status := adapter.Inspect(t.Context(), deps, cfg, selected); status.Ready || strings.Contains(status.Issue, target) {
+			t.Fatalf("Hermes inspection exposed an unreadable target: %#v", status)
+		}
+		if err := os.Remove(target); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(target, before, 0o600); err != nil {
+			t.Fatal(err)
+		}
 		changed := cfg.Clone()
 		account := changed.Accounts["team"]
 		account.Endpoints.Anthropic = "https://changed.test"
@@ -120,6 +135,21 @@ func TestNativeInspectionKeepsIntactRetainedVersionedReader(t *testing.T) {
 		after, err := os.ReadFile(fixture.paths.Profile)
 		if err != nil || !slices.Equal(before, after) {
 			t.Fatalf("inspection changed Claude Desktop profile: %v", err)
+		}
+		if err := os.Remove(fixture.paths.Profile); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(fixture.paths.Profile, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); status.Ready || strings.Contains(status.Issue, fixture.paths.Profile) {
+			t.Fatalf("Claude Desktop inspection exposed an unreadable profile: %#v", status)
+		}
+		if err := os.Remove(fixture.paths.Profile); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(fixture.paths.Profile, before, 0o600); err != nil {
+			t.Fatal(err)
 		}
 		changed := fixture.cfg.Clone()
 		account := changed.Accounts["gateway"]

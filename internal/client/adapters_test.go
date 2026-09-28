@@ -191,6 +191,9 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		if status.Ready || !strings.Contains(status.Issue, "projection drift") {
 			t.Fatalf("status = %#v", status)
 		}
+		if strings.Contains(status.Issue, adapter.Targets[0]) || strings.Contains(status.Checks[0].Detail, adapter.Targets[0]) {
+			t.Fatalf("Codex inspection exposed a private target path: %#v", status)
+		}
 	})
 
 	t.Run("external provider", func(t *testing.T) {
