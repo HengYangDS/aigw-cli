@@ -2,6 +2,41 @@
 
 ## MODIFIED Requirements
 
+### Requirement: Activation follows present capabilities
+
+Manifest setup SHALL import the reviewed catalogue and project only discovered
+clients whose selected Routes have locally available declared authentication.
+It SHALL NOT contact a provider or run a native client to decide whether the
+declaration can be imported. A connected Token and a native projection are not
+claims of accepted authentication, reachable endpoints, or working inference;
+`aigw check` owns those live observations. A later synchronization SHALL
+rediscover and adopt a newly installed admitted client without requiring
+manifest re-import.
+
+#### Scenario: Only Claude Code is installed
+
+- **WHEN** a connected Account has both Anthropic and Responses routes but
+  only Claude Code is discovered
+- **THEN** setup SHALL configure only the Claude route
+- **AND** an unavailable Responses endpoint SHALL NOT block the import.
+
+#### Scenario: Provider is offline during manifest import
+
+- **WHEN** one compatible Account Token is available and its provider cannot
+  be reached
+- **THEN** manifest setup SHALL retain the catalogue, selection, and local
+  projection without an online request
+- **AND** SHALL NOT report endpoint or inference verification as passed
+- **AND** an explicit `aigw check` SHALL report the provider failure without
+  exposing the Token.
+
+#### Scenario: Client is installed later
+
+- **WHEN** a manifest was imported before an admitted client was installed
+- **AND** the user later runs synchronization after installing that client
+- **THEN** AIGW SHALL discover and converge its owned projection
+- **AND** SHALL preserve unrelated client and conversation state.
+
 ### Requirement: Onboarding state is explicit and actionable
 
 Setup results SHALL distinguish imported capability, connected Accounts,

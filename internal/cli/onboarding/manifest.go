@@ -4,7 +4,6 @@ import (
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 	"context"
@@ -20,12 +19,13 @@ type manifestSetupImported struct {
 }
 
 type manifestSetupResult struct {
-	Imported          manifestSetupImported `json:"imported"`
-	ConnectedAccounts []string              `json:"connected_accounts"`
-	SelectedBindings  map[string]string     `json:"selected_bindings"`
-	ProjectedClients  []string              `json:"projected_clients"`
-	DeferredActions   []string              `json:"deferred_actions,omitempty"`
-	NextAction        string                `json:"next_action"`
+	Imported           manifestSetupImported `json:"imported"`
+	ConnectedAccounts  []string              `json:"connected_accounts"`
+	SelectedBindings   map[string]string     `json:"selected_bindings"`
+	ProjectedClients   []string              `json:"projected_clients"`
+	OnlineVerification string                `json:"online_verification"`
+	DeferredActions    []string              `json:"deferred_actions,omitempty"`
+	NextAction         string                `json:"next_action"`
 }
 
 func runManifestSetup(ctx context.Context, runtime invocation.Context, request Request) error {
@@ -82,12 +82,6 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	availableClients := manifestSetupAvailableClients(discovered.Executables)
 	selectedClients := manifestSetupSelectedClients(cfg, connected, availableClients)
 
-	for _, credential := range credentials {
-		if err := verifyManifestSetupCredential(ctx, runtime, cfg, credential.account, credential.token, selectedClients...); err != nil {
-			return fmt.Errorf("Token validation failed for Account %q: %w", credential.account, err)
-		}
-	}
-
 	cfg, err = invocation.Synchronizer(runtime).Setup(ctx, before, cfg, tokens, selectedClients...)
 	if err != nil {
 		return err
@@ -121,8 +115,9 @@ func buildManifestSetupResult(
 			Accounts: append([]string(nil), accountNames...),
 			Routes:   cfg.RouteIDs(),
 		},
-		ConnectedAccounts: make([]string, 0, len(connected)),
-		SelectedBindings:  make(map[string]string, len(cfg.Clients)),
+		ConnectedAccounts:  make([]string, 0, len(connected)),
+		SelectedBindings:   make(map[string]string, len(cfg.Clients)),
+		OnlineVerification: "not_checked",
 	}
 	for _, client := range selectedClients {
 		if cfg.Clients[client].Enabled {
@@ -191,6 +186,7 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 		spec, _ := configuration.ClientSpecFor(client)
 		r.Status(presentation.OK, spec.Label, "Projected")
 	}
+	r.Status(presentation.Info, "Online verification", "Not checked")
 	r.Success("Reviewed Accounts and Routes are available; Tokens remain outside configuration")
 	for _, detail := range result.DeferredActions {
 		if detail != result.NextAction {
@@ -296,29 +292,6 @@ func accountHasRecommendedTokenSelection(cfg configuration.Config, accountName s
 		}
 	}
 	return false
-}
-
-func verifyManifestSetupCredential(ctx context.Context, runtime invocation.Context, cfg configuration.Config, accountName, token string, selectedClients ...string) error {
-	type endpointKey struct {
-		endpoint string
-		protocol configuration.EndpointProtocol
-	}
-	verified := map[endpointKey]bool{}
-	for _, client := range selectedClients {
-		clientRuntime, resolveErr := cfg.ResolveRuntime(client, "")
-		if resolveErr != nil || clientRuntime.AccountID != accountName || !clientRuntime.RequiresAccountToken() {
-			continue
-		}
-		key := endpointKey{endpoint: clientRuntime.Endpoint, protocol: clientRuntime.Protocol}
-		if verified[key] {
-			continue
-		}
-		if err := credential.ValidateRuntime(ctx, runtime.HTTP, clientRuntime, token); err != nil {
-			return err
-		}
-		verified[key] = true
-	}
-	return nil
 }
 
 func manifestSetupSelectedClients(cfg configuration.Config, connected map[string]setupCredential, available map[string]bool) []string {

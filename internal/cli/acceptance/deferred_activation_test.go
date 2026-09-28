@@ -3,6 +3,8 @@ package cli_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -141,6 +143,64 @@ func TestShippedTeamManifestWithoutAccountOrClientIsDeferred(t *testing.T) {
 	}
 	if len(runner.plans) != 0 || httpClient.calls != 0 {
 		t.Fatalf("deferred activation invoked client or endpoint: plans=%d http=%d", len(runner.plans), httpClient.calls)
+	}
+}
+
+func TestShippedTeamManifestImportsWithAnOfflineProvider(t *testing.T) {
+	app, out, _, runner, httpClient := testApp(t, "")
+	app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
+		if key == secrets.EnvironmentKey("dmxapi") {
+			return "synthetic-offline-token"
+		}
+		return ""
+	})
+	httpClient.handler = func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("provider is offline")
+	}
+	target := filepath.Join(t.TempDir(), "codex", "config.toml")
+	writeFile(t, target, []byte("model_provider = \"native\"\n"), 0o600)
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{configuration.ClientCodex: executableFixture(t, "codex")},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surfaceidentity.CodexHomeDefault),
+			Authority:   string(surfaceidentity.AuthorityAIGW),
+			ConfigPath:  target,
+			Present:     true,
+			AutoManaged: true,
+		}},
+	}}
+
+	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
+		t.Fatalf("offline catalogue import: %v\n%s", err, out)
+	}
+	var setup struct {
+		ConnectedAccounts  []string          `json:"connected_accounts"`
+		SelectedBindings   map[string]string `json:"selected_bindings"`
+		ProjectedClients   []string          `json:"projected_clients"`
+		OnlineVerification string            `json:"online_verification"`
+		NextAction         string            `json:"next_action"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &setup); err != nil {
+		t.Fatalf("decode setup: %v\n%s", err, out)
+	}
+	if len(setup.ConnectedAccounts) != 1 || setup.ConnectedAccounts[0] != "dmxapi" ||
+		setup.SelectedBindings[configuration.ClientCodex] == "" ||
+		len(setup.ProjectedClients) != 1 || setup.ProjectedClients[0] != configuration.ClientCodex ||
+		setup.OnlineVerification != "not_checked" ||
+		!strings.Contains(setup.NextAction, "aigw sync") {
+		t.Fatalf("offline import state = %+v", setup)
+	}
+	if httpClient.calls != 0 || len(runner.plans) != 0 {
+		t.Fatalf("declarative import invoked provider or client: http=%d plans=%d", httpClient.calls, len(runner.plans))
+	}
+	if err := cli.Execute(app, []string{"check", "--json"}); err == nil {
+		t.Fatal("offline provider was reported healthy")
+	}
+	if httpClient.calls == 0 {
+		t.Fatal("explicit check did not observe the provider")
+	}
+	if strings.Contains(out.String(), "synthetic-offline-token") {
+		t.Fatal("credential leaked to CLI output")
 	}
 }
 

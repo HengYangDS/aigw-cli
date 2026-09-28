@@ -24,6 +24,7 @@ type scriptedSecretStore struct {
 	getErr      error
 	existsErr   error
 	onGet       func(*scriptedSecretStore, string)
+	onSet       func(*scriptedSecretStore, string)
 	getCalls    int
 	existsCalls int
 }
@@ -47,6 +48,9 @@ func (store *scriptedSecretStore) Set(name, value string) error {
 		store.values = map[string]string{}
 	}
 	store.values[name] = value
+	if store.onSet != nil {
+		store.onSet(store, name)
+	}
 	return nil
 }
 
@@ -251,22 +255,6 @@ func TestManifestSetupClientSelectionRequiresConnectedRouteAndUsableSurface(t *t
 	}
 }
 
-func TestManifestCredentialVerificationSkipsRoutesOwnedByAnotherAccount(t *testing.T) {
-	cfg := manifestSetupConfig()
-	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{OpenAIResponses: "https://other.test/v1"}}
-	calls := 0
-	runtime := invocation.Context{HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
-		calls++
-		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
-	})}
-	if err := verifyManifestSetupCredential(context.Background(), runtime, cfg, "other", "token", "", configuration.ClientCodex); err != nil {
-		t.Fatal(err)
-	}
-	if calls != 0 {
-		t.Fatalf("verification called another Account's route %d times", calls)
-	}
-}
-
 func TestGuidedSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "configuration.toml")
 	store := &scriptedSecretStore{
@@ -385,6 +373,11 @@ interfaces = { openai_responses = ["text"] }
 		onGet: func(store *scriptedSecretStore, account string) {
 			delete(store.values, account)
 		},
+		onSet: func(_ *scriptedSecretStore, _ string) {
+			if err := os.Mkdir(configPath, 0o700); err != nil {
+				t.Fatal(err)
+			}
+		},
 	}
 	runtime := invocation.Context{
 		Executable: filepath.Join(t.TempDir(), "aigw"),
@@ -400,12 +393,6 @@ interfaces = { openai_responses = ["text"] }
 				AutoManaged: true,
 			}},
 		}},
-		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
-			if err := os.Mkdir(configPath, 0o700); err != nil {
-				t.Fatal(err)
-			}
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: request}, nil
-		}),
 		In:        strings.NewReader("token\n"),
 		Out:       io.Discard,
 		RenderOut: io.Discard,

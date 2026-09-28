@@ -471,9 +471,12 @@ The choice uses the same `anthropic`, `openai_responses`, and
 name. Direct single-Route `setup` also accepts `--protocol` when more than one
 endpoint URL is supplied. Its `--chat-url` supplies an OpenAI Chat Completions
 endpoint for Hermes; the protocol is stored in that Client Binding.
-When a Token is first supplied, setup and interactive selection validate only
-that selected protocol and endpoint; failure stores neither the Token nor the
-Client Binding.
+Guided single-Route setup and interactive selection validate the selected
+protocol and endpoint before activation. Manifest setup is declarative: it
+imports the catalogue and projects installed clients with a locally available
+Token without contacting the provider. This does not prove that the Token is
+accepted or that inference works. Run `aigw check` after import; it reports
+unreachable endpoints and rejected Tokens without exposing credential values.
 
 Rotation validates and replaces only the selected Account's Token. It does not
 select a Route, rewrite client configuration or invoke a native client. The

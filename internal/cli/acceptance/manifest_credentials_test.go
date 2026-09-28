@@ -9,10 +9,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
-	"maps"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -127,7 +124,7 @@ func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testi
 
 func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(t *testing.T) {
 	t.Setenv("AIGW_TOKEN_UNRELATED", "aigw-test-unrelated-token")
-	app, out, secretStore, runner, _ := testApp(t, "")
+	app, out, secretStore, runner, httpClient := testApp(t, "")
 	prompt := &scriptedPrompt{secrets: []string{"aigw-test-dmxapi-token"}}
 	app.Interactive = true
 	app.Prompt = prompt
@@ -143,23 +140,7 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 			AutoManaged: true,
 		}},
 	}}
-	requests := map[string]int{}
-	app.HTTP = &fakeHTTP{handler: func(req *http.Request) (*http.Response, error) {
-		auth := req.Header.Get("Authorization")
-		apiKey := req.Header.Get("X-Api-Key")
-		if (auth == "") == (apiKey == "") {
-			t.Fatalf("credential verification requires exactly one authentication header: %#v", req.Header)
-		}
-		protocol := "openai"
-		if apiKey != "" {
-			protocol = "anthropic"
-		}
-		if req.URL.Path != "/v1/models" {
-			t.Fatalf("credential verification URL = %s, want /v1/models", req.URL)
-		}
-		requests[req.URL.Host+"/"+protocol]++
-		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: req}, nil
-	}}
+	httpClient.status = http.StatusUnauthorized
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
 	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--account", "dmxapi"}); err != nil {
@@ -206,12 +187,8 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 			t.Errorf("setup output missing %q:\n%s", want, out.String())
 		}
 	}
-	wantValidationRequests := map[string]int{
-		"dmxapi.test/anthropic": 1,
-		"dmxapi.test/openai":    1,
-	}
-	if !maps.Equal(requests, wantValidationRequests) {
-		t.Fatalf("validation requests = %#v, want %#v", requests, wantValidationRequests)
+	if httpClient.calls != 0 {
+		t.Fatalf("declarative import made %d provider requests", httpClient.calls)
 	}
 	wantRoutes := map[string]configuration.Route{
 		"aihubmix-claude": qualifiedRoute("AIHubMix Claude", "aihubmix", "claude-test", configuration.ProtocolAnthropic),
@@ -305,50 +282,6 @@ func TestSetupFromConfigurationManifestRejectsStdinTokenWithoutAccountOwner(t *t
 		t.Fatal("ambiguous stdin token was stored")
 	}
 	assertManifestSetupLeavesNoConfig(t, app)
-}
-
-func TestSetupFromConfigurationManifestDoesNotFollowCredentialProbeRedirects(t *testing.T) {
-	targetSawToken := false
-	target := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, req *http.Request) {
-		targetSawToken = req.Header.Get("X-Api-Key") != ""
-	}))
-	defer target.Close()
-	redirectTarget := strings.Replace(target.URL, "127.0.0.1", "localhost", 1)
-	source := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, req *http.Request) {
-		http.Redirect(response, req, redirectTarget, http.StatusFound)
-	}))
-	defer source.Close()
-
-	app, _, secretStore, _, _ := testApp(t, "")
-	app.Interactive = true
-	app.Prompt = &scriptedPrompt{secrets: []string{"aigw-test-team-token"}}
-	app.HTTP = &http.Client{}
-	manifestPath := writeConfigurationManifest(t, `version = 7
-[recommendations.claude.primary]
-route = "team-claude"
-[accounts.team]
-label = "Team"
-[accounts.team.endpoints]
-anthropic = "`+source.URL+`"
-[models.claude-test]
-label = "Claude Test"
-[routes.team-claude]
-label = "Team Claude"
-account = "team"
-model = "claude-test"
-upstream_model = "claude-test"
-interfaces = { anthropic = ["text"] }
-`)
-
-	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--account", "team"}); err != nil {
-		t.Fatal(err)
-	}
-	if targetSawToken {
-		t.Fatal("credential probe forwarded X-Api-Key across a redirect")
-	}
-	if !secretExists(t, secretStore, "team") {
-		t.Fatal("explicitly connected Account Token was not stored")
-	}
 }
 
 func TestSetupFromConfigurationManifestPreservesClientOwnedCredentials(t *testing.T) {

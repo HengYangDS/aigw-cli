@@ -55,6 +55,12 @@ optional until a selected operation requires it. Native keyring, guarded file,
 and process environment are alternative backends with one recorded owner per
 invocation; an unavailable backend fails explicitly and never silently falls
 through to another. Client discovery never creates a missing client's files.
+Manifest setup imports a reviewed declaration and projects the locally usable
+client intersection without a provider request. This removes the inconsistent
+online gate that previously rejected an offline import although `sync` could
+project the same declaration. A connected Token and projection remain local
+facts; `check` alone observes endpoint authentication and inference. Guided
+single-route setup and Token rotation retain their explicit validation contract.
 
 ### 2. Separate declarative choices from live data-plane failures
 
