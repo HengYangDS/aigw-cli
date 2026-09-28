@@ -55,7 +55,7 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 	journey := publishedNativeJourney{
 		journey:  newNativeJourney(t, baseline, server.URL+"/v1", true),
 		baseline: baseline, candidate: candidate, archive: archive, checksums: checksums, version: version,
-		clients: []string{configuration.ClientClaude, configuration.ClientCodex, configuration.ClientHermes},
+		clients: []string{configuration.ClientClaude, configuration.ClientClaudeDesktop, configuration.ClientCodex, configuration.ClientHermes},
 	}
 	predecessorVersion := journey.journey.predecessorVersion(version)
 	journey.prepare(t, nativeCurrentSchemaManifest(server.URL+"/v1"))
@@ -101,6 +101,7 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 		t.Fatal(err)
 	}
 	journey.prepareCodexLifecycle()
+	journey.installClientFixture(configuration.ClientClaudeDesktop)
 	journey.installClientFixture(configuration.ClientHermes)
 	journey.setEnvironment("HERMES_HOME", filepath.Join(journey.root, "home", ".hermes"))
 	configured, err := configuration.Parse(readFile(t, journey.manifest))
@@ -109,6 +110,9 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	}
 	configured.Recommendations[configuration.ClientHermes] = configuration.ClientRecommendation{
 		Primary: configuration.ClientSelection{Route: "native-system-keyring-probe-claude", Protocol: configuration.ProtocolAnthropic},
+	}
+	configured.Recommendations[configuration.ClientClaudeDesktop] = configuration.ClientRecommendation{
+		Primary: configuration.ClientSelection{Route: "native-system-keyring-probe-claude"},
 	}
 	data, err := toml.Marshal(configured)
 	if err != nil {

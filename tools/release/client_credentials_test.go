@@ -17,7 +17,9 @@ import (
 	"testing"
 	"time"
 
+	claudedesktop "aigw-cli/internal/claude/desktop"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 
@@ -229,6 +231,25 @@ func (j *journeyFixture) retainedCredential(client string) process.Plan {
 			j.testing.Fatal("Hermes projection lacks a credential command")
 		}
 		return j.shellCredential(command)
+	}
+	if client == configuration.ClientClaudeDesktop {
+		paths, err := platform.PathsFor(runtime.GOOS, environmentValues(j.environment))
+		if err != nil {
+			j.testing.Fatal(err)
+		}
+		profile := claudedesktop.PathsForLibrary(filepath.FromSlash(paths.ClaudeDesktopLibrary)).Profile
+		var config struct {
+			Command string   `json:"inferenceCredentialHelper"`
+			Args    []string `json:"inferenceCredentialHelperArgs"`
+		}
+		if err := json.Unmarshal(readFile(j.testing, profile), &config); err != nil {
+			j.testing.Fatal(err)
+		}
+		if config.Command == "" || len(config.Args) == 0 {
+			j.testing.Fatal("Claude Desktop projection lacks a credential command")
+		}
+		plan.Executable, plan.Args = config.Command, config.Args
+		return plan
 	}
 	if client != configuration.ClientClaude {
 		j.testing.Fatalf("unsupported credential client %q", client)
