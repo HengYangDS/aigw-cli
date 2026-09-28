@@ -206,11 +206,11 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if exists, err := store.Exists(sourceAccount); err != nil || exists {
-		t.Fatalf("native credential test requires an unoccupied slot: exists=%t error=%v", exists, err)
-	}
-	if exists, err := store.Exists(targetAccount); err != nil || exists {
-		t.Fatalf("native credential test requires an unoccupied rename target: exists=%t error=%v", exists, err)
+	requireUnoccupiedNativeCredentialSlots(t, store, sourceAccount, targetAccount)
+	if runtime.GOOS == "darwin" {
+		for _, account := range []string{sourceAccount, targetAccount} {
+			requireUnoccupiedLegacyKeychainSlot(t, account, "")
+		}
 	}
 	backend := secrets.BackendSelection{
 		Kind:         "keyring",
@@ -218,16 +218,18 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 		Mutability:   "read_write",
 		Persistence:  "persisted",
 	}
-	t.Cleanup(func() {
-		for _, account := range []string{sourceAccount, targetAccount} {
-			if err := store.Delete(account); err != nil {
-				t.Errorf("clean system credential store %q: %v", account, err)
-			}
-		}
-	})
 	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", sourceAccount, "--token-stdin")
 	journey.requireClaudeCredential(token)
 	journey.runWithInput(journey.binary, replacement+"\n", "rotate", sourceAccount, "--token-stdin")
+	journey.requireClaudeCredential(replacement)
+	configurationBeforeStaging := readFile(t, journey.config)
+	journey.runWithInput(candidate, replacement+"\n", "rotate", sourceAccount, "--token-stdin")
+	if !bytes.Equal(configurationBeforeStaging, readFile(t, journey.config)) {
+		t.Fatal("candidate credential staging changed retained configuration")
+	}
+	if value, err := store.Get(sourceAccount); err != nil || value != replacement {
+		t.Fatalf("candidate credential was not staged from explicit input: %v", err)
+	}
 	journey.requireClaudeCredential(replacement)
 	journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, oldVersion, replacement, backend)
 	journey.run("account", "rename", sourceAccount, targetAccount)
@@ -261,6 +263,37 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	}
 	if exists, err := store.Exists(targetAccount); err != nil || exists {
 		t.Fatalf("deleted credential remains: exists=%t error=%v", exists, err)
+	}
+}
+
+func requireUnoccupiedNativeCredentialSlots(t *testing.T, store secrets.Store, accounts ...string) {
+	t.Helper()
+	for _, account := range accounts {
+		if exists, err := store.Exists(account); err != nil || exists {
+			t.Fatalf("native credential test requires an unoccupied %q slot: exists=%t error=%v", account, exists, err)
+		}
+		t.Cleanup(func() {
+			if err := store.Delete(account); err != nil {
+				t.Errorf("clean system credential store %q: %v", account, err)
+			}
+			if exists, err := store.Exists(account); err != nil || exists {
+				t.Errorf("system credential slot %q remains after cleanup: exists=%t error=%v", account, exists, err)
+			}
+		})
+	}
+}
+
+func TestNativeCredentialSlotCleanupAfterEarlyExit(t *testing.T) {
+	store := secrets.NewMemoryStore()
+	t.Run("early exit", func(t *testing.T) {
+		requireUnoccupiedNativeCredentialSlots(t, store, "owned")
+		if err := store.Set("owned", "synthetic"); err != nil {
+			t.Fatal(err)
+		}
+		t.SkipNow()
+	})
+	if exists, err := store.Exists("owned"); err != nil || exists {
+		t.Fatalf("early exit left its native credential slot: exists=%t error=%v", exists, err)
 	}
 }
 
