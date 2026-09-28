@@ -298,6 +298,12 @@ flags and platform targets remain separate inputs; these settings do not claim
 to make an arbitrary shell hermetic. Bare `go` outside the managed environment
 is not the repository verification entrypoint.
 
+Complete bootstrap before direct `mise exec --locked --` commands. The lock
+constrains installation sources, not executable lookup: with auto-install
+disabled and a tool missing, [Mise can fall back to `PATH`](https://github.com/jdx/mise/issues/13649).
+Use `MISE_OFFLINE=1` for a negative missing-tool test that must reject that
+fallback; it is not a substitute for the normal online bootstrap.
+
 Node and npm are pinned independently in [mise.toml](mise.toml). The native
 `npm` tool name selects the cross-platform `npm:npm` backend and takes precedence
 over Node's bundled npm; installing a separate tool without that precedence
