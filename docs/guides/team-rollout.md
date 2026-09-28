@@ -513,6 +513,11 @@ human or JSON output. Use `aigw account diagnostics enable <account>` to configu
 and `aigw balance <account>` to request provider diagnostics. An unavailable
 balance service does not make a working Client Binding unhealthy.
 
+For unattended setup, pipe one platform system-token line to
+`aigw account diagnostics enable <account> --system-token-stdin --user-id <id>`.
+This optional credential is separate from the Account API Token; incomplete
+flag pairs fail before standard input is read.
+
 Claude Code and Account-Token Codex bindings use projection-matching helpers.
 Changing Account or endpoint invalidates a retained helper invocation: run
 `aigw sync` and reload the client's configuration. The helper does not return a
