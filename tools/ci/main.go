@@ -201,8 +201,18 @@ func configuredQualityCommands(root string) ([]command, error) {
 	if base == "" && email == "" && signers == "" {
 		return commands, nil
 	}
-	if base == "" || email == "" || signers == "" {
-		return nil, errors.New("product provenance verification requires commit base, author email, and allowed signers file")
+	var missing []string
+	if base == "" {
+		missing = append(missing, "AIGW_COMMIT_BASE")
+	}
+	if email == "" {
+		missing = append(missing, "AIGW_RELEASE_AUTHOR_EMAIL")
+	}
+	if signers == "" {
+		missing = append(missing, "AIGW_RELEASE_ALLOWED_SIGNERS_FILE")
+	}
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("product provenance verification is missing %s; provide the named CI inputs before running quality", strings.Join(missing, ", "))
 	}
 	provenance := command{Name: "go", Args: []string{"run", "./tools/forge", "commits", "--base", base, "--email", email, "--allowed-signers", signers}}
 	commands = append([]command{provenance}, commands...)

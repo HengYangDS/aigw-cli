@@ -473,6 +473,13 @@ proves only the selected platform, never complete CI or release readiness.
 GitHub [manual workflow checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#checks-from-some-workflow-jobs-are-not-evaluated)
 do not replace the required pull-request checks; retain the review run separately.
 
+For GitLab web/API verification, supply `AIGW_COMMIT_BASE` as the exact
+exclusive base of the reviewed commit range; quality deliberately does not
+guess a parent or moving branch tip for a manual run. The protected author
+email and allowed-signers file must also be available. Missing inputs fail
+quality before other gates. See [Verify Local Objects](docs/operations/forge-operations.md#verify-local-objects)
+for the base-to-candidate contract.
+
 The default native suite builds a synthetic predecessor and candidate through
 the same GoReleaser archive construction used for releases. On macOS, its
 test-owned certificate files exercise archive signing without importing an
