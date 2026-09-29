@@ -73,3 +73,25 @@ func (j *journeyFixture) requireHermesTwoTurn(executable string, recorder *herme
 		j.testing.Fatalf("Hermes did not retain a two-turn model session: input items=%v completions=%d", inputs[before:], completions.Load()-completed)
 	}
 }
+
+func (j *journeyFixture) requireHermesContinuedTurn(executable string, recorder *hermesSessionRecorder, completions *atomic.Int64, previousItems int, first bool) int {
+	j.testing.Helper()
+	before := len(recorder.inputCounts())
+	completed := completions.Load()
+	args := []string{
+		"chat", "--quiet", "--query-file", "-", "--max-turns", "1", "--run-budget", "45",
+		"--ignore-rules", "--source", "tool", "--continue", "aigw-native-lifecycle-continuity",
+	}
+	if first {
+		args = append(args, "--create-if-missing")
+	}
+	output := j.runWithInput(executable, "Reply with exactly: AIGW_OK\n", args...)
+	if !strings.Contains(string(output), "AIGW_OK") {
+		j.testing.Fatal("Hermes lifecycle turn did not return the model marker")
+	}
+	inputs := recorder.inputCounts()
+	if len(inputs) != before+1 || inputs[before] <= previousItems || completions.Load() != completed+1 {
+		j.testing.Fatalf("Hermes did not continue one session across lifecycle: input items=%v previous=%d completions=%d", inputs[before:], previousItems, completions.Load()-completed)
+	}
+	return inputs[before]
+}

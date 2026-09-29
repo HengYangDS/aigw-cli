@@ -144,7 +144,10 @@ func TestNativeClientJourney(t *testing.T) {
 		t.Fatal("team manifest must recommend one route for every admitted client")
 	}
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
-	baseline := buildNativeProgram(t, root, "0.0.0")
+	baseline, err := nativeLifecycleBaseline(func() string { return buildNativeProgram(t, root, "0.0.0") })
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, path := range []string{candidate, archive, checksums} {
 		t.Logf("artifact %s sha256=%x", filepath.Base(path), sha256.Sum256(readFile(t, path)))
 	}
@@ -183,7 +186,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	}
 	server, hermesSession := newNativeClientServer(t, client, protocol, route.UpstreamModel, token, &completions)
 	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
-	if client == configuration.ClientHermes {
+	if client == configuration.ClientHermes && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
 		journey.run("update", "--candidate", p.archive, "--checksums", p.checksums)
 		journey.requireVersion(p.version)
 		journey.requireProgramBytes(p.candidate)
@@ -196,10 +199,20 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	retainedCredential := journey.retainedCredential(client)
 	before := journey.preserveClientFiles(client)
 	steps := p.clientLifecycle(journey, client)
+	hermesSessionItems := 0
+	hermesSessionTurns := 0
 	for _, step := range steps {
 		if !t.Run(step.name, func(t *testing.T) {
 			journey.testing = t
 			configurationBefore := readFile(t, journey.config)
+			if hermesSession != nil && step.name == "candidate" {
+				journey.runWith(p.candidate, "sync")
+				if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
+					t.Fatal("candidate preprojection changed retained client configuration")
+				}
+				journey.requireCredential(retainedCredential, token)
+				journey.requireCredential(journey.retainedCredential(client), token)
+			}
 			journey.run(step.args...)
 			if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
 				t.Fatal("lifecycle operation changed the retained client configuration")
@@ -207,6 +220,9 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 			journey.requireVersion(step.version)
 			journey.requireProgramBytes(step.program)
 			journey.requireCredential(retainedCredential, token)
+			if hermesSession != nil {
+				journey.requireCredential(journey.retainedCredential(client), token)
+			}
 			count := completions.Load()
 			journey.run("verify", "--for", client)
 			journey.requireNativePreferences(client)
@@ -215,6 +231,10 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 			}
 			if err := before(); err != nil {
 				t.Fatal(err)
+			}
+			if hermesSession != nil {
+				hermesSessionItems = journey.requireHermesContinuedTurn(executable, hermesSession, &completions, hermesSessionItems, hermesSessionTurns == 0)
+				hermesSessionTurns++
 			}
 		}) {
 			return
@@ -277,7 +297,7 @@ func (p nativeClientJourneyPlan) clientLifecycle(journey *journeyFixture, client
 	name, version, program string
 	args                   []string
 } {
-	if client == configuration.ClientHermes {
+	if client == configuration.ClientHermes && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
 		return []struct {
 			name, version, program string
 			args                   []string
