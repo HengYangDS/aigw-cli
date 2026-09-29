@@ -134,9 +134,17 @@
 - [x] 6.4 Exercise Markdown, Mermaid rendering, internal/external links, TOML,
       YAML, JSON, CUE, shell and generated-text checks on tracked content; a
       malformed or unreachable authored carrier must fail the relevant gate.
-- [ ] 6.5 Verify dependency hygiene, dead-code, secrets, SBOM, vulnerabilities,
+- [x] 6.5 Verify dependency hygiene, dead-code, secrets, SBOM, vulnerabilities,
       licenses, checksums, signatures and provenance from the exact locked
-      candidate; delete unconsumed parallel scanners or reports.
+      candidate; delete unconsumed parallel scanners or reports. The signed
+      `38246801` source builds six archives with a disposable test signer;
+      matrix checksums and the detached signature verify, and provenance binds
+      its commit, tree and four dependency locks. The SBOM has 221 packages;
+      all 43 Go and 283 npm dependencies have known licenses and zero OSV
+      findings. Native unused-code, secret, module and npm gates pass. Gitleaks,
+      OSV and Syft have distinct single owners; historical candidate evidence
+      is preserved, not duplicated into another scanner. Production signing and
+      publication remain separate release obligations.
 - [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
       build and CI costs against predecessor budgets on a quiet host; preserve raw
       samples and optimize only diagnosed owners.
