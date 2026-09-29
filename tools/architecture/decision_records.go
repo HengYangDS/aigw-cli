@@ -68,6 +68,7 @@ func checkDecisionRecordsWithReadDir(
 }
 
 func checkDecisionRecordBody(relative string, sequence int, body string, report *Report) {
+	body = decisionRecordVisibleBody(body)
 	required := []string{"- Status: ", "- Date: ", "## Context", "## Decision", "## Consequences", "## Revisit Trigger"}
 	if !strings.HasPrefix(body, "# DR-"+fourDigits(sequence)+": ") {
 		report.addFinding(Finding{Rule: "decision_record_title", Path: relative, Message: "Decision Record title must match its sequence"})
@@ -77,6 +78,25 @@ func checkDecisionRecordBody(relative string, sequence int, body string, report 
 			report.addFinding(Finding{Rule: "decision_record_section_missing", Path: relative, Name: marker, Message: "Decision Record is missing required content"})
 		}
 	}
+}
+
+func decisionRecordVisibleBody(body string) string {
+	body = strings.ReplaceAll(body, "\r\n", "\n")
+	marker := ""
+	switch {
+	case strings.HasPrefix(body, "<!--\n---\n"):
+		marker = "\n---\n-->\n"
+	case strings.HasPrefix(body, "---\n"):
+		marker = "\n---\n"
+	}
+	if marker == "" {
+		return body
+	}
+	_, visible, found := strings.Cut(body, marker)
+	if !found {
+		return ""
+	}
+	return strings.TrimLeft(visible, "\n")
 }
 
 func fourDigits(value int) string {
