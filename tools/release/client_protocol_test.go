@@ -180,8 +180,16 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 		t.Fatal(err)
 	}
 	var toolOutput atomic.Bool
-	server := httptest.NewServer(codexToolLoopHandler(token, &toolOutput))
+	var probe codexToolLoopProbe
+	server := httptest.NewServer(codexToolLoopHandler(token, &toolOutput, &probe))
 	t.Cleanup(server.Close)
+	t.Cleanup(func() {
+		if t.Failed() {
+			t.Logf("Codex tool-loop requests=%d calls=%d results=%d finals=%d rejected=%d",
+				probe.requests.Load(), probe.toolCalls.Load(), probe.toolResults.Load(),
+				probe.finalResponses.Load(), probe.rejected.Load())
+		}
+	})
 	journey := newNativeJourney(t, p.candidate, server.URL+"/v1", false)
 	journey.prepareNativeClient(configuration.ClientCodex, executable, p.team)
 	journey.isolateNativeClientManifest(configuration.ClientCodex)
@@ -228,31 +236,42 @@ type codexToolLoopRequest struct {
 	} `json:"input"`
 }
 
-func codexToolLoopHandler(token string, toolOutput *atomic.Bool) http.Handler {
+type codexToolLoopProbe struct {
+	requests, toolCalls, toolResults, finalResponses, rejected atomic.Int64
+}
+
+func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToolLoopProbe) http.Handler {
 	var completions atomic.Int64
 	base := clientResponseHandler(configuration.ProtocolOpenAIResponses, map[string]*atomic.Int64{"grok-4.7": &completions}, token, "high")
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		probe.requests.Add(1)
 		if request.Method != http.MethodPost || request.URL.Path != "/v1/responses" {
 			base.ServeHTTP(response, request)
 			return
 		}
 		body, err := io.ReadAll(request.Body)
 		if err != nil {
+			probe.rejected.Add(1)
 			http.Error(response, "read request", http.StatusBadRequest)
 			return
 		}
 		request.Body = io.NopCloser(bytes.NewReader(body))
 		var input codexToolLoopRequest
 		if err := json.Unmarshal(body, &input); err != nil {
+			probe.rejected.Add(1)
 			http.Error(response, "decode request", http.StatusBadRequest)
 			return
 		}
 		if input.Model != "grok-4.7" || !input.Stream || input.Reasoning.Effort != "high" {
+			probe.rejected.Add(1)
 			http.Error(response, "configured model and effort required", http.StatusBadRequest)
 			return
 		}
 		for _, item := range input.Input {
 			result := string(item.Output)
+			if item.Type == "function_call_output" {
+				probe.toolResults.Add(1)
+			}
 			if item.Type == "function_call_output" && strings.Contains(result, "AIGW_TOOL_OK") &&
 				(strings.Contains(result, "Process exited with code 0") || strings.Contains(result, `"exit_code":0`)) {
 				toolOutput.Store(true)
@@ -264,12 +283,15 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool) http.Handler {
 		}
 		if !toolOutput.Load() && hasExec {
 			if request.Header.Get("Authorization") != "Bearer "+token && request.Header.Get("X-Api-Key") != token {
+				probe.rejected.Add(1)
 				base.ServeHTTP(response, request)
 				return
 			}
+			probe.toolCalls.Add(1)
 			writeCodexToolCall(response)
 			return
 		}
+		probe.finalResponses.Add(1)
 		base.ServeHTTP(response, request)
 	})
 }
