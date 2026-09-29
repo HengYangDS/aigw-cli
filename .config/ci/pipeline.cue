@@ -205,7 +205,7 @@ _graphOrder: {
 	}
 }
 
-miseImage:               "ghcr.io/jdx/mise:2026.9.16-debian@sha256:686fe914b791c761637be4a13494d45d2b92b3c3979e46ea61b1ca51df472de6"
+miseImage:               "docker.io/jdxcode/mise:2026.9.16-debian@sha256:686fe914b791c761637be4a13494d45d2b92b3c3979e46ea61b1ca51df472de6"
 miseVersion:             strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
 miseWindowsArm64SHA256:  "8e021ea855f50880ee4c8515f483b2cd07b27edb6109a8b4364ff09af65136b5"
 windowsMiseJobDirectory: "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID"

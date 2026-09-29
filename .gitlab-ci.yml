@@ -84,7 +84,7 @@ stages:
   - verify
   - release
 .linux-toolchain:
-  image: ghcr.io/jdx/mise:2026.9.16-debian@sha256:686fe914b791c761637be4a13494d45d2b92b3c3979e46ea61b1ca51df472de6
+  image: docker.io/jdxcode/mise:2026.9.16-debian@sha256:686fe914b791c761637be4a13494d45d2b92b3c3979e46ea61b1ca51df472de6
   variables:
     MISE_DATA_DIR: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise
     MISE_CACHE_DIR: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise/cache

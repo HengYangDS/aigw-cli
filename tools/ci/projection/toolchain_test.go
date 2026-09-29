@@ -157,7 +157,7 @@ func TestGitLabToolchainUsesOfficialRunnableMiseImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	image, digest, pinned := strings.Cut(pipeline.Toolchain.Image, "@sha256:")
-	if !pinned || len(digest) != 64 || !strings.HasPrefix(image, "ghcr.io/jdx/mise:") || !strings.HasSuffix(image, "-debian") {
+	if !pinned || len(digest) != 64 || !strings.HasPrefix(image, "docker.io/jdxcode/mise:") || !strings.HasSuffix(image, "-debian") {
 		t.Fatalf("GitLab must use one runnable official mise image pinned by digest: %q", pipeline.Toolchain.Image)
 	}
 	if strings.Contains(projections[0].Content, "entrypoint:") {

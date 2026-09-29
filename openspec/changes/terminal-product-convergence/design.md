@@ -204,7 +204,7 @@ three-day release-age rule holds proposal publication until
 That age rule protects npm's unpublish window; applying it to checksummed Go
 modules, locked Mise tools and digest-pinned CI artifacts adds delay without
 the same integrity benefit. Those sources instead need exact upstream identity,
-compatible behavior and native gate evidence. Renovate 44.117.0 and Mise
+compatible behavior and native gate evidence. Renovate 44.117.1 and Mise
 2026.9.16 are selected by digest; the Windows Mise ZIP was mirrored with its
 upstream SHA-256 intact. Task 6.1 remains open until the complete locked supply
 chain is qualified.
@@ -229,8 +229,11 @@ GitLab's required peer-local native evidence. Until isolation exists, the
 GitLab review path remains unadmitted rather than bypassing a native gate.
 Cold-cache CI must remain executable when the sibling Forge platform and its
 tool-distribution endpoints are unavailable. Warm caches are not evidence of
-that property. Compare neutral locked sources, peer-local immutable assets, and
-runner seeds before choosing the least complex integrity-preserving route.
+that property. GitLab now consumes Mise's official Docker Hub image, whose
+2026.9.16-debian OCI digest equals the GHCR publication; the image no longer
+requires GitHub transport. Locked GitHub Release assets still need an
+integrity-preserving independent route. Compare neutral locked sources,
+peer-local immutable assets, and runner seeds before selecting that route.
 An isolated Mise 2026.9.15 install accepted a checksum-identical OSV Scanner
 2.6.0 asset from a loopback mirror without requesting its deliberately corrupted
 SLSA file, although both GitHub attestation settings were enabled. URL rewriting
