@@ -129,30 +129,6 @@ func TestNativeProductJourney(t *testing.T) {
 	}
 }
 
-func runLinuxSecureFileFallback(t *testing.T, sourceBaseline, endpoint string) {
-	t.Helper()
-	journey := newNativeJourney(t, sourceBaseline, endpoint, true)
-	journey.enableSystemCredentialStore()
-	journey.setEnvironment(
-		"DBUS_SESSION_BUS_ADDRESS",
-		"unix:path="+filepath.Join(journey.root, "missing-session-bus.sock"),
-	)
-	const token = "native-secure-file-token"
-	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
-	journey.requireCredentialBackend(token, secrets.BackendSelection{
-		Kind:         "file",
-		Availability: "available",
-		Mutability:   "read_write",
-		Persistence:  "persisted",
-	})
-	journey.requireClaudeCredential(token)
-	backend := filepath.Join(journey.root, "data", "aigw", "secrets", "backend")
-	if got := strings.TrimSpace(string(readFile(t, backend))); got != "file" {
-		t.Fatalf("persisted backend = %q, want file", got)
-	}
-	journey.uninstallAndRequireInstallationRemoved()
-}
-
 func TestNativeAccountRetirementWithoutClients(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
