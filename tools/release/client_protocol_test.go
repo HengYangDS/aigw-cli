@@ -20,6 +20,7 @@ import (
 	"aigw-cli/internal/codex"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
 )
 
@@ -182,14 +183,17 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	var toolOutput atomic.Bool
 	var probe codexToolLoopProbe
 	server := httptest.NewServer(codexToolLoopHandler(token, &toolOutput, &probe))
-	t.Cleanup(server.Close)
 	t.Cleanup(func() {
 		if t.Failed() {
 			t.Logf("Codex tool-loop requests=%d calls=%d results=%d finals=%d rejected=%d",
 				probe.requests.Load(), probe.toolCalls.Load(), probe.toolResults.Load(),
 				probe.finalResponses.Load(), probe.rejected.Load())
+			if first := probe.firstResult.Load(); first != nil {
+				t.Logf("first bounded tool result: %q", *first)
+			}
 		}
 	})
+	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, p.candidate, server.URL+"/v1", false)
 	journey.prepareNativeClient(configuration.ClientCodex, executable, p.team)
 	journey.isolateNativeClientManifest(configuration.ClientCodex)
@@ -238,6 +242,7 @@ type codexToolLoopRequest struct {
 
 type codexToolLoopProbe struct {
 	requests, toolCalls, toolResults, finalResponses, rejected atomic.Int64
+	firstResult                                                atomic.Pointer[string]
 }
 
 func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToolLoopProbe) http.Handler {
@@ -267,10 +272,17 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 			http.Error(response, "configured model and effort required", http.StatusBadRequest)
 			return
 		}
+		sawResult := false
 		for _, item := range input.Input {
 			result := string(item.Output)
 			if item.Type == "function_call_output" {
+				sawResult = true
 				probe.toolResults.Add(1)
+				preview := redaction.Text(result, token)
+				if len(preview) > 512 {
+					preview = preview[:512]
+				}
+				probe.firstResult.CompareAndSwap(nil, &preview)
 			}
 			if item.Type == "function_call_output" && strings.Contains(result, "AIGW_TOOL_OK") &&
 				(strings.Contains(result, "Process exited with code 0") || strings.Contains(result, `"exit_code":0`)) {
@@ -281,7 +293,7 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 		for _, tool := range input.Tools {
 			hasExec = hasExec || tool.Name == "exec_command"
 		}
-		if !toolOutput.Load() && hasExec {
+		if !toolOutput.Load() && hasExec && !sawResult {
 			if request.Header.Get("Authorization") != "Bearer "+token && request.Header.Get("X-Api-Key") != token {
 				probe.rejected.Add(1)
 				base.ServeHTTP(response, request)
@@ -294,6 +306,32 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 		probe.finalResponses.Add(1)
 		base.ServeHTTP(response, request)
 	})
+}
+
+func TestCodexToolLoopStopsAfterUnsuccessfulToolResult(t *testing.T) {
+	const token = "fixture-token"
+	var toolOutput atomic.Bool
+	var probe codexToolLoopProbe
+	handler := codexToolLoopHandler(token, &toolOutput, &probe)
+	for _, body := range []string{
+		`{"model":"grok-4.7","stream":true,"reasoning":{"effort":"high"},"tools":[{"name":"exec_command"}],"input":[]}`,
+		`{"model":"grok-4.7","stream":true,"reasoning":{"effort":"high"},"tools":[{"name":"exec_command"}],"input":[{"type":"function_call_output","output":"permission denied fixture-token"}]}`,
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))
+		request.Header.Set("Authorization", "Bearer "+token)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("tool-loop fixture response status = %d", response.Code)
+		}
+	}
+	if probe.requests.Load() != 2 || probe.toolCalls.Load() != 1 || probe.toolResults.Load() != 1 ||
+		probe.finalResponses.Load() != 1 || toolOutput.Load() {
+		t.Fatal("unsuccessful tool result caused another tool call or false acceptance")
+	}
+	if first := probe.firstResult.Load(); first == nil || strings.Contains(*first, token) {
+		t.Fatal("bounded tool diagnostic was absent or exposed its Token")
+	}
 }
 
 func writeCodexToolCall(response http.ResponseWriter) {
