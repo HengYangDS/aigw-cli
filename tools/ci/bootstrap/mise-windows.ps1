@@ -2,7 +2,9 @@ param(
     [Parameter(Mandatory = $true)][string]$Version,
     [Parameter(Mandatory = $true)][string]$Sha256,
     [Parameter(Mandatory = $true)][string]$Directory,
-    [Parameter(Mandatory = $true)][string]$MirrorResource
+    [Parameter(Mandatory = $true)][string]$MirrorResource,
+    [Parameter(Mandatory = $true)][string]$ReleaseMetadataPattern,
+    [Parameter(Mandatory = $true)][string]$ReleaseMetadataResource
 )
 
 if ($Version -notmatch '^\d{4}\.\d+\.\d+$' -or $Sha256 -notmatch '^[0-9a-fA-F]{64}$' -or
@@ -55,10 +57,11 @@ try {
     $mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/$MirrorResource"
     $env:MISE_NETRC_FILE = $netrc
     $env:MISE_NETRC = 'true'
-    $env:MISE_URL_REPLACEMENTS = [ordered]@{
-        'https://github.com/' = $mirrorBase
-        'https://api.github.com/' = $mirrorBase
-    } | ConvertTo-Json -Compress
+    $replacements = [ordered]@{}
+    $replacements[$ReleaseMetadataPattern] = "${mirrorBase}${ReleaseMetadataResource}"
+    $replacements['https://github.com/'] = $mirrorBase
+    $replacements['https://api.github.com/'] = $mirrorBase
+    $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
 } catch {
     if ($created) {
         Remove-Item -LiteralPath $Directory -Recurse -Force -ErrorAction SilentlyContinue

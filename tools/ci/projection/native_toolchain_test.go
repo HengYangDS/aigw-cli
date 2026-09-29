@@ -37,7 +37,7 @@ func TestGitLabWindowsBootstrapsPinnedMiseBeforeRepositoryTools(t *testing.T) {
 	}
 }
 
-func TestGitLabLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing.T) {
+func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
@@ -52,10 +52,6 @@ func TestGitLabLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing.T) 
 			Script      []string `yaml:"script"`
 			AfterScript []string `yaml:"after_script"`
 		} `yaml:"native-darwin"`
-		NativeWindows struct {
-			Script      []string `yaml:"script"`
-			AfterScript []string `yaml:"after_script"`
-		} `yaml:"native-windows"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
@@ -80,6 +76,11 @@ func TestGitLabLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing.T) 
 				t.Errorf("GitLab %s mirror prelude omits %q", name, required)
 			}
 		}
+		metadata := strings.Index(prelude, "regex:^https://api[.]github[.]com/repos/")
+		fallback := strings.Index(prelude, `"https://api.github.com/"`)
+		if metadata < 0 || fallback <= metadata || !strings.Contains(prelude, "release-$1-$2-$3.json") {
+			t.Errorf("GitLab %s must resolve mirrored release metadata before the API fallback", name)
+		}
 		for _, forbidden := range []string{"192.168.64.101", "projects/456", "$HOME/.netrc"} {
 			if strings.Contains(prelude, forbidden) {
 				t.Errorf("GitLab %s mirror prelude hard-codes %q", name, forbidden)
@@ -96,26 +97,46 @@ func TestGitLabLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing.T) 
 			t.Errorf("GitLab %s has no exact job-owned mirror credential cleanup: %v", name, commands)
 		}
 	}
-	if len(gitlab.NativeWindows.Script) < 2 ||
-		!strings.Contains(gitlab.NativeWindows.Script[0], "mise-windows.ps1") ||
-		!strings.Contains(gitlab.NativeWindows.Script[0], "-MirrorResource 'packages/generic/mise-github/v1/'") ||
-		!strings.Contains(gitlab.NativeWindows.Script[1], "mise install --locked") ||
-		!slices.ContainsFunc(gitlab.NativeWindows.AfterScript, func(command string) bool {
+	if strings.Contains(projections[1].Content, "mise-github/v1/") {
+		t.Fatal("GitHub projection unexpectedly depends on the GitLab tool mirror")
+	}
+}
+
+func TestGitLabWindowsLockedToolsUseJobScopedMirror(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gitlab struct {
+		NativeWindows struct {
+			Script      []string `yaml:"script"`
+			AfterScript []string `yaml:"after_script"`
+		} `yaml:"native-windows"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	windows := gitlab.NativeWindows
+	if len(windows.Script) < 2 ||
+		!strings.Contains(windows.Script[0], "mise-windows.ps1") ||
+		!strings.Contains(windows.Script[0], "-MirrorResource 'packages/generic/mise-github/v1/'") ||
+		!strings.Contains(windows.Script[0], "-ReleaseMetadataPattern 'regex:^https://api[.]github[.]com/repos/") ||
+		!strings.Contains(windows.Script[0], "-ReleaseMetadataResource 'release-$1-$2-$3.json'") ||
+		!strings.Contains(windows.Script[1], "mise install --locked") ||
+		!slices.ContainsFunc(windows.AfterScript, func(command string) bool {
 			return strings.Contains(command, "ci-mise-$env:CI_JOB_ID")
 		}) {
-		t.Fatalf("Windows must bootstrap the mirror and clean its exact job directory: %+v", gitlab.NativeWindows)
+		t.Fatalf("Windows must bootstrap the mirror and clean its exact job directory: %+v", windows)
 	}
 	windowsBootstrap, err := os.ReadFile(filepath.Join(root, "tools", "ci", "bootstrap", "mise-windows.ps1"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"MISE_URL_REPLACEMENTS", "MISE_NETRC_FILE", "CI_SERVER_HOST", "CI_JOB_TOKEN", "$MirrorResource", "https://github.com/", "https://api.github.com/", "icacls"} {
+	for _, required := range []string{"MISE_URL_REPLACEMENTS", "MISE_NETRC_FILE", "CI_SERVER_HOST", "CI_JOB_TOKEN", "$MirrorResource", "$ReleaseMetadataPattern", "$ReleaseMetadataResource", "https://github.com/", "https://api.github.com/", "icacls"} {
 		if !strings.Contains(string(windowsBootstrap), required) {
 			t.Errorf("Windows bootstrap omits job-scoped mirror control %q", required)
 		}
-	}
-	if strings.Contains(projections[1].Content, "mise-github/v1/") {
-		t.Fatal("GitHub projection unexpectedly depends on the GitLab tool mirror")
 	}
 }
 

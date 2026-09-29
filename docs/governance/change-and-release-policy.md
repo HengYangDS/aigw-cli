@@ -137,15 +137,19 @@ with CI_JOB_TOKEN, refuses redirects, verifies its bytes and version, and
 removes its exact job-owned files. A version update must reverify upstream
 provenance and mirror the new bytes before changing the pin. GitLab also keeps
 verified copies of the GitHub Release assets selected by [mise.lock](../../mise.lock)
-in that registry. The lockfile remains the dependency and SHA-256 authority;
-the mirror only changes where GitLab CI obtains those bytes. The [CUE graph](../../.config/ci/pipeline.cue)
-sets Mise URL replacements and a job-local netrc authenticated by CI_JOB_TOKEN
-for GitLab jobs, then removes the credential file with the job-owned directory.
-A missing mirror asset must fail the job rather than silently use GitHub.
-Mirror inventory and a one-asset host cold install are verified; CI_JOB_TOKEN
-access and the complete macOS, Linux, and Windows cold-cache job graph are not
-yet qualified. This mirror also does not prove that every other CI input is
-independent of GitHub during a platform outage.
+in that registry. OSV Scanner's SLSA verification also needs its release
+metadata; the same package holds a read-back-verified snapshot of the selected
+release. The lockfile remains the dependency and asset SHA-256 authority, while
+SLSA provenance and its signer establish the scanner's build identity. The
+[CUE graph](../../.config/ci/pipeline.cue) orders an anchored release-metadata
+replacement before the general GitHub API fail-closed replacement, and uses a
+job-local CI_JOB_TOKEN netrc for GitLab jobs. It removes the credential file
+with the job-owned directory. A missing mirror input must fail the job rather
+than silently use GitHub. Mirror inventory, one host cold install, and a local
+SLSA path through mirrored metadata and provenance are verified. Sigstore TUF
+access, CI_JOB_TOKEN access, and the complete macOS, Linux, and Windows
+cold-cache job graph remain unqualified; the mirror alone does not prove that
+every other CI input survives a GitHub outage.
 
 Normal releases wait three days before proposal creation, covering npm's
 initial unpublish window. Missing publication timestamps are not guessed.

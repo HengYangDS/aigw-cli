@@ -16,7 +16,7 @@ native-darwin:
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
       mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
-      export MISE_URL_REPLACEMENTS="$(printf '{"https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base")"
+      export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
     - env GODEBUG=http2client=0 mise install --locked
     - mise run bootstrap
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
@@ -65,7 +65,7 @@ native-windows:
   after_script:
     - Remove-Item -LiteralPath "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID" -Recurse -Force -ErrorAction SilentlyContinue
   script:
-    - . ./tools/ci/bootstrap/mise-windows.ps1 -Version '2026.9.16' -Sha256 '8e021ea855f50880ee4c8515f483b2cd07b27edb6109a8b4364ff09af65136b5' -Directory "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID" -MirrorResource 'packages/generic/mise-github/v1/'
+    - . ./tools/ci/bootstrap/mise-windows.ps1 -Version '2026.9.16' -Sha256 '8e021ea855f50880ee4c8515f483b2cd07b27edb6109a8b4364ff09af65136b5' -Directory "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID" -MirrorResource 'packages/generic/mise-github/v1/' -ReleaseMetadataPattern 'regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$' -ReleaseMetadataResource 'release-$1-$2-$3.json'
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - mise run bootstrap
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
@@ -132,7 +132,7 @@ stages:
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
       mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
-      export MISE_URL_REPLACEMENTS="$(printf '{"https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base")"
+      export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
     - env GODEBUG=http2client=0 mise install --locked
   after_script:
     - if [ -n "${CI_BUILDS_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"; fi
@@ -179,7 +179,7 @@ accepted-ref-parity:
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
       mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
-      export MISE_URL_REPLACEMENTS="$(printf '{"https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base")"
+      export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
     - env GODEBUG=http2client=0 mise install --locked
     - mise exec --locked -- go run ./tools/forge refs --remote origin --expect "main=$CI_COMMIT_SHA" --expect "dev=$CI_COMMIT_SHA"
   after_script:
@@ -236,7 +236,7 @@ release-version:
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
       mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
-      export MISE_URL_REPLACEMENTS="$(printf '{"https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base")"
+      export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
     - env GODEBUG=http2client=0 mise install --locked
     - mise exec --locked -- go run ./tools/release validate-version-tag
   after_script:

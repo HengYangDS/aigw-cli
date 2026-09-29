@@ -26,11 +26,13 @@ installationEnvironment: GODEBUG: "http2client=0"
 // assets selected by mise.lock. This is a job-scoped transport, not another
 // dependency or checksum authority; missing copies fail inside GitLab.
 miseMirror: {
-	package:       "mise-github"
-	version:       "v1"
-	resource:      "packages/generic/\(package)/\(version)/"
-	unixDirectory: "$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"
-	unixPrepare:   #"""
+	package:          "mise-github"
+	version:          "v1"
+	resource:         "packages/generic/\(package)/\(version)/"
+	metadataPattern:  "regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$"
+	metadataResource: "release-$1-$2-$3.json"
+	unixDirectory:    "$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"
+	unixPrepare:      #"""
 		set -eu
 		: "${CI_API_V4_URL:?}"
 		: "${CI_PROJECT_ID:?}"
@@ -44,9 +46,9 @@ miseMirror: {
 		export MISE_NETRC_FILE="$mirror_dir/netrc"
 		export MISE_NETRC=1
 		mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/\#(resource)"
-		export MISE_URL_REPLACEMENTS="$(printf '{"https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base")"
+		export MISE_URL_REPLACEMENTS="$(printf '{"\#(metadataPattern)":"%s\#(metadataResource)","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
 		"""#
-	unixCleanup:   "if [ -n \"${CI_BUILDS_DIR:-}\" ] && [ -n \"${CI_JOB_ID:-}\" ]; then rm -rf -- \"\(unixDirectory)\"; fi"
+	unixCleanup:      "if [ -n \"${CI_BUILDS_DIR:-}\" ] && [ -n \"${CI_JOB_ID:-}\" ]; then rm -rf -- \"\(unixDirectory)\"; fi"
 }
 
 linuxApt: {
@@ -512,7 +514,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	_refreshLocks:  string
 	_native:        string
 	if _platform == "windows" {
-		_bootstrapMise: ". ./tools/ci/bootstrap/mise-windows.ps1 -Version '\(miseVersion)' -Sha256 '\(miseWindowsArm64SHA256)' -Directory \"\(windowsMiseJobDirectory)\" -MirrorResource '\(miseMirror.resource)'"
+		_bootstrapMise: ". ./tools/ci/bootstrap/mise-windows.ps1 -Version '\(miseVersion)' -Sha256 '\(miseWindowsArm64SHA256)' -Directory \"\(windowsMiseJobDirectory)\" -MirrorResource '\(miseMirror.resource)' -ReleaseMetadataPattern '\(miseMirror.metadataPattern)' -ReleaseMetadataResource '\(miseMirror.metadataResource)'"
 		_install:       "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
 		_refreshLocks:  "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
 		_native:        "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
