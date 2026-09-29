@@ -118,8 +118,11 @@
       Token selection, environment and secure-file credentials, update, rollback,
       re-upgrade and uninstall. Current-setup semantics use a current-source
       fixture; lifecycle separately passes against the signed, published 0.3.1
-      Linux ARM64 predecessor. Native host, system secret service and real
-      Linux clients remain unproved.
+      Linux ARM64 predecessor. At `5260160d`, the existing native system-store
+      journey passed in an isolated Linux ARM64 container with a real DBus/GNOME
+      Secret Service; its exact container and shallow-clone snapshot were removed.
+      That source-built test does not prove published bytes, a Linux VM host, or
+      real Linux clients. Native host and real-client admission remain open.
 - [ ] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
