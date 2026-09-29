@@ -105,7 +105,12 @@
       bootstrap, reject ambient fallback, and remove exact owned test state.
 - [ ] 5.2 Run Linux container and native-host setup, selected provider,
       projection, update, rollback, uninstall, and cleanup journeys using exact
-      release bytes and one retained predecessor state.
+      release bytes and one retained predecessor state. The signed `38246801`
+      Linux ARM64 archive passes eight isolated native-product cases in the
+      digest-pinned Debian Mise container, including late activation, one-of-many
+      Token selection, environment and secure-file credentials, update, rollback,
+      re-upgrade and uninstall. This used a synthetic baseline; published
+      predecessor, native host, system secret service and real clients remain.
 - [ ] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
