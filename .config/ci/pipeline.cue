@@ -31,7 +31,7 @@ miseMirror: {
 	resource:         "packages/generic/\(package)/\(version)/"
 	metadataPattern:  "regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$"
 	metadataResource: "release-$1-$2-$3.json"
-	unixDirectory:    "$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"
+	unixDirectory:    "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
 	unixPrepare:      #"""
 		set -eu
 		: "${CI_API_V4_URL:?}"
@@ -39,16 +39,16 @@ miseMirror: {
 		: "${CI_SERVER_HOST:?}"
 		: "${CI_JOB_ID:?}"
 		: "${CI_JOB_TOKEN:?}"
-		: "${CI_BUILDS_DIR:?}"
+		: "${CI_PROJECT_DIR:?}"
 		mirror_dir="\#(unixDirectory)"
-		mkdir -m 700 "$mirror_dir"
+		mkdir -p -m 700 "$mirror_dir"
 		(umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
 		export MISE_NETRC_FILE="$mirror_dir/netrc"
 		export MISE_NETRC=1
 		mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/\#(resource)"
 		export MISE_URL_REPLACEMENTS="$(printf '{"\#(metadataPattern)":"%s\#(metadataResource)","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
 		"""#
-	unixCleanup:      "if [ -n \"${CI_BUILDS_DIR:-}\" ] && [ -n \"${CI_JOB_ID:-}\" ]; then rm -rf -- \"\(unixDirectory)\"; fi"
+	unixCleanup:      "if [ -n \"${CI_PROJECT_DIR:-}\" ] && [ -n \"${CI_JOB_ID:-}\" ]; then rm -rf -- \"\(unixDirectory)\"; fi"
 }
 
 linuxApt: {
@@ -237,7 +237,7 @@ _graphOrder: {
 miseImage:               "docker.io/jdxcode/mise:2026.9.16-debian@sha256:686fe914b791c761637be4a13494d45d2b92b3c3979e46ea61b1ca51df472de6"
 miseVersion:             strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
 miseWindowsArm64SHA256:  "8e021ea855f50880ee4c8515f483b2cd07b27edb6109a8b4364ff09af65136b5"
-windowsMiseJobDirectory: "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID"
+windowsMiseJobDirectory: "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
@@ -516,11 +516,18 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	tags: [string, ...string]
 	rules: [...{...}]
 	if _platform == "windows" {
-		_bootstrapMise: ". ./tools/ci/bootstrap/mise-windows.ps1 -Version '\(miseVersion)' -Sha256 '\(miseWindowsArm64SHA256)' -Directory \"\(windowsMiseJobDirectory)\" -MirrorResource '\(miseMirror.resource)' -ReleaseMetadataPattern '\(miseMirror.metadataPattern)' -ReleaseMetadataResource '\(miseMirror.metadataResource)'"
+		_bootstrapMise: ". ./tools/ci/bootstrap/mise-windows.ps1 -Version '\(miseVersion)' -Sha256 '\(miseWindowsArm64SHA256)' -Directory (\(windowsMiseJobDirectory)) -MirrorResource '\(miseMirror.resource)' -ReleaseMetadataPattern '\(miseMirror.metadataPattern)' -ReleaseMetadataResource '\(miseMirror.metadataResource)'"
 		_install:       "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
 		_refreshLocks:  "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
 		_native:        "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
-		after_script: ["Remove-Item -LiteralPath \"\(windowsMiseJobDirectory)\" -Recurse -Force -ErrorAction SilentlyContinue"]
+		after_script: [#"""
+			$jobDirectory = \#(windowsMiseJobDirectory)
+			for ($attempt = 0; $attempt -lt 3 -and (Test-Path -LiteralPath $jobDirectory); $attempt++) {
+			  Remove-Item -LiteralPath $jobDirectory -Recurse -Force -ErrorAction SilentlyContinue
+			  if (Test-Path -LiteralPath $jobDirectory) { Start-Sleep -Milliseconds 500 }
+			}
+			if (Test-Path -LiteralPath $jobDirectory) { throw 'Mise job directory remains after cleanup.' }
+			"""#]
 	}
 	if _platform != "windows" {
 		_install:      commands.install

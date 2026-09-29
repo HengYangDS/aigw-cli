@@ -108,11 +108,13 @@ func TestGitLabWindowsLockedToolsUseJobScopedMirror(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	type windowsJob struct {
+		Script      []string `yaml:"script"`
+		AfterScript []string `yaml:"after_script"`
+	}
 	var gitlab struct {
-		NativeWindows struct {
-			Script      []string `yaml:"script"`
-			AfterScript []string `yaml:"after_script"`
-		} `yaml:"native-windows"`
+		NativeWindows       windowsJob `yaml:"native-windows"`
+		NativeWindowsReview windowsJob `yaml:"native-windows-review"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
@@ -129,9 +131,16 @@ func TestGitLabWindowsLockedToolsUseJobScopedMirror(t *testing.T) {
 		}) {
 		t.Fatalf("Windows must bootstrap the mirror and clean its exact job directory: %+v", windows)
 	}
+	const jobDirectory = `Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"`
+	for name, job := range map[string]windowsJob{"protected": windows, "review": gitlab.NativeWindowsReview} {
+		requireWindowsMiseJobStorage(t, name, job.Script, job.AfterScript, jobDirectory)
+	}
 	windowsBootstrap, err := os.ReadFile(filepath.Join(root, "tools", "ci", "bootstrap", "mise-windows.ps1"))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !strings.Contains(string(windowsBootstrap), "$expected = "+jobDirectory) {
+		t.Fatal("Windows bootstrap still puts the installed Go tree inside the module")
 	}
 	for _, required := range []string{"MISE_URL_REPLACEMENTS", "MISE_NETRC_FILE", "CI_SERVER_HOST", "CI_JOB_TOKEN", "$MirrorResource", "$ReleaseMetadataPattern", "$ReleaseMetadataResource", "https://github.com/", "https://api.github.com/", "icacls"} {
 		if !strings.Contains(string(windowsBootstrap), required) {
@@ -153,6 +162,16 @@ func TestGitLabWindowsLockedToolsUseJobScopedMirror(t *testing.T) {
 	}
 	if !strings.Contains(string(windowsBootstrap), "throw 'Pinned Mise executable failed to start under the job runtime.'") {
 		t.Fatal("Windows bootstrap conflates a Mise startup failure with a version mismatch")
+	}
+}
+
+func requireWindowsMiseJobStorage(t *testing.T, name string, script, cleanup []string, directory string) {
+	t.Helper()
+	if len(script) == 0 || len(cleanup) != 1 ||
+		!strings.Contains(script[0], "-Directory ("+directory+")") ||
+		!strings.Contains(cleanup[0], directory) ||
+		!strings.Contains(cleanup[0], "Test-Path -LiteralPath $jobDirectory") {
+		t.Fatalf("%s Mise lifecycle enters the Go module or lacks exact teardown", name)
 	}
 }
 

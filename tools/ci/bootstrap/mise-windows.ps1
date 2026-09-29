@@ -17,7 +17,7 @@ foreach ($name in @('CI_API_V4_URL', 'CI_PROJECT_ID', 'CI_PROJECT_DIR', 'CI_JOB_
     }
 }
 
-$expected = Join-Path (Join-Path $env:CI_PROJECT_DIR 'build/tmp') "ci-mise-$env:CI_JOB_ID"
+$expected = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
 if ([IO.Path]::GetFullPath($Directory) -ne [IO.Path]::GetFullPath($expected)) {
     throw 'Mise bootstrap directory is not owned by this job.'
 }
@@ -30,7 +30,6 @@ $uri = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/packages/generic/ci-mise/
 $archive = Join-Path $Directory $name
 $created = $false
 try {
-    [void](New-Item -ItemType Directory -Path (Split-Path -Parent $Directory) -Force -ErrorAction Stop)
     [void](New-Item -ItemType Directory -Path $Directory -ErrorAction Stop)
     $created = $true
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name

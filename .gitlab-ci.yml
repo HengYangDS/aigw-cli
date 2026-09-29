@@ -25,7 +25,7 @@ native-linux:
     - mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
 native-darwin:
   after_script:
-    - if [ -n "${CI_BUILDS_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"; fi
+    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"; fi
   script:
     - |-
       set -eu
@@ -34,9 +34,9 @@ native-darwin:
       : "${CI_SERVER_HOST:?}"
       : "${CI_JOB_ID:?}"
       : "${CI_JOB_TOKEN:?}"
-      : "${CI_BUILDS_DIR:?}"
-      mirror_dir="$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"
-      mkdir -m 700 "$mirror_dir"
+      : "${CI_PROJECT_DIR:?}"
+      mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
+      mkdir -p -m 700 "$mirror_dir"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -63,7 +63,7 @@ native-darwin:
       - .mise/locks
 native-darwin-review:
   after_script:
-    - if [ -n "${CI_BUILDS_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"; fi
+    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"; fi
   script:
     - |-
       set -eu
@@ -72,9 +72,9 @@ native-darwin-review:
       : "${CI_SERVER_HOST:?}"
       : "${CI_JOB_ID:?}"
       : "${CI_JOB_TOKEN:?}"
-      : "${CI_BUILDS_DIR:?}"
-      mirror_dir="$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"
-      mkdir -m 700 "$mirror_dir"
+      : "${CI_PROJECT_DIR:?}"
+      mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
+      mkdir -p -m 700 "$mirror_dir"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -100,9 +100,15 @@ native-darwin-review:
       - .mise/locks
 native-windows:
   after_script:
-    - Remove-Item -LiteralPath "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID" -Recurse -Force -ErrorAction SilentlyContinue
+    - |-
+      $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
+      for ($attempt = 0; $attempt -lt 3 -and (Test-Path -LiteralPath $jobDirectory); $attempt++) {
+        Remove-Item -LiteralPath $jobDirectory -Recurse -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $jobDirectory) { Start-Sleep -Milliseconds 500 }
+      }
+      if (Test-Path -LiteralPath $jobDirectory) { throw 'Mise job directory remains after cleanup.' }
   script:
-    - . ./tools/ci/bootstrap/mise-windows.ps1 -Version '2026.9.16' -Sha256 '8e021ea855f50880ee4c8515f483b2cd07b27edb6109a8b4364ff09af65136b5' -Directory "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID" -MirrorResource 'packages/generic/mise-github/v1/' -ReleaseMetadataPattern 'regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$' -ReleaseMetadataResource 'release-$1-$2-$3.json'
+    - . ./tools/ci/bootstrap/mise-windows.ps1 -Version '2026.9.16' -Sha256 '8e021ea855f50880ee4c8515f483b2cd07b27edb6109a8b4364ff09af65136b5' -Directory (Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID") -MirrorResource 'packages/generic/mise-github/v1/' -ReleaseMetadataPattern 'regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$' -ReleaseMetadataResource 'release-$1-$2-$3.json'
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - mise run bootstrap
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
@@ -125,9 +131,15 @@ native-windows:
       - .mise/locks
 native-windows-review:
   after_script:
-    - Remove-Item -LiteralPath "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID" -Recurse -Force -ErrorAction SilentlyContinue
+    - |-
+      $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
+      for ($attempt = 0; $attempt -lt 3 -and (Test-Path -LiteralPath $jobDirectory); $attempt++) {
+        Remove-Item -LiteralPath $jobDirectory -Recurse -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $jobDirectory) { Start-Sleep -Milliseconds 500 }
+      }
+      if (Test-Path -LiteralPath $jobDirectory) { throw 'Mise job directory remains after cleanup.' }
   script:
-    - . ./tools/ci/bootstrap/mise-windows.ps1 -Version '2026.9.16' -Sha256 '8e021ea855f50880ee4c8515f483b2cd07b27edb6109a8b4364ff09af65136b5' -Directory "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID" -MirrorResource 'packages/generic/mise-github/v1/' -ReleaseMetadataPattern 'regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$' -ReleaseMetadataResource 'release-$1-$2-$3.json'
+    - . ./tools/ci/bootstrap/mise-windows.ps1 -Version '2026.9.16' -Sha256 '8e021ea855f50880ee4c8515f483b2cd07b27edb6109a8b4364ff09af65136b5' -Directory (Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID") -MirrorResource 'packages/generic/mise-github/v1/' -ReleaseMetadataPattern 'regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$' -ReleaseMetadataResource 'release-$1-$2-$3.json'
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - mise run bootstrap
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
@@ -193,9 +205,9 @@ stages:
       : "${CI_SERVER_HOST:?}"
       : "${CI_JOB_ID:?}"
       : "${CI_JOB_TOKEN:?}"
-      : "${CI_BUILDS_DIR:?}"
-      mirror_dir="$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"
-      mkdir -m 700 "$mirror_dir"
+      : "${CI_PROJECT_DIR:?}"
+      mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
+      mkdir -p -m 700 "$mirror_dir"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -203,7 +215,7 @@ stages:
       export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
     - env GODEBUG=http2client=0 mise install --locked
   after_script:
-    - if [ -n "${CI_BUILDS_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"; fi
+    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"; fi
 quality:
   interruptible: true
   extends:
@@ -241,9 +253,9 @@ accepted-ref-parity:
       : "${CI_SERVER_HOST:?}"
       : "${CI_JOB_ID:?}"
       : "${CI_JOB_TOKEN:?}"
-      : "${CI_BUILDS_DIR:?}"
-      mirror_dir="$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"
-      mkdir -m 700 "$mirror_dir"
+      : "${CI_PROJECT_DIR:?}"
+      mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
+      mkdir -p -m 700 "$mirror_dir"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -252,7 +264,7 @@ accepted-ref-parity:
     - env GODEBUG=http2client=0 mise install --locked
     - mise exec --locked -- go run ./tools/forge refs --remote origin --expect "main=$CI_COMMIT_SHA" --expect "dev=$CI_COMMIT_SHA"
   after_script:
-    - if [ -n "${CI_BUILDS_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"; fi
+    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"; fi
   stage: verify
   tags:
     - ci-macos-arm64-shell
@@ -299,9 +311,9 @@ release-version:
       : "${CI_SERVER_HOST:?}"
       : "${CI_JOB_ID:?}"
       : "${CI_JOB_TOKEN:?}"
-      : "${CI_BUILDS_DIR:?}"
-      mirror_dir="$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"
-      mkdir -m 700 "$mirror_dir"
+      : "${CI_PROJECT_DIR:?}"
+      mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
+      mkdir -p -m 700 "$mirror_dir"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -310,7 +322,7 @@ release-version:
     - env GODEBUG=http2client=0 mise install --locked
     - mise exec --locked -- go run ./tools/release validate-version-tag
   after_script:
-    - if [ -n "${CI_BUILDS_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"; fi
+    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"; fi
   stage: verify
   tags:
     - ci-macos-arm64-shell

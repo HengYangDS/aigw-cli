@@ -79,6 +79,60 @@ func TestGoChecksUseCurrentRepositorySources(t *testing.T) {
 	}
 }
 
+func TestGoChecksIgnoreGeneratedToolchainSources(t *testing.T) {
+	root := t.TempDir()
+	policy, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".config", "checks", "go", "policy.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, content := range map[string][]byte{
+		"go.mod":                       []byte("module fixture\n"),
+		".gitignore":                   []byte("build/\n"),
+		"source.go":                    []byte("// Package fixture owns the authored source.\npackage fixture\n"),
+		"build/tmp/generated.go":       []byte("package    generated\n"),
+		".config/checks/go/policy.yml": policy,
+	} {
+		target := filepath.Join(root, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(target, content, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, output)
+	}
+	if output, err := exec.Command("git", "-C", root, "add", "--", ".gitignore", "go.mod", "source.go").CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v\n%s", err, output)
+	}
+	var output []byte
+	err = run([]string{"check-go", root}, &bytes.Buffer{}, func(call command) error {
+		var commandErr error
+		output, commandErr = systemOutputRunner(call)
+		return commandErr
+	})
+	if err != nil {
+		t.Fatalf("ignored generated Go source entered the quality gate: %v\n%s", err, output)
+	}
+	authored := filepath.Join(root, "internal", "build", "source.go")
+	if err := os.MkdirAll(filepath.Dir(authored), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(authored, []byte("// Package build owns authored code.\npackage    build\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output = nil
+	err = run([]string{"check-go", root}, &bytes.Buffer{}, func(call command) error {
+		var commandErr error
+		output, commandErr = systemOutputRunner(call)
+		return commandErr
+	})
+	if err == nil || !bytes.Contains(output, []byte("internal/build/source.go")) {
+		t.Fatalf("authored nested build package escaped formatting: %v\n%s", err, output)
+	}
+}
+
 func TestGoChecksExecuteInRequestedRepository(t *testing.T) {
 	policy, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".config", "checks", "go", "policy.yml"))
 	if err != nil {

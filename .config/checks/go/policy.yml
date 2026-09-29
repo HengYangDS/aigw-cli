@@ -2,6 +2,8 @@ version: "2"
 
 run:
   tests: true
+  # Formatter exclusions are relative to the module, not this policy file.
+  relative-path-mode: gomod
   build-tags:
     - client_acceptance
     - native_hermes
@@ -12,6 +14,9 @@ formatters:
   enable:
     - gofmt
     - goimports
+  exclusions:
+    paths:
+      - ^build/
 
 linters:
   default: none
