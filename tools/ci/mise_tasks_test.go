@@ -25,10 +25,16 @@ func TestMiseOSVScannerUsesOfficialRelease(t *testing.T) {
 	if err := toml.Unmarshal(content, &configuration); err != nil {
 		t.Fatal(err)
 	}
-	if configuration.Tools["github:google/osv-scanner"] == "" {
+	const scanner = "github:google/osv-scanner"
+	if version := configuredMiseToolVersion(t, configuration.Tools, scanner); version == "" {
 		t.Fatal("official OSV Scanner release is not pinned")
 	}
-	if configuration.Tools["go:github.com/google/osv-scanner/v2/cmd/osv-scanner"] != "" {
+	options, ok := configuration.Tools[scanner].(map[string]any)
+	if !ok || options["slsa_signer_identity"] != "https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@refs/tags/v2.1.0" ||
+		options["slsa_signer_issuer"] != "https://token.actions.githubusercontent.com" {
+		t.Fatalf("OSV Scanner lacks its verified release signer: %#v", options)
+	}
+	if _, present := configuration.Tools["go:github.com/google/osv-scanner/v2/cmd/osv-scanner"]; present {
 		t.Fatal("source-built OSV Scanner remains a parallel installation")
 	}
 }
@@ -44,7 +50,7 @@ func TestMisePerformanceToolIsTaskScoped(t *testing.T) {
 		t.Fatal(err)
 	}
 	var configuration struct {
-		Tools map[string]string `toml:"tools"`
+		Tools map[string]any `toml:"tools"`
 		Tasks struct {
 			Performance struct {
 				Tools map[string]string `toml:"tools"`
@@ -59,17 +65,36 @@ func TestMisePerformanceToolIsTaskScoped(t *testing.T) {
 	if task.Tools["github:sharkdp/hyperfine"] == "" || task.Run != "go run ./tools/release accept-native" {
 		t.Fatalf("performance must bind Hyperfine to the existing native acceptance owner: %#v", task)
 	}
-	if configuration.Tools["github:sharkdp/hyperfine"] != "" {
+	if _, present := configuration.Tools["github:sharkdp/hyperfine"]; present {
 		t.Fatal("a task-specific measurement tool became a mandatory general tool")
 	}
 }
 
 type miseConfiguration struct {
-	Tools    map[string]string `toml:"tools"`
+	Tools    map[string]any `toml:"tools"`
 	Settings struct {
 		LegacyVersionFile      *bool `toml:"legacy_version_file"`
 		NotFoundSystemFallback *bool `toml:"not_found_system_fallback"`
 	} `toml:"settings"`
+}
+
+func configuredMiseToolVersion(t *testing.T, tools map[string]any, name string) string {
+	t.Helper()
+	switch declaration := tools[name].(type) {
+	case nil:
+		return ""
+	case string:
+		return declaration
+	case map[string]any:
+		version, ok := declaration["version"].(string)
+		if !ok || version == "" {
+			t.Fatalf("mise tool %q lacks a version: %#v", name, declaration)
+		}
+		return version
+	default:
+		t.Fatalf("mise tool %q has an unsupported declaration: %T", name, declaration)
+		return ""
+	}
 }
 
 func TestMiseGoEnvironmentIsBoundToThisRepository(t *testing.T) {
@@ -107,7 +132,7 @@ func TestMiseGoEnvironmentIsBoundToThisRepository(t *testing.T) {
 		"GOTOOLCHAIN": "local",
 		"GOFLAGS":     "",
 		"GOMOD":       filepath.Join(root, "go.mod"),
-		"GOVERSION":   "go" + configuration.Tools["go"],
+		"GOVERSION":   "go" + configuredMiseToolVersion(t, configuration.Tools, "go"),
 	} {
 		if got := observed[name]; got != want {
 			t.Errorf("%s = %q, want %q", name, got, want)

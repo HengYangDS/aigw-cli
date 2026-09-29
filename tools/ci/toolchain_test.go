@@ -91,11 +91,12 @@ func TestMiseToolExecutablesMatchDeclaredVersions(t *testing.T) {
 	if err := toml.Unmarshal(content, &configuration); err != nil {
 		t.Fatal(err)
 	}
-	for name, declared := range configuration.Tools {
+	for name := range configuration.Tools {
 		if !miseToolEnabled(name) {
 			continue
 		}
 		t.Run(name, func(t *testing.T) {
+			declared := configuredMiseToolVersion(t, configuration.Tools, name)
 			probe, present := miseToolProbes[name]
 			if !present {
 				t.Fatalf("declared tool %s has no executable version probe", name)

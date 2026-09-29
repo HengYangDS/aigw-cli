@@ -34,8 +34,6 @@ glab = "1.119.0"
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.18.2"
 "github:anchore/syft" = "1.52.0"
-# Use the upstream verified binary; source compilation dominates cold bootstrap.
-"github:google/osv-scanner" = "2.6.0"
 # Cross-host ad-hoc macOS artifact signing.
 "github:indygreg/apple-platform-rs[version_prefix=apple-codesign/]" = "0.29.0"
 
@@ -51,6 +49,12 @@ shellcheck = "0.11.0"
 "github:rhysd/actionlint" = "1.7.12"
 "github:lycheeverse/lychee" = "lychee-v0.24.2"
 typos = "1.50.3"
+
+# OSV Scanner's release bundle is signed by the reusable SLSA generator.
+[tools."github:google/osv-scanner"]
+version = "2.6.0"
+slsa_signer_identity = "https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@refs/tags/v2.1.0"
+slsa_signer_issuer = "https://token.actions.githubusercontent.com"
 
 [tasks.bootstrap]
 description = "Install this Work Lane's locked repository dependencies."
