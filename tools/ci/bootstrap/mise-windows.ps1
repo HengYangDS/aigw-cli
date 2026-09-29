@@ -33,6 +33,17 @@ try {
     [void](New-Item -ItemType Directory -Path (Split-Path -Parent $Directory) -Force -ErrorAction Stop)
     [void](New-Item -ItemType Directory -Path $Directory -ErrorAction Stop)
     $created = $true
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    & icacls.exe $Directory /inheritance:r /grant:r "${identity}:(OI)(CI)F" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise job directory ACL.' }
+    $env:MISE_CONFIG_DIR = Join-Path $Directory 'config'
+    $env:MISE_CACHE_DIR = Join-Path $Directory 'cache'
+    $env:MISE_STATE_DIR = Join-Path $Directory 'state'
+    $env:MISE_DATA_DIR = Join-Path $Directory 'data'
+    $env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR
+    foreach ($runtimeDir in @($env:MISE_CONFIG_DIR, $env:MISE_CACHE_DIR, $env:MISE_STATE_DIR, $env:MISE_DATA_DIR)) {
+        [void](New-Item -ItemType Directory -Path $runtimeDir -ErrorAction Stop)
+    }
     Invoke-WebRequest -Uri $uri -Headers @{ 'JOB-TOKEN' = $env:CI_JOB_TOKEN } -OutFile $archive -MaximumRedirection 0 -TimeoutSec 90 -UseBasicParsing -ErrorAction Stop | Out-Null
     if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $Sha256) {
         throw 'Pinned Mise archive checksum differs from the mirrored artifact.'
@@ -43,13 +54,13 @@ try {
         throw 'Pinned Mise executable is missing from the mirrored archive.'
     }
     $reported = & $executable --version
-    if ($LASTEXITCODE -ne 0 -or $reported -notmatch ('^' + [regex]::Escape($Version) + '(\s|$)')) {
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Pinned Mise executable failed to start under the job runtime.'
+    }
+    if ($reported -notmatch ('^' + [regex]::Escape($Version) + '(\s|$)')) {
         throw 'Mirrored Mise executable reports an unexpected version.'
     }
     $env:PATH = (Split-Path -Parent $executable) + [IO.Path]::PathSeparator + $env:PATH
-    $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-    & icacls.exe $Directory /inheritance:r /grant:r "${identity}:(OI)(CI)F" | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise job directory ACL.' }
     $netrc = Join-Path $Directory '_netrc'
     [IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
     & icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null

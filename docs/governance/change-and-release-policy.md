@@ -144,7 +144,10 @@ SHA-256 of an upstream-attested Windows ARM64 archive mirrored in this
 project's GitLab Generic Package Registry; the
 [job-local bootstrap](../../tools/ci/bootstrap/mise-windows.ps1) downloads it
 with CI_JOB_TOKEN, refuses redirects, verifies its bytes and version, and
-removes its exact job-owned files. A version update must reverify upstream
+removes its exact job-owned files. Before the first Mise invocation it confines
+configuration, cache, state, and installs to the private job directory and
+marks that job's checkout trusted, rather than configuring the Runner service
+profile. A version update must reverify upstream
 provenance and mirror the new bytes before changing the pin. GitLab also keeps
 verified copies of the GitHub Release assets selected by [mise.lock](../../mise.lock)
 in that registry. OSV Scanner's SLSA verification also needs its release

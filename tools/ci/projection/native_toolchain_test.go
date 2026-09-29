@@ -138,6 +138,22 @@ func TestGitLabWindowsLockedToolsUseJobScopedMirror(t *testing.T) {
 			t.Errorf("Windows bootstrap omits job-scoped mirror control %q", required)
 		}
 	}
+	probe := strings.Index(string(windowsBootstrap), "$reported = & $executable --version")
+	if probe < 0 {
+		t.Fatal("Windows bootstrap never probes the pinned Mise executable")
+	}
+	for _, name := range []string{"MISE_CONFIG_DIR", "MISE_CACHE_DIR", "MISE_STATE_DIR", "MISE_DATA_DIR"} {
+		assignment := strings.Index(string(windowsBootstrap), "$env:"+name+" = Join-Path $Directory")
+		if assignment < 0 || assignment > probe {
+			t.Fatalf("%s is not owned by the job before Mise loads configuration", name)
+		}
+	}
+	if trust := strings.Index(string(windowsBootstrap), "$env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR"); trust < 0 || trust > probe {
+		t.Fatal("Windows bootstrap does not trust its exact checkout before Mise walks config ancestors")
+	}
+	if !strings.Contains(string(windowsBootstrap), "throw 'Pinned Mise executable failed to start under the job runtime.'") {
+		t.Fatal("Windows bootstrap conflates a Mise startup failure with a version mismatch")
+	}
 }
 
 func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
