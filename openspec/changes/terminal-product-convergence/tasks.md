@@ -129,9 +129,15 @@
 - [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
       environment backend separately; no password/biometric retry loop, service
       restart, or hidden native-store policy change is permitted.
-- [ ] 5.5 Verify missing Codex/Claude at setup and later installation on each
+- [x] 5.5 Verify missing Codex/Claude at setup and later installation on each
       platform; deferred sync must touch only installed admitted clients and
-      preserve user-owned files.
+      preserve user-owned files. GitHub run 36560334613 at `49ba0c5e` passed
+      the deferred-installation subtests without skips for Claude, Codex and
+      Hermes on macOS/Linux/Windows and Claude Desktop on macOS/Windows. Each
+      journey installs its isolated client after setup, preserves other Client
+      Bindings and projections, and retains seeded user configuration through
+      sync and uninstall. Published-byte and real-client claims remain in
+      5.2-5.4 and 4.5.
 - [ ] 5.6 Compare owned process, helper, temporary, journal, build and
       client-projection resources before/after success, failure, timeout and
       interruption; exact teardown preserves active installations and evidence.
