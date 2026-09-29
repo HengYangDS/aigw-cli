@@ -222,7 +222,7 @@ func readToolVersions(readSource func(string) ([]byte, error)) (map[string]strin
 		return nil, fmt.Errorf("read mise toolchain: %w", err)
 	}
 	var manifest struct {
-		Tools map[string]string `toml:"tools"`
+		Tools map[string]any `toml:"tools"`
 	}
 	if err := toml.Unmarshal(data, &manifest); err != nil {
 		return nil, fmt.Errorf("decode mise toolchain: %w", err)
@@ -230,7 +230,21 @@ func readToolVersions(readSource func(string) ([]byte, error)) (map[string]strin
 	if len(manifest.Tools) == 0 {
 		return nil, errors.New("mise toolchain contains no tools")
 	}
-	return manifest.Tools, nil
+	versions := make(map[string]string, len(manifest.Tools))
+	for name, declaration := range manifest.Tools {
+		var version string
+		switch value := declaration.(type) {
+		case string:
+			version = value
+		case map[string]any:
+			version, _ = value["version"].(string)
+		}
+		if strings.TrimSpace(version) == "" {
+			return nil, fmt.Errorf("mise tool %q has no version", name)
+		}
+		versions[name] = version
+	}
+	return versions, nil
 }
 
 func fileDigest(path string) (string, error) {
