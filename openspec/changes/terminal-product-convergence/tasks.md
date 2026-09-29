@@ -116,16 +116,15 @@
 
 ## 6. Quality, Supply Chain, and Performance
 
-- [x] 6.1 Audit every direct Go, npm, OpenSpec, Mise and release-tool version
+- [ ] 6.1 Audit every direct Go, npm, OpenSpec, Mise and release-tool version
       against the latest stable compatible upstream; update authored pins and locks
       once, then prove clean-context reproducibility and license/security
-      admissibility. On 2026-09-29, native Mise latest checks, Go module updates,
-      and the npm registry report no stale direct pin; the Mise minimum remains a
-      compatibility floor, not a second tool pin. Two native lock resolutions
-      preserve committed bytes, clean bootstrap and the full source gate pass,
-      npm audit finds zero vulnerabilities, and the unchanged release-input
-      candidate records licenses for all 43 Go and 283 npm dependencies without
-      an unknown license. GitLab cold-cache tool transport remains open in 7.5.
+      admissibility. The 2026-09-29 upstream audit found no stale direct Go,
+      npm, OpenSpec, Mise-tool or release-tool pin and selected Renovate
+      44.117.2 by official OCI digest. Two native lock resolutions, clean
+      bootstrap and the full source gate pass; unchanged release inputs have
+      accepted licenses for 43 Go and 283 npm packages. Complete cold-cache
+      peer transport (7.5) and the npm release-age gate remain open.
 - [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.

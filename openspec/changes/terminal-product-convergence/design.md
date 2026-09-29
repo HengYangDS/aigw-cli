@@ -204,7 +204,7 @@ three-day release-age rule holds proposal publication until
 That age rule protects npm's unpublish window; applying it to checksummed Go
 modules, locked Mise tools and digest-pinned CI artifacts adds delay without
 the same integrity benefit. Those sources instead need exact upstream identity,
-compatible behavior and native gate evidence. Renovate 44.117.1 and Mise
+compatible behavior and native gate evidence. Renovate 44.117.2 and Mise
 2026.9.16 are selected by digest; the Windows Mise ZIP was mirrored with its
 upstream SHA-256 intact. Task 6.1 remains open until the complete locked supply
 chain is qualified.
