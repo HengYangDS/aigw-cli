@@ -1,3 +1,12 @@
+<!--
+---
+subject: aigw:provider-model-qualification
+role: research
+state: active
+relations: {}
+---
+-->
+
 # Provider Model Qualification Evidence
 
 These dated observations informed the reviewed September 27, 2026 team

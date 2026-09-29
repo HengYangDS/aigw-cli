@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:decision-register
+role: index
+state: canonical
+relations:
+  canonical_for: durable product decision navigation
+---
+-->
+
 # Decision Records
 
 Decision Records preserve durable product rationale after an OpenSpec change

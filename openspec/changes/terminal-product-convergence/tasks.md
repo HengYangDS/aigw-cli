@@ -223,7 +223,11 @@
 - [ ] 8.2 Reconcile tracked README, architecture, decision, operations,
       contributing and release documentation with current product behavior; all
       canonical pages must be linked, English, navigable and free of references to
-      untracked prerequisites.
+      untracked prerequisites. All 23 current `docs/` pages now carry typed
+      metadata; format, Markdown and spelling checks pass. ETHOS still reports
+      four per-directory README gaps despite the existing root index and
+      decision register. Resolve that portable rule at ETHOS rather than adding
+      marker indexes; content and navigation acceptance remain open.
 - [ ] 8.3 Review diagrams, tables, headings, lists, examples, CLI help and
       errors for readable layout and accurate links; enforce the chosen native
       formatter/linter rather than adding one-off checks.

@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:forge-operations
+role: how-to
+state: canonical
+relations:
+  canonical_for: independent Forge operation
+---
+-->
+
 # Forge Operations
 
 ## Authority

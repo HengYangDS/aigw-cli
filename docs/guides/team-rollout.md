@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:team-rollout
+role: how-to
+state: canonical
+relations:
+  canonical_for: team setup and rollout
+---
+-->
+
 # Team Rollout
 
 A team distributes reviewed public configuration; each member supplies Tokens

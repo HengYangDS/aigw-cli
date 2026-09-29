@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:control-plane-boundary
+role: explanation
+state: canonical
+relations:
+  canonical_for: AIGW control plane and native projection ownership
+---
+-->
+
 # Authority and Projection Boundary
 
 AIGW is a local control plane. It turns reviewed configuration into bounded

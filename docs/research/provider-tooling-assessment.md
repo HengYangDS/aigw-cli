@@ -1,3 +1,12 @@
+<!--
+---
+subject: aigw:provider-tooling-assessment
+role: research
+state: active
+relations: {}
+---
+-->
+
 # AI Access Tooling: Needs, Architectures, and Competitive Value
 
 ## Research thesis

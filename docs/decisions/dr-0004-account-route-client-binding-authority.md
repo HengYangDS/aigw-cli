@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:decision:0004
+role: decision
+state: canonical
+relations:
+  canonical_for: Use Account, Route, and Client Binding as Configuration Authority
+---
+-->
+
 # DR-0004: Use Account, Route, and Client Binding as Configuration Authority
 
 - Status: accepted

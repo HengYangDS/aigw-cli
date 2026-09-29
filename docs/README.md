@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:docs
+role: index
+state: canonical
+relations:
+  canonical_for: AIGW documentation navigation
+---
+-->
+
 # Documentation
 
 Choose the audience and follow one journey. This page is the only documentation

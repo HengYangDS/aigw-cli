@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:change-and-release-policy
+role: policy
+state: canonical
+relations:
+  canonical_for: change and release governance
+---
+-->
+
 # Change and Release Policy
 
 ## Authority Map
