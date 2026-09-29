@@ -100,3 +100,52 @@ func main() {
 		t.Fatalf("ready Claude Account was blocked by missing Codex Account Token: %v", err)
 	}
 }
+
+func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "codex.toml")
+	if err := os.WriteFile(target, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := testConfig(target)
+	codexBinding := cfg.Clients[configuration.ClientCodex]
+	codexBinding.Authentication = configuration.AuthenticationClientNative
+	codexBinding.ModelProvider = "amazon-bedrock"
+	cfg.Clients[configuration.ClientCodex] = codexBinding
+	cfg.Accounts["missing"] = configuration.Account{Label: "Missing", Endpoints: configuration.Endpoints{Anthropic: "https://missing.test"}}
+	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "missing", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	candidate := filepath.Join(root, "candidate-aigw")
+	if err := os.WriteFile(candidate, []byte("candidate"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), candidate, "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(reader), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(reader, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	syncer := Synchronizer{Config: &configStoreStub{}, Secrets: secrets.NewMemoryStore(), Discovery: targetDiscovery(target), AIGWExecutable: candidate, CredentialPath: reader, ClaudeSettingsPath: filepath.Join(root, "settings.json")}
+	plans, err := syncer.Plan(cfg, cfg)
+	if err != nil || len(plans) == 0 {
+		t.Fatalf("ready native Codex has no projection plan: plans=%v error=%v", plans, err)
+	}
+	if action, err := syncer.CredentialEntrypointPlan(cfg); err != nil || action != CredentialEntrypointUnchanged {
+		t.Fatalf("missing Claude Token planned an unused reader: action=%q error=%v", action, err)
+	}
+	if err := syncer.CommitProjection(t.Context(), cfg, cfg, "sync"); err != nil {
+		t.Fatalf("missing Claude Token blocked independent native Codex: %v", err)
+	}
+	data, err := os.ReadFile(target)
+	if err != nil || len(data) == 0 {
+		t.Fatalf("native Codex was not projected: %v", err)
+	}
+}

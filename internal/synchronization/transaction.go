@@ -46,8 +46,8 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 		return err
 	}
 	var undoEntrypoint func() error
-	if reconcileProjection {
-		undoEntrypoint, err = s.prepareCredentialEntrypoint(after, clientIDs...)
+	if len(projectable) > 0 {
+		undoEntrypoint, err = s.prepareCredentialEntrypoint(after, projectable...)
 		if err != nil {
 			return err
 		}
@@ -59,21 +59,20 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 	if err != nil {
 		return errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
 	}
-	if len(projectable) > 0 {
-		if err := s.applyProjection(ctx, before, after, configBefore, configAfter, undoEntrypoint, projectable...); err != nil {
-			return fmt.Errorf("%s %w", subject, err)
-		}
+	if len(projectable) == 0 {
+		return nil
 	}
-	if reconcileProjection {
-		if err := s.finalizeCredentialEntrypoint(after); err != nil {
-			return fmt.Errorf("%s configuration and client projections completed, but credential entrypoint finalization failed: %w", subject, err)
-		}
+	if err := s.applyProjection(ctx, before, after, configBefore, configAfter, undoEntrypoint, projectable...); err != nil {
+		return fmt.Errorf("%s %w", subject, err)
+	}
+	if err := s.finalizeCredentialEntrypoint(after, projectable...); err != nil {
+		return fmt.Errorf("%s configuration and client projections completed, but credential entrypoint finalization failed: %w", subject, err)
 	}
 	return nil
 }
 
-func (s Synchronizer) finalizeCredentialEntrypoint(cfg configuration.Config) error {
-	action, err := s.CredentialEntrypointPlan(cfg)
+func (s Synchronizer) finalizeCredentialEntrypoint(cfg configuration.Config, clientIDs ...string) error {
+	action, err := s.CredentialEntrypointPlan(cfg, clientIDs...)
 	if err != nil {
 		return fmt.Errorf("inspect credential entrypoint: %w", err)
 	}

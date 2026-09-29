@@ -237,14 +237,24 @@ const (
 	CredentialEntrypointInstall CredentialEntrypointAction = "install"
 )
 
-// CredentialEntrypointPlan prepares the current version only when a default
-// Token consumer needs it. A missing configured consumer does not prove that
-// cached or rollback callers have stopped using an earlier command.
-func (s Synchronizer) CredentialEntrypointPlan(cfg configuration.Config) (CredentialEntrypointAction, error) {
+// CredentialEntrypointPlan prepares the current version only for clients that
+// can project now. A deferred client does not prove that cached or rollback
+// callers have stopped using an earlier command.
+func (s Synchronizer) CredentialEntrypointPlan(cfg configuration.Config, clientIDs ...string) (CredentialEntrypointAction, error) {
 	if s.CredentialPath == "" {
 		return CredentialEntrypointUnchanged, nil
 	}
-	accounts, err := s.credentialEntrypointAccounts(cfg)
+	if len(clientIDs) == 0 {
+		ready, err := s.credentialReadyClients(cfg)
+		if err != nil {
+			return CredentialEntrypointUnchanged, err
+		}
+		if len(ready) == 0 {
+			return CredentialEntrypointUnchanged, nil
+		}
+		clientIDs = ready
+	}
+	accounts, err := s.credentialEntrypointAccounts(cfg, clientIDs...)
 	if err != nil {
 		return CredentialEntrypointUnchanged, err
 	}
