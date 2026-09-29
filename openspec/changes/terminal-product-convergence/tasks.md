@@ -195,7 +195,8 @@
       attest the exact admitted object.
 - [ ] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
-      immutable evidence and content-addressed caches.
+      immutable evidence and content-addressed caches. Cancel superseded review
+      work only before a noninterruptible native Shell or release job starts.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
       guarded merge, source-ref deletion, signer trust and branch protection on each
       selected peer without interactive authentication or divergent commit
@@ -210,16 +211,14 @@
 - [ ] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
       or GitHub must not turn the other selected peer or the local product into a
       hidden dependency, and parity claims remain peer-specific.
-      GitLab MR !178 pipeline 8808 at
-      `49ba0c5ec5503b4365ff1f0c01555c05c97ca03e` passed quality #45881,
-      Linux Secret Service #45882, and native Linux #45879 on runner #86.
-      Its selected tools are mirrored at the GitLab peer; the Linux image uses
-      Mise's pinned Docker Hub publication. Native macOS #45878 and Windows
-      #45880 remain pending without eligible runners. Cold-cache peer transport,
-      absence of GitHub credential leakage, and offline-local acceptance remain
-      unproved. Transport follows the actual selected endpoint and identity;
-      neither HTTPS nor the currently configured HTTP endpoint is a substitute
-      for those checks.
+      GitLab MR !178 pipelines 8808 and 8811 each passed quality, Linux Secret
+      Service, and native Linux on their recorded review SHA; the superseded
+      pipeline's two pending native jobs were canceled by exact ID. Its selected
+      tools are mirrored at the GitLab peer, and the Linux image uses Mise's
+      pinned Docker Hub publication. Peer-local macOS/Windows review, cold-cache
+      transport, absence of GitHub credential leakage, and offline-local
+      acceptance remain unproved. Transport follows the selected endpoint and
+      identity, not a blanket HTTP or HTTPS assumption.
 
 ## 8. Repository Topology, Documentation, and Deletion
 
