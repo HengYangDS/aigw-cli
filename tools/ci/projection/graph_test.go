@@ -19,14 +19,21 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	}
 
 	var gitlab struct {
-		Quality  gitLabJob  `yaml:"quality"`
-		Darwin   gitLabJob  `yaml:"native-darwin"`
-		Linux    *gitLabJob `yaml:"native-linux"`
-		Windows  *gitLabJob `yaml:"native-windows"`
-		Workflow struct {
+		Quality            gitLabJob  `yaml:"quality"`
+		Darwin             gitLabJob  `yaml:"native-darwin"`
+		Linux              *gitLabJob `yaml:"native-linux"`
+		Windows            *gitLabJob `yaml:"native-windows"`
+		LinuxSecretService gitLabJob  `yaml:"linux-secret-service"`
+		Workflow           struct {
+			AutoCancel struct {
+				OnNewCommit string `yaml:"on_new_commit"`
+			} `yaml:"auto_cancel"`
 			Rules []struct {
-				If   string `yaml:"if"`
-				When string `yaml:"when"`
+				If         string `yaml:"if"`
+				When       string `yaml:"when"`
+				AutoCancel struct {
+					OnNewCommit string `yaml:"on_new_commit"`
+				} `yaml:"auto_cancel"`
 			} `yaml:"rules"`
 		} `yaml:"workflow"`
 	}
@@ -35,6 +42,9 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	}
 	if gitlab.Linux == nil || gitlab.Windows == nil {
 		t.Fatal("GitLab must project the complete product-native matrix")
+	}
+	if gitlab.Workflow.AutoCancel.OnNewCommit != "conservative" {
+		t.Fatal("superseded GitLab review pipelines must cancel only before a noninterruptible job starts")
 	}
 	wantGitLabWorkflow := []struct {
 		If   string
@@ -53,6 +63,29 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		got := gitlab.Workflow.Rules[index]
 		if got.If != want.If || got.When != want.When {
 			t.Errorf("GitLab verification route %d = %#v, want %#v", index, got, want)
+		}
+		if index < 4 {
+			wantCancellation := "none"
+			if index == 1 {
+				wantCancellation = ""
+			}
+			if got.AutoCancel.OnNewCommit != wantCancellation {
+				t.Errorf("GitLab route %d auto-cancel = %q, want %q", index, got.AutoCancel.OnNewCommit, wantCancellation)
+			}
+		}
+	}
+	for name, job := range map[string]gitLabJob{
+		"quality":              gitlab.Quality,
+		"native-linux":         *gitlab.Linux,
+		"linux-secret-service": gitlab.LinuxSecretService,
+	} {
+		if job.Interruptible == nil || !*job.Interruptible {
+			t.Errorf("superseded review job %s cannot be canceled safely before shell-native execution", name)
+		}
+	}
+	for name, job := range map[string]gitLabJob{"native-darwin": gitlab.Darwin, "native-windows": *gitlab.Windows} {
+		if job.Interruptible != nil && *job.Interruptible {
+			t.Errorf("persistent shell-native job %s must not be interrupted", name)
 		}
 	}
 	for name, job := range map[string]gitLabJob{
@@ -369,14 +402,15 @@ func TestGitHubWorkflowsDeclareTheCanonicalInitialBranch(t *testing.T) {
 }
 
 type gitLabJob struct {
-	BeforeScript []string          `yaml:"before_script"`
-	Extends      []string          `yaml:"extends"`
-	Image        string            `yaml:"image"`
-	Needs        []gitLabNeed      `yaml:"needs"`
-	Script       []string          `yaml:"script"`
-	Tags         []string          `yaml:"tags"`
-	Variables    map[string]string `yaml:"variables"`
-	Rules        []struct {
+	BeforeScript  []string          `yaml:"before_script"`
+	Extends       []string          `yaml:"extends"`
+	Image         string            `yaml:"image"`
+	Interruptible *bool             `yaml:"interruptible"`
+	Needs         []gitLabNeed      `yaml:"needs"`
+	Script        []string          `yaml:"script"`
+	Tags          []string          `yaml:"tags"`
+	Variables     map[string]string `yaml:"variables"`
+	Rules         []struct {
 		If        string            `yaml:"if"`
 		When      string            `yaml:"when"`
 		Variables map[string]string `yaml:"variables"`

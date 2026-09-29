@@ -207,10 +207,10 @@ gitlabVerificationCondition: {
 }
 
 gitlabPipelineRules: [
-	{if: gitlabVerificationCondition.tag},
+	{if: gitlabVerificationCondition.tag, auto_cancel: on_new_commit: "none"},
 	{if: gitlabVerificationCondition.review},
-	{if: gitlabVerificationCondition.protectedPush},
-	{if: gitlabVerificationCondition.manual},
+	{if: gitlabVerificationCondition.protectedPush, auto_cancel: on_new_commit: "none"},
+	{if: gitlabVerificationCondition.manual, auto_cancel: on_new_commit: "none"},
 	{when: "never"},
 ]
 
@@ -549,6 +549,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		paths: ["mise.lock", ".mise/locks"]
 	}
 	if _platform == "linux" {
+		interruptible: true
 		extends: [".linux-toolchain"]
 		variables: CGO_ENABLED: "1"
 		script: [commands.bootstrap, _refreshLocks, _native]
@@ -581,7 +582,10 @@ gitlab: {
 		GIT_DEPTH: "0"
 		GOPROXY:   "https://goproxy.cn|https://proxy.golang.org|direct"
 	}
-	workflow: rules: gitlabPipelineRules
+	workflow: {
+		auto_cancel: on_new_commit: "conservative"
+		rules: gitlabPipelineRules
+	}
 	stages: ["verify", "release"]
 	".linux-toolchain": {
 		_dataDirectory: "build/runtime/tool-cache/.mise"
@@ -604,6 +608,7 @@ gitlab: {
 		"after_script": [miseMirror.unixCleanup]
 	}
 	quality: {
+		interruptible: true
 		extends: [".linux-toolchain"]
 		tags: nativeEvidence.linux.gitlab.tags
 		script: [
@@ -640,6 +645,7 @@ gitlab: {
 		"native-\(platform)": #NativeGitLabJob & {_platform: platform}
 	}
 	"linux-secret-service": {
+		interruptible: true
 		extends: [".linux-toolchain"]
 		stage: graph["linux-secret-service"].stage
 		tags:  nativeEvidence.linux.gitlab.tags
