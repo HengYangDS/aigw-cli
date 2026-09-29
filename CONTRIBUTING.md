@@ -640,9 +640,11 @@ AIGW_ACCEPTANCE_CLIENT_PATH=/usr/bin:/bin \
 
 Set equivalent environment variables on Windows, using native executable
 paths and a semicolon-separated client tool path. Supply complete client
-distributions and only their required companion tools. The test requires the
-candidate and explicit client inputs and never substitutes a client stub or downloads software. It
-uses synthetic environment credentials and temporary client homes, not the
+distributions and only their required companion tools. Explicit client binaries
+are mandatory; no stub or download replaces them. `AIGW_ACCEPTANCE_RELEASE`
+selects supplied candidate bytes; without it, the release owner builds a
+source candidate, which does not prove distribution bytes. The test uses
+synthetic environment credentials and temporary client homes, not the
 operator's accounts or native credential store. It consumes the reviewed
 `manifests/team.toml`, preserving Routes and recommendations while directing
 Account endpoints to the isolated server. The server requires the recommended
