@@ -203,11 +203,14 @@
       the same OCI digest as GHCR. All 45 GitHub Release assets selected by
       `mise.lock` now have SHA-256-verified copies in the existing private
       GitLab package registry. The CUE graph uses GitLab-only Mise URL
-      replacement and job-local CI_JOB_TOKEN/netrc; one host cold install and
-      synthetic Unix credential cleanup pass. CI_JOB_TOKEN access, no GitHub
-      credential leakage, and complete macOS, Linux, and Windows cold-cache
-      jobs remain unproved. Keep this task open until those exact jobs pass
-      under the accepted intranet HTTP policy; do not require GitLab HTTPS.
+      replacement and job-local CI_JOB_TOKEN/netrc. A host Mise 2026.9.15
+      missing-mirror probe fails without GitHub fallback; a separate optional
+      versions-host lookup is now disabled by the locked repository setting.
+      One host cold install and synthetic Unix credential cleanup pass.
+      CI_JOB_TOKEN access, no GitHub credential leakage, and complete macOS,
+      Linux, and Windows cold-cache jobs remain unproved. Keep this task open
+      until those exact jobs pass under the accepted intranet HTTP policy;
+      do not require GitLab HTTPS.
 
 ## 8. Repository Topology, Documentation, and Deletion
 

@@ -4,6 +4,8 @@ min_version = "2026.9.14"
 legacy_version_file = false
 locked = true
 not_found_system_fallback = false
+# Locked installs must not query Mise's optional version-index service.
+use_versions_host = false
 
 [env]
 # Repository locks, not user Go settings or a parent workspace, select the build.

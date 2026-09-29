@@ -306,6 +306,8 @@ constrains installation sources, not executable lookup: with auto-install
 disabled and a tool missing, [Mise can fall back to `PATH`](https://github.com/jdx/mise/issues/13649).
 Use `MISE_OFFLINE=1` for a negative missing-tool test that must reject that
 fallback; it is not a substitute for the normal online bootstrap.
+The repository also disables Mise's optional versions host: locked installs
+use the selected asset URLs without querying a separate version index.
 
 Node and npm are pinned independently in [mise.toml](mise.toml). The native
 `npm` tool name selects the cross-platform `npm:npm` backend and takes precedence
