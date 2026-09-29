@@ -38,6 +38,13 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg configuration.Con
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	projectable, err := s.credentialReadyClients(cfg, clientID)
+	if err != nil {
+		return err
+	}
+	if len(projectable) == 0 {
+		return nil
+	}
 	if _, err := s.registry().Plan(s.clientDependencies(), cfg, cfg, clientID); err != nil {
 		return err
 	}
@@ -159,6 +166,41 @@ func (s Synchronizer) clientDependencies() client.Dependencies {
 		AIGWExecutable:               executable,
 		AuthorizeCodexRouteSelection: s.AuthorizeCodexRouteSelection,
 	}
+}
+
+// credentialReadyClients excludes default-Token consumers only when their
+// selected Account Token is known absent. Disabled and external-credential
+// clients remain eligible for withdrawal or independent convergence.
+func (s Synchronizer) credentialReadyClients(cfg configuration.Config, clientIDs ...string) ([]string, error) {
+	if len(clientIDs) == 0 {
+		clientIDs = s.ClientIDs()
+	}
+	projectable := make([]string, 0, len(clientIDs))
+	for _, clientID := range clientIDs {
+		accounts, err := s.credentialEntrypointAccounts(cfg, clientID)
+		if err != nil {
+			return nil, err
+		}
+		if s.Secrets == nil {
+			projectable = append(projectable, clientID)
+			continue
+		}
+		ready := true
+		for _, account := range accounts {
+			present, err := s.Secrets.Exists(account)
+			if err != nil {
+				return nil, fmt.Errorf("inspect Account %q Token availability: %w", account, err)
+			}
+			if !present {
+				ready = false
+				break
+			}
+		}
+		if ready {
+			projectable = append(projectable, clientID)
+		}
+	}
+	return projectable, nil
 }
 
 func (s Synchronizer) credentialEntrypointAccounts(cfg configuration.Config, clientIDs ...string) ([]string, error) {

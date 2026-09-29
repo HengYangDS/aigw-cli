@@ -5,8 +5,12 @@ import (
 	configuration "aigw-cli/internal/configuration"
 )
 
-// Plan returns every side-effect-free client projection change for a
-// configuration transition, including target removals.
+// Plan returns side-effect-free changes for credential-ready clients,
+// including target removals. Known-missing Tokens leave projections untouched.
 func (s Synchronizer) Plan(before, after configuration.Config) ([]client.ProjectionPlan, error) {
-	return s.registry().Plan(s.clientDependencies(), before, after)
+	projectable, err := s.credentialReadyClients(after)
+	if err != nil || len(projectable) == 0 {
+		return nil, err
+	}
+	return s.registry().Plan(s.clientDependencies(), before, after, projectable...)
 }
