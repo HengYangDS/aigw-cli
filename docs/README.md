@@ -74,7 +74,8 @@ They answer different questions; none substitutes for all the others.
 - **Operations:** [Forge operations](operations/forge-operations.md) explains
   independent GitLab and GitHub publication.
 - **Research:** [Provider tooling assessment](research/provider-tooling-assessment.md)
-  compares needs, solution paradigms and practical implications.
+  compares solution paradigms; [provider model qualification](research/provider-model-qualification.md)
+  records dated model and protocol evidence.
 - **History and legal:** [Changelog](../CHANGELOG.md) records releases;
   [License](../LICENSE) supplies the MIT terms.
 
