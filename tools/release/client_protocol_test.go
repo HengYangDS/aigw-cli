@@ -185,9 +185,8 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	server := httptest.NewServer(codexToolLoopHandler(token, &toolOutput, &probe))
 	t.Cleanup(func() {
 		if t.Failed() {
-			t.Logf("Codex tool-loop requests=%d calls=%d results=%d finals=%d rejected=%d",
-				probe.requests.Load(), probe.toolCalls.Load(), probe.toolResults.Load(),
-				probe.finalResponses.Load(), probe.rejected.Load())
+			t.Logf("Codex tool-loop requests=%d calls=%d results=%d rejected=%d",
+				probe.requests.Load(), probe.toolCalls.Load(), probe.toolResults.Load(), probe.rejected.Load())
 			if first := probe.firstResult.Load(); first != nil {
 				t.Logf("first bounded tool result: %q", *first)
 			}
@@ -241,8 +240,8 @@ type codexToolLoopRequest struct {
 }
 
 type codexToolLoopProbe struct {
-	requests, toolCalls, toolResults, finalResponses, rejected atomic.Int64
-	firstResult                                                atomic.Pointer[string]
+	requests, toolCalls, toolResults, rejected atomic.Int64
+	firstResult                                atomic.Pointer[string]
 }
 
 func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToolLoopProbe) http.Handler {
@@ -279,9 +278,7 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 				sawResult = true
 				probe.toolResults.Add(1)
 				preview := redaction.Text(result, token)
-				if len(preview) > 512 {
-					preview = preview[:512]
-				}
+				preview = preview[:min(len(preview), 512)]
 				probe.firstResult.CompareAndSwap(nil, &preview)
 			}
 			if item.Type == "function_call_output" && strings.Contains(result, "AIGW_TOOL_OK") &&
@@ -303,7 +300,6 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 			writeCodexToolCall(response)
 			return
 		}
-		probe.finalResponses.Add(1)
 		base.ServeHTTP(response, request)
 	})
 }
@@ -325,8 +321,7 @@ func TestCodexToolLoopStopsAfterUnsuccessfulToolResult(t *testing.T) {
 			t.Fatalf("tool-loop fixture response status = %d", response.Code)
 		}
 	}
-	if probe.requests.Load() != 2 || probe.toolCalls.Load() != 1 || probe.toolResults.Load() != 1 ||
-		probe.finalResponses.Load() != 1 || toolOutput.Load() {
+	if probe.requests.Load() != 2 || probe.toolCalls.Load() != 1 || probe.toolResults.Load() != 1 || toolOutput.Load() {
 		t.Fatal("unsuccessful tool result caused another tool call or false acceptance")
 	}
 	if first := probe.firstResult.Load(); first == nil || strings.Contains(*first, token) {
