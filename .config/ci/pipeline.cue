@@ -163,7 +163,11 @@ gitlabControlPlatform: #OperatingSystem & "darwin"
 nativeEvidence: {
 	darwin: {
 		name: "macOS"
-		gitlab: tags: ["$AIGW_GITLAB_DARWIN_RUNNER_TAG"]
+		gitlab: {
+			protectedTag: "ci-macos-arm64-shell"
+			tags: [protectedTag]
+			reviewTag: "ci-macos-arm64-review"
+		}
 		github: runner: "macos-26-intel"
 	}
 	linux: {
@@ -173,7 +177,11 @@ nativeEvidence: {
 	}
 	windows: {
 		name: "Windows"
-		gitlab: tags: ["$AIGW_GITLAB_WINDOWS_RUNNER_TAG"]
+		gitlab: {
+			protectedTag: "ci-windows-arm64-shell"
+			tags: [protectedTag]
+			reviewTag: "ci-windows-arm64-review"
+		}
 		github: runner: "windows-2025"
 	}
 }
@@ -211,14 +219,6 @@ gitlabPipelineRules: [
 	{if: gitlabVerificationCondition.review},
 	{if: gitlabVerificationCondition.protectedPush, auto_cancel: on_new_commit: "none"},
 	{if: gitlabVerificationCondition.manual, auto_cancel: on_new_commit: "none"},
-	{when: "never"},
-]
-
-gitlabFullVerificationRules: [
-	{if: gitlabVerificationCondition.tag},
-	{if: gitlabVerificationCondition.review},
-	{if: gitlabVerificationCondition.protectedPush},
-	{if: gitlabVerificationCondition.manual},
 	{when: "never"},
 ]
 
@@ -513,6 +513,8 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	_install:       string
 	_refreshLocks:  string
 	_native:        string
+	tags: [string, ...string]
+	rules: [...{...}]
 	if _platform == "windows" {
 		_bootstrapMise: ". ./tools/ci/bootstrap/mise-windows.ps1 -Version '\(miseVersion)' -Sha256 '\(miseWindowsArm64SHA256)' -Directory \"\(windowsMiseJobDirectory)\" -MirrorResource '\(miseMirror.resource)' -ReleaseMetadataPattern '\(miseMirror.metadataPattern)' -ReleaseMetadataResource '\(miseMirror.metadataResource)'"
 		_install:       "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
@@ -529,21 +531,11 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		"after_script": [miseMirror.unixCleanup]
 	}
 	stage: graph["native-\(_platform)"].stage
-	tags:  nativeEvidence[_platform].gitlab.tags
 	variables: nativeToolchain[_platform].default & {
 		if _platform == "windows" {
 			AIGW_VERIFY_SYSTEM_KEYRING: "1"
 		}
 	}
-	rules: [for rule in gitlabFullVerificationRules {
-		if rule.if != _|_ {
-			if rule.if == gitlabVerificationCondition.manual {
-				if: "(\(rule.if)) && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == \"\" || $AIGW_NATIVE_PLATFORM == \"all\" || $AIGW_NATIVE_PLATFORM == \"\(_platform)\")"
-			}
-			if rule.if != gitlabVerificationCondition.manual {rule}
-		}
-		if rule.if == _|_ {rule}
-	}]
 	artifacts: {
 		when: "always"
 		paths: ["mise.lock", ".mise/locks"]
@@ -561,6 +553,12 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		if _platform != "windows" {
 			script: [miseMirror.unixPrepare, _install, commands.bootstrap, _refreshLocks, _native]
 		}
+	}
+}
+
+_nativeManualCondition: {
+	for platform in productEvidence.native {
+		(platform): "(\(gitlabVerificationCondition.manual)) && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == \"\" || $AIGW_NATIVE_PLATFORM == \"all\" || $AIGW_NATIVE_PLATFORM == \"\(platform)\")"
 	}
 }
 
@@ -642,7 +640,40 @@ gitlab: {
 		]
 	}
 	for platform in productEvidence.native {
-		"native-\(platform)": #NativeGitLabJob & {_platform: platform}
+		if platform == "linux" {
+			"native-linux": #NativeGitLabJob & {
+				_platform: platform
+				tags:      nativeEvidence.linux.gitlab.tags
+				rules: [
+					{if: gitlabVerificationCondition.tag},
+					{if: gitlabVerificationCondition.review},
+					{if: gitlabVerificationCondition.protectedPush},
+					{if: _nativeManualCondition[platform]},
+					{when: "never"},
+				]
+			}
+		}
+		if platform != "linux" {
+			"native-\(platform)": #NativeGitLabJob & {
+				_platform: platform
+				tags: [nativeEvidence[platform].gitlab.protectedTag]
+				rules: [
+					{if: gitlabVerificationCondition.tag},
+					{if: gitlabVerificationCondition.protectedPush},
+					{if: "(\(_nativeManualCondition[platform])) && $CI_COMMIT_REF_PROTECTED == \"true\""},
+					{when: "never"},
+				]
+			}
+			"native-\(platform)-review": #NativeGitLabJob & {
+				_platform: platform
+				tags: [nativeEvidence[platform].gitlab.reviewTag]
+				rules: [
+					{if: gitlabVerificationCondition.review},
+					{if: "(\(_nativeManualCondition[platform])) && $CI_COMMIT_REF_PROTECTED == \"false\""},
+					{when: "never"},
+				]
+			}
+		}
 	}
 	"linux-secret-service": {
 		interruptible: true

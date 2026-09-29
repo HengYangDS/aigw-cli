@@ -684,10 +684,13 @@ bytes, runs only its noninteractive CLI installation stages at a pinned source
 commit, and requires its hash-verified `uv.lock` dependency tier. All three
 client executable paths and required companion tools are explicit inputs to the
 same native journey. Git Bash is required; the disposable runner removes the
-clients afterward without changing the operator's workstation. GitLab projects
-the same native product command onto its local Windows runner through the
-required `AIGW_GITLAB_WINDOWS_RUNNER_TAG` CI variable. GitHub remains exclusively
-GitHub-hosted; it exposes no self-hosted runner selector or fallback.
+clients afterward without changing the operator's workstation. The
+[GitLab CI model](.config/ci/pipeline.cue) projects the same native command into
+separate macOS and Windows jobs: same-project proposal MRs use isolated review
+runners, while protected refs use protected runners. Literal job tags enforce
+this boundary without a pipeline-variable selector; runner availability and
+actual native execution still require peer-local evidence. GitHub remains
+exclusively GitHub-hosted, with no self-hosted runner fallback.
 
 Set `candidate_tag` with `baseline_tag` to consume a published signed matrix
 instead of reconstructing its successor. Each native job downloads from its own

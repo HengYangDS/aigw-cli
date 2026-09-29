@@ -20,9 +20,7 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 
 	var gitlab struct {
 		Quality  gitLabJob  `yaml:"quality"`
-		Darwin   gitLabJob  `yaml:"native-darwin"`
 		Linux    *gitLabJob `yaml:"native-linux"`
-		Windows  *gitLabJob `yaml:"native-windows"`
 		Workflow struct {
 			Rules []struct {
 				If   string `yaml:"if"`
@@ -33,8 +31,8 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	if gitlab.Linux == nil || gitlab.Windows == nil {
-		t.Fatal("GitLab must project the complete product-native matrix")
+	if gitlab.Linux == nil {
+		t.Fatal("GitLab lacks native Linux acceptance")
 	}
 	wantGitLabWorkflow := []struct {
 		If   string
@@ -55,12 +53,7 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 			t.Errorf("GitLab verification route %d = %#v, want %#v", index, got, want)
 		}
 	}
-	for name, job := range map[string]gitLabJob{
-		"quality":        gitlab.Quality,
-		"native-darwin":  gitlab.Darwin,
-		"native-linux":   *gitlab.Linux,
-		"native-windows": *gitlab.Windows,
-	} {
+	for name, job := range map[string]gitLabJob{"quality": gitlab.Quality, "native-linux": *gitlab.Linux} {
 		if len(job.Rules) != len(wantGitLabWorkflow) || job.Rules[1].If != wantGitLabWorkflow[1].If {
 			t.Errorf("GitLab %s must verify reviews into both integration and release: %#v", name, job.Rules)
 			continue
@@ -103,8 +96,10 @@ func TestGitLabSupersededReviewCancellationPreservesNativeShellJobs(t *testing.T
 	var gitlab struct {
 		Quality            gitLabJob `yaml:"quality"`
 		Darwin             gitLabJob `yaml:"native-darwin"`
+		DarwinReview       gitLabJob `yaml:"native-darwin-review"`
 		Linux              gitLabJob `yaml:"native-linux"`
 		Windows            gitLabJob `yaml:"native-windows"`
+		WindowsReview      gitLabJob `yaml:"native-windows-review"`
 		LinuxSecretService gitLabJob `yaml:"linux-secret-service"`
 		Workflow           struct {
 			AutoCancel struct {
@@ -136,7 +131,10 @@ func TestGitLabSupersededReviewCancellationPreservesNativeShellJobs(t *testing.T
 			t.Errorf("review job %s must be interruptible", name)
 		}
 	}
-	for name, job := range map[string]gitLabJob{"native-darwin": gitlab.Darwin, "native-windows": gitlab.Windows} {
+	for name, job := range map[string]gitLabJob{
+		"native-darwin": gitlab.Darwin, "native-darwin-review": gitlab.DarwinReview,
+		"native-windows": gitlab.Windows, "native-windows-review": gitlab.WindowsReview,
+	} {
 		if job.Interruptible != nil && *job.Interruptible {
 			t.Errorf("persistent shell-native job %s must not be interrupted", name)
 		}
@@ -207,9 +205,11 @@ func TestGitLabFullNativeQualityUsesTheExistingEntryPoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	var gitlab struct {
-		Darwin  gitLabJob  `yaml:"native-darwin"`
-		Linux   *gitLabJob `yaml:"native-linux"`
-		Windows *gitLabJob `yaml:"native-windows"`
+		Darwin        gitLabJob  `yaml:"native-darwin"`
+		DarwinReview  gitLabJob  `yaml:"native-darwin-review"`
+		Linux         *gitLabJob `yaml:"native-linux"`
+		Windows       *gitLabJob `yaml:"native-windows"`
+		WindowsReview gitLabJob  `yaml:"native-windows-review"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
@@ -217,17 +217,17 @@ func TestGitLabFullNativeQualityUsesTheExistingEntryPoint(t *testing.T) {
 	if gitlab.Linux == nil || gitlab.Windows == nil {
 		t.Fatal("GitLab must project native Linux and Windows acceptance")
 	}
-	for platform, job := range map[string]gitLabJob{"darwin": gitlab.Darwin, "linux": *gitlab.Linux, "windows": *gitlab.Windows} {
-		wantRule := `($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "` + platform + `")`
-		if len(job.Rules) != 5 || job.Rules[3].If != wantRule {
-			t.Fatalf("GitLab %s lacks equivalent manual platform selection: %#v", platform, job.Rules)
-		}
+	for name, job := range map[string]gitLabJob{
+		"darwin": gitlab.Darwin, "darwin-review": gitlab.DarwinReview,
+		"linux": *gitlab.Linux, "windows": *gitlab.Windows, "windows-review": gitlab.WindowsReview,
+	} {
+		platform := strings.TrimSuffix(name, "-review")
 		want := "mise exec --locked -- go run ./tools/ci native --platform " + platform + ` --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"`
 		if platform == "windows" {
 			want = `mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"`
 		}
 		if !slices.Contains(job.Script, want) {
-			t.Fatalf("GitLab %s lacks the same explicit native-quality entrypoint", platform)
+			t.Fatalf("GitLab %s lacks the same explicit native-quality entrypoint", name)
 		}
 	}
 }
@@ -309,7 +309,7 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 	for _, metadata := range []string{".linux-toolchain", "stages", "variables", "workflow"} {
 		delete(gitlab, metadata)
 	}
-	wantGitLabJobs := []string{"accepted-ref-parity", "linux-secret-service", "native-darwin", "native-linux", "native-windows", "quality", "release-assets", "release-version"}
+	wantGitLabJobs := []string{"accepted-ref-parity", "linux-secret-service", "native-darwin", "native-darwin-review", "native-linux", "native-windows", "native-windows-review", "quality", "release-assets", "release-version"}
 	if got := slices.Sorted(maps.Keys(gitlab)); !slices.Equal(got, wantGitLabJobs) {
 		t.Fatalf("GitLab jobs = %q, want %q", got, wantGitLabJobs)
 	}

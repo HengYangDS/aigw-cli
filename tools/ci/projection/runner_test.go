@@ -29,7 +29,7 @@ func TestGitLabQualityAndControlRunnerSelectors(t *testing.T) {
 		"native-darwin":       pipeline.NativeDarwin,
 		"release-version":     pipeline.ReleaseVersion,
 	} {
-		if want := []string{"$AIGW_GITLAB_DARWIN_RUNNER_TAG"}; !slices.Equal(job.Tags, want) {
+		if want := []string{"ci-macos-arm64-shell"}; !slices.Equal(job.Tags, want) {
 			t.Errorf("%s runner tags = %q, want %q", name, job.Tags, want)
 		}
 	}

@@ -1,3 +1,28 @@
+native-linux:
+  interruptible: true
+  extends:
+    - .linux-toolchain
+  tags:
+    - $AIGW_GITLAB_LINUX_RUNNER_TAG
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
+    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
+    - if: ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "linux")
+    - when: never
+  stage: verify
+  variables:
+    CGO_ENABLED: "1"
+    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee
+  artifacts:
+    when: always
+    paths:
+      - mise.lock
+      - .mise/locks
+  script:
+    - mise run bootstrap
+    - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
+    - mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
 native-darwin:
   after_script:
     - if [ -n "${CI_BUILDS_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"; fi
@@ -21,47 +46,58 @@ native-darwin:
     - mise run bootstrap
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
-  stage: verify
   tags:
-    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+    - ci-macos-arm64-shell
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
+    - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")) && $CI_COMMIT_REF_PROTECTED == "true"
+    - when: never
+  stage: verify
   variables:
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee,github:indygreg/apple-platform-rs
-  rules:
-    - if: $CI_COMMIT_TAG
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
-    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
-    - if: ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")
-    - when: never
   artifacts:
     when: always
     paths:
       - mise.lock
       - .mise/locks
-native-linux:
-  interruptible: true
-  extends:
-    - .linux-toolchain
-  stage: verify
-  tags:
-    - $AIGW_GITLAB_LINUX_RUNNER_TAG
-  variables:
-    CGO_ENABLED: "1"
-    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee
-  rules:
-    - if: $CI_COMMIT_TAG
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
-    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
-    - if: ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "linux")
-    - when: never
-  artifacts:
-    when: always
-    paths:
-      - mise.lock
-      - .mise/locks
+native-darwin-review:
+  after_script:
+    - if [ -n "${CI_BUILDS_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"; fi
   script:
+    - |-
+      set -eu
+      : "${CI_API_V4_URL:?}"
+      : "${CI_PROJECT_ID:?}"
+      : "${CI_SERVER_HOST:?}"
+      : "${CI_JOB_ID:?}"
+      : "${CI_JOB_TOKEN:?}"
+      : "${CI_BUILDS_DIR:?}"
+      mirror_dir="$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"
+      mkdir -m 700 "$mirror_dir"
+      (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
+      export MISE_NETRC_FILE="$mirror_dir/netrc"
+      export MISE_NETRC=1
+      mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
+      export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
+    - env GODEBUG=http2client=0 mise install --locked
     - mise run bootstrap
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
-    - mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
+    - mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
+  tags:
+    - ci-macos-arm64-review
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
+    - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")) && $CI_COMMIT_REF_PROTECTED == "false"
+    - when: never
+  stage: verify
+  variables:
+    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee,github:indygreg/apple-platform-rs
+  artifacts:
+    when: always
+    paths:
+      - mise.lock
+      - .mise/locks
 native-windows:
   after_script:
     - Remove-Item -LiteralPath "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID" -Recurse -Force -ErrorAction SilentlyContinue
@@ -71,18 +107,41 @@ native-windows:
     - mise run bootstrap
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
     - mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"
-  stage: verify
   tags:
-    - $AIGW_GITLAB_WINDOWS_RUNNER_TAG
+    - ci-windows-arm64-shell
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
+    - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true"
+    - when: never
+  stage: verify
   variables:
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab
+  artifacts:
+    when: always
+    paths:
+      - mise.lock
+      - .mise/locks
+native-windows-review:
+  after_script:
+    - Remove-Item -LiteralPath "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID" -Recurse -Force -ErrorAction SilentlyContinue
+  script:
+    - . ./tools/ci/bootstrap/mise-windows.ps1 -Version '2026.9.16' -Sha256 '8e021ea855f50880ee4c8515f483b2cd07b27edb6109a8b4364ff09af65136b5' -Directory "$env:CI_PROJECT_DIR/build/tmp/ci-mise-$env:CI_JOB_ID" -MirrorResource 'packages/generic/mise-github/v1/' -ReleaseMetadataPattern 'regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$' -ReleaseMetadataResource 'release-$1-$2-$3.json'
+    - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
+    - mise run bootstrap
+    - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
+    - mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"
+  tags:
+    - ci-windows-arm64-review
   rules:
-    - if: $CI_COMMIT_TAG
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
-    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
-    - if: ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")
+    - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false"
     - when: never
+  stage: verify
+  variables:
+    AIGW_VERIFY_SYSTEM_KEYRING: "1"
+    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab
   artifacts:
     when: always
     paths:
@@ -196,7 +255,7 @@ accepted-ref-parity:
     - if [ -n "${CI_BUILDS_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"; fi
   stage: verify
   tags:
-    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+    - ci-macos-arm64-shell
   variables:
     MISE_ENABLE_TOOLS: go
   rules:
@@ -254,7 +313,7 @@ release-version:
     - if [ -n "${CI_BUILDS_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"; fi
   stage: verify
   tags:
-    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+    - ci-macos-arm64-shell
   variables:
     MISE_ENABLE_TOOLS: go
   rules:
