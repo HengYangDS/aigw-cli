@@ -57,6 +57,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				result, err = runtime.Updater.Update(ctx.Context(), runtime.Version)
 			}
 			if err != nil {
+				if !rollback && errors.Is(err, upgrade.ErrProgramStartupVerification) {
+					return invocation.Problem(runtime,
+						"Candidate program failed startup verification",
+						"The candidate did not run its version check.",
+						"The installed program is unchanged.",
+						"Verify the candidate archive for this platform and retry only with a valid artifact.", err)
+				}
 				if errors.Is(err, upgrade.ErrRollbackConfiguration) {
 					return invocation.Problem(runtime,
 						"Program rollback is incompatible with the current configuration",

@@ -292,7 +292,7 @@ func (j *journeyFixture) requireInvalidSuccessorPreservesInstallation(currentVer
 		problem string
 	}{
 		{currentVersion, "different program bytes"},
-		{"999.0.0", "candidate program failed startup verification"},
+		{"999.0.0", "Candidate program failed startup verification"},
 	} {
 		archive, checksums := writeNativeArchive(j.testing, invalidProgram, test.version)
 		command := exec.CommandContext(j.testing.Context(), j.binary, "update", "--candidate", archive, "--checksums", checksums)

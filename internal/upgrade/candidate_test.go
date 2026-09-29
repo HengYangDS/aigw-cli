@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/process"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -247,6 +248,8 @@ func TestUpdateCandidateKeepsCurrentAndRollbackUntilProgramIsVerified(t *testing
 			}
 			if _, err := updater.UpdateCandidate(ctx, "1.2.0", CandidateArchive{ArchivePath: archivePath, ChecksumsPath: checksums}); err == nil {
 				t.Fatal("update accepted a candidate without verified startup and version")
+			} else if (test.name == "invalid executable" || test.name == "startup failure") && !errors.Is(err, ErrProgramStartupVerification) {
+				t.Fatalf("startup failure lost its typed cause: %v", err)
 			}
 			for path, expected := range map[string]string{executable: "current", previous: "retained"} {
 				got, err := os.ReadFile(path)

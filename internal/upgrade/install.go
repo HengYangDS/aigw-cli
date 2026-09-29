@@ -20,6 +20,9 @@ import (
 // ErrRollbackConfiguration means the retained program cannot read the current configuration.
 var ErrRollbackConfiguration = errors.New("retained program cannot read the current configuration")
 
+// ErrProgramStartupVerification means a staged program could not prove it can run.
+var ErrProgramStartupVerification = errors.New("staged program failed startup verification; active program is unchanged")
+
 // installPortableArchive verifies and extracts a portable archive, then
 // installs the contained binary using one cross-platform recoverable replacement
 // owner. Startup and version verification precede any installation mutation.
@@ -70,7 +73,7 @@ func (u Updater) verifyProgram(ctx context.Context, binary []byte, version strin
 	defer cancel()
 	output, err := u.captureReleaseCommand(verificationContext, plan)
 	if err != nil {
-		return fmt.Errorf("candidate program failed startup verification; installed program is unchanged: %w", err)
+		return fmt.Errorf("%w: %w", ErrProgramStartupVerification, err)
 	}
 	reported := strings.TrimSpace(string(output))
 	parsed, parseErr := parseVersion(strings.TrimPrefix(reported, "aigw version "))

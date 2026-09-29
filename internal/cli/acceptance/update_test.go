@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/cli"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -105,6 +106,21 @@ func TestUpdateRollbackReturnsLocalRollbackError(t *testing.T) {
 	}
 }
 
+func TestUpdateRollbackStartupFailureKeepsRollbackContext(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	privatePath := filepath.Join(t.TempDir(), "previous")
+	cause := &os.PathError{Op: "fork/exec", Path: privatePath, Err: os.ErrPermission}
+	app.Updater = &fakeUpdater{rollbackErr: fmt.Errorf("%w: %w", upgrade.ErrProgramStartupVerification, cause)}
+
+	err := cli.Execute(app, []string{"update", "--rollback"})
+	if !errors.Is(err, upgrade.ErrProgramStartupVerification) || !errors.Is(err, cause) {
+		t.Fatalf("rollback failure lost its typed cause: %v", err)
+	}
+	if !strings.Contains(out.String(), "Program rollback did not complete") || strings.Contains(out.String(), "Candidate program") || strings.Contains(out.String(), privatePath) {
+		t.Fatalf("rollback failure lost its safe operation context: %s", out.String())
+	}
+}
+
 func TestUpdateRollbackPreservesExactConfigurationOnIncompatibility(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	config := []byte("version = 3\n# Preserve exact user bytes.\n[recommended_routes]\nclaude = 'team'\n")
@@ -180,6 +196,26 @@ func TestUpdateCandidateUsesExplicitOfflineInputs(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "aigw sync") {
 		t.Fatalf("program update omitted client reconciliation: %s", out.String())
+	}
+}
+
+func TestUpdateCandidateStartupFailureKeepsSafeDiagnosis(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	privatePath := filepath.Join(t.TempDir(), "candidate")
+	cause := &os.PathError{Op: "fork/exec", Path: privatePath, Err: os.ErrPermission}
+	app.Updater = &fakeUpdater{candidateErr: fmt.Errorf("%w: %w", upgrade.ErrProgramStartupVerification, cause)}
+
+	err := cli.Execute(app, []string{"update", "--candidate", "candidate.tar.gz", "--checksums", "checksums.txt"})
+	if !errors.Is(err, upgrade.ErrProgramStartupVerification) || !errors.Is(err, cause) {
+		t.Fatalf("candidate failure lost its typed cause: %v", err)
+	}
+	for _, want := range []string{"Candidate program failed startup verification", "installed program is unchanged", "candidate archive"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("candidate diagnosis lacks %q: %s", want, out.String())
+		}
+	}
+	if strings.Contains(out.String(), privatePath) || strings.Contains(out.String(), "Local file access failed") {
+		t.Fatalf("candidate diagnosis exposed the path or obscured the failure: %s", out.String())
 	}
 }
 
