@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -14,6 +15,24 @@ import (
 )
 
 type rewrittenOutputError struct{ cause error }
+
+func TestRenderErrorDoesNotExposeLocalFilePath(t *testing.T) {
+	const privatePath = "/private/account-store/configuration.toml.bak"
+	for _, cause := range []error{
+		&os.PathError{Op: "read", Path: privatePath, Err: os.ErrPermission},
+		&os.LinkError{Op: "rename", Old: privatePath, New: privatePath + ".new", Err: os.ErrPermission},
+	} {
+		for _, jsonMode := range []bool{false, true} {
+			var out bytes.Buffer
+			renderer := New(&out, false)
+			RenderError(renderer, fmt.Errorf("capture current config: %w", cause), jsonMode)
+			if renderer.Err() != nil || strings.Contains(out.String(), privatePath) ||
+				!strings.Contains(out.String(), "Local file access failed") || !strings.Contains(out.String(), "aigw doctor") {
+				t.Fatalf("json=%t local file diagnostic = %q, render error = %v", jsonMode, out.String(), renderer.Err())
+			}
+		}
+	}
+}
 
 func TestCredentialErrorUsesOnlySafeProblems(t *testing.T) {
 	const canary = "private-backend-output"

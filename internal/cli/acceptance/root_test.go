@@ -247,3 +247,22 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 		})
 	}
 }
+
+func TestPublicMutationFailureDoesNotExposePrivatePath(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+	privatePath := app.Config.Path() + ".bak"
+	if err := os.Mkdir(privatePath, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"route", "add", "two", "--account", "one", "--model", "m2", "--protocol", "anthropic"}); err == nil {
+		t.Fatal("route add accepted an unreadable backup target")
+	}
+	if strings.Contains(out.String(), privatePath) || !strings.Contains(out.String(), "aigw doctor") {
+		t.Fatalf("public command exposed the private failure target: %s", out.String())
+	}
+	cfg, err := app.Config.Load()
+	if err != nil || len(cfg.Routes) != 1 {
+		t.Fatalf("mutation changed configuration after failed preflight: %+v, %v", cfg.Routes, err)
+	}
+}

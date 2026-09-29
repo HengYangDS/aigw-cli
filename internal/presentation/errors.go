@@ -3,6 +3,7 @@ package presentation
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	configuration "aigw-cli/internal/configuration"
@@ -105,6 +106,11 @@ func typedErrorMessage(err error) (string, bool) {
 	}
 	if _, ok := errors.AsType[*configuration.LoadError](err); ok {
 		return "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it", true
+	}
+	_, hasPathError := errors.AsType[*os.PathError](err)
+	_, hasLinkError := errors.AsType[*os.LinkError](err)
+	if hasPathError || hasLinkError {
+		return "Local file access failed; run `aigw doctor` to inspect current state", true
 	}
 	return "", false
 }
