@@ -205,21 +205,15 @@
 - [ ] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
       or GitHub must not turn the other selected peer or the local product into a
       hidden dependency, and parity claims remain peer-specific.
-      GitLab's Linux image now uses Mise's official Docker Hub publication at
-      the same OCI digest as GHCR. All 45 GitHub Release assets selected by
-      `mise.lock` now have SHA-256-verified copies in the existing private
-      GitLab package registry. The CUE graph uses GitLab-only Mise URL
-      replacement and job-local CI_JOB_TOKEN/netrc. A host Mise 2026.9.15
-      missing-mirror probe fails without GitHub fallback; a separate optional
-      versions-host lookup is now disabled by the locked repository setting.
-      MR !178 exposed missing OSV release metadata and SLSA provenance. Both
-      upstream-verified files are now in package 231 and byte-for-byte readable
-      at the effective GitLab URLs. Exact-SHA quality retry 45828 passed; native
-      Linux retry 45830 reached the coverage gate and failed at 13158/13851,
-      rather than at the mirror or Sigstore boundary. Complete macOS, Linux,
-      and Windows review jobs, cold-cache closure, and no GitHub credential
-      leakage remain unproved. Keep this task open until those jobs pass under
-      the accepted intranet HTTP policy; do not require GitLab HTTPS.
+      GitLab MR !178 pipeline 8808 at `49ba0c5e` passed quality #45881,
+      Linux Secret Service #45882, and native Linux #45879 on runner #86.
+      Its selected tools are mirrored at the GitLab peer; the Linux image uses
+      Mise's pinned Docker Hub publication. Native macOS #45878 and Windows
+      #45880 remain pending without eligible runners. Cold-cache peer transport,
+      absence of GitHub credential leakage, and offline-local acceptance remain
+      unproved. Transport follows the actual selected endpoint and identity;
+      neither HTTPS nor the currently configured HTTP endpoint is a substitute
+      for those checks.
 
 ## 8. Repository Topology, Documentation, and Deletion
 
