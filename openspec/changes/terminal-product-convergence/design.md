@@ -232,14 +232,35 @@ tool-distribution endpoints are unavailable. Warm caches are not evidence of
 that property. GitLab now consumes Mise's official Docker Hub image, whose
 2026.9.16-debian OCI digest equals the GHCR publication; the image no longer
 requires GitHub transport. Locked GitHub Release assets still need an
-integrity-preserving independent route. Compare neutral locked sources,
-peer-local immutable assets, and runner seeds before selecting that route.
+integrity-preserving independent route. Reuse the selected GitLab project's
+Generic Package registry as a lock-digest-addressed mirror. This is the
+smallest current route, not a claim that assets may use only HTTP: a separate
+HTTPS asset endpoint would improve transport confidentiality but has no
+verified deployment, while a public anonymous mirror avoids download secrets
+but adds a project, publishing authority and storage retention. Do not put
+the tool archives into permanent Git history.
+
 An isolated Mise 2026.9.15 install accepted a checksum-identical OSV Scanner
 2.6.0 asset from a loopback mirror without requesting its deliberately corrupted
 SLSA file, although both GitHub attestation settings were enabled. URL rewriting
 alone therefore does not prove consumer-side provenance verification; a mirror
 must retain an independently verified, signed upstream-to-mirror chain or prove
 an equivalent native check before it can satisfy the cold-cache requirement.
+
+The selected GitLab origin currently uses HTTP, and the owner accepts that
+intranet risk without excluding a future HTTPS asset endpoint. TLS is not a
+prerequisite for this deployment; a later HTTPS cutover should change only
+transport configuration and trust. [GitLab's package contract](https://docs.gitlab.com/user/packages/generic_packages/)
+supports a short-lived same-project CI Job Token for upload and download.
+Seed only accepted lock bytes: verify each SHA-256 and every declared upstream
+attestation or SLSA proof before upload; reject conflicting bytes at an
+existing mirror path. A consumer uses an anchored Mise URL replacement and
+job-private `0600` netrc, with no Token in URLs or logs, no cross-host
+redirect, and no inherited GitHub authorization. The accepted HTTP risk is
+limited to this ephemeral job credential, not a persistent PAT or runner key.
+Retire a mirrored lock version only after no active source ref or job consumes
+it. No mirror is currently populated or projected into CI; real Job Token,
+cold-cache, fault-injection and three-platform acceptance remain required.
 
 ### 6. Delete by consumer and authority
 

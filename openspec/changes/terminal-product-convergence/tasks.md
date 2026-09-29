@@ -185,7 +185,11 @@
       the same OCI digest as GHCR; the locked tool closure still includes
       GitHub-hosted assets. Cold-cache full CI during a GitHub platform outage
       is unproved. The `ci-diagnostics` delta removes the conflicting carve-out;
-      select and fault-test the smallest integrity-preserving asset route.
+      mirror verified upstream bytes in the existing private GitLab package
+      registry with a short-lived Job Token under the owner's accepted intranet
+      HTTP policy. Prove exact lock-digest identity, no leaked GitHub credential,
+      bounded job-secret cleanup and all three native cold-cache jobs before
+      admitting the route; do not require a GitLab HTTPS migration.
 
 ## 8. Repository Topology, Documentation, and Deletion
 
