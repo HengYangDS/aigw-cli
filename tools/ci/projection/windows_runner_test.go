@@ -62,8 +62,16 @@ func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T)
 	if hashReads != 3 {
 		t.Errorf("Windows preflight has %d hash reads, want three exact executable and copy checks", hashReads)
 	}
-	if !strings.Contains(gitlab.Windows.AfterScript[0], "Remove-Item -LiteralPath $jobDirectory -Recurse -Force -ErrorAction Stop") {
-		t.Fatal("Windows cleanup still suppresses the cause of retained job state")
+	for _, required := range []string{
+		"robocopy.exe $emptyDirectory $jobDirectory /MIR /R:1 /W:1",
+		"$mirrorExit -ge 8",
+		"[IO.Directory]::Delete($jobDirectory)",
+		"$cause.GetType().FullName",
+		"$cause.HResult",
+	} {
+		if !strings.Contains(gitlab.Windows.AfterScript[0], required) {
+			t.Errorf("Windows cleanup lacks exact owned-tree mirror or structured failure %q", required)
+		}
 	}
 }
 
@@ -94,6 +102,9 @@ func TestGitLabWindowsLockedToolsUseJobScopedMirror(t *testing.T) {
 	const jobDirectory = `Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"`
 	for name, job := range map[string]windowsJob{"protected": windows, "review": gitlab.NativeWindowsReview} {
 		requireWindowsMiseJobStorage(t, name, job.Script, job.AfterScript, jobDirectory)
+		if !strings.Contains(job.Script[0], `= "${mirrorBase}" + 'release-$1-$2-$3.json'`) {
+			t.Errorf("%s Windows job expands Mise regex captures before Mise receives them", name)
+		}
 	}
 	if len(gitlab.NativeWindowsReview.Script) == 0 || windows.Script[0] != gitlab.NativeWindowsReview.Script[0] ||
 		!reflect.DeepEqual(windows.AfterScript, gitlab.NativeWindowsReview.AfterScript) {

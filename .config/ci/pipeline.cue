@@ -578,7 +578,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 			if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise mirror credential ACL.' }
 			$mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/\#(miseMirror.resource)"
 			$replacements = [ordered]@{}
-			$replacements['\#(miseMirror.metadataPattern)'] = "${mirrorBase}\#(miseMirror.metadataResource)"
+			$replacements['\#(miseMirror.metadataPattern)'] = "${mirrorBase}" + '\#(miseMirror.metadataResource)'
 			$replacements['https://github.com/'] = $mirrorBase
 			$replacements['https://api.github.com/'] = $mirrorBase
 			$env:MISE_NETRC_FILE = $netrc
@@ -590,16 +590,25 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		_native:       "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
 		after_script: [#"""
 			$jobDirectory = \#(windowsMiseJobDirectory)
-			$cleanupError = $null
-			for ($attempt = 0; $attempt -lt 3 -and (Test-Path -LiteralPath $jobDirectory); $attempt++) {
-			  $cleanupError = $null
-			  try { Remove-Item -LiteralPath $jobDirectory -Recurse -Force -ErrorAction Stop }
-			  catch { $cleanupError = $_ }
-			  if (Test-Path -LiteralPath $jobDirectory) { Start-Sleep -Milliseconds 500 }
+			if (Test-Path -LiteralPath $jobDirectory) {
+			  $emptyDirectory = Join-Path (Split-Path -Parent $jobDirectory) "aigw-ci-mise-empty-$env:CI_JOB_ID"
+			  if (Test-Path -LiteralPath $emptyDirectory) { throw 'Mise cleanup mirror source already exists.' }
+			  [IO.Directory]::CreateDirectory($emptyDirectory) | Out-Null
+			  try {
+			    & robocopy.exe $emptyDirectory $jobDirectory /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+			    $mirrorExit = $LASTEXITCODE
+			    if ($mirrorExit -ge 8) { throw "Mise cleanup mirror failed (robocopy exit $mirrorExit)." }
+			    [IO.Directory]::Delete($jobDirectory)
+			  } catch {
+			    $cause = $_.Exception
+			    Write-Host "Mise cleanup failure type=$($cause.GetType().FullName) HRESULT=0x$($cause.HResult.ToString('X8'))"
+			    throw
+			  } finally {
+			    if (Test-Path -LiteralPath $emptyDirectory) { [IO.Directory]::Delete($emptyDirectory) }
+			  }
 			}
 			if (Test-Path -LiteralPath $jobDirectory) {
-			  if ($cleanupError) { throw "Mise job directory remains after cleanup: $($cleanupError.Exception.Message)" }
-			  throw 'Mise job directory remains after cleanup without a removal error.'
+			  throw 'Mise job directory remains after cleanup.'
 			}
 			"""#]
 	}
