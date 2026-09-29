@@ -425,7 +425,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 				    $clients = Join-Path $scope 'clients'
 				    New-Item -ItemType Directory -Path $clients | Out-Null
 				    Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-				    mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.154.0' '@anthropic-ai/claude-code-win32-x64@2.1.269'
+				    mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.157.1' '@anthropic-ai/claude-code-win32-x64@2.1.283'
 				    mise exec --locked -- npm audit signatures --prefix $clients
 				    $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
 				    $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
