@@ -19,21 +19,14 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	}
 
 	var gitlab struct {
-		Quality            gitLabJob  `yaml:"quality"`
-		Darwin             gitLabJob  `yaml:"native-darwin"`
-		Linux              *gitLabJob `yaml:"native-linux"`
-		Windows            *gitLabJob `yaml:"native-windows"`
-		LinuxSecretService gitLabJob  `yaml:"linux-secret-service"`
-		Workflow           struct {
-			AutoCancel struct {
-				OnNewCommit string `yaml:"on_new_commit"`
-			} `yaml:"auto_cancel"`
+		Quality  gitLabJob  `yaml:"quality"`
+		Darwin   gitLabJob  `yaml:"native-darwin"`
+		Linux    *gitLabJob `yaml:"native-linux"`
+		Windows  *gitLabJob `yaml:"native-windows"`
+		Workflow struct {
 			Rules []struct {
-				If         string `yaml:"if"`
-				When       string `yaml:"when"`
-				AutoCancel struct {
-					OnNewCommit string `yaml:"on_new_commit"`
-				} `yaml:"auto_cancel"`
+				If   string `yaml:"if"`
+				When string `yaml:"when"`
 			} `yaml:"rules"`
 		} `yaml:"workflow"`
 	}
@@ -42,9 +35,6 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	}
 	if gitlab.Linux == nil || gitlab.Windows == nil {
 		t.Fatal("GitLab must project the complete product-native matrix")
-	}
-	if gitlab.Workflow.AutoCancel.OnNewCommit != "conservative" {
-		t.Fatal("superseded GitLab review pipelines must cancel only before a noninterruptible job starts")
 	}
 	wantGitLabWorkflow := []struct {
 		If   string
@@ -63,29 +53,6 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		got := gitlab.Workflow.Rules[index]
 		if got.If != want.If || got.When != want.When {
 			t.Errorf("GitLab verification route %d = %#v, want %#v", index, got, want)
-		}
-		if index < 4 {
-			wantCancellation := "none"
-			if index == 1 {
-				wantCancellation = ""
-			}
-			if got.AutoCancel.OnNewCommit != wantCancellation {
-				t.Errorf("GitLab route %d auto-cancel = %q, want %q", index, got.AutoCancel.OnNewCommit, wantCancellation)
-			}
-		}
-	}
-	for name, job := range map[string]gitLabJob{
-		"quality":              gitlab.Quality,
-		"native-linux":         *gitlab.Linux,
-		"linux-secret-service": gitlab.LinuxSecretService,
-	} {
-		if job.Interruptible == nil || !*job.Interruptible {
-			t.Errorf("superseded review job %s cannot be canceled safely before shell-native execution", name)
-		}
-	}
-	for name, job := range map[string]gitLabJob{"native-darwin": gitlab.Darwin, "native-windows": *gitlab.Windows} {
-		if job.Interruptible != nil && *job.Interruptible {
-			t.Errorf("persistent shell-native job %s must not be interrupted", name)
 		}
 	}
 	for name, job := range map[string]gitLabJob{
@@ -125,6 +92,54 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	}
 	if github.On.WorkflowDispatch == nil {
 		t.Fatal("GitHub verification lacks the explicit maintainer dispatch route")
+	}
+}
+
+func TestGitLabSupersededReviewCancellationPreservesNativeShellJobs(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gitlab struct {
+		Quality            gitLabJob `yaml:"quality"`
+		Darwin             gitLabJob `yaml:"native-darwin"`
+		Linux              gitLabJob `yaml:"native-linux"`
+		Windows            gitLabJob `yaml:"native-windows"`
+		LinuxSecretService gitLabJob `yaml:"linux-secret-service"`
+		Workflow           struct {
+			AutoCancel struct {
+				OnNewCommit string `yaml:"on_new_commit"`
+			} `yaml:"auto_cancel"`
+			Rules []struct {
+				AutoCancel struct {
+					OnNewCommit string `yaml:"on_new_commit"`
+				} `yaml:"auto_cancel"`
+			} `yaml:"rules"`
+		} `yaml:"workflow"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	if gitlab.Workflow.AutoCancel.OnNewCommit != "conservative" {
+		t.Fatal("superseded review pipelines must cancel only before a noninterruptible job starts")
+	}
+	for index, want := range []string{"none", "", "none", "none"} {
+		if got := gitlab.Workflow.Rules[index].AutoCancel.OnNewCommit; got != want {
+			t.Errorf("GitLab route %d auto-cancel = %q, want %q", index, got, want)
+		}
+	}
+	for name, job := range map[string]gitLabJob{
+		"quality": gitlab.Quality, "native-linux": gitlab.Linux,
+		"linux-secret-service": gitlab.LinuxSecretService,
+	} {
+		if job.Interruptible == nil || !*job.Interruptible {
+			t.Errorf("review job %s must be interruptible", name)
+		}
+	}
+	for name, job := range map[string]gitLabJob{"native-darwin": gitlab.Darwin, "native-windows": gitlab.Windows} {
+		if job.Interruptible != nil && *job.Interruptible {
+			t.Errorf("persistent shell-native job %s must not be interrupted", name)
+		}
 	}
 }
 

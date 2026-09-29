@@ -69,8 +69,12 @@
       rollback and re-upgrade. Preprojection protects new readers in
       a simulated link gap; cached 0.3.1 callers retain the disclosed gap risk.
       The signed published 0.3.1 Linux ARM64 archive passes the corresponding
-      environment-backend journey in an isolated container. Native Keychain,
-      Linux host credential service and Windows predecessor proof remain open.
+      environment-backend journey in an isolated container. GitHub run
+      36563790078 at `49ba0c5ec5503b4365ff1f0c01555c05c97ca03e` passed
+      the published `v0.3.1` predecessor Keychain journey on a disposable macOS
+      runner, including rollback rotation and explicit restaging. Operator-item
+      authorization, Linux host credential service, and Windows predecessor
+      proof remain open.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
@@ -131,7 +135,8 @@
       restart, or hidden native-store policy change is permitted.
 - [x] 5.5 Verify missing Codex/Claude at setup and later installation on each
       platform; deferred sync must touch only installed admitted clients and
-      preserve user-owned files. GitHub run 36560334613 at `49ba0c5e` passed
+      preserve user-owned files. GitHub run 36560334613 at
+      `49ba0c5ec5503b4365ff1f0c01555c05c97ca03e` passed
       the deferred-installation subtests without skips for Claude, Codex and
       Hermes on macOS/Linux/Windows and Claude Desktop on macOS/Windows. Each
       journey installs its isolated client after setup, preserves other Client
@@ -205,7 +210,8 @@
 - [ ] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
       or GitHub must not turn the other selected peer or the local product into a
       hidden dependency, and parity claims remain peer-specific.
-      GitLab MR !178 pipeline 8808 at `49ba0c5e` passed quality #45881,
+      GitLab MR !178 pipeline 8808 at
+      `49ba0c5ec5503b4365ff1f0c01555c05c97ca03e` passed quality #45881,
       Linux Secret Service #45882, and native Linux #45879 on runner #86.
       Its selected tools are mirrored at the GitLab peer; the Linux image uses
       Mise's pinned Docker Hub publication. Native macOS #45878 and Windows
