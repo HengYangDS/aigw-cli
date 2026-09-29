@@ -187,6 +187,12 @@
       selected peer without interactive authentication or divergent commit
       identities. Prove untrusted review code cannot observe persistent Shell
       runner credentials or protected-job state; retain required native evidence.
+      The 2026-09-29 GitLab API reports protected macOS/Windows runners #98/#91,
+      an unprotected Linux runner #86, and an unprotected source branch for MR
+      !178. Its earlier green pipeline 8629 does not prove a new MR can run on
+      the current runner configuration. Keep proposals unprotected; qualify
+      separate disposable macOS/Windows MR executors and rerun the exact review
+      SHA before claiming peer-local native review admission.
 - [ ] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
       or GitHub must not turn the other selected peer or the local product into a
       hidden dependency, and parity claims remain peer-specific.
@@ -218,6 +224,11 @@
 - [ ] 8.5 Inventory obsolete branches, generated outputs, records, stale tags,
       caches and worktrees by exact owner and consumer; retire only proved
       disposable items while retaining immutable evidence and running clients.
+      This lane's 2026-09-29 sweep removed obsolete ignored tmp, coverage and
+      dist outputs, one superseded 0.3.3 test candidate, and four older 0.3.0
+      test bundles. The current 0.3.3 candidate, raw verification/notarization
+      evidence, active development dependencies and foreign lanes remain;
+      branch, tag, remote and cross-worktree cleanup remains open.
 
 ## 9. Frozen Source and Pre-Archive Acceptance
 
