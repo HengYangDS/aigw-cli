@@ -144,8 +144,12 @@ digest and version under each job identity before using it; the Runner owner
 updates that executable in a zero-job window. The job confines Mise
 configuration, cache, state, and installs to a private directory outside the
 checkout, marks only that checkout trusted, and removes its exact job-owned
-files afterward. CI admission requires the official release bytes to run under
-both protected and review Runner identities. GitLab also keeps verified copies
+files afterward. Mise rebuilds Windows shims during installation, so the same
+preflight also verifies the release's shim executable and probes its read, copy,
+and removal under the job identity before installing tools. Cleanup reports
+the underlying removal error rather than hiding it. CI admission requires the
+official release bytes to run under both protected and review Runner identities.
+GitLab also keeps verified copies
 of the GitHub Release assets selected by [mise.lock](../../mise.lock)
 in that registry. OSV Scanner's SLSA verification also needs its release
 metadata; the same package holds a read-back-verified snapshot of the selected

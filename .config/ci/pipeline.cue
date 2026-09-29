@@ -237,6 +237,7 @@ _graphOrder: {
 miseImage:                        "docker.io/jdxcode/mise:2026.9.16-debian@sha256:686fe914b791c761637be4a13494d45d2b92b3c3979e46ea61b1ca51df472de6"
 miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
 miseWindowsArm64ExecutableSHA256: "a3e8a5e9850cb48dc0ec493820bcd6ab38ad5d431a304ee10b9e9c998977bcd8"
+miseWindowsArm64ShimSHA256:       "ab81436773ad4c377c62a026b5869e9838bc85b1c3eea46725ba5440aec637ad"
 windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
 
 actions: {
@@ -539,6 +540,37 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 			$reported = & $mise --version
 			if ($LASTEXITCODE -ne 0) { throw 'Runner-owned Mise failed to start under the job identity.' }
 			if ($reported -notmatch ('^' + [regex]::Escape('\#(miseVersion)') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
+			& whoami.exe /user
+			if ($LASTEXITCODE -ne 0) { throw 'Runner identity could not be observed.' }
+			$shim = Join-Path (Split-Path -Parent $mise) 'mise-shim.exe'
+			if (-not (Test-Path -LiteralPath $shim -PathType Leaf)) { throw 'Runner-owned Mise shim is missing.' }
+			try { $shimHash = (Get-FileHash -LiteralPath $shim -Algorithm SHA256).Hash }
+			catch { & icacls.exe $shim; throw "Runner-owned Mise shim cannot be read: $($_.Exception.Message)" }
+			if ($shimHash -ne '\#(miseWindowsArm64ShimSHA256)') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
+			$shimsDirectory = Join-Path $env:MISE_DATA_DIR 'shims'
+			$probeDirectory = Join-Path $shimsDirectory '.mise-shims-stage-probe'
+			$probeTarget = Join-Path $probeDirectory 'actionlint.exe'
+			$probeError = $null
+			try {
+			  [void](New-Item -ItemType Directory -Path $shimsDirectory -ErrorAction Stop)
+			  [void](New-Item -ItemType Directory -Path $probeDirectory -ErrorAction Stop)
+			  Copy-Item -LiteralPath $shim -Destination $probeTarget -ErrorAction Stop
+			  $copiedHash = (Get-FileHash -LiteralPath $probeTarget -Algorithm SHA256).Hash
+			  if ($copiedHash -ne $shimHash) { throw 'Mise shim copy differs from its source.' }
+			} catch { $probeError = $_ }
+			$cleanupError = $null
+			if (Test-Path -LiteralPath $probeDirectory) {
+			  try { Remove-Item -LiteralPath $probeDirectory -Recurse -Force -ErrorAction Stop }
+			  catch { $cleanupError = $_ }
+			}
+			if ($probeError -or $cleanupError -or (Test-Path -LiteralPath $probeDirectory)) {
+			  & icacls.exe $shim
+			  if (Test-Path -LiteralPath $shimsDirectory) { & icacls.exe $shimsDirectory }
+			  if (Test-Path -LiteralPath $probeDirectory) { & icacls.exe $probeDirectory }
+			  if ($probeError) { throw "Mise shim stage probe failed: $($probeError.Exception.Message)" }
+			  if ($cleanupError) { throw "Mise shim stage cleanup failed: $($cleanupError.Exception.Message)" }
+			  throw 'Mise shim stage probe remains after cleanup.'
+			}
 			$env:PATH = (Split-Path -Parent $mise) + [IO.Path]::PathSeparator + $env:PATH
 			$netrc = Join-Path $jobDirectory '_netrc'
 			[IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
@@ -558,11 +590,17 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		_native:       "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
 		after_script: [#"""
 			$jobDirectory = \#(windowsMiseJobDirectory)
+			$cleanupError = $null
 			for ($attempt = 0; $attempt -lt 3 -and (Test-Path -LiteralPath $jobDirectory); $attempt++) {
-			  Remove-Item -LiteralPath $jobDirectory -Recurse -Force -ErrorAction SilentlyContinue
+			  $cleanupError = $null
+			  try { Remove-Item -LiteralPath $jobDirectory -Recurse -Force -ErrorAction Stop }
+			  catch { $cleanupError = $_ }
 			  if (Test-Path -LiteralPath $jobDirectory) { Start-Sleep -Milliseconds 500 }
 			}
-			if (Test-Path -LiteralPath $jobDirectory) { throw 'Mise job directory remains after cleanup.' }
+			if (Test-Path -LiteralPath $jobDirectory) {
+			  if ($cleanupError) { throw "Mise job directory remains after cleanup: $($cleanupError.Exception.Message)" }
+			  throw 'Mise job directory remains after cleanup without a removal error.'
+			}
 			"""#]
 	}
 	if _platform != "windows" {
