@@ -94,7 +94,7 @@
         "/^mise\\.toml$/",
       ],
       matchStrings: [
-        '"(?<depName>ghcr\\.io/[\\w./-]+)(?::(?<currentValue>[\\w.-]+))?@(?<currentDigest>sha256:[a-f0-9]{64})"',
+        '"(?<depName>(?:ghcr|docker)\\.io/[\\w./-]+)(?::(?<currentValue>[\\w.-]+))?@(?<currentDigest>sha256:[a-f0-9]{64})"',
       ],
       datasourceTemplate: "docker",
       versioningTemplate: "docker",
