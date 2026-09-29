@@ -1,13 +1,15 @@
 param(
     [Parameter(Mandatory = $true)][string]$Version,
     [Parameter(Mandatory = $true)][string]$Sha256,
-    [Parameter(Mandatory = $true)][string]$Directory
+    [Parameter(Mandatory = $true)][string]$Directory,
+    [Parameter(Mandatory = $true)][string]$MirrorResource
 )
 
-if ($Version -notmatch '^\d{4}\.\d+\.\d+$' -or $Sha256 -notmatch '^[0-9a-fA-F]{64}$') {
-    throw 'Invalid pinned Mise version or SHA-256.'
+if ($Version -notmatch '^\d{4}\.\d+\.\d+$' -or $Sha256 -notmatch '^[0-9a-fA-F]{64}$' -or
+    $MirrorResource -notmatch '^packages/generic/[a-z0-9-]+/v[1-9][0-9]*/$') {
+    throw 'Invalid pinned Mise version, SHA-256, or mirror resource.'
 }
-foreach ($name in @('CI_API_V4_URL', 'CI_PROJECT_ID', 'CI_PROJECT_DIR', 'CI_JOB_ID', 'CI_JOB_TOKEN')) {
+foreach ($name in @('CI_API_V4_URL', 'CI_PROJECT_ID', 'CI_PROJECT_DIR', 'CI_JOB_ID', 'CI_JOB_TOKEN', 'CI_SERVER_HOST')) {
     if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
         throw "Missing GitLab job input: $name"
     }
@@ -43,6 +45,20 @@ try {
         throw 'Mirrored Mise executable reports an unexpected version.'
     }
     $env:PATH = (Split-Path -Parent $executable) + [IO.Path]::PathSeparator + $env:PATH
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    & icacls.exe $Directory /inheritance:r /grant:r "${identity}:(OI)(CI)F" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise job directory ACL.' }
+    $netrc = Join-Path $Directory '_netrc'
+    [IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
+    & icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise mirror credential ACL.' }
+    $mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/$MirrorResource"
+    $env:MISE_NETRC_FILE = $netrc
+    $env:MISE_NETRC = 'true'
+    $env:MISE_URL_REPLACEMENTS = [ordered]@{
+        'https://github.com/' = $mirrorBase
+        'https://api.github.com/' = $mirrorBase
+    } | ConvertTo-Json -Compress
 } catch {
     if ($created) {
         Remove-Item -LiteralPath $Directory -Recurse -Force -ErrorAction SilentlyContinue

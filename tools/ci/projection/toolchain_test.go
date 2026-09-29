@@ -179,7 +179,7 @@ func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
 		t.Fatal(err)
 	}
 	bootstrap := pipeline.LinuxToolchain.BeforeScript
-	if len(bootstrap) != 2 || bootstrap[1] != "env GODEBUG=http2client=0 mise install --locked" {
+	if len(bootstrap) != 3 || bootstrap[2] != "env GODEBUG=http2client=0 mise install --locked" {
 		t.Fatalf("Linux bootstrap does not install locked tools after native preparation: %q", bootstrap)
 	}
 	for _, required := range []string{

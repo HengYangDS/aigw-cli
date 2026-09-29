@@ -145,7 +145,9 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(pipeline.Version.Script, []string{"env GODEBUG=http2client=0 mise install --locked", "mise exec --locked -- go run ./tools/release validate-version-tag"}) {
+	if len(pipeline.Version.Script) != 3 ||
+		!strings.Contains(pipeline.Version.Script[0], "MISE_NETRC_FILE") ||
+		!slices.Equal(pipeline.Version.Script[1:], []string{"env GODEBUG=http2client=0 mise install --locked", "mise exec --locked -- go run ./tools/release validate-version-tag"}) {
 		t.Fatal("tag admission is missing")
 	}
 	want := []string{"mkdir dist", `mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist`, "mise exec --locked -- go run ./tools/release verify-artifacts dist"}

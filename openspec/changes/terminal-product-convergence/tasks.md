@@ -200,14 +200,14 @@
       or GitHub must not turn the other selected peer or the local product into a
       hidden dependency, and parity claims remain peer-specific.
       GitLab's Linux image now uses Mise's official Docker Hub publication at
-      the same OCI digest as GHCR; the locked tool closure still includes
-      GitHub-hosted assets. Cold-cache full CI during a GitHub platform outage
-      is unproved. The `ci-diagnostics` delta removes the conflicting carve-out;
-      mirror verified upstream bytes in the existing private GitLab package
-      registry with a short-lived Job Token under the owner's accepted intranet
-      HTTP policy. Prove exact lock-digest identity, no leaked GitHub credential,
-      bounded job-secret cleanup and all three native cold-cache jobs before
-      admitting the route; do not require a GitLab HTTPS migration.
+      the same OCI digest as GHCR. All 45 GitHub Release assets selected by
+      `mise.lock` now have SHA-256-verified copies in the existing private
+      GitLab package registry. The CUE graph uses GitLab-only Mise URL
+      replacement and job-local CI_JOB_TOKEN/netrc; one host cold install and
+      synthetic Unix credential cleanup pass. CI_JOB_TOKEN access, no GitHub
+      credential leakage, and complete macOS, Linux, and Windows cold-cache
+      jobs remain unproved. Keep this task open until those exact jobs pass
+      under the accepted intranet HTTP policy; do not require GitLab HTTPS.
 
 ## 8. Repository Topology, Documentation, and Deletion
 

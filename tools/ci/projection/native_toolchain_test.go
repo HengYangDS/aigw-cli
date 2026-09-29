@@ -1,6 +1,7 @@
 package projection
 
 import (
+	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -33,6 +34,88 @@ func TestGitLabWindowsBootstrapsPinnedMiseBeforeRepositoryTools(t *testing.T) {
 	}
 	if len(gitlab.Windows.AfterScript) != 1 || !strings.Contains(gitlab.Windows.AfterScript[0], "ci-mise-$env:CI_JOB_ID") {
 		t.Fatalf("Windows Mise bootstrap has no exact job-owned cleanup: %v", gitlab.Windows.AfterScript)
+	}
+}
+
+func TestGitLabLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gitlab struct {
+		LinuxToolchain struct {
+			BeforeScript []string `yaml:"before_script"`
+			AfterScript  []string `yaml:"after_script"`
+		} `yaml:".linux-toolchain"`
+		NativeDarwin struct {
+			Script      []string `yaml:"script"`
+			AfterScript []string `yaml:"after_script"`
+		} `yaml:"native-darwin"`
+		NativeWindows struct {
+			Script      []string `yaml:"script"`
+			AfterScript []string `yaml:"after_script"`
+		} `yaml:"native-windows"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	for name, commands := range map[string][]string{
+		"Linux": gitlab.LinuxToolchain.BeforeScript,
+		"macOS": gitlab.NativeDarwin.Script,
+	} {
+		mirror := slices.IndexFunc(commands, func(command string) bool {
+			return strings.Contains(command, "MISE_URL_REPLACEMENTS")
+		})
+		install := slices.IndexFunc(commands, func(command string) bool {
+			return strings.Contains(command, "mise install --locked")
+		})
+		if mirror < 0 || install <= mirror {
+			t.Errorf("GitLab %s must configure the mirror before locked installation: %v", name, commands)
+			continue
+		}
+		prelude := commands[mirror]
+		for _, required := range []string{"CI_API_V4_URL", "CI_PROJECT_ID", "CI_SERVER_HOST", "CI_JOB_TOKEN", "MISE_NETRC_FILE", "github.com/", "api.github.com/", "mise-github/v1/", "CI_JOB_ID"} {
+			if !strings.Contains(prelude, required) {
+				t.Errorf("GitLab %s mirror prelude omits %q", name, required)
+			}
+		}
+		for _, forbidden := range []string{"192.168.64.101", "projects/456", "$HOME/.netrc"} {
+			if strings.Contains(prelude, forbidden) {
+				t.Errorf("GitLab %s mirror prelude hard-codes %q", name, forbidden)
+			}
+		}
+	}
+	for name, commands := range map[string][]string{
+		"Linux": gitlab.LinuxToolchain.AfterScript,
+		"macOS": gitlab.NativeDarwin.AfterScript,
+	} {
+		if !slices.ContainsFunc(commands, func(command string) bool {
+			return strings.Contains(command, "CI_JOB_ID") && strings.Contains(command, "mise-mirror")
+		}) {
+			t.Errorf("GitLab %s has no exact job-owned mirror credential cleanup: %v", name, commands)
+		}
+	}
+	if len(gitlab.NativeWindows.Script) < 2 ||
+		!strings.Contains(gitlab.NativeWindows.Script[0], "mise-windows.ps1") ||
+		!strings.Contains(gitlab.NativeWindows.Script[0], "-MirrorResource 'packages/generic/mise-github/v1/'") ||
+		!strings.Contains(gitlab.NativeWindows.Script[1], "mise install --locked") ||
+		!slices.ContainsFunc(gitlab.NativeWindows.AfterScript, func(command string) bool {
+			return strings.Contains(command, "ci-mise-$env:CI_JOB_ID")
+		}) {
+		t.Fatalf("Windows must bootstrap the mirror and clean its exact job directory: %+v", gitlab.NativeWindows)
+	}
+	windowsBootstrap, err := os.ReadFile(filepath.Join(root, "tools", "ci", "bootstrap", "mise-windows.ps1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"MISE_URL_REPLACEMENTS", "MISE_NETRC_FILE", "CI_SERVER_HOST", "CI_JOB_TOKEN", "$MirrorResource", "https://github.com/", "https://api.github.com/", "icacls"} {
+		if !strings.Contains(string(windowsBootstrap), required) {
+			t.Errorf("Windows bootstrap omits job-scoped mirror control %q", required)
+		}
+	}
+	if strings.Contains(projections[1].Content, "mise-github/v1/") {
+		t.Fatal("GitHub projection unexpectedly depends on the GitLab tool mirror")
 	}
 }
 

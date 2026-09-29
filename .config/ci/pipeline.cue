@@ -22,6 +22,33 @@ import (
 // Keep this transport choice in the installer process, not product execution.
 installationEnvironment: GODEBUG: "http2client=0"
 
+// The GitLab package registry holds verified copies of the GitHub Release
+// assets selected by mise.lock. This is a job-scoped transport, not another
+// dependency or checksum authority; missing copies fail inside GitLab.
+miseMirror: {
+	package:       "mise-github"
+	version:       "v1"
+	resource:      "packages/generic/\(package)/\(version)/"
+	unixDirectory: "$CI_BUILDS_DIR/aigw-mise-mirror-$CI_JOB_ID"
+	unixPrepare:   #"""
+		set -eu
+		: "${CI_API_V4_URL:?}"
+		: "${CI_PROJECT_ID:?}"
+		: "${CI_SERVER_HOST:?}"
+		: "${CI_JOB_ID:?}"
+		: "${CI_JOB_TOKEN:?}"
+		: "${CI_BUILDS_DIR:?}"
+		mirror_dir="\#(unixDirectory)"
+		mkdir -m 700 "$mirror_dir"
+		(umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
+		export MISE_NETRC_FILE="$mirror_dir/netrc"
+		export MISE_NETRC=1
+		mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/\#(resource)"
+		export MISE_URL_REPLACEMENTS="$(printf '{"https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base")"
+		"""#
+	unixCleanup:   "if [ -n \"${CI_BUILDS_DIR:-}\" ] && [ -n \"${CI_JOB_ID:-}\" ]; then rm -rf -- \"\(unixDirectory)\"; fi"
+}
+
 linuxApt: {
 	deadline: "timeout --verbose --kill-after=5s 240s"
 	options:  "-o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
@@ -485,7 +512,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	_refreshLocks:  string
 	_native:        string
 	if _platform == "windows" {
-		_bootstrapMise: ". ./tools/ci/bootstrap/mise-windows.ps1 -Version '\(miseVersion)' -Sha256 '\(miseWindowsArm64SHA256)' -Directory \"\(windowsMiseJobDirectory)\""
+		_bootstrapMise: ". ./tools/ci/bootstrap/mise-windows.ps1 -Version '\(miseVersion)' -Sha256 '\(miseWindowsArm64SHA256)' -Directory \"\(windowsMiseJobDirectory)\" -MirrorResource '\(miseMirror.resource)'"
 		_install:       "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
 		_refreshLocks:  "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
 		_native:        "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
@@ -495,6 +522,9 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		_install:      commands.install
 		_refreshLocks: "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
 		_native:       "\(commands.native[_platform]) --full-quality=\"${AIGW_FULL_NATIVE_QUALITY:-false}\""
+	}
+	if _platform == "darwin" {
+		"after_script": [miseMirror.unixCleanup]
 	}
 	stage: graph["native-\(_platform)"].stage
 	tags:  nativeEvidence[_platform].gitlab.tags
@@ -526,7 +556,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 			script: [_bootstrapMise, _install, commands.bootstrap, _refreshLocks, _native]
 		}
 		if _platform != "windows" {
-			script: [_install, commands.bootstrap, _refreshLocks, _native]
+			script: [miseMirror.unixPrepare, _install, commands.bootstrap, _refreshLocks, _native]
 		}
 	}
 }
@@ -539,7 +569,8 @@ _gitlabControlJob: {
 		script: _commands
 	}
 	if gitlabControlPlatform != "linux" {
-		script: list.Concat([[commands.install], _commands])
+		script: list.Concat([[miseMirror.unixPrepare, commands.install], _commands])
+		"after_script": [miseMirror.unixCleanup]
 	}
 }
 
@@ -567,7 +598,8 @@ gitlab: {
 			policy: "pull-push"
 			when:   "always"
 		}
-		"before_script": [linuxToolchain.prepare, commands.install]
+		"before_script": [linuxToolchain.prepare, miseMirror.unixPrepare, commands.install]
+		"after_script": [miseMirror.unixCleanup]
 	}
 	quality: {
 		extends: [".linux-toolchain"]
