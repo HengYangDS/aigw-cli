@@ -29,6 +29,12 @@ calls it a preview, so it is not admitted. `intern-s2-free` also returned Chat
 text, but that aggregator alias does not identify a specific release in
 [InternLM's Intern-S2 model collection](https://huggingface.co/collections/internlm/intern-s2).
 
+On September 29, 2026, the public AIHubMix catalogue also listed
+`claude-sonnet-5-5`, while [Anthropic's model overview](https://docs.anthropic.com/en/docs/about-claude/models/overview)
+named `claude-sonnet-5` as its current Sonnet API ID. The aggregator listing is
+discovery evidence, not grounds to replace the admitted Sonnet 5 Route without
+authenticated inference and native-client qualification.
+
 Specialized, small, preview, or unidentified public catalogue entries from
 Jina AI, Liquid, Dots Studio, Sao10k, and Stealth are not general-model Routes.
 
