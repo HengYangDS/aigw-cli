@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -16,12 +17,16 @@ import (
 
 func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 	root := t.TempDir()
-	oldSource := filepath.Join(root, "old-aigw")
+	installName := "aigw"
+	if runtime.GOOS == "windows" {
+		installName += ".exe"
+	}
+	oldSource := filepath.Join(root, "old-"+installName)
 	if err := os.WriteFile(oldSource, []byte("intact predecessor reader"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	dataDir := filepath.Join(root, "data")
-	retained, err := credential.VersionedEntrypointPath(dataDir, oldSource, "aigw")
+	retained, err := credential.VersionedEntrypointPath(dataDir, oldSource, installName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +62,7 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 	afterConfig.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 
 	workerSource := filepath.Join(root, "candidate.go")
-	worker := `package main
+	if err := os.WriteFile(workerSource, []byte(`package main
 import "os"
 func main() {
     if len(os.Args) != 4 { os.Exit(3) }
@@ -67,17 +72,16 @@ func main() {
     }
     if os.Args[1] == "__aigw-native-credential-exists" { _, _ = os.Stdout.WriteString("0"); return }
     os.Exit(3)
-}`
-	if err := os.WriteFile(workerSource, []byte(worker), 0o600); err != nil {
+}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	candidate := filepath.Join(root, "candidate-aigw")
+	candidate := filepath.Join(root, "candidate-"+installName)
 	build := exec.Command("go", "build", "-o", candidate, workerSource)
 	build.Env = append(os.Environ(), "GOTOOLCHAIN=local", "GOPROXY=off", "GOWORK=off")
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build candidate reader: %v: %s", err, output)
 	}
-	current, err := credential.VersionedEntrypointPath(dataDir, candidate, "aigw")
+	current, err := credential.VersionedEntrypointPath(dataDir, candidate, installName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +91,9 @@ func main() {
 	}
 	configurationStore := &configStoreStub{}
 	syncer := Synchronizer{Config: configurationStore, Secrets: store, Discovery: targetDiscovery(target), ClaudeSettingsPath: claudeSettings, AIGWExecutable: candidate, CredentialPath: current}
-	_ = syncer.CommitProjection(t.Context(), cfg, afterConfig, "sync")
+	if err := syncer.CommitProjection(t.Context(), cfg, afterConfig, "sync"); err != nil {
+		t.Fatalf("independent Claude projection failed: %v", err)
+	}
 	after, readErr := os.ReadFile(target)
 	if readErr != nil {
 		t.Fatal(readErr)

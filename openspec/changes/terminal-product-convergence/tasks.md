@@ -206,14 +206,14 @@
       replacement and job-local CI_JOB_TOKEN/netrc. A host Mise 2026.9.15
       missing-mirror probe fails without GitHub fallback; a separate optional
       versions-host lookup is now disabled by the locked repository setting.
-      MR !178 pipeline 8773 exposed an unmirrored OSV SLSA release-metadata
-      request. Its upstream JSON is now SHA-256-read back in the same package;
-      the generic first-match route reaches it and the locked provenance asset
-      in a local forced-verification probe. Sigstore TUF access, CI_JOB_TOKEN
-      access, no GitHub credential leakage, and complete macOS, Linux, and
-      Windows cold-cache jobs remain unproved. Keep this task open until those
-      exact jobs pass under the accepted intranet HTTP policy; do not require
-      GitLab HTTPS.
+      MR !178 exposed missing OSV release metadata and SLSA provenance. Both
+      upstream-verified files are now in package 231 and byte-for-byte readable
+      at the effective GitLab URLs. Exact-SHA quality retry 45828 passed; native
+      Linux retry 45830 reached the coverage gate and failed at 13158/13851,
+      rather than at the mirror or Sigstore boundary. Complete macOS, Linux,
+      and Windows review jobs, cold-cache closure, and no GitHub credential
+      leakage remain unproved. Keep this task open until those jobs pass under
+      the accepted intranet HTTP policy; do not require GitLab HTTPS.
 
 ## 8. Repository Topology, Documentation, and Deletion
 
