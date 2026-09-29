@@ -143,12 +143,15 @@ func TestDocumentInputsAreIndependentOfCommandLineLength(t *testing.T) {
 		t.Fatalf("git init: %v\n%s", err, output)
 	}
 	var files []string
-	for index := range 400 {
-		name := filepath.Join(root, fmt.Sprintf("%03d-%s.md", index, strings.Repeat("document", 16)))
+	for index := range 500 {
+		name := filepath.Join(root, fmt.Sprintf("%03d-document.md", index))
 		if err := os.WriteFile(name, []byte("# Document\n\n[Heading](#document)\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		files = append(files, name)
+	}
+	if len(strings.Join(files, "\n")) <= 32767 {
+		t.Fatal("document inventory is too small to exercise Windows command-line limits")
 	}
 	if output, err := exec.Command("git", "-C", root, "add", "--all").CombinedOutput(); err != nil {
 		t.Fatalf("git add: %v\n%s", err, output)
