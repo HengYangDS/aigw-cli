@@ -569,8 +569,10 @@ gitlab: {
 		}
 		"before_script": [linuxToolchain.prepare, commands.install]
 	}
-	quality: _gitlabControlJob & {
-		_commands: [
+	quality: {
+		extends: [".linux-toolchain"]
+		tags: nativeEvidence.linux.gitlab.tags
+		script: [
 			commands.bootstrap,
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
 			commands.quality,

@@ -9,7 +9,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-func TestGitLabJobsShareConfiguredDarwinSelector(t *testing.T) {
+func TestGitLabQualityAndControlRunnerSelectors(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
@@ -26,13 +26,15 @@ func TestGitLabJobsShareConfiguredDarwinSelector(t *testing.T) {
 	}
 	for name, job := range map[string]gitLabJob{
 		"accepted-ref-parity": pipeline.Parity,
-		"quality":             pipeline.Quality,
 		"native-darwin":       pipeline.NativeDarwin,
 		"release-version":     pipeline.ReleaseVersion,
 	} {
 		if want := []string{"$AIGW_GITLAB_DARWIN_RUNNER_TAG"}; !slices.Equal(job.Tags, want) {
 			t.Errorf("%s runner tags = %q, want %q", name, job.Tags, want)
 		}
+	}
+	if want := []string{"$AIGW_GITLAB_LINUX_RUNNER_TAG"}; !slices.Equal(pipeline.Quality.Tags, want) {
+		t.Errorf("quality runner tags = %q, want %q", pipeline.Quality.Tags, want)
 	}
 }
 

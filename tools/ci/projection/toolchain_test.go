@@ -202,13 +202,13 @@ func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
 	if !slices.Equal(pipeline.NativeLinux.Extends, []string{".linux-toolchain"}) {
 		t.Fatalf("GitLab native Linux must inherit the shared bootstrap: %#v", pipeline.NativeLinux)
 	}
-	if len(pipeline.Quality.Extends) != 0 || pipeline.Quality.Variables["CGO_ENABLED"] != "1" {
-		t.Fatalf("GitLab quality must use the selected control executor directly: %#v", pipeline.Quality)
+	if !slices.Equal(pipeline.Quality.Extends, []string{".linux-toolchain"}) || pipeline.Quality.Variables["CGO_ENABLED"] != "1" {
+		t.Fatalf("GitLab quality must use the declared Linux toolchain: %#v", pipeline.Quality)
 	}
-	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_GITLAB_DARWIN_RUNNER_TAG"}) {
+	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_GITLAB_LINUX_RUNNER_TAG"}) {
 		t.Fatalf("GitLab quality runner tags = %q", pipeline.Quality.Tags)
 	}
-	if len(pipeline.Quality.Script) < 2 || pipeline.Quality.Script[0] != "env GODEBUG=http2client=0 mise install --locked" || pipeline.Quality.Script[1] != "mise run bootstrap" {
+	if len(pipeline.Quality.Script) < 1 || pipeline.Quality.Script[0] != "mise run bootstrap" {
 		t.Fatalf("GitLab quality bootstrap = %q", pipeline.Quality.Script)
 	}
 }
@@ -424,10 +424,10 @@ func TestQualityJobsUseTheirExactToolClosure(t *testing.T) {
 	if qualityTools == "" {
 		t.Fatal("GitLab quality job must declare its native toolchain")
 	}
-	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_GITLAB_DARWIN_RUNNER_TAG"}) {
+	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_GITLAB_LINUX_RUNNER_TAG"}) {
 		t.Fatalf("GitLab quality runner tags = %q", pipeline.Quality.Tags)
 	}
-	if len(pipeline.Quality.Script) < 2 || pipeline.Quality.Script[0] != "env GODEBUG=http2client=0 mise install --locked" || pipeline.Quality.Script[1] != "mise run bootstrap" {
+	if !slices.Equal(pipeline.Quality.Extends, []string{".linux-toolchain"}) || len(pipeline.Quality.Script) < 1 || pipeline.Quality.Script[0] != "mise run bootstrap" {
 		t.Fatalf("GitLab quality job lacks locked dependency preparation: %q", pipeline.Quality.Script)
 	}
 	var github struct {

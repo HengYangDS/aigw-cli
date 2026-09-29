@@ -103,14 +103,15 @@ stages:
     - timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update && DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y gcc libatomic1 libc6-dev openssh-client procps
     - env GODEBUG=http2client=0 mise install --locked
 quality:
+  extends:
+    - .linux-toolchain
+  tags:
+    - $AIGW_GITLAB_LINUX_RUNNER_TAG
   script:
-    - env GODEBUG=http2client=0 mise install --locked
     - mise run bootstrap
     - export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="$AIGW_RELEASE_ALLOWED_SIGNERS"
     - mise exec --locked -- go run ./tools/ci quality
   stage: verify
-  tags:
-    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
   variables:
     CGO_ENABLED: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee
