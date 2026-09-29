@@ -50,6 +50,18 @@ func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T)
 			t.Errorf("Windows Mise preflight omits %q", required)
 		}
 	}
+	hashReads := 0
+	for line := range strings.SplitSeq(commands[0], "\n") {
+		if strings.Contains(line, "Get-FileHash -LiteralPath") {
+			hashReads++
+			if !strings.Contains(line, "-ErrorAction Stop") {
+				t.Errorf("Windows hash read can hide its actual failure: %s", line)
+			}
+		}
+	}
+	if hashReads != 3 {
+		t.Errorf("Windows preflight has %d hash reads, want three exact executable and copy checks", hashReads)
+	}
 	if !strings.Contains(gitlab.Windows.AfterScript[0], "Remove-Item -LiteralPath $jobDirectory -Recurse -Force -ErrorAction Stop") {
 		t.Fatal("Windows cleanup still suppresses the cause of retained job state")
 	}

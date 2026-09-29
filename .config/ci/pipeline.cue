@@ -536,7 +536,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 			$env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR
 			$mise = Join-Path $env:ProgramFiles 'mise\bin\mise.exe'
 			if (-not (Test-Path -LiteralPath $mise -PathType Leaf)) { throw 'Runner-owned Mise is missing.' }
-			if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256).Hash -ne '\#(miseWindowsArm64ExecutableSHA256)') { throw 'Runner-owned Mise digest differs from the admitted release.' }
+			if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne '\#(miseWindowsArm64ExecutableSHA256)') { throw 'Runner-owned Mise digest differs from the admitted release.' }
 			$reported = & $mise --version
 			if ($LASTEXITCODE -ne 0) { throw 'Runner-owned Mise failed to start under the job identity.' }
 			if ($reported -notmatch ('^' + [regex]::Escape('\#(miseVersion)') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
@@ -544,8 +544,8 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 			if ($LASTEXITCODE -ne 0) { throw 'Runner identity could not be observed.' }
 			$shim = Join-Path (Split-Path -Parent $mise) 'mise-shim.exe'
 			if (-not (Test-Path -LiteralPath $shim -PathType Leaf)) { throw 'Runner-owned Mise shim is missing.' }
-			try { $shimHash = (Get-FileHash -LiteralPath $shim -Algorithm SHA256).Hash }
-			catch { & icacls.exe $shim; throw "Runner-owned Mise shim cannot be read: $($_.Exception.Message)" }
+			try { $shimHash = (Get-FileHash -LiteralPath $shim -Algorithm SHA256 -ErrorAction Stop).Hash }
+			catch { & icacls.exe $shim; throw "Runner-owned Mise shim cannot be read (error=$($_.FullyQualifiedErrorId), hresult=$($_.Exception.HResult))." }
 			if ($shimHash -ne '\#(miseWindowsArm64ShimSHA256)') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
 			$shimsDirectory = Join-Path $env:MISE_DATA_DIR 'shims'
 			$probeDirectory = Join-Path $shimsDirectory '.mise-shims-stage-probe'
@@ -555,7 +555,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 			  [void](New-Item -ItemType Directory -Path $shimsDirectory -ErrorAction Stop)
 			  [void](New-Item -ItemType Directory -Path $probeDirectory -ErrorAction Stop)
 			  Copy-Item -LiteralPath $shim -Destination $probeTarget -ErrorAction Stop
-			  $copiedHash = (Get-FileHash -LiteralPath $probeTarget -Algorithm SHA256).Hash
+			  $copiedHash = (Get-FileHash -LiteralPath $probeTarget -Algorithm SHA256 -ErrorAction Stop).Hash
 			  if ($copiedHash -ne $shimHash) { throw 'Mise shim copy differs from its source.' }
 			} catch { $probeError = $_ }
 			$cleanupError = $null
