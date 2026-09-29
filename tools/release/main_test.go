@@ -2,12 +2,44 @@ package main
 
 import (
 	"aigw-cli/tools/release/construction"
+	"aigw-cli/tools/release/readiness"
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+
+	"github.com/rogpeppe/go-internal/robustio"
 )
+
+var nativeSourceFixtures struct {
+	sync.Mutex
+	directory string
+	stages    map[string]string
+}
+
+func TestMain(m *testing.M) {
+	if handled, code := runInstalledClientFixture(os.Args[0], os.Args[1:]); handled {
+		os.Exit(code)
+	}
+	if len(os.Args) == 4 && os.Args[1] == "credential" && os.Getenv("AIGW_TEST_EXTERNAL_CREDENTIAL") == "1" {
+		if os.Args[2] != os.Getenv("AIGW_TEST_EXTERNAL_CLIENT") || os.Args[3] != os.Getenv("AIGW_TEST_EXTERNAL_FINGERPRINT") {
+			os.Exit(2)
+		}
+		_, _ = fmt.Fprintln(os.Stdout, "native-real-client-token")
+		os.Exit(0)
+	}
+	code := m.Run()
+	if nativeSourceFixtures.directory != "" {
+		if err := robustio.RemoveAll(nativeSourceFixtures.directory); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "remove native test fixtures:", err)
+			code = 1
+		}
+	}
+	os.Exit(code)
+}
 
 func requireNativeLifecycleBaseline(t *testing.T, buildFixture func() string) string {
 	t.Helper()
@@ -94,12 +126,53 @@ func buildNativeProgram(t *testing.T, root, version string) string {
 			}
 		}()
 	}
-	stage, err := construction.BuildNative(t.Context(), root, t.TempDir(), version)
+	stage := cachedNativeSource(t, root, version)
+	base, _ := nativeArchiveNames(version)
+	return filepath.Join(stage, base, executableName())
+}
+
+func cachedNativeSource(t *testing.T, root, version string) string {
+	t.Helper()
+	nativeSourceFixtures.Lock()
+	defer nativeSourceFixtures.Unlock()
+	key := root + "\x00" + version
+	if stage := nativeSourceFixtures.stages[key]; stage != "" {
+		return stage
+	}
+	if nativeSourceFixtures.directory == "" {
+		directory, err := os.MkdirTemp("", "aigw-native-test-fixtures-*")
+		if err != nil {
+			t.Fatal(err)
+		}
+		nativeSourceFixtures.directory = directory
+		nativeSourceFixtures.stages = make(map[string]string)
+	}
+	workspace, err := os.MkdirTemp(nativeSourceFixtures.directory, "source-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stage, err := construction.BuildNative(t.Context(), root, workspace, version)
 	if err != nil {
 		t.Fatalf("build native product %s: %v", version, err)
 	}
-	base, _ := nativeArchiveNames(version)
-	return filepath.Join(stage, base, executableName())
+	nativeSourceFixtures.stages[key] = stage
+	return stage
+}
+
+func TestNativeSourceCandidateReusesProductBytes(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	version, err := readiness.ReadProductVersion(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstProgram, firstArchive, firstChecksums := nativeReleaseCandidate(t, root, version)
+	secondProgram, secondArchive, secondChecksums := nativeReleaseCandidate(t, root, version)
+	if firstProgram != secondProgram || firstArchive != secondArchive || firstChecksums != secondChecksums {
+		t.Fatal("native candidate rebuilt identical source")
+	}
 }
 
 func TestNativeFixturePreservesReleaseEnvironment(t *testing.T) {
@@ -112,6 +185,9 @@ func TestNativeFixturePreservesReleaseEnvironment(t *testing.T) {
 	program := buildNativeProgram(t, root, "0.0.0")
 	if _, err := os.Stat(program); err != nil {
 		t.Fatal(err)
+	}
+	if repeated := buildNativeProgram(t, root, "0.0.0"); repeated != program {
+		t.Fatalf("native fixture rebuilt identical source: first=%q repeated=%q", program, repeated)
 	}
 	if os.Getenv("CI_COMMIT_TAG") != "v0.1.0-rc.116" || os.Getenv("GITHUB_REF_TYPE") != "tag" {
 		t.Fatal("fixture construction changed the surrounding release context")

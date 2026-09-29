@@ -18,20 +18,6 @@ import (
 	"testing"
 )
 
-func TestMain(m *testing.M) {
-	if handled, code := runInstalledClientFixture(os.Args[0], os.Args[1:]); handled {
-		os.Exit(code)
-	}
-	if len(os.Args) == 4 && os.Args[1] == "credential" && os.Getenv("AIGW_TEST_EXTERNAL_CREDENTIAL") == "1" {
-		if os.Args[2] != os.Getenv("AIGW_TEST_EXTERNAL_CLIENT") || os.Args[3] != os.Getenv("AIGW_TEST_EXTERNAL_FINGERPRINT") {
-			os.Exit(2)
-		}
-		_, _ = fmt.Fprintln(os.Stdout, "native-real-client-token")
-		os.Exit(0)
-	}
-	os.Exit(m.Run())
-}
-
 func runInstalledClientFixture(executable string, args []string) (bool, int) {
 	client := strings.TrimSuffix(filepath.Base(executable), filepath.Ext(executable))
 	if client == configuration.ClientClaude {
