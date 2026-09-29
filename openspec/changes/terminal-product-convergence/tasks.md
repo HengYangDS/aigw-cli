@@ -68,7 +68,9 @@
       environment-backend journey from installed Homebrew 0.3.1 through upgrade,
       rollback and re-upgrade. Preprojection protects new readers in
       a simulated link gap; cached 0.3.1 callers retain the disclosed gap risk.
-      Native Keychain and Linux/Windows published-predecessor proof remain open.
+      The signed published 0.3.1 Linux ARM64 archive passes the corresponding
+      environment-backend journey in an isolated container. Native Keychain,
+      Linux host credential service and Windows predecessor proof remain open.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
@@ -114,8 +116,10 @@
       Linux ARM64 archive passes eight isolated native-product cases in the
       digest-pinned Debian Mise container, including late activation, one-of-many
       Token selection, environment and secure-file credentials, update, rollback,
-      re-upgrade and uninstall. This used a synthetic baseline; published
-      predecessor, native host, system secret service and real clients remain.
+      re-upgrade and uninstall. Current-setup semantics use a current-source
+      fixture; lifecycle separately passes against the signed, published 0.3.1
+      Linux ARM64 predecessor. Native host, system secret service and real
+      Linux clients remain unproved.
 - [ ] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.

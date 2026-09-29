@@ -31,7 +31,8 @@ func TestNativeProductJourney(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	artifact := requireNativeLifecycleBaseline(t, func() string { return buildNativeProgram(t, root, "0.0.0") })
+	sourceBaseline := buildNativeProgram(t, root, "0.0.0")
+	retainedBaseline := requireNativeLifecycleBaseline(t, func() string { return sourceBaseline })
 
 	server := newNativeJourneyServer(t)
 
@@ -41,7 +42,7 @@ func TestNativeProductJourney(t *testing.T) {
 	})
 
 	t.Run("delayed token and client activation", func(t *testing.T) {
-		journey := newNativeJourney(t, artifact, server.URL+"/v1", false)
+		journey := newNativeJourney(t, sourceBaseline, server.URL+"/v1", false)
 		if runtime.GOOS == "linux" {
 			journey.setEnvironment(
 				"DBUS_SESSION_BUS_ADDRESS",
@@ -83,10 +84,10 @@ func TestNativeProductJourney(t *testing.T) {
 		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 	})
 
-	runDeferredClientInstallation(t, artifact, server.URL+"/v1")
+	runDeferredClientInstallation(t, sourceBaseline, server.URL+"/v1")
 
 	t.Run("one selected account does not require every token", func(t *testing.T) {
-		journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
+		journey := newNativeJourney(t, sourceBaseline, server.URL+"/v1", true)
 		journey.prepareCodexLifecycle()
 		journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 		journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
@@ -110,31 +111,12 @@ func TestNativeProductJourney(t *testing.T) {
 	})
 
 	t.Run("portable artifact lifecycle", func(t *testing.T) {
-		runNativeReleaseLifecycle(t, root, artifact, newVersion, server.URL+"/v1")
+		runNativeReleaseLifecycle(t, root, retainedBaseline, newVersion, server.URL+"/v1")
 	})
 
 	if runtime.GOOS == "linux" {
 		t.Run("secure file fallback without session bus", func(t *testing.T) {
-			journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
-			journey.enableSystemCredentialStore()
-			journey.setEnvironment(
-				"DBUS_SESSION_BUS_ADDRESS",
-				"unix:path="+filepath.Join(journey.root, "missing-session-bus.sock"),
-			)
-			const token = "native-secure-file-token"
-			journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
-			journey.requireCredentialBackend(token, secrets.BackendSelection{
-				Kind:         "file",
-				Availability: "available",
-				Mutability:   "read_write",
-				Persistence:  "persisted",
-			})
-			journey.requireClaudeCredential(token)
-			backend := filepath.Join(journey.root, "data", "aigw", "secrets", "backend")
-			if got := strings.TrimSpace(string(readFile(t, backend))); got != "file" {
-				t.Fatalf("persisted backend = %q, want file", got)
-			}
-			journey.uninstallAndRequireInstallationRemoved()
+			runLinuxSecureFileFallback(t, sourceBaseline, server.URL+"/v1")
 		})
 	}
 
@@ -142,9 +124,33 @@ func TestNativeProductJourney(t *testing.T) {
 	// an ad-hoc current-source fixture is not that authorization transition.
 	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" && runtime.GOOS != "darwin" {
 		t.Run("system credential store", func(t *testing.T) {
-			runNativeCredentialJourney(t, root, artifact, server.URL+"/v1", newVersion)
+			runNativeCredentialJourney(t, root, retainedBaseline, server.URL+"/v1", newVersion)
 		})
 	}
+}
+
+func runLinuxSecureFileFallback(t *testing.T, sourceBaseline, endpoint string) {
+	t.Helper()
+	journey := newNativeJourney(t, sourceBaseline, endpoint, true)
+	journey.enableSystemCredentialStore()
+	journey.setEnvironment(
+		"DBUS_SESSION_BUS_ADDRESS",
+		"unix:path="+filepath.Join(journey.root, "missing-session-bus.sock"),
+	)
+	const token = "native-secure-file-token"
+	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
+	journey.requireCredentialBackend(token, secrets.BackendSelection{
+		Kind:         "file",
+		Availability: "available",
+		Mutability:   "read_write",
+		Persistence:  "persisted",
+	})
+	journey.requireClaudeCredential(token)
+	backend := filepath.Join(journey.root, "data", "aigw", "secrets", "backend")
+	if got := strings.TrimSpace(string(readFile(t, backend))); got != "file" {
+		t.Fatalf("persisted backend = %q, want file", got)
+	}
+	journey.uninstallAndRequireInstallationRemoved()
 }
 
 func TestNativeAccountRetirementWithoutClients(t *testing.T) {
