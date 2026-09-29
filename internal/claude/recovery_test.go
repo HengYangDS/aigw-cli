@@ -116,7 +116,7 @@ func TestHelperMigrationDoesNotCarryModelPreferenceAcrossRouteChanges(t *testing
 	}{
 		{name: "account", change: func(runtime *configuration.Runtime) { runtime.AccountID = "another" }},
 		{name: "endpoint", change: func(runtime *configuration.Runtime) { runtime.Endpoint = "https://another.test" }},
-		{name: "model", change: func(runtime *configuration.Runtime) { runtime.Model = "claude-sonnet-5" }},
+		{name: "model", change: func(runtime *configuration.Runtime) { runtime.Model = "claude-sonnet-5-5" }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			root := t.TempDir()

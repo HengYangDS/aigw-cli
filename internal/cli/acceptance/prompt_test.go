@@ -408,8 +408,8 @@ func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
 			"team-gateway",
 			"Team Gateway",
 			"https://gateway.test",
-			"claude-sonnet-5",
-			"claude-sonnet-5",
+			"claude-sonnet-5-5",
+			"claude-sonnet-5-5",
 		},
 	}
 
@@ -420,7 +420,7 @@ func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !secretExists(t, secretStore, "team-gateway") || cfg.SelectedRoute(configuration.ClientClaude) != "claude-sonnet-5" {
+	if !secretExists(t, secretStore, "team-gateway") || cfg.SelectedRoute(configuration.ClientClaude) != "claude-sonnet-5-5" {
 		t.Fatalf("setup state = %#v", cfg)
 	}
 	text := out.String()

@@ -9,7 +9,7 @@ relations: {}
 
 # Provider Model Qualification Evidence
 
-These dated observations informed the reviewed September 27, 2026 team
+These dated observations informed the reviewed September 29, 2026 team
 manifest. They do not maintain a live catalogue or override the
 [current Route inventory](../../manifests/team.toml). For member setup and
 model selection, use the [team rollout guide](../guides/team-rollout.md#reviewed-model-defaults).
@@ -38,11 +38,13 @@ calls it a preview, so it is not admitted. `intern-s2-free` also returned Chat
 text, but that aggregator alias does not identify a specific release in
 [InternLM's Intern-S2 model collection](https://huggingface.co/collections/internlm/intern-s2).
 
-On September 29, 2026, the public AIHubMix catalogue also listed
-`claude-sonnet-5-5`, while [Anthropic's model overview](https://docs.anthropic.com/en/docs/about-claude/models/overview)
-named `claude-sonnet-5` as its current Sonnet API ID. The aggregator listing is
-discovery evidence, not grounds to replace the admitted Sonnet 5 Route without
-authenticated inference and native-client qualification.
+On September 29, 2026, [Anthropic's model overview](https://platform.claude.com/docs/en/models/overview)
+identified `claude-sonnet-5-5`. Authenticated catalogues and one direct
+Anthropic Messages request per exact wire ID qualified AIHubMix and UCloud's
+ordinary Sonnet 5.5 Routes and DMXAPI's ordinary, CC, and SSVIP Routes. Each
+request returned HTTP 200, model `claude-sonnet-5-5`, and nonempty text; these
+bounded calls do not establish streaming, tools, latency, or native-client use.
+The previous Sonnet 5 Routes were retired from the shipped manifest.
 
 Specialized, small, preview, or unidentified public catalogue entries from
 Jina AI, Liquid, Dots Studio, Sao10k, and Stealth are not general-model Routes.
@@ -80,9 +82,10 @@ the Claude and GPT families. Each Route retains its exact wire ID while its
 Other Accounts use their ordinary model identifiers. Channel names are not
 substitutes for the native model selected in an existing Codex conversation.
 
-The reviewed [DMXAPI public catalogue](https://rmb.dmxapi.cn/) listed ordinary
+The September 27 [DMXAPI public catalogue](https://rmb.dmxapi.cn/) listed ordinary
 and CC Fable 5.1, ordinary/CC/SSVIP Sonnet 5, and ordinary/CDX/SSVIP GPT-6
-Astra. The September 27, 2026 manifest kept those previously qualified channels. Opus 5
+Astra. The Sonnet channels were superseded by the September 29 qualification
+above; the other previously qualified channels remain. Opus 5
 channels are outside the requested logical set. The ordinary DMXAPI Opus 5.5
 Route was admitted after authenticated inference; no Opus 5.5 CC, SSVIP, or
 CDX variant was admitted. An unauthenticated DMXAPI model request returning

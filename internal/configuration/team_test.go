@@ -138,7 +138,7 @@ func TestTeamRecommendationsPermitSparseAccountsAndPreserveExplicitBindings(t *t
 func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	want := []string{
-		"claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5",
+		"claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5",
 		"command-a-03-2025",
 		"deepseek-v4.1-flash", "doubao-seed-2-1-pro-260628", "ernie-5.1", "gemini-3.1-pro-preview", "glm-5.3",
 		"gpt-6-astra", "gpt-6-luna", "gpt-6-sol", "grok-4.7",
@@ -153,7 +153,7 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 		t.Errorf("Opus 5.5 identity = %#v", manifest.Models["claude-opus-5-5"])
 	}
 	for _, account := range []string{"aihubmix", "dmxapi", "ucloud"} {
-		for _, model := range []string{"claude-opus-5-5"} {
+		for _, model := range []string{"claude-opus-5-5", "claude-sonnet-5-5"} {
 			id := account + "-" + model
 			route, ok := manifest.Routes[id]
 			if !ok || route.Account != account || route.Model != model || route.UpstreamModelID() != model {
@@ -307,16 +307,24 @@ func TestTeamManifestRoutesUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 		}
 	}
 	variants := map[string]struct{ model, wire string }{
-		"dmxapi-claude-fable-5-1-cc":   {"claude-fable-5-1", "claude-fable-5-1-cc"},
-		"dmxapi-claude-sonnet-5-cc":    {"claude-sonnet-5", "claude-sonnet-5-cc"},
-		"dmxapi-claude-sonnet-5-ssvip": {"claude-sonnet-5", "claude-sonnet-5-ssvip"},
-		"dmxapi-gpt-6-astra-cdx":       {"gpt-6-astra", "gpt-6-astra-cdx"},
-		"dmxapi-gpt-6-astra-ssvip":     {"gpt-6-astra", "gpt-6-astra-ssvip"},
+		"dmxapi-claude-fable-5-1-cc":     {"claude-fable-5-1", "claude-fable-5-1-cc"},
+		"dmxapi-claude-sonnet-5-5-cc":    {"claude-sonnet-5-5", "claude-sonnet-5-5-cc"},
+		"dmxapi-claude-sonnet-5-5-ssvip": {"claude-sonnet-5-5", "claude-sonnet-5-5-ssvip"},
+		"dmxapi-gpt-6-astra-cdx":         {"gpt-6-astra", "gpt-6-astra-cdx"},
+		"dmxapi-gpt-6-astra-ssvip":       {"gpt-6-astra", "gpt-6-astra-ssvip"},
 	}
 	for routeID, want := range variants {
 		route, ok := manifest.Routes[routeID]
 		if !ok || route.Model != want.model || route.UpstreamModelID() != want.wire {
 			t.Errorf("channel Route %q = %+v, want canonical Model %q and wire %q", routeID, route, want.model, want.wire)
+		}
+	}
+	for _, obsolete := range []string{
+		"aihubmix-claude-sonnet-5", "dmxapi-claude-sonnet-5", "dmxapi-claude-sonnet-5-cc",
+		"dmxapi-claude-sonnet-5-ssvip", "ucloud-claude-sonnet-5",
+	} {
+		if _, retained := manifest.Routes[obsolete]; retained {
+			t.Errorf("obsolete Sonnet 5 Route %q remains in the shipped team manifest", obsolete)
 		}
 	}
 }
