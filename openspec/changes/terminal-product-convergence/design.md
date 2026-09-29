@@ -247,6 +247,15 @@ alone therefore does not prove consumer-side provenance verification; a mirror
 must retain an independently verified, signed upstream-to-mirror chain or prove
 an equivalent native check before it can satisfy the cold-cache requirement.
 
+An isolated Mise 2026.9.16 Linux ARM64 install used the current lock's
+checksum-verified actionlint asset from a synthetic mirror while both GitHub
+hosts were blocked. Mise's [URL replacement](https://mise.jdx.dev/url-replacements.html)
+sent HEAD then GET with only the target-host netrc's synthetic Job Token Basic
+authorization and installed without GitHub; a mirror HEAD failure instead
+fell back to the locked GitHub API URL. CI must therefore preflight complete,
+redirect-free mirror coverage before invoking Mise. This test does not prove
+the real GitLab package registry or the three native CI platforms.
+
 The selected GitLab origin currently uses HTTP, and the owner accepts that
 intranet risk without excluding a future HTTPS asset endpoint. TLS is not a
 prerequisite for this deployment; a later HTTPS cutover should change only
