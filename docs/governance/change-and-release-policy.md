@@ -138,18 +138,15 @@ complete image reference as the CUE-owned dependency literal so Renovate can
 observe both its version and digest; derive any action-version projection from
 that same value rather than duplicating it.
 
-GitLab's Windows shell runner bootstraps Mise before reading this repository's
-minimum version. The [CUE graph](../../.config/ci/pipeline.cue) pins the
-SHA-256 of an upstream-attested Windows ARM64 archive mirrored in this
-project's GitLab Generic Package Registry; the
-[job-local bootstrap](../../tools/ci/bootstrap/mise-windows.ps1) downloads it
-with CI_JOB_TOKEN, refuses redirects, verifies its bytes and version, and
-removes its exact job-owned files. Before the first Mise invocation it confines
-configuration, cache, state, and installs to the private job directory and
-marks that job's checkout trusted, rather than configuring the Runner service
-profile. A version update must reverify upstream
-provenance and mirror the new bytes before changing the pin. GitLab also keeps
-verified copies of the GitHub Release assets selected by [mise.lock](../../mise.lock)
+GitLab's Windows shell runner owns one installed Mise executable. The
+[CUE graph](../../.config/ci/pipeline.cue) verifies its exact upstream release
+digest and version under each job identity before using it; the Runner owner
+updates that executable in a zero-job window. The job confines Mise
+configuration, cache, state, and installs to a private directory outside the
+checkout, marks only that checkout trusted, and removes its exact job-owned
+files afterward. CI admission requires the official release bytes to run under
+both protected and review Runner identities. GitLab also keeps verified copies
+of the GitHub Release assets selected by [mise.lock](../../mise.lock)
 in that registry. OSV Scanner's SLSA verification also needs its release
 metadata; the same package holds a read-back-verified snapshot of the selected
 release. The lockfile remains the dependency and asset SHA-256 authority, while

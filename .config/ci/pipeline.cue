@@ -234,10 +234,10 @@ _graphOrder: {
 	}
 }
 
-miseImage:               "docker.io/jdxcode/mise:2026.9.16-debian@sha256:686fe914b791c761637be4a13494d45d2b92b3c3979e46ea61b1ca51df472de6"
-miseVersion:             strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
-miseWindowsArm64SHA256:  "8e021ea855f50880ee4c8515f483b2cd07b27edb6109a8b4364ff09af65136b5"
-windowsMiseJobDirectory: "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
+miseImage:                        "docker.io/jdxcode/mise:2026.9.16-debian@sha256:686fe914b791c761637be4a13494d45d2b92b3c3979e46ea61b1ca51df472de6"
+miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
+miseWindowsArm64ExecutableSHA256: "a3e8a5e9850cb48dc0ec493820bcd6ab38ad5d431a304ee10b9e9c998977bcd8"
+windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
@@ -508,18 +508,54 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 }
 
 #NativeGitLabJob: {
-	_platform:      #OperatingSystem
-	_bootstrapMise: string
-	_install:       string
-	_refreshLocks:  string
-	_native:        string
+	_platform:     #OperatingSystem
+	_prepareMise:  string
+	_install:      string
+	_refreshLocks: string
+	_native:       string
 	tags: [string, ...string]
 	rules: [...{...}]
 	if _platform == "windows" {
-		_bootstrapMise: ". ./tools/ci/bootstrap/mise-windows.ps1 -Version '\(miseVersion)' -Sha256 '\(miseWindowsArm64SHA256)' -Directory (\(windowsMiseJobDirectory)) -MirrorResource '\(miseMirror.resource)' -ReleaseMetadataPattern '\(miseMirror.metadataPattern)' -ReleaseMetadataResource '\(miseMirror.metadataResource)'"
-		_install:       "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
-		_refreshLocks:  "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
-		_native:        "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
+		_prepareMise:  #"""
+			$ErrorActionPreference = 'Stop'
+			foreach ($name in @('CI_API_V4_URL', 'CI_PROJECT_ID', 'CI_PROJECT_DIR', 'CI_JOB_ID', 'CI_JOB_TOKEN', 'CI_SERVER_HOST')) {
+			  if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) { throw "Missing GitLab job input: $name" }
+			}
+			$jobDirectory = \#(windowsMiseJobDirectory)
+			if (Test-Path -LiteralPath $jobDirectory) { throw 'Mise job directory already exists.' }
+			[void](New-Item -ItemType Directory -Path $jobDirectory -ErrorAction Stop)
+			$identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+			& icacls.exe $jobDirectory /inheritance:r /grant:r "${identity}:(OI)(CI)F" | Out-Null
+			if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise job directory ACL.' }
+			foreach ($name in @('MISE_CONFIG_DIR', 'MISE_CACHE_DIR', 'MISE_STATE_DIR', 'MISE_DATA_DIR')) {
+			  $path = Join-Path $jobDirectory $name
+			  [Environment]::SetEnvironmentVariable($name, $path)
+			  [void](New-Item -ItemType Directory -Path $path -ErrorAction Stop)
+			}
+			$env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR
+			$mise = Join-Path $env:ProgramFiles 'mise\bin\mise.exe'
+			if (-not (Test-Path -LiteralPath $mise -PathType Leaf)) { throw 'Runner-owned Mise is missing.' }
+			if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256).Hash -ne '\#(miseWindowsArm64ExecutableSHA256)') { throw 'Runner-owned Mise digest differs from the admitted release.' }
+			$reported = & $mise --version
+			if ($LASTEXITCODE -ne 0) { throw 'Runner-owned Mise failed to start under the job identity.' }
+			if ($reported -notmatch ('^' + [regex]::Escape('\#(miseVersion)') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
+			$env:PATH = (Split-Path -Parent $mise) + [IO.Path]::PathSeparator + $env:PATH
+			$netrc = Join-Path $jobDirectory '_netrc'
+			[IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
+			& icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
+			if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise mirror credential ACL.' }
+			$mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/\#(miseMirror.resource)"
+			$replacements = [ordered]@{}
+			$replacements['\#(miseMirror.metadataPattern)'] = "${mirrorBase}\#(miseMirror.metadataResource)"
+			$replacements['https://github.com/'] = $mirrorBase
+			$replacements['https://api.github.com/'] = $mirrorBase
+			$env:MISE_NETRC_FILE = $netrc
+			$env:MISE_NETRC = 'true'
+			$env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
+			"""#
+		_install:      "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
+		_refreshLocks: "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
+		_native:       "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
 		after_script: [#"""
 			$jobDirectory = \#(windowsMiseJobDirectory)
 			for ($attempt = 0; $attempt -lt 3 -and (Test-Path -LiteralPath $jobDirectory); $attempt++) {
@@ -555,7 +591,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	}
 	if _platform != "linux" {
 		if _platform == "windows" {
-			script: [_bootstrapMise, _install, commands.bootstrap, _refreshLocks, _native]
+			script: [_prepareMise, _install, commands.bootstrap, _refreshLocks, _native]
 		}
 		if _platform != "windows" {
 			script: [miseMirror.unixPrepare, _install, commands.bootstrap, _refreshLocks, _native]
