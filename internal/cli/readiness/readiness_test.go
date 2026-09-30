@@ -30,7 +30,7 @@ func (fn roundTripFunc) Do(request *http.Request) (*http.Response, error) { retu
 
 func TestCheckCommandDescribesItsProductBoundary(t *testing.T) {
 	command := NewCheckCommand(invocation.Context{})
-	if command.Short != "Check client bindings, credentials, projections, and endpoints" {
+	if command.Short != "Check enabled clients; selected-model probes may use quota" {
 		t.Fatalf("check summary = %q", command.Short)
 	}
 }

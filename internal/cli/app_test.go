@@ -311,7 +311,7 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 		"Start with one path",
 		"aigw setup", "Connect the first account",
 		"aigw use --for <client> <route>", "Select one Route for one client",
-		"aigw check", "Confirm readiness",
+		"aigw check", "Check enabled clients (may use quota)",
 		"Usage", "aigw [command]",
 		"Connect", "setup",
 		"Use every day", "check", "rotate", "status", "use",
@@ -345,7 +345,7 @@ func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
 			for _, row := range [][2]string{
 				{"gateway setup", "Connect the first account"},
 				{"gateway use --for <client> <route>", "Select one Route for one client"},
-				{"gateway check", "Confirm readiness"},
+				{"gateway check", "Check enabled clients (may use quota)"},
 			} {
 				if !strings.Contains(semanticHelp, row[0]) || !strings.Contains(semanticHelp, row[1]) {
 					t.Fatalf("width=%d color=%t lost command or description %q:\n%s", width, color, row, help)
@@ -454,12 +454,15 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 		want []string
 	}{
 		{args: []string{"setup", "--help"}, want: []string{"Account ID; uses the first Route ID when omitted", "First route ID", "Read one token line from standard input"}},
-		{args: []string{"test", "--help"}, want: []string{"Test selected endpoints", "Client whose selected Route to test: Claude, Claude Desktop, Codex, or Hermes"}},
+		{args: []string{"test", "--help"}, want: []string{"model-free HTTP request", "does not prove model inference or real-client behavior", "Client whose selected Route to test: Claude, Claude Desktop, Codex, or Hermes"}},
+		{args: []string{"check", "--help"}, want: []string{"may use provider quota", "one bounded selected-model inference request", "--endpoint-only", "does not execute a native client"}},
 		{args: []string{"models", "--help"}, want: []string{"Compare configured model IDs with provider catalogs", "does not test inference"}},
-		{args: []string{"verify", "--help"}, want: []string{"Client whose selected Route to verify: Claude, Claude Desktop, Codex, Hermes, or all", "Verify this Route for the explicit client without changing its binding"}},
+		{args: []string{"verify", "--help"}, want: []string{"real native client", "multiple provider requests", "may use quota", "--for all writes a configuration checkpoint", "Client whose selected Route to verify: Claude, Claude Desktop, Codex, Hermes, or all", "Verify this Route for the explicit client without changing its binding"}},
 		{args: []string{"rotate", "--help"}, want: []string{"Update one Account Token"}},
 		{args: []string{"completion", "--help"}, want: []string{"Generate shell completion"}},
-		{args: []string{"rollback", "--help"}, want: []string{"Restore only the immediately previous configuration backup"}},
+		{args: []string{"rollback", "--help"}, want: []string{"Restore configuration and client projections", "does not replace the AIGW program", "aigw update --rollback", "Restore only the immediately previous configuration backup"}},
+		{args: []string{"update", "--help"}, want: []string{"portable AIGW program", "Homebrew-managed copies must be upgraded with Homebrew", "--rollback restores the retained program, not configuration"}},
+		{args: []string{"uninstall", "--help"}, want: []string{"Withdraw AIGW-owned client projections", "retains Account and Route data and stored Tokens", "Homebrew-managed copies must be removed with Homebrew"}},
 		{args: []string{"config", "import", "--help"}, want: []string{"Merge a secret-free configuration manifest", "Explicitly replace conflicting account metadata", "system tokens remain unchanged"}},
 	}
 	for _, tc := range cases {
@@ -467,7 +470,7 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 		if err := Execute(app, tc.args); err != nil {
 			t.Fatalf("%v: %v", tc.args, err)
 		}
-		help := out.String()
+		help := strings.Join(strings.Fields(out.String()), " ")
 		for _, want := range tc.want {
 			if !strings.Contains(help, want) {
 				t.Fatalf("%v help missing %q:\n%s", tc.args, want, help)

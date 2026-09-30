@@ -163,8 +163,15 @@ func TestUpdateHelpDescribesOfflineProgramRollback(t *testing.T) {
 	if !strings.Contains(out.String(), "Roll back the portable AIGW program to the previous version offline") {
 		t.Fatalf("help = %s", out.String())
 	}
-	for _, want := range []string{"Keep client integrations enabled", "Run sync after either replacement", "isolated copy of the current configuration"} {
-		if !strings.Contains(out.String(), want) {
+	help := strings.Join(strings.Fields(out.String()), " ")
+	for _, want := range []string{
+		"Homebrew-managed copies must be upgraded with Homebrew",
+		"Client settings and credentials do not change",
+		"Run aigw sync, then aigw check before resuming clients",
+		"--rollback restores the retained program, not configuration",
+		"An incompatible current configuration blocks program rollback",
+	} {
+		if !strings.Contains(help, want) {
 			t.Fatalf("help omitted %q: %s", want, out.String())
 		}
 	}

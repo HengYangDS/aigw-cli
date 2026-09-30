@@ -111,7 +111,7 @@ func TestMixedInvalidAndDeferredClientsShareOneRecoveryAction(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.Clients[configuration.ClientClaude].State != domainreadiness.Deferred || result.Clients[configuration.ClientCodex].State != domainreadiness.Invalid || result.NextAction == "" {
+	if result.Clients[configuration.ClientClaude].State != domainreadiness.Deferred || result.Clients[configuration.ClientCodex].State != domainreadiness.Invalid || result.NextAction == "" || result.Error == "" {
 		t.Fatalf("mixed JSON check = %+v", result)
 	}
 	humanAction := ""

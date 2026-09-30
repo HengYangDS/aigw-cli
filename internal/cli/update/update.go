@@ -20,8 +20,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	var candidateArchive string
 	var candidateChecksums string
 	cmd := &cobra.Command{
-		Use: "update", Short: "Install a verified release, a local candidate, or restore the previous portable program",
-		Long: "Replace the program without changing client settings. Keep client integrations enabled. Run sync after either replacement, then check readiness before resuming clients. Before rollback, the retained program must read an isolated copy of the current configuration. If incompatible, explicitly restore a supported configuration before retrying.",
+		Use:   "update",
+		Short: "Update or roll back the portable AIGW program",
+		Long: "Replace only a portable AIGW program; Homebrew-managed copies must be\n" +
+			"upgraded with Homebrew. Client settings and credentials do not change.\n" +
+			"Run aigw sync, then aigw check before resuming clients. --rollback\n" +
+			"restores the retained program, not configuration. An incompatible\n" +
+			"current configuration blocks program rollback without changing files.",
 		Args: cobra.MatchAll(cobra.NoArgs, func(cmd *cobra.Command, _ []string) error {
 			for _, name := range []string{"candidate", "checksums"} {
 				flag := cmd.Flags().Lookup(name)

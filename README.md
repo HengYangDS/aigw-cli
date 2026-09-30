@@ -21,6 +21,9 @@ the complete design.
 | Diagnose a problem            | `aigw doctor`                     | Run its recommended action         |
 | Migrate retained local state  | `aigw config migrate --dry-run`   | Review, then apply                 |
 
+`aigw check` sends a selected-model request by default and may use provider
+quota. Use `aigw check --endpoint-only` for a model-free endpoint check.
+
 ## Install
 
 On macOS, install the signed and notarized stable release with Homebrew:
@@ -175,15 +178,15 @@ aigw check
 aigw verify --for <client>
 ```
 
-| Command    | Contract                                                                    |
-| ---------- | --------------------------------------------------------------------------- |
-| `status`   | Observe Client Bindings and projection readiness without reading Tokens     |
-| `check`    | Check credentials and projections, then selected-model inference by default |
-| `doctor`   | Explain current problems without mutation                                   |
-| `repair`   | Reconcile bounded AIGW-owned client state                                   |
-| `test`     | Test an endpoint without proving native-client behavior                     |
-| `verify`   | Run one explicit native-client request that may consume quota               |
-| `rollback` | Restore a verified AIGW configuration checkpoint                            |
+| Command    | Contract                                                                 |
+| ---------- | ------------------------------------------------------------------------ |
+| `status`   | Observe Client Bindings and projection readiness without reading Tokens  |
+| `check`    | Check all enabled clients; default inference may use provider quota      |
+| `doctor`   | Explain current problems without mutation                                |
+| `repair`   | Reconcile bounded AIGW-owned client state                                |
+| `test`     | Probe an endpoint without model inference or native-client execution     |
+| `verify`   | Run a real-client session; it may make multiple quota-consuming requests |
+| `rollback` | Restore verified or previous configuration and client projections        |
 
 Use `aigw repair --dry-run --json` before repairing drift. Human output gives one
 next action; machine consumers use the command's JSON mode where available.
@@ -233,6 +236,10 @@ Client Adapter. Incompatible wire behavior belongs in an independent data plane.
 See the [extension model](docs/architecture/authority-and-projection-boundary.md#extension-model).
 
 ## Update and rollback
+
+`aigw rollback` restores configuration and client projections.
+`aigw update --rollback` restores the retained portable executable.
+Homebrew-managed installations use Homebrew for program upgrades and removal.
 
 For a portable installation:
 

@@ -18,9 +18,11 @@ AIGW human output answers three questions:
 
 Readiness is decomposed rather than inferred. `status` reports selection and
 local projection readiness without reading Tokens or invoking clients.
-`check` adds one bounded Route-model inference by default or an endpoint-only
-check when requested; `verify --for <client>` runs a real client. A synchronized
-projection alone is not proof of authentication or inference.
+`check` adds one bounded Route-model inference per eligible enabled client by
+default and may use provider quota. `--endpoint-only` makes a model-free
+request; `verify --for <client>` runs a real client and may make multiple
+requests. A synchronized projection alone is not proof of authentication or
+inference.
 `sync` changes only AIGW-owned configuration, never client-owned credentials.
 
 ## Navigation
@@ -123,7 +125,7 @@ Use the least powerful command that answers the current question:
 6. `aigw verify` invokes the real native client to prove its selected model
    path. This request may consume quota even when `check` has already passed.
 
-`check` exits successfully when at least one enabled Client Binding passes its
+`check` exits successfully only when every enabled Client Binding passes its
 applicable scope. With no enabled client, it returns a deferred nonzero result
 without contacting an endpoint; an empty check is not health evidence. For
 client-native authentication it checks the local projection without accessing

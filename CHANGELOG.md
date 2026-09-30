@@ -13,6 +13,9 @@ evidence.
 
 ### Changed
 
+- Clarify the distinct `status`, `test`, `check`, and `verify` evidence scopes,
+  quota and checkpoint effects, configuration versus program rollback, and
+  portable uninstall ownership in CLI help and user guidance.
 - Omit private configuration paths from `status --json` and `check --json`;
   classify Doctor configuration, credential, and client inspection failures
   without exposing raw backend errors or private paths.
@@ -34,6 +37,8 @@ evidence.
 
 ### Fixed
 
+- Include a top-level error in failed `check --json` results while retaining
+  each enabled client's precise state and next action.
 - Let `aigw catalog --all --json` return the complete JSON catalogue instead
   of rejecting two compatible output flags.
 

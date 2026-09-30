@@ -17,7 +17,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	var client, routeName string
 	cmd := &cobra.Command{
 		Use:   "verify",
-		Short: "Run a bounded native client session to verify the model protocol path",
+		Short: "Verify a Route through a real native client (may use quota)",
+		Long: "Run a bounded session through one real native client, or all enabled\n" +
+			"clients with --for all. A session may make multiple provider requests\n" +
+			"and may use quota. --for all writes a configuration checkpoint only\n" +
+			"after every client succeeds. No client binding or native settings\n" +
+			"are changed.",
 		Args: cobra.MatchAll(cobra.NoArgs, func(_ *cobra.Command, _ []string) error {
 			if client == "" {
 				return fmt.Errorf("choose a verification client with --for; run `aigw verify --help`")

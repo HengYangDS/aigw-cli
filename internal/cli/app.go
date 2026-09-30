@@ -394,7 +394,7 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 		r.Rows(
 			presentation.Field{Label: command.CommandPath() + " setup", Value: "Connect the first account"},
 			presentation.Field{Label: command.CommandPath() + " use --for <client> <route>", Value: "Select one Route for one client"},
-			presentation.Field{Label: command.CommandPath() + " check", Value: "Confirm readiness"},
+			presentation.Field{Label: command.CommandPath() + " check", Value: "Check enabled clients (may use quota)"},
 		)
 	}
 	r.Section("Usage")

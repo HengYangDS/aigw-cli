@@ -160,8 +160,12 @@ func NewRollbackCommand(runtime invocation.Context) *cobra.Command {
 	var lastChange bool
 	cmd := &cobra.Command{
 		Use:   "rollback",
-		Short: "Roll back to the latest fully verified configuration or the previous configuration",
-		Args:  cobra.NoArgs,
+		Short: "Restore configuration and client projections, not the program",
+		Long: "Restore configuration and client projections from the latest fully\n" +
+			"verified checkpoint, or fall back to the previous backup.\n" +
+			"--last-change selects only that backup. This does not replace the\n" +
+			"AIGW program. Use aigw update --rollback for the retained executable.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			current, err := runtime.Config.Load()
 			if err != nil {

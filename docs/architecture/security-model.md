@@ -180,7 +180,10 @@ owns sequencing and compensation details.
 - HTTPS-to-HTTP redirect is rejected.
 - Tokens are not placed on command lines or persisted in logs.
 - A loopback endpoint is not proof of listener health or ownership.
-- `aigw verify` may consume quota only when the operator requests it.
+- An explicit `aigw check` may consume quota because it probes selected-model
+  inference by default; `--endpoint-only` avoids that inference request.
+- An explicit `aigw verify` may make multiple quota-consuming real-client
+  requests. `--for all` writes a configuration checkpoint only after success.
 
 An initial 401 is transient only when three bounded observations recover, and a
 Token is classified as persistently invalid only after three further 401

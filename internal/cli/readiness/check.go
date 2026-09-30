@@ -21,7 +21,15 @@ import (
 func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
 	cmd := &cobra.Command{
-		Use: "check", Short: "Check client bindings, credentials, projections, and endpoints", Args: cobra.NoArgs,
+		Use:   "check",
+		Short: "Check enabled clients; selected-model probes may use quota",
+		Long: "Check every enabled client's binding, credential, and native projection.\n" +
+			"For AIGW-managed Tokens, the default sends one bounded selected-model\n" +
+			"inference request per eligible client and may use provider quota.\n" +
+			"Use --endpoint-only for a model-free authenticated endpoint request.\n" +
+			"This command does not execute a native client or change configuration;\n" +
+			"use verify for real-client evidence.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if jsonMode {
 				return runJSONCheck(cmd, runtime)
@@ -201,18 +209,21 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		EnabledClients: activation.EnabledClients,
 		OK:             evaluation.ok(),
 	}
+	var failure error
 	if !result.OK {
 		result.NextAction, _ = failedCheckContinuation(&activation, evaluation, clients)
+		failure = fmt.Errorf("one or more enabled client checks failed")
+		result.Error = failure.Error()
 	}
 	if err := presentation.WriteJSON(runtime.Out, result); err != nil {
 		return err
 	}
-	if !result.OK {
+	if failure != nil {
 		// JSON is a protocol, not a prelude to human error rendering. Mark the
 		// already-serialized failure as presented so the root command preserves
 		// one valid JSON document on stdout while still returning a non-zero
 		// result to callers.
-		return presentation.Presented(fmt.Errorf("one or more enabled client checks failed"))
+		return presentation.Presented(failure)
 	}
 	return nil
 }
@@ -308,7 +319,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 				return err
 			}
 		}
-		return invocation.Problem(runtime, "Enabled client check failed", "A selected client could not be verified.", "All-client readiness was not established.", action, fmt.Errorf("enabled client check failed"))
+		return invocation.Problem(runtime, "Enabled client check failed", "At least one enabled client did not pass its applicable check scope.", "All-client readiness was not established.", action, fmt.Errorf("enabled client check failed"))
 	}
 	renderer := invocation.Renderer(runtime)
 	renderer.ProductTitle("Health check")

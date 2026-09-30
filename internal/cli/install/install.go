@@ -84,8 +84,12 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 	var target string
 	command := &cobra.Command{
 		Use:   "uninstall",
-		Short: "Remove one portable AIGW installation",
-		Args:  cobra.NoArgs,
+		Short: "Withdraw managed projections and remove a portable program",
+		Long: "Withdraw AIGW-owned client projections, then remove the portable\n" +
+			"executable and its rollback copy. This retains Account and Route data\n" +
+			"and stored Tokens. Homebrew-managed copies must be removed with\n" +
+			"Homebrew; this command does not manage them.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if strings.TrimSpace(target) == "" {
 				target = runtime.Executable
