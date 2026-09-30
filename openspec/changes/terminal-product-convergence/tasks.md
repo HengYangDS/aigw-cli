@@ -200,7 +200,7 @@
       against the latest stable compatible upstream; update authored pins and locks
       once, then prove clean-context reproducibility and license/security
       admissibility. The 2026-09-30 refresh updates the authored CI client,
-      Hermes, Mise image and Renovate pins plus one required Go and sixteen npm
+      Hermes, Mise image, glab and Renovate pins plus one required Go and sixteen npm
       transitive packages. Both new images run; bootstrap, source gate (95.04%),
       macOS native acceptance, Renovate validation/extraction, two lock
       resolutions and the OSV/license scan (43 Go and 283 npm packages, zero

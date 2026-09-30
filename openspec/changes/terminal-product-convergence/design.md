@@ -207,15 +207,15 @@ The npm override can advance to jsdom 30.1.1, published 2026-09-22. Its
 resolved graph selects `@asamuzakjp/dom-selector` 9.2.2, published
 2026-09-26T21:06Z; clean install, `npm audit signatures` (283 signed packages,
 51 attestations), vulnerability audit and Mermaid rendering pass. The ordinary
-three-day release-age rule holds proposal publication until
+three-day release-age rule held proposal publication until
 2026-09-29T21:06Z. Do not add a second override just to evade that bound.
 That age rule protects npm's unpublish window; applying it to checksummed Go
 modules, locked Mise tools and digest-pinned CI artifacts adds delay without
 the same integrity benefit. Those sources instead need exact upstream identity,
-compatible behavior and native gate evidence. Renovate 44.117.2 and Mise
-2026.9.16 are selected by digest; the Windows Mise ZIP was mirrored with its
-upstream SHA-256 intact. Task 6.1 remains open until the complete locked supply
-chain is qualified.
+compatible behavior and native gate evidence. Select Renovate and Mise images
+by upstream release and OCI digest; preserve the Windows Mise ZIP's upstream
+SHA-256 through mirroring. Task 6.1 remains open until the complete locked
+supply chain is qualified.
 
 The CUE graph remains the sole CI intent. GitHub and GitLab are equal optional
 peers receiving the same signed Git objects, with separate transport credentials,
@@ -240,9 +240,9 @@ absence of persistent Shell credentials, or admission of the final review SHA.
 Keep the review path unadmitted until those boundaries are proved.
 Cold-cache CI must remain executable when the sibling Forge platform and its
 tool-distribution endpoints are unavailable. Warm caches are not evidence of
-that property. GitLab now consumes Mise's official Docker Hub image, whose
-2026.9.16-debian OCI digest equals the GHCR publication; the image no longer
-requires GitHub transport. Locked GitHub Release assets still need an
+that property. GitLab consumes Mise's official Debian Docker Hub image pinned
+by its multi-platform OCI digest, so image bootstrap does not require GitHub
+transport. Locked GitHub Release assets still need an
 integrity-preserving independent route. Reuse the selected GitLab project's
 Generic Package registry as a lock-digest-addressed mirror. This is the
 smallest current route, not a claim that assets may use only HTTP: a separate

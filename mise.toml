@@ -31,7 +31,7 @@ cue = "0.17.1"
 
 # Release transport conformance
 gh = "2.101.0"
-glab = "1.119.0"
+glab = "1.120.0"
 
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.18.2"
