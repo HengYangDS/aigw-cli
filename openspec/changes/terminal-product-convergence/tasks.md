@@ -227,6 +227,10 @@
       selected peer without interactive authentication or divergent commit
       identities. Prove untrusted review code cannot observe persistent Shell
       runner credentials or protected-job state; retain required native evidence.
+      On September 30, GitHub dev/main require five GitHub Actions app-bound
+      checks, including Linux Secret Service, with strict and admin enforcement;
+      GitLab requires pipeline success and source-branch deletion. The existing
+      proposal ref remains unprotected on both peers.
       GitLab MR !178 pipeline 8887 passed macOS, Windows, Linux, quality, and
       Secret Service review jobs at `ddb998a5`; macOS/Windows project runners
       #105/#103 admit unprotected jobs. Their disposable execution, isolation
