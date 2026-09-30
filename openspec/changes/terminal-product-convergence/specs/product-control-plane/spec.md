@@ -109,3 +109,26 @@ request automatically.
   concurrency-quota evidence
 - **THEN** AIGW SHALL report retryable throttling rather than exhausted credit
 - **AND** the diagnostic SHALL have made only its single admitted request.
+
+### Requirement: Client projection failure reports verified recovery state
+
+After a configuration commit, a failed native client projection SHALL report
+whether AIGW configuration restoration succeeded. Human and JSON output SHALL
+use the same outcome and safe next action without exposing a private file path,
+credential value, or internal error. Configuration restoration SHALL NOT be
+presented as proof that every client or credential entrypoint was restored.
+
+#### Scenario: Configuration was restored after projection failure
+
+- **WHEN** a client file rejects the projection and the configuration snapshot
+  is restored
+- **THEN** the error SHALL say that configuration was restored
+- **AND** SHALL direct the operator to inspect client state with `aigw doctor`
+  before retrying.
+
+#### Scenario: Configuration restoration is incomplete
+
+- **WHEN** a client projection fails and restoring the configuration fails
+- **THEN** the error SHALL report incomplete restoration rather than claim a
+  successful rollback
+- **AND** SHALL not expose the underlying file path or imply retry is safe.

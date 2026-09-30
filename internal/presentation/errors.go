@@ -23,6 +23,18 @@ type presentedError struct{ cause error }
 func (e *presentedError) Error() string { return e.cause.Error() }
 func (e *presentedError) Unwrap() error { return e.cause }
 
+type configurationRecovery interface {
+	error
+	ConfigurationRestored() bool
+}
+
+func configurationRecoveryImpact(restored bool) string {
+	if restored {
+		return "Configuration was restored; native client or credential entrypoint state may still need inspection."
+	}
+	return "Configuration restoration was incomplete; client and credential state may also have changed."
+}
+
 // ProblemError creates a structured user-facing problem while preserving its underlying cause.
 func ProblemError(title, evidence, impact, fix string, cause error) error {
 	return &userError{problem: Problem{Title: title, Evidence: evidence, Impact: impact, Fix: fix}, cause: cause}
@@ -57,6 +69,12 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 			Evidence: "Noninteractive native-store preflight could not establish reader access.",
 			Impact:   "No new client projection was applied; no Account Token was returned.",
 			Fix:      "Run `aigw doctor` to inspect the selected backend; explicitly restage or authorize the Account Token for this AIGW version, then run `aigw sync`.",
+		}
+	} else if recovery, ok := errors.AsType[configurationRecovery](err); ok {
+		problem = Problem{
+			Title:  "Client projection failed",
+			Impact: configurationRecoveryImpact(recovery.ConfigurationRestored()),
+			Fix:    "Run `aigw doctor` before retrying.",
 		}
 	} else {
 		message := localizedErrorMessage(err)

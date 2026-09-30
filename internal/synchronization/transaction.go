@@ -109,15 +109,26 @@ func (s Synchronizer) applyProjection(
 	receipt, err := s.registry().Apply(ctx, s.clientDependencies(), before, after, clientIDs...)
 	if err != nil {
 		if rollbackErr := s.Config.RestoreSnapshot(configBefore, configAfter); rollbackErr != nil {
-			return nil, fmt.Errorf("synchronization failed: %w; rollback also failed: %w", err, rollbackErr)
+			return nil, projectionError{cause: fmt.Errorf("synchronization failed: %w; rollback also failed: %w", err, rollbackErr)}
 		}
 		if !errors.Is(err, client.ErrProjectionRollbackFailed) {
 			err = errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
 		}
-		return nil, fmt.Errorf("synchronization failed; configuration was rolled back: %w", err)
+		return nil, projectionError{cause: fmt.Errorf("synchronization failed; configuration was rolled back: %w", err), restored: true}
 	}
 	return receipt, nil
 }
+
+// projectionError preserves the verified configuration outcome without
+// claiming that every client or credential entrypoint was restored.
+type projectionError struct {
+	cause    error
+	restored bool
+}
+
+func (e projectionError) Error() string               { return e.cause.Error() }
+func (e projectionError) Unwrap() error               { return e.cause }
+func (e projectionError) ConfigurationRestored() bool { return e.restored }
 
 func undoCreatedEntrypoint(undo func() error) error {
 	if undo == nil {

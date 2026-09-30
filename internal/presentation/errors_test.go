@@ -16,6 +16,15 @@ import (
 
 type rewrittenOutputError struct{ cause error }
 
+type presentationProjectionError struct {
+	restored bool
+	cause    error
+}
+
+func (e presentationProjectionError) Error() string               { return e.cause.Error() }
+func (e presentationProjectionError) Unwrap() error               { return e.cause }
+func (e presentationProjectionError) ConfigurationRestored() bool { return e.restored }
+
 func TestRenderErrorDoesNotExposeLocalFilePath(t *testing.T) {
 	const privatePath = "/private/account-store/configuration.toml.bak"
 	for _, cause := range []error{
@@ -30,6 +39,32 @@ func TestRenderErrorDoesNotExposeLocalFilePath(t *testing.T) {
 				!strings.Contains(out.String(), "Local file access failed") || !strings.Contains(out.String(), "aigw doctor") {
 				t.Fatalf("json=%t local file diagnostic = %q, render error = %v", jsonMode, out.String(), renderer.Err())
 			}
+		}
+	}
+}
+
+func TestRenderProjectionFailureReportsConfigurationRecoveryWithoutPrivatePath(t *testing.T) {
+	const privatePath = "/private/member/hermes/.aigw-state.json"
+	for _, tc := range []struct {
+		name     string
+		restored bool
+		want     string
+	}{
+		{"restored", true, "Configuration was restored"},
+		{"incomplete", false, "Configuration restoration was incomplete"},
+	} {
+		for _, jsonMode := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/json=%t", tc.name, jsonMode), func(t *testing.T) {
+				cause := &os.PathError{Op: "write", Path: privatePath, Err: os.ErrPermission}
+				err := fmt.Errorf("configuration manifest: %w", presentationProjectionError{restored: tc.restored, cause: cause})
+				var out bytes.Buffer
+				renderer := New(&out, false)
+				RenderError(renderer, err, jsonMode)
+				if renderer.Err() != nil || !strings.Contains(out.String(), tc.want) ||
+					!strings.Contains(out.String(), "aigw doctor") || strings.Contains(out.String(), privatePath) {
+					t.Fatalf("projection recovery result = %q, render error = %v", out.String(), renderer.Err())
+				}
+			})
 		}
 	}
 }

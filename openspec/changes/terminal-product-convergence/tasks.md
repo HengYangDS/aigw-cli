@@ -233,6 +233,10 @@
       private paths, Token fragments, internal modules or tracebacks.
       The Codex custom-Provider model metadata error is addressed at the
       existing catalog projection owner, pending real-client candidate replay.
+      A late client-projection file failure now carries the configuration
+      restoration outcome through the synchronization error to human and JSON
+      presentation; focused tests cover restored and incomplete states without
+      leaking paths. The broader public error and warning audit remains open.
 
 ## 7. CI and Dual-Peer Admission
 

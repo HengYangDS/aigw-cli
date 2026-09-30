@@ -26,7 +26,7 @@ func TestCommandQuotesOneExecutableAndScopesCredentialLookup(t *testing.T) {
 func TestCommandExecutableRoundTripsOnlyTheExactOwnedInvocation(t *testing.T) {
 	for _, goos := range []string{"linux", "windows"} {
 		t.Run(goos, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "aigw's client")
+			path := filepath.Join(t.TempDir(), "projection", "aigw's client")
 			command, err := Command(path, "claude", "projection", goos)
 			if err != nil {
 				t.Fatal(err)
@@ -37,7 +37,7 @@ func TestCommandExecutableRoundTripsOnlyTheExactOwnedInvocation(t *testing.T) {
 			}
 			for _, changed := range []string{
 				command + " && echo foreign",
-				strings.Replace(command, "projection", "other-scope", 1),
+				strings.TrimSuffix(command, " projection") + " other-scope",
 				strings.TrimPrefix(command, command[:1]),
 			} {
 				if _, err := ExecutableFromCommand(changed, "claude", "projection", goos); err == nil {
