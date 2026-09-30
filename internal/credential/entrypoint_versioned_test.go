@@ -325,3 +325,48 @@ func TestRetainedEntrypointRejectsRedirectedCurrentNamespace(t *testing.T) {
 		t.Fatal("a redirected current namespace was accepted as the owned installation")
 	}
 }
+
+func TestRetainedEntrypointRequiresExistingPrivateNamespaceIdentity(t *testing.T) {
+	root := t.TempDir()
+	data := filepath.Join(root, "data")
+	paths := make([]string, 0, 2)
+	for _, version := range []string{"predecessor", "successor"} {
+		source := filepath.Join(root, version)
+		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		reader, err := VersionedEntrypointPath(data, source, "aigw")
+		if err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, reader)
+	}
+	retained, current := paths[0], paths[1]
+	if err := ValidateRetainedEntrypoint(current, retained); err == nil {
+		t.Fatal("an absent reader namespace was accepted")
+	}
+	if _, err := EnsureEntrypoint(filepath.Join(root, "predecessor"), retained); err != nil {
+		t.Fatal(err)
+	}
+	for _, invalid := range []string{retained, "relative", filepath.Join(filepath.Dir(current), "another-program")} {
+		if err := ValidateRetainedEntrypoint(invalid, retained); err == nil {
+			t.Fatal("invalid reader or executable identity was accepted")
+		}
+	}
+	foreign := filepath.Join(root, "foreign", "credential")
+	if err := os.MkdirAll(foreign, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	other := filepath.Join(foreign, filepath.Base(filepath.Dir(current)), "aigw")
+	if err := ValidateRetainedEntrypoint(other, retained); err == nil {
+		t.Fatal("another existing private namespace was accepted")
+	}
+	blocked := filepath.Join(root, "blocked")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	other = filepath.Join(blocked, "credential", filepath.Base(filepath.Dir(current)), "aigw")
+	if err := ValidateRetainedEntrypoint(other, retained); err == nil {
+		t.Fatal("an unavailable namespace was accepted")
+	}
+}

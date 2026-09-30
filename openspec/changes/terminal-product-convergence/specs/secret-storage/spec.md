@@ -80,7 +80,8 @@ disclosed rather than represented as uninterrupted service.
 - **THEN** it SHALL use only a Windows-provided short name whose existing
   ancestor identifies the same native file object
 - **AND** command spelling SHALL remain stable before and after reader
-  preparation, while inspection restores the canonical versioned namespace
+  preparation; parsing SHALL preserve that spelling while inspection proves
+  the same native versioned namespace
 - **AND** it SHALL NOT create an alias, launcher, junction, credential helper,
   alternate store, or native short-name policy
 - **AND** an unavailable, ambiguous, unsafe, or insufficient native name SHALL

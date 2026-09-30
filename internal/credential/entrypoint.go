@@ -70,12 +70,10 @@ func ValidateRetainedEntrypoint(current, retained string) error {
 			return err
 		}
 	}
-	if currentNamespace != retainedNamespace {
-		currentInfo, currentErr := os.Stat(currentNamespace)
-		retainedInfo, retainedErr := os.Stat(retainedNamespace)
-		if currentErr != nil || retainedErr != nil || !os.SameFile(currentInfo, retainedInfo) {
-			return errors.New("retained credential reader belongs to another installation")
-		}
+	currentInfo, currentErr := os.Stat(currentNamespace)
+	retainedInfo, retainedErr := os.Stat(retainedNamespace)
+	if currentErr != nil || retainedErr != nil || !os.SameFile(currentInfo, retainedInfo) {
+		return errors.New("retained credential reader belongs to another installation")
 	}
 	missing, err := EntrypointNeeded(retained)
 	if err != nil || missing {

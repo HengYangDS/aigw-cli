@@ -233,6 +233,11 @@
       actual Runner identity; canonical namespace and preparation spelling are
       preserved. Full rebuilt-package and published-predecessor acceptance
       remain open; primitive and source tests do not qualify those journeys.
+      Native service-account CI then exposed parser expansion of existing
+      short ancestor spelling, invalidating otherwise owned Claude/Hermes
+      projections. The parser now retains exact invocation spelling and leaves
+      native identity to the reader owner; a service-TEMP regression rejects
+      the former expansion. Source CI and full package acceptance remain open.
 - [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
       environment backend separately; no password/biometric retry loop, service
       restart, or hidden native-store policy change is permitted. At signed

@@ -63,8 +63,5 @@ func ExecutableFromCommand(command, client, scope, goos string) (string, error) 
 	if err != nil || rendered != command {
 		return "", fmt.Errorf("credential invocation differs from AIGW's exact command grammar")
 	}
-	if goos == "windows" && runtime.GOOS == "windows" {
-		return nativeCanonicalPath(executable)
-	}
 	return executable, nil
 }
