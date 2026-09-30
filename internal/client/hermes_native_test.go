@@ -192,7 +192,7 @@ func assertNativeHermesCatalogue(t *testing.T, routes map[string]configuration.R
 		}
 		for _, protocol := range route.AdmittedProtocols() {
 			providerID := hermesProviderID(route.Account, protocol)
-			want[providerID] = append(want[providerID], route.Model)
+			want[providerID] = append(want[providerID], route.UpstreamModelID())
 		}
 	}
 	if len(providers) != len(want) {

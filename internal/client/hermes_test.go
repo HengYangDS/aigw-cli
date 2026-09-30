@@ -105,6 +105,66 @@ func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 	}
 }
 
+func TestHermesCatalogueUsesProviderWireModelIDs(t *testing.T) {
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	for routeID, wireID := range map[string]string{"ordinary": "gpt-6-astra", "variant": "gpt-6-astra-ssvip"} {
+		cfg.Routes[routeID] = configuration.Route{
+			Account: "gateway", Model: "gpt-6-astra", UpstreamModel: wireID,
+			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		}
+	}
+	cfg.SetSelectedRoute(configuration.ClientHermes, "variant")
+	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := secrets.NewMemoryStore()
+	if err := store.Set("gateway", "fixture-token"); err != nil {
+		t.Fatal(err)
+	}
+	desired, err := hermesDesired(Dependencies{Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, selected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if desired.SelectedModel != "gpt-6-astra-ssvip" || len(desired.Providers) != 1 || !slices.Equal(desired.Providers[0].Models, []string{"gpt-6-astra", "gpt-6-astra-ssvip"}) {
+		t.Fatalf("Hermes wire catalogue = %#v", desired)
+	}
+}
+
+func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
+	team, err := os.ReadFile(filepath.Join("..", "..", "manifests", "team.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := configuration.Parse(team)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := configuration.Merge(configuration.NewConfig(), manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogue, err := hermesCatalogue(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	models := make(map[string][]string, len(catalogue))
+	for _, provider := range catalogue {
+		models[provider.ID] = provider.Models
+	}
+	spec := mustClientSpec(configuration.ClientHermes)
+	for _, routeID := range cfg.RouteIDs() {
+		route := cfg.Routes[routeID]
+		for _, protocol := range spec.CompatibleRouteProtocols(cfg.Accounts[route.Account], route) {
+			providerID := hermesProviderID(route.Account, protocol)
+			if !slices.Contains(models[providerID], route.UpstreamModelID()) {
+				t.Errorf("Hermes provider %q omits Route %q wire ID %q", providerID, routeID, route.UpstreamModelID())
+			}
+		}
+	}
+}
+
 func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
 	before := configuration.NewConfig()
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}

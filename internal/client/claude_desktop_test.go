@@ -81,6 +81,58 @@ func TestClaudeDesktopCatalogueDerivesUnlabeledAlternative(t *testing.T) {
 	t.Fatal("Claude Desktop alternative was omitted")
 }
 
+func TestClaudeDesktopCatalogueDeduplicatesLogicalModelsButUsesWireNames(t *testing.T) {
+	fixture := newClaudeDesktopFixture(t)
+	selected := fixture.cfg.Routes["selected"]
+	selected.Label = "Sonnet 5.5 CC"
+	selected.Model, selected.UpstreamModel = "claude-sonnet-5-5", "claude-sonnet-5-5-cc"
+	fixture.cfg.Routes["selected"] = selected
+	fixture.cfg.Routes["ordinary"] = configuration.Route{
+		Account: "gateway", Model: "claude-sonnet-5-5", UpstreamModel: "claude-sonnet-5-5",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+	}
+	alternate := fixture.cfg.Routes["alternate"]
+	alternate.UpstreamModel = "claude-opus-5-ssvip"
+	fixture.cfg.Routes["alternate"] = alternate
+	runtime, err := fixture.cfg.ResolveRuntime(configuration.ClientClaudeDesktop, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	models := claudeDesktopModels(fixture.cfg, runtime)
+	if len(models) != 3 || models[0].Name != "claude-sonnet-5-5-cc" || models[1].Name != "claude-opus-5-ssvip" || models[2].Name != "manual-model" {
+		t.Fatalf("Claude Desktop model projection = %#v", models)
+	}
+}
+
+func TestClaudeDesktopShippedChannelDoesNotDuplicateItsLogicalModel(t *testing.T) {
+	team, err := os.ReadFile(filepath.Join("..", "..", "manifests", "team.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := configuration.Parse(team)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := configuration.Merge(configuration.NewConfig(), manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "dmxapi-claude-sonnet-5-5-cc")
+	runtime, err := cfg.ResolveRuntime(configuration.ClientClaudeDesktop, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	models := claudeDesktopModels(cfg, runtime)
+	if len(models) != 3 || models[0].Name != "claude-sonnet-5-5-cc" {
+		t.Fatalf("shipped Claude Desktop model projection = %#v", models)
+	}
+	for _, model := range models {
+		if model.Name == "claude-sonnet-5-5" || model.Name == "claude-sonnet-5-5-ssvip" {
+			t.Fatalf("shipped Claude Desktop duplicated the selected logical Model: %#v", models)
+		}
+	}
+}
+
 func (fixture claudeDesktopFixture) apply(t *testing.T) {
 	t.Helper()
 	if _, err := fixture.adapter.Apply(t.Context(), fixture.deps, configuration.NewConfig(), fixture.cfg); err != nil {

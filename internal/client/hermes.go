@@ -140,7 +140,7 @@ func hermesCatalogue(cfg configuration.Config) ([]hermesCatalogueProvider, error
 				}
 				item = hermesCatalogueProvider{ID: id, Account: route.Account, Protocol: protocol, Endpoint: selected.Endpoint, Runtime: selected}
 			}
-			item.Models = append(item.Models, route.Model)
+			item.Models = append(item.Models, route.UpstreamModelID())
 			providers[id] = item
 		}
 	}
