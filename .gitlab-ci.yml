@@ -142,17 +142,17 @@ native-windows:
       $env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR
       $mise = Join-Path $env:ProgramFiles 'mise\bin\mise.exe'
       if (-not (Test-Path -LiteralPath $mise -PathType Leaf)) { throw 'Runner-owned Mise is missing.' }
-      if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne '3b5de10e2185ed1fa675df3c4ee7a0404b352dd76fd0802b66a743cd20e87539') { throw 'Runner-owned Mise digest differs from the admitted release.' }
+      if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne '8c0281d26494bc8aaa2804ccd51cfb8315438d1b0b61575d8f02751828708c14') { throw 'Runner-owned Mise digest differs from the admitted release.' }
       $reported = & $mise --version
       if ($LASTEXITCODE -ne 0) { throw 'Runner-owned Mise failed to start under the job identity.' }
-      if ($reported -notmatch ('^' + [regex]::Escape('2026.9.17') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
+      if ($reported -notmatch ('^' + [regex]::Escape('2026.9.18') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
       & whoami.exe /user
       if ($LASTEXITCODE -ne 0) { throw 'Runner identity could not be observed.' }
       $shim = Join-Path (Split-Path -Parent $mise) 'mise-shim.exe'
       if (-not (Test-Path -LiteralPath $shim -PathType Leaf)) { throw 'Runner-owned Mise shim is missing.' }
       try { $shimHash = (Get-FileHash -LiteralPath $shim -Algorithm SHA256 -ErrorAction Stop).Hash }
       catch { & icacls.exe $shim; throw "Runner-owned Mise shim cannot be read (error=$($_.FullyQualifiedErrorId), hresult=$($_.Exception.HResult))." }
-      if ($shimHash -ne 'a948bd5b98e0ec8f16ed5efa5daf220f92c65a7117c7e5f73b60d0593ffbaf47') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
+      if ($shimHash -ne 'a25d8a155b485ce92bb776261316e26af5f5b003d528dadbb9e26b7ccd3a5188') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
       $shimsDirectory = Join-Path $env:MISE_DATA_DIR 'shims'
       $probeDirectory = Join-Path $shimsDirectory '.mise-shims-stage-probe'
       $probeTarget = Join-Path $probeDirectory 'actionlint.exe'
@@ -254,17 +254,17 @@ native-windows-review:
       $env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR
       $mise = Join-Path $env:ProgramFiles 'mise\bin\mise.exe'
       if (-not (Test-Path -LiteralPath $mise -PathType Leaf)) { throw 'Runner-owned Mise is missing.' }
-      if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne '3b5de10e2185ed1fa675df3c4ee7a0404b352dd76fd0802b66a743cd20e87539') { throw 'Runner-owned Mise digest differs from the admitted release.' }
+      if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne '8c0281d26494bc8aaa2804ccd51cfb8315438d1b0b61575d8f02751828708c14') { throw 'Runner-owned Mise digest differs from the admitted release.' }
       $reported = & $mise --version
       if ($LASTEXITCODE -ne 0) { throw 'Runner-owned Mise failed to start under the job identity.' }
-      if ($reported -notmatch ('^' + [regex]::Escape('2026.9.17') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
+      if ($reported -notmatch ('^' + [regex]::Escape('2026.9.18') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
       & whoami.exe /user
       if ($LASTEXITCODE -ne 0) { throw 'Runner identity could not be observed.' }
       $shim = Join-Path (Split-Path -Parent $mise) 'mise-shim.exe'
       if (-not (Test-Path -LiteralPath $shim -PathType Leaf)) { throw 'Runner-owned Mise shim is missing.' }
       try { $shimHash = (Get-FileHash -LiteralPath $shim -Algorithm SHA256 -ErrorAction Stop).Hash }
       catch { & icacls.exe $shim; throw "Runner-owned Mise shim cannot be read (error=$($_.FullyQualifiedErrorId), hresult=$($_.Exception.HResult))." }
-      if ($shimHash -ne 'a948bd5b98e0ec8f16ed5efa5daf220f92c65a7117c7e5f73b60d0593ffbaf47') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
+      if ($shimHash -ne 'a25d8a155b485ce92bb776261316e26af5f5b003d528dadbb9e26b7ccd3a5188') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
       $shimsDirectory = Join-Path $env:MISE_DATA_DIR 'shims'
       $probeDirectory = Join-Path $shimsDirectory '.mise-shims-stage-probe'
       $probeTarget = Join-Path $probeDirectory 'actionlint.exe'
@@ -356,7 +356,7 @@ stages:
   - verify
   - release
 .linux-toolchain:
-  image: docker.io/jdxcode/mise:2026.9.17-debian@sha256:96b00319506c7ae46d2a561ba7da60723c723327d796334847c2802827cc6ec5
+  image: docker.io/jdxcode/mise:2026.9.18-debian@sha256:33d301fd5929d6960c102f947e97f08c671ad936573b375fcf4f13a90466f710
   variables:
     MISE_DATA_DIR: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise
     MISE_CACHE_DIR: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise/cache
@@ -365,7 +365,7 @@ stages:
       files:
         - mise.toml
         - mise.lock
-      prefix: mise-linux-96b00319506c7ae46d2a561ba7da60723c723327d796334847c2802827cc6ec5-build-runtime-tool-cache-.mise-installs-cache-$CI_RUNNER_ID-$CI_JOB_NAME
+      prefix: mise-linux-33d301fd5929d6960c102f947e97f08c671ad936573b375fcf4f13a90466f710-build-runtime-tool-cache-.mise-installs-cache-$CI_RUNNER_ID-$CI_JOB_NAME
     paths:
       - build/runtime/tool-cache/.mise/installs/
       - build/runtime/tool-cache/.mise/cache/

@@ -255,10 +255,10 @@ _graphOrder: {
 	}
 }
 
-miseImage:                        "docker.io/jdxcode/mise:2026.9.17-debian@sha256:96b00319506c7ae46d2a561ba7da60723c723327d796334847c2802827cc6ec5"
+miseImage:                        "docker.io/jdxcode/mise:2026.9.18-debian@sha256:33d301fd5929d6960c102f947e97f08c671ad936573b375fcf4f13a90466f710"
 miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
-miseWindowsArm64ExecutableSHA256: "3b5de10e2185ed1fa675df3c4ee7a0404b352dd76fd0802b66a743cd20e87539"
-miseWindowsArm64ShimSHA256:       "a948bd5b98e0ec8f16ed5efa5daf220f92c65a7117c7e5f73b60d0593ffbaf47"
+miseWindowsArm64ExecutableSHA256: "8c0281d26494bc8aaa2804ccd51cfb8315438d1b0b61575d8f02751828708c14"
+miseWindowsArm64ShimSHA256:       "a25d8a155b485ce92bb776261316e26af5f5b003d528dadbb9e26b7ccd3a5188"
 windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
 
 actions: {

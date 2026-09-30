@@ -27,8 +27,8 @@ func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T)
 	}
 	commands := gitlab.Windows.Script
 	if len(commands) < 2 || !strings.Contains(commands[0], `Join-Path $env:ProgramFiles 'mise\bin\mise.exe'`) ||
-		!strings.Contains(commands[0], "2026.9.17") ||
-		!strings.Contains(commands[0], "3b5de10e2185ed1fa675df3c4ee7a0404b352dd76fd0802b66a743cd20e87539") ||
+		!strings.Contains(commands[0], "2026.9.18") ||
+		!strings.Contains(commands[0], "8c0281d26494bc8aaa2804ccd51cfb8315438d1b0b61575d8f02751828708c14") ||
 		!strings.Contains(commands[0], "Get-FileHash -LiteralPath $mise -Algorithm SHA256") ||
 		!strings.Contains(commands[1], "mise install --locked") {
 		t.Fatalf("Windows runner Mise identity is not pinned before the locked toolchain: %v", commands)
@@ -40,7 +40,7 @@ func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T)
 		"whoami.exe /user",
 		"$shim = Join-Path (Split-Path -Parent $mise) 'mise-shim.exe'",
 		"Get-FileHash -LiteralPath $shim -Algorithm SHA256",
-		"a948bd5b98e0ec8f16ed5efa5daf220f92c65a7117c7e5f73b60d0593ffbaf47",
+		"a25d8a155b485ce92bb776261316e26af5f5b003d528dadbb9e26b7ccd3a5188",
 		"$shimsDirectory = Join-Path $env:MISE_DATA_DIR 'shims'",
 		"Copy-Item -LiteralPath $shim -Destination $probeTarget -ErrorAction Stop",
 		"Remove-Item -LiteralPath $probeDirectory -Recurse -Force -ErrorAction Stop",

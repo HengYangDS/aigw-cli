@@ -84,6 +84,11 @@
       runner, including rollback rotation and explicit restaging. Operator-item
       authorization, Linux host credential service, and Windows predecessor
       proof remain open.
+      The signed `2c7fbe89` Linux ARM64 candidate also passes authentic 0.3.1
+      succession with an isolated real DBus/GNOME Secret Service as UID 1000.
+      Automatic backend selection is keyring; old and new commands remain
+      callable through upgrade, rollback and re-upgrade, and uninstall retains
+      the stored Token. Linux host and Windows evidence remain separate.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
@@ -187,6 +192,12 @@
       `5260160d`, a source-built journey also passed against real DBus/GNOME
       Secret Service in an isolated container. Final signed bytes, a Linux VM
       host, real clients and peer-outage transport remain unproved.
+      The `2c7fbe89` signed Linux ARM64 archive passes install, shipped setup,
+      check, update, rollback, re-upgrade and uninstall with the published
+      0.3.1 archive under both file fallback and real Secret Service. Candidate
+      and predecessor archive hashes are retained; both containers and scratch
+      are removed. This qualifies container package succession only; Linux VM,
+      live Provider/client, hosted CI and final publication still remain open.
 - [ ] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
@@ -228,6 +239,11 @@
       resolutions and the OSV/license scan (43 Go and 283 npm packages, zero
       findings) pass. New npm releases younger than three days remain held;
       Linux/Windows native and cold-cache peer transport remain open.
+      The final September 30 supply read advances CI Mise to stable 2026.9.18.
+      The official Windows ARM64 ZIP and its executable/shim hashes are verified;
+      Docker Hub confirms the immutable Debian multi-platform index. Both Forge
+      projections use those inputs. Runner installation and hosted execution
+      remain required before supply-chain qualification is complete.
 - [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
