@@ -523,10 +523,16 @@ the archived source. Use these independently approved trust inputs:
 `AIGW_RELEASE_ARTIFACT_SIGNER`, and `AIGW_RELEASE_ALLOWED_SIGNERS_FILE`.
 
 ```bash
-AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
-  mise exec --locked -- go run ./tools/release accept-native \
-    --artifacts /absolute/path/to/candidate-dist --candidate --clients
+mise exec --locked -- go run ./tools/release accept-native \
+  --artifacts /absolute/path/to/candidate-dist --candidate --clients \
+  --baseline-artifacts /absolute/path/to/published-baseline --baseline-tag v0.3.1
 ```
+
+`--baseline-artifacts` requires its published signed tag. The release owner
+verifies the full predecessor matrix, tag and source provenance before
+extracting its native executable; it never substitutes a fixture. The existing
+`AIGW_ACCEPTANCE_BASELINE` input accepts an independently verified executable
+path and cannot be combined with these predecessor-matrix inputs.
 
 `--candidate` requires a clean signed HEAD and no selected or same-version
 release tag. After tagging, omit it and select `CI_COMMIT_TAG` so the release
@@ -577,10 +583,17 @@ it: supply the [public trust inputs](#hosted-release-verification), set
 `CI_COMMIT_TAG` to its exact signed tag, and run:
 
 ```bash
-AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
-  mise exec --locked -- go run ./tools/release accept-native \
-  --artifacts /absolute/path/to/published/matrix
+mise exec --locked -- go run ./tools/release accept-native \
+  --artifacts /absolute/path/to/published/matrix \
+  --baseline-artifacts /absolute/path/to/published-baseline --baseline-tag v0.3.1
 ```
+
+Alternatively, select `--tag` and `--baseline-tag` with `--peer github` or
+`--peer gitlab` and an explicit `--repository`. Missing matrices are downloaded
+by that peer's native CLI with prompts disabled, closed stdin and a two-minute
+deadline per call. Trust, extraction and cleanup stay in the release owner;
+local matrix paths never imply a network request. `--clients` requires the
+three explicit client executable paths before construction or download starts.
 
 The command verifies signatures, provenance and complete inventory before
 executing anything from the matrix. It copies only the native archive and
@@ -711,6 +724,16 @@ runners, while protected refs use protected runners. Literal job tags enforce
 this boundary without a pipeline-variable selector; runner availability and
 actual native execution still require peer-local evidence. GitHub remains
 exclusively GitHub-hosted, with no self-hosted runner fallback.
+
+For GitLab native acceptance, `AIGW_CANDIDATE_TAG` selects a published matrix;
+`AIGW_CANDIDATE_ARTIFACTS` instead selects a local pre-tag candidate directory.
+`AIGW_BASELINE_TAG` selects the published predecessor, and
+`AIGW_NATIVE_CLIENTS=true` enables the real-client journey after its executable
+paths have been provisioned. CUE forwards these declarations after `ci native
+--`; source checks do not inherit them. The release owner downloads from the
+explicit GitLab project using native Job Token authentication. These inputs
+declare what to test; they do not prove provisioning, peer independence or
+native acceptance.
 
 Set `candidate_tag` with `baseline_tag` to consume a published signed matrix
 instead of reconstructing its successor. Each native job downloads from its own

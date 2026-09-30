@@ -405,3 +405,35 @@ func TestWindowsClientInstallerUsesPinnedContentAPI(t *testing.T) {
 		}
 	}
 }
+
+func TestGitLabNativeAcceptanceForwardsPeerLocalArtifactAndClientInputs(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var jobs struct {
+		Linux struct {
+			Script []string `yaml:"script"`
+		} `yaml:"native-linux"`
+		Darwin struct {
+			Script []string `yaml:"script"`
+		} `yaml:"native-darwin-review"`
+		Windows struct {
+			Script []string `yaml:"script"`
+		} `yaml:"native-windows-review"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &jobs); err != nil {
+		t.Fatal(err)
+	}
+	for name, commands := range map[string][]string{"native-linux": jobs.Linux.Script, "native-darwin-review": jobs.Darwin.Script, "native-windows-review": jobs.Windows.Script} {
+		script := strings.Join(commands, "\n")
+		for _, input := range []string{"AIGW_BASELINE_TAG", "AIGW_CANDIDATE_TAG", "AIGW_CANDIDATE_ARTIFACTS", "AIGW_NATIVE_CLIENTS", "--baseline-tag", "--artifacts", "--candidate", "--clients", "--peer", "gitlab", "--repository", "CI_PROJECT_URL"} {
+			if !strings.Contains(script, input) {
+				t.Errorf("%s omits native release input %s", name, input)
+			}
+		}
+		if strings.Contains(script, "gh release download") || !strings.Contains(script, "native --platform") {
+			t.Errorf("%s must use its own peer and the existing native controller", name)
+		}
+	}
+}

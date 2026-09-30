@@ -225,6 +225,15 @@ proof, review CI, accepted-ref CI, signed/tagged assets, installation, and
 real-client operation are distinct evidence. Freeze exact source and lock
 inputs before the expensive final matrix; do not rerun identical heavy gates
 because an observation timed out or a progress-only record changed.
+
+Native CI forwards declarations after `ci native --`; the existing release
+construction owner admits candidate and published-predecessor matrices,
+verifies their signed source identity, extracts only native bytes and owns
+scratch cleanup. Explicit peer and repository inputs select native gh/glab
+downloads with prompts disabled and a per-call deadline. Neither CI projection
+downloads nor a second platform-specific verifier owns that decision. Real
+client paths must be declared before construction or download begins.
+
 Unprotected `proposal/*` reviews must not be protected merely to reach a
 protected runner: eligible protected GitLab merge requests receive protected
 variables and runners together, while a persistent Shell account retains its

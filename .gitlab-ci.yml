@@ -13,6 +13,8 @@ native-linux:
   stage: verify
   variables:
     CGO_ENABLED: "1"
+    GLAB_ENABLE_CI_AUTOLOGIN: "true"
+    GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee
   artifacts:
     when: always
@@ -22,7 +24,19 @@ native-linux:
   script:
     - mise run bootstrap
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
-    - mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
+    - |-
+      set -eu
+      set -- --peer gitlab --repository "$CI_PROJECT_URL"
+      if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
+      if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
+      if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
+      if [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
+        : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
+        set -- "$@" --clients
+      fi
+      export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
+      export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
+      mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
 native-darwin:
   after_script:
     - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"; fi
@@ -45,7 +59,19 @@ native-darwin:
     - env GODEBUG=http2client=0 mise install --locked
     - mise run bootstrap
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
-    - mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
+    - |-
+      set -eu
+      set -- --peer gitlab --repository "$CI_PROJECT_URL"
+      if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
+      if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
+      if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
+      if [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
+        : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
+        set -- "$@" --clients
+      fi
+      export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
+      export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
+      mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
   tags:
     - ci-macos-arm64-shell
   rules:
@@ -55,6 +81,8 @@ native-darwin:
     - when: never
   stage: verify
   variables:
+    GLAB_ENABLE_CI_AUTOLOGIN: "true"
+    GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee,github:indygreg/apple-platform-rs
   artifacts:
     when: always
@@ -83,7 +111,19 @@ native-darwin-review:
     - env GODEBUG=http2client=0 mise install --locked
     - mise run bootstrap
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
-    - mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
+    - |-
+      set -eu
+      set -- --peer gitlab --repository "$CI_PROJECT_URL"
+      if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
+      if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
+      if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
+      if [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
+        : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
+        set -- "$@" --clients
+      fi
+      export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
+      export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
+      mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
   tags:
     - ci-macos-arm64-review
   rules:
@@ -92,6 +132,8 @@ native-darwin-review:
     - when: never
   stage: verify
   variables:
+    GLAB_ENABLE_CI_AUTOLOGIN: "true"
+    GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee,github:indygreg/apple-platform-rs
   artifacts:
     when: always
@@ -193,7 +235,20 @@ native-windows:
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - mise run bootstrap
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
-    - mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"
+    - |-
+      $ErrorActionPreference = 'Stop'
+      $PSNativeCommandUseErrorActionPreference = $true
+      $acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)
+      if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }
+      if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
+      if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
+      if ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
+        if (-not $env:AIGW_BASELINE_TAG) { throw 'Real-client succession requires AIGW_BASELINE_TAG.' }
+        $acceptance += '--clients'
+      }
+      if (-not $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }
+      if (-not $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ALLOWED_SIGNERS }
+      mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')" -- @acceptance
   tags:
     - ci-windows-arm64-shell
   rules:
@@ -204,6 +259,8 @@ native-windows:
   stage: verify
   variables:
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
+    GLAB_ENABLE_CI_AUTOLOGIN: "true"
+    GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab
   artifacts:
     when: always
@@ -305,7 +362,20 @@ native-windows-review:
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - mise run bootstrap
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
-    - mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"
+    - |-
+      $ErrorActionPreference = 'Stop'
+      $PSNativeCommandUseErrorActionPreference = $true
+      $acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)
+      if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }
+      if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
+      if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
+      if ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
+        if (-not $env:AIGW_BASELINE_TAG) { throw 'Real-client succession requires AIGW_BASELINE_TAG.' }
+        $acceptance += '--clients'
+      }
+      if (-not $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }
+      if (-not $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ALLOWED_SIGNERS }
+      mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')" -- @acceptance
   tags:
     - ci-windows-arm64-review
   rules:
@@ -315,6 +385,8 @@ native-windows-review:
   stage: verify
   variables:
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
+    GLAB_ENABLE_CI_AUTOLOGIN: "true"
+    GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab
   artifacts:
     when: always

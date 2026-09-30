@@ -148,12 +148,16 @@ func runReleaseEvidence(arguments []string, output io.Writer) error {
 }
 
 func runNative(args []string, stdout io.Writer, runner commandRunner) error {
+	var releaseArgs []string
+	if separator := slices.Index(args, "--"); separator >= 0 {
+		releaseArgs, args = args[separator+1:], args[:separator]
+	}
 	flags := flag.NewFlagSet("ci native", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	platform := flags.String("platform", runtime.GOOS, "darwin, linux, or windows")
 	fullQuality := flags.Bool("full-quality", false, "Qualify every repository quality tool on this host before native acceptance")
 	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || !supportedNativePlatform(*platform) {
-		return errors.New("usage: ci native [--platform <darwin|linux|windows>] [--full-quality]")
+		return errors.New("usage: ci native [--platform <darwin|linux|windows>] [--full-quality] [-- <release accept-native arguments>]")
 	}
 	if *platform != runtime.GOOS {
 		return fmt.Errorf("native acceptance requires %s host, running on %s", *platform, runtime.GOOS)
@@ -163,6 +167,7 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 		return err
 	}
 	commands := nativeCommands(*platform)
+	commands[len(commands)-1].Args = append(commands[len(commands)-1].Args, releaseArgs...)
 	if *fullQuality {
 		if err := validateRepositoryQualityGraph("."); err != nil {
 			return err

@@ -276,7 +276,7 @@ jobs:
             $architecture = mise exec --locked -- go env GOARCH
             $extension = if ($platform -eq 'windows') { 'zip' } else { 'tar.gz' }
             $pattern = "*_${platform}_${architecture}.${extension}"
-            gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
+            mise exec --locked -- gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
             $archives = @(Get-ChildItem -Path $scope -Filter $pattern -File)
             if ($archives.Count -ne 1) { throw 'Expected exactly one native release archive' }
             $archive = $archives[0]
@@ -460,7 +460,7 @@ jobs:
             $architecture = mise exec --locked -- go env GOARCH
             $extension = if ($platform -eq 'windows') { 'zip' } else { 'tar.gz' }
             $pattern = "*_${platform}_${architecture}.${extension}"
-            gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
+            mise exec --locked -- gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
             $archives = @(Get-ChildItem -Path $scope -Filter $pattern -File)
             if ($archives.Count -ne 1) { throw 'Expected exactly one native release archive' }
             $archive = $archives[0]
@@ -665,7 +665,7 @@ jobs:
             $architecture = mise exec --locked -- go env GOARCH
             $extension = if ($platform -eq 'windows') { 'zip' } else { 'tar.gz' }
             $pattern = "*_${platform}_${architecture}.${extension}"
-            gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
+            mise exec --locked -- gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
             $archives = @(Get-ChildItem -Path $scope -Filter $pattern -File)
             if ($archives.Count -ne 1) { throw 'Expected exactly one native release archive' }
             $archive = $archives[0]

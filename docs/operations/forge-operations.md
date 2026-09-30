@@ -270,6 +270,13 @@ Git source trust inputs and `AIGW_ACCEPTANCE_BASELINE` pointing to the verified
 published predecessor executable. After tagging, omit `--candidate` and select
 `CI_COMMIT_TAG` to verify the signed release tag as well.
 
+`--baseline-artifacts` with `--baseline-tag` instead admits the complete signed
+predecessor matrix and extracts its native executable through the same owner.
+For published remote inputs, `--tag`, `--baseline-tag`, `--peer` and
+`--repository` select that peer's native CLI with a bounded no-prompt download;
+neither Forge is a transport fallback for the other. See
+[native artifact acceptance](../../CONTRIBUTING.md#tagged-artifact-acceptance).
+
 Pre-archive samples qualify only that candidate. Archive changes source identity;
 measure the newly built, exact-source matrix again before tagging, rather than
 carrying old samples into the final release verdict.

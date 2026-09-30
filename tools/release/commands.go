@@ -20,35 +20,23 @@ func buildCommands(ctx context.Context) commandSet {
 	return commandSet{
 		"accept-native": func(args []string, _ io.Writer) error {
 			flags := flag.NewFlagSet("accept-native", flag.ContinueOnError)
-			clients := flags.Bool("clients", false, "Also verify real clients through the native lifecycle")
-			artifacts := flags.String("artifacts", "", "Consume an existing signed release matrix instead of building")
-			candidate := flags.Bool("candidate", false, "Verify an untagged signed candidate against HEAD")
-			performance := flags.String("performance", "", "Retain Hyperfine measurements in this absolute output directory")
+			input := construction.NativeAcceptance{}
+			flags.StringVar(&input.Artifacts, "artifacts", "", "Consume an existing signed release matrix")
+			flags.StringVar(&input.Tag, "tag", "", "Select the published candidate tag")
+			flags.StringVar(&input.BaselineArtifacts, "baseline-artifacts", "", "Consume a local published predecessor matrix")
+			flags.StringVar(&input.BaselineTag, "baseline-tag", "", "Select the published predecessor tag")
+			flags.StringVar(&input.Peer, "peer", "", "Download missing tagged inputs from github or gitlab")
+			flags.StringVar(&input.Repository, "repository", "", "Explicit repository for the selected peer")
+			flags.BoolVar(&input.Candidate, "candidate", false, "Bind untagged artifacts to signed HEAD")
+			flags.BoolVar(&input.Clients, "clients", false, "Verify explicitly supplied native clients")
+			flags.StringVar(&input.Performance, "performance", "", "Retain Hyperfine samples in this absolute directory")
 			if err := flags.Parse(args); err != nil {
 				return err
 			}
-			if err := requireArguments(flags.Args(), 0, "usage: release accept-native [--artifacts <directory> [--candidate]] [--clients] [--performance <absolute-directory>]"); err != nil {
+			if err := requireArguments(flags.Args(), 0, "usage: release accept-native [--artifacts <directory> [--candidate | --tag <tag>]] [--baseline-tag <tag> [--baseline-artifacts <directory>]] [--peer <github|gitlab> --repository <repository>] [--clients] [--performance <absolute-directory>]"); err != nil {
 				return err
 			}
-			if *candidate && *artifacts == "" {
-				return errors.New("candidate acceptance requires --artifacts")
-			}
-			if *candidate && readiness.SelectedReleaseTag() != "" {
-				return errors.New("candidate acceptance cannot select a release tag")
-			}
-			if *performance != "" && (*artifacts == "" || strings.TrimSpace(os.Getenv("AIGW_ACCEPTANCE_BASELINE")) == "") {
-				return errors.New("performance acceptance requires an explicit candidate artifact and published baseline")
-			}
-			if *artifacts != "" {
-				verify := verifyArtifacts
-				if *candidate {
-					verify = verifyCandidateArtifacts
-				}
-				if err := verify(ctx, *artifacts); err != nil {
-					return err
-				}
-			}
-			return construction.AcceptNative(ctx, *artifacts, *clients, *performance)
+			return construction.AcceptNative(ctx, input)
 		},
 		"build": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release build <output-directory>"); err != nil {
@@ -215,30 +203,15 @@ func publicationCommands(ctx context.Context) commandSet {
 }
 
 func verifyArtifacts(ctx context.Context, directory string) error {
-	return verifyArtifactSource(ctx, directory, false)
-}
-
-func verifyCandidateArtifacts(ctx context.Context, directory string) error {
-	return verifyArtifactSource(ctx, directory, true)
-}
-
-func verifyArtifactSource(ctx context.Context, directory string, candidate bool) error {
 	version, err := readiness.ReadProductVersion(".")
 	if err != nil {
 		return err
 	}
-	trust := artifact.SignatureTrust{
-		AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"),
-		Principal:      os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER"),
-	}
+	trust := artifact.SignatureTrust{AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"), Principal: os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER")}
 	if err := artifact.VerifyMatrix(ctx, directory, version, trust); err != nil {
 		return err
 	}
-	source := artifact.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
-	if candidate {
-		return artifact.VerifyCandidateProvenance(ctx, directory, source)
-	}
-	return artifact.VerifyProvenance(ctx, directory, readiness.SelectedReleaseTag(), source)
+	return artifact.VerifyProvenance(ctx, directory, readiness.SelectedReleaseTag(), artifact.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")})
 }
 
 func verifyMacOSPublication(ctx context.Context, directory, version string) error {

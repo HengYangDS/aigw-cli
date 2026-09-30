@@ -306,6 +306,10 @@
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review
       work only before a noninterruptible native Shell or release job starts.
+      Native CI now forwards explicit candidate, predecessor and client inputs
+      to the existing release owner. Signed two-peer fixtures, input rejection,
+      forwarding and child-deadline regressions pass; fixed-artifact execution
+      with the real clients on both peers remains required.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
       guarded merge, source-ref deletion, signer trust and branch protection on each
       selected peer without interactive authentication or divergent commit

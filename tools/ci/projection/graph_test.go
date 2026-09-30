@@ -227,7 +227,7 @@ func TestGitLabFullNativeQualityUsesTheExistingEntryPoint(t *testing.T) {
 		if platform == "windows" {
 			want = `mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"`
 		}
-		if !slices.Contains(job.Script, want) {
+		if !slices.ContainsFunc(job.Script, func(script string) bool { return strings.Contains(script, want+" -- ") }) {
 			t.Fatalf("GitLab %s lacks the same explicit native-quality entrypoint", name)
 		}
 	}

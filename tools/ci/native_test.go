@@ -207,3 +207,39 @@ func TestRejectsUnknownCommandsAndPlatforms(t *testing.T) {
 		}
 	}
 }
+
+func TestNativeAcceptanceForwardsReleaseOwnedArguments(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
+	selected := []string{"--artifacts", "/candidate with spaces", "--candidate", "--clients"}
+	for _, sourceFlags := range [][]string{nil, {"--full-quality"}} {
+		var calls []command
+		args := append([]string{"native"}, sourceFlags...)
+		args = append(append(args, "--"), selected...)
+		err := run(args, &bytes.Buffer{}, func(call command) error {
+			calls = append(calls, call)
+			return nil
+		})
+		if err != nil || len(calls) < 3 {
+			t.Fatalf("native acceptance discarded explicit release inputs: %v, %#v", err, calls)
+		}
+		final := calls[len(calls)-1]
+		want := append([]string{"run", "./tools/release", "accept-native"}, selected...)
+		if !slices.Equal(final.Args, want) || slices.Contains(final.Env, "AIGW_ACCEPTANCE_BASELINE=") {
+			t.Fatalf("release inputs or predecessor changed: %#v", final)
+		}
+		for _, source := range calls[:len(calls)-1] {
+			if slices.Contains(source.Args, "/candidate with spaces") || !slices.Contains(source.Env, "AIGW_ACCEPTANCE_BASELINE=") {
+				t.Fatalf("release inputs escaped into source verification: %#v", source)
+			}
+		}
+	}
+}
+
+func TestNativeAcceptanceRequiresTheReleaseArgumentSeparator(t *testing.T) {
+	calls := 0
+	err := run([]string{"native", "unexpected"}, &bytes.Buffer{}, func(command) error { calls++; return nil })
+	if err == nil || calls != 0 {
+		t.Fatalf("unseparated release arguments reached native verification: %v, %d", err, calls)
+	}
+}

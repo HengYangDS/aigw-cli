@@ -412,7 +412,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				  $architecture = mise exec --locked -- go env GOARCH
 				  $extension = if ($platform -eq 'windows') { 'zip' } else { 'tar.gz' }
 				  $pattern = "*_${platform}_${architecture}.${extension}"
-				  gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
+				  mise exec --locked -- gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
 				  $archives = @(Get-ChildItem -Path $scope -Filter $pattern -File)
 				  if ($archives.Count -ne 1) { throw 'Expected exactly one native release archive' }
 				  $archive = $archives[0]
@@ -608,7 +608,21 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			"""#
 		_install:      "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
 		_refreshLocks: "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
-		_native:       "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
+		_native:       #"""
+			$ErrorActionPreference = 'Stop'
+			$PSNativeCommandUseErrorActionPreference = $true
+			$acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)
+			if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }
+			if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
+			if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
+			if ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
+			  if (-not $env:AIGW_BASELINE_TAG) { throw 'Real-client succession requires AIGW_BASELINE_TAG.' }
+			  $acceptance += '--clients'
+			}
+			if (-not $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }
+			if (-not $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ALLOWED_SIGNERS }
+			\#(commands.native[_platform]) --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')" -- @acceptance
+			"""#
 		after_script: [#"""
 			$jobDirectory = \#(windowsMiseJobDirectory)
 			if (Test-Path -LiteralPath $jobDirectory) {
@@ -636,13 +650,28 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	if _platform != "windows" {
 		_install:      commands.install
 		_refreshLocks: "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
-		_native:       "\(commands.native[_platform]) --full-quality=\"${AIGW_FULL_NATIVE_QUALITY:-false}\""
+		_native:       #"""
+			set -eu
+			set -- --peer gitlab --repository "$CI_PROJECT_URL"
+			if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
+			if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
+			if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
+			if [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
+			  : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
+			  set -- "$@" --clients
+			fi
+			export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
+			export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
+			\#(commands.native[_platform]) --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
+			"""#
 	}
 	if _platform == "darwin" {
 		"after_script": [miseMirror.unixCleanup]
 	}
 	stage: graph["native-\(_platform)"].stage
 	variables: nativeToolchain[_platform].default & {
+		GLAB_ENABLE_CI_AUTOLOGIN: "true"
+		GLAB_NO_PROMPT:           "1"
 		if _platform == "windows" {
 			AIGW_VERIFY_SYSTEM_KEYRING: "1"
 		}

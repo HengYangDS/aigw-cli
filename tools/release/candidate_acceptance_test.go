@@ -94,3 +94,37 @@ func TestCandidateAcceptanceRequiresExplicitArtifactAndNoTag(t *testing.T) {
 		t.Fatalf("candidate mode with GitHub release tag: %v", err)
 	}
 }
+
+func TestNativePublishedBaselineBindsItsExplicitSignedSource(t *testing.T) {
+	artifacts := prepareSignedRelease(t, "0.1.0")
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+	want := gzip.ErrHeader
+	if runtime.GOOS == "windows" {
+		want = zip.ErrFormat
+	}
+	err := run([]string{"accept-native", "--baseline-artifacts", artifacts, "--baseline-tag", "v0.1.0"}, io.Discard)
+	if !errors.Is(err, want) {
+		t.Fatalf("authorized baseline did not reach exact archive decoding: %v", err)
+	}
+	for _, tag := range []string{"", "v9.9.9", "not-a-tag"} {
+		err := run([]string{"accept-native", "--baseline-artifacts", artifacts, "--baseline-tag", tag}, io.Discard)
+		if err == nil || errors.Is(err, want) {
+			t.Fatalf("unbound baseline tag %q reached archive decoding: %v", tag, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(artifacts, "aigw_0.1.0.provenance.json"), []byte("unbound provenance"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"accept-native", "--baseline-artifacts", artifacts, "--baseline-tag", "v0.1.0"}, io.Discard); err == nil || errors.Is(err, want) {
+		t.Fatalf("corrupt baseline provenance reached archive decoding: %v", err)
+	}
+}
+
+func TestNativeClientAcceptanceRejectsMissingExecutableBeforeBuild(t *testing.T) {
+	t.Chdir(filepath.Clean(filepath.Join("..", "..")))
+	t.Setenv("AIGW_ACCEPTANCE_CODEX", "")
+	err := run([]string{"accept-native", "--clients"}, io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "AIGW_ACCEPTANCE_CODEX") {
+		t.Fatalf("missing native client was not identified before construction: %v", err)
+	}
+}

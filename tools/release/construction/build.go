@@ -37,6 +37,7 @@ type toolCall struct {
 	Name, Directory string
 	Args, Env       []string
 	Stdout          io.Writer
+	Timeout         time.Duration
 }
 
 type toolRunner func(toolCall) error
@@ -319,11 +320,17 @@ func replaceDirectory(source, target string) (result error) {
 
 func executeTool(ctx context.Context) toolRunner {
 	return func(call toolCall) error {
+		callContext := ctx
+		if call.Timeout > 0 {
+			var cancel context.CancelFunc
+			callContext, cancel = context.WithTimeout(ctx, call.Timeout)
+			defer cancel()
+		}
 		stdout := call.Stdout
 		if stdout == nil {
 			stdout = os.Stdout
 		}
-		return (process.Runner{}).RunStream(ctx, process.Plan{
+		return (process.Runner{}).RunStream(callContext, process.Plan{
 			Executable: call.Name, Directory: call.Directory,
 			Args: call.Args, Env: append(os.Environ(), call.Env...),
 		}, stdout, os.Stderr)

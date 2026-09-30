@@ -367,6 +367,13 @@ func TestNativeArtifactAcceptanceSeparatesVerifierAndProductRevisions(t *testing
 	if err := run([]string{"accept-native", "--artifacts", artifacts}, io.Discard); !errors.Is(err, want) {
 		t.Fatalf("trusted release must reach archive decoding under a different verifier revision: %v", err)
 	}
+	t.Setenv("CI_COMMIT_TAG", "")
+	if err := run([]string{"accept-native", "--artifacts", artifacts, "--tag", "v0.1.0"}, io.Discard); !errors.Is(err, want) {
+		t.Fatalf("explicit published tag lost product identity: %v", err)
+	}
+	if err := run([]string{"accept-native", "--artifacts", artifacts, "--tag", "v0.1.0", "--candidate"}, io.Discard); err == nil {
+		t.Fatal("tagged artifacts were admitted as an untagged candidate")
+	}
 }
 
 func TestNativePerformanceRequiresExplicitCandidateAndBaseline(t *testing.T) {
