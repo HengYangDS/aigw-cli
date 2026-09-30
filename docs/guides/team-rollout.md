@@ -192,9 +192,9 @@ request works. Update through the existing installation owner rather than
 adding a second executable. Claude Code's
 [`stable` and `latest` channels](https://code.claude.com/docs/en/setup#update-claude-code)
 are distinct; choose deliberately when compatibility requires a channel change.
-The recommended [Fable 5.1](https://code.claude.com/docs/en/model-config#work-with-fable)
+The selectable [Fable 5.1](https://code.claude.com/docs/en/model-config#work-with-fable)
 requires Claude Code **2.1.257 or later**. A passing Sonnet request on an older
-client does not qualify the Fable recommendation; verify the selected Route
+client does not qualify the Fable Route; verify the selected Route
 with the actual client version that team members will use.
 
 A successful short request proves only that client, Route and invocation.

@@ -96,8 +96,8 @@ private path and uses a bounded, measured Homebrew cutover with immediate
 acceptance and rollback. It cannot claim that every cached public-link call
 remains available during unlink/relink. Later versioned paths remain retained
 for their original callers.
-The [archived credential-continuity design](../../openspec/changes/archive/2026-09-25-inference-readiness-claude-override/design.md#credential-entrypoint-during-package-replacement)
-defines native qualification. The [post-archive delivery criteria](../../openspec/changes/archive/2026-09-25-inference-readiness-claude-override/design.md#post-archive-delivery-acceptance)
+The [current credential-continuity design](../../openspec/changes/terminal-product-convergence/design.md#4-decide-credential-command-continuity-before-cutover)
+defines native qualification. The [frozen-source and delivery tasks](../../openspec/changes/terminal-product-convergence/tasks.md#9-frozen-source-and-pre-archive-acceptance)
 must also pass before this path is a released guarantee.
 
 ### External credential executable
@@ -185,9 +185,9 @@ owns sequencing and compensation details.
 - An explicit `aigw verify` may make multiple quota-consuming real-client
   requests. `--for all` writes a configuration checkpoint only after success.
 
-An initial 401 is transient only when three bounded observations recover, and a
-Token is classified as persistently invalid only after three further 401
-responses. Mixed results or cancellation remain retryable instability. This
+A 401 or 403 is classified immediately after one bounded request; repeated
+credential probes cannot authorize access. Mixed non-authentication results or
+cancellation remain instability rather than a credential diagnosis. This
 single-command observation covers one configured endpoint and in-memory Token;
 it does not prove direct-upstream health, account or billing state, or a later
 request.

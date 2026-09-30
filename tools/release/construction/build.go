@@ -172,6 +172,7 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 		return "", err
 	}
 	environment := []string{
+		"GH_TOKEN=", "GITHUB_TOKEN=", "GITLAB_TOKEN=", "CI_JOB_TOKEN=", "GLAB_ENABLE_CI_AUTOLOGIN=false",
 		"AIGW_BUILD_OS=" + request.TargetOS,
 		"AIGW_MACOS_SIGNING_IDENTITY=" + request.MacOSSigningIdentity,
 		"AIGW_VERSION=" + request.Version,

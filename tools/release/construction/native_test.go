@@ -29,7 +29,7 @@ func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 					t.Fatalf("source acceptance escaped its product test owner: %#v", call)
 				}
 				workspace = strings.TrimPrefix(call.Env[1], "TMPDIR=")
-				if !filepath.IsAbs(workspace) || !slices.Equal(call.Env, []string{"AIGW_ACCEPTANCE_RELEASE=", "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace, "AIGW_ACCEPTANCE_BASELINE="}) {
+				if !filepath.IsAbs(workspace) || !slices.Equal(call.Env, []string{"AIGW_ACCEPTANCE_RELEASE=", "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace, "GH_TOKEN=", "GITHUB_TOKEN=", "GITLAB_TOKEN=", "CI_JOB_TOKEN=", "GLAB_ENABLE_CI_AUTOLOGIN=false", "AIGW_ACCEPTANCE_BASELINE="}) {
 					t.Fatalf("source acceptance environment = %#v", call.Env)
 				}
 				if err := os.WriteFile(filepath.Join(workspace, "test-owned-output"), []byte("fixture"), 0o600); err != nil {
@@ -87,7 +87,7 @@ func TestNativeClientSourceAcceptanceSelectsOneHostBuild(t *testing.T) {
 	err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), true, "", func(call toolCall) error {
 		calls++
 		if calls == 1 {
-			if call.Name != "goreleaser" || !slices.Contains(call.Env, "AIGW_BUILD_OS="+runtime.GOOS) {
+			if call.Name != "goreleaser" || !slices.Contains(call.Env, "AIGW_BUILD_OS="+runtime.GOOS) || !slices.Contains(call.Env, "GH_TOKEN=") || !slices.Contains(call.Env, "CI_JOB_TOKEN=") {
 				t.Fatalf("client source acceptance selected wrong build: %#v", call)
 			}
 			stage = goReleaserStage(t, call.Args)
@@ -232,7 +232,7 @@ func TestNativeClientAcceptanceSharesStageAndPropagatesFailure(t *testing.T) {
 				t.Fatalf("executed %d commands with stage %q", len(calls), stage)
 			}
 			for _, call := range calls {
-				if call.Directory != request.Root || !slices.Equal(call.Env, []string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + stage, "TMP=" + stage, "TEMP=" + stage, "AIGW_ACCEPTANCE_BASELINE="}) {
+				if call.Directory != request.Root || !slices.Equal(call.Env, []string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + stage, "TMP=" + stage, "TEMP=" + stage, "GH_TOKEN=", "GITHUB_TOKEN=", "GITLAB_TOKEN=", "CI_JOB_TOKEN=", "GLAB_ENABLE_CI_AUTOLOGIN=false", "AIGW_ACCEPTANCE_BASELINE="}) {
 					t.Fatalf("acceptance lost stage ownership: %#v", call)
 				}
 			}

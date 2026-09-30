@@ -120,7 +120,14 @@
       obsolete Routes in the same guarded commit as the incoming catalogue;
       focused tests preserve selected Routes and shared or incoming Models,
       reject invalid selectors before writing, and reject dangling retained
-      recommendations. Final installed-host migration remains open.
+      recommendations. October 1 metadata-only import installed 26 Models and
+      57 Routes, retired twelve obsolete unselected Routes, and preserved
+      Accounts, explicit bindings and credential commands. The historical
+      reader's Hermes menu projection failed exact wire-ID acceptance and was
+      fully rolled back, preserving all sixteen protected file identities.
+      The current native team journey checks delivered wire IDs, channel
+      variants and unowned settings; final-artifact host synchronization remains
+      open.
       Public Route addition now distinguishes canonical `--model` from an
       optional exact `--upstream-model`; catalogue continuation supplies the
       required `--protocol`. RED/GREEN and sibling tests preserve existing
@@ -261,9 +268,14 @@
       admission window rather than forcing incompatible transitive overrides.
       The October 1 official read found npm 12.2.0 newly stable; the native
       Mise producer now owns that package-manager pin and its AUBE sidecar.
-      Host Mise 2026.9.18 and uv 0.12.21 have a single verified official owner;
-      project bootstrap, final native qualification and cold-peer evidence
-      remain distinct obligations.
+      Host Mise 2026.9.18 and uv 0.12.21 have a single verified official owner.
+      Locked npm 12.2.0 bootstrap passed with 283 registry signatures, 51
+      attestations and zero vulnerabilities; two native lock refreshes preserved
+      all hashes and all 111 platform payloads. The fourteen direct Go dependencies
+      and forty-nine Proxy Python packages match the October 1 stable read.
+      At signed `6c744c5d`, both peers passed complete native source CI on
+      macOS, Linux and Windows. Final artifact qualification and real Job Token
+      cold-peer execution remain distinct open obligations.
 - [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
@@ -315,10 +327,13 @@
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review
       work only before a noninterruptible native Shell or release job starts.
-      Native CI now forwards explicit candidate, predecessor and client inputs
-      to the existing release owner. Signed two-peer fixtures, input rejection,
-      forwarding and child-deadline regressions pass; fixed-artifact execution
-      with the real clients on both peers remains required.
+      Native CI forwards explicit candidate, predecessor and client inputs
+      to one release owner for peer downloads, trust, extraction and cleanup;
+      duplicate GitHub download and Keychain selectors are deleted. Snapshot
+      construction and native journey children receive no Forge credential
+      environment. Signed two-peer fixtures, input rejection, forwarding,
+      child-deadline and current-manifest wire-menu regressions pass;
+      fixed-artifact execution with real clients on both peers remains required.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
       guarded merge, source-ref deletion, signer trust and branch protection on each
       selected peer without interactive authentication or divergent commit
@@ -347,9 +362,11 @@
       lock-matching SHA-256; CUE projects the job-scoped mirror and Linux uses
       Mise's pinned Docker Hub image. Real Job Token downloads, cold-cache
       peer-outage behavior without GitHub fallback or credential leakage,
-      provenance, and offline-local acceptance remain unproved. Transport
-      follows the selected endpoint and identity, not a blanket HTTP/HTTPS
-      assumption.
+      and full cold-cache execution remain unproved. Existing mirrored-provenance
+      acceptance passed without network or inherited authorization, and local
+      matrix fixtures passed without Forge downloads. Those bounded proofs do
+      not replace the real Job Token tool graph. Transport follows the selected
+      endpoint and identity, not a blanket HTTP/HTTPS assumption.
 
 ## 8. Repository Topology, Documentation, and Deletion
 

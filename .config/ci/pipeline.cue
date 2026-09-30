@@ -409,39 +409,16 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				New-Item -ItemType Directory -Path $scope | Out-Null
 				try {
 				  $platform = mise exec --locked -- go env GOOS
-				  $architecture = mise exec --locked -- go env GOARCH
-				  $extension = if ($platform -eq 'windows') { 'zip' } else { 'tar.gz' }
-				  $pattern = "*_${platform}_${architecture}.${extension}"
-				  mise exec --locked -- gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
-				  $archives = @(Get-ChildItem -Path $scope -Filter $pattern -File)
-				  if ($archives.Count -ne 1) { throw 'Expected exactly one native release archive' }
-				  $archive = $archives[0]
-				  $entries = @(Get-Content (Join-Path $scope 'checksums.txt') | ForEach-Object {
-				    $entry = $_ -split '\s+', 2
-				    if ($entry.Count -eq 2 -and $entry[1].TrimStart('*') -eq $archive.Name) { $entry[0] }
-				  })
-				  $actual = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash
-				  if ($entries.Count -ne 1 -or $entries[0] -notmatch '^[0-9a-fA-F]{64}$' -or $entries[0] -ne $actual) {
-				    throw 'Historical release archive checksum mismatch'
-				  }
-				  tar -xf $archive.FullName -C $scope
-				  $program = if ($platform -eq 'windows') { 'aigw.exe' } else { 'aigw' }
-				  $executables = @(Get-ChildItem -Path $scope -Recurse -Filter $program -File)
-				  if ($executables.Count -ne 1) { throw 'Expected exactly one historical executable' }
-				  $env:AIGW_ACCEPTANCE_BASELINE = $executables[0].FullName
-				  Write-Output "Historical release $env:AIGW_BASELINE_TAG archive SHA256=$actual"
-				  $acceptance = @('accept-native')
+				  $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = Join-Path $scope 'source-signers'
+				  $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = Join-Path $scope 'artifact-signers'
+				  [IO.File]::WriteAllText($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ALLOWED_SIGNERS)
+				  [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
+				  $acceptance = @('accept-native', '--peer', 'github', '--repository', $env:GITHUB_REPOSITORY)
+				  $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG)
 				  if (-not [string]::IsNullOrWhiteSpace($env:AIGW_CANDIDATE_TAG)) {
-				    $candidate = Join-Path $scope 'candidate'
-				    New-Item -ItemType Directory -Path $candidate | Out-Null
-				    mise exec --locked -- gh release download $env:AIGW_CANDIDATE_TAG --repo $env:GITHUB_REPOSITORY --dir $candidate
-				    $env:CI_COMMIT_TAG = $env:AIGW_CANDIDATE_TAG
-				    $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = Join-Path $scope 'source-signers'
-				    $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = Join-Path $scope 'artifact-signers'
-				    [IO.File]::WriteAllText($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ALLOWED_SIGNERS)
-				    [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
-				    $acceptance += @('--artifacts', $candidate)
+				    $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG)
 				  }
+				  $downloadToken = $env:GH_TOKEN
 				  Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
 				  if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
 				    $clients = Join-Path $scope 'clients'
@@ -490,13 +467,12 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				    }
 				    $acceptance += '--clients'
 				  }
+				  $env:GH_TOKEN = $downloadToken
 				  if ($env:AIGW_MEASURE_PERFORMANCE -eq 'true') {
 				    $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine'
 				    $output = Join-Path $env:GITHUB_WORKSPACE 'build/performance'
 				    $performance = $acceptance[1..($acceptance.Count - 1)] + @('--performance', $output)
 				    mise run performance @performance
-				  } elseif ($platform -eq 'darwin' -and $env:AIGW_VERIFY_SYSTEM_KEYRING -eq '1' -and $env:AIGW_CANDIDATE_TAG -eq '') {
-				    mise exec --locked -- go test ./tools/release -run '^TestNativePublishedPredecessorJourney/published_keychain$' -count=1 -v
 				  } else {
 				    mise exec --locked -- go run ./tools/release @acceptance
 				  }
@@ -506,7 +482,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				  } else {
 				    $env:GIT_CONFIG_GLOBAL = $originalGitConfigGlobal
 				  }
-				  foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
+				  foreach ($name in @('GH_TOKEN', 'AIGW_RELEASE_ALLOWED_SIGNERS_FILE', 'AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
 				    Remove-Item "Env:$name" -ErrorAction SilentlyContinue
 				  }
 				  if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {

@@ -13,6 +13,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"go.yaml.in/yaml/v3"
 )
 
 type teamManifestJourney struct {
@@ -120,6 +122,13 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 	for _, client := range plan.clients {
 		journey.installClientFixture(client)
 	}
+	hermesPath := journey.clientProjectionPaths(configuration.ClientHermes)[0]
+	if err := os.MkdirAll(filepath.Dir(hermesPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(hermesPath, []byte("model:\n  ollama_num_ctx: 65536\nmcp_servers:\n  retained:\n    command: user-mcp\nproviders:\n  personal:\n    base_url: https://personal.test\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	if clientFirst {
 		requireNoActivationBeforeToken(t, journey)
 		journey.setEnvironment(secrets.EnvironmentKey(account), "team-journey-token")
@@ -203,9 +212,53 @@ func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *jo
 		}
 	}
 	before := readFile(t, journey.config)
+	plan.requireHermesWireCatalogue(t, journey, cfg, account)
 	journey.run("sync")
 	if !bytes.Equal(before, readFile(t, journey.config)) {
 		t.Fatal("repeated team synchronization rewrote configuration")
 	}
 	journey.uninstallAndRequireInstallationRemoved()
+}
+
+func (plan teamManifestJourney) requireHermesWireCatalogue(t *testing.T, journey *journeyFixture, cfg configuration.Config, account string) {
+	t.Helper()
+	var projected struct {
+		Model struct {
+			OllamaContext int `yaml:"ollama_num_ctx"`
+		} `yaml:"model"`
+		MCP       map[string]struct{ Command string } `yaml:"mcp_servers"`
+		Providers map[string]struct {
+			Models   []string `yaml:"models"`
+			Endpoint string   `yaml:"base_url"`
+		} `yaml:"providers"`
+	}
+	if err := yaml.Unmarshal(readFile(t, journey.clientProjectionPaths(configuration.ClientHermes)[0]), &projected); err != nil {
+		t.Fatal(err)
+	}
+	if projected.Model.OllamaContext != 65536 || projected.MCP["retained"].Command != "user-mcp" || projected.Providers["personal"].Endpoint != "https://personal.test" {
+		t.Fatal("native Hermes projection changed unowned settings")
+	}
+	spec, found := configuration.ClientSpecFor(configuration.ClientHermes)
+	if !found {
+		t.Fatal("Hermes client contract is absent")
+	}
+	expected := make(map[string][]string)
+	for _, route := range plan.manifest.Routes {
+		if route.Account != account {
+			continue
+		}
+		for _, protocol := range spec.CompatibleRouteProtocols(cfg.Accounts[account], route) {
+			id := "aigw-" + account + "-" + strings.ReplaceAll(string(protocol), "_", "-")
+			expected[id] = append(expected[id], route.UpstreamModelID())
+		}
+	}
+	for id, models := range expected {
+		slices.Sort(models)
+		models = slices.Compact(models)
+		actual := slices.Clone(projected.Providers[id].Models)
+		slices.Sort(actual)
+		if !slices.Equal(actual, models) {
+			t.Errorf("native Hermes provider %q wire catalogue = %q, want %q", id, actual, models)
+		}
+	}
 }

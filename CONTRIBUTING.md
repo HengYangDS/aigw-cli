@@ -496,10 +496,11 @@ proves only the selected platform, never complete CI or release readiness.
 GitHub [manual workflow checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#checks-from-some-workflow-jobs-are-not-evaluated)
 do not replace the required pull-request checks; retain the review run separately.
 
-For GitLab web/API verification, supply `AIGW_COMMIT_BASE` as the exact
-exclusive base of the reviewed commit range; quality deliberately does not
-guess a parent or moving branch tip for a manual run. The protected author
-email and allowed-signers file must also be available. Missing inputs fail
+For GitLab web/API verification, `AIGW_COMMIT_BASE` may select the exact
+exclusive base of a longer reviewed range. When omitted, quality selects the
+declared commit's first parent to verify that commit, never a moving branch
+tip. The protected author email and allowed-signers file must also be available.
+Missing trust inputs fail
 quality before other gates. See [Verify Local Objects](docs/operations/forge-operations.md#verify-local-objects)
 for the base-to-candidate contract.
 
@@ -751,9 +752,9 @@ declare what to test; they do not prove provisioning, peer independence or
 native acceptance.
 
 Set `candidate_tag` with `baseline_tag` to consume a published signed matrix
-instead of reconstructing its successor. Each native job downloads from its own
-GitHub peer, supplies the public trust inputs, and runs `accept-native
---artifacts`; with `windows_clients`, the real Windows clients consume those
+instead of reconstructing its successor. Each native job supplies public trust
+and the selected tags to `accept-native --peer github`; its native download
+owner obtains that peer's matrix. With `windows_clients`, the real clients consume those
 same candidate bytes. Run the workflow at the candidate tag or a reviewed
 verifier revision declaring the same version; signed provenance still binds the
 executed artifact to the candidate tag. This is native execution evidence,
@@ -811,19 +812,21 @@ journey, not a disabled integration that hides incompatibility.
 GitHub's existing **Verify** workflow also accepts an optional `baseline_tag`
 for manual historical-release verification. Select the candidate ref, its
 exclusive `commit_base`, and a published predecessor tag. Each native job
-downloads that peer's matching archive with GitHub CLI, verifies the published
-SHA-256 checksum, and passes the extracted executable to the same package
-lifecycle owner. The temporary download scope is removed on success or failure.
+forwards the selected peer, repository and tags to `accept-native`. That owner
+downloads through the peer's native CLI, verifies public trust and checksums,
+extracts the selected artifacts and reclaims its scratch on success or failure.
+Forge authentication is available only for downloads, never to snapshot builds
+or native journey children. Client provisioning remains a separate CI operation.
 Windows always enables its native Credential Manager journey. Set
 `macos_keychain=true` only on a disposable GitHub macOS runner to exercise the
 same retained Keychain item across predecessor, candidate, rollback and
 re-upgrade. Linux's hosted job proves the environment-credential lifecycle;
 native Secret Service acceptance requires the separately provisioned test
 environment described above.
-An omitted tag retains the ordinary offline fixture-based journey. This checks
-historical upgrade compatibility, not a release signature: older releases may
-not include detached signatures. Local and GitLab operators can supply the same
-explicit baseline path from their independently verified release artifacts;
+Omitted tags select source-built current-schema acceptance. Published
+predecessors require a complete signed matrix and source-bound provenance;
+an unsigned historical archive is not admitted. Local and GitLab operators can
+supply independently verified matrices through the same artifact inputs;
 neither peer depends on the other.
 
 ## Release and metadata

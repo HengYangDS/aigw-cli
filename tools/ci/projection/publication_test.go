@@ -311,16 +311,13 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"baseline_tag", "candidate_tag"} {
+	for name, kind := range map[string]string{
+		"baseline_tag": "string", "candidate_tag": "string",
+		"windows_clients": "boolean", "performance": "boolean",
+	} {
 		input, ok := workflow.On.Dispatch.Inputs[name]
-		if !ok || input.Required || input.Type != "string" {
-			t.Fatalf("%s must be an optional explicit release tag: %#v", name, workflow.On.Dispatch.Inputs)
-		}
-	}
-	for _, name := range []string{"windows_clients", "performance"} {
-		input, ok := workflow.On.Dispatch.Inputs[name]
-		if !ok || input.Required || input.Type != "boolean" {
-			t.Fatalf("%s qualification requires an explicit opt-in: %#v", name, input)
+		if !ok || input.Required || input.Type != kind {
+			t.Fatalf("%s must be an optional %s input: %#v", name, kind, input)
 		}
 	}
 	for _, platform := range []string{"darwin", "linux", "windows"} {
@@ -351,7 +348,7 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 		if step.If != "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)" || step.Shell != "pwsh" {
 			t.Fatalf("%s historical acceptance selection = %#v", platform, step)
 		}
-		if !strings.Contains(step.Run, "$acceptance += @('--artifacts', $candidate)") {
+		if !strings.Contains(step.Run, "$acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG)") {
 			t.Fatalf("%s cannot consume the published candidate", platform)
 		}
 		wantKeyring := map[string]string{
@@ -364,10 +361,12 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 		if platform == "darwin" && step.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" {
 			t.Fatal("historical macOS credentials require an ephemeral host")
 		}
-		if !strings.Contains(step.Run, "TestNativePublishedPredecessorJourney/published_keychain") {
-			t.Fatal("macOS Keychain qualification must select the published predecessor journey")
+		for _, forbidden := range []string{"AIGW_ACCEPTANCE_BASELINE =", "gh release download", "tar -xf"} {
+			if strings.Contains(step.Run, forbidden) {
+				t.Fatal("historical input verification and extraction must belong to the native release owner")
+			}
 		}
-		if !strings.Contains(step.Run, "$acceptance = @('accept-native')") || !strings.Contains(step.Run, "mise exec --locked -- go run ./tools/release @acceptance") {
+		if !strings.Contains(step.Run, "$acceptance = @('accept-native', '--peer', 'github', '--repository', $env:GITHUB_REPOSITORY)") || !strings.Contains(step.Run, "mise exec --locked -- go run ./tools/release @acceptance") {
 			t.Fatalf("%s historical acceptance does not consume the existing package owner", platform)
 		}
 		if !strings.Contains(step.Run, "mise run performance @performance") {
