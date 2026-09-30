@@ -117,14 +117,68 @@ func TestCodexCatalogProjectionYieldsToUserAuthoredCatalog(t *testing.T) {
 	original := codexBundledCatalog
 	defer func() { codexBundledCatalog = original }()
 	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
-		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, projectionCatalog("gpt-5.5"), nil
+		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, projectionCatalog("gpt-5.5", "gpt-6.1-sol"), nil
 	}
 	base := "model_catalog_json = \"/home/user/own-catalog.json\"\n"
-	if plan := codexCatalogProjection(target, "openai.gpt-5.5", base, codexState{}, transaction.FileSnapshot{}); !emptyCatalogPlan(plan) {
-		t.Fatalf("user catalog was not respected: plan = %+v", plan)
+	for _, model := range []string{"openai.gpt-5.5", "gpt-6.1-sol"} {
+		if plan := codexCatalogProjection(target, model, base, codexState{}, transaction.FileSnapshot{}); !emptyCatalogPlan(plan) {
+			t.Fatalf("user catalog was not respected for %q: plan = %+v", model, plan)
+		}
 	}
 	if plan := codexCatalogProjection(target, "", "", codexState{}, transaction.FileSnapshot{}); !emptyCatalogPlan(plan) {
 		t.Fatalf("empty model produced a catalog: plan = %+v", plan)
+	}
+}
+
+func TestKnownBaseModelUsesBundledCatalogForCustomProvider(t *testing.T) {
+	const model = "gpt-6.1-sol"
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, model, "gpt-6-luna")
+	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
+	target := codexHomeTarget(path)
+	target.Executable = filepath.Join(filepath.Dir(path), "codex")
+	runtimeConfig := catalogTestRuntime(model)
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(projected), "model_catalog_json = ") || !strings.Contains(string(projected), "# managed by AIGW") {
+		t.Fatalf("known model did not pin client-owned metadata: %s", projected)
+	}
+	data, err := os.ReadFile(codexCatalogPath(path))
+	if err != nil || string(data) != string(projectionCatalog(model, "gpt-6-luna")) {
+		t.Fatalf("known model catalog = %q, %v", data, err)
+	}
+	if err := ValidateConfig(path, runtimeConfig); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCopyProjectionRebasesOwnedCatalogReference(t *testing.T) {
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-6.1-sol")
+	source := writeCodexTestConfig(t, "user_setting = true\n")
+	ref := codexHomeTarget(source)
+	ref.Executable = filepath.Join(filepath.Dir(source), "codex")
+	runtime := catalogTestRuntime("gpt-6.1-sol")
+	if _, err := ReconcileConfigs(nil, []TargetRef{ref}, runtime); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := CopyProjection(source, target); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateConfig(target, runtime); err != nil {
+		copied, _ := os.ReadFile(target)
+		line, _ := codexSelectionLine(string(copied), "model_catalog_json")
+		t.Fatalf("copied projection is not valid at its destination: %v; catalog selection=%q", err, line)
+	}
+	if copied, err := os.ReadFile(target); err != nil || !strings.Contains(string(copied), codexCatalogPath(target)) || strings.Contains(string(copied), codexCatalogPath(source)) {
+		t.Fatalf("copied catalog reference did not move with the projection: %v\n%s", err, copied)
+	}
+	if err := ValidateConfig(source, runtime); err != nil {
+		t.Fatalf("copy changed the source projection: %v", err)
 	}
 }
 

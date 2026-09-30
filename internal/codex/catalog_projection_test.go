@@ -133,14 +133,15 @@ func TestCodexCatalogReferenceAcceptsEquivalentTOMLButRejectsChangedTarget(t *te
 	}
 }
 
-// TestReconcileConfigsLeavesBareModelSelectionsAlone is the no-regression guard
-// for every profile whose id the client already knows.
-func TestReconcileConfigsLeavesBareModelSelectionsAlone(t *testing.T) {
+// TestReconcileConfigsLeavesNativeProviderCatalogAlone keeps the bundled table
+// untouched when AIGW is not selecting its custom provider.
+func TestReconcileConfigsLeavesNativeProviderCatalogAlone(t *testing.T) {
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol", "gpt-5.5")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("gpt-5.6-sol")
+	runtimeConfig.ModelProvider = "openai"
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
 		t.Fatal(err)
 	}
@@ -149,14 +150,14 @@ func TestReconcileConfigsLeavesBareModelSelectionsAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(projected), "model_catalog_json") {
-		t.Fatalf("a bare model id was given a catalog:\n%s", projected)
+		t.Fatalf("the native provider was given a custom catalog:\n%s", projected)
 	}
 	if _, err := os.Stat(codexCatalogPath(path)); !os.IsNotExist(err) {
-		t.Fatalf("catalog file exists for a bare model id: %v", err)
+		t.Fatalf("catalog file exists for the native provider: %v", err)
 	}
 	state := readCodexSidecar(t, path)
 	if state.CatalogState != "" || state.CatalogHash != "" {
-		t.Fatalf("sidecar records a catalog for a bare model id: %+v", state)
+		t.Fatalf("sidecar records a catalog for the native provider: %+v", state)
 	}
 	if err := ValidateConfig(path, runtimeConfig); err != nil {
 		t.Fatalf("ValidateConfig() error = %v", err)
@@ -520,7 +521,7 @@ func TestValidateConfigReportsCatalogDrift(t *testing.T) {
 // line the sidecar does not account for, which is the shape a foreign writer or
 // a partially reverted projection leaves behind.
 func TestValidateConfigRejectsUnownedManagedCatalogLine(t *testing.T) {
-	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-6-luna")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")

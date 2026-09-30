@@ -132,7 +132,10 @@ Codex can run a compatible Responses Route even when the model is absent
 from its native `/model` chooser. Select it with
 [`aigw use --for codex`](../../README.md#use-it-every-day), then verify through
 Codex; the [dated client observation](../research/provider-model-qualification.md#codex-native-chooser)
-does not establish current upstream availability.
+does not establish current upstream availability. For an AIGW-managed custom
+Provider with a known base model, AIGW pins the installed Codex client's own
+model metadata so a standard provider `/models` response is not mistaken for
+Codex's private metadata format.
 An explicit user-owned `model_catalog_json` may mask newer models bundled with
 Codex. AIGW preserves that setting; if Codex reports fallback model metadata,
 review the catalog before deliberately updating or removing it.

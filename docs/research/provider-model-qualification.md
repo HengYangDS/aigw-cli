@@ -41,8 +41,13 @@ with `missing_required_parameter` for `tools[4].tools`. A later authenticated
 DMXAPI listing returned the exact `gpt-6.1-sol` ID; direct Responses text and a
 strict function-call request both completed. The installed official Codex CLI
 0.159.2 then completed two isolated direct-DMXAPI tool loops. Its bundled
-catalogue includes GPT-6.1 Sol; metadata errors in a manually constructed
-fixture that omitted the catalog are not evidence against AIGW's projection.
+catalogue includes GPT-6.1 Sol. AIGW's earlier base-model projection also
+omitted `model_catalog_json`: real Codex tool use succeeded, but its model
+manager logged two errors decoding DMXAPI's standard `/v1/models` response as
+Codex metadata. An isolated comparison using the client's unmodified bundled
+catalog eliminated those errors. The existing AIGW catalog owner now pins that
+same table for known base models on its custom Provider; final-product warning
+acceptance remains open.
 The official Hermes v0.21.5 release source completed two named-session turns
 against direct DMXAPI GPT-6.1 Sol. AIGW 0.3.3 then completed an isolated
 `verify --for hermes --route dmxapi-gpt-6.1-sol` against that endpoint after

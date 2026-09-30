@@ -269,6 +269,43 @@ func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testin
 	}
 }
 
+func TestFailedCodexVerificationProjectionRemovesItsWorkspace(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("TMPDIR", root)
+	_, workspace, err := isolateCodexProjection(
+		configuration.NewConfig(), configuration.Runtime{},
+		configuration.ClientBinding{Targets: []string{root}},
+	)
+	if err == nil {
+		t.Fatal("directory source unexpectedly copied as a Codex config")
+	}
+	if workspace != "" {
+		t.Fatalf("failed projection retained workspace %q", workspace)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("failed projection left temporary resources: %v, %v", entries, err)
+	}
+}
+
+func TestFailedClaudeVerificationProjectionRemovesItsWorkspace(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("TMPDIR", root)
+	_, workspace, err := isolateClaudeProjection(
+		configuration.NewConfig(), configuration.Runtime{}, Dependencies{ClaudeSettingsPath: root},
+	)
+	if err == nil {
+		t.Fatal("directory source unexpectedly copied as Claude settings")
+	}
+	if workspace != "" {
+		t.Fatalf("failed projection retained workspace %q", workspace)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("failed projection left temporary resources: %v, %v", entries, err)
+	}
+}
+
 func TestCodexVerificationRepairsCosmeticRootSelectionDriftInIsolation(t *testing.T) {
 	cfg, selected := codexVerificationFixture(t)
 	target := cfg.Clients[configuration.ClientCodex].Targets[0]

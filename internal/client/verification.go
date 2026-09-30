@@ -180,11 +180,21 @@ func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configur
 	return Verification{}, clientverification.VerifyClaudeRuntime(verifyCtx, runner, adapter.Executable, settingsPath, runtime, token)
 }
 
-func isolateCodexProjection(cfg configuration.Config, runtime configuration.Runtime, adapter configuration.ClientBinding) (configuration.Config, string, error) {
+func isolateCodexProjection(cfg configuration.Config, runtime configuration.Runtime, adapter configuration.ClientBinding) (isolated configuration.Config, workspace string, result error) {
 	workspace, err := os.MkdirTemp("", "aigw-codex-route-verification-")
 	if err != nil {
 		return configuration.Config{}, "", fmt.Errorf("create isolated Codex verification projection: %w", err)
 	}
+	defer func() {
+		if result == nil {
+			return
+		}
+		if err := robustio.RemoveAll(workspace); err != nil {
+			result = errors.Join(result, fmt.Errorf("remove failed Codex verification projection %s: %w", workspace, err))
+			return
+		}
+		workspace = ""
+	}()
 	selectedTargets := append([]string(nil), adapter.Targets...)
 	sort.Strings(selectedTargets)
 	target := filepath.Join(workspace, "config.toml")
@@ -205,18 +215,28 @@ func isolateCodexProjection(cfg configuration.Config, runtime configuration.Runt
 	if _, err := codex.ReconcileConfigsAuthorizedTransition([]codex.TargetRef{before}, []codex.TargetRef{after}, selected, runtime); err != nil {
 		return configuration.Config{}, workspace, fmt.Errorf("prepare isolated Codex verification projection: %w", err)
 	}
-	isolated := cfg.Clone()
+	isolated = cfg.Clone()
 	adapter.Targets = []string{target}
 	isolated.Clients[configuration.ClientCodex] = adapter
 	return isolated, workspace, nil
 }
 
-func isolateClaudeProjection(cfg configuration.Config, runtime configuration.Runtime, deps Dependencies) (string, string, error) {
+func isolateClaudeProjection(cfg configuration.Config, runtime configuration.Runtime, deps Dependencies) (settingsPath, workspace string, result error) {
 	workspace, err := os.MkdirTemp("", "aigw-claude-route-verification-")
 	if err != nil {
 		return "", "", fmt.Errorf("create isolated Claude verification projection: %w", err)
 	}
-	settingsPath := filepath.Join(workspace, "settings.json")
+	defer func() {
+		if result == nil {
+			return
+		}
+		if err := robustio.RemoveAll(workspace); err != nil {
+			result = errors.Join(result, fmt.Errorf("remove failed Claude verification projection %s: %w", workspace, err))
+			return
+		}
+		workspace = ""
+	}()
+	settingsPath = filepath.Join(workspace, "settings.json")
 	if err := claude.CopyProjection(deps.ClaudeSettingsPath, settingsPath); err != nil {
 		return "", workspace, fmt.Errorf("copy Claude verification projection: %w", err)
 	}

@@ -13,6 +13,11 @@ evidence.
 
 ### Changed
 
+- Pin the installed Codex client's bundled model metadata for an AIGW-managed
+  custom Provider even when its selected base model is already known; preserve
+  user-authored catalog overrides and fail closed on an unknown model.
+- Keep Codex catalog references valid when verifying an unselected Route in an
+  isolated home, and remove failed Codex or Claude verification workspaces.
 - Roll back owned client projections and configuration when credential-reader
   finalization fails after projection; unchanged-client reconciliation now
   checks the same post-apply invariant.

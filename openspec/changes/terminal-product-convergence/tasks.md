@@ -131,6 +131,12 @@
       base model. Official Hermes v0.21.5 and an isolated AIGW public `verify`
       also completed on direct DMXAPI 6.1 Sol. The current host projection,
       external Proxy path, and final release bytes remain unproved.
+      An AIGW-generated isolated Codex configuration still logged nonfatal
+      vendor `/models` metadata decode errors; pinning the current bundled
+      Codex table removed them in an isolated comparison. The current source
+      passes the macOS native/client journey with Codex 0.159.2, Claude Code
+      2.1.284 and Hermes 0.21.5, including the known-base catalog assertion.
+      Final signed-artifact, direct-DMXAPI and installed-host acceptance remain open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
@@ -220,6 +226,8 @@
 - [ ] 6.7 Assert warnings and malformed public errors fail at their origin;
       human and JSON output must expose precise state and safe action without
       private paths, Token fragments, internal modules or tracebacks.
+      The Codex custom-Provider model metadata error is addressed at the
+      existing catalog projection owner, pending real-client candidate replay.
 
 ## 7. CI and Dual-Peer Admission
 

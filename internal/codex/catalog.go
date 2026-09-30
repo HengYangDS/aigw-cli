@@ -52,6 +52,43 @@ type codexCatalogPlan struct {
 
 func codexCatalogPath(configPath string) string { return configPath + ".aigw-model-catalog.json" }
 
+func rebaseCopiedCodexCatalog(source, target string, config, attribution transaction.FileSnapshot) (transaction.FileSnapshot, error) {
+	if !config.Exists {
+		if attribution.Exists {
+			return config, fmt.Errorf("Codex projection state exists without its configuration")
+		}
+		return config, nil
+	}
+	state := codexState{}
+	if attribution.Exists {
+		var err error
+		state, err = codexStateForTarget(attribution)
+		if err != nil {
+			return config, err
+		}
+	}
+	if err := validateCodexCatalog(source, string(config.Data), state); err != nil {
+		return config, err
+	}
+	if state.CatalogHash == "" {
+		return config, nil
+	}
+	canonical, err := canonicalCodexTargetPath(target)
+	if err != nil {
+		return config, err
+	}
+	quoted, err := codexTOMLString(codexCatalogPath(canonical))
+	if err != nil {
+		return config, err
+	}
+	projected, err := setCodexSelection(string(config.Data), "model_catalog_json", "model_catalog_json = "+quoted+" # managed by AIGW")
+	if err != nil {
+		return config, err
+	}
+	config.Data = []byte(projected)
+	return config, nil
+}
+
 func validateCodexCatalogPreflight(target codexReconciliationTarget, config, state transaction.FileSnapshot) error {
 	if !target.desired && !state.Exists {
 		return nil
@@ -68,9 +105,10 @@ func validateCodexCatalogPreflight(target codexReconciliationTarget, config, sta
 }
 
 // codexCatalogProjection decides what AIGW owns for one target without writing
-// anything. It withholds a catalog whenever it cannot prove the adaptation is
-// both needed and correct, so an unrecognized model keeps the client's own
-// fallback and its warning instead of being silenced by a looser match.
+// anything. An AIGW custom provider pins the installed client's complete table
+// even for a known base model: otherwise Codex may try to decode the provider's
+// standard /models response as its private metadata format. An unrecognized
+// model still keeps the client's fallback rather than a guessed entry.
 func codexCatalogProjection(target TargetRef, model, base string, state codexState, before transaction.FileSnapshot) codexCatalogPlan {
 	// A user-authored model_catalog_json is the user's own client policy. AIGW
 	// replaces the bundled table wholesale, so adopting that key here would
@@ -80,15 +118,16 @@ func codexCatalogProjection(target TargetRef, model, base string, state codexSta
 		return codexCatalogPlan{}
 	}
 	live, bundled, err := codexBundledCatalog(target.Executable)
-	if err == nil {
-		document, parseErr := catalog.Parse(bundled)
-		if parseErr == nil {
-			data, _ := document.Project(model)
-			if data == nil {
-				return codexCatalogPlan{}
-			}
-			return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: live, state: catalogStateProjected}
+	document, parseErr := catalog.Parse(bundled)
+	if err == nil && parseErr == nil {
+		data, _ := document.Project(model)
+		if data == nil && document.Model(model) != nil {
+			data = bundled
 		}
+		if data == nil {
+			return codexCatalogPlan{}
+		}
+		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: live, state: catalogStateProjected}
 	}
 	// Regeneration failed. A previous copy is reusable only while it still
 	// describes the installed build: after an upgrade the old snapshot would
