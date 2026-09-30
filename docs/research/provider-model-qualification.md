@@ -203,8 +203,9 @@ for long-horizon agentic coding; its [model card](https://huggingface.co/poolsid
 also documents text-to-text Chat use. It is the strongest S/XS model listed
 by AIHubMix, and its exact `laguna-s-2.1` Chat Route completed text inference.
 
-xAI's [model guide](https://docs.x.ai/developers/models) consulted in September 2026 calls Grok
-4.7 its flagship for code and other general tasks. The exact `grok-4.7`
+xAI's [model guide](https://docs.x.ai/developers/models) still recommends
+Grok 4.6, but its later [September 21 Grok 4.7 announcement](https://x.ai/news/grok-4-7)
+calls 4.7 its most capable model for coding and knowledge work. The exact `grok-4.7`
 Responses ID completed text inference on AIHubMix, DMXAPI, and UCloud, so it
 replaces Grok 4.6 without losing Account coverage. Existing explicit local
 bindings to Grok 4.6 are not silently rewritten by the team manifest.
