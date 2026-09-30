@@ -149,13 +149,17 @@ func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
 	out := new(bytes.Buffer)
 	deps := Dependencies{Config: saveCatalogConfig(t, cfg), Secrets: secretStore, HTTP: client, Out: out, Width: 120}
 	command = NewCatalogCommand(deps)
-	if err := executeCatalogCommand(t, command, "--json", "--all"); err == nil || !strings.Contains(err.Error(), "cannot be used") {
-		t.Fatalf("flag conflict error = %v", err)
+	if err := executeCatalogCommand(t, command, "--json", "--all"); err != nil {
+		t.Fatalf("complete catalog JSON error = %v", err)
 	}
+	completeJSON := out.String()
 	out.Reset()
 	command = NewCatalogCommand(deps)
 	if err := executeCatalogCommand(t, command, "--json"); err != nil {
 		t.Fatal(err)
+	}
+	if out.String() != completeJSON {
+		t.Fatalf("--all changed complete JSON output:\n%s\nwithout --all:\n%s", completeJSON, out.String())
 	}
 	for _, want := range []string{`"status": "ok"`, `"status": "token_unavailable"`, `"status": "request_failed"`, `"protocol": "anthropic"`, `"protocol": "openai_responses"`} {
 		if !strings.Contains(out.String(), want) {

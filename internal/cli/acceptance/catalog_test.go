@@ -179,7 +179,7 @@ func TestCatalogDefaultHumanOutputShowsOnlyConfiguredModels(t *testing.T) {
 	}
 }
 
-func TestCatalogAllHumanOutputIncludesEveryModelAsReadableRecord(t *testing.T) {
+func TestCatalogAllHumanAndJSONOutputIncludeEveryModel(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
@@ -207,13 +207,12 @@ func TestCatalogAllHumanOutputIncludesEveryModelAsReadableRecord(t *testing.T) {
 	if strings.Contains(text, "unconfigured-modelCandidate") {
 		t.Fatalf("full catalog ran together the model and its status:\n%s", text)
 	}
-}
-
-func TestCatalogRejectsAllWithJSON(t *testing.T) {
-	app, _, _, _, _ := testApp(t, "")
-	err := cli.Execute(app, []string{"catalog", "--all", "--json"})
-	if err == nil || !strings.Contains(err.Error(), "--all cannot be used with --json") {
-		t.Fatalf("catalog flags error = %v", err)
+	out.Reset()
+	if err := cli.Execute(app, []string{"catalog", "--all", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"id": "unconfigured-model"`) {
+		t.Fatalf("combined catalog flags omitted candidate model:\n%s", out.String())
 	}
 }
 
