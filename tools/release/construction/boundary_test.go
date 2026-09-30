@@ -383,6 +383,9 @@ func TestReleaseOutputRejectsInvalidFirstPublicationPaths(t *testing.T) {
 	if _, err := os.Lstat(target); !os.IsNotExist(err) {
 		t.Fatalf("failed publication left a target: %v", err)
 	}
+	if err := replaceDirectory(missing, filepath.Join(root, "missing-parent", "release")); err == nil || !strings.Contains(err.Error(), "inspect release output parent") {
+		t.Fatalf("missing release parent was not rejected before publication: %v", err)
+	}
 	blocker := filepath.Join(root, "operator-owned")
 	if err := os.WriteFile(blocker, []byte("unchanged"), 0o600); err != nil {
 		t.Fatal(err)

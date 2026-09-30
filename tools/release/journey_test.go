@@ -167,6 +167,18 @@ type journeyFixture struct {
 	retainedProgramNames []string
 }
 
+func TestNativeJourneyCleanupSurvivesTestCancellation(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	program := buildNativeProgram(t, root, "0.0.0")
+	t.Run("registered cleanup", func(t *testing.T) {
+		journey := newNativeJourney(t, program, "https://unused.example.test", false)
+		t.Cleanup(journey.uninstallAndRequireInstallationRemoved)
+	})
+}
+
 func newNativeJourney(t *testing.T, source, endpoint string, installClient bool) *journeyFixture {
 	t.Helper()
 	root := t.TempDir()
@@ -316,10 +328,15 @@ func (j *journeyFixture) runWith(binary string, args ...string) []byte {
 
 func (j *journeyFixture) runWithInput(binary, input string, args ...string) []byte {
 	j.testing.Helper()
+	return j.runWithContext(j.testing.Context(), binary, input, args...)
+}
+
+func (j *journeyFixture) runWithContext(parent context.Context, binary, input string, args ...string) []byte {
+	j.testing.Helper()
 	if input != "" {
 		j.sensitiveInputs = append(j.sensitiveInputs, input)
 	}
-	ctx, cancel := context.WithTimeout(j.testing.Context(), clientverification.ProtocolTimeout)
+	ctx, cancel := context.WithTimeout(parent, clientverification.ProtocolTimeout)
 	defer cancel()
 	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: binary, Args: args, Env: j.environment, Stdin: input})
 	if err != nil {
@@ -401,7 +418,7 @@ func (j *journeyFixture) uninstallAndRequireInstallationRemoved() {
 func (j *journeyFixture) uninstallWithAndRequireInstallationRemoved(binary string) {
 	j.testing.Helper()
 	reader := j.captureCredentialReader()
-	j.runWith(binary, "uninstall", "--target", j.binary)
+	j.runWithContext(context.WithoutCancel(j.testing.Context()), binary, "", "uninstall", "--target", j.binary)
 	j.requireInstallationRemoved()
 	reader.requireUnchanged(j.testing)
 }

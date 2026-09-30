@@ -225,7 +225,11 @@
       interruption; exact teardown preserves active installations and evidence.
       A focused fault injection now covers reader disappearance after the final
       client projection in both commit and reconciliation. The native resource
-      census and final-artifact journey remain open.
+      census and final-artifact journey remain open. A real isolated install
+      now reproduces cancellation before registered test cleanup; the fixture
+      grants uninstall a separate bounded context while normal commands retain
+      the test context. The focused cleanup regression passes without weakening
+      process deadlines or removing retained credential readers.
 
 ## 6. Quality, Supply Chain, and Performance
 
@@ -260,6 +264,12 @@
 - [x] 6.4 Exercise Markdown, Mermaid rendering, internal/external links, TOML,
       YAML, JSON, CUE, shell and generated-text checks on tracked content; a
       malformed or unreachable authored carrier must fail the relevant gate.
+      The Codex projection-copy regression now parses the actual TOML catalog
+      path and verifies canonical destination ownership and unchanged source
+      bytes, rather than comparing serialized Windows escape spelling.
+      Release publication rejects a missing or non-directory parent before
+      rename; focused tests preserve the candidate and operator-owned files.
+      Windows native execution of these corrections remains required.
 - [x] 6.5 Verify dependency hygiene, dead-code, secrets, SBOM, vulnerabilities,
       licenses, checksums, signatures and provenance from the exact locked
       candidate; delete unconsumed parallel scanners or reports. The signed

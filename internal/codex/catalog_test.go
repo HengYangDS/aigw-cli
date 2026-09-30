@@ -165,7 +165,11 @@ func TestCopyProjectionRebasesOwnedCatalogReference(t *testing.T) {
 	if _, err := ReconcileConfigs(nil, []TargetRef{ref}, runtime); err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(t.TempDir(), "config.toml")
+	sourceBefore, err := os.ReadFile(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(t.TempDir(), "catalog destination", "config.toml")
 	if err := CopyProjection(source, target); err != nil {
 		t.Fatal(err)
 	}
@@ -174,8 +178,26 @@ func TestCopyProjectionRebasesOwnedCatalogReference(t *testing.T) {
 		line, _ := codexSelectionLine(string(copied), "model_catalog_json")
 		t.Fatalf("copied projection is not valid at its destination: %v; catalog selection=%q", err, line)
 	}
-	if copied, err := os.ReadFile(target); err != nil || !strings.Contains(string(copied), codexCatalogPath(target)) || strings.Contains(string(copied), codexCatalogPath(source)) {
-		t.Fatalf("copied catalog reference did not move with the projection: %v\n%s", err, copied)
+	copied, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var selection struct {
+		Catalog string `toml:"model_catalog_json"`
+	}
+	if err := toml.Unmarshal(copied, &selection); err != nil {
+		t.Fatal(err)
+	}
+	canonicalTarget, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selection.Catalog != codexCatalogPath(canonicalTarget) {
+		t.Fatalf("copied catalog reference did not move with the projection: %q", selection.Catalog)
+	}
+	sourceAfter, err := os.ReadFile(source)
+	if err != nil || string(sourceBefore) != string(sourceAfter) {
+		t.Fatalf("copy changed source bytes: %v", err)
 	}
 	if err := ValidateConfig(source, runtime); err != nil {
 		t.Fatalf("copy changed the source projection: %v", err)

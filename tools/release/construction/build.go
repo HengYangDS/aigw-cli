@@ -269,6 +269,13 @@ func copyFile(source, target string) error {
 }
 
 func replaceDirectory(source, target string) (result error) {
+	parent, err := os.Stat(filepath.Dir(target))
+	if err != nil {
+		return fmt.Errorf("inspect release output parent: %w", err)
+	}
+	if !parent.IsDir() {
+		return errors.New("inspect release output parent: not a directory")
+	}
 	_, statErr := os.Lstat(target)
 	if os.IsNotExist(statErr) {
 		if err := robustio.Rename(source, target); err != nil {
