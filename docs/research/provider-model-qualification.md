@@ -16,6 +16,44 @@ model selection, use the [team rollout guide](../guides/team-rollout.md#reviewed
 A public listing, bounded inference call, and native-client tool loop prove
 different claims.
 
+## Curated model choices
+
+Select one general-model option per vendor from exact Account/protocol Routes
+with completed inference and compatible native-client evidence. Vendor
+positioning informs this choice; a version suffix, catalogue listing or
+vendor benchmark does not establish an independent quality ranking.
+
+The October 1, 2026 primary-source review closes four missing rationales:
+
+- Google's [Gemini 3.1 Pro Preview](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-pro-preview)
+  improves the Gemini 3 Pro series for thinking, software engineering and
+  precise multi-step tool use. Retain this explicitly labelled Preview as the
+  qualified Pro-class option, not a stable-release claim. Google's newer
+  [Gemini 3.8 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash)
+  targets long-horizon agents and is listed by AIHubMix, but has no current
+  AIGW inference/client qualification. Neither `Flash` nor a newer number
+  proves superiority over the selected Pro Route; qualify that exact channel
+  before replacing it.
+- Z.ai's [GLM 5.3 model card](https://huggingface.co/zai-org/GLM-5.3)
+  identifies post-training improvements over GLM 5.2 for complex coding and
+  long-horizon tasks. This supports GLM 5.3 as the reviewed general coding
+  option; its vendor-reported cross-model scores are not AIGW benchmarks.
+- Moonshot's [Kimi K3 source](https://github.com/MoonshotAI/Kimi-K3)
+  calls K3 its most capable model to date for long-horizon coding, knowledge
+  work and reasoning. Keep the exact `kimi-k3` Routes rather than retaining
+  another older general Kimi slot.
+- Qwen's [3.8 model card](https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B)
+  calls 3.8 its most capable open generation and explicitly identifies
+  Qwen3.8-Max as its managed version. This supports `qwen3.8-max`; it does not
+  transfer the vendor's one-million-token or built-in-tool claims to an
+  aggregator without separate evidence.
+
+Stable-only supply-chain admission does not make every inference model GA.
+A Preview may remain a non-default, explicitly named Route when its general
+agent role and exact provider/client behavior are qualified. An unqualified
+Preview remains discovery-only; do not conceal that distinction or silently
+replace an explicit local selection.
+
 ## Provider catalogue and route evidence
 
 At an earlier September 30, 2026 read, AIGW observed 417 AIHubMix, 565 DMXAPI,
@@ -95,12 +133,14 @@ Those labels do not create extra general-model slots.
 The public
 AIHubMix catalogue also lists Cohere Command A+ and Microsoft's MAI Thinking 1.
 Command A+ returned HTTP 400 on the tested Responses and Chat endpoints;
-Microsoft documents MAI Thinking 1 as preview. Step 5 Preview is also outside
-the stable-model selection. These listings are not admitted Routes.
+MAI Thinking 1 and Step 5 Preview lack the completed general-agent
+provider/client qualification required above. These listings are not admitted
+Routes; their Preview labels alone do not establish unavailability.
 
-AIHubMix's `agnes-3.0-flash` returned Chat text, but the [model card](https://huggingface.co/Agnes-AI/Agnes-3.0-Flash)
-calls it a preview, so it is not admitted. `intern-s2-free` also returned Chat
-text, but that aggregator alias does not identify a specific release in
+AIHubMix's `agnes-3.0-flash` returned Chat text, but its
+[preview model card](https://huggingface.co/Agnes-AI/Agnes-3.0-Flash) and that
+single response do not qualify a general-agent client Route. `intern-s2-free`
+also returned Chat text, but that aggregator alias does not identify a specific release in
 [InternLM's Intern-S2 model collection](https://huggingface.co/collections/internlm/intern-s2).
 
 On September 29, 2026, [Anthropic's model overview](https://platform.claude.com/docs/en/models/overview)
@@ -111,7 +151,7 @@ request returned HTTP 200, model `claude-sonnet-5-5`, and nonempty text; these
 bounded calls do not establish streaming, tools, latency, or native-client use.
 The previous Sonnet 5 Routes were retired from the shipped manifest.
 
-Specialized, small, preview, or unidentified public catalogue entries from
+Specialized, small, unidentified or unqualified public catalogue entries from
 Jina AI, Liquid, Dots Studio, Sao10k, and Stealth are not general-model Routes.
 
 MiniMax M3 has AIHubMix and UCloud Routes; its DMXAPI candidate timed out.

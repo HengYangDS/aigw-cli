@@ -98,7 +98,7 @@
 - [x] 4.1 Audit Account, Model, Route, protocol, capability, and recommendation
       declarations for parallel inference or Provider-name branches; delete the
       duplicate owner and prove synthetic Provider admission.
-- [ ] 4.2 Review the shipped catalogue against current upstream IDs and bounded
+- [x] 4.2 Review the shipped catalogue against current upstream IDs and bounded
       live inference for DMXAPI, UCloud, and AIHubMix; retain only qualified
       models/variants and one consistent naming grammar, with source and date for
       each claim.
@@ -114,9 +114,13 @@
       completed two direct DMXAPI 6.1 Sol turns, and an isolated AIGW `verify`
       completed after staging its versioned reader. Later UCloud 6.1 Sol
       inference and installed Codex/Hermes `verify` sessions also passed.
-      A catalogue listing alone
-      did not qualify either client. Final-artifact admission and model ranking remain
-      open for the retained set. Low-level import now accepts an explicit set of
+      A catalogue listing alone did not qualify either client. All 57 retained
+      exact Account/wire/protocol contracts have dated completed inference and
+      at least one compatible native-client observation. The October 1
+      [curated choices](../../../docs/research/provider-model-qualification.md#curated-model-choices)
+      review supplies the Gemini, GLM, Kimi and Qwen primary-source rationale;
+      vendor positioning is not an independent global ranking. Low-level import
+      now accepts an explicit set of
       obsolete Routes in the same guarded commit as the incoming catalogue;
       focused tests preserve selected Routes and shared or incoming Models,
       reject invalid selectors before writing, and reject dangling retained
