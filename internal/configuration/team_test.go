@@ -329,17 +329,14 @@ func TestTeamManifestRoutesUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 	}
 }
 
-func TestTeamManifestRecommendsCurrentVerifiedModelsWithoutChangingSelections(t *testing.T) {
+func TestTeamManifestRecommendsDMXAPIBeforeUCloud(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	for client, model := range map[string]string{
 		ClientClaude: "claude-opus-5-5", ClientClaudeDesktop: "claude-opus-5-5",
 		ClientCodex: "gpt-6-sol", ClientHermes: "gpt-6-sol",
 	} {
 		choices := manifest.Recommendations[client].Selections()
-		want := []string{"dmxapi-" + model, "aihubmix-" + model, "ucloud-" + model}
-		if client == ClientCodex || client == ClientHermes {
-			want = []string{"ucloud-" + model, "aihubmix-" + model, "dmxapi-" + model, "dmxapi-gpt-6-luna"}
-		}
+		want := []string{"dmxapi-" + model, "ucloud-" + model, "aihubmix-" + model}
 		if len(choices) != len(want) {
 			t.Errorf("%s recommendations = %#v, want %q", client, choices, want)
 			continue

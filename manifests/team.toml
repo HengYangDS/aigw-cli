@@ -6,49 +6,42 @@ version = 7
 route = 'dmxapi-claude-opus-5-5'
 
 [[recommendations.claude.alternatives]]
-route = 'aihubmix-claude-opus-5-5'
+route = 'ucloud-claude-opus-5-5'
 
 [[recommendations.claude.alternatives]]
-route = 'ucloud-claude-opus-5-5'
+route = 'aihubmix-claude-opus-5-5'
 
 [recommendations.claude-desktop]
 [recommendations.claude-desktop.primary]
 route = 'dmxapi-claude-opus-5-5'
 
 [[recommendations.claude-desktop.alternatives]]
-route = 'aihubmix-claude-opus-5-5'
+route = 'ucloud-claude-opus-5-5'
 
 [[recommendations.claude-desktop.alternatives]]
-route = 'ucloud-claude-opus-5-5'
+route = 'aihubmix-claude-opus-5-5'
 
 [recommendations.codex]
 [recommendations.codex.primary]
+route = 'dmxapi-gpt-6-sol'
+
+[[recommendations.codex.alternatives]]
 route = 'ucloud-gpt-6-sol'
 
 [[recommendations.codex.alternatives]]
 route = 'aihubmix-gpt-6-sol'
-
-[[recommendations.codex.alternatives]]
-route = 'dmxapi-gpt-6-sol'
-
-[[recommendations.codex.alternatives]]
-route = 'dmxapi-gpt-6-luna'
 
 [recommendations.hermes]
 [recommendations.hermes.primary]
+route = 'dmxapi-gpt-6-sol'
+protocol = 'openai_responses'
+
+[[recommendations.hermes.alternatives]]
 route = 'ucloud-gpt-6-sol'
 protocol = 'openai_responses'
 
 [[recommendations.hermes.alternatives]]
 route = 'aihubmix-gpt-6-sol'
-protocol = 'openai_responses'
-
-[[recommendations.hermes.alternatives]]
-route = 'dmxapi-gpt-6-sol'
-protocol = 'openai_responses'
-
-[[recommendations.hermes.alternatives]]
-route = 'dmxapi-gpt-6-luna'
 protocol = 'openai_responses'
 
 [accounts]
