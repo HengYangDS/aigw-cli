@@ -147,10 +147,10 @@ switch a running request or replace an explicit Client Binding. AIHubMix uses th
 Anthropic base is the domain root. A successful minimal request remains narrower than full real-client
 tool, continuation, streaming, and long-context acceptance.
 
-The recommendation applies when its Account is connected. With another
-Account, setup prefers the same model if that Account offers it, otherwise an
-available Route for that client. No provider Token is mandatory, and an
-import preserves existing personal Client Bindings.
+Setup selects only a usable declared primary Route or ordered alternative.
+Other Routes remain available for explicit use, not automatic fallback by
+Model or identifier. No provider Token is mandatory, and import preserves
+existing personal Client Bindings.
 
 Reasoning effort remains a native client preference, outside manifest schema
 version 7. The team preference is `medium`: set `model_reasoning_effort = "medium"`

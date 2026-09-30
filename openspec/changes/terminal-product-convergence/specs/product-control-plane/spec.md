@@ -87,6 +87,96 @@ without changing provider policy or existing Adapters.
 - **AND** AIGW SHALL NOT advertise support based only on a writable config
   path or a successful endpoint probe.
 
+### Requirement: Reviewed team configuration is directly consumable
+
+The repository SHALL publish one token-free reviewed manifest directly
+consumable by `aigw setup --from` without credentials or installed clients.
+Setup and sync SHALL preserve existing Client Bindings and fill only unselected
+bindings from declared primary Routes and ordered alternatives with usable
+authentication. A Route outside that recommendation SHALL require explicit
+selection, even if its Account is connected or its Model matches. They SHALL
+project only AIGW-owned state and never expose or rebind Tokens. Fictitious
+providers, workstation paths, and parallel example manifests SHALL NOT remain.
+
+#### Scenario: Team member imports reviewed settings
+
+- **WHEN** a team member downloads the tracked manifest and runs `aigw setup --from`
+- **THEN** AIGW SHALL import the Accounts and Routes from the reviewed
+  `manifests/team.toml` without a second provider or model-name policy
+- **AND** required Account Tokens SHALL remain outside the manifest
+- **AND** recommended selections SHALL come from that manifest rather than
+  duplicated model-version literals in this specification.
+
+#### Scenario: No Account is connected during import
+
+- **WHEN** a user imports the team manifest without supplying a Token
+- **THEN** every reviewed Account and Route SHALL be retained
+- **AND** no client installation or credential SHALL be required
+- **AND** the next action SHALL enumerate the compatible Account connection
+  choices without making one Account mandatory.
+
+#### Scenario: One Provider Account is connected
+
+- **WHEN** a user imports the team manifest with exactly one available Account Token
+- **THEN** setup SHALL succeed without Tokens for other Accounts
+- **AND** each unselected client SHALL select the first usable declared
+  recommendation compatible with that client and connected Account
+- **AND** an undeclared Route SHALL remain unselected rather than becoming a
+  Model or lexical fallback.
+
+#### Scenario: A compatible Account becomes available after import
+
+- **WHEN** setup retained the reviewed catalogue without a connected Account
+- **AND** a Token for a declared compatible recommendation later becomes
+  available through the read-only environment backend
+- **THEN** `aigw sync` SHALL select that recommendation for an unselected client
+- **AND** SHALL preserve the declared protocol and existing Client Bindings
+- **AND** SHALL NOT require Tokens for other Accounts.
+
+#### Scenario: A supported client is installed later
+
+- **WHEN** setup completed before an admitted client was installed
+- **AND** its selected Route has usable declared authentication
+- **THEN** `aigw sync` SHALL discover and project that client
+- **AND** SHALL NOT require, replace, or expose any unrelated Token
+- **AND** SHALL leave absent clients untouched.
+
+### Requirement: Online update owns its temporary resources and preserves failure causes
+
+An online update SHALL own all peer download directories within one operation
+workspace and attempt to remove that workspace on every return. Cleanup SHALL
+preserve unrelated files and SHALL NOT alter the completed installation outcome.
+Reported failures SHALL retain their original causes and exact owned paths for
+internal caller inspection, while public diagnostics SHALL expose only safe
+state and recovery guidance. Forge subprocesses SHALL disable native prompts
+explicitly rather than depend on the parent environment.
+
+#### Scenario: A release peer is temporarily unavailable
+
+- **WHEN** a configured peer fails during metadata or asset transport
+- **THEN** the updater SHALL apply the same unavailability classification for
+  GitLab and GitHub and continue with another admitted peer
+- **AND** if every peer is unavailable, the error SHALL retain every peer's cause
+- **AND** authentication or integrity failures SHALL remain terminal.
+
+#### Scenario: Workspace cleanup fails
+
+- **WHEN** the operation's workspace cannot be fully removed
+- **THEN** the error SHALL preserve its exact workspace and cleanup cause for
+  internal inspection together with any preceding failure
+- **AND** public output SHALL omit private paths and raw subprocess diagnostics
+- **AND** if replacement completed, the diagnostic SHALL state that the program
+  was updated rather than imply an unchanged or rolled-back installation.
+
+#### Scenario: Replacement staging cleanup fails after activation
+
+- **WHEN** a candidate or rollback program was activated but its staging
+  directory cannot be removed
+- **THEN** the program transition SHALL retain both its completed activation
+  result and the cleanup failure
+- **AND** public output SHALL report the active replacement and incomplete
+  cleanup without claiming that program replacement failed.
+
 ## ADDED Requirements
 
 ### Requirement: Diagnostic quota and throttling remain distinct
@@ -112,8 +202,9 @@ request automatically.
 
 ### Requirement: Client projection failure reports verified recovery state
 
-After a configuration commit, a failed native client projection SHALL report
-whether AIGW configuration restoration succeeded. Human and JSON output SHALL
+After a configuration commit, a failed native client projection or credential
+entrypoint finalization SHALL report whether AIGW configuration restoration
+succeeded. Human and JSON output SHALL
 use the same outcome and safe next action without exposing a private file path,
 credential value, or internal error. Configuration restoration SHALL NOT be
 presented as proof that every client or credential entrypoint was restored.
@@ -132,3 +223,11 @@ presented as proof that every client or credential entrypoint was restored.
 - **THEN** the error SHALL report incomplete restoration rather than claim a
   successful rollback
 - **AND** SHALL not expose the underlying file path or imply retry is safe.
+
+#### Scenario: Credential entrypoint finalization fails after projection
+
+- **WHEN** client projection succeeds but its credential entrypoint fails
+  finalization and compensation is attempted
+- **THEN** the error SHALL report the observed configuration restoration result
+- **AND** failed client or entrypoint compensation SHALL not conceal that result
+- **AND** public output SHALL retain safe recovery guidance without private paths.

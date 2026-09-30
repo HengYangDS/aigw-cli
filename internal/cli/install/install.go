@@ -120,7 +120,17 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 			if err := Uninstall(target); err != nil {
-				return err
+				title := "Portable program removal is incomplete"
+				impact := "No AIGW configuration existed; no managed client withdrawal was needed. Tokens and versioned credential readers are retained."
+				if statErr == nil {
+					title = "Client withdrawal completed; program removal is incomplete"
+					impact = "Managed client withdrawal is committed; configuration, Tokens and versioned credential readers are retained."
+				}
+				return invocation.Problem(runtime,
+					title,
+					"AIGW could not remove every selected portable program file.",
+					impact,
+					"Inspect the selected target and retained files; after resolving file access, retry `uninstall --target <path>` from another verified AIGW executable.", err)
 			}
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Portable uninstall")

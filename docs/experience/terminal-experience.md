@@ -194,6 +194,15 @@ An output failure after a successful commit does not undo the projection.
 Inspect current state before retrying; generic error rendering cannot promise
 rollback. Only the transaction owner can report completed compensation.
 
+Credential-entrypoint finalization follows that same recovery contract:
+restored configuration does not prove that every client or reader was restored.
+Program update and rollback distinguish completed replacement from failed
+temporary cleanup; the replacement remains active even when cleanup fails.
+Portable uninstall commits client withdrawal before removing program files.
+If removal fails, that withdrawal remains committed. Without configuration,
+no withdrawal is claimed. Resolve file access and retry from another verified
+AIGW executable if the selected command has already been removed.
+
 No recovery command edits conversation history, client-private databases,
 Desktop-only settings, or an external compatibility service.
 

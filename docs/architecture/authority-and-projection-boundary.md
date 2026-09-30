@@ -120,10 +120,10 @@ Imported recommendations and actual selections have separate meanings in that
 same configuration. Import retains the recommendation; setup selects for
 explicitly connected Accounts, while later sync selects for unbound clients
 only when a read-only environment Account Token becomes available. Both use
-the reviewed recommendation order, then its model on another usable Account,
-then stable Route identifier order. Sync does not search unselected native
-credentials.
-Unavailable credentials do not authorize replacing an existing selection.
+only the declared primary Route and ordered alternatives. Other Routes remain
+manual-only, even when they serve the same Model on a connected Account.
+Sync does not search unselected native credentials, and unavailable credentials
+do not authorize replacing an existing selection.
 
 Configuration cloning owns independence of nested Account diagnostics and
 Adapter target slices as well as maps. Read-only runtime resolution observes

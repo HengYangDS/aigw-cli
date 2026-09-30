@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/upgrade"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -99,6 +100,48 @@ func TestPortableInstallAndUninstallCommandsOwnOnlyProgramFiles(t *testing.T) {
 func TestUninstallWithdrawsOwnedClientStateAndPreservesCapabilities(t *testing.T) {
 	for _, manager := range []string{"portable", "homebrew"} {
 		t.Run(manager, func(t *testing.T) { verifyUninstallOwnership(t, manager) })
+	}
+}
+
+func TestUninstallReportsCommittedWithdrawalWithIncompleteProgramRemoval(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	writeFile(t, app.Executable, []byte("program"), 0o700)
+	codexTarget := filepath.Join(t.TempDir(), "config.toml")
+	configureUninstallClients(t, app, codexTarget)
+	foreign := filepath.Join(upgrade.RollbackPath(app.Executable), "foreign-child")
+	writeFile(t, foreign, []byte("preserve"), 0o600)
+	out.Reset()
+	if err := cli.Execute(app, []string{"uninstall"}); err == nil {
+		t.Fatal("incomplete program removal was accepted")
+	}
+	cfg, err := app.Config.Load()
+	if err != nil || len(cfg.EnabledClientIDs()) != 0 {
+		t.Fatalf("committed client withdrawal was lost: enabled=%v error=%v", cfg.EnabledClientIDs(), err)
+	}
+	if data, err := os.ReadFile(foreign); err != nil || string(data) != "preserve" {
+		t.Fatalf("foreign rollback content changed: %q error=%v", data, err)
+	}
+	if !strings.Contains(out.String(), "Client withdrawal completed") || !strings.Contains(out.String(), "program removal is incomplete") || strings.Contains(out.String(), app.Executable) {
+		t.Fatalf("uninstall obscured the committed state or exposed its path: %s", out.String())
+	}
+	if !strings.Contains(out.String(), "another verified AIGW executable") {
+		t.Fatalf("partial uninstall requires its removed command: %s", out.String())
+	}
+}
+
+func TestUnconfiguredUninstallReportsRemovalFailureWithoutClaimingWithdrawal(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	writeFile(t, app.Executable, []byte("program"), 0o700)
+	foreign := filepath.Join(upgrade.RollbackPath(app.Executable), "foreign-child")
+	writeFile(t, foreign, []byte("preserve"), 0o600)
+	if err := cli.Execute(app, []string{"uninstall"}); err == nil {
+		t.Fatal("incomplete program removal was accepted")
+	}
+	if !strings.Contains(out.String(), "No AIGW configuration existed") || strings.Contains(out.String(), "withdrawal completed") || strings.Contains(out.String(), app.Executable) {
+		t.Fatalf("unconfigured uninstall claims a nonexistent withdrawal: %s", out.String())
+	}
+	if data, err := os.ReadFile(foreign); err != nil || string(data) != "preserve" {
+		t.Fatalf("foreign rollback content changed: %q error=%v", data, err)
 	}
 }
 

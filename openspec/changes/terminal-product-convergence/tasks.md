@@ -331,7 +331,13 @@
       A late client-projection file failure now carries the configuration
       restoration outcome through the synchronization error to human and JSON
       presentation; focused tests cover restored and incomplete states without
-      leaking paths. The broader public error and warning audit remains open.
+      leaking paths. Independent source review also exposed finalization,
+      ordinary update and partial-uninstall gaps. Origin-to-public RED/GREEN
+      now preserves observed configuration restoration and program activation,
+      reports incomplete cleanup without private causes, and distinguishes
+      committed withdrawal from an unconfigured uninstall. Forge release plans
+      explicitly disable native prompts. Final packaged warning acceptance
+      remains open.
 
 ## 7. CI and Dual-Peer Admission
 
@@ -352,6 +358,9 @@
       environment. Signed two-peer fixtures, input rejection, forwarding,
       child-deadline and current-manifest wire-menu regressions pass;
       fixed-artifact execution with real clients on both peers remains required.
+      Signed docs source `90908d5d` passes GitLab pipeline 9049 and GitHub
+      run 36769384552 with all five required jobs on each peer; these source
+      results do not qualify the fixed candidate's Windows/client journey.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
       guarded merge, source-ref deletion, signer trust and branch protection on each
       selected peer without interactive authentication or divergent commit
@@ -411,7 +420,11 @@
       invocations at widths 24, 40, 80 and 120, with no state writes or ANSI.
       `catalog --all --json` and `--json` return identical complete inventories;
       an unconfigured inventory is valid empty JSON, not an error. Table and
-      paragraph boundaries pass the native linter; visual diagram review remains.
+      paragraph boundaries pass the native linter. The sole current Mermaid
+      diagram renders and preserves all five nodes and four labelled edges
+      without observed clipping or collisions; hosted Forge rendering is not
+      claimed. Newly repaired public failure states remain subject to final
+      packaged acceptance.
 - [x] 8.4 Compare mature gateway, config, client and release libraries with
       retained AIGW differentiators; record one source-backed adopt/reject decision
       per candidate and delete any replaced hand-written owner.
@@ -426,9 +439,20 @@
 
 ## 9. Frozen Source and Pre-Archive Acceptance
 
-- [ ] 9.1 Review each changed requirement against source, tests, CLI, team
+- [x] 9.1 Review each changed requirement against source, tests, CLI, team
       manifest, quality/CI projection and docs; remove contradictory old text and
       unused compatibility paths before freezing inputs.
+      Official merged-spec review exposed inherited same-model/lexical
+      fallback contradicting declared primary/alternative selection. This
+      Change replaces both inherited requirements and their current prose,
+      retaining every original scenario. It also closes independently found
+      failure-phase counterexamples through existing result owners; focused
+      regressions and the canonical native Go check pass without exemptions.
+      The safe public diagnosis retains the equal-version candidate identity
+      refusal; its real portable lifecycle regression passes without weakening
+      current/rollback-byte preservation. All seven official delta merges are
+      warning-free. Native host, client, cold-peer and final-artifact gaps remain
+      explicit in their original tasks rather than becoming support claims.
 - [ ] 9.2 Run focused RED/GREEN suites, native static/behavior checks and strict
       official OpenSpec validation with pristine output on the frozen source; no
       skipped required gate or warning counts as pass.

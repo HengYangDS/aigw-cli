@@ -227,12 +227,38 @@ func TestUpdateCandidateStartupFailureKeepsSafeDiagnosis(t *testing.T) {
 }
 
 func TestUpdatePreservesReleaseFailureAsItsCause(t *testing.T) {
-	app, _, _, _, _ := testApp(t, "")
-	cause := errors.New("release lookup failed")
+	app, out, _, _, _ := testApp(t, "")
+	const canary = "TRACEBACK_CANARY /private/forge-only-canary"
+	cause := fmt.Errorf("release lookup failed: %w: %s", errors.New("exit status 1"), canary)
 	app.Updater = &fakeUpdater{updateErr: cause}
 
 	if err := cli.Execute(app, []string{"update"}); !errors.Is(err, cause) {
 		t.Fatalf("error = %v, want %v", err, cause)
+	}
+	if strings.Contains(out.String(), canary) || !strings.Contains(out.String(), "aigw doctor") {
+		t.Fatalf("update exposed private diagnostics or omitted recovery: %s", out.String())
+	}
+}
+
+func TestUpdateReportsCompletedReplacementWithIncompleteCleanup(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	cause := &os.PathError{Op: "remove", Path: "/private/update-only-canary", Err: os.ErrPermission}
+	app.Updater = &fakeUpdater{updateResult: "updated to v1.0.0 verified from GitHub", updateErr: cause}
+	if err := cli.Execute(app, []string{"update"}); !errors.Is(err, cause) {
+		t.Fatalf("completed update lost cleanup failure: %v", err)
+	}
+	if !strings.Contains(out.String(), "Program updated") || !strings.Contains(out.String(), "cleanup is incomplete") || strings.Contains(out.String(), cause.Path) {
+		t.Fatalf("completed update has an incorrect or unsafe state: %s", out.String())
+	}
+}
+
+func TestUpdateSameVersionIdentityConflictHasSafeDiagnosis(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	cause := upgrade.ErrCandidateIdentity
+	app.Updater = &fakeUpdater{candidateErr: cause}
+	err := cli.Execute(app, []string{"update", "--candidate", "candidate.tar.gz", "--checksums", "checksums.txt"})
+	if !errors.Is(err, cause) || !strings.Contains(out.String(), "different program bytes") || !strings.Contains(out.String(), "unchanged") {
+		t.Fatalf("candidate identity failure lost its safe meaning: error=%v output=%s", err, out.String())
 	}
 }
 

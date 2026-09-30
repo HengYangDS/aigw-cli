@@ -280,7 +280,7 @@ func (u Updater) authorizeGitHubRequest(request *http.Request) error {
 
 func (u Updater) runGitHubCLI(ctx context.Context, source ReleaseSource, args ...string) ([]byte, error) {
 	_, host, _ := strings.Cut(strings.TrimRight(source.Origin, "/"), "://")
-	return u.captureReleaseCommand(ctx, process.Plan{Executable: "gh", Args: args, Env: append(os.Environ(), "GH_HOST="+host)})
+	return u.captureReleaseCommand(ctx, process.Plan{Executable: "gh", Args: args, Env: append(os.Environ(), "GH_PROMPT_DISABLED=1", "GH_HOST="+host)})
 }
 
 func githubCLIFallbackAllowed(source ReleaseSource) bool {

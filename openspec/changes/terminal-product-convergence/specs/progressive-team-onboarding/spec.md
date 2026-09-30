@@ -183,6 +183,61 @@ share one semantic result, and never expose credentials.
 - **AND** setup, status, check, and sync dry-run SHALL agree on that prerequisite
 - **AND** sync dry-run SHALL select no Route or provider by recommendation alone.
 
+### Requirement: Deferred activation has one resumable path
+
+Importing a reviewed team manifest SHALL establish available capability without
+requiring every Token or client. `aigw sync` SHALL later converge newly
+available declared authentication and clients without repeated setup or hidden
+bulk selection. Recommendations SHALL remain distinct from selected Routes.
+Setup and sync SHALL fill only unselected Client Bindings using the declared
+primary Route and ordered alternatives. An undeclared Route SHALL remain
+manual-only, regardless of its Model or identifier order. Existing selections
+SHALL remain unchanged.
+
+#### Scenario: Any one Account is available
+
+- **WHEN** a team manifest declares several Accounts and exactly one Account
+  Token used by a compatible recommendation is available
+- **THEN** setup completes with that Account's recommended capability
+- **AND** missing Tokens remain explicit deferred actions rather than errors for
+  unrelated active Routes.
+
+#### Scenario: A Token becomes available later
+
+- **WHEN** an environment Account Token becomes available after manifest import
+- **THEN** synchronization activates its declared compatible recommendation for
+  an unselected client without requiring the primary Account
+- **AND** existing independent Client Bindings are preserved.
+
+#### Scenario: Recommendation survives deferred setup
+
+- **WHEN** setup imports a recommendation while no required Token is available
+- **THEN** the recommendation is persisted without becoming a selected Route
+- **AND** later activation follows declared preference order, not lexical Route
+  order.
+
+#### Scenario: Explicit selection is temporarily unavailable
+
+- **WHEN** a client has a selected Route whose Token is absent and another
+  compatible Account becomes connected
+- **THEN** setup and synchronization preserve that selected Route
+- **AND** they do not replace its selection with the recommendation or another
+  available Account.
+
+#### Scenario: Recommended Route is renamed or removed
+
+- **WHEN** a Route is renamed or an unselected Route is removed
+- **THEN** its recommendation reference is renamed or removed in the same
+  configuration transaction
+- **AND** other recommendations and selected Routes remain unchanged.
+
+#### Scenario: A client is installed later
+
+- **WHEN** a supported client is installed after setup
+- **THEN** synchronization discovers and projects that client from its existing
+  Route
+- **AND** setup does not need to be repeated.
+
 ## ADDED Requirements
 
 ### Requirement: Explicit Route retirement shares the import transaction

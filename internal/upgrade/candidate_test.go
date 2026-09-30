@@ -52,9 +52,10 @@ func TestUpdateCandidateSameVersionRequiresVerifiedProgramIdentity(t *testing.T)
 		badChecksum bool
 		canceled    bool
 		wantError   string
+		wantCause   error
 	}{
 		{name: "exact program", program: "current"},
-		{name: "different program", program: "different", wantError: "different program bytes"},
+		{name: "different program", program: "different", wantError: "different program bytes", wantCause: ErrCandidateIdentity},
 		{name: "missing archive", program: "current", missing: "archive", wantError: "open"},
 		{name: "missing current", program: "current", missing: "current", wantError: "read current AIGW executable"},
 		{name: "invalid checksum", program: "current", badChecksum: true, wantError: "checksum"},
@@ -97,7 +98,7 @@ func TestUpdateCandidateSameVersionRequiresVerifiedProgramIdentity(t *testing.T)
 				if err != nil || !strings.Contains(message, "already matches") {
 					t.Fatalf("exact program = %q, %v", message, err)
 				}
-			} else if err == nil || !strings.Contains(err.Error(), test.wantError) {
+			} else if err == nil || !strings.Contains(err.Error(), test.wantError) || test.wantCause != nil && !errors.Is(err, test.wantCause) {
 				t.Fatalf("unverified candidate = %q, %v; want %q", message, err, test.wantError)
 			}
 			if test.missing != "current" {

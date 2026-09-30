@@ -28,6 +28,7 @@ func TestDownloadReleaseAssetsWithGlabAPISkipsLinksWithEmptyURL(t *testing.T) {
 
 func TestGitLabMetadataUsesExplicitProcessPlan(t *testing.T) {
 	t.Setenv("GITLAB_HOST", "https://unrelated.example.test")
+	t.Setenv("GLAB_NO_PROMPT", "false")
 	runner := &recordingRunner{output: []byte("v1.0.0\n")}
 	u := Updater{Runner: runner, GitLab: ReleaseSource{Origin: "https://gitlab.example.test", Repository: "group/project"}}
 	if _, err := u.runGlab(t.Context(), "api", "projects"); err != nil {
@@ -38,14 +39,15 @@ func TestGitLabMetadataUsesExplicitProcessPlan(t *testing.T) {
 	}
 	plan := runner.plans[0]
 	if plan.Executable != "glab" || strings.Join(plan.Args, " ") != "api projects" {
-		t.Fatalf("unexpected process plan: %#v", plan)
+		t.Fatalf("unexpected process command: %s %v", plan.Executable, plan.Args)
 	}
-	if !slices.Contains(plan.Env, "GITLAB_HOST=https://gitlab.example.test") || !slices.Contains(plan.Env, "GLAB_ENABLE_CI_AUTOLOGIN=false") {
+	if !slices.Contains(plan.Env, "GITLAB_HOST=https://gitlab.example.test") || !slices.Contains(plan.Env, "GLAB_ENABLE_CI_AUTOLOGIN=false") || !slices.Contains(plan.Env, "GLAB_NO_PROMPT=1") {
 		t.Fatal("configured GitLab host was not bound to the process plan")
 	}
 }
 
 func TestGitLabAssetUsesExplicitProcessPlan(t *testing.T) {
+	t.Setenv("GLAB_NO_PROMPT", "false")
 	runner := &recordingFileRunner{content: []byte("payload")}
 	u := Updater{Runner: runner, GitLab: ReleaseSource{Origin: "https://gitlab.example.test", Repository: "group/project"}}
 	destination := filepath.Join(t.TempDir(), "asset")
@@ -56,8 +58,8 @@ func TestGitLabAssetUsesExplicitProcessPlan(t *testing.T) {
 		t.Fatalf("file invocation = %#v", runner)
 	}
 	plan := runner.plans[0]
-	if plan.Executable != "glab" || strings.Join(plan.Args, " ") != "api asset" || !slices.Contains(plan.Env, "GITLAB_HOST=https://gitlab.example.test") {
-		t.Fatalf("asset process plan = %#v", plan)
+	if plan.Executable != "glab" || strings.Join(plan.Args, " ") != "api asset" || !slices.Contains(plan.Env, "GITLAB_HOST=https://gitlab.example.test") || !slices.Contains(plan.Env, "GLAB_NO_PROMPT=1") {
+		t.Fatal("GitLab asset command has the wrong host or permits interaction")
 	}
 	if content, err := os.ReadFile(destination); err != nil || string(content) != "payload" {
 		t.Fatalf("asset output = %q, %v", content, err)

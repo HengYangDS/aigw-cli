@@ -76,7 +76,7 @@ func TestReplacementPreservesForeignRollbackDirectory(t *testing.T) {
 	if err := os.WriteFile(foreign, []byte("preserve"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := (Updater{Executable: executable}).replacePortableBinary(t.Context(), []byte("next")); err == nil {
+	if activated, err := (Updater{Executable: executable}).replacePortableBinary(t.Context(), []byte("next")); err == nil || activated {
 		t.Fatal("replacement accepted a directory as its rollback file")
 	}
 	for path, want := range map[string]string{executable: "current", foreign: "preserve"} {
@@ -103,7 +103,7 @@ func TestInstallPortableArchiveRequiresExistingInstallationDirectory(t *testing.
 		t.Fatal(err)
 	}
 	u := Updater{GOOS: "darwin", GOARCH: "arm64", Executable: filepath.Join(directory, "missing", "aigw")}
-	if err := u.installPortableArchive(t.Context(), archivePath, filepath.Join(directory, "checksums.txt"), "1.2.3"); err == nil {
+	if activated, err := u.installPortableArchive(t.Context(), archivePath, filepath.Join(directory, "checksums.txt"), "1.2.3"); err == nil || activated {
 		t.Fatal("installPortableArchive accepted a missing executable directory")
 	}
 }
@@ -304,7 +304,7 @@ func TestRollbackPathVariants(t *testing.T) {
 }
 
 func TestReplacePortableBinaryPropagatesPreserveFailure(t *testing.T) {
-	if err := (Updater{Executable: filepath.Join(t.TempDir(), "missing")}).replacePortableBinary(t.Context(), []byte("data")); err == nil {
+	if activated, err := (Updater{Executable: filepath.Join(t.TempDir(), "missing")}).replacePortableBinary(t.Context(), []byte("data")); err == nil || activated {
 		t.Fatal("replacePortableBinary accepted a missing executable")
 	}
 }
@@ -320,7 +320,7 @@ func TestInstallPortableArchiveRejectsChecksumMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	u := Updater{GOOS: "darwin", GOARCH: "arm64", Executable: filepath.Join(directory, "aigw")}
-	if err := u.installPortableArchive(t.Context(), archivePath, filepath.Join(directory, "checksums.txt"), "1.2.3"); err == nil || !strings.Contains(err.Error(), "checksum") {
+	if activated, err := u.installPortableArchive(t.Context(), archivePath, filepath.Join(directory, "checksums.txt"), "1.2.3"); err == nil || activated || !strings.Contains(err.Error(), "checksum") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -335,7 +335,7 @@ func fileSHA256ForTest(t *testing.T, path string) string {
 }
 
 func TestPortableInstallHelpersRejectEmptyTargetAndPreserveForeignSeparators(t *testing.T) {
-	if err := (Updater{}).replacePortableBinary(t.Context(), []byte("binary")); err == nil || !strings.Contains(err.Error(), "path is empty") {
+	if activated, err := (Updater{}).replacePortableBinary(t.Context(), []byte("binary")); err == nil || activated || !strings.Contains(err.Error(), "path is empty") {
 		t.Fatalf("empty target error = %v", err)
 	}
 	if got := RollbackPath(`C:\\tools\\aigw.exe`); got != `C:\\tools\\.aigw.previous.exe` {

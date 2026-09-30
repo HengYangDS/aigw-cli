@@ -3,14 +3,19 @@
 package upgrade
 
 import (
+	"aigw-cli/internal/process"
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -82,7 +87,7 @@ func TestReplacePortableBinaryPropagatesWriteFailure(t *testing.T) {
 	}
 	makeImmutable(t, executable)
 	u := Updater{Executable: executable, Runner: &recordingRunner{output: []byte("aigw version 1.2.3\n")}}
-	if err := u.replacePortableBinary(t.Context(), []byte("new-binary")); err == nil || !strings.Contains(err.Error(), "replace AIGW executable") {
+	if activated, err := u.replacePortableBinary(t.Context(), []byte("new-binary")); err == nil || activated || !strings.Contains(err.Error(), "replace AIGW executable") {
 		t.Fatalf("error = %v", err)
 	}
 	entries, err := os.ReadDir(directory)
@@ -95,6 +100,62 @@ func TestReplacePortableBinaryPropagatesWriteFailure(t *testing.T) {
 	}
 	if !slices.Equal(names, []string{"aigw"}) {
 		t.Fatalf("failed replacement retained staging: %v", names)
+	}
+}
+
+func TestProgramTransitionsReportActivationWhenReplacementCleanupFails(t *testing.T) {
+	for _, mode := range []string{"candidate", "rollback"} {
+		t.Run(mode, func(t *testing.T) {
+			root := t.TempDir()
+			executable := filepath.Join(root, "aigw")
+			for path, data := range map[string]string{executable: "current", RollbackPath(executable): "previous"} {
+				if err := os.WriteFile(path, []byte(data), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			archive := filepath.Join(t.TempDir(), "aigw_1.0.0_darwin_arm64.tar.gz")
+			archiveData := tarGzForTest(t, "aigw_1.0.0_darwin_arm64/aigw", []byte("candidate"))
+			for path, data := range map[string][]byte{
+				archive: archiveData,
+				filepath.Join(filepath.Dir(archive), "checksums.txt"): []byte(fmt.Sprintf("%x  %s\n", sha256.Sum256(archiveData), filepath.Base(archive))),
+			} {
+				if err := os.WriteFile(path, data, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			identity, err := exec.CommandContext(t.Context(), "id", "-un").Output()
+			if err != nil {
+				t.Fatal(err)
+			}
+			acl := "user:" + strings.TrimSpace(string(identity)) + " deny delete,directory_inherit,only_inherit"
+			t.Cleanup(func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if output, err := exec.CommandContext(ctx, "chmod", "-RN", root).CombinedOutput(); err != nil {
+					t.Errorf("reclaim owned cleanup fault: %s: %v", output, err)
+				}
+			})
+			u := Updater{Executable: executable, GOOS: "darwin", GOARCH: "arm64", Runner: &recordingRunner{inspect: func(process.Plan) ([]byte, error) {
+				if output, err := exec.CommandContext(t.Context(), "chmod", "+a", acl, root).CombinedOutput(); err != nil {
+					t.Fatalf("prepare owned replacement cleanup fault: %s: %v", output, err)
+				}
+				return []byte("aigw version 1.0.0\n"), nil
+			}}}
+			var result string
+			want := "candidate"
+			if mode == "rollback" {
+				want = "previous"
+				result, err = u.Rollback(t.Context(), nil)
+			} else {
+				result, err = u.UpdateCandidate(t.Context(), "0.1.0", CandidateArchive{ArchivePath: archive, ChecksumsPath: filepath.Join(filepath.Dir(archive), "checksums.txt")})
+			}
+			if program, readErr := os.ReadFile(executable); readErr != nil || string(program) != want {
+				t.Fatalf("replacement did not activate: program=%q error=%v", program, readErr)
+			}
+			if !errors.Is(err, os.ErrPermission) || result == "" {
+				t.Fatalf("replacement committed but its result was lost: result=%q error=%v", result, err)
+			}
+		})
 	}
 }
 

@@ -77,9 +77,15 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 			entrypointErr = undoCreatedEntrypoint(undoEntrypoint)
 		}
 		if rollbackErr := errors.Join(projectionErr, configErr, entrypointErr); rollbackErr != nil {
-			return fmt.Errorf("%s credential entrypoint finalization failed: %w; compensation incomplete: %w", subject, err, rollbackErr)
+			return projectionError{
+				cause:    fmt.Errorf("%s credential entrypoint finalization failed: %w; compensation incomplete: %w", subject, err, rollbackErr),
+				restored: configErr == nil,
+			}
 		}
-		return fmt.Errorf("%s credential entrypoint finalization failed; configuration and client projections were rolled back: %w", subject, err)
+		return projectionError{
+			cause:    fmt.Errorf("%s credential entrypoint finalization failed; configuration and client projections were rolled back: %w", subject, err),
+			restored: true,
+		}
 	}
 	return nil
 }

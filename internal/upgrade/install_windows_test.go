@@ -106,7 +106,7 @@ func TestReplacementHandlesWindowsExecutableLocks(t *testing.T) {
 			if test.rollback {
 				_, err = updater.Rollback(t.Context(), nil)
 			} else {
-				err = updater.replacePortableBinary(t.Context(), []byte("next"))
+				_, err = updater.replacePortableBinary(t.Context(), []byte("next"))
 			}
 			release()
 			if (err == nil) != test.transient || !test.transient && !errors.Is(err, lockedRename.Err) {
@@ -176,7 +176,7 @@ func TestWindowsPortableUpdateDoesNotCreateCommandScripts(t *testing.T) {
 	}
 	updater := Updater{Executable: executable, GOOS: "windows", GOARCH: "amd64", Runner: &recordingRunner{output: []byte("aigw version 1.2.3\n")}}
 	archivePath, _ := writeWindowsPortableArchiveForTest(t, root)
-	if err := updater.installPortableArchive(t.Context(), archivePath, filepath.Join(root, "checksums.txt"), "1.2.3"); err != nil {
+	if activated, err := updater.installPortableArchive(t.Context(), archivePath, filepath.Join(root, "checksums.txt"), "1.2.3"); err != nil || !activated {
 		t.Fatalf("installPortableArchive() = %v", err)
 	}
 	if got, err := os.ReadFile(executable); err != nil || string(got) != "windows-binary" {
