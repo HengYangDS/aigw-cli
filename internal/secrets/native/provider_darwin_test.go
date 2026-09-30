@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -68,6 +69,47 @@ func TestKeychainReadUsesPrivateFixtureWithoutAuthorizationUI(t *testing.T) {
 	}
 	if value, err := readPrivateKeychainFixture(t, service, "denied", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
 		t.Fatalf("unauthorized private item = %q, %v", value, err)
+	}
+}
+
+func TestNewNativeKeychainItemsHaveReadablePurposeLabels(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "labels.keychain-db")
+	runKeychainFixtureCommand(t, "create-keychain", "-p", "", path)
+	t.Cleanup(func() { runKeychainFixtureCommand(t, "delete-keychain", path) })
+	runKeychainFixtureCommand(t, "unlock-keychain", "-p", "", path)
+
+	const service = "aigw-private-test"
+	// security renders kSecLabelItemAttr with its legacy numeric tag.
+	const labelAttribute = "0x00000007 <blob>="
+	for _, item := range []struct {
+		account string
+		label   string
+	}{
+		{"team", "AIGW Account Token: team"},
+		{"diagnostic@team", "AIGW Provider Diagnostic: team"},
+	} {
+		t.Run(item.account, func(t *testing.T) {
+			slot := nativeKeychainSlot(item.account)
+			if err := writeCredentialToKeychain(service, slot, path, []byte("synthetic")); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			output, err := exec.CommandContext(ctx, "/usr/bin/security", "find-generic-password", "-s", service, "-a", slot, path).CombinedOutput()
+			if err != nil {
+				t.Fatal(err)
+			}
+			observed := ""
+			for line := range strings.SplitSeq(string(output), "\n") {
+				if strings.Contains(line, labelAttribute) {
+					observed = strings.TrimSpace(line)
+					break
+				}
+			}
+			if observed != labelAttribute+`"`+item.label+`"` {
+				t.Fatalf("new native item label = %q, want %q", observed, item.label)
+			}
+		})
 	}
 }
 

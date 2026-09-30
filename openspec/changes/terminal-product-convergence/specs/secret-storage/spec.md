@@ -44,6 +44,15 @@ disclosed rather than represented as uninterrupted service.
   SHALL block cutover rather than trigger a fallback or credential prompt
 - **AND** rollback SHALL retain the predecessor command and item unchanged.
 
+#### Scenario: A successor creates a macOS native credential item
+
+- **WHEN** AIGW creates a new native Keychain item for an Account Token or
+  provider-diagnostic credential
+- **THEN** the item SHALL have a readable, nonsecret label naming its purpose
+  and logical Account
+- **AND** its service, account, and access identity SHALL remain the credential
+  authority; the label SHALL NOT be used to look up or authorize the item.
+
 #### Scenario: A client retains its credential command across an update
 
 - **GIVEN** a client has already loaded a qualified AIGW-owned versioned

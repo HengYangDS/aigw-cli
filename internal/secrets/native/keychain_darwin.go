@@ -105,7 +105,7 @@ static OSStatus aigwObserveKeychainItem(const char *service, const char *account
 }
 
 static OSStatus aigwMutateKeychainItem(const char *service, const char *account,
-                                      const char *path, const void *value,
+                                      const char *label, const char *path, const void *value,
                                       UInt32 length, Boolean removeItem) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -132,6 +132,16 @@ static OSStatus aigwMutateKeychainItem(const char *service, const char *account,
             status = SecKeychainAddGenericPassword(keychain, serviceLength, service,
                                                    accountLength, account,
                                                    length, value, &item);
+            if (status == errSecSuccess) {
+                SecKeychainAttribute attribute = {
+                    kSecLabelItemAttr, (UInt32)strlen(label), (void *)label};
+                SecKeychainAttributeList attributes = {1, &attribute};
+                status = SecKeychainItemModifyAttributesAndData(item, &attributes, 0, NULL);
+                if (status != errSecSuccess) {
+                    OSStatus rollback = SecKeychainItemDelete(item);
+                    if (rollback != errSecSuccess) status = rollback;
+                }
+            }
         } else if (status == errSecSuccess) {
             // Do not replace a retained item whose value this identity cannot
             // read: the mutation would commit a new Token without usable access.
@@ -165,6 +175,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"unsafe"
 )
 
@@ -261,12 +272,22 @@ func deleteCredentialFromKeychain(service, account, path string) error {
 	return mutateCredentialInKeychain(service, account, path, nil, true)
 }
 
+func keychainItemLabel(account string) string {
+	logical := strings.TrimPrefix(account, "native@")
+	if provider, diagnostic := strings.CutPrefix(logical, "diagnostic@"); diagnostic {
+		return "AIGW Provider Diagnostic: " + provider
+	}
+	return "AIGW Account Token: " + logical
+}
+
 func mutateCredentialInKeychain(service, account, path string, value []byte, remove bool) error {
 	serviceName := C.CString(service)
 	accountName := C.CString(account)
+	labelName := C.CString(keychainItemLabel(account))
 	keychainPath := C.CString(path)
 	defer C.free(unsafe.Pointer(serviceName))
 	defer C.free(unsafe.Pointer(accountName))
+	defer C.free(unsafe.Pointer(labelName))
 	defer C.free(unsafe.Pointer(keychainPath))
 
 	var stored []byte
@@ -287,7 +308,7 @@ func mutateCredentialInKeychain(service, account, path string, value []byte, rem
 		deleting = 1
 	}
 	status := C.aigwMutateKeychainItem(
-		serviceName, accountName, keychainPath, data, C.UInt32(len(stored)), deleting,
+		serviceName, accountName, labelName, keychainPath, data, C.UInt32(len(stored)), deleting,
 	)
 	if status == C.errSecItemNotFound {
 		return ErrNotFound
