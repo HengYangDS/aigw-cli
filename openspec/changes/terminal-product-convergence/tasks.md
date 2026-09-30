@@ -199,12 +199,13 @@
 - [ ] 6.1 Audit every direct Go, npm, OpenSpec, Mise and release-tool version
       against the latest stable compatible upstream; update authored pins and locks
       once, then prove clean-context reproducibility and license/security
-      admissibility. The 2026-09-29 upstream audit found no stale direct Go,
-      npm, OpenSpec, Mise-tool or release-tool pin and selected Renovate
-      44.117.2 by official OCI digest. Two native lock resolutions, clean
-      bootstrap and the full source gate pass; unchanged release inputs have
-      accepted licenses for 43 Go and 283 npm packages. Complete cold-cache
-      peer transport (7.5) and the npm release-age gate remain open.
+      admissibility. The 2026-09-30 refresh updates the authored CI client,
+      Hermes, Mise image and Renovate pins plus one required Go and sixteen npm
+      transitive packages. Both new images run; bootstrap, source gate (95.04%),
+      macOS native acceptance, Renovate validation/extraction, two lock
+      resolutions and the OSV/license scan (43 Go and 283 npm packages, zero
+      findings) pass. New npm releases younger than three days remain held;
+      Linux/Windows native and cold-cache peer transport remain open.
 - [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.

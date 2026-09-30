@@ -14,7 +14,7 @@ GOTOOLCHAIN = "local"
 GOWORK = "off"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.117.2@sha256:5e9ea3e65b3e8e7c0caf813214ed0705827433b7ea19e65f697083cca3a9c0e7"
+renovate_image = "ghcr.io/renovatebot/renovate:44.124.2@sha256:aa912e916788c5f594cf92f99a7bc01697bbaf4c77fce68e9dcef6c1bbd730b9"
 
 [tool_alias]
 # Keep npm's native precedence over Node's bundled npm on every platform.

@@ -87,7 +87,7 @@ jobs:
         env:
           GODEBUG: http2client=0
         with:
-          version: 2026.9.16
+          version: 2026.9.17
           install: true
           install_args: --locked
           cache: true
@@ -112,7 +112,7 @@ jobs:
         env:
           GODEBUG: http2client=0
         with:
-          version: 2026.9.16
+          version: 2026.9.17
           install: true
           install_args: --locked
           cache: true
@@ -155,7 +155,7 @@ jobs:
         env:
           GODEBUG: http2client=0
         with:
-          version: 2026.9.16
+          version: 2026.9.17
           install: true
           install_args: --locked
           cache: true
@@ -192,7 +192,7 @@ jobs:
         env:
           GODEBUG: http2client=0
         with:
-          version: 2026.9.16
+          version: 2026.9.17
           install: true
           install_args: --locked
           cache: true
@@ -217,7 +217,7 @@ jobs:
         env:
           GODEBUG: http2client=0
         with:
-          version: 2026.9.16
+          version: 2026.9.17
           install: true
           install_args: --locked
           cache: true
@@ -311,13 +311,13 @@ jobs:
               $clients = Join-Path $scope 'clients'
               New-Item -ItemType Directory -Path $clients | Out-Null
               Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.157.1' '@anthropic-ai/claude-code-win32-x64@2.1.283'
+              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.159.2' '@anthropic-ai/claude-code-win32-x64@2.1.285'
               mise exec --locked -- npm audit signatures --prefix $clients
               $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
               $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
               $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-              $hermesCommit = '345cd2b057a452236de401d3534b8502a7465e8d'
-              $hermesInstallerDigest = '226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5'
+              $hermesCommit = 'f97608f178d1ffeca59860195ab7da295f7c8e5f'
+              $hermesInstallerDigest = '0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2'
               $hermesInstaller = Join-Path $env:RUNNER_TEMP 'aigw-hermes-install.ps1'
               $hermesHome = Join-Path $scope 'hermes'
               $hermesInstall = Join-Path $hermesHome 'hermes-agent'
@@ -403,7 +403,7 @@ jobs:
         env:
           GODEBUG: http2client=0
         with:
-          version: 2026.9.16
+          version: 2026.9.17
           install: true
           install_args: --locked
           cache: true
@@ -495,13 +495,13 @@ jobs:
               $clients = Join-Path $scope 'clients'
               New-Item -ItemType Directory -Path $clients | Out-Null
               Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.157.1' '@anthropic-ai/claude-code-win32-x64@2.1.283'
+              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.159.2' '@anthropic-ai/claude-code-win32-x64@2.1.285'
               mise exec --locked -- npm audit signatures --prefix $clients
               $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
               $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
               $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-              $hermesCommit = '345cd2b057a452236de401d3534b8502a7465e8d'
-              $hermesInstallerDigest = '226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5'
+              $hermesCommit = 'f97608f178d1ffeca59860195ab7da295f7c8e5f'
+              $hermesInstallerDigest = '0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2'
               $hermesInstaller = Join-Path $env:RUNNER_TEMP 'aigw-hermes-install.ps1'
               $hermesHome = Join-Path $scope 'hermes'
               $hermesInstall = Join-Path $hermesHome 'hermes-agent'
@@ -587,7 +587,7 @@ jobs:
         env:
           GODEBUG: http2client=0
         with:
-          version: 2026.9.16
+          version: 2026.9.17
           install: true
           install_args: --locked
           cache: true
@@ -629,8 +629,8 @@ jobs:
         run: |-
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          $hermesCommit = '345cd2b057a452236de401d3534b8502a7465e8d'
-          $hermesInstallerDigest = '226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5'
+          $hermesCommit = 'f97608f178d1ffeca59860195ab7da295f7c8e5f'
+          $hermesInstallerDigest = '0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2'
           $metadata = mise exec --locked -- gh api "repos/NousResearch/hermes-agent/contents/scripts/install.ps1?ref=$hermesCommit" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $metadata.type -ne 'file' -or $metadata.encoding -ne 'base64') { throw 'Pinned Hermes installer metadata is unavailable' }
           $installer = Join-Path $env:RUNNER_TEMP 'aigw-hermes-install.ps1'
@@ -700,13 +700,13 @@ jobs:
               $clients = Join-Path $scope 'clients'
               New-Item -ItemType Directory -Path $clients | Out-Null
               Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.157.1' '@anthropic-ai/claude-code-win32-x64@2.1.283'
+              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.159.2' '@anthropic-ai/claude-code-win32-x64@2.1.285'
               mise exec --locked -- npm audit signatures --prefix $clients
               $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
               $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
               $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-              $hermesCommit = '345cd2b057a452236de401d3534b8502a7465e8d'
-              $hermesInstallerDigest = '226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5'
+              $hermesCommit = 'f97608f178d1ffeca59860195ab7da295f7c8e5f'
+              $hermesInstallerDigest = '0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2'
               $hermesInstaller = Join-Path $env:RUNNER_TEMP 'aigw-hermes-install.ps1'
               $hermesHome = Join-Path $scope 'hermes'
               $hermesInstall = Join-Path $hermesHome 'hermes-agent'

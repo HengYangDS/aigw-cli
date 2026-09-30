@@ -366,8 +366,8 @@ func TestWindowsClientInstallerUsesPinnedContentAPI(t *testing.T) {
 	if fetch.TimeoutMinutes != 2 {
 		t.Fatalf("Hermes installer fetch deadline = %d minutes", fetch.TimeoutMinutes)
 	}
-	const commit = "345cd2b057a452236de401d3534b8502a7465e8d"
-	const digest = "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5"
+	const commit = "f97608f178d1ffeca59860195ab7da295f7c8e5f"
+	const digest = "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2"
 	for _, required := range []string{
 		"$hermesCommit = '" + commit + "'",
 		"gh api \"repos/NousResearch/hermes-agent/contents/scripts/install.ps1?ref=$hermesCommit\"",
