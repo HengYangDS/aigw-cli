@@ -398,6 +398,12 @@ Review the exported file against the incoming manifest before importing.
 `config import` applies a merge; it has no preview or JSON-output mode.
 Conflicting public metadata requires an explicit `--replace-account <id>` or
 `--replace-route <id>` after review. Tokens are neither exported nor replaced.
+Pass `--retire-route <id>` once per obsolete local Route to retire it in the
+same guarded import, rather than running one removal and projection per Route.
+Import rejects a missing Route, one still declared by the incoming manifest,
+or one selected by any client. It also rejects a retained recommendation that
+would reference a retired Route. Only Models left without a Route reference
+and absent from the incoming manifest are removed; Accounts and Tokens remain.
 The import reports public changes without guessing Token or client readiness;
 run `aigw status` for the selected Route's next step. Use `aigw setup --from`
 when guided team onboarding is wanted instead.
@@ -406,7 +412,7 @@ when guided team onboarding is wanted instead.
 | ---------------------------------- | -------------------- | ---------------------------------------- |
 | Same semantic Account/Route        | Reuse                | None                                     |
 | Same ID, different public metadata | Stop before mutation | Review and use the specific replace flag |
-| Local-only Route not in manifest   | Preserve             | Remove explicitly if obsolete            |
+| Local-only Route not in manifest   | Preserve             | `--retire-route <id>` after review       |
 | Existing Token                     | Preserve             | Rotate explicitly if required            |
 
 Import preserves existing client bindings and stores manifest recommendations

@@ -81,6 +81,14 @@ IDs; it removes retired entries and preserves explicit local choices. GPT,
 Claude, and other Provider families follow the same grammar, with supplier
 variants only when their upstream contract truly differs.
 
+Low-level manifest import retains local-only Routes by default. An operator may
+name obsolete local Routes for retirement in the same guarded configuration and
+client-projection transaction as the import. Retirement rejects a Route still
+declared by the incoming manifest or selected by any Client Binding. Replaced
+recommendations must remain valid; only Models left without any Route reference
+and absent from the incoming manifest are removed. Account metadata and Tokens
+are not retired by this operation.
+
 ### 3. Qualify a Client Adapter, do not infer support from a file
 
 Each Adapter owns only its client's executable discovery, native config

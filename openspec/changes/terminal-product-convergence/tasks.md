@@ -109,7 +109,11 @@
       completed two direct DMXAPI 6.1 Sol turns, and an isolated AIGW `verify`
       completed after staging its versioned reader. A catalogue listing alone
       did not qualify either client. Final-artifact admission and model ranking remain
-      open for the retained set.
+      open for the retained set. Low-level import now accepts an explicit set of
+      obsolete Routes in the same guarded commit as the incoming catalogue;
+      focused tests preserve selected Routes and shared or incoming Models,
+      reject invalid selectors before writing, and reject dangling retained
+      recommendations. Final installed-host migration remains open.
 - [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
       Providers; no control-plane command claims request-time failover.

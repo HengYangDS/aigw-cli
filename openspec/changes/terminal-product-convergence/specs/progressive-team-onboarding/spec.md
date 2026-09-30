@@ -168,3 +168,38 @@ share one semantic result, and never expose credentials.
   as a prerequisite, not present immediate synchronization as useful work
 - **AND** setup, status, check, and sync dry-run SHALL agree on that prerequisite
 - **AND** sync dry-run SHALL select no Route or provider by recommendation alone.
+
+## ADDED Requirements
+
+### Requirement: Explicit Route retirement shares the import transaction
+
+Configuration import SHALL retain local-only Routes unless the operator names
+each one with `--retire-route`. A named Route SHALL exist locally, be absent
+from the incoming manifest, and not be selected by any Client Binding. The
+result SHALL have no recommendation referencing a retired Route. A Model
+referenced by a retired Route SHALL be removed only if no remaining Route references it
+and the incoming manifest does not declare it. Account metadata and Tokens
+SHALL remain untouched by retirement. Import, retirement, and any affected
+native client projection SHALL use one guarded commit with compensation.
+
+#### Scenario: Reviewed catalogue replaces obsolete recommendations
+
+- **WHEN** one import names multiple unselected local Routes for retirement
+- **AND** the incoming manifest replaces recommendations that referenced them
+- **THEN** the Routes and only their unreferenced, undeclared Models SHALL be
+  removed in the same commit as the new public catalogue
+- **AND** explicit Client Bindings and shared or newly declared Models SHALL
+  remain unchanged.
+
+#### Scenario: Retirement is not authorized by identity or selection
+
+- **WHEN** a retirement selector names a missing, incoming-declared, or
+  client-selected Route
+- **THEN** import SHALL fail before changing configuration, projection, or
+  credential entrypoint state.
+
+#### Scenario: Retained recommendation would dangle
+
+- **WHEN** a local recommendation references a Route proposed for retirement
+- **AND** the incoming manifest does not replace that recommendation
+- **THEN** import SHALL reject the resulting configuration before committing.

@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-func TestReplacementSetNormalizesExplicitNames(t *testing.T) {
-	got := ReplacementSet([]string{" team ", "", "\t", "team", "fallback"})
+func TestSelectorSetNormalizesExplicitNames(t *testing.T) {
+	got := selectorSet([]string{" team ", "", "\t", "team", "fallback"})
 	want := map[string]bool{"team": true, "fallback": true}
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("replacement set = %#v, want %#v", got, want)
+		t.Fatalf("selector set = %#v, want %#v", got, want)
 	}
 }

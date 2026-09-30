@@ -116,11 +116,12 @@ DMXAPI GPT-6 Sol previously completed through the locally configured Proxy
 transport and once through its direct Responses endpoint. Repeated direct
 requests on September 25 returned HTTP 503, so release 0.3.1 omitted that
 Route. Two later direct Responses requests completed with text, so the
-September 27, 2026 manifest restored it. The September 30 team preference
-places it first for unselected Codex and Hermes clients; neither the earlier
-calls nor that preference proves sustained availability or runtime failover.
-AIHubMix and DMXAPI GPT-6 Luna also
-completed exact Responses requests; all three Accounts have evidenced Luna
+September 27, 2026 manifest restored it. The September 30 manifest then
+retired the GPT-6 Sol Routes and recommends DMXAPI GPT-6.1 Sol for unselected
+Codex and Hermes clients; neither the earlier calls nor that recommendation
+proves sustained availability or runtime failover.
+AIHubMix and DMXAPI GPT-6 Luna also completed exact Responses requests; all
+three Accounts have evidenced Luna
 Routes. Existing local Route and Client Binding state remains separate and is
 not rewritten by this catalogue change.
 

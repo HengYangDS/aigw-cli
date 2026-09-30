@@ -234,6 +234,92 @@ func TestImportReplacementFlagsMakeIdentityChangesExplicit(t *testing.T) {
 	}
 }
 
+func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
+	cfg := localConfig()
+	addRoute := func(id, label, model string) {
+		cfg.Routes[id] = configuration.Route{
+			Label: label, Account: "local", Model: model,
+			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		}
+	}
+	addRoute("old", "Old", "gpt-old")
+	addRoute("shared-old", "Shared Old", "gpt-shared")
+	addRoute("shared-current", "Shared Current", "gpt-shared")
+	addRoute("declared-old", "Declared Old", "gpt-declared")
+	cfg.Models["gpt-old"] = configuration.Model{Label: "Old"}
+	cfg.Models["gpt-shared"] = configuration.Model{Label: "Shared"}
+	cfg.Models["gpt-declared"] = configuration.Model{Label: "Declared"}
+	cfg.Recommendations[configuration.ClientCodex] = configuration.ClientRecommendation{
+		Primary:      configuration.ClientSelection{Route: "old"},
+		Alternatives: []configuration.ClientSelection{{Route: "shared-old"}},
+	}
+	runtime, _, _, renderOut := savedRuntime(t, cfg)
+	command := newImportCommand(runtime)
+	incoming := strings.Replace(importManifest, "[routes.remote]", "[models.gpt-declared]\nlabel = \"Declared\"\n\n[routes.remote]", 1)
+	command.SetArgs([]string{writeManifest(t, incoming), "--retire-route", "old", "--retire-route", "shared-old", "--retire-route", "declared-old"})
+	if err := executeManifestCommand(command); err != nil {
+		t.Fatal(err)
+	}
+	got, err := runtime.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := got.Routes["old"]; exists {
+		t.Fatal("explicitly retired Route remains")
+	}
+	if _, exists := got.Routes["shared-old"]; exists {
+		t.Fatal("second explicitly retired Route remains")
+	}
+	if _, exists := got.Routes["declared-old"]; exists {
+		t.Fatal("third explicitly retired Route remains")
+	}
+	if _, exists := got.Models["gpt-old"]; exists {
+		t.Fatal("Model orphaned by retired Route remains")
+	}
+	if got.Models["gpt-shared"].Label != "Shared" || got.Models["gpt-declared"].Label != "Declared" || got.SelectedRoute(configuration.ClientCodex) != "local" || got.Routes["remote"].Account != "gateway" {
+		t.Fatalf("unrelated state or imported Route changed: %#v", got)
+	}
+	if recommendation := got.Recommendations[configuration.ClientCodex]; recommendation.Primary.Route != "remote" || len(recommendation.Alternatives) != 0 {
+		t.Fatalf("recommendation was not replaced: %#v", got.Recommendations)
+	}
+	if !strings.Contains(renderOut.String(), "Retired Routes") {
+		t.Fatalf("import did not report Route retirement: %q", renderOut.String())
+	}
+}
+
+func TestImportRejectsRouteRetirementBeforeWriting(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		manifest string
+		retire   string
+		want     string
+	}{
+		{"missing", importManifest, "absent", "does not name an existing Route"},
+		{"selected", importManifest, "local", "selected by client"},
+		{"incoming", strings.ReplaceAll(importManifest, "remote", "local"), "local", "also declared in the imported configuration manifest"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			runtime, path, _, _ := savedRuntime(t, localConfig())
+			before, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			command := newImportCommand(runtime)
+			command.SetArgs([]string{writeManifest(t, tc.manifest), "--retire-route", tc.retire})
+			if err := executeManifestCommand(command); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("retirement error = %v, want %q", err, tc.want)
+			}
+			after, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(before, after) {
+				t.Fatal("rejected retirement changed configuration")
+			}
+		})
+	}
+}
+
 func TestImportFallsBackToThePrimaryOutput(t *testing.T) {
 	runtime, _, out, renderOut := savedRuntime(t, localConfig())
 	runtime.RenderOut = nil

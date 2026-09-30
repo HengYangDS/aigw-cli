@@ -24,13 +24,14 @@ type Manifest struct {
 	Routes          map[string]Route                `toml:"routes"`
 }
 
-// MergeOptions makes every local-identity replacement explicit. Configuration
-// manifests are intentionally token-free; they must not silently redirect an
-// existing local Account and its system-held Token to a different endpoint.
+// MergeOptions makes local identity replacement and Route retirement explicit.
+// Configuration manifests are token-free and must not silently redirect an
+// existing Account and its system-held Token to a different endpoint.
 type MergeOptions struct {
 	ReplaceAccounts map[string]bool
 	ReplaceModels   map[string]bool
 	ReplaceRoutes   map[string]bool
+	RetireRoutes    map[string]bool
 }
 
 // ManifestAccountNames returns every credential owner referenced by a
@@ -139,8 +140,16 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 		return Config{}, unsupportedManifestVersionError(incoming.Version)
 	}
 	merged := cfg.Clone()
-	if err := validateReplacementSelectors(incoming, options); err != nil {
+	if err := validateMergeSelectors(cfg, incoming, options); err != nil {
 		return Config{}, err
+	}
+	retiredModels := make(map[string]bool, len(options.RetireRoutes))
+	for name, retire := range options.RetireRoutes {
+		if !retire {
+			continue
+		}
+		retiredModels[merged.Routes[name].Model] = true
+		delete(merged.Routes, name)
 	}
 	for name, account := range incoming.Accounts {
 		if existing, exists := merged.Accounts[name]; exists {
@@ -177,6 +186,21 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 	}
 	maps.Copy(merged.Models, incoming.Models)
 	maps.Copy(merged.Recommendations, incoming.Recommendations)
+	for model := range retiredModels {
+		if _, declared := incoming.Models[model]; declared {
+			continue
+		}
+		referenced := false
+		for _, route := range merged.Routes {
+			if route.Model == model {
+				referenced = true
+				break
+			}
+		}
+		if !referenced {
+			delete(merged.Models, model)
+		}
+	}
 	merged.Normalize()
 	if err := merged.Validate(); err != nil {
 		return Config{}, fmt.Errorf("merge configuration manifest: %w", err)
@@ -192,7 +216,7 @@ func unsupportedManifestVersionError(version int) error {
 	)
 }
 
-func validateReplacementSelectors(incoming Manifest, options MergeOptions) error {
+func validateMergeSelectors(cfg Config, incoming Manifest, options MergeOptions) error {
 	for name := range options.ReplaceAccounts {
 		if _, exists := incoming.Accounts[name]; !exists {
 			return fmt.Errorf("--replace-account %q does not name an Account in the imported configuration manifest", name)
@@ -206,6 +230,22 @@ func validateReplacementSelectors(incoming Manifest, options MergeOptions) error
 	for name := range options.ReplaceRoutes {
 		if _, exists := incoming.Routes[name]; !exists {
 			return fmt.Errorf("--replace-route %q does not name a Route in the imported configuration manifest", name)
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(options.RetireRoutes)) {
+		if !options.RetireRoutes[name] {
+			continue
+		}
+		if _, exists := cfg.Routes[name]; !exists {
+			return fmt.Errorf("--retire-route %q does not name an existing Route", name)
+		}
+		if _, exists := incoming.Routes[name]; exists {
+			return fmt.Errorf("--retire-route %q is also declared in the imported configuration manifest", name)
+		}
+		for _, client := range slices.Sorted(maps.Keys(cfg.Clients)) {
+			if cfg.Clients[client].Route == name {
+				return fmt.Errorf("--retire-route %q is selected by client %q", name, client)
+			}
 		}
 	}
 	return nil
