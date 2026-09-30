@@ -144,7 +144,7 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 		"gpt-6-astra", "gpt-6-luna", "gpt-6-sol", "grok-4.7",
 		"hy3", "kimi-k3", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.0", "mercury-2.5", "mimo-v2.6-pro",
 		"minimax-m3", "mistral-large-3", "muse-spark-1.3", "nemotron-3-ultra-550b-a55b",
-		"qwen3.8-max", "solar-pro4", "step-3.7-flash",
+		"qwen3.8-max", "step-3.7-flash",
 	}
 	if got := slices.Sorted(maps.Keys(manifest.Models)); !slices.Equal(got, want) {
 		t.Fatalf("team logical Models = %v, want %v", got, want)
@@ -273,7 +273,6 @@ func TestTeamManifestKeepsQualifiedAdditionalVendorRoutes(t *testing.T) {
 		"aihubmix-mercury-2.5":                     {"mercury-2.5", "mercury-2.5", ProtocolOpenAIChatCompletions},
 		"aihubmix-mistral-large-3":                 {"mistral-large-3", "mistral-large-3", ProtocolOpenAIChatCompletions},
 		"aihubmix-nemotron-3-ultra-550b-a55b-free": {"nemotron-3-ultra-550b-a55b", "nemotron-3-ultra-550b-a55b-free", ProtocolOpenAIChatCompletions},
-		"aihubmix-solar-pro4":                      {"solar-pro4", "solar-pro4", ProtocolOpenAIChatCompletions},
 		"aihubmix-step-3.7-flash":                  {"step-3.7-flash", "step-3.7-flash", ProtocolOpenAIChatCompletions},
 	}
 	for id, expected := range want {

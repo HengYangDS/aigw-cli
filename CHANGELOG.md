@@ -35,6 +35,12 @@ evidence.
 - Keep the automated three-day release-age gate for npm without imposing that
   npm-specific delay on checksummed Go or digest-pinned CI tools.
 
+### Removed
+
+- Withdraw the AIHubMix Solar Pro 4 Route and its unreferenced Model after the
+  exact Chat Completions channel returned `no_available_channel`, despite its
+  continued public catalogue listing.
+
 ### Fixed
 
 - Include a top-level error in failed `check --json` results while retaining

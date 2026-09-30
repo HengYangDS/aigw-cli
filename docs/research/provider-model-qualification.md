@@ -9,7 +9,7 @@ relations: {}
 
 # Provider Model Qualification Evidence
 
-These dated observations informed the reviewed September 29, 2026 team
+These dated observations inform the reviewed September 30, 2026 team
 manifest. They do not maintain a live catalogue or override the
 [current Route inventory](../../manifests/team.toml). For member setup and
 model selection, use the [team rollout guide](../guides/team-rollout.md#reviewed-model-defaults).
@@ -19,8 +19,9 @@ different claims.
 ## Provider catalogue and route evidence
 
 On September 30, 2026, AIGW observed 417 AIHubMix, 565 DMXAPI, and 276 UCloud
-IDs across eight Account/protocol catalogue surfaces. All 60 shipped Route
-wire IDs appeared on their declared Account/protocol surfaces. The DMXAPI
+IDs across eight Account/protocol catalogue surfaces. All 60 then-shipped Route
+wire IDs appeared on their declared Account/protocol surfaces; the current
+manifest has 59 after the Solar Route was withdrawn below. The DMXAPI
 Responses observation used the locally configured `127.0.0.1:8792` Proxy,
 whereas the team manifest declares direct `https://www.dmxapi.cn/v1`.
 Catalogue membership therefore does not qualify that direct endpoint or
@@ -175,7 +176,6 @@ completed with text at a 512-token cap. Mistral calls
 the exact AIHubMix Chat Completions ID completed with text. The same configured
 AIHubMix Chat endpoint produced text for NVIDIA's
 [Nemotron 3 Ultra](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16),
-Upstage's [Solar Pro 4](https://www.upstage.ai/blog/en/solar-pro-4),
 Inception's [Mercury 2.5](https://www.inceptionlabs.ai/blog/introducing-mercury-2-5),
 Meituan's [LongCat 2.0](https://huggingface.co/meituan-longcat/LongCat-2.0),
 Tencent's [HY3](https://huggingface.co/tencent/Hy3),
@@ -183,6 +183,15 @@ StepFun's [Step 3.7 Flash](https://huggingface.co/stepfun-ai/Step-3.7-Flash),
 and InclusionAI's [Ling 3.0 Flash](https://huggingface.co/inclusionAI/Ling-3.0-flash).
 The Nemotron wire ID carries AIHubMix's `-free` channel suffix; it is one
 canonical NVIDIA Model, not a second logical model.
+
+The same endpoint previously produced text for Upstage's
+[Solar Pro 4](https://www.upstage.ai/blog/en/solar-pro-4). A September 30,
+2026 direct Chat Completions recheck of the exact `solar-pro4` wire ID at
+`https://api.inferera.com/v1` returned HTTP 400 with `no_available_channel`.
+The public catalogue still listed that ID, but listing is not service
+availability. The AIHubMix Route and its now-unreferenced logical Model were
+removed from the shipped manifest; this does not claim Solar Pro 4 is
+unavailable from Upstage or that the aggregator can never restore its channel.
 
 Cohere's [Command A guide](https://docs.cohere.com/docs/command-a) identifies
 `command-a-03-2025` as a general agent model. AIHubMix completed Chat text

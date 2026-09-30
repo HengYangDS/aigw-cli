@@ -148,9 +148,6 @@ label = 'NVIDIA Nemotron 3 Ultra'
 [models.'qwen3.8-max']
 label = 'Qwen 3.8 Max'
 
-[models.solar-pro4]
-label = 'Solar Pro 4'
-
 [models.'step-3.7-flash']
 label = 'Step 3.7 Flash'
 
@@ -355,14 +352,6 @@ upstream_model = 'qwen3.8-max'
 
 [routes.'aihubmix-qwen3.8-max'.interfaces]
 openai_responses = []
-
-[routes.aihubmix-solar-pro4]
-account = 'aihubmix'
-model = 'solar-pro4'
-upstream_model = 'solar-pro4'
-
-[routes.aihubmix-solar-pro4.interfaces]
-openai_chat_completions = []
 
 [routes.'aihubmix-step-3.7-flash']
 account = 'aihubmix'
