@@ -116,11 +116,12 @@ evidence](../research/provider-model-qualification.md) explains the observed
 IDs, protocol tests, exclusions, and limits. A catalogue listing is not a live
 Route or native-client availability guarantee.
 
-The team recommends UCloud GPT-6 Sol for Codex and Hermes, then AIHubMix
-GPT-6 Sol, then direct DMXAPI GPT-6 Sol at setup. A sole connected DMXAPI
-Account therefore selects Sol; Luna remains separately selectable, not an automatic
-recovery route when Sol later fails. A local Account endpoint override is not
-silently replaced by the team's direct endpoint. Re-importing the team manifest
+For every admitted client, initial selection prefers DMXAPI, then UCloud,
+then AIHubMix. Codex and Hermes use GPT-6 Sol; Claude Code and Claude Desktop
+use Opus 5.5. A sole connected Account remains sufficient. Luna remains
+separately selectable, not an automatic recovery route when Sol later fails.
+A local Account endpoint override is not silently replaced by the team's
+direct endpoint. Re-importing the team manifest
 against that differing Account fails closed; inspect it with
 `aigw config export` and replace the Account only when intentionally adopting
 the team's direct endpoint.
@@ -131,9 +132,8 @@ from its native `/model` chooser. Select it with
 Codex; the [dated client observation](../research/provider-model-qualification.md#codex-native-chooser)
 does not establish current upstream availability.
 
-Claude Code and Claude Desktop retain DMXAPI Opus 5.5 as the team default, with
-AIHubMix and UCloud alternatives. Recommendations are selectable, not automatic
-failover. AIHubMix uses the
+Recommendations apply only to unselected clients at setup or sync; they do not
+switch a running request or replace an explicit Client Binding. AIHubMix uses the
 [documented backup API domain](https://docs.aihubmix.com/en/quick-start),
 `api.inferera.com`: `/v1` is the Responses and Chat Completions base path; the
 Anthropic base is the domain root. A successful minimal request remains narrower than full real-client

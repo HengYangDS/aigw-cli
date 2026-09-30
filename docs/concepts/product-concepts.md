@@ -160,11 +160,15 @@ Finalize fails closed if credential equality or checkpoint proof is incomplete.
 
 ## Installation lifecycle
 
-Each platform uses its matching archive and the same CLI-owned lifecycle: `aigw install`,
-`aigw update`, `aigw update --rollback`, and `aigw uninstall`. Replacement retains
-exactly one immediate predecessor and restores the current program if activation
-fails. It is recoverable replacement, not uninterrupted atomic visibility or
-power-loss recovery. There is no parallel package-manager channel.
+Portable archives for macOS, Linux, and Windows use the CLI-owned lifecycle:
+`aigw install`, `aigw update`, `aigw update --rollback`, and `aigw uninstall`.
+Replacement retains one immediate predecessor and restores the current program
+if activation fails. It is recoverable replacement, not uninterrupted atomic
+visibility or power-loss recovery. The macOS Homebrew Cask is a separate
+installation owner: Homebrew upgrades or removes its program, and AIGW's
+portable update and uninstall commands refuse to overwrite it. Linux and
+Windows currently use the published portable archives, not an npm or native
+package-manager channel.
 
 Before rollback, the retained program must start and read an isolated copy of
 the current configuration. Incompatibility preserves the active program and
