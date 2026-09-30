@@ -41,7 +41,7 @@ func TestTeamManifestRecommendsQualifiedSolAndRetainsAccountFallbacks(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, account := range []string{"dmxapi", "aihubmix"} {
+	for _, account := range []string{"dmxapi", "aihubmix", "ucloud"} {
 		route, exists := manifest.Routes[account+"-gpt-6.1-sol"]
 		if !exists || route.Account != account || route.Model != "gpt-6.1-sol" || route.UpstreamModelID() != "gpt-6.1-sol" {
 			t.Fatalf("%s 6.1 Sol Route = %#v, present=%t", account, route, exists)
@@ -57,8 +57,8 @@ func TestTeamManifestRecommendsQualifiedSolAndRetainsAccountFallbacks(t *testing
 		t.Fatalf("team DMXAPI endpoint = %q, want direct provider", got)
 	}
 	for client, want := range map[string][]string{
-		configuration.ClientCodex:  {"dmxapi-" + sol, "aihubmix-" + sol, "ucloud-gpt-6-astra"},
-		configuration.ClientHermes: {"dmxapi-" + sol, "aihubmix-" + sol, "ucloud-gpt-6-astra"},
+		configuration.ClientCodex:  {"dmxapi-" + sol, "ucloud-" + sol, "aihubmix-" + sol},
+		configuration.ClientHermes: {"dmxapi-" + sol, "ucloud-" + sol, "aihubmix-" + sol},
 	} {
 		selections := manifest.Recommendations[client].Selections()
 		if len(selections) != len(want) {

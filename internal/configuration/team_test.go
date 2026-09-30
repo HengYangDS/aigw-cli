@@ -175,7 +175,7 @@ func TestTeamManifestGPTAccountRoutesFollowInferenceEvidence(t *testing.T) {
 	want := map[string][]string{
 		"gpt-6-astra": {"aihubmix", "dmxapi", "ucloud"},
 		"gpt-6-luna":  {"aihubmix", "dmxapi", "ucloud"},
-		"gpt-6.1-sol": {"aihubmix", "dmxapi"},
+		"gpt-6.1-sol": {"aihubmix", "dmxapi", "ucloud"},
 	}
 	for model, accounts := range want {
 		for _, account := range accounts {
@@ -339,8 +339,8 @@ func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 	for client, want := range map[string][]string{
 		ClientClaude:        {"dmxapi-claude-opus-5-5", "ucloud-claude-opus-5-5", "aihubmix-claude-opus-5-5"},
 		ClientClaudeDesktop: {"dmxapi-claude-opus-5-5", "ucloud-claude-opus-5-5", "aihubmix-claude-opus-5-5"},
-		ClientCodex:         {"dmxapi-" + sol, "aihubmix-" + sol, "ucloud-gpt-6-astra"},
-		ClientHermes:        {"dmxapi-" + sol, "aihubmix-" + sol, "ucloud-gpt-6-astra"},
+		ClientCodex:         {"dmxapi-" + sol, "ucloud-" + sol, "aihubmix-" + sol},
+		ClientHermes:        {"dmxapi-" + sol, "ucloud-" + sol, "aihubmix-" + sol},
 	} {
 		choices := manifest.Recommendations[client].Selections()
 		if len(choices) != len(want) {

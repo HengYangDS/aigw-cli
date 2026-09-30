@@ -21,9 +21,9 @@ different claims.
 At an earlier September 30, 2026 read, AIGW observed 417 AIHubMix, 565 DMXAPI,
 and 276 UCloud IDs across eight Account/protocol catalogue surfaces. All 60
 Routes shipped at that time had wire IDs on their declared surfaces; the current
-manifest has 57 after the Solar Route, three GPT-6 Sol Routes, and the DMXAPI
-Fable 5.1 CC channel were removed, with AIHubMix and DMXAPI GPT-6.1 Sol Routes
-added. The earlier DMXAPI Responses observation used the locally configured
+manifest has 58 after the Solar Route, three GPT-6 Sol Routes, and the DMXAPI
+Fable 5.1 CC channel were removed, with AIHubMix, DMXAPI, and UCloud GPT-6.1
+Sol Routes added. The earlier DMXAPI Responses observation used the locally configured
 `127.0.0.1:8792` Proxy,
 whereas the team manifest declares direct `https://www.dmxapi.cn/v1`.
 Catalogue membership therefore does not qualify that direct endpoint or
@@ -57,16 +57,22 @@ Codex metadata. An isolated comparison using the client's unmodified bundled
 catalog eliminated those errors. The existing AIGW catalog owner now pins that
 same table for known base models on its custom Provider; final-product warning
 acceptance remains open.
+
 The official Hermes v0.21.5 release source completed two named-session turns
 against direct DMXAPI GPT-6.1 Sol. AIGW 0.3.3 then completed an isolated
 `verify --for hermes --route dmxapi-gpt-6.1-sol` against that endpoint after
 its versioned credential reader was staged. This distinguishes a missing test
 reader from a product failure. The public AIHubMix catalogue also listed the
-model, while UCloud rejected it. These observations support DMXAPI as the
-Codex and Hermes team recommendation, not a three-Account default or a claim
-that this host's explicit Proxy endpoint supports Hermes replay. The source
-manifest retires GPT-6 Sol; existing explicit local selections are not silently
-rewritten. Final-artifact and current-host client admission remain open.
+model, while an earlier UCloud request rejected it. Later on September 30, a
+direct UCloud Responses request completed with exact wire model `gpt-6.1-sol`.
+Installed AIGW 0.3.3 then completed bounded `verify --for codex` and
+`verify --for hermes` sessions for an explicitly imported UCloud Route using
+Codex CLI 0.159.2 and Hermes Agent v0.21.5. That supersedes the earlier
+UCloud exclusion for bounded direct and native-client inference, not sustained
+availability, final release bytes, or this host's optional Proxy path. The
+team retains its declared DMXAPI-first order, followed by UCloud and AIHubMix;
+existing explicit local selections are not silently rewritten. Final-artifact
+admission remains open.
 
 At the September 25, 2026 read, the public
 [AIHubMix](https://api.inferera.com/v1/models) and

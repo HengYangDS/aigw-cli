@@ -101,13 +101,15 @@
       lists all 60 then-shipped Route IDs on their Account/protocol surfaces.
       A later direct AIHubMix Chat request for `solar-pro4` returned HTTP 400
       `no_available_channel`, so that Route and its unreferenced Model were
-      removed; 57 Routes remain after replacing three GPT-6 Sol Routes with
-      AIHubMix and DMXAPI GPT-6.1 Sol Routes and withdrawing the Fable 5.1 CC
+      removed; 58 Routes remain after replacing three GPT-6 Sol Routes with
+      AIHubMix, DMXAPI, and UCloud GPT-6.1 Sol Routes and withdrawing the Fable 5.1 CC
       channel after three bounded requests failed to complete. Direct DMXAPI
       text and strict function-call probes plus two isolated Codex tool loops now
       support the Codex recommendation. Official Hermes v0.21.5 source also
       completed two direct DMXAPI 6.1 Sol turns, and an isolated AIGW `verify`
-      completed after staging its versioned reader. A catalogue listing alone
+      completed after staging its versioned reader. Later UCloud 6.1 Sol
+      inference and installed Codex/Hermes `verify` sessions also passed.
+      A catalogue listing alone
       did not qualify either client. Final-artifact admission and model ranking remain
       open for the retained set. Low-level import now accepts an explicit set of
       obsolete Routes in the same guarded commit as the incoming catalogue;
@@ -134,14 +136,16 @@
       On September 30, installed Codex 0.159.2 completed two isolated direct
       DMXAPI GPT-6.1 Sol tool loops; its bundled model catalogue includes the
       base model. Official Hermes v0.21.5 and an isolated AIGW public `verify`
-      also completed on direct DMXAPI 6.1 Sol. The current host projection,
-      external Proxy path, and final release bytes remain unproved.
+      also completed on direct DMXAPI 6.1 Sol. Current-host direct UCloud
+      6.1 Sol Codex/Hermes selections and `verify` now pass; the external Proxy
+      path and final release bytes remain unproved.
       An AIGW-generated isolated Codex configuration still logged nonfatal
       vendor `/models` metadata decode errors; pinning the current bundled
       Codex table removed them in an isolated comparison. The current source
       passes the macOS native/client journey with Codex 0.159.2, Claude Code
       2.1.284 and Hermes 0.21.5, including the known-base catalog assertion.
-      Final signed-artifact, direct-DMXAPI and installed-host acceptance remain open.
+      Final signed-artifact, direct-DMXAPI installed-host, Desktop GUI and
+      other-platform acceptance remain open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.

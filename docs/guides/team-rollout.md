@@ -117,8 +117,8 @@ IDs, protocol tests, exclusions, and limits. A catalogue listing is not a live
 Route or native-client availability guarantee.
 
 Claude Code and Claude Desktop initially prefer DMXAPI Opus 5.5, then UCloud,
-then AIHubMix. Codex and Hermes prefer DMXAPI GPT-6.1 Sol, then AIHubMix
-GPT-6.1 Sol; a sole UCloud Account selects GPT-6 Astra. A shared model name
+then AIHubMix. Codex and Hermes prefer DMXAPI GPT-6.1 Sol, then UCloud, then
+AIHubMix; each offers the same reviewed GPT-6.1 Sol Route. A shared model name
 does not make every Account/client pair interchangeable. A sole
 connected Account remains sufficient. Luna remains separately selectable,
 not an automatic recovery Route when the selected provider later fails.
