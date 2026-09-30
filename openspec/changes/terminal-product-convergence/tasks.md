@@ -180,6 +180,13 @@
       installation and update checks. Focused contracts cover changed Route,
       missing or ambiguous home and unchanged source/sidecar bytes. The actual
       AIHubMix Mistral override and final packaged client still need requalification.
+      Exact signed candidate `d65dd140` passes macOS retained 0.3.1 succession
+      with Claude 2.1.285, Codex 0.159.2 and installed Hermes 0.21.5. Four
+      stages per client and fourteen general Codex Routes pass. The tool-loop
+      initially hit a nested-sandbox test-context rejection; its single tracked
+      native-sandbox rerun passes, as does unmodified official Hermes `f97608f`
+      through all four stages. CLI and official-Hermes identities remain
+      distinct; Desktop GUI and other native client hosts remain open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
@@ -209,6 +216,12 @@
       and predecessor archive hashes are retained; both containers and scratch
       are removed. This qualifies container package succession only; Linux VM,
       live Provider/client, hosted CI and final publication still remain open.
+      The current `d65dd140` signed ARM64 matrix passes the existing native
+      owner against signed 0.3.1 in an isolated nobody-UID container, with
+      environment, automatic secure-file fallback and real GNOME Secret Service.
+      Product inputs and retrieved results match exact hashes; only the clone's
+      mutable Git index changed. Container, scratch and descendants are reclaimed.
+      This is container package acceptance, not Linux VM, client or cold-cache proof.
 - [ ] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
@@ -221,6 +234,11 @@
       installed-product native-store journey and Claude Desktop GUI remain
       unproved; this host skipped Desktop deferred installation because it is
       already installed.
+      `d65dd140` macOS artifact lifecycle, rollback admission and shipped-team
+      journey pass with the retained signed predecessor. Eighteen protected host
+      identities remain unchanged; owned descendants and scratch are absent.
+      Native-store, deferred Desktop installation and performance claims remain
+      separate from this environment-backend acceptance.
 - [x] 5.5 Verify missing Codex/Claude at setup and later installation on each
       platform; deferred sync must touch only installed admitted clients and
       preserve user-owned files. GitHub run 36560334613 at
@@ -380,10 +398,20 @@
       metadata; format, Markdown and spelling checks pass. ETHOS still reports
       four per-directory README gaps despite the existing root index and
       decision register. Resolve that portable rule at ETHOS rather than adding
-      marker indexes; content and navigation acceptance remain open.
+      marker indexes. The current exact docs-registry execution separately
+      found three real long-document failures. Semantic compression retains all
+      native inputs, trust/rollback boundaries and eighty-one research sources
+      while reducing CONTRIBUTING, release policy and research to 413, 370 and
+      500 nonblank lines without adding documents. Native format, Markdown,
+      link and spelling checks pass; registry/navigation acceptance remains open.
 - [ ] 8.3 Review diagrams, tables, headings, lists, examples, CLI help and
       errors for readable layout and accurate links; enforce the chosen native
       formatter/linter rather than adding one-off checks.
+      The exact `d65dd140` archive passes twenty-eight read-only help/catalogue
+      invocations at widths 24, 40, 80 and 120, with no state writes or ANSI.
+      `catalog --all --json` and `--json` return identical complete inventories;
+      an unconfigured inventory is valid empty JSON, not an error. Table and
+      paragraph boundaries pass the native linter; visual diagram review remains.
 - [x] 8.4 Compare mature gateway, config, client and release libraries with
       retained AIGW differentiators; record one source-backed adopt/reject decision
       per candidate and delete any replaced hand-written owner.

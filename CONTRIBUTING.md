@@ -2,541 +2,262 @@
 
 ## Scope
 
-AIGW is a local configuration control plane. Preserve its boundaries: it owns
-AIGW-marked Codex configuration projections, not Codex session history or a
-proxy process. Never repair a routing problem by editing JSONL, SQLite, model
-metadata, an archived transcript, or a third-party gateway deployment.
+AIGW is a local control plane for Accounts, credentials, Models, Routes, Client
+Bindings and guarded native projections. It does not own client conversations,
+API traffic or external services. Start with the [architecture boundary](docs/architecture/authority-and-projection-boundary.md)
+and the current [OpenSpec](openspec/) requirement, not a filename or old implementation.
 
 ## License
 
-By contributing, you agree that your contributions are licensed under the
-repository's [MIT License](LICENSE).
+Contributions use the repository's [MIT License](LICENSE).
 
 ## Working method
 
-Use an isolated worktree; do not modify a user-owned dirty checkout. Add a
-failing regression before changing behavior. Changes to projection logic must
-cover successful convergence, preflight rejection, write failure, byte-exact
-rollback, and absent-sidecar restoration.
-
 ### Closing a repair
 
-Identify the violated contract and its existing owner before choosing a fix.
-Distinguish product prerequisites from assumptions introduced by the current
-implementation. Repair the owner, exercise its affected consumers, and remove
-the superseded path rather than maintaining two answers to the same problem.
+Identify the violated contract and its existing owner. Separate necessary product
+prerequisites from assumptions introduced by the implementation. Reproduce the
+failure, keep its smallest distinguishing regression, repair the owner and delete
+superseded mechanics. Review sibling source, tests, schemas and guidance together.
 
-Keep the smallest reproducer as a regression. Run focused checks before the
-complete gate on stable inputs; a failure returns to its narrow reproducer.
-For shipped manifests and generated configuration, also exercise the actual
-delivery input through the public command. Small fixtures isolate a cause but
-cannot establish that the shipped catalogue works. Native authorization fixtures
-must verify the persisted security format and effective enforcement boundary,
-not merely recreate an API call in temporary storage. Isolation must preserve the
-security semantics exercised by the deployed product.
+Run focused checks before one complete gate on stable inputs. Shipped manifests
+must also pass through the actual delivery command; fixtures alone do not qualify
+the catalogue. Native authorization tests must retain the deployed security format
+and effective boundary, not merely imitate an API in temporary storage.
 
-Permission-sensitive fixtures must set their intended mode explicitly after
-creation; creation modes are filtered by the caller's umask. Exercise those
-fixtures under both ordinary and restrictive umasks without changing the
-process-wide mask inside concurrent tests. Restrict evidence-directory access
-with an exact path operation rather than leaking an output-creation umask into
-the test process.
+Set permission-sensitive fixture modes explicitly after creation: the caller's
+umask filters creation modes. Test ordinary and restrictive masks in separate
+processes; do not change a concurrent test process's global umask. Restrict an
+exact evidence directory rather than exporting that restriction into tests.
 
-Every selected native journey
-must consume the explicit candidate and report its binary digest; an absent
-candidate is an input failure, not permission to substitute a source build.
-Cover deferred prerequisites becoming available independently while preserving
-explicit user choices. Compare owned configuration values semantically, then
-assert byte-exact preservation of user files when no change is required.
+Every selected native journey consumes its explicit candidate and reports its
+binary digest. Missing input is a failure, never permission to build substitute
+bytes. Retain published-predecessor configuration and enabled Adapters through
+upgrade and rollback; disabling them first tests a different transition.
 
-For an update that changes persisted configuration, exercise rollback after the
-successor writes that configuration; an unchanged predecessor fixture cannot
-prove downgrade safety. Before an expensive matrix build, run the unchanged
-historical lifecycle against a verified released predecessor with its generated
-configuration still active. A real-client journey that disables an adapter
-before replacement proves a different transition; run both through the existing
-release acceptance command. Test isolation includes derived native paths, not only
-environment variables: staged programs and user-data roots must stay disjoint.
+Capture each client's original credential invocation before replacement and run
+it before synchronization or reload. Native-store proof identifies both reader
+implementations and retains the original credential item. Require complete
+program/configuration rollback and original-caller acceptance before live cutover.
+A locally authored workaround is not an approved dependency.
 
-Package-manager verification uses an explicit disposable portable target, even
-when the command is expected to reject the request. Never test a rejection by
-targeting the operator's default installation. Compare both source and target
-ownership, retain the host executable digest, and verify it is unchanged.
-
-Capture each client's credential command, arguments and environment before
-replacement, then execute that retained invocation before synchronization or
-client configuration reload. A restarted client reading a new helper cannot
-prove that an existing caller still works. Native-store acceptance must also
-retain the original credential item and identify the actual reader executable
-and implementation on both sides; preserving the CLI path is insufficient.
-
-Require complete program/configuration rollback and original-caller acceptance
-before a production cutover. A locally authored workaround is not an approved
-product dependency, regardless of its name or another task's successful probe.
-
-Record acceptance and evidence references in the active OpenSpec task, update
-the relevant operator guidance, and remove contradictory instructions. A new
-rule, skill, or passing format check is not proof that the failure cannot recur.
-Source, packaged, installed, and hosted outcomes require their own observations.
-
-For specification changes, inspect the current requirement before adding a delta.
-Use OpenSpec's MODIFIED operation for a changed contract and REMOVED for an
-obsolete duplicate, naming the surviving owner and preserving its obligations.
-Review the complete projected specification with the locked OpenSpec merge,
-not just the changed paragraphs. Valid delta syntax and preserved scenario
-names do not prove that inherited requirements agree with the new behavior.
-Once canonical specs absorb a delta, remove its redundant operations only after
-the official merger proves that every complete projected spec remains
-byte-identical. Keep outstanding deltas, original Change intent and unfinished
-tasks; removing consumed delta files does not archive or complete the Change.
-
-Local developer-tool state, including `.serena/`, is disposable and ignored.
-It may index the current checkout, but it is not AIGW configuration, evidence,
-or an input to release and runtime decisions. Do not add it to commits, copy it
-between worktrees, or use it to reconstruct source state.
+Record results in the existing OpenSpec task, remove contradicted guidance and
+keep source, packaged, installed, hosted and published acceptance separate.
+A note, rule or green formatter does not establish that a defect cannot recur.
 
 ### Bounded TDD journey
 
-For one semantic change, use this path:
+1. Select the [requirement](openspec/) and its semantic implementation owner.
+2. Add and run a distinguishing regression; confirm the intended RED.
+3. Make the smallest complete repair and remove the replaced path.
+4. Run focused GREEN and affected consumers, then `mise run check` once stable.
+5. Verify the [introduced signed commit range](docs/operations/forge-operations.md#verify-local-objects)
+   and preserve the separate native and delivery obligations.
 
-1. Find the current requirement in [OpenSpec](openspec/) and the implementation
-   owner through the [architecture boundary](docs/architecture/authority-and-projection-boundary.md).
-2. Add the smallest regression at that owner's public or domain boundary, then
-   run it and confirm that it fails for the intended missing behavior.
-3. Implement the smallest complete repair and delete the superseded path.
-4. Re-run the focused test, the affected package or projection checks, and then
-   `mise run check` after the semantic closure is stable.
-5. Review the exact introduced commit range through
-   [Forge object verification](docs/operations/forge-operations.md#verify-local-objects),
-   and keep native, hosted, published, and installed evidence separate.
-
-This sequence identifies the invariant, owner, regression, implementation,
-gate, and evidence without private workstation context. A formatter-only change
-does not need an invented failing behavior test; run its native formatter and
-structural gate instead.
-
-For codebase-memory, select an existing project by its exact worktree root,
-not a similar name, and reuse it. Check `check_index_coverage` for the relevant
-paths before graph queries. Missing coverage metadata or changed file metadata
-requires `index_repository` for that root and the same project name, with
-`mode: full` and `persistence: false`, followed by a fresh coverage check. A
-`ready` status or current Git HEAD alone does not establish index freshness.
-Treat caller-resolution confidence as evidence quality, not a correctness
-guarantee; verify ambiguous edges against source. Automatic watching is
-session-dependent and does not replace this check.
-
-The native [`.cbmignore`](.cbmignore) retains source-owned coverage tooling and
-policy that the indexer's directory-name defaults would otherwise skip. Other
-generated output and checkout dependencies remain excluded. The index remains
-optional developer state, not a build dependency or proof authority.
+Formatter-only work uses native format/structure checks, not invented behavioral
+failures. Codebase-memory is optional navigation: select the exact root, inspect
+`check_index_coverage`, and use `index_repository` with `mode: full` and
+`persistence: false` when coverage/file metadata is absent or stale. Recheck
+coverage afterward; HEAD and `ready` alone do not prove freshness. Verify uncertain
+edges against source. [`.cbmignore`](.cbmignore) retains source-owned coverage tools
+while excluding generated output; indexes are neither release inputs nor proof.
 
 ### Analyzer isolation
 
-Read-only analyzers may inspect `main`. Write-capable analysis runs in an owned
-non-`main` worktree with a private per-operation `TMPDIR`. Promote source changes
-through reviewed commits; keep generated output separate from tracked source.
-
-Before retiring an analyzer worktree, identify its owning task and prove that
-the owner handed off or terminated and no owning task remains live. Then apply
-the ordinary branch-closeout requirements below. Agent-list visibility alone
-is not liveness or retirement proof.
+Read-only analysis may inspect `main`. Write-capable analysis uses an owned
+non-`main` worktree and private `TMPDIR`. Before retirement, prove that its task
+has handed off or terminated; visibility in an agent list is not liveness evidence.
 
 ### Output ownership and cleanup
 
-Paths below are relative to the active worktree unless a tool selects them.
+| Resource                       | Owner and lifetime                                                                                            |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Intermediates and candidates   | Ignored `build/` and `dist/`; remove when superseded or published                                             |
+| Pending verification           | `build/verification/<source-commit>/`; retain until its decision and durable evidence owner are settled       |
+| Downloads and analyzer scratch | Private hidden directory under `build/tmp/`, passed as `TMPDIR`; reclaim on success, failure and interruption |
+| Dependency caches              | Native package manager; share only through its supported cache contract                                       |
+| ETHOS coordination and proof   | Current command's artifact reference; ETHOS owns Git-common-dir retention                                     |
+| Published evidence             | Exact revision's CI artifacts and release assets; local-only work has no Forge dependency                     |
 
-- **Build intermediates and candidates** belong in ignored `build/` and
-  `dist/`. Remove them when superseded or published.
-- **Pending verification evidence** belongs in
-  `build/verification/<source-commit>/`. Retain it until its decision is resolved
-  and required evidence has a durable owner.
-- **Downloads, extraction and analyzer scratch** use one private hidden
-  directory under `build/tmp/`, passed as `TMPDIR`. Reclaim it on success,
-  failure or interruption.
-- **Dependency caches** belong to the package manager; share them only where
-  that tool supports it.
-- **ETHOS evidence and coordination** follow the current command's artifact
-  reference. ETHOS owns Git-common-dir storage and retention.
-- **Published evidence** belongs to the exact revision's CI artifacts and
-  release assets. Local-only work retains required native evidence without
-  depending on a Forge.
+OS temporary storage is appropriate for short-lived native operations, not durable
+handoffs. Cleanup belongs to the operation; after a crash remove only its exact
+stopped resources. Preserve pending evidence before retiring its worktree.
+For a private `GOMODCACHE`, run `go clean -modcache` with that exact cache selected;
+do not change shared-cache permissions.
 
-Operating-system temporary storage remains suitable when a tool needs it, but
-not for long-lived handoffs. An operation owns cleanup, including after a
-failed child process; after a crash, remove only its exact stopped resources.
-Before retiring a worktree, preserve evidence still needed by a pending decision
-at its existing authoritative owner, then remove disposable output.
-Go module caches contain read-only extracted sources. For an operation-private
-`GOMODCACHE`, run `go clean -modcache` with that exact cache selected before
-removing its scratch; do not change permissions on a shared cache.
-
-Stored source snapshots are evidence, not packages. Save inspected Go source as
-`.go.txt` or inside an archive, preserving its original bytes and digest. Run
-temporary Go helpers in an isolated scratch directory and retain only their
-non-compilable source snapshots. A Git ignore does not isolate package discovery:
-`go mod tidy` can still discover ordinary `.go` files under ignored `build/`.
-Use a dot-prefixed operation directory such as `build/tmp/.release-check/`:
-Go's native package discovery skips it, including while concurrent tests create
-and remove nested fixtures. An ordinary ignored directory is not isolation.
-Do not add a dependency or weaken a gate to accommodate retained research data.
-
-Keep original command output when a consumer needs it. A handwritten
-`receipt.json`, copied verdict, or checksum of an agent summary is not another
-proof authority. Reference the tool-native result rather than duplicating it;
-external observations must be refreshed when the decision depends on them.
-
-```bash
-mise run check
-mise run native
-```
-
-For signed-object admission, use the exact introduced range in
-[Forge object verification](docs/operations/forge-operations.md#verify-local-objects).
-That owner distinguishes change admission from whole-history and release-tag
-audits.
+Keep source snapshots as `.go.txt` or archives. Ordinary `.go` files in ignored
+`build/` still enter Go package discovery; a hidden operation directory such as
+`build/tmp/.release-check/` does not. Retain tool-native output, not another
+handwritten verdict or summary checksum. [`.serena/`](.gitignore) and other local
+indexes remain ignored, disposable and outside product authority.
 
 ## Projection changes
 
-`aigw sync --dry-run --json` is a read-only planning surface. It may resolve
-configuration but must not bind credentials, restart a client, modify a Codex
-session, or write config/sidecar state. `aigw sync` prepares every configured
-Codex target before its first write. If a commit fails, it compensates in
-reverse order, restoring only targets that still match its own write. Newer
-external edits are preserved; see the [transaction contract](docs/decisions/dr-0006-transactional-client-projection.md).
+`aigw sync --dry-run --json` is credential-free planning: no lock, session edit,
+client restart or projection write. Sync prepares all configured Codex targets
+before writing and compensates in reverse order only where its own postimage
+still matches. Preserve newer edits; see the [transaction contract](docs/decisions/dr-0006-transactional-client-projection.md).
 
-The projected Codex model catalog is the one projection whose loading only the
-client itself can confirm. Changing that projection, or qualifying a new client
-build, requires running the verification command against a real installation
-and recording the client version, executable checksum, and model-entry digests:
+Only Codex can establish that its projected model catalogue actually loaded.
+After a catalogue or client-version change, use the tracked verifier:
 
 ```bash
 mise exec --locked -- go run ./tools/codex/catalog -model '<provider-prefixed model id>'
 ```
 
-It asks the client to render the effective catalog through a throwaway client
-home, then proves that the provider-prefixed entry is identical to its bundled
-base entry apart from `slug`. It makes no model request and leaves the user's
-Codex configuration untouched. Exit code 2 means the client is missing, which
-is a prerequisite to satisfy rather than a passing or failing verification.
-Every deterministic catalog decision is also covered by package tests.
+It uses an isolated client home, makes no inference request and compares the
+entry with the client's bundled metadata apart from `slug`. Retain client version,
+executable checksum and entry digests. Exit 2 means missing client, not acceptance.
 
-Catalog inspection does not prove that the selected Account, credential, model,
-and synchronized projection work through the real client. That quota-consuming
-claim has one public authority:
-
-```bash
-aigw verify --for codex
-```
-
-The command runs the configured Codex executable once with an ephemeral
-session, one deterministic synchronized target, and the selected Route. A
-successful result reports the measured client version and executable SHA-256;
-it does not print the Account Token or model response. Do not replace this
-evidence with a direct HTTP probe, a mocked client, or a skipped test when Codex
-is unavailable.
-
-Claude has the corresponding public check:
-
-```bash
-aigw verify --for claude
-```
-
-It first checks that the actual Claude settings match the selected Route and
-AIGW credential helper. Missing or stale settings require `aigw sync`; verify
-does not repair them or inject a second endpoint, model, or Token. It runs the
-real client with those settings in [bare mode](https://code.claude.com/docs/en/headless#start-faster-with-bare-mode),
-with tools and session persistence disabled. AIGW-managed Anthropic environment
-overrides are removed from that child process; environment credentials remain
-available to the projected helper. Bare mode does not read Claude subscription
-credentials or its system keychain, but the helper still uses the Account's
-chosen credential backend. Use an isolated home and explicit environment
-backend for unattended acceptance that must not access a host credential store.
-
-A local protocol fixture can prove that a real client consumed the generated
-settings and helper. It does not establish availability of a real Provider.
-Record the client version, artifact digest, endpoint class, and precise claim
-separately; do not call a fixture-backed success a live Provider acceptance.
+Live-client Route qualification instead uses `aigw verify --for codex` or
+`aigw verify --for claude`; catalogue inspection and direct HTTP probes cannot
+replace it. The commands require the synchronized selection and report the real
+client version/digest without Token or response content. Claude runs in official
+[bare mode](https://code.claude.com/docs/en/headless#start-faster-with-bare-mode),
+without tools or session persistence. AIGW removes its managed Anthropic overrides
+from the child; the projected helper retains its selected credential backend.
+For unattended probes use isolated homes and explicit environment credentials.
+A local protocol fixture proves client integration, not live Provider availability.
 
 ## Development and verification
 
-Install the locked repository toolchain and this Work Lane's dependencies
-with:
-
 ```bash
 mise run bootstrap
+mise run check
+mise run native
 ```
 
-The [tool declaration](mise.toml) and [tool lock](mise.lock) own language
-runtimes and standalone tools. The [npm package declaration](package.json) and
-[dependency lock](package-lock.json) own OpenSpec, Prettier, markdownlint,
-Mermaid lint, and their complete npm dependency graph. They define
-dependencies, not a second command plane.
+[Tool declaration](mise.toml) and [lock](mise.lock) own runtimes and standalone
+tools; [npm metadata](package.json) and [lock](package-lock.json) own OpenSpec and
+text-quality dependencies. Mise tasks delegate to existing Go owners, not another
+command plane. Bootstrap installs locked tools, checks `go mod tidy -diff`, and
+runs `npm ci --include=dev --ignore-scripts`. Development dependencies remain
+required despite caller `NODE_ENV=production` or `omit=dev`; user settings do not
+change. Tidy prepares dependency-test inputs without rewriting [go.mod](go.mod) or [go.sum](go.sum).
 
-Use `mise run check` for the complete source gate, `mise run native` for
-current-host acceptance, and [`mise run release`](#signed-artifact-builds) for
-a signed, deterministic non-publishing build. The Mise tasks delegate execution
-to the existing Go owners, which invoke checkout-local package entrypoints
-directly.
+Both tasks and `mise exec --locked --` use `GOENV=off`, `GOWORK=off` and
+`GOTOOLCHAIN=local`: user Go settings, parent workspaces and automatic compilers
+cannot replace the repository [toolchain](https://go.dev/doc/toolchain). Process-level build targets remain
+explicit inputs; this is not an arbitrary-shell sandbox. Bare `go` is not the
+repository verification entrypoint.
 
-`bootstrap` first installs the locked general toolchain, then runs
-`go mod tidy -diff` and `npm ci --include=dev --ignore-scripts`. This fails
-before invoking an ambient compiler when the locked tools are unavailable.
-Development dependencies remain required even when the caller sets
-`NODE_ENV=production` or npm's `omit=dev`; bootstrap does not change either
-user setting.
+Complete bootstrap before direct execution. A lock constrains installation, not
+all executable lookup: [Mise may fall back to PATH](https://github.com/jdx/mise/issues/13649)
+when auto-install is disabled and a tool is absent. A negative missing-tool test
+uses `MISE_OFFLINE=1`; normal bootstrap remains online. The repository disables
+Mise's optional versions host so locked installs need no extra version index.
 
-The Go step prepares the complete source and dependency-test graph and rejects
-lock drift without rewriting the [Go module declaration](go.mod) or
-[dependency checksums](go.sum). Merely compiling AIGW does not populate every
-module needed for later dependency resolution. CI calls this same task rather
-than maintaining a separate npm-only setup sequence.
+Node and npm have independent pins. The native `npm:npm` alias takes precedence
+over Node's bundled npm. Commit Mise-generated `.mise/locks/` sidecars with their
+lock digest, without reformatting or manually translating fields. These are the
+tool producer's dependency inputs, not another application manifest.
 
-The repository's native `mise` environment disables the persistent user Go
-environment file and parent workspaces, and uses only the selected bundled
-[Go toolchain](https://go.dev/doc/toolchain). `GOENV=off`, `GOWORK=off`, and
-`GOTOOLCHAIN=local` apply to both `mise exec --locked --` and repository tasks;
-they neither rewrite user settings nor download another compiler behind the
-lock. An incompatible compiler fails explicitly. Deliberate process-level build
-flags and platform targets remain separate inputs; these settings do not claim
-to make an arbitrary shell hermetic. Bare `go` outside the managed environment
-is not the repository verification entrypoint.
-
-Complete bootstrap before direct `mise exec --locked --` commands. The lock
-constrains installation sources, not executable lookup: with auto-install
-disabled and a tool missing, [Mise can fall back to `PATH`](https://github.com/jdx/mise/issues/13649).
-Use `MISE_OFFLINE=1` for a negative missing-tool test that must reject that
-fallback; it is not a substitute for the normal online bootstrap.
-The repository also disables Mise's optional versions host: locked installs
-use the selected asset URLs without querying a separate version index.
-
-Node and npm are pinned independently in [mise.toml](mise.toml). The native
-`npm` tool name selects the cross-platform `npm:npm` backend and takes precedence
-over Node's bundled npm; installing a separate tool without that precedence
-does not change the command users execute. The native `.mise/locks/` sidecars
-are part of [the tool lock](mise.lock), not a second application dependency
-manifest. Keep their generated bytes and digest together in checkout snapshots
-and CI evidence; do not reformat the generated dependency lock.
-
-The Go quality graph invokes the installed OpenSpec, Prettier,
-markdownlint, and Mermaid entrypoints through the locked Node runtime. It does
-not route through `package.json` scripts or platform-specific npm launchers.
-Missing checkout-local dependencies fail with an instruction to run
-`mise run bootstrap`; global installations are never fallback authorities.
-
-[The native early configuration](.config/miserc.toml) excludes parent, global
-and system policy before mise reads tool declarations. Local development and
-both Forges consume this same file, not separate environment overrides or an
-invented empty CI configuration. Native path templates follow the operator's
-configuration locations without changing those files or shared package caches.
-Run from the target checkout or a nested directory; `mise -C` alone does not
-select another checkout's early configuration. `mise config` shows the actual
-inputs. The native regression executes ordinary local commands and all three Forge
-projections from root and nested directories, preserves the owned setting and
-proves foreign configurations remain unchanged and unselected.
-
-An isolated verification checkout must preserve the measured source's commit,
-actual branch role, remote metadata and required release tags. An exact commit
-in detached HEAD is not equivalent to the original work branch for lifecycle
-checks. Copy existing Git objects and metadata rather than inventing a
-publication ref, synthesizing a tag or changing tracked files. Record those
-inputs with the result; no verification checkout becomes an authoring lane.
+The native [mise discovery policy](.config/miserc.toml) excludes parent/global
+configuration before `mise.toml` is read. Do not duplicate that boundary in tasks
+or CUE. Run a deliberate tool upgrade through its native resolver, then restore
+locked operation; the [dependency policy](docs/governance/change-and-release-policy.md#dependency-maintenance)
+owns freshness, age admission and reproducibility.
 
 ### Environment reconstruction
 
-The ordinary source suite checks the locked task graph, selected tool versions,
-and a negative empty-cache case that must reject ambient Go. It does not run a
-fresh online download or a second offline bootstrap on every invocation.
-Standalone executables are checked against the
-[complete tool declaration](mise.toml).
+Ordinary source tests check declared tools and an empty-cache rejection, not a
+second online bootstrap. Keep the provisioned Mise context while building probes;
+only the AIGW child gets a disposable HOME and credential backend. Giving Mise a
+new HOME can reinstall every tool.
 
-For ordinary isolated product probes, keep the already provisioned Mise tool
-context while building into owned scratch. Give only the resulting AIGW process
-a disposable `HOME` and, when credentials are involved, an explicit environment
-backend. Changing `HOME` for `mise exec` itself can reinstall the entire locked
-toolchain; reserve that boundary for fresh-workspace acceptance.
-
-Fresh-workspace acceptance separately starts with empty HOME, mise, Go, and npm
-caches, runs `mise run bootstrap`, and verifies the selected Go, Node, and npm
-versions, checkout-local `node_modules`, and unchanged lock inputs. An offline
-rerun proves only reuse of a populated cache; it cannot establish fresh-download
-availability. Keep the workspace and mutable tool state separate from other
-Work Lanes, and remove the exact owned test state after acceptance.
-
-OSV Scanner uses Mise's checksum- and SLSA-locked official release binaries.
-The scanner's build Go patch version is not the repository's language contract.
-After changing Go, rerun the real source scan and native acceptance; do not
-rebuild the scanner from source merely to align compiler patch numbers.
-
-CI tool installation uses Go's HTTP/1.1 transport after repeated HTTP/2 stream
-resets from the module and checksum services. The CUE projection scopes
-`GODEBUG=http2client=0` to the installer process; product tests and runtime keep
-their normal transport. TLS and module checksum verification remain enabled.
+Fresh-workspace acceptance starts with empty HOME/Mise/Go/npm caches, runs
+bootstrap, verifies versions, checkout-local `node_modules` and unchanged locks,
+and reclaims owned mutable state. An offline rerun proves cache reuse, not fresh
+download availability. Do not rebuild OSV merely to match its embedded Go patch;
+its pinned release and actual scan govern admission. CI scopes
+`GODEBUG=http2client=0` only to tool installation after upstream HTTP/2 resets;
+TLS, checksum verification and normal product transport remain unchanged.
 
 ### Native lock refresh
 
-Run `mise run dependencies:resolve` from a clean, authorized checkout to refresh
-the current host's mise lock metadata twice. Native mise templates select the
-OS and architecture. Git compares both manifests with `HEAD` before execution
-and after each pass, including staged edits; any drift fails and remains
-available for review. This task refreshes metadata, not dependency versions, and
-is deliberately separate from offline tests and ordinary bootstrap.
+```bash
+mise run dependencies:resolve
+```
 
-An authored tool-version upgrade is a separate transaction. After reviewing
-the exact upstream version, change its pin and use a process-scoped
-`MISE_LOCKED=0 mise lock <tool>` preview and native refresh to produce its
-dependency sidecars; then return to locked bootstrap. Installation alone does
-not produce a complete embedded dependency graph. Commit the sidecars listed
-by `mise lock --sidecars --json` without reformatting them; native Mise retires
-unreferenced sidecars. Use `mise lock --upgrade` only for an explicitly reviewed
-lock-format migration and compare every tool version and platform checksum.
+From a clean authorized checkout this refreshes the host platform twice and
+compares all tool inputs with HEAD before and after each pass, including staged
+changes. It checks metadata reproducibility, not version discovery.
 
-When upstream GitHub metadata requires authentication, scope
-`MISE_GITHUB_CREDENTIAL_COMMAND` to the resolver process and point it at the
-locked `gh auth token` command. This delegates to the native credential owner
-without logging or exporting a Token; it does not authorize new credentials,
-interactive login or changed scopes.
+For a reviewed version change, update the pin and use process-scoped
+`MISE_LOCKED=0 mise lock <tool>` for preview/refresh. Commit native
+`mise lock --sidecars --json` outputs; the producer retires unreferenced sidecars.
+Use `mise lock --upgrade` only for a reviewed format migration and compare every
+version and platform checksum. Installation alone cannot generate the full graph.
 
-GitHub's **Verify** workflow exposes `refresh_locks` as an optional manual input
-alongside the candidate ref and `commit_base`. Each native job supplies its
-short-lived workflow token only to this step and retains the resulting lock as
-an artifact. GitLab's native jobs invoke the same task when
-`AIGW_REFRESH_LOCKS=true`; the runner operator supplies an appropriately scoped
-`MISE_GITHUB_TOKEN` for upstream GitHub metadata, independently of the GitLab
-repository credential. Native job artifacts retain the observed lock even when
-refresh reports drift. A peer's repository credential is not automatically an
-upstream release credential.
-
-Keep version discovery and provenance verification enabled. Inspect the native
-command log as well as its exit status: upstream warnings that defer verification
-do not establish complete provenance. Offline mode is not a substitute for
-remote metadata resolution. A successful cache-backed install and a successful
-online lock refresh are separate claims.
+When upstream metadata needs authentication, scope
+`MISE_GITHUB_CREDENTIAL_COMMAND` to the locked `gh auth token` command for that
+resolver process. Never log/export its Token, initiate login or widen scopes.
+GitHub manual `refresh_locks` provides its job token only to that step; GitLab
+`AIGW_REFRESH_LOCKS=true` requires separately admitted `MISE_GITHUB_TOKEN` or a native credential-command input.
+Both retain locks even on drift. Repository credentials do not confer upstream
+access. Keep provenance checks and raw warnings; cache installation and online
+lock resolution prove different properties.
 
 ### CI tool caches
 
-[The CUE model](.config/ci/pipeline.cue) projects native tool caching to both
-Forges. Every job still runs `mise install --locked`; cache presence is neither
-verification evidence nor permission to skip a gate. `mise run bootstrap`
-prepares Go dependencies and rebuilds Node packages in that checkout.
+[CUE](.config/ci/pipeline.cue) owns both peer projections; every job still installs
+locked tools and bootstraps its checkout. GitHub's pinned action keys caches by
+platform, image, Mise version, config/locks and job. GitLab Linux keeps `installs/`
+and completion metadata together under `build/runtime/tool-cache/.mise/`, keyed
+by directory roles, image digest, runner, job, branch and input hashes.
 
-GitHub uses the pinned mise action's cache key, which includes the platform,
-runner image, mise version, configuration and lockfile hashes. The job identifier
-separates installation scopes. GitLab Linux retains `installs/` and native
-`cache/` metadata together beneath `build/runtime/tool-cache/.mise/`, keyed by
-both directory roles, pinned container digest, runner, job, branch, and native
-manifest and lock hashes. Completion markers belong to that metadata: copying
-an interrupted installation without them can make unfinished tools appear ready.
-GitLab saves this cache after success or failure, preserving completed tools
-when another download or gate fails. Cache retention never changes job status.
-
-The hidden directory keeps tool sources outside Go package discovery. Retain
-GitLab's separate protected-branch caches. A restored cache is a job-local copy,
-not another lane's live environment; credentials, user configuration,
-`node_modules`, product builds and proof results are not cache inputs.
-
-Cache misses must remain valid cold installations. mise's
-[download directory](https://mise.jdx.dev/directories.html) is not a supported
-download cache; use its documented
-[CI caching contract](https://mise.jdx.dev/continuous-integration.html#caching)
-instead of a custom downloader or retry loop. An incompatible runner image or
-architecture requires a separate cache namespace. The current Linux boundary
-uses a dedicated runner; do not reuse that runner identity across architectures.
+Preserve protected/review separation and complete-tool markers; an interrupted
+installation cannot become ready by copying binaries alone. Cache copies exclude
+credentials, user state, `node_modules`, product artifacts and proof. Saving on
+failure preserves completed downloads but cannot change the job verdict.
+Mise's [downloads directory](https://mise.jdx.dev/directories.html) is not a
+supported cache; use its [native CI contract](https://mise.jdx.dev/continuous-integration.html#caching).
+Cold misses and distinct image/architecture namespaces must work independently.
 
 ### Source checks
 
-The [quality and platform evidence policy](docs/governance/change-and-release-policy.md#quality-and-platform-evidence)
-defines supported measurements and admission boundaries; native tool
-configurations own executable rules. Package observation and statement
-coverage are distinct: a proven zero denominator is not a percentage.
+The [quality policy](docs/governance/change-and-release-policy.md#quality-and-platform-evidence)
+separates measurements, command owners and acceptance. Zero native statements
+are not a percentage. Gitleaks scans tracked regular files, including ignored
+tracked paths, plus nonignored untracked files; deleted files, symlink targets,
+ignored output and Git history have separate scopes. Its current-file owner
+makes one private path-preserving copy, runs the selected redacted policy and
+reclaims it without changing input bytes:
 
-The source secret check uses Gitleaks on current regular files selected by
-Git: tracked files, including ignored tracked paths, plus nonignored untracked
-files. Deleted files and symlink targets are outside this current-file scan;
-Git history and ignored build output are different evidence domains. The
-existing CI entrypoint copies that inventory into one private, path-preserving
-directory under `build/tmp/`, runs Gitleaks once with the repository policy and
-redaction, then removes the copy on success or failure. The input files remain
-unchanged. Run it alone with
-`mise exec --locked -- go run ./tools/ci check-secrets .`.
+```bash
+mise exec --locked -- go run ./tools/ci check-secrets .
+```
 
 ### Native upgrade acceptance
 
-`mise run native` verifies source behavior, then builds the archives through the
-same GoReleaser owner as publication and runs the current host's installation,
-upgrade, invalid-successor rejection, rollback, and uninstall acceptance.
-Construction and acceptance share one temporary scope, reclaimed on success or
-failure. This does not publish or sign a release and needs no signing credential.
-
-To qualify the complete repository toolchain on the current platform, run:
+`mise run native` runs source behavior, builds current-host archives through
+GoReleaser and exercises install, upgrade, invalid-successor rejection, rollback
+and uninstall in owned temporary state. It neither publishes nor needs signing
+credentials. Complete tool qualification replaces the Go-only check, not adds
+a duplicate invocation:
 
 ```bash
 mise exec --locked -- go run ./tools/ci native --full-quality
 ```
 
-This replaces the first Go-only check with the existing complete quality graph,
-then runs the same platform-selected tests and packaged lifecycle. It does not
-duplicate the Go check or require publication credentials. GitHub's manual
-**Verify** input `full_quality` selects this path on the selected native platforms;
-GitLab accepts `AIGW_FULL_NATIVE_QUALITY=true` for its required native jobs.
-Ordinary review jobs retain their smaller native path and separate quality job.
-Keep source-signature admission in that quality job; native tool qualification
-does not replace it or infer signer authority from an inherited variable.
+Manual GitHub `native_platform` and GitLab `AIGW_NATIVE_PLATFORM` select
+`all|darwin|linux|windows`; empty means all. Combine with `full_quality` /
+`AIGW_FULL_NATIVE_QUALITY=true` and `refresh_locks` / `AIGW_REFRESH_LOCKS=true`
+for targeted diagnostics. Quality always runs; review, accepted push and tag
+admission still require the full native set. [Manual runs do not substitute
+for required PR checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#checks-from-some-workflow-jobs-are-not-evaluated).
+GitLab `AIGW_COMMIT_BASE` is an exclusive base; omitted means the selected
+commit's first parent. Missing author/signer trust fails before other gates.
 
-For a targeted manual qualification, GitHub's `native_platform` accepts `all`
-(the default), `darwin`, `linux` or `windows`. GitLab's manual/API pipelines use
-`AIGW_NATIVE_PLATFORM` with the same values; omitted or empty means all required
-native jobs. A paused or unavailable runner leaves that peer unverified.
-Quality runs in either case. Combine the selection with `full_quality` and
-`refresh_locks` on GitHub, or `AIGW_FULL_NATIVE_QUALITY=true` and
-`AIGW_REFRESH_LOCKS=true` on GitLab, to qualify one platform's complete
-toolchain and lock resolution without rerunning unrelated native jobs. Review,
-accepted-branch push and tag admission retain
-their full native set regardless of this manual selector. A targeted result
-proves only the selected platform, never complete CI or release readiness.
-GitHub [manual workflow checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#checks-from-some-workflow-jobs-are-not-evaluated)
-do not replace the required pull-request checks; retain the review run separately.
+Default acceptance uses a synthetic current-schema predecessor. Test-owned
+macOS signing fixtures neither import identities nor authorize historical
+credentials. Explicit candidate bytes are never replaced by a source build.
+A real published baseline adds a distinct retained-state journey: 0.1.0 requires
+schema migration/rollback; 0.2.0 supports byte-preserving sync without migration.
+An independently verified extracted portable binary can be supplied through
+`AIGW_ACCEPTANCE_BASELINE`; Homebrew's installed executable is not that input.
 
-For GitLab web/API verification, `AIGW_COMMIT_BASE` may select the exact
-exclusive base of a longer reviewed range. When omitted, quality selects the
-declared commit's first parent to verify that commit, never a moving branch
-tip. The protected author email and allowed-signers file must also be available.
-Missing trust inputs fail
-quality before other gates. See [Verify Local Objects](docs/operations/forge-operations.md#verify-local-objects)
-for the base-to-candidate contract.
-
-The default native suite builds a synthetic predecessor and candidate through
-the same GoReleaser archive construction used for releases. On macOS, its
-test-owned certificate files exercise archive signing without importing an
-identity, changing host trust or reading production credentials. Signing and
-credential authorization remain separate boundaries; see the
-[credential decision](docs/decisions/dr-0011-single-portable-token-backend.md#product-reader-and-migration-boundary).
-An explicitly supplied archive is consumed unchanged and is never
-replaced by a source build. Private fixture signing does not establish
-authorization to credentials created by a historical released executable.
-It tests portable update mechanics, not compatibility with a historical
-release. An explicit published baseline adds a separate journey using a
-manifest the released predecessor can actually read. A 0.1.0 baseline proves
-the required schema migration and exact configuration rollback. A 0.2.0
-baseline proves that no migration is needed, synchronization preserves the
-configuration bytes, and program rollback and forward recovery remain usable.
-The current-schema package journey retains its own predecessor fixture. The
-real-client journey uses that fixture only when no baseline is supplied; with
-an explicit baseline, it receives the published predecessor. To exercise the
-published transition, supply an extracted native binary from an independently
-verified archive. A Homebrew-managed executable is not a portable installation
-input:
-
-```bash
-AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
-  mise exec --locked -- go run ./tools/release accept-native
-```
-
-Before the stable tag exists, consume the selected signed matrix without
-rebuilding it. A pre-archive candidate qualifies that source only; archiving
-changes its commit and tree, so build and qualify the final matrix again from
-the archived source. Use these independently approved trust inputs:
-`AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE`,
-`AIGW_RELEASE_ARTIFACT_SIGNER`, and `AIGW_RELEASE_ALLOWED_SIGNERS_FILE`.
+Before tagging, admit the signed candidate and published predecessor matrices:
 
 ```bash
 mise exec --locked -- go run ./tools/release accept-native \
@@ -544,59 +265,31 @@ mise exec --locked -- go run ./tools/release accept-native \
   --baseline-artifacts /absolute/path/to/published-baseline --baseline-tag v0.3.1
 ```
 
-`--baseline-artifacts` requires its published signed tag. The release owner
-verifies the full predecessor matrix, tag and source provenance before
-extracting its native executable; it never substitutes a fixture. The existing
-`AIGW_ACCEPTANCE_BASELINE` input accepts an independently verified executable
-path and cannot be combined with these predecessor-matrix inputs.
+Provide `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE`,
+`AIGW_RELEASE_ARTIFACT_SIGNER` and `AIGW_RELEASE_ALLOWED_SIGNERS_FILE` independently.
+`--candidate` binds a clean signed HEAD and rejects a selected or same-version tag;
+after tagging omit it and select `CI_COMMIT_TAG`. Predecessor matrix inputs verify
+complete signatures/tag/provenance before extraction and cannot be combined with
+`AIGW_ACCEPTANCE_BASELINE`. Windows uses the extracted `aigw.exe`. Keep baseline
+inputs scoped to `accept-native`, not the ordinary native suite. The candidate
+must be newer; an invalid explicit baseline fails, never selects a fixture.
 
-`--candidate` requires a clean signed HEAD and no selected or same-version
-release tag. After tagging, omit it and select `CI_COMMIT_TAG` so the release
-verifier also checks the signed tag. Neither mode replaces supplied artifacts.
+All journeys use temporary homes and compare actual bytes. Retain enabled
+Adapters and configuration before sync. Disposable native-store opt-in is
+`AIGW_VERIFY_SYSTEM_KEYRING=1`; macOS additionally requires
+`AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host`, never on an operator host.
+Linux needs a real user bus/Secret Service; Windows uses Credential Manager.
+An occupied exact test slot fails before writes. The installed helper proves
+reads; fixture metadata/cleanup neither grants access nor replaces them.
 
-On Windows, set the same environment variable to the extracted `aigw.exe`.
-Keep this variable scoped to `accept-native`; setting it for `mise run native`
-also changes the ordinary Go test environment.
-The candidate uses the [canonical version](VERSION) and must be newer than the baseline.
-An invalid explicit baseline fails rather than falling back to a fixture in
-the published journey. Each path installs into a temporary home and compares
-the installed binary bytes. The published transition uses an environment
-credential and a stub client; the current-schema path also verifies deferred
-activation and native projections. Neither modifies the operator's installation.
-
-Ordinary Go tests use provider doubles and do not touch the host credential
-store. On a disposable native test host, `AIGW_VERIFY_SYSTEM_KEYRING=1` exercises
-the current-schema predecessor fixture and packaged candidate through the system
-credential store. It verifies rotation, upgrade, rollback, re-upgrade, uninstall, reinstall,
-retained helper credentials, and exact test-slot deletion. Each replacement
-keeps the Adapter enabled and checks configuration bytes before `sync` can
-change them. macOS additionally
-requires `AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host`. This declaration
-is an operator prerequisite, not proof that a machine is disposable; never set
-it on the operator workstation. Linux requires a
-real user bus and Secret Service for this path; the no-bus fallback is a separate
-journey. Windows exercises
-Credential Manager. An occupied test slot fails before mutation.
-The installed AIGW helper, not the test executable, proves Token reads.
-The fixture observes slot presence and performs exact cleanup; requiring it to
-read the Token would add an unrelated reader-authorization prerequisite.
-
-Keep daemon diagnostics separate from the product command's result. GNOME
-Keyring 48.0 emits an already-registered-item warning when replacing an existing
-credential. The upstream `CreateItem` implementation attempts item-created
-registration even when it replaced the item; the same path remains in
-[50.0](https://github.com/GNOME/gnome-keyring/blob/50.0/daemon/dbus/gkd-secret-objects.c).
-A disposable upstream-only probe reproduces the warning with go-keyring 0.2.8:
-the replacement is readable, the collection contains exactly one item, and
-deletion leaves it empty. This is not evidence of an AIGW duplicate credential.
-Retain the warning and exact backend version in acceptance evidence; do not
-silence it, delete before replacement, or claim warning-free qualification.
+Backend daemon diagnostics are separate from product results. GNOME Keyring 48
+emits an already-registered-item warning when replacing the single retained item;
+[upstream 50 retains that CreateItem path](https://github.com/GNOME/gnome-keyring/blob/50.0/daemon/dbus/gkd-secret-objects.c).
+An upstream-only go-keyring 0.2.8 probe retained one readable item and deleted it
+exactly. Preserve warning/backend version; do not silence it, delete before replace,
+or call that run warning-free.
 
 ### Tagged artifact acceptance
-
-After tagging, qualify the complete signed release matrix without rebuilding
-it: supply the [public trust inputs](#hosted-release-verification), set
-`CI_COMMIT_TAG` to its exact signed tag, and run:
 
 ```bash
 mise exec --locked -- go run ./tools/release accept-native \
@@ -604,66 +297,29 @@ mise exec --locked -- go run ./tools/release accept-native \
   --baseline-artifacts /absolute/path/to/published-baseline --baseline-tag v0.3.1
 ```
 
-Alternatively, select `--tag` and `--baseline-tag` with `--peer github` or
-`--peer gitlab` and an explicit `--repository`. Missing matrices are downloaded
-by that peer's native CLI with prompts disabled, closed stdin and a two-minute
-deadline per call. Trust, extraction and cleanup stay in the release owner;
-local matrix paths never imply a network request. `--clients` requires the
-three explicit client executable paths before construction or download starts.
+Select public trust and exact `CI_COMMIT_TAG`. Alternatively use `--tag` and
+`--baseline-tag` with `--peer github|gitlab --repository <repository>`; the chosen
+native CLI owns downloads with no prompts, closed stdin and a two-minute deadline.
+Local artifact paths never imply network access. The release owner verifies the
+full matrix/source, copies native archive/checksums into scratch, extracts through
+the product reader, executes both lifecycle scopes and reclaims scratch on failure
+or success. Source artifacts remain unchanged. `--clients` requires explicit
+client paths before construction/download starts.
 
-The command verifies signatures, provenance and complete inventory before
-executing anything from the matrix. It copies only the native archive and
-checksum file into owned scratch, extracts through the product's verified
-archive reader, and runs both the current-schema lifecycle and the separate
-published-predecessor lifecycle when a baseline is supplied. Source artifacts remain
-unchanged; success and failure both reclaim scratch. `--clients` adds the
-real-client journey described below, using the published predecessor when one
-is supplied. The same candidate also runs the reviewed
-team manifest through import without Tokens or clients, each Account becoming
-available independently, deferred client synchronization, stable repeated sync,
-credential-helper execution and uninstall. Client discovery uses fixtures here;
-`--clients` remains the separate real-client proof. Omit `--artifacts` for
-source-built native acceptance; the two inputs share extraction and tests.
-
-The packaged suite also verifies configuration-aware rollback admission. It
-uses a real predecessor's inability to read newly imported configuration when
-present, otherwise injects an unsupported field. Rejection must preserve both
-programs and configuration bytes. After an explicit compatible restoration,
-the predecessor must export that configuration successfully, and re-upgrade and
-uninstall must still work. Historical inability is observed, not inferred from
-version strings; the current fixture alone does not prove historical support.
-
-For a previously verified unsigned source-build candidate, the lower-level
-tracked test also accepts an extracted native directory:
-
-```bash
-AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
-AIGW_ACCEPTANCE_RELEASE=/absolute/path/to/verified/candidate \
-  mise exec --locked -- go test ./tools/release \
-  -run '^TestNativePublishedPredecessorJourney$' -count=1 -v
-```
-
-The candidate directory contains its native archive, `checksums.txt`, and the
-archive's extracted native directory.
-The suite consumes those exact bytes and never downloads or rebuilds them.
-Record archive checksums and signature verification alongside the test result.
-Real-client invocation remains a separate release requirement.
-
-Inspect the operator's existing installation with its installed executable,
-not an extracted candidate. Credential-helper projections bind an exact AIGW
-path: a candidate run from another location expects its own path and can report
-projection drift even when the installed helper remains correct. Do not run
-`sync` to make this inspection green. Use the isolated lifecycle journey above
-to validate the candidate at its intended installation path while preserving
-the operator's configuration and credentials.
+The same bytes exercise the actual team manifest: no Tokens/clients, each Account
+arriving independently, deferred sync, no-op preservation, helpers and uninstall.
+Fixture discovery is not real-client proof. Rollback admission also requires the
+retained program to export actual successor configuration in isolation. Rejection
+preserves both programs and configuration; explicit compatible restoration then
+permits re-upgrade/uninstall. A current-schema fixture alone is not historical proof.
 
 ### Real-client acceptance
 
-The tracked real-client journey reuses the same native installation and
-replacement fixtures, with a controlled authenticated streaming endpoint:
+The lower-level tagged test consumes the same explicit candidate and companion-tool
+path, rather than searching the user's installation:
 
 ```bash
-AIGW_ACCEPTANCE_RELEASE=/absolute/path/to/verified/candidate \
+AIGW_ACCEPTANCE_RELEASE=/absolute/path/to/verified/native-directory \
 AIGW_ACCEPTANCE_CODEX=/absolute/path/to/codex \
 AIGW_ACCEPTANCE_CLAUDE=/absolute/path/to/claude \
 AIGW_ACCEPTANCE_HERMES=/absolute/path/to/hermes \
@@ -672,174 +328,99 @@ AIGW_ACCEPTANCE_CLIENT_PATH=/usr/bin:/bin \
   -run '^TestNativeClientJourney$' -count=1 -v
 ```
 
-Set equivalent environment variables on Windows, using native executable
-paths and a semicolon-separated client tool path. Supply complete client
-distributions and only their required companion tools. Explicit client binaries
-are mandatory; no stub or download replaces them. `AIGW_ACCEPTANCE_RELEASE`
-selects supplied candidate bytes; without it, the release owner builds a
-source candidate, which does not prove distribution bytes. The test uses
-synthetic environment credentials and temporary client homes, not the
-operator's accounts or native credential store. It consumes the reviewed
-`manifests/team.toml`, preserving Routes and recommendations while directing
-Account endpoints to the isolated server. The server requires the recommended
-model, configured effort and streaming protocol; a different model cannot
-silently satisfy acceptance. With `AIGW_ACCEPTANCE_BASELINE`, admitted clients
-must execute from that published predecessor through the exact candidate,
-rollback and re-upgrade. Without it, Codex and Claude use current-schema
-fixtures while Hermes proves first adoption. A predecessor lacking a client
-does not establish that client's published-release succession. The journey
-explicitly runs the candidate's `sync` before replacement to project each
-selected client's versioned credential command;
-both captured predecessor and successor commands must remain callable. After
-upgrade or rollback, the candidate verifier first proves that the retained
-projection still serves authenticated native inference. The newly active
-program then runs `sync`, `check`, and `verify` as required by `update`.
-The published 0.3.1 checker does not accept the successor's projection until
-that synchronization; this transitional checker limitation is distinct from
-client inference. Uninstall preserves
-post-setup authentication presence and bytes, plus user files. An absent
-`auth.json` stays absent; an existing empty file is distinct from absence. The
-verification fixture observes authentication storage without rewriting it.
-Logs identify the exact client and artifact bytes. This proves the selected
-clients' configuration and protocol integration, not live Provider
-availability, model reasoning quality or an untested client version.
+Windows uses native executable paths and a semicolon-separated companion PATH.
+Supply complete client distributions; a missing path is not a stub/download license.
 
-This proves the explicitly prepared transition described in DR-0011. Portable
-`update` and Homebrew do not perform that preparation automatically; ordinary
-Homebrew replacement and its measured public-link gap require separate
-acceptance before claiming installed upgrade continuity.
+This explicit build-tagged journey requires all three declared executable paths:
+`AIGW_ACCEPTANCE_CODEX`, `AIGW_ACCEPTANCE_CLAUDE` and `AIGW_ACCEPTANCE_HERMES`.
+Missing clients fail, not skip. See [Adapter admission](docs/governance/adapter-admission.md)
+for independent Desktop qualification; CLI evidence cannot replace it.
 
-The build tag makes real-client execution an explicit acceptance operation,
-not an optional test that reports success when clients are missing. Ordinary
-quality checks still lint the tagged source and execute its input, streaming and user-file-preservation
-contract tests without real clients. Both Forge quality jobs consume that same
-existing command sequence.
+A loopback protocol fixture consumes the shipped manifest and demands its exact
+recommended model, effort, credentials and stream contract. Isolated homes and
+synthetic environment Tokens replace operator state. With a published predecessor,
+real clients run baseline → candidate → rollback → re-upgrade; without it Codex/
+Claude use current-schema fixtures and Hermes proves first adoption only.
 
-To build one candidate and run both native lifecycle and real-client acceptance,
-provide the same client and predecessor inputs and run
-`mise exec --locked -- go run ./tools/release accept-native --clients`.
-On macOS this explicit build requires the
-[native release signing inputs](docs/decisions/dr-0011-single-portable-token-backend.md#release-identity-and-credential-authorization).
-The release owner supplies the candidate directory, retains it for both tests,
-stops on the first failure and cleans it afterward. No second build is needed.
+Before replacement the candidate stages its versioned helper; captured old/new
+commands must remain callable. Verify retained authenticated inference before
+active-program sync/check/verify. Published 0.3.1 cannot check the successor's
+projection until sync; that checker limitation is distinct from inference failure.
+Uninstall preserves unowned settings and removes only the test installation.
+No-token and actual Provider tests remain different observations.
+
+```bash
+mise exec --locked -- go run ./tools/release accept-native --clients \
+  --artifacts /absolute/path/to/candidate-dist --candidate \
+  --baseline-artifacts /absolute/path/to/published-baseline --baseline-tag v0.3.1
+```
+
+Omitting artifacts deliberately builds once; on macOS that explicit build needs
+[release identity inputs](docs/decisions/dr-0011-single-portable-token-backend.md#release-identity-and-credential-authorization).
+One retained candidate serves lifecycle and client tests; stop at first failure.
+Quality jobs still run input/envelope/preservation regressions without real clients.
+Homebrew's public-link replacement gap needs its own installed upgrade proof.
 
 #### Hosted Windows qualification
 
-The existing GitHub **Verify** workflow exposes `windows_clients` for an explicit
-manual qualification with `baseline_tag`. It provisions pinned native Codex
-and Claude packages through npm with install scripts disabled and registry
-signatures checked. It also verifies the exact official Hermes Windows installer
-bytes, runs only its noninteractive CLI installation stages at a pinned source
-commit, and requires its hash-verified `uv.lock` dependency tier. All three
-client executable paths and required companion tools are explicit inputs to the
-same native journey. Git Bash is required; the disposable runner removes the
-clients afterward without changing the operator's workstation. The
-[GitLab CI model](.config/ci/pipeline.cue) projects the same native command into
-separate macOS and Windows jobs: same-project proposal MRs use isolated review
-runners, while protected refs use protected runners. Literal job tags enforce
-this boundary without a pipeline-variable selector; runner availability and
-actual native execution still require peer-local evidence. GitHub remains
-exclusively GitHub-hosted, with no self-hosted runner fallback.
+GitLab review/protected jobs use separate registrations selected by literal CUE
+tags; proposals stay unprotected. Disposable execution and peer-local evidence
+remain required. GitHub uses hosted runners, not self-hosted fallback.
 
-For GitLab native acceptance, `AIGW_CANDIDATE_TAG` selects a published matrix;
-`AIGW_CANDIDATE_ARTIFACTS` instead selects a local pre-tag candidate directory.
-`AIGW_BASELINE_TAG` selects the published predecessor, and
-`AIGW_NATIVE_CLIENTS=true` enables the real-client journey after its executable
-paths have been provisioned. CUE forwards these declarations after `ci native
---`; source checks do not inherit them. The release owner downloads from the
-explicit GitLab project using native Job Token authentication. These inputs
-declare what to test; they do not prove provisioning, peer independence or
-native acceptance.
-
-Set `candidate_tag` with `baseline_tag` to consume a published signed matrix
-instead of reconstructing its successor. Each native job supplies public trust
-and the selected tags to `accept-native --peer github`; its native download
-owner obtains that peer's matrix. With `windows_clients`, the real clients consume those
-same candidate bytes. Run the workflow at the candidate tag or a reviewed
-verifier revision declaring the same version; signed provenance still binds the
-executed artifact to the candidate tag. This is native execution evidence,
-separate from peer-local asset verification.
+GitLab `AIGW_CANDIDATE_TAG` selects a published matrix;
+`AIGW_CANDIDATE_ARTIFACTS` selects local pre-tag bytes. `AIGW_BASELINE_TAG`
+selects the predecessor and `AIGW_NATIVE_CLIENTS=true` adds provisioned clients.
+CUE forwards these after `ci native --`; source checks do not inherit them.
+GitLab downloads use its explicit project and Job Token, not sibling credentials.
+GitHub manual `candidate_tag`/`baseline_tag` selects that peer's same bytes, with
+`windows_clients` for real-client execution. A reviewed verifier may have a
+different SHA but must declare the candidate version; signed provenance still
+binds execution to the selected source.
 
 #### Disposable Linux clients
 
-For disposable Linux real-client acceptance, prepare the complete official
-client distribution, including its companion executables. Preserve each AIGW
-archive's canonical filename: the updater checks its target platform as well
-as its bytes. Before running a journey, verify every input hash and its
-readability as the actual test user; a successful copy is not that proof.
-Secret Service also requires a registered user identity and a working user bus,
-not just an unassigned numeric UID. In the disposable user's session, initialize
-the empty test keyring with a newline on stdin, not immediate EOF, and verify
-the login collection exists and is unlocked through its native D-Bus property
-before invoking AIGW. Credential rotation also validates the endpoint: isolated
-acceptance must provide its controlled loopback response, not an unreachable
-placeholder. Provision fail-fast, then run clients without privileges or
-capabilities. These test prerequisites never authorize host Keychain access.
+Use Docker `--init`, isolated non-root identity, owned tmpfs/output and exact
+before/after process/resource observations. Synthetic credentials never authorize
+host-store access. Transfer inputs/results through `docker exec -i` and portable
+tar streams without host extended attributes or mount-root ownership; `docker cp`
+may miss live tmpfs. Verify hashes as the actual user before execution and before
+stopping the container, then remove only its owned resources.
 
-Before the native suite, require `getent passwd "$(id -u)"`, an owned checkout
-and Git directory, a writable private `HOME`, successful `git status`, and
-disposable SSH key generation as that exact user. Recreate an incorrectly owned
-fixture rather than change Git's trust policy or recursively relax permissions.
-Native gh/glab version probes use test-owned configuration directories.
+Codex requires working user namespaces and bubblewrap. Check both through the
+actual client; containers are not interchangeable with native Linux hosts.
+Never weaken an operator's security policy or silently remove the client's sandbox
+to make acceptance pass. Use a test-owned Git repository where required rather
+than global safe-directory changes. gh/glab probes use private config directories.
 
-Use Docker's `--init` for disposable client containers so exited descendants
-are reaped.
-Copy inputs into live tmpfs through `docker exec -i` and a portable tar stream;
-omit host extended attributes and the mount root's ownership metadata. Verify
-input hashes as the actual test user. Retrieve results through the same live
-mount and compare each file's hash before stopping the container; `docker cp`
-may not see runtime tmpfs. Teardown must observe the test user's process set,
-then remove the exact container and its temporary mounts.
-
-Codex requires working user namespaces and bubblewrap for its Linux sandbox.
-Probe those capabilities before acceptance rather than disabling the client's
-sandbox to silence diagnostics. The measured disposable container has no
-network or host mounts; its outer seccomp policy admits user namespaces, while
-the client runs with no Linux capabilities and no-new-privileges. This is a
-test-host constraint, not an AIGW installation requirement or a recommendation
-to relax an operator's Docker security policy.
-
-The lifecycle executes the projected credential helper through the native shell,
-not a parsed copy of its arguments. Upgrade, rollback and re-upgrade keep the
-Adapter enabled; configuration must remain byte-identical before the active
-program synchronizes. Check the active executable, credential and readiness
-after each transition. The predecessor must accept the fixture's configuration
-and manifest schemas; an older-schema baseline needs its own reviewed migration
-journey, not a disabled integration that hides incompatibility.
+Retained-state acceptance executes projected helpers through the real native
+shell and preserves configuration bytes before active-program sync. The baseline
+must read the fixture's declared schema; older-schema inputs need the reviewed
+migration journey, not disabled integration. Host, container, Provider and client
+identities each have independent acceptance claims.
 
 ### Historical release qualification
 
-GitHub's existing **Verify** workflow also accepts an optional `baseline_tag`
-for manual historical-release verification. Select the candidate ref, its
-exclusive `commit_base`, and a published predecessor tag. Each native job
-forwards the selected peer, repository and tags to `accept-native`. That owner
-downloads through the peer's native CLI, verifies public trust and checksums,
-extracts the selected artifacts and reclaims its scratch on success or failure.
-Forge authentication is available only for downloads, never to snapshot builds
-or native journey children. Client provisioning remains a separate CI operation.
-Windows always enables its native Credential Manager journey. Set
-`macos_keychain=true` only on a disposable GitHub macOS runner to exercise the
-same retained Keychain item across predecessor, candidate, rollback and
-re-upgrade. Linux's hosted job proves the environment-credential lifecycle;
-native Secret Service acceptance requires the separately provisioned test
-environment described above.
-Omitted tags select source-built current-schema acceptance. Published
-predecessors require a complete signed matrix and source-bound provenance;
-an unsigned historical archive is not admitted. Local and GitLab operators can
-supply independently verified matrices through the same artifact inputs;
-neither peer depends on the other.
+GitHub **Verify** accepts `baseline_tag` and an optional `candidate_tag`, exact
+candidate ref and exclusive `commit_base`. Jobs forward those inputs to
+`accept-native`; that owner handles peer downloads, public trust, extraction and
+cleanup. Forge Tokens never reach snapshot builders or native journey children;
+client provisioning remains separate CI work.
+
+Windows enables Credential Manager; disposable macOS opt-in `macos_keychain=true`
+exercises a retained item through predecessor, rollback and re-upgrade. Linux's
+ordinary hosted environment-backend proof is not Secret Service qualification.
+Omitted tags select source-built current-schema acceptance. Published baselines
+need complete signed matrices/source provenance; unsigned archives are rejected.
+Local and GitLab input matrices remain independently verifiable without GitHub.
 
 ## Release and metadata
 
 ### Signed artifact builds
 
-`mise run release` requires a clean source checkout and
-`AIGW_RELEASE_SIGNING_KEY`, the path to the explicitly selected SSH signing key.
-An agent-backed public-key path works when the matching private key is already
-available through `SSH_AUTH_SOCK`; the public key itself does not sign. This
-capability is separate from GitLab or GitHub transport access.
-
-For a POSIX shell with an already available signing agent:
+`mise run release` requires clean source and `AIGW_RELEASE_SIGNING_KEY`, an
+explicit key path. An agent-backed public-key path signs only when the matching
+private key is already available through `SSH_AUTH_SOCK`; do not start an agent,
+read/export a key or add password fallback. Test the exact capability first:
 
 ```bash
 export AIGW_RELEASE_SIGNING_KEY=/absolute/path/to/release-signing-key.pub
@@ -848,15 +429,10 @@ ssh-add -T "$AIGW_RELEASE_SIGNING_KEY"
 mise run release
 ```
 
-In PowerShell, set the same process environment variables using `$env:` before
-running the same commands. The build does not install a key or start an agent.
-If the key is unavailable, provision it through the host's credential owner;
-do not disable signing or add an interactive password fallback to CI.
-
-The build signs `checksums.txt` in the `aigw-release` namespace. Git's `git`
-namespace and its allowed-signers entries do not authorize artifact signatures.
-Verify the manifest against an independently approved public key and principal
-whose allowed-signers entry admits `aigw-release`:
+PowerShell uses the same process variables via `$env:`. Product Git transport,
+Git signatures, artifact signatures and Apple publisher identity are distinct.
+The build signs `checksums.txt` in `aigw-release`; Git's namespace alone does
+not authorize this signature. Use independently approved public trust:
 
 ```bash
 ssh-keygen -Y verify -f /absolute/path/to/release-allowed-signers \
@@ -865,153 +441,75 @@ ssh-keygen -Y verify -f /absolute/path/to/release-allowed-signers \
 mise exec --locked -- go run ./tools/release validate-artifacts dist "$(cat VERSION)"
 ```
 
-The first command establishes signer trust for the manifest; the second checks
-matrix membership, file digests and the signature envelope. The validator alone
-does not establish that the signer was authorized. Do not derive a trusted key
-from the downloaded signature or confuse a successful local build with hosted
-Release publication.
+The first verifies authority; the second validates complete inventory/digests and
+signature envelope. Never derive trust from the downloaded signature. All network
+publication entrypoints require `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE` and
+`AIGW_RELEASE_ARTIFACT_SIGNER` before contacting a Forge.
 
-All three network entrypoints (`publish-github`, `upload-gitlab`, and
-`publish-gitlab`) require `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE` and
-`AIGW_RELEASE_ARTIFACT_SIGNER`. Supply an independently approved allowed-signers
-file and its release principal; neither the Git author email nor a downloaded
-signature selects this trust. Each entrypoint verifies the complete matrix and
-its authorized `aigw-release` signature before its first network request.
-GitLab uploads only the declared matrix inventory, not arbitrary files found
-in the output directory. Verification does not access a private key or prompt
-for a password.
+GitLab uses exactly one of `GITLAB_TOKEN` or `CI_JOB_TOKEN`; both or neither fail
+before publication. [Native headers](https://docs.gitlab.com/api/rest/authentication/)
+apply to uploads and same-origin readback, never cross-origin redirects. Tokens
+stay in approved process environments, not URLs, arguments or tracked files.
+Local execution uses explicit `CI_API_V4_URL`, `CI_PROJECT_ID`, `CI_COMMIT_TAG`
+and source trust; these names do not require a CI Runner. Transport permission
+and publication need actual observations, not a successful build.
 
-GitLab publication accepts exactly one native credential: `GITLAB_TOKEN` for
-an operator's personal, project or group access token, or `CI_JOB_TOKEN` for a
-running CI job. These use GitLab's [access-token and job-token headers](https://docs.gitlab.com/api/rest/authentication/)
-respectively. Both set is an ambiguous authority and fails before network
-access; an absent token is not permission for anonymous publication. The same
-selection applies to upload, release metadata and same-origin asset readback.
-Cross-origin redirects receive neither credential. Supply tokens through the
-approved process environment, never command arguments, URLs or tracked files.
-
-Local release execution uses the same commands and explicit `CI_API_V4_URL`,
-`CI_PROJECT_ID` and `CI_COMMIT_TAG` identity inputs; their names do not require
-a CI runner. Building and signing locally does not require copying a private
-key to either Forge. HTTPS or an approved protected transport remains an
-operator prerequisite; a successful local fixture does not prove remote write
-permission or publication.
-
-Run publication from the product repository containing the selected
-`CI_COMMIT_TAG`, and supply `AIGW_RELEASE_ALLOWED_SIGNERS_FILE` for Git source
-trust. Before network access, each entrypoint resolves that local tag once,
-verifies the tag and its exact commit, and reads the [canonical version](VERSION), lockfiles and the
-toolchain from that immutable Git object, not the mutable checkout. Git replace
-objects do not participate. Artifact provenance must equal the canonical
-statement generated from those inputs and the actual artifact subjects.
-Construction and verification share the same statement producer: no second
-schema, parallel field mapping or independently maintained artifact list.
-
-This establishes consistency between signed artifacts, provenance and selected
-source. It does not establish an independently trusted build environment,
-native runtime acceptance, remote tag equality or hosted observation. Those remain separate release obligations. Keep the artifact
-directory exclusively owned and immutable throughout verification and upload.
+Before upload, the owner resolves the tag once, verifies source and tree, requires
+matching version/epoch, and compares signed provenance with those inputs and actual
+subjects through one producer. This is consistency proof, not independent build
+trust or installation. Keep the artifact directory immutable and exclusively owned.
 
 ### One signed matrix, independent publication
 
-The operator builds and signs one release matrix from the accepted tagged
-source. The existing `build-ci` command performs two builds and compares every
-artifact before returning the result; its historical name does not require a
-CI runner. Keep signing capability on the approved build host. Both peers
-receive the same immutable files, including the original signature; neither
-peer rebuilds, re-signs, or downloads from the other.
-
-After release readiness, source acceptance and the exact signed tag are proven:
-
-```bash
-export CI_COMMIT_TAG="v$(cat VERSION)"
-mise exec --locked -- go run ./tools/release build-ci build/release dist
-mise exec --locked -- go run ./tools/release verify-artifacts dist
-mise exec --locked -- go run ./tools/release publish-github dist
-mise exec --locked -- go run ./tools/release upload-gitlab dist
-mise exec --locked -- go run ./tools/release publish-gitlab dist
-```
-
-Run only the commands for selected peers, with their own previously admitted
-transport credentials and identity inputs. A failed peer does not roll back
-another peer or authorize reconstruction. The commands verify public trust and
-tagged provenance before network access and compare uploaded bytes afterward.
-Keep the identical matrix until every selected peer has passed readback.
+Build/sign once, then publish those identical bytes to every selected peer.
+`build-ci` compares two reproducible construction passes; its historical name does
+not require a Runner. Final Developer ID/timestamped bytes are separately verified
+rather than claimed byte-identical. [Forge Operations](docs/operations/forge-operations.md)
+owns tag publication and the native Apple submission/verification procedure.
+Never rebuild, rewrite history or re-sign separately at each peer.
 
 ### Hosted release verification
 
-Hosted verification requires public trust, not a signing secret:
+CI materializes public source/artifact trust from `AIGW_RELEASE_ALLOWED_SIGNERS`
+and `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS` into their corresponding `_FILE` inputs.
+GitLab API/project/tag/Job Token and GitHub `GITHUB_API_URL`, `GITHUB_REPOSITORY`, `GITHUB_TOKEN` and `GH_TOKEN`
+remain peer execution inputs, not product defaults or shared credential authority.
+Use [Forge Operations](docs/operations/forge-operations.md) for publication commands.
 
-Configure three independent public trust inputs:
+After all uploads complete, explicitly dispatch GitHub **Release** with its exact
+`tag` and GitLab on that same tag. Release-record creation may precede assets:
+verification must not race uploads. No extra operator dialog is required.
 
-- **Git source trust:** `AIGW_RELEASE_ALLOWED_SIGNERS`.
-- **Artifact trust:** `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS`.
-- **Artifact principal:** `AIGW_RELEASE_ARTIFACT_SIGNER`.
-
-GitHub uses repository variables for all three. GitLab uses file-type variables
-for the two signer lists and an ordinary variable for the principal. The
-workflow materializes or selects these files for the same verifier; neither
-peer receives a private signing key.
-
-Download authentication is separate: GitHub uses its read-only job token;
-GitLab uses native CI job-token auto-login.
-
-Tag push runs source and native checks. After all release assets are published,
-dispatch GitHub's **Release** workflow with the exact `tag` input, and dispatch
-a GitLab pipeline on that tag through the API or UI. These are explicit
-post-publication observations: release-record creation can precede the final
-asset upload, so it must not race the verifier. No operator confirmation dialog
-is required; the delivering agent can dispatch through the native CLIs.
-
-Each peer's `release-assets` job downloads only its own published assets with
-locked `gh` or `glab`, then runs the same `verify-artifacts` command.
-That command verifies complete inventory, bytes, authorized artifact signature,
-annotated tag, signed source and source-bound provenance. GitHub grants only
-`contents: read`; GitLab uses [native CI auto-login](https://docs.gitlab.com/cli/authentication/).
-Missing trust, assets or authentication fails verification. Tag source CI,
-artifact observation, native execution of released bytes and installation are
-separate acceptance obligations; a successful one cannot replace another.
+Each `release-assets` job downloads only its own peer's assets with locked gh/glab
+and runs the same complete signature/source/provenance verifier. GitHub grants
+read-only contents; GitLab uses [native CI authentication](https://docs.gitlab.com/cli/authentication/).
+Missing trust/assets/authentication fail. Tag source CI, asset readback, native
+released-byte execution and installation remain separate. See [native published
+verification](docs/operations/forge-operations.md#verify-published-bytes-on-a-native-host).
 
 ### Source and publication identity
 
-Use focused Conventional Commits. Keep the [release chronology](CHANGELOG.md) with `## [Unreleased]` as
-its first release section, containing only changes after the latest tagged
-release. Every published heading must map to an existing `v<semver>` tag and
-its tag date; run `mise exec --locked -- go run ./tools/release validate-changelog`
-before requesting review.
-GitLab **Project Name** is `AIGW CLI`; stable clone **Path** is `aigw-cli`. Do
-not change external paths as a display-name cleanup.
+Use focused Conventional Commits and validate [chronology](CHANGELOG.md):
+`mise exec --locked -- go run ./tools/release validate-changelog`.
+`## [Unreleased]` contains only changes after the latest published tag; historical
+headings require their exact signed tag/date. GitLab display name `AIGW CLI`
+does not authorize changing the stable clone path `aigw-cli`.
 
-Local Git owns one signed product commit and annotated tag. GitLab and GitHub
-are equivalent, independent, optional publication peers that receive those
-exact objects. Product signing and trust use `AIGW_RELEASE_AUTHOR_EMAIL` and
-`AIGW_RELEASE_ALLOWED_SIGNERS_FILE`; peer transport authentication remains in
-Git, SSH, or the protected host credential context. No peer-specific actor,
-signing key, tag namespace, history replay, or tree-only equivalence is valid.
+One signed product object goes unchanged to optional equivalent peers. Source
+trust uses `AIGW_RELEASE_AUTHOR_EMAIL` / `AIGW_RELEASE_ALLOWED_SIGNERS_FILE`;
+Forge transport remains independently authorized. From clean canonical source,
+`tools/forge project` admits only `main` (atomic peer main/dev) or matching
+`proposal/*`. Exact observed leases guard every write; divergence additionally
+needs bounded destructive authorization and immediate force-push restoration.
+No peer-specific re-signing, history map, actor or tree-only equivalence is valid.
 
-From a clean canonical checkout, `mise exec --locked -- go run ./tools/forge project` publishes
-`main` atomically to peer `main` and `dev`, or one explicit `proposal/*` to its
-matching ref. Candidate, work, and arbitrary branches are rejected. Ordinary
-fast-forward and idempotent publication need no destructive option. A divergent
-one-time cutover requires every exact observed remote tip and
-`--force-with-lease`; restore protected-branch force push immediately after the
-post-push observation. See [Forge Operations](docs/operations/forge-operations.md).
-
-Protected CI supplies `AIGW_RELEASE_AUTHOR_EMAIL`,
-`AIGW_RELEASE_ALLOWED_SIGNERS`, and the generated
-`AIGW_RELEASE_ALLOWED_SIGNERS_FILE`. GitLab additionally owns
-`CI_API_V4_URL`, `CI_PROJECT_ID`, `CI_COMMIT_TAG`, and `CI_JOB_TOKEN`; GitHub
-owns `GITHUB_API_URL`, `GITHUB_REPOSITORY`, `GITHUB_TOKEN`, and `GH_TOKEN`.
-These are execution inputs, never product defaults or repository identity.
-
-Verify peer state directly with current `git ls-remote` observations. A branch
-or tag is synchronized only when its full OID equals the local product object.
-Hosted Release records and artifact bytes retain separate verification gates.
+Protected CI's author/signer, API/project/tag and job-token inputs belong to its
+execution context, not product defaults. Current remote OIDs prove synchronization;
+Release records, file hashes and installed behavior need independent checks.
 
 ## Merge closeout
 
 Follow [branch and worktree closeout](docs/governance/change-and-release-policy.md#branch-and-worktree-closeout).
-Delete the exact merged proposal promptly; do not retain it merely because
-release promotion is pending. Verify the peer's actual source-branch deletion
-instead of assuming its project settings performed it. ETHOS owns local lane
-retirement; product installation and other peers have separate evidence.
+Delete the exact merged proposal promptly even while release promotion waits;
+verify actual peer absence. ETHOS owns local retirement, not installation or
+another peer's completion.
