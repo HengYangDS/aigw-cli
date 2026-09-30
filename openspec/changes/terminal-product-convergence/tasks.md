@@ -135,17 +135,15 @@
       bootstrap, reject ambient fallback, and remove exact owned test state.
 - [ ] 5.2 Run Linux container and native-host setup, selected provider,
       projection, update, rollback, uninstall, and cleanup journeys using exact
-      release bytes and one retained predecessor state. The signed `38246801`
-      Linux ARM64 archive passes eight isolated native-product cases in the
-      digest-pinned Debian Mise container, including late activation, one-of-many
-      Token selection, environment and secure-file credentials, update, rollback,
-      re-upgrade and uninstall. Current-setup semantics use a current-source
-      fixture; lifecycle separately passes against the signed, published 0.3.1
-      Linux ARM64 predecessor. At `5260160d`, the existing native system-store
-      journey passed in an isolated Linux ARM64 container with a real DBus/GNOME
-      Secret Service; its exact container and shallow-clone snapshot were removed.
-      That source-built test does not prove published bytes, a Linux VM host, or
-      real Linux clients. Native host and real-client admission remain open.
+      release bytes and one retained predecessor state. At signed `d7cc0c75`,
+      the CI-pinned Debian Mise image passed cold locked bootstrap and native
+      Linux on a read-only checkout with container-owned output, including a
+      source-built 0.3.3 lifecycle; the container exited without host residue.
+      The earlier signed `38246801` archive passed eight isolated native cases,
+      and the published 0.3.1 Linux ARM64 predecessor passed separately. At
+      `5260160d`, a source-built journey also passed against real DBus/GNOME
+      Secret Service in an isolated container. Final signed bytes, a Linux VM
+      host, real clients and peer-outage transport remain unproved.
 - [ ] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
