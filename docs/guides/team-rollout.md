@@ -110,19 +110,18 @@ Catalogue refresh performs none of those transitions.
 ### Reviewed model defaults
 
 The tracked [team manifest](../../manifests/team.toml) is the current Route
-inventory. It selects three GPT-6 models, three Claude models, and one reviewed
+inventory. It selects Astra, Luna, and GPT-6.1 Sol, three Claude models, and one reviewed
 general Model per other admitted vendor; the [dated qualification
 evidence](../research/provider-model-qualification.md) explains the observed
 IDs, protocol tests, exclusions, and limits. A catalogue listing is not a live
 Route or native-client availability guarantee.
 
 Claude Code and Claude Desktop initially prefer DMXAPI Opus 5.5, then UCloud,
-then AIHubMix. Codex and Hermes prefer AIHubMix GPT-6.1 Sol; a sole DMXAPI or
-UCloud Account selects its GPT-6 Astra Route instead. GPT-6.1 Sol has not
-passed those two Accounts' native tool-use admission, so a shared model name
-must not imply three interchangeable Routes. A sole connected Account remains
-sufficient. Luna remains separately selectable, not an automatic recovery
-Route when the selected provider later fails.
+then AIHubMix. Codex and Hermes prefer DMXAPI GPT-6.1 Sol, then AIHubMix
+GPT-6.1 Sol; a sole UCloud Account selects GPT-6 Astra. A shared model name
+does not make every Account/client pair interchangeable. A sole
+connected Account remains sufficient. Luna remains separately selectable,
+not an automatic recovery Route when the selected provider later fails.
 A local Account endpoint override is not silently replaced by the team's
 direct endpoint. Re-importing the team manifest
 against that differing Account fails closed; inspect it with
@@ -134,6 +133,9 @@ from its native `/model` chooser. Select it with
 [`aigw use --for codex`](../../README.md#use-it-every-day), then verify through
 Codex; the [dated client observation](../research/provider-model-qualification.md#codex-native-chooser)
 does not establish current upstream availability.
+An explicit user-owned `model_catalog_json` may mask newer models bundled with
+Codex. AIGW preserves that setting; if Codex reports fallback model metadata,
+review the catalog before deliberately updating or removing it.
 
 Recommendations apply only to unselected clients at setup or sync; they do not
 switch a running request or replace an explicit Client Binding. AIHubMix uses the
@@ -299,13 +301,18 @@ does not undo the selection. Run `aigw status` before retrying.
 
 ### Hermes protocol and model selection
 
-With Hermes installed and a connected AIHubMix Account, select and verify its
-GPT-6.1 Sol Route without changing Codex or Claude bindings:
+With Hermes installed and a connected DMXAPI Account using the team's direct
+Responses endpoint, select and verify its GPT-6.1 Sol Route without changing
+Codex or Claude bindings:
 
 ```bash
-aigw use --for hermes aihubmix-gpt-6.1-sol
+aigw use --for hermes dmxapi-gpt-6.1-sol
 aigw verify --for hermes
 ```
+
+If this machine explicitly points the DMXAPI Account at an external Proxy,
+qualify that endpoint separately before selecting this Route; importing the
+team manifest does not silently replace the local endpoint.
 
 The Hermes projection includes compatible models from connected Accounts;
 selecting one active model does not remove the others. A Route may expose more

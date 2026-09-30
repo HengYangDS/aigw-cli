@@ -101,9 +101,13 @@
       lists all 60 then-shipped Route IDs on their Account/protocol surfaces.
       A later direct AIHubMix Chat request for `solar-pro4` returned HTTP 400
       `no_available_channel`, so that Route and its unreferenced Model were
-      removed; 57 Routes remain after replacing three GPT-6 Sol Routes with one
-      AIHubMix GPT-6.1 Sol Route. The catalogue listing alone did not qualify
-      it. Final direct inference, client admission, and model ranking remain
+      removed; 58 Routes remain after replacing three GPT-6 Sol Routes with
+      AIHubMix and DMXAPI GPT-6.1 Sol Routes. Direct DMXAPI text and strict
+      function-call probes plus two isolated official Codex tool loops now
+      support the Codex recommendation. Official Hermes v0.21.5 source also
+      completed two direct DMXAPI 6.1 Sol turns, and an isolated AIGW `verify`
+      completed after staging its versioned reader. A catalogue listing alone
+      did not qualify either client. Final-artifact admission and model ranking remain
       open for the retained set.
 - [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
@@ -122,6 +126,11 @@
       streaming and a Codex tool loop. Claude Code and Codex pass rollback and
       re-upgrade; Hermes passes first adoption. Claude Desktop, other platforms
       and live Provider inference remain unproved.
+      On September 30, installed Codex 0.159.2 completed two isolated direct
+      DMXAPI GPT-6.1 Sol tool loops; its bundled model catalogue includes the
+      base model. Official Hermes v0.21.5 and an isolated AIGW public `verify`
+      also completed on direct DMXAPI 6.1 Sol. The current host projection,
+      external Proxy path, and final release bytes remain unproved.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.

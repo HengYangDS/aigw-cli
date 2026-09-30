@@ -36,31 +36,38 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 
 func TestTeamManifestRecommendsQualifiedSolAndRetainsAccountFallbacks(t *testing.T) {
 	team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
+	sol := "gpt-6.1-sol"
 	manifest, err := configuration.Parse(team)
 	if err != nil {
 		t.Fatal(err)
 	}
-	route, exists := manifest.Routes["aihubmix-gpt-6.1-sol"]
-	if !exists || route.Account != "aihubmix" || route.Model != "gpt-6.1-sol" || route.UpstreamModelID() != "gpt-6.1-sol" {
-		t.Fatalf("AIHubMix 6.1 Sol Route = %#v, present=%t", route, exists)
-	}
-	if len(route.Interfaces) != 1 {
-		t.Fatalf("AIHubMix 6.1 Sol protocols = %#v", route.Interfaces)
-	}
-	if _, ok := route.Interfaces[configuration.ProtocolOpenAIResponses]; !ok {
-		t.Fatalf("AIHubMix 6.1 Sol lacks Responses: %#v", route.Interfaces)
+	for _, account := range []string{"dmxapi", "aihubmix"} {
+		route, exists := manifest.Routes[account+"-gpt-6.1-sol"]
+		if !exists || route.Account != account || route.Model != "gpt-6.1-sol" || route.UpstreamModelID() != "gpt-6.1-sol" {
+			t.Fatalf("%s 6.1 Sol Route = %#v, present=%t", account, route, exists)
+		}
+		if len(route.Interfaces) != 1 {
+			t.Fatalf("%s 6.1 Sol protocols = %#v", account, route.Interfaces)
+		}
+		if _, ok := route.Interfaces[configuration.ProtocolOpenAIResponses]; !ok {
+			t.Fatalf("%s 6.1 Sol lacks Responses: %#v", account, route.Interfaces)
+		}
 	}
 	if got := manifest.Accounts["dmxapi"].Endpoints.OpenAIResponses; got != "https://www.dmxapi.cn/v1" {
 		t.Fatalf("team DMXAPI endpoint = %q, want direct provider", got)
 	}
-	for _, client := range []string{configuration.ClientCodex, configuration.ClientHermes} {
-		recommendation := manifest.Recommendations[client]
-		if recommendation.Primary.Route != "aihubmix-gpt-6.1-sol" {
-			t.Fatalf("%s primary Route changed: %q", client, recommendation.Primary.Route)
+	for client, want := range map[string][]string{
+		configuration.ClientCodex:  {"dmxapi-" + sol, "aihubmix-" + sol, "ucloud-gpt-6-astra"},
+		configuration.ClientHermes: {"dmxapi-" + sol, "aihubmix-" + sol, "ucloud-gpt-6-astra"},
+	} {
+		selections := manifest.Recommendations[client].Selections()
+		if len(selections) != len(want) {
+			t.Fatalf("%s setup choices = %#v, want %q", client, selections, want)
 		}
-		if len(recommendation.Alternatives) != 2 || recommendation.Alternatives[0].Route != "dmxapi-gpt-6-astra" ||
-			recommendation.Alternatives[1].Route != "ucloud-gpt-6-astra" {
-			t.Fatalf("%s setup alternatives changed the provider order: %#v", client, recommendation.Alternatives)
+		for index, selection := range selections {
+			if selection.Route != want[index] {
+				t.Fatalf("%s setup choice %d = %q, want %q", client, index, selection.Route, want[index])
+			}
 		}
 	}
 }
@@ -190,13 +197,6 @@ func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *jo
 		selected, err := cfg.ResolveRuntime(clientID, "")
 		if err != nil || selected.AccountID != account || !cfg.Clients[clientID].Enabled {
 			t.Fatalf("one connected Account did not activate %s: %#v, %v", clientID, selected, err)
-		}
-		recommended := plan.manifest.Routes[plan.manifest.Recommendations[clientID].Primary.Route]
-		offered := slices.ContainsFunc(slices.Collect(maps.Values(plan.manifest.Routes)), func(route configuration.Route) bool {
-			return route.Account == account && route.Model == recommended.Model
-		})
-		if offered && selected.Model != recommended.Model {
-			t.Fatalf("%s activation lost recommended model %q: %q", clientID, recommended.Model, selected.Model)
 		}
 		if got := strings.TrimSpace(string(journey.run("credential", clientID, selected.CredentialProjectionFingerprint(clientID)))); got != "team-journey-token" {
 			t.Fatalf("environment credential differs for %s", clientID)

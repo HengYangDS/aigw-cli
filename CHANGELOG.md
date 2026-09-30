@@ -16,10 +16,10 @@ evidence.
 - Roll back owned client projections and configuration when credential-reader
   finalization fails after projection; unchanged-client reconciliation now
   checks the same post-apply invariant.
-- Recommend GPT-6.1 Sol on the qualified AIHubMix Responses Route for new Codex
-  and Hermes bindings; use the existing DMXAPI and UCloud Astra Routes when
-  those are the only connected Accounts. Existing explicit bindings remain
-  untouched by a team-manifest update.
+- Add the direct DMXAPI GPT-6.1 Sol Responses Route and prefer it for new Codex
+  and Hermes bindings, with AIHubMix GPT-6.1 Sol next and UCloud Astra for a
+  sole UCloud Account. Existing explicit bindings remain untouched by a
+  team-manifest update.
 - Allow `aigw check --for <client>` to probe one enabled client without reading
   unrelated Account credentials or contacting unrelated endpoints; omission
   retains the all-enabled check.
@@ -49,8 +49,8 @@ evidence.
 
 ### Removed
 
-- Retire GPT-6 Sol from the shipped team manifest rather than claiming that
-  DMXAPI or UCloud already supports GPT-6.1 Sol tool use.
+- Retire GPT-6 Sol from the shipped team manifest; keep the UCloud Astra
+  fallback until its GPT-6.1 Sol tool path is qualified.
 - Withdraw the AIHubMix Solar Pro 4 Route and its unreferenced Model after the
   exact Chat Completions channel returned `no_available_channel`, despite its
   continued public catalogue listing.

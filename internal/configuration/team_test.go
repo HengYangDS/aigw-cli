@@ -175,7 +175,7 @@ func TestTeamManifestGPTAccountRoutesFollowInferenceEvidence(t *testing.T) {
 	want := map[string][]string{
 		"gpt-6-astra": {"aihubmix", "dmxapi", "ucloud"},
 		"gpt-6-luna":  {"aihubmix", "dmxapi", "ucloud"},
-		"gpt-6.1-sol": {"aihubmix"},
+		"gpt-6.1-sol": {"aihubmix", "dmxapi"},
 	}
 	for model, accounts := range want {
 		for _, account := range accounts {
@@ -333,11 +333,12 @@ func TestTeamManifestRoutesUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 
 func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
+	sol := "gpt-6.1-sol"
 	for client, want := range map[string][]string{
 		ClientClaude:        {"dmxapi-claude-opus-5-5", "ucloud-claude-opus-5-5", "aihubmix-claude-opus-5-5"},
 		ClientClaudeDesktop: {"dmxapi-claude-opus-5-5", "ucloud-claude-opus-5-5", "aihubmix-claude-opus-5-5"},
-		ClientCodex:         {"aihubmix-gpt-6.1-sol", "dmxapi-gpt-6-astra", "ucloud-gpt-6-astra"},
-		ClientHermes:        {"aihubmix-gpt-6.1-sol", "dmxapi-gpt-6-astra", "ucloud-gpt-6-astra"},
+		ClientCodex:         {"dmxapi-" + sol, "aihubmix-" + sol, "ucloud-gpt-6-astra"},
+		ClientHermes:        {"dmxapi-" + sol, "aihubmix-" + sol, "ucloud-gpt-6-astra"},
 	} {
 		choices := manifest.Recommendations[client].Selections()
 		if len(choices) != len(want) {

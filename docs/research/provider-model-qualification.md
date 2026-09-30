@@ -21,8 +21,8 @@ different claims.
 At an earlier September 30, 2026 read, AIGW observed 417 AIHubMix, 565 DMXAPI,
 and 276 UCloud IDs across eight Account/protocol catalogue surfaces. All 60
 Routes shipped at that time had wire IDs on their declared surfaces; the current
-manifest has 57 after the Solar Route and three GPT-6 Sol Routes were removed,
-with one AIHubMix GPT-6.1 Sol Route added. The DMXAPI
+manifest has 58 after the Solar Route and three GPT-6 Sol Routes were removed,
+with AIHubMix and DMXAPI GPT-6.1 Sol Routes added. The earlier DMXAPI
 Responses observation used the locally configured `127.0.0.1:8792` Proxy,
 whereas the team manifest declares direct `https://www.dmxapi.cn/v1`.
 Catalogue membership therefore does not qualify that direct endpoint or
@@ -36,15 +36,23 @@ initially listed only `gpt-6-sol`, but a later September 30 read returned 418 ID
 and included `gpt-6.1-sol`. A later authenticated DMXAPI listing also included
 that exact ID; UCloud's did not. Direct Responses text requests completed on
 AIHubMix and DMXAPI, while UCloud rejected the model. An isolated Codex tool
-loop then succeeded on AIHubMix but DMXAPI rejected its tool request before tool
-use with `missing_required_parameter` for `tools[4].tools`. Codex also used
-fallback metadata for this newly named model. A later public read on September
-30 still listed `gpt-6.1-sol` at AIHubMix but not UCloud; unauthenticated DMXAPI
-returned 401. These observations support an AIHubMix team recommendation, not
-a three-Account default or a DMXAPI Codex Route. The source manifest replaces
-GPT-6 Sol with AIHubMix GPT-6.1 Sol and existing DMXAPI/UCloud Astra fallbacks.
-Existing explicit local selections are not silently rewritten. Final-artifact
-and current-client admission remain to be proved.
+loop then succeeded on AIHubMix but an earlier DMXAPI tool request was rejected
+with `missing_required_parameter` for `tools[4].tools`. A later authenticated
+DMXAPI listing returned the exact `gpt-6.1-sol` ID; direct Responses text and a
+strict function-call request both completed. The installed official Codex CLI
+0.159.2 then completed two isolated direct-DMXAPI tool loops. Its bundled
+catalogue includes GPT-6.1 Sol; metadata errors in a manually constructed
+fixture that omitted the catalog are not evidence against AIGW's projection.
+The official Hermes v0.21.5 release source completed two named-session turns
+against direct DMXAPI GPT-6.1 Sol. AIGW 0.3.3 then completed an isolated
+`verify --for hermes --route dmxapi-gpt-6.1-sol` against that endpoint after
+its versioned credential reader was staged. This distinguishes a missing test
+reader from a product failure. The public AIHubMix catalogue also listed the
+model, while UCloud rejected it. These observations support DMXAPI as the
+Codex and Hermes team recommendation, not a three-Account default or a claim
+that this host's explicit Proxy endpoint supports Hermes replay. The source
+manifest retires GPT-6 Sol; existing explicit local selections are not silently
+rewritten. Final-artifact and current-host client admission remain open.
 
 At the September 25, 2026 read, the public
 [AIHubMix](https://api.inferera.com/v1/models) and
