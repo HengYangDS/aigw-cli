@@ -658,13 +658,27 @@ silently satisfy acceptance. With `AIGW_ACCEPTANCE_BASELINE`, admitted clients
 must execute from that published predecessor through the exact candidate,
 rollback and re-upgrade. Without it, Codex and Claude use current-schema
 fixtures while Hermes proves first adoption. A predecessor lacking a client
-does not establish that client's published-release succession. Uninstall preserves
+does not establish that client's published-release succession. The journey
+explicitly runs the candidate's `sync` before replacement to project each
+selected client's versioned credential command;
+both captured predecessor and successor commands must remain callable. After
+upgrade or rollback, the candidate verifier first proves that the retained
+projection still serves authenticated native inference. The newly active
+program then runs `sync`, `check`, and `verify` as required by `update`.
+The published 0.3.1 checker does not accept the successor's projection until
+that synchronization; this transitional checker limitation is distinct from
+client inference. Uninstall preserves
 post-setup authentication presence and bytes, plus user files. An absent
 `auth.json` stays absent; an existing empty file is distinct from absence. The
 verification fixture observes authentication storage without rewriting it.
 Logs identify the exact client and artifact bytes. This proves the selected
 clients' configuration and protocol integration, not live Provider
 availability, model reasoning quality or an untested client version.
+
+This proves the explicitly prepared transition described in DR-0011. Portable
+`update` and Homebrew do not perform that preparation automatically; ordinary
+Homebrew replacement and its measured public-link gap require separate
+acceptance before claiming installed upgrade continuity.
 
 The build tag makes real-client execution an explicit acceptance operation,
 not an optional test that reports success when clients are missing. Ordinary

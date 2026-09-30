@@ -44,7 +44,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"node", "--test", "architecture/edition-provider/test/source.test.mjs"},
 		{"go", "run", "./tools/ci", "check-source-size", "."},
 		{"go", "run", "./tools/ci", "check-go", "."},
-		{"go", "test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClient(Inputs|StreamEnvelope|FilePreservation)$"},
+		{"go", "test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClient(Inputs|StreamEnvelope|InferenceEnvelope|FilePreservation)$"},
 		{"go", "test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|Performance(Samples|Command|PooledSamples))$"},
 		{"actionlint"},
 		{"go", "run", "./tools/coverage", "--race"},

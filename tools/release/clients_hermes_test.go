@@ -21,26 +21,37 @@ type hermesSessionRecorder struct {
 }
 
 func (recorder *hermesSessionRecorder) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	if request.Method == http.MethodPost && request.URL.Path == "/v1/responses" {
-		body, err := io.ReadAll(http.MaxBytesReader(response, request.Body, 1<<20))
-		if err != nil {
-			http.Error(response, "invalid model request", http.StatusBadRequest)
-			return
-		}
-		request.Body = io.NopCloser(bytes.NewReader(body))
-		var input struct {
-			Model  string            `json:"model"`
-			Stream bool              `json:"stream"`
-			Input  []json.RawMessage `json:"input"`
-		}
-		if json.Unmarshal(body, &input) != nil || input.Model != recorder.model || !input.Stream || len(input.Input) == 0 {
-			http.Error(response, "configured streaming model required", http.StatusBadRequest)
-			return
-		}
-		recorder.mu.Lock()
-		recorder.inputs = append(recorder.inputs, len(input.Input))
-		recorder.mu.Unlock()
+	if request.Method != http.MethodPost || request.URL.Path != "/v1/responses" {
+		recorder.Handler.ServeHTTP(response, request)
+		return
 	}
+	body, err := io.ReadAll(http.MaxBytesReader(response, request.Body, 1<<20))
+	if err != nil {
+		http.Error(response, "invalid model request", http.StatusBadRequest)
+		return
+	}
+	request.Body = io.NopCloser(bytes.NewReader(body))
+	var input struct {
+		Model  string          `json:"model"`
+		Stream bool            `json:"stream"`
+		Input  json.RawMessage `json:"input"`
+	}
+	if json.Unmarshal(body, &input) != nil || input.Model != recorder.model || len(input.Input) == 0 {
+		http.Error(response, "configured model input required", http.StatusBadRequest)
+		return
+	}
+	if !input.Stream {
+		recorder.Handler.ServeHTTP(response, request)
+		return
+	}
+	var items []json.RawMessage
+	if json.Unmarshal(input.Input, &items) != nil || len(items) == 0 {
+		http.Error(response, "configured streaming input required", http.StatusBadRequest)
+		return
+	}
+	recorder.mu.Lock()
+	recorder.inputs = append(recorder.inputs, len(items))
+	recorder.mu.Unlock()
 	recorder.Handler.ServeHTTP(response, request)
 }
 

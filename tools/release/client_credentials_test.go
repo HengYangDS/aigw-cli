@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -26,6 +27,53 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"go.yaml.in/yaml/v3"
 )
+
+func TestNativeClientFilePreservation(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		auth []byte
+	}{
+		{"absent authentication", nil},
+		{"empty authentication", []byte{}},
+		{"existing authentication", []byte("{\"owner\":\"user\"}\n")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			journey := journeyFixture{testing: t, root: t.TempDir()}
+			home := filepath.Join(journey.root, "home", ".codex")
+			if err := os.MkdirAll(home, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if test.auth != nil {
+				if err := os.WriteFile(filepath.Join(home, "auth.json"), test.auth, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			check := journey.preserveClientFiles(configuration.ClientCodex)
+			if err := check(); err != nil {
+				t.Fatal(err)
+			}
+			auth := filepath.Join(home, "auth.json")
+			if err := os.WriteFile(auth, []byte("changed"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := check(); err == nil {
+				t.Fatal("changed authentication was accepted")
+			}
+			if err := os.Remove(auth); err != nil {
+				t.Fatal(err)
+			}
+			if err := check(); (err == nil) != (test.auth == nil) {
+				t.Fatalf("authentication absence: initial=%q, error=%v", test.auth, err)
+			}
+			if err := os.Mkdir(auth, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := check(); err == nil {
+				t.Fatal("a directory was accepted as an authentication file")
+			}
+		})
+	}
+}
 
 func TestRetainedCredentialCommandDoesNotReloadClientProjection(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
@@ -341,5 +389,44 @@ func (j *journeyFixture) requireWithdrawnCredentialDenied(plan process.Plan, tok
 	output, err := (process.Runner{}).RunCapture(ctx, plan)
 	if err == nil || !bytes.Contains(output, []byte("adapter is not enabled")) || bytes.Contains(output, []byte(token)) {
 		j.testing.Fatal("uninstall did not revoke the captured client's credential authorization")
+	}
+}
+
+func (j *journeyFixture) preserveClientFiles(client string) func() error {
+	j.testing.Helper()
+	home := filepath.Join(j.root, "home")
+	path, content := filepath.Join(home, ".claude", "CLAUDE.md"), "# User instructions\n"
+	switch client {
+	case configuration.ClientCodex:
+		path, content = filepath.Join(home, ".codex", "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
+	case configuration.ClientHermes:
+		path, content = filepath.Join(home, ".hermes", "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		j.testing.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		j.testing.Fatal(err)
+	}
+	files := map[string][]byte{path: []byte(content)}
+	if client == configuration.ClientCodex {
+		auth := filepath.Join(home, ".codex", "auth.json")
+		data, err := os.ReadFile(auth)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			j.testing.Fatal(err)
+		}
+		files[auth] = data // nil records absence; an empty file has non-nil bytes.
+	}
+	return func() error {
+		for path, want := range files {
+			got, err := os.ReadFile(path)
+			if want == nil && errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			if err != nil || want == nil || !bytes.Equal(got, want) {
+				return errors.Join(fmt.Errorf("client lifecycle changed user file %s", path), err)
+			}
+		}
+		return nil
 	}
 }

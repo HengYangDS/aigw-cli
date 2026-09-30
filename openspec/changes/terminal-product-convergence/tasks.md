@@ -146,6 +146,12 @@
       2.1.284 and Hermes 0.21.5, including the known-base catalog assertion.
       Final signed-artifact, direct-DMXAPI installed-host, Desktop GUI and
       other-platform acceptance remain open.
+      The explicit 0.3.1 predecessor journey now passes candidate replacement,
+      rollback and re-upgrade for Claude Code 2.1.285, Codex 0.159.2 and
+      official Hermes source `f97608f` (0.21.5). It proves retained inference
+      before synchronization and checks the newly active program afterward.
+      The non-stream inference recorder regression is included in the source
+      gate. Automatic Homebrew preparation and final signed bytes remain unproved.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.

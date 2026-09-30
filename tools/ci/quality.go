@@ -84,7 +84,7 @@ var repositoryQualityGraph = qualityGraph{
 		{ID: "architecture-edition-provider", Command: command{Name: "node", Args: []string{"--test", "architecture/edition-provider/test/source.test.mjs"}}, Concerns: []qualityConcern{qualityTest, qualitySchema}},
 		{ID: "source-size", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-source-size", "."}}, Concerns: []qualityConcern{qualityArchitecture}},
 		{ID: "go-analysis", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}}, Concerns: []qualityConcern{qualityFormat, qualityLint, qualityType, qualitySecurity}},
-		{ID: "client-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClient(Inputs|StreamEnvelope|FilePreservation)$"}}, Concerns: []qualityConcern{qualityTest}},
+		{ID: "client-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClient(Inputs|StreamEnvelope|InferenceEnvelope|FilePreservation)$"}}, Concerns: []qualityConcern{qualityTest}},
 		{ID: "performance-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|Performance(Samples|Command|PooledSamples))$"}}, Concerns: []qualityConcern{qualityTest}},
 		{ID: "workflow-lint", Command: command{Name: "actionlint"}, Concerns: []qualityConcern{qualityLint, qualitySchema, qualityWorkflow}},
 		{ID: "coverage", Command: command{Name: "go", Args: []string{"run", "./tools/coverage", "--race"}}, Concerns: []qualityConcern{qualityTest}, SourceOnly: true},

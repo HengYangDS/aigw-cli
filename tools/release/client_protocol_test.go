@@ -100,9 +100,16 @@ func TestNativeClientInferenceEnvelope(t *testing.T) {
 			}
 			var completions atomic.Int64
 			response := httptest.NewRecorder()
-			clientResponseHandler(protocol, map[string]*atomic.Int64{"configured-model": &completions}, "synthetic", "high").ServeHTTP(response, request)
+			recorder := hermesSessionRecorder{
+				Handler: clientResponseHandler(protocol, map[string]*atomic.Int64{"configured-model": &completions}, "synthetic", "high"),
+				model:   "configured-model",
+			}
+			recorder.ServeHTTP(response, request)
 			if response.Code != http.StatusOK || completions.Load() != 1 || response.Header().Get("Content-Type") != "application/json" || !json.Valid(response.Body.Bytes()) || !strings.Contains(response.Body.String(), `"pong"`) {
 				t.Fatalf("non-stream inference response: status=%d completions=%d content-type=%q body=%s", response.Code, completions.Load(), response.Header().Get("Content-Type"), response.Body.String())
+			}
+			if len(recorder.inputCounts()) != 0 {
+				t.Fatal("non-stream inference was recorded as a native client session turn")
 			}
 		})
 	}

@@ -10,7 +10,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -77,53 +76,6 @@ func TestNativeClientInputs(t *testing.T) {
 		journey.prepareNativeClient(configuration.ClientHermes, file, readFile(t, filepath.Join("..", "..", "manifests", "team.toml")))
 		requireFileContains(t, filepath.Join(root, "home", ".hermes", "config.yaml"), "updates:\n  check: false")
 	})
-}
-
-func TestNativeClientFilePreservation(t *testing.T) {
-	for _, test := range []struct {
-		name string
-		auth []byte
-	}{
-		{"absent authentication", nil},
-		{"empty authentication", []byte{}},
-		{"existing authentication", []byte("{\"owner\":\"user\"}\n")},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			journey := journeyFixture{testing: t, root: t.TempDir()}
-			home := filepath.Join(journey.root, "home", ".codex")
-			if err := os.MkdirAll(home, 0o700); err != nil {
-				t.Fatal(err)
-			}
-			if test.auth != nil {
-				if err := os.WriteFile(filepath.Join(home, "auth.json"), test.auth, 0o600); err != nil {
-					t.Fatal(err)
-				}
-			}
-			check := journey.preserveClientFiles(configuration.ClientCodex)
-			if err := check(); err != nil {
-				t.Fatal(err)
-			}
-			auth := filepath.Join(home, "auth.json")
-			if err := os.WriteFile(auth, []byte("changed"), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			if err := check(); err == nil {
-				t.Fatal("changed authentication was accepted")
-			}
-			if err := os.Remove(auth); err != nil {
-				t.Fatal(err)
-			}
-			if err := check(); (err == nil) != (test.auth == nil) {
-				t.Fatalf("authentication absence: initial=%q, error=%v", test.auth, err)
-			}
-			if err := os.Mkdir(auth, 0o700); err != nil {
-				t.Fatal(err)
-			}
-			if err := check(); err == nil {
-				t.Fatal("a directory was accepted as an authentication file")
-			}
-		})
-	}
 }
 
 func TestNativeClientJourney(t *testing.T) {
@@ -205,7 +157,8 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		if !t.Run(step.name, func(t *testing.T) {
 			journey.testing = t
 			configurationBefore := readFile(t, journey.config)
-			if hermesSession != nil && step.name == "candidate" {
+			replacement := step.args[0] == "update"
+			if replacement && step.program == p.candidate {
 				journey.runWith(p.candidate, "sync")
 				if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
 					t.Fatal("candidate preprojection changed retained client configuration")
@@ -213,6 +166,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 				journey.requireCredential(retainedCredential, token)
 				journey.requireCredential(journey.retainedCredential(client), token)
 			}
+			projectedCredential := journey.retainedCredential(client)
 			journey.run(step.args...)
 			if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
 				t.Fatal("lifecycle operation changed the retained client configuration")
@@ -220,7 +174,19 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 			journey.requireVersion(step.version)
 			journey.requireProgramBytes(step.program)
 			journey.requireCredential(retainedCredential, token)
-			if hermesSession != nil {
+			journey.requireCredential(projectedCredential, token)
+			if replacement {
+				count := completions.Load()
+				journey.runWith(p.candidate, "verify", "--for", client)
+				if completions.Load() <= count {
+					t.Fatal("retained client projection stopped serving authenticated inference before synchronization")
+				}
+				journey.run("sync")
+				journey.run("check")
+				if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
+					t.Fatal("post-replacement synchronization changed retained client configuration")
+				}
+				journey.requireCredential(projectedCredential, token)
 				journey.requireCredential(journey.retainedCredential(client), token)
 			}
 			count := completions.Load()
@@ -462,44 +428,5 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 		)
 	default:
 		j.testing.Fatalf("unsupported native client %q", client)
-	}
-}
-
-func (j *journeyFixture) preserveClientFiles(client string) func() error {
-	j.testing.Helper()
-	home := filepath.Join(j.root, "home")
-	path, content := filepath.Join(home, ".claude", "CLAUDE.md"), "# User instructions\n"
-	switch client {
-	case configuration.ClientCodex:
-		path, content = filepath.Join(home, ".codex", "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
-	case configuration.ClientHermes:
-		path, content = filepath.Join(home, ".hermes", "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		j.testing.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		j.testing.Fatal(err)
-	}
-	files := map[string][]byte{path: []byte(content)}
-	if client == configuration.ClientCodex {
-		auth := filepath.Join(home, ".codex", "auth.json")
-		data, err := os.ReadFile(auth)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			j.testing.Fatal(err)
-		}
-		files[auth] = data // nil records absence; an empty file has non-nil bytes.
-	}
-	return func() error {
-		for path, want := range files {
-			got, err := os.ReadFile(path)
-			if want == nil && errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-			if err != nil || want == nil || !bytes.Equal(got, want) {
-				return errors.Join(fmt.Errorf("client lifecycle changed user file %s", path), err)
-			}
-		}
-		return nil
 	}
 }
