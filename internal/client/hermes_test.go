@@ -53,7 +53,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	if binding := after.Clients["hermes"]; !binding.Enabled || binding.Executable == "" || len(binding.Targets) != 1 {
 		t.Fatalf("installed Hermes intent was not materialized: %#v", binding)
 	}
-	if err := registry.Apply(context.Background(), deps, cfg, after, "hermes"); err != nil {
+	if _, err := registry.Apply(context.Background(), deps, cfg, after, "hermes"); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(home, ".hermes", "config.yaml")
@@ -75,7 +75,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	}
 	disabled := after.Clone()
 	(hermesAdapter{}).Withdraw(&disabled)
-	if err := registry.Apply(context.Background(), deps, after, disabled, "hermes"); err != nil {
+	if _, err := registry.Apply(context.Background(), deps, after, disabled, "hermes"); err != nil {
 		t.Fatal(err)
 	}
 	for _, target := range []string{path, path + ".aigw-state.json"} {

@@ -170,6 +170,9 @@
 - [ ] 5.6 Compare owned process, helper, temporary, journal, build and
       client-projection resources before/after success, failure, timeout and
       interruption; exact teardown preserves active installations and evidence.
+      A focused fault injection now covers reader disappearance after the final
+      client projection in both commit and reconciliation. The native resource
+      census and final-artifact journey remain open.
 
 ## 6. Quality, Supply Chain, and Performance
 

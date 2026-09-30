@@ -13,6 +13,9 @@ evidence.
 
 ### Changed
 
+- Roll back owned client projections and configuration when credential-reader
+  finalization fails after projection; unchanged-client reconciliation now
+  checks the same post-apply invariant.
 - Recommend GPT-6.1 Sol on the qualified AIHubMix Responses Route for new Codex
   and Hermes bindings; use the existing DMXAPI and UCloud Astra Routes when
   those are the only connected Accounts. Existing explicit bindings remain

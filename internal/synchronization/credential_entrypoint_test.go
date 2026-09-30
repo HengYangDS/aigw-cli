@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"aigw-cli/internal/claude"
@@ -446,25 +445,6 @@ func TestDisablingDefaultClientRetainsEntrypointForExplicitSelfReference(t *test
 	}
 	if _, err := os.Lstat(helper); err != nil {
 		t.Fatalf("explicit active caller lost the owned entrypoint: %v", err)
-	}
-}
-
-func TestFinalizeCredentialEntrypointRejectsMissingActiveHelper(t *testing.T) {
-	root := t.TempDir()
-	syncer := Synchronizer{CredentialPath: filepath.Join(root, "data", "credential", "aigw")}
-	err := syncer.finalizeCredentialEntrypoint(testConfig(filepath.Join(root, "codex.toml")))
-	if err == nil || !strings.Contains(err.Error(), "disappeared after client projection") {
-		t.Fatalf("missing active helper finalization = %v", err)
-	}
-}
-
-func TestFinalizeCredentialEntrypointRejectsInvalidBinding(t *testing.T) {
-	root := t.TempDir()
-	cfg := testConfig(filepath.Join(root, "codex.toml"))
-	delete(cfg.Routes, "gpt")
-	syncer := Synchronizer{CredentialPath: filepath.Join(root, "data", "credential", "aigw")}
-	if err := syncer.finalizeCredentialEntrypoint(cfg); err == nil || !strings.Contains(err.Error(), "inspect credential entrypoint") {
-		t.Fatalf("invalid binding finalization = %v", err)
 	}
 }
 

@@ -62,11 +62,24 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 	if len(projectable) == 0 {
 		return nil
 	}
-	if err := s.applyProjection(ctx, before, after, configBefore, configAfter, undoEntrypoint, projectable...); err != nil {
+	receipt, err := s.applyProjection(ctx, before, after, configBefore, configAfter, undoEntrypoint, projectable...)
+	if err != nil {
 		return fmt.Errorf("%s %w", subject, err)
 	}
 	if err := s.finalizeCredentialEntrypoint(after, projectable...); err != nil {
-		return fmt.Errorf("%s configuration and client projections completed, but credential entrypoint finalization failed: %w", subject, err)
+		projectionErr := receipt.Rollback()
+		configErr := s.Config.RestoreSnapshot(configBefore, configAfter)
+		if projectionErr != nil {
+			projectionErr = fmt.Errorf("%w: %w", client.ErrProjectionRollbackFailed, projectionErr)
+		}
+		var entrypointErr error
+		if projectionErr == nil && configErr == nil {
+			entrypointErr = undoCreatedEntrypoint(undoEntrypoint)
+		}
+		if rollbackErr := errors.Join(projectionErr, configErr, entrypointErr); rollbackErr != nil {
+			return fmt.Errorf("%s credential entrypoint finalization failed: %w; compensation incomplete: %w", subject, err, rollbackErr)
+		}
+		return fmt.Errorf("%s credential entrypoint finalization failed; configuration and client projections were rolled back: %w", subject, err)
 	}
 	return nil
 }
@@ -92,17 +105,18 @@ func (s Synchronizer) applyProjection(
 	configBefore, configAfter configuration.Snapshot,
 	undoEntrypoint func() error,
 	clientIDs ...string,
-) error {
-	if err := s.registry().Apply(ctx, s.clientDependencies(), before, after, clientIDs...); err != nil {
+) (client.ProjectionReceipt, error) {
+	receipt, err := s.registry().Apply(ctx, s.clientDependencies(), before, after, clientIDs...)
+	if err != nil {
 		if rollbackErr := s.Config.RestoreSnapshot(configBefore, configAfter); rollbackErr != nil {
-			return fmt.Errorf("synchronization failed: %w; rollback also failed: %w", err, rollbackErr)
+			return nil, fmt.Errorf("synchronization failed: %w; rollback also failed: %w", err, rollbackErr)
 		}
 		if !errors.Is(err, client.ErrProjectionRollbackFailed) {
 			err = errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
 		}
-		return fmt.Errorf("synchronization failed; configuration was rolled back: %w", err)
+		return nil, fmt.Errorf("synchronization failed; configuration was rolled back: %w", err)
 	}
-	return nil
+	return receipt, nil
 }
 
 func undoCreatedEntrypoint(undo func() error) error {

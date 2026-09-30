@@ -52,11 +52,21 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg configuration.Con
 	if err != nil {
 		return err
 	}
-	err = s.registry().Apply(ctx, s.clientDependencies(), cfg, cfg, clientID)
-	if err == nil || errors.Is(err, client.ErrProjectionRollbackFailed) || undoEntrypoint == nil {
+	receipt, err := s.registry().Apply(ctx, s.clientDependencies(), cfg, cfg, clientID)
+	if err != nil {
+		if !errors.Is(err, client.ErrProjectionRollbackFailed) {
+			err = errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
+		}
 		return err
 	}
-	return errors.Join(err, undoEntrypoint())
+	finalizeErr := s.finalizeCredentialEntrypoint(cfg, clientID)
+	if finalizeErr == nil {
+		return nil
+	}
+	if rollbackErr := receipt.Rollback(); rollbackErr != nil {
+		return fmt.Errorf("%w: credential entrypoint finalization failed: %w; client rollback also failed: %w", client.ErrProjectionRollbackFailed, finalizeErr, rollbackErr)
+	}
+	return errors.Join(fmt.Errorf("credential entrypoint finalization failed; client projection was rolled back: %w", finalizeErr), undoCreatedEntrypoint(undoEntrypoint))
 }
 
 func (s Synchronizer) prepareCredentialEntrypoint(cfg configuration.Config, clientIDs ...string) (func() error, error) {

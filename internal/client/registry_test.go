@@ -90,7 +90,7 @@ func TestRegistryScopesProjectionToTheRequestedClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := configuration.NewConfig()
-	if err := registry.Apply(t.Context(), Dependencies{}, cfg, cfg, "first"); err != nil {
+	if _, err := registry.Apply(t.Context(), Dependencies{}, cfg, cfg, "first"); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(events, []string{"plan:first", "apply:first"}) {
@@ -100,7 +100,7 @@ func TestRegistryScopesProjectionToTheRequestedClient(t *testing.T) {
 	if _, err := registry.Plan(Dependencies{}, cfg, cfg, "unknown"); err == nil {
 		t.Fatal("unknown planning client accepted")
 	}
-	if err := registry.Apply(t.Context(), Dependencies{}, cfg, cfg, "unknown"); err == nil {
+	if _, err := registry.Apply(t.Context(), Dependencies{}, cfg, cfg, "unknown"); err == nil {
 		t.Fatal("unknown projection client accepted")
 	}
 	if len(events) != 0 {
@@ -177,7 +177,7 @@ func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 	if plans, err := registry.Plan(Dependencies{}, cfg, cfg); err != nil || len(plans) != 1 || plans[0].Client != "future" {
 		t.Fatalf("plans = %#v, %v", plans, err)
 	}
-	if err := registry.Apply(context.Background(), Dependencies{}, cfg, cfg); err != nil {
+	if _, err := registry.Apply(context.Background(), Dependencies{}, cfg, cfg); err != nil {
 		t.Fatal(err)
 	}
 	if changed := registry.ChangedClients(configuration.NewConfig(), cfg); !reflect.DeepEqual(changed, []string{"future"}) {
@@ -261,11 +261,32 @@ func TestRegistryCompensatesAppliedAdaptersInReverseOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
+	_, err = registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
 	if !errors.Is(err, failure) || !strings.Contains(err.Error(), "prior adapters were rolled back") {
 		t.Fatalf("Apply() error = %v", err)
 	}
 	want := []string{"plan:first", "plan:second", "apply:first", "apply:second", "rollback:first"}
+	if !reflect.DeepEqual(events, want) {
+		t.Fatalf("events = %#v, want %#v", events, want)
+	}
+}
+
+func TestRegistryReturnsOneRollbackForSuccessfulProjection(t *testing.T) {
+	var events []string
+	first := failingProjectionAdapter{id: "first", events: &events}
+	second := failingProjectionAdapter{id: "second", events: &events}
+	registry, err := NewRegistry([]configuration.ClientSpec{first.Spec(), second.Spec()}, first, second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := registry.Apply(t.Context(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
+	if err != nil || receipt == nil {
+		t.Fatalf("successful projection receipt = %v, %v", receipt, err)
+	}
+	if err := receipt.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"plan:first", "plan:second", "apply:first", "apply:second", "rollback:second", "rollback:first"}
 	if !reflect.DeepEqual(events, want) {
 		t.Fatalf("events = %#v, want %#v", events, want)
 	}
@@ -284,7 +305,7 @@ func TestRegistryReportsCompensationFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
+	_, err = registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
 	if !errors.Is(err, applyFailure) || !errors.Is(err, firstRollbackFailure) || !errors.Is(err, secondRollbackFailure) || !errors.Is(err, ErrProjectionRollbackFailed) {
 		t.Fatalf("Apply() error = %v", err)
 	}
@@ -327,7 +348,7 @@ func TestRegistryCancellationStopsNewWritesAndCompensatesPriorAdapters(t *testin
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = registry.Apply(ctx, Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
+			_, err = registry.Apply(ctx, Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
 			if !errors.Is(err, wantErr) || (conflict != nil && !errors.Is(err, conflict)) {
 				t.Errorf("Apply() error = %v; want %v and any compensation conflict", err, wantErr)
 			}
@@ -371,7 +392,7 @@ func TestRegistryRollbackIgnoresAdaptersWithoutReceipts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig()); !errors.Is(err, failure) {
+	if _, err := registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig()); !errors.Is(err, failure) {
 		t.Fatalf("Apply() error = %v", err)
 	}
 	want := []string{"plan:first", "plan:second", "plan:third", "apply:first", "apply:second", "apply:third", "rollback:second"}
@@ -502,7 +523,7 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 		AIGWExecutable:     "/opt/aigw",
 	}
 
-	err := DefaultRegistry().Apply(t.Context(), deps, before, after)
+	_, err := DefaultRegistry().Apply(t.Context(), deps, before, after)
 	if err == nil || !strings.Contains(err.Error(), "parse Claude settings") {
 		t.Fatalf("Apply() error = %v", err)
 	}
