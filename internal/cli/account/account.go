@@ -373,11 +373,15 @@ func NewBalanceCommand(runtime invocation.Context) *cobra.Command {
 		credential, err := runtime.Accounts.Get(accountName)
 		if err != nil {
 			if !errors.Is(err, secrets.ErrNotFound) {
+				action := "Run `aigw doctor` to inspect the selected credential backend; if it is available, explicitly re-enable diagnostics with `aigw account diagnostics enable " + accountName + "`."
+				if secrets.IsReadOnly(runtime.Secrets) {
+					action = "Set both `" + secrets.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secrets.DiagnosticUserIDEnvironmentKey(accountName) + "` in the parent environment, then retry."
+				}
 				return presentation.ProblemError(
 					"Cannot read provider diagnostic credential",
 					"AIGW could not read a usable provider diagnostic credential for "+accountName+"; this does not establish that it is missing.",
 					"No balance request was sent; the Account Token and diagnostic credential were not changed.",
-					"Run `aigw doctor` to inspect the selected credential backend; if it is available, explicitly re-enable diagnostics with `aigw account diagnostics enable "+accountName+"`.",
+					action,
 					err,
 				)
 			}

@@ -62,7 +62,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := buffer.String(); !strings.Contains(got, "Precise balance enabled") {
+	if got := buffer.String(); !strings.Contains(got, "Diagnostic credential present · content not verified") {
 		t.Fatalf("enabled diagnostic status = %q", got)
 	}
 
@@ -153,15 +153,17 @@ func TestStatusStatesClaudeDesktopQualifiedModesAndPlatforms(t *testing.T) {
 
 func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T) {
 	for _, test := range []struct {
-		name       string
-		probe      *configuration.AccountProbe
-		credential bool
-		want       string
+		name        string
+		probe       *configuration.AccountProbe
+		credential  bool
+		environment bool
+		want        string
 	}{
 		{name: "no probe", want: "Provider does not expose a balance probe"},
 		{name: "unsupported probe", probe: &configuration.AccountProbe{Kind: "future", BaseURL: "https://probe.test"}, want: "Provider diagnostics unavailable in this version"},
-		{name: "missing probe credential", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Precise balance disabled"},
-		{name: "available probe credential", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Precise balance enabled"},
+		{name: "missing probe credential", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Precise balance not ready"},
+		{name: "available probe credential", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Diagnostic credential present · content not verified"},
+		{name: "incomplete environment pair", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, environment: true, want: secrets.DiagnosticUserIDEnvironmentKey("one")},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, buffer := configuredReadinessRuntime(t)
@@ -175,6 +177,15 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 			if err := runtime.Secrets.Set("one", "token"); err != nil {
 				t.Fatal(err)
 			}
+			if test.environment {
+				values := map[string]string{secrets.EnvironmentKey("one"): "token", secrets.DiagnosticSystemTokenEnvironmentKey("one"): "private-fixture"}
+				backend := secrets.NewEnvironmentStore(func(key string) string { return values[key] })
+				accounts, err := secrets.NewDiagnosticCredentialStore(backend)
+				if err != nil {
+					t.Fatal(err)
+				}
+				runtime.Secrets, runtime.Accounts = backend, accounts
+			}
 			if test.credential {
 				if err := runtime.Accounts.Set("one", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
 					t.Fatal(err)
@@ -186,6 +197,9 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 			output := buffer.String()
 			if !strings.Contains(output, test.want) || !strings.Contains(output, "Loopback endpoint") {
 				t.Fatalf("output = %q", output)
+			}
+			if test.environment && (strings.Contains(output, "aigw account diagnostics enable") || strings.Contains(output, "private-fixture")) {
+				t.Fatalf("environment status recommended a write or disclosed a value: %s", output)
 			}
 		})
 	}

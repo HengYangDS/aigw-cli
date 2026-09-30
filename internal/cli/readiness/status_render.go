@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
 	domainreadiness "aigw-cli/internal/readiness"
+	"aigw-cli/internal/secrets"
 	"strings"
 )
 
@@ -106,9 +107,13 @@ func renderDiagnosticStatus(runtime invocation.Context, r *presentation.Renderer
 		case err != nil:
 			r.Status(presentation.Warn, accountName, "Credential metadata unavailable · aigw doctor")
 		case available:
-			r.Status(presentation.OK, accountName, "Precise balance enabled")
+			r.Status(presentation.Info, accountName, "Diagnostic credential present · content not verified")
 		default:
-			r.Status(presentation.Warn, accountName, "Precise balance disabled · aigw account diagnostics enable "+accountName)
+			action := "aigw account diagnostics enable " + accountName
+			if secrets.IsReadOnly(runtime.Secrets) {
+				action = "set `" + secrets.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secrets.DiagnosticUserIDEnvironmentKey(accountName) + "`"
+			}
+			r.Status(presentation.Warn, accountName, "Precise balance not ready · "+action)
 		}
 	}
 }

@@ -3,6 +3,7 @@
 package readiness
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
+	"aigw-cli/internal/secrets"
 
 	"github.com/spf13/cobra"
 )
@@ -91,6 +93,7 @@ type evaluatedClient struct {
 	runtime             configuration.Runtime
 	resolveErr          error
 	credentialErr       error
+	credentialState     domainreadiness.State
 	fix                 string
 	checkPassed         bool
 	issue               string
@@ -178,8 +181,18 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg configur
 	token, tokenErr := runtime.Secrets.Get(clientRuntime.AccountID)
 	if tokenErr != nil {
 		result.credentialErr = tokenErr
+		if !errors.Is(tokenErr, secrets.ErrNotFound) {
+			result.credentialState = domainreadiness.Unavailable
+			result.issue = "account token could not be read"
+			result.fix = domainreadiness.CredentialBackendRecovery
+			return result
+		}
+		result.credentialState = domainreadiness.Deferred
 		result.issue = "account token is unavailable"
 		result.fix = "aigw rotate " + clientRuntime.AccountID
+		if instruction, writable := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID); !writable {
+			result.fix = instruction
+		}
 		return result
 	}
 	scope := selectedCheckScope(cmd)
@@ -289,6 +302,9 @@ func checkedClientStatuses(runtime invocation.Context, cfg configuration.Config,
 		status.NativeModelOverride = client.nativeModelOverride
 		status.Attempts = client.diagnostic.Attempts
 		status.Retryable = client.diagnostic.Retryable
+		if client.credentialErr != nil {
+			status.State = client.credentialState
+		}
 		if !status.ProjectionDeferred {
 			if client.issue != "" {
 				status.Detail = client.issue
@@ -426,13 +442,16 @@ func renderCheckedClient(runtime invocation.Context, renderer *presentation.Rend
 		return "", false, invocation.Problem(runtime, invocation.Title(client)+" binding cannot be resolved", result.resolveErr.Error(), invocation.Title(client)+" cannot determine which Route to use.", recommendedAction("aigw use --for "+client+" <route>"), result.resolveErr)
 	}
 	if result.credentialErr != nil {
-		instruction, _ := credential.TokenRecovery(runtime.Secrets, result.runtime.AccountID)
+		evidence := "Account " + result.runtime.AccountID + " has no available Token."
+		if result.credentialState == domainreadiness.Unavailable {
+			evidence = "The selected credential backend could not return Account " + result.runtime.AccountID + "'s Token; its presence cannot be inferred."
+		}
 		return "", false, invocation.Problem(
 			runtime,
-			invocation.Title(client)+" account token is unavailable",
-			"Account "+result.runtime.AccountID+" has no available Token.",
+			invocation.Title(client)+" "+result.issue,
+			evidence,
 			invocation.Title(client)+" cannot authenticate to its selected endpoint.",
-			recommendedAction(instruction),
+			recommendedAction(result.fix),
 			fmt.Errorf("%s account token unavailable: %w", client, result.credentialErr),
 		)
 	}

@@ -96,7 +96,7 @@ func (store keyringStore) get(kind Kind, account string) (string, error) {
 		return "", fmt.Errorf("read %s/%s from system keyring: %w", Service, slot, err)
 	}
 	if value == "" {
-		return "", ErrNotFound
+		return "", errors.New("stored credential is empty")
 	}
 	return value, nil
 }

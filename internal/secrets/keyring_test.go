@@ -86,13 +86,17 @@ func TestKeyringStoreMapsEmptyValuesAndProviderErrors(t *testing.T) {
 	if err := keyring.Set(Service, "dmx", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := (scopedView{store: mockKeyringStore()}).Get("dmx"); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("empty provider value error = %v", err)
+	store := scopedView{store: mockKeyringStore()}
+	if present, err := store.Exists("dmx"); err != nil || !present {
+		t.Fatalf("empty provider value slot presence = %t, %v", present, err)
+	}
+	if _, err := store.Get("dmx"); err == nil || errors.Is(err, ErrNotFound) {
+		t.Fatalf("present empty provider value was reported absent: %v", err)
 	}
 	want := errors.New("keyring unavailable")
 	keyring.MockInitWithError(want)
 	t.Cleanup(keyring.MockInit)
-	store := scopedView{store: mockKeyringStore()}
+	store = scopedView{store: mockKeyringStore()}
 	if _, err := store.Get("dmx"); !errors.Is(err, want) {
 		t.Fatalf("Get error = %v", err)
 	}

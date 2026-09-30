@@ -165,6 +165,35 @@ func TestBalanceDoesNotReportUnreadableDiagnosticCredentialAsMissing(t *testing.
 	}
 }
 
+func TestBalanceReportsIncompleteEnvironmentDiagnosticPair(t *testing.T) {
+	app, out, _, _, httpClient := testApp(t, "")
+	saveProbeRoute(t, app.Config)
+	values := map[string]string{secrets.DiagnosticSystemTokenEnvironmentKey("dmx"): "private-system-token"}
+	backend := secrets.NewEnvironmentStore(func(key string) string { return values[key] })
+	accounts, err := secrets.NewDiagnosticCredentialStore(backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.Secrets, app.Accounts = backend, accounts
+
+	if err := cli.Execute(app, []string{"balance"}); err == nil {
+		t.Fatal("incomplete diagnostic pair was accepted")
+	}
+	for _, want := range []string{"Cannot read provider diagnostic credential", secrets.DiagnosticSystemTokenEnvironmentKey("dmx"), secrets.DiagnosticUserIDEnvironmentKey("dmx")} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("balance output lacks %q: %s", want, out.String())
+		}
+	}
+	for _, forbidden := range []string{"Missing dmx", "aigw account diagnostics enable", "private-system-token"} {
+		if strings.Contains(out.String(), forbidden) {
+			t.Fatalf("balance output contains %q: %s", forbidden, out.String())
+		}
+	}
+	if httpClient.calls != 0 {
+		t.Fatalf("incomplete diagnostics sent %d provider requests", httpClient.calls)
+	}
+}
+
 func TestAccountDiagnosticsEnableStoresSeparateCredentialAndBalanceShowsDetails(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	accountStore := app.Accounts

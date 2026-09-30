@@ -185,8 +185,11 @@ func TestFileStoreReadAndDeleteBoundaries(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "empty"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Get("empty"); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("Get() empty error = %v, want ErrNotFound", err)
+	if !mustExist(t, store, "empty") {
+		t.Fatal("empty credential file was reported absent")
+	}
+	if _, err := store.Get("empty"); err == nil || errors.Is(err, ErrNotFound) {
+		t.Fatalf("present empty credential file was reported absent: %v", err)
 	}
 	if err := store.Set("present", "token"); err != nil {
 		t.Fatal(err)

@@ -184,8 +184,8 @@ func TestEnvironmentDiagnosticRequiresCompletePair(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := diagnostics.Get("dmx"); !errors.Is(err, ErrNotFound) {
-			t.Fatalf("partial diagnostic variables returned %v", err)
+		if _, err := diagnostics.Get("dmx"); err == nil || errors.Is(err, ErrNotFound) {
+			t.Fatalf("partial diagnostic variables were reported absent: %v", err)
 		}
 	}
 }
