@@ -3,6 +3,7 @@ package credential
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"unicode"
 
@@ -18,11 +19,18 @@ func Command(executable, client, scope, goos string) (string, error) {
 	if !configuration.ValidIdentifier(client) || !configuration.ValidIdentifier(scope) {
 		return "", fmt.Errorf("credential client and projection identity must be safe identifiers")
 	}
+	if goos == "windows" && strings.ContainsAny(executable, "\"%!^&|<>()") {
+		return "", fmt.Errorf("credential executable contains Windows shell expansion characters")
+	}
+	if goos == "windows" && runtime.GOOS == "windows" {
+		var err error
+		executable, err = nativeShellPath(executable)
+		if err != nil {
+			return "", err
+		}
+	}
 	quoted := "'" + strings.ReplaceAll(executable, "'", "'\\''") + "'"
 	if goos == "windows" {
-		if strings.ContainsAny(executable, "\"%!^&|<>()") {
-			return "", fmt.Errorf("credential executable contains Windows shell expansion characters")
-		}
 		quoted = `"` + executable + `"`
 	}
 	return quoted + " credential " + client + " " + scope, nil
@@ -54,6 +62,9 @@ func ExecutableFromCommand(command, client, scope, goos string) (string, error) 
 	rendered, err := Command(executable, client, scope, goos)
 	if err != nil || rendered != command {
 		return "", fmt.Errorf("credential invocation differs from AIGW's exact command grammar")
+	}
+	if goos == "windows" && runtime.GOOS == "windows" {
+		return nativeCanonicalPath(executable)
 	}
 	return executable, nil
 }

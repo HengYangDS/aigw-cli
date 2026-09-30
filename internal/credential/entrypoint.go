@@ -55,8 +55,27 @@ func ValidateRetainedEntrypoint(current, retained string) error {
 	if !currentOK || !retainedOK {
 		return errors.New("credential reader path is not versioned")
 	}
-	if currentNamespace != retainedNamespace || currentName != retainedName {
+	if currentName != retainedName {
 		return errors.New("retained credential reader belongs to another installation")
+	}
+	for _, directory := range privateEntrypointDirectories(current) {
+		info, err := os.Lstat(directory)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return errors.New("current credential reader namespace is unavailable")
+		}
+		if err := validatePrivateDirectory(directory, info); err != nil {
+			return err
+		}
+	}
+	if currentNamespace != retainedNamespace {
+		currentInfo, currentErr := os.Stat(currentNamespace)
+		retainedInfo, retainedErr := os.Stat(retainedNamespace)
+		if currentErr != nil || retainedErr != nil || !os.SameFile(currentInfo, retainedInfo) {
+			return errors.New("retained credential reader belongs to another installation")
+		}
 	}
 	missing, err := EntrypointNeeded(retained)
 	if err != nil || missing {

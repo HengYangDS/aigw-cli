@@ -2,10 +2,12 @@ package main
 
 import (
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -185,4 +187,42 @@ func requiredClientInput(key string, directory bool) (string, error) {
 		return "", fmt.Errorf("%s has the wrong input kind", key)
 	}
 	return path, nil
+}
+
+func TestRetainedCredentialFailurePreservesSafeDiagnostics(t *testing.T) {
+	const token = "credential-diagnostic-token"
+	const marker = "credential-reader-rejected"
+	if os.Getenv("AIGW_TEST_CREDENTIAL_DIAGNOSTIC") == "child" {
+		if os.Getenv("AIGW_TEST_CREDENTIAL_DIAGNOSTIC_SOURCE") == "reader" {
+			_, _ = fmt.Fprintln(os.Stderr, marker, token)
+			os.Exit(23)
+		}
+		program, err := os.Executable()
+		if err != nil {
+			t.Fatal(err)
+		}
+		journey := &journeyFixture{testing: t, sensitiveInputs: []string{token}}
+		journey.requireCredential(process.Plan{
+			Executable: program,
+			Args:       []string{"-test.run=^TestRetainedCredentialFailurePreservesSafeDiagnostics$"},
+			Env:        append(os.Environ(), "AIGW_TEST_CREDENTIAL_DIAGNOSTIC_SOURCE=reader"),
+		}, token)
+		return
+	}
+	program, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(t.Context(), process.Plan{
+		Executable: program,
+		Args:       []string{"-test.run=^TestRetainedCredentialFailurePreservesSafeDiagnostics$"},
+		Env:        append(os.Environ(), "AIGW_TEST_CREDENTIAL_DIAGNOSTIC=child"),
+	})
+	if _, failed := errors.AsType[*exec.ExitError](err); !failed {
+		t.Fatalf("failing credential fixture did not fail: %v", err)
+	}
+	diagnostic := string(stdout) + string(stderr)
+	if !strings.Contains(diagnostic, marker) || strings.Contains(diagnostic, token) {
+		t.Fatalf("credential failure lost its safe cause or leaked its Token: %q", diagnostic)
+	}
 }

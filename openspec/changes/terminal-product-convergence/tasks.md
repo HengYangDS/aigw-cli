@@ -225,6 +225,14 @@
 - [ ] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
+      Exact `70271cab` package acceptance passes the shipped team and portable
+      lifecycle but rejects two retained Claude shell commands. Native path
+      primitives isolate ordinary shell execution beyond 260 characters from
+      file creation and explicit Win32 execution. A tracked deep-namespace
+      regression fails before and passes after native-name projection under the
+      actual Runner identity; canonical namespace and preparation spelling are
+      preserved. Full rebuilt-package and published-predecessor acceptance
+      remain open; primitive and source tests do not qualify those journeys.
 - [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
       environment backend separately; no password/biometric retry loop, service
       restart, or hidden native-store policy change is permitted. At signed

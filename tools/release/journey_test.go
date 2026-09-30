@@ -399,7 +399,8 @@ func (j *journeyFixture) requireCredential(plan process.Plan, want string) {
 	defer cancel()
 	output, err := (process.Runner{}).RunCapture(ctx, plan)
 	if err != nil {
-		j.testing.Fatalf("execute retained credential command: %v", err)
+		j.testing.Fatalf("execute retained credential command: %v\nstderr:\n%s", err,
+			redaction.Text(string(output), append(slices.Clone(j.sensitiveInputs), want)...))
 	}
 	if strings.TrimSpace(string(output)) != want {
 		j.testing.Fatal("retained credential command returned unexpected content")

@@ -91,6 +91,12 @@ Keep source snapshots as `.go.txt` or archives. Ordinary `.go` files in ignored
 handwritten verdict or summary checksum. [`.serena/`](.gitignore) and other local
 indexes remain ignored, disposable and outside product authority.
 
+Before transporting a private Git snapshot between hosts, disable
+`core.untrackedCache` in that snapshot's local configuration before producing
+its index. A copied `UNTR` extension carries host filesystem assumptions and
+can warn on another platform; changing the destination's global Git policy or
+filtering the warning is not a repair.
+
 ## Projection changes
 
 `aigw sync --dry-run --json` is credential-free planning: no lock, session edit,

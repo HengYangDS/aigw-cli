@@ -72,6 +72,20 @@ disclosed rather than represented as uninterrupted service.
 - **AND** native credential denial SHALL block production acceptance rather than
   trigger an alternate reader, ACL change or repeated authorization attempt.
 
+#### Scenario: A Windows credential reader exceeds the native shell path limit
+
+- **GIVEN** an owned versioned reader has a canonical path longer than the
+  native Windows shell can execute
+- **WHEN** AIGW prepares its shell-based credential invocation
+- **THEN** it SHALL use only a Windows-provided short name whose existing
+  ancestor identifies the same native file object
+- **AND** command spelling SHALL remain stable before and after reader
+  preparation, while inspection restores the canonical versioned namespace
+- **AND** it SHALL NOT create an alias, launcher, junction, credential helper,
+  alternate store, or native short-name policy
+- **AND** an unavailable, ambiguous, unsafe, or insufficient native name SHALL
+  fail before configuration or client projections are committed.
+
 #### Scenario: The package manager temporarily removes the CLI path
 
 - **GIVEN** an update has been admitted for clients retaining original

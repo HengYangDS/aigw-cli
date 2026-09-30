@@ -172,6 +172,14 @@ command passes its selected backend. Old copies are not removed merely because
 the current configuration points elsewhere: explicit, cached, rollback and
 unknown consumers must be accounted for before exact deletion.
 
+Windows file creation and shell execution have different path limits. A deep
+canonical reader can exist while `cmd.exe` cannot invoke it. Shell projection
+uses only an OS-provided short ancestor name, checked against the same native
+file identity, and recovers the canonical namespace for inspection. It neither
+creates aliases nor changes short-name policy. The chosen spelling must remain
+stable through reader preparation; no usable native name means no projection
+commit. An extended path prefix alone does not qualify a shell invocation.
+
 Explicit portable uninstall withdraws managed projections and removes the
 selected installation executable and its single rollback copy. It retains
 every versioned reader and receipt byte-for-byte: the content-addressed path

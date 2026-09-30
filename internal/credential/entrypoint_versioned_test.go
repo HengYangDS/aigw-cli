@@ -290,3 +290,38 @@ func TestRetainedEntrypointRequiresTheSameIntactVersionedNamespace(t *testing.T)
 		t.Fatal("drifted predecessor receipt was accepted")
 	}
 }
+
+func TestRetainedEntrypointRejectsRedirectedCurrentNamespace(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows native reparse-point fixtures require their own OS contract")
+	}
+	root := t.TempDir()
+	paths := make([]string, 0, 2)
+	for _, version := range []string{"predecessor", "successor"} {
+		source := filepath.Join(root, version)
+		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		reader, err := VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+		if err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, reader)
+	}
+	retained, current := paths[0], paths[1]
+	if _, err := EnsureEntrypoint(filepath.Join(root, "predecessor"), retained); err != nil {
+		t.Fatal(err)
+	}
+	foreign := filepath.Join(root, "foreign")
+	if err := os.Mkdir(foreign, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	redirect := filepath.Join(foreign, "credential")
+	if err := os.Symlink(filepath.Dir(filepath.Dir(retained)), redirect); err != nil {
+		t.Fatal(err)
+	}
+	current = filepath.Join(redirect, filepath.Base(filepath.Dir(current)), "aigw")
+	if err := ValidateRetainedEntrypoint(current, retained); err == nil {
+		t.Fatal("a redirected current namespace was accepted as the owned installation")
+	}
+}
