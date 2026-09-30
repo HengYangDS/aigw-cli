@@ -112,7 +112,7 @@ func acceptNative(request buildRequest, artifacts string, clients bool, performa
 	}
 	if clients {
 		call.Args = []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClientJourney$", "-count=1", "-v"}
-		call.Env = currentEnvironment
+		call.Env = publishedEnvironment
 		if err := run(call); err != nil {
 			return err
 		}

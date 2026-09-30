@@ -503,10 +503,12 @@ manifest the released predecessor can actually read. A 0.1.0 baseline proves
 the required schema migration and exact configuration rollback. A 0.2.0
 baseline proves that no migration is needed, synchronization preserves the
 configuration bytes, and program rollback and forward recovery remain usable.
-The current-schema package and real-client
-journeys retain their own predecessor fixture. To exercise the published
-transition, supply an extracted native binary from an independently verified
-archive. A Homebrew-managed executable is not a portable installation input:
+The current-schema package journey retains its own predecessor fixture. The
+real-client journey uses that fixture only when no baseline is supplied; with
+an explicit baseline, it receives the published predecessor. To exercise the
+published transition, supply an extracted native binary from an independently
+verified archive. A Homebrew-managed executable is not a portable installation
+input:
 
 ```bash
 AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
@@ -585,8 +587,9 @@ executing anything from the matrix. It copies only the native archive and
 checksum file into owned scratch, extracts through the product's verified
 archive reader, and runs both the current-schema lifecycle and the separate
 published-predecessor lifecycle when a baseline is supplied. Source artifacts remain
-unchanged; success and failure both reclaim scratch. `--clients` adds the same
-current-schema real-client journey described below. The same candidate also runs the reviewed
+unchanged; success and failure both reclaim scratch. `--clients` adds the
+real-client journey described below, using the published predecessor when one
+is supplied. The same candidate also runs the reviewed
 team manifest through import without Tokens or clients, each Account becoming
 available independently, deferred client synchronization, stable repeated sync,
 credential-helper execution and uninstall. Client discovery uses fixtures here;
@@ -651,8 +654,11 @@ operator's accounts or native credential store. It consumes the reviewed
 `manifests/team.toml`, preserving Routes and recommendations while directing
 Account endpoints to the isolated server. The server requires the recommended
 model, configured effort and streaming protocol; a different model cannot
-silently satisfy acceptance. The admitted clients execute at the current-schema
-predecessor fixture, exact candidate, rollback and re-upgrade; uninstall preserves
+silently satisfy acceptance. With `AIGW_ACCEPTANCE_BASELINE`, admitted clients
+must execute from that published predecessor through the exact candidate,
+rollback and re-upgrade. Without it, Codex and Claude use current-schema
+fixtures while Hermes proves first adoption. A predecessor lacking a client
+does not establish that client's published-release succession. Uninstall preserves
 post-setup authentication presence and bytes, plus user files. An absent
 `auth.json` stays absent; an existing empty file is distinct from absence. The
 verification fixture observes authentication storage without rewriting it.
