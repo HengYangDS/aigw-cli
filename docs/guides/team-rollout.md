@@ -176,10 +176,12 @@ provider's maximum context capacity or prove that compaction has executed.
 
 ### Client compatibility
 
-Check `codex --version` or `claude --version` and run `aigw verify --for <client>`
-before rollout. A provider may require a newer client even when an API request
-works. Update through the existing installation owner rather than adding a
-second executable. Claude Code's
+Check `codex --version`, `claude --version`, or `hermes --version` for the
+installed CLI, then run `aigw verify --for <client>` for each enabled client
+before rollout. Claude Desktop needs separate application-version and native
+verification evidence. A provider may require a newer client even when an API
+request works. Update through the existing installation owner rather than
+adding a second executable. Claude Code's
 [`stable` and `latest` channels](https://code.claude.com/docs/en/setup#update-claude-code)
 are distinct; choose deliberately when compatibility requires a channel change.
 The recommended [Fable 5.1](https://code.claude.com/docs/en/model-config#work-with-fable)
@@ -292,12 +294,21 @@ failed selection compensates its own credential writes; it preserves a newer
 credential and reports any incomplete recovery. An output error after commit
 does not undo the selection. Run `aigw status` before retrying.
 
-### Select a protocol for a multi-protocol Route
+### Hermes protocol and model selection
 
-`use --for` accepts `claude`, `claude-desktop`, `codex`, and `hermes`. A Route
-may expose more than one protocol to Hermes. If no previous binding or team
-recommendation resolves that choice, interactive `use` asks which protocol to
-use; non-interactive use requires one explicitly:
+With Hermes installed and a connected DMXAPI Account, select and verify its
+GPT-6 Sol Route without changing Codex or Claude bindings:
+
+```bash
+aigw use --for hermes dmxapi-gpt-6-sol
+aigw verify --for hermes
+```
+
+The Hermes projection includes compatible models from connected Accounts;
+selecting one active model does not remove the others. A Route may expose more
+than one protocol to Hermes. If no previous binding or team recommendation
+resolves that choice, interactive `use` asks which protocol to use;
+non-interactive use requires one explicitly:
 
 ```bash
 aigw use --for hermes --protocol openai_responses <route>
@@ -336,7 +347,7 @@ to use the client's own authentication:
 ```bash
 aigw sync
 aigw check
-aigw verify --for codex
+aigw verify --for <client>
 ```
 
 `aigw status` observes selection and projection readiness without client
@@ -355,7 +366,8 @@ For unattended setup, pipe one platform system-token line to
 This optional credential is separate from the Account API Token; incomplete
 flag pairs fail before standard input is read.
 
-Claude Code and Account-Token Codex bindings use projection-matching helpers.
+Claude Code, Hermes, and Account-Token Codex bindings use
+projection-matching helpers.
 Changing Account or endpoint invalidates a retained helper invocation: run
 `aigw sync` and reload the client's configuration. The helper does not return a
 new Account's Token to a client retaining the old endpoint.

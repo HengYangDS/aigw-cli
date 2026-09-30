@@ -570,11 +570,10 @@ The [projection transaction](../decisions/dr-0006-transactional-client-projectio
 prepares every target before writing and guards compensation against newer
 edits. It does not provide atomic visibility across client files or homes.
 
-It must also define its uninstall boundary. OpenCode, Pi, Hermes Agent, Qoder,
-and later clients therefore extend AIGW through the same contract rather than
-through Codex or Claude Code conditionals. Hermes provider projection, for
-example, would never grant AIGW authority over Hermes tools, memory, sessions,
-or runtime lifecycle.
+It must also define its uninstall boundary. The admitted Hermes Adapter and
+future OpenCode, Pi, or Qoder Adapters use this same contract rather than
+Codex or Claude Code conditionals. AIGW projects Hermes provider configuration
+but does not own Hermes tools, memory, sessions, or runtime lifecycle.
 
 The detailed admission evidence belongs to
 [Adapter Admission](../governance/adapter-admission.md). Provider-specific wire

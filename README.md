@@ -128,12 +128,14 @@ available recommendation.
 
 `--for` accepts `claude`, `claude-desktop`, `codex`, and `hermes`. A Route
 exposing more than one compatible protocol requires an explicit choice; see
-[client-scoped protocol selection](docs/guides/team-rollout.md#select-a-protocol-for-a-multi-protocol-route).
+[Hermes protocol and model selection](docs/guides/team-rollout.md#hermes-protocol-and-model-selection).
 
 `sync` discovers installed clients and changes only AIGW-owned projection state.
 It reconciles enabled client bindings whose Route, authentication, and native
-surface are available. It never selects a Route, enables an unbound client,
-replaces Tokens, or creates missing clients. See the complete
+surface are available. With the read-only environment backend, a newly available
+Account Token can also activate an unbound client's reviewed recommendation;
+writable stores are not searched for unselected Tokens. `sync` never replaces an
+explicit selection or Token, or creates a missing client. See the complete
 [first-member and deferred-client journey](docs/guides/team-rollout.md#new-member).
 
 An installation retaining the preceding schema fails normal commands closed.
