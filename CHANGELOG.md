@@ -13,6 +13,9 @@ evidence.
 
 ### Changed
 
+- Allow `aigw check --for <client>` to probe one enabled client without reading
+  unrelated Account credentials or contacting unrelated endpoints; omission
+  retains the all-enabled check.
 - Clarify the distinct `status`, `test`, `check`, and `verify` evidence scopes,
   quota and checkpoint effects, configuration versus program rollback, and
   portable uninstall ownership in CLI help and user guidance.

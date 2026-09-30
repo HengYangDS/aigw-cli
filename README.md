@@ -181,7 +181,7 @@ aigw verify --for <client>
 | Command    | Contract                                                                 |
 | ---------- | ------------------------------------------------------------------------ |
 | `status`   | Observe Client Bindings and projection readiness without reading Tokens  |
-| `check`    | Check all enabled clients; default inference may use provider quota      |
+| `check`    | Check enabled clients; default inference may use provider quota          |
 | `doctor`   | Explain current problems without mutation                                |
 | `repair`   | Reconcile bounded AIGW-owned client state                                |
 | `test`     | Probe an endpoint without model inference or native-client execution     |
@@ -190,6 +190,8 @@ aigw verify --for <client>
 
 Use `aigw repair --dry-run --json` before repairing drift. Human output gives one
 next action; machine consumers use the command's JSON mode where available.
+`aigw check` examines all enabled clients unless `--for <client>` limits its
+credential, projection, and network observations to one enabled client.
 
 ## Product model
 

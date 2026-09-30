@@ -20,16 +20,26 @@ import (
 // NewCheckCommand builds the read-only health check for every enabled client.
 func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
+	var client string
 	cmd := &cobra.Command{
 		Use:   "check",
 		Short: "Check enabled clients; selected-model probes may use quota",
-		Long: "Check every enabled client's binding, credential, and native projection.\n" +
+		Long: "Check every enabled client by default, or one with --for.\n" +
+			"Inspect its binding, credential, and native projection.\n" +
 			"For AIGW-managed Tokens, the default sends one bounded selected-model\n" +
 			"inference request per eligible client and may use provider quota.\n" +
 			"Use --endpoint-only for a model-free authenticated endpoint request.\n" +
 			"This command does not execute a native client or change configuration;\n" +
 			"use verify for real-client evidence.",
-		Args: cobra.NoArgs,
+		Args: cobra.MatchAll(cobra.NoArgs, func(cmd *cobra.Command, _ []string) error {
+			if cmd.Flags().Changed("for") && strings.TrimSpace(client) == "" {
+				return fmt.Errorf("--for requires a non-empty client; run `aigw check --help`")
+			}
+			if client != "" && !configuration.IsAdmittedClient(client) {
+				return fmt.Errorf("--for must be %s; run `aigw check --help`", configuration.AdmittedClientUsage())
+			}
+			return nil
+		}),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if jsonMode {
 				return runJSONCheck(cmd, runtime)
@@ -37,6 +47,7 @@ func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 			return RunCheck(cmd, runtime)
 		},
 	}
+	cmd.Flags().StringVar(&client, "for", "", "Check one enabled client: "+configuration.AdmittedClientLabelUsage()+"; omit for all")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
 	cmd.Flags().Bool("endpoint-only", false, "Use model-free endpoint authentication instead of inference")
 	return cmd
@@ -99,6 +110,35 @@ func selectedCheckScope(cmd *cobra.Command) diagnostics.Scope {
 		return diagnostics.ScopeEndpoint
 	}
 	return diagnostics.ScopeInference
+}
+
+func selectedCheckClient(cmd *cobra.Command) string {
+	flag := cmd.Flags().Lookup("for")
+	if flag == nil {
+		return ""
+	}
+	return flag.Value.String()
+}
+
+func checkConfigurationFor(cfg configuration.Config, client string) (configuration.Config, string, error) {
+	if client == "" {
+		return cfg, "", nil
+	}
+	if !cfg.Clients[client].Enabled {
+		action := "aigw use --for " + client + " <route>"
+		if cfg.SelectedRoute(client) != "" {
+			action = "aigw client enable " + client
+		}
+		return cfg, action, fmt.Errorf("%s is not enabled", invocation.Title(client))
+	}
+	scoped := cfg.Clone()
+	for id, binding := range scoped.Clients {
+		if id != client {
+			binding.Enabled = false
+			scoped.Clients[id] = binding
+		}
+	}
+	return scoped, "", nil
 }
 
 func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config) checkEvaluation {
@@ -186,11 +226,16 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if len(cfg.Routes) == 0 {
 		return writeJSONFailure(runtime, domainreadiness.Deferred, "not configured", "aigw setup", fmt.Errorf("not configured"))
 	}
+	selected := selectedCheckClient(cmd)
+	cfg, action, err := checkConfigurationFor(cfg, selected)
+	if err != nil {
+		return writeJSONFailure(runtime, domainreadiness.Deferred, err.Error(), action, err)
+	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
 		_, _, issue, cause := activationCheckIssue(activation)
 		result := checkJSON{
-			Clients:        inspectStatusClients(runtime, cfg, &activation),
+			Clients:        inspectStatusClients(runtime, cfg, &activation, selected),
 			EnabledClients: activation.EnabledClients,
 			OK:             false,
 			State:          activation.State,
@@ -203,7 +248,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		return presentation.Presented(cause)
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
-	clients := checkedClientStatuses(runtime, cfg, &activation, evaluation)
+	clients := checkedClientStatuses(runtime, cfg, &activation, evaluation, selected)
 	result := checkJSON{
 		Clients:        clients,
 		EnabledClients: activation.EnabledClients,
@@ -228,8 +273,8 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	return nil
 }
 
-func checkedClientStatuses(runtime invocation.Context, cfg configuration.Config, activation *clientactivation.Activation, evaluation checkEvaluation) map[string]clientStatus {
-	clients := inspectStatusClients(runtime, cfg, activation)
+func checkedClientStatuses(runtime invocation.Context, cfg configuration.Config, activation *clientactivation.Activation, evaluation checkEvaluation, selected string) map[string]clientStatus {
+	clients := inspectStatusClients(runtime, cfg, activation, selected)
 	for _, client := range evaluation.clients {
 		status := clients[client.client]
 		status.Route = client.runtime.RouteID
@@ -304,6 +349,11 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if len(cfg.Routes) == 0 {
 		return invocation.Problem(runtime, "Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
+	selected := selectedCheckClient(cmd)
+	cfg, action, err := checkConfigurationFor(cfg, selected)
+	if err != nil {
+		return invocation.Problem(runtime, "Client is not enabled", err.Error(), "No endpoint or model was checked.", action, err)
+	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
 		problem, evidence, _, cause := activationCheckIssue(activation)
@@ -311,7 +361,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
 	if !evaluation.ok() {
-		clients := checkedClientStatuses(runtime, cfg, &activation, evaluation)
+		clients := checkedClientStatuses(runtime, cfg, &activation, evaluation, selected)
 		action, clientID := failedCheckContinuation(&activation, evaluation, clients)
 		if client, found := evaluation.client(clientID); found {
 			_, _, err := renderCheckedClient(runtime, invocation.Renderer(runtime), client, action)
@@ -329,6 +379,9 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	verificationCommands := []string{}
 	inferenceUnverified := false
 	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
+		if selected != "" && client != selected {
+			continue
+		}
 		adapter := cfg.Clients[client]
 		if !adapter.Enabled {
 			renderer.Status(presentation.Info, invocation.Title(client), "Disabled")
@@ -346,7 +399,11 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	}
 	renderer.Section("Result")
 	// Passing this command establishes only the scopes reported per client.
-	renderer.Success("All enabled client checks passed")
+	if selected == "" {
+		renderer.Success("All enabled client checks passed")
+	} else {
+		renderer.Success("Selected client check passed")
+	}
 	if inferenceUnverified {
 		renderer.Detail("Model inference was not verified for endpoint-only or client-native checks")
 	}

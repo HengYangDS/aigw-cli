@@ -23,6 +23,8 @@ default and may use provider quota. `--endpoint-only` makes a model-free
 request; `verify --for <client>` runs a real client and may make multiple
 requests. A synchronized projection alone is not proof of authentication or
 inference.
+`check --for <client>` checks only that enabled client's binding, credentials,
+projection, and endpoint; it does not observe unrelated clients or Accounts.
 `sync` changes only AIGW-owned configuration, never client-owned credentials.
 
 ## Navigation
@@ -125,8 +127,10 @@ Use the least powerful command that answers the current question:
 6. `aigw verify` invokes the real native client to prove its selected model
    path. This request may consume quota even when `check` has already passed.
 
-`check` exits successfully only when every enabled Client Binding passes its
-applicable scope. With no enabled client, it returns a deferred nonzero result
+Without `--for`, `check` exits successfully only when every enabled Client
+Binding passes its applicable scope. With `--for`, only the requested enabled
+client contributes to the result, and JSON contains only that client. With no
+enabled client, it returns a deferred nonzero result
 without contacting an endpoint; an empty check is not health evidence. For
 client-native authentication it checks the local projection without accessing
 client credentials or calling the endpoint. A selected Account-Token Route

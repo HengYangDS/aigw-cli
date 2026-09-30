@@ -455,7 +455,7 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 	}{
 		{args: []string{"setup", "--help"}, want: []string{"Account ID; uses the first Route ID when omitted", "First route ID", "Read one token line from standard input"}},
 		{args: []string{"test", "--help"}, want: []string{"model-free HTTP request", "does not prove model inference or real-client behavior", "Client whose selected Route to test: Claude, Claude Desktop, Codex, or Hermes"}},
-		{args: []string{"check", "--help"}, want: []string{"may use provider quota", "one bounded selected-model inference request", "--endpoint-only", "does not execute a native client"}},
+		{args: []string{"check", "--help"}, want: []string{"may use provider quota", "one bounded selected-model inference request", "--endpoint-only", "--for", "does not execute a native client"}},
 		{args: []string{"models", "--help"}, want: []string{"Compare configured model IDs with provider catalogs", "does not test inference"}},
 		{args: []string{"verify", "--help"}, want: []string{"real native client", "multiple provider requests", "may use quota", "--for all writes a configuration checkpoint", "Client whose selected Route to verify: Claude, Claude Desktop, Codex, Hermes, or all", "Verify this Route for the explicit client without changing its binding"}},
 		{args: []string{"rotate", "--help"}, want: []string{"Update one Account Token"}},

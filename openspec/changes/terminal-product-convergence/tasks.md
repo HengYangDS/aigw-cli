@@ -38,7 +38,8 @@
 - [ ] 2.7 Admit a selected live Account and client through endpoint and
       inference checks, while classifying absent native authorization without
       prompts or backend fallback; keep supplier-specific failures scoped to that
-      Account.
+      Account. A focused `check --for` must not observe or charge another
+      enabled client's Account.
 
 ## 3. Credential Reader Succession
 

@@ -71,15 +71,18 @@ func (store *failingAccountObservationStore) Exists(string) (bool, error) {
 }
 
 type observingSecretStore struct {
-	value       string
-	getErr      error
-	existsErr   error
-	getCalls    int
-	existsCalls int
+	value          string
+	getErr         error
+	existsErr      error
+	getCalls       int
+	existsCalls    int
+	getAccounts    []string
+	existsAccounts []string
 }
 
-func (store *observingSecretStore) Get(string) (string, error) {
+func (store *observingSecretStore) Get(account string) (string, error) {
 	store.getCalls++
+	store.getAccounts = append(store.getAccounts, account)
 	if store.getErr != nil {
 		return "", store.getErr
 	}
@@ -92,8 +95,9 @@ func (store *observingSecretStore) Get(string) (string, error) {
 func (*observingSecretStore) Set(string, string) error { return nil }
 func (*observingSecretStore) Delete(string) error      { return nil }
 
-func (store *observingSecretStore) Exists(string) (bool, error) {
+func (store *observingSecretStore) Exists(account string) (bool, error) {
 	store.existsCalls++
+	store.existsAccounts = append(store.existsAccounts, account)
 	return store.value != "", store.existsErr
 }
 

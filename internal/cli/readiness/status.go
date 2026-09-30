@@ -75,7 +75,7 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 
 // inspectStatusClients observes every admitted client without authenticating
 // an endpoint or reading Token values.
-func inspectStatusClients(runtime invocation.Context, cfg configuration.Config, activation *clientactivation.Activation) map[string]clientStatus {
+func inspectStatusClients(runtime invocation.Context, cfg configuration.Config, activation *clientactivation.Activation, selected string) map[string]clientStatus {
 	if activation == nil {
 		assessed := clientactivation.AssessActivation(cfg, runtime.Secrets)
 		activation = &assessed
@@ -83,6 +83,9 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config, 
 	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
 	clients := make(map[string]clientStatus, len(clientIDs))
 	for _, clientID := range clientIDs {
+		if selected != "" && clientID != selected {
+			continue
+		}
 		spec, _ := configuration.ClientSpecFor(clientID)
 		clientRuntime, resolveErr := cfg.ResolveRuntime(clientID, "")
 		if resolveErr != nil {
@@ -179,7 +182,7 @@ func unresolvedClientStatus(cfg *configuration.Config, clientID string, resolveE
 // InspectClients returns the canonical, secret-free local state of every
 // admitted client without authenticating an endpoint or reading Token values.
 func InspectClients(runtime invocation.Context, cfg configuration.Config) map[string]domainreadiness.Client {
-	observed := inspectStatusClients(runtime, cfg, nil)
+	observed := inspectStatusClients(runtime, cfg, nil, "")
 	clients := make(map[string]domainreadiness.Client, len(observed))
 	for client, status := range observed {
 		clients[client] = status.Client
@@ -201,7 +204,7 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 		backend.RecoveryAction = domainreadiness.CredentialBackendRecovery
 	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
-	clients := inspectStatusClients(runtime, cfg, &activation)
+	clients := inspectStatusClients(runtime, cfg, &activation, "")
 	return statusOutput{
 		CredentialBackend: backend,
 		Clients:           clients,
