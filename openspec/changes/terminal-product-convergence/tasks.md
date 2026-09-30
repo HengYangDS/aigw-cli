@@ -73,10 +73,10 @@
       measure the bounded link gap, verify captured commands immediately and
       roll back failed candidates; disclose any residual cached-caller risk.
       Later versioned commands must remain callable throughout replacement.
-      The candidate from signed source `38246801` passes the isolated macOS
-      environment-backend journey from installed Homebrew 0.3.1 through upgrade,
-      rollback and re-upgrade. Preprojection protects new readers in
-      a simulated link gap; cached 0.3.1 callers retain the disclosed gap risk.
+      At signed source `cdfc0bf6`, the isolated macOS environment-backend
+      journey stages actual Homebrew 0.3.1 bytes and passes preprojection,
+      simulated link gap, upgrade, rollback, re-upgrade and uninstall. New
+      readers survive the gap; cached 0.3.1 callers retain the disclosed risk.
       The signed published 0.3.1 Linux ARM64 archive passes the corresponding
       environment-backend journey in an isolated container. GitHub run
       36563790078 at `49ba0c5ec5503b4365ff1f0c01555c05c97ca03e` passed
