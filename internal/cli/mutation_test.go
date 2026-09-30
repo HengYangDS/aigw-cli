@@ -125,6 +125,10 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 		{name: "client disable", args: []string{"client", "disable", "codex"}, want: true},
 		{name: "bare config", args: []string{"config"}, want: false},
 		{name: "config import", args: []string{"config", "import", "path"}, want: true},
+		{name: "config import dry-run", args: []string{"config", "import", "path", "--dry-run"}, want: false},
+		{name: "config import dry-run false", args: []string{"config", "import", "path", "--dry-run=false"}, want: true},
+		{name: "config import final dry-run false", args: []string{"config", "import", "path", "--dry-run", "--dry-run=false"}, want: true},
+		{name: "config import final dry-run true", args: []string{"config", "import", "path", "--dry-run=false", "--dry-run"}, want: false},
 		{name: "config migrate", args: []string{"config", "migrate"}, want: true},
 		{name: "config migrate dry-run", args: []string{"config", "migrate", "--dry-run"}, want: false},
 		{name: "config migration rollback", args: []string{"config", "migrate", "--rollback"}, want: true},
@@ -147,6 +151,22 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 				t.Fatalf("requiresConfigurationLock(%q) = %v, want %v", tt.args, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestConfigImportPreviewDoesNotCreateConfigurationDirectoryOrLock(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "configuration")
+	var output bytes.Buffer
+	app := &App{Config: configuration.NewStore(filepath.Join(root, "config.toml")), Out: &output, Err: io.Discard}
+	manifest := filepath.Join("..", "..", "manifests", "team.toml")
+	if err := Execute(app, []string{"config", "import", manifest, "--dry-run", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(root); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("read-only import created configuration storage: %v", err)
+	}
+	if !strings.Contains(output.String(), `"dry_run": true`) {
+		t.Fatalf("import preview omitted structured result: %q", output.String())
 	}
 }
 

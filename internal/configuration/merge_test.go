@@ -244,6 +244,16 @@ interfaces = { openai_responses = [] }
 	if got.Routes["shared"].Model != "team-model" {
 		t.Fatalf("route replacement = %#v", got.Routes["shared"])
 	}
+	kept, err := MergeWithOptions(cfg, team, MergeOptions{
+		KeepAccounts:  map[string]bool{"team": true},
+		ReplaceRoutes: map[string]bool{"shared": true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kept.Accounts["team"].Endpoints.OpenAIResponses != "https://personal.example.test/v1" || kept.Routes["shared"].Model != "team-model" {
+		t.Fatalf("local Account metadata was not retained alongside incoming Route: %#v", kept)
+	}
 }
 
 func TestMergeWithOptionsDistinguishesEmptyCapabilityListsByProtocol(t *testing.T) {
@@ -317,6 +327,22 @@ interfaces = { anthropic = [] }
 	_, err = MergeWithOptions(cfg, team, MergeOptions{ReplaceRoutes: map[string]bool{"missing": true}})
 	if err == nil || !strings.Contains(err.Error(), `--replace-route "missing"`) {
 		t.Fatalf("unused Route replacement error = %v", err)
+	}
+	for _, test := range []struct {
+		name    string
+		options MergeOptions
+		want    string
+	}{
+		{"missing local", MergeOptions{KeepAccounts: map[string]bool{"team": true}}, "does not name an existing local Account"},
+		{"missing incoming", MergeOptions{KeepAccounts: map[string]bool{"local": true}}, "does not name an Account in the imported"},
+		{"conflicting selectors", MergeOptions{KeepAccounts: map[string]bool{"team": true}, ReplaceAccounts: map[string]bool{"team": true}}, "conflicts with --replace-account"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := MergeWithOptions(cfg, team, test.options)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("Account retention error = %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 

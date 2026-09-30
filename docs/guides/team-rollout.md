@@ -395,9 +395,30 @@ aigw config import manifest.toml
 ```
 
 Review the exported file against the incoming manifest before importing.
-`config import` applies a merge; it has no preview or JSON-output mode.
-Conflicting public metadata requires an explicit `--replace-account <id>` or
-`--replace-route <id>` after review. Tokens are neither exported nor replaced.
+Preview the exact merge before writing:
+
+```bash
+aigw config import manifest.toml --dry-run --json
+```
+
+The preview uses the same merge validation as import. Its
+`projection_candidates` list identifies clients whose desired projection
+would change, not clients that have been written or verified. It does not read
+Tokens or write configuration or client files. An Account collision stops the
+preview until you choose which public metadata owns that Account. For example,
+if this machine intentionally routes DMXAPI through a local optional proxy,
+retain that local endpoint while importing team Routes:
+
+```bash
+aigw config import manifest.toml --keep-account dmxapi --dry-run --json
+aigw config import manifest.toml --keep-account dmxapi
+```
+
+`--keep-account <id>` retains all local public metadata for an Account present
+in both configurations; `--replace-account <id>` uses the incoming metadata.
+They cannot be combined for the same Account. Other conflicting Model or Route
+metadata requires its specific replacement flag after review. Tokens are
+neither exported nor replaced. Actual import also supports `--json`.
 Pass `--retire-route <id>` once per obsolete local Route to retire it in the
 same guarded import, rather than running one removal and projection per Route.
 Import rejects a missing Route, one still declared by the incoming manifest,
@@ -412,12 +433,13 @@ If native client projection fails after a configuration write, AIGW reports
 whether it restored its configuration, not whether every client file was
 restored. Run `aigw doctor` before retrying.
 
-| Collision                          | Default behavior     | Explicit action                          |
-| ---------------------------------- | -------------------- | ---------------------------------------- |
-| Same semantic Account/Route        | Reuse                | None                                     |
-| Same ID, different public metadata | Stop before mutation | Review and use the specific replace flag |
-| Local-only Route not in manifest   | Preserve             | `--retire-route <id>` after review       |
-| Existing Token                     | Preserve             | Rotate explicitly if required            |
+| Collision                               | Default behavior     | Explicit action                                           |
+| --------------------------------------- | -------------------- | --------------------------------------------------------- |
+| Same semantic Account/Route             | Reuse                | None                                                      |
+| Same Account ID, different metadata     | Stop before mutation | Review and choose `--keep-account` or `--replace-account` |
+| Same Model/Route ID, different metadata | Stop before mutation | Review and use the specific replace flag                  |
+| Local-only Route not in manifest        | Preserve             | `--retire-route <id>` after review                        |
+| Existing Token                          | Preserve             | Rotate explicitly if required                             |
 
 Import preserves existing client bindings and stores manifest recommendations
 separately. Importing a recommendation does not select it. First-time setup may

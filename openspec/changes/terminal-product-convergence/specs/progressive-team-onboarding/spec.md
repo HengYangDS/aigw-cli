@@ -40,6 +40,20 @@ manifest re-import.
 - **AND** it SHALL direct the operator to `aigw status`, which owns the current
   readiness observation and next action.
 
+#### Scenario: Preview a team import against a local endpoint override
+
+- **WHEN** an imported Account shares an ID with a different local Account
+  whose endpoint the operator intends to retain
+- **THEN** import SHALL reject the conflict unless the operator explicitly
+  selects either local retention or incoming replacement for that Account
+- **AND** local retention SHALL preserve the complete local Account metadata
+  and Token while admitting compatible incoming Models and Routes
+- **AND** `--dry-run --json` SHALL apply the same merge validation and report
+  explicit Account retention, Route retirement, and semantic client projection
+  candidates without reading Tokens or writing configuration or client files
+- **AND** a client projection candidate SHALL NOT be described as an executed
+  projection or proof that the client or its credential is available.
+
 #### Scenario: Client is installed later
 
 - **WHEN** a manifest was imported before an admitted client was installed

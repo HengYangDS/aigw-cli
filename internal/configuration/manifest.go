@@ -28,6 +28,7 @@ type Manifest struct {
 // Configuration manifests are token-free and must not silently redirect an
 // existing Account and its system-held Token to a different endpoint.
 type MergeOptions struct {
+	KeepAccounts    map[string]bool
 	ReplaceAccounts map[string]bool
 	ReplaceModels   map[string]bool
 	ReplaceRoutes   map[string]bool
@@ -153,11 +154,11 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 	}
 	for name, account := range incoming.Accounts {
 		if existing, exists := merged.Accounts[name]; exists {
-			if equivalentAccount(existing, account) {
+			if equivalentAccount(existing, account) || options.KeepAccounts[name] {
 				continue
 			}
 			if !options.ReplaceAccounts[name] {
-				return Config{}, fmt.Errorf("account %q conflicts with local configuration; inspect it with `aigw config export` and re-run with `aigw config import <toml> --replace-account %s` to explicitly replace the Account metadata while preserving its Token", name, name)
+				return Config{}, fmt.Errorf("account %q conflicts with local configuration; inspect it with `aigw config export`, then use --keep-account %s to retain local metadata or --replace-account %s to use incoming metadata; its Token is unchanged", name, name, name)
 			}
 		}
 		merged.Accounts[name] = account
@@ -217,6 +218,20 @@ func unsupportedManifestVersionError(version int) error {
 }
 
 func validateMergeSelectors(cfg Config, incoming Manifest, options MergeOptions) error {
+	for _, name := range slices.Sorted(maps.Keys(options.KeepAccounts)) {
+		if !options.KeepAccounts[name] {
+			continue
+		}
+		if options.ReplaceAccounts[name] {
+			return fmt.Errorf("--keep-account %q conflicts with --replace-account for the same Account", name)
+		}
+		if _, exists := cfg.Accounts[name]; !exists {
+			return fmt.Errorf("--keep-account %q does not name an existing local Account", name)
+		}
+		if _, exists := incoming.Accounts[name]; !exists {
+			return fmt.Errorf("--keep-account %q does not name an Account in the imported configuration manifest", name)
+		}
+	}
 	for name := range options.ReplaceAccounts {
 		if _, exists := incoming.Accounts[name]; !exists {
 			return fmt.Errorf("--replace-account %q does not name an Account in the imported configuration manifest", name)

@@ -3,11 +3,15 @@ package manifest
 
 import (
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/presentation"
 
 	"github.com/spf13/cobra"
 )
@@ -49,8 +53,19 @@ func newExportCommand(runtime invocation.Context) *cobra.Command {
 	}}
 }
 
+type importResult struct {
+	DryRun               bool     `json:"dry_run"`
+	ImportedAccounts     int      `json:"imported_accounts"`
+	ImportedRoutes       int      `json:"imported_routes"`
+	KeptAccounts         []string `json:"kept_accounts,omitempty"`
+	RetiredRoutes        []string `json:"retired_routes,omitempty"`
+	ProjectionCandidates []string `json:"projection_candidates,omitempty"`
+	NextAction           string   `json:"next_action"`
+}
+
 func newImportCommand(runtime invocation.Context) *cobra.Command {
-	var replaceAccounts, replaceModels, replaceRoutes, retireRoutes []string
+	var keepAccounts, replaceAccounts, replaceModels, replaceRoutes, retireRoutes []string
+	var dryRun, jsonMode bool
 	cmd := &cobra.Command{Use: "import <configuration.toml>", Short: "Merge a secret-free configuration manifest", Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
 		if strings.TrimSpace(args[0]) == "" {
 			return fmt.Errorf("Configuration manifest path must not be blank; run `%s --help`", cmd.CommandPath())
@@ -70,8 +85,10 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		}
 		before := cfg.Clone()
+		keeping := selectorSet(keepAccounts)
 		retiring := selectorSet(retireRoutes)
 		cfg, err = configuration.MergeWithOptions(cfg, incoming, configuration.MergeOptions{
+			KeepAccounts:    keeping,
 			ReplaceAccounts: selectorSet(replaceAccounts),
 			ReplaceModels:   selectorSet(replaceModels),
 			ReplaceRoutes:   selectorSet(replaceRoutes),
@@ -80,24 +97,55 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "configuration manifest"); err != nil {
+		result := importResult{
+			DryRun:               dryRun,
+			ImportedAccounts:     len(configuration.ManifestAccountNames(incoming)),
+			ImportedRoutes:       len(incoming.Routes),
+			KeptAccounts:         slices.Sorted(maps.Keys(keeping)),
+			RetiredRoutes:        slices.Sorted(maps.Keys(retiring)),
+			ProjectionCandidates: client.DefaultRegistry().ChangedClients(before, cfg),
+			NextAction:           "aigw status",
+		}
+		if dryRun {
+			result.NextAction = "Review the preview, then rerun without --dry-run"
+		} else if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "configuration manifest"); err != nil {
 			return err
 		}
-		accountNames := configuration.ManifestAccountNames(incoming)
-		r := invocation.Renderer(runtime)
-		r.ProductTitle("Configuration manifest imported")
-		r.Row("Routes", fmt.Sprintf("%d", len(incoming.Routes)))
-		r.Row("Accounts", fmt.Sprintf("%d", len(accountNames)))
-		if len(retiring) > 0 {
-			r.Row("Retired Routes", fmt.Sprintf("%d", len(retiring)))
+		if jsonMode {
+			return presentation.WriteJSON(runtime.Out, result)
 		}
-		r.Next("aigw status")
+		r := invocation.Renderer(runtime)
+		if dryRun {
+			r.ProductTitle("Configuration import preview")
+		} else {
+			r.ProductTitle("Configuration manifest imported")
+		}
+		r.Row("Routes", fmt.Sprintf("%d", result.ImportedRoutes))
+		r.Row("Accounts", fmt.Sprintf("%d", result.ImportedAccounts))
+		if len(keeping) > 0 {
+			r.Row("Kept Accounts", strings.Join(result.KeptAccounts, ", "))
+		}
+		if len(retiring) > 0 {
+			r.Row("Retired Routes", strings.Join(result.RetiredRoutes, ", "))
+		}
+		if dryRun {
+			candidates := "none"
+			if len(result.ProjectionCandidates) > 0 {
+				candidates = strings.Join(result.ProjectionCandidates, ", ")
+			}
+			r.Row("Potential client projections", candidates)
+			r.Detail("No configuration, Token, or client projection was changed")
+		}
+		r.Next(result.NextAction)
 		return nil
 	}}
+	cmd.Flags().StringSliceVar(&keepAccounts, "keep-account", nil, "Retain local public Account metadata instead of the imported version")
 	cmd.Flags().StringSliceVar(&replaceAccounts, "replace-account", nil, "Explicitly replace conflicting account metadata; system tokens remain unchanged")
 	cmd.Flags().StringSliceVar(&replaceModels, "replace-model", nil, "Explicitly replace conflicting canonical model metadata")
 	cmd.Flags().StringSliceVar(&replaceRoutes, "replace-route", nil, "Explicitly replace conflicting model routes")
 	cmd.Flags().StringSliceVar(&retireRoutes, "retire-route", nil, "Retire an existing unselected Route absent from the imported manifest")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview the merge and possible client projection changes without writing")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the import preview or result as JSON")
 	return cmd
 }
 

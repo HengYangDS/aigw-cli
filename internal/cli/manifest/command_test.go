@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -191,6 +192,68 @@ func TestImportPreservesExplicitSelectionWithoutSuggestingNoOpSync(t *testing.T)
 	}
 }
 
+func TestImportPreviewReportsAffectedClientsWithoutReadingTokensOrWriting(t *testing.T) {
+	cfg := localConfig()
+	account := cfg.Accounts["local"]
+	account.Endpoints.OpenAIResponses = "http://127.0.0.1:8792/local/v1"
+	cfg.Accounts["local"] = account
+	cfg.Routes["old"] = configuration.Route{
+		Label: "Old", Account: "local", Model: "gpt-old",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+	}
+	cfg.Models["gpt-old"] = configuration.Model{Label: "Old"}
+	cfg.SetSelectedRoute(configuration.ClientHermes, "local")
+	clientTarget := filepath.Join(t.TempDir(), "hermes.yaml")
+	cfg.SetClientActivation(configuration.ClientHermes, true, "/opt/hermes", []string{clientTarget})
+	runtime, path, out, renderOut := savedRuntime(t, cfg)
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reads := 0
+	runtime.Secrets = secrets.NewEnvironmentStore(func(string) string { reads++; return "" })
+	incoming := strings.ReplaceAll(importManifest, "gateway", "local")
+	incoming = strings.ReplaceAll(incoming, "Gateway", "Local")
+	manifestPath := writeManifest(t, incoming)
+	command := newImportCommand(runtime)
+	command.SetArgs([]string{manifestPath, "--keep-account", "local", "--retire-route", "old", "--dry-run", "--json"})
+	if err := executeManifestCommand(command); err != nil {
+		t.Fatal(err)
+	}
+	var preview struct {
+		DryRun               bool     `json:"dry_run"`
+		ImportedAccounts     int      `json:"imported_accounts"`
+		ImportedRoutes       int      `json:"imported_routes"`
+		KeptAccounts         []string `json:"kept_accounts"`
+		RetiredRoutes        []string `json:"retired_routes"`
+		ProjectionCandidates []string `json:"projection_candidates"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if !preview.DryRun || preview.ImportedAccounts != 1 || preview.ImportedRoutes != 1 ||
+		!slices.Equal(preview.KeptAccounts, []string{"local"}) ||
+		!slices.Equal(preview.RetiredRoutes, []string{"old"}) ||
+		!slices.Contains(preview.ProjectionCandidates, configuration.ClientHermes) {
+		t.Fatalf("import preview = %+v", preview)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(before, after) || reads != 0 || renderOut.Len() != 0 {
+		t.Fatalf("preview changed state or read Tokens: config=%t reads=%d render=%q error=%v", bytes.Equal(before, after), reads, renderOut.String(), err)
+	}
+	if _, err := os.Stat(clientTarget); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("preview wrote client projection: %v", err)
+	}
+	human := newImportCommand(runtime)
+	human.SetArgs([]string{manifestPath, "--keep-account", "local", "--retire-route", "old", "--dry-run"})
+	if err := executeManifestCommand(human); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(renderOut.String(), "Configuration import preview") || !strings.Contains(renderOut.String(), "Potential client projections") || reads != 0 {
+		t.Fatalf("human preview omitted the impact or read Tokens: %q, reads=%d", renderOut.String(), reads)
+	}
+}
+
 func TestImportDoesNotInspectUnselectedAccountCredentials(t *testing.T) {
 	runtime, _, _, _ := savedRuntime(t, localConfig())
 	reads := 0
@@ -212,18 +275,21 @@ func TestImportReplacementFlagsMakeIdentityChangesExplicit(t *testing.T) {
 	conflicting := strings.ReplaceAll(importManifest, "gateway", "local")
 	conflicting = strings.ReplaceAll(conflicting, "remote", "local")
 
-	runtime, path, _, _ := savedRuntime(t, localConfig())
+	runtime, path, out, _ := savedRuntime(t, localConfig())
 	manifestPath := writeManifest(t, conflicting)
 	withoutConsent := newImportCommand(runtime)
-	withoutConsent.SetArgs([]string{manifestPath})
+	withoutConsent.SetArgs([]string{manifestPath, "--dry-run", "--json"})
 	if err := executeManifestCommand(withoutConsent); err == nil || !strings.Contains(err.Error(), "conflicts with local configuration") {
 		t.Fatalf("error = %v", err)
 	}
 
 	withConsent := newImportCommand(runtime)
-	withConsent.SetArgs([]string{manifestPath, "--replace-account", "local", "--replace-model", "gpt-local", "--replace-route", "local"})
+	withConsent.SetArgs([]string{manifestPath, "--replace-account", "local", "--replace-model", "gpt-local", "--replace-route", "local", "--json"})
 	if err := executeManifestCommand(withConsent); err != nil {
 		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"dry_run": false`) || !strings.Contains(out.String(), `"next_action": "aigw status"`) {
+		t.Fatalf("applied import omitted JSON result: %q", out.String())
 	}
 	loaded, err := configuration.NewStore(path).Load()
 	if err != nil {
