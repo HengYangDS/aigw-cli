@@ -13,6 +13,8 @@ evidence.
 
 ### Changed
 
+- Withdraw the DMXAPI Claude Fable 5.1 CC channel from the reviewed team
+  manifest after bounded inference and real-client requests failed to complete.
 - Pin the installed Codex client's bundled model metadata for an AIGW-managed
   custom Provider even when its selected base model is already known; preserve
   user-authored catalog overrides and fail closed on an unknown model.

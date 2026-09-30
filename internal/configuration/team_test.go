@@ -309,7 +309,6 @@ func TestTeamManifestRoutesUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 		}
 	}
 	variants := map[string]struct{ model, wire string }{
-		"dmxapi-claude-fable-5-1-cc":     {"claude-fable-5-1", "claude-fable-5-1-cc"},
 		"dmxapi-claude-sonnet-5-5-cc":    {"claude-sonnet-5-5", "claude-sonnet-5-5-cc"},
 		"dmxapi-claude-sonnet-5-5-ssvip": {"claude-sonnet-5-5", "claude-sonnet-5-5-ssvip"},
 		"dmxapi-gpt-6-astra-cdx":         {"gpt-6-astra", "gpt-6-astra-cdx"},
@@ -320,6 +319,9 @@ func TestTeamManifestRoutesUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 		if !ok || route.Model != want.model || route.UpstreamModelID() != want.wire {
 			t.Errorf("channel Route %q = %+v, want canonical Model %q and wire %q", routeID, route, want.model, want.wire)
 		}
+	}
+	if _, admitted := manifest.Routes["dmxapi-claude-fable-5-1-cc"]; admitted {
+		t.Error("the unqualified DMXAPI Fable 5.1 CC channel remains in the shipped manifest")
 	}
 	for _, obsolete := range []string{
 		"aihubmix-claude-sonnet-5", "dmxapi-claude-sonnet-5", "dmxapi-claude-sonnet-5-cc",

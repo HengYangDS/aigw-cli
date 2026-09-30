@@ -101,9 +101,10 @@
       lists all 60 then-shipped Route IDs on their Account/protocol surfaces.
       A later direct AIHubMix Chat request for `solar-pro4` returned HTTP 400
       `no_available_channel`, so that Route and its unreferenced Model were
-      removed; 58 Routes remain after replacing three GPT-6 Sol Routes with
-      AIHubMix and DMXAPI GPT-6.1 Sol Routes. Direct DMXAPI text and strict
-      function-call probes plus two isolated official Codex tool loops now
+      removed; 57 Routes remain after replacing three GPT-6 Sol Routes with
+      AIHubMix and DMXAPI GPT-6.1 Sol Routes and withdrawing the Fable 5.1 CC
+      channel after three bounded requests failed to complete. Direct DMXAPI
+      text and strict function-call probes plus two isolated Codex tool loops now
       support the Codex recommendation. Official Hermes v0.21.5 source also
       completed two direct DMXAPI 6.1 Sol turns, and an isolated AIGW `verify`
       completed after staging its versioned reader. A catalogue listing alone

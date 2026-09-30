@@ -21,12 +21,21 @@ different claims.
 At an earlier September 30, 2026 read, AIGW observed 417 AIHubMix, 565 DMXAPI,
 and 276 UCloud IDs across eight Account/protocol catalogue surfaces. All 60
 Routes shipped at that time had wire IDs on their declared surfaces; the current
-manifest has 58 after the Solar Route and three GPT-6 Sol Routes were removed,
-with AIHubMix and DMXAPI GPT-6.1 Sol Routes added. The earlier DMXAPI
-Responses observation used the locally configured `127.0.0.1:8792` Proxy,
+manifest has 57 after the Solar Route, three GPT-6 Sol Routes, and the DMXAPI
+Fable 5.1 CC channel were removed, with AIHubMix and DMXAPI GPT-6.1 Sol Routes
+added. The earlier DMXAPI Responses observation used the locally configured
+`127.0.0.1:8792` Proxy,
 whereas the team manifest declares direct `https://www.dmxapi.cn/v1`.
 Catalogue membership therefore does not qualify that direct endpoint or
 prove the newly preferred Route can sustain inference.
+
+The DMXAPI `claude-fable-5-1-cc` wire ID remained listed, but two bounded
+Claude Code verifications each reached the 60-second client deadline and one
+independent direct Messages request reached a 28-second transport deadline
+without an HTTP response on September 30. The curated manifest therefore
+withdraws this channel while retaining the base Fable 5.1 Route. These failures
+do not establish permanent provider unavailability; a new real-client inference
+result is required before readmission.
 
 On September 30, 2026,
 [OpenAI's GPT-6.1 Sol model page](https://developers.openai.com/api/docs/models/gpt-6.1-sol)

@@ -369,15 +369,6 @@ upstream_model = 'claude-fable-5-1'
 [routes.dmxapi-claude-fable-5-1.interfaces]
 anthropic = []
 
-[routes.dmxapi-claude-fable-5-1-cc]
-label = 'DMXAPI · Claude Fable 5.1 · CC'
-account = 'dmxapi'
-model = 'claude-fable-5-1'
-upstream_model = 'claude-fable-5-1-cc'
-
-[routes.dmxapi-claude-fable-5-1-cc.interfaces]
-anthropic = []
-
 [routes.dmxapi-claude-opus-5-5]
 account = 'dmxapi'
 model = 'claude-opus-5-5'
