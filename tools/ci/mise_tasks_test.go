@@ -118,6 +118,9 @@ func TestMiseGoEnvironmentIsBoundToThisRepository(t *testing.T) {
 	t.Setenv("GOWORK", filepath.Join(t.TempDir(), "foreign.work"))
 	t.Setenv("GOTOOLCHAIN", "auto")
 	command := exec.Command("mise", "-C", root, "exec", "--locked", "--", "go", "env", "-json", "GOENV", "GOWORK", "GOTOOLCHAIN", "GOFLAGS", "GOMOD", "GOVERSION")
+	// The assertion exercises repository [env]; Mise safe mode deliberately
+	// suppresses that declaration in an outer proof runner.
+	command.Env = append(os.Environ(), "MISE_SAFE=0")
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("observe repository Go environment: %v\n%s", err, output)
