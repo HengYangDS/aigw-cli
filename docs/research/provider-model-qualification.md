@@ -179,15 +179,26 @@ as its current general reasoning model; the exact AIHubMix Responses ID
 completed with text at a 512-token cap. Mistral calls
 [Large 3](https://mistral.ai/news/mistral-3/) its most capable general model;
 the exact AIHubMix Chat Completions ID completed with text. The same configured
-AIHubMix Chat endpoint produced text for NVIDIA's
-[Nemotron 3 Ultra](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16),
+AIHubMix Chat endpoint produced text for
 Inception's [Mercury 2.5](https://www.inceptionlabs.ai/blog/introducing-mercury-2-5),
 Meituan's [LongCat 2.0](https://huggingface.co/meituan-longcat/LongCat-2.0),
 Tencent's [HY3](https://huggingface.co/tencent/Hy3),
 StepFun's [Step 3.7 Flash](https://huggingface.co/stepfun-ai/Step-3.7-Flash),
 and InclusionAI's [Ling 3.0 Flash](https://huggingface.co/inclusionAI/Ling-3.0-flash).
-The Nemotron wire ID carries AIHubMix's `-free` channel suffix; it is one
-canonical NVIDIA Model, not a second logical model.
+
+NVIDIA identifies [Nemotron 3 Ultra](https://research.nvidia.com/labs/nemotron/Nemotron-3-Ultra/)
+as the family's final and strongest model; [Super](https://research.nvidia.com/labs/nemotron/Nemotron-3-Super/)
+is smaller. The listed AIHubMix Ultra `-free` channel once returned text, but
+at signed AIGW source `8891b56c` two isolated, unmodified official Hermes
+verifications each timed out after 60 seconds despite a successful AIGW
+`check`. In the same source build with a temporary manifest, the exact Super
+`nemotron-3-super-120b-a12b-free` channel returned direct Chat text and
+completed AIGW `use`/`check` plus two official Hermes verifications. The team
+manifest therefore selects Super as the currently qualified NVIDIA option on
+this Account, **not** as NVIDIA's strongest model. Ultra remains discoverable
+through the provider catalogue but is not an admitted team Route. Neither two
+successes nor two timeouts establish long-term channel behavior; final release
+bytes and cross-platform real-client admission remain open.
 
 The same endpoint previously produced text for Upstage's
 [Solar Pro 4](https://www.upstage.ai/blog/en/solar-pro-4). A September 30,

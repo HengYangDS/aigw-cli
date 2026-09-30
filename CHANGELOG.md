@@ -37,6 +37,8 @@ evidence.
   verify the locked binary on every platform.
 - Keep the automated three-day release-age gate for npm without imposing that
   npm-specific delay on checksummed Go or digest-pinned CI tools.
+- Select AIHubMix's currently qualified Nemotron 3 Super channel instead of its
+  intermittently failing Ultra channel; Ultra remains NVIDIA's stronger model.
 
 ### Removed
 

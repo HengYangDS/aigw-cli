@@ -142,8 +142,8 @@ label = 'Mistral Large 3'
 [models.'muse-spark-1.3']
 label = 'Muse Spark 1.3'
 
-[models.nemotron-3-ultra-550b-a55b]
-label = 'NVIDIA Nemotron 3 Ultra'
+[models.nemotron-3-super-120b-a12b]
+label = 'NVIDIA Nemotron 3 Super'
 
 [models.'qwen3.8-max']
 label = 'Qwen 3.8 Max'
@@ -336,13 +336,13 @@ upstream_model = 'muse-spark-1.3'
 [routes.'aihubmix-muse-spark-1.3'.interfaces]
 openai_responses = []
 
-[routes.aihubmix-nemotron-3-ultra-550b-a55b-free]
-label = 'AIHubMix · NVIDIA Nemotron 3 Ultra · FREE'
+[routes.aihubmix-nemotron-3-super-120b-a12b-free]
+label = 'AIHubMix · NVIDIA Nemotron 3 Super · FREE'
 account = 'aihubmix'
-model = 'nemotron-3-ultra-550b-a55b'
-upstream_model = 'nemotron-3-ultra-550b-a55b-free'
+model = 'nemotron-3-super-120b-a12b'
+upstream_model = 'nemotron-3-super-120b-a12b-free'
 
-[routes.aihubmix-nemotron-3-ultra-550b-a55b-free.interfaces]
+[routes.aihubmix-nemotron-3-super-120b-a12b-free.interfaces]
 openai_chat_completions = []
 
 [routes.'aihubmix-qwen3.8-max']

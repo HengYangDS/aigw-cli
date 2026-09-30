@@ -143,7 +143,7 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 		"deepseek-v4.1-flash", "doubao-seed-2-1-pro-260628", "ernie-5.1", "gemini-3.1-pro-preview", "glm-5.3",
 		"gpt-6-astra", "gpt-6-luna", "gpt-6-sol", "grok-4.7",
 		"hy3", "kimi-k3", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.0", "mercury-2.5", "mimo-v2.6-pro",
-		"minimax-m3", "mistral-large-3", "muse-spark-1.3", "nemotron-3-ultra-550b-a55b",
+		"minimax-m3", "mistral-large-3", "muse-spark-1.3", "nemotron-3-super-120b-a12b",
 		"qwen3.8-max", "step-3.7-flash",
 	}
 	if got := slices.Sorted(maps.Keys(manifest.Models)); !slices.Equal(got, want) {
@@ -272,7 +272,7 @@ func TestTeamManifestKeepsQualifiedAdditionalVendorRoutes(t *testing.T) {
 		"aihubmix-longcat-2.0":                     {"longcat-2.0", "longcat-2.0", ProtocolOpenAIChatCompletions},
 		"aihubmix-mercury-2.5":                     {"mercury-2.5", "mercury-2.5", ProtocolOpenAIChatCompletions},
 		"aihubmix-mistral-large-3":                 {"mistral-large-3", "mistral-large-3", ProtocolOpenAIChatCompletions},
-		"aihubmix-nemotron-3-ultra-550b-a55b-free": {"nemotron-3-ultra-550b-a55b", "nemotron-3-ultra-550b-a55b-free", ProtocolOpenAIChatCompletions},
+		"aihubmix-nemotron-3-super-120b-a12b-free": {"nemotron-3-super-120b-a12b", "nemotron-3-super-120b-a12b-free", ProtocolOpenAIChatCompletions},
 		"aihubmix-step-3.7-flash":                  {"step-3.7-flash", "step-3.7-flash", ProtocolOpenAIChatCompletions},
 	}
 	for id, expected := range want {
@@ -281,6 +281,9 @@ func TestTeamManifestKeepsQualifiedAdditionalVendorRoutes(t *testing.T) {
 			!slices.Equal(route.AdmittedProtocols(), []EndpointProtocol{expected.protocol}) {
 			t.Errorf("qualified vendor Route %q = %+v, want %+v", id, route, expected)
 		}
+	}
+	if _, obsolete := manifest.Routes["aihubmix-nemotron-3-ultra-550b-a55b-free"]; obsolete {
+		t.Fatal("unqualified Nemotron Ultra channel remains in the shipped manifest")
 	}
 }
 
