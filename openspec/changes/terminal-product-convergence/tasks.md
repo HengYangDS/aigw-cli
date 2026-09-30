@@ -88,6 +88,10 @@
       live inference for DMXAPI, UCloud, and AIHubMix; retain only qualified
       models/variants and one consistent naming grammar, with source and date for
       each claim.
+      The [September 30 catalogue observation](../../../docs/research/provider-model-qualification.md#provider-catalogue-and-route-evidence)
+      lists all 60 exact Route IDs on their Account/protocol surfaces. DMXAPI
+      Responses was observed through the local Proxy, not the shipped direct
+      endpoint; direct inference and model ranking remain open.
 - [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
       Providers; no control-plane command claims request-time failover.

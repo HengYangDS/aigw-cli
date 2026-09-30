@@ -18,6 +18,14 @@ different claims.
 
 ## Provider catalogue and route evidence
 
+On September 30, 2026, AIGW observed 417 AIHubMix, 565 DMXAPI, and 276 UCloud
+IDs across eight Account/protocol catalogue surfaces. All 60 shipped Route
+wire IDs appeared on their declared Account/protocol surfaces. The DMXAPI
+Responses observation used the locally configured `127.0.0.1:8792` Proxy,
+whereas the team manifest declares direct `https://www.dmxapi.cn/v1`.
+Catalogue membership therefore does not qualify that direct endpoint or
+prove the newly preferred Route can sustain inference.
+
 At the September 25, 2026 read, the public
 [AIHubMix](https://api.inferera.com/v1/models) and
 [UCloud](https://api.modelverse.cn/v1/models) endpoints returned 416 and 132
