@@ -101,7 +101,8 @@
       lists all 60 then-shipped Route IDs on their Account/protocol surfaces.
       A later direct AIHubMix Chat request for `solar-pro4` returned HTTP 400
       `no_available_channel`, so that Route and its unreferenced Model were
-      removed; 59 Routes remain. The catalogue listing alone did not qualify
+      removed; 57 Routes remain after replacing three GPT-6 Sol Routes with one
+      AIHubMix GPT-6.1 Sol Route. The catalogue listing alone did not qualify
       it. Final direct inference, client admission, and model ranking remain
       open for the retained set.
 - [x] 4.3 Prove that ordered existing recommendations select only usable

@@ -50,8 +50,8 @@ func TestTeamConfigurationManifestIsReviewedVersionSeven(t *testing.T) {
 	}{
 		ClientClaude:        {model: "claude-opus-5-5"},
 		ClientClaudeDesktop: {model: "claude-opus-5-5"},
-		ClientCodex:         {model: "gpt-6-sol"},
-		ClientHermes:        {model: "gpt-6-sol", storedProtocol: ProtocolOpenAIResponses},
+		ClientCodex:         {model: "gpt-6.1-sol"},
+		ClientHermes:        {model: "gpt-6.1-sol", storedProtocol: ProtocolOpenAIResponses},
 	}
 	if len(parsedManifest.Recommendations) != len(recommendations) {
 		t.Fatalf("team manifest recommended routes = %#v", parsedManifest.Recommendations)
@@ -141,7 +141,7 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 		"claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5",
 		"command-a-03-2025",
 		"deepseek-v4.1-flash", "doubao-seed-2-1-pro-260628", "ernie-5.1", "gemini-3.1-pro-preview", "glm-5.3",
-		"gpt-6-astra", "gpt-6-luna", "gpt-6-sol", "grok-4.7",
+		"gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol", "grok-4.7",
 		"hy3", "kimi-k3", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.0", "mercury-2.5", "mimo-v2.6-pro",
 		"minimax-m3", "mistral-large-3", "muse-spark-1.3", "nemotron-3-super-120b-a12b",
 		"qwen3.8-max", "step-3.7-flash",
@@ -175,7 +175,7 @@ func TestTeamManifestGPTAccountRoutesFollowInferenceEvidence(t *testing.T) {
 	want := map[string][]string{
 		"gpt-6-astra": {"aihubmix", "dmxapi", "ucloud"},
 		"gpt-6-luna":  {"aihubmix", "dmxapi", "ucloud"},
-		"gpt-6-sol":   {"aihubmix", "dmxapi", "ucloud"},
+		"gpt-6.1-sol": {"aihubmix"},
 	}
 	for model, accounts := range want {
 		for _, account := range accounts {
@@ -331,14 +331,15 @@ func TestTeamManifestRoutesUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 	}
 }
 
-func TestTeamManifestRecommendsDMXAPIBeforeUCloud(t *testing.T) {
+func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	for client, model := range map[string]string{
-		ClientClaude: "claude-opus-5-5", ClientClaudeDesktop: "claude-opus-5-5",
-		ClientCodex: "gpt-6-sol", ClientHermes: "gpt-6-sol",
+	for client, want := range map[string][]string{
+		ClientClaude:        {"dmxapi-claude-opus-5-5", "ucloud-claude-opus-5-5", "aihubmix-claude-opus-5-5"},
+		ClientClaudeDesktop: {"dmxapi-claude-opus-5-5", "ucloud-claude-opus-5-5", "aihubmix-claude-opus-5-5"},
+		ClientCodex:         {"aihubmix-gpt-6.1-sol", "dmxapi-gpt-6-astra", "ucloud-gpt-6-astra"},
+		ClientHermes:        {"aihubmix-gpt-6.1-sol", "dmxapi-gpt-6-astra", "ucloud-gpt-6-astra"},
 	} {
 		choices := manifest.Recommendations[client].Selections()
-		want := []string{"dmxapi-" + model, "ucloud-" + model, "aihubmix-" + model}
 		if len(choices) != len(want) {
 			t.Errorf("%s recommendations = %#v, want %q", client, choices, want)
 			continue
@@ -347,6 +348,14 @@ func TestTeamManifestRecommendsDMXAPIBeforeUCloud(t *testing.T) {
 			if selection.Route != want[index] {
 				t.Errorf("%s recommendation %d = %q, want %q", client, index, selection.Route, want[index])
 			}
+		}
+	}
+	if _, exists := manifest.Models["gpt-6-sol"]; exists {
+		t.Error("retired GPT-6 Sol remains in the shipped model catalog")
+	}
+	for routeID, route := range manifest.Routes {
+		if route.Model == "gpt-6-sol" {
+			t.Errorf("retired GPT-6 Sol Route %q remains", routeID)
 		}
 	}
 }
@@ -433,7 +442,7 @@ func TestTeamManifestSelectsRecommendedModelsForAIHubMix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for client, model := range map[string]string{ClientClaude: "claude-opus-5-5", ClientCodex: "gpt-6-sol", ClientHermes: "gpt-6-sol"} {
+	for client, model := range map[string]string{ClientClaude: "claude-opus-5-5", ClientCodex: "gpt-6.1-sol", ClientHermes: "gpt-6.1-sol"} {
 		runtime, resolveErr := selected.ResolveRuntime(client, "")
 		if resolveErr != nil {
 			t.Fatal(resolveErr)

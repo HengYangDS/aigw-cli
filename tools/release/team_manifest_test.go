@@ -34,32 +34,32 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 	}
 }
 
-func TestTeamManifestRecommendsDirectDMXAPISolBeforeUCloud(t *testing.T) {
+func TestTeamManifestRecommendsQualifiedSolAndRetainsAccountFallbacks(t *testing.T) {
 	team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
 	manifest, err := configuration.Parse(team)
 	if err != nil {
 		t.Fatal(err)
 	}
-	route, exists := manifest.Routes["dmxapi-gpt-6-sol"]
-	if !exists || route.Account != "dmxapi" || route.Model != "gpt-6-sol" || route.UpstreamModelID() != "gpt-6-sol" {
-		t.Fatalf("direct DMXAPI Sol Route = %#v, present=%t", route, exists)
+	route, exists := manifest.Routes["aihubmix-gpt-6.1-sol"]
+	if !exists || route.Account != "aihubmix" || route.Model != "gpt-6.1-sol" || route.UpstreamModelID() != "gpt-6.1-sol" {
+		t.Fatalf("AIHubMix 6.1 Sol Route = %#v, present=%t", route, exists)
 	}
 	if len(route.Interfaces) != 1 {
-		t.Fatalf("direct DMXAPI Sol protocols = %#v", route.Interfaces)
+		t.Fatalf("AIHubMix 6.1 Sol protocols = %#v", route.Interfaces)
 	}
 	if _, ok := route.Interfaces[configuration.ProtocolOpenAIResponses]; !ok {
-		t.Fatalf("direct DMXAPI Sol lacks Responses: %#v", route.Interfaces)
+		t.Fatalf("AIHubMix 6.1 Sol lacks Responses: %#v", route.Interfaces)
 	}
 	if got := manifest.Accounts["dmxapi"].Endpoints.OpenAIResponses; got != "https://www.dmxapi.cn/v1" {
 		t.Fatalf("team DMXAPI endpoint = %q, want direct provider", got)
 	}
 	for _, client := range []string{configuration.ClientCodex, configuration.ClientHermes} {
 		recommendation := manifest.Recommendations[client]
-		if recommendation.Primary.Route != "dmxapi-gpt-6-sol" {
+		if recommendation.Primary.Route != "aihubmix-gpt-6.1-sol" {
 			t.Fatalf("%s primary Route changed: %q", client, recommendation.Primary.Route)
 		}
-		if len(recommendation.Alternatives) != 2 || recommendation.Alternatives[0].Route != "ucloud-gpt-6-sol" ||
-			recommendation.Alternatives[1].Route != "aihubmix-gpt-6-sol" {
+		if len(recommendation.Alternatives) != 2 || recommendation.Alternatives[0].Route != "dmxapi-gpt-6-astra" ||
+			recommendation.Alternatives[1].Route != "ucloud-gpt-6-astra" {
 			t.Fatalf("%s setup alternatives changed the provider order: %#v", client, recommendation.Alternatives)
 		}
 	}

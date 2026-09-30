@@ -116,10 +116,13 @@ evidence](../research/provider-model-qualification.md) explains the observed
 IDs, protocol tests, exclusions, and limits. A catalogue listing is not a live
 Route or native-client availability guarantee.
 
-For every admitted client, initial selection prefers DMXAPI, then UCloud,
-then AIHubMix. Codex and Hermes use GPT-6 Sol; Claude Code and Claude Desktop
-use Opus 5.5. A sole connected Account remains sufficient. Luna remains
-separately selectable, not an automatic recovery route when Sol later fails.
+Claude Code and Claude Desktop initially prefer DMXAPI Opus 5.5, then UCloud,
+then AIHubMix. Codex and Hermes prefer AIHubMix GPT-6.1 Sol; a sole DMXAPI or
+UCloud Account selects its GPT-6 Astra Route instead. GPT-6.1 Sol has not
+passed those two Accounts' native tool-use admission, so a shared model name
+must not imply three interchangeable Routes. A sole connected Account remains
+sufficient. Luna remains separately selectable, not an automatic recovery
+Route when the selected provider later fails.
 A local Account endpoint override is not silently replaced by the team's
 direct endpoint. Re-importing the team manifest
 against that differing Account fails closed; inspect it with
@@ -296,11 +299,11 @@ does not undo the selection. Run `aigw status` before retrying.
 
 ### Hermes protocol and model selection
 
-With Hermes installed and a connected DMXAPI Account, select and verify its
-GPT-6 Sol Route without changing Codex or Claude bindings:
+With Hermes installed and a connected AIHubMix Account, select and verify its
+GPT-6.1 Sol Route without changing Codex or Claude bindings:
 
 ```bash
-aigw use --for hermes dmxapi-gpt-6-sol
+aigw use --for hermes aihubmix-gpt-6.1-sol
 aigw verify --for hermes
 ```
 

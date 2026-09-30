@@ -13,6 +13,10 @@ evidence.
 
 ### Changed
 
+- Recommend GPT-6.1 Sol on the qualified AIHubMix Responses Route for new Codex
+  and Hermes bindings; use the existing DMXAPI and UCloud Astra Routes when
+  those are the only connected Accounts. Existing explicit bindings remain
+  untouched by a team-manifest update.
 - Allow `aigw check --for <client>` to probe one enabled client without reading
   unrelated Account credentials or contacting unrelated endpoints; omission
   retains the all-enabled check.
@@ -42,6 +46,8 @@ evidence.
 
 ### Removed
 
+- Retire GPT-6 Sol from the shipped team manifest rather than claiming that
+  DMXAPI or UCloud already supports GPT-6.1 Sol tool use.
 - Withdraw the AIHubMix Solar Pro 4 Route and its unreferenced Model after the
   exact Chat Completions channel returned `no_available_channel`, despite its
   continued public catalogue listing.
