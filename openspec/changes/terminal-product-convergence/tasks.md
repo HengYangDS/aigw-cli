@@ -121,6 +121,10 @@
       focused tests preserve selected Routes and shared or incoming Models,
       reject invalid selectors before writing, and reject dangling retained
       recommendations. Final installed-host migration remains open.
+      Public Route addition now distinguishes canonical `--model` from an
+      optional exact `--upstream-model`; catalogue continuation supplies the
+      required `--protocol`. RED/GREEN and sibling tests preserve existing
+      Model identities, Routes and Client selections without alias inference.
       A later full-manifest inference audit rejected only AIHubMix Fable 5.1
       with an explicit temporary model-unavailable HTTP 400. That Route is
       withdrawn from the shipped catalogue; DMXAPI and UCloud Fable remain.

@@ -463,8 +463,12 @@ local intent in AIGW's own configuration commands:
 ```bash
 aigw use --for <client> <route>
 aigw account edit <account> --openai-url <url>
-aigw route add <route> --account <account> --model <model>
+aigw route add <route> --account <account> --model <model> --protocol <protocol>
 ```
+
+`--model` names the canonical Model. If the provider requires another exact
+wire ID, including case or a channel suffix, add `--upstream-model <wire-id>`.
+Omitting it uses the canonical ID unchanged; AIGW does not infer aliases.
 
 `aigw use` changes only the named client binding. Account and Route commands
 change local configuration and are not written back into [distributed team manifest](../../manifests/team.toml).

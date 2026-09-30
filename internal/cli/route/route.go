@@ -23,7 +23,7 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 }
 
 func newAddCommand(runtime invocation.Context) *cobra.Command {
-	var accountName, model, label, purpose, protocolName string
+	var accountName, model, upstreamModel, label, purpose, protocolName string
 	cmd := &cobra.Command{
 		Use: "add <route>", Short: "Add a model route to an existing account",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
@@ -35,6 +35,9 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			}
 			if strings.TrimSpace(accountName) == "" || strings.TrimSpace(model) == "" || strings.TrimSpace(protocolName) == "" {
 				return fmt.Errorf("--account, --model, and --protocol are required; run `%s --help`", cmd.CommandPath())
+			}
+			if cmd.Flags().Changed("upstream-model") && strings.TrimSpace(upstreamModel) == "" {
+				return fmt.Errorf("--upstream-model requires a non-empty value; run `%s --help`", cmd.CommandPath())
 			}
 			protocol := configuration.EndpointProtocol(protocolName)
 			switch protocol {
@@ -63,7 +66,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			before := cfg.Clone()
 			protocol := configuration.EndpointProtocol(protocolName)
 			cfg.Routes[routeName] = configuration.Route{
-				Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Model: model,
+				Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Model: model, UpstreamModel: upstreamModel,
 				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
 			}
 			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "route add"); err != nil {
@@ -74,6 +77,9 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			r.Row("Route", routeName)
 			r.Row("Account", accountName)
 			r.Row("Model", model)
+			if upstreamModel != "" && upstreamModel != model {
+				r.Row("Upstream model", upstreamModel)
+			}
 			if purpose := strings.TrimSpace(purpose); purpose != "" {
 				r.Row("Purpose", purpose)
 			}
@@ -83,7 +89,8 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&accountName, "account", "", "Existing account ID")
-	cmd.Flags().StringVar(&model, "model", "", "Upstream model ID")
+	cmd.Flags().StringVar(&model, "model", "", "Canonical Model ID; also used upstream unless --upstream-model is set")
+	cmd.Flags().StringVar(&upstreamModel, "upstream-model", "", "Exact provider model ID, including case or channel; defaults to --model")
 	cmd.Flags().StringVar(&protocolName, "protocol", "", "Wire protocol: anthropic, openai_responses, or openai_chat_completions")
 	cmd.Flags().StringVar(&label, "label", "", "Display name")
 	cmd.Flags().StringVar(&purpose, "purpose", "", "Purpose note (display only)")

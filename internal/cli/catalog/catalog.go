@@ -143,7 +143,7 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 			}
 			renderMissingRoutes(r, observation.MissingRoutes)
 		}
-		r.Next("aigw route add <route> --account <account> --for <" + strings.Join(configuration.AdmittedClientIDs(), "|") + "> --model <model>")
+		r.Next("aigw route add <route> --account <account> --model <model> --protocol <protocol>")
 		return r.Err()
 	}
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
