@@ -381,6 +381,21 @@ and after each pass, including staged edits; any drift fails and remains
 available for review. This task refreshes metadata, not dependency versions, and
 is deliberately separate from offline tests and ordinary bootstrap.
 
+An authored tool-version upgrade is a separate transaction. After reviewing
+the exact upstream version, change its pin and use a process-scoped
+`MISE_LOCKED=0 mise lock <tool>` preview and native refresh to produce its
+dependency sidecars; then return to locked bootstrap. Installation alone does
+not produce a complete embedded dependency graph. Commit the sidecars listed
+by `mise lock --sidecars --json` without reformatting them; native Mise retires
+unreferenced sidecars. Use `mise lock --upgrade` only for an explicitly reviewed
+lock-format migration and compare every tool version and platform checksum.
+
+When upstream GitHub metadata requires authentication, scope
+`MISE_GITHUB_CREDENTIAL_COMMAND` to the resolver process and point it at the
+locked `gh auth token` command. This delegates to the native credential owner
+without logging or exporting a Token; it does not authorize new credentials,
+interactive login or changed scopes.
+
 GitHub's **Verify** workflow exposes `refresh_locks` as an optional manual input
 alongside the candidate ref and `commit_base`. Each native job supplies its
 short-lived workflow token only to this step and retains the resulting lock as

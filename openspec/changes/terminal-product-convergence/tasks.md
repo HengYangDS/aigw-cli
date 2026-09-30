@@ -255,6 +255,11 @@
       Action, OpenSpec, and client versions match their official stable owners.
       Native npm resolution preserves parent-pinned versions and the three-day
       admission window rather than forcing incompatible transitive overrides.
+      The October 1 official read found npm 12.2.0 newly stable; the native
+      Mise producer now owns that package-manager pin and its AUBE sidecar.
+      Host Mise 2026.9.18 and uv 0.12.21 have a single verified official owner;
+      project bootstrap, final native qualification and cold-peer evidence
+      remain distinct obligations.
 - [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
