@@ -40,7 +40,7 @@ func TestGitLabMetadataUsesExplicitProcessPlan(t *testing.T) {
 	if plan.Executable != "glab" || strings.Join(plan.Args, " ") != "api projects" {
 		t.Fatalf("unexpected process plan: %#v", plan)
 	}
-	if !slices.Contains(plan.Env, "GITLAB_HOST=https://gitlab.example.test") {
+	if !slices.Contains(plan.Env, "GITLAB_HOST=https://gitlab.example.test") || !slices.Contains(plan.Env, "GLAB_ENABLE_CI_AUTOLOGIN=false") {
 		t.Fatal("configured GitLab host was not bound to the process plan")
 	}
 }
@@ -93,6 +93,9 @@ func TestGitLabCLIUsesSelectedOriginDespiteAmbientConfiguration(t *testing.T) {
 		"GITLAB_HOST": ambient.URL, "GITLAB_URI": ambient.URL, "GL_HOST": ambient.URL,
 		"GITLAB_API_HOST": ambient.Listener.Addr().String(), "API_PROTOCOL": "http", "GITLAB_SUBFOLDER": "legacy",
 		"GLAB_NO_PROMPT": "true", "GLAB_CHECK_UPDATE": "false", "GLAB_SHOW_WHATS_NEW": "false", "GLAB_SEND_TELEMETRY": "false",
+		"GLAB_ENABLE_CI_AUTOLOGIN": "true", "GITLAB_CI": "true",
+		"CI_SERVER_URL": ambient.URL, "CI_SERVER_HOST": "127.0.0.1", "CI_SERVER_FQDN": ambient.Listener.Addr().String(),
+		"CI_JOB_TOKEN": "synthetic-ci-job-only",
 	} {
 		t.Setenv(key, value)
 	}

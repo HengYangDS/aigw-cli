@@ -425,6 +425,25 @@ func TestGitLabNativeAcceptanceForwardsPeerLocalArtifactAndClientInputs(t *testi
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &jobs); err != nil {
 		t.Fatal(err)
 	}
+	var environment struct {
+		Linux struct {
+			Variables map[string]string `yaml:"variables"`
+		} `yaml:"native-linux"`
+		Darwin struct {
+			Variables map[string]string `yaml:"variables"`
+		} `yaml:"native-darwin-review"`
+		Windows struct {
+			Variables map[string]string `yaml:"variables"`
+		} `yaml:"native-windows-review"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &environment); err != nil {
+		t.Fatal(err)
+	}
+	for _, variables := range []map[string]string{environment.Linux.Variables, environment.Darwin.Variables, environment.Windows.Variables} {
+		if variables["GLAB_ENABLE_CI_AUTOLOGIN"] != "" {
+			t.Fatal("CI login must be scoped to native downloads, not the source or test environment")
+		}
+	}
 	for name, commands := range map[string][]string{"native-linux": jobs.Linux.Script, "native-darwin-review": jobs.Darwin.Script, "native-windows-review": jobs.Windows.Script} {
 		script := strings.Join(commands, "\n")
 		for _, input := range []string{"AIGW_BASELINE_TAG", "AIGW_CANDIDATE_TAG", "AIGW_CANDIDATE_ARTIFACTS", "AIGW_NATIVE_CLIENTS", "--baseline-tag", "--artifacts", "--candidate", "--clients", "--peer", "gitlab", "--repository", "CI_PROJECT_URL"} {

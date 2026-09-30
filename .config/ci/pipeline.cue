@@ -670,8 +670,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	}
 	stage: graph["native-\(_platform)"].stage
 	variables: nativeToolchain[_platform].default & {
-		GLAB_ENABLE_CI_AUTOLOGIN: "true"
-		GLAB_NO_PROMPT:           "1"
+		GLAB_NO_PROMPT: "1"
 		if _platform == "windows" {
 			AIGW_VERIFY_SYSTEM_KEYRING: "1"
 		}

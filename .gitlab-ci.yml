@@ -13,7 +13,6 @@ native-linux:
   stage: verify
   variables:
     CGO_ENABLED: "1"
-    GLAB_ENABLE_CI_AUTOLOGIN: "true"
     GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee
   artifacts:
@@ -81,7 +80,6 @@ native-darwin:
     - when: never
   stage: verify
   variables:
-    GLAB_ENABLE_CI_AUTOLOGIN: "true"
     GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee,github:indygreg/apple-platform-rs
   artifacts:
@@ -132,7 +130,6 @@ native-darwin-review:
     - when: never
   stage: verify
   variables:
-    GLAB_ENABLE_CI_AUTOLOGIN: "true"
     GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee,github:indygreg/apple-platform-rs
   artifacts:
@@ -259,7 +256,6 @@ native-windows:
   stage: verify
   variables:
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
-    GLAB_ENABLE_CI_AUTOLOGIN: "true"
     GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab
   artifacts:
@@ -385,7 +381,6 @@ native-windows-review:
   stage: verify
   variables:
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
-    GLAB_ENABLE_CI_AUTOLOGIN: "true"
     GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab
   artifacts:

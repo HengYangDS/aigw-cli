@@ -150,6 +150,51 @@ func TestNativeTaggedPeerInputsShareTheReleaseLifecycle(t *testing.T) {
 	}
 }
 
+func TestNativeInputFailuresReclaimExactWorkspaceWithoutRunningArtifacts(t *testing.T) {
+	for _, failure := range []string{"candidate download", "candidate signature", "baseline download", "baseline signature"} {
+		t.Run(failure, func(t *testing.T) {
+			root, temp := releaseRoot(t), t.TempDir()
+			t.Setenv("TMPDIR", temp)
+			t.Setenv("TMP", temp)
+			t.Setenv("TEMP", temp)
+			input := NativeAcceptance{Tag: "v1.2.3", Peer: "gitlab", Repository: "group/product"}
+			if strings.HasPrefix(failure, "baseline") {
+				input.Tag, input.BaselineTag = "", "v1.2.2"
+			}
+			if failure == "baseline signature" {
+				input.BaselineArtifacts = t.TempDir()
+			}
+			sentinel := errors.New("owned download failed")
+			calls := 0
+			err := acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.3", Epoch: "1784246400"}, func(call toolCall) error {
+				switch call.Name {
+				case "git":
+					return nil
+				case "glab":
+					calls++
+					if strings.HasSuffix(failure, "download") {
+						return sentinel
+					}
+					return nil
+				default:
+					t.Fatalf("untrusted artifact reached execution: %#v", call)
+					return nil
+				}
+			})
+			if err == nil || strings.HasSuffix(failure, "download") && !errors.Is(err, sentinel) {
+				t.Fatalf("native input failure changed identity: %v", err)
+			}
+			if calls == 0 && failure != "baseline signature" {
+				t.Fatal("declared download was not attempted")
+			}
+			matches, err := filepath.Glob(filepath.Join(temp, "aigw-native-inputs-*"))
+			if err != nil || len(matches) != 0 {
+				t.Fatalf("failed native inputs retained owned scratch: %v, %v", matches, err)
+			}
+		})
+	}
+}
+
 func signedNativeInputFixture(t *testing.T, root, version, key string) string {
 	t.Helper()
 	for name, body := range map[string]string{
