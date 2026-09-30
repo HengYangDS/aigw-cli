@@ -113,6 +113,9 @@
 - [ ] 4.5 Requalify Claude Code, Claude Desktop, Codex, and Hermes independently
       for native protocol, model selection, credential and rollback behavior; do not
       infer Desktop from CLI or endpoint reachability from real-client success.
+      Claude-in-Codex remains unadmitted: the shipped Claude Routes expose only
+      Anthropic, while Codex requires Responses. Qualify an exact external
+      Responses path and real Codex tool/replay behavior before claiming support.
       The signed `38246801` candidate passes the isolated macOS journey with
       installed Claude Code 2.1.283, Codex 0.158.0 and Hermes 0.21.5, including
       streaming and a Codex tool loop. Claude Code and Codex pass rollback and

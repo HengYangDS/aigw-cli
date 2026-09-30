@@ -242,3 +242,12 @@ Select such Routes with [`aigw use --for codex`](../../README.md#use-it-every-da
 and verify them through Codex. AIGW does not invent missing Codex catalogue
 metadata, alter an existing Desktop conversation's model, or infer that the
 upstream Account is currently available from this local-client result.
+
+Every Claude Route in the [shipped team manifest](../../manifests/team.toml)
+currently declares only an Anthropic interface, whereas Codex's
+[custom-provider contract](https://learn.chatgpt.com/docs/config-file/config-reference#configtoml)
+supports the Responses wire API. No shipped AIGW Claude Route is therefore
+admitted for Codex. A provider-native Responses endpoint or an explicitly
+selected external adapter would need real Codex text, tool, streaming, and
+replay qualification before such a Route could be offered. AIGW does not
+translate inference traffic or configure ordinary ChatGPT conversations.
