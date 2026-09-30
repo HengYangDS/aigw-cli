@@ -354,10 +354,6 @@ func TestReleaseBuildHelpersCoverAtomicReplacementAndCommands(t *testing.T) {
 	if err != nil || len(entries) != 2 {
 		t.Fatalf("replacement left temporary output: %v, %v", entries, err)
 	}
-	if err := replaceDirectory(missing, filepath.Join(root, "unpublished")); err == nil || !strings.Contains(err.Error(), "publish release output") {
-		t.Fatalf("first publication accepted a missing source: %v", err)
-	}
-
 	copyTarget := filepath.Join(root, "copied")
 	if err := copyFile(filepath.Join(target, "new"), copyTarget); err != nil {
 		t.Fatal(err)
@@ -368,16 +364,34 @@ func TestReleaseBuildHelpersCoverAtomicReplacementAndCommands(t *testing.T) {
 	if err := copyFile(filepath.Join(target, "new"), root); err == nil || !strings.Contains(err.Error(), "write release artifact") {
 		t.Fatalf("copy write error = %v", err)
 	}
-	if err := replaceDirectory(missing, filepath.Join(copyTarget, "unpublished")); err == nil || !strings.Contains(err.Error(), "inspect release output") {
-		t.Fatalf("non-directory release parent was accepted: %v", err)
-	}
-
 	command := toolCall{Name: "go", Directory: root, Args: []string{"version"}, Env: []string{"AIGW_TEST_VALUE=present"}}
 	if err := executeTool(t.Context())(command); err != nil {
 		t.Fatal(err)
 	}
 	if err := executeTool(t.Context())(toolCall{Name: filepath.Join(root, "missing-command")}); err == nil {
 		t.Fatal("missing command succeeded")
+	}
+}
+
+func TestReleaseOutputRejectsInvalidFirstPublicationPaths(t *testing.T) {
+	root := t.TempDir()
+	missing := filepath.Join(root, "missing")
+	target := filepath.Join(root, "unpublished")
+	if err := replaceDirectory(missing, target); err == nil || !strings.Contains(err.Error(), "publish release output") {
+		t.Fatalf("first publication accepted a missing source: %v", err)
+	}
+	if _, err := os.Lstat(target); !os.IsNotExist(err) {
+		t.Fatalf("failed publication left a target: %v", err)
+	}
+	blocker := filepath.Join(root, "operator-owned")
+	if err := os.WriteFile(blocker, []byte("unchanged"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := replaceDirectory(missing, filepath.Join(blocker, "unpublished")); err == nil || !strings.Contains(err.Error(), "inspect release output") {
+		t.Fatalf("non-directory release parent was accepted: %v", err)
+	}
+	if content, err := os.ReadFile(blocker); err != nil || string(content) != "unchanged" {
+		t.Fatalf("invalid release target changed an operator-owned file: %q, %v", content, err)
 	}
 }
 
