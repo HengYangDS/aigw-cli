@@ -73,6 +73,13 @@ func TestNativeReleaseDownloadUsesSelectedPeerAndBoundedNativeRunner(t *testing.
 			if !slices.Contains(call.Env, "GH_PROMPT_DISABLED=1") || !slices.Contains(call.Env, "GLAB_NO_PROMPT=1") {
 				t.Fatal("download permits interactive authentication")
 			}
+			err = downloadNativeRelease("source", input, "v1.2.3", directory, func(call toolCall) error {
+				t.Fatalf("occupied destination reached a repeated download: %#v", call)
+				return nil
+			})
+			if !errors.Is(err, os.ErrExist) {
+				t.Fatalf("download did not preserve its occupied destination: %v", err)
+			}
 		})
 	}
 }
@@ -190,6 +197,52 @@ func TestNativeInputFailuresReclaimExactWorkspaceWithoutRunningArtifacts(t *test
 			matches, err := filepath.Glob(filepath.Join(temp, "aigw-native-inputs-*"))
 			if err != nil || len(matches) != 0 {
 				t.Fatalf("failed native inputs retained owned scratch: %v, %v", matches, err)
+			}
+		})
+	}
+}
+
+func TestNativeInputAdmissionFailurePrecedesArtifactsAndCleansScratch(t *testing.T) {
+	for _, failure := range []string{"source", "scratch", "journey"} {
+		t.Run(failure, func(t *testing.T) {
+			root, temp := releaseRoot(t), t.TempDir()
+			if failure == "scratch" {
+				temp = filepath.Join(temp, "not-a-directory")
+				if err := os.WriteFile(temp, []byte("caller-owned"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			t.Setenv("TMPDIR", temp)
+			t.Setenv("TMP", temp)
+			t.Setenv("TEMP", temp)
+			input := NativeAcceptance{Tag: "v1.2.3", Peer: "gitlab", Repository: "group/product"}
+			if failure == "journey" {
+				input = NativeAcceptance{}
+			}
+			sentinel := errors.New("owned admission failed")
+			err := acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.3", Epoch: "1784246400"}, func(call toolCall) error {
+				if call.Name == "git" && failure != "source" {
+					return nil
+				}
+				if call.Name != "git" && call.Name != "go" {
+					t.Fatalf("failed admission reached artifact transport: %#v", call)
+				}
+				return sentinel
+			})
+			if err == nil {
+				t.Fatal("failed native admission was accepted")
+			}
+			if failure == "scratch" {
+				if bytes, readErr := os.ReadFile(temp); readErr != nil || string(bytes) != "caller-owned" {
+					t.Fatalf("invalid scratch admission changed caller input: %v", readErr)
+				}
+				return
+			}
+			if !errors.Is(err, sentinel) {
+				t.Fatalf("native admission error identity changed: %v", err)
+			}
+			if matches, err := filepath.Glob(filepath.Join(temp, "aigw-native-*-*")); err != nil || len(matches) != 0 {
+				t.Fatalf("failed native admission retained scratch: %v, %v", matches, err)
 			}
 		})
 	}
