@@ -152,14 +152,6 @@ label = 'Qwen 3.8 Max'
 label = 'Step 3.7 Flash'
 
 [routes]
-[routes.aihubmix-claude-fable-5-1]
-account = 'aihubmix'
-model = 'claude-fable-5-1'
-upstream_model = 'claude-fable-5-1'
-
-[routes.aihubmix-claude-fable-5-1.interfaces]
-anthropic = []
-
 [routes.aihubmix-claude-opus-5-5]
 account = 'aihubmix'
 model = 'claude-opus-5-5'

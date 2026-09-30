@@ -101,7 +101,7 @@
       lists all 60 then-shipped Route IDs on their Account/protocol surfaces.
       A later direct AIHubMix Chat request for `solar-pro4` returned HTTP 400
       `no_available_channel`, so that Route and its unreferenced Model were
-      removed; 58 Routes remain after replacing three GPT-6 Sol Routes with
+      removed; 57 Routes remain after replacing three GPT-6 Sol Routes with
       AIHubMix, DMXAPI, and UCloud GPT-6.1 Sol Routes and withdrawing the Fable 5.1 CC
       channel after three bounded requests failed to complete. Direct DMXAPI
       text and strict function-call probes plus two isolated Codex tool loops now
@@ -116,6 +116,11 @@
       focused tests preserve selected Routes and shared or incoming Models,
       reject invalid selectors before writing, and reject dangling retained
       recommendations. Final installed-host migration remains open.
+      A later full-manifest inference audit rejected only AIHubMix Fable 5.1
+      with an explicit temporary model-unavailable HTTP 400. That Route is
+      withdrawn from the shipped catalogue; DMXAPI and UCloud Fable remain.
+      The diagnostic regression distinguishes that refusal from malformed
+      model requests and preserves one bounded request with no auth retry.
 - [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
       Providers; no control-plane command claims request-time failover.
