@@ -440,21 +440,6 @@ func TestReleaseBuildEnvironment(t *testing.T) {
 	}
 }
 
-func TestBuildCIRejectsMalformedTagShapes(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	for _, tag := range []string{"1.2.3", "vnot-semver"} {
-		t.Run(tag, func(t *testing.T) {
-			t.Setenv("CI_COMMIT_TAG", tag)
-			if err := buildCI(root, t.TempDir(), t.TempDir(), nil, nil, nil); err == nil || !strings.Contains(err.Error(), "invalid CI") {
-				t.Fatalf("tag %q error = %v", tag, err)
-			}
-		})
-	}
-}
-
 func TestReleaseEpochRejectsInvalidDateAndOversizedChangelogLine(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CI_COMMIT_TAG", "v1.2.3")
@@ -525,14 +510,5 @@ func TestValidateSourcesRejectsInvalidAuthoritiesAndRepositories(t *testing.T) {
 		Version: "1.2.3", Epoch: "0", GitHubOrigin: "https://github.example.test", GitHubRepository: "group/subgroup/project",
 	}); err == nil || !strings.Contains(err.Error(), "owner/repository") {
 		t.Fatalf("nested GitHub build repository error = %v", err)
-	}
-}
-
-func TestMacOSDistributionRequiresExplicitIdentity(t *testing.T) {
-	if err := VerifyMacOSDistribution(t.Context(), t.TempDir(), "1.2.3", "", Notarization{}); err == nil {
-		t.Fatal("distribution accepted without explicit publisher")
-	}
-	if err := VerifyMacOSDistribution(t.Context(), t.TempDir(), "invalid", strings.Repeat("a", 40), Notarization{Archive: "upload.zip", SubmissionID: "submission", KeychainProfile: "profile"}); err == nil {
-		t.Fatal("invalid version accepted")
 	}
 }

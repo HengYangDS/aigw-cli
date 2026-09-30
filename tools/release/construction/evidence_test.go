@@ -14,6 +14,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"go.yaml.in/yaml/v3"
 )
 
 func spdxFixture(t *testing.T, root, version string) []byte {
@@ -32,6 +34,43 @@ func spdxFixture(t *testing.T, root, version string) []byte {
 		files = append(files, fmt.Sprintf(`{"fileName":%q,"checksums":[{"algorithm":"SHA1","checksumValue":"0000000000000000000000000000000000000000"}]}`, relative))
 	}
 	return []byte(`{"spdxVersion":"SPDX-2.3","documentNamespace":"https://volatile.invalid/random","creationInfo":{"created":"2099-01-01T00:00:00Z"},"files":[` + strings.Join(files, ",") + `]}`)
+}
+
+func TestGoReleaserArchiveMetadataIsHostIndependent(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", ".config", "release", "goreleaser.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var configuration struct {
+		Archives []struct {
+			BuildsInfo struct {
+				Owner string `yaml:"owner"`
+				Group string `yaml:"group"`
+			} `yaml:"builds_info"`
+			Files []struct {
+				Source string `yaml:"src"`
+				Info   struct {
+					Owner string `yaml:"owner"`
+					Group string `yaml:"group"`
+				} `yaml:"info"`
+			} `yaml:"files"`
+		} `yaml:"archives"`
+	}
+	if err := yaml.Unmarshal(data, &configuration); err != nil {
+		t.Fatal(err)
+	}
+	if len(configuration.Archives) != 1 {
+		t.Fatalf("archives = %d, want 1", len(configuration.Archives))
+	}
+	archive := configuration.Archives[0]
+	if archive.BuildsInfo.Owner != "root" || archive.BuildsInfo.Group != "root" {
+		t.Fatalf("build archive identity = %q:%q, want root:root", archive.BuildsInfo.Owner, archive.BuildsInfo.Group)
+	}
+	for _, file := range archive.Files {
+		if file.Info.Owner != "root" || file.Info.Group != "root" {
+			t.Fatalf("archive identity for %s = %q:%q, want root:root", file.Source, file.Info.Owner, file.Info.Group)
+		}
+	}
 }
 
 func TestNormalizedSPDXIsDeterministicAndPortable(t *testing.T) {
