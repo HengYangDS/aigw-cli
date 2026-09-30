@@ -10,6 +10,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secrets/native"
 )
 
 func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
@@ -128,6 +129,39 @@ func TestBalanceExplainsOptionalAccountBinding(t *testing.T) {
 	err := cli.Execute(app, []string{"balance"})
 	if err == nil || !strings.Contains(out.String()+err.Error(), "aigw account diagnostics enable dmx") || !strings.Contains(out.String()+err.Error(), "Precise balance diagnostics are not enabled") {
 		t.Fatalf("output=%s error=%v", out.String(), err)
+	}
+}
+
+func TestBalanceDoesNotReportUnreadableDiagnosticCredentialAsMissing(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		cause error
+	}{
+		{name: "native store unavailable", cause: native.ErrUnavailable},
+		{name: "stored credential invalid", cause: errors.New("private diagnostic detail")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			app, out, _, _, httpClient := testApp(t, "")
+			saveProbeRoute(t, app.Config)
+			store := &recordingCredentialStore[secrets.DiagnosticCredential]{backend: app.Accounts, getErr: test.cause}
+			app.Accounts = store
+
+			err := cli.Execute(app, []string{"balance"})
+			if !errors.Is(err, test.cause) {
+				t.Fatalf("balance error = %v, want cause %v", err, test.cause)
+			}
+			if !strings.Contains(out.String(), "Cannot read provider diagnostic credential") {
+				t.Fatalf("balance output = %q", out.String())
+			}
+			for _, forbidden := range []string{"Precise balance diagnostics are not enabled", "Missing dmx", "private diagnostic detail"} {
+				if strings.Contains(out.String(), forbidden) {
+					t.Fatalf("balance output contains %q: %s", forbidden, out.String())
+				}
+			}
+			if len(store.getCalls) != 1 || store.getCalls[0] != "dmx" || httpClient.calls != 0 {
+				t.Fatalf("diagnostic reads = %v, provider calls = %d", store.getCalls, httpClient.calls)
+			}
+		})
 	}
 }
 
