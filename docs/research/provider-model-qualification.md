@@ -32,12 +32,16 @@ On September 30, 2026,
 identified `gpt-6.1-sol` and Responses tool calling. AIHubMix's
 [public catalogue](https://api.inferera.com/v1/models)
 initially listed only `gpt-6-sol`, but a later September 30 read returned 418 IDs
-and included `gpt-6.1-sol`. UCloud's public catalogue omitted the GPT family,
-and unauthenticated DMXAPI discovery returned 401; neither result establishes
-absence from private catalogues. Treat 6.1 Sol as an unadmitted team candidate
-until each claimed Account passes bounded direct inference and native-client
-verification for the exact wire ID. Do not replace an explicit selection or
-the team default from the announcement or catalogue listing alone.
+and included `gpt-6.1-sol`. A later authenticated DMXAPI listing also included
+that exact ID; UCloud's did not. Direct Responses text requests completed on
+AIHubMix and DMXAPI, while UCloud rejected the model. An isolated Codex tool
+loop then succeeded on AIHubMix but DMXAPI rejected its tool request before tool
+use with `missing_required_parameter` for `tools[4].tools`. Codex also used
+fallback metadata for this newly named model. These observations qualify an
+AIHubMix candidate, not a three-Account default or a DMXAPI Codex Route. Keep
+the existing explicit selections and GPT-6 Sol recommendations until client
+metadata, tool behavior and final-artifact admission are proven for a proposed
+replacement.
 
 At the September 25, 2026 read, the public
 [AIHubMix](https://api.inferera.com/v1/models) and
@@ -96,8 +100,8 @@ Routes. Existing local Route and Client Binding state remains separate and is
 not rewritten by this catalogue change.
 
 The earlier two rejected UCloud Opus IDs remain historical observations.
-Catalogue membership and one successful text call remain narrower than complete tool, streaming,
-long-context, cost, or latency qualification.
+Catalogue membership and one successful text call remain narrower than
+complete tool, streaming, long-context, cost, or latency qualification.
 
 DMXAPI's retained CC, SSVIP, and CDX channels remain separate Routes within
 the Claude and GPT families. Each Route retains its exact wire ID while its
