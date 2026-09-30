@@ -354,6 +354,9 @@ func TestReleaseBuildHelpersCoverAtomicReplacementAndCommands(t *testing.T) {
 	if err != nil || len(entries) != 2 {
 		t.Fatalf("replacement left temporary output: %v, %v", entries, err)
 	}
+	if err := replaceDirectory(missing, filepath.Join(root, "unpublished")); err == nil || !strings.Contains(err.Error(), "publish release output") {
+		t.Fatalf("first publication accepted a missing source: %v", err)
+	}
 
 	copyTarget := filepath.Join(root, "copied")
 	if err := copyFile(filepath.Join(target, "new"), copyTarget); err != nil {
@@ -364,6 +367,9 @@ func TestReleaseBuildHelpersCoverAtomicReplacementAndCommands(t *testing.T) {
 	}
 	if err := copyFile(filepath.Join(target, "new"), root); err == nil || !strings.Contains(err.Error(), "write release artifact") {
 		t.Fatalf("copy write error = %v", err)
+	}
+	if err := replaceDirectory(missing, filepath.Join(copyTarget, "unpublished")); err == nil || !strings.Contains(err.Error(), "inspect release output") {
+		t.Fatalf("non-directory release parent was accepted: %v", err)
 	}
 
 	command := toolCall{Name: "go", Directory: root, Args: []string{"version"}, Env: []string{"AIGW_TEST_VALUE=present"}}

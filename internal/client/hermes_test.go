@@ -53,11 +53,23 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	if binding := after.Clients["hermes"]; !binding.Enabled || binding.Executable == "" || len(binding.Targets) != 1 {
 		t.Fatalf("installed Hermes intent was not materialized: %#v", binding)
 	}
-	if _, err := registry.Apply(context.Background(), deps, cfg, after, "hermes"); err != nil {
+	receipt, err := registry.Apply(context.Background(), deps, cfg, after, "hermes")
+	if err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(home, ".hermes", "config.yaml")
 	if _, err := os.Stat(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := receipt.Rollback(); err != nil {
+		t.Fatalf("Hermes rollback failed: %v", err)
+	}
+	for _, target := range []string{path, path + ".aigw-state.json"} {
+		if _, err := os.Stat(target); !os.IsNotExist(err) {
+			t.Fatalf("Hermes rollback left %s: %v", target, err)
+		}
+	}
+	if _, err := registry.Apply(context.Background(), deps, cfg, after, "hermes"); err != nil {
 		t.Fatal(err)
 	}
 	for _, target := range observed.AutoManagedCodexTargets() {
