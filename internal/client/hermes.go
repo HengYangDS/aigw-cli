@@ -346,25 +346,25 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 	if !configured.Enabled {
 		return Verification{}, errors.New("hermes adapter is disabled; run aigw sync")
 	}
+	if len(configured.Targets) != 1 {
+		return Verification{}, errors.New("hermes verification requires one configured home; run aigw sync")
+	}
 	home, err := os.MkdirTemp("", "aigw-hermes-verification-")
 	if err != nil {
 		return Verification{}, err
 	}
 	defer func() { result = errors.Join(result, robustio.RemoveAll(home)) }()
 	verificationConfig := filepath.Join(home, "config.yaml")
-	if err := os.WriteFile(verificationConfig, []byte("security:\n  allow_lazy_installs: false\nupdates:\n  check: false\n"), 0o600); err != nil {
-		return Verification{}, fmt.Errorf("prepare isolated Hermes verification policy: %w", err)
-	}
 	desired, err := hermesDesired(deps, cfg, selected)
 	if err != nil {
 		return Verification{}, err
 	}
-	plan, err := hermesconfig.Prepare(verificationConfig, &desired)
+	data, err := hermesconfig.PrepareVerification(configured.Targets[0], desired)
 	if err != nil {
 		return Verification{}, err
 	}
-	if _, err := plan.Apply(); err != nil {
-		return Verification{}, err
+	if err := os.WriteFile(verificationConfig, data, 0o600); err != nil {
+		return Verification{}, fmt.Errorf("prepare isolated Hermes verification policy: %w", err)
 	}
 	environment := []string{}
 	for _, entry := range os.Environ() {

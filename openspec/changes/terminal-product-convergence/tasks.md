@@ -152,6 +152,13 @@
       before synchronization and checks the newly active program afterward.
       The non-stream inference recorder regression is included in the source
       gate. Automatic Homebrew preparation and final signed bytes remain unproved.
+      A deterministic native-setting regression exposed Hermes verification
+      discarding per-model reasoning overrides. Verification now derives its
+      isolated projection from the actual configured home, preserves native
+      settings and ownership, and disables only verification-time dependency
+      installation and update checks. Focused contracts cover changed Route,
+      missing or ambiguous home and unchanged source/sidecar bytes. The actual
+      AIHubMix Mistral override and final packaged client still need requalification.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.

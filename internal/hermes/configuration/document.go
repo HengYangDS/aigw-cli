@@ -106,6 +106,41 @@ func encode(root *yaml.Node) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
+// PrepareVerification preserves native settings in an isolated projection and
+// disables dependency installation and passive software-update checks.
+func PrepareVerification(path string, desired Desired) ([]byte, error) {
+	plan, err := Prepare(path, &desired)
+	if err != nil {
+		return nil, err
+	}
+	if !plan.configBefore.Exists {
+		return nil, errors.New("Hermes native configuration is missing; run aigw sync")
+	}
+	data := plan.configBefore.Data
+	if plan.Action == "write" {
+		data = plan.configAfter
+	}
+	root, err := parse(data)
+	if err != nil {
+		return nil, err
+	}
+	for _, policy := range []struct{ section, setting string }{
+		{"security", "allow_lazy_installs"},
+		{"updates", "check"},
+	} {
+		section := field(root, policy.section)
+		if section == nil {
+			section = mapping()
+			setField(root, policy.section, section)
+		}
+		if section.Kind != yaml.MappingNode || section.Anchor != "" {
+			return nil, fmt.Errorf("Hermes %s must be an independent mapping for verification", policy.section)
+		}
+		setField(section, policy.setting, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "false"})
+	}
+	return encode(root)
+}
+
 func selectedModel(root *yaml.Node) *yaml.Node {
 	model := field(root, "model")
 	if model == nil || model.Kind != yaml.MappingNode {
