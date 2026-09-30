@@ -264,18 +264,19 @@ cannot read an isolated copy of current configuration, AIGW leaves both program
 and configuration unchanged. Restore a compatible configuration explicitly with
 `aigw config migrate --rollback`, then retry `aigw update --rollback`.
 
-For the first Homebrew upgrade from an older AIGW whose clients still cache
-the Homebrew-managed `aigw` credential command, stop those clients before
-`brew upgrade aigw`. If they cannot stop, defer the upgrade: Homebrew briefly
-unlinks that command. After upgrading, run `aigw sync`, then restart the
-clients. The new AIGW-owned credential entrypoint lives outside the Cask link;
-routine later CLI replacements leave it in place. Client bindings and explicit
-custom helpers remain unchanged. Keychain-backed 0.3.1 Accounts, however, use
-different Keychain items in the new version. Before upgrading, use the new
-executable to save each selected Token and verify its exact credential command
-without a prompt. If that cannot be done, postpone the upgrade. After rollback,
-a Token rotated in 0.3.1 must be saved in the new version again before
-re-upgrade. See the [credential succession decision](docs/decisions/dr-0011-single-portable-token-backend.md#credential-command-continuity).
+The first Homebrew upgrade from 0.3.1 is a managed cutover, not a bare
+`brew upgrade aigw`: existing sessions may still call Homebrew's public
+credential-command link. Before the switch, the release operator must stage
+the final successor's private reader, explicitly stage each selected Keychain
+Token and enabled diagnostic credential in its new slot, verify the exact
+commands without a prompt, preproject managed clients, and prefetch the
+verified Cask. Measure the bounded link gap, then immediately test captured
+commands and real clients; restore the predecessor if acceptance fails. Do not
+switch if a required native item cannot be staged and read noninteractively.
+A session still caching the public link may fail once during the gap. Blanket
+client shutdown or restart does not eliminate that risk and is not an upgrade
+step. Later versioned-reader upgrades must keep old commands callable. See the
+[credential succession decision](docs/decisions/dr-0011-single-portable-token-backend.md#credential-command-continuity).
 
 `aigw uninstall` withdraws AIGW-owned client projections and removes the
 portable executable plus its predecessor. It retains versioned credential
