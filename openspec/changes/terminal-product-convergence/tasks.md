@@ -35,11 +35,19 @@
 - [x] 2.6 Reconcile managed projections semantically, preserving unrelated edits
       byte-for-byte and reporting exact ownership conflicts; inject failure after
       each owned write and verify compensation.
-- [ ] 2.7 Admit a selected live Account and client through endpoint and
+- [x] 2.7 Admit a selected live Account and client through endpoint and
       inference checks, while classifying absent native authorization without
       prompts or backend fallback; keep supplier-specific failures scoped to that
       Account. A focused `check --for` must not observe or charge another
       enabled client's Account.
+      On September 30, isolated public setup from the shipped team manifest
+      selected DMXAPI GPT-6 Sol for Codex. Current product source at `adb83383`
+      returned `check --for codex --json` with one enabled client and healthy
+      inference through the direct endpoint; subsequent commits changed only
+      research prose. Current-HEAD focused tests verify single-Account Token and
+      endpoint scope, quota classification, denied credential metadata without
+      fallback, and locked-Keychain no-prompt behavior. Signed artifact and
+      real-client acceptance remain in 4.5 and 9.3.
 
 ## 3. Credential Reader Succession
 
