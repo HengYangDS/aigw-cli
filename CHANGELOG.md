@@ -32,13 +32,18 @@ evidence.
 - Keep the automated three-day release-age gate for npm without imposing that
   npm-specific delay on checksummed Go or digest-pinned CI tools.
 
+### Fixed
+
+- Let `aigw catalog --all --json` return the complete JSON catalogue instead
+  of rejecting two compatible output flags.
+
 ## [0.3.3] - 2026-09-26
 
 ### Added
 
 - Restore the direct DMXAPI GPT-6 Sol Responses Route after renewed exact-wire
-  inference. Offer it at setup to a sole connected DMXAPI Account while
-  preserving existing recommendation order, client bindings, and local endpoints.
+  inference. Prefer DMXAPI, then UCloud, for unselected team Clients while
+  preserving explicit bindings and local endpoint overrides.
 
 ### Fixed
 
