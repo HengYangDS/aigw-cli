@@ -336,21 +336,20 @@
 - [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
       build and CI costs against predecessor budgets on a quiet host; preserve raw
       samples and optimize only diagnosed owners.
-- [ ] 6.7 Assert warnings and malformed public errors fail at their origin;
+- [x] 6.7 Assert warnings and malformed public errors fail at their origin;
       human and JSON output must expose precise state and safe action without
       private paths, Token fragments, internal modules or tracebacks.
-      The Codex custom-Provider model metadata error is addressed at the
-      existing catalog projection owner, pending real-client candidate replay.
-      A late client-projection file failure now carries the configuration
-      restoration outcome through the synchronization error to human and JSON
-      presentation; focused tests cover restored and incomplete states without
-      leaking paths. Independent source review also exposed finalization,
-      ordinary update and partial-uninstall gaps. Origin-to-public RED/GREEN
-      now preserves observed configuration restoration and program activation,
-      reports incomplete cleanup without private causes, and distinguishes
-      committed withdrawal from an unconfigured uninstall. Forge release plans
-      explicitly disable native prompts. Final packaged warning acceptance
-      remains open.
+      Candidate `ebf9adff` passes warning-free macOS native client replay and
+      Linux package acceptance. Its public no-Token journey reports Deferred
+      with `ok=false` and zero enabled clients; failed remote update preserves
+      program/configuration, and partial uninstall distinguishes committed
+      withdrawal from incomplete removal while retaining foreign content.
+      Exact stdout/stderr and preservation results are retained under
+      `build/verification/supply-chain-20260930/public-negative-ebf9adff/`.
+      Unchanged source regressions cover restoration/finalization human and JSON
+      output, private canary suppression and equal-version identity refusal.
+      Platform, native-store and formal-distribution evidence remains in 5.x
+      and 9.3; measured performance warnings remain in 6.6.
 
 ## 7. CI and Dual-Peer Admission
 
@@ -426,18 +425,21 @@
       while reducing CONTRIBUTING, release policy and research to 413, 370 and
       500 nonblank lines without adding documents. Native format, Markdown,
       link and spelling checks pass; registry/navigation acceptance remains open.
-- [ ] 8.3 Review diagrams, tables, headings, lists, examples, CLI help and
+- [x] 8.3 Review diagrams, tables, headings, lists, examples, CLI help and
       errors for readable layout and accurate links; enforce the chosen native
       formatter/linter rather than adding one-off checks.
-      The exact `d65dd140` archive passes twenty-eight read-only help/catalogue
+      The exact `ebf9adff` archive passes twenty-eight read-only help/catalogue
       invocations at widths 24, 40, 80 and 120, with no state writes or ANSI.
       `catalog --all --json` and `--json` return identical complete inventories;
       an unconfigured inventory is valid empty JSON, not an error. Table and
-      paragraph boundaries pass the native linter. The sole current Mermaid
-      diagram renders and preserves all five nodes and four labelled edges
-      without observed clipping or collisions; hosted Forge rendering is not
-      claimed. Newly repaired public failure states remain subject to final
-      packaged acceptance.
+      paragraph boundaries, Markdown, spelling and links pass the native source
+      gate. The sole Mermaid source is unchanged; its installed native render
+      preserves five nodes and four labelled edges without observed clipping
+      or collisions. Current packaged public-error output also passes.
+      Evidence remains under `build/verification/supply-chain-20260930/`:
+      `cli-ebf9adff-layout/`, `public-negative-ebf9adff/` and
+      `product-concepts-ebf9adff-native.png`. Hosted Forge rendering is not
+      claimed; documentation registry/navigation remains in 8.2.
 - [x] 8.4 Compare mature gateway, config, client and release libraries with
       retained AIGW differentiators; record one source-backed adopt/reject decision
       per candidate and delete any replaced hand-written owner.
@@ -466,9 +468,17 @@
       current/rollback-byte preservation. All seven official delta merges are
       warning-free. Native host, client, cold-peer and final-artifact gaps remain
       explicit in their original tasks rather than becoming support claims.
-- [ ] 9.2 Run focused RED/GREEN suites, native static/behavior checks and strict
+- [x] 9.2 Run focused RED/GREEN suites, native static/behavior checks and strict
       official OpenSpec validation with pristine output on the frozen source; no
       skipped required gate or warning counts as pass.
+      Signed source `ebf9adff` passes the full local gate at 95.09% and the
+      independent Linux native race/coverage graph at 95.02% with all sixty
+      canonical packages observed. Seven distinguishing credential mutations
+      fail; the restored package passes. Official OpenSpec checks eleven items
+      with zero findings. GitLab pipeline 9074 and GitHub run 36790679136,
+      attempt 1, independently pass all five required source/native jobs at
+      that exact commit. Final artifact and release claims remain in 9.3 and
+      the post-archive release sequence.
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with
       exact-byte install, predecessor upgrade/rollback, credentials and real-client
       journeys; retain the source and artifact hashes and disclose missing platform
