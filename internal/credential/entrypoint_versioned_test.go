@@ -7,10 +7,55 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"aigw-cli/internal/transaction"
 )
+
+func TestVersionedEntrypointPathRejectsInvalidInputsWithoutWrites(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	source := filepath.Join(root, "source")
+	data := filepath.Join(root, "data")
+	content := []byte("retained source")
+	if err := os.WriteFile(source, content, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	nonregular := ""
+	if runtime.GOOS != "windows" {
+		nonregular = "not a regular executable"
+	}
+	for _, tc := range []struct {
+		name, data, source, installName, problem string
+	}{
+		{"relative-data", "data", source, "aigw", "absolute paths"},
+		{"relative-source", data, "source", "aigw", "absolute paths"},
+		{"empty-name", data, source, "", "one file name"},
+		{"current-name", data, source, ".", "one file name"},
+		{"parent-name", data, source, "..", "one file name"},
+		{"nested-name", data, source, filepath.Join("other", "aigw"), "one file name"},
+		{"missing-source", data, filepath.Join(root, "missing"), "aigw", "open AIGW executable"},
+		{"directory-source", data, root, "aigw", nonregular},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path, err := VersionedEntrypointPath(tc.data, tc.source, tc.installName)
+			if err == nil || path != "" || !strings.Contains(err.Error(), tc.problem) {
+				t.Fatalf("invalid reader input was not refused at its boundary: path=%q, error=%v", path, err)
+			}
+			if tc.name == "missing-source" && !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("missing executable lost its native error: %v", err)
+			}
+			if _, err := os.Lstat(data); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("reader path inspection created an owned data directory: %v", err)
+			}
+			retained, err := os.ReadFile(source)
+			if err != nil || string(retained) != string(content) {
+				t.Fatalf("reader path refusal changed the source: %v", err)
+			}
+		})
+	}
+}
 
 func TestVersionedEntrypointFailureRemovesCreatedDirectoryChain(t *testing.T) {
 	for _, tc := range []struct {
