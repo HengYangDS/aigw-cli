@@ -302,7 +302,6 @@ func NewRoot(app *App) *cobra.Command {
 		Short:         "Local AI provider configuration, routing, and diagnostics",
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		Args:          cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := app.Config.Load()
 			if err != nil {

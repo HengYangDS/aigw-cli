@@ -165,6 +165,11 @@ func TestUnknownCommandSuggestsTopLevelHelp(t *testing.T) {
 	if err == nil || !strings.Contains(out.String(), "unknown command") || !strings.Contains(out.String(), "aigw --help") {
 		t.Fatalf("err=%v output=%s", err, out.String())
 	}
+	out.Reset()
+	err = cli.Execute(app, []string{"not-a-command", "--json"})
+	if err == nil || !strings.Contains(out.String(), `unknown command "not-a-command"`) || strings.Contains(out.String(), "unknown option") {
+		t.Fatalf("unknown command with a flag: err=%v output=%s", err, out.String())
+	}
 }
 
 func TestUnknownFlagSuggestsTopLevelHelp(t *testing.T) {
