@@ -244,6 +244,13 @@
       Docker Hub confirms the immutable Debian multi-platform index. Both Forge
       projections use those inputs. Runner installation and hosted execution
       remain required before supply-chain qualification is complete.
+      The renewed stable audit also admits GitHub CLI 2.102.0 with its four
+      security fixes, Renovate 44.125.1, and age-qualified tldts/tldts-core
+      7.4.16. The GitHub CLI lock verifies all six OS/architecture artifacts;
+      the Renovate OCI index is digest-pinned. Other authored runtime, tool,
+      Action, OpenSpec, and client versions match their official stable owners.
+      Native npm resolution preserves parent-pinned versions and the three-day
+      admission window rather than forcing incompatible transitive overrides.
 - [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
