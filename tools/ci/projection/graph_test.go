@@ -41,7 +41,8 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		{If: "$CI_COMMIT_TAG"},
 		{If: `$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID`},
 		{If: `$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")`},
-		{If: `$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"`},
+		{If: `($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && $CI_COMMIT_REF_PROTECTED == "true"`},
+		{If: `($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && $CI_COMMIT_REF_PROTECTED == "false"`},
 		{When: "never"},
 	}
 	if len(gitlab.Workflow.Rules) != len(wantGitLabWorkflow) {
@@ -54,7 +55,7 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		}
 	}
 	for name, job := range map[string]gitLabJob{"quality": gitlab.Quality, "native-linux": *gitlab.Linux} {
-		if len(job.Rules) != len(wantGitLabWorkflow) || job.Rules[1].If != wantGitLabWorkflow[1].If {
+		if len(job.Rules) != 5 || job.Rules[1].If != wantGitLabWorkflow[1].If {
 			t.Errorf("GitLab %s must verify reviews into both integration and release: %#v", name, job.Rules)
 			continue
 		}
@@ -118,7 +119,7 @@ func TestGitLabSupersededReviewCancellationPreservesNativeShellJobs(t *testing.T
 	if gitlab.Workflow.AutoCancel.OnNewCommit != "conservative" {
 		t.Fatal("superseded review pipelines must cancel only before a noninterruptible job starts")
 	}
-	for index, want := range []string{"none", "", "none", "none"} {
+	for index, want := range []string{"none", "", "none", "none", "none"} {
 		if got := gitlab.Workflow.Rules[index].AutoCancel.OnNewCommit; got != want {
 			t.Errorf("GitLab route %d auto-cancel = %q, want %q", index, got, want)
 		}

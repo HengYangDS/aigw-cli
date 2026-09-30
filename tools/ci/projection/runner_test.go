@@ -33,8 +33,61 @@ func TestGitLabQualityAndControlRunnerSelectors(t *testing.T) {
 			t.Errorf("%s runner tags = %q, want %q", name, job.Tags, want)
 		}
 	}
-	if want := []string{"$AIGW_GITLAB_LINUX_RUNNER_TAG"}; !slices.Equal(pipeline.Quality.Tags, want) {
+	if want := []string{"$AIGW_CI_LINUX_RUNNER_TAG"}; !slices.Equal(pipeline.Quality.Tags, want) {
 		t.Errorf("quality runner tags = %q, want %q", pipeline.Quality.Tags, want)
+	}
+}
+
+func TestGitLabLinuxJobsSelectRunnerByRefTrust(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pipeline map[string]yaml.Node
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	const selector = "AIGW_CI_LINUX_RUNNER_TAG"
+	for _, name := range []string{"quality", "native-linux", "linux-secret-service", "release-assets"} {
+		node := pipeline[name]
+		var job gitLabJob
+		if err := node.Decode(&job); err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(job.Tags, []string{"$" + selector}) {
+			t.Errorf("%s relies on an external runner selector: %q", name, job.Tags)
+		}
+		for _, rule := range job.Rules {
+			if _, duplicated := rule.Variables[selector]; duplicated {
+				t.Errorf("%s duplicates workflow runner policy", name)
+			}
+		}
+	}
+	var workflow struct {
+		Rules []struct {
+			If        string            `yaml:"if"`
+			When      string            `yaml:"when"`
+			Variables map[string]string `yaml:"variables"`
+		} `yaml:"rules"`
+	}
+	node := pipeline["workflow"]
+	if err := node.Decode(&workflow); err != nil {
+		t.Fatal(err)
+	}
+	if len(workflow.Rules) != 6 {
+		t.Fatal("workflow must cover tag, review, protected push and both manual ref states")
+	}
+	for _, rule := range workflow.Rules {
+		if rule.When == "never" {
+			continue
+		}
+		want := "ci-linux-arm64-container-protected"
+		if strings.Contains(rule.If, "merge_request_event") || strings.Contains(rule.If, `$CI_COMMIT_REF_PROTECTED == "false"`) {
+			want = "ci-linux-arm64-container"
+		}
+		if got := rule.Variables[selector]; got != want {
+			t.Errorf("workflow event %q selects %q, want %q", rule.If, got, want)
+		}
 	}
 }
 

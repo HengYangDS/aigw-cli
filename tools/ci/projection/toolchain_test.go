@@ -205,7 +205,7 @@ func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
 	if !slices.Equal(pipeline.Quality.Extends, []string{".linux-toolchain"}) || pipeline.Quality.Variables["CGO_ENABLED"] != "1" {
 		t.Fatalf("GitLab quality must use the declared Linux toolchain: %#v", pipeline.Quality)
 	}
-	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_GITLAB_LINUX_RUNNER_TAG"}) {
+	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_CI_LINUX_RUNNER_TAG"}) {
 		t.Fatalf("GitLab quality runner tags = %q", pipeline.Quality.Tags)
 	}
 	if len(pipeline.Quality.Script) < 1 || pipeline.Quality.Script[0] != "mise run bootstrap" {
@@ -424,7 +424,7 @@ func TestQualityJobsUseTheirExactToolClosure(t *testing.T) {
 	if qualityTools == "" {
 		t.Fatal("GitLab quality job must declare its native toolchain")
 	}
-	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_GITLAB_LINUX_RUNNER_TAG"}) {
+	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_CI_LINUX_RUNNER_TAG"}) {
 		t.Fatalf("GitLab quality runner tags = %q", pipeline.Quality.Tags)
 	}
 	if !slices.Equal(pipeline.Quality.Extends, []string{".linux-toolchain"}) || len(pipeline.Quality.Script) < 1 || pipeline.Quality.Script[0] != "mise run bootstrap" {

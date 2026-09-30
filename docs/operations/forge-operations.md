@@ -27,6 +27,32 @@ object; neither peer is an input to the other.
 
 Transport credentials never construct, rewrite, or sign product objects.
 
+## GitLab Runner Admission
+
+The CUE workflow selects Linux runners before jobs are created. `quality`,
+`native-linux`, `linux-secret-service`, and `release-assets` consume the same
+`AIGW_CI_LINUX_RUNNER_TAG`; no project variable chooses that tag.
+
+| Ref context                        | Linux runner tag                     | Runner access   |
+| ---------------------------------- | ------------------------------------ | --------------- |
+| Same-project MR or unprotected ref | `ci-linux-arm64-container`           | `not_protected` |
+| Accepted branch or release tag     | `ci-linux-arm64-container-protected` | `ref_protected` |
+| Manual run on a protected ref      | `ci-linux-arm64-container-protected` | `ref_protected` |
+| Manual run on an unprotected ref   | `ci-linux-arm64-container`           | `not_protected` |
+
+Each registration is project-scoped, locked, tagged-only, and uses a disposable
+container. Review and protected execution require distinct Runner registrations
+and isolated caches. Public author and allowed-signers inputs remain available
+to review; credentials and protected release variables remain restricted.
+`release-assets` admits only explicit dispatch on a protected release tag.
+Darwin retains control-plane object and tag verification; Windows and Darwin
+native jobs retain their separate review and protected registrations.
+
+The former `AIGW_GITLAB_LINUX_RUNNER_TAG` project variable has no consumer in
+this workflow. Retire it after the updated workflow is admitted and both runner
+paths have executed. Do not set a project variable named
+`AIGW_CI_LINUX_RUNNER_TAG`, which would override the workflow's selection.
+
 ## Verify Local Objects
 
 For change admission, record the target commit before integration as

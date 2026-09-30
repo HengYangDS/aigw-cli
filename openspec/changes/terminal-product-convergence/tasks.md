@@ -287,6 +287,13 @@
       #105/#103 admit unprotected jobs. Their disposable execution, isolation
       from persistent credentials, and the final review SHA remain unproved.
       Keep proposals unprotected and verify those boundaries before admission.
+      Linux runner selection now belongs to one CUE workflow rule set rather
+      than an external project tag. Reviews and unprotected manual refs select
+      the existing container runner; accepted refs and release tags select a
+      separate protected container registration. All four Linux jobs consume
+      that result. Focused projection tests and GitLab protected-ref simulation
+      pass without warnings; protected registration, actual review/accepted
+      jobs and retirement of the obsolete project variable remain open.
 - [ ] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
       or GitHub must not turn the other selected peer or the local product into a
       hidden dependency, and parity claims remain peer-specific.

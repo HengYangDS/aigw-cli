@@ -165,7 +165,7 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 	if !slices.Equal(needs, []string{"quality", "native-darwin", "native-linux", "native-windows", "linux-secret-service", "release-version"}) {
 		t.Fatalf("release requirements = %q", needs)
 	}
-	if len(pipeline.Assets.Rules) != 2 || pipeline.Assets.Rules[0].If != `$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == "api" || $CI_PIPELINE_SOURCE == "web")` || pipeline.Assets.Rules[1].When != "never" {
+	if len(pipeline.Assets.Rules) != 2 || pipeline.Assets.Rules[0].If != `$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == "api" || $CI_PIPELINE_SOURCE == "web") && $CI_COMMIT_REF_PROTECTED == "true"` || pipeline.Assets.Rules[1].When != "never" {
 		t.Fatal("asset verification must follow explicit post-publication dispatch")
 	}
 }

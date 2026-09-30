@@ -172,7 +172,11 @@ nativeEvidence: {
 	}
 	linux: {
 		name: "Linux"
-		gitlab: tags: ["$AIGW_GITLAB_LINUX_RUNNER_TAG"]
+		gitlab: {
+			protectedTag: "ci-linux-arm64-container-protected"
+			reviewTag:    "ci-linux-arm64-container"
+			tags: ["$AIGW_CI_LINUX_RUNNER_TAG"]
+		}
 		github: runner: "ubuntu-24.04"
 	}
 	windows: {
@@ -215,10 +219,27 @@ gitlabVerificationCondition: {
 }
 
 gitlabPipelineRules: [
-	{if: gitlabVerificationCondition.tag, auto_cancel: on_new_commit: "none"},
-	{if: gitlabVerificationCondition.review},
-	{if: gitlabVerificationCondition.protectedPush, auto_cancel: on_new_commit: "none"},
-	{if: gitlabVerificationCondition.manual, auto_cancel: on_new_commit: "none"},
+	{
+		if: gitlabVerificationCondition.tag
+		auto_cancel: on_new_commit:          "none"
+		variables: AIGW_CI_LINUX_RUNNER_TAG: nativeEvidence.linux.gitlab.protectedTag
+	},
+	{
+		if: gitlabVerificationCondition.review
+		variables: AIGW_CI_LINUX_RUNNER_TAG: nativeEvidence.linux.gitlab.reviewTag
+	},
+	{
+		if: gitlabVerificationCondition.protectedPush
+		auto_cancel: on_new_commit:          "none"
+		variables: AIGW_CI_LINUX_RUNNER_TAG: nativeEvidence.linux.gitlab.protectedTag
+	},
+	for protected, tag in {true: nativeEvidence.linux.gitlab.protectedTag, false: nativeEvidence.linux.gitlab.reviewTag} {
+		{
+			if: "(\(gitlabVerificationCondition.manual)) && $CI_COMMIT_REF_PROTECTED == \"\(protected)\""
+			auto_cancel: on_new_commit:          "none"
+			variables: AIGW_CI_LINUX_RUNNER_TAG: tag
+		}
+	},
 	{when: "never"},
 ]
 
@@ -797,7 +818,9 @@ gitlab: {
 		tags:      nativeEvidence.linux.gitlab.tags
 		variables: #ReleaseTrustFiles
 		rules: [
-			{if: "$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == \"api\" || $CI_PIPELINE_SOURCE == \"web\")"},
+			{
+				if: "$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == \"api\" || $CI_PIPELINE_SOURCE == \"web\") && $CI_COMMIT_REF_PROTECTED == \"true\""
+			},
 			{when: "never"},
 		]
 		needs: [for dependency in graph["release-assets"].needs {{job: dependency}}]
