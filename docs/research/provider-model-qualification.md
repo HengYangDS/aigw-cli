@@ -26,6 +26,17 @@ whereas the team manifest declares direct `https://www.dmxapi.cn/v1`.
 Catalogue membership therefore does not qualify that direct endpoint or
 prove the newly preferred Route can sustain inference.
 
+On September 30, 2026,
+[OpenAI's GPT-6.1 Sol model page](https://developers.openai.com/api/docs/models/gpt-6.1-sol)
+identified `gpt-6.1-sol` and Responses tool calling. The public AIHubMix catalogue
+listed `gpt-6-sol` but not that new ID; UCloud's public catalogue omitted the
+GPT family, and unauthenticated DMXAPI discovery returned 401. The earlier
+credential-available AIGW observations above also contained no `gpt-6.1-sol` ID.
+These results do not establish absence from private catalogues. Treat 6.1 Sol
+as an unadmitted candidate until each claimed Account exposes the exact wire
+ID and passes bounded direct inference and native-client verification; do not
+replace an explicit selection or the team default from the announcement alone.
+
 At the September 25, 2026 read, the public
 [AIHubMix](https://api.inferera.com/v1/models) and
 [UCloud](https://api.modelverse.cn/v1/models) endpoints returned 416 and 132
