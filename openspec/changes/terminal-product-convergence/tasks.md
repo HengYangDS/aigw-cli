@@ -218,23 +218,21 @@
       selected peer without interactive authentication or divergent commit
       identities. Prove untrusted review code cannot observe persistent Shell
       runner credentials or protected-job state; retain required native evidence.
-      The 2026-09-29 GitLab API reports protected macOS/Windows runners #98/#91,
-      an unprotected Linux runner #86, and an unprotected source branch for MR
-      !178. Its earlier green pipeline 8629 does not prove a new MR can run on
-      the current runner configuration. Keep proposals unprotected; qualify
-      separate disposable macOS/Windows MR executors and rerun the exact review
-      SHA before claiming peer-local native review admission.
+      GitLab MR !178 pipeline 8887 passed macOS, Windows, Linux, quality, and
+      Secret Service review jobs at `ddb998a5`; macOS/Windows project runners
+      #105/#103 admit unprotected jobs. Their disposable execution, isolation
+      from persistent credentials, and the final review SHA remain unproved.
+      Keep proposals unprotected and verify those boundaries before admission.
 - [ ] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
       or GitHub must not turn the other selected peer or the local product into a
       hidden dependency, and parity claims remain peer-specific.
-      GitLab MR !178 pipelines 8808 and 8811 each passed quality, Linux Secret
-      Service, and native Linux on their recorded review SHA; the superseded
-      pipeline's two pending native jobs were canceled by exact ID. Its selected
-      tools are mirrored at the GitLab peer, and the Linux image uses Mise's
-      pinned Docker Hub publication. Peer-local macOS/Windows review, cold-cache
-      transport, absence of GitHub credential leakage, and offline-local
-      acceptance remain unproved. Transport follows the selected endpoint and
-      identity, not a blanket HTTP or HTTPS assumption.
+      The GitLab registry reports all 45 current ARM64 GitHub tool assets with
+      lock-matching SHA-256; CUE projects the job-scoped mirror and Linux uses
+      Mise's pinned Docker Hub image. Real Job Token downloads, cold-cache
+      peer-outage behavior without GitHub fallback or credential leakage,
+      provenance, and offline-local acceptance remain unproved. Transport
+      follows the selected endpoint and identity, not a blanket HTTP/HTTPS
+      assumption.
 
 ## 8. Repository Topology, Documentation, and Deletion
 

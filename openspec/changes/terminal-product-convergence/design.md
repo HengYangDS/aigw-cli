@@ -225,8 +225,11 @@ guard close only the fork path. Complete GitLab review admission requires
 disposable, separately identified macOS and Windows MR executors; protected
 `dev`/`main`/`v*` jobs may use a distinct protected runner pool only after
 event-specific routing is proved. GitHub-hosted checks cannot substitute for
-GitLab's required peer-local native evidence. Until isolation exists, the
-GitLab review path remains unadmitted rather than bypassing a native gate.
+GitLab's required peer-local native evidence. GitLab MR !178 pipeline 8887
+ran macOS and Windows review jobs on unprotected project runners #105 and #103
+at `ddb998a5`, but success on that old SHA does not prove disposable execution,
+absence of persistent Shell credentials, or admission of the final review SHA.
+Keep the review path unadmitted until those boundaries are proved.
 Cold-cache CI must remain executable when the sibling Forge platform and its
 tool-distribution endpoints are unavailable. Warm caches are not evidence of
 that property. GitLab now consumes Mise's official Docker Hub image, whose
@@ -268,8 +271,13 @@ job-private `0600` netrc, with no Token in URLs or logs, no cross-host
 redirect, and no inherited GitHub authorization. The accepted HTTP risk is
 limited to this ephemeral job credential, not a persistent PAT or runner key.
 Retire a mirrored lock version only after no active source ref or job consumes
-it. No mirror is currently populated or projected into CI; real Job Token,
-cold-cache, fault-injection and three-platform acceptance remain required.
+it. On September 30, 2026, the selected GitLab package held 47 file records:
+registry-reported SHA-256 matched the current lock for all 16 Linux ARM64,
+16 macOS ARM64, and 13 Windows ARM64 GitHub assets; the other two records were
+OSV metadata. CUE and the GitLab CI projection configure this mirror before
+locked installation, but registry metadata and projection tests do not prove
+Job Token downloads, cold-cache peer-outage isolation, provenance checks, or
+native installation from the mirror on any of the three platforms.
 
 ### 6. Delete by consumer and authority
 
