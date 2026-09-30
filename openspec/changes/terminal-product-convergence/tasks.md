@@ -148,7 +148,13 @@
       Codex/Claude consumers; report each unproved client mode explicitly.
 - [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
       environment backend separately; no password/biometric retry loop, service
-      restart, or hidden native-store policy change is permitted.
+      restart, or hidden native-store policy change is permitted. At signed
+      `9f23bd7e`, private-Keychain tests prove readable labels on newly created
+      Account and diagnostic items without touching retained items; the macOS
+      source/native suite passes using isolated environment credentials. The
+      installed-product native-store journey and Claude Desktop GUI remain
+      unproved; this host skipped Desktop deferred installation because it is
+      already installed.
 - [x] 5.5 Verify missing Codex/Claude at setup and later installation on each
       platform; deferred sync must touch only installed admitted clients and
       preserve user-owned files. GitHub run 36560334613 at
