@@ -179,3 +179,77 @@ func TestForgeProjectionsIncludeTheCompleteNativeMatrix(t *testing.T) {
 		}
 	}
 }
+
+func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gitlab struct {
+		Windows struct {
+			Script      []string `yaml:"script"`
+			AfterScript []string `yaml:"after_script"`
+		} `yaml:"native-windows"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	commands := gitlab.Windows.Script
+	if len(commands) < 2 || !strings.Contains(commands[0], `Join-Path $env:ProgramFiles 'mise\bin\mise.exe'`) ||
+		!strings.Contains(commands[0], "2026.9.18") ||
+		!strings.Contains(commands[0], "8c0281d26494bc8aaa2804ccd51cfb8315438d1b0b61575d8f02751828708c14") ||
+		!strings.Contains(commands[0], "Get-FileHash -LiteralPath $mise -Algorithm SHA256") ||
+		!strings.Contains(commands[1], "mise install --locked") {
+		t.Fatalf("Windows runner Mise identity is not pinned before the locked toolchain: %v", commands)
+	}
+	if len(gitlab.Windows.AfterScript) != 1 || !strings.Contains(gitlab.Windows.AfterScript[0], "ci-mise-$env:CI_JOB_ID") {
+		t.Fatalf("Windows Mise job state has no exact cleanup: %v", gitlab.Windows.AfterScript)
+	}
+	for _, required := range []string{
+		"whoami.exe /user",
+		"$shim = Join-Path (Split-Path -Parent $mise) 'mise-shim.exe'",
+		"Get-FileHash -LiteralPath $shim -Algorithm SHA256",
+		"a25d8a155b485ce92bb776261316e26af5f5b003d528dadbb9e26b7ccd3a5188",
+		"$shimsDirectory = Join-Path $env:MISE_DATA_DIR 'shims'",
+		"Copy-Item -LiteralPath $shim -Destination $probeTarget -ErrorAction Stop",
+		"Remove-Item -LiteralPath $probeDirectory -Recurse -Force -ErrorAction Stop",
+		"icacls.exe $shim",
+	} {
+		if !strings.Contains(commands[0], required) {
+			t.Errorf("Windows Mise preflight omits %q", required)
+		}
+	}
+	hashReads := 0
+	for line := range strings.SplitSeq(commands[0], "\n") {
+		if strings.Contains(line, "Get-FileHash -LiteralPath") {
+			hashReads++
+			if !strings.Contains(line, "-ErrorAction Stop") {
+				t.Errorf("Windows hash read can hide its actual failure: %s", line)
+			}
+		}
+	}
+	if hashReads != 3 {
+		t.Errorf("Windows preflight has %d hash reads, want three exact executable and copy checks", hashReads)
+	}
+	for _, required := range []string{
+		"robocopy.exe $emptyDirectory $jobDirectory /MIR /R:1 /W:1",
+		"$mirrorExit -ge 8",
+		"[IO.Directory]::Delete($jobDirectory)",
+		"$cause.GetType().FullName",
+		"$cause.HResult",
+	} {
+		if !strings.Contains(gitlab.Windows.AfterScript[0], required) {
+			t.Errorf("Windows cleanup lacks exact owned-tree mirror or structured failure %q", required)
+		}
+	}
+}
+
+func requireWindowsMiseJobStorage(t *testing.T, name string, script, cleanup []string, directory string) {
+	t.Helper()
+	if len(script) == 0 || len(cleanup) != 1 ||
+		!strings.Contains(script[0], "$jobDirectory = "+directory) ||
+		!strings.Contains(cleanup[0], directory) ||
+		!strings.Contains(cleanup[0], "Test-Path -LiteralPath $jobDirectory") {
+		t.Fatalf("%s Mise lifecycle enters the Go module or lacks exact teardown", name)
+	}
+}

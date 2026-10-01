@@ -83,13 +83,16 @@ state/installs to private job state. Read/copy/remove shim admission and exact
 cleanup must succeed under both review and protected identities. Update the shared
 binary only in a verified zero-job window.
 
-GitLab's registry mirrors only lock-selected GitHub bytes and necessary release
-metadata. Anchored metadata rewriting precedes general URL rewriting; job-local
-CI_JOB_TOKEN netrc is deleted with its owned scope. The lock remains checksum
-SSOT, while independently verified SLSA/Sigstore evidence supplies provenance.
-Missing mirror inputs must not silently use another peer. Inventory and bounded
-mirror tests do not prove real Job Token authorization, TUF access, sibling-outage
-isolation or the complete native cold graph; keep those claims separate.
+Peer-local tool copies transport only lock-selected upstream bytes. GitLab's
+registry mirrors GitHub assets and required release metadata; anchored metadata
+rewriting precedes general URL rewriting and job-local CI_JOB_TOKEN netrc is
+deleted with its owned scope. GitHub's `mise-glab-v<version>` tool release holds
+original glab filenames; CUE rewrites both locked browser and encoded API URLs
+at the install step. This transport release is not an AIGW version or Latest.
+The lock remains checksum SSOT; independent SLSA/Sigstore evidence supplies
+provenance. Missing or altered copies fail without fallback to the sibling.
+Inventory and local mirror tests do not prove hosted authorization, TUF access,
+sibling-outage isolation or the complete native cold graph.
 
 Normal proposals wait three days; absent publication times are not guessed.
 Group Go and tools separately. Only non-major updates of stable dependencies may

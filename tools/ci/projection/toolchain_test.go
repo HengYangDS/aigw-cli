@@ -15,12 +15,19 @@ import (
 
 type miseLock struct {
 	Tools map[string][]struct {
-		LinuxARM64 misePlatformLock `toml:"platforms.linux-arm64"`
+		LinuxARM64   misePlatformLock `toml:"platforms.linux-arm64"`
+		LinuxX64     misePlatformLock `toml:"platforms.linux-x64"`
+		MacOSARM64   misePlatformLock `toml:"platforms.macos-arm64"`
+		MacOSX64     misePlatformLock `toml:"platforms.macos-x64"`
+		WindowsARM64 misePlatformLock `toml:"platforms.windows-arm64"`
+		WindowsX64   misePlatformLock `toml:"platforms.windows-x64"`
 	} `toml:"tools"`
 }
 
 type misePlatformLock struct {
-	Provenance any `toml:"provenance"`
+	Provenance any    `toml:"provenance"`
+	URL        string `toml:"url"`
+	URLAPI     string `toml:"url_api"`
 }
 
 func TestToolchainCacheStaysOutsideGoPackageDiscovery(t *testing.T) {

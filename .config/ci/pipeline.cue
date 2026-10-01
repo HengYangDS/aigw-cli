@@ -1,6 +1,7 @@
 package ci
 
 import (
+	"encoding/json"
 	"list"
 	"strings"
 )
@@ -22,9 +23,8 @@ import (
 // Keep this transport choice in the installer process, not product execution.
 installationEnvironment: GODEBUG: "http2client=0"
 
-// The GitLab package registry holds verified copies of the GitHub Release
-// assets selected by mise.lock. This is a job-scoped transport, not another
-// dependency or checksum authority; missing copies fail inside GitLab.
+// Peer-local copies transport only the upstream bytes selected by mise.lock.
+// They do not own dependencies or checksums; missing copies fail locally.
 miseMirror: {
 	package:          "mise-github"
 	version:          "v1"
@@ -49,6 +49,12 @@ miseMirror: {
 		export MISE_URL_REPLACEMENTS="$(printf '{"\#(metadataPattern)":"%s\#(metadataResource)","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
 		"""#
 	unixCleanup:      "if [ -n \"${CI_PROJECT_DIR:-}\" ] && [ -n \"${CI_JOB_ID:-}\" ]; then rm -rf -- \"\(unixDirectory)\"; fi"
+	githubEnvironment: MISE_URL_REPLACEMENTS: json.Marshal({
+		"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":
+			"${{ github.server_url }}/${{ github.repository }}/releases/download/mise-glab-$1/$2"
+		"regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":
+			"${{ github.server_url }}/${{ github.repository }}/releases/download/mise-glab-v$1/$2"
+	})
 }
 
 linuxApt: {
@@ -290,7 +296,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 #Toolchain: {
 	name: "Install the locked toolchain"
 	uses: actions.mise
-	env:  installationEnvironment
+	env:  installationEnvironment & miseMirror.githubEnvironment
 	with: {
 		version:          miseVersion
 		install:          true

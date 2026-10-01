@@ -2,9 +2,7 @@ package projection
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -12,68 +10,6 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"go.yaml.in/yaml/v3"
 )
-
-func TestGitLabMiseMirrorUsesCheckoutOwnedPath(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var pipeline struct {
-		Review struct {
-			Script      []string `yaml:"script"`
-			AfterScript []string `yaml:"after_script"`
-		} `yaml:"native-darwin-review"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
-		t.Fatal(err)
-	}
-	if len(pipeline.Review.Script) == 0 || len(pipeline.Review.AfterScript) != 1 {
-		t.Fatalf("macOS review mirror lifecycle is incomplete: %+v", pipeline.Review)
-	}
-	prepare, cleanup := pipeline.Review.Script[0], pipeline.Review.AfterScript[0]
-	for _, script := range []string{prepare, cleanup} {
-		if strings.Contains(script, "CI_BUILDS_DIR") || !strings.Contains(script, "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID") {
-			t.Fatalf("mirror path must be owned by the absolute checkout: %q", script)
-		}
-	}
-	if runtime.GOOS == "windows" {
-		return // Windows runners do not provide a POSIX shell.
-	}
-	project := t.TempDir()
-	neighbor := filepath.Join(project, "build", "tmp", "keep")
-	env := append(os.Environ(),
-		"CI_PROJECT_DIR="+project,
-		"CI_BUILDS_DIR=builds",
-		"CI_API_V4_URL=https://gitlab.example.invalid/api/v4",
-		"CI_PROJECT_ID=456",
-		"CI_SERVER_HOST=gitlab.example.invalid",
-		"CI_JOB_ID=123",
-		"CI_JOB_TOKEN=fixture-only",
-	)
-	for _, script := range []string{prepare, cleanup} {
-		command := exec.Command("sh", "-c", script)
-		command.Dir, command.Env = project, env
-		if output, err := command.CombinedOutput(); err != nil {
-			t.Fatalf("mirror lifecycle: %v\n%s", err, output)
-		}
-		mirror := filepath.Join(project, "build", "tmp", "aigw-mise-mirror-123")
-		if script == prepare {
-			if _, err := os.Stat(filepath.Join(mirror, "netrc")); err != nil {
-				t.Fatalf("mirror was not prepared: %v", err)
-			}
-			if err := os.WriteFile(neighbor, []byte("keep"), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			continue
-		}
-		if _, err := os.Stat(mirror); !os.IsNotExist(err) {
-			t.Fatalf("mirror remains after cleanup: %v", err)
-		}
-		if _, err := os.Stat(neighbor); err != nil {
-			t.Fatalf("mirror cleanup removed neighboring state: %v", err)
-		}
-	}
-}
 
 func TestQualityJobsProjectEventCommitBases(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))

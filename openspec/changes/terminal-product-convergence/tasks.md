@@ -444,6 +444,13 @@
       matrix fixtures passed without Forge downloads. Those bounded proofs do
       not replace the real Job Token tool graph. Transport follows the selected
       endpoint and identity, not a blanket HTTP/HTTPS assumption.
+      Reciprocal glab transport now projects browser and encoded API URLs from
+      the same CUE owner to GitHub-local assets. Every locked platform URL and
+      consuming workflow passes focused regression; native cold macOS install,
+      API-only download, missing-copy refusal and checksum-tamper refusal pass
+      with external network denied and no authorization or cookies. The six
+      upstream archives match `mise.lock`; source tests do not establish their
+      hosted publication or the complete three-platform cold graph.
 
 ## 8. Repository Topology, Documentation, and Deletion
 
@@ -525,6 +532,9 @@
       RED/GREEN, three-platform static checks and one full source gate pass;
       1,228 tracked hashes are conserved and coverage remains 95.09%.
       Its hosted successor and native-store qualification remain separate.
+      Both peers pass all five required jobs at signed `ea8d5d8f`: GitLab
+      pipeline 9101 and GitHub run 36813731239. Later source changes require
+      their own review result; fixed-candidate native gaps remain open.
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with
       exact-byte install, predecessor upgrade/rollback, credentials and real-client
       journeys; retain the source and artifact hashes and disclose missing platform
