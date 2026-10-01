@@ -229,19 +229,17 @@
 - [ ] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
-      Exact `70271cab` package acceptance passes the shipped team and portable
-      lifecycle but rejects two retained Claude shell commands. Native path
-      primitives isolate ordinary shell execution beyond 260 characters from
-      file creation and explicit Win32 execution. A tracked deep-namespace
-      regression fails before and passes after native-name projection under the
-      actual Runner identity; canonical namespace and preparation spelling are
-      preserved. Full rebuilt-package and published-predecessor acceptance
-      remain open; primitive and source tests do not qualify those journeys.
-      Native service-account CI then exposed parser expansion of existing
-      short ancestor spelling, invalidating otherwise owned Claude/Hermes
-      projections. The parser now retains exact invocation spelling and leaves
-      native identity to the reader owner; a service-TEMP regression rejects
-      the former expansion. Source CI and full package acceptance remain open.
+      Exact `ebf9adff` Windows ARM64 candidate passes core, shipped-team,
+      rollback and authentic 0.3.1 succession under the actual Runner 103
+      service account. Retained-command inspection preserves the OS short-name
+      namespace; parser and native identity regressions pass. The October 1
+      native acceptance closeout records exact archive/program identity, no
+      owned processes or child directory, and restored service, pauses and
+      VM isolation. Native Go cache cleanup followed by exact read-only Git
+      pack teardown closes the earlier cleanup failure without a product
+      rerun. Real clients, Credential Manager, performance and arbitrary-code
+      review containment remain unqualified.
+
 - [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
       environment backend separately; no password/biometric retry loop, service
       restart, or hidden native-store policy change is permitted. At signed
@@ -269,13 +267,17 @@
 - [ ] 5.6 Compare owned process, helper, temporary, journal, build and
       client-projection resources before/after success, failure, timeout and
       interruption; exact teardown preserves active installations and evidence.
-      A focused fault injection now covers reader disappearance after the final
-      client projection in both commit and reconciliation. The native resource
-      census and final-artifact journey remain open. A real isolated install
-      now reproduces cancellation before registered test cleanup; the fixture
-      grants uninstall a separate bounded context while normal commands retain
-      the test context. The focused cleanup regression passes without weakening
-      process deadlines or removing retained credential readers.
+      Focused transaction regressions cover cancellation and reader loss
+      after projection admission; test cleanup has its own bounded context.
+      Exact `ebf9adff` public Hermes verification passes five abnormal-return
+      cases on macOS and Linux ARM64 container: success, client failure,
+      parent exit, active SIGTERM and the actual 60-second protocol deadline.
+      Each preserves private config, projection, reader and program inventories,
+      removes the verification home and owned descendants, and preserves an
+      unrelated process. Both independent packaged-abnormal receipts record
+      reclaimed scratch and unchanged candidate bytes. These synthetic-client
+      environment-backend results do not prove Windows, native Linux host,
+      real-client or final signed-artifact acceptance; those scopes remain open.
 
 ## 6. Quality, Supply Chain, and Performance
 
@@ -298,7 +300,9 @@
       security fixes, Renovate 44.125.1, and age-qualified tldts/tldts-core
       7.4.16. The GitHub CLI lock verifies all six OS/architecture artifacts;
       the Renovate OCI index is digest-pinned. Other authored runtime, tool,
-      Action, OpenSpec, and client versions match their official stable owners.
+      Action and OpenSpec versions match their official stable owners. Claude
+      2.1.286 is a latest-channel compatibility input; its separate stable
+      channel remains 2.1.285, and host channel policy is unchanged.
       Native npm resolution preserves parent-pinned versions and the three-day
       admission window rather than forcing incompatible transitive overrides.
       The October 1 official read found npm 12.2.0 newly stable; the native
@@ -419,16 +423,18 @@
 - [ ] 8.2 Reconcile tracked README, architecture, decision, operations,
       contributing and release documentation with current product behavior; all
       canonical pages must be linked, English, navigable and free of references to
-      untracked prerequisites. All 23 current `docs/` pages now carry typed
-      metadata; format, Markdown and spelling checks pass. ETHOS still reports
-      four per-directory README gaps despite the existing root index and
-      decision register. Resolve that portable rule at ETHOS rather than adding
-      marker indexes. The current exact docs-registry execution separately
-      found three real long-document failures. Semantic compression retains all
-      native inputs, trust/rollback boundaries and eighty-one research sources
-      while reducing CONTRIBUTING, release policy and research to 413, 370 and
-      500 nonblank lines without adding documents. Native format, Markdown,
-      link and spelling checks pass; registry/navigation acceptance remains open.
+      untracked prerequisites. The root index and decision register reach all
+      23 canonical pages; format, links, metadata, spelling and semantic
+      compression checks pass. At `54b815ae`, independent read-only execution
+      of the bound ETHOS native docs-registry provider finds no metadata, role,
+      state, duplicate, section, command, example, plan or length defects. Its
+      only four findings require per-directory READMEs for architecture,
+      decisions, governance and research despite that canonical navigation.
+      Resolve applicability at the ETHOS rule owner rather than adding marker
+      indexes; formal qualified-runtime adoption and registry acceptance remain
+      open. Historical long-document failures remain evidence, not current
+      findings.
+
 - [x] 8.3 Review diagrams, tables, headings, lists, examples, CLI help and
       errors for readable layout and accurate links; enforce the chosen native
       formatter/linter rather than adding one-off checks.
