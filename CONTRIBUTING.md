@@ -37,6 +37,9 @@ Every selected native journey consumes its explicit candidate and reports its
 binary digest. Missing input is a failure, never permission to build substitute
 bytes. Retain published-predecessor configuration and enabled Adapters through
 upgrade and rollback; disabling them first tests a different transition.
+Resolve source fixtures only inside their selected subtest, using that subtest's
+`testing.T` for failures and cleanup. Precompiled artifact and native-store cases
+must not build fixtures belonging to unselected cases.
 
 Capture each client's original credential invocation before replacement and run
 it before synchronization or reload. Native-store proof identifies both reader

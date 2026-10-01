@@ -4,13 +4,16 @@ import (
 	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/rogpeppe/go-internal/robustio"
 )
@@ -254,6 +257,56 @@ func TestNativeSourceCandidateReusesProductBytes(t *testing.T) {
 	secondProgram, secondArchive, secondChecksums := nativeReleaseCandidate(t, root, version)
 	if firstProgram != secondProgram || firstArchive != secondArchive || firstChecksums != secondChecksums {
 		t.Fatal("native candidate rebuilt identical source")
+	}
+}
+
+func TestNativeProductSelectionDoesNotBuildUnselectedFixtures(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	version, err := readiness.ReadProductVersion(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	program, _, _ := nativeReleaseCandidate(t, root, version)
+	selected, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name   string
+		builds bool
+	}{
+		{name: "ephemeral_endpoint_credentials"},
+		{name: "delayed_token_and_client_activation", builds: true},
+		{name: "claude", builds: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			missing := filepath.Join(t.TempDir(), "unselected")
+			ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+			defer cancel()
+			command := exec.CommandContext(ctx, selected, "-test.run=^TestNativeProductJourney$/^"+test.name+"$", "-test.count=1", "-test.timeout=20s", "-test.v")
+			command.WaitDelay = 2 * time.Second
+			command.Dir = filepath.Join(root, "tools", "release")
+			command.Env = environmentWith(os.Environ(), map[string]string{
+				"PATH":                       missing,
+				"AIGW_ACCEPTANCE_RELEASE":    filepath.Dir(filepath.Dir(program)),
+				"AIGW_ACCEPTANCE_BASELINE":   missing,
+				"AIGW_VERIFY_SYSTEM_KEYRING": "0",
+			})
+			output, err := command.CombinedOutput()
+			marker := "--- PASS: TestNativeProductJourney/" + test.name
+			if test.builds {
+				marker = "--- FAIL: TestNativeProductJourney/" + test.name
+			}
+			if ctx.Err() != nil || (err != nil) != test.builds || !bytes.Contains(output, []byte(marker)) || bytes.Contains(output, []byte("FailNow on a parent test")) {
+				t.Fatalf("selected native fixture violated build or failure ownership: %v\n%s", err, output)
+			}
+			if test.builds && !bytes.Contains(output, []byte("build native product 0.0.0")) {
+				t.Fatalf("selected source fixture did not retain its build failure: %s", output)
+			}
+		})
 	}
 }
 

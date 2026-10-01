@@ -49,11 +49,11 @@ func deferredJourneyClientIDs() []string {
 	})
 }
 
-func runDeferredClientInstallation(t *testing.T, artifact, endpoint string) {
+func runDeferredClientInstallation(t *testing.T, artifact func(*testing.T) string, endpoint string) {
 	t.Helper()
 	for _, clientID := range deferredJourneyClientIDs() {
 		t.Run(clientID, func(t *testing.T) {
-			journey := newNativeJourney(t, artifact, endpoint, false)
+			journey := newNativeJourney(t, artifact(t), endpoint, false)
 			manifest := fmt.Sprintf(`version = 7
 
 [recommendations.claude]

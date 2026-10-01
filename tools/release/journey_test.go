@@ -31,8 +31,7 @@ func TestNativeProductJourney(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sourceBaseline := buildNativeProgram(t, root, "0.0.0")
-	retainedBaseline := requireNativeLifecycleBaseline(t, func() string { return sourceBaseline })
+	sourceBaseline := func(t *testing.T) string { return buildNativeProgram(t, root, "0.0.0") }
 
 	server := newNativeJourneyServer(t)
 
@@ -42,7 +41,7 @@ func TestNativeProductJourney(t *testing.T) {
 	})
 
 	t.Run("delayed token and client activation", func(t *testing.T) {
-		journey := newNativeJourney(t, sourceBaseline, server.URL+"/v1", false)
+		journey := newNativeJourney(t, sourceBaseline(t), server.URL+"/v1", false)
 		if runtime.GOOS == "linux" {
 			journey.setEnvironment(
 				"DBUS_SESSION_BUS_ADDRESS",
@@ -87,7 +86,7 @@ func TestNativeProductJourney(t *testing.T) {
 	runDeferredClientInstallation(t, sourceBaseline, server.URL+"/v1")
 
 	t.Run("one selected account does not require every token", func(t *testing.T) {
-		journey := newNativeJourney(t, sourceBaseline, server.URL+"/v1", true)
+		journey := newNativeJourney(t, sourceBaseline(t), server.URL+"/v1", true)
 		journey.prepareCodexLifecycle()
 		journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 		journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
@@ -111,12 +110,13 @@ func TestNativeProductJourney(t *testing.T) {
 	})
 
 	t.Run("portable artifact lifecycle", func(t *testing.T) {
+		retainedBaseline := requireNativeLifecycleBaseline(t, func() string { return sourceBaseline(t) })
 		runNativeReleaseLifecycle(t, root, retainedBaseline, newVersion, server.URL+"/v1")
 	})
 
 	if runtime.GOOS == "linux" {
 		t.Run("secure file fallback without session bus", func(t *testing.T) {
-			runLinuxSecureFileFallback(t, sourceBaseline, server.URL+"/v1")
+			runLinuxSecureFileFallback(t, sourceBaseline(t), server.URL+"/v1")
 		})
 	}
 
@@ -124,6 +124,7 @@ func TestNativeProductJourney(t *testing.T) {
 	// an ad-hoc current-source fixture is not that authorization transition.
 	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" && runtime.GOOS != "darwin" {
 		t.Run("system credential store", func(t *testing.T) {
+			retainedBaseline := requireNativeLifecycleBaseline(t, func() string { return sourceBaseline(t) })
 			runNativeCredentialJourney(t, root, retainedBaseline, server.URL+"/v1", newVersion)
 		})
 	}
