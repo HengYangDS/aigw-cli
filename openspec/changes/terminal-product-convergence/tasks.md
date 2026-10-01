@@ -231,6 +231,18 @@
       unowned concurrent host edit are bounded in the
       [qualification owner](../../../docs/research/provider-model-qualification.md#provider-catalogue-and-route-evidence).
       Later-artifact, Desktop GUI and every-platform acceptance remain open.
+      The exact `df7d4585` Linux ARM64 package also passes one complete
+      official-client journey: Codex 0.159.3 and Claude Code 2.1.285 complete
+      baseline, candidate, rollback and re-upgrade; all 14 Responses selections
+      and the real read-only shell loop pass. The test has empty stderr and
+      conserves the installed AIGW and client configuration. Receipt
+      `independent-current-df7-linux-clients-20261002-01a0ccfc`: `delivery.json`
+      SHA-256 `8ed4ae988744b5f1df690e5a0bbcde731f7471f97949388ccf270c4a4126bab1`.
+      This networkless loopback run does not qualify Hermes, Desktop GUI,
+      external-provider inference, Linux native-host stores or final signed
+      bytes. Earlier failed preflights ran no client tests and remain separate.
+      A separate version preflight emitted a PATH-alias/read-only-filesystem
+      warning; it is retained and not yet attributed.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
@@ -288,6 +300,9 @@
       run. All 1,229 source hashes and program identities are conserved;
       exact container, scratch and owned processes are absent. This is loopback
       container evidence, not native-host Secret Service, Hermes or final bytes.
+      The exact `df7d4585` Linux ARM64 real-client container lifecycle is also
+      recorded in 4.5. It does not close this task's native-host or external-
+      provider acceptance.
 - [x] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
