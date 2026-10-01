@@ -355,7 +355,7 @@
       Claude Desktop GUI remains in 4.5; performance, persistent Runner
       containment and final distributed-byte acceptance remain in 6.6, 7.4
       and 9.3. This closure does not claim those independent outcomes.
-- [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
+- [x] 5.4 Run equivalent macOS journeys with native Keychain authorization and
       environment backend separately in isolated acceptance; final operator-item
       authorization remains required before post-archive installed cutover.
       No password/biometric retry loop, service restart, or hidden native-store
@@ -386,6 +386,15 @@
       `native-current-9544b98d-macos-current-trust*` under the existing
       `build/verification/supply-chain-20260930/` owner. Final operator-item
       authorization and distributed-byte cutover remain open.
+      Current signed `02449bd2` revalidation finds all 136 product inputs and
+      nine native fixture/lock inputs byte-identical to the qualified macOS
+      source, with no omitted product file. Fresh hosted readback confirms
+      job 110334863497 completed successfully; published Keychain succession
+      and the separate environment-backend journey establish this isolated
+      pre-archive scope. Current shipped-team and process-observer regressions
+      also pass. Evidence: `macos-isolated-acceptance-input-conservation-02449bd2.json`.
+      Actual operator authorization and Homebrew cutover remain in 3.5 and 9.3;
+      Desktop GUI and official Hermes acceptance remain in 4.5.
 - [x] 5.5 Verify missing Codex/Claude at setup and later installation on each
       platform; deferred sync must touch only installed admitted clients and
       preserve user-owned files. GitHub run 36560334613 at
