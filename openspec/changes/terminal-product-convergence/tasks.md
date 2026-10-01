@@ -562,6 +562,15 @@
       succession; both review peers pass all five required jobs at `3f6723c7`.
       Exact-HEAD full proof `ec60bd57` passes. Evidence is
       `windows-native-sandbox-*` under `build/verification/supply-chain-20260930/`.
+      At `7a5c1da6`, complete source proof `f985dec0` passes after the
+      declared Publisher package inputs are restored; all 41 native Node
+      cases pass and 1,229 tracked hashes are conserved. GitHub review
+      36857568880 passes quality, macOS, Windows and Secret Service but fails
+      Linux's resource teardown: `/proc/<pid>/stat` returns ESRCH when the
+      owned process exits during read. The existing observer now treats only
+      ENOENT/ESRCH as absent across read and signal probes; seven-case
+      RED/GREEN preserves permission and I/O failures. Focused teardown and
+      native Go quality pass; hosted Linux acceptance remains required.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
       guarded merge, source-ref deletion, signer trust and branch protection on each
       selected peer without interactive authentication or divergent commit
@@ -762,3 +771,9 @@
       manifest, governance and final distribution remain separate. Exact
       archive comparisons are `9544b98d-six-platform-archive-identity-comparison.json`;
       native macOS execution and its limits are recorded in 5.4.
+      The `7a5c1da6` matrix is rebuilt with the same explicit public Forge
+      release-source inputs, signed checksums and current provenance. All six
+      archives/programs equal `9544b98d`; the current seven-path shipped-team
+      journey passes. The initial local-only build omitted those inputs; its
+      mismatch, original metadata and corrected comparison are retained.
+      This source/input correction is not final signing or installed cutover.
