@@ -565,43 +565,22 @@
 - [ ] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
       or GitHub must not turn the other selected peer or the local product into a
       hidden dependency, and parity claims remain peer-specific.
-      The GitLab registry reports all 45 current ARM64 GitHub tool assets with
-      lock-matching SHA-256; CUE projects the job-scoped mirror and Linux uses
-      Mise's pinned Docker Hub image. Real Job Token downloads, cold-cache
-      peer-outage behavior without GitHub fallback or credential leakage,
-      and full cold-cache execution remain unproved. Existing mirrored-provenance
-      acceptance passed without network or inherited authorization, and local
-      matrix fixtures passed without Forge downloads. Those bounded proofs do
-      not replace the real Job Token tool graph. Transport follows the selected
-      endpoint and identity, not a blanket HTTP/HTTPS assumption.
-      Reciprocal glab transport now projects browser and encoded API URLs from
-      the same CUE owner to GitHub-local assets. Every locked platform URL and
-      consuming workflow passes focused regression; native cold macOS install,
-      API-only download, missing-copy refusal and checksum-tamper refusal pass
-      with external network denied and no authorization or cookies. The six
-      upstream archives match `mise.lock`; source tests do not establish their
-      hosted publication or the complete three-platform cold graph.
-      October 1 cold Windows run 36838157593 exposes the actual prerequisite:
-      forced reciprocal glab transport returns 404 before client acceptance.
-      CUE now defaults both peers to locked official upstreams and exposes an
-      explicit peer-copy selection; no automatic fallback or checksum change.
-      Distinguishing RED/GREEN covers ordinary/no-credential and invalid
-      selection, exact selected mirror ownership and unchanged filenames.
-      The original failure and focused results remain in `cold-tool-source-*`.
-      Corrected GitLab cold pipeline 9172 at `4fd40cf6` installs 18 native,
-      15 quality and 2 Secret Service tools into empty hidden job-local roots;
-      all three jobs pass. Earlier 9171 downloaded its tools but exposed a
-      caller-input error: a nonhidden tool directory entered Go's package scan.
-      The supplied 42 x64 assets retain exact lock checksums. Native offline
-      verification qualifies their 17 provenance-bearing inputs and the four
-      already-mirrored provenance entries, covering all 21 declared provenance
-      entries in the 48-entry x64 lock scope. Actions build provenance and
-      vendor release-service attestations retain their distinct actor contracts.
-      Those facts do not prove actual Job Token identity, one-peer outage,
-      reciprocal publication or cold execution of the complete lock scope.
-      Keep these obligations open. Raw evidence stays in the existing verification
-      and `independent-peer-x64-inputs-20261001-01a0ccfc` recovery owners;
-      ETHOS support-tag publication remains at its existing issue 12.
+      CUE binds peer selection, locked URLs and job-private credentials; local
+      offline tests reject missing or altered mirror files. Native verification
+      now qualifies all 21 provenance-bearing files in the 48-entry x64 lock
+      scope, retaining the distinct Actions and vendor-release signer contracts.
+      On October 2, the existing project-456 mirror gained 42 absent x64 assets
+      (568,866,372 bytes). Each served byte string matches the current `mise.lock`
+      SHA-256; all 54 prior registry-file hashes remain unchanged. Receipt
+      `x64-peer-mirror-publication-verified-20261002.json` records the exact
+      source and lock identities. Publication used the existing native glab
+      identity; it does not prove CI Job Token identity or job-private auth.
+      The earlier cold Windows 404 and corrected empty-cache pipeline 9172 remain
+      distinct evidence. Deliberate sibling-peer outage, reciprocal download
+      path, complete cold execution across native platforms and protected-runner
+      execution remain open; review CI does not prove those conditions. Preserve
+      the original 9171 input failure and `cold-tool-source-*` evidence. ETHOS
+      support-tag publication remains with its existing issue 12.
 
 ## 8. Repository Topology, Documentation, and Deletion
 
