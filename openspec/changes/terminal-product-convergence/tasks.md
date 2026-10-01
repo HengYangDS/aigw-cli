@@ -96,6 +96,9 @@
       rotation/deletion. A missing selected executable fails; ignoring that
       selection produces the distinguishing RED. This is not production
       signing succession or authorization of retained operator items.
+      The unchanged `ebf9adff` Linux candidate also passes the signed
+      `00e58c70` system-store fixture with a real isolated Secret Service and
+      published 0.3.1 predecessor; see the native-store scope in 5.2.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
@@ -216,6 +219,17 @@
       All 16,309 input hashes match; exact containers and scratch are absent.
       Combined lifecycle and focused-successor evidence is not a single green
       run, native-host Secret Service, live supplier or final-distribution proof.
+      Independent fixed-candidate receipt `f6b0d496` adds the actual isolated
+      Linux Secret Service journey as registered UID 1000 with network removed
+      before execution. Signed `00e58c70` verifier, candidate and published
+      0.3.1 inputs remain unchanged; retained-reader upgrade/rollback/re-upgrade,
+      Account/diagnostic rotation, rename, uninstall/reinstall and deletion pass.
+      All 1,228 source hashes match, and container, scratch and temporary recipe
+      are absent. An official `secret-tool`-only counterexample reproduces the
+      GNOME Keyring 42.1 duplicate-registration diagnostic without AIGW. These
+      daemon warnings remain raw evidence, not a product fault or warning-free
+      qualification. Native-host, real-provider and final-distribution claims
+      remain open.
 - [ ] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
