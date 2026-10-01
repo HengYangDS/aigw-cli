@@ -402,7 +402,10 @@ jobs:
         run: mise run bootstrap
       - name: Prepare native memory measurement
         if: github.event_name == 'workflow_dispatch' && inputs.performance
-        run: sudo -n timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update && sudo -n DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y time
+        run: |-
+          set -eu
+          sudo -n timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo -n DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y time
       - name: Verify native lock resolution
         if: github.event_name == 'workflow_dispatch' && inputs.refresh_locks
         env:

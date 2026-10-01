@@ -83,7 +83,7 @@ linuxToolchain: {
 	// The runnable Mise image is intentionally small. Declare the complete
 	// repository execution closure here so every Linux job inherits one owner.
 	runtimePackages: ["gcc", "libatomic1", "libc6-dev", "openssh-client", "procps"]
-	prepare: "\(linuxApt.update) && DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
+	prepare: "set -eu\n\(linuxApt.update)\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
 }
 
 linuxSecretService: {
@@ -345,7 +345,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		if _platform == "linux" {
 			name: "Prepare native memory measurement"
 			if:   "github.event_name == 'workflow_dispatch' && inputs.performance"
-			run:  "sudo -n \(linuxApt.update) && sudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) time"
+			run:  "set -eu\nsudo -n \(linuxApt.update)\nsudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) time"
 		},
 		{
 			name: "Verify native lock resolution"

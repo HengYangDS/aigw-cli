@@ -518,46 +518,27 @@
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review
       work only before a noninterruptible native Shell or release job starts.
-      Native CI forwards explicit candidate, predecessor and client inputs
-      to one release owner for peer downloads, trust, extraction and cleanup;
-      duplicate GitHub download and Keychain selectors are deleted. Snapshot
-      construction and native journey children receive no Forge credential
-      environment. Signed two-peer fixtures, input rejection, forwarding,
-      child-deadline and current-manifest wire-menu regressions pass;
-      fixed-artifact execution with real clients on both peers remains required.
-      Signed docs source `90908d5d` passes GitLab pipeline 9049 and GitHub
-      run 36769384552 with all five required jobs on each peer; these source
-      results do not qualify the fixed candidate's Windows/client journey.
-      Signed `b8e56dfc` closes the October 1 synthetic-only reproduction of job-netrc
-      pointer and Mise credential inheritance despite cleared Token variables.
-      One override owner now scopes construction and acceptance without
-      changing parent acquisition authorization. Both subject paths reject
-      inherited carriers while the selected acquisition path retains them;
-      this does not prove arbitrary-code Runner containment or hosted cold-peer
-      execution. Its full source gate passes at 95.09% with 1,228 hashes conserved.
-      `ceb5948d` independently passes all five required jobs on GitHub run
-      36845079020 and GitLab pipeline 9135. Separate Windows client dispatch
-      36845310186 passes cold bootstrap, the pinned Hermes installer and all
-      three client succession journeys, but rejects the Codex tool loop.
-      Upstream Codex 0.159.3 rejects restricted permissions when no Windows
-      sandbox backend is active; the isolated fixture now explicitly selects
-      official `unelevated` restricted-token enforcement, keeping `read-only`
-      execution and strict tool-result assertions. The existing native-input
-      regression fails before and passes after repair; macOS Codex 0.159.3
-      tool-loop sibling passes against unchanged `9cf23cb8` bytes. Windows
-      run 36849808698 now passes the repaired actual-client tool loop and
-      succession; both review peers pass all five required jobs at `3f6723c7`.
-      Exact-HEAD full proof `ec60bd57` passes. Evidence is
-      `windows-native-sandbox-*` under `build/verification/supply-chain-20260930/`.
-      At `7a5c1da6`, complete source proof `f985dec0` passes after the
-      declared Publisher package inputs are restored; all 41 native Node
-      cases pass and 1,229 tracked hashes are conserved. GitHub review
-      36857568880 passes quality, macOS, Windows and Secret Service but fails
-      Linux's resource teardown: `/proc/<pid>/stat` returns ESRCH when the
-      owned process exits during read. The existing observer now treats only
-      ENOENT/ESRCH as absent across read and signal probes; seven-case
-      RED/GREEN preserves permission and I/O failures. Focused teardown and
-      native Go quality pass; hosted Linux acceptance remains required.
+      One release owner consumes peer-local candidate, predecessor, clients
+      and trust inputs; construction/acceptance children inherit no Forge
+      authorization. Native regressions cover candidate forwarding, fail-closed
+      input admission, cleanup, process observation and real Windows restricted
+      tool execution. Original ESRCH and Windows sandbox failures remain in
+      `windows-native-sandbox-*` and prior source proofs. Current `80dbca19`
+      passes five required jobs on GitHub run 36871511315. GitLab pipeline
+      9155's three Linux jobs fail before product acceptance: apt acquisition
+      times out, and its AND-list suppresses errexit so bootstrap continues
+      without required runtime libraries. The shared CUE owner now executes
+      checked update/install commands separately; six real sh/bash failure
+      injection cases prove update or install refusal cannot reach subsequent
+      tool installation, while success continues. The Linux performance
+      preparation sibling is corrected by the same principle. Complete native
+      projection tests and Go quality pass without exemptions; both Forge
+      projections are regenerated, not independently patched. Raw evidence:
+      `linux-prerequisite-*` in the existing verification owner and
+      `exact80db-ci-diagnosis.json` in the existing independent recovery owner.
+      Hosted repaired-source acceptance, native Runner transport and fixed-
+      artifact real-client execution remain open; no timeout retry is accepted
+      as the original product proof.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
       guarded merge, source-ref deletion, signer trust and branch protection on each
       selected peer without interactive authentication or divergent commit
