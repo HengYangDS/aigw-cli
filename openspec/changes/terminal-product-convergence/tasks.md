@@ -241,8 +241,13 @@
       This networkless loopback run does not qualify Hermes, Desktop GUI,
       external-provider inference, Linux native-host stores or final signed
       bytes. Earlier failed preflights ran no client tests and remain separate.
-      A separate version preflight emitted a PATH-alias/read-only-filesystem
-      warning; it is retained and not yet attributed.
+      The separate Codex `--version` preflight warning came from default
+      `HOME=/` on a read-only root. The same binary returns identical version
+      output and empty stderr with owned writable `HOME=/work/home`; the tracked
+      native-client fixture already sets an owned writable home. No product
+      patch was needed. Receipt
+      `independent-codex-version-environment-20261002-01a0ccfc/result.json`
+      SHA-256 `47d86c1df47e99c9353e57bd476c5f8852c41775ea760fc324742775775214a4`.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
@@ -293,16 +298,14 @@
       official-tool-only reproduction attributes them to the system daemon,
       not AIGW. Raw stderr is retained; this is not warning-free acceptance.
       Native-host, real-provider and final-distribution claims remain open.
-      `independent-9cf-linux-codex-claude-20261001` in recovery handoff
-      `20260930-sol61.VVgo1vF5` completes the exact `9cf23cb8` Linux ARM64
-      candidate's retained 0.3.1 Codex 0.159.3/stable Claude 2.1.285 lifecycles,
-      fourteen Responses selections and shell tool loop in one 152.769-second
-      run. All 1,229 source hashes and program identities are conserved;
-      exact container, scratch and owned processes are absent. This is loopback
-      container evidence, not native-host Secret Service, Hermes or final bytes.
-      The exact `df7d4585` Linux ARM64 real-client container lifecycle is also
-      recorded in 4.5. It does not close this task's native-host or external-
-      provider acceptance.
+      The earlier `9cf23cb8` portable lifecycle, predecessor and rollback
+      receipts are reused because the candidate archive/program hashes exactly
+      equal `df7d4585`; this reuse is bound by the current packaged receipt
+      above. Its old team manifest hash `3e4e6ab6` is not reused as current
+      input; the current `df7d4585` team manifest and resource fixture pass in
+      the receipt above. The current real Codex/Claude Code container journey
+      is recorded in 4.5. These results still do not prove Linux native-host
+      state, external provider inference or final distribution.
 - [x] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
