@@ -215,6 +215,15 @@
       acceptance. UCloud's fifteen Routes and selected native clients pass.
       See `independent-9cf-dmxapi-ucloud-20261001-01a0ccfc` in the existing
       recovery handoff; the complete-request DMXAPI cause remains open.
+      The independent `independent-dmxapi-prompt-diagnosis-20261001-01a0ccfc`
+      delivery isolates native input item IDs: the same full nine-item tool
+      continuation fails with IDs and passes with only those IDs omitted.
+      UCloud accepts the original request. This is a measured compatibility
+      trigger, not a proved provider-internal cause or native Codex repair;
+      prompt duplication and AIGW-owned transport rewriting remain excluded.
+      The separate nested-Seatbelt fixture defect is corrected. Raw requests,
+      responses and reproducer remain; twelve protected inputs are unchanged,
+      all owned children are terminal, and 232,554,214 scratch bytes are retired.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
@@ -269,7 +278,7 @@
       run. All 1,229 source hashes and program identities are conserved;
       exact container, scratch and owned processes are absent. This is loopback
       container evidence, not native-host Secret Service, Hermes or final bytes.
-- [ ] 5.3 Run equivalent Windows native journeys, including ACL, executable
+- [x] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
       Exact `ebf9adff` Windows ARM64 candidate passes core, shipped-team,
@@ -298,6 +307,21 @@
       pauses and VM isolation conserved. No operator Token is touched or logged.
       This success path does not prove native-store fault injection, real
       clients, Runner containment, performance or final distribution.
+      Current signed `3f6723c7` closes the pre-archive Windows journey through
+      GitHub native-client run 36849808698, job 110328519476. The exact Windows
+      AMD64 candidate (program `ec7d9429`, archive `5e82274a`) passes core,
+      shipped-team, native Credential Manager, all five resource outcomes and
+      authentic published 0.3.1 succession. Actual Codex 0.159.3, Claude Code
+      2.1.286 and pinned Hermes `f97608f` complete baseline, candidate, rollback
+      and re-upgrade; thirteen current general Codex Routes and the shell loop
+      pass in one 224.35-second client run, without failed/skipped tests or
+      warnings. Product teardown asserts exact owned installation removal;
+      disposable hosted cleanup completes. Both review peers also pass their
+      required Windows jobs. Source-bound logs and final run/job readbacks are
+      `3f6723c7-*` under `build/verification/supply-chain-20260930/`.
+      Claude Desktop GUI remains in 4.5; performance, persistent Runner
+      containment and final distributed-byte acceptance remain in 6.6, 7.4
+      and 9.3. This closure does not claim those independent outcomes.
 
 - [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
       environment backend separately in isolated acceptance; final operator-item
@@ -495,7 +519,9 @@
       execution and strict tool-result assertions. The existing native-input
       regression fails before and passes after repair; macOS Codex 0.159.3
       tool-loop sibling passes against unchanged `9cf23cb8` bytes. Windows
-      execution of the repair remains unqualified. Evidence is
+      run 36849808698 now passes the repaired actual-client tool loop and
+      succession; both review peers pass all five required jobs at `3f6723c7`.
+      Exact-HEAD full proof `ec60bd57` passes. Evidence is
       `windows-native-sandbox-*` under `build/verification/supply-chain-20260930/`.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
       guarded merge, source-ref deletion, signer trust and branch protection on each
@@ -683,6 +709,7 @@
       Protected hashes are unchanged and scratch is absent; raw caller/log
       evidence is `native-current-9cf23cb8-macos*`. Preserve this candidate's
       identity: later test-only `56cdc32a` is not its provenance. Exact-candidate
-      Linux real-client container proof is recorded in 5.2; Windows tool-loop
-      repair, current final bytes, native-host stores, Desktop GUI, production
-      signing and installed cutover remain unqualified.
+      Linux real-client container proof is recorded in 5.2; current Windows
+      actual-client execution is recorded in 5.3. Current final bytes,
+      native-host stores, Desktop GUI, production signing and installed cutover
+      remain unqualified.
