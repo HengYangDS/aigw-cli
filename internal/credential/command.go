@@ -3,7 +3,6 @@ package credential
 import (
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"unicode"
 
@@ -22,7 +21,7 @@ func Command(executable, client, scope, goos string) (string, error) {
 	if goos == "windows" && strings.ContainsAny(executable, "\"%!^&|<>()") {
 		return "", fmt.Errorf("credential executable contains Windows shell expansion characters")
 	}
-	if goos == "windows" && runtime.GOOS == "windows" {
+	if goos == "windows" {
 		var err error
 		executable, err = nativeShellPath(executable)
 		if err != nil {

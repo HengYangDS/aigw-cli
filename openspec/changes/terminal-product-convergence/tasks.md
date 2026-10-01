@@ -582,6 +582,13 @@
       Both peers pass all five required jobs at signed `ea8d5d8f`: GitLab
       pipeline 9101 and GitHub run 36813731239. Later source changes require
       their own review result; fixed-candidate native gaps remain open.
+      The repaired ETHOS runtime then exposes one wholly unexercised native
+      command adapter. Command dispatch now selects by target platform while
+      Go build constraints select the host implementation; the duplicate host
+      check is removed. Existing public Windows-target tests naturally cover
+      the Unix identity adapter, and credential/projection siblings pass.
+      Windows short-path behavior is unchanged; the old per-file RED profile
+      is retained rather than adding a coverage-only test or suppression.
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with
       exact-byte install, predecessor upgrade/rollback, credentials and real-client
       journeys; retain the source and artifact hashes and disclose missing platform
