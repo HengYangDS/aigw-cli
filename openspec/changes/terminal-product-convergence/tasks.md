@@ -94,20 +94,14 @@
       rotation/deletion. A missing selected executable fails; ignoring that
       selection produces the distinguishing RED. This is not production
       signing succession or authorization of retained operator items.
-      The unchanged `ebf9adff` Linux candidate also passes the signed
-      `00e58c70` system-store fixture with a real isolated Secret Service and
-      published 0.3.1 predecessor; see the native-store scope in 5.2.
-      Native Windows Credential Manager also passes the unchanged candidate's
-      retained-reader fixture at signed `00e58c70`; see 5.3. These isolated
-      synthetic items do not authorize the final operator reader.
+      The exact `df7d4585` Linux package's Secret Service succession is
+      recorded in 5.2; Windows native Credential Manager/client results are in
+      5.3. These isolated synthetic items do not authorize the final operator
+      reader.
       Current `3f6723c7` macOS run 36851755292 passes authentic published
       0.3.1 Keychain succession, rollback rotation and explicit restaging;
-      Windows native-store/client closure is recorded in 5.3. The intervening
-      `internal/credential/command.go` change only applies target-Windows path
-      normalization; shipped callers pass `runtime.GOOS`, so Linux behavior
-      covered by the `00e58c70` Secret Service receipt is unchanged. No
-      credential-runtime files changed after `3f6723c7` through current HEAD
-      `5c1f3dca`. These receipts prove retained-reader lifecycle for their
+      Windows native-store/client closure is recorded in 5.3. These receipts
+      prove retained-reader lifecycle for their
       recorded candidate bytes, but not a stable macOS Developer ID designated
       requirement across distinct signed successors. See [DR-0011](../../../docs/decisions/dr-0011-single-portable-token-backend.md): an
       untagged Developer ID candidate can prove that pre-archive identity;
@@ -273,17 +267,20 @@
       All 16,309 input hashes match; exact containers and scratch are absent.
       Combined lifecycle and focused-successor evidence is not a single green
       run, native-host Secret Service, live supplier or final-distribution proof.
-      Independent fixed-candidate receipt `f6b0d496` adds the actual isolated
-      Linux Secret Service journey as registered UID 1000 with network removed
-      before execution. Signed `00e58c70` verifier, candidate and published
-      0.3.1 inputs remain unchanged; retained-reader upgrade/rollback/re-upgrade,
-      Account/diagnostic rotation, rename, uninstall/reinstall and deletion pass.
-      All 1,228 source hashes match, and container, scratch and temporary recipe
-      are absent. An official `secret-tool`-only counterexample reproduces the
-      GNOME Keyring 42.1 duplicate-registration diagnostic without AIGW. These
-      daemon warnings remain raw evidence, not a product fault or warning-free
-      qualification. Native-host, real-provider and final-distribution claims
-      remain open.
+      The exact `df7d4585` 0.3.3 Linux ARM64 package passes the retained
+      published-0.3.1 lifecycle with a real ephemeral GNOME Secret Service as
+      UID 1000, after external network disconnection. The signed `00e58c70`
+      verifier is reused without rebuilding. Retained commands, account and
+      diagnostic rotation, rename, rollback/re-upgrade, uninstall/reinstall and
+      deletion pass in 2.464 seconds; candidate, predecessor and verifier hashes
+      are bound. The owned container, scratch and recipe are absent, and the
+      existing source, install and link are conserved. Receipt
+      `independent-current-df7-linux-secret-service-20261002-01a0ccfc/delivery.json`
+      SHA-256 `ad6ff16bd927b10a402b2be8fe73ce605c0c0a06c0c5afa6357cf20ba477718b`.
+      Two GNOME Keyring 42.1 duplicate-registration warnings remain; the
+      official-tool-only reproduction attributes them to the system daemon,
+      not AIGW. Raw stderr is retained; this is not warning-free acceptance.
+      Native-host, real-provider and final-distribution claims remain open.
       `independent-9cf-linux-codex-claude-20261001` in recovery handoff
       `20260930-sol61.VVgo1vF5` completes the exact `9cf23cb8` Linux ARM64
       candidate's retained 0.3.1 Codex 0.159.3/stable Claude 2.1.285 lifecycles,
