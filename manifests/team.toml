@@ -296,14 +296,6 @@ upstream_model = 'mercury-2.5'
 [routes.'aihubmix-mercury-2.5'.interfaces]
 openai_chat_completions = []
 
-[routes.'aihubmix-mimo-v2.6-pro']
-account = 'aihubmix'
-model = 'mimo-v2.6-pro'
-upstream_model = 'mimo-v2.6-pro'
-
-[routes.'aihubmix-mimo-v2.6-pro'.interfaces]
-openai_responses = []
-
 [routes.aihubmix-minimax-m3]
 account = 'aihubmix'
 model = 'minimax-m3'

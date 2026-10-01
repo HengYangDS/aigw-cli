@@ -59,8 +59,8 @@ replace an explicit local selection.
 At an earlier September 30, 2026 read, AIGW observed 417 AIHubMix, 565 DMXAPI,
 and 276 UCloud IDs across eight Account/protocol catalogue surfaces. All 60
 Routes shipped at that time had wire IDs on their declared surfaces; the current
-manifest has 57 after the Solar Route, three GPT-6 Sol Routes, the DMXAPI
-Fable 5.1 CC channel, and the unavailable AIHubMix Fable 5.1 Route were removed,
+manifest has 56 after the Solar Route, three GPT-6 Sol Routes, the DMXAPI
+Fable 5.1 CC channel, and unavailable AIHubMix Fable 5.1 and MiMo Routes were removed,
 with AIHubMix, DMXAPI, and UCloud GPT-6.1
 Sol Routes added. The earlier DMXAPI Responses observation used the locally configured
 `127.0.0.1:8792` Proxy,
@@ -254,6 +254,11 @@ completed text through the configured AIHubMix and UCloud Responses endpoints
 on September 25. A later AIHubMix `ping` call was incomplete even at 512
 tokens, while the explicit short-answer request completed. No DMXAPI MiMo
 Route was inferred from those observations.
+On October 1, the exact AIHubMix Route returned HTTP 400
+`The model mimo-v2.6-pro cannot be served at the moment` through both AIGW and
+one official OpenAI SDK 2.24.0 request with retries disabled. Withdraw only
+that Account's Route; retain the canonical Model and qualified UCloud Route.
+The older completed request does not prove current availability.
 
 Baidu [positions ERNIE 5.1](https://ernie.baidu.com/blog/posts/ernie-5.1-0508-release/)
 as its current general reasoning model; the exact AIHubMix Responses ID

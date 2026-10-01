@@ -233,16 +233,15 @@ func TestTeamManifestKeepsOnlyQualifiedMiniMaxAndMuseRoutes(t *testing.T) {
 
 func TestTeamManifestKeepsOnlyQualifiedMiMoRoutes(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	for _, account := range []string{"aihubmix", "ucloud"} {
-		id := account + "-mimo-v2.6-pro"
-		route, ok := manifest.Routes[id]
-		if !ok || route.Account != account || route.Model != "mimo-v2.6-pro" || route.UpstreamModelID() != "mimo-v2.6-pro" ||
-			!slices.Contains(route.AdmittedProtocols(), ProtocolOpenAIResponses) {
-			t.Errorf("qualified MiMo Route %q = %+v", id, route)
-		}
+	route, ok := manifest.Routes["ucloud-mimo-v2.6-pro"]
+	if !ok || route.Account != "ucloud" || route.Model != "mimo-v2.6-pro" || route.UpstreamModelID() != "mimo-v2.6-pro" ||
+		!slices.Contains(route.AdmittedProtocols(), ProtocolOpenAIResponses) {
+		t.Errorf("qualified UCloud MiMo Route = %+v", route)
 	}
-	if _, admitted := manifest.Routes["dmxapi-mimo-v2.6-pro"]; admitted {
-		t.Error("unverified DMXAPI MiMo Route was admitted")
+	for _, account := range []string{"aihubmix", "dmxapi"} {
+		if _, admitted := manifest.Routes[account+"-mimo-v2.6-pro"]; admitted {
+			t.Errorf("unavailable or unqualified %s MiMo Route was admitted", account)
+		}
 	}
 }
 

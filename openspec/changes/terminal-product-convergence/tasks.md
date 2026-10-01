@@ -119,15 +119,16 @@
       lists all 60 then-shipped Route IDs on their Account/protocol surfaces.
       A later direct AIHubMix Chat request for `solar-pro4` returned HTTP 400
       `no_available_channel`, so that Route and its unreferenced Model were
-      removed; 57 Routes remain after replacing three GPT-6 Sol Routes with
+      removed; 56 Routes remain after replacing three GPT-6 Sol Routes with
       AIHubMix, DMXAPI, and UCloud GPT-6.1 Sol Routes and withdrawing the Fable 5.1 CC
-      channel after three bounded requests failed to complete. Direct DMXAPI
+      channel after three bounded requests failed to complete and withdrawing
+      the currently unavailable AIHubMix MiMo Route. Direct DMXAPI
       text and strict function-call probes plus two isolated Codex tool loops now
       support the Codex recommendation. Official Hermes v0.21.5 source also
       completed two direct DMXAPI 6.1 Sol turns, and an isolated AIGW `verify`
       completed after staging its versioned reader. Later UCloud 6.1 Sol
       inference and installed Codex/Hermes `verify` sessions also passed.
-      A catalogue listing alone did not qualify either client. All 57 retained
+      A catalogue listing alone did not qualify either client. All remaining
       exact Account/wire/protocol contracts have dated completed inference and
       at least one compatible native-client observation. The October 1
       [curated choices](../../../docs/research/provider-model-qualification.md#curated-model-choices)
@@ -154,6 +155,12 @@
       withdrawn from the shipped catalogue; DMXAPI and UCloud Fable remain.
       The diagnostic regression distinguishes that refusal from malformed
       model requests and preserves one bounded request with no auth retry.
+      Independent `9cf23cb8` AIHubMix acceptance checks 25 shipped Routes:
+      24 pass, while MiMo reports model_unavailable. One official SDK request
+      with retries disabled confirms HTTP 400. Withdraw only that Account's
+      Route; retain the canonical Model and qualified UCloud Route. RED/GREEN
+      and complete team-manifest tests pass. Current source exports 26 Models
+      and 56 Routes; earlier artifact evidence retains its original identity.
 - [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
       Providers; no control-plane command claims request-time failover.
@@ -193,6 +200,12 @@
       `independent-ebf-claude-stable-20261001-01a0ccfc` and
       `independent-ebf-hermes-models-20261001-01a0ccfc` in the existing recovery
       handoff `20260930-sol61.VVgo1vF5`.
+      Independent `9cf23cb8` AIHubMix client acceptance completes Sol 6.1 with
+      Codex/official Hermes, Muse Spark with Codex, and Opus/Sonnet 5.5 with
+      stable Claude. MiniMax M3 completes in official Hermes, but real Codex
+      returns reasoning tags in its final text and fails the exact marker
+      contract. Keep that client gap open; do not strip arbitrary text or
+      equate exit zero with verification.
       Linux real-client lifecycle and selection evidence is recorded in 5.2;
       Windows real clients, native-host stores,
       Desktop GUI, installed-host cutover and final signed bytes remain open.
@@ -515,21 +528,24 @@
 - [x] 8.1 Audit `src`-equivalent Go packages, `internal/`, `cmd/`, `tools/`,
       tests, root and `.config` by semantic responsibility; replace suffix-flat or
       mixed owners with cohesive packages and remove forwarding facades.
-- [ ] 8.2 Reconcile tracked README, architecture, decision, operations,
+- [x] 8.2 Reconcile tracked README, architecture, decision, operations,
       contributing and release documentation with current product behavior; all
       canonical pages must be linked, English, navigable and free of references to
       untracked prerequisites. The root index and decision register reach all
       23 canonical pages; format, links, metadata, spelling and semantic
-      compression checks pass. At `56cdc32a`, the bound ETHOS native
-      docs-registry execution finds no metadata, role,
-      state, duplicate, section, command, example, plan or length defects. Its
-      only four findings require per-directory READMEs for architecture,
-      decisions, governance and research despite that canonical navigation.
-      Resolve applicability at the ETHOS rule owner rather than adding marker
-      indexes; formal qualified-runtime adoption and registry acceptance remain
-      open. Historical long-document failures remain evidence, not current
-      findings. Current raw gate output and its exact four gaps remain in
-      `docs-registry-current-56cdc32a.{json,stderr}` under the existing
+      compression checks pass. Native link traversal proves all 23 are reachable
+      from docs/README.md. Source-bound ETHOS runtime `bfd65a4e` checks all three
+      family worktrees without tracked edits. Exact `ceb5948d` full proof passes
+      both unchanged adopter gates, including native document quality.
+      Supplemental product-profile docs-registry finds no metadata, role,
+      state, duplicate, section, command, example or plan defects but demands
+      four additional directory READMEs by count alone. That rule is outside
+      selected adopter proof and contradicts canonical organization scenarios.
+      Retain the upstream applicability defect, not marker indexes or a
+      disabled gate. Evidence: `docs-current-canonical-navigation-ceb5948d.json`,
+      `docs-registry-latest-runtime-c7b15070.*`,
+      `runtime-refreshed-target-current-20261001.json` and
+      `cold-tool-source-bound-current-proof-ceb5948d.*` under the existing
       `build/verification/supply-chain-20260930/` owner.
 
 - [x] 8.3 Review diagrams, tables, headings, lists, examples, CLI help and
