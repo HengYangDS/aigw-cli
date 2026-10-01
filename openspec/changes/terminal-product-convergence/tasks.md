@@ -209,6 +209,12 @@
       Linux real-client lifecycle and selection evidence is recorded in 5.2;
       Windows real clients, native-host stores,
       Desktop GUI, installed-host cutover and final signed bytes remain open.
+      The later independent `9cf23cb8` DMXAPI batch passes all seventeen Routes
+      in direct inference, but real Codex 0.159.2 returns unrelated final text
+      for Sol 6.1. Official SDK streaming/nonstreaming success is not client
+      acceptance. UCloud's fifteen Routes and selected native clients pass.
+      See `independent-9cf-dmxapi-ucloud-20261001-01a0ccfc` in the existing
+      recovery handoff; the complete-request DMXAPI cause remains open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
@@ -256,6 +262,13 @@
       daemon warnings remain raw evidence, not a product fault or warning-free
       qualification. Native-host, real-provider and final-distribution claims
       remain open.
+      `independent-9cf-linux-codex-claude-20261001` in recovery handoff
+      `20260930-sol61.VVgo1vF5` completes the exact `9cf23cb8` Linux ARM64
+      candidate's retained 0.3.1 Codex 0.159.3/stable Claude 2.1.285 lifecycles,
+      fourteen Responses selections and shell tool loop in one 152.769-second
+      run. All 1,229 source hashes and program identities are conserved;
+      exact container, scratch and owned processes are absent. This is loopback
+      container evidence, not native-host Secret Service, Hermes or final bytes.
 - [ ] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
@@ -472,6 +485,18 @@
       inherited carriers while the selected acquisition path retains them;
       this does not prove arbitrary-code Runner containment or hosted cold-peer
       execution. Its full source gate passes at 95.09% with 1,228 hashes conserved.
+      `ceb5948d` independently passes all five required jobs on GitHub run
+      36845079020 and GitLab pipeline 9135. Separate Windows client dispatch
+      36845310186 passes cold bootstrap, the pinned Hermes installer and all
+      three client succession journeys, but rejects the Codex tool loop.
+      Upstream Codex 0.159.3 rejects restricted permissions when no Windows
+      sandbox backend is active; the isolated fixture now explicitly selects
+      official `unelevated` restricted-token enforcement, keeping `read-only`
+      execution and strict tool-result assertions. The existing native-input
+      regression fails before and passes after repair; macOS Codex 0.159.3
+      tool-loop sibling passes against unchanged `9cf23cb8` bytes. Windows
+      execution of the repair remains unqualified. Evidence is
+      `windows-native-sandbox-*` under `build/verification/supply-chain-20260930/`.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
       guarded merge, source-ref deletion, signer trust and branch protection on each
       selected peer without interactive authentication or divergent commit
@@ -657,6 +682,7 @@
       four carried commits; official unmodified Hermes evidence stays in 4.5.
       Protected hashes are unchanged and scratch is absent; raw caller/log
       evidence is `native-current-9cf23cb8-macos*`. Preserve this candidate's
-      identity: later test-only `56cdc32a` is not its provenance. Current final
-      candidate, native stores, Linux/Windows real clients, Desktop GUI,
-      production signing and installed cutover remain unqualified.
+      identity: later test-only `56cdc32a` is not its provenance. Exact-candidate
+      Linux real-client container proof is recorded in 5.2; Windows tool-loop
+      repair, current final bytes, native-host stores, Desktop GUI, production
+      signing and installed cutover remain unqualified.

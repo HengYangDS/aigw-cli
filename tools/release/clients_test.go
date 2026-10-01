@@ -311,6 +311,8 @@ func (j *journeyFixture) prepareNativeClient(client, executable string, team []b
 model_context_window = 500000
 model_auto_compact_token_limit = 450000
 model_auto_compact_token_limit_scope = 'body_after_prefix'
+[windows]
+sandbox = 'unelevated'
 [features]
 plugins = false
 [features.multi_agent_v2]
@@ -398,6 +400,9 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 			Features struct {
 				Plugins *bool `toml:"plugins"`
 			} `toml:"features"`
+			Windows struct {
+				Sandbox string `toml:"sandbox"`
+			} `toml:"windows"`
 		}
 		path := filepath.Join(j.root, "home", ".codex", "config.toml")
 		if err := toml.Unmarshal(readFile(j.testing, path), &preferences); err != nil {
@@ -405,6 +410,9 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 		}
 		if preferences.Effort != "high" || preferences.Window != 500000 || preferences.Compact != 450000 || preferences.Scope != "body_after_prefix" || preferences.Features.Plugins == nil || *preferences.Features.Plugins {
 			j.testing.Fatalf("Codex preferences changed: %+v", preferences)
+		}
+		if preferences.Windows.Sandbox != "unelevated" {
+			j.testing.Fatal("isolated Codex requires its native restricted-token sandbox")
 		}
 	case configuration.ClientClaude:
 		var preferences struct {

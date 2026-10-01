@@ -343,6 +343,13 @@ AIGW_ACCEPTANCE_CLIENT_PATH=/usr/bin:/bin \
 Windows uses native executable paths and a semicolon-separated companion PATH.
 Supply complete client distributions; a missing path is not a stub/download license.
 
+The isolated Codex fixture explicitly enables the official Windows `unelevated`
+sandbox, which uses a restricted token without administrator setup. The client
+still runs in `read-only` mode; a permissions label without an active native
+backend cannot qualify tool execution. This test-only setting neither changes
+operator configuration nor chooses a production sandbox mode. Denied tool output
+remains a failure even when Codex returns the final marker.
+
 This explicit build-tagged journey requires all three declared executable paths:
 `AIGW_ACCEPTANCE_CODEX`, `AIGW_ACCEPTANCE_CLAUDE` and `AIGW_ACCEPTANCE_HERMES`.
 Missing clients fail, not skip. See [Adapter admission](docs/governance/adapter-admission.md)
