@@ -372,7 +372,7 @@ limits are a reasoned trade-off, not a universal optimum or test-volume claim:
 
 | Trial                  | Decision and reason                                                                                                             |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Cyclop 20 then 15      | Keep 25: ordered publication/verification and complete preservation assertions require owner review, not forwarding extraction  |
+| Cyclop 20 then 15      | Keep 25: atomic manifest/ACL admission and complete lifecycle assertions do not justify blanket forwarding extraction           |
 | Cognitive 40           | Keep 45: bootstrap/recovery/native acceptance combine ownership and cleanup                                                     |
 | Span 110/statements 55 | Keep 120/60: explicit input/data and complete journeys remain inspectable                                                       |
 | Arguments 6            | Keep 7: Account/Route and before/after artifacts are real distinct inputs; bags alone remove no knowledge                       |
@@ -380,10 +380,13 @@ limits are a reasoned trade-off, not a universal optimum or test-volume claim:
 | Maintidx 30            | Keep 25: vocabulary/data cost remains bounded by independent size/nesting/decisions                                             |
 | Clone 80               | Keep 100 tokens: DPAPI protect/unprotect and distinct assertions are separate operations                                        |
 
-Keep machine values solely in native policy; this table records historical trial
-rationale. Reopen when concrete escaped risk or repeated cohesive rejection changes
-the trade-off. Native tests retain all applicable diagnostics, even multiple rules on
-one line; suppressing others cannot count as calibration.
+Machine values remain solely in native policy. The October 1 Cyclop recalibration
+is closed: retain 25 across product, tools and tests, not as a universal optimum.
+Trials and representative ownership review are recorded in the active Change.
+Findings alone are not defects or a reason to add shallow helpers or an assertion
+dependency. Reopen for a concrete escaped risk or semantic redesign, not another
+unchanged trial. Native tests retain all applicable diagnostics; suppressing
+companion rules cannot count as calibration.
 
 ### Check effectiveness and failure semantics
 

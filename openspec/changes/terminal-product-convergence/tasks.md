@@ -322,6 +322,14 @@
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.
+      October 1 Cyclop recalibration is closed: retain the blocking 25 limit
+      across product, tools and tests. OS-selected macOS/Linux/Windows ARM64
+      trials report zero findings at 25, 70/70/71 at 20, and 235/231/231 at 15.
+      Counts alone do not prove defects. Review of atomic manifest admission,
+      credential-directory cleanup, Windows ACL validation and lifecycle
+      assertions found no demonstrated benefit for blanket reduction. No
+      suppression, forwarding helper or assertion dependency was introduced;
+      other limits and escaped-defect review remain active.
 - [x] 6.4 Exercise Markdown, Mermaid rendering, internal/external links, TOML,
       YAML, JSON, CUE, shell and generated-text checks on tracked content; a
       malformed or unreachable authored carrier must fail the relevant gate.
