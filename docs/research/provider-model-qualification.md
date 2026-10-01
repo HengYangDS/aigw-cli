@@ -183,6 +183,19 @@ Specialized, small, unidentified or unqualified public catalogue entries from
 Jina AI, Liquid, Dots Studio, Sao10k, and Stealth are not general-model Routes.
 
 MiniMax M3 has AIHubMix and UCloud Routes; its DMXAPI candidate timed out.
+AIHubMix's plain `minimax-m3` and `coding-minimax-m3` wire IDs produced
+reasoning tags in final assistant text and failed strict Codex 0.159.3
+verification; their successful text inference does not settle that client gap.
+Its authenticated catalogue also listed `cc-minimax-m3`. With native effort
+`none`, that exact channel and UCloud's `MiniMax-M3` each completed a real
+Codex shell tool and same-thread note/follow-up sequence on October 1, 2026.
+The current `7a5c1da6` candidate separately passed public Route addition,
+selection, check and verification for `aihubmix-minimax-m3-cc`, then the same
+tool/replay journey using its actual projection without a CLI model override.
+The manifest retains the existing logical `minimax-m3` Model and adds only
+that CC Route. Existing Routes, Models, client selections and projection bytes
+were conserved. This result does not qualify other efforts, every platform,
+Desktop GUI or final distribution; no reasoning text was stripped or retried.
 Muse Spark 1.3 has an AIHubMix Route only; DMXAPI's unrelated Spark IDs are
 not Meta models, and no UCloud Muse Route was observed.
 

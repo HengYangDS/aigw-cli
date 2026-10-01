@@ -304,6 +304,15 @@ upstream_model = 'minimax-m3'
 [routes.aihubmix-minimax-m3.interfaces]
 openai_responses = []
 
+[routes.aihubmix-minimax-m3-cc]
+label = 'AIHubMix · MiniMax M3 · CC'
+account = 'aihubmix'
+model = 'minimax-m3'
+upstream_model = 'cc-minimax-m3'
+
+[routes.aihubmix-minimax-m3-cc.interfaces]
+openai_responses = []
+
 [routes.aihubmix-mistral-large-3]
 account = 'aihubmix'
 model = 'mistral-large-3'

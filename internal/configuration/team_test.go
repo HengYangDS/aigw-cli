@@ -313,6 +313,7 @@ func TestTeamManifestRoutesUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 		"dmxapi-gpt-6-astra-cdx":         {"gpt-6-astra", "gpt-6-astra-cdx"},
 		"dmxapi-gpt-6-astra-ssvip":       {"gpt-6-astra", "gpt-6-astra-ssvip"},
 		"dmxapi-gpt-6.1-sol-cdx":         {"gpt-6.1-sol", "gpt-6.1-sol-cdx"},
+		"aihubmix-minimax-m3-cc":         {"minimax-m3", "cc-minimax-m3"},
 	}
 	for routeID, want := range variants {
 		route, ok := manifest.Routes[routeID]

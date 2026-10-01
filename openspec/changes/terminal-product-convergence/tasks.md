@@ -167,8 +167,9 @@
       with retries disabled confirms HTTP 400. Withdraw only that Account's
       Route; retain the canonical Model and qualified UCloud Route. RED/GREEN
       and complete team-manifest tests pass. Current source exports 26 Models
-      and 57 Routes after the independently qualified Sol 6.1 CDX channel was
-      added under the existing logical Model. Only unselected Codex clients
+      and 58 Routes after the independently qualified Sol 6.1 CDX and
+      AIHubMix MiniMax M3 CC channels are added under their existing logical
+      Models. Only unselected Codex clients
       prefer that channel; UCloud and AIHubMix retain their order and current
       explicit selections are preserved. The plain DMXAPI continuation failure
       remains disclosed in the existing
@@ -221,8 +222,14 @@
       Codex/official Hermes, Muse Spark with Codex, and Opus/Sonnet 5.5 with
       stable Claude. MiniMax M3 completes in official Hermes, but real Codex
       returns reasoning tags in its final text and fails the exact marker
-      contract. Keep that client gap open; do not strip arbitrary text or
-      equate exit zero with verification.
+      contract. Later official Codex 0.159.3 qualifies the exact AIHubMix
+      `cc-minimax-m3` channel and UCloud `MiniMax-M3` under native effort none,
+      with shell execution and same-thread context replay. Current `7a5c1da6`
+      candidate public Route addition and projected-client verification also
+      pass; the plain AIHubMix Route's client gap remains disclosed. See
+      `independent-minimax-codex-native-20261001-01a0ccfc` and
+      `independent-current-candidate-7a5c1da6-20261001-01a0ccfc`; no new
+      logical Model, response stripping or marker relaxation is introduced.
       Linux real-client lifecycle and selection evidence is recorded in 5.2;
       final Windows bytes, native-host stores,
       Desktop GUI, installed-host cutover and final signed bytes remain open.
