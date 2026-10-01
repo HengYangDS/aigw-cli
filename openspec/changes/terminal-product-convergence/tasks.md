@@ -79,9 +79,11 @@
       environment-backend journey in an isolated container. GitHub run
       36563790078 at `49ba0c5ec5503b4365ff1f0c01555c05c97ca03e` passed
       the published `v0.3.1` predecessor Keychain journey on a disposable macOS
-      runner, including rollback rotation and explicit restaging. Operator-item
-      authorization, Linux host credential service and Windows real-client
-      proof remain open.
+      runner, including rollback rotation and explicit restaging. At that
+      checkpoint, operator-item authorization, Linux native-host acceptance,
+      and Windows real-client proof remained open; later evidence below
+      supersedes the Windows-client gap, while Linux-host acceptance remains
+      in 5.2.
       The signed `2c7fbe89` Linux ARM64 candidate also passes authentic 0.3.1
       succession with an isolated real DBus/GNOME Secret Service as UID 1000.
       Automatic backend selection is keyring; old and new commands remain
@@ -100,9 +102,19 @@
       synthetic items do not authorize the final operator reader.
       Current `3f6723c7` macOS run 36851755292 passes authentic published
       0.3.1 Keychain succession, rollback rotation and explicit restaging;
-      Windows native-store/client closure is recorded in 5.3. The three
-      isolated platform results remain separate from the final exact operator
-      reader and the actual Homebrew link transition, which are still open.
+      Windows native-store/client closure is recorded in 5.3. The intervening
+      `internal/credential/command.go` change only applies target-Windows path
+      normalization; shipped callers pass `runtime.GOOS`, so Linux behavior
+      covered by the `00e58c70` Secret Service receipt is unchanged. No
+      credential-runtime files changed after `3f6723c7` through current HEAD
+      `5c1f3dca`. These receipts prove retained-reader lifecycle for their
+      recorded candidate bytes, but not a stable macOS Developer ID designated
+      requirement across distinct signed successors. See [DR-0011](../../../docs/decisions/dr-0011-single-portable-token-backend.md): an
+      untagged Developer ID candidate can prove that pre-archive identity;
+      ad-hoc and copied-byte fixtures cannot substitute. That successor proof
+      remains open. Exact operator-item authorization and the actual Homebrew
+      link transition remain post-archive Migration Plan obligations; the
+      broader Linux native-host product journey remains open in 5.2.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
