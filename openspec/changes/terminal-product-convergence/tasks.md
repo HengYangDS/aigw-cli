@@ -164,8 +164,13 @@
       `f97608f` (0.21.5) already passes its unchanged four-stage journey.
       Separate September 30 direct DMXAPI and UCloud GPT-6.1 Sol Codex/Hermes
       sessions pass. Hermes verification now preserves configured per-model
-      reasoning and native ownership; the actual AIHubMix Mistral override
-      still needs requalification. Windows/Linux real clients, native stores,
+      reasoning and native ownership. The October 1 exact-candidate public
+      setup/use/verify journey with official Hermes `f97608f` preserves the
+      AIHubMix Mistral override at none and high; each main streaming request
+      carries the selected effort, with configuration and scratch conserved.
+      Its independent receipt is `independent-hermes-mistral-ebf9adff-corrected`;
+      the loopback probe does not qualify actual AIHubMix inference.
+      Windows/Linux real clients, native stores,
       Desktop GUI, installed-host cutover and final signed bytes remain open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
@@ -261,6 +266,14 @@
       candidate bytes and compiles for Windows ARM64. Full source quality and
       strict coverage pass without changing the 500-line limit. Windows native
       execution and final peer qualification remain required.
+      Signed `bf35796c` also repairs Windows-selected lint before native
+      execution; all three OS selections and the complete source gate pass.
+      Its exact-source ARM64 fleet pilot passes success, failure, parent-exit,
+      the actual 60.37-second deadline and assertion cleanup. Interrupt alone
+      fails; filtered output did not retain its cause. Exact-owned outer
+      long-path cleanup also failed, while original pauses and isolation were
+      restored. Preserve the failed child, retain the precise cause and repair
+      only that owner before a focused interrupt retry; no unchanged full rerun.
 
 ## 6. Quality, Supply Chain, and Performance
 
@@ -327,6 +340,17 @@
 - [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
       build and CI costs against predecessor budgets on a quiet host; preserve raw
       samples and optimize only diagnosed owners.
+      Signed `bf35796c` removes repeated lifecycle suites from explicit
+      performance dispatch without weakening ordinary acceptance. The existing
+      measurement owner now includes first setup and converged sync, with
+      distinguishing case, owned preparation and source-gate regressions.
+      Cold-cache onboarding and construction/CI costs remain separate;
+      current quiet-host measurements
+      and budget qualification are still open.
+      Actual 0.3.1 and candidate-byte smoke disproved setup reapply; corrected
+      first-setup preparation and repeated setup/sync preserve exact helper
+      and projection bytes. The invalidated source gate was stopped and its
+      failure evidence retained, not accepted as performance qualification.
 - [x] 6.7 Assert warnings and malformed public errors fail at their origin;
       human and JSON output must expose precise state and safe action without
       private paths, Token fragments, internal modules or tracebacks.

@@ -288,6 +288,11 @@ normal artifact, source and predecessor trust checks; it does not repeat core,
 rollback or resource lifecycle acceptance. `--clients` additionally runs the
 requested native-client journey. Neither selection replaces required lifecycle
 evidence for release admission.
+The same measurement owner records first setup and converged sync separately
+from route changes. Setup preparation removes only fixture-owned configuration
+and projection files before each timed command; it preserves the installed program
+and credentials. Construction and CI costs remain tied to their original build
+and job receipts, not these samples.
 
 The GitHub Verify workflow accepts `performance=true` together with
 `baseline_tag` and `candidate_tag`. It reuses historical release acceptance,

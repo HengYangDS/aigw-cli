@@ -64,6 +64,11 @@ type performanceProgram struct {
 	Bytes   int    `json:"bytes"`
 }
 
+type performanceCase struct {
+	name, command, prepare string
+	budget                 float64
+}
+
 func TestNativePerformance(t *testing.T) {
 	if !t.Run("native memory calibration", TestNativePeakMemory) {
 		t.Fatal("native memory accounting failed its independent allocation calibration")
@@ -251,6 +256,11 @@ func (j *journeyFixture) preparePerformanceCredentials(backend, account, credent
 
 func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend string, block int) []performanceMeasurement {
 	j.testing.Helper()
+	preparer, err := os.Executable()
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	j.setEnvironment("AIGW_TEST_PERFORMANCE_ROOT", j.root)
 	var settings struct {
 		APIKeyHelper string `json:"apiKeyHelper"`
 	}
@@ -264,25 +274,8 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 		}
 		helper = performanceCommand(os.Getenv("ComSpec"), "/d", "/c", "credential.cmd")
 	}
-	selectArgs := []string{j.binary, "use", "--for", "claude", "performance-second"}
-	resetArgs := []string{j.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
-	cases := []struct {
-		name, command, prepare string
-		budget                 float64
-	}{
-		{"credential", helper, "", 0.1},
-		{"projection", performanceCommand(selectArgs...), performanceCommand(resetArgs...), 0.25},
-	}
-	if backend == "env" {
-		for _, args := range [][]string{{"version", "--version"}, {"help", "--help"}, {"status", "status", "--json"}, {"export", "config", "export"}} {
-			cases = append(cases, struct {
-				name, command, prepare string
-				budget                 float64
-			}{args[0], performanceCommand(append([]string{j.binary}, args[1:]...)...), "", 0.1})
-		}
-	}
 	var measurements []performanceMeasurement
-	for _, test := range cases {
+	for _, test := range j.performanceCases(helper, backend, preparer) {
 		name := fmt.Sprintf("%s-%s-%s-%d", variant, backend, test.name, block)
 		raw := filepath.Join(output, name+".json")
 		args := []string{"--shell=none", "--warmup", "5", "--runs", "40", "--output=pipe", "--style", "basic", "--export-json", raw}
@@ -317,6 +310,23 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 		j.testing.Fatal("performance journey changed a converged projection")
 	}
 	return measurements
+}
+
+func (j *journeyFixture) performanceCases(helper, backend, preparer string) []performanceCase {
+	selectArgs := []string{j.binary, "use", "--for", "claude", "performance-second"}
+	resetArgs := []string{j.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
+	cases := []performanceCase{
+		{"credential", helper, "", 0.1},
+		{"projection", performanceCommand(selectArgs...), performanceCommand(resetArgs...), 0.25},
+		{"setup", performanceCommand(j.binary, "setup", "--from", j.manifest, "--account", "native-system-keyring-probe"), performanceCommand(preparer, "prepare-performance-setup", j.root, j.config, j.settings), 0.25},
+		{"sync", performanceCommand(j.binary, "sync"), performanceCommand(resetArgs...), 0.25},
+	}
+	if backend == "env" {
+		for _, args := range [][]string{{"version", "--version"}, {"help", "--help"}, {"status", "status", "--json"}, {"export", "config", "export"}} {
+			cases = append(cases, performanceCase{args[0], performanceCommand(append([]string{j.binary}, args[1:]...)...), "", 0.1})
+		}
+	}
+	return cases
 }
 
 // Hyperfine shell=none uses shell_words on every OS, including Windows.
@@ -391,6 +401,30 @@ func TestNativePerformanceSamples(t *testing.T) {
 func TestNativePerformanceCommand(t *testing.T) {
 	if got := performanceCommand(`C:\program files\aigw.exe`, "a'b", ""); got != `'C:\program files\aigw.exe' 'a'\''b' ''` {
 		t.Fatalf("Hyperfine argv quoting = %s", got)
+	}
+}
+
+func TestNativePerformanceCases(t *testing.T) {
+	journey := &journeyFixture{root: "owned root", binary: "installed program", config: "owned config", settings: "owned settings", manifest: "team manifest"}
+	reset := performanceCommand(journey.binary, "use", "--for", "claude", "native-system-keyring-probe-claude")
+	for _, backend := range []string{"env", "file", "keyring"} {
+		t.Run(backend, func(t *testing.T) {
+			cases := journey.performanceCases("projected helper", backend, "test preparer")
+			want := []performanceCase{
+				{"credential", "projected helper", "", 0.1},
+				{"projection", performanceCommand(journey.binary, "use", "--for", "claude", "performance-second"), reset, 0.25},
+				{"setup", performanceCommand(journey.binary, "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe"), performanceCommand("test preparer", "prepare-performance-setup", journey.root, journey.config, journey.settings), 0.25},
+				{"sync", performanceCommand(journey.binary, "sync"), reset, 0.25},
+			}
+			if backend == "env" {
+				for _, args := range [][]string{{"version", "--version"}, {"help", "--help"}, {"status", "status", "--json"}, {"export", "config", "export"}} {
+					want = append(want, performanceCase{args[0], performanceCommand(append([]string{journey.binary}, args[1:]...)...), "", 0.1})
+				}
+			}
+			if !slices.Equal(cases, want) {
+				t.Fatalf("performance cases omit or change a measured boundary: got=%#v want=%#v", cases, want)
+			}
+		})
 	}
 }
 

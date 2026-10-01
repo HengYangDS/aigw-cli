@@ -24,6 +24,9 @@ Run focused checks before one complete gate on stable inputs. Shipped manifests
 must also pass through the actual delivery command; fixtures alone do not qualify
 the catalogue. Native authorization tests must retain the deployed security format
 and effective boundary, not merely imitate an API in temporary storage.
+Before a full gate or benchmark, execute every changed command against its actual
+candidate and retained predecessor in the declared starting state. A successful
+case-table test does not prove a first-time command accepts a configured state.
 
 Set permission-sensitive fixture modes explicitly after creation: the caller's
 umask filters creation modes. Test ordinary and restrictive masks in separate

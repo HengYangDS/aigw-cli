@@ -4,6 +4,7 @@ import (
 	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,6 +22,16 @@ var nativeSourceFixtures struct {
 }
 
 func TestMain(m *testing.M) {
+	if len(os.Args) == 5 && os.Args[1] == "prepare-performance-setup" {
+		if os.Args[2] != os.Getenv("AIGW_TEST_PERFORMANCE_ROOT") {
+			os.Exit(2)
+		}
+		if err := preparePerformanceSetup(os.Args[2], os.Args[3], os.Args[4]); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
 	if handled, code := runInstalledClientFixture(os.Args[0], os.Args[1:]); handled {
 		os.Exit(code)
 	}
@@ -39,6 +50,77 @@ func TestMain(m *testing.M) {
 		}
 	}
 	os.Exit(code)
+}
+
+func preparePerformanceSetup(root, config, settings string) (result error) {
+	if !filepath.IsAbs(root) {
+		return fmt.Errorf("performance setup requires an absolute owned root")
+	}
+	owned, err := os.OpenRoot(root)
+	if err != nil {
+		return fmt.Errorf("open performance setup root: %w", err)
+	}
+	defer func() { result = errors.Join(result, owned.Close()) }()
+	paths := []string{config, settings, settings + ".aigw-state.json"}
+	for index, path := range paths {
+		relative, err := filepath.Rel(root, path)
+		if err != nil || relative == "." || filepath.IsAbs(relative) || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || relative == ".." {
+			return fmt.Errorf("performance setup input is outside its owned root")
+		}
+		paths[index] = relative
+		info, err := owned.Lstat(relative)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil || !info.Mode().IsRegular() {
+			return fmt.Errorf("performance setup input is not an owned regular file")
+		}
+	}
+	for _, path := range paths {
+		if err := owned.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("prepare empty performance configuration: %w", err)
+		}
+	}
+	return nil
+}
+
+func TestPerformanceSetupPreparation(t *testing.T) {
+	for _, mode := range []string{"owned", "missing", "foreign", "directory"} {
+		root := t.TempDir()
+		config, settings := filepath.Join(root, "config.toml"), filepath.Join(root, "settings.json")
+		paths := []string{config, settings, settings + ".aigw-state.json"}
+		for _, path := range paths {
+			mustWriteFile(t, path, []byte("owned"), 0o600)
+		}
+		preserved := filepath.Join(root, "credentials")
+		mustWriteFile(t, preserved, []byte("retained"), 0o600)
+		selected := config
+		invalid := mode == "foreign" || mode == "directory"
+		if mode == "foreign" {
+			selected = filepath.Join(t.TempDir(), "foreign.toml")
+			mustWriteFile(t, selected, []byte("foreign"), 0o600)
+		}
+		if mode == "directory" {
+			selected = root
+		}
+		if mode == "missing" {
+			if err := os.Remove(config); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := preparePerformanceSetup(root, selected, settings); (err != nil) != invalid {
+			t.Fatalf("preparation ownership decision: %v", err)
+		}
+		for _, path := range paths {
+			_, err := os.Stat(path)
+			if errors.Is(err, os.ErrNotExist) == invalid {
+				t.Fatalf("preparation changed the wrong managed input %s: %v", path, err)
+			}
+		}
+		if string(readFile(t, preserved)) != "retained" {
+			t.Fatal("preparation changed an unrelated credential file")
+		}
+	}
 }
 
 func requireNativeLifecycleBaseline(t *testing.T, buildFixture func() string) string {

@@ -86,6 +86,18 @@ func TestRepositoryQualityGraphIncludesStableGenericChecks(t *testing.T) {
 	}
 }
 
+func TestRepositoryQualityGraphIncludesNativePerformanceCases(t *testing.T) {
+	for _, gate := range repositoryQualityGraph.Gates {
+		if gate.ID == "performance-acceptance" {
+			if !slices.Contains(gate.Command.Args, "^TestNative(PeakMemoryBudget|Performance(Samples|Command|Cases|PooledSamples))$") {
+				t.Fatalf("performance case coverage is disconnected from source admission: %v", gate.Command.Args)
+			}
+			return
+		}
+	}
+	t.Fatal("source admission lacks its native performance owner")
+}
+
 func TestRepositoryQualityGraphOwnsTheArchitectureEditionProvider(t *testing.T) {
 	gateIndex := slices.IndexFunc(repositoryQualityGraph.Gates, func(gate qualityGate) bool {
 		return gate.ID == "architecture-edition-provider"
