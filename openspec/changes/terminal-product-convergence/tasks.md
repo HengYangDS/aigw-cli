@@ -199,6 +199,15 @@
       pause states plus VM isolation are restored. This qualifies synthetic-client
       environment-backend native-host journeys, not actual clients, native Secret
       Service, cold-peer transport or final publication; those gaps remain open.
+      Independent Linux ARM64 Docker acceptance uses signed `ea8d5d8f` verifier,
+      unchanged `ebf9adff` bytes, Codex 0.159.3, stable Claude 2.1.285 and
+      official Hermes 0.21.5. All three retained 0.3.1 client lifecycles and
+      fourteen general Codex selections pass. Only the failed tool loop is
+      repeated after native sandbox namespace preflight and passes in 6.05
+      seconds; no client sandbox policy, host kernel or extra capabilities change.
+      All 16,309 input hashes match; exact containers and scratch are absent.
+      Combined lifecycle and focused-successor evidence is not a single green
+      run, native-host Secret Service, live supplier or final-distribution proof.
 - [ ] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
