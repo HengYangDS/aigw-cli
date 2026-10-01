@@ -84,13 +84,18 @@
       36563790078 at `49ba0c5ec5503b4365ff1f0c01555c05c97ca03e` passed
       the published `v0.3.1` predecessor Keychain journey on a disposable macOS
       runner, including rollback rotation and explicit restaging. Operator-item
-      authorization, Linux host credential service, and Windows predecessor
-      proof remain open.
+      authorization, Linux host credential service, and Windows native-store
+      and real-client proof remain open.
       The signed `2c7fbe89` Linux ARM64 candidate also passes authentic 0.3.1
       succession with an isolated real DBus/GNOME Secret Service as UID 1000.
       Automatic backend selection is keyring; old and new commands remain
       callable through upgrade, rollback and re-upgrade, and uninstall retains
       the stored Token. Linux host and Windows evidence remain separate.
+      October 1 private-Keychain acceptance proves that a same-byte copied test
+      executable reads its creator-authorized synthetic item and observes parent
+      rotation/deletion. A missing selected executable fails; ignoring that
+      selection produces the distinguishing RED. This is not production
+      signing succession or authorization of retained operator items.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
@@ -172,7 +177,8 @@
       carries the selected effort, with configuration and scratch conserved.
       Its independent receipt is `independent-hermes-mistral-ebf9adff-corrected`;
       the loopback probe does not qualify actual AIHubMix inference.
-      Windows/Linux real clients, native stores,
+      Linux real-client lifecycle and selection evidence is recorded in 5.2;
+      Windows real clients, native-host stores,
       Desktop GUI, installed-host cutover and final signed bytes remain open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
@@ -240,6 +246,8 @@
       identities remain unchanged; owned descendants and scratch are absent.
       Native-store, deferred Desktop installation and performance claims remain
       separate from this environment-backend acceptance.
+      The private copied-test-reader evidence in 3.5 does not close final
+      production-reader authorization or Desktop GUI acceptance.
 - [x] 5.5 Verify missing Codex/Claude at setup and later installation on each
       platform; deferred sync must touch only installed admitted clients and
       preserve user-owned files. GitHub run 36560334613 at
@@ -494,9 +502,14 @@
       disposable items while retaining immutable evidence and running clients.
       This lane's 2026-09-29 sweep removed obsolete ignored tmp, coverage and
       dist outputs, one superseded 0.3.3 test candidate, and four older 0.3.0
-      test bundles. The current 0.3.3 candidate, raw verification/notarization
-      evidence, active development dependencies and foreign lanes remain;
-      branch, tag, remote and cross-worktree cleanup remains open.
+      test bundles. On October 1, the historical architecture lane's holder
+      completed native retirement `66292c29`: its exact worktree, ref and lease
+      are absent; signed source `01776f2f`, 3,348 raw-evidence members and eight
+      analyzer members remain in the existing recovery handoff. Incomplete v2
+      research is retained, not integrated or promoted to a release prerequisite.
+      Only this terminal authoring lane remains. The current 0.3.3 candidate,
+      raw verification/notarization evidence and active dependencies remain;
+      obsolete tag, remote and final output retirement are still open.
 
 ## 9. Frozen Source and Pre-Archive Acceptance
 

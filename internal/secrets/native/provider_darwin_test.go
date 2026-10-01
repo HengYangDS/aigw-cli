@@ -4,6 +4,7 @@ package native
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -113,6 +114,57 @@ func TestNewNativeKeychainItemsHaveReadablePurposeLabels(t *testing.T) {
 	}
 }
 
+func TestPrivateKeychainCopiedReaderUsesExactExecutable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "copied-reader.keychain-db")
+	runKeychainFixtureCommand(t, "create-keychain", "-p", "", path)
+	t.Cleanup(func() { runKeychainFixtureCommand(t, "delete-keychain", path) })
+	runKeychainFixtureCommand(t, "unlock-keychain", "-p", "", path)
+	const service, account, token = "aigw-private-test", "native@copied-reader", "synthetic-copied-reader-token"
+	if err := writeCredentialToKeychain(service, account, path, []byte(token)); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(os.Args[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	copied := filepath.Join(t.TempDir(), "copied-aigw-test")
+	if err := os.WriteFile(copied, data, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Run("missing copied reader", func(t *testing.T) {
+		value, err := runPrivateKeychainChild(t, copied+".absent", service, account, path, "TestPrivateKeychainReadChild")
+		if err == nil || len(value) != 0 {
+			t.Fatal("missing copied reader silently used another executable")
+		}
+	})
+	for _, executable := range []string{os.Args[0], copied} {
+		t.Run(executable, func(t *testing.T) {
+			got, err := os.ReadFile(executable)
+			if err != nil || sha256.Sum256(got) != sha256.Sum256(data) {
+				t.Fatalf("credential reader copy changed executable identity: %v", err)
+			}
+			value, err := runPrivateKeychainChild(t, executable, service, account, path, "TestPrivateKeychainReadChild")
+			if err != nil || string(value) != token {
+				t.Fatalf("same-byte native reader cannot read its creator-authorized item: %v", err)
+			}
+		})
+	}
+	if err := writeCredentialToKeychain(service, account, path, []byte("rotated-synthetic-token")); err != nil {
+		t.Fatal(err)
+	}
+	value, err := runPrivateKeychainChild(t, copied, service, account, path, "TestPrivateKeychainReadChild")
+	if err != nil || string(value) != "rotated-synthetic-token" {
+		t.Fatalf("copied reader lost native item rotation: %v", err)
+	}
+	if err := deleteCredentialFromKeychain(service, account, path); err != nil {
+		t.Fatal(err)
+	}
+	value, err = runPrivateKeychainChild(t, copied, service, account, path, "TestPrivateKeychainReadChild")
+	if len(value) != 0 || fixtureExitCode(err) != missingExit {
+		t.Fatalf("copied reader retained a deleted native item: %v", err)
+	}
+}
+
 func TestLockedKeychainMetadataDoesNotPrompt(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "locked.keychain-db")
 	runKeychainFixtureCommand(t, "create-keychain", "-p", "", path)
@@ -167,18 +219,18 @@ func assertNativeSlotPreservesLegacyItem(t *testing.T, service, path, token stri
 }
 
 func readPrivateKeychainFixture(t *testing.T, service, account, path string) ([]byte, error) {
-	return runPrivateKeychainChild(t, service, account, path, "TestPrivateKeychainReadChild")
+	return runPrivateKeychainChild(t, os.Args[0], service, account, path, "TestPrivateKeychainReadChild")
 }
 
 func observePrivateKeychainFixture(t *testing.T, service, account, path string) ([]byte, error) {
-	return runPrivateKeychainChild(t, service, account, path, "TestPrivateKeychainObserveChild")
+	return runPrivateKeychainChild(t, os.Args[0], service, account, path, "TestPrivateKeychainObserveChild")
 }
 
-func runPrivateKeychainChild(t *testing.T, service, account, path, testName string) ([]byte, error) {
+func runPrivateKeychainChild(t *testing.T, executable, service, account, path, testName string) ([]byte, error) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	command := exec.CommandContext(ctx, os.Args[0], "-test.run=^"+testName+"$")
+	command := exec.CommandContext(ctx, executable, "-test.run=^"+testName+"$")
 	command.Env = append(os.Environ(),
 		"AIGW_TEST_KEYCHAIN_PATH="+path,
 		"AIGW_TEST_KEYCHAIN_SERVICE="+service,
