@@ -270,14 +270,15 @@
       execution; all three OS selections and the complete source gate pass.
       Its exact-source ARM64 fleet pilot passes success, failure, parent-exit,
       the actual 60.37-second deadline and assertion cleanup. Interrupt alone
-      fails. A cause-retaining interrupt-only rerun identifies the sender's
-      `0xc000013a` exit, consistent with asynchronous handler removal; the
-      existing sender now waits for its console-event acknowledgement before
-      checked cleanup. Source lint and compilation do not establish native
-      GREEN. The executor's empty-cache cleanup prerequisite was separately
-      repaired; both exact failed children and owned processes are absent,
-      with original pauses, isolation and service identity preserved. Keep
-      successor native interruption acceptance open; no unchanged full rerun.
+      originally fails with sender exit `0xc000013a`. Signed `3e68e5e7`
+      waits for the console-event acknowledgement before checked cleanup;
+      its exact-source interrupt-only native successor passes in 0.56 seconds
+      with unchanged candidate and resource inventory. The original RED and
+      actual native GREEN remain distinct receipts, not an all-five-case
+      final-source claim. The executor's empty-cache cleanup prerequisite was
+      separately repaired; all exact owned children and processes are absent,
+      with original pauses, isolation and service identity preserved. Final
+      native-source, store, client and distribution qualification remain open.
 
 ## 6. Quality, Supply Chain, and Performance
 
