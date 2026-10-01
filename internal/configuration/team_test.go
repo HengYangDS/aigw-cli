@@ -312,6 +312,7 @@ func TestTeamManifestRoutesUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 		"dmxapi-claude-sonnet-5-5-ssvip": {"claude-sonnet-5-5", "claude-sonnet-5-5-ssvip"},
 		"dmxapi-gpt-6-astra-cdx":         {"gpt-6-astra", "gpt-6-astra-cdx"},
 		"dmxapi-gpt-6-astra-ssvip":       {"gpt-6-astra", "gpt-6-astra-ssvip"},
+		"dmxapi-gpt-6.1-sol-cdx":         {"gpt-6.1-sol", "gpt-6.1-sol-cdx"},
 	}
 	for routeID, want := range variants {
 		route, ok := manifest.Routes[routeID]
@@ -338,7 +339,7 @@ func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 	for client, want := range map[string][]string{
 		ClientClaude:        {"dmxapi-claude-opus-5-5", "ucloud-claude-opus-5-5", "aihubmix-claude-opus-5-5"},
 		ClientClaudeDesktop: {"dmxapi-claude-opus-5-5", "ucloud-claude-opus-5-5", "aihubmix-claude-opus-5-5"},
-		ClientCodex:         {"dmxapi-" + sol, "ucloud-" + sol, "aihubmix-" + sol},
+		ClientCodex:         {"dmxapi-" + sol + "-cdx", "ucloud-" + sol, "aihubmix-" + sol},
 		ClientHermes:        {"dmxapi-" + sol, "ucloud-" + sol, "aihubmix-" + sol},
 	} {
 		choices := manifest.Recommendations[client].Selections()
@@ -351,6 +352,18 @@ func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 				t.Errorf("%s recommendation %d = %q, want %q", client, index, selection.Route, want[index])
 			}
 		}
+	}
+	cfg, err := Merge(NewConfig(), manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.SetSelectedRoute(ClientCodex, "ucloud-"+sol)
+	selected, err := cfg.SelectRoutesForConnectedAccounts([]string{"dmxapi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected.SelectedRoute(ClientCodex) != "ucloud-"+sol {
+		t.Fatalf("qualified recommendation replaced explicit Codex selection: %+v", selected.Clients)
 	}
 	if _, exists := manifest.Models["gpt-6-sol"]; exists {
 		t.Error("retired GPT-6 Sol remains in the shipped model catalog")

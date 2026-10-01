@@ -9,7 +9,7 @@ relations: {}
 
 # Provider Model Qualification Evidence
 
-These dated observations inform the reviewed September 30, 2026 team
+These dated observations inform the reviewed October 1, 2026 team
 manifest. They do not maintain a live catalogue or override the
 [current Route inventory](../../manifests/team.toml). For member setup and
 model selection, use the [team rollout guide](../guides/team-rollout.md#reviewed-model-defaults).
@@ -58,11 +58,11 @@ replace an explicit local selection.
 
 At an earlier September 30, 2026 read, AIGW observed 417 AIHubMix, 565 DMXAPI,
 and 276 UCloud IDs across eight Account/protocol catalogue surfaces. All 60
-Routes shipped at that time had wire IDs on their declared surfaces; the current
-manifest has 56 after the Solar Route, three GPT-6 Sol Routes, the DMXAPI
-Fable 5.1 CC channel, and unavailable AIHubMix Fable 5.1 and MiMo Routes were removed,
-with AIHubMix, DMXAPI, and UCloud GPT-6.1
-Sol Routes added. The earlier DMXAPI Responses observation used the locally configured
+Routes shipped at that time had wire IDs on their declared surfaces. The later
+September 30 curation yielded 56 after retiring the Solar Route, three GPT-6
+Sol Routes, the DMXAPI Fable 5.1 CC channel, and unavailable AIHubMix Fable 5.1
+and MiMo Routes, then adding AIHubMix, DMXAPI, and UCloud GPT-6.1 Sol Routes.
+The earlier DMXAPI Responses observation used the locally configured
 `127.0.0.1:8792` Proxy,
 whereas the team manifest declares direct `https://www.dmxapi.cn/v1`.
 Catalogue membership therefore does not qualify that direct endpoint or
@@ -120,6 +120,34 @@ availability, final release bytes, or this host's optional Proxy path. The
 team retains its declared DMXAPI-first order, followed by UCloud and AIHubMix;
 existing explicit local selections are not silently rewritten. Final-artifact
 admission remains open.
+
+On October 1, 2026, DMXAPI's official
+[Claude Code guide](https://doc.dmxapi.cn/claude-code-new.html) described `-cc`
+as the Claude Code channel, and its
+[Codex Desktop guide](https://doc.dmxapi.cn/cc_switch_to_codex_desktop.html)
+described `-cdx` as the Codex channel. These are provider-specific wire IDs,
+not different logical model generations or proof of client compatibility.
+
+A later full nine-item native tool continuation failed on the direct plain
+DMXAPI `gpt-6.1-sol` Route with Codex 0.159.2 and 0.159.3; UCloud accepted
+the unchanged request. Omitting only the user message's `id` made DMXAPI
+complete it, while omitting only the tool-call or tool-output `id` did not.
+A first-turn message worked both with and without its `id`. This isolates
+a continuation compatibility trigger, not a provider-internal root cause.
+Earlier successful probes do not qualify this later failure, and AIGW does
+not rewrite transport items to hide it.
+
+An authenticated DMXAPI catalogue then listed `gpt-6.1-sol-cdx`. The exact
+`9cf23cb8` candidate with one isolated Route addition passed public
+setup/use/check/verify, official Codex 0.159.3 shell execution, and a two-turn
+tool-context replay. Unmodified official Hermes `f97608f` separately passed
+public setup/use/check/verify on that Route. The shipped manifest therefore
+adds `dmxapi-gpt-6.1-sol-cdx` under the existing logical `gpt-6.1-sol` Model
+and recommends it to unselected Codex clients, before UCloud and AIHubMix.
+Existing explicit selections remain unchanged. Native external-provider
+Linux/Windows, final-artifact and installed-host acceptance remain separate;
+the Hermes run conserved eleven original protected inputs and preserved one
+concurrent operator-config change whose writer is unproved.
 
 At the September 25, 2026 read, the public
 [AIHubMix](https://api.inferera.com/v1/models) and

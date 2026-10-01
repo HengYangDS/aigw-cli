@@ -124,12 +124,14 @@
       lists all 60 then-shipped Route IDs on their Account/protocol surfaces.
       A later direct AIHubMix Chat request for `solar-pro4` returned HTTP 400
       `no_available_channel`, so that Route and its unreferenced Model were
-      removed; 56 Routes remain after replacing three GPT-6 Sol Routes with
+      removed; the September 30 curation had 56 Routes after replacing three
+      GPT-6 Sol Routes with
       AIHubMix, DMXAPI, and UCloud GPT-6.1 Sol Routes and withdrawing the Fable 5.1 CC
       channel after three bounded requests failed to complete and withdrawing
       the currently unavailable AIHubMix MiMo Route. Direct DMXAPI
-      text and strict function-call probes plus two isolated Codex tool loops now
-      support the Codex recommendation. Official Hermes v0.21.5 source also
+      text and strict function-call probes plus two isolated Codex tool loops
+      passed that earlier input, not the later full continuation. Official
+      Hermes v0.21.5 source also
       completed two direct DMXAPI 6.1 Sol turns, and an isolated AIGW `verify`
       completed after staging its versioned reader. Later UCloud 6.1 Sol
       inference and installed Codex/Hermes `verify` sessions also passed.
@@ -165,7 +167,17 @@
       with retries disabled confirms HTTP 400. Withdraw only that Account's
       Route; retain the canonical Model and qualified UCloud Route. RED/GREEN
       and complete team-manifest tests pass. Current source exports 26 Models
-      and 56 Routes; earlier artifact evidence retains its original identity.
+      and 57 Routes after the independently qualified Sol 6.1 CDX channel was
+      added under the existing logical Model. Only unselected Codex clients
+      prefer that channel; UCloud and AIHubMix retain their order and current
+      explicit selections are preserved. The plain DMXAPI continuation failure
+      remains disclosed in the existing
+      [qualification owner](../../../docs/research/provider-model-qualification.md#provider-catalogue-and-route-evidence).
+      Earlier artifact evidence retains its original identity.
+      The seven-path native team journey consumes the current manifest and
+      signed `9544b98d` candidate, including sparse/deferred setup and exact
+      CDX menu projection. Focused RED/GREEN, Go quality, formatting, ELOC,
+      TOML, Markdown, spelling and strict OpenSpec checks pass.
 - [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
       Providers; no control-plane command claims request-time failover.
@@ -212,7 +224,7 @@
       contract. Keep that client gap open; do not strip arbitrary text or
       equate exit zero with verification.
       Linux real-client lifecycle and selection evidence is recorded in 5.2;
-      Windows real clients, native-host stores,
+      final Windows bytes, native-host stores,
       Desktop GUI, installed-host cutover and final signed bytes remain open.
       The later independent `9cf23cb8` DMXAPI batch passes all seventeen Routes
       in direct inference, but real Codex 0.159.2 returns unrelated final text
@@ -222,13 +234,22 @@
       recovery handoff; the complete-request DMXAPI cause remains open.
       The independent `independent-dmxapi-prompt-diagnosis-20261001-01a0ccfc`
       delivery isolates native input item IDs: the same full nine-item tool
-      continuation fails with IDs and passes with only those IDs omitted.
+      continuation fails with IDs and passes after only the user-message ID
+      is omitted; removing only a tool-call or tool-output ID does not fix it.
       UCloud accepts the original request. This is a measured compatibility
       trigger, not a proved provider-internal cause or native Codex repair;
       prompt duplication and AIGW-owned transport rewriting remain excluded.
       The separate nested-Seatbelt fixture defect is corrected. Raw requests,
       responses and reproducer remain; twelve protected inputs are unchanged,
       all owned children are terminal, and 232,554,214 scratch bytes are retired.
+      Independent `independent-dmxapi-sol61-cdx-20261001-01a0ccfc` qualifies
+      the exact `9cf23cb8` program and added CDX Route with official Codex
+      0.159.3 public verification, shell execution and same-thread tool replay.
+      `independent-dmxapi-cdx-hermes-20261001-01a0ccfc` separately qualifies
+      unmodified official Hermes `f97608f`. Exact conservation and one preserved,
+      unowned concurrent host edit are bounded in the
+      [qualification owner](../../../docs/research/provider-model-qualification.md#provider-catalogue-and-route-evidence).
+      Later-artifact, Desktop GUI and every-platform acceptance remain open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.

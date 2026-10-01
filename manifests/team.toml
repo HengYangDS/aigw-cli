@@ -23,7 +23,7 @@ route = 'aihubmix-claude-opus-5-5'
 
 [recommendations.codex]
 [recommendations.codex.primary]
-route = 'dmxapi-gpt-6.1-sol'
+route = 'dmxapi-gpt-6.1-sol-cdx'
 
 [[recommendations.codex.alternatives]]
 route = 'ucloud-gpt-6.1-sol'
@@ -459,6 +459,15 @@ model = 'gpt-6.1-sol'
 upstream_model = 'gpt-6.1-sol'
 
 [routes.'dmxapi-gpt-6.1-sol'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-gpt-6.1-sol-cdx']
+label = 'DMXAPI · GPT-6.1 Sol · CDX'
+account = 'dmxapi'
+model = 'gpt-6.1-sol'
+upstream_model = 'gpt-6.1-sol-cdx'
+
+[routes.'dmxapi-gpt-6.1-sol-cdx'.interfaces]
 openai_responses = []
 
 [routes.'dmxapi-grok-4.7']
