@@ -120,7 +120,7 @@
       live inference for DMXAPI, UCloud, and AIHubMix; retain only qualified
       models/variants and one consistent naming grammar, with source and date for
       each claim.
-      Current signed `80dbca19` and its exact 0.3.3 candidate contain 26
+      Signed `80dbca19` and its exact 0.3.3 candidate contain 26
       Models and 58 Routes. The independent October 1 public setup/use/check
       matrix passes every exact Account/wire/protocol pair once: DMXAPI 18/18,
       UCloud 15/15 and AIHubMix 25/25; 37 Responses, 11 Chat and 10 Anthropic
@@ -141,6 +141,16 @@
       credential commands, shared Models and exact upstream wire IDs; invalid
       or dangling recommendations fail before mutation. Historical artifact
       evidence is retained with its original identity, not copied as current.
+      Later exact `444bbd41` candidate and official Hermes `f97608f` native
+      file-tool/same-session acceptance qualify Ultra and `cohere-command-a`;
+      the dated Cohere wire returns no tool calls. Replace only the shipped
+      Super/datetime choices, preserving explicit installed selections and
+      protocol ownership. Configuration regressions and all seven shipped-
+      team setup journeys pass. The updated catalogue still has 26 Models
+      and 58 Routes; current artifact and platform qualification remain open.
+      Evidence: `independent-hermes-request-boundary-444-20261001-01a0ccfc`
+      in the existing recovery owner; `native-model-catalogue-*` and
+      `native-model-shipped-team-journey.log` in the existing verification owner.
 - [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
       Providers; no control-plane command claims request-time failover.

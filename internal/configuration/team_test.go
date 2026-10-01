@@ -139,11 +139,11 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	want := []string{
 		"claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5",
-		"command-a-03-2025",
+		"cohere-command-a",
 		"deepseek-v4.1-flash", "doubao-seed-2-1-pro-260628", "ernie-5.1", "gemini-3.1-pro-preview", "glm-5.3",
 		"gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol", "grok-4.7",
 		"hy3", "kimi-k3", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.0", "mercury-2.5", "mimo-v2.6-pro",
-		"minimax-m3", "mistral-large-3", "muse-spark-1.3", "nemotron-3-super-120b-a12b",
+		"minimax-m3", "mistral-large-3", "muse-spark-1.3", "nemotron-3-ultra-550b-a55b",
 		"qwen3.8-max", "step-3.7-flash",
 	}
 	if got := slices.Sorted(maps.Keys(manifest.Models)); !slices.Equal(got, want) {
@@ -263,7 +263,7 @@ func TestTeamManifestKeepsQualifiedAdditionalVendorRoutes(t *testing.T) {
 		wire     string
 		protocol EndpointProtocol
 	}{
-		"aihubmix-command-a-03-2025":               {"command-a-03-2025", "command-a-03-2025", ProtocolOpenAIChatCompletions},
+		"aihubmix-cohere-command-a":                {"cohere-command-a", "cohere-command-a", ProtocolOpenAIChatCompletions},
 		"aihubmix-ernie-5.1":                       {"ernie-5.1", "ernie-5.1", ProtocolOpenAIResponses},
 		"aihubmix-hy3":                             {"hy3", "hy3", ProtocolOpenAIChatCompletions},
 		"aihubmix-laguna-s-2.1":                    {"laguna-s-2.1", "laguna-s-2.1", ProtocolOpenAIChatCompletions},
@@ -271,7 +271,7 @@ func TestTeamManifestKeepsQualifiedAdditionalVendorRoutes(t *testing.T) {
 		"aihubmix-longcat-2.0":                     {"longcat-2.0", "longcat-2.0", ProtocolOpenAIChatCompletions},
 		"aihubmix-mercury-2.5":                     {"mercury-2.5", "mercury-2.5", ProtocolOpenAIChatCompletions},
 		"aihubmix-mistral-large-3":                 {"mistral-large-3", "mistral-large-3", ProtocolOpenAIChatCompletions},
-		"aihubmix-nemotron-3-super-120b-a12b-free": {"nemotron-3-super-120b-a12b", "nemotron-3-super-120b-a12b-free", ProtocolOpenAIChatCompletions},
+		"aihubmix-nemotron-3-ultra-550b-a55b-free": {"nemotron-3-ultra-550b-a55b", "nemotron-3-ultra-550b-a55b-free", ProtocolOpenAIChatCompletions},
 		"aihubmix-step-3.7-flash":                  {"step-3.7-flash", "step-3.7-flash", ProtocolOpenAIChatCompletions},
 	}
 	for id, expected := range want {
@@ -281,8 +281,35 @@ func TestTeamManifestKeepsQualifiedAdditionalVendorRoutes(t *testing.T) {
 			t.Errorf("qualified vendor Route %q = %+v, want %+v", id, route, expected)
 		}
 	}
-	if _, obsolete := manifest.Routes["aihubmix-nemotron-3-ultra-550b-a55b-free"]; obsolete {
-		t.Fatal("unqualified Nemotron Ultra channel remains in the shipped manifest")
+	for _, superseded := range []string{"aihubmix-command-a-03-2025", "aihubmix-nemotron-3-super-120b-a12b-free"} {
+		if _, retained := manifest.Routes[superseded]; retained {
+			t.Errorf("superseded Route %q remains in the shipped manifest", superseded)
+		}
+	}
+}
+
+func TestTeamManifestRefreshPreservesExplicitSupersededRoutes(t *testing.T) {
+	_, manifest := loadTeamManifest(t)
+	for _, selected := range []struct{ model, label, route, wire string }{
+		{"command-a-03-2025", "Cohere Command A", "aihubmix-command-a-03-2025", "command-a-03-2025"},
+		{"nemotron-3-super-120b-a12b", "NVIDIA Nemotron 3 Super", "aihubmix-nemotron-3-super-120b-a12b-free", "nemotron-3-super-120b-a12b-free"},
+	} {
+		t.Run(selected.model, func(t *testing.T) {
+			cfg := NewConfig()
+			cfg.Accounts["aihubmix"] = manifest.Accounts["aihubmix"]
+			cfg.Models[selected.model] = Model{Label: selected.label}
+			cfg.Routes[selected.route] = Route{Account: "aihubmix", Model: selected.model, UpstreamModel: selected.wire,
+				Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIChatCompletions: {}}}
+			cfg.SetSelectedRoute(ClientHermes, selected.route)
+			merged, err := Merge(cfg, manifest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			runtime, err := merged.ResolveRuntime(ClientHermes, "")
+			if err != nil || merged.SelectedRoute(ClientHermes) != selected.route || runtime.Model != selected.wire {
+				t.Fatalf("team refresh replaced explicit Route %q: %+v, %v", selected.route, runtime, err)
+			}
+		})
 	}
 }
 

@@ -315,17 +315,15 @@ and InclusionAI's [Ling 3.0 Flash](https://huggingface.co/inclusionAI/Ling-3.0-f
 
 NVIDIA identifies [Nemotron 3 Ultra](https://research.nvidia.com/labs/nemotron/Nemotron-3-Ultra/)
 as the family's final and strongest model; [Super](https://research.nvidia.com/labs/nemotron/Nemotron-3-Super/)
-is smaller. The listed AIHubMix Ultra `-free` channel once returned text, but
-at signed AIGW source `8891b56c` two isolated, unmodified official Hermes
-verifications each timed out after 60 seconds despite a successful AIGW
-`check`. In the same source build with a temporary manifest, the exact Super
-`nemotron-3-super-120b-a12b-free` channel returned direct Chat text and
-completed AIGW `use`/`check` plus two official Hermes verifications. The team
-manifest therefore selects Super as the currently qualified NVIDIA option on
-this Account, **not** as NVIDIA's strongest model. Ultra remains discoverable
-through the provider catalogue but is not an admitted team Route. Neither two
-successes nor two timeouts establish long-term channel behavior; final release
-bytes and cross-platform real-client admission remain open.
+is smaller. Earlier 60-second Ultra deadlines and 75-second Super deadlines
+did not establish incompatibility. On October 1, the exact `444bbd41`
+candidate and unmodified official Hermes `f97608f` completed Super's real file
+tool and same-session recall in 120.083 and 96.248 seconds. The listed
+`nemotron-3-ultra-550b-a55b-free` Route then completed the same journey in
+21.404 and 15.766 seconds with the original medium effort. The team manifest
+therefore selects qualified Ultra; importing it preserves explicit Super
+selections. These dated observations establish neither a latency guarantee
+nor final-release or cross-platform client acceptance.
 
 The same endpoint previously produced text for Upstage's
 [Solar Pro 4](https://www.upstage.ai/blog/en/solar-pro-4). A September 30,
@@ -337,10 +335,15 @@ removed from the shipped manifest; this does not claim Solar Pro 4 is
 unavailable from Upstage or that the aggregator can never restore its channel.
 
 Cohere's [Command A guide](https://docs.cohere.com/docs/command-a) identifies
-`command-a-03-2025` as a general agent model. AIHubMix completed Chat text
-inference for that exact ID. Its newer listed Command A+ returned HTTP 400
-on both tested protocols, so Command A is the strongest completed Cohere Route
-on this configured Account, not a claim about Cohere's overall strongest model.
+`command-a-03-2025` as a general agent model. AIHubMix completed text inference
+for that ID, but official Hermes and OpenAI SDK `tool_choice=required`
+requests returned no tool calls. AIHubMix's [Command A page](https://aihubmix.com/model/cohere-command-a)
+identifies the alternate wire `cohere-command-a` as Cohere Command A. That
+exact Route completed official Hermes's file tool and same-session recall in
+19.366 and 13.172 seconds on October 1. It replaces the dated wire in the team
+manifest without claiming the aliases are the same model generation or
+overwriting explicit selections. The newer Command A+ wire returned HTTP 400
+`no_available_channel`; it remains unqualified, not globally unavailable.
 Poolside [positions Laguna S 2.1](https://poolside.ai/blog/introducing-laguna-s-2-1)
 for long-horizon agentic coding; its [model card](https://huggingface.co/poolside/Laguna-S-2.1)
 also documents text-to-text Chat use. It is the strongest S/XS model listed
