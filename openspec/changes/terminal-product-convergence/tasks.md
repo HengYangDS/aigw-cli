@@ -306,6 +306,19 @@
       the receipt above. The current real Codex/Claude Code container journey
       is recorded in 4.5. These results still do not prove Linux native-host
       state, external provider inference or final distribution.
+      A separate run of the same exact `df7d4585` Linux ARM64 candidate passes
+      `TestNativeClientJourney/hermes` with official Hermes 0.21.5, its frozen
+      Python 3.12.14/OpenAI 2.24.0 environment, `edge-tts` 7.2.7,
+      Bedrock `boto3` 1.42.89 and `tirith` 0.4.2. Four retained lifecycle
+      stages and a separate two-turn session pass in 88.489 seconds; output is
+      warning-free, stderr empty, and no external endpoint is observed. The
+      1,210 AIGW and 15,075 Hermes source-file hashes are conserved, and the
+      isolated run leaves no host, install, service or credential effects.
+      Receipt `independent-current-df7-linux-hermes-20261002-01a0ccfc/complete-runtime-dependencies/delivery.json`
+      SHA-256 `1dab9729468df3db2b80a7a0ffb39297f2f703583704e911837369bc819acfd1`.
+      This proves loopback inference and lifecycle, not a real Hermes tool loop,
+      native Linux-host state, peer cold-bootstrap or performance. Keep 4.5 and
+      5.2 open for those distinct boundaries.
 - [x] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
