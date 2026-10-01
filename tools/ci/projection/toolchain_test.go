@@ -198,7 +198,7 @@ func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
 		"Acquire::https::Timeout=30",
 		"set -eu\n",
 		" update\nDEBIAN_FRONTEND=noninteractive ",
-		" install --no-install-recommends -y gcc libatomic1 libc6-dev openssh-client procps",
+		" install --no-install-recommends -y libatomic1 openssh-client procps",
 	} {
 		if !strings.Contains(bootstrap[0], required) {
 			t.Fatalf("Linux bootstrap omits %q: %q", required, bootstrap[0])
@@ -213,7 +213,7 @@ func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
 	if !slices.Equal(pipeline.NativeLinux.Extends, []string{".linux-toolchain"}) {
 		t.Fatalf("GitLab native Linux must inherit the shared bootstrap: %#v", pipeline.NativeLinux)
 	}
-	if !slices.Equal(pipeline.Quality.Extends, []string{".linux-toolchain"}) || pipeline.Quality.Variables["CGO_ENABLED"] != "1" {
+	if !slices.Equal(pipeline.Quality.Extends, []string{".linux-toolchain"}) || pipeline.Quality.Variables["CGO_ENABLED"] != "0" {
 		t.Fatalf("GitLab quality must use the declared Linux toolchain: %#v", pipeline.Quality)
 	}
 	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_CI_LINUX_RUNNER_TAG"}) {

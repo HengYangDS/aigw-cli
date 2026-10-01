@@ -523,22 +523,18 @@
       authorization. Native regressions cover candidate forwarding, fail-closed
       input admission, cleanup, process observation and real Windows restricted
       tool execution. Original ESRCH and Windows sandbox failures remain in
-      `windows-native-sandbox-*` and prior source proofs. Current `80dbca19`
-      passes five required jobs on GitHub run 36871511315. GitLab pipeline
-      9155's three Linux jobs fail before product acceptance: apt acquisition
-      times out, and its AND-list suppresses errexit so bootstrap continues
-      without required runtime libraries. The shared CUE owner now executes
-      checked update/install commands separately; six real sh/bash failure
-      injection cases prove update or install refusal cannot reach subsequent
-      tool installation, while success continues. The Linux performance
-      preparation sibling is corrected by the same principle. Complete native
-      projection tests and Go quality pass without exemptions; both Forge
-      projections are regenerated, not independently patched. Raw evidence:
-      `linux-prerequisite-*` in the existing verification owner and
-      `exact80db-ci-diagnosis.json` in the existing independent recovery owner.
-      Hosted repaired-source acceptance, native Runner transport and fixed-
-      artifact real-client execution remain open; no timeout retry is accepted
-      as the original product proof.
+      `windows-native-sandbox-*` and prior source proofs. GitLab pipeline 9160
+      proves `444bbd41` stops failed apt acquisition before tool installation;
+      its macOS and Linux native jobs pass, while static quality, Secret Service
+      and Windows tool acquisition remain unqualified. Shared CUE preparation
+      checks update/install separately; sh/bash failure injection covers both
+      preparation consumers. Static quality and pure-Go Secret Service now use
+      `CGO_ENABLED=0`; only native Linux race installs gcc/libc headers. Both
+      Forge projections, complete projection regressions and Go quality pass
+      without exemptions. Raw evidence: `linux-prerequisite-*` and
+      `linux-capability-*` in the existing verification owner. Hosted current-
+      source acceptance, native Runner transport and fixed-artifact real-client
+      execution remain open; retries cannot replace the original product proof.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
       guarded merge, source-ref deletion, signer trust and branch protection on each
       selected peer without interactive authentication or divergent commit
