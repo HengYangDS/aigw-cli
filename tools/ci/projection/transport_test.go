@@ -26,6 +26,7 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 		t.Fatal(err)
 	}
 	var gitlab struct {
+		Variables      map[string]string `yaml:"variables"`
 		LinuxToolchain struct {
 			BeforeScript []string `yaml:"before_script"`
 			AfterScript  []string `yaml:"after_script"`
@@ -37,6 +38,9 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
+	}
+	if gitlab.Variables["AIGW_TOOL_SOURCE"] != "upstream" {
+		t.Fatal("GitLab must default to explicit locked upstream acquisition")
 	}
 	for name, commands := range map[string][]string{
 		"Linux": gitlab.LinuxToolchain.BeforeScript,
@@ -53,6 +57,9 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 			continue
 		}
 		prelude := commands[mirror]
+		if !strings.Contains(prelude, "AIGW_TOOL_SOURCE") {
+			t.Errorf("GitLab %s has no explicit mirror selection", name)
+		}
 		for _, required := range []string{"CI_API_V4_URL", "CI_PROJECT_ID", "CI_SERVER_HOST", "CI_JOB_TOKEN", "MISE_NETRC_FILE", "github.com/", "api.github.com/", "mise-github/v1/", "CI_JOB_ID"} {
 			if !strings.Contains(prelude, required) {
 				t.Errorf("GitLab %s mirror prelude omits %q", name, required)
@@ -84,7 +91,7 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 	}
 }
 
-func TestGitHubLockedGlabUsesOnlyItsReciprocalMirror(t *testing.T) {
+func TestGitHubToolSourceSelectsItsReciprocalMirrorExplicitly(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
@@ -102,6 +109,16 @@ func TestGitHubLockedGlabUsesOnlyItsReciprocalMirror(t *testing.T) {
 	for _, item := range projections[1:] {
 		t.Run(item.Path, func(t *testing.T) {
 			var workflow struct {
+				On struct {
+					Dispatch struct {
+						Inputs struct {
+							ToolSource struct {
+								Default string   `yaml:"default"`
+								Options []string `yaml:"options"`
+							} `yaml:"tool_source"`
+						} `yaml:"inputs"`
+					} `yaml:"workflow_dispatch"`
+				} `yaml:"on"`
 				Jobs map[string]struct {
 					Steps []struct {
 						Name string            `yaml:"name"`
@@ -112,6 +129,9 @@ func TestGitHubLockedGlabUsesOnlyItsReciprocalMirror(t *testing.T) {
 			if err := yaml.Unmarshal([]byte(item.Content), &workflow); err != nil {
 				t.Fatal(err)
 			}
+			if choice := workflow.On.Dispatch.Inputs.ToolSource; choice.Default != "upstream" || !slices.Equal(choice.Options, []string{"upstream", "peer"}) {
+				t.Fatal("tool source must default to locked upstream with an explicit peer choice")
+			}
 			found := false
 			for name, job := range workflow.Jobs {
 				for _, step := range job.Steps {
@@ -119,8 +139,9 @@ func TestGitHubLockedGlabUsesOnlyItsReciprocalMirror(t *testing.T) {
 						continue
 					}
 					found = true
-					if step.Env["MISE_URL_REPLACEMENTS"] == "" || step.Env["MISE_URL_REPLACEMENTS"] != declared["MISE_URL_REPLACEMENTS"] {
-						t.Errorf("%s does not consume the declared reciprocal locked-tool transport", name)
+					selected := step.Env["MISE_URL_REPLACEMENTS"]
+					if selected == declared["MISE_URL_REPLACEMENTS"] || !strings.Contains(selected, "inputs.tool_source == 'peer'") || !strings.Contains(selected, "|| ''") {
+						t.Errorf("%s requires a mirror for ordinary locked upstream execution", name)
 					}
 					for _, forbidden := range []string{"MISE_GITLAB_TOKEN", "MISE_NETRC_FILE", "MISE_NETRC"} {
 						if step.Env[forbidden] != "" {
@@ -217,7 +238,23 @@ func TestGitLabMiseMirrorUsesCheckoutOwnedPath(t *testing.T) {
 	}
 	project := t.TempDir()
 	neighbor := filepath.Join(project, "build", "tmp", "keep")
+	for _, choice := range []string{"upstream", "invalid"} {
+		command := exec.Command("sh", "-c", prepare)
+		command.Dir = project
+		command.Env = append(os.Environ(), "AIGW_TOOL_SOURCE="+choice)
+		output, err := command.CombinedOutput()
+		if (err == nil) != (choice == "upstream") {
+			t.Fatalf("tool source %s: %v\n%s", choice, err, output)
+		}
+		if choice == "invalid" && !strings.Contains(string(output), "AIGW_TOOL_SOURCE must be upstream or peer") {
+			t.Fatalf("invalid source has no precise refusal: %s", output)
+		}
+		if entries, err := os.ReadDir(project); err != nil || len(entries) != 0 {
+			t.Fatalf("unselected mirror wrote private state: %v, %v", entries, err)
+		}
+	}
 	env := append(os.Environ(),
+		"AIGW_TOOL_SOURCE=peer",
 		"CI_PROJECT_DIR="+project,
 		"CI_BUILDS_DIR=builds",
 		"CI_API_V4_URL=https://gitlab.example.invalid/api/v4",
@@ -278,6 +315,11 @@ func TestGitLabWindowsLockedToolsUseJobScopedMirror(t *testing.T) {
 	const jobDirectory = `Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"`
 	for name, job := range map[string]windowsJob{"protected": windows, "review": gitlab.NativeWindowsReview} {
 		requireWindowsMiseJobStorage(t, name, job.Script, job.AfterScript, jobDirectory)
+		selected := strings.Index(job.Script[0], "if ($env:AIGW_TOOL_SOURCE -eq 'peer')")
+		credentials := strings.Index(job.Script[0], "$netrc = ")
+		if selected < 0 || credentials <= selected {
+			t.Errorf("%s Windows job acquires mirror credentials before explicit selection", name)
+		}
 		if !strings.Contains(job.Script[0], `= "${mirrorBase}" + 'release-$1-$2-$3.json'`) {
 			t.Errorf("%s Windows job expands Mise regex captures before Mise receives them", name)
 		}

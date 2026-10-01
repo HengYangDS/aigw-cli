@@ -83,16 +83,16 @@ state/installs to private job state. Read/copy/remove shim admission and exact
 cleanup must succeed under both review and protected identities. Update the shared
 binary only in a verified zero-job window.
 
-Peer-local tool copies transport only lock-selected upstream bytes. GitLab's
-registry mirrors GitHub assets and required release metadata; anchored metadata
-rewriting precedes general URL rewriting and job-local CI_JOB_TOKEN netrc is
-deleted with its owned scope. GitHub's `mise-glab-v<version>` tool release holds
-original glab filenames; CUE rewrites both locked browser and encoded API URLs
-at the install step. This transport release is not an AIGW version or Latest.
-The lock remains checksum SSOT; independent SLSA/Sigstore evidence supplies
-provenance. Missing or altered copies fail without fallback to the sibling.
-Inventory and local mirror tests do not prove hosted authorization, TUF access,
-sibling-outage isolation or the complete native cold graph.
+Tool acquisition defaults to locked official upstreams. Explicit
+`tool_source=peer` in either GitHub workflow or `AIGW_TOOL_SOURCE=peer` on GitLab
+selects only that peer's immutable copies; it is not an automatic fallback.
+GitLab's registry mirrors GitHub assets and release metadata using job-local
+CI_JOB_TOKEN netrc, removed with its owned scope. GitHub's
+`mise-glab-v<version>` transport release holds original glab filenames, not an
+AIGW version or Latest. CUE projects both selectors and browser/API rewriting;
+the lock remains checksum SSOT. Missing or altered selected copies fail.
+Native upstream bootstrap and peer-isolated cold acquisition are separate
+claims; local inventory cannot establish either hosted result.
 
 Normal proposals wait three days; absent publication times are not guessed.
 Group Go and tools separately. Only non-major updates of stable dependencies may

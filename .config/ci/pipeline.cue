@@ -9,6 +9,7 @@ import (
 // pipeline.cue owns CI topology. Forge files are generated projections.
 
 #OperatingSystem: "darwin" | "linux" | "windows"
+#ToolSource:      "upstream" | "peer"
 #JobID:           "accepted-ref-parity" | "quality" | "native-darwin" | "native-linux" | "native-windows" | "linux-secret-service" | "release-version" | "release-assets"
 #Claim:           "accepted-ref-parity" | "source-quality" | "go-source-compatibility" | "native-product-journey" | "lifecycle-acceptance" | "linux-secret-service" | "release-metadata" | "artifact-verification"
 
@@ -23,6 +24,14 @@ import (
 // Keep this transport choice in the installer process, not product execution.
 installationEnvironment: GODEBUG: "http2client=0"
 
+toolSourceInput: {
+	description: "Locked upstream distribution or the selected peer's verified immutable tool copies"
+	required:    false
+	type:        "choice"
+	default:     #ToolSource & "upstream"
+	options: ["upstream", "peer"]
+}
+
 // Peer-local copies transport only the upstream bytes selected by mise.lock.
 // They do not own dependencies or checksums; missing copies fail locally.
 miseMirror: {
@@ -34,6 +43,9 @@ miseMirror: {
 	unixDirectory:    "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
 	unixPrepare:      #"""
 		set -eu
+		case "${AIGW_TOOL_SOURCE:-upstream}" in
+		  upstream) ;;
+		  peer)
 		: "${CI_API_V4_URL:?}"
 		: "${CI_PROJECT_ID:?}"
 		: "${CI_SERVER_HOST:?}"
@@ -47,6 +59,9 @@ miseMirror: {
 		export MISE_NETRC=1
 		mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/\#(resource)"
 		export MISE_URL_REPLACEMENTS="$(printf '{"\#(metadataPattern)":"%s\#(metadataResource)","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
+		    ;;
+		  *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
+		esac
 		"""#
 	unixCleanup:      "if [ -n \"${CI_PROJECT_DIR:-}\" ] && [ -n \"${CI_JOB_ID:-}\" ]; then rm -rf -- \"\(unixDirectory)\"; fi"
 	githubEnvironment: MISE_URL_REPLACEMENTS: json.Marshal({
@@ -296,7 +311,9 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 #Toolchain: {
 	name: "Install the locked toolchain"
 	uses: actions.mise
-	env:  installationEnvironment & miseMirror.githubEnvironment
+	env: installationEnvironment & {
+		MISE_URL_REPLACEMENTS: "${{ inputs.tool_source == 'peer' && '\(miseMirror.githubEnvironment.MISE_URL_REPLACEMENTS)' || '' }}"
+	}
 	with: {
 		version:          miseVersion
 		install:          true
@@ -575,6 +592,8 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			  throw 'Mise shim stage probe remains after cleanup.'
 			}
 			$env:PATH = (Split-Path -Parent $mise) + [IO.Path]::PathSeparator + $env:PATH
+			if ($env:AIGW_TOOL_SOURCE -and $env:AIGW_TOOL_SOURCE -notin @('upstream', 'peer')) { throw 'AIGW_TOOL_SOURCE must be upstream or peer.' }
+			if ($env:AIGW_TOOL_SOURCE -eq 'peer') {
 			$netrc = Join-Path $jobDirectory '_netrc'
 			[IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
 			& icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
@@ -587,6 +606,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			$env:MISE_NETRC_FILE = $netrc
 			$env:MISE_NETRC = 'true'
 			$env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
+			}
 			"""#
 		_install:      "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
 		_refreshLocks: "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
@@ -698,8 +718,9 @@ _gitlabControlJob: {
 
 gitlab: {
 	variables: {
-		GIT_DEPTH: "0"
-		GOPROXY:   "https://goproxy.cn|https://proxy.golang.org|direct"
+		GIT_DEPTH:        "0"
+		GOPROXY:          "https://goproxy.cn|https://proxy.golang.org|direct"
+		AIGW_TOOL_SOURCE: "upstream"
 	}
 	workflow: {
 		auto_cancel: on_new_commit: "conservative"
@@ -849,6 +870,7 @@ githubVerify: {
 		push: {branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch], tags: ["v*"]}
 		"pull_request": branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch]
 		"workflow_dispatch": inputs: {
+			tool_source: toolSourceInput
 			native_platform: {
 				description: "Native platform to qualify; partial runs do not establish full release readiness"
 				required:    false
@@ -997,6 +1019,7 @@ githubRelease: {
 	}
 	"on": {
 		"workflow_dispatch": inputs: {
+			tool_source: toolSourceInput
 			tag: {
 				description: "Existing published v* release to verify"
 				required:    true

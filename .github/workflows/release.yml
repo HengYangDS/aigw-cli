@@ -6,6 +6,14 @@ env:
 "on":
   workflow_dispatch:
     inputs:
+      tool_source:
+        description: Locked upstream distribution or the selected peer's verified immutable tool copies
+        required: false
+        type: choice
+        default: upstream
+        options:
+          - upstream
+          - peer
       tag:
         description: Existing published v* release to verify
         required: true
@@ -54,7 +62,7 @@ jobs:
         uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
         env:
           GODEBUG: http2client=0
-          MISE_URL_REPLACEMENTS: '{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"${{ github.server_url }}/${{ github.repository }}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"${{ github.server_url }}/${{ github.repository }}/releases/download/mise-glab-v$1/$2"}'
+          MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && '{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"${{ github.server_url }}/${{ github.repository }}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"${{ github.server_url }}/${{ github.repository }}/releases/download/mise-glab-v$1/$2"}' || '' }}
         with:
           version: 2026.9.18
           install: true

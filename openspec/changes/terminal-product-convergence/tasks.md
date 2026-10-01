@@ -499,6 +499,16 @@
       with external network denied and no authorization or cookies. The six
       upstream archives match `mise.lock`; source tests do not establish their
       hosted publication or the complete three-platform cold graph.
+      October 1 cold Windows run 36838157593 exposes the actual prerequisite:
+      forced reciprocal glab transport returns 404 before client acceptance.
+      CUE now defaults both peers to locked official upstreams and exposes an
+      explicit peer-copy selection; no automatic fallback or checksum change.
+      Distinguishing RED/GREEN covers ordinary/no-credential and invalid
+      selection, exact selected mirror ownership and unchanged filenames.
+      The original failure and focused results remain in `cold-tool-source-*`.
+      Fresh cold execution and peer-copy publication remain unproved; ETHOS
+      publication/retirement feedback is tracked in its existing owner through
+      issue 12, not another AIGW Change.
 
 ## 8. Repository Topology, Documentation, and Deletion
 

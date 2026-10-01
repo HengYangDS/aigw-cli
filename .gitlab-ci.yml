@@ -42,6 +42,9 @@ native-darwin:
   script:
     - |-
       set -eu
+      case "${AIGW_TOOL_SOURCE:-upstream}" in
+        upstream) ;;
+        peer)
       : "${CI_API_V4_URL:?}"
       : "${CI_PROJECT_ID:?}"
       : "${CI_SERVER_HOST:?}"
@@ -55,6 +58,9 @@ native-darwin:
       export MISE_NETRC=1
       mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
       export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
+          ;;
+        *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
+      esac
     - env GODEBUG=http2client=0 mise install --locked
     - mise run bootstrap
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
@@ -93,6 +99,9 @@ native-darwin-review:
   script:
     - |-
       set -eu
+      case "${AIGW_TOOL_SOURCE:-upstream}" in
+        upstream) ;;
+        peer)
       : "${CI_API_V4_URL:?}"
       : "${CI_PROJECT_ID:?}"
       : "${CI_SERVER_HOST:?}"
@@ -106,6 +115,9 @@ native-darwin-review:
       export MISE_NETRC=1
       mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
       export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
+          ;;
+        *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
+      esac
     - env GODEBUG=http2client=0 mise install --locked
     - mise run bootstrap
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
@@ -217,6 +229,8 @@ native-windows:
         throw 'Mise shim stage probe remains after cleanup.'
       }
       $env:PATH = (Split-Path -Parent $mise) + [IO.Path]::PathSeparator + $env:PATH
+      if ($env:AIGW_TOOL_SOURCE -and $env:AIGW_TOOL_SOURCE -notin @('upstream', 'peer')) { throw 'AIGW_TOOL_SOURCE must be upstream or peer.' }
+      if ($env:AIGW_TOOL_SOURCE -eq 'peer') {
       $netrc = Join-Path $jobDirectory '_netrc'
       [IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
       & icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
@@ -229,6 +243,7 @@ native-windows:
       $env:MISE_NETRC_FILE = $netrc
       $env:MISE_NETRC = 'true'
       $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
+      }
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - mise run bootstrap
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
@@ -343,6 +358,8 @@ native-windows-review:
         throw 'Mise shim stage probe remains after cleanup.'
       }
       $env:PATH = (Split-Path -Parent $mise) + [IO.Path]::PathSeparator + $env:PATH
+      if ($env:AIGW_TOOL_SOURCE -and $env:AIGW_TOOL_SOURCE -notin @('upstream', 'peer')) { throw 'AIGW_TOOL_SOURCE must be upstream or peer.' }
+      if ($env:AIGW_TOOL_SOURCE -eq 'peer') {
       $netrc = Join-Path $jobDirectory '_netrc'
       [IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
       & icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
@@ -355,6 +372,7 @@ native-windows-review:
       $env:MISE_NETRC_FILE = $netrc
       $env:MISE_NETRC = 'true'
       $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
+      }
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - mise run bootstrap
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
@@ -391,6 +409,7 @@ native-windows-review:
 variables:
   GIT_DEPTH: "0"
   GOPROXY: https://goproxy.cn|https://proxy.golang.org|direct
+  AIGW_TOOL_SOURCE: upstream
 workflow:
   auto_cancel:
     on_new_commit: conservative
@@ -442,6 +461,9 @@ stages:
     - timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update && DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y gcc libatomic1 libc6-dev openssh-client procps
     - |-
       set -eu
+      case "${AIGW_TOOL_SOURCE:-upstream}" in
+        upstream) ;;
+        peer)
       : "${CI_API_V4_URL:?}"
       : "${CI_PROJECT_ID:?}"
       : "${CI_SERVER_HOST:?}"
@@ -455,6 +477,9 @@ stages:
       export MISE_NETRC=1
       mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
       export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
+          ;;
+        *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
+      esac
     - env GODEBUG=http2client=0 mise install --locked
   after_script:
     - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"; fi
@@ -490,6 +515,9 @@ accepted-ref-parity:
   script:
     - |-
       set -eu
+      case "${AIGW_TOOL_SOURCE:-upstream}" in
+        upstream) ;;
+        peer)
       : "${CI_API_V4_URL:?}"
       : "${CI_PROJECT_ID:?}"
       : "${CI_SERVER_HOST:?}"
@@ -503,6 +531,9 @@ accepted-ref-parity:
       export MISE_NETRC=1
       mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
       export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
+          ;;
+        *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
+      esac
     - env GODEBUG=http2client=0 mise install --locked
     - mise exec --locked -- go run ./tools/forge refs --remote origin --expect "main=$CI_COMMIT_SHA" --expect "dev=$CI_COMMIT_SHA"
   after_script:
@@ -548,6 +579,9 @@ release-version:
   script:
     - |-
       set -eu
+      case "${AIGW_TOOL_SOURCE:-upstream}" in
+        upstream) ;;
+        peer)
       : "${CI_API_V4_URL:?}"
       : "${CI_PROJECT_ID:?}"
       : "${CI_SERVER_HOST:?}"
@@ -561,6 +595,9 @@ release-version:
       export MISE_NETRC=1
       mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
       export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
+          ;;
+        *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
+      esac
     - env GODEBUG=http2client=0 mise install --locked
     - mise exec --locked -- go run ./tools/release validate-version-tag
   after_script:
