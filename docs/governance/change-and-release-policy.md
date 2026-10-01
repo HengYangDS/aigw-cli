@@ -426,6 +426,8 @@ cold-cache onboarding, repository construction and CI duration remain separate.
 Use five warmups and two reversed-order blocks of at least forty samples; retain
 outliers, per-block and pooled p95. Host-contention/order sensitivity means inconclusive,
 not a raised threshold. Backend/OS/client/tool identity remains explicit.
+Any native benchmark warning makes the acceptance command fail after preserving
+all samples and the summary, even when every measured duration is within budget.
 
 Use native [candidate performance](../operations/forge-operations.md#measure-native-candidate-performance)
 with one exact signed matrix and retained predecessor on a quiet host. Preserve raw

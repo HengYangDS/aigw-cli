@@ -355,6 +355,13 @@
       first-setup preparation and repeated setup/sync preserve exact helper
       and projection bytes. The invalidated source gate was stopped and its
       failure evidence retained, not accepted as performance qualification.
+      The current exact candidate's environment-backend measurement executes
+      both reversed forty-sample blocks: pooled p95 setup 43.509 ms, sync
+      32.045 ms, projection 53.648 ms and credential 17.247 ms. Two native
+      outlier warnings and host contention leave qualification inconclusive.
+      Raw samples and summary remain in `current-ebf-performance/`; the
+      existing acceptance owner now rejects native warnings without discarding
+      evidence. Quiet-host, native-store, build and CI cost claims remain open.
 - [x] 6.7 Assert warnings and malformed public errors fail at their origin;
       human and JSON output must expose precise state and safe action without
       private paths, Token fragments, internal modules or tracebacks.

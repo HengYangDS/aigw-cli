@@ -32,6 +32,13 @@ type performanceSamples struct {
 	MemoryBytes []uint64  `json:"memory_usage_byte"`
 }
 
+func performanceWarning(log []byte) error {
+	if bytes.Contains(bytes.ToLower(log), []byte("warning:")) {
+		return errors.New("native benchmark warning makes performance acceptance inconclusive")
+	}
+	return nil
+}
+
 func (s performanceSamples) percentile() (float64, error) {
 	if len(s.Times) < 40 || len(s.ExitCodes) != len(s.Times) {
 		return 0, errors.New("performance evidence requires at least forty completed samples")
@@ -291,6 +298,9 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 		if runErr != nil {
 			j.testing.Fatalf("Hyperfine %s: %v\n%s", name, runErr, log)
 		}
+		if err := performanceWarning(log); err != nil {
+			j.testing.Errorf("Hyperfine %s: %v; raw samples and warning retained", name, err)
+		}
 		var report struct {
 			Results []performanceSamples `json:"results"`
 		}
@@ -372,6 +382,14 @@ func pooledPerformance(t *testing.T, measurements []performanceMeasurement) []pe
 }
 
 func TestNativePerformanceSamples(t *testing.T) {
+	if err := performanceWarning([]byte("Benchmark 1: configured command\nTime (mean): 12 ms\n")); err != nil {
+		t.Fatal(err)
+	}
+	for _, log := range []string{"Warning: Statistical outliers were detected.", "WARNING: command timing is inconclusive."} {
+		if err := performanceWarning([]byte(log)); err == nil {
+			t.Fatal("native warning qualified as clean performance evidence")
+		}
+	}
 	times := make([]float64, 40)
 	for index := range times {
 		times[index] = float64(index+1) / 1000
