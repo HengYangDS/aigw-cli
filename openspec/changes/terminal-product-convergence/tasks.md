@@ -319,6 +319,14 @@
       exact scratch is removed. This is source-supply reproducibility, not an
       empty-cache claim. Complete cold-peer execution and final product bytes
       remain open at 7.5 and 9.3; credential authorization is not a tool version.
+      The later official OpenSpec 1.14.0 release is explicitly admitted for this
+      user-requested stable maintenance; authored pin, native npm lock and local
+      installation agree. Only that direct package bypasses the three-day age
+      window; automatic policy and transitive constraints remain unchanged.
+      Registry verification retains 283 signatures and 51 attestations, and the
+      official eleven-item validation plus affected tool/artifact tests pass.
+      This repository tool upgrade does not update the separately bound ETHOS
+      runtime or re-sign the fixed candidate.
 - [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
