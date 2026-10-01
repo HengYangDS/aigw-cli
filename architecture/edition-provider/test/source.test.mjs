@@ -133,6 +133,14 @@ test("the checked-in Source Bundle closes its selected revision", async () => {
     );
     assert(member, id);
     assert.equal(member.sha256, provenance.sha256, id);
+    const relative = provenance.locator.slice("source/".length);
+    const livePath = path.resolve(repositoryRoot, ...relative.split("/"));
+    assert.equal(livePath.startsWith(`${repositoryRoot}${path.sep}`), true);
+    assert.equal(
+      sha256(await fs.readFile(livePath)),
+      member.sha256,
+      `${id}: selected live source differs from its Source Bundle`,
+    );
   }
   const comparison = await json("evolution.json");
   const providerEvolution = await json("provider-evolution.json");

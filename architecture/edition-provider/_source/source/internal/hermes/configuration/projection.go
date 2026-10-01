@@ -80,10 +80,17 @@ type Plan struct {
 	configAfter  []byte
 	stateAfter   []byte
 	removeConfig bool
+	commands     map[string]string
 }
 
 // ChangesState reports whether applying the plan changes owned configuration.
 func (plan *Plan) ChangesState() bool { return plan.Action == "write" || plan.Action == "remove" }
+
+// ObservedCredentialCommand returns one sidecar-validated managed command.
+func (plan *Plan) ObservedCredentialCommand(providerID string) (string, bool) {
+	command, ok := plan.commands[providerID]
+	return command, ok
+}
 
 // Receipt retains the exact file snapshots needed for guarded compensation.
 type Receipt struct {
@@ -129,6 +136,16 @@ func Prepare(path string, desired *Desired) (Plan, error) {
 	state, before, err := plan.readOwnership(root, desired)
 	if err != nil {
 		return Plan{}, err
+	}
+	if plan.stateBefore.Exists {
+		plan.commands = make(map[string]string, len(state.ProviderIDs))
+		providers := field(root, "providers")
+		for _, id := range state.ProviderIDs {
+			command := field(field(providers, id), "key_cmd")
+			if command != nil && command.Kind == yaml.ScalarNode {
+				plan.commands[id] = command.Value
+			}
+		}
 	}
 	if desired == nil {
 		if err := restore(root, state); err != nil {

@@ -54,7 +54,7 @@ package_children."internal/client" = ["verification"]
 package_children."internal/hermes" = ["configuration"]
 allowed_import_edges."internal/hermes/configuration" = ["internal/transaction"]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
-package_children."tools/ci" = ["bootstrap", "evidence", "markdown", "projection"]
+package_children."tools/ci" = ["bootstrap", "evidence", "markdown", "projection", "test"]
 package_children."tools/codex" = ["catalog"]
 package_children."tools/release" = [
   "artifact",

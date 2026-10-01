@@ -2,18 +2,18 @@
   "schema": "architecture.source-bundle/v1",
   "source": {
     "id": "dig/misc/tools/llm-third-party-api/aigw-cli",
-    "revision": "ee8f54c7061ca190e6744b56771cba27633cf61e380bd7b43a7104ea65151e12"
+    "revision": "546fe89343860904fec9e6fcd047552a3b1b203801dbe462c6978ad243c75c9e"
   },
   "files": [
     {
       "path": "semantic.json",
       "bytes": 15397,
-      "sha256": "4302c65e086eef6bf0f6519373eab38f661be4a3252ae18842ef0ced86845e40"
+      "sha256": "19693114f36a9b01b26115c28178166e23ee536b92636602ed1c2534a5a27cec"
     },
     {
       "path": "source/internal/client/adapters.go",
-      "bytes": 16056,
-      "sha256": "41bd0fb7f86b321907c87f386cd577d4ade9dd5053a1dc6f2af6d0546ba7c4c5"
+      "bytes": 16580,
+      "sha256": "4aeb503161502ee83af417dfbcbc189269494996abb84e99711de8b56aa468c8"
     },
     {
       "path": "source/internal/claude/settings.go",
@@ -22,18 +22,18 @@
     },
     {
       "path": "source/internal/claude/desktop/configuration.go",
-      "bytes": 15469,
-      "sha256": "aef8db9e4ebe26b018e9af456c43deeeab22e782d6d92ee356eafcdc428dab70"
+      "bytes": 16336,
+      "sha256": "3d9a53016cf4f8f4dc30f91afeeda4124ac88a00043804fab755ac79797e3fe9"
     },
     {
       "path": "source/internal/cli/app.go",
-      "bytes": 15546,
-      "sha256": "940c5fe0f94376e24da0618a284302c272d54a1007cfabbc5ecc7fa458150e7f"
+      "bytes": 15683,
+      "sha256": "f6565ea41d88a45481361f946ba7c2a499f727d8bcdb9858c1af57cc6eecc496"
     },
     {
       "path": "source/internal/codex/reconcile.go",
-      "bytes": 20630,
-      "sha256": "62e332afb57f7ac0df54a8ee420f417cab2a93e40bfe4a21f2d8606d5bae1c24"
+      "bytes": 18129,
+      "sha256": "ef0a2446e3c6e4d4cfe6791b6c57c73a749a6565cca8db7b848a07fe2c12e057"
     },
     {
       "path": "source/internal/configuration/model.go",
@@ -57,8 +57,8 @@
     },
     {
       "path": "source/internal/hermes/configuration/projection.go",
-      "bytes": 10000,
-      "sha256": "5975266007f953a90a520ce8001391b3d3763e50f5e2f33b5c0fc3a744ab5aab"
+      "bytes": 10591,
+      "sha256": "d019741c93dda838548d9043bdd60295f9abd9c5f031c449e9c6524d1e8ebf62"
     },
     {
       "path": "source/LICENSE",
@@ -67,18 +67,18 @@
     },
     {
       "path": "source/internal/synchronization/transaction.go",
-      "bytes": 3900,
-      "sha256": "3de67d142d7711115a605df6937658614d5bbca9c5c1097902624c1d23e5a5f9"
+      "bytes": 5309,
+      "sha256": "a5d490e83e7815879b81c3697158a0f6cc183c15551656bd947a404017a10da9"
     },
     {
       "path": "source/internal/client/registry.go",
-      "bytes": 10504,
-      "sha256": "ca3800feffb012b679fc0fb79979ff9bc1196200e762e46ff873511bd61bad31"
+      "bytes": 10763,
+      "sha256": "2031f9be9870362e8b25446a37d2b0df29299852453642a0d20ea52642b3943b"
     },
     {
       "path": "source/internal/synchronization/synchronizer.go",
-      "bytes": 7744,
-      "sha256": "fbee8fe490bb14df5737799adafe212bfe0f5bc0a6445a73e575c9f3208bc48d"
+      "bytes": 10212,
+      "sha256": "a685191a2dfac77e291b567ee1c7d0b71468e8a9c4f2f179a51e1d3c8a147fe8"
     }
   ]
 }

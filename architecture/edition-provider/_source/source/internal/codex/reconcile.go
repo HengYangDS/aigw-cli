@@ -8,14 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
+	"reflect"
 	"slices"
-	"sort"
 	"strings"
 
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/surface"
 	"aigw-cli/internal/transaction"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 const (
@@ -46,13 +46,24 @@ type ReconciliationReceipt struct {
 }
 
 // CopyProjection copies one complete AIGW-owned Codex projection to a private
-// target without interpreting or changing its contents.
+// target, rebasing only the owned catalog reference that is tied to its path.
 func CopyProjection(source, target string) error {
-	for _, suffix := range []string{"", ".aigw-state.json", ".aigw-model-catalog.json"} {
+	suffixes := [...]string{"", ".aigw-state.json", ".aigw-model-catalog.json"}
+	var snapshots [len(suffixes)]transaction.FileSnapshot
+	for index, suffix := range suffixes {
 		snapshot, err := transaction.CaptureFileSnapshot(source + suffix)
 		if err != nil {
 			return err
 		}
+		snapshots[index] = snapshot
+	}
+	var err error
+	snapshots[0], err = rebaseCopiedCodexCatalog(source, target, snapshots[0], snapshots[1])
+	if err != nil {
+		return err
+	}
+	for index, suffix := range suffixes {
+		snapshot := snapshots[index]
 		if !snapshot.Exists {
 			continue
 		}
@@ -225,6 +236,9 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
+	if err := validateCodexCatalogPreflight(target, configSnapshot, stateSnapshot); err != nil {
+		return codexPreparedTarget{}, err
+	}
 	if !target.desired {
 		return prepareCodexRestoreTransition(target.ref, configSnapshot, stateSnapshot, catalogSnapshot, previous, replaceRootSelections)
 	}
@@ -264,8 +278,15 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	state.ProjectionMode = ProjectionFullSelection
 	state.WriterID = ProjectionWriterID
 	stateData := encodeCodexState(state)
-	converged := stateSnapshot.Exists && bytes.Equal(configSnapshot.Data, projected) &&
-		bytes.Equal(stateSnapshot.Data, stateData) && catalogSnapshot.Equal(catalogDesired)
+	converged := stateSnapshot.Exists && bytes.Equal(stateSnapshot.Data, stateData) && catalogSnapshot.Equal(catalogDesired)
+	if converged && !bytes.Equal(configSnapshot.Data, projected) {
+		current := string(configSnapshot.Data)
+		converged = !replaceRootSelections && strings.Contains(current, codexBegin) &&
+			strings.Contains(current, codexEnd) && sameCodexTOMLValues(configSnapshot.Data, projected)
+	}
+	if converged {
+		projected = configSnapshot.Data
+	}
 	if !converged {
 		state.TransactionID = transactionID
 		stateData = encodeCodexState(state)
@@ -280,6 +301,28 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 		plan:      ProjectionPlan{Target: target.ref.Path, Action: action},
 		artifacts: codexArtifactsForDesiredState(target.ref, configSnapshot, projected, stateSnapshot, stateData, catalogSnapshot, catalogDesired),
 	}, nil
+}
+
+func sameCodexTOMLValues(current, projected []byte) bool {
+	var left, right map[string]any
+	if toml.Unmarshal(current, &left) != nil || toml.Unmarshal(projected, &right) != nil || !reflect.DeepEqual(left, right) {
+		return false
+	}
+	for _, key := range []string{"model_provider", "model", "model_catalog_json"} {
+		wanted, err := codexSelectionLine(string(projected), key)
+		if err != nil {
+			return false
+		}
+		if !strings.HasSuffix(strings.TrimSpace(wanted), "# managed by AIGW") {
+			continue
+		}
+		actual, err := codexSelectionLine(string(current), key)
+		value, ok := right[key].(string)
+		if err != nil || !ok || !isManagedSelection(actual, key, value) {
+			return false
+		}
+	}
+	return true
 }
 
 func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot, catalogSnapshot transaction.FileSnapshot) (codexPreparedTarget, error) {
@@ -408,126 +451,6 @@ func validateCodexStateAttribution(state codexState) error {
 		return fmt.Errorf("Codex sidecar is owned by foreign writer %q", state.WriterID)
 	}
 	return nil
-}
-
-func codexTargetUnion(before, after []TargetRef) ([]codexReconciliationTarget, error) {
-	normalizedBefore, err := normalizeCodexTargets(before)
-	if err != nil {
-		return nil, err
-	}
-	normalizedAfter, err := normalizeCodexTargets(after)
-	if err != nil {
-		return nil, err
-	}
-	byPath := make(map[string]codexReconciliationTarget, len(normalizedBefore)+len(normalizedAfter))
-	for _, target := range normalizedBefore {
-		byPath[target.Path] = codexReconciliationTarget{ref: target}
-	}
-	for _, target := range normalizedAfter {
-		if err := validateDesiredCodexTarget(target); err != nil {
-			return nil, err
-		}
-		byPath[target.Path] = codexReconciliationTarget{ref: target, desired: true}
-	}
-	union := make([]codexReconciliationTarget, 0, len(byPath))
-	for _, target := range byPath {
-		union = append(union, target)
-	}
-	sort.Slice(union, func(left, right int) bool { return union[left].ref.Path < union[right].ref.Path })
-	return union, nil
-}
-
-func normalizeCodexTargets(values []TargetRef) ([]TargetRef, error) {
-	normalized := make([]TargetRef, 0, len(values))
-	seen := make(map[string]struct{}, len(values))
-	for _, target := range values {
-		if target.Path == "" || target.SurfaceID == "" || target.Authority == "" || target.ProjectionMode == "" {
-			return nil, fmt.Errorf("Codex target requires surface_id, authority, projection_mode, and path")
-		}
-		sourcePath, err := absoluteCodexTargetPath(target.Path)
-		if err != nil {
-			return nil, err
-		}
-		path, err := canonicalCodexTargetPath(sourcePath)
-		if err != nil {
-			return nil, err
-		}
-		if _, duplicate := seen[path]; duplicate {
-			return nil, fmt.Errorf("Codex config target %s is duplicated", path)
-		}
-		seen[path] = struct{}{}
-		target.Path = path
-		target.statePath = preferredCodexStatePath(sourcePath, path)
-		normalized = append(normalized, target)
-	}
-	sort.Slice(normalized, func(left, right int) bool { return normalized[left].Path < normalized[right].Path })
-	return normalized, nil
-}
-
-func canonicalCodexTargetPath(path string) (string, error) {
-	absolute := filepath.Clean(path)
-	resolved, err := filepath.EvalSymlinks(absolute)
-	if err == nil {
-		return filepath.Clean(resolved), nil
-	}
-	if os.IsNotExist(err) {
-		return absolute, nil
-	}
-	return "", fmt.Errorf("resolve Codex target symlinks %s: %w", path, err)
-}
-
-func absoluteCodexTargetPath(path string) (string, error) {
-	absolute, err := filepath.Abs(filepath.Clean(path))
-	if err != nil {
-		return "", fmt.Errorf("resolve Codex target %s: %w", path, err)
-	}
-	return absolute, nil
-}
-
-func preferredCodexStatePath(sourcePath, canonicalPath string) string {
-	canonicalStatePath := codexStatePath(canonicalPath)
-	if sourcePath == canonicalPath {
-		return canonicalStatePath
-	}
-	if info, err := os.Lstat(canonicalStatePath); err == nil && !info.IsDir() {
-		return canonicalStatePath
-	}
-	sourceStatePath := codexStatePath(sourcePath)
-	if info, err := os.Lstat(sourceStatePath); err == nil && !info.IsDir() {
-		return sourceStatePath
-	}
-	return canonicalStatePath
-}
-
-func targetCodexStatePath(target TargetRef) string {
-	if target.statePath != "" {
-		return target.statePath
-	}
-	return codexStatePath(target.Path)
-}
-
-func validateDesiredCodexTarget(target TargetRef) error {
-	surfaceID := surface.ID(target.SurfaceID)
-	authority := surface.Authority(target.Authority)
-	switch {
-	case surfaceID.IsCodexHome() && surfaceID.HasAuthority(authority) && target.ProjectionMode == ProjectionFullSelection:
-		return nil
-	default:
-		return fmt.Errorf("Codex target %s cannot use authority %s with projection mode %s", target.SurfaceID, target.Authority, target.ProjectionMode)
-	}
-}
-
-func codexHomeTargets(paths []string) []TargetRef {
-	targets := make([]TargetRef, 0, len(paths))
-	for _, path := range paths {
-		targets = append(targets, TargetRef{
-			SurfaceID:      string(surface.CodexHomeDefault),
-			Authority:      string(surface.AuthorityAIGW),
-			ProjectionMode: ProjectionFullSelection,
-			Path:           path,
-		})
-	}
-	return targets
 }
 
 func newCodexTransactionID() string {

@@ -69,12 +69,18 @@ type Desired struct {
 
 // Plan is a prepared, side-effect-free Claude Desktop projection.
 type Plan struct {
-	Action  Action `json:"action"`
-	changes []fileChange
+	Action                       Action `json:"action"`
+	changes                      []fileChange
+	observedCredentialExecutable string
 }
 
 // ChangesState reports whether applying the plan changes an owned file.
 func (plan Plan) ChangesState() bool { return len(plan.changes) > 0 }
+
+// ObservedCredentialExecutable returns the sidecar-validated managed helper.
+func (plan Plan) ObservedCredentialExecutable() string {
+	return plan.observedCredentialExecutable
+}
 
 // Receipt compensates one applied projection while its postimages remain unchanged.
 type Receipt struct{ changes []appliedChange }
@@ -179,9 +185,28 @@ func Prepare(paths Paths, desired *Desired) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	return buildPlan(ActionProject, paths, before, projectedFiles{
+	plan, err := buildPlan(ActionProject, paths, before, projectedFiles{
 		standard: standard, thirdParty: thirdParty, profile: profile, metadata: metadata, state: stateBytes, original: state.Original,
 	})
+	if err != nil {
+		return Plan{}, err
+	}
+	if before.state.Exists || before.legacyState.Exists {
+		ownedProfile := before.profile
+		ownedPath := paths.Profile
+		if before.legacyState.Exists {
+			ownedProfile = before.legacyProfile
+			ownedPath, _ = legacyPaths(paths)
+		}
+		observed, err := decodeObject(ownedPath, ownedProfile)
+		if err != nil {
+			return Plan{}, err
+		}
+		if err := json.Unmarshal(observed["inferenceCredentialHelper"], &plan.observedCredentialExecutable); err != nil {
+			return Plan{}, fmt.Errorf("decode managed Claude Desktop credential helper: %w", err)
+		}
+	}
+	return plan, nil
 }
 
 func buildPlan(action Action, paths Paths, before snapshots, projected projectedFiles) (Plan, error) {

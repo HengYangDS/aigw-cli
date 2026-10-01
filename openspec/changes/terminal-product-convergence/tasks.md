@@ -589,6 +589,18 @@
       the Unix identity adapter, and credential/projection siblings pass.
       Windows short-path behavior is unchanged; the old per-file RED profile
       is retained rather than adding a coverage-only test or suppression.
+      Native Node acceptance now consumes the exact selected Publisher archive,
+      identities and release manifest. The installed test rejects stale live
+      sources; official materialization refreshes their existing Source Bundle
+      without changing the selected alpha.1 package. Ordinary source CI also
+      rejects a changed selected owner without external package inputs. Native
+      formatter, Markdown and Mermaid cases move from duplicate Go subprocess
+      tests into one Node suite; Go retains inventory and command-wiring tests.
+      JUnit reports no failures or skips, and one LCOV run observes all four
+      production Node modules. The full local gate passes at 95.12%; retained
+      distinguishing failures and results are in `native-node-owner-*` under
+      `build/verification/supply-chain-20260930/`. Exact-HEAD proof, final peer
+      review and publication remain separate.
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with
       exact-byte install, predecessor upgrade/rollback, credentials and real-client
       journeys; retain the source and artifact hashes and disclose missing platform

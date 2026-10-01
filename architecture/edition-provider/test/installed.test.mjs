@@ -89,6 +89,17 @@ test("the selected installed Publisher reproduces the AIGW provider", async (t) 
     selection.publisher.archiveSha256,
   );
 
+  run(process.execPath, [
+    path.join(providerRoot, "materialize.mjs"),
+    "--archive",
+    archive,
+    "--package-identities",
+    packageIdentities,
+    "--release-manifest",
+    releaseManifest,
+    "--check",
+  ]);
+
   const temporary = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "aigw-edition-provider-")),
   );

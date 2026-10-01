@@ -100,7 +100,7 @@ func TestRepositoryQualityGraphIncludesNativePerformanceCases(t *testing.T) {
 
 func TestRepositoryQualityGraphOwnsTheArchitectureEditionProvider(t *testing.T) {
 	gateIndex := slices.IndexFunc(repositoryQualityGraph.Gates, func(gate qualityGate) bool {
-		return gate.ID == "architecture-edition-provider"
+		return gate.ID == "node-source"
 	})
 	if gateIndex < 0 {
 		t.Fatal("quality graph lacks the source-owned Architecture Edition Provider gate")
@@ -109,6 +109,7 @@ func TestRepositoryQualityGraphOwnsTheArchitectureEditionProvider(t *testing.T) 
 	if gate.Command.Name != "node" || !slices.Equal(gate.Command.Args, []string{
 		"--test",
 		"architecture/edition-provider/test/source.test.mjs",
+		"tools/ci/test/text.test.mjs",
 	}) {
 		t.Fatalf("architecture Edition Provider gate = %#v", gate.Command)
 	}
@@ -117,7 +118,7 @@ func TestRepositoryQualityGraphOwnsTheArchitectureEditionProvider(t *testing.T) 
 	})
 	if carrierIndex < 0 || !slices.Contains(
 		repositoryQualityGraph.Carriers[carrierIndex].Gates,
-		"architecture-edition-provider",
+		"node-source",
 	) {
 		t.Fatal("architecture Edition Provider carrier is not bound to its source gate")
 	}
