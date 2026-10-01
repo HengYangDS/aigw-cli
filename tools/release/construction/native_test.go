@@ -29,7 +29,8 @@ func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 					t.Fatalf("source acceptance escaped its product test owner: %#v", call)
 				}
 				workspace = strings.TrimPrefix(call.Env[1], "TMPDIR=")
-				if !filepath.IsAbs(workspace) || !slices.Equal(call.Env, []string{"AIGW_ACCEPTANCE_RELEASE=", "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace, "GH_TOKEN=", "GITHUB_TOKEN=", "GITLAB_TOKEN=", "CI_JOB_TOKEN=", "GLAB_ENABLE_CI_AUTOLOGIN=false", "AIGW_ACCEPTANCE_BASELINE="}) {
+				expected := append([]string{"AIGW_ACCEPTANCE_RELEASE=", "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace}, forgeCredentialOverrides()...)
+				if !filepath.IsAbs(workspace) || !slices.Equal(call.Env, append(expected, "AIGW_ACCEPTANCE_BASELINE=")) {
 					t.Fatalf("source acceptance environment = %#v", call.Env)
 				}
 				if err := os.WriteFile(filepath.Join(workspace, "test-owned-output"), []byte("fixture"), 0o600); err != nil {
@@ -232,7 +233,8 @@ func TestNativeClientAcceptanceSharesStageAndPropagatesFailure(t *testing.T) {
 				t.Fatalf("executed %d commands with stage %q", len(calls), stage)
 			}
 			for _, call := range calls {
-				if call.Directory != request.Root || !slices.Equal(call.Env, []string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + stage, "TMP=" + stage, "TEMP=" + stage, "GH_TOKEN=", "GITHUB_TOKEN=", "GITLAB_TOKEN=", "CI_JOB_TOKEN=", "GLAB_ENABLE_CI_AUTOLOGIN=false", "AIGW_ACCEPTANCE_BASELINE="}) {
+				expected := append([]string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + stage, "TMP=" + stage, "TEMP=" + stage}, forgeCredentialOverrides()...)
+				if call.Directory != request.Root || !slices.Equal(call.Env, append(expected, "AIGW_ACCEPTANCE_BASELINE=")) {
 					t.Fatalf("acceptance lost stage ownership: %#v", call)
 				}
 			}

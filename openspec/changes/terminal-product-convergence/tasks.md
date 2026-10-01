@@ -408,6 +408,13 @@
       Signed docs source `90908d5d` passes GitLab pipeline 9049 and GitHub
       run 36769384552 with all five required jobs on each peer; these source
       results do not qualify the fixed candidate's Windows/client journey.
+      October 1 synthetic-only child execution reproduces readable job-netrc
+      pointer and Mise credential inheritance despite cleared Token variables.
+      One override owner now scopes construction and acceptance without
+      changing parent acquisition authorization. Both subject paths reject
+      inherited carriers while the selected acquisition path retains them;
+      this does not prove arbitrary-code Runner containment or hosted cold-peer
+      execution.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
       guarded merge, source-ref deletion, signer trust and branch protection on each
       selected peer without interactive authentication or divergent commit

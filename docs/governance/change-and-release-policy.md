@@ -331,6 +331,12 @@ information, copied-before-free DPAPI buffers and metadata-only credential obser
 retain their actual security boundaries. A value-reading library cannot replace
 metadata inspection merely to shorten code.
 
+Release acquisition retains its selected caller's transport authorization.
+Construction and acceptance share one environment override owner that clears Forge
+tokens, job-netrc pointers and credential commands, and disables Mise credential
+fallbacks. This does not isolate the filesystem: untrusted Runner code still needs
+separate native identity, storage and execution containment.
+
 ### Behavioral and quantitative evidence
 
 [Coverage policy](../../.config/checks/coverage/policy.toml) owns strictly greater-than

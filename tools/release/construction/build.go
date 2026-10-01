@@ -171,18 +171,17 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 	if err != nil {
 		return "", err
 	}
-	environment := []string{
-		"GH_TOKEN=", "GITHUB_TOKEN=", "GITLAB_TOKEN=", "CI_JOB_TOKEN=", "GLAB_ENABLE_CI_AUTOLOGIN=false",
-		"AIGW_BUILD_OS=" + request.TargetOS,
-		"AIGW_MACOS_SIGNING_IDENTITY=" + request.MacOSSigningIdentity,
-		"AIGW_VERSION=" + request.Version,
-		"AIGW_RELEASE_EPOCH=" + request.Epoch,
-		"AIGW_RELEASE_TIMESTAMP=" + instant.Format(time.RFC3339),
-		"AIGW_GITLAB_RELEASE_ORIGIN=" + request.GitLabOrigin,
-		"AIGW_GITLAB_RELEASE_REPOSITORY=" + request.GitLabRepository,
-		"AIGW_GITHUB_RELEASE_ORIGIN=" + request.GitHubOrigin,
-		"AIGW_GITHUB_RELEASE_REPOSITORY=" + request.GitHubRepository,
-	}
+	environment := append(forgeCredentialOverrides(),
+		"AIGW_BUILD_OS="+request.TargetOS,
+		"AIGW_MACOS_SIGNING_IDENTITY="+request.MacOSSigningIdentity,
+		"AIGW_VERSION="+request.Version,
+		"AIGW_RELEASE_EPOCH="+request.Epoch,
+		"AIGW_RELEASE_TIMESTAMP="+instant.Format(time.RFC3339),
+		"AIGW_GITLAB_RELEASE_ORIGIN="+request.GitLabOrigin,
+		"AIGW_GITLAB_RELEASE_REPOSITORY="+request.GitLabRepository,
+		"AIGW_GITHUB_RELEASE_ORIGIN="+request.GitHubOrigin,
+		"AIGW_GITHUB_RELEASE_REPOSITORY="+request.GitHubRepository,
+	)
 	args := []string{"release", "--snapshot", "--clean", "--skip=publish", "--config", config}
 	if request.TargetOS == "windows" {
 		args = append(args, "--skip=homebrew")
@@ -194,6 +193,17 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 		return "", err
 	}
 	return stage, nil
+}
+
+func forgeCredentialOverrides() []string {
+	return []string{
+		"GH_TOKEN=", "GITHUB_TOKEN=", "GITLAB_TOKEN=", "CI_JOB_TOKEN=", "AIGW_GITHUB_TOKEN=",
+		"MISE_GITHUB_TOKEN=", "MISE_GITLAB_TOKEN=", "MISE_NETRC_FILE=", "MISE_NETRC=false",
+		"MISE_GITHUB_CREDENTIAL_COMMAND=", "MISE_GITLAB_CREDENTIAL_COMMAND=",
+		"MISE_GITHUB_GH_CLI_TOKENS=false", "MISE_GITLAB_GLAB_CLI_TOKENS=false",
+		"MISE_GITHUB_USE_GIT_CREDENTIALS=false", "MISE_GITLAB_USE_GIT_CREDENTIALS=false",
+		"GLAB_ENABLE_CI_AUTOLOGIN=false",
+	}
 }
 
 func renderGoReleaserConfig(root, workspace, stage string) (string, error) {
