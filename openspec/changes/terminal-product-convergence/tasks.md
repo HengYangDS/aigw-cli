@@ -67,14 +67,10 @@
       Linux, and Windows with actual native stores or the explicit environment
       backend and isolated synthetic native items before archive. Verify stable
       native reader identity across signed successors without treating signing
-      as item authorization. The post-archive installed transition must stage
-      and verify each selected operator Token and configured diagnostic item
-      through the exact final copied reader before any projection or link cutover;
-      retain old items and original commands. The one-time 0.3.1 Homebrew link
-      transition must preproject, prefetch, measure its bounded link gap, verify
-      captured commands immediately and restore the predecessor on failure.
-      Disclose residual cached-caller risk; never claim denied access as ready.
-      Later versioned commands must remain callable throughout replacement.
+      as item authorization. Preserve original versioned commands and disclose
+      the cached 0.3.1 public-link risk. Final operator-item authorization and
+      the real package-link transition belong to the post-archive
+      [Migration Plan](design.md#migration-plan), not this pre-archive checkbox.
       At signed source `cdfc0bf6`, the isolated macOS environment-backend
       journey stages actual Homebrew 0.3.1 bytes and passes preprojection,
       simulated link gap, upgrade, rollback, re-upgrade and uninstall. New
@@ -365,7 +361,7 @@
       and the separate environment-backend journey establish this isolated
       pre-archive scope. Current shipped-team and process-observer regressions
       also pass. Evidence: `macos-isolated-acceptance-input-conservation-02449bd2.json`.
-      Actual operator authorization and Homebrew cutover remain in 3.5 and 9.3;
+      Actual operator authorization and Homebrew cutover remain in the Migration Plan;
       Desktop GUI and official Hermes acceptance remain in 4.5.
 - [x] 5.5 Verify missing Codex/Claude at setup and later installation on each
       platform; deferred sync must touch only installed admitted clients and
@@ -524,27 +520,27 @@
 - [ ] 7.2 Cover developer proposal create/update and review SHA, maintainer
       fast-forward, dev, main and tag events; each required check must execute on or
       attest the exact admitted object.
-- [ ] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
+- [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review
       work only before a noninterruptible native Shell or release job starts.
       One release owner consumes peer-local candidate, predecessor, clients
       and trust inputs; construction/acceptance children inherit no Forge
-      authorization. Native regressions cover candidate forwarding, fail-closed
-      input admission, cleanup, process observation and real Windows restricted
-      tool execution. Original ESRCH and Windows sandbox failures remain in
-      `windows-native-sandbox-*` and prior source proofs. GitLab pipeline 9160
-      proves `444bbd41` stops failed apt acquisition before tool installation;
-      its macOS and Linux native jobs pass, while static quality, Secret Service
-      and Windows tool acquisition remain unqualified. Shared CUE preparation
-      checks update/install separately; sh/bash failure injection covers both
-      preparation consumers. Static quality and pure-Go Secret Service now use
-      `CGO_ENABLED=0`; only native Linux race installs gcc/libc headers. Both
-      Forge projections, complete projection regressions and Go quality pass
-      without exemptions. Raw evidence: `linux-prerequisite-*` and
-      `linux-capability-*` in the existing verification owner. Hosted current-
-      source acceptance, native Runner transport and fixed-artifact real-client
-      execution remain open; retries cannot replace the original product proof.
+      authorization. Current signed `df7d4585` passes all five required jobs
+      independently on GitHub review 36887407579 and GitLab review 9174;
+      GitHub full-quality run 36888622433 also passes the complete native
+      quality graph on macOS, Linux and Windows. October 2 terminal readbacks
+      bind each result to that exact SHA. Accepted-ref parity and release
+      version are correctly skipped in review/manual contexts, not qualified
+      by those runs. Focused CUE projection regressions pass, including cache
+      isolation and noninterruptible persistent Shell jobs. Static quality and
+      pure-Go Secret Service require no compiler; native Linux race alone
+      installs gcc/libc headers. Original prerequisite, ESRCH and sandbox
+      failures remain in `linux-prerequisite-*`, `linux-capability-*` and
+      `windows-native-sandbox-*`. October 2 `df7` terminal readbacks remain
+      in the existing verification owner. Event/merge admission,
+      persistent-runner containment, cold-peer transport and final distributed
+      client bytes remain in 7.2, 7.4, 7.5 and 9.3.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
       guarded merge, source-ref deletion, signer trust and branch protection on each
       selected peer without interactive authentication or divergent commit
@@ -592,9 +588,20 @@
       Distinguishing RED/GREEN covers ordinary/no-credential and invalid
       selection, exact selected mirror ownership and unchanged filenames.
       The original failure and focused results remain in `cold-tool-source-*`.
-      Fresh cold execution and peer-copy publication remain unproved; ETHOS
-      publication/retirement feedback is tracked in its existing owner through
-      issue 12, not another AIGW Change.
+      Corrected GitLab cold pipeline 9172 at `4fd40cf6` installs 18 native,
+      15 quality and 2 Secret Service tools into empty hidden job-local roots;
+      all three jobs pass. Earlier 9171 downloaded its tools but exposed a
+      caller-input error: a nonhidden tool directory entered Go's package scan.
+      The supplied 42 x64 assets retain exact lock checksums. Native offline
+      verification qualifies their 17 provenance-bearing inputs and the four
+      already-mirrored provenance entries, covering all 21 declared provenance
+      entries in the 48-entry x64 lock scope. Actions build provenance and
+      vendor release-service attestations retain their distinct actor contracts.
+      Those facts do not prove actual Job Token identity, one-peer outage,
+      reciprocal publication or cold execution of the complete lock scope.
+      Keep these obligations open. Raw evidence stays in the existing verification
+      and `independent-peer-x64-inputs-20261001-01a0ccfc` recovery owners;
+      ETHOS support-tag publication remains at its existing issue 12.
 
 ## 8. Repository Topology, Documentation, and Deletion
 

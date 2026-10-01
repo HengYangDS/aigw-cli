@@ -404,5 +404,12 @@ Before that host cutover, the exact final production reader must authorize each
 selected Account and diagnostic item, preserve captured original commands and
 rollback, and qualify the measured package-link transition. Ad-hoc candidate
 success, an unchanged signer or an item label cannot substitute for that read.
+The one-time 0.3.1 Homebrew transition must preproject versioned commands,
+prefetch the final package, measure the bounded unlink/relink gap, verify the
+captured original commands immediately, and restore the predecessor on failure.
+Retain old items and readers for cached and rollback callers; disclose residual
+cached-public-link risk. Later versioned commands remain callable throughout
+replacement. These are post-archive acceptance conditions, not prerequisites
+for the pre-archive candidate tasks.
 No credential prompt, service restart, client history rewrite, or unverified
 automatic backend fallback is a migration step.
