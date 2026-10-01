@@ -84,8 +84,8 @@
       36563790078 at `49ba0c5ec5503b4365ff1f0c01555c05c97ca03e` passed
       the published `v0.3.1` predecessor Keychain journey on a disposable macOS
       runner, including rollback rotation and explicit restaging. Operator-item
-      authorization, Linux host credential service, and Windows native-store
-      and real-client proof remain open.
+      authorization, Linux host credential service and Windows real-client
+      proof remain open.
       The signed `2c7fbe89` Linux ARM64 candidate also passes authentic 0.3.1
       succession with an isolated real DBus/GNOME Secret Service as UID 1000.
       Automatic backend selection is keyring; old and new commands remain
@@ -99,6 +99,9 @@
       The unchanged `ebf9adff` Linux candidate also passes the signed
       `00e58c70` system-store fixture with a real isolated Secret Service and
       published 0.3.1 predecessor; see the native-store scope in 5.2.
+      Native Windows Credential Manager also passes the unchanged candidate's
+      retained-reader fixture at signed `00e58c70`; see 5.3. These isolated
+      synthetic items do not authorize the final operator reader.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
@@ -241,7 +244,7 @@
       owned processes or child directory, and restored service, pauses and
       VM isolation. Native Go cache cleanup followed by exact read-only Git
       pack teardown closes the earlier cleanup failure without a product
-      rerun. Real clients, Credential Manager, performance and arbitrary-code
+      rerun. Real clients, performance and arbitrary-code
       review containment remain unqualified.
       October 1 signed `00e58c70` verifier also passes the unchanged candidate's
       portable lifecycle in 5.58 seconds and all five resource cases in 62.91
@@ -249,6 +252,16 @@
       source files; exact child/process cleanup preserves the serving identity,
       six Runner pause states and VM isolation. These are environment-backend
       journeys, not Credential Manager or actual-client acceptance.
+      The separate native Credential Manager journey now passes in 7.64 seconds
+      at signed `00e58c70` with exact candidate and published 0.3.1 bytes.
+      Receipt `3ea7175b` binds the actual service identity, native backend,
+      retained-reader upgrade/rollback/re-upgrade, rotation/rename/diagnostics
+      and uninstall/reinstall. Both test teardown and independent outer cleanup
+      prove the four exact owned synthetic slots absent; child, processes and
+      listeners are reclaimed, with source hashes, serving identity, original
+      pauses and VM isolation conserved. No operator Token is touched or logged.
+      This success path does not prove native-store fault injection, real
+      clients, Runner containment, performance or final distribution.
 
 - [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
       environment backend separately in isolated acceptance; final operator-item
