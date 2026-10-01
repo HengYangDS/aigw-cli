@@ -229,6 +229,12 @@
       pack teardown closes the earlier cleanup failure without a product
       rerun. Real clients, Credential Manager, performance and arbitrary-code
       review containment remain unqualified.
+      October 1 signed `00e58c70` verifier also passes the unchanged candidate's
+      portable lifecycle in 5.58 seconds and all five resource cases in 62.91
+      seconds. Receipt `3cdaeb1c` binds 1,244 inputs, including 1,228 signed
+      source files; exact child/process cleanup preserves the serving identity,
+      six Runner pause states and VM isolation. These are environment-backend
+      journeys, not Credential Manager or actual-client acceptance.
 
 - [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
       environment backend separately in isolated acceptance; final operator-item
@@ -258,44 +264,24 @@
       Bindings and projections, and retains seeded user configuration through
       sync and uninstall. Published-byte and real-client claims remain in
       5.2-5.4 and 4.5.
-- [ ] 5.6 Compare owned process, helper, temporary, journal, build and
+- [x] 5.6 Compare owned process, helper, temporary, journal, build and
       client-projection resources before/after success, failure, timeout and
       interruption; exact teardown preserves active installations and evidence.
-      Focused transaction regressions cover cancellation and reader loss
-      after projection admission; test cleanup has its own bounded context.
-      Exact `ebf9adff` public Hermes verification passes five abnormal-return
-      cases on macOS and Linux ARM64 container: success, client failure,
-      parent exit, active SIGTERM and the actual 60-second protocol deadline.
-      Each preserves private config, projection, reader and program inventories,
-      removes the verification home and owned descendants, and preserves an
-      unrelated process. Both independent packaged-abnormal receipts record
-      reclaimed scratch and unchanged candidate bytes. These synthetic-client
-      environment-backend results do not prove Windows, native Linux host,
-      real-client or final signed-artifact acceptance; those scopes remain open.
-      The same five-case contract now has one portable tracked release fixture,
-      including native Windows console cancellation and exact process handles.
-      The existing native acceptance owner invokes it with the chosen candidate;
-      canonical lint includes its build tag. The fixture passes on exact macOS
-      candidate bytes and compiles for Windows ARM64. Full source quality and
-      strict coverage pass without changing the 500-line limit. Windows native
-      execution and final peer qualification remain required.
-      Signed `bf35796c` also repairs Windows-selected lint before native
-      execution; all three OS selections and the complete source gate pass.
-      Its exact-source ARM64 fleet pilot passes success, failure, parent-exit,
-      the actual 60.37-second deadline and assertion cleanup. Interrupt alone
-      originally fails with sender exit `0xc000013a`. Signed `3e68e5e7`
-      waits for the console-event acknowledgement before checked cleanup;
-      its exact-source interrupt-only native successor passes in 0.56 seconds
-      with unchanged candidate and resource inventory. The original RED and
-      actual native GREEN remain distinct receipts, not an all-five-case
-      final-source claim. The executor's empty-cache cleanup prerequisite was
-      separately repaired; all exact owned children and processes are absent,
-      with original pauses, isolation and service identity preserved. Final
-      native-source, store, client and distribution qualification remain open.
-      The `90e13374` native Linux host run also passes the complete five-case
-      contract against unchanged `ebf9adff` bytes, with exact owned resources
-      reclaimed. Windows final-source, real-client and native-store scope is
-      not inferred from this result.
+      The existing tracked fixture runs success, client failure, parent exit,
+      native interrupt and the actual 60-second deadline against unchanged
+      `ebf9adff` bytes. October 1 macOS receipt `6ebedb4d`, native Linux UID
+      1006 receipt `50c98b70` at verifier `90e13374`, and native Windows receipt
+      `3cdaeb1c` at verifier `00e58c70` all pass. Their relevant fixture blobs
+      equal current source; Windows executes all five cases in one green run.
+      Each preserves configuration, projections, readers, program and unrelated
+      processes; owned verification homes and descendants are reclaimed.
+      Raw RED evidence for Windows console interruption and failed assertion
+      cleanup remains retained alongside their native/focused successors.
+      Source/race regressions also cover cancellation, reader loss and cleanup's
+      independent bounded context; full source coverage remains above 95%.
+      This closes the isolated resource contract, not native-store, real-client,
+      hosted CI, operator cutover or final-distribution acceptance, which remain
+      at 4.5, 5.2-5.4, 7.x and 9.3.
 
 ## 6. Quality, Supply Chain, and Performance
 
