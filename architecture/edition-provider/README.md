@@ -1,52 +1,68 @@
-# AIGW Architecture Edition Provider
+# AIGW Client Projection Edition Provider
 
-This directory is the sole AIGW-owned input boundary for Architecture
-Publisher. It describes one selected AIGW architecture as portable data; it
-does not add an AIGW command, execute product code, publish artifacts, or grant
-acceptance.
+This directory owns one explanatory Client Projection chapter, not the whole
+AIGW product. AIGW owns its facts, editorial choices, acceptance and release.
+Architecture Publisher compiles the selected inputs without granting approval.
 
-## Owned values
+## Inputs and ownership
 
-| Path                      | Responsibility                                                                                                     |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `provider.json`           | Closed `architecture.edition-provider/v1` selection.                                                               |
-| `selection.json`          | Exact Publisher package and migration-parity identities selected by AIGW.                                          |
-| `_source/manifest.json`   | Source Bundle manifest for the selected AIGW revision.                                                             |
-| `_source/semantic.json`   | Current Claim Model and semantic source of the Edition.                                                            |
-| `_source/source/**`       | Immutable source bytes named by the Claim Model provenance.                                                        |
-| `edition.json`            | Audience, questions, coverage, narrative, and medium-independent visual grammar.                                   |
-| `evolution.json`          | Declared comparison with the retained registry-era architecture.                                                   |
-| `provider-evolution.json` | Deterministic inline projection of `evolution.json` consumed by the Provider contract.                             |
-| `history/**`              | Immutable values required to reproduce that comparison.                                                            |
-| `materialize.mjs`         | Maintainer-only deterministic materialization from live selected source and one exact published Publisher package. |
+| Path                                      | Responsibility                                                                               |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [claim-model.json](claim-model.json)      | Authored entities, typed relations and claims, with exact native-source provenance.          |
+| [edition.json](edition.json)              | Four reader questions, scope, narrative and independent static/interactive views.            |
+| [provider.json](provider.json)            | Declarative `architecture.edition-provider/v2` selection of those two files.                 |
+| [build-request.json](build-request.json)  | Public `architecture.build-request/v1` selecting one Provider and both media.                |
+| [selection.json](selection.json)          | Exact published compiler package and Git-bound predecessor for rollback.                     |
+| [source tests](test/source.test.mjs)      | Selected byte identity, live provenance, preserved meaning and rollback availability.        |
+| [installed test](test/installed.test.mjs) | Exact package, relocated offline replay, direct/declarative input parity and tamper refusal. |
 
-The `_source` prefix prevents Go tooling from treating captured provenance as
-live packages. The files below it are a closed Source Bundle, not a second
-implementation. `provider-evolution.json` is generated from the path-based
-comparison and has no independent authority. Live AIGW behavior remains owned
-by the repository source paths named in the Claim Model.
+The Claim Model's `source/` locators identify repository-relative provenance;
+they are not retained copies. Source tests resolve those locators to live tracked
+owners. Publisher reports internal Claim Model provenance as unverified: byte
+consistency does not certify implementation truth. The model remains native
+AIGW-authored input, not a Publisher-derived projection.
 
-## Lifecycle
+## Reproduce
 
-1. Select an exact AIGW revision and update the Claim Model and Edition when
-   their intended meaning changes.
-2. Run `materialize.mjs` with the exact archive, package identities, and release
-   manifest named by `selection.json`. It derives the source inventory from the
-   Claim Model and invokes the selected Publisher's native `source pack` and
-   `edition build` operations.
-3. Update `provider.json` and `selection.json` with the resulting exact
-   identities.
-4. Run the source contract test, then the installed-provider test against the
-   exact package archive selected by `selection.json`.
-5. Treat generated Candidate, PNG, SVG, HTML, qualification, and publication
-   bytes as reproducible outputs. Do not commit them here as source truth.
-6. Admit and publish those outputs only through AIGW's own review, evidence,
-   release, and custody lifecycle.
+The repository's locked quality graph runs the source tests. To qualify the
+published compiler independently, supply its exact archive and release manifest:
 
-Use `--check` to reproduce the complete generated state without changing tracked
-files. Materialization validates every result before replacing any tracked file;
-each replacement is atomic and rollback restores the prior set if a write fails.
+```bash
+ARCHITECTURE_PUBLISHER_ARCHIVE=/absolute/path/to/selected-package.tgz \
+ARCHITECTURE_PUBLISHER_RELEASE_MANIFEST=/absolute/path/to/release-manifest.json \
+TMPDIR=/absolute/path/to/owned/scratch \
+  mise exec --locked -- node --test architecture/edition-provider/test/installed.test.mjs
+```
 
-Architecture Publisher is a non-authorizing compiler. A successful build or
-conformance run cannot advance AIGW refs, approve an AIGW Change, or replace
-AIGW's architecture and quality policies.
+This installs only the selected local archive in an isolated consumer, offline
+and without lifecycle scripts. No neighboring Publisher checkout is imported.
+The installed test exercises the public `archpub edition build` entry point;
+there is no AIGW Provider command or generic materialization controller.
+
+For a normal build, resolve the exact installed compiler selected by
+`selection.json`, compute the Build Request's SHA-256, and invoke:
+
+```bash
+archpub edition build /absolute/path/to/build-request.json \
+  --sha256 <exact-request-sha256> --output /absolute/path/to/new-candidate
+```
+
+Output is an unqualified Candidate, not accepted source or a release. Direct and
+declarative modes preserve identical selected contents and media, but their
+closure metadata and Candidate identities are not interchangeable approval.
+Generated locks, Candidates and media belong in owned untracked output, not
+beside source inputs as another authority.
+
+## Change and rollback
+
+When selected source meaning changes, update its Claim Model provenance and
+editorial selections deliberately. Update the Provider's exact file sizes and
+hashes, then the Build Request's Provider hash. The compiler owns derived locks
+and Candidate identities; AIGW does not maintain copies of them.
+
+`selection.json` pins the signed predecessor commit and complete Provider tree.
+Git can reconstruct that entire tree, including its original compiler selection
+and captured provenance, in an owned rollback checkout. The pre-migration
+installed replay is retained as evidence; do not reinterpret v1 bytes as v2 or
+restore obsolete copies into the live owner. Native source and installed tests
+must pass before retiring replaced inputs.

@@ -120,65 +120,27 @@
       live inference for DMXAPI, UCloud, and AIHubMix; retain only qualified
       models/variants and one consistent naming grammar, with source and date for
       each claim.
-      The [September 30 catalogue observation](../../../docs/research/provider-model-qualification.md#provider-catalogue-and-route-evidence)
-      lists all 60 then-shipped Route IDs on their Account/protocol surfaces.
-      A later direct AIHubMix Chat request for `solar-pro4` returned HTTP 400
-      `no_available_channel`, so that Route and its unreferenced Model were
-      removed; the September 30 curation had 56 Routes after replacing three
-      GPT-6 Sol Routes with
-      AIHubMix, DMXAPI, and UCloud GPT-6.1 Sol Routes and withdrawing the Fable 5.1 CC
-      channel after three bounded requests failed to complete and withdrawing
-      the currently unavailable AIHubMix MiMo Route. Direct DMXAPI
-      text and strict function-call probes plus two isolated Codex tool loops
-      passed that earlier input, not the later full continuation. Official
-      Hermes v0.21.5 source also
-      completed two direct DMXAPI 6.1 Sol turns, and an isolated AIGW `verify`
-      completed after staging its versioned reader. Later UCloud 6.1 Sol
-      inference and installed Codex/Hermes `verify` sessions also passed.
-      A catalogue listing alone did not qualify either client. All remaining
-      exact Account/wire/protocol contracts have dated completed inference and
-      at least one compatible native-client observation. The October 1
-      [curated choices](../../../docs/research/provider-model-qualification.md#curated-model-choices)
-      review supplies the Gemini, GLM, Kimi and Qwen primary-source rationale;
-      vendor positioning is not an independent global ranking. Low-level import
-      now accepts an explicit set of
-      obsolete Routes in the same guarded commit as the incoming catalogue;
-      focused tests preserve selected Routes and shared or incoming Models,
-      reject invalid selectors before writing, and reject dangling retained
-      recommendations. October 1 metadata-only import installed 26 Models and
-      57 Routes, retired twelve obsolete unselected Routes, and preserved
-      Accounts, explicit bindings and credential commands. The historical
-      reader's Hermes menu projection failed exact wire-ID acceptance and was
-      fully rolled back, preserving all sixteen protected file identities.
-      The current native team journey checks delivered wire IDs, channel
-      variants and unowned settings; final-artifact host synchronization remains
-      open.
-      Public Route addition now distinguishes canonical `--model` from an
-      optional exact `--upstream-model`; catalogue continuation supplies the
-      required `--protocol`. RED/GREEN and sibling tests preserve existing
-      Model identities, Routes and Client selections without alias inference.
-      A later full-manifest inference audit rejected only AIHubMix Fable 5.1
-      with an explicit temporary model-unavailable HTTP 400. That Route is
-      withdrawn from the shipped catalogue; DMXAPI and UCloud Fable remain.
-      The diagnostic regression distinguishes that refusal from malformed
-      model requests and preserves one bounded request with no auth retry.
-      Independent `9cf23cb8` AIHubMix acceptance checks 25 shipped Routes:
-      24 pass, while MiMo reports model_unavailable. One official SDK request
-      with retries disabled confirms HTTP 400. Withdraw only that Account's
-      Route; retain the canonical Model and qualified UCloud Route. RED/GREEN
-      and complete team-manifest tests pass. Current source exports 26 Models
-      and 58 Routes after the independently qualified Sol 6.1 CDX and
-      AIHubMix MiniMax M3 CC channels are added under their existing logical
-      Models. Only unselected Codex clients
-      prefer that channel; UCloud and AIHubMix retain their order and current
-      explicit selections are preserved. The plain DMXAPI continuation failure
-      remains disclosed in the existing
-      [qualification owner](../../../docs/research/provider-model-qualification.md#provider-catalogue-and-route-evidence).
-      Earlier artifact evidence retains its original identity.
-      The seven-path native team journey consumes the current manifest and
-      signed `9544b98d` candidate, including sparse/deferred setup and exact
-      CDX menu projection. Focused RED/GREEN, Go quality, formatting, ELOC,
-      TOML, Markdown, spelling and strict OpenSpec checks pass.
+      Current signed `80dbca19` and its exact 0.3.3 candidate contain 26
+      Models and 58 Routes. The independent October 1 public setup/use/check
+      matrix passes every exact Account/wire/protocol pair once: DMXAPI 18/18,
+      UCloud 15/15 and AIHubMix 25/25; 37 Responses, 11 Chat and 10 Anthropic
+      routes. No-account setup remains Deferred with `ok=false`. Source,
+      candidate and twelve protected operator identities remain unchanged;
+      owned processes and 113,841,464-byte scratch are absent. Receipt
+      `independent-current-provider-80db-20261001-01a0ccfc/delivery.json`,
+      SHA-256 `9ffa097b805addc16e1fb9bc1f8c63f18448597d94eb95d2cbbf672083b6ab63`,
+      is retained under the existing AIGW recovery owner. This proves dated
+      inference, not sustained availability, authentic client continuation,
+      global ranking or installed cutover. Native evidence for those scopes
+      stays in 4.4–4.5 and 9.3.
+      [Catalogue qualification](../../../docs/research/provider-model-qualification.md#provider-catalogue-and-route-evidence)
+      retains withdrawn unavailable Routes, the plain DMXAPI Sol 6.1
+      continuation limit and MiniMax's native Codex limit. Qualified CDX/CC
+      alternatives share existing logical Models. Guarded import/add
+      regressions preserve sparse Accounts, explicit selections, external
+      credential commands, shared Models and exact upstream wire IDs; invalid
+      or dangling recommendations fail before mutation. Historical artifact
+      evidence is retained with its original identity, not copied as current.
 - [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
       Providers; no control-plane command claims request-time failover.
@@ -702,8 +664,8 @@
       test bundles. On October 1, the historical architecture lane's holder
       completed native retirement `66292c29`: its exact worktree, ref and lease
       are absent; signed source `01776f2f`, 3,348 raw-evidence members and eight
-      analyzer members remain in the existing recovery handoff. Incomplete v2
-      research is retained, not integrated or promoted to a release prerequisite.
+      analyzer members remain in the existing recovery handoff. The retained v2
+      research is not acceptance; source-owned migration is required by 8.6.
       Only this terminal authoring lane remains. The current 0.3.3 candidate,
       raw verification/notarization evidence and active dependencies remain;
       obsolete tag, remote and final output retirement are still open. A later
@@ -724,6 +686,27 @@
       remains separate from the existing review ref. Native retirement preview
       refuses it as not accepted; retain the object and resolve precise owned
       projection retirement at ETHOS, not by bypassing hooks.
+- [x] 8.6 Migrate the Client Projection Edition Provider to the published
+      Publisher v2 contract. Preserve the authored Claim Model, four reader
+      questions, independent media and AIGW acceptance authority; prove exact
+      package inputs, direct/declarative equivalence, relocated offline replay,
+      invalid-input refusal and Git-bound rollback before deleting the v1
+      materializer, captured source copies and duplicate generated identities.
+      Exact alpha.7 archive and published release-manifest inputs pass native
+      installed replay. Direct and declarative modes conserve the same input
+      lock, selected meaning, question obligations and media; distinct closure
+      metadata remains distinct. Two relocated offline consumers reproduce all
+      Candidate members; tampered input fails without output and restoration
+      reproduces the original Candidate. The Claim Model bytes, twelve entities,
+      eleven relations/claims and four reader questions are preserved. Native
+      Chrome verifies all four pages, keyboard navigation and reduced-motion
+      loading without horizontal overflow. Exact predecessor replay passes
+      before twenty-one superseded files are removed, with Git-bound rollback
+      retained; net tracked content falls by more than 7,000 lines. Source/text
+      tests pass 61 cases; native format, Markdown, links, spelling, OpenSpec,
+      architecture and ELOC checks pass. Evidence: `publisher-v2-*` under the
+      existing `build/verification/supply-chain-20260930/` owner. This accepts
+      the source integration, not whole-product editorial scope or publication.
 
 ## 9. Frozen Source and Pre-Archive Acceptance
 
@@ -749,9 +732,9 @@
       The existing public Windows-target tests cover Unix identity behavior
       without a coverage-only test or suppression. Credential/projection
       siblings pass; the original per-file RED profile remains evidence.
-      Native Node tests bind the selected Publisher alpha.1 archive, identities
-      and manifest. Installed and ordinary source counterexamples reject stale
-      selected owners. Official materialization refreshes existing carriers;
+      Historical Native Node acceptance selected Publisher alpha.1;
+      current source replaces that v1 boundary through 8.6. Installed and
+      ordinary source counterexamples reject stale selected owners.
       native formatter/Markdown/Mermaid behavior moves to one Node suite while
       Go retains inventory/wiring tests. All 41 JUnit cases pass without skips;
       LCOV observes all four production modules. The full local gate passes at
@@ -806,3 +789,20 @@
       journey passes. The initial local-only build omitted those inputs; its
       mismatch, original metadata and corrected comparison are retained.
       This source/input correction is not final signing or installed cutover.
+      The exact `80dbca19` matrix conserves the previously qualified six
+      archives/programs while refreshing provenance. Native resource and
+      published-predecessor acceptance pass; Claude, Codex, fourteen general
+      Codex choices and its tool loop pass. Hermes's missing companion PATH is
+      an invocation omission: the corrected four-step predecessor/candidate/
+      rollback/re-upgrade journey passes in 60.401 seconds without product
+      fallback. Full source proof passes in 372.608 seconds with all 1,229
+      hashes unchanged. The same proposal SHA is read back on both peers;
+      GitHub run 36871511315 passes all five required jobs. GitLab pipeline
+      9155 exposes Linux apt timeout plus swallowed prerequisite failure, while
+      macOS passes and Windows remains in cold-tool acquisition. That control
+      defect is returned to the existing CUE owner; no product acceptance is
+      claimed for jobs that did not reach it. Receipt/log owners are
+      `native-current-candidate-80dbca19-*`,
+      `native-current-hermes-80dbca19-companion-path-*`,
+      `terminal-source-full-proof-80dbca19-*` and
+      `80dbca19-*-current-recovered-snapshot.*` in the same verification root.

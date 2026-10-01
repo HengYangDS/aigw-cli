@@ -1,0 +1,17 @@
+{
+  "schema": "architecture.build-request/v1",
+  "edition": {
+    "kind": "provider",
+    "provider": "aigw-client-projection-edition"
+  },
+  "sources": [],
+  "providers": [
+    {
+      "id": "aigw-client-projection-edition",
+      "manifest": "provider.json",
+      "sha256": "f24114194031938318e7043c3cf4ad43074ca0ddac9d1797899e771faf5cb9f9"
+    }
+  ],
+  "media": ["static", "interactive"],
+  "toolchain": { "profile": "portable" }
+}

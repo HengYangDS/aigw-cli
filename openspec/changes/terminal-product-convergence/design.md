@@ -347,6 +347,7 @@ system, not a macOS result reused for Linux or Windows.
 | 8.2–8.3 | [organization] · Semantic documentation architecture                         | `docs/`, `tools/ci/markdown`                           | `mise run check`                                                            |
 | 8.4     | [quality] · Engineering-reference quality is demonstrated by behavior        | `docs/decisions/`, affected package owner              | Source-backed comparison; `mise run check` if adopted                       |
 | 8.5     | [quality] · Delivery completion is evidence-bound                            | Git common-dir, release/ETHOS owner                    | `git worktree list --porcelain`; exact residue audit                        |
+| 8.6     | [organization] · Source-owned architecture inputs have one authority         | `architecture/edition-provider`                        | Native source tests; exact published Provider v2 offline replay             |
 | 9.1–9.2 | [quality] · Source acceptance precedes delivery completion                   | OpenSpec, `tools/ci`                                   | `mise run check`; strict OpenSpec validation                                |
 | 9.3     | [control] · Native released-artifact lifecycle acceptance                    | `tools/release`                                        | Build-only `mise run release`; `mise run native` on all three OSs           |
 

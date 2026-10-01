@@ -1,52 +1,22 @@
 {
-  "schema": "aigw.architecture-publisher-selection/v1",
+  "schema": "aigw.architecture-publisher-selection/v2",
   "publisher": {
     "name": "architecture-publisher",
-    "version": "0.3.0-alpha.1",
-    "archiveSha256": "c2707bcffc9ba0cea277cb3b6f4fb6f04f2755996781f92c035fa9cadb4dcc37",
-    "contentTarSha256": "6b0a925f85879ea7a576c5153849e2741d2e54fcd83bf068cfb5a473b8c7d682",
-    "state": "published",
+    "version": "0.3.0-alpha.7",
+    "archiveSha256": "0c24ef1b831de79255dfb1e3180ab49e8d203bb1906e79d1917a529ae0160e35",
     "release": {
-      "tag": "v0.3.0-alpha.1",
-      "commit": "855c7c82b95f17a9f7c1c70d173f513e79b1f617",
-      "manifestSha256": "d0146a5a8b62d351227ed535b13d2b4642e0bf448705cda7440cc464c654b7b7",
-      "packageIdentitiesSha256": "a5f59a0e668fa9279d31e4e0cc11d95f3e4e7e21242a7bc4329cad790c8293ca"
+      "tag": "v0.3.0-alpha.7",
+      "commit": "0788d916b96f6868a3380bdb627705a6a1fe037b",
+      "manifestSha256": "59ae64a187b13a59b70b735f3c8a721eae1b23f2aa71a50a05a523ca9bb09b36"
     }
   },
-  "providerManifestSha256": "bfd910fe8fba4f3485144801227b91ede78e0e173fb5f7e02fec5e3809482e8c",
-  "providerOutput": {
-    "manifestSha256": "f9c2d6da24b36f6c89f4920d2f0eb8b6824fdd39745223a31d8b43b4ff806228",
-    "providerMaterializationSha256": "550938cb2045af4f3e95ba5e2667d6b6af2961eb6c9e8c0e8dcee53e55ea0eee"
-  },
-  "migrationBaseline": {
-    "ownerCommit": "71da0af8cbaeaeb1b59fafd5ddabe59be7248627",
-    "ownerTree": "20de90269ae0fc10d3562a1be1d5903ae444d4c6",
-    "editionTree": "2f108ccd365529c16954280eaa246cb2b689130f",
-    "semanticRevision": "dcfb274c4cb5bc8c87d9d1a21867768ea39cffdc",
-    "files": {
-      "README.md": "9b057616d757ccd682289975b3566bfafb44a892050dbd0d0dbaf445154c0785",
-      "claim-model.json": "ce5511a08cd9992fe37a3139a4dc39d0050757b5505bd6605e206cf2d95846b7",
-      "edition.json": "6dfb612864db1a3872dcb81d1c7ef8650266a1b3165a2c6110f6a14a41381262",
-      "evolution.json": "9f7765a9f5c870505e3c5052f370518641ec072ce68df05ef7d5063368faed80",
-      "history/registry-v1-claim-model.json": "a99ef1a4348461d622a0b357368343992af1d824f7a6586675f480c17c4a6ea4",
-      "history/registry-v1-edition.json": "101e60a865f03f60bdbc0994edf2431a3027b02971aefc57682244028b2c27fb"
-    },
-    "providerEvolutionSha256": "b366e76938900afddb1905995067b4f655d2709481922fd32078c2d16786de3d",
-    "candidate": {
-      "manifestSha256": "a414bd81e6c01eadf15148b723362034befb8ab675f8dc984e5c188d503dc263",
-      "candidateSha256": "6118666ce4dcb36c32d43cf8dda0dc393cc5d6959188a2bf24f12e18cba75e9c",
-      "semanticDigest": "56f7b46fc50f20f612d252ded06267a8f7784f7a4d25ee6d0753a7ca759035c9",
-      "editionDigest": "4675c3effc593570fa65ad3ef30059738c4604a9b987ca2d70f7e12fed18120f",
-      "staticSceneDigest": "445f374686b71c10d52b713a25b2125fef996786f9ff01ff1196d58e2c29927a",
-      "interactiveSceneDigest": "29f15c7116857d78d427a3b6687126c3a1c33543fd6877cc687def694874eea2",
-      "pngSha256": "7330cac6faa872cb5bced514cc7cc848ab1d9d60cca7c0c620f7e339f43e4a04",
-      "svgSha256": "7f9ab1aec2f520dbdc68c9303da9cea0c87e8cf2a566fc6c134b60582be1ffe1",
-      "overviewHtmlSha256": "58d2b76677f4b6e846176c4e2e282686979335b521cf658f0d48a7cb4c9a1278"
-    }
+  "rollback": {
+    "commit": "80dbca1948bf6cf0cab59c6368b168ba6657a29b",
+    "tree": "a007a5b46d006d6ccb58874ab499dd3798fe2503"
   },
   "authority": {
     "subject": "AIGW",
-    "subjectRepository": "dig/misc/tools/llm-third-party-api/aigw-cli",
+    "scope": "Client Projection only",
     "authorizationOwner": "AIGW",
     "publisherRole": "non-authorizing compiler",
     "generatedArtifacts": "untracked-reproducible-output"
