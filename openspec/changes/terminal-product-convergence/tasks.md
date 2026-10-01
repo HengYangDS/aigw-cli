@@ -665,6 +665,15 @@
       remains separate from the existing review ref. Native retirement preview
       refuses it as not accepted; retain the object and resolve precise owned
       projection retirement at ETHOS, not by bypassing hooks.
+      Exact October 2 peer refs still have four accepted branch names pointing
+      at `gh` 2.101.0: GitLab main/dev share `12ca86f9`; GitHub main is
+      `f17bb3b2` and dev is `2aa58eea`. The proposal on both peers and current
+      work lane use 2.102.0. Keep the three old ARM64 assets until all four
+      accepted locks move. The two 2.102.0 release metadata files serve the
+      current proposal; retain the OSV signed attestation with its verification
+      evidence. These six mirror entries are not a deletion set; reconsider only
+      after accepted refs, metadata consumers and retained provenance reach
+      their terminal owners.
 - [x] 8.6 Migrate the Client Projection Edition Provider to the published
       Publisher v2 contract. Preserve the authored Claim Model, four reader
       questions, independent media and AIGW acceptance authority; prove exact
