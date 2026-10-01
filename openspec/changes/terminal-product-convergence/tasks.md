@@ -102,6 +102,11 @@
       Native Windows Credential Manager also passes the unchanged candidate's
       retained-reader fixture at signed `00e58c70`; see 5.3. These isolated
       synthetic items do not authorize the final operator reader.
+      Current `3f6723c7` macOS run 36851755292 passes authentic published
+      0.3.1 Keychain succession, rollback rotation and explicit restaging;
+      Windows native-store/client closure is recorded in 5.3. The three
+      isolated platform results remain separate from the final exact operator
+      reader and the actual Homebrew link transition, which are still open.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
@@ -341,6 +346,19 @@
       separate from this environment-backend acceptance.
       The private copied-test-reader evidence in 3.5 does not close final
       production-reader authorization or Desktop GUI acceptance.
+      Disposable GitHub macOS run 36851755292 at `3f6723c7`, job 110334863497,
+      now passes core, shipped-team, all resource failure outcomes and authentic
+      published 0.3.1 Keychain succession without warnings or skipped tests.
+      Its candidate program is `c38d9da4`; it does not authorize retained
+      operator items. Current `9544b98d` local matrix separately passes
+      environment-backend lifecycle and actual Codex 0.159.3/stable Claude
+      2.1.285/installed Hermes succession in 235.212 seconds. One deferred
+      Desktop test explicitly skips because Desktop is already installed;
+      official Hermes and Desktop GUI remain independent in 4.5. Raw logs and
+      exact caller inputs are `3f6723c7-macos-native-keychain*` and
+      `native-current-9544b98d-macos-current-trust*` under the existing
+      `build/verification/supply-chain-20260930/` owner. Final operator-item
+      authorization and distributed-byte cutover remain open.
 - [x] 5.5 Verify missing Codex/Claude at setup and later installation on each
       platform; deferred sync must touch only installed admitted clients and
       preserve user-owned files. GitHub run 36560334613 at
@@ -713,3 +731,13 @@
       actual-client execution is recorded in 5.3. Current final bytes,
       native-host stores, Desktop GUI, production signing and installed cutover
       remain unqualified.
+      Signed source `9544b98d` rebuilds the six-platform candidate in 10.14
+      seconds with all 1,229 tracked hashes conserved. Each program/archive
+      equals the previously qualified `9cf23cb8` bytes; current provenance and
+      full-matrix detached signature are regenerated, not borrowed. Public
+      artifact admission initially rejects incorrectly selected Git-only trust
+      and principal; selecting the unchanged Forge-declared artifact trust and
+      signer resolves the prerequisite without widening trust. Current-source
+      manifest, governance and final distribution remain separate. Exact
+      archive comparisons are `9544b98d-six-platform-archive-identity-comparison.json`;
+      native macOS execution and its limits are recorded in 5.4.
