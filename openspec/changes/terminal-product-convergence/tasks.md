@@ -544,9 +544,13 @@
 - [x] 7.1 Reconcile the complete CUE CI graph with generated GitHub and GitLab
       projections; prove no hand-edited workflow drift or missing source, native,
       release or publication owner.
-- [ ] 7.2 Cover developer proposal create/update and review SHA, maintainer
-      fast-forward, dev, main and tag events; each required check must execute on or
-      attest the exact admitted object.
+- [ ] 7.2 Prove both peers' exact-SHA event-to-check contract for developer
+      proposal create/update/review, maintainer fast-forward, accepted `dev`/`main`,
+      and signed-tag pushes. Run the exact candidate's proposal checks on both
+      peers; CUE and projection regressions must bind each other event to its
+      intended commit SHA and required-job set. Actual `main`/tag results against
+      the archived SHA are post-archive release acceptance under Migration Plan;
+      do not infer them from projection tests or a manual run.
       October 2 refs: GitLab main/dev share `12ca86f9`; GitHub main `f17bb3b2`
       is an ancestor of dev `2aa58eea`. All seven GitHub-only commits from that
       accepted history are already ancestors of the current proposal on both
@@ -576,10 +580,13 @@
       persistent-runner containment, cold-peer transport and final distributed
       client bytes remain in 7.2, 7.4, 7.5 and 9.3.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
-      guarded merge, source-ref deletion, signer trust and branch protection on each
-      selected peer without interactive authentication or divergent commit
+      guarded-merge policy, source-branch auto-delete configuration, signer trust
+      and branch protection on each selected peer without interactive
+      authentication or divergent commit
       identities. Prove untrusted review code cannot observe persistent Shell
       runner credentials or protected-job state; retain required native evidence.
+      A policy readback proves configuration, not deletion: observe the exact
+      proposal source ref absent after its guarded merge in the delivery sequence.
       On September 30, GitHub dev/main require five GitHub Actions app-bound
       checks, including Linux Secret Service, with strict and admin enforcement;
       GitLab requires pipeline success, resolved discussions and source-branch
@@ -699,15 +706,24 @@
       remains separate from the existing review ref. Native retirement preview
       refuses it as not accepted; retain the object and resolve precise owned
       projection retirement at ETHOS, not by bypassing hooks.
-      Exact October 2 peer refs still have four accepted branch names pointing
-      at `gh` 2.101.0: GitLab main/dev share `12ca86f9`; GitHub main is
-      `f17bb3b2` and dev is `2aa58eea`. The proposal on both peers and current
-      work lane use 2.102.0. Keep the three old ARM64 assets until all four
-      accepted locks move. The two 2.102.0 release metadata files serve the
-      current proposal; retain the OSV signed attestation with its verification
-      evidence. These six mirror entries are not a deletion set; reconsider only
-      after accepted refs, metadata consumers and retained provenance reach
-      their terminal owners.
+      The October 2 read-only inventory at HEAD `32965a05` confirms three clean
+      managed worktrees (primary `dev`, `candidate/dev` and this source lane),
+      nine candidate matrices (one selected, three full prior matrices awaiting
+      consumer audit, five metadata-only) and 74 local refs (14 commit refs,
+      59 product tags, one support tag). The lane-relative ETHOS status passes
+      with no foreign or unbound lane; the primary `dev` status counts this
+      owned Work Lane as one foreign lane and reports no unbound lane. No
+      deletion was performed or authorized.
+      Receipt `independent-delivery-residue-inventory-20261002-01a0ccfc/delivery.json`
+      SHA-256 `dcb5994e24615089cc97de06fc9c3e6218f7dc56585a4e3ef7ca9efaebb96672`.
+      The local `proposal/hermes-offline-verification` ref is a 111-commit
+      ancestor; the `df7d4585` remote-review value is cached, not a current
+      Forge observation. The only temporary entry is owner-unknown native
+      `node-compile-cache`; it remains preserved. Fresh Forge refs, candidate
+      consumer retirement, ETHOS-owned ref retirement, native-cache ownership
+      and final artifact cleanup remain open. The last cached lock snapshot
+      showed `gh` 2.101.0 on four accepted branch names; retain its assets and
+      2.102.0 provenance until fresh peer locks and consumers prove retirement.
 - [x] 8.6 Migrate the Client Projection Edition Provider to the published
       Publisher v2 contract. Preserve the authored Claim Model, four reader
       questions, independent media and AIGW acceptance authority; prove exact

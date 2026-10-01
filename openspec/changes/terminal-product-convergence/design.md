@@ -226,6 +226,15 @@ real-client operation are distinct evidence. Freeze exact source and lock
 inputs before the expensive final matrix; do not rerun identical heavy gates
 because an observation timed out or a progress-only record changed.
 
+Pre-archive CI evidence qualifies the event-to-check mapping and the exact
+candidate review path; it does not claim that a release event has already run.
+The guarded maintainer merge to `dev` must preserve the signed object and remove
+the proposal source ref on both peers. After OpenSpec archive and proof of the
+archived SHA, promote that object to `main` and create its signed release tag;
+require the actual peer-local `main` and tag jobs and release assets before
+claiming publication. Projection tests and manual runs cannot substitute for
+those final event results.
+
 Native CI forwards declarations after `ci native --`; the existing release
 construction owner admits candidate and published-predecessor matrices,
 verifies their signed source identity, extracts only native bytes and owns
@@ -393,13 +402,16 @@ rollback proof. Pre-archive candidate acceptance uses explicit environment
 credentials or isolated synthetic native items. A Developer ID candidate may
 prove stable designated requirements without a tag, but signing does not move
 the predecessor's physical item or prove access to an operator's Token.
-After the final checkbox is committed, obtain exact-HEAD ETHOS
-proof and independent peer review CI, resolve their gaps, integrate accepted
-source, and archive through the official governed OpenSpec transition. Re-prove
-the archived SHA; only then may a signed tag, dual-peer assets, Homebrew
-update, and user-host cutover be claimed. Proof and archive cannot be
-checkboxes in the Change they finalize, because checking either box changes
-the HEAD it would claim to have proved.
+After the final candidate checkbox is committed, obtain exact-HEAD ETHOS proof
+and independent peer review CI, resolve their gaps, then integrate the same
+signed object into `dev` through the guarded maintainer path on both peers.
+Verify the resulting dev checks and proposal-source-ref deletion before
+archiving through the official governed OpenSpec transition. Re-prove the
+archived SHA; only then promote that exact object to `main`, require its peer-local
+main checks, and create the signed release tag. The tag jobs and dual-peer
+assets must pass before Homebrew update or user-host cutover can be claimed.
+Proof and archive cannot be checkboxes in the Change they finalize, because
+checking either box changes the HEAD it would claim to have proved.
 Before that host cutover, the exact final production reader must authorize each
 selected Account and diagnostic item, preserve captured original commands and
 rollback, and qualify the measured package-link transition. Ad-hoc candidate
