@@ -152,7 +152,7 @@ func TestFormattingCoversCurrentCarriersAndPreservesOwnedExclusions(t *testing.T
 			if strings.Contains(call.Input, filepath.ToSlash(root)) {
 				t.Fatal("format inventory must resolve relative to the requested checkout")
 			}
-			if slices.Contains(inventory, path) == (path == "build/generated.json") {
+			if slices.Contains(inventory, filepath.FromSlash(path)) == (path == "build/generated.json") {
 				t.Fatalf("authored inventory membership for %s: %v", path, inventory)
 			}
 		}
