@@ -616,18 +616,28 @@
       `x64-peer-mirror-publication-verified-20261002.json` records the exact
       source and lock identities. Publication used the existing native glab
       identity; it does not prove CI Job Token identity or job-private auth.
-      A separate full-lock snapshot matches all 93 GitHub asset records across
-      90 unique URLs to the 96-item registry, with no missing or mismatched
-      hashes. It does not verify the 18 Google, Node.js and GitLab-hosted assets;
-      their upstream routes remain separate. The exact coverage receipt is
-      `full-lock-registry-coverage.json` in the existing October 2 mirror
-      recovery owner.
+      The full-lock snapshot matches all 93 GitHub asset records across 90
+      unique URLs to 96 registry files; its receipt is
+      `full-lock-registry-coverage.json` in the existing mirror owner. Current
+      `mise.lock` SHA `525cc96502335294f5d430bbd3192bf1945d195b6c7d68cc590c7d613257ebf7`
+      binds all 18 non-GitHub records: 10 fresh official streams (626,655,824
+      bytes) and eight exact-lock reuses (six prior glab digests and two
+      macOS ARM64 Go/Node native Mise checks). Receipt
+      `independent-peer-non-github-inputs-20261002-01a0ccfc/delivery.json`
+      SHA-256 `35c3e0d0d3122359979e82b9982e38c2525a1db9ff3d3ac57c87202445d677cc`.
+      Its binding shows `.config/ci/pipeline.cue` changed since the earlier
+      cold-Mise run; only unchanged tool inputs are reused, not full-graph CI.
+      The required GitHub peer mirror release `mise-glab-v1.120.0` currently
+      returns HTTP 404; ETHOS issue 12 remains open with its owner. Readbacks
+      are `reciprocal-glab-release-readback.json` (SHA-256
+      `06f2332b0b75c783864aa1974ed73814853283e9abf6d7ce5d0afb9e13c4caf4`) and
+      `existing-ethos-issue12-readback.json` (SHA-256
+      `44df0138d9c662ccb37124854f369e3f9f10b7a784159e7b3d19448b09412c94`).
+      Byte coverage does not prove CI Job Token access or sibling-peer outage.
       The earlier cold Windows 404 and corrected empty-cache pipeline 9172 remain
-      distinct evidence. Deliberate sibling-peer outage, reciprocal download
-      path, complete cold execution across native platforms and protected-runner
-      execution remain open; review CI does not prove those conditions. Preserve
-      the original 9171 input failure and `cold-tool-source-*` evidence. ETHOS
-      support-tag publication remains with its existing issue 12.
+      distinct; preserve original 9171 and `cold-tool-source-*` evidence.
+      Complete cold execution across native platforms and protected-runner
+      execution remain open.
 
 ## 8. Repository Topology, Documentation, and Deletion
 
