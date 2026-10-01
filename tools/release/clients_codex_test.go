@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -158,21 +157,6 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 }
 
-type codexToolLoopRequest struct {
-	Model     string `json:"model"`
-	Stream    bool   `json:"stream"`
-	Reasoning struct {
-		Effort string `json:"effort"`
-	} `json:"reasoning"`
-	Tools []struct {
-		Name string `json:"name"`
-	} `json:"tools"`
-	Input []struct {
-		Type   string          `json:"type"`
-		Output json.RawMessage `json:"output"`
-	} `json:"input"`
-}
-
 type codexToolLoopProbe struct {
 	requests, toolCalls, toolResults, rejected atomic.Int64
 	firstResult                                atomic.Pointer[string]
@@ -194,7 +178,7 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 			return
 		}
 		request.Body = io.NopCloser(bytes.NewReader(body))
-		var input codexToolLoopRequest
+		var input responsesToolLoopRequest
 		if err := json.Unmarshal(body, &input); err != nil {
 			probe.rejected.Add(1)
 			http.Error(response, "decode request", http.StatusBadRequest)
@@ -205,17 +189,21 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 			http.Error(response, "configured model and effort required", http.StatusBadRequest)
 			return
 		}
+		outputs, err := responsesToolLoopOutputs(input.Input)
+		if err != nil {
+			probe.rejected.Add(1)
+			http.Error(response, "invalid Responses tool input", http.StatusBadRequest)
+			return
+		}
 		sawResult := false
-		for _, item := range input.Input {
+		for _, item := range outputs {
 			result := string(item.Output)
-			if item.Type == "function_call_output" {
-				sawResult = true
-				probe.toolResults.Add(1)
-				preview := redaction.Text(result, token)
-				preview = preview[:min(len(preview), 512)]
-				probe.firstResult.CompareAndSwap(nil, &preview)
-			}
-			if item.Type == "function_call_output" && strings.Contains(result, "AIGW_TOOL_OK") &&
+			sawResult = true
+			probe.toolResults.Add(1)
+			preview := redaction.Text(result, token)
+			preview = preview[:min(len(preview), 512)]
+			probe.firstResult.CompareAndSwap(nil, &preview)
+			if strings.Contains(result, "AIGW_TOOL_OK") &&
 				(strings.Contains(result, "Process exited with code 0") || strings.Contains(result, `"exit_code":0`)) {
 				toolOutput.Store(true)
 			}
@@ -225,13 +213,20 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 			hasExec = hasExec || tool.Name == "exec_command"
 		}
 		if !toolOutput.Load() && hasExec && !sawResult {
-			if request.Header.Get("Authorization") != "Bearer "+token && request.Header.Get("X-Api-Key") != token {
+			if !clientFixtureAuthorized(request, token) {
 				probe.rejected.Add(1)
 				base.ServeHTTP(response, request)
 				return
 			}
 			probe.toolCalls.Add(1)
-			writeCodexToolCall(response)
+			writeResponsesFunctionCall(
+				response,
+				"resp_aigw_tool",
+				"fc_aigw",
+				"call_aigw",
+				"exec_command",
+				`{"cmd":"echo AIGW_TOOL_OK"}`,
+			)
 			return
 		}
 		base.ServeHTTP(response, request)
@@ -260,25 +255,5 @@ func TestCodexToolLoopStopsAfterUnsuccessfulToolResult(t *testing.T) {
 	}
 	if first := probe.firstResult.Load(); first == nil || strings.Contains(*first, token) {
 		t.Fatal("bounded tool diagnostic was absent or exposed its Token")
-	}
-}
-
-func writeCodexToolCall(response http.ResponseWriter) {
-	const arguments = `{"cmd":"echo AIGW_TOOL_OK"}`
-	added := `{"id":"fc_aigw","type":"function_call","call_id":"call_aigw","name":"exec_command","arguments":"","status":"in_progress"}`
-	completed := fmt.Sprintf(`{"id":"fc_aigw","type":"function_call","call_id":"call_aigw","name":"exec_command","arguments":%q,"status":"completed"}`, arguments)
-	events := []struct{ name, data string }{
-		{"response.created", `{"type":"response.created","response":{"id":"resp_aigw_tool","object":"response","status":"in_progress","output":[]}}`},
-		{"response.output_item.added", fmt.Sprintf(`{"type":"response.output_item.added","output_index":0,"item":%s}`, added)},
-		{"response.function_call_arguments.delta", fmt.Sprintf(`{"type":"response.function_call_arguments.delta","item_id":"fc_aigw","output_index":0,"delta":%q}`, arguments)},
-		{"response.function_call_arguments.done", fmt.Sprintf(`{"type":"response.function_call_arguments.done","item_id":"fc_aigw","output_index":0,"arguments":%q}`, arguments)},
-		{"response.output_item.done", fmt.Sprintf(`{"type":"response.output_item.done","output_index":0,"item":%s}`, completed)},
-		{"response.completed", fmt.Sprintf(`{"type":"response.completed","response":{"id":"resp_aigw_tool","object":"response","status":"completed","output":[%s],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`, completed)},
-	}
-	response.Header().Set("Content-Type", "text/event-stream")
-	for _, event := range events {
-		if _, err := fmt.Fprintf(response, "event: %s\ndata: %s\n\n", event.name, event.data); err != nil {
-			return
-		}
 	}
 }

@@ -248,6 +248,12 @@
       patch was needed. Receipt
       `independent-codex-version-environment-20261002-01a0ccfc/result.json`
       SHA-256 `47d86c1df47e99c9353e57bd476c5f8852c41775ea760fc324742775775214a4`.
+      Tracked `TestNativeClientJourney/hermes` now executes `read_file`, checks
+      its structured output and continued session history. The macOS
+      baseline-to-candidate-to-rollback-to-re-upgrade journey passed with the
+      local Hermes 0.21.5 binary carrying four commits; this is regression
+      coverage, not official-client qualification. The separate official
+      Hermes Linux receipt remains in 5.2.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
