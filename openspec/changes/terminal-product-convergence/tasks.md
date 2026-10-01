@@ -508,6 +508,12 @@
       attempt 1, independently pass all five required source/native jobs at
       that exact commit. Final artifact and release claims remain in 9.3 and
       the post-archive release sequence.
+      Both peers later pass all five required jobs at signed `6b075f28`.
+      Signed `f95db769` scopes source fixtures to selected native journeys and
+      their child test owner. Exact-candidate selection and failure-ownership
+      RED/GREEN, three-platform static checks and one full source gate pass;
+      1,228 tracked hashes are conserved and coverage remains 95.09%.
+      Its hosted successor and native-store qualification remain separate.
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with
       exact-byte install, predecessor upgrade/rollback, credentials and real-client
       journeys; retain the source and artifact hashes and disclose missing platform
