@@ -423,6 +423,16 @@
       This closes the isolated resource contract, not native-store, real-client,
       hosted CI, operator cutover or final-distribution acceptance, which remain
       at 4.5, 5.2-5.4, 7.x and 9.3.
+      The current `d75eb6e9` artifact run exposed partial fixture publication:
+      `parent.json` could exist before its JSON bytes were complete. The
+      deterministic reader-inode regression fails the old producer and passes
+      reuse of the existing atomic writer. The exact candidate then passes all
+      five resource outcomes, including native interrupt and the product's
+      sixty-second deadline, in 71.526 seconds. Race and observer siblings pass
+      without new framework or product changes; owned scratch and descendants
+      are absent. Evidence: `resource-atomic-publication-*` under the existing
+      `build/verification/supply-chain-20260930/` owner. Corrected-fixture
+      hosted platform acceptance remains separate in 7.3.
 
 ## 6. Quality, Supply Chain, and Performance
 

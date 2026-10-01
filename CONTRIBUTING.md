@@ -41,6 +41,10 @@ Resolve source fixtures only inside their selected subtest, using that subtest's
 `testing.T` for failures and cleanup. Precompiled artifact and native-store cases
 must not build fixtures belonging to unselected cases.
 
+Publish process-readiness records through the existing atomic file writer.
+Readers may treat the final path as ready only after complete bytes are visible;
+retrying JSON parsing must not compensate for a producer's partial publication.
+
 Capture each client's original credential invocation before replacement and run
 it before synchronization or reload. Native-store proof identifies both reader
 implementations and retains the original credential item. Require complete
