@@ -325,6 +325,9 @@
       window; automatic policy and transitive constraints remain unchanged.
       Registry verification retains 283 signatures and 51 attestations, and the
       official eleven-item validation plus affected tool/artifact tests pass.
+      The frozen full source gate passes at 95.09% with 1,228 hashes conserved;
+      offline npm cache reconstruction preserves authored locks and installs the
+      same 1.14.0 tool. Its owned compile-cache scratch is reclaimed.
       This repository tool upgrade does not update the separately bound ETHOS
       runtime or re-sign the fixed candidate.
 - [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
@@ -517,7 +520,11 @@
       research is retained, not integrated or promoted to a release prerequisite.
       Only this terminal authoring lane remains. The current 0.3.3 candidate,
       raw verification/notarization evidence and active dependencies remain;
-      obsolete tag, remote and final output retirement are still open.
+      obsolete tag, remote and final output retirement are still open. A later
+      exact sweep retires fourteen unconsumed archive/cask payloads from two
+      superseded test-signer matrices, reclaiming 55.82 MiB. All raw results,
+      checksums, signatures, provenance, SBOM and license/security metadata remain
+      unchanged; the fixed candidate and required predecessor are preserved.
 
 ## 9. Frozen Source and Pre-Archive Acceptance
 
