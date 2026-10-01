@@ -65,13 +65,15 @@
       reject prefix/age-based deletion.
 - [ ] 3.5 Run published-predecessor-to-successor reader journeys on macOS,
       Linux, and Windows with actual native stores or the explicit environment
-      backend. On macOS, stage each selected Token and configured optional
-      provider-diagnostic credential by explicit input in native-authorized
-      items while retaining old items and captured commands; deny a capability
-      claim if its item cannot be read without UI. For the one-time
-      0.3.1 Homebrew link, preproject and prefetch,
-      measure the bounded link gap, verify captured commands immediately and
-      roll back failed candidates; disclose any residual cached-caller risk.
+      backend and isolated synthetic native items before archive. Verify stable
+      native reader identity across signed successors without treating signing
+      as item authorization. The post-archive installed transition must stage
+      and verify each selected operator Token and configured diagnostic item
+      through the exact final copied reader before any projection or link cutover;
+      retain old items and original commands. The one-time 0.3.1 Homebrew link
+      transition must preproject, prefetch, measure its bounded link gap, verify
+      captured commands immediately and restore the predecessor on failure.
+      Disclose residual cached-caller risk; never claim denied access as ready.
       Later versioned commands must remain callable throughout replacement.
       At signed source `cdfc0bf6`, the isolated macOS environment-backend
       journey stages actual Homebrew 0.3.1 bytes and passes preprojection,
@@ -223,8 +225,10 @@
       review containment remain unqualified.
 
 - [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
-      environment backend separately; no password/biometric retry loop, service
-      restart, or hidden native-store policy change is permitted. At signed
+      environment backend separately in isolated acceptance; final operator-item
+      authorization remains required before post-archive installed cutover.
+      No password/biometric retry loop, service restart, or hidden native-store
+      policy change is permitted. At signed
       `9f23bd7e`, private-Keychain tests prove readable labels on newly created
       Account and diagnostic items without touching retained items; the macOS
       source/native suite passes using isolated environment credentials. The
@@ -547,4 +551,7 @@
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with
       exact-byte install, predecessor upgrade/rollback, credentials and real-client
       journeys; retain the source and artifact hashes and disclose missing platform
-      evidence.
+      evidence. Isolated native items and environment credentials qualify this
+      pre-archive candidate, not current operator-item access. Final production
+      signing creates separately inventoried bytes; post-archive distribution
+      and exact copied-reader authorization must pass before installed cutover.

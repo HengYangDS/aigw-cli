@@ -79,7 +79,7 @@ not the product's credential reader or Token backend. This decision does not
 forbid an AIGW-owned copy of the same executable to keep the existing
 `credential` command reachable during package-manager replacement; that
 delivery path remains subject to
-[post-archive acceptance](../../openspec/changes/archive/2026-09-25-inference-readiness-claude-override/design.md#post-archive-delivery-acceptance).
+[installed-transition acceptance](../governance/change-and-release-policy.md#native-platform-evidence).
 
 A successor must execute every retained original credential command before
 client projection refresh, then prove update, rollback and re-upgrade against
@@ -116,6 +116,15 @@ credential authorization, distribution trust and notarization remain separate
 acceptance decisions. A successful signing check does not substitute for the
 retained-item journey, and a retained-item journey does not establish public
 distribution trust.
+
+Pre-archive acceptance uses isolated synthetic native items or explicit
+environment credentials. An untagged Developer ID candidate may prove stable
+designated requirements across signed versions; an ad-hoc cdhash is a different
+identity. Neither identity equality nor signing migrates a legacy physical item.
+After archive and final signing, the exact copied production reader must prove
+authorized access to each selected operator Account and diagnostic slot before
+any host projection or package link changes. Retain original commands and items;
+denial blocks that cutover, not unrelated source or platform acceptance.
 
 ### Product reader and migration boundary
 

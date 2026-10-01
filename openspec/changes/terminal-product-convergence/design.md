@@ -388,12 +388,20 @@ closes the user journey and reader
 succession before changing live client projections, and applies the broader
 adapter, quality, topology, and documentation cleanup in dependency order.
 Use a published predecessor with retained state for each platform's update and
-rollback proof. After the final checkbox is committed, obtain exact-HEAD ETHOS
+rollback proof. Pre-archive candidate acceptance uses explicit environment
+credentials or isolated synthetic native items. A Developer ID candidate may
+prove stable designated requirements without a tag, but signing does not move
+the predecessor's physical item or prove access to an operator's Token.
+After the final checkbox is committed, obtain exact-HEAD ETHOS
 proof and independent peer review CI, resolve their gaps, integrate accepted
 source, and archive through the official governed OpenSpec transition. Re-prove
 the archived SHA; only then may a signed tag, dual-peer assets, Homebrew
 update, and user-host cutover be claimed. Proof and archive cannot be
 checkboxes in the Change they finalize, because checking either box changes
 the HEAD it would claim to have proved.
+Before that host cutover, the exact final production reader must authorize each
+selected Account and diagnostic item, preserve captured original commands and
+rollback, and qualify the measured package-link transition. Ad-hoc candidate
+success, an unchanged signer or an item label cannot substitute for that read.
 No credential prompt, service restart, client history rewrite, or unverified
 automatic backend fallback is a migration step.

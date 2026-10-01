@@ -149,6 +149,11 @@ or accepted trees alone. Keep the published predecessor's configuration and Adap
 active during replacement. Its reader, schema and native-store identity are distinct
 from current fixtures. macOS retained-store tests require disposable host opt-in;
 Windows Credential Manager and Linux Secret Service have separate native evidence.
+Pre-archive candidate journeys use isolated synthetic native items or explicit
+environment credentials. Final production signing and exact operator-item
+authorization are post-archive obligations: qualify the copied reader, captured
+callers, rollback and package-link transition before any live cutover. Equal
+designated requirements alone do not migrate or authorize a credential item.
 
 Update and rollback share durable staging and the existing filesystem library's
 bounded [rename/remove operations](https://github.com/rogpeppe/go-internal/tree/v1.16.0/robustio). A temporary startup verifier is removed before
