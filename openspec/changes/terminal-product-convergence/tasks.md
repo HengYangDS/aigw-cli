@@ -186,27 +186,19 @@
       bootstrap, reject ambient fallback, and remove exact owned test state.
 - [ ] 5.2 Run Linux container and native-host setup, selected provider,
       projection, update, rollback, uninstall, and cleanup journeys using exact
-      release bytes and one retained predecessor state. At signed `d7cc0c75`,
-      the CI-pinned Debian Mise image passed cold locked bootstrap and native
-      Linux on a read-only checkout with container-owned output, including a
-      source-built 0.3.3 lifecycle; the container exited without host residue.
-      The earlier signed `38246801` archive passed eight isolated native cases,
-      and the published 0.3.1 Linux ARM64 predecessor passed separately. At
-      `5260160d`, a source-built journey also passed against real DBus/GNOME
-      Secret Service in an isolated container. Final signed bytes, a Linux VM
-      host, real clients and peer-outage transport remain unproved.
-      The `2c7fbe89` signed Linux ARM64 archive passes install, shipped setup,
-      check, update, rollback, re-upgrade and uninstall with the published
-      0.3.1 archive under both file fallback and real Secret Service. Candidate
-      and predecessor archive hashes are retained; both containers and scratch
-      are removed. This qualifies container package succession only; Linux VM,
-      live Provider/client, hosted CI and final publication still remain open.
-      The current `d65dd140` signed ARM64 matrix passes the existing native
-      owner against signed 0.3.1 in an isolated nobody-UID container, with
-      environment, automatic secure-file fallback and real GNOME Secret Service.
-      Product inputs and retrieved results match exact hashes; only the clone's
-      mutable Git index changed. Container, scratch and descendants are reclaimed.
-      This is container package acceptance, not Linux VM, client or cold-cache proof.
+      release bytes and one retained predecessor state. Prior signed container
+      evidence covers cold bootstrap (`d7cc0c75`) and published 0.3.1 succession
+      with environment, automatic secure-file fallback and real GNOME Secret
+      Service (`2c7fbe89`, `d65dd140`); containers and owned scratch are removed.
+      October 1 native Linux ARM64 UID 1006 executes the precompiled `90e13374`
+      verifier against exact `ebf9adff` candidate and signed 0.3.1 predecessor.
+      Selected artifact install/update/rollback/uninstall passes in 1.424 seconds;
+      all five verification resource cases pass in 61.081 seconds, including the
+      actual 60-second deadline. All 1,228 source and program hashes are conserved;
+      guest child, processes and temporary transfer are absent, and twelve Runner
+      pause states plus VM isolation are restored. This qualifies synthetic-client
+      environment-backend native-host journeys, not actual clients, native Secret
+      Service, cold-peer transport or final publication; those gaps remain open.
 - [ ] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
@@ -279,6 +271,10 @@
       separately repaired; all exact owned children and processes are absent,
       with original pauses, isolation and service identity preserved. Final
       native-source, store, client and distribution qualification remain open.
+      The `90e13374` native Linux host run also passes the complete five-case
+      contract against unchanged `ebf9adff` bytes, with exact owned resources
+      reclaimed. Windows final-source, real-client and native-store scope is
+      not inferred from this result.
 
 ## 6. Quality, Supply Chain, and Performance
 
@@ -408,13 +404,13 @@
       Signed docs source `90908d5d` passes GitLab pipeline 9049 and GitHub
       run 36769384552 with all five required jobs on each peer; these source
       results do not qualify the fixed candidate's Windows/client journey.
-      October 1 synthetic-only child execution reproduces readable job-netrc
+      Signed `b8e56dfc` closes the October 1 synthetic-only reproduction of job-netrc
       pointer and Mise credential inheritance despite cleared Token variables.
       One override owner now scopes construction and acceptance without
       changing parent acquisition authorization. Both subject paths reject
       inherited carriers while the selected acquisition path retains them;
       this does not prove arbitrary-code Runner containment or hosted cold-peer
-      execution.
+      execution. Its full source gate passes at 95.09% with 1,228 hashes conserved.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
       guarded merge, source-ref deletion, signer trust and branch protection on each
       selected peer without interactive authentication or divergent commit
