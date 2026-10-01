@@ -183,6 +183,16 @@
       carries the selected effort, with configuration and scratch conserved.
       Its independent receipt is `independent-hermes-mistral-ebf9adff-corrected`;
       the loopback probe does not qualify actual AIHubMix inference.
+      The October 1 independent `ebf9adff` artifact review also completes live
+      GPT-6.1 Sol inference and real Codex/official Hermes sessions on all three
+      Accounts, plus stable Claude 2.1.285 verification of ten shipped
+      Anthropic Routes. Protected files and exact scratch are conserved.
+      AIHubMix Mistral accepts none; high fails with an unproved cause and no
+      retry. These receipts qualify their exact inputs, not every model or
+      later artifact. See `independent-ebf-live-provider-20261001-01a0ccfc`,
+      `independent-ebf-claude-stable-20261001-01a0ccfc` and
+      `independent-ebf-hermes-models-20261001-01a0ccfc` in the existing recovery
+      handoff `20260930-sol61.VVgo1vF5`.
       Linux real-client lifecycle and selection evidence is recorded in 5.2;
       Windows real clients, native-host stores,
       Desktop GUI, installed-host cutover and final signed bytes remain open.
@@ -500,15 +510,17 @@
       canonical pages must be linked, English, navigable and free of references to
       untracked prerequisites. The root index and decision register reach all
       23 canonical pages; format, links, metadata, spelling and semantic
-      compression checks pass. At `54b815ae`, independent read-only execution
-      of the bound ETHOS native docs-registry provider finds no metadata, role,
+      compression checks pass. At `56cdc32a`, the bound ETHOS native
+      docs-registry execution finds no metadata, role,
       state, duplicate, section, command, example, plan or length defects. Its
       only four findings require per-directory READMEs for architecture,
       decisions, governance and research despite that canonical navigation.
       Resolve applicability at the ETHOS rule owner rather than adding marker
       indexes; formal qualified-runtime adoption and registry acceptance remain
       open. Historical long-document failures remain evidence, not current
-      findings.
+      findings. Current raw gate output and its exact four gaps remain in
+      `docs-registry-current-56cdc32a.{json,stderr}` under the existing
+      `build/verification/supply-chain-20260930/` owner.
 
 - [x] 8.3 Review diagrams, tables, headings, lists, examples, CLI help and
       errors for readable layout and accurate links; enforce the chosen native
@@ -545,6 +557,19 @@
       superseded test-signer matrices, reclaiming 55.82 MiB. All raw results,
       checksums, signatures, provenance, SBOM and license/security metadata remain
       unchanged; the fixed candidate and required predecessor are preserved.
+      Seven unconsumed archive/Cask files from superseded `candidate-aba8ee13`
+      are also retired, reclaiming 27.95 MiB; six metadata/signature files and
+      all selected candidate/predecessor hashes are conserved. The existing
+      `retired-superseded-test-matrices-20261001.json` records exact absence.
+      The Fleet owner also retires the old bespoke Windows controller and its
+      bytecode after proving no consumers. Its two source files remain only in
+      a verified read-only tar archive; active `.py`/`.ps1` paths are absent.
+      `windows-native-execution-policy-closeout-20261001.json` in the existing
+      runner-capacity handoff retains the exact scope and restored host state.
+      GitLab's redundant `proposal/20260926-terminal-product-convergence`
+      remains separate from the existing review ref. Native retirement preview
+      refuses it as not accepted; retain the object and resolve precise owned
+      projection retirement at ETHOS, not by bypassing hooks.
 
 ## 9. Frozen Source and Pre-Archive Acceptance
 
@@ -565,42 +590,29 @@
 - [x] 9.2 Run focused RED/GREEN suites, native static/behavior checks and strict
       official OpenSpec validation with pristine output on the frozen source; no
       skipped required gate or warning counts as pass.
-      Signed source `ebf9adff` passes the full local gate at 95.09% and the
-      independent Linux native race/coverage graph at 95.02% with all sixty
-      canonical packages observed. Seven distinguishing credential mutations
-      fail; the restored package passes. Official OpenSpec checks eleven items
-      with zero findings. GitLab pipeline 9074 and GitHub run 36790679136,
-      attempt 1, independently pass all five required source/native jobs at
-      that exact commit. Final artifact and release claims remain in 9.3 and
-      the post-archive release sequence.
-      Both peers later pass all five required jobs at signed `6b075f28`.
-      Signed `f95db769` scopes source fixtures to selected native journeys and
-      their child test owner. Exact-candidate selection and failure-ownership
-      RED/GREEN, three-platform static checks and one full source gate pass;
-      1,228 tracked hashes are conserved and coverage remains 95.09%.
-      Its hosted successor and native-store qualification remain separate.
-      Both peers pass all five required jobs at signed `ea8d5d8f`: GitLab
-      pipeline 9101 and GitHub run 36813731239. Later source changes require
-      their own review result; fixed-candidate native gaps remain open.
-      The repaired ETHOS runtime then exposes one wholly unexercised native
-      command adapter. Command dispatch now selects by target platform while
-      Go build constraints select the host implementation; the duplicate host
-      check is removed. Existing public Windows-target tests naturally cover
-      the Unix identity adapter, and credential/projection siblings pass.
-      Windows short-path behavior is unchanged; the old per-file RED profile
-      is retained rather than adding a coverage-only test or suppression.
-      Native Node acceptance now consumes the exact selected Publisher archive,
-      identities and release manifest. The installed test rejects stale live
-      sources; official materialization refreshes their existing Source Bundle
-      without changing the selected alpha.1 package. Ordinary source CI also
-      rejects a changed selected owner without external package inputs. Native
-      formatter, Markdown and Mermaid cases move from duplicate Go subprocess
-      tests into one Node suite; Go retains inventory and command-wiring tests.
-      JUnit reports no failures or skips, and one LCOV run observes all four
-      production Node modules. The full local gate passes at 95.12%; retained
-      distinguishing failures and results are in `native-node-owner-*` under
-      `build/verification/supply-chain-20260930/`. Exact-HEAD proof, final peer
-      review and publication remain separate.
+      Native command dispatch selects the requested platform while Go build
+      constraints select the implementation; duplicate host checks are deleted.
+      The existing public Windows-target tests cover Unix identity behavior
+      without a coverage-only test or suppression. Credential/projection
+      siblings pass; the original per-file RED profile remains evidence.
+      Native Node tests bind the selected Publisher alpha.1 archive, identities
+      and manifest. Installed and ordinary source counterexamples reject stale
+      selected owners. Official materialization refreshes existing carriers;
+      native formatter/Markdown/Mermaid behavior moves to one Node suite while
+      Go retains inventory/wiring tests. All 41 JUnit cases pass without skips;
+      LCOV observes all four production modules. The full local gate passes at
+      95.12%. Exact `9cf23cb8` repository proof is
+      `74b9431a3adbd5fb5534e417f1751349d4be80bfadddafb40172464e05797aa0`;
+      native landing advances candidate/dev, not accepted dev/main.
+      Both peers then expose the Windows-only path assertion; `56cdc32a` fixes
+      only its expected path with `filepath.FromSlash`. GitHub run 36835345993
+      and GitLab pipeline 9126 independently pass all five required jobs on
+      that exact SHA, including Windows. Native watchers exit zero. Raw RED,
+      source proof and peer results remain under the existing
+      `build/verification/supply-chain-20260930/` owner in `native-node-owner-*`,
+      `node-native-owner-exact-head-proof*` and
+      `56cdc32a-{github,gitlab}-native-watch.*`. Fixed-artifact real clients,
+      current-HEAD proof and distribution are separate claims.
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with
       exact-byte install, predecessor upgrade/rollback, credentials and real-client
       journeys; retain the source and artifact hashes and disclose missing platform
@@ -608,3 +620,17 @@
       pre-archive candidate, not current operator-item access. Final production
       signing creates separately inventoried bytes; post-archive distribution
       and exact copied-reader authorization must pass before installed cutover.
+      The existing release owner builds one six-platform 0.3.3 matrix at
+      signed `9cf23cb8` in 11.709 seconds, conserving all 1,229 tracked hashes.
+      `candidate-9cf23cb8` retains signed checksums, provenance, SBOM,
+      license/security metadata and Cask projection; macOS signing is ad-hoc.
+      Public `accept-native --candidate --baseline-tag v0.3.1 --clients`
+      passes on macOS ARM64 in 320.365 seconds: lifecycle, rollback, actual
+      60-second timeout, Codex 0.159.3, stable Claude 2.1.285, fourteen general
+      Codex selections and a real shell tool loop. Local Hermes 0.21.5 includes
+      four carried commits; official unmodified Hermes evidence stays in 4.5.
+      Protected hashes are unchanged and scratch is absent; raw caller/log
+      evidence is `native-current-9cf23cb8-macos*`. Preserve this candidate's
+      identity: later test-only `56cdc32a` is not its provenance. Current final
+      candidate, native stores, Linux/Windows real clients, Desktop GUI,
+      production signing and installed cutover remain unqualified.
