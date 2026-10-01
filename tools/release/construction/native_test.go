@@ -25,7 +25,7 @@ func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 			var workspace string
 			want := errors.New("injected acceptance failure")
 			err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), false, "", func(call toolCall) error {
-				if call.Name != "go" || call.Directory != request.Root || !slices.Equal(call.Args, []string{"test", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney)$", "-count=1", "-v"}) {
+				if call.Name != "go" || call.Directory != request.Root || !slices.Equal(call.Args, []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney|TestNativeVerificationResources)$", "-count=1", "-v"}) {
 					t.Fatalf("source acceptance escaped its product test owner: %#v", call)
 				}
 				workspace = strings.TrimPrefix(call.Env[1], "TMPDIR=")
@@ -71,7 +71,7 @@ func TestNativeAcceptanceRunsPublishedPredecessorSeparatelyFromCurrentSchemaJour
 		t.Fatalf("published predecessor acceptance calls = %d, want current-schema and published journeys", len(calls))
 	}
 	if !slices.Contains(calls[0].Env, "AIGW_ACCEPTANCE_BASELINE=") ||
-		!slices.Contains(calls[0].Args, "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney)$") {
+		!slices.Contains(calls[0].Args, "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney|TestNativeVerificationResources)$") {
 		t.Fatalf("current-schema journey consumed the published predecessor: %#v", calls[0])
 	}
 	if !slices.Contains(calls[1].Env, "AIGW_ACCEPTANCE_BASELINE="+baseline) ||

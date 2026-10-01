@@ -16,12 +16,24 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func runInstalledClientFixture(executable string, args []string) (bool, int) {
+	if role := os.Getenv("AIGW_TEST_RESOURCE_ROLE"); role != "" {
+		return true, runVerificationResourceRole(role, args)
+	}
 	client := strings.TrimSuffix(filepath.Base(executable), filepath.Ext(executable))
+	if client == configuration.ClientHermes {
+		if slices.Equal(args, []string{"--version"}) {
+			_, _ = fmt.Fprintln(os.Stdout, "hermes 0.0.0-resource-fixture")
+			return true, 0
+		}
+		return true, runVerificationResourceClient()
+	}
 	if client == configuration.ClientClaude {
 		_, _ = fmt.Fprintln(os.Stdout, "AIGW_OK")
 		return true, 0
@@ -42,6 +54,88 @@ func runInstalledClientFixture(executable string, args []string) (bool, int) {
 		}
 	}
 	return true, 2
+}
+
+type verificationResourceProcess struct {
+	PID  int    `json:"pid"`
+	Home string `json:"home"`
+}
+
+func runVerificationResourceRole(role string, args []string) int {
+	if role == "interrupt" {
+		if len(args) != 1 {
+			return 2
+		}
+		pid, err := strconv.Atoi(args[0])
+		if err != nil || sendVerificationConsoleInterrupt(pid) != nil {
+			return 2
+		}
+		return 0
+	}
+	if role != "child" && role != "unrelated" {
+		return 2
+	}
+	if err := writeVerificationProcess(filepath.Join(os.Getenv("AIGW_TEST_RESOURCE_CONTROL"), role+".json")); err != nil {
+		return 2
+	}
+	time.Sleep(3 * time.Minute)
+	return 0
+}
+
+func runVerificationResourceClient() int {
+	control := os.Getenv("AIGW_TEST_RESOURCE_CONTROL")
+	child := exec.Command(os.Args[0])
+	prepareVerificationInterrupt(child)
+	child.Env = environmentWith(os.Environ(), map[string]string{"AIGW_TEST_RESOURCE_ROLE": "child"})
+	if err := child.Start(); err != nil {
+		return 2
+	}
+	if err := awaitVerificationFile(filepath.Join(control, "child.json")); err != nil {
+		_ = child.Process.Kill()
+		_ = child.Wait()
+		return 2
+	}
+	if err := writeVerificationProcess(filepath.Join(control, "parent.json")); err != nil {
+		return 2
+	}
+	if err := awaitVerificationFile(filepath.Join(control, "release")); err != nil {
+		return 2
+	}
+	switch os.Getenv("AIGW_TEST_RESOURCE_CASE") {
+	case "success":
+		_, _ = fmt.Fprintln(os.Stdout, "AIGW_OK")
+		return 0
+	case "failure":
+		return 17
+	case "parent-exit":
+		return 0
+	case "interrupt", "deadline":
+		time.Sleep(2 * time.Minute)
+		return 2
+	default:
+		return 2
+	}
+}
+
+func writeVerificationProcess(path string) error {
+	data, err := json.Marshal(verificationResourceProcess{PID: os.Getpid(), Home: os.Getenv("HERMES_HOME")})
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o600)
+}
+
+func awaitVerificationFile(path string) error {
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(path); err == nil {
+			return nil
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return fmt.Errorf("verification fixture did not reach %s", filepath.Base(path))
 }
 
 func TestCodexFixtureWritesItsFinalResponse(t *testing.T) {

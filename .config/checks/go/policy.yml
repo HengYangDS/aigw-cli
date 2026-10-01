@@ -5,6 +5,7 @@ run:
   build-tags:
     - client_acceptance
     - native_hermes
+    - native_resource_acceptance
     - performance_acceptance
   allow-serial-runners: true
 

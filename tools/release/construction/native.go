@@ -238,7 +238,7 @@ func acceptNative(request buildRequest, artifacts, baseline string, clients bool
 	publishedEnvironment := append(append([]string{}, commonEnvironment...), "AIGW_ACCEPTANCE_BASELINE="+baseline)
 	call := toolCall{
 		Name: "go", Directory: request.Root,
-		Args: []string{"test", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney)$", "-count=1", "-v"},
+		Args: []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney|TestNativeVerificationResources)$", "-count=1", "-v"},
 		Env:  currentEnvironment,
 	}
 	if err := run(call); err != nil {

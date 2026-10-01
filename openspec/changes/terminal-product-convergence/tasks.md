@@ -150,47 +150,23 @@
 - [ ] 4.5 Requalify Claude Code, Claude Desktop, Codex, and Hermes independently
       for native protocol, model selection, credential and rollback behavior; do not
       infer Desktop from CLI or endpoint reachability from real-client success.
-      Claude-in-Codex remains unadmitted: the shipped Claude Routes expose only
-      Anthropic, while Codex requires Responses. Qualify an exact external
-      Responses path and real Codex tool/replay behavior before claiming support.
-      The signed `38246801` candidate passes the isolated macOS journey with
-      installed Claude Code 2.1.283, Codex 0.158.0 and Hermes 0.21.5, including
-      streaming and a Codex tool loop. Claude Code and Codex pass rollback and
-      re-upgrade; Hermes passes first adoption. Claude Desktop, other platforms
-      and live Provider inference remain unproved.
-      On September 30, installed Codex 0.159.2 completed two isolated direct
-      DMXAPI GPT-6.1 Sol tool loops; its bundled model catalogue includes the
-      base model. Official Hermes v0.21.5 and an isolated AIGW public `verify`
-      also completed on direct DMXAPI 6.1 Sol. Current-host direct UCloud
-      6.1 Sol Codex/Hermes selections and `verify` now pass; the external Proxy
-      path and final release bytes remain unproved.
-      An AIGW-generated isolated Codex configuration still logged nonfatal
-      vendor `/models` metadata decode errors; pinning the current bundled
-      Codex table removed them in an isolated comparison. The current source
-      passes the macOS native/client journey with Codex 0.159.2, Claude Code
-      2.1.284 and Hermes 0.21.5, including the known-base catalog assertion.
-      Final signed-artifact, direct-DMXAPI installed-host, Desktop GUI and
-      other-platform acceptance remain open.
-      The explicit 0.3.1 predecessor journey now passes candidate replacement,
-      rollback and re-upgrade for Claude Code 2.1.285, Codex 0.159.2 and
-      official Hermes source `f97608f` (0.21.5). It proves retained inference
-      before synchronization and checks the newly active program afterward.
-      The non-stream inference recorder regression is included in the source
-      gate. Automatic Homebrew preparation and final signed bytes remain unproved.
-      A deterministic native-setting regression exposed Hermes verification
-      discarding per-model reasoning overrides. Verification now derives its
-      isolated projection from the actual configured home, preserves native
-      settings and ownership, and disables only verification-time dependency
-      installation and update checks. Focused contracts cover changed Route,
-      missing or ambiguous home and unchanged source/sidecar bytes. The actual
-      AIHubMix Mistral override and final packaged client still need requalification.
-      Exact signed candidate `d65dd140` passes macOS retained 0.3.1 succession
-      with Claude 2.1.285, Codex 0.159.2 and installed Hermes 0.21.5. Four
-      stages per client and fourteen general Codex Routes pass. The tool-loop
-      initially hit a nested-sandbox test-context rejection; its single tracked
-      native-sandbox rerun passes, as does unmodified official Hermes `f97608f`
-      through all four stages. CLI and official-Hermes identities remain
-      distinct; Desktop GUI and other native client hosts remain open.
+      Claude-in-Codex remains unadmitted: shipped Claude Routes expose Anthropic,
+      while Codex requires Responses. Qualify an exact external Responses path
+      and real Codex tool/replay behavior before claiming that support.
+      The exact `ebf9adff` candidate passes macOS authentic 0.3.1 succession
+      with Codex 0.159.3 and Claude Code 2.1.286, including retained inference,
+      replacement, rollback, re-upgrade, native settings/MCP and external-reader
+      preservation. Claude 2.1.286 is latest-channel compatibility; stable
+      remains 2.1.285. Fourteen general Responses Routes and the native Codex
+      shell tool loop pass. The independent new-native `54b815ae` SDK receipt
+      retains the prior failed sandbox/SDK attempts and proves exact input,
+      candidate, source, host and scratch conservation. Official Hermes
+      `f97608f` (0.21.5) already passes its unchanged four-stage journey.
+      Separate September 30 direct DMXAPI and UCloud GPT-6.1 Sol Codex/Hermes
+      sessions pass. Hermes verification now preserves configured per-model
+      reasoning and native ownership; the actual AIHubMix Mistral override
+      still needs requalification. Windows/Linux real clients, native stores,
+      Desktop GUI, installed-host cutover and final signed bytes remain open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
@@ -278,6 +254,13 @@
       reclaimed scratch and unchanged candidate bytes. These synthetic-client
       environment-backend results do not prove Windows, native Linux host,
       real-client or final signed-artifact acceptance; those scopes remain open.
+      The same five-case contract now has one portable tracked release fixture,
+      including native Windows console cancellation and exact process handles.
+      The existing native acceptance owner invokes it with the chosen candidate;
+      canonical lint includes its build tag. The fixture passes on exact macOS
+      candidate bytes and compiles for Windows ARM64. Full source quality and
+      strict coverage pass without changing the 500-line limit. Windows native
+      execution and final peer qualification remain required.
 
 ## 6. Quality, Supply Chain, and Performance
 
