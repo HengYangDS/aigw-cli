@@ -520,6 +520,13 @@
 - [ ] 7.2 Cover developer proposal create/update and review SHA, maintainer
       fast-forward, dev, main and tag events; each required check must execute on or
       attest the exact admitted object.
+      October 2 refs: GitLab main/dev share `12ca86f9`; GitHub main `f17bb3b2`
+      is an ancestor of dev `2aa58eea`. All seven GitHub-only commits from that
+      accepted history are already ancestors of the current proposal on both
+      peers; no cherry-pick is needed. Both draft reviews currently verify
+      `df7d4585` with five successful peer-local jobs; this local worktree is four
+      signed documentation commits ahead and has not been reviewed remotely.
+      Maintainer integration and accepted dev/main/tag events remain open.
 - [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review
