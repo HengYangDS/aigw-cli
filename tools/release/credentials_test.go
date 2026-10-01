@@ -69,7 +69,11 @@ func runVerificationResourceRole(role string, args []string) int {
 			return 2
 		}
 		pid, err := strconv.Atoi(args[0])
-		if err != nil || sendVerificationConsoleInterrupt(pid) != nil {
+		if err != nil {
+			return 2
+		}
+		if err := sendVerificationConsoleInterrupt(pid); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
 			return 2
 		}
 		return 0

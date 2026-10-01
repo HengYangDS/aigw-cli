@@ -270,10 +270,14 @@
       execution; all three OS selections and the complete source gate pass.
       Its exact-source ARM64 fleet pilot passes success, failure, parent-exit,
       the actual 60.37-second deadline and assertion cleanup. Interrupt alone
-      fails; filtered output did not retain its cause. Exact-owned outer
-      long-path cleanup also failed, while original pauses and isolation were
-      restored. Preserve the failed child, retain the precise cause and repair
-      only that owner before a focused interrupt retry; no unchanged full rerun.
+      fails. A cause-retaining interrupt-only rerun identifies the sender's
+      `0xc000013a` exit, consistent with asynchronous handler removal; the
+      existing sender now waits for its console-event acknowledgement before
+      checked cleanup. Source lint and compilation do not establish native
+      GREEN. The executor's empty-cache cleanup prerequisite was separately
+      repaired; both exact failed children and owned processes are absent,
+      with original pauses, isolation and service identity preserved. Keep
+      successor native interruption acceptance open; no unchanged full rerun.
 
 ## 6. Quality, Supply Chain, and Performance
 

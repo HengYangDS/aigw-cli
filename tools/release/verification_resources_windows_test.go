@@ -56,7 +56,16 @@ func sendVerificationConsoleInterrupt(pid int) (result error) {
 			result = errors.Join(result, fmt.Errorf("detach owned verification console: %w", err))
 		}
 	}()
-	handler := windows.NewCallback(func(_ uint32) uintptr { return 1 })
+	handled := make(chan struct{}, 1)
+	handler := windows.NewCallback(func(event uint32) uintptr {
+		if event == windows.CTRL_BREAK_EVENT {
+			select {
+			case handled <- struct{}{}:
+			default:
+			}
+		}
+		return 1
+	})
 	ignored, _, err := kernel.NewProc("SetConsoleCtrlHandler").Call(handler, 1)
 	if ignored == 0 {
 		return fmt.Errorf("exclude owned interruption sender from console event: %w", err)
@@ -67,7 +76,17 @@ func sendVerificationConsoleInterrupt(pid int) (result error) {
 			result = errors.Join(result, fmt.Errorf("remove owned console interruption handler: %w", err))
 		}
 	}()
-	return windows.GenerateConsoleCtrlEvent(windows.CTRL_BREAK_EVENT, 0)
+	if err := windows.GenerateConsoleCtrlEvent(windows.CTRL_BREAK_EVENT, 0); err != nil {
+		return err
+	}
+	// Win32 delivers the event on another thread. Keep the sender protected
+	// until that thread acknowledges it, before unregistering the handler.
+	select {
+	case <-handled:
+		return nil
+	case <-time.After(3 * time.Second):
+		return errors.New("owned interruption sender did not acknowledge its console event")
+	}
 }
 
 func observeVerificationProcess(t *testing.T, pid int, _, role string) func() bool {
