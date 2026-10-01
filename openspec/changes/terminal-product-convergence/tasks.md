@@ -343,6 +343,13 @@
       same 1.14.0 tool. Its owned compile-cache scratch is reclaimed.
       This repository tool upgrade does not update the separately bound ETHOS
       runtime or re-sign the fixed candidate.
+      Public runtime repair later binds accepted ETHOS source `3a49b933`, wheel
+      `6f17c97a` and immutable generation `00b138cd` across all three linked
+      roots. Profile, OpenSpec config, repository state, source and installed
+      product identities remain unchanged. The five toolchain tests that failed
+      under the old runtime now pass in its corrected native environment; the
+      old runtime's hidden `mise`-missing failures remain raw evidence. This
+      does not resolve the separate documentation or tool-mirror gaps.
 - [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
