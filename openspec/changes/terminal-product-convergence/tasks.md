@@ -575,6 +575,12 @@
       `x64-peer-mirror-publication-verified-20261002.json` records the exact
       source and lock identities. Publication used the existing native glab
       identity; it does not prove CI Job Token identity or job-private auth.
+      A separate full-lock snapshot matches all 93 GitHub asset records across
+      90 unique URLs to the 96-item registry, with no missing or mismatched
+      hashes. It does not verify the 18 Google, Node.js and GitLab-hosted assets;
+      their upstream routes remain separate. The exact coverage receipt is
+      `full-lock-registry-coverage.json` in the existing October 2 mirror
+      recovery owner.
       The earlier cold Windows 404 and corrected empty-cache pipeline 9172 remain
       distinct evidence. Deliberate sibling-peer outage, reciprocal download
       path, complete cold execution across native platforms and protected-runner
