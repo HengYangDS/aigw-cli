@@ -292,12 +292,13 @@ func TestNativeAcceptanceConsumesExistingArchives(t *testing.T) {
 
 func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 	for _, test := range []struct {
-		name   string
-		failAt int
-		emit   bool
+		name    string
+		failAt  int
+		emit    bool
+		clients bool
 	}{
-		{"success", 0, true}, {"lifecycle failure", 1, false},
-		{"performance failure", 2, false}, {"missing results", 0, false},
+		{"success", 0, true, false}, {"performance failure", 1, false, false},
+		{"missing results", 0, false, false}, {"explicit clients and performance", 0, true, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
@@ -306,7 +307,7 @@ func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 			output := filepath.Join(t.TempDir(), "measurements")
 			var stage string
 			calls := 0
-			err := acceptNative(request, source, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), false, output, func(call toolCall) error {
+			err := acceptNative(request, source, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), test.clients, output, func(call toolCall) error {
 				calls++
 				stage = strings.TrimPrefix(call.Env[0], "AIGW_ACCEPTANCE_RELEASE=")
 				if call.Name != "go" || call.Directory != request.Root || stage == source {
@@ -315,7 +316,7 @@ func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 				if calls == test.failAt {
 					return errors.New(test.name)
 				}
-				if calls == 1 {
+				if slices.Contains(call.Args, "^TestNativeClientJourney$") && test.clients && calls == 1 {
 					return nil
 				}
 				want := []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}
@@ -330,7 +331,7 @@ func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 				}
 				return os.WriteFile(filepath.Join(output, "summary.json"), []byte(`{"blocks":[{}]}`), 0o600)
 			})
-			if (err == nil) != test.emit {
+			if (err == nil) != test.emit || calls != map[bool]int{false: 1, true: 2}[test.clients] {
 				t.Fatalf("%s: %v", test.name, err)
 			}
 			if _, err := os.Stat(stage); !os.IsNotExist(err) {

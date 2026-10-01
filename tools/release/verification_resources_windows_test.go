@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -38,26 +39,44 @@ func interruptVerificationCommand(command *exec.Cmd, environment []string) error
 	return nil
 }
 
-func sendVerificationConsoleInterrupt(pid int) error {
+func sendVerificationConsoleInterrupt(pid int) (result error) {
+	processID, err := strconv.ParseUint(strconv.Itoa(pid), 10, 32)
+	if err != nil || processID == 0 {
+		return errors.New("owned verification process ID is outside the native DWORD range")
+	}
 	kernel := windows.NewLazySystemDLL("kernel32.dll")
 	_, _, _ = kernel.NewProc("FreeConsole").Call()
-	attached, _, err := kernel.NewProc("AttachConsole").Call(uintptr(pid))
+	attached, _, err := kernel.NewProc("AttachConsole").Call(uintptr(processID))
 	if attached == 0 {
 		return fmt.Errorf("attach owned verification console: %w", err)
 	}
-	defer kernel.NewProc("FreeConsole").Call()
+	defer func() {
+		freed, _, err := kernel.NewProc("FreeConsole").Call()
+		if freed == 0 {
+			result = errors.Join(result, fmt.Errorf("detach owned verification console: %w", err))
+		}
+	}()
 	handler := windows.NewCallback(func(_ uint32) uintptr { return 1 })
 	ignored, _, err := kernel.NewProc("SetConsoleCtrlHandler").Call(handler, 1)
 	if ignored == 0 {
 		return fmt.Errorf("exclude owned interruption sender from console event: %w", err)
 	}
-	defer kernel.NewProc("SetConsoleCtrlHandler").Call(handler, 0)
+	defer func() {
+		removed, _, err := kernel.NewProc("SetConsoleCtrlHandler").Call(handler, 0)
+		if removed == 0 {
+			result = errors.Join(result, fmt.Errorf("remove owned console interruption handler: %w", err))
+		}
+	}()
 	return windows.GenerateConsoleCtrlEvent(windows.CTRL_BREAK_EVENT, 0)
 }
 
 func observeVerificationProcess(t *testing.T, pid int, _, role string) func() bool {
 	t.Helper()
-	handle, err := windows.OpenProcess(windows.SYNCHRONIZE|windows.PROCESS_TERMINATE, false, uint32(pid))
+	processID, err := strconv.ParseUint(strconv.Itoa(pid), 10, 32)
+	if err != nil || processID == 0 {
+		t.Fatal("owned process ID is outside the native DWORD range")
+	}
+	handle, err := windows.OpenProcess(windows.SYNCHRONIZE|windows.PROCESS_TERMINATE, false, uint32(processID))
 	if err != nil {
 		t.Fatalf("retain owned process %d handle: %v", pid, err)
 	}

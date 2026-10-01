@@ -236,34 +236,24 @@ func acceptNative(request buildRequest, artifacts, baseline string, clients bool
 	commonEnvironment := []string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace, "GH_TOKEN=", "GITHUB_TOKEN=", "GITLAB_TOKEN=", "CI_JOB_TOKEN=", "GLAB_ENABLE_CI_AUTOLOGIN=false"}
 	currentEnvironment := append(append([]string{}, commonEnvironment...), "AIGW_ACCEPTANCE_BASELINE=")
 	publishedEnvironment := append(append([]string{}, commonEnvironment...), "AIGW_ACCEPTANCE_BASELINE="+baseline)
-	call := toolCall{
-		Name: "go", Directory: request.Root,
-		Args: []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney|TestNativeVerificationResources)$", "-count=1", "-v"},
-		Env:  currentEnvironment,
-	}
-	if err := run(call); err != nil {
-		return err
-	}
-	if baseline != "" {
-		call.Args = []string{"test", "./tools/release", "-run", "^TestNativePublishedPredecessorJourney$", "-count=1", "-v"}
-		call.Env = publishedEnvironment
-		if err := run(call); err != nil {
-			return err
+	for _, suite := range []struct {
+		selected    bool
+		args        []string
+		environment []string
+	}{
+		{performance == "", []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney|TestNativeVerificationResources)$", "-count=1", "-v"}, currentEnvironment},
+		{performance == "" && baseline != "", []string{"test", "./tools/release", "-run", "^TestNativePublishedPredecessorJourney$", "-count=1", "-v"}, publishedEnvironment},
+		{clients, []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClientJourney$", "-count=1", "-v"}, publishedEnvironment},
+		{performance != "", []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}, append(publishedEnvironment, "AIGW_PERFORMANCE_OUTPUT="+performance)},
+	} {
+		if !suite.selected {
+			continue
 		}
-	}
-	if clients {
-		call.Args = []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClientJourney$", "-count=1", "-v"}
-		call.Env = publishedEnvironment
-		if err := run(call); err != nil {
+		if err := run(toolCall{Name: "go", Directory: request.Root, Args: suite.args, Env: suite.environment}); err != nil {
 			return err
 		}
 	}
 	if performance != "" {
-		call.Args = []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}
-		call.Env = append(publishedEnvironment, "AIGW_PERFORMANCE_OUTPUT="+performance)
-		if err := run(call); err != nil {
-			return err
-		}
 		data, err := os.ReadFile(filepath.Join(performance, "summary.json"))
 		if err != nil || !json.Valid(data) {
 			return errors.New("performance acceptance did not produce its result summary")

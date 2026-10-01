@@ -283,6 +283,11 @@ carrying old samples into the final release verdict.
 
 The output must be a new absolute directory. The task installs its locked
 Hyperfine tool only when requested; ordinary checks do not require it.
+An explicit performance output selects only the matching measurements after
+normal artifact, source and predecessor trust checks; it does not repeat core,
+rollback or resource lifecycle acceptance. `--clients` additionally runs the
+requested native-client journey. Neither selection replaces required lifecycle
+evidence for release admission.
 
 The GitHub Verify workflow accepts `performance=true` together with
 `baseline_tag` and `candidate_tag`. It reuses historical release acceptance,
