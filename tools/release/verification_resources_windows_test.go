@@ -17,7 +17,7 @@ import (
 
 func prepareVerificationInterrupt(command *exec.Cmd) {
 	command.SysProcAttr = &syscall.SysProcAttr{
-		CreationFlags: windows.CREATE_NEW_PROCESS_GROUP | windows.CREATE_NEW_CONSOLE,
+		CreationFlags: windows.CREATE_NEW_CONSOLE,
 		HideWindow:    true,
 	}
 }
@@ -46,10 +46,16 @@ func sendVerificationConsoleInterrupt(pid int) error {
 		return fmt.Errorf("attach owned verification console: %w", err)
 	}
 	defer kernel.NewProc("FreeConsole").Call()
-	return windows.GenerateConsoleCtrlEvent(windows.CTRL_BREAK_EVENT, uint32(pid))
+	handler := windows.NewCallback(func(_ uint32) uintptr { return 1 })
+	ignored, _, err := kernel.NewProc("SetConsoleCtrlHandler").Call(handler, 1)
+	if ignored == 0 {
+		return fmt.Errorf("exclude owned interruption sender from console event: %w", err)
+	}
+	defer kernel.NewProc("SetConsoleCtrlHandler").Call(handler, 0)
+	return windows.GenerateConsoleCtrlEvent(windows.CTRL_BREAK_EVENT, 0)
 }
 
-func observeVerificationProcess(t *testing.T, pid int) func() bool {
+func observeVerificationProcess(t *testing.T, pid int, _, role string) func() bool {
 	t.Helper()
 	handle, err := windows.OpenProcess(windows.SYNCHRONIZE|windows.PROCESS_TERMINATE, false, uint32(pid))
 	if err != nil {
@@ -57,9 +63,11 @@ func observeVerificationProcess(t *testing.T, pid int) func() bool {
 	}
 	t.Cleanup(func() {
 		state, err := windows.WaitForSingleObject(handle, 0)
-		if err == nil && state == uint32(windows.WAIT_TIMEOUT) {
+		if role != "unrelated" && err == nil && state == uint32(windows.WAIT_TIMEOUT) {
 			if err := windows.TerminateProcess(handle, 1); err != nil {
 				t.Errorf("terminate exact owned process %d after test failure: %v", pid, err)
+			} else if state, err := windows.WaitForSingleObject(handle, 5000); err != nil || state != windows.WAIT_OBJECT_0 {
+				t.Errorf("owned process %d termination was not confirmed: state=%d error=%v", pid, state, err)
 			}
 		}
 		if err := windows.CloseHandle(handle); err != nil {

@@ -76,6 +76,39 @@ interfaces = { openai_chat_completions = ["text"] }
 	}
 }
 
+func TestVerificationResourceCleanupStopsOwnedFixture(t *testing.T) {
+	control := t.TempDir()
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := exec.Command(executable)
+	command.Env = environmentWith(os.Environ(), map[string]string{
+		"AIGW_TEST_RESOURCE_ROLE":    "child",
+		"AIGW_TEST_RESOURCE_CONTROL": control,
+	})
+	if err := command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	completed := make(chan error, 1)
+	go func() { completed <- command.Wait() }()
+	t.Cleanup(func() { _ = command.Process.Kill() })
+	if err := awaitVerificationFile(filepath.Join(control, "child.json")); err != nil {
+		t.Fatal(err)
+	}
+	t.Run("owned assertion cleanup", func(t *testing.T) {
+		alive := observeVerificationProcess(t, command.Process.Pid, control, "child")
+		if !alive() {
+			t.Fatal("owned fixture did not reach the assertion boundary")
+		}
+	})
+	select {
+	case <-completed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("native process observation did not reclaim its owned fixture")
+	}
+}
+
 type verificationResourceFile struct {
 	Mode   fs.FileMode
 	Digest [sha256.Size]byte
@@ -137,6 +170,7 @@ func verifyNativeResourceCase(t *testing.T, journey *journeyFixture, temporary, 
 	prepareVerificationInterrupt(command)
 	var stdout, stderr bytes.Buffer
 	command.Stdout, command.Stderr = &stdout, &stderr
+	started := time.Now()
 	if err := command.Start(); err != nil {
 		cancel()
 		t.Fatal(err)
@@ -149,6 +183,7 @@ func verifyNativeResourceCase(t *testing.T, journey *journeyFixture, temporary, 
 		cancel()
 	}()
 	if err := awaitVerificationFile(filepath.Join(control, "parent.json")); err != nil {
+		finishVerificationCommand(t, command, environment, completed)
 		t.Fatalf("public verification did not invoke controlled client: %v\n%s\n%s", err, &stdout, &stderr)
 	}
 	var parent, child verificationResourceProcess
@@ -157,12 +192,11 @@ func verifyNativeResourceCase(t *testing.T, journey *journeyFixture, temporary, 
 			t.Fatal(err)
 		}
 	}
-	parentAlive := observeVerificationProcess(t, parent.PID)
-	childAlive := observeVerificationProcess(t, child.PID)
+	parentAlive := observeVerificationProcess(t, parent.PID, control, "parent")
+	childAlive := observeVerificationProcess(t, child.PID, control, "child")
 	if !parentAlive() || !childAlive() || !unrelatedAlive() || parent.Home == "" || child.Home != parent.Home {
 		t.Fatal("resource fixture did not establish live owned and unrelated processes")
 	}
-	started := time.Now()
 	if err := os.WriteFile(filepath.Join(control, "release"), []byte("release"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +262,7 @@ func startVerificationSentinel(t *testing.T, environment []string, control strin
 	if err := awaitVerificationFile(filepath.Join(control, "unrelated.json")); err != nil {
 		t.Fatal(err)
 	}
-	return observeVerificationProcess(t, command.Process.Pid)
+	return observeVerificationProcess(t, command.Process.Pid, control, "unrelated")
 }
 
 func requireVerificationProcessesReclaimed(t *testing.T, parent, child, unrelated func() bool) {

@@ -57,8 +57,10 @@ func runInstalledClientFixture(executable string, args []string) (bool, int) {
 }
 
 type verificationResourceProcess struct {
-	PID  int    `json:"pid"`
-	Home string `json:"home"`
+	PID     int    `json:"pid"`
+	Home    string `json:"home"`
+	Control string `json:"control"`
+	Role    string `json:"role"`
 }
 
 func runVerificationResourceRole(role string, args []string) int {
@@ -78,8 +80,7 @@ func runVerificationResourceRole(role string, args []string) int {
 	if err := writeVerificationProcess(filepath.Join(os.Getenv("AIGW_TEST_RESOURCE_CONTROL"), role+".json")); err != nil {
 		return 2
 	}
-	time.Sleep(3 * time.Minute)
-	return 0
+	return holdVerificationProcess(role, 3*time.Minute)
 }
 
 func runVerificationResourceClient() int {
@@ -110,19 +111,39 @@ func runVerificationResourceClient() int {
 	case "parent-exit":
 		return 0
 	case "interrupt", "deadline":
-		time.Sleep(2 * time.Minute)
-		return 2
+		return holdVerificationProcess("parent", 2*time.Minute)
 	default:
 		return 2
 	}
 }
 
 func writeVerificationProcess(path string) error {
-	data, err := json.Marshal(verificationResourceProcess{PID: os.Getpid(), Home: os.Getenv("HERMES_HOME")})
+	role := os.Getenv("AIGW_TEST_RESOURCE_ROLE")
+	if role == "" {
+		role = "parent"
+	}
+	data, err := json.Marshal(verificationResourceProcess{
+		PID: os.Getpid(), Home: os.Getenv("HERMES_HOME"),
+		Control: os.Getenv("AIGW_TEST_RESOURCE_CONTROL"), Role: role,
+	})
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(path, data, 0o600)
+}
+
+func holdVerificationProcess(role string, limit time.Duration) int {
+	stop := filepath.Join(os.Getenv("AIGW_TEST_RESOURCE_CONTROL"), role+".stop")
+	deadline := time.Now().Add(limit)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(stop); err == nil {
+			return 0
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return 2
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return 2
 }
 
 func awaitVerificationFile(path string) error {
