@@ -291,40 +291,26 @@
 
 ## 6. Quality, Supply Chain, and Performance
 
-- [ ] 6.1 Audit every direct Go, npm, OpenSpec, Mise and release-tool version
+- [x] 6.1 Audit every direct Go, npm, OpenSpec, Mise and release-tool version
       against the latest stable compatible upstream; update authored pins and locks
       once, then prove clean-context reproducibility and license/security
-      admissibility. The 2026-09-30 refresh updates the authored CI client,
-      Hermes, Mise image, glab and Renovate pins plus one required Go and sixteen npm
-      transitive packages. Both new images run; bootstrap, source gate (95.04%),
-      macOS native acceptance, Renovate validation/extraction, two lock
-      resolutions and the OSV/license scan (43 Go and 283 npm packages, zero
-      findings) pass. New npm releases younger than three days remain held;
-      Linux/Windows native and cold-cache peer transport remain open.
-      The final September 30 supply read advances CI Mise to stable 2026.9.18.
-      The official Windows ARM64 ZIP and its executable/shim hashes are verified;
-      Docker Hub confirms the immutable Debian multi-platform index. Both Forge
-      projections use those inputs. Runner installation and hosted execution
-      remain required before supply-chain qualification is complete.
-      The renewed stable audit also admits GitHub CLI 2.102.0 with its four
-      security fixes, Renovate 44.125.1, and age-qualified tldts/tldts-core
-      7.4.16. The GitHub CLI lock verifies all six OS/architecture artifacts;
-      the Renovate OCI index is digest-pinned. Other authored runtime, tool,
-      Action and OpenSpec versions match their official stable owners. Claude
-      2.1.286 is a latest-channel compatibility input; its separate stable
-      channel remains 2.1.285, and host channel policy is unchanged.
-      Native npm resolution preserves parent-pinned versions and the three-day
-      admission window rather than forcing incompatible transitive overrides.
-      The October 1 official read found npm 12.2.0 newly stable; the native
-      Mise producer now owns that package-manager pin and its AUBE sidecar.
-      Host Mise 2026.9.18 and uv 0.12.21 have a single verified official owner.
-      Locked npm 12.2.0 bootstrap passed with 283 registry signatures, 51
-      attestations and zero vulnerabilities; two native lock refreshes preserved
-      all hashes and all 111 platform payloads. The fourteen direct Go dependencies
-      and forty-nine Proxy Python packages match the October 1 stable read.
-      At signed `6c744c5d`, both peers passed complete native source CI on
-      macOS, Linux and Windows. Final artifact qualification and real Job Token
-      cold-peer execution remain distinct open obligations.
+      admissibility. The October 1 official audit and native producers bind
+      fourteen direct Go dependencies, nineteen Mise tools, OpenSpec and text
+      tooling to stable-compatible versions. npm 12.2.0, Mise 2026.9.18,
+      GitHub CLI 2.102.0, glab 1.120.0 and Renovate 44.125.1 are admitted;
+      locked npm resolution preserves parent constraints and the three-day
+      transitive admission window instead of incompatible overrides.
+      Bootstrap, registry verification (283 signatures and 51 attestations),
+      both native lock resolutions and all 111 payload hashes pass. All 43 Go
+      and 283 npm packages have established licenses and zero OSV findings.
+      Both peers pass the five-job source/native matrix at signed `ea8d5d8f`.
+      A fresh mutable workspace at `b4a825b8` reconstructs all 1,228 signed
+      source inputs and npm dependencies through the existing bootstrap in
+      2.36 seconds with network denied, private HOME/state/node_modules, and
+      supported content-addressed caches. No authored hash changes or warnings;
+      exact scratch is removed. This is source-supply reproducibility, not an
+      empty-cache claim. Complete cold-peer execution and final product bytes
+      remain open at 7.5 and 9.3; credential authorization is not a tool version.
 - [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
