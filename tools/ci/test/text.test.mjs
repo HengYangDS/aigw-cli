@@ -145,6 +145,69 @@ test("Markdown enforces native document structure without inline suppression", a
       "",
     ],
     ["fence language", "# Document\n\n```\naigw status\n```\n", "MD040"],
+    ["repeated blank lines", "# Document\n\n\nText.\n", "MD012"],
+    ["missing heading separator", "# Document\nText.\n", "MD022"],
+    [
+      "missing fence separator",
+      "# Document\n\nText.\n```sh\naigw status\n```\n",
+      "MD031",
+    ],
+    ["missing list separator", "# Document\n\nText.\n- Item.\n", "MD032"],
+    [
+      "tight wrapped tasks",
+      "# Tasks\n\n- [ ] First action\n      and its verification.\n- [ ] Second action.\n",
+      "",
+    ],
+    [
+      "isolated task separator",
+      "# Tasks\n\n- [ ] First.\n- [ ] Second.\n\n- [ ] Third.\n",
+      "single-paragraph-list-spacing",
+    ],
+    [
+      "loose single-paragraph list",
+      "# Document\n\n1. First.\n\n2. Second.\n",
+      "single-paragraph-list-spacing",
+    ],
+    [
+      "nested single-paragraph list",
+      "# Document\n\n- Parent.\n  - First.\n\n  - Second.\n- Next parent.\n",
+      "single-paragraph-list-spacing",
+    ],
+    [
+      "quoted single-paragraph list",
+      "# Document\n\n> - First.\n>\n> - Second.\n",
+      "single-paragraph-list-spacing",
+    ],
+    [
+      "multi-paragraph list",
+      "# Document\n\n- First paragraph.\n\n  Second paragraph.\n\n- Next item.\n",
+      "",
+    ],
+    [
+      "list with fenced example",
+      "# Document\n\n- Command.\n\n  ```sh\n  aigw status\n\n\n  aigw check\n  ```\n\n- Next item.\n",
+      "",
+    ],
+    [
+      "list-looking code",
+      "# Document\n\n```markdown\n- First.\n\n- Second.\n```\n",
+      "",
+    ],
+    [
+      "independent lists",
+      "# Document\n\n- First.\n\nParagraph.\n\n- Second.\n",
+      "",
+    ],
+    [
+      "blank-line rule cannot be disabled inline",
+      "# Tasks\n\n<!-- markdownlint-disable blank_lines -->\n- [ ] First.\n\n- [ ] Second.\n",
+      "single-paragraph-list-spacing",
+    ],
+    [
+      "missing table separator",
+      "# Document\n\nText.\n| Field |\n| ----- |\n| Value |\n",
+      "MD058",
+    ],
     ["separator style", "# Document\n\nText.\n\n***\n\nText.\n", "MD035"],
     [
       "table columns",

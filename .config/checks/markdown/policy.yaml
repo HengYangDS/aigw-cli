@@ -1,5 +1,7 @@
 ---
 default: false
+# Enables the adapter's native list-spacing extension with upstream boundaries.
+blank_lines: true
 MD001: true
 MD003: { style: atx }
 MD004: { style: dash }

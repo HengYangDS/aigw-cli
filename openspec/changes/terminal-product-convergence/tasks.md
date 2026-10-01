@@ -355,7 +355,6 @@
       Claude Desktop GUI remains in 4.5; performance, persistent Runner
       containment and final distributed-byte acceptance remain in 6.6, 7.4
       and 9.3. This closure does not claim those independent outcomes.
-
 - [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
       environment backend separately in isolated acceptance; final operator-item
       authorization remains required before post-archive installed cutover.
@@ -653,7 +652,6 @@
       `runtime-refreshed-target-current-20261001.json` and
       `cold-tool-source-bound-current-proof-ceb5948d.*` under the existing
       `build/verification/supply-chain-20260930/` owner.
-
 - [x] 8.3 Review diagrams, tables, headings, lists, examples, CLI help and
       errors for readable layout and accurate links; enforce the chosen native
       formatter/linter rather than adding one-off checks.
@@ -669,6 +667,11 @@
       `cli-ebf9adff-layout/`, `public-negative-ebf9adff/` and
       `product-concepts-ebf9adff-native.png`. Hosted Forge rendering is not
       claimed; documentation registry/navigation remains in 8.2.
+      The native blank-line extension rejects single-paragraph peer separators
+      while preserving complex items and literal code. Five distinguishing RED
+      cases pass after repair; all 57 text-gate tests and 48 current Markdown
+      files pass. Native format, policy schema, spelling, ELOC and OpenSpec
+      checks pass; immutable archive bytes remain unchanged.
 - [x] 8.4 Compare mature gateway, config, client and release libraries with
       retained AIGW differentiators; record one source-backed adopt/reject decision
       per candidate and delete any replaced hand-written owner.
