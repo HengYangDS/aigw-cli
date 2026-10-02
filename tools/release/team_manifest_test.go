@@ -30,6 +30,19 @@ type manualRouteSelection struct {
 }
 
 func TestNativeTeamManifestJourney(t *testing.T) {
+	callerHome := t.TempDir()
+	callerConfig := filepath.Join(callerHome, "config.yaml")
+	callerBytes := []byte("model: caller-owned-model\n")
+	if err := os.WriteFile(callerConfig, callerBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HERMES_HOME", callerHome)
+	t.Cleanup(func() {
+		entries, err := os.ReadDir(callerHome)
+		if err != nil || len(entries) != 1 || !bytes.Equal(readFile(t, callerConfig), callerBytes) {
+			t.Errorf("native team journey changed the caller's Hermes Home: %v", err)
+		}
+	})
 	plan := newTeamManifestJourney(t)
 	for _, account := range append([]string{""}, configuration.ManifestAccountNames(plan.manifest)...) {
 		if account == "" {
