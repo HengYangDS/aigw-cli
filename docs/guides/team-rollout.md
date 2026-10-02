@@ -116,12 +116,16 @@ evidence](../research/provider-model-qualification.md) explains the observed
 IDs, protocol tests, exclusions, and limits. A catalogue listing is not a live
 Route or native-client availability guarantee.
 
-Claude Code and Claude Desktop initially prefer DMXAPI Opus 5.5, then UCloud,
-then AIHubMix. Codex and Hermes prefer DMXAPI GPT-6.1 Sol, then UCloud, then
-AIHubMix; each offers the same reviewed GPT-6.1 Sol Route. A shared model name
-does not make every Account/client pair interchangeable. A sole
-connected Account remains sufficient. Luna remains separately selectable,
-not an automatic recovery Route when the selected provider later fails.
+Claude Code and Claude Desktop recommend DMXAPI Opus 5.5 before UCloud Opus 5.5.
+Codex recommends DMXAPI's GPT-6.1 Sol CDX Route before UCloud GPT-6.1 Sol;
+Hermes recommends DMXAPI's base GPT-6.1 Sol Route before the UCloud base Route.
+AIHubMix Routes remain available but are manual-only, not automatic alternatives.
+The Codex and Hermes DMXAPI Routes bind to the same canonical Model, but are
+distinct Routes. A shared model name does not make every Account/client pair
+interchangeable. A sole DMXAPI or UCloud Account is enough for the declared
+recommendation; select an AIHubMix Route explicitly with `aigw use --for`.
+Luna remains separately selectable, not an automatic recovery Route when the
+selected provider later fails.
 A local Account endpoint override is not silently replaced by the team's
 direct endpoint. Re-importing the team manifest
 against that differing Account fails closed; inspect it with
@@ -133,16 +137,17 @@ from its native `/model` chooser. Select it with
 [`aigw use --for codex`](../../README.md#use-it-every-day), then verify through
 Codex; the [dated client observation](../research/provider-model-qualification.md#codex-native-chooser)
 does not establish current upstream availability. For an AIGW-managed custom
-Provider with a known base model, AIGW pins the installed Codex client's own
-model metadata so a standard provider `/models` response is not mistaken for
-Codex's private metadata format.
+Provider, AIGW uses the installed Codex client's complete native catalog when
+no exact projection can be produced for the selected model. It never invents
+an entry for an unknown model or treats a provider `/models` response as
+Codex-native metadata.
 An explicit user-owned `model_catalog_json` may mask newer models bundled with
 Codex. AIGW preserves that setting; if Codex reports fallback model metadata,
 review the catalog before deliberately updating or removing it.
 
 Recommendations apply only to unselected clients at setup or sync; they do not
 switch a running request or replace an explicit Client Binding. AIHubMix uses the
-[documented backup API domain](https://docs.aihubmix.com/en/quick-start),
+[documented API endpoint](https://docs.aihubmix.com/en/quick-start),
 `api.inferera.com`: `/v1` is the Responses and Chat Completions base path; the
 Anthropic base is the domain root. A successful minimal request remains narrower than full real-client
 tool, continuation, streaming, and long-context acceptance.

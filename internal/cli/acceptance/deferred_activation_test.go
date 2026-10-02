@@ -117,11 +117,9 @@ func TestShippedTeamManifestWithoutAccountOrClientIsDeferred(t *testing.T) {
 	if len(setup.SelectedBindings) != 0 || len(setup.DeferredActions) != 1 {
 		t.Fatalf("setup activation = %+v", setup)
 	}
-	wantAction := setup.DeferredActions[0]
-	for _, account := range []string{"aihubmix", "dmxapi", "ucloud"} {
-		if !strings.Contains(wantAction, secrets.EnvironmentKey(account)) {
-			t.Fatalf("missing compatible Account %q in %q", account, wantAction)
-		}
+	wantAction := "Set one compatible Account variable: " + secrets.EnvironmentKey("dmxapi") + " or " + secrets.EnvironmentKey("ucloud")
+	if setup.DeferredActions[0] != wantAction {
+		t.Fatalf("setup deferred action = %q, want %q", setup.DeferredActions[0], wantAction)
 	}
 	if setup.NextAction != wantAction {
 		t.Fatalf("setup next action %q differs from prerequisite %q", setup.NextAction, wantAction)
@@ -222,10 +220,9 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneAccountChoice(t *testing
 	if len(setup.SelectedBindings) != 0 || len(setup.DeferredActions) != 1 || setup.NextAction != setup.DeferredActions[0] {
 		t.Fatalf("setup activation = %+v", setup)
 	}
-	for _, account := range []string{"aihubmix", "dmxapi", "ucloud"} {
-		if !strings.Contains(setup.NextAction, "aigw rotate "+account) {
-			t.Fatalf("setup omitted Account choice %q: %q", account, setup.NextAction)
-		}
+	wantAction := "Choose one compatible Account: aigw rotate dmxapi or aigw rotate ucloud"
+	if setup.NextAction != wantAction {
+		t.Fatalf("setup Account choices = %q, want %q", setup.NextAction, wantAction)
 	}
 	if strings.Contains(setup.NextAction, "aigw sync") {
 		t.Fatalf("setup recommended synchronization before its prerequisite: %q", setup.NextAction)

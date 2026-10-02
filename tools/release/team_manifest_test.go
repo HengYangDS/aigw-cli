@@ -24,6 +24,11 @@ type teamManifestJourney struct {
 	clients  []string
 }
 
+type manualRouteSelection struct {
+	route    string
+	protocol configuration.EndpointProtocol
+}
+
 func TestNativeTeamManifestJourney(t *testing.T) {
 	plan := newTeamManifestJourney(t)
 	for _, account := range append([]string{""}, configuration.ManifestAccountNames(plan.manifest)...) {
@@ -36,7 +41,7 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 	}
 }
 
-func TestTeamManifestRecommendsQualifiedSolAndRetainsAccountFallbacks(t *testing.T) {
+func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testing.T) {
 	team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
 	sol := "gpt-6.1-sol"
 	manifest, err := configuration.Parse(team)
@@ -59,8 +64,8 @@ func TestTeamManifestRecommendsQualifiedSolAndRetainsAccountFallbacks(t *testing
 		t.Fatalf("team DMXAPI endpoint = %q, want direct provider", got)
 	}
 	for client, want := range map[string][]string{
-		configuration.ClientCodex:  {"dmxapi-" + sol + "-cdx", "ucloud-" + sol, "aihubmix-" + sol},
-		configuration.ClientHermes: {"dmxapi-" + sol, "ucloud-" + sol, "aihubmix-" + sol},
+		configuration.ClientCodex:  {"dmxapi-" + sol + "-cdx", "ucloud-" + sol},
+		configuration.ClientHermes: {"dmxapi-" + sol, "ucloud-" + sol},
 	} {
 		selections := manifest.Recommendations[client].Selections()
 		if len(selections) != len(want) {
@@ -141,6 +146,7 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 	if err != nil {
 		t.Fatal(err)
 	}
+	manual := plan.manualSelections(t, account, selected)
 	beforePreview := readFile(t, journey.config)
 	var preview struct {
 		Selections map[string]string `json:"selections"`
@@ -158,14 +164,70 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 	}
 	for _, client := range plan.clients {
 		route := selected.SelectedRoute(client)
-		if route == "" {
-			t.Fatalf("Account %q has no compatible recommended Route for %s", account, client)
-		}
 		if planned, got := preview.Selections[client], actual.SelectedRoute(client); planned != route || got != route {
 			t.Fatalf("late sync selected %s Route %q after preview %q, want %q", client, got, planned, route)
 		}
+		if _, isManual := manual[client]; isManual && actual.Clients[client].Enabled {
+			t.Fatalf("sync activated manually selected %s for Account %q", client, account)
+		}
+	}
+	for client, choice := range manual {
+		journey.run("use", "--for", client, "--protocol", string(choice.protocol), choice.route)
+		actual, err = configuration.NewStore(journey.config).Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := actual.SelectedRoute(client); got != choice.route {
+			t.Fatalf("explicit use selected %s Route %q, want %q", client, got, choice.route)
+		}
 	}
 	plan.requireSelectedAccount(t, journey, account)
+}
+
+func (plan teamManifestJourney) manualSelections(
+	t *testing.T, account string, selected configuration.Config,
+) map[string]manualRouteSelection {
+	t.Helper()
+	manual := make(map[string]manualRouteSelection)
+	for _, client := range plan.clients {
+		if selected.SelectedRoute(client) != "" {
+			continue
+		}
+		choice, ok := plan.manualRoute(account, client)
+		if !ok {
+			t.Fatalf("Account %q has no compatible declared or manual Route for %s", account, client)
+		}
+		manual[client] = choice
+	}
+	return manual
+}
+
+func (plan teamManifestJourney) manualRoute(account, client string) (manualRouteSelection, bool) {
+	spec, found := configuration.ClientSpecFor(client)
+	if !found {
+		return manualRouteSelection{}, false
+	}
+	recommendation, found := plan.manifest.Recommendations[client]
+	if !found {
+		return manualRouteSelection{}, false
+	}
+	model := plan.manifest.Routes[recommendation.Primary.Route].Model
+	for _, routeID := range slices.Sorted(maps.Keys(plan.manifest.Routes)) {
+		route := plan.manifest.Routes[routeID]
+		if route.Account != account || route.Model != model {
+			continue
+		}
+		protocols := spec.CompatibleRouteProtocols(plan.manifest.Accounts[account], route)
+		if len(protocols) == 0 {
+			continue
+		}
+		protocol := recommendation.Primary.Protocol
+		if !slices.Contains(protocols, protocol) {
+			protocol = protocols[0]
+		}
+		return manualRouteSelection{route: routeID, protocol: protocol}, true
+	}
+	return manualRouteSelection{}, false
 }
 
 func requireNoActivationBeforeToken(t *testing.T, journey *journeyFixture) {

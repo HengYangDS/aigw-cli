@@ -65,46 +65,47 @@ func TestTeamConfigurationManifestIsReviewedVersionSeven(t *testing.T) {
 	}
 }
 
-func TestTeamManifestActivatesAnyOneConnectedAccount(t *testing.T) {
-	_, parsedManifest := loadTeamManifest(t)
+func TestTeamManifestSelectsOnlyDeclaredRecommendationsForConnectedAccount(t *testing.T) {
+	_, manifest := loadTeamManifest(t)
 	protocols := map[string]EndpointProtocol{
 		ClientClaude: ProtocolAnthropic, ClientClaudeDesktop: ProtocolAnthropic,
 		ClientCodex: ProtocolOpenAIResponses, ClientHermes: ProtocolOpenAIResponses,
 	}
-	for accountID := range parsedManifest.Accounts {
-		cfg, mergeErr := Merge(NewConfig(), parsedManifest)
-		if mergeErr != nil {
-			t.Fatal(mergeErr)
+	for accountID := range manifest.Accounts {
+		cfg, err := Merge(NewConfig(), manifest)
+		if err != nil {
+			t.Fatal(err)
 		}
-		selected, selectErr := cfg.SelectRoutesForConnectedAccounts([]string{accountID})
-		if selectErr != nil {
-			t.Fatal(selectErr)
+		selected, err := cfg.SelectRoutesForConnectedAccounts([]string{accountID})
+		if err != nil {
+			t.Fatal(err)
 		}
-		activated := 0
-		for client, recommendation := range parsedManifest.Recommendations {
-			routeID := selected.SelectedRoute(client)
-			if routeID == "" {
-				continue
-			}
-			runtime, resolveErr := selected.ResolveRuntime(client, "")
-			if resolveErr != nil {
-				t.Fatalf("resolve %s route for Account %q: %v", client, accountID, resolveErr)
-			}
-			expectedModel := ""
+		for client, recommendation := range manifest.Recommendations {
+			wantRoute := ""
 			for _, option := range recommendation.Selections() {
-				candidate := parsedManifest.Routes[option.Route]
-				if candidate.Account == accountID {
-					expectedModel = candidate.Model
+				if manifest.Routes[option.Route].Account == accountID {
+					wantRoute = option.Route
 					break
 				}
 			}
-			if expectedModel == "" || runtime.AccountID != accountID || selected.Routes[routeID].Model != expectedModel || runtime.Protocol != protocols[client] {
-				t.Fatalf("%s route for Account %q = Account %q canonical Model %q protocol %q, want Model %q protocol %q", client, accountID, runtime.AccountID, selected.Routes[routeID].Model, runtime.Protocol, expectedModel, protocols[client])
+			routeID := selected.SelectedRoute(client)
+			if routeID != wantRoute {
+				t.Errorf("%s with Account %q selected %q, want declared recommendation %q", client, accountID, routeID, wantRoute)
+				continue
 			}
-			activated++
-		}
-		if activated != len(parsedManifest.Recommendations) {
-			t.Fatalf("Account %q activates %d of %d recommended Clients", accountID, activated, len(parsedManifest.Recommendations))
+			if wantRoute == "" {
+				continue
+			}
+			runtime, err := selected.ResolveRuntime(client, "")
+			if err != nil {
+				t.Fatalf("resolve %s Route %q: %v", client, routeID, err)
+			}
+			if runtime.AccountID != accountID ||
+				selected.Routes[routeID].Model != manifest.Routes[wantRoute].Model ||
+				runtime.Protocol != protocols[client] {
+				t.Errorf("%s Route %q resolves to Account %q Model %q protocol %q",
+					client, routeID, runtime.AccountID, selected.Routes[routeID].Model, runtime.Protocol)
+			}
 		}
 	}
 }
@@ -365,10 +366,10 @@ func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	sol := "gpt-6.1-sol"
 	for client, want := range map[string][]string{
-		ClientClaude:        {"dmxapi-claude-opus-5-5", "ucloud-claude-opus-5-5", "aihubmix-claude-opus-5-5"},
-		ClientClaudeDesktop: {"dmxapi-claude-opus-5-5", "ucloud-claude-opus-5-5", "aihubmix-claude-opus-5-5"},
-		ClientCodex:         {"dmxapi-" + sol + "-cdx", "ucloud-" + sol, "aihubmix-" + sol},
-		ClientHermes:        {"dmxapi-" + sol, "ucloud-" + sol, "aihubmix-" + sol},
+		ClientClaude:        {"dmxapi-claude-opus-5-5", "ucloud-claude-opus-5-5"},
+		ClientClaudeDesktop: {"dmxapi-claude-opus-5-5", "ucloud-claude-opus-5-5"},
+		ClientCodex:         {"dmxapi-" + sol + "-cdx", "ucloud-" + sol},
+		ClientHermes:        {"dmxapi-" + sol, "ucloud-" + sol},
 	} {
 		choices := manifest.Recommendations[client].Selections()
 		if len(choices) != len(want) {
@@ -472,27 +473,6 @@ func TestRouteLabelDerivesDisplayWithoutChangingExactWireModel(t *testing.T) {
 	cfg.Routes["ucloud-minimax-m3"] = route
 	if got := cfg.RouteLabel("ucloud-minimax-m3"); got != route.Label {
 		t.Fatalf("explicit Route label = %q, want %q", got, route.Label)
-	}
-}
-
-func TestTeamManifestSelectsRecommendedModelsForAIHubMix(t *testing.T) {
-	_, manifest := loadTeamManifest(t)
-	cfg, err := Merge(NewConfig(), manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	selected, err := cfg.SelectRoutesForConnectedAccounts([]string{"aihubmix"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for client, model := range map[string]string{ClientClaude: "claude-opus-5-5", ClientCodex: "gpt-6.1-sol", ClientHermes: "gpt-6.1-sol"} {
-		runtime, resolveErr := selected.ResolveRuntime(client, "")
-		if resolveErr != nil {
-			t.Fatal(resolveErr)
-		}
-		if runtime.AccountID != "aihubmix" || runtime.Model != model {
-			t.Errorf("AIHubMix %s setup selected %s on %s, want %s", client, runtime.Model, runtime.AccountID, model)
-		}
 	}
 }
 

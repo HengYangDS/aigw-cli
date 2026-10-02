@@ -74,6 +74,46 @@ func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice
 	}
 }
 
+func TestSetupFromTeamManifestConnectsExplicitManualAccountFromEnvironment(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	const token = "aigw-test-aihubmix-token"
+	app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
+		if key == secrets.EnvironmentKey("aihubmix") {
+			return token
+		}
+		return ""
+	})
+	app.Discovery = fakeDiscovery{}
+	manifestPath := filepath.Join("..", "..", "..", "manifests", "team.toml")
+
+	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--account", "aihubmix", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		ConnectedAccounts []string          `json:"connected_accounts"`
+		SelectedBindings  map[string]string `json:"selected_bindings"`
+		ProjectedClients  []string          `json:"projected_clients"`
+		DeferredActions   []string          `json:"deferred_actions"`
+		NextAction        string            `json:"next_action"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
+	}
+	if !slices.Equal(result.ConnectedAccounts, []string{"aihubmix"}) {
+		t.Fatalf("connected Accounts = %#v, want [aihubmix]", result.ConnectedAccounts)
+	}
+	if len(result.SelectedBindings) != 0 || len(result.ProjectedClients) != 0 {
+		t.Fatalf("manual Account selection unexpectedly selected or projected a client: %#v", result)
+	}
+	const wantAction = "aigw use --help"
+	if !slices.Equal(result.DeferredActions, []string{wantAction}) || result.NextAction != wantAction {
+		t.Fatalf("manual Account continuation = %#v, want %q", result, wantAction)
+	}
+	if strings.Contains(out.String(), token) {
+		t.Fatalf("setup JSON exposed the environment Token: %s", out.String())
+	}
+}
+
 func TestSetupFromConfigurationManifestLeavesNoConfigWhenTokenStorageFails(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	app.Interactive = true

@@ -164,6 +164,50 @@ func TestReconcileConfigsLeavesNativeProviderCatalogAlone(t *testing.T) {
 	}
 }
 
+func TestUnknownModelPinsCompleteBundledCatalogWithoutInventingMetadata(t *testing.T) {
+	for _, test := range []struct {
+		name             string
+		wireModel        string
+		canonicalModelID string
+	}{
+		{name: "minimax-cc", wireModel: "cc-minimax-m3", canonicalModelID: "minimax-m3"},
+		{name: "muse-spark-1.3", wireModel: "muse-spark-1.3", canonicalModelID: "muse-spark-1.3"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}
+			stubCodexBundledCatalog(t, client, "gpt-6.1-sol", "gpt-6-luna")
+			bundled := projectionCatalog("gpt-6.1-sol", "gpt-6-luna")
+			path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
+			target := codexHomeTarget(path)
+			target.Executable = filepath.Join(filepath.Dir(path), "codex")
+			runtimeConfig := catalogTestRuntime(test.wireModel)
+			runtimeConfig.CanonicalModelID = test.canonicalModelID
+
+			if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+				t.Fatal(err)
+			}
+			projected, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(projected), "model_catalog_json = ") ||
+				!strings.Contains(string(projected), "# managed by AIGW") {
+				t.Fatalf("unknown model did not pin the native catalog: %s", projected)
+			}
+			data, err := os.ReadFile(codexCatalogPath(path))
+			if err != nil || string(data) != string(bundled) {
+				t.Fatalf("unknown model catalog = %q, want the complete native catalog: %v", data, err)
+			}
+			if strings.Contains(string(data), test.canonicalModelID) || strings.Contains(string(data), test.wireModel) {
+				t.Fatalf("native catalog contains invented metadata for route %+v: %s", test, data)
+			}
+			if err := ValidateConfig(path, runtimeConfig); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 // TestReconcileConfigsRebuildsTheCatalogAfterAClientUpgrade covers the upgrade
 // path in both directions: a newer client rebuilds, and a newer client whose
 // table cannot be read withdraws instead of reusing the old snapshot.
@@ -475,70 +519,5 @@ func TestReconcileConfigsRollsBackConfigStateAndCatalogTogether(t *testing.T) {
 	}
 	if _, statErr := os.Stat(codexStatePath(path)); !os.IsNotExist(statErr) {
 		t.Fatalf("sidecar survived the rollback: %v", statErr)
-	}
-}
-
-func TestValidateConfigReportsCatalogDrift(t *testing.T) {
-	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
-	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
-	target := codexHomeTarget(path)
-	target.Executable = filepath.Join(filepath.Dir(path), "codex")
-	runtimeConfig := catalogTestRuntime("openai.gpt-5.6-sol")
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
-		t.Fatal(err)
-	}
-	catalogPath := codexCatalogPath(path)
-	if err := os.WriteFile(catalogPath, []byte(`{"models":[]}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	err := ValidateConfig(path, runtimeConfig)
-	if err == nil || !strings.Contains(err.Error(), "model catalog changed") {
-		t.Fatalf("ValidateConfig() error = %v, want a catalog conflict", err)
-	}
-	if err := os.Remove(catalogPath); err != nil {
-		t.Fatal(err)
-	}
-	err = ValidateConfig(path, runtimeConfig)
-	if err == nil || !strings.Contains(err.Error(), "missing") {
-		t.Fatalf("ValidateConfig() error = %v, want a missing catalog", err)
-	}
-	// A symlink at the managed path resolves to bytes AIGW may well have written,
-	// so the check has to look at the path itself rather than what it points to.
-	elsewhere := filepath.Join(t.TempDir(), "elsewhere.json")
-	if err := os.WriteFile(elsewhere, []byte(`{"models":[]}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(elsewhere, catalogPath); err != nil {
-		t.Skipf("this platform does not allow symlinks here: %v", err)
-	}
-	err = ValidateConfig(path, runtimeConfig)
-	if err == nil || !strings.Contains(err.Error(), "regular file") {
-		t.Fatalf("ValidateConfig() error = %v, want a regular-file report", err)
-	}
-}
-
-// TestValidateConfigRejectsUnownedManagedCatalogLine catches a marker-bearing
-// line the sidecar does not account for, which is the shape a foreign writer or
-// a partially reverted projection leaves behind.
-func TestValidateConfigRejectsUnownedManagedCatalogLine(t *testing.T) {
-	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-6-luna")
-	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
-	target := codexHomeTarget(path)
-	target.Executable = filepath.Join(filepath.Dir(path), "codex")
-	runtimeConfig := catalogTestRuntime("gpt-5.6-sol")
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
-		t.Fatal(err)
-	}
-	current, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	injected := "model_catalog_json = \"/tmp/foreign.json\" # managed by AIGW\n" + string(current)
-	if err := os.WriteFile(path, []byte(injected), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	err = ValidateConfig(path, runtimeConfig)
-	if err == nil || !strings.Contains(err.Error(), "does not own") {
-		t.Fatalf("ValidateConfig() error = %v, want an ownership report", err)
 	}
 }

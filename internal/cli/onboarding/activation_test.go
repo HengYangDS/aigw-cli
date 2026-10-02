@@ -22,7 +22,7 @@ func TestManifestSetupOffersEqualCompatibleAccountsWithoutTokens(t *testing.T) {
 	cfg.Recommendations[configuration.ClientClaude] = recommendation
 	output := &bytes.Buffer{}
 	runtime := invocation.Context{Secrets: secrets.NewMemoryStore(), Out: output, RenderOut: output}
-	result := buildManifestSetupResult(runtime, cfg, []string{"ucloud", "dmx"}, nil, nil)
+	result := buildManifestSetupResult(runtime, cfg, []string{"ucloud", "dmx"}, "", nil, nil)
 	want := "Choose one compatible Account: aigw rotate dmx or aigw rotate ucloud"
 	if result.NextAction != want || len(result.DeferredActions) != 1 || result.DeferredActions[0] != want {
 		t.Fatalf("zero-Token setup decision = %+v, want %q", result, want)
@@ -51,7 +51,7 @@ func TestGuidedSetupDefersMissingClientBeforeVerification(t *testing.T) {
 func TestManifestSetupReportsSelectedCredentialBeforeDeferredProjection(t *testing.T) {
 	cfg := manifestSetupConfig()
 	runtime := invocation.Context{Secrets: secrets.NewMemoryStore()}
-	result := buildManifestSetupResult(runtime, cfg, []string{"team"}, nil, nil)
+	result := buildManifestSetupResult(runtime, cfg, []string{"team"}, "", nil, nil)
 	want := "run `aigw rotate team`"
 	if result.NextAction != want || len(result.DeferredActions) == 0 || result.DeferredActions[0] != want {
 		t.Fatalf("selected credential prerequisite is missing or out of order: %+v", result)

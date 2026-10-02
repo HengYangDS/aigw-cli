@@ -121,11 +121,10 @@ func codexCatalogProjection(target TargetRef, model, canonicalModelID, base stri
 	document, parseErr := catalog.Parse(bundled)
 	if err == nil && parseErr == nil {
 		data, _ := document.Project(model, canonicalModelID)
-		if data == nil && document.Model(model) != nil {
-			data = bundled
-		}
 		if data == nil {
-			return codexCatalogPlan{}
+			// Preserve Codex's native table for unknown provider models. Never
+			// invent metadata or leave Codex to query provider-specific /models.
+			data = bundled
 		}
 		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: live, state: catalogStateProjected}
 	}

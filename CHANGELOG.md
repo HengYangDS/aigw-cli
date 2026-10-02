@@ -20,18 +20,17 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   own history, with web identity independent of Git transport.
 - Withdraw the DMXAPI Claude Fable 5.1 CC channel from the reviewed team
   manifest after bounded inference and real-client requests failed to complete.
-- Pin the installed Codex client's bundled model metadata for an AIGW-managed
-  custom Provider even when its selected base model is already known; preserve
-  user-authored catalog overrides and fail closed on an unknown model.
+- Pin the installed Codex client's complete native catalog for an AIGW-managed
+  custom Provider when no exact projection exists; preserve user-owned overrides
+  and never synthesize metadata for an unknown model.
 - Keep Codex catalog references valid when verifying an unselected Route in an
   isolated home, and remove failed Codex or Claude verification workspaces.
 - Roll back owned client projections and configuration when credential-reader
   finalization fails after projection; unchanged-client reconciliation now
   checks the same post-apply invariant.
 - Add the direct DMXAPI GPT-6.1 Sol Responses Route and prefer it for new Codex
-  and Hermes bindings, followed by UCloud GPT-6.1 Sol and then AIHubMix
-  GPT-6.1 Sol. Existing explicit bindings remain untouched by a team-manifest
-  update.
+  and Hermes bindings, followed by UCloud GPT-6.1 Sol; keep AIHubMix manual-only.
+  Existing explicit bindings remain untouched by a team-manifest update.
 - Make catalogue continuation use the actual `route add --protocol` contract;
   separate canonical `--model` from an optional exact provider
   `--upstream-model` without changing existing Model identities or selections.

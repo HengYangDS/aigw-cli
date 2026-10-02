@@ -34,7 +34,15 @@
       late `sync` and no irrelevant credential requirement.
 - [x] 2.6 Reconcile managed projections semantically, preserving unrelated edits
       byte-for-byte and reporting exact ownership conflicts; inject failure after
-      each owned write and verify compensation.
+      each owned write and verify compensation. October 2 current-source Hermes
+      config+sidecar copy acceptance proves catalogue-only planning, preservation
+      of unowned settings and the selected UCloud tuple, byte-exact compensation,
+      forward restore, converged no-op, and refusal to overwrite selected-model
+      drift. The existing adapter needed no production patch. Receipt
+      `actual-hermes-catalogue-compensation-20261002/delivery.json` (SHA-256
+      `401a202d73e3c4131dea48bf31d6e51bec75a8ee65833bf11e2c5c337249279a`)
+      in `independent-canonical-catalog-source-fix-20261002-01a0ccfc`; source
+      and host identities are conserved and owned scratch is absent.
 - [x] 2.7 Admit a selected live Account and client through endpoint and
       inference checks, while classifying absent native authorization without
       prompts or backend fallback; keep supplier-specific failures scoped to that
@@ -82,8 +90,9 @@
       runner, including rollback rotation and explicit restaging. At that
       checkpoint, operator-item authorization, Linux native-host acceptance,
       and Windows real-client proof remained open; later evidence below
-      supersedes the Windows-client gap, while Linux-host acceptance remains
-      in 5.2.
+      supersedes the Windows-client gap. October 2 ordinary Linux-host lifecycle
+      for exact `c4ffa1c3` bytes is recorded in 5.2; it does not prove final-
+      source package identity.
       The signed `2c7fbe89` Linux ARM64 candidate also passes authentic 0.3.1
       succession with an isolated real DBus/GNOME Secret Service as UID 1000.
       Automatic backend selection is keyring; old and new commands remain
@@ -107,8 +116,9 @@
       untagged Developer ID candidate can prove that pre-archive identity;
       ad-hoc and copied-byte fixtures cannot substitute. That successor proof
       remains open. Exact operator-item authorization and the actual Homebrew
-      link transition remain post-archive Migration Plan obligations; the
-      broader Linux native-host product journey remains open in 5.2.
+      link transition remain post-archive Migration Plan obligations. The
+      ordinary Linux-host lifecycle for exact `c4ffa1c3` bytes is now evidenced
+      in 5.2; final-candidate and warning-free acceptance remain open.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
@@ -156,6 +166,16 @@
 - [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
       Providers; no control-plane command claims request-time failover.
+      October 2 correction keeps DMXAPI primary and UCloud the sole alternative;
+      AIHubMix Routes remain manual-only in the catalogue. Team tests verify
+      connected-Account selection follows only declared recommendations, keeps
+      UCloud ahead when both Accounts are connected, and preserves explicit
+      AIHubMix bindings for all four Client surfaces. The configuration and
+      activation package suites pass. The shipped-manifest journey had retained
+      an obsolete expectation that AIHubMix auto-activates; it now proves sync
+      leaves manual-only clients unselected and explicit `aigw use` works for
+      each Client. Its seven isolated cases and the canonical Go format/lint
+      gate pass.
 - [x] 4.4 Qualify Codex with selected non-OpenAI-family Responses-compatible
       models using its actual model chooser, authentication and tool loop; state
       native limitations instead of forging a model list.
@@ -204,6 +224,19 @@
       `independent-minimax-codex-native-20261001-01a0ccfc` and
       `independent-current-candidate-7a5c1da6-20261001-01a0ccfc`; no new
       logical Model, response stripping or marker relaxation is introduced.
+      October 2 official Codex 0.160 succeeds on the exact AIHubMix
+      `cc-minimax-m3` Route when the invocation explicitly selects native
+      `model_reasoning_effort=none`, `approval_policy=never` and a read-only
+      sandbox: one real file-tool call and same-session recall pass without
+      retry. Receipt `independent-canonical-catalog-source-fix-20261002-01a0ccfc/codex160-minimax-native-policy/corrected-native-effort/delivery.json`
+      (SHA-256 `944b912d9c3567dad088c97b7efc2517f30b9e3f748afcae49aa0a6af838fac7`)
+      in recovery handoff `20260930-sol61.VVgo1vF5`. All eleven protected
+      non-secret files are conserved; Token fragments were not persisted and
+      owned scratch/process cleanup passed. The generated native preferences
+      contain neither effort nor approval policy, so this qualifies that
+      explicit user-setting combination only. It does not prove AIGW projects
+      those values or isolate the earlier default-policy failure; the model
+      metadata warning and final signed-candidate acceptance remain open.
       Linux real-client lifecycle and selection evidence is recorded in 5.2;
       final Windows bytes, native-host stores,
       Desktop GUI, installed-host cutover and final signed bytes remain open.
@@ -291,6 +324,55 @@
       on exact package `c4ffa1c3`; eight protected client files are conserved
       and scratch is absent. This does not qualify current-HEAD/final-candidate,
       App GUI, operator-reader succession or sustained availability.
+      The exact AIHubMix Muse Spark 1.3 Route also passes official Codex 0.160
+      setup/selection/check/verify, inference, one actual file tool and
+      same-session resume on `c4ffa1c3`; no retries, eleven protected files
+      conserved, scratch absent. Receipt
+      `codex160-aihubmix-muse-tool-continuation/delivery.json` (SHA-256
+      `bce23a7401cc430f5b19d4a15e6dcf5f0b39a81a64311844769463bdb64b3e0c`)
+      in the same recovery bundle. Generated effort and `model_catalog_json`
+      are absent, so this proves the default-effort tool loop, not selectable
+      native effort or catalog projection.
+      A separate Codex 0.160 unknown-model refresh defect is now reproduced by
+      `TestUnknownModelPinsCompleteBundledCatalogWithoutInventingMetadata` for
+      the AIHubMix MiniMax CC and Muse route pairs. The original implementation
+      emitted no catalog; the repair pins the unchanged native table without
+      adding either model. RED/GREEN, the full `internal/codex` package and its
+      race run pass. This is current-source package evidence only; public
+      artifact, Muse verification and final-candidate acceptance remain open.
+      October 2 official Codex 0.160 also passes current-source AIHubMix
+      GPT-6.1 Sol setup, selection, live check, verify, a real file-tool call,
+      and same-session continuation. One approved no-UI credential read kept
+      the Token in memory; no credential values, fragments or hashes persisted.
+      All twelve protected host identities and source inputs are conserved;
+      owned scratch and processes are absent. Receipt
+      `canonical-aihubmix-sol61-native-20261002/delivery.json` (SHA-256
+      `cad9d69594c37252dccb8457487ac64c185287c68ccc584be42c96f3fd139d74`)
+      in the same recovery bundle. The Hermes result under task 2.6 proves
+      configuration compensation only, not Hermes execution. These runs use
+      unsigned staged source, not a final signed or installed candidate;
+      Claude Desktop, native-store succession, and final package acceptance
+      remain open, so this task stays open.
+      The same current source also passes the full official Codex 0.160
+      setup/selection/check/verify/file-tool/same-session path for UCloud
+      GPT-6.1 Sol and DMXAPI CDX GPT-6.1 Sol, at `max` effort. Two approved
+      no-UI Account reads were memory-only; no credential values, fragments or
+      hashes persisted. Receipt
+      `canonical-ucloud-dmx-cdx-native-20261002/delivery.json` (SHA-256
+      `0ba37ebb68e84d1fbfd469df7931c10b1d350d0d3f4eecca99365978443d6848`)
+      in the same recovery bundle. All twelve protected host identities and
+      source inputs are conserved; exact owned child PIDs are absent and
+      scratch is removed. This qualifies those two exact Codex routes only;
+      final signed/installed bytes and the other client/platform obligations
+      remain open.
+      The Unix process-group cleanup false-positive is fixed in this staged
+      source using independently reviewed patch `d2b2746d`; the new
+      `TestCapturedGroupCleanupAcceptsOnlyProvedDisappearance` and locked
+      `go test -race ./internal/process` pass. Current source builds to
+      `6fc30df4b072227533bc3873950579baa0bd95f2ae041d199d0fdae87b56a199`.
+      The earlier proposed-patch Muse receipt used program `aaa311c6` and is
+      not reused for this binary; exact current-binary Muse acceptance remains
+      unproved, so task 4.5 stays open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
@@ -360,8 +442,27 @@
       Receipt `independent-current-df7-linux-hermes-20261002-01a0ccfc/complete-runtime-dependencies/delivery.json`
       SHA-256 `1dab9729468df3db2b80a7a0ffb39297f2f703583704e911837369bc819acfd1`.
       This proves loopback inference and lifecycle, not a real Hermes tool loop,
-      native Linux-host state, peer cold-bootstrap or performance. Keep 4.5 and
-      5.2 open for those distinct boundaries.
+      peer cold-bootstrap or performance. Ordinary Linux-host state is now
+      separately evidenced below for exact `c4ffa1c3` bytes.
+      October 2 independent review confirms ordinary Linux-host systemstore
+      and client lifecycle for exact `c4ffa1c3` candidate bytes. Receipts
+      `runner-capacity/aigw-c4ffa1c3-ordinary-linux-native-host-20261002-a23c12747e.json`
+      (SHA-256 `eff93319804fbc89443708c991257b64da9d3404d62c63e71b71bd01d53b0219`),
+      `runner-capacity/aigw-c4ffa1c3-hermes-native-quoted-argv-20261002-b338cf68c2.json`
+      (SHA-256 `17dbfec0e29314242761decce39a3050feabc582af04e9b130dcab450b6da8a4`)
+      and `linux-native-host-receipt-review-20261002/delivery.json` (SHA-256
+      `2c11e6ed9609aacec24b9741ebda86ad8fc9d1f7caeb336aea1842ec8fe33f82`)
+      bind candidate, predecessor, Codex package, source and verifier. The
+      ordinary product UID/private group used native Secret Service and passed
+      lifecycle/resource, Codex 0.160 and latest Claude Code 2.1.286; a separate
+      ordinary UID passed official Hermes 0.21.5 lifecycle. Product/manifest
+      paths are unchanged through current HEAD `8b642b5f`, so reuse is limited
+      to those behavior paths, not final release provenance. Raw Secret Service
+      stderr contains two control-directory permission warnings and two
+      duplicate-registration warnings; zero-warning acceptance is unproved.
+      Claude 2.1.286 is latest-channel, not stable 2.1.285. External Provider
+      inference, peer cold-bootstrap and final current-candidate distribution
+      remain open; keep 5.2 unclosed.
 - [x] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
@@ -533,10 +634,15 @@
       three distinguishing RED cases and the unchanged local OpenSpec
       dependency test pass after repair. Setup failures and exact cleanup also
       pass. Complete native Go race/coverage passes at 95.14% (13,656/14,354
-      statements), with empty stderr. The full static command reaches an
-      upstream actionlint stdin deadlock before ShellCheck starts; preserve
-      that failed attempt and repair the native workflow-shell owner. Final
-      installed proof and declared platform acceptance remain pending.
+      statements), with empty stderr. An earlier local static attempt stalled
+      at actionlint stdin before ShellCheck; preserve it as a historical failure.
+      The later full native quality graph at exact signed SHA `df7d4585` passed
+      on macOS, Linux and Windows; its terminal readbacks are recorded once in
+      7.3. This disproves a persistent toolchain failure at that SHA, not at
+      current HEAD. The historical stall's root cause is unproved; do not
+      attribute it to actionlint or add a workaround. Current-HEAD zero-warning
+      proof, installed gate behavior and declared platform acceptance remain
+      pending.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.
@@ -905,9 +1011,9 @@
       actual-client execution is recorded in 5.3. Current final bytes,
       native-host stores, Desktop GUI, production signing and installed cutover
       remain unqualified.
-      The 4.5 primary Codex 0.160 AIHubMix plain-Sol receipt uses package
-      `c4ffa1c3`; this task still requires lifecycle and client acceptance
-      against its own exact signed candidate bytes.
+      The 4.5 primary Codex 0.160 AIHubMix plain-Sol and Muse receipts use
+      package `c4ffa1c3`; this task still requires lifecycle and client
+      acceptance against its own exact signed candidate bytes.
       Signed source `9544b98d` rebuilds the six-platform candidate in 10.14
       seconds with all 1,229 tracked hashes conserved. Each program/archive
       equals the previously qualified `9cf23cb8` bytes; current provenance and

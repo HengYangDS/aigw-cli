@@ -87,7 +87,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 		return err
 	}
 
-	result := buildManifestSetupResult(runtime, cfg, accountNames, connected, selectedClients)
+	result := buildManifestSetupResult(runtime, cfg, accountNames, request.Account, connected, selectedClients)
 	if request.JSON {
 		return presentation.WriteJSON(runtime.Out, result)
 	}
@@ -107,6 +107,7 @@ func buildManifestSetupResult(
 	runtime invocation.Context,
 	cfg configuration.Config,
 	accountNames []string,
+	selectedAccount string,
 	connected map[string]setupCredential,
 	selectedClients []string,
 ) manifestSetupResult {
@@ -135,7 +136,8 @@ func buildManifestSetupResult(
 		}
 	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
-	if activation.CredentialPrerequisite != "" {
+	explicitlyConnected := selectedAccount != "" && connected[selectedAccount].account != ""
+	if activation.CredentialPrerequisite != "" && !explicitlyConnected {
 		result.DeferredActions = append(result.DeferredActions, activation.CredentialPrerequisite)
 	}
 	for _, spec := range configuration.AdmittedClientSpecs() {
@@ -150,7 +152,14 @@ func buildManifestSetupResult(
 			result.DeferredActions = append(result.DeferredActions, action)
 		}
 	}
-	result.NextAction = activation.NextActionFor(nil)
+	if explicitlyConnected {
+		result.NextAction = clientactivation.NextActionAfterAccountConnection(cfg, selectedAccount)
+		if result.NextAction != "aigw check" && !slices.Contains(result.DeferredActions, result.NextAction) {
+			result.DeferredActions = append(result.DeferredActions, result.NextAction)
+		}
+	} else {
+		result.NextAction = activation.NextActionFor(nil)
+	}
 	return result
 }
 
@@ -205,7 +214,7 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg configurati
 	}
 	credentials := make([]setupCredential, 0, len(accountNames))
 	for _, name := range accountNames {
-		if !accountHasRecommendedTokenSelection(cfg, name) {
+		if selectedAccount == "" && !accountHasRecommendedTokenSelection(cfg, name) {
 			continue
 		}
 		credential := setupCredential{account: name}
