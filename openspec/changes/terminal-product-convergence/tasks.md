@@ -729,6 +729,14 @@
       `df7d4585` with five successful peer-local jobs; this local worktree is four
       signed documentation commits ahead and has not been reviewed remotely.
       Maintainer integration and accepted dev/main/tag events remain open.
+      GitLab MR !178 job 47431 at `9a8612d0` failed before product tests: its
+      relative `CI_PROJECT_DIR` left Mise's Go 1.27.1 install path relative, so
+      the post-install probe failed after a working-directory change. The same
+      locked Mise/Go versions pass with an absolute data path and reproduce the
+      failure with a relative one. The CUE owner now anchors Unix tool state and
+      cleanup at the physical checkout path; a regression covers relative CI
+      metadata, post-change directory use and exact cleanup. Focused projection
+      checks pass; hosted verification of the next exact SHA remains pending.
 - [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review

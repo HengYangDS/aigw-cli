@@ -235,8 +235,8 @@ func TestGitLabMiseMirrorUsesCheckoutOwnedPath(t *testing.T) {
 	}
 	prepare, cleanup := pipeline.Review.Script[0], pipeline.Review.AfterScript[0]
 	for _, script := range []string{prepare, cleanup} {
-		if strings.Contains(script, "CI_BUILDS_DIR") || !strings.Contains(script, "$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID") {
-			t.Fatalf("mirror path must be owned by the absolute checkout: %q", script)
+		if strings.Contains(script, "CI_BUILDS_DIR") || !strings.Contains(script, "$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID") {
+			t.Fatalf("mirror path must be rooted at the checked-out working directory: %q", script)
 		}
 	}
 	if runtime.GOOS == "windows" {
@@ -292,6 +292,42 @@ func TestGitLabMiseMirrorUsesCheckoutOwnedPath(t *testing.T) {
 			t.Fatalf("mirror cleanup removed neighboring state: %v", err)
 		}
 	}
+	t.Run("relative checkout survives installer directory changes", func(t *testing.T) {
+		project := t.TempDir()
+		env := append(os.Environ(),
+			"AIGW_TOOL_SOURCE=peer",
+			"CI_PROJECT_DIR=builds/runner/0/group/repo",
+			"CI_API_V4_URL=https://gitlab.example.invalid/api/v4",
+			"CI_PROJECT_ID=456",
+			"CI_SERVER_HOST=gitlab.example.invalid",
+			"CI_JOB_ID=456",
+			"CI_JOB_TOKEN=fixture-only",
+		)
+		probe := `mkdir -p "$MISE_DATA_DIR/installs/go/probe/bin"
+fake_go="$MISE_DATA_DIR/installs/go/probe/bin/go"
+printf '%s\n' '#!/bin/sh' 'printf "go-probe=pass\\n"' > "$fake_go"
+chmod 700 "$fake_go"
+mkdir -p tool-cwd
+cd tool-cwd
+"$fake_go" version
+for path in "$MISE_DATA_DIR" "$MISE_CACHE_DIR" "$MISE_NETRC_FILE"; do
+	case "$path" in /*) ;; *) printf 'non-absolute mirror path: %s\\n' "$path" >&2; exit 1 ;; esac
+done`
+		command := exec.Command("sh", "-eu", "-c", prepare+"\n"+probe)
+		command.Dir, command.Env = project, env
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("relative mirror paths must survive installer directory changes: %v\n%s", err, output)
+		}
+		command = exec.Command("sh", "-eu", "-c", cleanup)
+		command.Dir, command.Env = project, env
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("relative mirror cleanup: %v\n%s", err, output)
+		}
+		mirror := filepath.Join(project, "build", "tmp", ".aigw-mise-mirror-456")
+		if _, err := os.Stat(mirror); !os.IsNotExist(err) {
+			t.Fatalf("relative mirror remains after cleanup: %v", err)
+		}
+	})
 }
 
 func TestGitLabWindowsLockedToolsUseJobScopedMirror(t *testing.T) {

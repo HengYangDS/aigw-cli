@@ -56,8 +56,20 @@ func TestToolchainCacheStaysOutsideGoPackageDiscovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := t.TempDir()
-	cache := strings.ReplaceAll(pipeline.Linux.Variables["MISE_DATA_DIR"], "$CI_PROJECT_DIR", root)
-	mirror := strings.NewReplacer("$CI_PROJECT_DIR", root, "$CI_JOB_ID", "123").Replace(mirrorTemplate)
+	physicalRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache := strings.ReplaceAll(pipeline.Linux.Variables["MISE_DATA_DIR"], "$CI_PROJECT_DIR", physicalRoot)
+	mirror := strings.NewReplacer(
+		"$(pwd -P)", physicalRoot,
+		"$CI_PROJECT_DIR", "builds/runner/0/group/repo",
+		"$CI_JOB_ID", "123",
+	).Replace(mirrorTemplate)
+	wantMirror := filepath.Join(physicalRoot, "build", "tmp", ".aigw-mise-mirror-123")
+	if filepath.Clean(mirror) != wantMirror {
+		t.Fatalf("peer mirror path = %q, want physical checkout path %q", mirror, wantMirror)
+	}
 	for path, source := range map[string]string{
 		filepath.Join(root, "go.mod"):                                            "module fixture\n",
 		filepath.Join(root, "product.go"):                                        "package fixture\n",

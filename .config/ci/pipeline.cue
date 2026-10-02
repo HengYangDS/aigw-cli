@@ -39,7 +39,7 @@ miseMirror: {
 	resource:         "packages/generic/\(package)/\(version)/"
 	metadataPattern:  "regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$"
 	metadataResource: "release-$1-$2-$3.json"
-	unixDirectory:    "$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+	unixDirectory:    "$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
 	unixPrepare:      #"""
 		set -eu
 		case "${AIGW_TOOL_SOURCE:-upstream}" in
@@ -50,7 +50,6 @@ miseMirror: {
 		: "${CI_SERVER_HOST:?}"
 		: "${CI_JOB_ID:?}"
 		: "${CI_JOB_TOKEN:?}"
-		: "${CI_PROJECT_DIR:?}"
 		mirror_dir="\#(unixDirectory)"
 		mkdir -p -m 700 "$mirror_dir"
 		export MISE_DATA_DIR="$mirror_dir/mise-data"
@@ -64,7 +63,7 @@ miseMirror: {
 		  *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
 		esac
 		"""#
-	unixCleanup:      "if [ -n \"${CI_PROJECT_DIR:-}\" ] && [ -n \"${CI_JOB_ID:-}\" ]; then rm -rf -- \"\(unixDirectory)\"; fi"
+	unixCleanup:      "if [ -n \"${CI_JOB_ID:-}\" ]; then rm -rf -- \"\(unixDirectory)\"; fi"
 	githubEnvironment: MISE_URL_REPLACEMENTS: "{{\"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$\":\"{0}/{1}/releases/download/mise-glab-$1/$2\",\"regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$\":\"{0}/{1}/releases/download/mise-glab-v$1/$2\"}}"
 }
 
