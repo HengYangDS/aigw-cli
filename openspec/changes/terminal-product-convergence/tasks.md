@@ -283,6 +283,14 @@
       coverage 95.12% against the >95% floor. The macOS native run exercises
       isolated environment-backed lifecycle/resource journeys; it does not
       select `--clients` or native Keychain acceptance.
+      The primary October 2 receipt `codex160-aihubmix-real-client/delivery.json`
+      (SHA-256 `cda5c5c46b0ba6640df9256aa29cdabf11a66ac5d14018eff29927e879912e7b`)
+      in `independent-canonical-catalog-source-fix-20261002-01a0ccfc` passes
+      official Codex 0.160 setup/selection/check/verify, inference, one actual
+      file tool and same-session resume for the plain AIHubMix GPT-6.1 Sol Route
+      on exact package `c4ffa1c3`; eight protected client files are conserved
+      and scratch is absent. This does not qualify current-HEAD/final-candidate,
+      App GUI, operator-reader succession or sustained availability.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
@@ -897,6 +905,9 @@
       actual-client execution is recorded in 5.3. Current final bytes,
       native-host stores, Desktop GUI, production signing and installed cutover
       remain unqualified.
+      The 4.5 primary Codex 0.160 AIHubMix plain-Sol receipt uses package
+      `c4ffa1c3`; this task still requires lifecycle and client acceptance
+      against its own exact signed candidate bytes.
       Signed source `9544b98d` rebuilds the six-platform candidate in 10.14
       seconds with all 1,229 tracked hashes conserved. Each program/archive
       equals the previously qualified `9cf23cb8` bytes; current provenance and
