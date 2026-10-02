@@ -137,6 +137,76 @@ func TestSystemRunnerDiagnosticHelper(t *testing.T) {
 	}
 }
 
+func TestSystemOutputRunnerPropagatesSetupFailuresWithoutResidue(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+		t.Setenv(name, root)
+	}
+	for _, call := range []command{
+		{Name: "node", Args: []string{"--version"}, Dir: filepath.Join(root, "missing")},
+		{Name: "definitely-not-an-aigw-command", Dir: root},
+	} {
+		output, err := systemOutputRunner(call)
+		if err == nil || len(output) != 0 {
+			t.Fatalf("command setup: error=%v output=%q", err, output)
+		}
+		entries, readErr := os.ReadDir(root)
+		if readErr != nil || len(entries) != 0 {
+			t.Fatalf("setup failure residue: %v error=%v", entries, readErr)
+		}
+	}
+	for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+		t.Setenv(name, filepath.Join(root, "missing"))
+	}
+	output, err := systemOutputRunner(command{Name: "node", Args: []string{"--version"}})
+	if err == nil || !strings.Contains(err.Error(), "create command output") || len(output) != 0 {
+		t.Fatalf("unavailable capture directory: error=%v output=%q", err, output)
+	}
+}
+
+func TestSystemOutputRunnerPreservesNativeImmediateExitEvidence(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+		t.Setenv(name, root)
+	}
+	foreign := filepath.Join(root, "foreign.txt")
+	if err := os.WriteFile(foreign, []byte("retained"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	payload := strings.Repeat("x", 8192) + " complete-native-evidence\n"
+	for _, test := range []struct {
+		name, stdout, stderr string
+		exit                 int
+	}{
+		{"successful warning", "", payload, 0},
+		{"successful result", payload, "", 0},
+		{"failed mixed output", "result\n", payload, 7},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			output, err := systemOutputRunner(command{
+				Name: "node",
+				Args: []string{"-e", "process.stdout.write(process.env.AIGW_CI_TEST_STDOUT); process.stderr.write(process.env.AIGW_CI_TEST_STDERR); process.exit(Number(process.env.AIGW_CI_TEST_EXIT));"},
+				Env: []string{
+					"AIGW_CI_TEST_STDOUT=" + test.stdout,
+					"AIGW_CI_TEST_STDERR=" + test.stderr,
+					"AIGW_CI_TEST_EXIT=" + strconv.Itoa(test.exit),
+				},
+				Dir: root,
+			})
+			if string(output) != test.stdout+test.stderr || (err != nil) != (test.exit != 0) {
+				t.Fatalf("native evidence: exit=%d error=%v bytes=%d want=%d", test.exit, err, len(output), len(test.stdout)+len(test.stderr))
+			}
+			entries, readErr := os.ReadDir(root)
+			if readErr != nil || len(entries) != 1 || entries[0].Name() != "foreign.txt" {
+				t.Fatalf("output capture residue: %v error=%v", entries, readErr)
+			}
+		})
+	}
+	if content, err := os.ReadFile(foreign); err != nil || string(content) != "retained" {
+		t.Fatalf("foreign content changed: %q error=%v", content, err)
+	}
+}
+
 func TestSourceCommandsKeepSuccessfulOutputQuietWithoutSuppressingWarnings(t *testing.T) {
 	t.Setenv("AIGW_COMMIT_BASE", "")
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")

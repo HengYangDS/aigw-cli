@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -45,12 +46,25 @@ type commandRunner func(command) error
 
 type outputRunner func(command) ([]byte, error)
 
-func systemOutputRunner(call command) ([]byte, error) {
+func systemOutputRunner(call command) (output []byte, err error) {
+	capture, err := os.CreateTemp("", "aigw-ci-output-*")
+	if err != nil {
+		return nil, fmt.Errorf("create command output: %w", err)
+	}
+	defer func() {
+		err = errors.Join(err, os.Remove(capture.Name()))
+	}()
 	process := exec.Command(call.Name, call.Args...)
 	process.Dir = call.Dir
 	process.Env = append(process.Environ(), call.Env...)
 	process.Stdin = strings.NewReader(call.Input)
-	return process.CombinedOutput()
+	// Native file descriptors preserve diagnostics from tools that exit before
+	// their asynchronous pipe writes drain.
+	process.Stdout, process.Stderr = capture, capture
+	runErr := process.Run()
+	closeErr := capture.Close()
+	output, readErr := os.ReadFile(capture.Name())
+	return output, errors.Join(runErr, closeErr, readErr)
 }
 
 func runCommands(commands []command, stdout io.Writer, runner commandRunner) error {

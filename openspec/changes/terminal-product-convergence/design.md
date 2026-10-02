@@ -203,6 +203,14 @@ where measured risk warrants them, not lower numbers chosen for appearance.
 Warnings fail at their producing owner. Formatting, links, diagrams, examples,
 and docs-code correspondence are tested from tracked content.
 
+The existing captured-command runner gives native tools one owned temporary
+output file rather than pipe descriptors. A tool that exits immediately may
+otherwise lose buffered result or diagnostic bytes. The runner returns both
+streams without discarding warnings, preserves the command exit status, and
+fails on capture or cleanup errors. The file is removed before return; caller
+files and foreign content remain untouched. Native immediate-exit controls and
+the unchanged missing-local-OpenSpec test qualify this evidence boundary.
+
 Task 6.4's source gate passed on `b4edd0a9`: tracked Markdown, Mermaid,
 local anchors and Git-tracked link targets, structured formats, embedded shell,
 and generated projections were checked with their existing negative fixtures.

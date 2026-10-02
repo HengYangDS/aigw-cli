@@ -517,9 +517,18 @@
       under the old runtime now pass in its corrected native environment; the
       old runtime's hidden `mise`-missing failures remain raw evidence. This
       does not resolve the separate documentation or tool-mirror gaps.
-- [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
+- [ ] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
+      Reopened after native immediate-exit evidence was truncated by pipe
+      output. The existing capture owner now uses one native temporary file;
+      three distinguishing RED cases and the unchanged local OpenSpec
+      dependency test pass after repair. Setup failures and exact cleanup also
+      pass. Complete native Go race/coverage passes at 95.14% (13,656/14,354
+      statements), with empty stderr. The full static command reaches an
+      upstream actionlint stdin deadlock before ShellCheck starts; preserve
+      that failed attempt and repair the native workflow-shell owner. Final
+      installed proof and declared platform acceptance remain pending.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.
