@@ -13,9 +13,12 @@ import (
 	"testing"
 	"time"
 
+	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
+	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/upgrade"
 	"aigw-cli/tools/release/readiness"
 
 	"github.com/pelletier/go-toml/v2"
@@ -240,7 +243,17 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 	for _, client := range state.clients {
 		successor[client] = journey.retainedCredential(client)
 	}
-	journey.run("update", "--rollback")
+	ctx, cancel := context.WithTimeout(t.Context(), clientverification.ProtocolTimeout)
+	stdout, stderr, rollbackErr := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
+		Executable: journey.binary, Args: []string{"update", "--rollback"}, Env: journey.environment,
+	})
+	cancel()
+	if rollbackErr != nil {
+		state.diagnoseRollbackFailure(t)
+		t.Fatalf("Original public rollback failed: %s\nstdout:\n%s\nstderr:\n%s",
+			redaction.Text(rollbackErr.Error(), journey.sensitiveInputs...),
+			redaction.Text(string(stdout), journey.sensitiveInputs...), redaction.Text(string(stderr), journey.sensitiveInputs...))
+	}
 	journey.requireVersion(predecessorVersion)
 	journey.requireProgramBytes(state.baseline)
 	for _, client := range state.clients {
@@ -288,4 +301,84 @@ func (state *publishedNativeJourney) finish(t *testing.T) {
 	if !bytes.Equal(readFile(t, session), sessionBytes) {
 		t.Fatal("published predecessor uninstall changed user session history")
 	}
+}
+
+// diagnoseRollbackFailure observes only the isolated synthetic journey after a
+// failed public rollback. A successful diagnostic retry cannot pass the test.
+func (state *publishedNativeJourney) diagnoseRollbackFailure(t *testing.T) {
+	t.Helper()
+	journey := state.journey
+	if !bytes.Equal(readFile(t, journey.binary), readFile(t, state.candidate)) ||
+		!bytes.Equal(readFile(t, upgrade.RollbackPath(journey.binary)), readFile(t, state.baseline)) ||
+		!bytes.Equal(readFile(t, journey.config), state.predecessor) ||
+		!bytes.Equal(readFile(t, state.session), state.sessionBytes) {
+		t.Log("Rollback failure changed a protected fixture input; no diagnostic retry was attempted")
+		return
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 35*time.Second)
+	defer cancel()
+	observer := &publishedRollbackObserver{secrets: journey.sensitiveInputs}
+	_, directErr := observer.RunCapture(ctx, process.Plan{
+		Executable: state.baseline, Args: []string{"config", "export"}, Env: journey.environment,
+	})
+	if directErr != nil {
+		t.Logf("Published predecessor could not export its original configuration: %s",
+			redaction.Text(directErr.Error(), observer.secrets...))
+	} else {
+		updater := upgrade.Current(journey.binary)
+		updater.Runner = observer
+		_, diagnosticErr := updater.Rollback(ctx, state.predecessor)
+		if diagnosticErr != nil {
+			t.Logf("Original rollback verifier diagnostic error: %s",
+				redaction.Text(diagnosticErr.Error(), observer.secrets...))
+		}
+	}
+	data, err := json.Marshal(observer.commands)
+	if err != nil {
+		t.Logf("Rollback observation encoding failed: %v", err)
+		return
+	}
+	t.Logf("published_rollback_commands=%s", data)
+}
+
+type publishedRollbackCommand struct {
+	Arguments     string `json:"arguments"`
+	Milliseconds  int64  `json:"milliseconds"`
+	RunError      string `json:"run_error,omitempty"`
+	StandardError string `json:"standard_error,omitempty"`
+	OutputBytes   int    `json:"output_bytes"`
+	ParseError    string `json:"parse_error,omitempty"`
+	ExportVersion int    `json:"export_version,omitempty"`
+}
+
+type publishedRollbackObserver struct {
+	commands []publishedRollbackCommand
+	secrets  []string
+}
+
+func (observer *publishedRollbackObserver) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
+	started := time.Now()
+	output, diagnostic, err := (process.Runner{}).RunCaptureStreams(ctx, plan)
+	command := publishedRollbackCommand{
+		Arguments:    redaction.Text(strings.Join(plan.Args, " "), observer.secrets...),
+		Milliseconds: time.Since(started).Milliseconds(),
+		OutputBytes:  len(output), StandardError: redaction.Text(string(diagnostic), observer.secrets...),
+	}
+	if err != nil {
+		command.RunError = redaction.Text(err.Error(), observer.secrets...)
+	}
+	if slices.Equal(plan.Args, []string{"config", "export"}) {
+		var header struct {
+			Version int `toml:"version"`
+		}
+		if parseErr := toml.Unmarshal(output, &header); parseErr != nil {
+			command.ParseError = redaction.Text(parseErr.Error(), observer.secrets...)
+		}
+		command.ExportVersion = header.Version
+	}
+	observer.commands = append(observer.commands, command)
+	if err != nil {
+		return diagnostic, err
+	}
+	return output, nil
 }
