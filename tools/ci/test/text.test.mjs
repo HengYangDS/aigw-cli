@@ -23,7 +23,13 @@ async function fixture(t) {
   return root;
 }
 
-function run(root, module, files, input = JSON.stringify(files)) {
+function run(
+  root,
+  module,
+  files,
+  input = JSON.stringify(files),
+  timeout = 15_000,
+) {
   const result = spawnSync(
     process.execPath,
     [
@@ -31,7 +37,7 @@ function run(root, module, files, input = JSON.stringify(files)) {
         ? module
         : path.join(repository, "tools/ci", module),
     ],
-    { cwd: root, input, encoding: "utf8", timeout: 15_000 },
+    { cwd: root, input, encoding: "utf8", timeout },
   );
   assert.equal(result.error, undefined);
   return { status: result.status, output: result.stdout + result.stderr };
@@ -271,7 +277,7 @@ test("Mermaid validates requested diagrams without unrelated config overrides", 
     path.join(root, ".mermaidlintrc.json"),
     '{"ignore":["**/*"],"rules":{"no-self-loop":"off"}}',
   );
-  for (const [name, diagram, valid] of [
+  const diagrams = [
     ["flowchart", "flowchart LR\n  A[Source] --> B[Target]\n", true],
     ["sequence", "sequenceDiagram\n  A->>B: Failure, no writes\n", true],
     [
@@ -280,15 +286,44 @@ test("Mermaid validates requested diagrams without unrelated config overrides", 
       false,
     ],
     ["syntax", "flowchart LR\n  A[Unclosed\n", false],
-  ]) {
+  ];
+  const files = [];
+  for (const [name, diagram] of diagrams) {
+    const file = path.join(root, `${name}.md`);
+    await fs.writeFile(file, `# Diagram\n\n\`\`\`mermaid\n${diagram}\`\`\`\n`);
+    files.push(file);
+  }
+  const accepted = run(root, "markdown/diagrams.mjs", files.slice(0, 2));
+  assert.equal(accepted.status, 0, accepted.output);
+  assert.ok(
+    accepted.output.includes("checked 2 diagrams in 2 files"),
+    accepted.output,
+  );
+  // Batch invalid input loads the authoritative fallback parser only once.
+  const rejected = run(
+    root,
+    "markdown/diagrams.mjs",
+    files.slice(2),
+    JSON.stringify(files.slice(2)),
+    60_000,
+  );
+  assert.equal(rejected.status, 1, rejected.output);
+  assert.ok(
+    rejected.output.includes("checked 2 diagrams in 2 files"),
+    rejected.output,
+  );
+  for (const [index, [name, diagram, valid]] of diagrams.entries()) {
     await t.test(name, async () => {
-      const file = path.join(root, "diagram.md");
-      const content = `# Diagram\n\n\`\`\`mermaid\n${diagram}\`\`\`\n`;
-      await fs.writeFile(file, content);
-      const result = run(root, "markdown/diagrams.mjs", [file]);
-      assert.equal(result.status === 0, valid, result.output);
-      assert.ok(result.output.includes("checked 1 diagram"), result.output);
-      assert.equal(await fs.readFile(file, "utf8"), content);
+      const result = valid ? accepted : rejected;
+      assert.equal(
+        result.output.includes(`${files[index]}:`),
+        !valid,
+        result.output,
+      );
+      assert.equal(
+        await fs.readFile(files[index], "utf8"),
+        `# Diagram\n\n\`\`\`mermaid\n${diagram}\`\`\`\n`,
+      );
     });
   }
   const missing = run(root, path.join(root, "absent-checker.mjs"), []);

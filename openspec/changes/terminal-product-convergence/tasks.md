@@ -678,6 +678,16 @@
       proves both declared gates with zero gaps using both Publisher inputs.
       Current Windows tool execution and peer admission remain open; this
       local source proof does not qualify the revised hosted tool graph.
+      Exact `a30f3134` source proof and both five-job review matrices pass.
+      The subsequent Windows full-quality job 47565 downloads and executes
+      the locked Lychee asset, but stops before native candidate admission:
+      the invalid Mermaid semicolon case reaches its fixed 15-second child
+      deadline; the other syntax case passes at 14.7 seconds. Both use the
+      authoritative fallback parser's cold imports. The existing test now
+      checks valid and invalid inventories in two batches, with a bounded
+      60-second fallback budget, preserving independent success/failure and
+      unchanged-source assertions. All 61 combined source Node cases pass;
+      current Windows full-tool and real-predecessor acceptance remain open.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.
