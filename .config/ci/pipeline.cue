@@ -1,7 +1,6 @@
 package ci
 
 import (
-	"encoding/json"
 	"list"
 	"strings"
 )
@@ -66,12 +65,7 @@ miseMirror: {
 		esac
 		"""#
 	unixCleanup:      "if [ -n \"${CI_PROJECT_DIR:-}\" ] && [ -n \"${CI_JOB_ID:-}\" ]; then rm -rf -- \"\(unixDirectory)\"; fi"
-	githubEnvironment: MISE_URL_REPLACEMENTS: json.Marshal({
-		"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":
-			"${{ github.server_url }}/${{ github.repository }}/releases/download/mise-glab-$1/$2"
-		"regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":
-			"${{ github.server_url }}/${{ github.repository }}/releases/download/mise-glab-v$1/$2"
-	})
+	githubEnvironment: MISE_URL_REPLACEMENTS: "{{\"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$\":\"{0}/{1}/releases/download/mise-glab-$1/$2\",\"regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$\":\"{0}/{1}/releases/download/mise-glab-v$1/$2\"}}"
 }
 
 linuxApt: {
@@ -315,7 +309,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	name: "Install the locked toolchain"
 	uses: actions.mise
 	env: installationEnvironment & {
-		MISE_URL_REPLACEMENTS: "${{ inputs.tool_source == 'peer' && '\(miseMirror.githubEnvironment.MISE_URL_REPLACEMENTS)' || '' }}"
+		MISE_URL_REPLACEMENTS: "${{ inputs.tool_source == 'peer' && format('\(miseMirror.githubEnvironment.MISE_URL_REPLACEMENTS)', github.server_url, github.repository) || '' }}"
 	}
 	with: {
 		version:          miseVersion

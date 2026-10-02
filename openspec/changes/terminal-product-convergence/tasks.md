@@ -800,12 +800,15 @@
       cold-Mise run; only unchanged tool inputs are reused, not full-graph CI.
       GitHub prerelease `mise-glab-v1.120.0` is now published with six uploaded
       platform assets; the prior 404 readback is historical, not current state.
-      The old `fa0f73ef` peer dispatch used the shared Mise cache and cannot prove
-      cold acquisition. Peer qualification now disables the GitHub action cache
-      and uses job-owned Mise data/download directories on GitLab. Generated
-      projections, `actionlint`, and `go test ./tools/ci/...` pass. A new exact-HEAD
-      peer run, GitLab Job Token access, and one-peer/offline isolation remain
-      unproved. Protected-runner admission belongs to 7.4; do not duplicate it here.
+      GitHub run `37015548533` passed all required jobs at `fa0f73ef`, but its
+      Linux log shows a 342,951,326-byte Mise cache hit, `glab` already installed,
+      and literal `${{ github.server_url }}` / `${{ github.repository }}` in the
+      peer URL mapping; it did not exercise the GitHub mirror. Peer mode now
+      bypasses Mise caches, resolves peer URLs in one GitHub `format()` expression,
+      and uses job-owned Mise data/download directories on GitLab. Focused
+      projection tests, `ci project --check`, and `actionlint` pass. A current-HEAD
+      cold peer matrix, GitLab Job Token access, and one-peer/offline isolation
+      remain unproved. Protected-runner admission belongs to 7.4.
 
 ## 8. Repository Topology, Documentation, and Deletion
 

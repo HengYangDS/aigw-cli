@@ -140,8 +140,11 @@ func TestGitHubToolSourceSelectsItsReciprocalMirrorExplicitly(t *testing.T) {
 					}
 					found = true
 					selected := step.Env["MISE_URL_REPLACEMENTS"]
-					if selected == declared["MISE_URL_REPLACEMENTS"] || !strings.Contains(selected, "inputs.tool_source == 'peer'") || !strings.Contains(selected, "|| ''") {
-						t.Errorf("%s requires a mirror for ordinary locked upstream execution", name)
+					if selected == declared["MISE_URL_REPLACEMENTS"] || strings.Count(selected, "${{") != 1 ||
+						!strings.Contains(selected, "format(") || !strings.Contains(selected, "inputs.tool_source == 'peer'") ||
+						!strings.Contains(selected, "github.server_url") || !strings.Contains(selected, "github.repository") ||
+						!strings.Contains(selected, "|| ''") {
+						t.Errorf("%s must resolve peer URLs inside one outer GitHub expression", name)
 					}
 					for _, forbidden := range []string{"MISE_GITLAB_TOKEN", "MISE_NETRC_FILE", "MISE_NETRC"} {
 						if step.Env[forbidden] != "" {
@@ -167,8 +170,11 @@ func TestGitHubMirrorRewritesEveryLockedGlabEndpoint(t *testing.T) {
 	if err := yaml.Unmarshal(output, &environment); err != nil {
 		t.Fatal(err)
 	}
+	serverURL, repository := "https://github.example", "owner/project"
+	template := strings.NewReplacer("{{", "{", "}}", "}", "{0}", serverURL, "{1}", repository).
+		Replace(environment["MISE_URL_REPLACEMENTS"])
 	var replacements map[string]string
-	if err := json.Unmarshal([]byte(environment["MISE_URL_REPLACEMENTS"]), &replacements); err != nil {
+	if err := json.Unmarshal([]byte(template), &replacements); err != nil {
 		t.Fatal(err)
 	}
 	content, err := os.ReadFile(filepath.Join(root, "mise.lock"))
@@ -198,7 +204,7 @@ func TestGitHubMirrorRewritesEveryLockedGlabEndpoint(t *testing.T) {
 					matched++
 					resolved, err := url.PathUnescape(expression.ReplaceAllString(source, target))
 					filename, filenameErr := url.PathUnescape(path.Base(source))
-					if err != nil || filenameErr != nil || !strings.HasPrefix(resolved, "${{ github.server_url }}/${{ github.repository }}/releases/download/") || strings.Contains(resolved, "gitlab") || !strings.HasSuffix(resolved, "/"+filename) {
+					if err != nil || filenameErr != nil || !strings.HasPrefix(resolved, serverURL+"/"+repository+"/releases/download/") || strings.Contains(resolved, "gitlab") || !strings.HasSuffix(resolved, "/"+filename) {
 						t.Errorf("locked asset rewritten outside the selected peer or renamed: %q, %v, %v", resolved, err, filenameErr)
 					}
 				}
