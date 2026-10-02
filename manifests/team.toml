@@ -357,14 +357,6 @@ upstream_model = 'claude-opus-5-5'
 [routes.dmxapi-claude-opus-5-5.interfaces]
 anthropic = []
 
-[routes.dmxapi-claude-sonnet-5-5]
-account = 'dmxapi'
-model = 'claude-sonnet-5-5'
-upstream_model = 'claude-sonnet-5-5'
-
-[routes.dmxapi-claude-sonnet-5-5.interfaces]
-anthropic = []
-
 [routes.dmxapi-claude-sonnet-5-5-cc]
 label = 'DMXAPI · Claude Sonnet 5.5 · CC'
 account = 'dmxapi'

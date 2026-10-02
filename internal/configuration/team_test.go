@@ -155,6 +155,9 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 	}
 	for _, account := range []string{"aihubmix", "dmxapi", "ucloud"} {
 		for _, model := range []string{"claude-opus-5-5", "claude-sonnet-5-5"} {
+			if account == "dmxapi" && model == "claude-sonnet-5-5" {
+				continue
+			}
 			id := account + "-" + model
 			route, ok := manifest.Routes[id]
 			if !ok || route.Account != account || route.Model != model || route.UpstreamModelID() != model {
@@ -351,6 +354,9 @@ func TestTeamManifestRoutesUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 	}
 	if _, admitted := manifest.Routes["dmxapi-claude-fable-5-1-cc"]; admitted {
 		t.Error("the unqualified DMXAPI Fable 5.1 CC channel remains in the shipped manifest")
+	}
+	if _, admitted := manifest.Routes["dmxapi-claude-sonnet-5-5"]; admitted {
+		t.Error("the unqualified plain DMXAPI Sonnet 5.5 continuation route remains in the shipped manifest")
 	}
 	for _, obsolete := range []string{
 		"aihubmix-claude-sonnet-5", "dmxapi-claude-sonnet-5", "dmxapi-claude-sonnet-5-cc",

@@ -65,6 +65,8 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 - Retire GPT-6 Sol from the shipped team manifest in favor of the qualified
   GPT-6.1 Sol Routes.
+- Remove the unqualified DMXAPI Claude Sonnet 5.5 continuation Route while
+  preserving the explicit CC and SSVIP Routes.
 - Withdraw the AIHubMix Solar Pro 4 Route and its unreferenced Model after the
   exact Chat Completions channel returned `no_available_channel`, despite its
   continued public catalogue listing.
