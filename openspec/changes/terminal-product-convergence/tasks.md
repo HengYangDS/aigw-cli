@@ -67,14 +67,10 @@
       Linux, and Windows with actual native stores or the explicit environment
       backend and isolated synthetic native items before archive. Verify stable
       native reader identity across signed successors without treating signing
-      as item authorization. The post-archive installed transition must stage
-      and verify each selected operator Token and configured diagnostic item
-      through the exact final copied reader before any projection or link cutover;
-      retain old items and original commands. The one-time 0.3.1 Homebrew link
-      transition must preproject, prefetch, measure its bounded link gap, verify
-      captured commands immediately and restore the predecessor on failure.
-      Disclose residual cached-caller risk; never claim denied access as ready.
-      Later versioned commands must remain callable throughout replacement.
+      as item authorization. Preserve original versioned commands and disclose
+      the cached 0.3.1 public-link risk. Final operator-item authorization and
+      the real package-link transition belong to the post-archive
+      [Migration Plan](design.md#migration-plan), not this pre-archive checkbox.
       At signed source `cdfc0bf6`, the isolated macOS environment-backend
       journey stages actual Homebrew 0.3.1 bytes and passes preprojection,
       simulated link gap, upgrade, rollback, re-upgrade and uninstall. New
@@ -83,9 +79,11 @@
       environment-backend journey in an isolated container. GitHub run
       36563790078 at `49ba0c5ec5503b4365ff1f0c01555c05c97ca03e` passed
       the published `v0.3.1` predecessor Keychain journey on a disposable macOS
-      runner, including rollback rotation and explicit restaging. Operator-item
-      authorization, Linux host credential service and Windows real-client
-      proof remain open.
+      runner, including rollback rotation and explicit restaging. At that
+      checkpoint, operator-item authorization, Linux native-host acceptance,
+      and Windows real-client proof remained open; later evidence below
+      supersedes the Windows-client gap, while Linux-host acceptance remains
+      in 5.2.
       The signed `2c7fbe89` Linux ARM64 candidate also passes authentic 0.3.1
       succession with an isolated real DBus/GNOME Secret Service as UID 1000.
       Automatic backend selection is keyring; old and new commands remain
@@ -96,12 +94,21 @@
       rotation/deletion. A missing selected executable fails; ignoring that
       selection produces the distinguishing RED. This is not production
       signing succession or authorization of retained operator items.
-      The unchanged `ebf9adff` Linux candidate also passes the signed
-      `00e58c70` system-store fixture with a real isolated Secret Service and
-      published 0.3.1 predecessor; see the native-store scope in 5.2.
-      Native Windows Credential Manager also passes the unchanged candidate's
-      retained-reader fixture at signed `00e58c70`; see 5.3. These isolated
-      synthetic items do not authorize the final operator reader.
+      The exact `df7d4585` Linux package's Secret Service succession is
+      recorded in 5.2; Windows native Credential Manager/client results are in
+      5.3. These isolated synthetic items do not authorize the final operator
+      reader.
+      Current `3f6723c7` macOS run 36851755292 passes authentic published
+      0.3.1 Keychain succession, rollback rotation and explicit restaging;
+      Windows native-store/client closure is recorded in 5.3. These receipts
+      prove retained-reader lifecycle for their
+      recorded candidate bytes, but not a stable macOS Developer ID designated
+      requirement across distinct signed successors. See [DR-0011](../../../docs/decisions/dr-0011-single-portable-token-backend.md): an
+      untagged Developer ID candidate can prove that pre-archive identity;
+      ad-hoc and copied-byte fixtures cannot substitute. That successor proof
+      remains open. Exact operator-item authorization and the actual Homebrew
+      link transition remain post-archive Migration Plan obligations; the
+      broader Linux native-host product journey remains open in 5.2.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
@@ -115,52 +122,37 @@
       live inference for DMXAPI, UCloud, and AIHubMix; retain only qualified
       models/variants and one consistent naming grammar, with source and date for
       each claim.
-      The [September 30 catalogue observation](../../../docs/research/provider-model-qualification.md#provider-catalogue-and-route-evidence)
-      lists all 60 then-shipped Route IDs on their Account/protocol surfaces.
-      A later direct AIHubMix Chat request for `solar-pro4` returned HTTP 400
-      `no_available_channel`, so that Route and its unreferenced Model were
-      removed; 56 Routes remain after replacing three GPT-6 Sol Routes with
-      AIHubMix, DMXAPI, and UCloud GPT-6.1 Sol Routes and withdrawing the Fable 5.1 CC
-      channel after three bounded requests failed to complete and withdrawing
-      the currently unavailable AIHubMix MiMo Route. Direct DMXAPI
-      text and strict function-call probes plus two isolated Codex tool loops now
-      support the Codex recommendation. Official Hermes v0.21.5 source also
-      completed two direct DMXAPI 6.1 Sol turns, and an isolated AIGW `verify`
-      completed after staging its versioned reader. Later UCloud 6.1 Sol
-      inference and installed Codex/Hermes `verify` sessions also passed.
-      A catalogue listing alone did not qualify either client. All remaining
-      exact Account/wire/protocol contracts have dated completed inference and
-      at least one compatible native-client observation. The October 1
-      [curated choices](../../../docs/research/provider-model-qualification.md#curated-model-choices)
-      review supplies the Gemini, GLM, Kimi and Qwen primary-source rationale;
-      vendor positioning is not an independent global ranking. Low-level import
-      now accepts an explicit set of
-      obsolete Routes in the same guarded commit as the incoming catalogue;
-      focused tests preserve selected Routes and shared or incoming Models,
-      reject invalid selectors before writing, and reject dangling retained
-      recommendations. October 1 metadata-only import installed 26 Models and
-      57 Routes, retired twelve obsolete unselected Routes, and preserved
-      Accounts, explicit bindings and credential commands. The historical
-      reader's Hermes menu projection failed exact wire-ID acceptance and was
-      fully rolled back, preserving all sixteen protected file identities.
-      The current native team journey checks delivered wire IDs, channel
-      variants and unowned settings; final-artifact host synchronization remains
-      open.
-      Public Route addition now distinguishes canonical `--model` from an
-      optional exact `--upstream-model`; catalogue continuation supplies the
-      required `--protocol`. RED/GREEN and sibling tests preserve existing
-      Model identities, Routes and Client selections without alias inference.
-      A later full-manifest inference audit rejected only AIHubMix Fable 5.1
-      with an explicit temporary model-unavailable HTTP 400. That Route is
-      withdrawn from the shipped catalogue; DMXAPI and UCloud Fable remain.
-      The diagnostic regression distinguishes that refusal from malformed
-      model requests and preserves one bounded request with no auth retry.
-      Independent `9cf23cb8` AIHubMix acceptance checks 25 shipped Routes:
-      24 pass, while MiMo reports model_unavailable. One official SDK request
-      with retries disabled confirms HTTP 400. Withdraw only that Account's
-      Route; retain the canonical Model and qualified UCloud Route. RED/GREEN
-      and complete team-manifest tests pass. Current source exports 26 Models
-      and 56 Routes; earlier artifact evidence retains its original identity.
+      Signed `80dbca19` and its exact 0.3.3 candidate contain 26
+      Models and 58 Routes. The independent October 1 public setup/use/check
+      matrix passes every exact Account/wire/protocol pair once: DMXAPI 18/18,
+      UCloud 15/15 and AIHubMix 25/25; 37 Responses, 11 Chat and 10 Anthropic
+      routes. No-account setup remains Deferred with `ok=false`. Source,
+      candidate and twelve protected operator identities remain unchanged;
+      owned processes and 113,841,464-byte scratch are absent. Receipt
+      `independent-current-provider-80db-20261001-01a0ccfc/delivery.json`,
+      SHA-256 `9ffa097b805addc16e1fb9bc1f8c63f18448597d94eb95d2cbbf672083b6ab63`,
+      is retained under the existing AIGW recovery owner. This proves dated
+      inference, not sustained availability, authentic client continuation,
+      global ranking or installed cutover. Native evidence for those scopes
+      stays in 4.4–4.5 and 9.3.
+      [Catalogue qualification](../../../docs/research/provider-model-qualification.md#provider-catalogue-and-route-evidence)
+      retains withdrawn unavailable Routes, the plain DMXAPI Sol 6.1
+      continuation limit and MiniMax's native Codex limit. Qualified CDX/CC
+      alternatives share existing logical Models. Guarded import/add
+      regressions preserve sparse Accounts, explicit selections, external
+      credential commands, shared Models and exact upstream wire IDs; invalid
+      or dangling recommendations fail before mutation. Historical artifact
+      evidence is retained with its original identity, not copied as current.
+      Later exact `444bbd41` candidate and official Hermes `f97608f` native
+      file-tool/same-session acceptance qualify Ultra and `cohere-command-a`;
+      the dated Cohere wire returns no tool calls. Replace only the shipped
+      Super/datetime choices, preserving explicit installed selections and
+      protocol ownership. Configuration regressions and all seven shipped-
+      team setup journeys pass. The updated catalogue still has 26 Models
+      and 58 Routes; current artifact and platform qualification remain open.
+      Evidence: `independent-hermes-request-boundary-444-20261001-01a0ccfc`
+      in the existing recovery owner; `native-model-catalogue-*` and
+      `native-model-shipped-team-journey.log` in the existing verification owner.
 - [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
       Providers; no control-plane command claims request-time failover.
@@ -204,10 +196,16 @@
       Codex/official Hermes, Muse Spark with Codex, and Opus/Sonnet 5.5 with
       stable Claude. MiniMax M3 completes in official Hermes, but real Codex
       returns reasoning tags in its final text and fails the exact marker
-      contract. Keep that client gap open; do not strip arbitrary text or
-      equate exit zero with verification.
+      contract. Later official Codex 0.159.3 qualifies the exact AIHubMix
+      `cc-minimax-m3` channel and UCloud `MiniMax-M3` under native effort none,
+      with shell execution and same-thread context replay. Current `7a5c1da6`
+      candidate public Route addition and projected-client verification also
+      pass; the plain AIHubMix Route's client gap remains disclosed. See
+      `independent-minimax-codex-native-20261001-01a0ccfc` and
+      `independent-current-candidate-7a5c1da6-20261001-01a0ccfc`; no new
+      logical Model, response stripping or marker relaxation is introduced.
       Linux real-client lifecycle and selection evidence is recorded in 5.2;
-      Windows real clients, native-host stores,
+      final Windows bytes, native-host stores,
       Desktop GUI, installed-host cutover and final signed bytes remain open.
       The later independent `9cf23cb8` DMXAPI batch passes all seventeen Routes
       in direct inference, but real Codex 0.159.2 returns unrelated final text
@@ -215,6 +213,76 @@
       acceptance. UCloud's fifteen Routes and selected native clients pass.
       See `independent-9cf-dmxapi-ucloud-20261001-01a0ccfc` in the existing
       recovery handoff; the complete-request DMXAPI cause remains open.
+      The independent `independent-dmxapi-prompt-diagnosis-20261001-01a0ccfc`
+      delivery isolates native input item IDs: the same full nine-item tool
+      continuation fails with IDs and passes after only the user-message ID
+      is omitted; removing only a tool-call or tool-output ID does not fix it.
+      UCloud accepts the original request. This is a measured compatibility
+      trigger, not a proved provider-internal cause or native Codex repair;
+      prompt duplication and AIGW-owned transport rewriting remain excluded.
+      The separate nested-Seatbelt fixture defect is corrected. Raw requests,
+      responses and reproducer remain; twelve protected inputs are unchanged,
+      all owned children are terminal, and 232,554,214 scratch bytes are retired.
+      Independent `independent-dmxapi-sol61-cdx-20261001-01a0ccfc` qualifies
+      the exact `9cf23cb8` program and added CDX Route with official Codex
+      0.159.3 public verification, shell execution and same-thread tool replay.
+      `independent-dmxapi-cdx-hermes-20261001-01a0ccfc` separately qualifies
+      unmodified official Hermes `f97608f`. Exact conservation and one preserved,
+      unowned concurrent host edit are bounded in the
+      [qualification owner](../../../docs/research/provider-model-qualification.md#provider-catalogue-and-route-evidence).
+      Later-artifact, Desktop GUI and every-platform acceptance remain open.
+      The exact `df7d4585` Linux ARM64 package also passes one complete
+      official-client journey: Codex 0.159.3 and Claude Code 2.1.285 complete
+      baseline, candidate, rollback and re-upgrade; all 14 Responses selections
+      and the real read-only shell loop pass. The test has empty stderr and
+      conserves the installed AIGW and client configuration. Receipt
+      `independent-current-df7-linux-clients-20261002-01a0ccfc`: `delivery.json`
+      SHA-256 `8ed4ae988744b5f1df690e5a0bbcde731f7471f97949388ccf270c4a4126bab1`.
+      This networkless loopback run does not qualify Hermes, Desktop GUI,
+      external-provider inference, Linux native-host stores or final signed
+      bytes. Earlier failed preflights ran no client tests and remain separate.
+      The separate Codex `--version` preflight warning came from default
+      `HOME=/` on a read-only root. The same binary returns identical version
+      output and empty stderr with owned writable `HOME=/work/home`; the tracked
+      native-client fixture already sets an owned writable home. No product
+      patch was needed. Receipt
+      `independent-codex-version-environment-20261002-01a0ccfc/result.json`
+      SHA-256 `47d86c1df47e99c9353e57bd476c5f8852c41775ea760fc324742775775214a4`.
+      Tracked `TestNativeClientJourney/hermes` now executes `read_file`, checks
+      its structured output and continued session history. The macOS
+      baseline-to-candidate-to-rollback-to-re-upgrade journey passed with the
+      local Hermes 0.21.5 binary carrying four commits; this is regression
+      coverage, not official-client qualification. The same signed source
+      commit `39268297` also passes this updated journey with unmodified official
+      Hermes `f97608f` 0.21.5 in an isolated Linux ARM64 container against the
+      exact `df7d4585` candidate: real `read_file` output and session history
+      survive all four lifecycle stages (87.729s; empty stderr, warning-free
+      stdout). Linux native-host, Windows, live-provider and final-package
+      acceptance remain open in 5.2 and 9.3.
+      The current Codex catalogue regression exposed a real identity loss:
+      Runtime carried only the Route's wire model, so the declared
+      `gpt-6.1-sol-cdx` alias could not reuse its canonical
+      `gpt-6.1-sol` entry. Runtime now carries that exact canonical ID
+      separately. Projection copies only an exact bundled base, changes only
+      `slug`, preserves the rest of the table and refuses suffix inference;
+      user-authored catalogues still take precedence. The tracked verifier now
+      accepts `-canonical-model` for this relation. Its RED was a missing
+      generated catalog; focused tests pass:
+      `mise exec --locked -- go test ./internal/configuration ./internal/codex/... ./tools/codex/catalog`.
+      This repairs the source defect only; current signed-artifact, Desktop GUI
+      and cross-platform qualification remain open. The tracked verifier also
+      passes against installed Codex CLI 0.159.3 (binary SHA-256
+      `4d210f7c5a18fd0386434df23b5bdbb8c0e7257d3e8a2b30b0769c8bbe99a878`):
+      canonical and CDX metadata digests match
+      (`f97810da37697f1f00867cb9b0bbc65311b6f5e2411336a7d676bfcc21e5b89e`),
+      the unadapted alias is absent, the generated alias is present, and the
+      unknown probe stays absent. It used an isolated CODEX_HOME and sent no
+      inference request; it does not qualify the packaged AIGW or full tool loop.
+      The current-source `mise run check` and `mise run native` both exit 0:
+      OpenSpec 11/0 findings, OSV 0 issues, Node 61/61, and Go statement
+      coverage 95.12% against the >95% floor. The macOS native run exercises
+      isolated environment-backed lifecycle/resource journeys; it does not
+      select `--clients` or native Keychain acceptance.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
@@ -251,25 +319,42 @@
       All 16,309 input hashes match; exact containers and scratch are absent.
       Combined lifecycle and focused-successor evidence is not a single green
       run, native-host Secret Service, live supplier or final-distribution proof.
-      Independent fixed-candidate receipt `f6b0d496` adds the actual isolated
-      Linux Secret Service journey as registered UID 1000 with network removed
-      before execution. Signed `00e58c70` verifier, candidate and published
-      0.3.1 inputs remain unchanged; retained-reader upgrade/rollback/re-upgrade,
-      Account/diagnostic rotation, rename, uninstall/reinstall and deletion pass.
-      All 1,228 source hashes match, and container, scratch and temporary recipe
-      are absent. An official `secret-tool`-only counterexample reproduces the
-      GNOME Keyring 42.1 duplicate-registration diagnostic without AIGW. These
-      daemon warnings remain raw evidence, not a product fault or warning-free
-      qualification. Native-host, real-provider and final-distribution claims
-      remain open.
-      `independent-9cf-linux-codex-claude-20261001` in recovery handoff
-      `20260930-sol61.VVgo1vF5` completes the exact `9cf23cb8` Linux ARM64
-      candidate's retained 0.3.1 Codex 0.159.3/stable Claude 2.1.285 lifecycles,
-      fourteen Responses selections and shell tool loop in one 152.769-second
-      run. All 1,229 source hashes and program identities are conserved;
-      exact container, scratch and owned processes are absent. This is loopback
-      container evidence, not native-host Secret Service, Hermes or final bytes.
-- [ ] 5.3 Run equivalent Windows native journeys, including ACL, executable
+      The exact `df7d4585` 0.3.3 Linux ARM64 package passes the retained
+      published-0.3.1 lifecycle with a real ephemeral GNOME Secret Service as
+      UID 1000, after external network disconnection. The signed `00e58c70`
+      verifier is reused without rebuilding. Retained commands, account and
+      diagnostic rotation, rename, rollback/re-upgrade, uninstall/reinstall and
+      deletion pass in 2.464 seconds; candidate, predecessor and verifier hashes
+      are bound. The owned container, scratch and recipe are absent, and the
+      existing source, install and link are conserved. Receipt
+      `independent-current-df7-linux-secret-service-20261002-01a0ccfc/delivery.json`
+      SHA-256 `ad6ff16bd927b10a402b2be8fe73ce605c0c0a06c0c5afa6357cf20ba477718b`.
+      Two GNOME Keyring 42.1 duplicate-registration warnings remain; the
+      official-tool-only reproduction attributes them to the system daemon,
+      not AIGW. Raw stderr is retained; this is not warning-free acceptance.
+      Native-host, real-provider and final-distribution claims remain open.
+      The earlier `9cf23cb8` portable lifecycle, predecessor and rollback
+      receipts are reused because the candidate archive/program hashes exactly
+      equal `df7d4585`; this reuse is bound by the current packaged receipt
+      above. Its old team manifest hash `3e4e6ab6` is not reused as current
+      input; the current `df7d4585` team manifest and resource fixture pass in
+      the receipt above. The current real Codex/Claude Code container journey
+      is recorded in 4.5. These results still do not prove Linux native-host
+      state, external provider inference or final distribution.
+      A separate run of the same exact `df7d4585` Linux ARM64 candidate passes
+      `TestNativeClientJourney/hermes` with official Hermes 0.21.5, its frozen
+      Python 3.12.14/OpenAI 2.24.0 environment, `edge-tts` 7.2.7,
+      Bedrock `boto3` 1.42.89 and `tirith` 0.4.2. Four retained lifecycle
+      stages and a separate two-turn session pass in 88.489 seconds; output is
+      warning-free, stderr empty, and no external endpoint is observed. The
+      1,210 AIGW and 15,075 Hermes source-file hashes are conserved, and the
+      isolated run leaves no host, install, service or credential effects.
+      Receipt `independent-current-df7-linux-hermes-20261002-01a0ccfc/complete-runtime-dependencies/delivery.json`
+      SHA-256 `1dab9729468df3db2b80a7a0ffb39297f2f703583704e911837369bc819acfd1`.
+      This proves loopback inference and lifecycle, not a real Hermes tool loop,
+      native Linux-host state, peer cold-bootstrap or performance. Keep 4.5 and
+      5.2 open for those distinct boundaries.
+- [x] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
       Exact `ebf9adff` Windows ARM64 candidate passes core, shipped-team,
@@ -298,8 +383,22 @@
       pauses and VM isolation conserved. No operator Token is touched or logged.
       This success path does not prove native-store fault injection, real
       clients, Runner containment, performance or final distribution.
-
-- [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
+      Current signed `3f6723c7` closes the pre-archive Windows journey through
+      GitHub native-client run 36849808698, job 110328519476. The exact Windows
+      AMD64 candidate (program `ec7d9429`, archive `5e82274a`) passes core,
+      shipped-team, native Credential Manager, all five resource outcomes and
+      authentic published 0.3.1 succession. Actual Codex 0.159.3, Claude Code
+      2.1.286 and pinned Hermes `f97608f` complete baseline, candidate, rollback
+      and re-upgrade; thirteen current general Codex Routes and the shell loop
+      pass in one 224.35-second client run, without failed/skipped tests or
+      warnings. Product teardown asserts exact owned installation removal;
+      disposable hosted cleanup completes. Both review peers also pass their
+      required Windows jobs. Source-bound logs and final run/job readbacks are
+      `3f6723c7-*` under `build/verification/supply-chain-20260930/`.
+      Claude Desktop GUI remains in 4.5; performance, persistent Runner
+      containment and final distributed-byte acceptance remain in 6.6, 7.4
+      and 9.3. This closure does not claim those independent outcomes.
+- [x] 5.4 Run equivalent macOS journeys with native Keychain authorization and
       environment backend separately in isolated acceptance; final operator-item
       authorization remains required before post-archive installed cutover.
       No password/biometric retry loop, service restart, or hidden native-store
@@ -317,6 +416,28 @@
       separate from this environment-backend acceptance.
       The private copied-test-reader evidence in 3.5 does not close final
       production-reader authorization or Desktop GUI acceptance.
+      Disposable GitHub macOS run 36851755292 at `3f6723c7`, job 110334863497,
+      now passes core, shipped-team, all resource failure outcomes and authentic
+      published 0.3.1 Keychain succession without warnings or skipped tests.
+      Its candidate program is `c38d9da4`; it does not authorize retained
+      operator items. Current `9544b98d` local matrix separately passes
+      environment-backend lifecycle and actual Codex 0.159.3/stable Claude
+      2.1.285/installed Hermes succession in 235.212 seconds. One deferred
+      Desktop test explicitly skips because Desktop is already installed;
+      official Hermes and Desktop GUI remain independent in 4.5. Raw logs and
+      exact caller inputs are `3f6723c7-macos-native-keychain*` and
+      `native-current-9544b98d-macos-current-trust*` under the existing
+      `build/verification/supply-chain-20260930/` owner. Final operator-item
+      authorization and distributed-byte cutover remain open.
+      Current signed `02449bd2` revalidation finds all 136 product inputs and
+      nine native fixture/lock inputs byte-identical to the qualified macOS
+      source, with no omitted product file. Fresh hosted readback confirms
+      job 110334863497 completed successfully; published Keychain succession
+      and the separate environment-backend journey establish this isolated
+      pre-archive scope. Current shipped-team and process-observer regressions
+      also pass. Evidence: `macos-isolated-acceptance-input-conservation-02449bd2.json`.
+      Actual operator authorization and Homebrew cutover remain in the Migration Plan;
+      Desktop GUI and official Hermes acceptance remain in 4.5.
 - [x] 5.5 Verify missing Codex/Claude at setup and later installation on each
       platform; deferred sync must touch only installed admitted clients and
       preserve user-owned files. GitHub run 36560334613 at
@@ -345,6 +466,16 @@
       This closes the isolated resource contract, not native-store, real-client,
       hosted CI, operator cutover or final-distribution acceptance, which remain
       at 4.5, 5.2-5.4, 7.x and 9.3.
+      The current `d75eb6e9` artifact run exposed partial fixture publication:
+      `parent.json` could exist before its JSON bytes were complete. The
+      deterministic reader-inode regression fails the old producer and passes
+      reuse of the existing atomic writer. The exact candidate then passes all
+      five resource outcomes, including native interrupt and the product's
+      sixty-second deadline, in 71.526 seconds. Race and observer siblings pass
+      without new framework or product changes; owned scratch and descendants
+      are absent. Evidence: `resource-atomic-publication-*` under the existing
+      `build/verification/supply-chain-20260930/` owner. Corrected-fixture
+      hosted platform acceptance remains separate in 7.3.
 
 ## 6. Quality, Supply Chain, and Performance
 
@@ -461,47 +592,49 @@
 - [x] 7.1 Reconcile the complete CUE CI graph with generated GitHub and GitLab
       projections; prove no hand-edited workflow drift or missing source, native,
       release or publication owner.
-- [ ] 7.2 Cover developer proposal create/update and review SHA, maintainer
-      fast-forward, dev, main and tag events; each required check must execute on or
-      attest the exact admitted object.
-- [ ] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
+- [ ] 7.2 Prove both peers' exact-SHA event-to-check contract for developer
+      proposal create/update/review, maintainer fast-forward, accepted `dev`/`main`,
+      and signed-tag pushes. Run the exact candidate's proposal checks on both
+      peers; CUE and projection regressions must bind each other event to its
+      intended commit SHA and required-job set. Actual `main`/tag results against
+      the archived SHA are post-archive release acceptance under Migration Plan;
+      do not infer them from projection tests or a manual run.
+      October 2 refs: GitLab main/dev share `12ca86f9`; GitHub main `f17bb3b2`
+      is an ancestor of dev `2aa58eea`. All seven GitHub-only commits from that
+      accepted history are already ancestors of the current proposal on both
+      peers; no cherry-pick is needed. Both draft reviews currently verify
+      `df7d4585` with five successful peer-local jobs; this local worktree is four
+      signed documentation commits ahead and has not been reviewed remotely.
+      Maintainer integration and accepted dev/main/tag events remain open.
+- [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review
       work only before a noninterruptible native Shell or release job starts.
-      Native CI forwards explicit candidate, predecessor and client inputs
-      to one release owner for peer downloads, trust, extraction and cleanup;
-      duplicate GitHub download and Keychain selectors are deleted. Snapshot
-      construction and native journey children receive no Forge credential
-      environment. Signed two-peer fixtures, input rejection, forwarding,
-      child-deadline and current-manifest wire-menu regressions pass;
-      fixed-artifact execution with real clients on both peers remains required.
-      Signed docs source `90908d5d` passes GitLab pipeline 9049 and GitHub
-      run 36769384552 with all five required jobs on each peer; these source
-      results do not qualify the fixed candidate's Windows/client journey.
-      Signed `b8e56dfc` closes the October 1 synthetic-only reproduction of job-netrc
-      pointer and Mise credential inheritance despite cleared Token variables.
-      One override owner now scopes construction and acceptance without
-      changing parent acquisition authorization. Both subject paths reject
-      inherited carriers while the selected acquisition path retains them;
-      this does not prove arbitrary-code Runner containment or hosted cold-peer
-      execution. Its full source gate passes at 95.09% with 1,228 hashes conserved.
-      `ceb5948d` independently passes all five required jobs on GitHub run
-      36845079020 and GitLab pipeline 9135. Separate Windows client dispatch
-      36845310186 passes cold bootstrap, the pinned Hermes installer and all
-      three client succession journeys, but rejects the Codex tool loop.
-      Upstream Codex 0.159.3 rejects restricted permissions when no Windows
-      sandbox backend is active; the isolated fixture now explicitly selects
-      official `unelevated` restricted-token enforcement, keeping `read-only`
-      execution and strict tool-result assertions. The existing native-input
-      regression fails before and passes after repair; macOS Codex 0.159.3
-      tool-loop sibling passes against unchanged `9cf23cb8` bytes. Windows
-      execution of the repair remains unqualified. Evidence is
-      `windows-native-sandbox-*` under `build/verification/supply-chain-20260930/`.
+      One release owner consumes peer-local candidate, predecessor, clients
+      and trust inputs; construction/acceptance children inherit no Forge
+      authorization. Current signed `df7d4585` passes all five required jobs
+      independently on GitHub review 36887407579 and GitLab review 9174;
+      GitHub full-quality run 36888622433 also passes the complete native
+      quality graph on macOS, Linux and Windows. October 2 terminal readbacks
+      bind each result to that exact SHA. Accepted-ref parity and release
+      version are correctly skipped in review/manual contexts, not qualified
+      by those runs. Focused CUE projection regressions pass, including cache
+      isolation and noninterruptible persistent Shell jobs. Static quality and
+      pure-Go Secret Service require no compiler; native Linux race alone
+      installs gcc/libc headers. Original prerequisite, ESRCH and sandbox
+      failures remain in `linux-prerequisite-*`, `linux-capability-*` and
+      `windows-native-sandbox-*`. October 2 `df7` terminal readbacks remain
+      in the existing verification owner. Event/merge admission,
+      persistent-runner containment, cold-peer transport and final distributed
+      client bytes remain in 7.2, 7.4, 7.5 and 9.3.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
-      guarded merge, source-ref deletion, signer trust and branch protection on each
-      selected peer without interactive authentication or divergent commit
+      guarded-merge policy, source-branch auto-delete configuration, signer trust
+      and branch protection on each selected peer without interactive
+      authentication or divergent commit
       identities. Prove untrusted review code cannot observe persistent Shell
       runner credentials or protected-job state; retain required native evidence.
+      A policy readback proves configuration, not deletion: observe the exact
+      proposal source ref absent after its guarded merge in the delivery sequence.
       On September 30, GitHub dev/main require five GitHub Actions app-bound
       checks, including Linux Secret Service, with strict and admin enforcement;
       GitLab requires pipeline success, resolved discussions and source-branch
@@ -521,32 +654,38 @@
 - [ ] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
       or GitHub must not turn the other selected peer or the local product into a
       hidden dependency, and parity claims remain peer-specific.
-      The GitLab registry reports all 45 current ARM64 GitHub tool assets with
-      lock-matching SHA-256; CUE projects the job-scoped mirror and Linux uses
-      Mise's pinned Docker Hub image. Real Job Token downloads, cold-cache
-      peer-outage behavior without GitHub fallback or credential leakage,
-      and full cold-cache execution remain unproved. Existing mirrored-provenance
-      acceptance passed without network or inherited authorization, and local
-      matrix fixtures passed without Forge downloads. Those bounded proofs do
-      not replace the real Job Token tool graph. Transport follows the selected
-      endpoint and identity, not a blanket HTTP/HTTPS assumption.
-      Reciprocal glab transport now projects browser and encoded API URLs from
-      the same CUE owner to GitHub-local assets. Every locked platform URL and
-      consuming workflow passes focused regression; native cold macOS install,
-      API-only download, missing-copy refusal and checksum-tamper refusal pass
-      with external network denied and no authorization or cookies. The six
-      upstream archives match `mise.lock`; source tests do not establish their
-      hosted publication or the complete three-platform cold graph.
-      October 1 cold Windows run 36838157593 exposes the actual prerequisite:
-      forced reciprocal glab transport returns 404 before client acceptance.
-      CUE now defaults both peers to locked official upstreams and exposes an
-      explicit peer-copy selection; no automatic fallback or checksum change.
-      Distinguishing RED/GREEN covers ordinary/no-credential and invalid
-      selection, exact selected mirror ownership and unchanged filenames.
-      The original failure and focused results remain in `cold-tool-source-*`.
-      Fresh cold execution and peer-copy publication remain unproved; ETHOS
-      publication/retirement feedback is tracked in its existing owner through
-      issue 12, not another AIGW Change.
+      CUE binds peer selection, locked URLs and job-private credentials; local
+      offline tests reject missing or altered mirror files. Native verification
+      now qualifies all 21 provenance-bearing files in the 48-entry x64 lock
+      scope, retaining the distinct Actions and vendor-release signer contracts.
+      On October 2, the existing project-456 mirror gained 42 absent x64 assets
+      (568,866,372 bytes). Each served byte string matches the current `mise.lock`
+      SHA-256; all 54 prior registry-file hashes remain unchanged. Receipt
+      `x64-peer-mirror-publication-verified-20261002.json` records the exact
+      source and lock identities. Publication used the existing native glab
+      identity; it does not prove CI Job Token identity or job-private auth.
+      The full-lock snapshot matches all 93 GitHub asset records across 90
+      unique URLs to 96 registry files; its receipt is
+      `full-lock-registry-coverage.json` in the existing mirror owner. Current
+      `mise.lock` SHA `525cc96502335294f5d430bbd3192bf1945d195b6c7d68cc590c7d613257ebf7`
+      binds all 18 non-GitHub records: 10 fresh official streams (626,655,824
+      bytes) and eight exact-lock reuses (six prior glab digests and two
+      macOS ARM64 Go/Node native Mise checks). Receipt
+      `independent-peer-non-github-inputs-20261002-01a0ccfc/delivery.json`
+      SHA-256 `35c3e0d0d3122359979e82b9982e38c2525a1db9ff3d3ac57c87202445d677cc`.
+      Its binding shows `.config/ci/pipeline.cue` changed since the earlier
+      cold-Mise run; only unchanged tool inputs are reused, not full-graph CI.
+      The required GitHub peer mirror release `mise-glab-v1.120.0` currently
+      returns HTTP 404; ETHOS issue 12 remains open with its owner. Readbacks
+      are `reciprocal-glab-release-readback.json` (SHA-256
+      `06f2332b0b75c783864aa1974ed73814853283e9abf6d7ce5d0afb9e13c4caf4`) and
+      `existing-ethos-issue12-readback.json` (SHA-256
+      `44df0138d9c662ccb37124854f369e3f9f10b7a784159e7b3d19448b09412c94`).
+      Byte coverage does not prove CI Job Token access or sibling-peer outage.
+      The earlier cold Windows 404 and corrected empty-cache pipeline 9172 remain
+      distinct; preserve original 9171 and `cold-tool-source-*` evidence.
+      Complete cold execution across native platforms and protected-runner
+      execution remain open.
 
 ## 8. Repository Topology, Documentation, and Deletion
 
@@ -572,7 +711,6 @@
       `runtime-refreshed-target-current-20261001.json` and
       `cold-tool-source-bound-current-proof-ceb5948d.*` under the existing
       `build/verification/supply-chain-20260930/` owner.
-
 - [x] 8.3 Review diagrams, tables, headings, lists, examples, CLI help and
       errors for readable layout and accurate links; enforce the chosen native
       formatter/linter rather than adding one-off checks.
@@ -588,6 +726,11 @@
       `cli-ebf9adff-layout/`, `public-negative-ebf9adff/` and
       `product-concepts-ebf9adff-native.png`. Hosted Forge rendering is not
       claimed; documentation registry/navigation remains in 8.2.
+      The native blank-line extension rejects single-paragraph peer separators
+      while preserving complex items and literal code. Five distinguishing RED
+      cases pass after repair; all 57 text-gate tests and 48 current Markdown
+      files pass. Native format, policy schema, spelling, ELOC and OpenSpec
+      checks pass; immutable archive bytes remain unchanged.
 - [x] 8.3.1 Correct neutral Changelog headings, explicit peer history, and native repository locators without changing existing historical notes; verify strict release metadata and each actual peer destination. Keep the prepared release links distinct from unpublished tags.
       The source has 60 local headings and 120 explicit peer links. All 59
       versioned bodies and the existing Unreleased body are conserved; the
@@ -610,8 +753,8 @@
       test bundles. On October 1, the historical architecture lane's holder
       completed native retirement `66292c29`: its exact worktree, ref and lease
       are absent; signed source `01776f2f`, 3,348 raw-evidence members and eight
-      analyzer members remain in the existing recovery handoff. Incomplete v2
-      research is retained, not integrated or promoted to a release prerequisite.
+      analyzer members remain in the existing recovery handoff. The retained v2
+      research is not acceptance; source-owned migration is required by 8.6.
       Only this terminal authoring lane remains. The current 0.3.3 candidate,
       raw verification/notarization evidence and active dependencies remain;
       obsolete tag, remote and final output retirement are still open. A later
@@ -632,6 +775,51 @@
       remains separate from the existing review ref. Native retirement preview
       refuses it as not accepted; retain the object and resolve precise owned
       projection retirement at ETHOS, not by bypassing hooks.
+      The October 2 read-only inventory at HEAD `32965a05` confirms three clean
+      managed worktrees (primary `dev`, `candidate/dev` and this source lane),
+      nine candidate matrices (one selected, three full prior matrices awaiting
+      consumer audit, five metadata-only) and 74 local refs (14 commit refs,
+      59 product tags, one support tag). The lane-relative ETHOS status passes
+      with no foreign or unbound lane; the primary `dev` status counts this
+      owned Work Lane as one foreign lane and reports no unbound lane. No
+      deletion was performed or authorized.
+      Receipt `independent-delivery-residue-inventory-20261002-01a0ccfc/delivery.json`
+      SHA-256 `dcb5994e24615089cc97de06fc9c3e6218f7dc56585a4e3ef7ca9efaebb96672`.
+      The local `proposal/hermes-offline-verification` ref is a 111-commit
+      ancestor; the `df7d4585` remote-review value is cached, not a current
+      Forge observation. The only temporary entry is owner-unknown native
+      `node-compile-cache`; it remains preserved. Fresh Forge refs, candidate
+      consumer retirement, ETHOS-owned ref retirement, native-cache ownership
+      and final artifact cleanup remain open. The last cached lock snapshot
+      showed `gh` 2.101.0 on four accepted branch names; retain its assets and
+      2.102.0 provenance until fresh peer locks and consumers prove retirement.
+- [x] 8.6 Migrate the Client Projection Edition Provider to the published
+      Publisher v2 contract. Preserve the authored Claim Model, four reader
+      questions, independent media and AIGW acceptance authority; prove exact
+      package inputs, direct/declarative equivalence, relocated offline replay,
+      invalid-input refusal and Git-bound rollback before deleting the v1
+      materializer, captured source copies and duplicate generated identities.
+      Exact alpha.7 archive and published release-manifest inputs pass native
+      installed replay. Direct and declarative modes conserve the same input
+      lock, selected meaning, question obligations and media; distinct closure
+      metadata remains distinct. Two relocated offline consumers reproduce all
+      Candidate members; tampered input fails without output and restoration
+      reproduces the original Candidate. The Claim Model bytes, twelve entities,
+      eleven relations/claims and four reader questions are preserved. Native
+      Chrome verifies all four pages, keyboard navigation and reduced-motion
+      loading without horizontal overflow. Exact predecessor replay passes
+      before twenty-one superseded files are removed, with Git-bound rollback
+      retained; net tracked content falls by more than 7,000 lines. Source/text
+      tests pass 61 cases; native format, Markdown, links, spelling, OpenSpec,
+      architecture and ELOC checks pass. Evidence: `publisher-v2-*` under the
+      existing `build/verification/supply-chain-20260930/` owner. This accepts
+      the source integration, not whole-product editorial scope or publication.
+      The current provenance refresh changes only source digests, not Claim
+      Model claims or editorial content. The `configuration` and `codex`
+      source hashes, Provider revision, and Build Request hash now match live
+      bytes. The rollback commit/tree remain immutable; source tests validate the
+      historical Claim Model from Git rather than requiring its bytes to equal
+      current provenance. All four source tests pass.
 
 ## 9. Frozen Source and Pre-Archive Acceptance
 
@@ -657,9 +845,9 @@
       The existing public Windows-target tests cover Unix identity behavior
       without a coverage-only test or suppression. Credential/projection
       siblings pass; the original per-file RED profile remains evidence.
-      Native Node tests bind the selected Publisher alpha.1 archive, identities
-      and manifest. Installed and ordinary source counterexamples reject stale
-      selected owners. Official materialization refreshes existing carriers;
+      Historical Native Node acceptance selected Publisher alpha.1;
+      current source replaces that v1 boundary through 8.6. Installed and
+      ordinary source counterexamples reject stale selected owners.
       native formatter/Markdown/Mermaid behavior moves to one Node suite while
       Go retains inventory/wiring tests. All 41 JUnit cases pass without skips;
       LCOV observes all four production modules. The full local gate passes at
@@ -694,6 +882,40 @@
       Protected hashes are unchanged and scratch is absent; raw caller/log
       evidence is `native-current-9cf23cb8-macos*`. Preserve this candidate's
       identity: later test-only `56cdc32a` is not its provenance. Exact-candidate
-      Linux real-client container proof is recorded in 5.2; Windows tool-loop
-      repair, current final bytes, native-host stores, Desktop GUI, production
-      signing and installed cutover remain unqualified.
+      Linux real-client container proof is recorded in 5.2; current Windows
+      actual-client execution is recorded in 5.3. Current final bytes,
+      native-host stores, Desktop GUI, production signing and installed cutover
+      remain unqualified.
+      Signed source `9544b98d` rebuilds the six-platform candidate in 10.14
+      seconds with all 1,229 tracked hashes conserved. Each program/archive
+      equals the previously qualified `9cf23cb8` bytes; current provenance and
+      full-matrix detached signature are regenerated, not borrowed. Public
+      artifact admission initially rejects incorrectly selected Git-only trust
+      and principal; selecting the unchanged Forge-declared artifact trust and
+      signer resolves the prerequisite without widening trust. Current-source
+      manifest, governance and final distribution remain separate. Exact
+      archive comparisons are `9544b98d-six-platform-archive-identity-comparison.json`;
+      native macOS execution and its limits are recorded in 5.4.
+      The `7a5c1da6` matrix is rebuilt with the same explicit public Forge
+      release-source inputs, signed checksums and current provenance. All six
+      archives/programs equal `9544b98d`; the current seven-path shipped-team
+      journey passes. The initial local-only build omitted those inputs; its
+      mismatch, original metadata and corrected comparison are retained.
+      This source/input correction is not final signing or installed cutover.
+      The exact `80dbca19` matrix conserves the previously qualified six
+      archives/programs while refreshing provenance. Native resource and
+      published-predecessor acceptance pass; Claude, Codex, fourteen general
+      Codex choices and its tool loop pass. Hermes's missing companion PATH is
+      an invocation omission: the corrected four-step predecessor/candidate/
+      rollback/re-upgrade journey passes in 60.401 seconds without product
+      fallback. Full source proof passes in 372.608 seconds with all 1,229
+      hashes unchanged. The same proposal SHA is read back on both peers;
+      GitHub run 36871511315 passes all five required jobs. GitLab pipeline
+      9155 exposes Linux apt timeout plus swallowed prerequisite failure, while
+      macOS passes and Windows remains in cold-tool acquisition. That control
+      defect is returned to the existing CUE owner; no product acceptance is
+      claimed for jobs that did not reach it. Receipt/log owners are
+      `native-current-candidate-80dbca19-*`,
+      `native-current-hermes-80dbca19-companion-path-*`,
+      `terminal-source-full-proof-80dbca19-*` and
+      `80dbca19-*-current-recovered-snapshot.*` in the same verification root.

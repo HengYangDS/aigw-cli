@@ -23,7 +23,7 @@ route = 'aihubmix-claude-opus-5-5'
 
 [recommendations.codex]
 [recommendations.codex.primary]
-route = 'dmxapi-gpt-6.1-sol'
+route = 'dmxapi-gpt-6.1-sol-cdx'
 
 [[recommendations.codex.alternatives]]
 route = 'ucloud-gpt-6.1-sol'
@@ -82,7 +82,7 @@ label = 'Claude Opus 5.5'
 [models.claude-sonnet-5-5]
 label = 'Claude Sonnet 5.5'
 
-[models.command-a-03-2025]
+[models.cohere-command-a]
 label = 'Cohere Command A'
 
 [models.'deepseek-v4.1-flash']
@@ -142,8 +142,8 @@ label = 'Mistral Large 3'
 [models.'muse-spark-1.3']
 label = 'Muse Spark 1.3'
 
-[models.nemotron-3-super-120b-a12b]
-label = 'NVIDIA Nemotron 3 Super'
+[models.nemotron-3-ultra-550b-a55b]
+label = 'NVIDIA Nemotron 3 Ultra'
 
 [models.'qwen3.8-max']
 label = 'Qwen 3.8 Max'
@@ -168,12 +168,12 @@ upstream_model = 'claude-sonnet-5-5'
 [routes.aihubmix-claude-sonnet-5-5.interfaces]
 anthropic = []
 
-[routes.aihubmix-command-a-03-2025]
+[routes.aihubmix-cohere-command-a]
 account = 'aihubmix'
-model = 'command-a-03-2025'
-upstream_model = 'command-a-03-2025'
+model = 'cohere-command-a'
+upstream_model = 'cohere-command-a'
 
-[routes.aihubmix-command-a-03-2025.interfaces]
+[routes.aihubmix-cohere-command-a.interfaces]
 openai_chat_completions = []
 
 [routes.'aihubmix-deepseek-v4.1-flash']
@@ -304,6 +304,15 @@ upstream_model = 'minimax-m3'
 [routes.aihubmix-minimax-m3.interfaces]
 openai_responses = []
 
+[routes.aihubmix-minimax-m3-cc]
+label = 'AIHubMix · MiniMax M3 · CC'
+account = 'aihubmix'
+model = 'minimax-m3'
+upstream_model = 'cc-minimax-m3'
+
+[routes.aihubmix-minimax-m3-cc.interfaces]
+openai_responses = []
+
 [routes.aihubmix-mistral-large-3]
 account = 'aihubmix'
 model = 'mistral-large-3'
@@ -320,13 +329,13 @@ upstream_model = 'muse-spark-1.3'
 [routes.'aihubmix-muse-spark-1.3'.interfaces]
 openai_responses = []
 
-[routes.aihubmix-nemotron-3-super-120b-a12b-free]
-label = 'AIHubMix · NVIDIA Nemotron 3 Super · FREE'
+[routes.aihubmix-nemotron-3-ultra-550b-a55b-free]
+label = 'AIHubMix · NVIDIA Nemotron 3 Ultra · FREE'
 account = 'aihubmix'
-model = 'nemotron-3-super-120b-a12b'
-upstream_model = 'nemotron-3-super-120b-a12b-free'
+model = 'nemotron-3-ultra-550b-a55b'
+upstream_model = 'nemotron-3-ultra-550b-a55b-free'
 
-[routes.aihubmix-nemotron-3-super-120b-a12b-free.interfaces]
+[routes.aihubmix-nemotron-3-ultra-550b-a55b-free.interfaces]
 openai_chat_completions = []
 
 [routes.'aihubmix-qwen3.8-max']
@@ -459,6 +468,15 @@ model = 'gpt-6.1-sol'
 upstream_model = 'gpt-6.1-sol'
 
 [routes.'dmxapi-gpt-6.1-sol'.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-gpt-6.1-sol-cdx']
+label = 'DMXAPI · GPT-6.1 Sol · CDX'
+account = 'dmxapi'
+model = 'gpt-6.1-sol'
+upstream_model = 'gpt-6.1-sol-cdx'
+
+[routes.'dmxapi-gpt-6.1-sol-cdx'.interfaces]
 openai_responses = []
 
 [routes.'dmxapi-grok-4.7']

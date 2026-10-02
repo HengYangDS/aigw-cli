@@ -68,7 +68,7 @@ func TestDocumentProjectionAdaptsEveryProviderPrefix(t *testing.T) {
 		{model: "eu.anthropic.gpt-5.6-sol", namespace: "eu.anthropic"},
 	}
 	for _, c := range cases {
-		data, _ := mustParseCatalog(t, bundled).Project(c.model)
+		data, _ := mustParseCatalog(t, bundled).Project(c.model, "")
 		if data == nil {
 			t.Fatalf("Document.Project(%q) generated no catalog", c.model)
 		}
@@ -91,7 +91,7 @@ func TestDocumentProjectionAdaptsEveryProviderPrefix(t *testing.T) {
 // only the alias would push every other model onto fallback metadata.
 func TestDocumentProjectionKeepsTheCompleteBundledTable(t *testing.T) {
 	bundled := testBundledCatalog("gpt-5.6-sol", "gpt-5.5")
-	data, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol")
+	data, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "")
 	if data == nil {
 		t.Fatal("Document.Project() returned no catalogue")
 	}
@@ -138,7 +138,7 @@ func TestDocumentProjectionKeepsTheCompleteBundledTable(t *testing.T) {
 
 func TestDocumentProjectionPreservesDocumentMetadata(t *testing.T) {
 	bundled := []byte(`{"revision":"client-owned","capabilities":{"schema":2,"features":["tools","images"]},"models":[{"slug":"base","instructions":"retain"}]}`)
-	data, _ := mustParseCatalog(t, bundled).Project("provider.base")
+	data, _ := mustParseCatalog(t, bundled).Project("provider.base", "")
 	var source, generated map[string]json.RawMessage
 	if err := json.Unmarshal(bundled, &source); err != nil {
 		t.Fatal(err)
@@ -167,10 +167,57 @@ func TestDocumentProjectionWithholdsWhatItCannotProve(t *testing.T) {
 		".gpt-5.6-sol",
 		"",
 	} {
-		data, _ := mustParseCatalog(t, bundled).Project(model)
+		data, _ := mustParseCatalog(t, bundled).Project(model, "")
 		if data != nil {
 			t.Fatalf("Document.Project(%q) generated a catalog for an id it cannot prove", model)
 		}
+	}
+}
+
+// TestDocumentProjectionUsesDeclaredCanonicalModel adds only the exact declared
+// wire alias and copies the canonical entry without editing the client table.
+func TestDocumentProjectionUsesDeclaredCanonicalModel(t *testing.T) {
+	const (
+		canonical = "gpt-6.1-sol"
+		wire      = "gpt-6.1-sol-cdx"
+	)
+	document := mustParseCatalog(t, testBundledCatalog(canonical, "gpt-6-luna"))
+	projected, base := document.Project(wire, canonical)
+	if projected == nil || base != canonical {
+		t.Fatalf("Project(%q, %q) = %q / %q, want an explicit alias", wire, canonical, projected, base)
+	}
+	if got, want := strings.Join(catalogSlugList(t, projected), ","), canonical+",gpt-6-luna,"+wire; got != want {
+		t.Fatalf("projected slugs = %q, want %q", got, want)
+	}
+	baseEntry := document.Model(canonical)
+	aliasEntry := mustParseCatalog(t, projected).Model(wire)
+	if len(aliasEntry) != len(baseEntry) {
+		t.Fatalf("alias fields = %v, canonical fields = %v", aliasEntry, baseEntry)
+	}
+	for field, value := range baseEntry {
+		if field != "slug" && !bytes.Equal(aliasEntry[field], value) {
+			t.Errorf("alias metadata %q = %s, want canonical value %s", field, aliasEntry[field], value)
+		}
+	}
+	if document.Model(wire) != nil {
+		t.Fatalf("Project mutated the bundled document with %q", wire)
+	}
+}
+
+// TestDocumentProjectionRejectsUnprovedCanonicalAlias forbids suffix guessing,
+// even when a similar native model exists.
+func TestDocumentProjectionRejectsUnprovedCanonicalAlias(t *testing.T) {
+	const wire = "gpt-6.1-sol-cdx"
+	document := mustParseCatalog(t, testBundledCatalog("gpt-6.1-sol", "gpt-6-luna"))
+	for _, canonical := range []string{"", "gpt-6.1", "missing-model"} {
+		projected, base := document.Project(wire, canonical)
+		if projected != nil || base != "" {
+			t.Fatalf("Project(%q, %q) = %q / %q, want no projection", wire, canonical, projected, base)
+		}
+	}
+	nativeWire := mustParseCatalog(t, testBundledCatalog(wire, "gpt-6.1-sol"))
+	if projected, _ := nativeWire.Project(wire, "gpt-6.1-sol"); projected != nil {
+		t.Fatalf("Project duplicated already-native wire model %q", wire)
 	}
 }
 
@@ -201,14 +248,14 @@ func TestDocumentNamespaceRequiresAUniqueMatch(t *testing.T) {
 
 func TestDocumentProjectionIsDeterministicAndIdempotent(t *testing.T) {
 	bundled := testBundledCatalog("gpt-5.5", "gpt-5.6-sol", "codex-auto-review")
-	first, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol")
-	second, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol")
+	first, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "")
+	second, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "")
 	if string(first) != string(second) {
 		t.Fatal("Document.Project() is not byte-deterministic")
 	}
 	// Re-running against a table that already carries the aliases must add
 	// nothing, so a converged target keeps producing the same bytes.
-	again, _ := mustParseCatalog(t, first).Project("openai.gpt-5.6-sol")
+	again, _ := mustParseCatalog(t, first).Project("openai.gpt-5.6-sol", "")
 	if again != nil {
 		t.Fatalf("Document.Project() duplicated existing aliases:\n%s", again)
 	}
@@ -238,14 +285,14 @@ func TestParseRejectsUnusableBundledTables(t *testing.T) {
 
 func TestDocumentModelObservationCannotChangeProjection(t *testing.T) {
 	document := mustParseCatalog(t, []byte(`{"models":[{"slug":"base","instructions":"original"}]}`))
-	before, base := document.Project("provider.base")
+	before, base := document.Project("provider.base", "")
 	if base != "base" {
 		t.Fatalf("Project() base = %q", base)
 	}
 	model := document.Model("base")
 	model["instructions"][1] = 'X'
 	delete(model, "slug")
-	after, _ := document.Project("provider.base")
+	after, _ := document.Project("provider.base", "")
 	if !bytes.Equal(before, after) {
 		t.Fatalf("model observation changed projection: %s", after)
 	}

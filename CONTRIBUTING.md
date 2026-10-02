@@ -41,6 +41,10 @@ Resolve source fixtures only inside their selected subtest, using that subtest's
 `testing.T` for failures and cleanup. Precompiled artifact and native-store cases
 must not build fixtures belonging to unselected cases.
 
+Publish process-readiness records through the existing atomic file writer.
+Readers may treat the final path as ready only after complete bytes are visible;
+retrying JSON parsing must not compensate for a producer's partial publication.
+
 Capture each client's original credential invocation before replacement and run
 it before synchronization or reload. Native-store proof identifies both reader
 implementations and retains the original credential item. Require complete
@@ -114,12 +118,15 @@ Only Codex can establish that its projected model catalogue actually loaded.
 After a catalogue or client-version change, use the tracked verifier:
 
 ```bash
-mise exec --locked -- go run ./tools/codex/catalog -model '<provider-prefixed model id>'
+mise exec --locked -- go run ./tools/codex/catalog -model openai.gpt-6.1-sol
+mise exec --locked -- go run ./tools/codex/catalog -model gpt-6.1-sol-cdx -canonical-model gpt-6.1-sol
 ```
 
-It uses an isolated client home, makes no inference request and compares the
-entry with the client's bundled metadata apart from `slug`. Retain client version,
-executable checksum and entry digests. Exit 2 means missing client, not acceptance.
+The optional `-canonical-model` must be the exact manifest Model ID for a
+route-specific wire ID. The verifier uses an isolated client home, makes no
+inference request, and compares the selected entry with the bundled canonical
+metadata apart from `slug`. Retain client version, executable checksum and
+entry digests. Exit 2 means a missing client or unproved input, not acceptance.
 
 Live-client Route qualification instead uses `aigw verify --for codex` or
 `aigw verify --for claude`; catalogue inspection and direct HTTP probes cannot

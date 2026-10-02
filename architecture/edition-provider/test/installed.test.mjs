@@ -9,9 +9,6 @@ import test from "node:test";
 import { pathToFileURL } from "node:url";
 
 const providerRoot = path.resolve(import.meta.dirname, "..");
-const archive = process.env.ARCHITECTURE_PUBLISHER_ARCHIVE;
-const packageIdentities = process.env.ARCHITECTURE_PUBLISHER_PACKAGE_IDENTITIES;
-const releaseManifest = process.env.ARCHITECTURE_PUBLISHER_RELEASE_MANIFEST;
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 function run(command, args, options = {}) {
@@ -28,91 +25,91 @@ function run(command, args, options = {}) {
   return result.stdout;
 }
 
-async function build(cli, input, output, environment, manifestSha256) {
-  const plan = {
-    providerManifest: path.join(input, "provider.json"),
-    providerManifestSha256: manifestSha256,
-    output,
-  };
-  const bytes = Buffer.from(`${JSON.stringify(plan, null, 2)}\n`);
-  const planPath = path.join(
-    path.dirname(output),
-    `${path.basename(output)}.json`,
-  );
-  await fs.writeFile(planPath, bytes);
+async function writeJson(file, value) {
+  const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+  await fs.writeFile(file, bytes);
+  return sha256(bytes);
+}
+
+async function build(cli, input, output, environment) {
+  const requestPath = path.join(input, "build-request.json");
+  const request = await fs.readFile(requestPath);
   return JSON.parse(
     run(
       process.execPath,
-      [cli, "edition", "build", planPath, "--sha256", sha256(bytes)],
-      { cwd: path.dirname(output), env: environment },
+      [
+        cli,
+        "edition",
+        "build",
+        requestPath,
+        "--sha256",
+        sha256(request),
+        "--output",
+        output,
+      ],
+      {
+        cwd: input,
+        env: environment,
+      },
     ),
   );
 }
 
-test("the selected installed Publisher reproduces the AIGW provider", async (t) => {
-  for (const [name, selected] of Object.entries({
-    ARCHITECTURE_PUBLISHER_ARCHIVE: archive,
-    ARCHITECTURE_PUBLISHER_PACKAGE_IDENTITIES: packageIdentities,
-    ARCHITECTURE_PUBLISHER_RELEASE_MANIFEST: releaseManifest,
-  }))
-    assert.equal(path.isAbsolute(selected ?? ""), true, `set ${name}`);
+async function bundleBytes(output) {
+  const manifest = JSON.parse(
+    await fs.readFile(path.join(output, "manifest.json")),
+  );
+  return Object.fromEntries(
+    await Promise.all(
+      manifest.files.map(async ({ path: relative }) => [
+        relative,
+        sha256(await fs.readFile(path.join(output, relative))),
+      ]),
+    ),
+  );
+}
+
+test("the exact released Publisher replays native AIGW inputs offline", async (t) => {
   const selection = JSON.parse(
     await fs.readFile(path.join(providerRoot, "selection.json")),
   );
-  const release = JSON.parse(await fs.readFile(releaseManifest, "utf8"));
-  const identities = JSON.parse(await fs.readFile(packageIdentities, "utf8"));
-  assert.equal(selection.publisher.state, "published");
+  const archive = process.env.ARCHITECTURE_PUBLISHER_ARCHIVE;
+  const releaseManifest = process.env.ARCHITECTURE_PUBLISHER_RELEASE_MANIFEST;
+  for (const [name, selected] of Object.entries({
+    ARCHITECTURE_PUBLISHER_ARCHIVE: archive,
+    ARCHITECTURE_PUBLISHER_RELEASE_MANIFEST: releaseManifest,
+  }))
+    assert.equal(path.isAbsolute(selected ?? ""), true, `set ${name}`);
+  const releaseBytes = await fs.readFile(releaseManifest);
+  const release = JSON.parse(releaseBytes);
   assert.equal(
-    sha256(await fs.readFile(releaseManifest)),
+    sha256(releaseBytes),
     selection.publisher.release.manifestSha256,
   );
-  assert.equal(
-    sha256(await fs.readFile(packageIdentities)),
-    selection.publisher.release.packageIdentitiesSha256,
+  assert.equal(release.tag, selection.publisher.release.tag);
+  assert.equal(release.sourceCommit, selection.publisher.release.commit);
+  const archiveBytes = await fs.readFile(archive);
+  assert.equal(sha256(archiveBytes), selection.publisher.archiveSha256);
+  const asset = release.selectedAssets.find(
+    ({ name }) => name === path.basename(archive),
   );
-  assert.equal(release.release, selection.publisher.release.tag);
-  assert.equal(release.commit, selection.publisher.release.commit);
-  const packageIdentity = identities.packages.find(
-    ({ file }) => file === path.basename(archive),
-  );
-  assert(packageIdentity, path.basename(archive));
-  assert.equal(
-    packageIdentity.archiveSha256,
-    selection.publisher.archiveSha256,
-  );
-  assert.equal(
-    packageIdentity.contentTarSha256,
-    selection.publisher.contentTarSha256,
-  );
-  assert.equal(
-    sha256(await fs.readFile(archive)),
-    selection.publisher.archiveSha256,
-  );
-
-  run(process.execPath, [
-    path.join(providerRoot, "materialize.mjs"),
-    "--archive",
-    archive,
-    "--package-identities",
-    packageIdentities,
-    "--release-manifest",
-    releaseManifest,
-    "--check",
-  ]);
+  assert.equal(asset.sha256, selection.publisher.archiveSha256);
+  assert.equal(asset.bytes, archiveBytes.length);
 
   const temporary = await fs.realpath(
-    await fs.mkdtemp(path.join(os.tmpdir(), "aigw-edition-provider-")),
+    await fs.mkdtemp(path.join(os.tmpdir(), "aigw-native-edition-")),
   );
   t.after(() => fs.rm(temporary, { recursive: true, force: true }));
   const consumer = path.join(temporary, "consumer");
   const home = path.join(temporary, "home");
   const cache = path.join(temporary, "npm-cache");
-  await fs.mkdir(consumer);
-  await fs.mkdir(home);
-  await fs.writeFile(
-    path.join(consumer, "package.json"),
-    JSON.stringify({ private: true, type: "module" }),
+  await Promise.all(
+    [consumer, home, cache].map((directory) => fs.mkdir(directory)),
   );
+  await writeJson(path.join(consumer, "package.json"), {
+    private: true,
+    type: "module",
+  });
   run(
     "npm",
     [
@@ -136,100 +133,230 @@ test("the selected installed Publisher reproduces the AIGW provider", async (t) 
       },
     },
   );
-
   const resolve = createRequire(path.join(consumer, "package.json")).resolve;
   const packageManifest = JSON.parse(
-    await fs.readFile(resolve("architecture-publisher/package.json"), "utf8"),
+    await fs.readFile(resolve("architecture-publisher/package.json")),
   );
   assert.equal(packageManifest.name, selection.publisher.name);
   assert.equal(packageManifest.version, selection.publisher.version);
-  const cli = resolve("architecture-publisher/package.json").replace(
-    /package\.json$/u,
+  const cli = path.join(
+    path.dirname(resolve("architecture-publisher/package.json")),
     "src/cli/main.mjs",
   );
-  const environment = { HOME: home, PATH: home, LANG: "C.UTF-8" };
-  const results = [];
+  const environment = {
+    HOME: home,
+    PATH: home,
+    LANG: "C.UTF-8",
+    TMPDIR: temporary,
+    TMP: temporary,
+    TEMP: temporary,
+  };
+  const inputs = [];
   for (const name of ["a", "b"]) {
     const input = path.join(temporary, `input-${name}`);
-    await fs.cp(providerRoot, input, {
-      recursive: true,
-      filter: (source) => !source.includes(`${path.sep}test${path.sep}`),
-    });
-    results.push(
-      await build(
-        cli,
-        input,
-        path.join(temporary, `candidate-${name}`),
-        environment,
-        selection.providerManifestSha256,
-      ),
-    );
-  }
-
-  const expected = selection.migrationBaseline.candidate;
-  for (const result of results) {
-    for (const field of [
-      "candidateSha256",
-      "semanticDigest",
-      "editionDigest",
-      "staticSceneDigest",
-      "interactiveSceneDigest",
+    await fs.mkdir(input);
+    for (const file of [
+      "build-request.json",
+      "provider.json",
+      "claim-model.json",
+      "edition.json",
     ])
-      assert.equal(result[field], expected[field], field);
+      await fs.copyFile(path.join(providerRoot, file), path.join(input, file));
+    inputs.push(input);
+  }
+  const first = await build(
+    cli,
+    inputs[0],
+    path.join(temporary, "candidate-a"),
+    environment,
+  );
+  const second = await build(
+    cli,
+    inputs[1],
+    path.join(temporary, "candidate-b"),
+    environment,
+  );
+  for (const key of [
+    "manifestSha256",
+    "lockSha256",
+    "requestSha256",
+    "candidateSha256",
+  ])
+    assert.equal(first[key], second[key], key);
+  assert.deepEqual(
+    await bundleBytes(first.output),
+    await bundleBytes(second.output),
+  );
+
+  const model = JSON.parse(
+    await fs.readFile(path.join(inputs[0], "claim-model.json")),
+  );
+  const project = JSON.parse(
+    await fs.readFile(path.join(inputs[0], "edition.json")),
+  );
+  const candidate = JSON.parse(
+    await fs.readFile(path.join(first.output, "candidate.json")),
+  );
+  const lock = JSON.parse(
+    await fs.readFile(path.join(first.output, "input-lock.json")),
+  );
+  assert.equal(candidate.schema, "architecture.edition-candidate/v2");
+  assert.equal(lock.sources.length, 1);
+  assert.deepEqual(lock.derived, []);
+  assert.equal(
+    lock.sources[0].sha256,
+    sha256(await fs.readFile(path.join(inputs[0], "claim-model.json"))),
+  );
+  assert.equal(candidate.qualification, "unqualified");
+  for (const medium of ["static", "interactive"]) {
+    const questions = [
+      ...new Set(
+        project.presentation[medium].views.flatMap((view) => view.questions),
+      ),
+    ];
+    assert.deepEqual(candidate.obligations[medium].questionIds, questions);
+    for (const question of questions) {
+      const assertions =
+        candidate.obligations[medium].assertionsByQuestion[question];
+      for (const selected of project.scope.selections.filter(({ questions }) =>
+        questions.includes(question),
+      ))
+        assert.equal(
+          assertions.includes(selected.id),
+          true,
+          `${medium}/${question}/${selected.id}`,
+        );
+    }
+  }
+  const staticBytes = await fs.readFile(
+    path.join(first.output, "static/architecture.svg"),
+  );
+  const png = await fs.readFile(
+    path.join(first.output, "static/architecture.png"),
+  );
+  const interactive = await fs.readFile(
+    path.join(first.output, "interactive/architecture.html"),
+  );
+  assert.equal(png.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+  for (const { label } of Object.values(model.entities)) {
     assert.equal(
-      result.manifestSha256,
-      selection.providerOutput.manifestSha256,
+      staticBytes.includes(Buffer.from(label)),
+      true,
+      `static entity ${label}`,
     );
     assert.equal(
-      result.providerMaterializationSha256,
-      selection.providerOutput.providerMaterializationSha256,
+      interactive.includes(Buffer.from(label)),
+      true,
+      `interactive entity ${label}`,
     );
   }
-  const stableResult = ({ manifestPath: _manifestPath, ...result }) => result;
-  assert.deepEqual(stableResult(results[0]), stableResult(results[1]));
-
-  const output = path.join(temporary, "candidate-a");
-  for (const [relative, field] of [
-    ["overview.png", "pngSha256"],
-    ["overview.svg", "svgSha256"],
-    ["views/overview.html", "overviewHtmlSha256"],
-  ])
+  for (const question of project.questions)
     assert.equal(
-      sha256(await fs.readFile(path.join(output, relative))),
-      expected[field],
-      relative,
+      interactive.includes(Buffer.from(question.text)),
+      true,
+      question.id,
     );
 
-  const receipt = JSON.parse(
-    await fs.readFile(path.join(output, "provider.json")),
+  const compiler = await import(
+    pathToFileURL(resolve("architecture-publisher/compiler")).href
   );
-  assert.equal(
-    receipt.schema,
-    "architecture.edition-provider-materialization/v1",
+  const provider = JSON.parse(
+    await fs.readFile(path.join(inputs[0], "provider.json")),
   );
-  assert.equal(receipt.delivery, "declarative");
-  assert.equal(receipt.producer.version, selection.publisher.version);
-  assert.equal(receipt.subject.id, selection.authority.subjectRepository);
-  assert.equal(
-    sha256(await fs.readFile(path.join(output, "provider.json"))),
-    results[0].providerMaterializationSha256,
+  const native = provider.selected.native[0];
+  const directEdition = path.join(inputs[0], "direct-edition");
+  await fs.mkdir(directEdition);
+  await fs.copyFile(
+    path.join(inputs[0], "edition.json"),
+    path.join(directEdition, "edition.json"),
   );
+  const directRequest = {
+    schema: "architecture.build-request/v1",
+    edition: {
+      kind: "direct",
+      root: "direct-edition",
+      manifest: "edition.json",
+    },
+    sources: [
+      {
+        id: native.id,
+        namespace: native.namespace,
+        claimant: native.claimant,
+        format: native.format,
+        revision: native.revision,
+        input: { kind: "pin", path: "claim-model.json", sha256: native.sha256 },
+      },
+    ],
+    providers: [],
+    media: ["static", "interactive"],
+    toolchain: { profile: "portable" },
+  };
+  const directPath = path.join(inputs[0], "direct-request.json");
+  const directDigest = await writeJson(directPath, directRequest);
+  const direct = await compiler.compileEditionCandidateInput(
+    directPath,
+    directDigest,
+    path.join(temporary, "direct"),
+  );
+  const directLock = JSON.parse(
+    await fs.readFile(path.join(direct.output, "input-lock.json")),
+  );
+  assert.deepEqual(directLock, lock);
+  const directCandidate = JSON.parse(
+    await fs.readFile(path.join(direct.output, "candidate.json")),
+  );
+  assert.equal(directCandidate.input.closure, "selected-roots-only");
+  assert.equal(candidate.input.closure, "selected-inputs-only");
+  for (const field of [
+    "lockSha256",
+    "editionSha256",
+    "semanticDigest",
+    "semanticSupplies",
+  ])
+    assert.deepEqual(
+      directCandidate.input[field],
+      candidate.input[field],
+      field,
+    );
+  for (const field of ["media", "obligations", "limits", "qualification"])
+    assert.deepEqual(directCandidate[field], candidate[field], field);
 
-  const editionApi = await import(
-    pathToFileURL(resolve("architecture-publisher/edition")).href
+  const original = await fs.readFile(path.join(inputs[0], "claim-model.json"));
+  const changed = Buffer.from(original);
+  changed[changed.indexOf(Buffer.from("aigw-cli"))] = "b".charCodeAt(0);
+  await fs.writeFile(path.join(inputs[0], "claim-model.json"), changed);
+  const refused = spawnSync(
+    process.execPath,
+    [
+      cli,
+      "edition",
+      "build",
+      path.join(inputs[0], "build-request.json"),
+      "--sha256",
+      first.requestSha256,
+      "--output",
+      path.join(temporary, "rejected"),
+    ],
+    { cwd: inputs[0], env: environment, encoding: "utf8", timeout: 30_000 },
   );
-  const evolution = await editionApi.compareEditionInput(
-    path.join(providerRoot, "evolution.json"),
-    sha256(await fs.readFile(path.join(providerRoot, "evolution.json"))),
+  assert.equal(refused.status, 1);
+  assert.equal(
+    JSON.parse(refused.stdout).error.code,
+    "edition_provider_v2_member_digest_mismatch",
   );
-  assert.equal(evolution.delta.hasChanges, true);
-  assert.equal(evolution.obligations.acceptance.length, 1);
-
-  for (const file of await fs.readdir(output)) {
-    const selected = path.join(output, file);
-    const stat = await fs.stat(selected);
-    if (!stat.isFile()) continue;
-    const bytes = await fs.readFile(selected);
+  await assert.rejects(fs.stat(path.join(temporary, "rejected")), {
+    code: "ENOENT",
+  });
+  await fs.writeFile(path.join(inputs[0], "claim-model.json"), original);
+  const replay = await build(
+    cli,
+    inputs[0],
+    path.join(temporary, "restored"),
+    environment,
+  );
+  assert.equal(replay.candidateSha256, first.candidateSha256);
+  for (const file of Object.keys(await bundleBytes(first.output))) {
+    const bytes = await fs.readFile(path.join(first.output, file));
     assert.equal(bytes.includes(Buffer.from(providerRoot)), false, file);
     assert.equal(bytes.includes(Buffer.from(temporary)), false, file);
   }

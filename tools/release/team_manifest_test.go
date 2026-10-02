@@ -59,7 +59,7 @@ func TestTeamManifestRecommendsQualifiedSolAndRetainsAccountFallbacks(t *testing
 		t.Fatalf("team DMXAPI endpoint = %q, want direct provider", got)
 	}
 	for client, want := range map[string][]string{
-		configuration.ClientCodex:  {"dmxapi-" + sol, "ucloud-" + sol, "aihubmix-" + sol},
+		configuration.ClientCodex:  {"dmxapi-" + sol + "-cdx", "ucloud-" + sol, "aihubmix-" + sol},
 		configuration.ClientHermes: {"dmxapi-" + sol, "ucloud-" + sol, "aihubmix-" + sol},
 	} {
 		selections := manifest.Recommendations[client].Selections()

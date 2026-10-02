@@ -36,7 +36,7 @@ func observeVerificationProcess(t *testing.T, pid int, control, role string) fun
 	alive := func() bool {
 		if runtime.GOOS == "linux" {
 			data, err := os.ReadFile(filepath.Join(string(filepath.Separator), "proc", strconv.Itoa(pid), "stat"))
-			if errors.Is(err, os.ErrNotExist) {
+			if verificationProcessAbsent(err) {
 				return false
 			}
 			if err != nil {
@@ -48,7 +48,7 @@ func observeVerificationProcess(t *testing.T, pid int, control, role string) fun
 			}
 		}
 		err := syscall.Kill(pid, 0)
-		if errors.Is(err, syscall.ESRCH) {
+		if verificationProcessAbsent(err) {
 			return false
 		}
 		if err != nil {
@@ -76,4 +76,30 @@ func observeVerificationProcess(t *testing.T, pid int, control, role string) fun
 		}
 	})
 	return alive
+}
+
+func verificationProcessAbsent(err error) bool {
+	return errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ESRCH)
+}
+
+func TestVerificationProcessAbsenceClassifiesKernelExitRace(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		err    error
+		absent bool
+	}{
+		{"running", nil, false},
+		{"removed", &os.PathError{Op: "open", Path: "/proc/123/stat", Err: syscall.ENOENT}, true},
+		{"exited during read", &os.PathError{Op: "read", Path: "/proc/123/stat", Err: syscall.ESRCH}, true},
+		{"signal target exited", syscall.ESRCH, true},
+		{"permission denied", &os.PathError{Op: "read", Path: "/proc/123/stat", Err: syscall.EACCES}, false},
+		{"operation denied", syscall.EPERM, false},
+		{"read failed", &os.PathError{Op: "read", Path: "/proc/123/stat", Err: syscall.EIO}, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := verificationProcessAbsent(test.err); got != test.absent {
+				t.Errorf("process absence for %v = %t, want %t", test.err, got, test.absent)
+			}
+		})
+	}
 }

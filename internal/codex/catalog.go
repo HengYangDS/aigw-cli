@@ -109,7 +109,7 @@ func validateCodexCatalogPreflight(target codexReconciliationTarget, config, sta
 // even for a known base model: otherwise Codex may try to decode the provider's
 // standard /models response as its private metadata format. An unrecognized
 // model still keeps the client's fallback rather than a guessed entry.
-func codexCatalogProjection(target TargetRef, model, base string, state codexState, before transaction.FileSnapshot) codexCatalogPlan {
+func codexCatalogProjection(target TargetRef, model, canonicalModelID, base string, state codexState, before transaction.FileSnapshot) codexCatalogPlan {
 	// A user-authored model_catalog_json is the user's own client policy. AIGW
 	// replaces the bundled table wholesale, so adopting that key here would
 	// silently drop models the user added.
@@ -120,7 +120,7 @@ func codexCatalogProjection(target TargetRef, model, base string, state codexSta
 	live, bundled, err := codexBundledCatalog(target.Executable)
 	document, parseErr := catalog.Parse(bundled)
 	if err == nil && parseErr == nil {
-		data, _ := document.Project(model)
+		data, _ := document.Project(model, canonicalModelID)
 		if data == nil && document.Model(model) != nil {
 			data = bundled
 		}

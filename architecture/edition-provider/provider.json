@@ -1,39 +1,43 @@
 {
-  "schema": "architecture.edition-provider/v1",
+  "schema": "architecture.edition-provider/v2",
   "provider": {
     "id": "aigw-client-projection-edition",
-    "revision": "source-set:34dfc8a8939d885f72644904d5425d885e76d775e563a6120d45a0fd3fe1d1ed"
+    "revision": "source-content:26366d26e99926fad2f31d2e33fe6f8e75b655614b11ac08a05807a7143f0c48"
   },
-  "subject": {
-    "id": "dig/misc/tools/llm-third-party-api/aigw-cli",
-    "revision": "546fe89343860904fec9e6fcd047552a3b1b203801dbe462c6978ad243c75c9e"
-  },
-  "contracts": {
-    "sourceBundle": "architecture.source-bundle/v1",
-    "claimModel": "architecture.claim-model/v2",
-    "edition": "architecture.edition/v1",
-    "evolution": "architecture.edition-evolution-input/v1"
+  "selected": {
+    "native": [
+      {
+        "id": "client-projection",
+        "namespace": "aigw/client-projection",
+        "claimant": "aigw-cli",
+        "format": { "id": "architecture.claim-model", "version": "2" },
+        "revision": { "kind": "content", "algorithm": "sha256" },
+        "bytes": 15397,
+        "sha256": "26366d26e99926fad2f31d2e33fe6f8e75b655614b11ac08a05807a7143f0c48"
+      }
+    ],
+    "derived": [],
+    "edition": {
+      "id": "aigw-client-projection",
+      "editor": "aigw-cli",
+      "bytes": 16661,
+      "sha256": "1baa72e1bdfef546fff81c2b4e700f0b28800d453e52bf8fa125f0764666c5d1",
+      "resources": []
+    }
   },
   "delivery": {
     "kind": "declarative",
-    "sourceManifest": "_source/manifest.json",
-    "sourceManifestSha256": "34dfc8a8939d885f72644904d5425d885e76d775e563a6120d45a0fd3fe1d1ed",
-    "semanticMember": "semantic.json",
-    "edition": "edition.json",
-    "editionSha256": "90bec1e0652eeaea14debd170d10214d268a76fe66529efe37c2cb1e55f0b0c9",
-    "evolution": "provider-evolution.json",
-    "evolutionSha256": "b366e76938900afddb1905995067b4f655d2709481922fd32078c2d16786de3d"
-  },
-  "expected": {
-    "sourceManifestSha256": "34dfc8a8939d885f72644904d5425d885e76d775e563a6120d45a0fd3fe1d1ed",
-    "claimModelDigest": "56f7b46fc50f20f612d252ded06267a8f7784f7a4d25ee6d0753a7ca759035c9",
-    "editionDigest": "4675c3effc593570fa65ad3ef30059738c4604a9b987ca2d70f7e12fed18120f",
-    "evolutionSha256": "b366e76938900afddb1905995067b4f655d2709481922fd32078c2d16786de3d"
-  },
-  "limits": {
-    "inputs": 32,
-    "inputBytes": 1048576,
-    "replyBytes": 2097152,
-    "timeoutMs": 10000
+    "files": [
+      {
+        "kind": "native",
+        "id": "client-projection",
+        "path": "claim-model.json"
+      },
+      {
+        "kind": "edition",
+        "id": "aigw-client-projection",
+        "path": "edition.json"
+      }
+    ]
   }
 }

@@ -38,6 +38,14 @@ prerequisite. An available recommendation may fill an unselected binding;
 neither a recommendation nor an unrelated Account may replace an explicit
 selection. Delete the local next-action choosers made redundant by this owner.
 
+A Route's `Model` is the canonical AIGW Model ID; `UpstreamModel` is the
+exact provider wire ID. Runtime preserves the existing wire-facing `Model`
+field and carries the manifest's exact mapping separately as
+`CanonicalModelID`. Codex may add a wire alias only by copying the exact
+canonical entry from its bundled table and changing `slug`; it must not infer
+a base from suffix similarity. A user-authored `model_catalog_json` remains
+outside AIGW ownership.
+
 An enabled Client Binding records intent, not native projection. A binding with
 no recorded executable has a deferred projection prerequisite; a previously
 recorded executable or target that fails native inspection is a repairable
@@ -226,6 +234,15 @@ real-client operation are distinct evidence. Freeze exact source and lock
 inputs before the expensive final matrix; do not rerun identical heavy gates
 because an observation timed out or a progress-only record changed.
 
+Pre-archive CI evidence qualifies the event-to-check mapping and the exact
+candidate review path; it does not claim that a release event has already run.
+The guarded maintainer merge to `dev` must preserve the signed object and remove
+the proposal source ref on both peers. After OpenSpec archive and proof of the
+archived SHA, promote that object to `main` and create its signed release tag;
+require the actual peer-local `main` and tag jobs and release assets before
+claiming publication. Projection tests and manual runs cannot substitute for
+those final event results.
+
 Native CI forwards declarations after `ci native --`; the existing release
 construction owner admits candidate and published-predecessor matrices,
 verifies their signed source identity, extracts only native bytes and owns
@@ -347,6 +364,7 @@ system, not a macOS result reused for Linux or Windows.
 | 8.2–8.3 | [organization] · Semantic documentation architecture                         | `docs/`, `tools/ci/markdown`                           | `mise run check`                                                            |
 | 8.4     | [quality] · Engineering-reference quality is demonstrated by behavior        | `docs/decisions/`, affected package owner              | Source-backed comparison; `mise run check` if adopted                       |
 | 8.5     | [quality] · Delivery completion is evidence-bound                            | Git common-dir, release/ETHOS owner                    | `git worktree list --porcelain`; exact residue audit                        |
+| 8.6     | [organization] · Source-owned architecture inputs have one authority         | `architecture/edition-provider`                        | Native source tests; exact published Provider v2 offline replay             |
 | 9.1–9.2 | [quality] · Source acceptance precedes delivery completion                   | OpenSpec, `tools/ci`                                   | `mise run check`; strict OpenSpec validation                                |
 | 9.3     | [control] · Native released-artifact lifecycle acceptance                    | `tools/release`                                        | Build-only `mise run release`; `mise run native` on all three OSs           |
 
@@ -411,16 +429,26 @@ rollback proof. Pre-archive candidate acceptance uses explicit environment
 credentials or isolated synthetic native items. A Developer ID candidate may
 prove stable designated requirements without a tag, but signing does not move
 the predecessor's physical item or prove access to an operator's Token.
-After the final checkbox is committed, obtain exact-HEAD ETHOS
-proof and independent peer review CI, resolve their gaps, integrate accepted
-source, and archive through the official governed OpenSpec transition. Re-prove
-the archived SHA; only then may a signed tag, dual-peer assets, Homebrew
-update, and user-host cutover be claimed. Proof and archive cannot be
-checkboxes in the Change they finalize, because checking either box changes
-the HEAD it would claim to have proved.
+After the final candidate checkbox is committed, obtain exact-HEAD ETHOS proof
+and independent peer review CI, resolve their gaps, then integrate the same
+signed object into `dev` through the guarded maintainer path on both peers.
+Verify the resulting dev checks and proposal-source-ref deletion before
+archiving through the official governed OpenSpec transition. Re-prove the
+archived SHA; only then promote that exact object to `main`, require its peer-local
+main checks, and create the signed release tag. The tag jobs and dual-peer
+assets must pass before Homebrew update or user-host cutover can be claimed.
+Proof and archive cannot be checkboxes in the Change they finalize, because
+checking either box changes the HEAD it would claim to have proved.
 Before that host cutover, the exact final production reader must authorize each
 selected Account and diagnostic item, preserve captured original commands and
 rollback, and qualify the measured package-link transition. Ad-hoc candidate
 success, an unchanged signer or an item label cannot substitute for that read.
+The one-time 0.3.1 Homebrew transition must preproject versioned commands,
+prefetch the final package, measure the bounded unlink/relink gap, verify the
+captured original commands immediately, and restore the predecessor on failure.
+Retain old items and readers for cached and rollback callers; disclose residual
+cached-public-link risk. Later versioned commands remain callable throughout
+replacement. These are post-archive acceptance conditions, not prerequisites
+for the pre-archive candidate tasks.
 No credential prompt, service restart, client history rewrite, or unverified
 automatic backend fallback is a migration step.

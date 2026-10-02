@@ -36,3 +36,35 @@ vulnerability observations.
   package name, and version
 - **AND** the override SHALL leave vulnerability scanning active
 - **AND** a later package version SHALL require a new license observation.
+
+## ADDED Requirements
+
+### Requirement: Markdown spacing preserves semantic blocks
+
+Current Markdown SHALL separate adjacent headings, prose, lists, tables and
+fenced blocks with one blank line. Lists whose peer items each contain only one
+paragraph SHALL have no blank separators between those items. Wrapped lines
+SHALL remain part of their paragraph. Native parsing SHALL preserve required
+separation within complex items and literal code; immutable archives SHALL
+remain unchanged.
+
+#### Scenario: Single-paragraph peer items contain blank separators
+
+- **WHEN** a current list or task list inserts blank lines between peer items
+  that each contain only one paragraph
+- **THEN** the native Markdown gate SHALL reject that spacing
+- **AND** nested and quoted lists SHALL follow the same paragraph-level rule.
+
+#### Scenario: List items contain distinct semantic blocks
+
+- **WHEN** a list contains multiple paragraphs, a nested block, a table or a
+  fenced example
+- **THEN** the gate SHALL preserve valid blank-line separation
+- **AND** literal code SHALL remain outside paragraph-spacing checks.
+
+#### Scenario: Adjacent blocks lack their required separation
+
+- **WHEN** headings, lists, tables or fenced blocks lack required blank lines,
+  or prose contains consecutive extra blank lines
+- **THEN** the existing native block-spacing rules SHALL reject the defect
+- **AND** the read-only gate SHALL leave source bytes unchanged.

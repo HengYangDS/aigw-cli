@@ -148,6 +148,62 @@ func TestLinuxSecretServiceHasItsOwnRequiredJob(t *testing.T) {
 	}
 }
 
+func TestLinuxCompilerPrerequisitesBelongOnlyToNativeRaceExecution(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pipeline struct {
+		Toolchain     gitLabJob `yaml:".linux-toolchain"`
+		Quality       gitLabJob `yaml:"quality"`
+		SecretService gitLabJob `yaml:"linux-secret-service"`
+		NativeLinux   gitLabJob `yaml:"native-linux"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	for name, job := range map[string]gitLabJob{
+		"quality": pipeline.Quality, "linux-secret-service": pipeline.SecretService,
+	} {
+		if job.Variables["CGO_ENABLED"] != "0" {
+			t.Errorf("%s adds a compiler without executing cgo or race", name)
+		}
+	}
+	shared := strings.Join(pipeline.Toolchain.BeforeScript, "\n")
+	for _, compiler := range []string{" gcc ", " libc6-dev "} {
+		if strings.Contains(shared, compiler) {
+			t.Errorf("shared bootstrap downloads native-race prerequisite %q", compiler)
+		}
+	}
+	if pipeline.NativeLinux.Variables["CGO_ENABLED"] != "1" || len(pipeline.NativeLinux.BeforeScript) < 2 {
+		t.Fatal("native Linux race lacks its explicit compiler prerequisite")
+	}
+	compiler := pipeline.NativeLinux.BeforeScript[1]
+	if !strings.Contains(compiler, " install --no-install-recommends -y gcc libc6-dev") {
+		t.Fatalf("native Linux compiler preparation = %q", compiler)
+	}
+	var github struct {
+		Jobs map[string]struct {
+			Env   map[string]string `yaml:"env"`
+			Steps []struct {
+				Name string            `yaml:"name"`
+				Env  map[string]string `yaml:"env"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
+		t.Fatal(err)
+	}
+	if github.Jobs["linux-secret-service"].Env["CGO_ENABLED"] != "0" {
+		t.Fatal("GitHub adds cgo to the pure-Go Secret Service journey")
+	}
+	for _, step := range github.Jobs["quality"].Steps {
+		if step.Name == "Run quality and governance" && step.Env["CGO_ENABLED"] != "0" {
+			t.Fatal("GitHub static quality adds a compiler without running race")
+		}
+	}
+}
+
 func checkGitLabNativeToolClosure(t *testing.T, content string) {
 	t.Helper()
 	var pipeline struct {

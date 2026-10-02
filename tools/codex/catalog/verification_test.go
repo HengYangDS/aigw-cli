@@ -14,7 +14,7 @@ import (
 	"aigw-cli/internal/codex"
 )
 
-const fakeBundledCatalog = `{"models":[{"slug":"gpt-5.6-sol","display_name":"Sol","priority":1},{"slug":"gpt-5.5","display_name":"Five","priority":2}]}`
+const fakeBundledCatalog = `{"models":[{"slug":"gpt-5.6-sol","display_name":"Sol","priority":1},{"slug":"gpt-5.5","display_name":"Five","priority":2},{"slug":"gpt-6.1-sol","display_name":"Sol 6.1","context_window":500000,"reasoning_effort":"high","future":{"enabled":true}},{"slug":"gpt-6-luna","display_name":"Luna"}]}`
 
 const catalogFixturePath = "AIGW_TEST_CODEX_CATALOG"
 const catalogFixtureLoad = "AIGW_TEST_CODEX_CATALOG_LOAD"
@@ -168,7 +168,7 @@ func TestCatalogVerificationPreservesProbeAndProjectionCleanupFailures(t *testin
 		directory = path
 		return &os.PathError{Op: "remove", Path: path, Err: os.ErrPermission}
 	}
-	_, err := verifyCatalog(executable, "openai.gpt-5.6-sol")
+	_, err := verifyCatalog(executable, "openai.gpt-5.6-sol", "")
 	var exit *exec.ExitError
 	if directory == "" || !errors.As(err, &exit) || exit.ExitCode() != 7 || !errors.Is(err, os.ErrPermission) || !strings.Contains(err.Error(), directory) {
 		t.Fatalf("verification lost probe or cleanup cause: %v; directory %s", err, directory)
@@ -179,7 +179,7 @@ func TestCatalogVerificationPreservesProbeAndProjectionCleanupFailures(t *testin
 }
 
 func TestVerifyCatalogObservesTheClientsEffectiveCatalog(t *testing.T) {
-	verification, err := verifyCatalog(fakeCodexClient(t, true), "openai.gpt-5.6-sol")
+	verification, err := verifyCatalog(fakeCodexClient(t, true), "openai.gpt-5.6-sol", "")
 	if err != nil {
 		t.Fatalf("verifyCatalog() error = %v", err)
 	}
@@ -200,6 +200,35 @@ func TestVerifyCatalogObservesTheClientsEffectiveCatalog(t *testing.T) {
 	}
 }
 
+func TestVerifyCatalogUsesExactCanonicalModelForWireAlias(t *testing.T) {
+	const (
+		canonical = "gpt-6.1-sol"
+		wire      = "gpt-6.1-sol-cdx"
+	)
+	verification, err := verifyCatalog(fakeCodexClient(t, true), wire, canonical)
+	if err != nil {
+		t.Fatalf("verifyCatalog() error = %v", err)
+	}
+	if err := verification.Check(); err != nil {
+		t.Fatalf("Check() error = %v", err)
+	}
+	if verification.BaseSlug != canonical || !verification.Reference.Present ||
+		verification.Unadapted.Present || !verification.Adapted.Present || verification.Unknown.Present {
+		t.Fatalf("unexpected canonical/wire catalog measurements: %+v", verification)
+	}
+	if verification.Reference.MetadataSHA256 == "" ||
+		verification.Adapted.MetadataSHA256 != verification.Reference.MetadataSHA256 {
+		t.Fatalf("wire metadata differs from canonical model: %+v", verification)
+	}
+}
+
+func TestVerifyCatalogRejectsMissingCanonicalModel(t *testing.T) {
+	_, err := verifyCatalog(fakeCodexClient(t, true), "gpt-6.1-sol-cdx", "gpt-6.1")
+	if err == nil || !strings.Contains(err.Error(), "canonical model") {
+		t.Fatalf("verifyCatalog() error = %v, want the absent exact canonical model", err)
+	}
+}
+
 func TestVerifyCatalogPreservesLargeModelMetadata(t *testing.T) {
 	executable := fakeCodexClient(t, true)
 	// A real client catalog contains model instructions, not just identifiers.
@@ -208,7 +237,7 @@ func TestVerifyCatalogPreservesLargeModelMetadata(t *testing.T) {
 	if err := os.WriteFile(os.Getenv(catalogFixturePath), []byte(catalog), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	verification, err := verifyCatalog(executable, "openai.gpt-5.6-sol")
+	verification, err := verifyCatalog(executable, "openai.gpt-5.6-sol", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +247,7 @@ func TestVerifyCatalogPreservesLargeModelMetadata(t *testing.T) {
 }
 
 func TestVerifyCatalogRejectsAClientThatIgnoresTheConfiguredCatalog(t *testing.T) {
-	verification, err := verifyCatalog(fakeCodexClient(t, false), "openai.gpt-5.6-sol")
+	verification, err := verifyCatalog(fakeCodexClient(t, false), "openai.gpt-5.6-sol", "")
 	if err != nil {
 		t.Fatalf("verifyCatalog() error = %v", err)
 	}
@@ -301,7 +330,7 @@ func TestVerifyCatalogReportsWhatItCannotVerify(t *testing.T) {
 		{"model needs no catalog", executable, "gpt-5.6-sol", "no unique Codex model matches"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			_, err := verifyCatalog(testCase.executable, testCase.model)
+			_, err := verifyCatalog(testCase.executable, testCase.model, "")
 			if err == nil || !strings.Contains(err.Error(), testCase.wantError) {
 				t.Fatalf("verifyCatalog() error = %v, want %q", err, testCase.wantError)
 			}

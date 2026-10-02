@@ -9,7 +9,7 @@ relations: {}
 
 # Provider Model Qualification Evidence
 
-These dated observations inform the reviewed September 30, 2026 team
+These dated observations inform the reviewed October 1, 2026 team
 manifest. They do not maintain a live catalogue or override the
 [current Route inventory](../../manifests/team.toml). For member setup and
 model selection, use the [team rollout guide](../guides/team-rollout.md#reviewed-model-defaults).
@@ -58,11 +58,11 @@ replace an explicit local selection.
 
 At an earlier September 30, 2026 read, AIGW observed 417 AIHubMix, 565 DMXAPI,
 and 276 UCloud IDs across eight Account/protocol catalogue surfaces. All 60
-Routes shipped at that time had wire IDs on their declared surfaces; the current
-manifest has 56 after the Solar Route, three GPT-6 Sol Routes, the DMXAPI
-Fable 5.1 CC channel, and unavailable AIHubMix Fable 5.1 and MiMo Routes were removed,
-with AIHubMix, DMXAPI, and UCloud GPT-6.1
-Sol Routes added. The earlier DMXAPI Responses observation used the locally configured
+Routes shipped at that time had wire IDs on their declared surfaces. The later
+September 30 curation yielded 56 after retiring the Solar Route, three GPT-6
+Sol Routes, the DMXAPI Fable 5.1 CC channel, and unavailable AIHubMix Fable 5.1
+and MiMo Routes, then adding AIHubMix, DMXAPI, and UCloud GPT-6.1 Sol Routes.
+The earlier DMXAPI Responses observation used the locally configured
 `127.0.0.1:8792` Proxy,
 whereas the team manifest declares direct `https://www.dmxapi.cn/v1`.
 Catalogue membership therefore does not qualify that direct endpoint or
@@ -121,6 +121,34 @@ team retains its declared DMXAPI-first order, followed by UCloud and AIHubMix;
 existing explicit local selections are not silently rewritten. Final-artifact
 admission remains open.
 
+On October 1, 2026, DMXAPI's official
+[Claude Code guide](https://doc.dmxapi.cn/claude-code-new.html) described `-cc`
+as the Claude Code channel, and its
+[Codex Desktop guide](https://doc.dmxapi.cn/cc_switch_to_codex_desktop.html)
+described `-cdx` as the Codex channel. These are provider-specific wire IDs,
+not different logical model generations or proof of client compatibility.
+
+A later full nine-item native tool continuation failed on the direct plain
+DMXAPI `gpt-6.1-sol` Route with Codex 0.159.2 and 0.159.3; UCloud accepted
+the unchanged request. Omitting only the user message's `id` made DMXAPI
+complete it, while omitting only the tool-call or tool-output `id` did not.
+A first-turn message worked both with and without its `id`. This isolates
+a continuation compatibility trigger, not a provider-internal root cause.
+Earlier successful probes do not qualify this later failure, and AIGW does
+not rewrite transport items to hide it.
+
+An authenticated DMXAPI catalogue then listed `gpt-6.1-sol-cdx`. The exact
+`9cf23cb8` candidate with one isolated Route addition passed public
+setup/use/check/verify, official Codex 0.159.3 shell execution, and a two-turn
+tool-context replay. Unmodified official Hermes `f97608f` separately passed
+public setup/use/check/verify on that Route. The shipped manifest therefore
+adds `dmxapi-gpt-6.1-sol-cdx` under the existing logical `gpt-6.1-sol` Model
+and recommends it to unselected Codex clients, before UCloud and AIHubMix.
+Existing explicit selections remain unchanged. Native external-provider
+Linux/Windows, final-artifact and installed-host acceptance remain separate;
+the Hermes run conserved eleven original protected inputs and preserved one
+concurrent operator-config change whose writer is unproved.
+
 At the September 25, 2026 read, the public
 [AIHubMix](https://api.inferera.com/v1/models) and
 [UCloud](https://api.modelverse.cn/v1/models) endpoints returned 416 and 132
@@ -155,6 +183,19 @@ Specialized, small, unidentified or unqualified public catalogue entries from
 Jina AI, Liquid, Dots Studio, Sao10k, and Stealth are not general-model Routes.
 
 MiniMax M3 has AIHubMix and UCloud Routes; its DMXAPI candidate timed out.
+AIHubMix's plain `minimax-m3` and `coding-minimax-m3` wire IDs produced
+reasoning tags in final assistant text and failed strict Codex 0.159.3
+verification; their successful text inference does not settle that client gap.
+Its authenticated catalogue also listed `cc-minimax-m3`. With native effort
+`none`, that exact channel and UCloud's `MiniMax-M3` each completed a real
+Codex shell tool and same-thread note/follow-up sequence on October 1, 2026.
+The current `7a5c1da6` candidate separately passed public Route addition,
+selection, check and verification for `aihubmix-minimax-m3-cc`, then the same
+tool/replay journey using its actual projection without a CLI model override.
+The manifest retains the existing logical `minimax-m3` Model and adds only
+that CC Route. Existing Routes, Models, client selections and projection bytes
+were conserved. This result does not qualify other efforts, every platform,
+Desktop GUI or final distribution; no reasoning text was stripped or retried.
 Muse Spark 1.3 has an AIHubMix Route only; DMXAPI's unrelated Spark IDs are
 not Meta models, and no UCloud Muse Route was observed.
 
@@ -274,17 +315,15 @@ and InclusionAI's [Ling 3.0 Flash](https://huggingface.co/inclusionAI/Ling-3.0-f
 
 NVIDIA identifies [Nemotron 3 Ultra](https://research.nvidia.com/labs/nemotron/Nemotron-3-Ultra/)
 as the family's final and strongest model; [Super](https://research.nvidia.com/labs/nemotron/Nemotron-3-Super/)
-is smaller. The listed AIHubMix Ultra `-free` channel once returned text, but
-at signed AIGW source `8891b56c` two isolated, unmodified official Hermes
-verifications each timed out after 60 seconds despite a successful AIGW
-`check`. In the same source build with a temporary manifest, the exact Super
-`nemotron-3-super-120b-a12b-free` channel returned direct Chat text and
-completed AIGW `use`/`check` plus two official Hermes verifications. The team
-manifest therefore selects Super as the currently qualified NVIDIA option on
-this Account, **not** as NVIDIA's strongest model. Ultra remains discoverable
-through the provider catalogue but is not an admitted team Route. Neither two
-successes nor two timeouts establish long-term channel behavior; final release
-bytes and cross-platform real-client admission remain open.
+is smaller. Earlier 60-second Ultra deadlines and 75-second Super deadlines
+did not establish incompatibility. On October 1, the exact `444bbd41`
+candidate and unmodified official Hermes `f97608f` completed Super's real file
+tool and same-session recall in 120.083 and 96.248 seconds. The listed
+`nemotron-3-ultra-550b-a55b-free` Route then completed the same journey in
+21.404 and 15.766 seconds with the original medium effort. The team manifest
+therefore selects qualified Ultra; importing it preserves explicit Super
+selections. These dated observations establish neither a latency guarantee
+nor final-release or cross-platform client acceptance.
 
 The same endpoint previously produced text for Upstage's
 [Solar Pro 4](https://www.upstage.ai/blog/en/solar-pro-4). A September 30,
@@ -296,10 +335,15 @@ removed from the shipped manifest; this does not claim Solar Pro 4 is
 unavailable from Upstage or that the aggregator can never restore its channel.
 
 Cohere's [Command A guide](https://docs.cohere.com/docs/command-a) identifies
-`command-a-03-2025` as a general agent model. AIHubMix completed Chat text
-inference for that exact ID. Its newer listed Command A+ returned HTTP 400
-on both tested protocols, so Command A is the strongest completed Cohere Route
-on this configured Account, not a claim about Cohere's overall strongest model.
+`command-a-03-2025` as a general agent model. AIHubMix completed text inference
+for that ID, but official Hermes and OpenAI SDK `tool_choice=required`
+requests returned no tool calls. AIHubMix's [Command A page](https://aihubmix.com/model/cohere-command-a)
+identifies the alternate wire `cohere-command-a` as Cohere Command A. That
+exact Route completed official Hermes's file tool and same-session recall in
+19.366 and 13.172 seconds on October 1. It replaces the dated wire in the team
+manifest without claiming the aliases are the same model generation or
+overwriting explicit selections. The newer Command A+ wire returned HTTP 400
+`no_available_channel`; it remains unqualified, not globally unavailable.
 Poolside [positions Laguna S 2.1](https://poolside.ai/blog/introducing-laguna-s-2-1)
 for long-horizon agentic coding; its [model card](https://huggingface.co/poolside/Laguna-S-2.1)
 also documents text-to-text Chat use. It is the strongest S/XS model listed

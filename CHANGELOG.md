@@ -18,7 +18,6 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 - Keep version headings in this document and provide each declared Forge's
   own history, with web identity independent of Git transport.
-
 - Withdraw the DMXAPI Claude Fable 5.1 CC channel from the reviewed team
   manifest after bounded inference and real-client requests failed to complete.
 - Pin the installed Codex client's bundled model metadata for an AIGW-managed

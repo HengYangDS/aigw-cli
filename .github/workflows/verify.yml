@@ -140,7 +140,7 @@ jobs:
         run: mise exec --locked -- go run ./tools/forge tag --tag "$SELECTED_TAG" --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
       - name: Run quality and governance
         env:
-          CGO_ENABLED: "1"
+          CGO_ENABLED: "0"
           AIGW_COMMIT_BASE: ${{ github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || inputs.commit_base || format('{0}^', github.sha) }}
           AIGW_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
           AIGW_RELEASE_ALLOWED_SIGNERS_FILE: ${{ env.AIGW_RELEASE_ALLOWED_SIGNERS_FILE }}
@@ -153,7 +153,7 @@ jobs:
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
     env:
       MISE_ENABLE_TOOLS: go,github:goreleaser/goreleaser
-      CGO_ENABLED: "1"
+      CGO_ENABLED: "0"
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -402,7 +402,10 @@ jobs:
         run: mise run bootstrap
       - name: Prepare native memory measurement
         if: github.event_name == 'workflow_dispatch' && inputs.performance
-        run: sudo -n timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update && sudo -n DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y time
+        run: |-
+          set -eu
+          sudo -n timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo -n DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y time
       - name: Verify native lock resolution
         if: github.event_name == 'workflow_dispatch' && inputs.refresh_locks
         env:

@@ -82,8 +82,9 @@ linuxApt: {
 linuxToolchain: {
 	// The runnable Mise image is intentionally small. Declare the complete
 	// repository execution closure here so every Linux job inherits one owner.
-	runtimePackages: ["gcc", "libatomic1", "libc6-dev", "openssh-client", "procps"]
-	prepare: "\(linuxApt.update) && DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
+	runtimePackages: ["libatomic1", "openssh-client", "procps"]
+	prepare:  "set -eu\n\(linuxApt.update)\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
+	compiler: "set -eu\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) gcc libc6-dev"
 }
 
 linuxSecretService: {
@@ -345,7 +346,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		if _platform == "linux" {
 			name: "Prepare native memory measurement"
 			if:   "github.event_name == 'workflow_dispatch' && inputs.performance"
-			run:  "sudo -n \(linuxApt.update) && sudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) time"
+			run:  "set -eu\nsudo -n \(linuxApt.update)\nsudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) time"
 		},
 		{
 			name: "Verify native lock resolution"
@@ -685,6 +686,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		interruptible: true
 		extends: [".linux-toolchain"]
 		variables: CGO_ENABLED: "1"
+		"before_script": [linuxToolchain.prepare, linuxToolchain.compiler, miseMirror.unixPrepare, commands.install]
 		script: [commands.bootstrap, _refreshLocks, _native]
 	}
 	if _platform != "linux" {
@@ -757,7 +759,7 @@ gitlab: {
 			commands.quality,
 		]
 		stage: graph.quality.stage
-		variables: qualityToolchain & {CGO_ENABLED: "1"}
+		variables: qualityToolchain & {CGO_ENABLED: "0"}
 		rules: [
 			{if: gitlabVerificationCondition.tag, variables: AIGW_COMMIT_BASE: "$CI_COMMIT_SHA^"},
 			{
@@ -824,7 +826,7 @@ gitlab: {
 		tags:  nativeEvidence.linux.gitlab.tags
 		variables: {
 			MISE_ENABLE_TOOLS: strings.Join(toolchainTools.secretService, ",")
-			CGO_ENABLED:       "1"
+			CGO_ENABLED:       "0"
 		}
 		rules: gitlab["native-linux"].rules
 		script: [linuxSecretService.gitlab]
@@ -967,7 +969,7 @@ githubVerify: {
 				{
 					name: "Run quality and governance"
 					env: {
-						CGO_ENABLED:                       "1"
+						CGO_ENABLED:                       "0"
 						AIGW_COMMIT_BASE:                  githubCommitBase
 						AIGW_RELEASE_AUTHOR_EMAIL:         "${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}"
 						AIGW_RELEASE_ALLOWED_SIGNERS_FILE: "${{ env.AIGW_RELEASE_ALLOWED_SIGNERS_FILE }}"
@@ -984,7 +986,7 @@ githubVerify: {
 			if:                githubVerify.jobs["native-linux"].if
 			env: {
 				MISE_ENABLE_TOOLS: strings.Join(toolchainTools.secretService, ",")
-				CGO_ENABLED:       "1"
+				CGO_ENABLED:       "0"
 			}
 			steps: [
 				#SourceCheckout,

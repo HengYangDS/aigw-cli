@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/transaction"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
@@ -133,7 +134,35 @@ func writeVerificationProcess(path string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o600)
+	return transaction.WriteFileAtomicExactMode(path, data, 0o600)
+}
+
+func TestVerificationProcessPublicationDoesNotMutateObservedBytes(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "parent.json")
+	if err := writeVerificationProcess(path); err != nil {
+		t.Fatal(err)
+	}
+	observed := filepath.Join(root, "observed.json")
+	if err := os.Link(path, observed); err != nil {
+		t.Fatal(err)
+	}
+	original := readFile(t, observed)
+	t.Setenv("AIGW_TEST_RESOURCE_ROLE", "child")
+	if err := writeVerificationProcess(path); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(readFile(t, observed), original) {
+		t.Fatal("publishing process readiness changed bytes already observed by a reader")
+	}
+	var process verificationResourceProcess
+	if err := json.Unmarshal(readFile(t, path), &process); err != nil || process.Role != "child" {
+		t.Fatalf("published process = %#v, error = %v", process, err)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil || len(entries) != 2 {
+		t.Fatalf("publication left temporary entries: %v, %v", entries, err)
+	}
 }
 
 func holdVerificationProcess(role string, limit time.Duration) int {

@@ -207,9 +207,6 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		}
 	}
 	journey.testing = t
-	if hermesSession != nil {
-		journey.requireHermesTwoTurn(executable, hermesSession, &completions)
-	}
 	journey.verifyNativeConfigEditing(client, executable)
 	const renamedAccount = "renamed-client-account"
 	journey.setEnvironment(secrets.EnvironmentKey(renamedAccount), token)

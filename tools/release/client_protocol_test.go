@@ -17,6 +17,64 @@ import (
 	"aigw-cli/internal/credential"
 )
 
+type responsesToolDefinition struct {
+	Name string `json:"name"`
+}
+
+type responsesToolLoopItem struct {
+	Type   string          `json:"type"`
+	CallID string          `json:"call_id"`
+	Output json.RawMessage `json:"output"`
+}
+
+type responsesToolLoopRequest struct {
+	Model     string `json:"model"`
+	Stream    bool   `json:"stream"`
+	Reasoning struct {
+		Effort string `json:"effort"`
+	} `json:"reasoning"`
+	Tools []responsesToolDefinition `json:"tools"`
+	Input json.RawMessage           `json:"input"`
+}
+
+func responsesToolLoopInputCount(input json.RawMessage) int {
+	var items []json.RawMessage
+	if json.Unmarshal(input, &items) == nil {
+		return len(items)
+	}
+	var text string
+	if json.Unmarshal(input, &text) == nil && text == "" {
+		return 0
+	}
+	return 1
+}
+
+func responsesToolLoopOutputs(input json.RawMessage) ([]responsesToolLoopItem, error) {
+	var rawItems []json.RawMessage
+	if err := json.Unmarshal(input, &rawItems); err != nil {
+		var text string
+		if json.Unmarshal(input, &text) == nil {
+			return nil, nil
+		}
+		return nil, err
+	}
+	outputs := make([]responsesToolLoopItem, 0, len(rawItems))
+	for _, raw := range rawItems {
+		var header struct {
+			Type string `json:"type"`
+		}
+		if err := json.Unmarshal(raw, &header); err != nil || header.Type != "function_call_output" {
+			continue
+		}
+		var item responsesToolLoopItem
+		if err := json.Unmarshal(raw, &item); err != nil {
+			return nil, err
+		}
+		outputs = append(outputs, item)
+	}
+	return outputs, nil
+}
+
 func newNativeClientServer(t *testing.T, client string, protocol configuration.EndpointProtocol, model, token string, completions *atomic.Int64) (*httptest.Server, *hermesSessionRecorder) {
 	t.Helper()
 	requiredEffort := "high"
@@ -26,7 +84,7 @@ func newNativeClientServer(t *testing.T, client string, protocol configuration.E
 	handler := clientResponseHandler(protocol, map[string]*atomic.Int64{model: completions}, token, requiredEffort)
 	var hermesSession *hermesSessionRecorder
 	if client == configuration.ClientHermes {
-		hermesSession = &hermesSessionRecorder{Handler: handler, model: model}
+		hermesSession = &hermesSessionRecorder{Handler: handler, model: model, token: token}
 		handler = hermesSession
 	}
 	requests := map[string]int{}
@@ -217,7 +275,7 @@ func clientResponseHandler(protocol configuration.EndpointProtocol, completions 
 		completion.Add(1)
 	})
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Header.Get("Authorization") != "Bearer "+token && request.Header.Get("X-Api-Key") != token {
+		if !clientFixtureAuthorized(request, token) {
 			http.Error(response, "credential mismatch", http.StatusUnauthorized)
 			return
 		}
@@ -278,5 +336,38 @@ func clientResponseEvents(protocol configuration.EndpointProtocol, model string)
 		`{"type":"response.output_text.done","item_id":"msg_fixture","output_index":0,"content_index":0,"text":"AIGW_OK"}`,
 		`{"type":"response.output_item.done","output_index":0,"item":{"id":"msg_fixture","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"AIGW_OK","annotations":[]}]}}`,
 		`{"type":"response.completed","response":{"id":"resp_fixture","object":"response","status":"completed","output":[{"id":"msg_fixture","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"AIGW_OK","annotations":[]}]}],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`,
+	}
+}
+
+func clientFixtureAuthorized(request *http.Request, token string) bool {
+	return request.Header.Get("Authorization") == "Bearer "+token || request.Header.Get("X-Api-Key") == token
+}
+
+func TestResponsesToolLoopOutputsAcceptsTextInput(t *testing.T) {
+	outputs, err := responsesToolLoopOutputs(json.RawMessage(`"reply briefly"`))
+	if err != nil {
+		t.Fatalf("valid Responses text input rejected: %v", err)
+	}
+	if len(outputs) != 0 {
+		t.Fatalf("Responses text input produced tool outputs: %v", outputs)
+	}
+}
+
+func writeResponsesFunctionCall(response http.ResponseWriter, responseID, itemID, callID, name, arguments string) {
+	added := fmt.Sprintf(`{"id":%q,"type":"function_call","call_id":%q,"name":%q,"arguments":"","status":"in_progress"}`, itemID, callID, name)
+	completed := fmt.Sprintf(`{"id":%q,"type":"function_call","call_id":%q,"name":%q,"arguments":%q,"status":"completed"}`, itemID, callID, name, arguments)
+	events := []struct{ name, data string }{
+		{"response.created", fmt.Sprintf(`{"type":"response.created","response":{"id":%q,"object":"response","status":"in_progress","output":[]}}`, responseID)},
+		{"response.output_item.added", fmt.Sprintf(`{"type":"response.output_item.added","output_index":0,"item":%s}`, added)},
+		{"response.function_call_arguments.delta", fmt.Sprintf(`{"type":"response.function_call_arguments.delta","item_id":%q,"output_index":0,"delta":%q}`, itemID, arguments)},
+		{"response.function_call_arguments.done", fmt.Sprintf(`{"type":"response.function_call_arguments.done","item_id":%q,"output_index":0,"arguments":%q}`, itemID, arguments)},
+		{"response.output_item.done", fmt.Sprintf(`{"type":"response.output_item.done","output_index":0,"item":%s}`, completed)},
+		{"response.completed", fmt.Sprintf(`{"type":"response.completed","response":{"id":%q,"object":"response","status":"completed","output":[%s],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`, responseID, completed)},
+	}
+	response.Header().Set("Content-Type", "text/event-stream")
+	for _, event := range events {
+		if _, err := fmt.Fprintf(response, "event: %s\ndata: %s\n\n", event.name, event.data); err != nil {
+			return
+		}
 	}
 }

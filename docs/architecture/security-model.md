@@ -44,7 +44,6 @@ mechanism, set `AIGW_SECRET_BACKEND` to
   service is unavailable; AIGW neither retries through another backend nor
   changes access policy. The deadline bounds AIGW's process, not operating-system
   authorization UI controlled by the selected native service.
-
 - **`file`** uses an owner-only directory and regular file per Account on macOS
   and Linux. Windows encrypts each Token with current-user DPAPI before writing
   it beneath the AIGW data directory. Both use bounded paths and same-directory

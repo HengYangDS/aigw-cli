@@ -2,10 +2,13 @@ package projection
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -193,8 +196,9 @@ func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
 		"timeout --verbose --kill-after=5s 240s",
 		"Acquire::http::Timeout=30",
 		"Acquire::https::Timeout=30",
-		" update && DEBIAN_FRONTEND=noninteractive ",
-		" install --no-install-recommends -y gcc libatomic1 libc6-dev openssh-client procps",
+		"set -eu\n",
+		" update\nDEBIAN_FRONTEND=noninteractive ",
+		" install --no-install-recommends -y libatomic1 openssh-client procps",
 	} {
 		if !strings.Contains(bootstrap[0], required) {
 			t.Fatalf("Linux bootstrap omits %q: %q", required, bootstrap[0])
@@ -209,7 +213,7 @@ func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
 	if !slices.Equal(pipeline.NativeLinux.Extends, []string{".linux-toolchain"}) {
 		t.Fatalf("GitLab native Linux must inherit the shared bootstrap: %#v", pipeline.NativeLinux)
 	}
-	if !slices.Equal(pipeline.Quality.Extends, []string{".linux-toolchain"}) || pipeline.Quality.Variables["CGO_ENABLED"] != "1" {
+	if !slices.Equal(pipeline.Quality.Extends, []string{".linux-toolchain"}) || pipeline.Quality.Variables["CGO_ENABLED"] != "0" {
 		t.Fatalf("GitLab quality must use the declared Linux toolchain: %#v", pipeline.Quality)
 	}
 	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_CI_LINUX_RUNNER_TAG"}) {
@@ -217,6 +221,42 @@ func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
 	}
 	if len(pipeline.Quality.Script) < 1 || pipeline.Quality.Script[0] != "mise run bootstrap" {
 		t.Fatalf("GitLab quality bootstrap = %q", pipeline.Quality.Script)
+	}
+}
+
+func TestGitLabLinuxPreparationStopsBeforeToolInstallation(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pipeline struct {
+		LinuxToolchain gitLabJob `yaml:".linux-toolchain"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	prepare := pipeline.LinuxToolchain.BeforeScript[0]
+	if runtime.GOOS == "windows" {
+		return // POSIX prerequisite execution belongs to the native Unix jobs.
+	}
+	for _, shell := range []string{"sh", "bash"} {
+		for failure := range 3 {
+			t.Run(fmt.Sprintf("%s/failure-%d", shell, failure), func(t *testing.T) {
+				script := fmt.Sprintf("set -eu\ncount=0\ntimeout() { count=$((count + 1)); if [ \"$count\" -eq %d ]; then return 47; fi; }\n%s\nprintf 'NEXT_STEP\\n'", failure, prepare)
+				command := exec.CommandContext(t.Context(), shell, "-c", script)
+				output, err := command.CombinedOutput()
+				if failure == 0 {
+					if err != nil || !strings.Contains(string(output), "NEXT_STEP") {
+						t.Fatalf("successful prerequisites did not continue: %v, %s", err, output)
+					}
+					return
+				}
+				var exit *exec.ExitError
+				if !errors.As(err, &exit) || exit.ExitCode() != 47 || strings.Contains(string(output), "NEXT_STEP") {
+					t.Fatalf("failed prerequisite reached tool installation: %v, %s", err, output)
+				}
+			})
+		}
 	}
 }
 

@@ -1,13 +1,15 @@
-// Command catalog verifies, against a real installed Codex client, that the
-// model catalog AIGW projects makes a provider-prefixed model entry identical
-// to the bundled entry whose slug it wraps.
+// Command catalog verifies, against a real installed Codex client, that a
+// selected model is present with metadata copied from an exact bundled base.
+// Provider-prefixed ids require a unique bundled suffix; non-native wire ids
+// require the route's explicit canonical model.
 //
 // It exists because that claim cannot be proven against a fake client: the
 // package tests pin the catalog's content and every decision around it, but only
 // the client itself can show that it loaded the projected catalog. Run it when
 // changing the catalog projection or when qualifying a new client build:
 //
-//	go run ./tools/codex/catalog -model openai.gpt-5.6-sol
+//	go run ./tools/codex/catalog -model openai.gpt-6.1-sol
+//	go run ./tools/codex/catalog -model gpt-6.1-sol-cdx -canonical-model gpt-6.1-sol
 //
 // The client renders its effective model catalog through a throwaway client
 // home, so the run makes no model request. Nothing outside a temporary directory
@@ -51,20 +53,21 @@ func execute(args []string, out, errOut io.Writer) int {
 func run(args []string, out io.Writer) (int, error) {
 	flags := flag.NewFlagSet("codex-catalog", flag.ContinueOnError)
 	flags.SetOutput(out)
-	model := flags.String("model", "", "provider-prefixed model id to verify, for example openai.gpt-5.6-sol")
+	model := flags.String("model", "", "exact Codex model id to verify")
+	canonicalModelID := flags.String("canonical-model", "", "exact canonical AIGW model id for a route-specific wire id")
 	executable := flags.String("codex", "", "path to the Codex executable (default: codex from PATH)")
 	asJSON := flags.Bool("json", false, "print the measurements as JSON")
 	if err := flags.Parse(args); err != nil {
 		return exitPrerequisiteMissing, err
 	}
 	if *model == "" {
-		return exitPrerequisiteMissing, errors.New("-model is required, for example -model openai.gpt-5.6-sol")
+		return exitPrerequisiteMissing, errors.New("-model is required")
 	}
 	resolved, err := resolveExecutable(*executable)
 	if err != nil {
 		return exitPrerequisiteMissing, err
 	}
-	verification, err := verifyModelCatalog(resolved, *model)
+	verification, err := verifyModelCatalog(resolved, *model, *canonicalModelID)
 	if err != nil {
 		return exitPrerequisiteMissing, err
 	}
