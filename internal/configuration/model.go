@@ -140,6 +140,7 @@ type Runtime struct {
 	Endpoint          string           `json:"endpoint"`
 	Protocol          EndpointProtocol `json:"protocol"`
 	Model             string           `json:"model,omitempty"`
+	CanonicalModelID  string           `json:"canonical_model_id,omitempty"`
 	ModelProvider     string           `json:"model_provider"`
 	Authentication    Authentication   `json:"authentication"`
 	CredentialCommand string           `json:"-"`
@@ -558,6 +559,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		Endpoint:          endpoint,
 		Protocol:          protocol,
 		Model:             route.UpstreamModelID(),
+		CanonicalModelID:  route.Model,
 		ModelProvider:     selectedModelProvider(client, selection),
 		Authentication:    selectedAuthentication(selection),
 		CredentialCommand: c.Clients[client].CredentialCommand,

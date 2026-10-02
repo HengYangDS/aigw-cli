@@ -38,6 +38,14 @@ prerequisite. An available recommendation may fill an unselected binding;
 neither a recommendation nor an unrelated Account may replace an explicit
 selection. Delete the local next-action choosers made redundant by this owner.
 
+A Route's `Model` is the canonical AIGW Model ID; `UpstreamModel` is the
+exact provider wire ID. Runtime preserves the existing wire-facing `Model`
+field and carries the manifest's exact mapping separately as
+`CanonicalModelID`. Codex may add a wire alias only by copying the exact
+canonical entry from its bundled table and changing `slug`; it must not infer
+a base from suffix similarity. A user-authored `model_catalog_json` remains
+outside AIGW ownership.
+
 An enabled Client Binding records intent, not native projection. A binding with
 no recorded executable has a deferred projection prerequisite; a previously
 recorded executable or target that fails native inspection is a repairable

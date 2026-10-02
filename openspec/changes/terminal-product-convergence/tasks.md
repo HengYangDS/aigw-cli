@@ -259,6 +259,30 @@
       survive all four lifecycle stages (87.729s; empty stderr, warning-free
       stdout). Linux native-host, Windows, live-provider and final-package
       acceptance remain open in 5.2 and 9.3.
+      The current Codex catalogue regression exposed a real identity loss:
+      Runtime carried only the Route's wire model, so the declared
+      `gpt-6.1-sol-cdx` alias could not reuse its canonical
+      `gpt-6.1-sol` entry. Runtime now carries that exact canonical ID
+      separately. Projection copies only an exact bundled base, changes only
+      `slug`, preserves the rest of the table and refuses suffix inference;
+      user-authored catalogues still take precedence. The tracked verifier now
+      accepts `-canonical-model` for this relation. Its RED was a missing
+      generated catalog; focused tests pass:
+      `mise exec --locked -- go test ./internal/configuration ./internal/codex/... ./tools/codex/catalog`.
+      This repairs the source defect only; current signed-artifact, Desktop GUI
+      and cross-platform qualification remain open. The tracked verifier also
+      passes against installed Codex CLI 0.159.3 (binary SHA-256
+      `4d210f7c5a18fd0386434df23b5bdbb8c0e7257d3e8a2b30b0769c8bbe99a878`):
+      canonical and CDX metadata digests match
+      (`f97810da37697f1f00867cb9b0bbc65311b6f5e2411336a7d676bfcc21e5b89e`),
+      the unadapted alias is absent, the generated alias is present, and the
+      unknown probe stays absent. It used an isolated CODEX_HOME and sent no
+      inference request; it does not qualify the packaged AIGW or full tool loop.
+      The current-source `mise run check` and `mise run native` both exit 0:
+      OpenSpec 11/0 findings, OSV 0 issues, Node 61/61, and Go statement
+      coverage 95.12% against the >95% floor. The macOS native run exercises
+      isolated environment-backed lifecycle/resource journeys; it does not
+      select `--clients` or native Keychain acceptance.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
@@ -779,6 +803,12 @@
       architecture and ELOC checks pass. Evidence: `publisher-v2-*` under the
       existing `build/verification/supply-chain-20260930/` owner. This accepts
       the source integration, not whole-product editorial scope or publication.
+      The current provenance refresh changes only source digests, not Claim
+      Model claims or editorial content. The `configuration` and `codex`
+      source hashes, Provider revision, and Build Request hash now match live
+      bytes. The rollback commit/tree remain immutable; source tests validate the
+      historical Claim Model from Git rather than requiring its bytes to equal
+      current provenance. All four source tests pass.
 
 ## 9. Frozen Source and Pre-Archive Acceptance
 

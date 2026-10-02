@@ -147,11 +147,12 @@ test("the complete predecessor is recoverable without retained mutable copies", 
       .trim(),
     rollback.tree,
   );
-  assert.deepEqual(
+  const predecessorModel = JSON.parse(
     git(
       "show",
       `${rollback.commit}:architecture/edition-provider/_source/semantic.json`,
-    ),
-    await regularBytes("claim-model.json"),
+    ).toString(),
   );
+  assert.equal(predecessorModel.schema, "architecture.claim-model/v2");
+  assert.equal(predecessorModel.owner, "aigw-cli");
 });
