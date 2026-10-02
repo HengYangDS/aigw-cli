@@ -68,8 +68,8 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 	}
 	journey.upgrade(t)
 	journey.rollbackAndRecover(t, predecessorVersion)
-	if runtime.GOOS == "darwin" && os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" {
-		t.Run("published_keychain", func(t *testing.T) {
+	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" {
+		t.Run("system credential store", func(t *testing.T) {
 			runNativeCredentialJourney(t, root, baseline, server.URL+"/v1", version)
 		})
 	}

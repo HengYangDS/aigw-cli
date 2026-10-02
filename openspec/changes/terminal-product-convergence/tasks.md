@@ -119,6 +119,13 @@
       link transition remain post-archive Migration Plan obligations. The
       ordinary Linux-host lifecycle for exact `c4ffa1c3` bytes is now evidenced
       in 5.2; final-candidate and warning-free acceptance remain open.
+      The October 3 exact `b28ae590` Windows trace in job 47497 distinguishes
+      the passing `0.0.0` native Credential Manager fixture from the separate
+      authentic 0.3.1 environment-backend journey; it does not prove authentic
+      0.3.1 native-store succession. The existing published-predecessor test
+      now selects its native-store case on every platform under the unchanged
+      explicit keyring flag. The native construction suite and release lint
+      pass; exact Windows execution of that repaired case remains open.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
