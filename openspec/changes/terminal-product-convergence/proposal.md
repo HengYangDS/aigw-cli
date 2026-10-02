@@ -36,6 +36,11 @@ cutover. Passing source checks cannot settle these installed-product contracts.
   compatibility shims. Project one CUE CI intent to GitHub and GitLab while
   proving each selected peer's own admission and assets.
 
+- Keep one locally navigable Changelog with explicit history links for every
+  declared publication peer. Declare its web repository separately from Git
+  transport, retain the prepared-versus-published distinction, and consume
+  ETHOS for common repository identity and historical repair admission.
+
 **BREAKING:** Retire obsolete configuration, helper, output, and repository
 surfaces only after their current consumers and migration boundary are proved.
 Historical Git and immutable evidence remain history, not active compatibility

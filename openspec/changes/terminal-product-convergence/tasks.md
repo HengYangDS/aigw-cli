@@ -588,6 +588,17 @@
       `cli-ebf9adff-layout/`, `public-negative-ebf9adff/` and
       `product-concepts-ebf9adff-native.png`. Hosted Forge rendering is not
       claimed; documentation registry/navigation remains in 8.2.
+- [x] 8.3.1 Correct neutral Changelog headings, explicit peer history, and native repository locators without changing existing historical notes; verify strict release metadata and each actual peer destination. Keep the prepared release links distinct from unpublished tags.
+      The source has 60 local headings and 120 explicit peer links. All 59
+      versioned bodies and the existing Unreleased body are conserved; the
+      one new Unreleased note describes navigation. Both native APIs confirm
+      every referenced tag exists on its selected peer. Local-only v0.3.2
+      remains unlisted, and prepared v0.3.3 does not claim a published tag.
+      Readiness and release fixture suites, native metadata, format, Markdown,
+      spelling, TOML, offline links, official OpenSpec, and changed-source
+      ETHOS plan pass. Source checks do not certify installed prevention,
+      historical peer-object equality, accepted integration, or publication.
+- [ ] 8.3.2 Qualify the accepted installed ETHOS identity/reference contract, reject reachable wrong-repository destinations, and reconcile the audited historical peer tag identities through authorized native repair without a private map or copied checker.
 - [x] 8.4 Compare mature gateway, config, client and release libraries with
       retained AIGW differentiators; record one source-backed adopt/reject decision
       per candidate and delete any replaced hand-written owner.

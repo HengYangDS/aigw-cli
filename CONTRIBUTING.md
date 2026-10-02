@@ -510,7 +510,7 @@ verification](docs/operations/forge-operations.md#verify-published-bytes-on-a-na
 
 Use focused Conventional Commits and validate [chronology](CHANGELOG.md):
 `mise exec --locked -- go run ./tools/release validate-changelog`.
-`## [Unreleased]` contains only changes after the latest published tag; historical
+`## Unreleased` contains only changes after the latest published tag; historical
 headings require their exact signed tag/date. GitLab display name `AIGW CLI`
 does not authorize changing the stable clone path `aigw-cli`.
 

@@ -221,7 +221,7 @@ retirement; age alone is not deletion authority.
 
 ## Release Chronicle
 
-[CHANGELOG](../../CHANGELOG.md) starts with `## [Unreleased]` for post-release changes.
+[CHANGELOG](../../CHANGELOG.md) starts with `## Unreleased` for post-release changes.
 Version headings are unique descending strict SemVer; only the first may be pending
 and equal [VERSION](../../VERSION). Older headings require exact signed tags/dates.
 Build metadata belongs to identity, not precedence; metadata-only duplicate entries

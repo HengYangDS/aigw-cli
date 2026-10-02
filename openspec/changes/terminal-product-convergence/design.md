@@ -361,6 +361,25 @@ system, not a macOS result reused for Linux or Windows.
 [ci]: ../../specs/ci-diagnostics/spec.md
 [onboarding]: ../../specs/progressive-team-onboarding/spec.md
 
+### Repository identity and release history
+
+The one [Changelog](../../../CHANGELOG.md) keeps neutral local version headings
+and offers each applicable peer's native history.
+[Release declarations](../../../.ethos/release.toml) own `forge_repository`
+independently of SSH or HTTP Git transport; no inferred scheme, port, user path,
+or second local identity manifest is needed. The current untagged prepared
+release compares the latest published tag with `main` and labels those links
+as prepared changes. Final release navigation is frozen in the signed release
+source and verified on each peer after publication; never edit source behind
+an existing tag. A history link cannot manufacture an old Release merely
+because a local Git tag exists.
+
+The native release parser retains strict SemVer, dates, categories, and exact
+source/tag responsibilities. ETHOS owns common repository identity, reference
+membership, and authorized historical repair; no generic checker is copied here.
+Current source navigation, installed product prevention, cross-peer tag
+reconciliation, and publication remain independently qualified.
+
 ## Risks / Trade-offs
 
 - Original credential commands may outlive the configuration that created
