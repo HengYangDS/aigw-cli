@@ -798,17 +798,14 @@
       SHA-256 `35c3e0d0d3122359979e82b9982e38c2525a1db9ff3d3ac57c87202445d677cc`.
       Its binding shows `.config/ci/pipeline.cue` changed since the earlier
       cold-Mise run; only unchanged tool inputs are reused, not full-graph CI.
-      The required GitHub peer mirror release `mise-glab-v1.120.0` currently
-      returns HTTP 404; ETHOS issue 12 remains open with its owner. Readbacks
-      are `reciprocal-glab-release-readback.json` (SHA-256
-      `06f2332b0b75c783864aa1974ed73814853283e9abf6d7ce5d0afb9e13c4caf4`) and
-      `existing-ethos-issue12-readback.json` (SHA-256
-      `44df0138d9c662ccb37124854f369e3f9f10b7a784159e7b3d19448b09412c94`).
-      Byte coverage does not prove CI Job Token access or sibling-peer outage.
-      The earlier cold Windows 404 and corrected empty-cache pipeline 9172 remain
-      distinct; preserve original 9171 and `cold-tool-source-*` evidence.
-      Complete cold execution across native platforms and protected-runner
-      execution remain open.
+      GitHub prerelease `mise-glab-v1.120.0` is now published with six uploaded
+      platform assets; the prior 404 readback is historical, not current state.
+      The old `fa0f73ef` peer dispatch used the shared Mise cache and cannot prove
+      cold acquisition. Peer qualification now disables the GitHub action cache
+      and uses job-owned Mise data/download directories on GitLab. Generated
+      projections, `actionlint`, and `go test ./tools/ci/...` pass. A new exact-HEAD
+      peer run, GitLab Job Token access, and one-peer/offline isolation remain
+      unproved. Protected-runner admission belongs to 7.4; do not duplicate it here.
 
 ## 8. Repository Topology, Documentation, and Deletion
 

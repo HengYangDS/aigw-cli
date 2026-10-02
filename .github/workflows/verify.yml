@@ -99,7 +99,7 @@ jobs:
           version: 2026.9.18
           install: true
           install_args: --locked
-          cache: true
+          cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
       - name: Verify main and dev name the same product object
         run: mise exec --locked -- go run ./tools/forge refs --remote origin --expect "main=${{ github.sha }}" --expect "dev=${{ github.sha }}"
@@ -125,7 +125,7 @@ jobs:
           version: 2026.9.18
           install: true
           install_args: --locked
-          cache: true
+          cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
       - name: Prepare locked dependencies
         run: mise run bootstrap
@@ -169,7 +169,7 @@ jobs:
           version: 2026.9.18
           install: true
           install_args: --locked
-          cache: true
+          cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
       - name: Qualify Linux Secret Service
         run: |-
@@ -207,7 +207,7 @@ jobs:
           version: 2026.9.18
           install: true
           install_args: --locked
-          cache: true
+          cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
       - name: Validate tag version
         run: mise exec --locked -- go run ./tools/release validate-version-tag
@@ -233,7 +233,7 @@ jobs:
           version: 2026.9.18
           install: true
           install_args: --locked
-          cache: true
+          cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
       - name: Prepare locked dependencies
         run: mise run bootstrap
@@ -396,7 +396,7 @@ jobs:
           version: 2026.9.18
           install: true
           install_args: --locked
-          cache: true
+          cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
       - name: Prepare locked dependencies
         run: mise run bootstrap
@@ -560,7 +560,7 @@ jobs:
           version: 2026.9.18
           install: true
           install_args: --locked
-          cache: true
+          cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
       - name: Prepare locked dependencies
         run: mise run bootstrap

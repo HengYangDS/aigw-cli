@@ -60,7 +60,7 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 		if !strings.Contains(prelude, "AIGW_TOOL_SOURCE") {
 			t.Errorf("GitLab %s has no explicit mirror selection", name)
 		}
-		for _, required := range []string{"CI_API_V4_URL", "CI_PROJECT_ID", "CI_SERVER_HOST", "CI_JOB_TOKEN", "MISE_NETRC_FILE", "github.com/", "api.github.com/", "mise-github/v1/", "CI_JOB_ID"} {
+		for _, required := range []string{"CI_API_V4_URL", "CI_PROJECT_ID", "CI_SERVER_HOST", "CI_JOB_TOKEN", "MISE_NETRC_FILE", "$mirror_dir/mise-data", "$mirror_dir/mise-cache", "github.com/", "api.github.com/", "mise-github/v1/", "CI_JOB_ID"} {
 			if !strings.Contains(prelude, required) {
 				t.Errorf("GitLab %s mirror prelude omits %q", name, required)
 			}

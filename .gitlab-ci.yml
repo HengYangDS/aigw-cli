@@ -41,6 +41,8 @@ native-linux:
       : "${CI_PROJECT_DIR:?}"
       mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
+      export MISE_DATA_DIR="$mirror_dir/mise-data"
+      export MISE_CACHE_DIR="$mirror_dir/mise-cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -83,6 +85,8 @@ native-darwin:
       : "${CI_PROJECT_DIR:?}"
       mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
+      export MISE_DATA_DIR="$mirror_dir/mise-data"
+      export MISE_CACHE_DIR="$mirror_dir/mise-cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -140,6 +144,8 @@ native-darwin-review:
       : "${CI_PROJECT_DIR:?}"
       mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
+      export MISE_DATA_DIR="$mirror_dir/mise-data"
+      export MISE_CACHE_DIR="$mirror_dir/mise-cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -505,6 +511,8 @@ stages:
       : "${CI_PROJECT_DIR:?}"
       mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
+      export MISE_DATA_DIR="$mirror_dir/mise-data"
+      export MISE_CACHE_DIR="$mirror_dir/mise-cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -559,6 +567,8 @@ accepted-ref-parity:
       : "${CI_PROJECT_DIR:?}"
       mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
+      export MISE_DATA_DIR="$mirror_dir/mise-data"
+      export MISE_CACHE_DIR="$mirror_dir/mise-cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -623,6 +633,8 @@ release-version:
       : "${CI_PROJECT_DIR:?}"
       mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
+      export MISE_DATA_DIR="$mirror_dir/mise-data"
+      export MISE_CACHE_DIR="$mirror_dir/mise-cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1

@@ -123,7 +123,7 @@ func TestToolchainCachesPreserveLockAndExecutionBoundaries(t *testing.T) {
 					Uses string            `yaml:"uses"`
 					Env  map[string]string `yaml:"env"`
 					With struct {
-						Cache          bool   `yaml:"cache"`
+						Cache          string `yaml:"cache"`
 						Install        bool   `yaml:"install"`
 						InstallArgs    string `yaml:"install_args"`
 						CacheKeyPrefix string `yaml:"cache_key_prefix"`
@@ -142,8 +142,8 @@ func TestToolchainCachesPreserveLockAndExecutionBoundaries(t *testing.T) {
 				transport := ""
 				if strings.HasPrefix(step.Uses, "jdx/mise-action@") {
 					transport = "http2client=0"
-					if !step.With.Cache || !step.With.Install || step.With.InstallArgs != "--locked" || step.With.CacheKeyPrefix != "mise-${{ github.job }}" {
-						t.Fatalf("%s/%s does not use a scoped native tool cache with locked installation: %#v", projection.Path, name, step.With)
+					if step.With.Cache != "${{ inputs.tool_source != 'peer' }}" || !step.With.Install || step.With.InstallArgs != "--locked" || step.With.CacheKeyPrefix != "mise-${{ github.job }}" {
+						t.Fatalf("%s/%s must cache upstream installs but bypass cache for peer qualification: %#v", projection.Path, name, step.With)
 					}
 				}
 				if step.Env["GODEBUG"] != transport {
