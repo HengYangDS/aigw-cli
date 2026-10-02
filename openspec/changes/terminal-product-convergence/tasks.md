@@ -252,8 +252,13 @@
       its structured output and continued session history. The macOS
       baseline-to-candidate-to-rollback-to-re-upgrade journey passed with the
       local Hermes 0.21.5 binary carrying four commits; this is regression
-      coverage, not official-client qualification. The separate official
-      Hermes Linux receipt remains in 5.2.
+      coverage, not official-client qualification. The same signed source
+      commit `39268297` also passes this updated journey with unmodified official
+      Hermes `f97608f` 0.21.5 in an isolated Linux ARM64 container against the
+      exact `df7d4585` candidate: real `read_file` output and session history
+      survive all four lifecycle stages (87.729s; empty stderr, warning-free
+      stdout). Linux native-host, Windows, live-provider and final-package
+      acceptance remain open in 5.2 and 9.3.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
