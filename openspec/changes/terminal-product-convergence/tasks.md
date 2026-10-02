@@ -1001,7 +1001,10 @@
       journeys; retain the source and artifact hashes and disclose missing platform
       evidence. Rollback export execution failures now retain their cause instead
       of being mislabeled as configuration incompatibility; focused RED/GREEN tests
-      pass. This changes executable bytes, so 53b package evidence is historical.
+      pass. Native rollback admission now proves that the retained program's export
+      exits unsuccessfully, requires the execution-failure verdict, and conserves
+      program/configuration bytes through rejection, restoration and re-upgrade.
+      This changes executable bytes, so 53b package evidence is historical.
       Isolated native items and environment credentials qualify this
       pre-archive candidate, not current operator-item access. Final production
       signing creates separately inventoried bytes; post-archive distribution
