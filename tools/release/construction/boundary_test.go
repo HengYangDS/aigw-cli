@@ -403,7 +403,7 @@ func TestReleaseBuildEnvironment(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## [Unreleased]\n\n## [1.2.3] - 2026-08-09\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## Unreleased\n\n## 1.2.3 - 2026-08-09\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	t.Chdir(root)
@@ -447,7 +447,7 @@ func TestReleaseEpochRejectsInvalidDateAndOversizedChangelogLine(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CI_COMMIT_TAG", "v1.2.3")
 	changelog := filepath.Join(root, "CHANGELOG.md")
-	if err := os.WriteFile(changelog, []byte("## [1.2.3] - 2026-99-99\n"), 0o600); err != nil {
+	if err := os.WriteFile(changelog, []byte("## 1.2.3 - 2026-99-99\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := resolveReleaseEpoch(t.Context(), root, "1.2.3"); err == nil {

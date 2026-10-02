@@ -737,7 +737,9 @@
       one new Unreleased note describes navigation. Both native APIs confirm
       every referenced tag exists on its selected peer. Local-only v0.3.2
       remains unlisted, and prepared v0.3.3 does not claim a published tag.
-      Readiness and release fixture suites, native metadata, format, Markdown,
+      Readiness and the complete release-construction subtree pass, including
+      source-epoch, tagged-date and native artifact fixtures. Native metadata,
+      format, Markdown,
       spelling, TOML, offline links, official OpenSpec, and changed-source
       ETHOS plan pass. Source checks do not certify installed prevention,
       historical peer-object equality, accepted integration, or publication.
