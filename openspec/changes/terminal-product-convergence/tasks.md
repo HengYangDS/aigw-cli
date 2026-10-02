@@ -672,6 +672,12 @@
       tool acceptance remains pending. The same b28 package's narrower native
       Windows pipeline `9290` retains separate evidence and cannot qualify the
       failed full graph. Other peer/platform and installed obligations stay open.
+      Signed `f4f7bc36` passes the complete source gate with 95.13% statement
+      coverage and all 1,212 tracked hashes conserved. Its exact-HEAD ETHOS
+      artifact `ce3fa7a4f66e74e205baa00fe181c723b44277542b89d287f19a3defb6439b0e`
+      proves both declared gates with zero gaps using both Publisher inputs.
+      Current Windows tool execution and peer admission remain open; this
+      local source proof does not qualify the revised hosted tool graph.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.
@@ -1117,7 +1123,19 @@
       remains unproved. Linux package evidence is recorded in 5.2. Windows
       matrix hashes/ACLs pass on the exact Runner 103 private input root; its
       original full-quality pipeline `9289` fails before artifact admission on
-      the missing Lychee prerequisite. Independent package pipeline `9290` keeps
-      the same exact b28 matrix and remains pending. Production signing,
+      the missing Lychee prerequisite. Independent package pipeline `9290`,
+      job 47497, passes twenty-six package cases on the same exact b28 matrix.
+      The original trace distinguishes source-fixture native credentials from
+      authentic 0.3.1 environment succession; the new published native-store
+      case remains in 3.5. Exact guest-root cleanup receipt `c1595458` proves
+      all twelve input hashes, root absence and restored Runner controls.
+      Signed `f4f7bc36` rebuilds the twelve-file candidate once with current
+      provenance and signature. All six archives equal b28 bytes exactly;
+      `candidate-inputs.json` under that source revision records each hash.
+      Independent admission `f4f7bc36-candidate-admission.json` (SHA-256
+      `34c04a93c3ee467663f2f330f3856bba346d78e18684d7c52a89f489e3650903`)
+      verifies the signature, source/tree, four locks and nine provenance
+      subjects. This permits only byte-bound reuse of recorded b28 behavior,
+      not new native-store, hosted, production or installed claims. Production signing,
       stable reader identity, final publication/install and Desktop GUI remain
       separate open obligations.

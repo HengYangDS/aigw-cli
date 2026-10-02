@@ -9,7 +9,7 @@ relations: {}
 
 # Provider Model Qualification Evidence
 
-These dated observations inform the reviewed October 1, 2026 team
+These dated observations inform the reviewed October 2, 2026 team
 manifest. They do not maintain a live catalogue or override the
 [current Route inventory](../../manifests/team.toml). For member setup and
 model selection, use the [team rollout guide](../guides/team-rollout.md#reviewed-model-defaults).
@@ -112,13 +112,15 @@ its versioned credential reader was staged. This distinguishes a missing test
 reader from a product failure. The public AIHubMix catalogue also listed the
 model, while an earlier UCloud request rejected it. Later on September 30, a
 direct UCloud Responses request completed with exact wire model `gpt-6.1-sol`.
-Installed AIGW 0.3.3 then completed bounded `verify --for codex` and
-`verify --for hermes` sessions for an explicitly imported UCloud Route using
+A source-built AIGW 0.3.3 in an isolated installation completed bounded
+`verify --for codex` and `verify --for hermes` sessions for an explicitly imported UCloud Route using
 Codex CLI 0.159.2 and Hermes Agent v0.21.5. That supersedes the earlier
 UCloud exclusion for bounded direct and native-client inference, not sustained
 availability, final release bytes, or this host's optional Proxy path. The
-team retains its declared DMXAPI-first order, followed by UCloud and AIHubMix;
-existing explicit local selections are not silently rewritten. Final-artifact
+team now declares DMXAPI first and UCloud as its sole automatic alternative;
+AIHubMix Routes are manual-only. The October 2 correction supersedes the older
+recommendation order without changing the dated inference observations or
+silently rewriting explicit local selections. Final-artifact
 admission remains open.
 
 On October 1, 2026, DMXAPI's official
@@ -143,7 +145,8 @@ setup/use/check/verify, official Codex 0.159.3 shell execution, and a two-turn
 tool-context replay. Unmodified official Hermes `f97608f` separately passed
 public setup/use/check/verify on that Route. The shipped manifest therefore
 adds `dmxapi-gpt-6.1-sol-cdx` under the existing logical `gpt-6.1-sol` Model
-and recommends it to unselected Codex clients, before UCloud and AIHubMix.
+and recommends it to unselected Codex clients, with UCloud as the sole
+automatic alternative. AIHubMix remains an explicit manual choice.
 Existing explicit selections remain unchanged. Native external-provider
 Linux/Windows, final-artifact and installed-host acceptance remain separate;
 the Hermes run conserved eleven original protected inputs and preserved one
@@ -178,6 +181,9 @@ ordinary Sonnet 5.5 Routes and DMXAPI's ordinary, CC, and SSVIP Routes. Each
 request returned HTTP 200, model `claude-sonnet-5-5`, and nonempty text; these
 bounded calls do not establish streaming, tools, latency, or native-client use.
 The previous Sonnet 5 Routes were retired from the shipped manifest.
+The October 2 continuation review subsequently withdrew the ordinary DMXAPI
+Sonnet 5.5 Route; only its CC and SSVIP variants remain. The earlier one-turn
+response does not qualify continuation or restore the retired Route.
 
 Specialized, small, unidentified or unqualified public catalogue entries from
 Jina AI, Liquid, Dots Studio, Sao10k, and Stealth are not general-model Routes.
