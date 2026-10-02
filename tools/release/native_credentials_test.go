@@ -489,9 +489,9 @@ func (j *journeyFixture) requireCurrentVersionedReaders(current []process.Plan, 
 	}
 }
 
-func runLinuxSecureFileFallback(t *testing.T, sourceBaseline, endpoint string) {
+func runLinuxSecureFileFallback(t *testing.T, candidate, endpoint string) {
 	t.Helper()
-	journey := newNativeJourney(t, sourceBaseline, endpoint, true)
+	journey := newNativeJourney(t, candidate, endpoint, true)
 	journey.enableSystemCredentialStore()
 	journey.setEnvironment(
 		"DBUS_SESSION_BUS_ADDRESS",

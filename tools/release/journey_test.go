@@ -116,7 +116,8 @@ func TestNativeProductJourney(t *testing.T) {
 
 	if runtime.GOOS == "linux" {
 		t.Run("secure file fallback without session bus", func(t *testing.T) {
-			runLinuxSecureFileFallback(t, sourceBaseline(t), server.URL+"/v1")
+			candidate, _, _ := nativeReleaseCandidate(t, root, newVersion)
+			runLinuxSecureFileFallback(t, candidate, server.URL+"/v1")
 		})
 	}
 
