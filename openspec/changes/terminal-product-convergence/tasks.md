@@ -119,6 +119,15 @@
       link transition remain post-archive Migration Plan obligations. The
       ordinary Linux-host lifecycle for exact `c4ffa1c3` bytes is now evidenced
       in 5.2; final-candidate and warning-free acceptance remain open.
+      October 3 exact `a2108fb2` macOS published-0.3.1 environment journey
+      passes in 6.11 seconds: retained configuration and commands survive
+      preprojection, the simulated link gap, upgrade, rollback and re-upgrade.
+      Candidate `21653656` and predecessor `ebfa8775` are verified shipped
+      bytes; native stores and real clients were not selected. Original logs
+      and exact cleanup are in `a2108fb2`'s existing verification directory
+      as `published-env-macos-20261003.*`. Installed 0.3.1 and tracked inputs
+      remain unchanged. This does not close Developer ID or operator-item
+      authorization, Windows native-store succession or actual Homebrew cutover.
       The October 3 exact `b28ae590` Windows trace in job 47497 distinguishes
       the passing `0.0.0` native Credential Manager fixture from the separate
       authentic 0.3.1 environment-backend journey; it does not prove authentic
@@ -170,6 +179,14 @@
       Evidence: `independent-hermes-request-boundary-444-20261001-01a0ccfc`
       in the existing recovery owner; `native-model-catalogue-*` and
       `native-model-shipped-team-journey.log` in the existing verification owner.
+      October 3 current manifest `fc8890bd` has 26 Models and 57 Routes:
+      DMXAPI 17, UCloud 15, AIHubMix 25; 37 Responses, 11 Chat, 9 Anthropic.
+      Independent exact-tuple reconciliation binds 55 unchanged routes to
+      original `80db` inference and Cohere/Ultra to their separate `444`
+      qualification. No current route lacks dated evidence; retired rows stay
+      historical. Receipt `current57-route-dated-inference-evidence-binding-20261003.json`
+      is in the existing independent recovery owner. This is evidence reuse,
+      not fresh inference or final installed-client acceptance.
 - [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
       Providers; no control-plane command claims request-time failover.
@@ -183,6 +200,15 @@
       leaves manual-only clients unselected and explicit `aigw use` works for
       each Client. Its seven isolated cases and the canonical Go format/lint
       gate pass.
+      Exact `a2108fb2` public import of current manifest `fc8890bd` into an
+      isolated copy of the operator configuration preserves all three Accounts
+      and four explicit client bindings. Rollback restores original bytes;
+      forward import and ordinary reimport preserve config, backup and lock
+      bytes. Reusing one-time retirement flags fails without mutation.
+      Original and corrected no-op receipts are in the existing independent
+      recovery owner's `current-manifest-a210-profile-acceptance-20261003/`.
+      No host projection, native credential read or Provider request occurred;
+      both exact scratch roots are absent. Installed configuration remains old.
 - [x] 4.4 Qualify Codex with selected non-OpenAI-family Responses-compatible
       models using its actual model chooser, authentication and tool loop; state
       native limitations instead of forging a model list.
@@ -731,6 +757,12 @@
       No ignore, vendor patch or development-dependency exclusion is admitted.
       Release security stays unqualified pending a supported stable repair or
       an explicitly evidenced replacement at the existing dependency owner.
+      October 3 call-path review also confirms `validate --all` resolves
+      schema-selected task outputs through the same glob owner. Built-in
+      `tasks.md` avoids braces, but supported project/user schemas can reach
+      expansion. Exact-file Markdown/Mermaid APIs and Go payload absence do
+      not establish whole-toolchain non-applicability. The native invocation
+      boundary is referred to the existing ETHOS owner, not copied locally.
 - [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
       build and CI costs against predecessor budgets on a quiet host; preserve raw
       samples and optimize only diagnosed owners.
