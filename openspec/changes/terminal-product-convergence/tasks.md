@@ -708,7 +708,7 @@
       Release publication rejects a missing or non-directory parent before
       rename; focused tests preserve the candidate and operator-owned files.
       Windows native execution of these corrections remains required.
-- [x] 6.5 Verify dependency hygiene, dead-code, secrets, SBOM, vulnerabilities,
+- [ ] 6.5 Verify dependency hygiene, dead-code, secrets, SBOM, vulnerabilities,
       licenses, checksums, signatures and provenance from the exact locked
       candidate; delete unconsumed parallel scanners or reports. The signed
       `38246801` source builds six archives with a disposable test signer;
@@ -719,6 +719,18 @@
       OSV and Syft have distinct single owners; historical candidate evidence
       is preserved, not duplicated into another scanner. Production signing and
       publication remain separate release obligations.
+      Reopened after current GitHub quality job 111061029403 reports High
+      `GHSA-vfj7-8cjw-p6xm` in locked development dependency `braces` 3.0.3.
+      The official advisory covers all published versions through 3.0.3 and
+      lists no patched version; the current npm latest is still 3.0.3.
+      OpenSpec, Markdown and Mermaid tools share its `micromatch` dependency.
+      The OpenSpec output resolver reaches brace expansion without exposing
+      a caller depth guard. Earlier zero-finding scans remain historical;
+      official advisory, registry and lock-consumer inputs are retained under
+      `build/verification/a2108fb24ae151f03f6684a92abd5092af95465c/`.
+      No ignore, vendor patch or development-dependency exclusion is admitted.
+      Release security stays unqualified pending a supported stable repair or
+      an explicitly evidenced replacement at the existing dependency owner.
 - [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
       build and CI costs against predecessor budgets on a quiet host; preserve raw
       samples and optimize only diagnosed owners.
