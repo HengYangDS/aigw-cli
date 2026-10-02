@@ -106,18 +106,29 @@ func TestUpdateRollbackReturnsLocalRollbackError(t *testing.T) {
 	}
 }
 
-func TestUpdateRollbackStartupFailureKeepsRollbackContext(t *testing.T) {
-	app, out, _, _, _ := testApp(t, "")
+func TestUpdateRollbackExecutionFailureKeepsRollbackContext(t *testing.T) {
 	privatePath := filepath.Join(t.TempDir(), "previous")
-	cause := &os.PathError{Op: "fork/exec", Path: privatePath, Err: os.ErrPermission}
-	app.Updater = &fakeUpdater{rollbackErr: fmt.Errorf("%w: %w", upgrade.ErrProgramStartupVerification, cause)}
-
-	err := cli.Execute(app, []string{"update", "--rollback"})
-	if !errors.Is(err, upgrade.ErrProgramStartupVerification) || !errors.Is(err, cause) {
-		t.Fatalf("rollback failure lost its typed cause: %v", err)
-	}
-	if !strings.Contains(out.String(), "Program rollback did not complete") || strings.Contains(out.String(), "Candidate program") || strings.Contains(out.String(), privatePath) {
-		t.Fatalf("rollback failure lost its safe operation context: %s", out.String())
+	permission := &os.PathError{Op: "fork/exec", Path: privatePath, Err: os.ErrPermission}
+	for _, test := range []struct {
+		name    string
+		failure error
+	}{
+		{name: "startup verification", failure: fmt.Errorf("%w: %w", upgrade.ErrProgramStartupVerification, permission)},
+		{name: "configuration export permission", failure: fmt.Errorf("retained program configuration export failed: %w", permission)},
+		{name: "configuration export deadline", failure: fmt.Errorf("retained program configuration export failed: %w", context.DeadlineExceeded)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			app, out, _, _, _ := testApp(t, "")
+			app.Updater = &fakeUpdater{rollbackErr: test.failure}
+			err := cli.Execute(app, []string{"update", "--rollback"})
+			if !errors.Is(err, test.failure) {
+				t.Fatalf("rollback failure lost its typed cause: %v", err)
+			}
+			if !strings.Contains(out.String(), "Program rollback did not complete") ||
+				strings.Contains(out.String(), "incompatible") || strings.Contains(out.String(), "Candidate program") || strings.Contains(out.String(), privatePath) {
+				t.Fatalf("rollback failure lost its safe operation context: %s", out.String())
+			}
+		})
 	}
 }
 

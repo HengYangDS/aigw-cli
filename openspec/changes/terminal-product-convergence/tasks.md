@@ -999,7 +999,10 @@
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with
       exact-byte install, predecessor upgrade/rollback, credentials and real-client
       journeys; retain the source and artifact hashes and disclose missing platform
-      evidence. Isolated native items and environment credentials qualify this
+      evidence. Rollback export execution failures now retain their cause instead
+      of being mislabeled as configuration incompatibility; focused RED/GREEN tests
+      pass. This changes executable bytes, so 53b package evidence is historical.
+      Isolated native items and environment credentials qualify this
       pre-archive candidate, not current operator-item access. Final production
       signing creates separately inventoried bytes; post-archive distribution
       and exact copied-reader authorization must pass before installed cutover.

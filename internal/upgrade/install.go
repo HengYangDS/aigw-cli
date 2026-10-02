@@ -83,23 +83,27 @@ func (u Updater) verifyProgram(ctx context.Context, binary []byte, version strin
 	if version != "" && reported != "aigw version "+version {
 		return fmt.Errorf("candidate program did not report expected version %s; installed program is unchanged", version)
 	}
-	if config != nil {
-		path, err := platform.ConfigPathFor(runtime.GOOS, environment)
-		if err != nil {
-			return err
-		}
-		if err := transaction.WriteFileAtomicExactMode(path, config, 0o600); err != nil {
-			return fmt.Errorf("stage configuration verification: %w", err)
-		}
-		plan.Args = []string{"config", "export"}
-		output, runErr := u.Runner.RunCapture(verificationContext, plan)
-		var manifest struct {
-			Version int `toml:"version"`
-		}
-		parseErr := toml.Unmarshal(output, &manifest)
-		if runErr != nil || parseErr != nil || manifest.Version <= 0 {
-			return errors.Join(ErrRollbackConfiguration, runErr)
-		}
+	if config == nil {
+		return ctx.Err()
+	}
+	path, err := platform.ConfigPathFor(runtime.GOOS, environment)
+	if err != nil {
+		return err
+	}
+	if err := transaction.WriteFileAtomicExactMode(path, config, 0o600); err != nil {
+		return fmt.Errorf("stage configuration verification: %w", err)
+	}
+	plan.Args = []string{"config", "export"}
+	output, runErr := u.Runner.RunCapture(verificationContext, plan)
+	if runErr != nil {
+		return fmt.Errorf("verify configuration export with program: %w", runErr)
+	}
+	var manifest struct {
+		Version int `toml:"version"`
+	}
+	parseErr = toml.Unmarshal(output, &manifest)
+	if parseErr != nil || manifest.Version <= 0 {
+		return ErrRollbackConfiguration
 	}
 	return ctx.Err()
 }

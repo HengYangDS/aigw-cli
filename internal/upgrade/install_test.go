@@ -146,7 +146,9 @@ func TestRollbackConfigurationVerdictsPreservePrograms(t *testing.T) {
 		compatible bool
 	}{
 		{name: "compatible", output: "version = 5\n[profiles.team]\nmodel = 'test'\n", compatible: true},
-		{name: "unreadable", failure: errors.New("unsupported configuration")},
+		{name: "failed export", failure: errors.New("export execution failed")},
+		{name: "export deadline", failure: context.DeadlineExceeded},
+		{name: "export permission", failure: &os.PathError{Op: "fork/exec", Path: "private-predecessor", Err: os.ErrPermission}},
 		{name: "empty export"},
 		{name: "invalid export", output: "not a configuration"},
 	} {
@@ -165,8 +167,14 @@ func TestRollbackConfigurationVerdictsPreservePrograms(t *testing.T) {
 				return []byte(test.output), test.failure
 			}}
 			_, err := (Updater{Executable: current, Runner: runner}).Rollback(t.Context(), []byte("version = 3\n"))
-			if test.compatible && err != nil || !test.compatible && !errors.Is(err, ErrRollbackConfiguration) {
+			if test.compatible && err != nil || !test.compatible && err == nil {
 				t.Fatalf("rollback admission: %v", err)
+			}
+			if test.failure != nil && (!errors.Is(err, test.failure) || errors.Is(err, ErrRollbackConfiguration)) {
+				t.Fatalf("failed execution was classified as configuration incompatibility: %v", err)
+			}
+			if !test.compatible && test.failure == nil && !errors.Is(err, ErrRollbackConfiguration) {
+				t.Fatalf("invalid successful export lost its configuration verdict: %v", err)
 			}
 			if len(runner.plans) != 2 {
 				t.Fatalf("predecessor verification count = %d", len(runner.plans))
