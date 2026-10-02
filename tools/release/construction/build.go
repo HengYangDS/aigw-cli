@@ -175,6 +175,7 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 		"AIGW_BUILD_OS="+request.TargetOS,
 		"AIGW_MACOS_SIGNING_IDENTITY="+request.MacOSSigningIdentity,
 		"AIGW_VERSION="+request.Version,
+		"GORELEASER_CURRENT_TAG=v"+request.Version, // Keep snapshots bound to AIGW SemVer, not mirror tags.
 		"AIGW_RELEASE_EPOCH="+request.Epoch,
 		"AIGW_RELEASE_TIMESTAMP="+instant.Format(time.RFC3339),
 		"AIGW_GITLAB_RELEASE_ORIGIN="+request.GitLabOrigin,

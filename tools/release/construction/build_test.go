@@ -101,7 +101,7 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 			t.Fatalf("OSV arguments missing %q: %v", expected, osv.Args)
 		}
 	}
-	for _, expected := range []string{"AIGW_VERSION=1.2.3", "AIGW_RELEASE_EPOCH=1784246400", "AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example", "AIGW_GITHUB_RELEASE_REPOSITORY=org/aigw-cli"} {
+	for _, expected := range []string{"AIGW_VERSION=1.2.3", "GORELEASER_CURRENT_TAG=v1.2.3", "AIGW_RELEASE_EPOCH=1784246400", "AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example", "AIGW_GITHUB_RELEASE_REPOSITORY=org/aigw-cli"} {
 		goReleaser := calls[slices.IndexFunc(calls, func(call toolCall) bool { return call.Name == "goreleaser" })]
 		if !slices.Contains(goReleaser.Env, expected) {
 			t.Fatalf("GoReleaser environment missing %q: %v", expected, goReleaser.Env)
