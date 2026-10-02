@@ -39,7 +39,7 @@ miseMirror: {
 	resource:         "packages/generic/\(package)/\(version)/"
 	metadataPattern:  "regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$"
 	metadataResource: "release-$1-$2-$3.json"
-	unixDirectory:    "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
+	unixDirectory:    "$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
 	unixPrepare:      #"""
 		set -eu
 		case "${AIGW_TOOL_SOURCE:-upstream}" in

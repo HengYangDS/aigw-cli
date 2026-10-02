@@ -34,24 +34,35 @@ type misePlatformLock struct {
 }
 
 func TestToolchainCacheStaysOutsideGoPackageDiscovery(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	checkout := filepath.Clean(filepath.Join("..", "..", ".."))
+	projections, err := renderProjections(checkout)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var pipeline struct {
 		Linux struct {
-			Variables map[string]string `yaml:"variables"`
-		} `yaml:".linux-toolchain"`
+			Variables map[string]string "yaml:\"variables\""
+		} "yaml:\".linux-toolchain\""
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
+	mirrorOutput, err := projectionCommand(checkout, "miseMirror.unixDirectory").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mirrorTemplate string
+	if err := yaml.Unmarshal(mirrorOutput, &mirrorTemplate); err != nil {
+		t.Fatal(err)
+	}
 	root := t.TempDir()
 	cache := strings.ReplaceAll(pipeline.Linux.Variables["MISE_DATA_DIR"], "$CI_PROJECT_DIR", root)
+	mirror := strings.NewReplacer("$CI_PROJECT_DIR", root, "$CI_JOB_ID", "123").Replace(mirrorTemplate)
 	for path, source := range map[string]string{
-		filepath.Join(root, "go.mod"):                              "module fixture\n",
-		filepath.Join(root, "product.go"):                          "package fixture\n",
-		filepath.Join(cache, "installs", "tool", "src", "tool.go"): "package tool\n",
+		filepath.Join(root, "go.mod"):                                            "module fixture\n",
+		filepath.Join(root, "product.go"):                                        "package fixture\n",
+		filepath.Join(cache, "installs", "tool", "src", "tool.go"):               "package tool\n",
+		filepath.Join(mirror, "mise-data", "installs", "tool", "src", "tool.go"): "package mirrored\n",
 	} {
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 			t.Fatal(err)

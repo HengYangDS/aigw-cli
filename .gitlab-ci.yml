@@ -39,7 +39,7 @@ native-linux:
       : "${CI_JOB_ID:?}"
       : "${CI_JOB_TOKEN:?}"
       : "${CI_PROJECT_DIR:?}"
-      mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
+      mirror_dir="$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
       export MISE_DATA_DIR="$mirror_dir/mise-data"
       export MISE_CACHE_DIR="$mirror_dir/mise-cache"
@@ -70,7 +70,7 @@ native-linux:
       mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
 native-darwin:
   after_script:
-    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"; fi
+    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"; fi
   script:
     - |-
       set -eu
@@ -83,7 +83,7 @@ native-darwin:
       : "${CI_JOB_ID:?}"
       : "${CI_JOB_TOKEN:?}"
       : "${CI_PROJECT_DIR:?}"
-      mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
+      mirror_dir="$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
       export MISE_DATA_DIR="$mirror_dir/mise-data"
       export MISE_CACHE_DIR="$mirror_dir/mise-cache"
@@ -129,7 +129,7 @@ native-darwin:
       - .mise/locks
 native-darwin-review:
   after_script:
-    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"; fi
+    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"; fi
   script:
     - |-
       set -eu
@@ -142,7 +142,7 @@ native-darwin-review:
       : "${CI_JOB_ID:?}"
       : "${CI_JOB_TOKEN:?}"
       : "${CI_PROJECT_DIR:?}"
-      mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
+      mirror_dir="$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
       export MISE_DATA_DIR="$mirror_dir/mise-data"
       export MISE_CACHE_DIR="$mirror_dir/mise-cache"
@@ -509,7 +509,7 @@ stages:
       : "${CI_JOB_ID:?}"
       : "${CI_JOB_TOKEN:?}"
       : "${CI_PROJECT_DIR:?}"
-      mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
+      mirror_dir="$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
       export MISE_DATA_DIR="$mirror_dir/mise-data"
       export MISE_CACHE_DIR="$mirror_dir/mise-cache"
@@ -523,7 +523,7 @@ stages:
       esac
     - env GODEBUG=http2client=0 mise install --locked
   after_script:
-    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"; fi
+    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"; fi
 quality:
   interruptible: true
   extends:
@@ -565,7 +565,7 @@ accepted-ref-parity:
       : "${CI_JOB_ID:?}"
       : "${CI_JOB_TOKEN:?}"
       : "${CI_PROJECT_DIR:?}"
-      mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
+      mirror_dir="$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
       export MISE_DATA_DIR="$mirror_dir/mise-data"
       export MISE_CACHE_DIR="$mirror_dir/mise-cache"
@@ -580,7 +580,7 @@ accepted-ref-parity:
     - env GODEBUG=http2client=0 mise install --locked
     - mise exec --locked -- go run ./tools/forge refs --remote origin --expect "main=$CI_COMMIT_SHA" --expect "dev=$CI_COMMIT_SHA"
   after_script:
-    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"; fi
+    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"; fi
   stage: verify
   tags:
     - ci-macos-arm64-shell
@@ -631,7 +631,7 @@ release-version:
       : "${CI_JOB_ID:?}"
       : "${CI_JOB_TOKEN:?}"
       : "${CI_PROJECT_DIR:?}"
-      mirror_dir="$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"
+      mirror_dir="$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
       export MISE_DATA_DIR="$mirror_dir/mise-data"
       export MISE_CACHE_DIR="$mirror_dir/mise-cache"
@@ -646,7 +646,7 @@ release-version:
     - env GODEBUG=http2client=0 mise install --locked
     - mise exec --locked -- go run ./tools/release validate-version-tag
   after_script:
-    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID"; fi
+    - if [ -n "${CI_PROJECT_DIR:-}" ] && [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"; fi
   stage: verify
   tags:
     - ci-macos-arm64-shell

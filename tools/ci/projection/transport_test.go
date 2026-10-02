@@ -235,7 +235,7 @@ func TestGitLabMiseMirrorUsesCheckoutOwnedPath(t *testing.T) {
 	}
 	prepare, cleanup := pipeline.Review.Script[0], pipeline.Review.AfterScript[0]
 	for _, script := range []string{prepare, cleanup} {
-		if strings.Contains(script, "CI_BUILDS_DIR") || !strings.Contains(script, "$CI_PROJECT_DIR/build/tmp/aigw-mise-mirror-$CI_JOB_ID") {
+		if strings.Contains(script, "CI_BUILDS_DIR") || !strings.Contains(script, "$CI_PROJECT_DIR/build/tmp/.aigw-mise-mirror-$CI_JOB_ID") {
 			t.Fatalf("mirror path must be owned by the absolute checkout: %q", script)
 		}
 	}
@@ -275,7 +275,7 @@ func TestGitLabMiseMirrorUsesCheckoutOwnedPath(t *testing.T) {
 		if output, err := command.CombinedOutput(); err != nil {
 			t.Fatalf("mirror lifecycle: %v\n%s", err, output)
 		}
-		mirror := filepath.Join(project, "build", "tmp", "aigw-mise-mirror-123")
+		mirror := filepath.Join(project, "build", "tmp", ".aigw-mise-mirror-123")
 		if script == prepare {
 			if _, err := os.Stat(filepath.Join(mirror, "netrc")); err != nil {
 				t.Fatalf("mirror was not prepared: %v", err)
