@@ -138,26 +138,20 @@ toolchainTools: {
 	links: ["github:lycheeverse/lychee"]
 	quality: list.Concat([portableQuality, links])
 	// Native Go suites execute real glab against disposable GitLab origins.
-	native: list.Concat([portableQuality, ["github:anchore/syft", "gh", "glab"]])
+	native: list.Concat([quality, ["github:anchore/syft", "gh", "glab"]])
 	secretService: ["go", "github:goreleaser/goreleaser"]
-	fullNative: list.Concat([quality, ["github:anchore/syft", "gh", "glab"]])
 	darwin: ["github:indygreg/apple-platform-rs"]
 }
 
 goToolchain: MISE_ENABLE_TOOLS:      "go"
 qualityToolchain: MISE_ENABLE_TOOLS: strings.Join(toolchainTools.quality, ",")
 nativeToolchain: {
-	darwin: {
-		default: MISE_ENABLE_TOOLS: strings.Join(list.Concat([toolchainTools.native, toolchainTools.links, toolchainTools.darwin]), ",")
-		full: MISE_ENABLE_TOOLS: strings.Join(list.Concat([toolchainTools.fullNative, toolchainTools.darwin]), ",")
-	}
-	linux: {
-		default: MISE_ENABLE_TOOLS: strings.Join(list.Concat([toolchainTools.native, toolchainTools.links]), ",")
-		full: MISE_ENABLE_TOOLS: strings.Join(toolchainTools.fullNative, ",")
-	}
-	windows: {
-		default: MISE_ENABLE_TOOLS: strings.Join(toolchainTools.native, ",")
-		full: MISE_ENABLE_TOOLS:    strings.Join(toolchainTools.fullNative, ",")
+	for platform in ["darwin", "linux", "windows"] {
+		(platform): MISE_ENABLE_TOOLS: strings.Join(list.Concat([
+			toolchainTools.native,
+			if platform == "darwin" {toolchainTools.darwin},
+			if platform != "darwin" {[]},
+		]), ",")
 	}
 }
 
@@ -333,7 +327,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	"runs-on":         nativeEvidence[_platform].github.runner
 	"timeout-minutes": 25
 	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
-	env: MISE_ENABLE_TOOLS: "${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && '\(nativeToolchain[_platform].full.MISE_ENABLE_TOOLS)' || '\(nativeToolchain[_platform].default.MISE_ENABLE_TOOLS)' }}"
+	env:               nativeToolchain[_platform]
 	steps: [
 		#SourceCheckout,
 		#Toolchain,
@@ -667,7 +661,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		"after_script": [miseMirror.unixCleanup]
 	}
 	stage: graph["native-\(_platform)"].stage
-	variables: nativeToolchain[_platform].default & {
+	variables: nativeToolchain[_platform] & {
 		GLAB_NO_PROMPT: "1"
 		if _platform == "windows" {
 			AIGW_VERIFY_SYSTEM_KEYRING: "1"

@@ -34,6 +34,11 @@ TMPDIR=/absolute/path/to/owned/scratch \
   mise exec --locked -- node --test architecture/edition-provider/test/installed.test.mjs
 ```
 
+Repository-wide `ethos prove --execute` also selects the installed test. Set
+both archive variables for that invocation and verify their hashes against
+[selection.json](selection.json) before starting the proof. Missing inputs
+reject the run; the source-only quality graph does not qualify this package.
+
 This installs only the selected local archive in an isolated consumer, offline
 and without lifecycle scripts. No neighboring Publisher checkout is imported.
 The installed test exercises the public `archpub edition build` entry point;

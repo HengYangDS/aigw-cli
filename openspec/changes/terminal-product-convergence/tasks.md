@@ -462,7 +462,14 @@
       duplicate-registration warnings; zero-warning acceptance is unproved.
       Claude 2.1.286 is latest-channel, not stable 2.1.285. External Provider
       inference, peer cold-bootstrap and final current-candidate distribution
-      remain open; keep 5.2 unclosed.
+      remain open; keep 5.2 unclosed. Current `b28ae590` package acceptance as
+      ordinary Linux UID 1003 passes the authentic 0.3.1 predecessor, rollback
+      admission, shipped team manifest, 60-second resource cases and secure-file
+      fallback. All 1,212 source and 17 public input hashes are conserved; owned
+      process groups and guest scratch are absent, with Runner controls restored.
+      Receipts `runner-capacity/aigw-b28-native-Linux-package-acceptance-20261003.json`
+      and its original logs qualify that package scope, not Secret Service,
+      live clients or cold-peer full-tool execution.
 - [x] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
@@ -642,7 +649,22 @@
       current HEAD. The historical stall's root cause is unproved; do not
       attribute it to actionlint or add a workaround. Current-HEAD zero-warning
       proof, installed gate behavior and declared platform acceptance remain
-      pending.
+      pending. At signed `b28ae590`, the complete source gate passes with 95.13%
+      statement coverage and all 1,212 tracked hashes conserved. Exact-HEAD ETHOS
+      proof `6e449d07dd7be39497eebfc431e1612722f224399cd0fbca228211aa483c1920`
+      passes both declared gates with zero diagnostics. The initial behavior
+      attempt lacked the Publisher archive inputs; correct explicit inputs prove
+      all 62 native JavaScript cases. The complete cold-peer quality graph passes
+      on macOS, Linux and Windows in GitHub run `37061096126`. GitLab's complete
+      Windows candidate graph in pipeline `9289` fails before product admission:
+      full quality requires Lychee, but the Windows default tool closure omitted
+      it. One per-platform native closure now replaces the default/full split on
+      both peers. Mise resolves the official Windows x64 Lychee asset for ARM64
+      through its native platform declaration and lock. Distinguishing projection
+      RED/GREEN, the complete projection suite and lint pass; native new-source
+      tool acceptance remains pending. The same b28 package's narrower native
+      Windows pipeline `9290` retains separate evidence and cannot qualify the
+      failed full graph. Other peer/platform and installed obligations stay open.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.
@@ -736,7 +758,11 @@
       failure with a relative one. The CUE owner now anchors Unix tool state and
       cleanup at the physical checkout path; a regression covers relative CI
       metadata, post-change directory use and exact cleanup. Focused projection
-      checks pass; hosted verification of the next exact SHA remains pending.
+      checks pass. Both peers now expose signed `b28ae590`; GitHub review
+      `37059020652` and GitLab MR !178 pipeline `9288` pass all five required jobs
+      on that exact SHA. This closes the current proposal-update event; accepted
+      dev/main and tag events remain separate. Raw peer results are retained in
+      `build/verification/b28ae590bb0098838c24172fcfa3639ceb13efdd/`.
 - [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review
@@ -923,7 +949,16 @@
       Forge observation. The only temporary entry is owner-unknown native
       `node-compile-cache`; it remains preserved. Fresh Forge refs, candidate
       consumer retirement, ETHOS-owned ref retirement, native-cache ownership
-      and final artifact cleanup remain open. The last cached lock snapshot
+      and final artifact cleanup remain open. On October 3, exact owned lane
+      `work/20261002-repository-history-identity` is retired through native receipt
+      `c527e16f`: worktree, ref and Lease are absent, while all commits remain
+      ancestors of `b28ae590`. Seventeen build-evidence files are preserved with
+      identical hashes at their source-commit directory in this lane. The stale
+      empty primary `HEAD.lock` had no open handles or Git process and is removed;
+      recovery completes all three retirement effects. Current status reports
+      zero foreign/unbound/missing-lease lanes. Source, build, native and proof
+      scratch from this batch are removed with original evidence preserved.
+      The last cached lock snapshot
       showed `gh` 2.101.0 on four accepted branch names; retain its assets and
       2.102.0 provenance until fresh peer locks and consumers prove retirement.
 - [x] 8.6 Migrate the Client Projection Edition Provider to the published
@@ -1061,3 +1096,21 @@
       `native-current-hermes-80dbca19-companion-path-*`,
       `terminal-source-full-proof-80dbca19-*` and
       `80dbca19-*-current-recovered-snapshot.*` in the same verification root.
+      Current signed `b28ae590` produces one verified twelve-file matrix with
+      complete checksums, artifact signature and exact source/tree provenance.
+      Its macOS `accept-native --candidate --clients` passes 0.3.1 succession,
+      rollback rejection/recovery, shipped team paths, resource failures/deadline,
+      Codex 0.160, Claude Code 2.1.287, installed Hermes and fourteen general Codex
+      Routes plus its shell tool loop. All 1,212 source hashes are conserved and
+      scratch is absent. Separately, the exact package passes ChatGPT-bundled
+      Codex 0.159.0-alpha.12.1 UCloud Sol 6.1 selection, verify, file-tool and
+      same-session continuation; both turns select `gpt-6.1-sol`. Receipt
+      `ffe5e885-app-runtime-20261003/delivery.json` binds current b28 bytes and
+      preserves the native catalog without inventing model metadata; App GUI
+      remains unproved. Linux package evidence is recorded in 5.2. Windows
+      matrix hashes/ACLs pass on the exact Runner 103 private input root; its
+      original full-quality pipeline `9289` fails before artifact admission on
+      the missing Lychee prerequisite. Independent package pipeline `9290` keeps
+      the same exact b28 matrix and remains pending. Production signing,
+      stable reader identity, final publication/install and Desktop GUI remain
+      separate open obligations.

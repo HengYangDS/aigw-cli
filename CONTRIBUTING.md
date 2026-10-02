@@ -177,6 +177,11 @@ or CUE. Run a deliberate tool upgrade through its native resolver, then restore
 locked operation; the [dependency policy](docs/governance/change-and-release-policy.md#dependency-maintenance)
 owns freshness, age admission and reproducibility.
 
+Repository-wide ETHOS proof includes the installed Client Projection compiler
+test. Follow the [selected Publisher input contract](architecture/edition-provider/README.md#reproduce)
+and provide both exact archive paths in that proof process; `mise run check`
+executes source tests without qualifying the external package.
+
 ### Environment reconstruction
 
 Ordinary source tests check declared tools and an empty-cache rejection, not a
@@ -262,8 +267,11 @@ mise exec --locked -- go run ./tools/ci native --full-quality
 Manual GitHub `native_platform` and GitLab `AIGW_NATIVE_PLATFORM` select
 `all|darwin|linux|windows`; empty means all. Combine with `full_quality` /
 `AIGW_FULL_NATIVE_QUALITY=true` and `refresh_locks` / `AIGW_REFRESH_LOCKS=true`
-for targeted diagnostics. Quality always runs; review, accepted push and tag
-admission still require the full native set. [Manual runs do not substitute
+for targeted diagnostics. Each native job uses one complete tool closure for both
+check modes. Lychee publishes a Windows x64 binary; Mise explicitly selects that
+locked official asset for Windows ARM64, where Windows runs it through x64
+emulation. Product archives retain their declared architecture. Quality always
+runs; review, accepted push and tag admission still require the full native set. [Manual runs do not substitute
 for required PR checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#checks-from-some-workflow-jobs-are-not-evaluated).
 GitLab `AIGW_COMMIT_BASE` is an exclusive base; omitted means the selected
 commit's first parent. Missing author/signer trust fails before other gates.

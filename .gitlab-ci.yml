@@ -14,7 +14,7 @@ native-linux:
   variables:
     CGO_ENABLED: "1"
     GLAB_NO_PROMPT: "1"
-    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee
+    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
   artifacts:
     when: always
     paths:
@@ -119,7 +119,7 @@ native-darwin:
   stage: verify
   variables:
     GLAB_NO_PROMPT: "1"
-    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee,github:indygreg/apple-platform-rs
+    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab,github:indygreg/apple-platform-rs
   artifacts:
     when: always
     paths:
@@ -176,7 +176,7 @@ native-darwin-review:
   stage: verify
   variables:
     GLAB_NO_PROMPT: "1"
-    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee,github:indygreg/apple-platform-rs
+    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab,github:indygreg/apple-platform-rs
   artifacts:
     when: always
     paths:
@@ -305,7 +305,7 @@ native-windows:
   variables:
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
     GLAB_NO_PROMPT: "1"
-    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab
+    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
   artifacts:
     when: always
     paths:
@@ -433,7 +433,7 @@ native-windows-review:
   variables:
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
     GLAB_NO_PROMPT: "1"
-    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab
+    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
   artifacts:
     when: always
     paths:

@@ -224,7 +224,7 @@ func checkGitLabNativeToolClosure(t *testing.T, content string) {
 	} {
 		enabled := strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ",")
 		// The native Go suite includes real glab loopback tests in internal/upgrade.
-		for _, tool := range []string{"go", "node", "npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "gh", "glab"} {
+		for _, tool := range []string{"go", "node", "npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "github:lycheeverse/lychee", "gh", "glab"} {
 			if !slices.Contains(enabled, tool) {
 				t.Errorf("GitLab %s lacks native acceptance tool %s", name, tool)
 			}
@@ -256,7 +256,7 @@ func checkGitHubNativeToolClosure(t *testing.T, projection projection) {
 	for _, name := range []string{"native-darwin", "native-linux", "native-windows"} {
 		job := workflow.Jobs[name]
 		tools := job.Env["MISE_ENABLE_TOOLS"]
-		for _, required := range []string{"go,node,npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "gh", "glab", "inputs.full_quality"} {
+		for _, required := range []string{"go,node,npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "github:lycheeverse/lychee", "gh", "glab"} {
 			if !strings.Contains(tools, required) {
 				t.Errorf("%s %s tool closure lacks %q: %q", projection.Path, name, required, tools)
 			}
@@ -298,23 +298,14 @@ func TestGitHubWindowsUsesThePortableNativeToolClosure(t *testing.T) {
 	if job.RunsOn.Value != runner {
 		t.Fatalf("native Windows runner selector = %q, want %q", job.RunsOn.Value, runner)
 	}
-	tools := job.Env["MISE_ENABLE_TOOLS"]
-	if !strings.Contains(tools, "inputs.full_quality") || !strings.Contains(tools, "github:lycheeverse/lychee") {
-		t.Errorf("hosted full-quality closure is not selectable: %q", tools)
-	}
-	_, defaultTools, ok := strings.Cut(tools, " || '")
-	if !ok {
-		t.Fatalf("native Windows tool selection has no explicit default: %q", tools)
-	}
-	for _, required := range []string{"go,node,npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft"} {
-		if !strings.Contains(defaultTools, required) {
-			t.Errorf("native Windows default tool closure lacks %q: %q", required, defaultTools)
+	tools := strings.Split(job.Env["MISE_ENABLE_TOOLS"], ",")
+	for _, required := range []string{"go", "node", "npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "github:lycheeverse/lychee"} {
+		if !slices.Contains(tools, required) {
+			t.Errorf("native Windows tool closure lacks %q: %q", required, tools)
 		}
 	}
-	for _, unsupported := range []string{"github:indygreg/apple-platform-rs", "github:lycheeverse/lychee"} {
-		if strings.Contains(strings.TrimSuffix(defaultTools, "' }}"), unsupported) {
-			t.Errorf("Windows ARM64 default tool closure contains unsupported %q: %q", unsupported, tools)
-		}
+	if slices.Contains(tools, "github:indygreg/apple-platform-rs") {
+		t.Errorf("Windows tool closure contains the macOS signer: %q", tools)
 	}
 }
 
