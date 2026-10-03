@@ -22,17 +22,28 @@ import (
 
 // externalCredentialRunner suppresses unknown external-helper credentials on
 // failure while retaining the existing verifier's response-marker semantics.
-type externalCredentialRunner struct{ runner process.CaptureRunner }
+type externalCredentialRunner struct{ runner process.VerificationRunner }
 
 func (runner externalCredentialRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
-	output, err := runner.runner.RunCapture(ctx, plan)
+	output, diagnostic, err := runner.RunCaptureStreams(ctx, plan)
 	if err != nil {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		return nil, fmt.Errorf("external credential client failed; diagnostics suppressed")
+		return diagnostic, err
 	}
 	return output, nil
+}
+
+func (runner externalCredentialRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	output, diagnostic, err := runner.runner.RunCaptureStreams(ctx, plan)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, nil, ctx.Err()
+		}
+		return nil, nil, fmt.Errorf("external credential client failed; diagnostics suppressed")
+	}
+	if process.DiagnosticFailure(diagnostic) {
+		return output, []byte("warning or error: external credential client diagnostics suppressed"), nil
+	}
+	return output, nil, nil
 }
 
 func retainedDefaultReader(current string, external bool, observe func() (string, error)) (string, error) {

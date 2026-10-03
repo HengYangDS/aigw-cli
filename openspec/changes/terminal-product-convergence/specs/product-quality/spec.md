@@ -32,6 +32,14 @@ SHALL NOT erase captured diagnostic output or establish warning-free acceptance.
 - **AND** native journey evidence SHALL expose redacted diagnostic output
 - **AND** a stdout-only API MAY retain its explicit result-only success contract.
 
+#### Scenario: Successful native inference emits a capability warning
+
+- **WHEN** Codex, Claude or Hermes exits zero but reports an explicit native stderr warning, error or traceback
+- **THEN** public verification SHALL report incomplete qualification without exposing private diagnostics
+- **AND** verification SHALL NOT write a successful checkpoint or claim unproved inference
+- **AND** missing native model metadata SHALL remain visible without fabricated catalogue entries
+- **AND** ordinary version, session and progress stderr SHALL NOT become a warning failure.
+
 ### Requirement: Dependency evidence binds the selected lockfiles
 
 The release scanner invocation and report admission SHALL share one exact

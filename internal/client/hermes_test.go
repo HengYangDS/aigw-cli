@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -268,6 +269,20 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 			}, cfg, clientRuntime, "")
 			if err == nil || err.Error() != test.want {
 				t.Fatalf("Hermes version probe error = %v, want %q", err, test.want)
+			}
+		})
+	}
+	for _, stage := range []int{1, 2} {
+		t.Run(fmt.Sprintf("diagnostic stage=%d", stage), func(t *testing.T) {
+			probe := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
+			probe.observe = func(process.Plan) {
+				if probe.calls+1 == stage {
+					probe.stderr = []byte("warning: secret=must-not-leak native capability incomplete\n")
+				}
+			}
+			_, err := (hermesAdapter{}).Verify(t.Context(), Dependencies{Runner: probe, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, clientRuntime, "")
+			if err == nil || !strings.Contains(err.Error(), "warning") || strings.Contains(err.Error(), "must-not-leak") {
+				t.Fatalf("Hermes diagnostic result = %v", err)
 			}
 		})
 	}

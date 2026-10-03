@@ -97,7 +97,7 @@ type ConfigStore interface {
 type Synchronizer struct {
 	Config                       ConfigStore
 	Secrets                      secrets.Store
-	Runner                       process.CaptureRunner
+	Runner                       process.VerificationRunner
 	Discovery                    discovery.Discoverer
 	Registry                     client.Registry
 	ClaudeSettingsPath           string

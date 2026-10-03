@@ -420,6 +420,13 @@ its expected rejection. Configuration schema, complete inventory, output failure
 warnings are tested through their owners; self-green cannot prove hosted admission,
 visual rendering, live Provider or installation.
 
+Public client verification requires both bounded process streams. Explicit native
+stderr warnings, errors and tracebacks prevent successful qualification and
+checkpoint publication, even after an exit-zero response. Ordinary stderr progress remains admissible;
+private diagnostic content never reaches the public error. Unknown native model
+metadata is an incomplete client contract, not permission to fabricate a catalogue
+or call successful transport complete qualification.
+
 Correctness includes vet nilness/unused-write and checked dynamic assertions; concrete
 fixtures should not recover known types from broad interfaces. Discarded errors need
 owner-specific justification. Progress output must be writable before executing gates.

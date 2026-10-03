@@ -18,6 +18,7 @@ import (
 
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/codex"
+	codexcatalog "aigw-cli/internal/codex/catalog"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
@@ -65,7 +66,13 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 		t.Run(routeID, func(t *testing.T) {
 			before := completions[route.UpstreamModel].Load()
 			journey.testing = t
-			journey.run("verify", "--for", configuration.ClientCodex, "--route", routeID)
+			ctx, cancel := context.WithTimeout(t.Context(), clientverification.ProtocolTimeout)
+			defer cancel()
+			stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
+				Executable: journey.binary, Env: journey.environment,
+				Args: []string{"verify", "--for", configuration.ClientCodex, "--route", routeID},
+			})
+			requireNativeCodexRouteOutcome(t, executable, route, stdout, stderr, err, token)
 			if completions[route.UpstreamModel].Load() != before+1 {
 				t.Fatalf("Codex did not complete exactly one request for upstream model %q", route.UpstreamModel)
 			}
@@ -102,6 +109,29 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 }
 
+func requireNativeCodexRouteOutcome(t *testing.T, executable string, route configuration.Route, stdout, stderr []byte, runErr error, token string) {
+	t.Helper()
+	if runErr == nil {
+		if !bytes.Contains(stdout, []byte("Completed")) || process.DiagnosticFailure(stderr) {
+			t.Fatalf("native Route verification did not complete cleanly: %s", redaction.Text(string(stderr), token))
+		}
+		return
+	}
+	diagnostic := string(stdout) + string(stderr)
+	if !strings.Contains(diagnostic, "model-metadata warning") {
+		t.Fatalf("native Route verification: %v\n%s", runErr, redaction.Text(diagnostic, token))
+	}
+	_, bundled, err := codex.ReadBundledCatalog(executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	document, err := codexcatalog.Parse(bundled)
+	if err != nil || document.Model(route.Model) != nil {
+		t.Fatalf("model-metadata refusal is not supported by the native catalogue: %v", err)
+	}
+	t.Logf("Route %s issued the native request; metadata qualification remains incomplete", route.ID)
+}
+
 func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	t.Helper()
 	const (
@@ -133,6 +163,26 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	journey.run("setup", "--from", journey.manifest)
 	journey.run("use", "--for", configuration.ClientCodex, routeID)
 	journey.enableNativeClient(configuration.ClientCodex, executable)
+	// Public verification must not turn this client's missing metadata into a
+	// completed checkpoint. The direct tool loop below proves its narrower use.
+	checkpoint := journey.config + ".verified.json"
+	beforeCheckpoint, err := os.ReadFile(checkpoint)
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), clientverification.ProtocolTimeout)
+	defer cancel()
+	stdout, stderr, verifyErr := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
+		Executable: journey.binary, Env: journey.environment,
+		Args: []string{"verify", "--for", configuration.ClientCodex},
+	})
+	requireNativeCodexRouteOutcome(t, executable, p.manifest.Routes[routeID], stdout, stderr, verifyErr, token)
+	if verifyErr == nil {
+		t.Fatal("Grok native metadata warning was accepted as complete verification")
+	}
+	if afterCheckpoint, err := os.ReadFile(checkpoint); err != nil && !os.IsNotExist(err) || !bytes.Equal(beforeCheckpoint, afterCheckpoint) {
+		t.Fatalf("incomplete metadata changed the verification checkpoint: %v", err)
+	}
 	cfg, err := configuration.NewStore(journey.config).Load()
 	if err != nil {
 		t.Fatal(err)

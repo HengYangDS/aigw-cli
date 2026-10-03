@@ -178,6 +178,10 @@ type fakeRunner struct{}
 
 func (fakeRunner) RunCapture(context.Context, process.Plan) ([]byte, error) { return nil, nil }
 
+func (fakeRunner) RunCaptureStreams(context.Context, process.Plan) ([]byte, []byte, error) {
+	return nil, nil, nil
+}
+
 type fakeDiscoverer struct{}
 
 func (fakeDiscoverer) Discover() discovery.Result { return discovery.Result{} }

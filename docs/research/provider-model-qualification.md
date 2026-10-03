@@ -390,6 +390,12 @@ and verify them through Codex. AIGW does not invent missing Codex catalogue
 metadata, alter an existing Desktop conversation's model, or infer that the
 upstream Account is currently available from this local-client result.
 
+Codex 0.160 still omits Grok 4.7 from its bundled metadata. Its controlled native
+tool loop succeeds but emits a fallback-metadata warning. Public `aigw verify`
+therefore reports incomplete native qualification and does not update a successful
+checkpoint; it does not invent an entry to silence Codex. Functional inference,
+native metadata, the chooser, and current upstream availability are separate claims.
+
 Every Claude Route in the [shipped team manifest](../../manifests/team.toml)
 currently declares only an Anthropic interface, whereas Codex's
 [custom-provider contract](https://learn.chatgpt.com/docs/config-file/config-reference#configtoml)

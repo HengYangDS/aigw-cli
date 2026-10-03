@@ -13,6 +13,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 // Runner executes process plans without consulting shell startup state.
@@ -26,6 +28,29 @@ type Runner struct {
 // and standard error with an execution error.
 type CaptureRunner interface {
 	RunCapture(ctx context.Context, plan Plan) ([]byte, error)
+}
+
+// VerificationRunner preserves both streams so a successful native warning
+// cannot be mistaken for completed verification.
+type VerificationRunner interface {
+	CaptureRunner
+	RunCaptureStreams(ctx context.Context, plan Plan) ([]byte, []byte, error)
+}
+
+// DiagnosticFailure reports explicit native warning or error markers, not
+// ordinary stderr progress or arbitrary response text.
+func DiagnosticFailure(diagnostic []byte) bool {
+	for line := range strings.SplitSeq(strings.ToLower(ansi.Strip(string(diagnostic))), "\n") {
+		fields := strings.FieldsFunc(line, func(r rune) bool {
+			return r <= ' ' || strings.ContainsRune("[]():", r)
+		})
+		for _, field := range fields {
+			if field == "warn" || field == "error" || field == "fatal" || field == "traceback" || strings.HasSuffix(field, "warning") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // FileRunner streams a process's standard output into an owned file.

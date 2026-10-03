@@ -66,7 +66,7 @@ type App struct {
 	Err                io.Writer
 	Interactive        bool
 	Color              bool
-	Runner             process.CaptureRunner
+	Runner             process.VerificationRunner
 	HTTP               invocation.HTTPDoer
 	Prompt             invocation.Prompter
 	Discovery          discovery.Discoverer

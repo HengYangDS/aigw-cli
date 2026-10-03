@@ -54,7 +54,7 @@ type Context struct {
 	Color              bool
 	Width              int
 	Interactive        bool
-	Runner             process.CaptureRunner
+	Runner             process.VerificationRunner
 	HTTP               HTTPDoer
 	Prompt             Prompter
 	Discovery          discovery.Discoverer

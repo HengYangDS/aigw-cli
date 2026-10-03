@@ -174,6 +174,11 @@ type routeVerificationRunner struct {
 	config []byte
 }
 
+func (runner *routeVerificationRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	output, err := runner.RunCapture(ctx, plan)
+	return output, nil, err
+}
+
 func (runner *routeVerificationRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
 	runner.plans = append(runner.plans, plan)
 	if slices.Equal(plan.Args, []string{"--version"}) {

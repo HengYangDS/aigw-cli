@@ -31,7 +31,7 @@ type DiscoverySource interface {
 // Dependencies are the shared capabilities supplied to one adapter operation.
 type Dependencies struct {
 	Secrets                      secrets.Store
-	Runner                       process.CaptureRunner
+	Runner                       process.VerificationRunner
 	Discovery                    discovery.Discoverer
 	ClaudeSettingsPath           string
 	AIGWExecutable               string

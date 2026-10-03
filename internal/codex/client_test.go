@@ -15,6 +15,7 @@ import (
 
 type identityCaptureRunner struct {
 	output []byte
+	stderr []byte
 	err    error
 	plan   process.Plan
 }
@@ -24,12 +25,30 @@ func (runner *identityCaptureRunner) RunCapture(_ context.Context, plan process.
 	return runner.output, runner.err
 }
 
+func (runner *identityCaptureRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	output, err := runner.RunCapture(ctx, plan)
+	return output, runner.stderr, err
+}
+
+func TestIdentifyExecutableRejectsNativeDiagnostics(t *testing.T) {
+	executable := filepath.Join(t.TempDir(), "codex")
+	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, diagnostic := range []string{"warning: invalid configuration\n", "ERROR client startup failed\n"} {
+		runner := &identityCaptureRunner{output: []byte("codex-cli 1.2.3\n"), stderr: []byte(diagnostic)}
+		if _, err := IdentifyExecutable(t.Context(), runner, executable, t.TempDir()); err == nil {
+			t.Fatal("native diagnostics qualified executable identity")
+		}
+	}
+}
+
 func TestIdentifyExecutableRejectsIncompleteOrUnobservableIdentity(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "missing-codex")
 	for _, test := range []struct {
 		name       string
 		executable string
-		runner     process.CaptureRunner
+		runner     process.VerificationRunner
 		want       string
 	}{
 		{name: "missing executable", runner: &identityCaptureRunner{}, want: "not configured"},

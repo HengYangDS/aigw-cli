@@ -40,6 +40,15 @@ func (r *recordingRunner) RunCapture(_ context.Context, plan process.Plan) ([]by
 
 type runnerFunc func(context.Context, process.Plan) error
 
+func (r *recordingRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	output, err := r.RunCapture(ctx, plan)
+	return output, nil, err
+}
+
+func (run runnerFunc) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	return nil, nil, run(ctx, plan)
+}
+
 func (run runnerFunc) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
 	return nil, run(ctx, plan)
 }

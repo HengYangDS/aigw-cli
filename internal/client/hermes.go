@@ -376,7 +376,7 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 	probeCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
 	defer cancel()
 	probe := process.Plan{Executable: configured.Executable, Directory: home, Env: environment, Args: []string{"--version"}}
-	version, err := deps.Runner.RunCapture(probeCtx, probe)
+	version, diagnostic, err := deps.Runner.RunCaptureStreams(probeCtx, probe)
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
@@ -387,11 +387,17 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 			return Verification{}, errors.New("hermes version probe failed")
 		}
 	}
+	if process.DiagnosticFailure(diagnostic) {
+		return Verification{}, errors.New("hermes emitted a native-client warning or error; verification is incomplete; diagnostics suppressed")
+	}
 	probe.Args = []string{"chat", "--quiet", "--query-file", "-", "--oneshot", "--max-turns", "1", "--run-budget", "45", "--ignore-rules", "--source", "tool"}
 	probe.Stdin = "Reply with exactly AIGW_OK."
-	response, err := deps.Runner.RunCapture(probeCtx, probe)
+	response, diagnostic, err := deps.Runner.RunCaptureStreams(probeCtx, probe)
 	if err != nil {
 		return Verification{}, errors.Join(errors.New("hermes inference failed; external credential diagnostics suppressed"), probeCtx.Err())
+	}
+	if process.DiagnosticFailure(diagnostic) {
+		return Verification{}, errors.New("hermes emitted a native-client warning or error; verification is incomplete; diagnostics suppressed")
 	}
 	if !strings.Contains(string(response), "AIGW_OK") {
 		return Verification{}, errors.New("hermes model response did not return the expected AIGW_OK verification marker")

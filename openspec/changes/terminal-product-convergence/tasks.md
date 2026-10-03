@@ -902,6 +902,19 @@
       output, private canary suppression and equal-version identity refusal.
       Platform, native-store and formal-distribution evidence remains in 5.x
       and 9.3; measured performance warnings remain in 6.6.
+      The exact `fe8b86fc` public Codex probe loses its successful Grok warning
+      through the single-stream consumer and prints Completed. A distinguishing
+      CLI RED also writes a successful checkpoint. Public native verification
+      now requires two-stream capture and rejects explicit stderr warnings, error markers and
+      tracebacks with fixed private-safe results. Codex identity, Claude and
+      Hermes probes plus external credential privacy share that contract;
+      ordinary stderr progress and clean final markers still pass. Wrong or
+      missing final responses with metadata warnings never claim completed
+      inference. Native catalogue absence remains explicit; no model or wire
+      identity is fabricated. Focused package, privacy and CLI checkpoint
+      regressions pass; final new-byte native acceptance remains required.
+      This contract does not classify arbitrary model response prose as a
+      diagnostic; any stdout diagnostic claim requires its native output contract.
 
 ## 7. CI and Dual-Peer Admission
 

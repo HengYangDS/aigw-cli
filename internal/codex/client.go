@@ -31,7 +31,7 @@ func (identity ExecutableIdentity) same(other ExecutableIdentity) bool {
 
 // IdentifyExecutable measures a Codex executable through its public version
 // command and the bytes at the configured path.
-func IdentifyExecutable(ctx context.Context, runner process.CaptureRunner, executable, codexHome string) (ExecutableIdentity, error) {
+func IdentifyExecutable(ctx context.Context, runner process.VerificationRunner, executable, codexHome string) (ExecutableIdentity, error) {
 	if strings.TrimSpace(executable) == "" {
 		return ExecutableIdentity{}, fmt.Errorf("Codex executable is not configured")
 	}
@@ -42,13 +42,16 @@ func IdentifyExecutable(ctx context.Context, runner process.CaptureRunner, execu
 	if err != nil {
 		return ExecutableIdentity{}, err
 	}
-	output, err := runner.RunCapture(ctx, process.Plan{
+	output, diagnostic, err := runner.RunCaptureStreams(ctx, process.Plan{
 		Executable: executable,
 		Args:       []string{"--version"},
 		Env:        codexEnvironment(codexHome),
 	})
 	if err != nil {
 		return ExecutableIdentity{}, fmt.Errorf("inspect Codex version: %w", err)
+	}
+	if process.DiagnosticFailure(diagnostic) {
+		return ExecutableIdentity{}, fmt.Errorf("Codex version probe emitted a native-client warning or error; executable identity is unqualified")
 	}
 	version := strings.TrimSpace(string(output))
 	if version == "" {

@@ -151,6 +151,14 @@ func TestMissingCodexTargetRetainsExplicitIntentAndCredentialPolicy(t *testing.T
 
 type rejectingClient struct{ calls int }
 
+func (runner *rejectingClient) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	output, err := runner.RunCapture(ctx, plan)
+	if err != nil {
+		return nil, output, err
+	}
+	return output, nil, nil
+}
+
 func (runner *rejectingClient) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
 	runner.calls++
 	if reflect.DeepEqual(plan.Args, []string{"--version"}) {
