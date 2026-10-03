@@ -2,9 +2,11 @@ package construction
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -90,8 +92,8 @@ func TestDependencyEvidenceBindsFixesToPackageAndVersionScheme(t *testing.T) {
 	}
 }
 
-func dependencyReportFixture(root string) ([]byte, error) {
-	return json.Marshal(osvFixtureReport{
+func dependencyReportFixture(root string) osvFixtureReport {
+	return osvFixtureReport{
 		ExperimentalConfig: map[string]string{"credential": "must-not-survive"},
 		Results: []osvFixtureResult{
 			{
@@ -113,7 +115,7 @@ func dependencyReportFixture(root string) ([]byte, error) {
 				}},
 			},
 		},
-	})
+	}
 }
 
 func TestNormalizeDependencyEvidenceRemovesHostAndVolatileMetadata(t *testing.T) {
@@ -122,7 +124,7 @@ func TestNormalizeDependencyEvidenceRemovesHostAndVolatileMetadata(t *testing.T)
 		t.Fatal(err)
 	}
 	raw := filepath.Join(t.TempDir(), "osv.json")
-	encoded, err := dependencyReportFixture(root)
+	encoded, err := json.Marshal(dependencyReportFixture(root))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +258,7 @@ func TestDependencyEvidenceRequiresCompleteSelectedSources(t *testing.T) {
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			root := t.TempDir()
-			encoded, err := dependencyReportFixture(root)
+			encoded, err := json.Marshal(dependencyReportFixture(root))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -309,6 +311,57 @@ func TestDependencyEvidenceRequiresCompleteSelectedSources(t *testing.T) {
 				if _, err := os.Stat(target); !os.IsNotExist(err) {
 					t.Fatalf("incomplete scan wrote accepted evidence: %s, %v", target, err)
 				}
+			}
+		})
+	}
+}
+
+func TestReleaseDependencyAdmissionPrecedesArtifactConstruction(t *testing.T) {
+	for _, failure := range []string{"scanner failure", "malformed report", "incomplete scope"} {
+		t.Run(failure, func(t *testing.T) {
+			root := releaseRoot(t)
+			output := filepath.Join(root, "dist")
+			if err := os.Mkdir(output, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			accepted := filepath.Join(output, "accepted")
+			if err := os.WriteFile(accepted, []byte("previous release"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			var calls []string
+			err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: "unused"}, func(call toolCall) error {
+				calls = append(calls, call.Name)
+				switch call.Name {
+				case "git":
+					return nil
+				case "goreleaser":
+					return populatePortableStage(t, call, "1.2.3", "portable_linux_amd64/aigw")
+				case "syft":
+					path := strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json=")
+					return os.WriteFile(path, spdxFixture(t, filepath.Dir(path), "1.2.3"), 0o600)
+				case "osv-scanner":
+					if failure == "scanner failure" {
+						return errors.New("scanner failure")
+					}
+					content := `{"results":[]}`
+					if failure == "malformed report" {
+						content = "{"
+					}
+					return os.WriteFile(call.Args[len(call.Args)-1], []byte(content), 0o600)
+				default:
+					t.Fatalf("unadmitted dependencies reached %s", call.Name)
+					return nil
+				}
+			})
+			if err == nil || !slices.Equal(calls, []string{"git", "osv-scanner"}) {
+				t.Fatalf("dependency failure reached artifact construction: error=%v calls=%v", err, calls)
+			}
+			if content, err := os.ReadFile(accepted); err != nil || string(content) != "previous release" {
+				t.Fatalf("dependency refusal changed accepted output: %q, %v", content, err)
+			}
+			workspaces, err := filepath.Glob(filepath.Join(root, ".aigw-release-*"))
+			if err != nil || len(workspaces) != 0 {
+				t.Fatalf("dependency refusal left workspace residue: %v, %v", workspaces, err)
 			}
 		})
 	}

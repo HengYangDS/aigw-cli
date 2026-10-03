@@ -42,47 +42,8 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 	key := signingKey(t)
 	output := filepath.Join(root, "dist")
 	var calls []toolCall
-	var names []string
-	runner := func(call toolCall) error {
-		calls = append(calls, call)
-		names = append(names, call.Name)
-		if call.Name == "git" && slices.Contains(call.Args, "status") {
-			return nil
-		}
-		if call.Name == "goreleaser" {
-			return populatePortableStage(t, call, "1.2.3", "portable_darwin_arm64_v8.0/aigw")
-		}
-		if call.Name == "syft" {
-			if call.Args[1] != "dir:"+goReleaserStage(t, calls[1].Args) ||
-				!slices.Contains(call.Args, "go-module-binary-cataloger,file") {
-				t.Fatalf("SBOM must catalog the complete native binary matrix: %v", call.Args)
-			}
-			path := strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json=")
-			return os.WriteFile(path, spdxFixture(t, filepath.Dir(path), "1.2.3"), 0o600)
-		}
-		if call.Name == "osv-scanner" {
-			path := call.Args[slices.Index(call.Args, "--output-file")+1]
-			encoded, err := dependencyReportFixture(root)
-			if err != nil {
-				return err
-			}
-			return os.WriteFile(path, encoded, 0o600)
-		}
-		if call.Name == "git" {
-			value := strings.Repeat("a", 40) + "\n"
-			if slices.Contains(call.Args, "HEAD^{tree}") {
-				value = strings.Repeat("b", 40) + "\n"
-			}
-			_, err := call.Stdout.Write([]byte(value))
-			return err
-		}
-		if call.Name == "ssh-keygen" {
-			command := exec.Command(call.Name, call.Args...)
-			command.Dir = call.Directory
-			return command.Run()
-		}
-		return nil
-	}
+	fault := ""
+	runner := releaseFixtureRunner(t, root, &calls, &fault)
 	request := buildRequest{
 		Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400",
 		GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/aigw-cli",
@@ -92,7 +53,11 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 	if err := buildRelease(t.Context(), request, runner); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(names, []string{"git", "goreleaser", "syft", "osv-scanner", "git", "git", "ssh-keygen"}) {
+	names := make([]string, len(calls))
+	for index, call := range calls {
+		names[index] = call.Name
+	}
+	if !slices.Equal(names, []string{"git", "osv-scanner", "goreleaser", "syft", "git", "git", "ssh-keygen"}) {
 		t.Fatalf("calls = %#v", calls)
 	}
 	osv := calls[slices.IndexFunc(calls, func(call toolCall) bool { return call.Name == "osv-scanner" })]
@@ -486,5 +451,48 @@ func TestReleaseBuildPropagatesToolFailureAndNeverPublishesPartialMatrix(t *test
 	entries, readErr := os.ReadDir(output)
 	if readErr != nil || len(entries) != 1 || entries[0].Name() != "accepted" {
 		t.Fatalf("previous output was not preserved atomically: entries=%v error=%v", entries, readErr)
+	}
+}
+
+func TestReleaseBuildPropagatesChecksumAndMatrixFailures(t *testing.T) {
+	root := releaseRoot(t)
+	for _, name := range []string{"go.mod", "go.sum", "package-lock.json", "mise.lock"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("fixture"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "mise.toml"), []byte("[tools]\ngo = \"1.27.1\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var calls []toolCall
+	fault := ""
+	runner := releaseFixtureRunner(t, root, &calls, &fault)
+	output := filepath.Join(root, "dist")
+	request := buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}
+	if err := buildRelease(t.Context(), request, runner); err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := os.ReadFile(filepath.Join(output, "checksums.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, failure := range []string{"missing artifact", "unexpected artifact"} {
+		t.Run(failure, func(t *testing.T) {
+			fault, calls = failure, nil
+			err := buildRelease(t.Context(), request, runner)
+			if err == nil || (failure == "missing artifact" && !errors.Is(err, os.ErrNotExist)) || (failure == "unexpected artifact" && !strings.Contains(err.Error(), "unexpected")) {
+				t.Fatalf("invalid artifact matrix was not rejected: %v", err)
+			}
+			if current, err := os.ReadFile(filepath.Join(output, "checksums.txt")); err != nil || string(current) != string(accepted) {
+				t.Fatalf("invalid artifact matrix changed accepted output: %q, %v", current, err)
+			}
+			if err := artifact.ValidateMatrix(t.Context(), output, request.Version); err != nil {
+				t.Fatal(err)
+			}
+			workspaces, err := filepath.Glob(filepath.Join(root, ".aigw-release-*"))
+			if err != nil || len(workspaces) != 0 {
+				t.Fatalf("invalid artifact matrix left workspace residue: %v, %v", workspaces, err)
+			}
+		})
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
+	"cmp"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -248,13 +250,20 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 	version := "1.2.3"
 	expected := make(map[string]string)
 	var sbom []byte
+	var finalSBOM string
 	observed := errors.New("native SBOM observed before other release evidence")
 	err := buildRelease(t.Context(), buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: version, Epoch: "1784246400", SigningKey: "unused"}, func(call toolCall) error {
 		switch call.Name {
 		case "git":
+			if slices.Contains(call.Args, "HEAD^{commit}") {
+				var readErr error
+				sbom, readErr = os.ReadFile(finalSBOM)
+				return cmp.Or(readErr, observed)
+			}
 			return nil
 		case "goreleaser":
 			stage := goReleaserStage(t, call.Args)
+			finalSBOM = filepath.Join(filepath.Dir(stage), "artifacts", "aigw_"+version+".spdx.json")
 			for _, archive := range artifact.Archives(version) {
 				platform := strings.Split(strings.TrimSuffix(strings.TrimSuffix(archive, ".tar.gz"), ".zip"), "_")
 				name := "aigw"
@@ -287,13 +296,7 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 			}
 			return nil
 		case "osv-scanner":
-			stage := filepath.Dir(call.Args[len(call.Args)-1])
-			var err error
-			sbom, err = os.ReadFile(filepath.Join(filepath.Dir(stage), "artifacts", "aigw_"+version+".spdx.json"))
-			if err != nil {
-				t.Fatal(err)
-			}
-			return observed
+			return writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(root))
 		default:
 			return fmt.Errorf("unexpected release tool %s", call.Name)
 		}
@@ -329,5 +332,91 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 	}
 	if len(expected) != 0 {
 		t.Fatalf("SBOM omitted platform artifacts: %v", expected)
+	}
+}
+
+func TestReleaseBuildPropagatesPostBuildValidationFailures(t *testing.T) {
+	for _, boundary := range []string{"decode Syft", "selected lockfiles"} {
+		t.Run(boundary, func(t *testing.T) {
+			root := releaseRoot(t)
+			output := filepath.Join(root, "dist")
+			if err := os.Mkdir(output, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			accepted := filepath.Join(output, "accepted")
+			if err := os.WriteFile(accepted, []byte("previous release"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			valid := buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: "unused"}
+			err := buildRelease(t.Context(), valid, func(call toolCall) error {
+				switch call.Name {
+				case "git":
+					return nil
+				case "goreleaser":
+					return populatePortableStage(t, call, valid.Version, "portable_linux_amd64/aigw")
+				case "syft":
+					data := spdxFixture(t, filepath.Dir(strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json=")), valid.Version)
+					if boundary == "decode Syft" {
+						data = []byte("{")
+					}
+					return os.WriteFile(strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json="), data, 0o600)
+				case "osv-scanner":
+					content, err := json.Marshal(dependencyReportFixture(root))
+					if err != nil {
+						return err
+					}
+					if boundary == "selected lockfiles" {
+						content = []byte(`{"results":[]}`)
+					}
+					return os.WriteFile(call.Args[len(call.Args)-1], content, 0o600)
+				default:
+					t.Fatalf("invalid evidence reached later release tool %s", call.Name)
+					return nil
+				}
+			})
+			if err == nil || !strings.Contains(err.Error(), boundary) {
+				t.Fatalf("release validation error = %v, want %s", err, boundary)
+			}
+			if data, err := os.ReadFile(accepted); err != nil || string(data) != "previous release" {
+				t.Fatalf("invalid evidence changed accepted output: %q, %v", data, err)
+			}
+			entries, err := os.ReadDir(output)
+			if err != nil || len(entries) != 1 {
+				t.Fatalf("partial evidence published: %v, %v", entries, err)
+			}
+			workspaces, err := filepath.Glob(filepath.Join(root, ".aigw-release-*"))
+			if err != nil || len(workspaces) != 0 {
+				t.Fatalf("failed release left workspace residue: %v, %v", workspaces, err)
+			}
+		})
+	}
+}
+
+func TestReleaseSBOMRequiresPortableBinaries(t *testing.T) {
+	valid := buildRequest{Root: releaseRoot(t), Output: filepath.Join(t.TempDir(), "dist"), Version: "1.2.3", Epoch: "1784246400", SigningKey: "unused"}
+	err := buildRelease(t.Context(), valid, func(call toolCall) error {
+		if call.Name == "osv-scanner" {
+			return writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(valid.Root))
+		}
+		if call.Name == "syft" {
+			path := strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json=")
+			return os.WriteFile(path, []byte(`{"spdxVersion":"SPDX-2.3"}`), 0o600)
+		}
+		if call.Name != "goreleaser" {
+			return nil
+		}
+		stage := goReleaserStage(t, call.Args)
+		if err := os.MkdirAll(stage, 0o700); err != nil {
+			return err
+		}
+		for _, name := range artifact.Archives(valid.Version) {
+			if err := os.WriteFile(filepath.Join(stage, name), []byte(name), 0o600); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "binary matrix") {
+		t.Fatalf("missing binary error = %v", err)
 	}
 }

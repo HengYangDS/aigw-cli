@@ -81,6 +81,11 @@ identities before writing either report. An exact version-bound OSV license
 override MAY correct a verified upstream metadata gap without suppressing
 vulnerability observations.
 
+Dependency scanning and report admission SHALL precede artifact construction.
+Scanner failure, malformed output or incomplete scope SHALL NOT launch
+GoReleaser, SBOM generation or signing; accepted output and cleanup obligations
+SHALL remain unchanged.
+
 #### Scenario: Scanner output does not establish the selected scope
 
 - **WHEN** an OSV report is empty, partial, duplicated, attributed to another

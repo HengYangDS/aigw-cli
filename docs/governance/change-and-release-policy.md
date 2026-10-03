@@ -296,7 +296,10 @@ full-lock licenses/vulnerabilities.
 OSV invocation and admission share exact selected lock paths. Require each once as a
 lockfile source with observed packages; empty/partial reports, another checkout or
 ordinary directory scans are not clean evidence. Strip host prefixes only after this
-check, before signing/replacing output. Each peer publishes the same immutable files;
+check. Scan and admit dependencies before GoReleaser constructs artifacts;
+known supply failures must not consume a full build before rejection. Binary
+SBOM generation, provenance and signing remain later obligations.
+Each peer publishes the same immutable files;
 its assets never become another peer's build input.
 
 ### Homebrew packaging projection

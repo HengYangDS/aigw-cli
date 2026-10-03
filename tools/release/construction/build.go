@@ -78,27 +78,10 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 		}
 	}()
 	candidate := filepath.Join(workspace, "artifacts")
-	stage, err := buildArchives(request, workspace, run)
-	if err != nil {
-		return err
-	}
 	if err := os.MkdirAll(candidate, 0o755); err != nil {
 		return fmt.Errorf("create release candidate: %w", err)
 	}
-	for _, name := range artifact.Archives(request.Version) {
-		if err := copyFile(filepath.Join(stage, name), filepath.Join(candidate, name)); err != nil {
-			return err
-		}
-	}
-	sbom := filepath.Join(candidate, "aigw_"+request.Version+".spdx.json")
-	rawSBOM := filepath.Join(stage, "aigw.spdx.json")
-	if err := run(toolCall{Name: "syft", Directory: request.Root, Args: []string{"scan", "dir:" + stage, "--config", filepath.Join(request.Root, ".config", "release", "syft.yaml"), "--override-default-catalogers", "go-module-binary-cataloger,file", "--source-name", "aigw", "--source-version", request.Version, "-o", "spdx-json=" + rawSBOM}}); err != nil {
-		return fmt.Errorf("generate release SBOM: %w", err)
-	}
-	if err := normalizeSPDX(rawSBOM, sbom, request.Version, instant); err != nil {
-		return err
-	}
-	rawDependencies := filepath.Join(stage, "aigw.dependencies.json")
+	rawDependencies := filepath.Join(workspace, "aigw.dependencies.json")
 	lockfiles := []string{filepath.Join(request.Root, "go.mod"), filepath.Join(request.Root, "package-lock.json")}
 	if err := run(toolCall{
 		Name: "osv-scanner", Directory: request.Root,
@@ -119,6 +102,23 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 		filepath.Join(candidate, "aigw_"+request.Version+".licenses.json"),
 		lockfiles,
 	); err != nil {
+		return err
+	}
+	stage, err := buildArchives(request, workspace, run)
+	if err != nil {
+		return err
+	}
+	for _, name := range artifact.Archives(request.Version) {
+		if err := copyFile(filepath.Join(stage, name), filepath.Join(candidate, name)); err != nil {
+			return err
+		}
+	}
+	sbom := filepath.Join(candidate, "aigw_"+request.Version+".spdx.json")
+	rawSBOM := filepath.Join(stage, "aigw.spdx.json")
+	if err := run(toolCall{Name: "syft", Directory: request.Root, Args: []string{"scan", "dir:" + stage, "--config", filepath.Join(request.Root, ".config", "release", "syft.yaml"), "--override-default-catalogers", "go-module-binary-cataloger,file", "--source-name", "aigw", "--source-version", request.Version, "-o", "spdx-json=" + rawSBOM}}); err != nil {
+		return fmt.Errorf("generate release SBOM: %w", err)
+	}
+	if err := normalizeSPDX(rawSBOM, sbom, request.Version, instant); err != nil {
 		return err
 	}
 	commit, err := resolveGitObject(request.Root, "HEAD^{commit}", run)

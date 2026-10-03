@@ -232,6 +232,9 @@ in Git; original raw results stay with their source-bound verification owner.
       Existing SBOM/license/signature/provenance receipts bind their original
       candidates. The release owner must qualify the final exact locked matrix;
       its security refusal is not bypassed to manufacture signed assets.
+      Dependency admission now precedes artifact construction. Scanner failure,
+      malformed reports and incomplete scope launch no build, SBOM or signing;
+      source static rules and the full construction race suite pass unchanged.
 - [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
       build and CI costs against predecessor budgets on a quiet host; preserve raw
       samples and optimize only diagnosed owners.
