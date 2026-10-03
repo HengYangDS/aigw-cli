@@ -69,6 +69,21 @@ vulnerability observations.
 
 ## ADDED Requirements
 
+### Requirement: Native release targets are independent of the build host
+
+macOS AMD64 and ARM64 artifacts SHALL retain the declared macOS 13 deployment
+floor supported by the locked Go toolchain and selected native APIs. A newer
+build host or SDK SHALL NOT silently raise that floor. Native artifact evidence
+SHALL inspect the linked executable, not infer compatibility from configuration
+or successful execution on the build host.
+
+#### Scenario: A newer SDK links the native credential implementation
+
+- **WHEN** macOS construction uses external linking for the native credential API
+- **THEN** both architecture archives SHALL declare macOS 13.0 as their minimum
+- **AND** native signature and deterministic archive validation SHALL remain required
+- **AND** linked-header acceptance SHALL NOT imply execution on an older OS.
+
 ### Requirement: Native artifact acceptance has its own execution closure
 
 An explicitly selected prebuilt candidate or tagged product SHALL execute the

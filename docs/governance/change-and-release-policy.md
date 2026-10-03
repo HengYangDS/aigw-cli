@@ -235,6 +235,14 @@ locks; release epoch comes from committed chronology. Untagged candidates instea
 current version and exact source epoch, never invented dates. No tag/publication or
 installation is implied by construction.
 
+The macOS archive floor is macOS 13 Ventura, shared by the locked
+[Go 1.27 support contract](https://go.dev/doc/go1.27#darwin) and the selected
+native credential APIs. The macOS GoReleaser build declares
+`MACOSX_DEPLOYMENT_TARGET=13.0`; a newer host SDK must not raise it implicitly.
+Native archive tests exercise external linking and read both architectures'
+actual load commands. This proves the declared binary floor, not execution on
+every supported macOS release.
+
 Credential-free GoReleaser applies deterministic ad-hoc Mach-O/Hardened Runtime
 signatures before archives; native codesign validates extracted bytes. This is local
 integrity, not publisher/Gatekeeper proof. Native tests clear inherited signing identity.

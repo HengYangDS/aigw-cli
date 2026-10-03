@@ -36,7 +36,9 @@ builds:
     id: macos
     goos: [darwin]
     skip: '{{ and (ne .Env.AIGW_BUILD_OS "") (ne .Env.AIGW_BUILD_OS "darwin") }}'
-    env: [CGO_ENABLED=1]
+    # Go 1.27 and the published predecessor support macOS 13; the host SDK
+    # must not raise the external linker's deployment target.
+    env: [CGO_ENABLED=1, MACOSX_DEPLOYMENT_TARGET=13.0]
     hooks:
       post:
         - cmd: >-

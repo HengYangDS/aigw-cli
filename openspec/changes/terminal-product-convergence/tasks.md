@@ -553,7 +553,7 @@
       Claude Desktop GUI remains in 4.5; performance, persistent Runner
       containment and final distributed-byte acceptance remain in 6.6, 7.4
       and 9.3. This closure does not claim those independent outcomes.
-- [x] 5.4 Run equivalent macOS journeys with native Keychain authorization and
+- [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
       environment backend separately in isolated acceptance; final operator-item
       authorization remains required before post-archive installed cutover.
       No password/biometric retry loop, service restart, or hidden native-store
@@ -593,6 +593,16 @@
       also pass. Evidence: `macos-isolated-acceptance-input-conservation-02449bd2.json`.
       Actual operator authorization and Homebrew cutover remain in the Migration Plan;
       Desktop GUI and official Hermes acceptance remain in 4.5.
+      Reopened when both `1eef7dd0` macOS candidate architectures declare
+      `minos=27.0`, while installed 0.3.1 and the locked Go 1.27 support floor
+      are 13.0. The external linker inherited the host SDK deployment target;
+      the original pure-Go fixture did not expose that boundary. Adding cgo
+      to its existing fixture produces the native archive RED. Declaring
+      `MACOSX_DEPLOYMENT_TARGET=13.0` in the macOS build passes both native
+      architectures and deterministic/signature checks. Selected native APIs
+      pass independent syntax-only availability checks at 13.0. Actual product
+      linking/header readback and current artifact lifecycle remain required;
+      this does not prove execution on an older macOS host.
 - [x] 5.5 Verify missing Codex/Claude at setup and later installation on each
       platform; deferred sync must touch only installed admitted clients and
       preserve user-owned files. GitHub run 36560334613 at

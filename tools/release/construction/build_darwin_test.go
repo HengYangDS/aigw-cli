@@ -85,6 +85,10 @@ func requireNativeReleaseSignature(t *testing.T, program []byte) {
 	if !strings.Contains(string(signature), "(adhoc,runtime)") || !strings.Contains(string(signature), "Signature=adhoc") {
 		t.Fatalf("macOS internal archive must have an ad-hoc signature and Hardened Runtime: %s", signature)
 	}
+	header := privateReleaseCommand(t, "", "/usr/bin/otool", "-l", path)
+	if !bytes.Contains(header, []byte("\n    minos 13.0\n")) {
+		t.Fatal("native macOS archive must retain the supported 13.0 deployment floor")
+	}
 }
 
 func privateInternalRelease(t *testing.T) buildRequest {
@@ -98,6 +102,7 @@ func privateInternalRelease(t *testing.T) buildRequest {
 		".config/release/goreleaser.yaml": config,
 		"go.mod":                          []byte("module aigw-cli\n\ngo 1.25\n"),
 		"cmd/aigw/main.go":                []byte("package main\n\nfunc main() {}\n"),
+		"cmd/aigw/native_darwin.go":       []byte("package main\n\n/*\n#include <unistd.h>\n*/\nimport \"C\"\n\nfunc init() { _ = C.getpid() }\n"),
 		"README.md":                       []byte("# Signing fixture\n"), "LICENSE": []byte("fixture\n"),
 	} {
 		path := filepath.Join(root, name)
