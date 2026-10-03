@@ -788,6 +788,22 @@
       functional passes remain valid, but client-warning and final candidate
       acceptance require current observable output; missing original warnings
       cannot be reconstructed from empty outer stderr.
+      Signed `1eef7dd0` commits that repair with independent exact-diff approval.
+      Its unchanged original client fixture passes Claude 2.1.287 and Codex
+      0.160 across four retained-0.3.1 stages, but now exposes five Codex
+      temporary-directory warnings. An exact native `--version` contrast
+      reproduces the warning when `CODEX_HOME` is inside `TMPDIR` and removes
+      it when the directories are siblings. The original client fixture now
+      owns a sibling `native-tmp` directory for all three native temporary
+      variables; its existing input regression distinguishes RED from GREEN.
+      Same-candidate Codex 0.160 retained-predecessor, upgrade, rollback and
+      re-upgrade pass in 13.770 seconds with no emitted diagnostic warning.
+      The first caller selected a Homebrew-managed predecessor and was correctly
+      rejected before installation; selecting the authentic standalone 0.3.1
+      executable with the same verified bytes resolves only that input error.
+      Client security rules, diagnostic filters and product bytes are unchanged.
+      Raw `native-client-layout-*` evidence stays with the 9.3 native candidate;
+      other client/platform warnings and final release qualification remain open.
       Unchanged source regressions cover restoration/finalization human and JSON
       output, private canary suppression and equal-version identity refusal.
       Platform, native-store and formal-distribution evidence remains in 5.x
@@ -1115,14 +1131,19 @@
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with
       exact-byte install, predecessor upgrade/rollback, credentials and real-client
       journeys; retain the source and artifact hashes and disclose missing platform
-      evidence. October 3 exact `a2108fb2` macOS artifact and current 57-Route
-      manifest pass all seven shipped-team prerequisite journeys, original
-      0.3.1 rollback admission and five native resource outcomes in 80.679 seconds.
-      Success, failure, parent exit, interrupt and the original 60-second deadline
-      preserve resource inventories and reclaim owned processes. Original logs
-      are `current-macos-resources-20261003.*` under `a2108fb2` verification;
-      exact scratch is absent and installed 0.3.1 remains unchanged. Native
-      credentials, real clients, production signing and other platforms remain open.
+      evidence. October 3 signed `1eef7dd0` replaces the historical `a2108fb2`
+      candidate after the process capture repair. Existing native construction
+      produces macOS ARM64 archive `b6b25877` and program `9a0073fb`; both
+      architecture checksums and ad-hoc signatures verify, and 1,212 tracked
+      hashes are conserved. Original shipped-team prerequisites, retained
+      0.3.1 upgrade/rollback, rollback admission and five resource outcomes
+      including the actual 60-second deadline pass in 108.387 seconds.
+      Claude Desktop is explicitly skipped, not qualified. Raw construction
+      and lifecycle logs remain under `build/verification/1eef7dd0bb843f10ba68d5c261d85801b1a27637/native-artifact-scope/`.
+      Exact constructor and lifecycle scratch are absent; installed 0.3.1
+      program and configuration are unchanged. This native-only candidate
+      has no full release/security/provenance matrix. Current client warnings,
+      native credentials, production signing and other platforms remain open.
       Rollback export execution failures now retain their cause instead
       of being mislabeled as configuration incompatibility; focused RED/GREEN tests
       pass. Native rollback admission now proves that the retained program's export

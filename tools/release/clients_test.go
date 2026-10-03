@@ -59,6 +59,19 @@ func TestNativeClientInputs(t *testing.T) {
 			t.Fatal(err)
 		}
 		journey.prepareNativeClient(configuration.ClientCodex, file, team)
+		environment := environmentValues(journey.environment)
+		temporary := environment["TMPDIR"]
+		if filepath.Dir(temporary) != root || temporary == filepath.Join(root, "home") {
+			t.Fatal("native client temporary directory must be owned alongside, not above, its home")
+		}
+		for _, key := range []string{"TMP", "TEMP"} {
+			if environment[key] != temporary {
+				t.Fatalf("native client %s does not share its owned temporary directory", key)
+			}
+		}
+		if info, err := os.Stat(temporary); err != nil || !info.IsDir() {
+			t.Fatal("native client temporary directory is unavailable")
+		}
 		journey.requireNativePreferences(configuration.ClientCodex)
 		prepared, err := configuration.Parse(readFile(t, journey.manifest))
 		if err != nil {
@@ -298,6 +311,13 @@ func (j *journeyFixture) verifyNativeConfigEditing(client, executable string) {
 func (j *journeyFixture) prepareNativeClient(client, executable string, team []byte) {
 	j.testing.Helper()
 	home := filepath.Join(j.root, "home")
+	temporary := filepath.Join(j.root, "native-tmp")
+	if err := os.MkdirAll(temporary, 0o700); err != nil {
+		j.testing.Fatal(err)
+	}
+	for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
+		j.setEnvironment(key, temporary)
+	}
 	j.environment = environmentWithout(j.environment, "CODEX_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL")
 	j.setEnvironment("CODEX_HOME", filepath.Join(home, ".codex"))
 	j.setEnvironment("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
