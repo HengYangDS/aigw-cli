@@ -430,6 +430,9 @@ cleanup; it does not extend the package timeout or substitute mocked findings.
 The common CI command runner reuses the native diagnostic classifier. An
 exit-zero tool with explicit stderr warnings/errors or truncated diagnostic
 evidence fails qualification; ordinary progress remains visible and admissible.
+Standard output stays live; a private native file descriptor retains stderr
+before immediate child exit and replays it completely after the command ends.
+Capture, read, replay and cleanup failures also reject qualification.
 The result-only output API preserves its separate capture contract. No blanket
 stderr ban, independent warning parser or report authority is introduced.
 

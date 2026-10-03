@@ -80,15 +80,30 @@ func runCommands(commands []command, stdout io.Writer, runner commandRunner) err
 	return nil
 }
 
-func systemRunner(call command) error {
+func systemRunner(call command) (err error) {
+	capture, err := os.CreateTemp("", "aigw-ci-diagnostics-*")
+	if err != nil {
+		return fmt.Errorf("create command diagnostics: %w", err)
+	}
+	defer func() {
+		err = errors.Join(err, capture.Close(), os.Remove(capture.Name()))
+	}()
 	process := exec.Command(call.Name, call.Args...)
 	process.Dir = call.Dir
 	process.Env = append(process.Environ(), call.Env...)
 	process.Stdin = strings.NewReader(call.Input)
 	process.Stdout = os.Stdout
+	// A native descriptor preserves diagnostic writes before immediate exit;
+	// standard output remains live and diagnostics replay without a memory limit.
+	process.Stderr = capture
+	runErr := process.Run()
 	var failureOutput diagnosticCapture
-	process.Stderr = io.MultiWriter(os.Stderr, &failureOutput)
-	if err := process.Run(); err != nil {
+	_, seekErr := capture.Seek(0, io.SeekStart)
+	var readErr error
+	if seekErr == nil {
+		_, readErr = io.Copy(io.MultiWriter(os.Stderr, &failureOutput), capture)
+	}
+	if err = errors.Join(runErr, seekErr, readErr); err != nil {
 		if text := failureOutput.text(); text != "" {
 			return fmt.Errorf("%w: %s", err, text)
 		}

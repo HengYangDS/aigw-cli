@@ -40,6 +40,14 @@ SHALL NOT erase captured diagnostic output or establish warning-free acceptance.
 - **AND** ordinary progress and zero-finding count fields SHALL remain admissible
 - **AND** complete diagnostics SHALL remain observable without an additional parser or warning authority.
 
+#### Scenario: A native tool exits before diagnostic pipe writes drain
+
+- **WHEN** a native CI tool immediately exits after writing stderr
+- **THEN** its complete diagnostic stream SHALL remain observable after exit
+- **AND** standard output SHALL retain its live execution contract
+- **AND** capture, read, replay or cleanup failure SHALL prevent qualification
+- **AND** exact temporary capture files SHALL be reclaimed without changing unrelated files.
+
 #### Scenario: Successful native inference emits a capability warning
 
 - **WHEN** Codex, Claude or Hermes exits zero but reports an explicit native stderr warning, error or traceback

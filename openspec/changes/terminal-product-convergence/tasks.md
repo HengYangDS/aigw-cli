@@ -179,13 +179,17 @@
       `native-clients-25006e50-retained031-20261003` (`faa46eab`); Claude Code
       2.1.287 is the official installed latest channel, not stable-channel proof.
       Warning/refusal/checkpoint acceptance is recorded once in 6.7.
-      Official unmodified Hermes `f97608f` (0.21.5) completes retained-0.3.1
+      Official unmodified Hermes `f97608f` (0.21.5) now completes retained-0.3.1
       upgrade, rollback, re-upgrade, named-session file tools/history and withdrawal
-      on `1eef7dd0`, and real plain Sol 6.1 continuation on all three Accounts.
-      Receipt `official-hermes-macos-1eef-visible-diagnostics-20261003` retains
-      diagnostics and exact cleanup. The shared diagnostic and later Codex repairs
-      require byte-bound current-Hermes acceptance; old success cannot qualify
-      a new program. Hermes per-model Mistral none/high loopback preservation is
+      against exact current `25006e50` bytes in 117.560s. Independent receipt
+      `official-hermes-current25006-retained031-20261003/normalized-runtime-names/`
+      `delivery.json` (`9cbfa591`) binds the original verifier and frozen 76-package
+      macOS Python 3.12.15 runtime, with no failures or explicit native warnings.
+      All protected inputs remain unchanged; exact scratch and owned processes
+      are absent. This closes current Hermes loopback/environment lifecycle,
+      not native stores, GUI or current external-Provider inference. Earlier
+      `1eef7dd0` three-Account Sol 6.1 receipts retain their own identity and scope.
+      Hermes per-model Mistral none/high loopback preservation is
       separately qualified; real AIHubMix high inference failed with unproved cause.
       Other model/client claims remain exact: MiniMax plain AIHubMix fails native
       Codex semantics; CC/native-none alternatives have dated tool/replay evidence.
@@ -503,6 +507,25 @@
 - [ ] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
+      Actual Node immediate exit exposes a second capture boundary: pipe output
+      loses the final warning while returning success. Corrected RED retains two
+      native failures; existing ordinary progress and small-warning controls pass.
+      The existing command runner now captures stderr through a private native
+      file descriptor and replays the complete stream after exit; stdout stays
+      live. Its bounded diagnostic summary and classifier remain unchanged.
+      Four focused native cases pass, including original warning-tail preservation
+      and failed exit 7. Setup and closed-stderr errors reject qualification with
+      exact temporary-file cleanup. Independent original public `check-format`
+      acceptance (`741d0e4f`) binds the exact implementation hash, complete stderr
+      and absence; original false-success receipt `047c10a0` remains retained.
+      Raw RED/GREEN and subsequent checks stay in the existing source-bound
+      `native-diagnostic-file-capture/` owner. All five affected race packages
+      pass in 43.143s with empty stderr; native lint reports zero issues.
+      Final frozen source race/coverage passes in 221.611s at 95.14%
+      (13,748/14,451 statements), with every canonical package observed and
+      stderr empty. Format, Markdown, spelling, architecture, ELOC and official
+      OpenSpec (11 items, zero findings) pass. This changes CI tooling, not the
+      selected product program; final source/security admission remains open.
       The common CI executor's exit-zero warning blind spot is reproduced by
       seven native subprocess cases. Explicit WARN, colored warning, ERROR,
       deprecation and truncated evidence are rejected after the four-line owner
@@ -655,12 +678,16 @@
       from the physical checkout. Signed-object fixtures own local committer
       identity; no host identity or signer change is required.
       Both existing `proposal/hermes-offline-verification` peer refs read back
-      exact signed `f89eb6bf`. GitHub run 37107646830 and GitLab MR !178 pipeline
-      9356 execute the five-job review matrix: macOS, Linux, Windows and Secret
-      Service pass; quality fails the advisory in 6.5. Original terminal results
-      and markers remain under
-      `build/verification/f89eb6bfb3dcb95251044240fb31d7132ea09993/proposal-publication/`.
-      Independent readback `47ad3523` conserves source and evidence hashes.
+      exact signed `82f66fe9`. GitLab MR !178 pipeline 9372 passes macOS, Linux,
+      Windows and Secret Service; quality fails the High advisory in 6.5.
+      GitHub run 37113586152 passes Linux, Windows and Secret Service; quality
+      fails the same advisory, and macOS job 111175998365 fails its original
+      cold deployment-target regression after 122.48s with the bounded release
+      context exhausted in GoReleaser. The cause remains unproved; local ARM64
+      isolated success does not qualify this hosted Intel failure. Both original
+      watchers are terminal failure; raw results and markers remain in exact
+      `82f66fe9` source-bound `proposal-publication/`. Earlier `f89eb6bf` greens
+      retain their own scope and cannot qualify this source's macOS job.
       Source publication is proved, successful review admission is not. Accepted
       dev/main/tag events, guarded integration and final archived object remain
       open under Migration Plan; another peer or manual result cannot replace them.
@@ -781,7 +808,7 @@
       `runtime-refreshed-target-current-20261001.json` and
       `cold-tool-source-bound-current-proof-ceb5948d.*` under the existing
       `build/verification/supply-chain-20260930/` owner.
-- [x] 8.3 Review diagrams, tables, headings, lists, examples, CLI help and
+- [ ] 8.3 Review diagrams, tables, headings, lists, examples, CLI help and
       errors for readable layout and accurate links; enforce the chosen native
       formatter/linter rather than adding one-off checks.
       The exact `ebf9adff` archive passes twenty-eight read-only help/catalogue
@@ -801,6 +828,11 @@
       cases pass after repair; all 57 text-gate tests and 48 current Markdown
       files pass. Native format, policy schema, spelling, ELOC and OpenSpec
       checks pass; immutable archive bytes remain unchanged.
+      Actual current `25006e50` root help still misaligns the long
+      `aigw use --for <client> <route>` row under `Start with one path`.
+      Prior layout checks do not close this real product-name counterexample;
+      the existing presentation owner and CLI regression must repair it before
+      this task is closed again.
 - [x] 8.3.1 Correct neutral Changelog headings, explicit peer history, and native repository locators without changing existing historical notes; verify strict release metadata and each actual peer destination. Keep the prepared release links distinct from unpublished tags.
       The source has 60 local headings and 120 explicit peer links. All 59
       versioned bodies and the existing Unreleased body are conserved; the
