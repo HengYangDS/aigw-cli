@@ -2,7 +2,7 @@
   "schema": "architecture.edition-provider/v2",
   "provider": {
     "id": "aigw-client-projection-edition",
-    "revision": "source-content:26366d26e99926fad2f31d2e33fe6f8e75b655614b11ac08a05807a7143f0c48"
+    "revision": "source-content:f2a18ef7bdc1b398110c9f4411aacbdb41878cd268f568f69cd13c3176abf81f"
   },
   "selected": {
     "native": [
@@ -13,7 +13,7 @@
         "format": { "id": "architecture.claim-model", "version": "2" },
         "revision": { "kind": "content", "algorithm": "sha256" },
         "bytes": 15397,
-        "sha256": "26366d26e99926fad2f31d2e33fe6f8e75b655614b11ac08a05807a7143f0c48"
+        "sha256": "f2a18ef7bdc1b398110c9f4411aacbdb41878cd268f568f69cd13c3176abf81f"
       }
     ],
     "derived": [],
