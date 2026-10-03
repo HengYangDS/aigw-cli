@@ -147,68 +147,40 @@
 - [x] 4.2 Review the shipped catalogue against current upstream IDs and bounded
       live inference for DMXAPI, UCloud, and AIHubMix; retain only qualified
       models/variants and one consistent naming grammar, with source and date for
-      each claim.
-      Signed `80dbca19` and its exact 0.3.3 candidate contain 26
-      Models and 58 Routes. The independent October 1 public setup/use/check
-      matrix passes every exact Account/wire/protocol pair once: DMXAPI 18/18,
-      UCloud 15/15 and AIHubMix 25/25; 37 Responses, 11 Chat and 10 Anthropic
-      routes. No-account setup remains Deferred with `ok=false`. Source,
-      candidate and twelve protected operator identities remain unchanged;
-      owned processes and 113,841,464-byte scratch are absent. Receipt
-      `independent-current-provider-80db-20261001-01a0ccfc/delivery.json`,
-      SHA-256 `9ffa097b805addc16e1fb9bc1f8c63f18448597d94eb95d2cbbf672083b6ab63`,
-      is retained under the existing AIGW recovery owner. This proves dated
-      inference, not sustained availability, authentic client continuation,
-      global ranking or installed cutover. Native evidence for those scopes
-      stays in 4.4–4.5 and 9.3.
-      [Catalogue qualification](../../../docs/research/provider-model-qualification.md#provider-catalogue-and-route-evidence)
-      retains withdrawn unavailable Routes, the plain DMXAPI Sol 6.1
-      continuation limit and MiniMax's native Codex limit. Qualified CDX/CC
-      alternatives share existing logical Models. Guarded import/add
-      regressions preserve sparse Accounts, explicit selections, external
-      credential commands, shared Models and exact upstream wire IDs; invalid
-      or dangling recommendations fail before mutation. Historical artifact
-      evidence is retained with its original identity, not copied as current.
-      Later exact `444bbd41` candidate and official Hermes `f97608f` native
-      file-tool/same-session acceptance qualify Ultra and `cohere-command-a`;
-      the dated Cohere wire returns no tool calls. Replace only the shipped
-      Super/datetime choices, preserving explicit installed selections and
-      protocol ownership. Configuration regressions and all seven shipped-
-      team setup journeys pass. The updated catalogue still has 26 Models
-      and 58 Routes; current artifact and platform qualification remain open.
-      Evidence: `independent-hermes-request-boundary-444-20261001-01a0ccfc`
-      in the existing recovery owner; `native-model-catalogue-*` and
-      `native-model-shipped-team-journey.log` in the existing verification owner.
-      October 3 current manifest `fc8890bd` has 26 Models and 57 Routes:
+      each claim. Current manifest `fc8890bd` has 26 Models and 57 Routes:
       DMXAPI 17, UCloud 15, AIHubMix 25; 37 Responses, 11 Chat, 9 Anthropic.
-      Independent exact-tuple reconciliation binds 55 unchanged routes to
-      original `80db` inference and Cohere/Ultra to their separate `444`
-      qualification. No current route lacks dated evidence; retired rows stay
-      historical. Receipt `current57-route-dated-inference-evidence-binding-20261003.json`
-      is in the existing independent recovery owner. This is evidence reuse,
-      not fresh inference or final installed-client acceptance.
+      Independent October 3 reconciliation binds 55 unchanged Account/wire/protocol
+      tuples to original `80db` inference and Cohere/Ultra to separate `444`
+      qualification, including official Hermes `f97608f` tool/replay behavior.
+      This is dated evidence reuse, not fresh inference, global ranking,
+      sustained availability or final installed-client acceptance.
+      [Catalogue qualification](../../../docs/research/provider-model-qualification.md#provider-catalogue-and-route-evidence)
+      retains withdrawal decisions, the retired Cohere datetime-wire tool limit,
+      plain DMXAPI Sol 6.1 continuation and plain AIHubMix MiniMax's native Codex
+      limit. Qualified CDX/CC alternatives
+      share canonical Models. Guarded import/add regressions preserve sparse
+      Accounts, selections, external readers and wire IDs; invalid recommendations
+      fail before mutation. Exact `a2108fb2` package passes all seven current
+      shipped-team cases.
+      `current57-route-dated-inference-evidence-binding-20261003.json` in the
+      existing independent recovery owner binds every current pair to conserved
+      original evidence. Native clients and distribution remain in 4.5 and 9.3.
 - [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
       Providers; no control-plane command claims request-time failover.
-      October 2 correction keeps DMXAPI primary and UCloud the sole alternative;
-      AIHubMix Routes remain manual-only in the catalogue. Team tests verify
-      connected-Account selection follows only declared recommendations, keeps
-      UCloud ahead when both Accounts are connected, and preserves explicit
-      AIHubMix bindings for all four Client surfaces. The configuration and
-      activation package suites pass. The shipped-manifest journey had retained
-      an obsolete expectation that AIHubMix auto-activates; it now proves sync
-      leaves manual-only clients unselected and explicit `aigw use` works for
-      each Client. Its seven isolated cases and the canonical Go format/lint
-      gate pass.
+      DMXAPI is primary, UCloud the sole automatic alternative and AIHubMix
+      manual-only. Configuration/activation regressions and all seven current
+      shipped-team journeys prove that declared order fills only unselected
+      usable bindings and preserves explicit choices for all four Client surfaces.
       Exact `a2108fb2` public import of current manifest `fc8890bd` into an
-      isolated copy of the operator configuration preserves all three Accounts
-      and four explicit client bindings. Rollback restores original bytes;
-      forward import and ordinary reimport preserve config, backup and lock
-      bytes. Reusing one-time retirement flags fails without mutation.
-      Original and corrected no-op receipts are in the existing independent
-      recovery owner's `current-manifest-a210-profile-acceptance-20261003/`.
-      No host projection, native credential read or Provider request occurred;
-      both exact scratch roots are absent. Installed configuration remains old.
+      isolated operator-config copy preserves three Accounts and four bindings.
+      Rollback restores original bytes; forward import and ordinary reimport
+      preserve config, backup and lock bytes. Reused one-time retirement flags
+      fail without mutation. Original and corrected no-op receipts remain in
+      `current-manifest-a210-profile-acceptance-20261003/` under the existing
+      independent recovery owner. No host projection, native-store access or
+      Provider request occurred; both scratch roots are absent. The installed
+      configuration remains unchanged and still needs the final controlled import.
 - [x] 4.4 Qualify Codex with selected non-OpenAI-family Responses-compatible
       models using its actual model chooser, authentication and tool loop; state
       native limitations instead of forging a model list.
