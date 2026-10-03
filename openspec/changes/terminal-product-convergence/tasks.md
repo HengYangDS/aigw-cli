@@ -371,6 +371,16 @@
       separate from this environment-backend acceptance.
       The private copied-test-reader evidence in 3.5 does not close final
       production-reader authorization or Desktop GUI acceptance.
+      Current signed `4dd8504a` passes authentic published 0.3.1 synthetic
+      Keychain succession on disposable GitHub Intel macOS: run 37122724491,
+      job 111201877396, `system_credential_store` RUN/PASS in 22.90s
+      (parent 35.78s). Predecessor program `ffc89cb9` and source-built candidate
+      `7b2cb1fa` bind retained-command upgrade, rotation, rollback, re-upgrade
+      and cleanup. Safe terminal and original native markers are retained in
+      `4dd8504a/proposal-publication/github-keychain-peer-*`.
+      This closes the current-source isolated Keychain cell, not final selected
+      artifact bytes, Developer ID designated requirements, operator items or
+      Homebrew replacement. The manual quality job still fails the High in 6.5.
       Disposable GitHub macOS run 36851755292 at `3f6723c7`, job 110334863497,
       now passes core, shipped-team, all resource failure outcomes and authentic
       published 0.3.1 Keychain succession without warnings or skipped tests.
@@ -809,6 +819,14 @@
       zero new unique assets are required. Original 96 registry and non-GitHub
       evidence inputs are conserved. This closes current immutable-input binding,
       not present registry reachability, native Job Token access or cold execution.
+      Current-source GitHub run 37122724491 proves one macOS Intel cold-peer
+      acquisition: cache is disabled, the concrete peer URL replacements are
+      expanded, and locked `glab` 1.120.0 installs from the mapped asset.
+      Native predecessor/Keychain acceptance passes in 5.4; full source/native
+      jobs are deliberately skipped in this manual scope. Safe source-bound
+      markers remain in `4dd8504a/proposal-publication/`.
+      This does not qualify all platforms, complete cold tool graphs, upstream
+      outage denial, GitLab Job Token downloads or canonical required checks.
       Local offline/sole-peer acceptance above does not qualify hosted cold
       acquisition. Protected-runner admission belongs to 7.4.
 
