@@ -272,7 +272,7 @@
       The exact `df7d4585` Linux ARM64 package also passes one complete
       official-client journey: Codex 0.159.3 and Claude Code 2.1.285 complete
       baseline, candidate, rollback and re-upgrade; all 14 Responses selections
-      and the real read-only shell loop pass. The test has empty stderr and
+      and the real read-only shell loop pass. The outer test has empty stderr and
       conserves the installed AIGW and client configuration. Receipt
       `independent-current-df7-linux-clients-20261002-01a0ccfc`: `delivery.json`
       SHA-256 `8ed4ae988744b5f1df690e5a0bbcde731f7471f97949388ccf270c4a4126bab1`.
@@ -294,8 +294,9 @@
       commit `39268297` also passes this updated journey with unmodified official
       Hermes `f97608f` 0.21.5 in an isolated Linux ARM64 container against the
       exact `df7d4585` candidate: real `read_file` output and session history
-      survive all four lifecycle stages (87.729s; empty stderr, warning-free
-      stdout). Linux native-host, Windows, live-provider and final-package
+      survive all four lifecycle stages (87.729s; empty outer stderr and no
+      warning in emitted stdout; successful child stderr was unobserved).
+      Linux native-host, Windows, live-provider and final-package
       acceptance remain open in 5.2 and 9.3.
       The current Codex catalogue regression exposed a real identity loss:
       Runtime carried only the Route's wire model, so the declared
@@ -451,8 +452,9 @@
       `TestNativeClientJourney/hermes` with official Hermes 0.21.5, its frozen
       Python 3.12.14/OpenAI 2.24.0 environment, `edge-tts` 7.2.7,
       Bedrock `boto3` 1.42.89 and `tirith` 0.4.2. Four retained lifecycle
-      stages and a separate two-turn session pass in 88.489 seconds; output is
-      warning-free, stderr empty, and no external endpoint is observed. The
+      stages and a separate two-turn session pass in 88.489 seconds; emitted
+      stdout and outer stderr have no warning. Successful child stderr was
+      unobserved; no external endpoint is observed. The
       1,210 AIGW and 15,075 Hermes source-file hashes are conserved, and the
       isolated run leaves no host, install, service or credential effects.
       Receipt `independent-current-df7-linux-hermes-20261002-01a0ccfc/complete-runtime-dependencies/delivery.json`
@@ -767,16 +769,25 @@
       Raw samples and summary remain in `current-ebf-performance/`; the
       existing acceptance owner now rejects native warnings without discarding
       evidence. Quiet-host, native-store, build and CI cost claims remain open.
-- [x] 6.7 Assert warnings and malformed public errors fail at their origin;
+- [ ] 6.7 Assert warnings and malformed public errors fail at their origin;
       human and JSON output must expose precise state and safe action without
       private paths, Token fragments, internal modules or tracebacks.
-      Candidate `ebf9adff` passes warning-free macOS native client replay and
+      Candidate `ebf9adff` passes macOS native client replay and
       Linux package acceptance. Its public no-Token journey reports Deferred
       with `ok=false` and zero enabled clients; failed remote update preserves
       program/configuration, and partial uninstall distinguishes committed
       withdrawal from incomplete removal while retaining foreign content.
       Exact stdout/stderr and preservation results are retained under
       `build/verification/supply-chain-20260930/public-negative-ebf9adff/`.
+      Reopened after the shared process owner was found to discard successful
+      stderr despite its two-stream contract. The distinguishing exit-zero RED
+      preserves stdout but loses warning bytes. Native fixture and Codex
+      metadata-error checks therefore did not establish warning-free clients.
+      The existing capture owner now returns both bounded streams on success
+      and failure; the journey exposes redacted successful stderr. Historical
+      functional passes remain valid, but client-warning and final candidate
+      acceptance require current observable output; missing original warnings
+      cannot be reconstructed from empty outer stderr.
       Unchanged source regressions cover restoration/finalization human and JSON
       output, private canary suppression and equal-version identity refusal.
       Platform, native-store and formal-distribution evidence remains in 5.x

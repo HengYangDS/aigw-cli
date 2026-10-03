@@ -344,6 +344,9 @@ func (j *journeyFixture) runWithContext(parent context.Context, binary, input st
 	ctx, cancel := context.WithTimeout(parent, clientverification.ProtocolTimeout)
 	defer cancel()
 	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: binary, Args: args, Env: j.environment, Stdin: input})
+	if len(stderr) != 0 {
+		j.testing.Logf("command stderr:\n%s", redaction.Text(string(stderr), j.sensitiveInputs...))
+	}
 	if err != nil {
 		j.testing.Fatalf("%s %s: %v\nstdout:\n%s\nstderr:\n%s", binary,
 			redaction.Text(strings.Join(args, " "), j.sensitiveInputs...), err,
@@ -460,10 +463,8 @@ func environmentWith(current []string, replacements map[string]string) []string 
 	result := make([]string, 0, len(current)+len(replacements))
 	for _, item := range current {
 		key, _, found := strings.Cut(item, "=")
-		if found {
-			if _, replaced := replacements[key]; replaced || strings.HasPrefix(key, "AIGW_TOKEN_") {
-				continue
-			}
+		if _, replaced := replacements[key]; found && (replaced || strings.HasPrefix(key, "AIGW_TOKEN_")) {
+			continue
 		}
 		result = append(result, item)
 	}

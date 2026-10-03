@@ -2,6 +2,36 @@
 
 ## MODIFIED Requirements
 
+### Requirement: Warnings are owned failures
+
+Every repository-owned warning and nonempty native validation finding emitted
+by a supported build, test, analysis, documentation, packaging, or CI path
+SHALL be resolved at its semantic owner. A validator's advisory severity does
+not waive this repository's clean-evidence policy. Successful subprocess exit
+SHALL NOT erase captured diagnostic output or establish warning-free acceptance.
+
+#### Scenario: A supported gate emits a warning
+
+- **WHEN** the warning is attributable to repository source or configuration
+- **THEN** the gate fails until the cause is removed
+- **AND** a blanket filter, baseline, or ignored exit code is not accepted as
+  the repair.
+
+#### Scenario: Native validation distinguishes advice from failure
+
+- **WHEN** OpenSpec reports `INFO`, `WARNING`, `ERROR`, or a failed summary
+- **THEN** the repository gate fails and reports every finding without filtering
+  it, even if the native validator classifies the item as informational
+- **AND** unknown severity, malformed evidence, or diagnostic output failure
+  also fails admission.
+
+#### Scenario: Successful child diagnostics remain observable
+
+- **WHEN** a supported subprocess writes stdout and stderr before exiting zero
+- **THEN** two-stream capture SHALL preserve both bounded byte strings separately
+- **AND** native journey evidence SHALL expose redacted diagnostic output
+- **AND** a stdout-only API MAY retain its explicit result-only success contract.
+
 ### Requirement: Dependency evidence binds the selected lockfiles
 
 The release scanner invocation and report admission SHALL share one exact

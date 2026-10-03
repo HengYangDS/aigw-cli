@@ -374,3 +374,28 @@ func TestRetainedCredentialFailurePreservesSafeDiagnostics(t *testing.T) {
 		t.Fatalf("credential failure lost its safe cause or leaked its Token: %q", diagnostic)
 	}
 }
+
+func TestJourneyRetainsRedactedSuccessfulDiagnostics(t *testing.T) {
+	const secret = "synthetic-diagnostic-value"
+	const marker = "Warning: successful-child-canary"
+	program, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	switch os.Getenv("AIGW_TEST_JOURNEY_DIAGNOSTIC") {
+	case "writer":
+		_, _ = fmt.Fprintln(os.Stderr, marker, secret)
+		os.Exit(0)
+	case "journey":
+		journey := &journeyFixture{testing: t, sensitiveInputs: []string{secret}, environment: append(os.Environ(), "AIGW_TEST_JOURNEY_DIAGNOSTIC=writer")}
+		journey.runWith(program, "-test.run=^TestJourneyRetainsRedactedSuccessfulDiagnostics$")
+		return
+	}
+	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(t.Context(), process.Plan{
+		Executable: program, Args: []string{"-test.run=^TestJourneyRetainsRedactedSuccessfulDiagnostics$", "-test.v"},
+		Env: append(os.Environ(), "AIGW_TEST_JOURNEY_DIAGNOSTIC=journey"),
+	})
+	if err != nil || !bytes.Contains(stdout, []byte(marker+" [REDACTED]")) || bytes.Contains(stdout, []byte(secret)) || len(stderr) != 0 {
+		t.Fatal("successful journey diagnostic is missing, unredacted or failed")
+	}
+}

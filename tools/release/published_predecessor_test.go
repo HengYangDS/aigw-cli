@@ -248,6 +248,9 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 		Executable: journey.binary, Args: []string{"update", "--rollback"}, Env: journey.environment,
 	})
 	cancel()
+	if len(stderr) != 0 {
+		t.Logf("Original public rollback stderr:\n%s", redaction.Text(string(stderr), journey.sensitiveInputs...))
+	}
 	if rollbackErr != nil {
 		state.diagnoseRollbackFailure(t)
 		t.Fatalf("Original public rollback failed: %s\nstdout:\n%s\nstderr:\n%s",

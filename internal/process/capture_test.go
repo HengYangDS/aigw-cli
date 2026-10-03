@@ -180,26 +180,29 @@ func TestRunnerRunCaptureReturnsStderrOnFailure(t *testing.T) {
 }
 
 func TestRunnerCaptureStreamsPreservesBoundedFailureOutput(t *testing.T) {
-	if os.Getenv("AIGW_TEST_CAPTURE_STREAMS") == "child" {
-		_, _ = os.Stdout.WriteString("failure detail on stdout")
-		_, _ = os.Stderr.WriteString("failure detail on stderr")
-		os.Exit(23)
+	if code := os.Getenv("AIGW_TEST_CAPTURE_STREAMS"); code != "" {
+		_, _ = os.Stdout.WriteString("captured result on stdout")
+		_, _ = os.Stderr.WriteString("Warning: captured detail on stderr")
+		status, _ := strconv.Atoi(code)
+		os.Exit(status)
 	}
 	executable, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
-	stdout, stderr, err := (Runner{}).RunCaptureStreams(t.Context(), Plan{
-		Executable: executable,
-		Args:       []string{"-test.run=^TestRunnerCaptureStreamsPreservesBoundedFailureOutput$"},
-		Env:        append(os.Environ(), "AIGW_TEST_CAPTURE_STREAMS=child"),
-	})
-	var exitError *exec.ExitError
-	if !errors.As(err, &exitError) || exitError.ExitCode() != 23 ||
-		string(stdout) != "failure detail on stdout" || string(stderr) != "failure detail on stderr" {
-		t.Fatalf("captured stdout=%q stderr=%q error=%v", stdout, stderr, err)
+	for _, code := range []int{0, 23} {
+		stdout, stderr, err := (Runner{}).RunCaptureStreams(t.Context(), Plan{
+			Executable: executable,
+			Args:       []string{"-test.run=^TestRunnerCaptureStreamsPreservesBoundedFailureOutput$"},
+			Env:        append(os.Environ(), "AIGW_TEST_CAPTURE_STREAMS="+strconv.Itoa(code)),
+		})
+		var exitError *exec.ExitError
+		if code == 0 && err != nil || code != 0 && (!errors.As(err, &exitError) || exitError.ExitCode() != code) ||
+			string(stdout) != "captured result on stdout" || string(stderr) != "Warning: captured detail on stderr" {
+			t.Fatalf("exit %d captured stdout=%q stderr=%q error=%v", code, stdout, stderr, err)
+		}
 	}
-	stdout, stderr, err = (Runner{}).RunCaptureStreams(t.Context(), Plan{
+	stdout, stderr, err := (Runner{}).RunCaptureStreams(t.Context(), Plan{
 		Executable: executable,
 		Args:       []string{"-test.run=^TestRunCaptureKeepsResultAndDiagnosticBudgetsSeparate$"},
 		Env: append(os.Environ(),

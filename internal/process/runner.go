@@ -123,10 +123,7 @@ func runCaptured(ctx context.Context, plan Plan, stdout io.Writer) (diagnostic [
 	if stderr.overflow {
 		return nil, fmt.Errorf("captured stderr from %s exceeds %d bytes", plan.Executable, capturedProcessOutputLimit)
 	}
-	if err != nil {
-		return append([]byte(nil), stderr.Bytes()...), err
-	}
-	return nil, nil
+	return append([]byte(nil), stderr.Bytes()...), err
 }
 
 // RunStream executes an owned non-interactive process with caller-owned output
