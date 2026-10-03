@@ -611,6 +611,15 @@
       preserves both architecture signatures and load commands. The original
       `25eb46ed` candidate is retained as failure evidence; a new signed-source
       candidate and its lifecycle acceptance remain required.
+      Signed `fe8b86fc` constructs the actual two-architecture candidate with
+      zero deployment warnings. Both extracted programs declare 13.0 and pass
+      strict ad-hoc/runtime signature and archive-byte checks. Independent
+      physical readback agrees. Its selected product, current shipped-team,
+      authentic 0.3.1 environment-backend upgrade/rollback and cancellation
+      cleanup suite passes in 43.207 seconds. Desktop deferred installation is
+      explicitly skipped; native-store and final operator/installer acceptance
+      remain open. Evidence stays under this source revision's
+      `build/verification/` owner; construction scratch is absent.
 - [x] 5.5 Verify missing Codex/Claude at setup and later installation on each
       platform; deferred sync must touch only installed admitted clients and
       preserve user-owned files. GitHub run 36560334613 at
@@ -749,6 +758,13 @@
       Publisher alpha.7 archive/manifest also passes relocated offline native
       acceptance with no skips. This is current local behavior/installed-input
       evidence, not full ETHOS proof, security or hosted platform qualification.
+      After the native compiler/cache repair, exact signed `fe8b86fc` complete
+      race/coverage passes at 95.13% (13,690/14,391 statements) with empty
+      stderr and every canonical package observed. Native construction,
+      lint, format, size, Markdown, spelling and strict OpenSpec checks pass;
+      new regression cache/source and invocation failures remain raw evidence.
+      Its owned coverage cache and construction scratch are removed. Security,
+      warning-free real-client and hosted enforcement obligations remain open.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.
