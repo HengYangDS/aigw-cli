@@ -881,66 +881,25 @@
       Raw samples and summary remain in `current-ebf-performance/`; the
       existing acceptance owner now rejects native warnings without discarding
       evidence. Quiet-host, native-store, build and CI cost claims remain open.
-- [ ] 6.7 Assert warnings and malformed public errors fail at their origin;
+- [x] 6.7 Assert warnings and malformed public errors fail at their origin;
       human and JSON output must expose precise state and safe action without
       private paths, Token fragments, internal modules or tracebacks.
-      Candidate `ebf9adff` passes macOS native client replay and
-      Linux package acceptance. Its public no-Token journey reports Deferred
-      with `ok=false` and zero enabled clients; failed remote update preserves
-      program/configuration, and partial uninstall distinguishes committed
-      withdrawal from incomplete removal while retaining foreign content.
-      Exact stdout/stderr and preservation results are retained under
-      `build/verification/supply-chain-20260930/public-negative-ebf9adff/`.
-      Reopened after the shared process owner was found to discard successful
-      stderr despite its two-stream contract. The distinguishing exit-zero RED
-      preserves stdout but loses warning bytes. Native fixture and Codex
-      metadata-error checks therefore did not establish warning-free clients.
-      The existing capture owner now returns both bounded streams on success
-      and failure; the journey exposes redacted successful stderr. Historical
-      functional passes remain valid, but client-warning and final candidate
-      acceptance require current observable output; missing original warnings
-      cannot be reconstructed from empty outer stderr.
-      Signed `1eef7dd0` commits that repair with independent exact-diff approval.
-      Its unchanged original client fixture passes Claude 2.1.287 and Codex
-      0.160 across four retained-0.3.1 stages, but now exposes five Codex
-      temporary-directory warnings. An exact native `--version` contrast
-      reproduces the warning when `CODEX_HOME` is inside `TMPDIR` and removes
-      it when the directories are siblings. The original client fixture now
-      owns a sibling `native-tmp` directory for all three native temporary
-      variables; its existing input regression distinguishes RED from GREEN.
-      Same-candidate Codex 0.160 retained-predecessor, upgrade, rollback and
-      re-upgrade pass in 13.770 seconds with no emitted diagnostic warning.
-      The first caller selected a Homebrew-managed predecessor and was correctly
-      rejected before installation; selecting the authentic standalone 0.3.1
-      executable with the same verified bytes resolves only that input error.
-      Client security rules, diagnostic filters and product bytes are unchanged.
-      Raw `native-client-layout-*` evidence stays with the 9.3 native candidate;
-      other client/platform warnings and final release qualification remain open.
-      Unchanged source regressions cover restoration/finalization human and JSON
-      output, private canary suppression and equal-version identity refusal.
-      Platform, native-store and formal-distribution evidence remains in 5.x
-      and 9.3; measured performance warnings remain in 6.6.
-      The exact `fe8b86fc` public Codex probe loses its successful Grok warning
-      through the single-stream consumer and prints Completed. A distinguishing
-      CLI RED also writes a successful checkpoint. Public native verification
-      now requires two-stream capture and rejects explicit stderr warnings, error markers and
-      tracebacks with fixed private-safe results. Codex identity, Claude and
-      Hermes probes plus external credential privacy share that contract;
-      ordinary stderr progress and clean final markers still pass. Wrong or
-      missing final responses with metadata warnings never claim completed
-      inference. Native catalogue absence remains explicit; no model or wire
-      identity is fabricated. Focused package, privacy and CLI checkpoint
-      regressions pass; final new-byte native acceptance remains required.
-      This contract does not classify arbitrary model response prose as a
-      diagnostic; any stdout diagnostic claim requires its native output contract.
-      Independent `73873049` package acceptance rejects Grok without a completed
-      checkpoint but also rejects the clean Sol control. Official Codex 0.160
-      proves that a catalogue home below inherited TMPDIR emits a version
-      warning; the selected native table is then absent. The existing child
-      environment now owns all temporary roots for catalogue, identity and
-      verification. Catalogue diagnostics remain strict and parent state stays
-      unchanged. Focused RED/GREEN and the real native CDX catalogue probe pass;
-      new-byte public control acceptance remains required.
+      Signed `73873049` makes native verification consume both bounded streams
+      and refuses explicit stderr diagnostics before success/checkpoint. Signed
+      `25006e50` repairs the independently reproduced Codex temporary-home
+      regression without relaxing warnings or inventing model metadata.
+      Exact program `1426c66f` / archive `ec78a678` passes official Codex 0.160
+      public Grok refusal, clean Sol verification and preservation of an existing
+      nonempty checkpoint during explicit Grok verification. Independent receipt
+      `27e761ad` binds every input and exact cleanup. Original Codex/Claude
+      retained-0.3.1 lifecycle passes on these bytes (`faa46eab`); current full
+      source races and public human/JSON/privacy regressions pass at 95.13%.
+      Earlier false-green and failed controls remain source-bound evidence,
+      not current qualification. The App-bundled alpha's missing Sol metadata
+      is correctly refused (`b4cae327`), not qualified. Live-provider, native-store,
+      App GUI, platform and release acceptance remain in 4.5, 5.x and 9.3.
+      Native diagnostics classify explicit stderr markers, not arbitrary model
+      response prose; a stdout diagnostic claim requires its native contract.
 
 ## 7. CI and Dual-Peer Admission
 
@@ -1369,3 +1328,11 @@
       not new native-store, hosted, production or installed claims. Production signing,
       stable reader identity, final publication/install and Desktop GUI remain
       separate open obligations.
+      Signed `25006e50` supersedes warning-bearing candidates for public
+      verification. Native macOS program `1426c66f` / archive `ec78a678` passes
+      actual shipped-team and authentic 0.3.1 environment succession/rollback
+      (42.650s), strict signatures and deployment floor. Independent public
+      warning/control/checkpoint and Codex/Claude four-stage acceptance are
+      recorded in 6.7. No production signing, native-store or final cross-platform
+      claim is implied. Later `1dc8b868` and `8527abc3` change only CI tests and
+      documentation; candidate bytes and source inputs remain explicit.
