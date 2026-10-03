@@ -1,8 +1,8 @@
-// Apply locked Prettier defaults to the repository's exact authored inventory.
+// Check locked Prettier layout and canonical Markdown spacing without writes.
 import { text } from "node:stream/consumers";
 import { readFileSync } from "node:fs";
 import { relative, sep } from "node:path";
-import { check, getFileInfo } from "../../node_modules/prettier/index.mjs";
+import { format, getFileInfo } from "../../node_modules/prettier/index.mjs";
 
 const files = JSON.parse(await text(process.stdin));
 const ignorePath = ".prettierignore";
@@ -19,7 +19,17 @@ for (const path of files) {
     continue;
   }
   checked++;
-  if (!(await check(readFileSync(path, "utf8"), { filepath: path }))) {
+  const original = readFileSync(path, "utf8");
+  const markdown = info.inferredParser === "markdown";
+  let formatted = await format(original, {
+    filepath: path,
+    embeddedLanguageFormatting: markdown ? "off" : "auto",
+  });
+  if (markdown) {
+    const { fixMarkdownSpacing } = await import("./markdown/lint.mjs");
+    formatted = await fixMarkdownSpacing(formatted);
+  }
+  if (original !== formatted) {
     console.error(
       `${relative(process.cwd(), path).split(sep).join("/")}: formatting differs`,
     );

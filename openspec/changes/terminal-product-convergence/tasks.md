@@ -320,6 +320,9 @@ in Git; original raw results stay with their source-bound verification owner.
       align at display column 34. The regression covers widths and color modes
       without changing the renderer. Native text gates retain distinguishing
       blank-line/list controls and leave immutable archive bytes unchanged.
+      Format and lint now consume one Markdown whitespace-fix owner; the former
+      six-case false-green format result is rejected. Simple, wrapped, nested and
+      quoted items, nested fences/tables and unchanged literal code are covered.
 - [x] 8.3.1 Correct neutral Changelog headings, explicit peer history, and native repository locators without changing existing historical notes; verify strict release metadata and each actual peer destination. Keep the prepared release links distinct from unpublished tags.
       All 60 headings and 120 explicit peer links preserve historical bodies;
       referenced tags exist on their selected peer. Local-only v0.3.2 remains

@@ -1,6 +1,7 @@
 // Lint the exact repository inventory using only its declared native rules.
 import { text } from "node:stream/consumers";
 import { accessSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 // Bare package resolution must not substitute a parent checkout's installation.
 for (const name of ["markdownlint", "js-yaml"]) {
@@ -9,6 +10,7 @@ for (const name of ["markdownlint", "js-yaml"]) {
   );
 }
 const { default: helpers } = await import("markdownlint/helpers");
+const { applyFixes } = await import("markdownlint");
 const { lint, readConfig } = await import("markdownlint/promise");
 const { load: yaml } = await import("js-yaml");
 
@@ -63,17 +65,40 @@ const singleParagraphListSpacing = {
   },
 };
 
-const files = JSON.parse(await text(process.stdin));
 const config = await readConfig(".config/checks/markdown/policy.yaml", [yaml]);
-const results = await lint({
-  files,
-  config,
-  noInlineConfig: true,
-  customRules: [singleParagraphListSpacing],
-});
-const diagnostics = helpers.formatLintResults(results).join("\n");
-if (diagnostics) {
-  console.error(diagnostics);
+const spacingRules = new Set([
+  "MD012",
+  "MD022",
+  "MD031",
+  "MD032",
+  "MD047",
+  "MD058",
+  "single-paragraph-list-spacing",
+]);
+
+function lintMarkdown(input) {
+  return lint({
+    ...input,
+    config,
+    noInlineConfig: true,
+    customRules: [singleParagraphListSpacing],
+  });
 }
-console.log(`checked ${Object.keys(results).length} Markdown files`);
-process.exitCode = diagnostics ? 1 : 0;
+
+// Apply only whitespace fixes; structural repairs are not formatting authority.
+export async function fixMarkdownSpacing(content) {
+  const results = await lintMarkdown({ strings: { content } });
+  return applyFixes(
+    content,
+    results.content.filter((issue) => spacingRules.has(issue.ruleNames[0])),
+  );
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const files = JSON.parse(await text(process.stdin));
+  const results = await lintMarkdown({ files });
+  const diagnostics = helpers.formatLintResults(results).join("\n");
+  if (diagnostics) console.error(diagnostics);
+  console.log(`checked ${Object.keys(results).length} Markdown files`);
+  process.exitCode = diagnostics ? 1 : 0;
+}

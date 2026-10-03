@@ -84,8 +84,8 @@ output, not tracked source; [formatter scope](../../.prettierignore) excludes
 only immutable OpenSpec history. A directory named `archive` elsewhere remains
 current source.
 
-The adapter applies native defaults without discovering local or parent
-Prettier configuration. EditorConfig owns editor defaults and its independent
+The adapter applies locked Prettier defaults without discovering local or parent
+configuration, except that Markdown examples remain literal. EditorConfig owns editor defaults and its independent
 byte checks, not Prettier options. Missing local dependencies, a scope with no
 supported files or differing format fail without writing source or falling
 back to another installation.
@@ -103,6 +103,15 @@ leave single-paragraph list spacing unconstrained. The existing
 [Markdown lint adapter](../../tools/ci/markdown/lint.mjs) extends that native
 rule API using its parsed list and paragraph tokens. The policy's `blank_lines`
 tag enables this narrow check; no second Markdown parser or formatter is added.
+
+The format check consumes the same Markdown rules and native whitespace fixes
+after Prettier. Prettier alone preserves loose lists and can leave nested fences
+or tables without required separators; its success does not prove this policy.
+One normalization removes simple-item separators and supplies missing block
+separation. Embedded code formatting is disabled for Markdown so literal
+examples remain unchanged. Structural, link and prose repairs remain outside
+formatting authority. The same normalized bytes pass lint and remain unchanged
+on a second format pass.
 
 OpenSpec owns document validation. The CI consumer admits its result only when
 the findings report identifies the requested checkout, covers `all` items in a

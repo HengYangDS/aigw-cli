@@ -82,6 +82,109 @@ test("formatting checks current carriers without editing or inherited defaults",
   }
 });
 
+test("formatting and Markdown lint share semantic blank-line fixes", async (t) => {
+  const root = await fixture(t);
+  const cases = [
+    [
+      "simple-tasks",
+      "# Tasks\n\n- [ ] First.\n\n- [ ] Second.\n",
+      "# Tasks\n\n- [ ] First.\n- [ ] Second.\n",
+    ],
+    [
+      "wrapped-tasks",
+      "# Tasks\n\n- [ ] First action\n      and its evidence.\n\n- [ ] Second action.\n",
+      "# Tasks\n\n- [ ] First action\n      and its evidence.\n- [ ] Second action.\n",
+    ],
+    [
+      "nested-items",
+      "# Document\n\n- Parent.\n  - First.\n\n  - Second.\n- Next.\n",
+      "# Document\n\n- Parent.\n  - First.\n  - Second.\n- Next.\n",
+    ],
+    [
+      "quoted-items",
+      "# Document\n\n> - First.\n>\n> - Second.\n",
+      "# Document\n\n> - First.\n> - Second.\n",
+    ],
+    [
+      "nested-fence",
+      "# Document\n\n- Command.\n  ```sh\n  aigw status\n  ```\n- Next.\n",
+      "# Document\n\n- Command.\n\n  ```sh\n  aigw status\n  ```\n\n- Next.\n",
+    ],
+    [
+      "nested-table",
+      "# Document\n\n- Properties:\n  | Field |\n  | ----- |\n  | Value |\n- Next.\n",
+      "# Document\n\n- Properties:\n\n  | Field |\n  | ----- |\n  | Value |\n\n- Next.\n",
+    ],
+  ];
+  for (const [name, content] of cases)
+    await fs.writeFile(path.join(root, `${name}.md`), content);
+  const files = cases.map(([name]) => `${name}.md`);
+  for (const module of ["format.mjs", "markdown/lint.mjs"]) {
+    const result = run(root, module, files);
+    assert.notEqual(result.status, 0, result.output);
+    for (const [name, content] of cases) {
+      assert.ok(result.output.includes(`${name}.md`), result.output);
+      assert.equal(
+        await fs.readFile(path.join(root, `${name}.md`), "utf8"),
+        content,
+      );
+    }
+  }
+  const preserved = {
+    "paragraphs.md":
+      "# Document\n\n- First paragraph.\n\n  Second paragraph.\n\n- Next item.\n",
+    "literal.md": "# Document\n\n```markdown\n- First.\n\n\n- Second.\n```\n",
+    "literal-python.md":
+      "# Document\n\n```python\ndef value():\n\n\n  return 1\n```\n",
+    "headings.md": "# Document\n\n## Section\n\n### Detail\n",
+    "frontmatter.md":
+      "---\nsubject: aigw:test\nrole: test\n---\n\n# Document\n\nText.\n",
+  };
+  const accepted = Object.fromEntries([
+    ...cases.map(([name, , content]) => [`${name}.md`, content]),
+    ...Object.entries(preserved),
+  ]);
+  for (const [name, content] of Object.entries(accepted))
+    await fs.writeFile(path.join(root, name), content);
+  for (const module of ["format.mjs", "markdown/lint.mjs"]) {
+    const result = run(root, module, Object.keys(accepted));
+    assert.equal(result.status, 0, result.output);
+    for (const [name, content] of Object.entries(accepted))
+      assert.equal(await fs.readFile(path.join(root, name), "utf8"), content);
+  }
+  const { format } = await import("../../../node_modules/prettier/index.mjs");
+  const { fixMarkdownSpacing } = await import("../markdown/lint.mjs");
+  for (const [, content, expected] of cases) {
+    const formatted = await fixMarkdownSpacing(
+      await format(content, {
+        parser: "markdown",
+        embeddedLanguageFormatting: "off",
+      }),
+    );
+    assert.equal(formatted, expected);
+    assert.equal(
+      await fixMarkdownSpacing(
+        await format(formatted, {
+          parser: "markdown",
+          embeddedLanguageFormatting: "off",
+        }),
+      ),
+      expected,
+    );
+  }
+});
+
+test("non-Markdown formatting does not require Markdown policy", async (t) => {
+  const root = await fixture(t);
+  const content = '{\n  "version": 1\n}\n';
+  const file = path.join(root, "metadata.json");
+  await fs.writeFile(file, content);
+  await fs.rm(path.join(root, ".config/checks/markdown/policy.yaml"));
+  const result = run(root, "format.mjs", [file]);
+  assert.equal(result.status, 0, result.output);
+  assert.equal(await fs.readFile(file, "utf8"), content);
+});
+
 test("formatting requires declared inputs, policy and dependencies", async (t) => {
   for (const [name, files, diagnostic] of [
     ["empty inventory", [], "no authored files supported by Prettier"],
@@ -183,6 +286,11 @@ test("Markdown enforces native document structure without inline suppression", a
     ["fence language", "# Document\n\n```\naigw status\n```\n", "MD040"],
     ["repeated blank lines", "# Document\n\n\nText.\n", "MD012"],
     ["missing heading separator", "# Document\nText.\n", "MD022"],
+    [
+      "missing frontmatter separator",
+      "---\nsubject: aigw:test\nrole: test\n---\n# Document\n\nText.\n",
+      "MD022",
+    ],
     [
       "missing fence separator",
       "# Document\n\nText.\n```sh\naigw status\n```\n",
