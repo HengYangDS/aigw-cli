@@ -875,6 +875,13 @@
       `AIGW-a30-exact-public-root-retirement-after-current-tag-drain-20261003T0925Z.json`
       (`8793e714`) remains in the existing runner-capacity owner. A later job
       invalidates that completed operation's idle snapshot, not its exact absence.
+      Exact local retirement removes 24 duplicate archives (117,200,868 bytes)
+      from `a30f3134`, `a2108fb2`, `df7d4585` and `444bbd41`, retaining matching
+      complete archive sets at `b28ae590` and `80dbca19`. Both consumer observations
+      find no open files; all retained hashes and 28 metadata/signature/provenance
+      files are conserved. Result `duplicate-candidate-archive-retirement/result.json`
+      (`375ad793`) proves exact absence without touching the current `25006e50`
+      program, installed release, user state or raw acceptance evidence.
       Final proposal, tag, output, peer-lock-consumer and installed-release
       retirement remain open.
 - [x] 8.6 Migrate the Client Projection Edition Provider to the published
@@ -960,8 +967,13 @@
       independent warning/checkpoint and Codex/Claude four-stage results are in
       6.7. These are isolated environment/loopback results, not native-store,
       external-provider, GUI or formal distribution claims.
-      Changes through signed `f89eb6bf` affect tests, policy and records, not this
-      candidate's product build inputs. Earlier six-platform matrices retain
+      Independent continuity receipt `current-product-input-continuity-ef2abe3a-`
+      `20261003.json` (`134a0b40`) qualifies all 143 product/module/release/manifest
+      inputs and Git modes as unchanged from `25006e50` through signed `ef2abe3a`.
+      Both actual macOS archives, programs and shipped README/LICENSE are conserved.
+      Existing product behavior evidence remains byte-bound; new tooling requires
+      exact-HEAD CI. Candidate provenance, epoch and production signatures are not
+      rebound by this input equality. Earlier six-platform matrices retain
       their own signatures, provenance, native/client results; changed product
       bytes cannot qualify this candidate. Superseded payloads retain raw evidence.
       Both peers' ordinary native jobs pass at `f89eb6bf`, as recorded in 7.2,
