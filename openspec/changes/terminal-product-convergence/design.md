@@ -230,8 +230,8 @@ modules, locked Mise tools and digest-pinned CI artifacts adds delay without
 the same integrity benefit. Those sources instead need exact upstream identity,
 compatible behavior and native gate evidence. Select Renovate and Mise images
 by upstream release and OCI digest; preserve the Windows Mise ZIP's upstream
-SHA-256 through mirroring. Task 6.1 remains open until the complete locked
-supply chain is qualified.
+SHA-256 through mirroring. Task 6.1 owns complete locked supply-chain
+qualification; its current progress belongs only in `tasks.md`.
 
 The CUE graph remains the sole CI intent. GitHub and GitLab are equal optional
 peers receiving the same signed Git objects, with separate transport credentials,
@@ -461,6 +461,13 @@ archiving through the official governed OpenSpec transition. Re-prove the
 archived SHA; only then promote that exact object to `main`, require its peer-local
 main checks, and create the signed release tag. The tag jobs and dual-peer
 assets must pass before Homebrew update or user-host cutover can be claimed.
+Housekeeping completes at each operation boundary, not in a final catch-all
+sweep. Before archive, Task 8.5 inventories exact ownership, removes currently
+disposable residue and identifies retained consumers and retirement triggers.
+After verified release and installed cutover, retire superseded tags, outputs
+and the completed lane through their native owners. Preserve failed receipts,
+required rollback material and foreign or unknown state. These final retirements
+remain delivery requirements but cannot be prerequisites for their own release.
 Proof and archive cannot be checkboxes in the Change they finalize, because
 checking either box changes the HEAD it would claim to have proved.
 Before that host cutover, the exact final production reader must authorize each

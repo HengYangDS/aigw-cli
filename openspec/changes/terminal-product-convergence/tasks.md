@@ -235,6 +235,9 @@ in Git; original raw results stay with their source-bound verification owner.
       Dependency admission now precedes artifact construction. Scanner failure,
       malformed reports and incomplete scope launch no build, SBOM or signing;
       source static rules and the full construction race suite pass unchanged.
+      The real locked release entry at `b2dbeeb7` refuses during dependency
+      scanning in 7.06s; retained output and the installed executable remain
+      byte-identical, and its owned workspace is absent after exit.
 - [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
       build and CI costs against predecessor budgets on a quiet host; preserve raw
       samples and optimize only diagnosed owners.
@@ -335,16 +338,21 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 8.4 Compare mature gateway, config, client and release libraries with
       retained AIGW differentiators; record one source-backed adopt/reject decision
       per candidate and delete any replaced hand-written owner.
-- [ ] 8.5 Inventory obsolete branches, generated outputs, records, stale tags,
-      caches and worktrees by exact owner and consumer; retire only proved
-      disposable items while retaining immutable evidence and running clients.
+- [ ] 8.5 Complete the pre-archive inventory of branches, outputs, records,
+      tags, caches and worktrees by exact owner and consumer; retire currently
+      disposable residue and identify retained consumers and retirement triggers.
+      Preserve immutable evidence, failed receipts, rollback and running clients.
+      Post-archive release and final-lane retirement are required by the
+      [Migration Plan](design.md#migration-plan), not prerequisites for this task.
       Exact native retirement and duplicate-archive sweeps preserve running
       clients, selected bytes and immutable evidence. Original receipts prove
       181,380,500 and 117,200,868 bytes removed in separate local batches;
       Fleet's stopped Windows public-input batch removes 59,580,603 bytes.
       The obsolete GitLab proposal remains reachable but not accepted in dev;
       native `proposal_retirement_not_accepted` is respected. Remaining:
-      accepted-source proposal withdrawal and final tag/output/lane retirement.
+      exact inventory and current disposable-residue retirement. Source-branch
+      withdrawal follows guarded dev integration; final release tag, output and
+      lane retirement follow their verified consumer transitions.
       Unknown caches and intentional dev/candidate/current worktrees are preserved.
 - [x] 8.6 Migrate the Client Projection Edition Provider to the published
       Publisher v2 contract. Preserve the authored Claim Model, four reader
