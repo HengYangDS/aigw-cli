@@ -782,6 +782,18 @@
       new regression cache/source and invocation failures remain raw evidence.
       Its owned coverage cache and construction scratch are removed. Security,
       warning-free real-client and hosted enforcement obligations remain open.
+      Original GitLab Windows job 47712 spends 9m29s in serial conformance
+      before the unchanged ten-minute package timeout. Local instrumentation
+      proves 77 native formatter/linter calls for 39 fixtures. Independent rule
+      packages now share one native lint batch while four root/format/type
+      cases remain separate. All 39 cases and companion diagnostics are
+      retained; targeted native execution drops from 26.308s to 2.639s.
+      The original RED and exact timings remain in existing verification;
+      current Windows paired acceptance and full source gates remain open.
+      Independent review closes an additional report-failure ambiguity:
+      only native IssuesFound exit 1 qualifies expected rule findings, and
+      report errors/warnings fail. Injected exit 7 and a report warning are
+      refused; the ordinary native batch remains green.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.

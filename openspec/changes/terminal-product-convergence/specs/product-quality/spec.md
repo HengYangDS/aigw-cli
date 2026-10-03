@@ -48,6 +48,14 @@ SHALL NOT erase captured diagnostic output or establish warning-free acceptance.
 - **AND** native catalogue warnings SHALL prevent qualification rather than silently discard diagnostics
 - **AND** failed and successful probes SHALL reclaim their exact owned workspace.
 
+#### Scenario: Native rule conformance exceeds its aggregate execution budget
+
+- **WHEN** independent positive and negative Go rule fixtures qualify the same policy
+- **THEN** one bounded native batch SHALL execute every isolated fixture package
+- **AND** valid fixtures SHALL have no findings and each invalid fixture SHALL retain its intended diagnostic
+- **AND** root resolution, format and type-failure contracts SHALL remain independently exercised
+- **AND** policy thresholds, native diagnostics and the original package timeout SHALL NOT be weakened.
+
 ### Requirement: Dependency evidence binds the selected lockfiles
 
 The release scanner invocation and report admission SHALL share one exact

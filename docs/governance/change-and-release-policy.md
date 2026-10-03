@@ -420,6 +420,13 @@ its expected rejection. Configuration schema, complete inventory, output failure
 warnings are tested through their owners; self-green cannot prove hosted admission,
 visual rendering, live Provider or installation.
 
+Independent Go rule fixtures run in one native linter batch, with one isolated
+package per case and unsuppressed structured diagnostics. Valid cases must have
+no findings; each invalid case must retain its intended rule and companion
+findings. Root resolution, format drift and type failure remain separate native
+invocations. Batch execution uses a caller-owned deadline and native process
+cleanup; it does not extend the package timeout or substitute mocked findings.
+
 Public client verification requires both bounded process streams. Explicit native
 stderr warnings, errors and tracebacks prevent successful qualification and
 checkpoint publication, even after an exit-zero response. Ordinary stderr progress remains admissible;
