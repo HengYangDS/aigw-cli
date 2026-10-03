@@ -800,7 +800,8 @@
       `GHSA-vfj7-8cjw-p6xm` in locked development dependency `braces` 3.0.3.
       The official advisory covers all published versions through 3.0.3 and
       lists no patched version; the current npm latest is still 3.0.3.
-      OpenSpec, Markdown and Mermaid tools share its `micromatch` dependency.
+      OpenSpec, the former Markdown CLI and Mermaid tools share its
+      `micromatch` dependency.
       The OpenSpec output resolver reaches brace expansion without exposing
       a caller depth guard. Earlier zero-finding scans remain historical;
       official advisory, registry and lock-consumer inputs are retained under
@@ -814,6 +815,16 @@
       expansion. Exact-file Markdown/Mermaid APIs and Go payload absence do
       not establish whole-toolchain non-applicability. The native invocation
       boundary is referred to the existing ETHOS owner, not copied locally.
+      The Markdown owner now consumes already-locked `markdownlint` and
+      `js-yaml` APIs directly. A native isolated-engine test is RED with the
+      CLI intermediary and GREEN without it, including refusal when the local
+      engine is missing. Native lock/install removes seventeen packages
+      (283 to 266), adds none, and preserves every retained version, registry
+      URL and integrity. Thirty-six Markdown behavior cases and the authored
+      inventory check pass; all 266 installed packages verify registry
+      signatures, with fifty verified attestations. Current native audit still
+      reports one concrete braces High and its dependants; no vulnerability
+      is ignored, downgraded or claimed fixed by this deletion.
 - [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
       build and CI costs against predecessor budgets on a quiet host; preserve raw
       samples and optimize only diagnosed owners.

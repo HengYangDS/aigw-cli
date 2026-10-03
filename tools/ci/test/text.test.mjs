@@ -116,6 +116,36 @@ test("formatting requires declared inputs, policy and dependencies", async (t) =
   }
 });
 
+test("Markdown uses declared engine packages without the CLI or parent fallback", async (t) => {
+  const root = await fixture(t);
+  const module = path.join(root, "tools/ci/markdown/lint.mjs");
+  const document = path.join(root, "document.md");
+  const content = "# Document\n\n## Details\n";
+  await fs.mkdir(path.dirname(module), { recursive: true });
+  await fs.copyFile(
+    path.join(repository, "tools/ci/markdown/lint.mjs"),
+    module,
+  );
+  await fs.writeFile(document, content);
+  const dependencies = path.join(root, "node_modules");
+  await fs.mkdir(dependencies);
+  for (const name of ["markdownlint", "js-yaml"]) {
+    await fs.symlink(
+      path.join(repository, "node_modules", name),
+      path.join(dependencies, name),
+      "junction",
+    );
+  }
+  let result = run(root, module, [document]);
+  assert.equal(result.status, 0, result.output);
+  assert.ok(result.output.includes("checked 1"), result.output);
+  await fs.unlink(path.join(dependencies, "markdownlint"));
+  result = run(root, module, [document]);
+  assert.notEqual(result.status, 0, result.output);
+  assert.ok(result.output.includes("ENOENT"), result.output);
+  assert.equal(await fs.readFile(document, "utf8"), content);
+});
+
 test("Markdown enforces native document structure without inline suppression", async (t) => {
   const root = await fixture(t);
   for (const [name, content, rule] of [

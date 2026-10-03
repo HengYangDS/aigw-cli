@@ -3,17 +3,14 @@ import { text } from "node:stream/consumers";
 import { accessSync } from "node:fs";
 
 // Bare package resolution must not substitute a parent checkout's installation.
-accessSync(
-  new URL(
-    "../../../node_modules/markdownlint-cli2/package.json",
-    import.meta.url,
-  ),
-);
-const { default: helpers } =
-  await import("markdownlint-cli2/markdownlint/helpers");
-const { lint, readConfig } =
-  await import("markdownlint-cli2/markdownlint/promise");
-const { default: yaml } = await import("markdownlint-cli2/parsers/yaml");
+for (const name of ["markdownlint", "js-yaml"]) {
+  accessSync(
+    new URL(`../../../node_modules/${name}/package.json`, import.meta.url),
+  );
+}
+const { default: helpers } = await import("markdownlint/helpers");
+const { lint, readConfig } = await import("markdownlint/promise");
+const { load: yaml } = await import("js-yaml");
 
 // Upstream blank-line rules leave single-paragraph peer spacing unconstrained.
 const spacingTokens = new Set([
