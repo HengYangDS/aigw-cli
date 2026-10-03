@@ -85,62 +85,24 @@
       the cached 0.3.1 public-link risk. Final operator-item authorization and
       the real package-link transition belong to the post-archive
       [Migration Plan](design.md#migration-plan), not this pre-archive checkbox.
-      At signed source `cdfc0bf6`, the isolated macOS environment-backend
-      journey stages actual Homebrew 0.3.1 bytes and passes preprojection,
-      simulated link gap, upgrade, rollback, re-upgrade and uninstall. New
-      readers survive the gap; cached 0.3.1 callers retain the disclosed risk.
-      The signed published 0.3.1 Linux ARM64 archive passes the corresponding
-      environment-backend journey in an isolated container. GitHub run
-      36563790078 at `49ba0c5ec5503b4365ff1f0c01555c05c97ca03e` passed
-      the published `v0.3.1` predecessor Keychain journey on a disposable macOS
-      runner, including rollback rotation and explicit restaging. At that
-      checkpoint, operator-item authorization, Linux native-host acceptance,
-      and Windows real-client proof remained open; later evidence below
-      supersedes the Windows-client gap. October 2 ordinary Linux-host lifecycle
-      for exact `c4ffa1c3` bytes is recorded in 5.2; it does not prove final-
-      source package identity.
-      The signed `2c7fbe89` Linux ARM64 candidate also passes authentic 0.3.1
-      succession with an isolated real DBus/GNOME Secret Service as UID 1000.
-      Automatic backend selection is keyring; old and new commands remain
-      callable through upgrade, rollback and re-upgrade, and uninstall retains
-      the stored Token. Linux host and Windows evidence remain separate.
-      October 1 private-Keychain acceptance proves that a same-byte copied test
-      executable reads its creator-authorized synthetic item and observes parent
-      rotation/deletion. A missing selected executable fails; ignoring that
-      selection produces the distinguishing RED. This is not production
-      signing succession or authorization of retained operator items.
-      The exact `df7d4585` Linux package's Secret Service succession is
-      recorded in 5.2; Windows native Credential Manager/client results are in
-      5.3. These isolated synthetic items do not authorize the final operator
-      reader.
-      Current `3f6723c7` macOS run 36851755292 passes authentic published
-      0.3.1 Keychain succession, rollback rotation and explicit restaging;
-      Windows native-store/client closure is recorded in 5.3. These receipts
-      prove retained-reader lifecycle for their
-      recorded candidate bytes, but not a stable macOS Developer ID designated
-      requirement across distinct signed successors. See [DR-0011](../../../docs/decisions/dr-0011-single-portable-token-backend.md): an
-      untagged Developer ID candidate can prove that pre-archive identity;
-      ad-hoc and copied-byte fixtures cannot substitute. That successor proof
-      remains open. Exact operator-item authorization and the actual Homebrew
-      link transition remain post-archive Migration Plan obligations. The
-      ordinary Linux-host lifecycle for exact `c4ffa1c3` bytes is now evidenced
-      in 5.2; final-candidate and warning-free acceptance remain open.
-      October 3 exact `a2108fb2` macOS published-0.3.1 environment journey
-      passes in 6.11 seconds: retained configuration and commands survive
-      preprojection, the simulated link gap, upgrade, rollback and re-upgrade.
-      Candidate `21653656` and predecessor `ebfa8775` are verified shipped
-      bytes; native stores and real clients were not selected. Original logs
-      and exact cleanup are in `a2108fb2`'s existing verification directory
-      as `published-env-macos-20261003.*`. Installed 0.3.1 and tracked inputs
-      remain unchanged. This does not close Developer ID or operator-item
-      authorization, Windows native-store succession or actual Homebrew cutover.
-      The October 3 exact `b28ae590` Windows trace in job 47497 distinguishes
-      the passing `0.0.0` native Credential Manager fixture from the separate
-      authentic 0.3.1 environment-backend journey; it does not prove authentic
-      0.3.1 native-store succession. The existing published-predecessor test
-      now selects its native-store case on every platform under the unchanged
-      explicit keyring flag. The native construction suite and release lint
-      pass; exact Windows execution of that repaired case remains open.
+      Retained authentic 0.3.1 environment, native Keychain and Linux Secret
+      Service journeys preserve original commands, rotation, rollback, re-upgrade
+      and uninstall for their recorded candidates. The current macOS environment
+      and Codex/Claude reader results are in 6.7 and 9.3.
+      Existing independent `canonical-f4cd-native-candidate-20261002/`
+      `developer-id-predecessor-successor/delivery.json` (SHA-256 `0b9918fb`)
+      proves distinct authentic 0.3.1 and untagged Developer ID bytes have the same
+      designated requirement and pass mutual native requirement checks. It neither
+      reads a credential nor changes Keychain authorization; it binds `f4cd7c51`,
+      not the final current-source package.
+      The repaired published native-store case selects every platform under the
+      explicit keyring flag. Ordinary `f89eb6bf` Windows jobs pass native Credential
+      Manager source fixtures but omit the authentic published baseline. They do
+      not prove published-0.3.1 native-store succession. The explicit Windows
+      predecessor case, final signed-reader identity and exact Linux native-host
+      candidate remain open. Operator access and actual Homebrew replacement stay
+      post-archive. Historical failures and successes remain in canonical Git and
+      existing verification/recovery owners, not as new candidate qualification.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
@@ -193,6 +155,29 @@
 - [ ] 4.5 Requalify Claude Code, Claude Desktop, Codex, and Hermes independently
       for native protocol, model selection, credential and rollback behavior; do not
       infer Desktop from CLI or endpoint reachability from real-client success.
+      Independent exact `25006e50` macOS package and official Codex 0.160
+      acceptance passes current shipped plain Sol 6.1 on AIHubMix: public selected
+      inference, public verify, real file tool and same-session continuation.
+      Receipt `25006e50-aihubmix-native-codex-sol61-20261003/delivery.json`
+      (SHA-256 `5404b5f4`) binds program/archive, manifest and client inputs.
+      UCloud public check/verify and file tool pass. A misapplied resume `--color`
+      option fails native argument parsing before network use; the original failure
+      remains evidence, not a provider defect. Corrected original resume passes
+      file tool and same-session continuation in receipt
+      `25006e50-ucloud-native-continuation-corrected-20261003/delivery.json`
+      (SHA-256 `534a3a75`). Each exact scratch and process group is absent;
+      source and protected host inputs are conserved.
+      DMXAPI public check passes once, but public verify reaches its unchanged
+      60-second deadline. Original receipt
+      `25006e50-three-provider-native-codex-sol61-20261003/delivery.json`
+      (SHA-256 `18b6b2d6`) is retained. Direct official minimal invocation then
+      succeeds at max effort in 6.903s with explicit request/stream retries zero;
+      `25006e50-dmxapi-native-minimal-diagnostic-20261003/delivery.json`
+      (SHA-256 `e1aef981`) records that distinct control. This does not prove why
+      public verification timed out or qualify its full route/client journey.
+      No credential authorization failure, model downgrade, timeout relaxation,
+      host change or proxy mutation occurred. Other candidate/client/platform,
+      native-store, Desktop and final-release obligations remain separate.
       Claude-in-Codex remains unadmitted: shipped Claude Routes expose Anthropic,
       while Codex requires Responses. Qualify an exact external Responses path
       and real Codex tool/replay behavior before claiming that support.
@@ -719,87 +704,26 @@
 - [ ] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
-      Reopened after native immediate-exit evidence was truncated by pipe
-      output. The existing capture owner now uses one native temporary file;
-      three distinguishing RED cases and the unchanged local OpenSpec
-      dependency test pass after repair. Setup failures and exact cleanup also
-      pass. Complete native Go race/coverage passes at 95.14% (13,656/14,354
-      statements), with empty stderr. An earlier local static attempt stalled
-      at actionlint stdin before ShellCheck; preserve it as a historical failure.
-      The later full native quality graph at exact signed SHA `df7d4585` passed
-      on macOS, Linux and Windows; its terminal readbacks are recorded once in
-      7.3. This disproves a persistent toolchain failure at that SHA, not at
-      current HEAD. The historical stall's root cause is unproved; do not
-      attribute it to actionlint or add a workaround. Current-HEAD zero-warning
-      proof, installed gate behavior and declared platform acceptance remain
-      pending. At signed `b28ae590`, the complete source gate passes with 95.13%
-      statement coverage and all 1,212 tracked hashes conserved. Exact-HEAD ETHOS
-      proof `6e449d07dd7be39497eebfc431e1612722f224399cd0fbca228211aa483c1920`
-      passes both declared gates with zero diagnostics. The initial behavior
-      attempt lacked the Publisher archive inputs; correct explicit inputs prove
-      all 62 native JavaScript cases. The complete cold-peer quality graph passes
-      on macOS, Linux and Windows in GitHub run `37061096126`. GitLab's complete
-      Windows candidate graph in pipeline `9289` fails before product admission:
-      full quality requires Lychee, but the Windows default tool closure omitted
-      it. One per-platform native closure now replaces the default/full split on
-      both peers. Mise resolves the official Windows x64 Lychee asset for ARM64
-      through its native platform declaration and lock. Distinguishing projection
-      RED/GREEN, the complete projection suite and lint pass; native new-source
-      tool acceptance remains pending. The same b28 package's narrower native
-      Windows pipeline `9290` retains separate evidence and cannot qualify the
-      failed full graph. Other peer/platform and installed obligations stay open.
-      Signed `f4f7bc36` passes the complete source gate with 95.13% statement
-      coverage and all 1,212 tracked hashes conserved. Its exact-HEAD ETHOS
-      artifact `ce3fa7a4f66e74e205baa00fe181c723b44277542b89d287f19a3defb6439b0e`
-      proves both declared gates with zero gaps using both Publisher inputs.
-      Current Windows tool execution and peer admission remain open; this
-      local source proof does not qualify the revised hosted tool graph.
-      Exact `a30f3134` source proof and both five-job review matrices pass.
-      The subsequent Windows full-quality job 47565 downloads and executes
-      the locked Lychee asset, but stops before native candidate admission:
-      the invalid Mermaid semicolon case reaches its fixed 15-second child
-      deadline; the other syntax case passes at 14.7 seconds. Both use the
-      authoritative fallback parser's cold imports. The existing test now
-      checks valid and invalid inventories in two batches, with a bounded
-      60-second fallback budget, preserving independent success/failure and
-      unchanged-source assertions. All 61 combined source Node cases pass;
-      current Windows full-tool and real-predecessor acceptance remain open.
-      Current signed `bc5570cd` complete Go race/coverage passes at 95.13%
-      (13,690/14,391 statements), with every canonical package observed and
-      empty stderr. The first run correctly rejects an ignored `.go` evidence
-      snapshot as an unexecuted package; preserving the same bytes as `.go.txt`
-      removes only that accidental generated input, without exclusions or
-      threshold changes. Both original and corrected inventories remain under
-      `build/verification/bc5570cddf5edc92e9fd786125217c5a265d2f45/go-quality/`.
-      All 1,212 tracked hashes are conserved. The exact selected published
-      Publisher alpha.7 archive/manifest also passes relocated offline native
-      acceptance with no skips. This is current local behavior/installed-input
-      evidence, not full ETHOS proof, security or hosted platform qualification.
-      After the native compiler/cache repair, exact signed `fe8b86fc` complete
-      race/coverage passes at 95.13% (13,690/14,391 statements) with empty
-      stderr and every canonical package observed. Native construction,
-      lint, format, size, Markdown, spelling and strict OpenSpec checks pass;
-      new regression cache/source and invocation failures remain raw evidence.
-      Its owned coverage cache and construction scratch are removed. Security,
-      warning-free real-client and hosted enforcement obligations remain open.
-      Original GitLab Windows job 47712 spends 9m29s in serial conformance
-      before the unchanged ten-minute package timeout. Local instrumentation
-      proves 77 native formatter/linter calls for 39 fixtures. Independent rule
-      packages now share one native lint batch while four root/format/type
-      cases remain separate. All 39 cases and companion diagnostics are
-      retained; targeted native execution drops from 26.308s to 2.639s.
-      The original RED and exact timings remain in existing verification;
-      current Windows paired acceptance and full source gates remain open.
-      Independent review closes an additional report-failure ambiguity:
-      only native IssuesFound exit 1 qualifies expected rule findings, and
-      report errors/warnings fail. Injected exit 7 and a report warning are
-      refused; the ordinary native batch remains green.
-      GitHub run 37098868760 independently exposes a cold compiler warmup
-      killed by the metadata helper's 30-second timeout. Warmup and native
-      release now share a bounded two-minute context through the existing
-      process owner. The distinguishing cache/deployment regression passes
-      locally in 10.42s without skipping its cold cache or deployment warnings;
-      exact hosted requalification remains required.
+      Native capture preserves both bounded streams and rejects explicit
+      diagnostic warnings; setup, partial-read and cleanup counterexamples remain.
+      Conformance retains all 39 rule cases and companion diagnostics with 8 native
+      invocations instead of 77. Exit 7, report errors and warnings are rejected;
+      local cost falls from 26.308s to 2.639s. Cold CGO warmup and construction share
+      one bounded release context; the cold-cache distinguishing regression passes.
+      Complete Go race/coverage passes at 95.13% (13,725/14,428 statements), with
+      every canonical package observed. Final test-only guards pass in their
+      complete affected race packages. An accidental `.go` evidence package is
+      retained as `.go.txt`, without source/package exclusions.
+      At exact signed `f89eb6bf`, both peers pass native macOS, Linux, Windows and
+      isolated Linux Secret Service. Native execution checks Go format/lint/static
+      analysis, full source tests and product acceptance; macOS/Linux additionally
+      measure race/coverage. GitLab Windows job 47768 completes `tools/ci` in
+      146.351s and all five resource outcomes, including the actual 60-second
+      deadline. Peer terminal evidence is recorded once in 7.2.
+      Both overall quality pipelines still fail the High advisory in 6.5. Ordinary
+      native jobs do not execute the complete non-Go quality-tool graph; current
+      full-tool and final zero-warning source admission remain open. Original
+      failed controls remain in their existing source-bound verification owners.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.
@@ -913,66 +837,33 @@
       intended commit SHA and required-job set. Actual `main`/tag results against
       the archived SHA are post-archive release acceptance under Migration Plan;
       do not infer them from projection tests or a manual run.
-      October 2 refs: GitLab main/dev share `12ca86f9`; GitHub main `f17bb3b2`
-      is an ancestor of dev `2aa58eea`. All seven GitHub-only commits from that
-      accepted history are already ancestors of the current proposal on both
-      peers; no cherry-pick is needed. Both draft reviews currently verify
-      `df7d4585` with five successful peer-local jobs; this local worktree is four
-      signed documentation commits ahead and has not been reviewed remotely.
-      Maintainer integration and accepted dev/main/tag events remain open.
-      GitLab MR !178 job 47431 at `9a8612d0` failed before product tests: its
-      relative `CI_PROJECT_DIR` left Mise's Go 1.27.1 install path relative, so
-      the post-install probe failed after a working-directory change. The same
-      locked Mise/Go versions pass with an absolute data path and reproduce the
-      failure with a relative one. The CUE owner now anchors Unix tool state and
-      cleanup at the physical checkout path; a regression covers relative CI
-      metadata, post-change directory use and exact cleanup. Focused projection
-      checks pass. Both peers now expose signed `b28ae590`; GitHub review
-      `37059020652` and GitLab MR !178 pipeline `9288` pass all five required jobs
-      on that exact SHA. This closes the current proposal-update event; accepted
-      dev/main and tag events remain separate. Raw peer results are retained in
-      `build/verification/b28ae590bb0098838c24172fcfa3639ceb13efdd/`.
-      October 3 CI scope repair reuses the release input parser for explicit
-      prebuilt acceptance, excluding unrelated source bootstrap only from that
-      scope. Every GitHub dispatch has distinct `Manual` check names; canonical
-      review/push names and exact tag-push release admission remain unchanged.
-      GitLab retains its full MR graph and MR-pipeline admission. The name
-      regression fails before and passes after repair; all six affected packages,
-      native Go lint, actionlint, projection, formatting, Markdown, spelling,
-      architecture and strict OpenSpec checks pass. Raw original failures and
-      corrected results are under `a2108fb2/native-artifact-scope/` verification.
-      Exact product commit verification rejects annotated-tag aliases, mutable,
-      short, uppercase, malformed and unsigned identities. Product build inputs
-      and installed 0.3.1 are unchanged; actual hosted status and native Runner
-      acceptance remain unproved, so event/merge tasks remain open.
-      The c36 native Linux coverage job then exposes a test-fixture defect:
-      annotated-tag creation relies on host committer identity. A clean global
-      configuration with native `user.useConfigOnly` reproduces the exact
-      failure. The private signed-release repository now owns its local name
-      and email; no host identity, signer or product input changes. Original
-      failed probes and the distinguishing regression remain in the same
-      verification owner. Hosted successor acceptance remains separate.
+      CUE preserves canonical review/push check names and gives manual jobs
+      distinct Manual names. Explicit prebuilt acceptance consumes the release
+      parser without repeating unrelated source work; manual results cannot
+      substitute for canonical event admission. Relative CI tool state resolves
+      from the physical checkout. Signed-object fixtures own local committer
+      identity; no host identity or signer change is required.
+      Both existing `proposal/hermes-offline-verification` peer refs read back
+      exact signed `f89eb6bf`. GitHub run 37107646830 and GitLab MR !178 pipeline
+      9356 execute the five-job review matrix: macOS, Linux, Windows and Secret
+      Service pass; quality fails the advisory in 6.5. Original terminal results
+      and markers remain under
+      `build/verification/f89eb6bfb3dcb95251044240fb31d7132ea09993/proposal-publication/`.
+      Independent readback `47ad3523` conserves source and evidence hashes.
+      Source publication is proved, successful review admission is not. Accepted
+      dev/main/tag events, guarded integration and final archived object remain
+      open under Migration Plan; another peer or manual result cannot replace them.
 - [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review
       work only before a noninterruptible native Shell or release job starts.
       One release owner consumes peer-local candidate, predecessor, clients
-      and trust inputs; construction/acceptance children inherit no Forge
-      authorization. Current signed `df7d4585` passes all five required jobs
-      independently on GitHub review 36887407579 and GitLab review 9174;
-      GitHub full-quality run 36888622433 also passes the complete native
-      quality graph on macOS, Linux and Windows. October 2 terminal readbacks
-      bind each result to that exact SHA. Accepted-ref parity and release
-      version are correctly skipped in review/manual contexts, not qualified
-      by those runs. Focused CUE projection regressions pass, including cache
-      isolation and noninterruptible persistent Shell jobs. Static quality and
-      pure-Go Secret Service require no compiler; native Linux race alone
-      installs gcc/libc headers. Original prerequisite, ESRCH and sandbox
-      failures remain in `linux-prerequisite-*`, `linux-capability-*` and
-      `windows-native-sandbox-*`. October 2 `df7` terminal readbacks remain
-      in the existing verification owner. Event/merge admission,
-      persistent-runner containment, cold-peer transport and final distributed
-      client bytes remain in 7.2, 7.4, 7.5 and 9.3.
+      and trust inputs; its children inherit no Forge authorization. CUE regression
+      coverage retains cache separation and noninterruptible native Shell jobs.
+      Pure-Go Secret Service/static quality need no compiler; Linux race owns its
+      compiler prerequisite. Current exact peer-native results are in 7.2.
+      Persistent-runner containment, complete cold-peer transport and final
+      distributed-client bytes remain in 7.4, 7.5 and 9.3.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
       guarded-merge policy, source-branch auto-delete configuration, signer trust
       and branch protection on each selected peer without interactive
@@ -1096,60 +987,22 @@
 - [ ] 8.5 Inventory obsolete branches, generated outputs, records, stale tags,
       caches and worktrees by exact owner and consumer; retire only proved
       disposable items while retaining immutable evidence and running clients.
-      This lane's 2026-09-29 sweep removed obsolete ignored tmp, coverage and
-      dist outputs, one superseded 0.3.3 test candidate, and four older 0.3.0
-      test bundles. On October 1, the historical architecture lane's holder
-      completed native retirement `66292c29`: its exact worktree, ref and lease
-      are absent; signed source `01776f2f`, 3,348 raw-evidence members and eight
-      analyzer members remain in the existing recovery handoff. The retained v2
-      research is not acceptance; source-owned migration is required by 8.6.
-      Only this terminal authoring lane remains. The current 0.3.3 candidate,
-      raw verification/notarization evidence and active dependencies remain;
-      obsolete tag, remote and final output retirement are still open. A later
-      exact sweep retires fourteen unconsumed archive/cask payloads from two
-      superseded test-signer matrices, reclaiming 55.82 MiB. All raw results,
-      checksums, signatures, provenance, SBOM and license/security metadata remain
-      unchanged; the fixed candidate and required predecessor are preserved.
-      Seven unconsumed archive/Cask files from superseded `candidate-aba8ee13`
-      are also retired, reclaiming 27.95 MiB; six metadata/signature files and
-      all selected candidate/predecessor hashes are conserved. The existing
-      `retired-superseded-test-matrices-20261001.json` records exact absence.
-      The Fleet owner also retires the old bespoke Windows controller and its
-      bytecode after proving no consumers. Its two source files remain only in
-      a verified read-only tar archive; active `.py`/`.ps1` paths are absent.
-      `windows-native-execution-policy-closeout-20261001.json` in the existing
-      runner-capacity handoff retains the exact scope and restored host state.
-      GitLab's redundant `proposal/20260926-terminal-product-convergence`
-      remains separate from the existing review ref. Native retirement preview
-      refuses it as not accepted; retain the object and resolve precise owned
-      projection retirement at ETHOS, not by bypassing hooks.
-      The October 2 read-only inventory at HEAD `32965a05` confirms three clean
-      managed worktrees (primary `dev`, `candidate/dev` and this source lane),
-      nine candidate matrices (one selected, three full prior matrices awaiting
-      consumer audit, five metadata-only) and 74 local refs (14 commit refs,
-      59 product tags, one support tag). The lane-relative ETHOS status passes
-      with no foreign or unbound lane; the primary `dev` status counts this
-      owned Work Lane as one foreign lane and reports no unbound lane. No
-      deletion was performed or authorized.
-      Receipt `independent-delivery-residue-inventory-20261002-01a0ccfc/delivery.json`
-      SHA-256 `dcb5994e24615089cc97de06fc9c3e6218f7dc56585a4e3ef7ca9efaebb96672`.
-      The local `proposal/hermes-offline-verification` ref is a 111-commit
-      ancestor; the `df7d4585` remote-review value is cached, not a current
-      Forge observation. The only temporary entry is owner-unknown native
-      `node-compile-cache`; it remains preserved. Fresh Forge refs, candidate
-      consumer retirement, ETHOS-owned ref retirement, native-cache ownership
-      and final artifact cleanup remain open. On October 3, exact owned lane
-      `work/20261002-repository-history-identity` is retired through native receipt
-      `c527e16f`: worktree, ref and Lease are absent, while all commits remain
-      ancestors of `b28ae590`. Seventeen build-evidence files are preserved with
-      identical hashes at their source-commit directory in this lane. The stale
-      empty primary `HEAD.lock` had no open handles or Git process and is removed;
-      recovery completes all three retirement effects. Current status reports
-      zero foreign/unbound/missing-lease lanes. Source, build, native and proof
-      scratch from this batch are removed with original evidence preserved.
-      The last cached lock snapshot
-      showed `gh` 2.101.0 on four accepted branch names; retain its assets and
-      2.102.0 provenance until fresh peer locks and consumers prove retirement.
+      Native retirement removes the superseded architecture/identity lanes,
+      exact refs and leases, preserving accepted commits and immutable evidence.
+      Current source-lane status has no foreign, unbound or missing-lease lane.
+      Primary dev, candidate/dev and this terminal worktree remain intentional;
+      visibility alone does not authorize their deletion.
+      Prior sweeps remove stopped build/cache and superseded matrix payloads while
+      conserving signatures, metadata, SBOM and raw failures. The existing
+      `f89eb6bf/superseded-native-candidates/retirement-result.json` proves four
+      stopped roots absent and 181,380,500 bytes removed; installed 0.3.1, selected
+      `25006e50` archive and independent verifier remain conserved.
+      Absorbed GitLab `proposal/20260926-terminal-product-convergence` still fails
+      native retirement admission; preserve it pending the owning ETHOS transition,
+      not prefix deletion or a hook bypass. Unknown native `node-compile-cache`
+      remains preserved. Fleet owns exact Windows public-input cleanup after all
+      jobs drain; a new job invalidates an earlier idle snapshot. Final proposal,
+      tag, output, peer-lock-consumer and installed-release retirement remain open.
 - [x] 8.6 Migrate the Client Projection Edition Provider to the published
       Publisher v2 contract. Preserve the authored Claim Model, four reader
       questions, independent media and AIGW acceptance authority; prove exact
@@ -1223,116 +1076,24 @@
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with
       exact-byte install, predecessor upgrade/rollback, credentials and real-client
       journeys; retain the source and artifact hashes and disclose missing platform
-      evidence. October 3 signed `1eef7dd0` replaces the historical `a2108fb2`
-      candidate after the process capture repair. Existing native construction
-      produces macOS ARM64 archive `b6b25877` and program `9a0073fb`; both
-      architecture checksums and ad-hoc signatures verify, and 1,212 tracked
-      hashes are conserved. Original shipped-team prerequisites, retained
-      0.3.1 upgrade/rollback, rollback admission and five resource outcomes
-      including the actual 60-second deadline pass in 108.387 seconds.
-      Claude Desktop is explicitly skipped, not qualified. Raw construction
-      and lifecycle logs remain under `build/verification/1eef7dd0bb843f10ba68d5c261d85801b1a27637/native-artifact-scope/`.
-      Exact constructor and lifecycle scratch are absent; installed 0.3.1
-      program and configuration are unchanged. This native-only candidate
-      has no full release/security/provenance matrix. Current client warnings,
-      native credentials, production signing and other platforms remain open.
-      Rollback export execution failures now retain their cause instead
-      of being mislabeled as configuration incompatibility; focused RED/GREEN tests
-      pass. Native rollback admission now proves that the retained program's export
-      exits unsuccessfully, requires the execution-failure verdict, and conserves
-      program/configuration bytes through rejection, restoration and re-upgrade.
-      This changes executable bytes, so 53b package evidence is historical.
-      Isolated native items and environment credentials qualify this
-      pre-archive candidate, not current operator-item access. Final production
-      signing creates separately inventoried bytes; post-archive distribution
-      and exact copied-reader authorization must pass before installed cutover.
-      The existing release owner builds one six-platform 0.3.3 matrix at
-      signed `9cf23cb8` in 11.709 seconds, conserving all 1,229 tracked hashes.
-      `candidate-9cf23cb8` retains signed checksums, provenance, SBOM,
-      license/security metadata and Cask projection; macOS signing is ad-hoc.
-      Public `accept-native --candidate --baseline-tag v0.3.1 --clients`
-      passes on macOS ARM64 in 320.365 seconds: lifecycle, rollback, actual
-      60-second timeout, Codex 0.159.3, stable Claude 2.1.285, fourteen general
-      Codex selections and a real shell tool loop. Local Hermes 0.21.5 includes
-      four carried commits; official unmodified Hermes evidence stays in 4.5.
-      Protected hashes are unchanged and scratch is absent; raw caller/log
-      evidence is `native-current-9cf23cb8-macos*`. Preserve this candidate's
-      identity: later test-only `56cdc32a` is not its provenance. Exact-candidate
-      Linux real-client container proof is recorded in 5.2; current Windows
-      actual-client execution is recorded in 5.3. Current final bytes,
-      native-host stores, Desktop GUI, production signing and installed cutover
-      remain unqualified.
-      The 4.5 primary Codex 0.160 AIHubMix plain-Sol and Muse receipts use
-      package `c4ffa1c3`; this task still requires lifecycle and client
-      acceptance against its own exact signed candidate bytes.
-      Signed source `9544b98d` rebuilds the six-platform candidate in 10.14
-      seconds with all 1,229 tracked hashes conserved. Each program/archive
-      equals the previously qualified `9cf23cb8` bytes; current provenance and
-      full-matrix detached signature are regenerated, not borrowed. Public
-      artifact admission initially rejects incorrectly selected Git-only trust
-      and principal; selecting the unchanged Forge-declared artifact trust and
-      signer resolves the prerequisite without widening trust. Current-source
-      manifest, governance and final distribution remain separate. Exact
-      archive comparisons are `9544b98d-six-platform-archive-identity-comparison.json`;
-      native macOS execution and its limits are recorded in 5.4.
-      The `7a5c1da6` matrix is rebuilt with the same explicit public Forge
-      release-source inputs, signed checksums and current provenance. All six
-      archives/programs equal `9544b98d`; the current seven-path shipped-team
-      journey passes. The initial local-only build omitted those inputs; its
-      mismatch, original metadata and corrected comparison are retained.
-      This source/input correction is not final signing or installed cutover.
-      The exact `80dbca19` matrix conserves the previously qualified six
-      archives/programs while refreshing provenance. Native resource and
-      published-predecessor acceptance pass; Claude, Codex, fourteen general
-      Codex choices and its tool loop pass. Hermes's missing companion PATH is
-      an invocation omission: the corrected four-step predecessor/candidate/
-      rollback/re-upgrade journey passes in 60.401 seconds without product
-      fallback. Full source proof passes in 372.608 seconds with all 1,229
-      hashes unchanged. The same proposal SHA is read back on both peers;
-      GitHub run 36871511315 passes all five required jobs. GitLab pipeline
-      9155 exposes Linux apt timeout plus swallowed prerequisite failure, while
-      macOS passes and Windows remains in cold-tool acquisition. That control
-      defect is returned to the existing CUE owner; no product acceptance is
-      claimed for jobs that did not reach it. Receipt/log owners are
-      `native-current-candidate-80dbca19-*`,
-      `native-current-hermes-80dbca19-companion-path-*`,
-      `terminal-source-full-proof-80dbca19-*` and
-      `80dbca19-*-current-recovered-snapshot.*` in the same verification root.
-      Current signed `b28ae590` produces one verified twelve-file matrix with
-      complete checksums, artifact signature and exact source/tree provenance.
-      Its macOS `accept-native --candidate --clients` passes 0.3.1 succession,
-      rollback rejection/recovery, shipped team paths, resource failures/deadline,
-      Codex 0.160, Claude Code 2.1.287, installed Hermes and fourteen general Codex
-      Routes plus its shell tool loop. All 1,212 source hashes are conserved and
-      scratch is absent. Separately, the exact package passes ChatGPT-bundled
-      Codex 0.159.0-alpha.12.1 UCloud Sol 6.1 selection, verify, file-tool and
-      same-session continuation; both turns select `gpt-6.1-sol`. Receipt
-      `ffe5e885-app-runtime-20261003/delivery.json` binds current b28 bytes and
-      preserves the native catalog without inventing model metadata; App GUI
-      remains unproved. Linux package evidence is recorded in 5.2. Windows
-      matrix hashes/ACLs pass on the exact Runner 103 private input root; its
-      original full-quality pipeline `9289` fails before artifact admission on
-      the missing Lychee prerequisite. Independent package pipeline `9290`,
-      job 47497, passes twenty-six package cases on the same exact b28 matrix.
-      The original trace distinguishes source-fixture native credentials from
-      authentic 0.3.1 environment succession; the new published native-store
-      case remains in 3.5. Exact guest-root cleanup receipt `c1595458` proves
-      all twelve input hashes, root absence and restored Runner controls.
-      Signed `f4f7bc36` rebuilds the twelve-file candidate once with current
-      provenance and signature. All six archives equal b28 bytes exactly;
-      `candidate-inputs.json` under that source revision records each hash.
-      Independent admission `f4f7bc36-candidate-admission.json` (SHA-256
-      `34c04a93c3ee467663f2f330f3856bba346d78e18684d7c52a89f489e3650903`)
-      verifies the signature, source/tree, four locks and nine provenance
-      subjects. This permits only byte-bound reuse of recorded b28 behavior,
-      not new native-store, hosted, production or installed claims. Production signing,
-      stable reader identity, final publication/install and Desktop GUI remain
-      separate open obligations.
-      Signed `25006e50` supersedes warning-bearing candidates for public
-      verification. Native macOS program `1426c66f` / archive `ec78a678` passes
-      actual shipped-team and authentic 0.3.1 environment succession/rollback
-      (42.650s), strict signatures and deployment floor. Independent public
-      warning/control/checkpoint and Codex/Claude four-stage acceptance are
-      recorded in 6.7. No production signing, native-store or final cross-platform
-      claim is implied. Later `1dc8b868` and `8527abc3` change only CI tests and
-      documentation; candidate bytes and source inputs remain explicit.
+      evidence.
+      Selected native macOS candidate `25006e50` has program SHA-256
+      `1426c66fe9ba549eedba1a6ed79debb13c9cb482e021e5f51a8e00992a94cdcd`
+      and archive SHA-256
+      `ec78a6788378d28195d7bf1c484aafb69c45a684928932ff7774c2e5183ae130`.
+      ARM64/AMD64 signatures, checksums and deployment floor pass. Actual shipped
+      team and authentic 0.3.1 environment upgrade/rollback pass in 42.650s;
+      independent warning/checkpoint and Codex/Claude four-stage results are in
+      6.7. These are isolated environment/loopback results, not native-store,
+      external-provider, GUI or formal distribution claims.
+      Changes through signed `f89eb6bf` affect tests, policy and records, not this
+      candidate's product build inputs. Earlier six-platform matrices retain
+      their own signatures, provenance, native/client results; changed product
+      bytes cannot qualify this candidate. Superseded payloads retain raw evidence.
+      Both peers' ordinary native jobs pass at `f89eb6bf`, as recorded in 7.2,
+      but do not select an authentic predecessor or real clients. Current DMXAPI
+      Codex timeout is in 4.5; endpoint inference cannot waive it. Final signed
+      cross-platform candidate, native-store succession, current client/GUI
+      boundaries, full security/provenance and performance matrix remain open.
+      Production signing, publication and installed Homebrew cutover are separate
+      Migration Plan acceptance, not consequences of ad-hoc signing or source CI.
