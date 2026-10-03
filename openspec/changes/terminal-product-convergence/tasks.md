@@ -1101,7 +1101,15 @@
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with
       exact-byte install, predecessor upgrade/rollback, credentials and real-client
       journeys; retain the source and artifact hashes and disclose missing platform
-      evidence. Rollback export execution failures now retain their cause instead
+      evidence. October 3 exact `a2108fb2` macOS artifact and current 57-Route
+      manifest pass all seven shipped-team prerequisite journeys, original
+      0.3.1 rollback admission and five native resource outcomes in 80.679 seconds.
+      Success, failure, parent exit, interrupt and the original 60-second deadline
+      preserve resource inventories and reclaim owned processes. Original logs
+      are `current-macos-resources-20261003.*` under `a2108fb2` verification;
+      exact scratch is absent and installed 0.3.1 remains unchanged. Native
+      credentials, real clients, production signing and other platforms remain open.
+      Rollback export execution failures now retain their cause instead
       of being mislabeled as configuration incompatibility; focused RED/GREEN tests
       pass. Native rollback admission now proves that the retained program's export
       exits unsuccessfully, requires the execution-failure verdict, and conserves
