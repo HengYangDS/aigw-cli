@@ -211,6 +211,18 @@
       official client, candidate and ten protected host identities are conserved.
       This qualifies the frozen official client, not latest-client security,
       native Keychain, Desktop, other platforms or formal distribution.
+      Actual `fe8b86fc` Claude Code 2.1.287 and Codex 0.160 retained-0.3.1
+      baseline, upgrade, rollback and re-upgrade pass with observable stderr.
+      The Grok tool loop is functional but emits Codex's missing bundled-model
+      metadata warning; its client catalogue has no Grok entry. No metadata is
+      invented and aggregate warning-free acceptance remains unqualified.
+      Official Hermes on these bytes reaches rollback before a 170-second
+      total verifier deadline interrupts re-upgrade; withdrawal is not proved.
+      Exact failure output and cleanup are retained; stage-cost diagnosis
+      precedes any retry. Separately, plain DMXAPI Sol 6.1 with official Codex
+      0.160 and `1eef7dd0` passes two same-thread native shell/file turns without
+      warnings. This supersedes the older measured continuation gap, not
+      current physical-artifact, provider-internal or sustained-service claims.
       The exact `ebf9adff` candidate passes macOS authentic 0.3.1 succession
       with Codex 0.159.3 and Claude Code 2.1.286, including retained inference,
       replacement, rollback, re-upgrade, native settings/MCP and external-reader
@@ -658,6 +670,11 @@
       are absent. Evidence: `resource-atomic-publication-*` under the existing
       `build/verification/supply-chain-20260930/` owner. Corrected-fixture
       hosted platform acceptance remains separate in 7.3.
+      Actual `fe8b86fc` bytes pass all five resource outcomes with the current
+      `eb16edba` verifier in 68.774 seconds, including the real 60-second
+      deadline. Every owned process exits and the resource inventory is
+      unchanged. Exact resource scratch is absent; raw byte-bound results
+      remain under `build/verification/eb16edba302e3926a4f1c6aa49e9583e714ab432/native-resource-acceptance/`.
 
 ## 6. Quality, Supply Chain, and Performance
 
