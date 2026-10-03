@@ -55,10 +55,6 @@ func VerifyCodexInvocation(ctx context.Context, runner process.VerificationRunne
 	if runner == nil {
 		return codex.ExecutableIdentity{}, fmt.Errorf("Codex verification capture runner is unavailable")
 	}
-	identity, err := codex.IdentifyExecutable(ctx, runner, adapter.Executable, filepath.Dir(target))
-	if err != nil {
-		return codex.ExecutableIdentity{}, err
-	}
 	workspace, err := os.MkdirTemp("", "aigw-codex-verification-")
 	if err != nil {
 		return codex.ExecutableIdentity{}, fmt.Errorf("create Codex verification workspace: %w", err)
@@ -68,6 +64,10 @@ func VerifyCodexInvocation(ctx context.Context, runner process.VerificationRunne
 			result = errors.Join(result, fmt.Errorf("remove Codex verification workspace %s: %w", workspace, err))
 		}
 	}()
+	identity, err := codex.IdentifyExecutable(ctx, runner, adapter.Executable, filepath.Dir(target), workspace)
+	if err != nil {
+		return codex.ExecutableIdentity{}, err
+	}
 	outputPath := filepath.Join(workspace, "response.txt")
 	plan, err := codex.VerificationPlan(adapter.Executable, target, outputPath, clientRuntime)
 	if err != nil {

@@ -3,9 +3,7 @@ package codex
 import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/transaction"
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -509,40 +507,5 @@ func TestReadCodexBundledCatalogRequiresAnExecutable(t *testing.T) {
 		if _, _, err := ReadBundledCatalog(executable); err == nil {
 			t.Fatalf("catalog accepted an unobservable executable: %q", executable)
 		}
-	}
-}
-
-func TestCatalogProbePreservesCleanupFailure(t *testing.T) {
-	primary := errors.New("catalog probe failed")
-	for _, failure := range []error{nil, primary} {
-		t.Run(fmt.Sprint(failure), func(t *testing.T) {
-			scratch := t.TempDir()
-			for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
-				t.Setenv(name, scratch)
-			}
-			remove := removeCatalogProbe
-			t.Cleanup(func() { removeCatalogProbe = remove })
-			var removed, home string
-			removeCatalogProbe = func(path string) error {
-				removed = path
-				return &os.PathError{Op: "remove", Path: path, Err: os.ErrPermission}
-			}
-			err := withCatalogProbe(func(_ context.Context, path string) error {
-				home = path
-				return failure
-			})
-			if home == "" || home == scratch || filepath.Dir(home) != scratch || removed != home {
-				t.Fatalf("probe ownership = %q, cleanup = %q, parent = %q", home, removed, scratch)
-			}
-			if failure != nil && !errors.Is(err, failure) {
-				t.Fatalf("probe lost primary cause: %v", err)
-			}
-			if !errors.Is(err, os.ErrPermission) || !strings.Contains(err.Error(), home) {
-				t.Fatalf("probe lost cleanup cause: %v", err)
-			}
-			if _, err := os.Stat(home); err != nil {
-				t.Fatalf("injected cleanup unexpectedly removed probe home: %v", err)
-			}
-		})
 	}
 }

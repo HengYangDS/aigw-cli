@@ -27,6 +27,13 @@ func TestMain(m *testing.M) {
 }
 
 func runCatalogFixture(path string, args []string) int {
+	home := os.Getenv("CODEX_HOME")
+	for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
+		if relative, err := filepath.Rel(os.Getenv(key), home); err != nil || relative == "." || !strings.HasPrefix(relative, ".."+string(filepath.Separator)) && relative != ".." {
+			_, _ = os.Stderr.WriteString("WARNING: native Codex refuses a home below its temporary root\n")
+			return 0
+		}
+	}
 	if len(args) == 1 && args[0] == "--version" {
 		_, _ = os.Stdout.WriteString("codex-cli 0.0.0-fake\n")
 		return 0
@@ -34,7 +41,6 @@ func runCatalogFixture(path string, args []string) int {
 	if len(args) < 2 || args[0] != "debug" || args[1] != "models" {
 		return 64
 	}
-	home := os.Getenv("CODEX_HOME")
 	if home == "" {
 		return 65
 	}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -206,13 +207,13 @@ func ReadBundledCatalog(executable string) (client ExecutableIdentity, data []by
 	if strings.TrimSpace(executable) == "" {
 		return ExecutableIdentity{}, nil, fmt.Errorf("Codex executable is not configured")
 	}
-	result = withCatalogProbe(func(ctx context.Context, home string) error {
+	result = withCatalogProbe(func(ctx context.Context, home, temporary string) error {
 		var err error
-		client, err = IdentifyExecutable(ctx, process.Runner{}, executable, home)
+		client, err = IdentifyExecutable(ctx, process.Runner{}, executable, home, temporary)
 		if err != nil {
 			return err
 		}
-		data, err = runCodexReadOnly(ctx, process.Runner{StdoutLimit: codexCatalogByteLimit}, executable, home, "debug", "models", "--bundled")
+		data, err = runCodexReadOnly(ctx, process.Runner{StdoutLimit: codexCatalogByteLimit}, executable, home, temporary, "debug", "models", "--bundled")
 		return err
 	})
 	return client, data, result
@@ -229,15 +230,15 @@ func ReadEffectiveCatalog(executable, catalogPath string) (data []byte, result e
 		}
 		args = append(args, "-c", "model_catalog_json="+quoted)
 	}
-	result = withCatalogProbe(func(ctx context.Context, home string) error {
+	result = withCatalogProbe(func(ctx context.Context, home, temporary string) error {
 		var err error
-		data, err = runCodexReadOnly(ctx, process.Runner{StdoutLimit: codexCatalogByteLimit}, executable, home, args...)
+		data, err = runCodexReadOnly(ctx, process.Runner{StdoutLimit: codexCatalogByteLimit}, executable, home, temporary, args...)
 		return err
 	})
 	return data, result
 }
 
-func withCatalogProbe(probe func(context.Context, string) error) (result error) {
+func withCatalogProbe(probe func(context.Context, string, string) error) (result error) {
 	home, err := os.MkdirTemp("", "aigw-codex-catalog-")
 	if err != nil {
 		return fmt.Errorf("create Codex probe home: %w", err)
@@ -247,7 +248,13 @@ func withCatalogProbe(probe func(context.Context, string) error) (result error) 
 			result = errors.Join(result, fmt.Errorf("remove Codex probe home %s: %w", home, err))
 		}
 	}()
+	// Codex refuses aliases when its home lies below the child's temporary root.
+	// Both paths stay inside one owned workspace, with temporary files below home.
+	temporary := filepath.Join(home, "tmp")
+	if err := os.Mkdir(temporary, 0o700); err != nil {
+		return fmt.Errorf("create Codex probe temporary root: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), codexCatalogTimeout)
 	defer cancel()
-	return probe(ctx, home)
+	return probe(ctx, home, temporary)
 }

@@ -40,6 +40,14 @@ SHALL NOT erase captured diagnostic output or establish warning-free acceptance.
 - **AND** missing native model metadata SHALL remain visible without fabricated catalogue entries
 - **AND** ordinary version, session and progress stderr SHALL NOT become a warning failure.
 
+#### Scenario: Native Codex rejects an inherited temporary-home relationship
+
+- **WHEN** catalogue or verification runs under an inherited temporary root
+- **THEN** its native child SHALL receive an owned temporary root that does not contain its selected Codex home
+- **AND** parent environment and user configuration SHALL remain unchanged
+- **AND** native catalogue warnings SHALL prevent qualification rather than silently discard diagnostics
+- **AND** failed and successful probes SHALL reclaim their exact owned workspace.
+
 ### Requirement: Dependency evidence binds the selected lockfiles
 
 The release scanner invocation and report admission SHALL share one exact

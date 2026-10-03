@@ -915,6 +915,14 @@
       regressions pass; final new-byte native acceptance remains required.
       This contract does not classify arbitrary model response prose as a
       diagnostic; any stdout diagnostic claim requires its native output contract.
+      Independent `73873049` package acceptance rejects Grok without a completed
+      checkpoint but also rejects the clean Sol control. Official Codex 0.160
+      proves that a catalogue home below inherited TMPDIR emits a version
+      warning; the selected native table is then absent. The existing child
+      environment now owns all temporary roots for catalogue, identity and
+      verification. Catalogue diagnostics remain strict and parent state stays
+      unchanged. Focused RED/GREEN and the real native CDX catalogue probe pass;
+      new-byte public control acceptance remains required.
 
 ## 7. CI and Dual-Peer Admission
 

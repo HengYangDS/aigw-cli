@@ -31,7 +31,7 @@ func (identity ExecutableIdentity) same(other ExecutableIdentity) bool {
 
 // IdentifyExecutable measures a Codex executable through its public version
 // command and the bytes at the configured path.
-func IdentifyExecutable(ctx context.Context, runner process.VerificationRunner, executable, codexHome string) (ExecutableIdentity, error) {
+func IdentifyExecutable(ctx context.Context, runner process.VerificationRunner, executable, codexHome, temporary string) (ExecutableIdentity, error) {
 	if strings.TrimSpace(executable) == "" {
 		return ExecutableIdentity{}, fmt.Errorf("Codex executable is not configured")
 	}
@@ -45,7 +45,7 @@ func IdentifyExecutable(ctx context.Context, runner process.VerificationRunner, 
 	output, diagnostic, err := runner.RunCaptureStreams(ctx, process.Plan{
 		Executable: executable,
 		Args:       []string{"--version"},
-		Env:        codexEnvironment(codexHome),
+		Env:        codexEnvironment(codexHome, temporary),
 	})
 	if err != nil {
 		return ExecutableIdentity{}, fmt.Errorf("inspect Codex version: %w", err)
@@ -92,28 +92,38 @@ func VerificationPlan(executable, configPath, outputPath string, runtime configu
 			"--model", runtime.Model,
 			"Reply with exactly: AIGW_OK",
 		},
-		Env: codexEnvironment(filepath.Dir(configPath)),
+		Env: codexEnvironment(filepath.Dir(configPath), filepath.Dir(outputPath)),
 	}, nil
 }
 
-func runCodexReadOnly(ctx context.Context, runner process.CaptureRunner, executable, codexHome string, args ...string) ([]byte, error) {
-	output, err := runner.RunCapture(ctx, process.Plan{
+func runCodexReadOnly(ctx context.Context, runner process.VerificationRunner, executable, codexHome, temporary string, args ...string) ([]byte, error) {
+	output, diagnostic, err := runner.RunCaptureStreams(ctx, process.Plan{
 		Executable: executable,
 		Args:       args,
-		Env:        codexEnvironment(codexHome),
+		Env:        codexEnvironment(codexHome, temporary),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("run %s %s: %w", filepath.Base(executable), strings.Join(args, " "), err)
 	}
+	if process.DiagnosticFailure(diagnostic) {
+		return nil, fmt.Errorf("Codex catalogue probe emitted a native-client warning or error; catalogue identity is unqualified")
+	}
 	return output, nil
 }
 
-func codexEnvironment(home string) []string {
+func codexEnvironment(home, temporary string) []string {
 	environment := slices.DeleteFunc(os.Environ(), func(entry string) bool {
-		return strings.HasPrefix(entry, "CODEX_HOME=")
+		key, _, _ := strings.Cut(entry, "=")
+		key = strings.ToUpper(key)
+		return key == "CODEX_HOME" || temporary != "" && slices.Contains([]string{"TMPDIR", "TMP", "TEMP"}, key)
 	})
 	if home != "" {
 		environment = append(environment, "CODEX_HOME="+home)
+	}
+	if temporary != "" {
+		for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
+			environment = append(environment, key+"="+temporary)
+		}
 	}
 	return environment
 }

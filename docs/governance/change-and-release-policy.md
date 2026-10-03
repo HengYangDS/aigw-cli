@@ -427,6 +427,12 @@ private diagnostic content never reaches the public error. Unknown native model
 metadata is an incomplete client contract, not permission to fabricate a catalogue
 or call successful transport complete qualification.
 
+Codex catalogue and verification probes own their temporary environment. The
+selected `CODEX_HOME` must not lie below the child's temporary root: catalogue
+probes keep native temporary files below their owned home, while verification
+uses its owned output workspace. All three native temporary variables select
+that exact root without changing the parent process or user configuration.
+
 Correctness includes vet nilness/unused-write and checked dynamic assertions; concrete
 fixtures should not recover known types from broad interfaces. Discarded errors need
 owner-specific justification. Progress output must be writable before executing gates.
