@@ -91,12 +91,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.9.18
+          version: 2026.10.1
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
@@ -117,12 +117,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.9.18
+          version: 2026.10.1
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
@@ -161,12 +161,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.9.18
+          version: 2026.10.1
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
@@ -199,12 +199,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.9.18
+          version: 2026.10.1
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
@@ -225,12 +225,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.9.18
+          version: 2026.10.1
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
@@ -302,7 +302,7 @@ jobs:
               $clients = Join-Path $scope 'clients'
               New-Item -ItemType Directory -Path $clients | Out-Null
               Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.159.3' '@anthropic-ai/claude-code-win32-x64@2.1.286'
+              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.160.0' '@anthropic-ai/claude-code-win32-x64@2.1.288'
               mise exec --locked -- npm audit signatures --prefix $clients
               $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
               $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
@@ -389,12 +389,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.9.18
+          version: 2026.10.1
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
@@ -467,7 +467,7 @@ jobs:
               $clients = Join-Path $scope 'clients'
               New-Item -ItemType Directory -Path $clients | Out-Null
               Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.159.3' '@anthropic-ai/claude-code-win32-x64@2.1.286'
+              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.160.0' '@anthropic-ai/claude-code-win32-x64@2.1.288'
               mise exec --locked -- npm audit signatures --prefix $clients
               $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
               $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
@@ -554,12 +554,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.9.18
+          version: 2026.10.1
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
@@ -650,7 +650,7 @@ jobs:
               $clients = Join-Path $scope 'clients'
               New-Item -ItemType Directory -Path $clients | Out-Null
               Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.159.3' '@anthropic-ai/claude-code-win32-x64@2.1.286'
+              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.160.0' '@anthropic-ai/claude-code-win32-x64@2.1.288'
               mise exec --locked -- npm audit signatures --prefix $clients
               $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
               $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'

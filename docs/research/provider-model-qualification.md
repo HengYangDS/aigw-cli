@@ -48,6 +48,27 @@ The October 1, 2026 primary-source review closes four missing rationales:
   transfer the vendor's one-million-token or built-in-tool claims to an
   aggregator without separate evidence.
 
+The October 4, 2026 primary-source review does not admit speculative replacements:
+
+- Anthropic's [Fable page](https://www.anthropic.com/claude/fable) still identifies
+  Fable 5.1 and `claude-fable-5-1`. Fable 5.5 has no verified official release or
+  API identity in this review; do not construct a Route from its name.
+- Google's [Gemini 4 Argon announcement](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/)
+  describes an initial trusted-tester rollout, not generally available provider
+  API access. Neither current public AIHubMix nor UCloud catalogue supplies a
+  verified Gemini 4 channel. Keep the qualified Gemini option until its exact
+  successor completes provider inference and native tool use.
+- MiniMax's [current language models](https://platform.minimax.io/docs/guides/models-intro)
+  identify M3 for frontier coding. Its [H3 release](https://www.minimax.io/blog/minimax-h3)
+  generates video and sound; H3 catalogue entries do not replace a text-agent
+  Model. Step 5 Preview remains discovery-only without equivalent qualification.
+
+The public catalogues returned 417 AIHubMix and 128 UCloud IDs. UCloud's anonymous
+listing omits GPT and Claude, which does not establish their absence from an
+authenticated Account. DMXAPI requires authenticated discovery; anonymous 401 and
+disabled-pricing 403 responses are not model lists. No explicit local binding,
+credential or conversation model was changed by this review.
+
 Stable-only supply-chain admission does not make every inference model GA.
 A Preview may remain a non-default, explicitly named Route when its general
 agent role and exact provider/client behavior are qualified. An unqualified
@@ -151,6 +172,24 @@ Existing explicit selections remain unchanged. Native external-provider
 Linux/Windows, final-artifact and installed-host acceptance remain separate;
 the Hermes run conserved eleven original protected inputs and preserved one
 concurrent operator-config change whose writer is unproved.
+
+On October 4, 2026, the unchanged shipped team manifest and current `13e6525c`
+macOS candidate passed public setup/use/check/verify with Claude Code 2.1.288
+for AIHubMix and UCloud Sonnet 5.5, DMXAPI Sonnet 5.5 CC, and UCloud Opus 5.5.
+Each selected Route completed an official Read tool and same-session recall;
+all 43 bounded calls completed without diagnostics. The isolated run preserved
+native effort and beta policy, host settings, credentials and installed products.
+
+The current candidate and shipped team bytes also match retained Codex 0.160
+AIHubMix and UCloud ordinary Sol 6.1 file-tool/continuation evidence. Only the
+missing current DMXAPI CDX cell was rerun: public setup/use/check/verify,
+unpredictable file contents read through a native shell tool, and exact named-
+session recall passed in 31.33s. The native read-only sandbox, explicit effort
+and zero retry policy stayed intact; all source/index inputs and exact cleanup
+were verified. A redundant enable invocation failed before inference and remains
+retained; public `use` already enabled the exact discovered client and target.
+These results qualify exact client/Route inputs, not source-commit provenance,
+final signing, native-store succession, Desktop, other Routes or other platforms.
 
 At the September 25, 2026 read, the public
 [AIHubMix](https://api.inferera.com/v1/models) and
@@ -404,3 +443,27 @@ admitted for Codex. A provider-native Responses endpoint or an explicitly
 selected external adapter would need real Codex text, tool, streaming, and
 replay qualification before such a Route could be offered. AIGW does not
 translate inference traffic or configure ordinary ChatGPT conversations.
+
+## Windows native sandbox boundary
+
+The October 4, 2026 original Codex 0.160 Windows journey passed four retained-
+predecessor stages and fourteen Route outcomes, but its sandboxed PowerShell
+child exited `0xC0000142`. A same-SID observer ran in Session 0 on a service
+window station; it could not open `WinSta0`. This is an execution-context
+observation, not proof of the actual Codex child's desktop.
+
+The exact upstream [desktop implementation](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/windows-sandbox-rs/src/desktop.rs)
+creates a private desktop in the caller's current station but specifies
+`Winsta0` in the child startup name. The [process implementation](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/windows-sandbox-rs/src/process.rs)
+explicitly connects an invalid startup desktop to PowerShell's
+`STATUS_DLL_INIT_FAILED`. Open [issue #46412](https://github.com/openai/codex/issues/46412)
+reports the same Session 0 versus interactive-session split on earlier Codex
+versions. Together they support a station-mismatch hypothesis; they do not
+establish that every Windows failure has that cause.
+
+Keep the original failed result and [native private-desktop isolation](https://learn.chatgpt.com/docs/windows/windows-sandbox).
+Qualification requires the original tool loop in a supported native Windows
+context, or a released vendor repair. Disabling the private desktop, widening
+ACLs, replacing PowerShell, or substituting WSL would prove a different boundary.
+Ordinary source CI does not silently enable real-client acceptance; an explicitly
+selected `--clients` release journey must still pass the complete native suite.

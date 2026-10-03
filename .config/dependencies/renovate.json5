@@ -50,7 +50,12 @@
     {
       // Other ecosystems have immutable checksums or digest-pinned artifacts;
       // their current stable release still needs its own admission evidence.
-      matchManagers: ["gomod", "mise", "custom.regex"],
+      matchManagers: ["gomod", "mise"],
+      minimumReleaseAge: "0 days",
+    },
+    {
+      matchManagers: ["custom.regex"],
+      matchDatasources: ["github-tags", "docker"],
       minimumReleaseAge: "0 days",
     },
     {
@@ -76,6 +81,16 @@
   ],
 
   customManagers: [
+    {
+      customType: "regex",
+      description: "Pinned npm clients in the CUE authority",
+      managerFilePatterns: ["/^\\.config/ci/pipeline\\.cue$/"],
+      matchStrings: [
+        "['\"](?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+(?:-[\\w.-]+)?)['\"]",
+      ],
+      datasourceTemplate: "npm",
+      versioningTemplate: "npm",
+    },
     {
       customType: "regex",
       description: "Pinned GitHub Actions in the CUE authority",

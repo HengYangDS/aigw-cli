@@ -52,8 +52,10 @@ belongs in the [decision register](../decisions/decision-register.md).
 
 [Renovate](../../.config/dependencies/renovate.json5) is the single proposal policy.
 Its [native mise manager](https://docs.renovatebot.com/modules/manager/mise/) and Go/npm managers read authored manifests and locks; [`includePaths`](https://docs.renovatebot.com/configuration-options/#includepaths)
-excludes disposable snapshots. Declarative extractors read authored Actions/images,
-not generated peer workflows. `min_version` is a reader floor, not the executed
+excludes disposable snapshots. Declarative extractors read authored Actions,
+images and exact npm client pins in CUE, not generated peer workflows. Native
+client proposals retain npm's three-day release age and deliberate admission.
+`min_version` is a reader floor, not the executed
 Mise pin; the CUE image owns the latter. Dependabot cannot cover this mise graph
 and would introduce competing proposals.
 

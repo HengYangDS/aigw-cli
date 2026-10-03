@@ -181,9 +181,25 @@ func TestForgeProjectionsIncludeTheCompleteNativeMatrix(t *testing.T) {
 }
 
 func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	projections, err := renderProjections(root)
 	if err != nil {
 		t.Fatal(err)
+	}
+	identityOutput, err := projectionCommand(root, "{version: miseVersion, executable: miseWindowsArm64ExecutableSHA256, shim: miseWindowsArm64ShimSHA256}").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var identity struct {
+		Version    string `yaml:"version"`
+		Executable string `yaml:"executable"`
+		Shim       string `yaml:"shim"`
+	}
+	if err := yaml.Unmarshal(identityOutput, &identity); err != nil {
+		t.Fatal(err)
+	}
+	if identity.Version == "" || len(identity.Executable) != 64 || len(identity.Shim) != 64 {
+		t.Fatal("CUE must declare an exact Mise version and executable/shim digests")
 	}
 	var gitlab struct {
 		Windows struct {
@@ -196,8 +212,8 @@ func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T)
 	}
 	commands := gitlab.Windows.Script
 	if len(commands) < 2 || !strings.Contains(commands[0], `Join-Path $env:ProgramFiles 'mise\bin\mise.exe'`) ||
-		!strings.Contains(commands[0], "2026.9.18") ||
-		!strings.Contains(commands[0], "8c0281d26494bc8aaa2804ccd51cfb8315438d1b0b61575d8f02751828708c14") ||
+		!strings.Contains(commands[0], identity.Version) ||
+		!strings.Contains(commands[0], identity.Executable) ||
 		!strings.Contains(commands[0], "Get-FileHash -LiteralPath $mise -Algorithm SHA256") ||
 		!strings.Contains(commands[1], "mise install --locked") {
 		t.Fatalf("Windows runner Mise identity is not pinned before the locked toolchain: %v", commands)
@@ -209,7 +225,7 @@ func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T)
 		"whoami.exe /user",
 		"$shim = Join-Path (Split-Path -Parent $mise) 'mise-shim.exe'",
 		"Get-FileHash -LiteralPath $shim -Algorithm SHA256",
-		"a25d8a155b485ce92bb776261316e26af5f5b003d528dadbb9e26b7ccd3a5188",
+		identity.Shim,
 		"$shimsDirectory = Join-Path $env:MISE_DATA_DIR 'shims'",
 		"Copy-Item -LiteralPath $shim -Destination $probeTarget -ErrorAction Stop",
 		"Remove-Item -LiteralPath $probeDirectory -Recurse -Force -ErrorAction Stop",

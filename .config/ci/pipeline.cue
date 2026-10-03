@@ -280,15 +280,15 @@ _graphOrder: {
 	}
 }
 
-miseImage:                        "docker.io/jdxcode/mise:2026.9.18-debian@sha256:33d301fd5929d6960c102f947e97f08c671ad936573b375fcf4f13a90466f710"
+miseImage:                        "docker.io/jdxcode/mise:2026.10.1-debian@sha256:3daa20e31600afa0b4182736b1d46ba87d47dccb41db55880e657d4290f47574"
 miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
-miseWindowsArm64ExecutableSHA256: "8c0281d26494bc8aaa2804ccd51cfb8315438d1b0b61575d8f02751828708c14"
-miseWindowsArm64ShimSHA256:       "a25d8a155b485ce92bb776261316e26af5f5b003d528dadbb9e26b7ccd3a5188"
+miseWindowsArm64ExecutableSHA256: "db6e79ce8334786ea8133478de690dce071faa69e19365f696288001448051e5"
+miseWindowsArm64ShimSHA256:       "17325f34d361833dc19ff32e272989ea1ef3dec783f9799c55a08f981994f5d1"
 windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
-	mise:     "jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5"         // v5.0.0
+	mise:     "jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492"         // v5.0.1
 	upload:   "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" // v7.0.1
 }
 
@@ -452,7 +452,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				    $clients = Join-Path $scope 'clients'
 				    New-Item -ItemType Directory -Path $clients | Out-Null
 				    Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-				    mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.159.3' '@anthropic-ai/claude-code-win32-x64@2.1.286'
+				    mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.160.0' '@anthropic-ai/claude-code-win32-x64@2.1.288'
 				    mise exec --locked -- npm audit signatures --prefix $clients
 				    $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
 				    $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'

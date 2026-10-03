@@ -1,4 +1,4 @@
-min_version = "2026.9.18"
+min_version = "2026.10.1"
 
 [settings]
 legacy_version_file = false
@@ -14,7 +14,7 @@ GOTOOLCHAIN = "local"
 GOWORK = "off"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.125.1@sha256:1af51718ae09f3b7add4e7060038e533482a5fffda44564850bb59a95011491e"
+renovate_image = "ghcr.io/renovatebot/renovate:44.132.4@sha256:9dcc49a6a606720197d1dfc2ac4497710d1ea843b54c3706deb0a27985e3873b"
 
 [tool_alias]
 # Keep npm's native precedence over Node's bundled npm on every platform.
@@ -35,7 +35,7 @@ glab = "1.120.0"
 
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.18.2"
-"github:anchore/syft" = "1.52.0"
+"github:anchore/syft" = "1.54.0"
 # Cross-host ad-hoc macOS artifact signing.
 "github:indygreg/apple-platform-rs[version_prefix=apple-codesign/]" = "0.29.0"
 
