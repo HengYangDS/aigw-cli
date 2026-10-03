@@ -48,11 +48,17 @@
       prompts or backend fallback; keep supplier-specific failures scoped to that
       Account. A focused `check --for` must not observe or charge another
       enabled client's Account.
-      On September 30, isolated public setup from the shipped team manifest
-      selected DMXAPI GPT-6 Sol for Codex. Current product source at `adb83383`
-      returned `check --for codex --json` with one enabled client and healthy
-      inference through the direct endpoint; subsequent commits changed only
-      research prose. Current-HEAD focused tests verify single-Account Token and
+      October 3 exact `1eef7dd0` program `9a0073fb` imports the shipped
+      26-Model/57-Route manifest into isolated state and completes one public
+      selected Sol 6.1 inference per DMXAPI, UCloud and AIHubMix Account.
+      Each `check --for codex --json` reports the exact selected Account/Route,
+      `inference_checked`, healthy, and one attempt. Direct manifest endpoints
+      are tested; the host's explicit UCloud choices and optional DMX Proxy
+      endpoint are unchanged. The native executable is a fixture, not real-
+      client/tool proof. Receipt `1eef7dd0-selected-live-provider-20261003/delivery.json`
+      is retained in the existing independent recovery owner; exact scratch is
+      absent and ten protected host identities are conserved. No Token value,
+      fragment, length or secret hash is retained. Focused tests verify single-Account Token and
       endpoint scope, quota classification, denied credential metadata without
       fallback, and locked-Keychain no-prompt behavior. Signed artifact and
       real-client acceptance remain in 4.5 and 9.3.
@@ -190,6 +196,21 @@
       Claude-in-Codex remains unadmitted: shipped Claude Routes expose Anthropic,
       while Codex requires Responses. Qualify an exact external Responses path
       and real Codex tool/replay behavior before claiming that support.
+      October 3 exact `1eef7dd0` program `9a0073fb` also passes the original
+      official unmodified Hermes `f97608f` four-stage retained-0.3.1 journey
+      with the `bc5570cd` verifier in 117.171 seconds. Named-session file-tool
+      results/history, reader succession, rollback, re-upgrade and withdrawal
+      assertions pass. Successful child diagnostics are now visible; native
+      session-start/continuation messages contain no warning, skip or traceback.
+      Its final `official-hermes-macos-1eef-visible-diagnostics-20261003/delivery.json`
+      also qualifies one real plain Sol 6.1 file-tool and same-session
+      continuation on each DMXAPI, UCloud and AIHubMix endpoint. The first turn
+      reads its owned random file; the second repeats it in the same session
+      without a new tool. Exact selected model and private projection persist,
+      with no observed warning. Both owned scratch roots are absent; source,
+      official client, candidate and ten protected host identities are conserved.
+      This qualifies the frozen official client, not latest-client security,
+      native Keychain, Desktop, other platforms or formal distribution.
       The exact `ebf9adff` candidate passes macOS authentic 0.3.1 succession
       with Codex 0.159.3 and Claude Code 2.1.286, including retained inference,
       replacement, rollback, re-upgrade, native settings/MCP and external-reader
@@ -699,6 +720,17 @@
       60-second fallback budget, preserving independent success/failure and
       unchanged-source assertions. All 61 combined source Node cases pass;
       current Windows full-tool and real-predecessor acceptance remain open.
+      Current signed `bc5570cd` complete Go race/coverage passes at 95.13%
+      (13,690/14,391 statements), with every canonical package observed and
+      empty stderr. The first run correctly rejects an ignored `.go` evidence
+      snapshot as an unexecuted package; preserving the same bytes as `.go.txt`
+      removes only that accidental generated input, without exclusions or
+      threshold changes. Both original and corrected inventories remain under
+      `build/verification/bc5570cddf5edc92e9fd786125217c5a265d2f45/go-quality/`.
+      All 1,212 tracked hashes are conserved. The exact selected published
+      Publisher alpha.7 archive/manifest also passes relocated offline native
+      acceptance with no skips. This is current local behavior/installed-input
+      evidence, not full ETHOS proof, security or hosted platform qualification.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.
