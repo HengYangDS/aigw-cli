@@ -3,15 +3,18 @@
 package construction
 
 import (
+	"aigw-cli/internal/process"
 	"aigw-cli/internal/upgrade/artifact"
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"debug/macho"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -19,6 +22,77 @@ import (
 
 	"golang.org/x/sys/unix"
 )
+
+func TestNativeReleaseUsesCacheSignificantDeploymentTarget(t *testing.T) {
+	request := privateInternalRelease(t)
+	request.TargetOS = runtime.GOOS
+	t.Setenv("GOOS", runtime.GOOS)
+	t.Setenv("GOARCH", runtime.GOARCH)
+	t.Setenv("TARGET", "")
+	t.Setenv("CGO_ENABLED", "1")
+	t.Setenv("CC", "clang")
+	t.Setenv("GOCACHE", t.TempDir())
+	t.Setenv("MACOSX_DEPLOYMENT_TARGET", "14.0")
+	environment, err := goReleaserEnvironment(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer cancel()
+	var diagnostic bytes.Buffer
+	run := func(call toolCall) error {
+		stdout := call.Stdout
+		if stdout == nil {
+			stdout = &bytes.Buffer{}
+		}
+		started := time.Now()
+		err := (process.Runner{}).RunStream(ctx, process.Plan{
+			Executable: call.Name, Directory: call.Directory,
+			Args: call.Args, Env: append(os.Environ(), call.Env...),
+		}, stdout, &diagnostic)
+		t.Logf("native cache fixture %s: %s", call.Name, time.Since(started))
+		return err
+	}
+	// GOOS/GOARCH separate Go cache entries. Rebuild the exact warmed native
+	// target here; the deterministic archive journey retains the full matrix.
+	warmupPath := filepath.Join(t.TempDir(), "newer-host")
+	if err := run(toolCall{Name: "go", Directory: request.Root, Args: []string{
+		"build", "-trimpath", "-buildvcs=false", "-o", warmupPath, "./cmd/aigw",
+	}}); err != nil {
+		t.Fatalf("warm native release compiler cache: %v\n%s", err, diagnostic.Bytes())
+	}
+	var warmupHeader bytes.Buffer
+	if err := run(toolCall{Name: "/usr/bin/otool", Args: []string{"-l", warmupPath}, Stdout: &warmupHeader}); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(warmupHeader.Bytes(), []byte("\n    minos 14.0\n")) {
+		t.Fatal("native cache warmup did not establish the newer deployment target")
+	}
+	programPath := filepath.Join(t.TempDir(), "native-release")
+	err = run(toolCall{
+		Name: "goreleaser", Directory: request.Root,
+		Args: []string{"build", "--snapshot", "--clean", "--id", "macos", "--single-target", "--output", programPath,
+			"--config", filepath.Join(request.Root, ".config", "release", "goreleaser.yaml")},
+		Env: environment,
+	})
+	if err != nil || bytes.Contains(diagnostic.Bytes(), []byte("warning:")) {
+		t.Fatalf("native release must compile and link for its declared floor after a newer-target cache warmup: %v\n%s", err, diagnostic.Bytes())
+	}
+	program, err := os.ReadFile(programPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	header, err := macho.NewFile(bytes.NewReader(program))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantCPU := map[string]macho.Cpu{"amd64": macho.CpuAmd64, "arm64": macho.CpuArm64}[runtime.GOARCH]
+	if header.Cpu != wantCPU {
+		t.Fatalf("native cache target CPU = %s, expected %s", header.Cpu, wantCPU)
+	}
+	requireNativeReleaseSignature(t, program)
+}
 
 func TestNativeReleaseArchivesHaveDeterministicLocalSignatures(t *testing.T) {
 	request := privateInternalRelease(t)
@@ -85,6 +159,10 @@ func requireNativeReleaseSignature(t *testing.T, program []byte) {
 	if !strings.Contains(string(signature), "(adhoc,runtime)") || !strings.Contains(string(signature), "Signature=adhoc") {
 		t.Fatalf("macOS internal archive must have an ad-hoc signature and Hardened Runtime: %s", signature)
 	}
+	header := privateReleaseCommand(t, "", "/usr/bin/otool", "-l", path)
+	if !bytes.Contains(header, []byte("\n    minos 13.0\n")) {
+		t.Fatal("native macOS archive must retain the supported 13.0 deployment floor")
+	}
 }
 
 func privateInternalRelease(t *testing.T) buildRequest {
@@ -98,6 +176,7 @@ func privateInternalRelease(t *testing.T) buildRequest {
 		".config/release/goreleaser.yaml": config,
 		"go.mod":                          []byte("module aigw-cli\n\ngo 1.25\n"),
 		"cmd/aigw/main.go":                []byte("package main\n\nfunc main() {}\n"),
+		"cmd/aigw/native_darwin.go":       []byte("package main\n\n/*\n#include <unistd.h>\n*/\nimport \"C\"\n\nfunc init() { _ = C.getpid() }\n"),
 		"README.md":                       []byte("# Signing fixture\n"), "LICENSE": []byte("fixture\n"),
 	} {
 		path := filepath.Join(root, name)

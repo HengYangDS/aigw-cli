@@ -80,9 +80,17 @@ func codexSourceLineEnd(text string, start int) int {
 }
 
 func codexManagedBlockForProviderIn(current, provider string) (string, error) {
-	ranges, err := codexProviderRanges(current, provider)
+	projection, err := codexProviderForProviderIn(current, provider)
 	if err != nil {
 		return "", err
+	}
+	return projection.render(provider), nil
+}
+
+func codexProviderForProviderIn(current, provider string) (codexProviderProjection, error) {
+	ranges, err := codexProviderRanges(current, provider)
+	if err != nil {
+		return codexProviderProjection{}, err
 	}
 	var source strings.Builder
 	for _, span := range ranges {
@@ -94,14 +102,14 @@ func codexManagedBlockForProviderIn(current, provider string) (string, error) {
 	}
 	decoder := toml.NewDecoder(strings.NewReader(source.String())).DisallowUnknownFields()
 	if err := decoder.Decode(&document); err != nil {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block changed: %w", err)
+		return codexProviderProjection{}, fmt.Errorf("Codex config conflict: AIGW-managed provider block changed: %w", err)
 	}
 	projection := document.Providers[provider]
 	if projection.BaseURL == "" || projection.WireAPI != "responses" ||
 		projection.Auth != nil && (projection.Auth.Command == "" || len(projection.Auth.Args) == 0) {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block is incomplete")
+		return codexProviderProjection{}, fmt.Errorf("Codex config conflict: AIGW-managed provider block is incomplete")
 	}
-	return projection.render(provider), nil
+	return projection, nil
 }
 
 func removeCodexProviderMarkers(text string) string {

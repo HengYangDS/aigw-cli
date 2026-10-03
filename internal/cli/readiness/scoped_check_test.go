@@ -3,10 +3,12 @@ package readiness
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -42,6 +44,175 @@ func configuredCodexScopedCheck(t *testing.T) (invocation.Context, *bytes.Buffer
 		t.Fatal(err)
 	}
 	return runtime, output
+}
+
+func TestCheckForLimitsCredentialsAndInferenceToOneEnabledClient(t *testing.T) {
+	runtime, output := configuredCodexScopedCheck(t)
+	cfg, err := runtime.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{Anthropic: "https://other.example.test"}}
+	claude := cfg.Routes["claude"]
+	claude.Account = "other"
+	cfg.Routes["claude"] = claude
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetClientActivation(configuration.ClientClaude, true, filepath.Join(t.TempDir(), "missing-claude"), nil)
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := &observingSecretStore{value: "fixture-token"}
+	runtime.Secrets = store
+	requests := 0
+	runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		requests++
+		if request.URL.Host != "codex.example.test" || request.URL.Path != "/v1/responses" {
+			t.Fatalf("scoped check contacted %s", request.URL)
+		}
+		return successfulReadinessResponse(request)
+	})
+	command := NewCheckCommand(runtime)
+	command.SetArgs([]string{"--for", "codex", "--json"})
+	if err := executeCommand(command); err != nil {
+		t.Fatal(err)
+	}
+	var result checkJSON
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	checked := result.Clients[configuration.ClientCodex]
+	if !result.OK || result.EnabledClients != 1 || len(result.Clients) != 1 || checked.CheckPassed == nil || !*checked.CheckPassed || checked.DiagnosticScope != diagnostics.ScopeInference || requests != 1 {
+		t.Fatalf("scoped result = %+v; requests=%d", result, requests)
+	}
+	if !slices.Equal(store.existsAccounts, []string{"one"}) || !slices.Equal(store.getAccounts, []string{"one"}) {
+		t.Fatalf("scoped check observed unrelated credentials: exists=%v get=%v", store.existsAccounts, store.getAccounts)
+	}
+
+	output.Reset()
+	command = NewCheckCommand(runtime)
+	command.SetArgs([]string{"--for", "codex"})
+	if err := executeCommand(command); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "Selected client check passed") || strings.Contains(output.String(), "Claude") {
+		t.Fatalf("human scoped check = %q", output.String())
+	}
+}
+
+func TestCheckForRejectsUnknownOrDisabledClientBeforeObservingCredentials(t *testing.T) {
+	runtime, output := configuredCodexScopedCheck(t)
+	store := &observingSecretStore{value: "fixture-token"}
+	runtime.Secrets = store
+	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("rejected scope must not contact an endpoint")
+		return nil, nil
+	})
+	unknown := NewCheckCommand(runtime)
+	unknown.SetArgs([]string{"--for", "unknown", "--json"})
+	if err := executeCommand(unknown); err == nil || !strings.Contains(err.Error(), "--for") {
+		t.Fatalf("unknown client error = %v", err)
+	}
+	blank := NewCheckCommand(runtime)
+	blank.SetArgs([]string{"--for", " "})
+	if err := executeCommand(blank); err == nil || !strings.Contains(err.Error(), "--for requires a non-empty client") {
+		t.Fatalf("blank client error = %v", err)
+	}
+	output.Reset()
+	disabled := NewCheckCommand(runtime)
+	disabled.SetArgs([]string{"--for", "claude", "--json"})
+	if err := executeCommand(disabled); err == nil {
+		t.Fatal("disabled client was checked")
+	}
+	var result checkJSON
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.OK || !strings.Contains(result.Error, "not enabled") || result.NextAction != "aigw use --for claude <route>" {
+		t.Fatalf("disabled client result = %+v, %v", result, err)
+	}
+	if store.getCalls != 0 || store.existsCalls != 0 {
+		t.Fatalf("invalid scopes read credentials: get=%d exists=%d", store.getCalls, store.existsCalls)
+	}
+}
+
+func TestCheckEndpointReadinessIsIndependentOfDiagnosticCredentials(t *testing.T) {
+	runtime, cfg, buffer := configuredReadinessRuntime(t)
+	runtime.Version = "1.0.0"
+	if err := runtime.Secrets.Set("one", "token"); err != nil {
+		t.Fatal(err)
+	}
+	store := &failingAccountObservationStore{err: errors.New("credential metadata unavailable")}
+	runtime.Accounts = store
+	configureClaudeExecutable(t, &runtime, &cfg)
+	synchronizeClaudeSettings(t, runtime, cfg)
+	providerAccount := cfg.Accounts["one"]
+	providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
+	cfg.Accounts["one"] = providerAccount
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	runtime.HTTP = roundTripFunc(successfulReadinessResponse)
+	for _, mode := range []string{"human", "json"} {
+		t.Run(mode, func(t *testing.T) {
+			store.reads = 0
+			buffer.Reset()
+			command := NewCheckCommand(runtime)
+			if mode == "json" {
+				command.SetArgs([]string{"--json"})
+			} else {
+				command.SetArgs([]string{})
+			}
+			if err := executeCommand(command); err != nil {
+				t.Fatalf("healthy endpoint depends on optional diagnostics: %v", err)
+			}
+			if store.reads != 0 {
+				t.Fatalf("endpoint check read diagnostic credentials %d times", store.reads)
+			}
+			if mode == "human" {
+				if !strings.Contains(buffer.String(), "All enabled client checks passed") {
+					t.Fatalf("human readiness verdict: %s", buffer.String())
+				}
+				return
+			}
+			var result checkJSON
+			if err := json.Unmarshal(buffer.Bytes(), &result); err != nil || !result.OK {
+				t.Fatalf("JSON readiness verdict: %#v, %v", result, err)
+			}
+		})
+	}
+}
+
+func TestMixedInvalidAndDeferredClientsShareOneRecoveryAction(t *testing.T) {
+	runtime, cfg, output := configuredReadinessRuntime(t)
+	if err := runtime.Secrets.Set("one", "available-token"); err != nil {
+		t.Fatal(err)
+	}
+	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{filepath.Join(t.TempDir(), "missing.toml")})
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	command := NewCheckCommand(runtime)
+	command.SetArgs([]string{"--json"})
+	if err := executeCommand(command); err == nil {
+		t.Fatal("invalid Codex projection was accepted")
+	}
+	var result checkJSON
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Clients[configuration.ClientClaude].State != domainreadiness.Deferred || result.Clients[configuration.ClientCodex].State != domainreadiness.Invalid || result.NextAction == "" || result.Error == "" {
+		t.Fatalf("mixed JSON check = %+v", result)
+	}
+	humanAction := ""
+	runtime.Problem = func(_, _, _, action string, cause error) error {
+		humanAction = action
+		return cause
+	}
+	command = NewCheckCommand(runtime)
+	if err := executeCommand(command); err == nil {
+		t.Fatal("human check accepted invalid Codex projection")
+	}
+	if humanAction != result.NextAction {
+		t.Fatalf("human recovery %q differs from JSON action %q", humanAction, result.NextAction)
+	}
 }
 
 func TestCheckReportsThePerformedInferenceOrEndpointScope(t *testing.T) {

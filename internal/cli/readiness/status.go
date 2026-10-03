@@ -38,7 +38,6 @@ type endpointTransportKind string
 const endpointTransportExternalLoopback endpointTransportKind = "external_loopback"
 
 type statusOutput struct {
-	ConfigPath        string                   `json:"config_path"`
 	CredentialBackend secrets.BackendSelection `json:"credential_backend"`
 	Clients           map[string]clientStatus  `json:"clients"`
 	Routes            int                      `json:"routes"`
@@ -76,10 +75,17 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 
 // inspectStatusClients observes every admitted client without authenticating
 // an endpoint or reading Token values.
-func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) map[string]clientStatus {
+func inspectStatusClients(runtime invocation.Context, cfg configuration.Config, activation *clientactivation.Activation, selected string) map[string]clientStatus {
+	if activation == nil {
+		assessed := clientactivation.AssessActivation(cfg, runtime.Secrets)
+		activation = &assessed
+	}
 	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
 	clients := make(map[string]clientStatus, len(clientIDs))
 	for _, clientID := range clientIDs {
+		if selected != "" && clientID != selected {
+			continue
+		}
 		spec, _ := configuration.ClientSpecFor(clientID)
 		clientRuntime, resolveErr := cfg.ResolveRuntime(clientID, "")
 		if resolveErr != nil {
@@ -90,24 +96,22 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 			continue
 		}
 		adapterStatus := inspectAdapter(context.Background(), runtime, cfg, clientID, clientRuntime)
+		projectionPrerequisite := activation.ProjectionPrerequisites[clientID]
+		projectionAction := adapterStatus.RepairAction
+		if projectionPrerequisite != "" {
+			projectionAction = projectionPrerequisite
+		}
 		facts := domainreadiness.ClientFacts{
 			Route:              clientRuntime.RouteID,
 			Account:            clientRuntime.AccountID,
 			CredentialRequired: clientRuntime.UsesAIGWCredentialStore(),
 			ProjectionEnabled:  cfg.Clients[clientID].Enabled,
+			ProjectionDeferred: cfg.Clients[clientID].Enabled && projectionPrerequisite != "",
 			ProjectionReady:    adapterStatus.Ready,
 			ProjectionIssue:    adapterStatus.Issue,
-			ProjectionAction:   adapterStatus.RepairAction,
+			ProjectionAction:   projectionAction,
 		}
-		if facts.CredentialRequired && (!facts.ProjectionEnabled || facts.ProjectionReady) {
-			available, observationErr := runtime.Secrets.Exists(clientRuntime.AccountID)
-			facts.CredentialAvailable = available
-			if observationErr != nil {
-				facts.CredentialObservationIssue = "Credential metadata is unavailable"
-			} else {
-				facts.CredentialAction, _ = credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
-			}
-		}
+		applyCredentialFacts(&facts, activation, runtime.Secrets, clientID, clientRuntime.AccountID)
 		state := domainreadiness.ClassifyClient(facts)
 		if adapterStatus.NativeModelOverride && state.State == domainreadiness.Configured {
 			state.NativeModelOverride = true
@@ -136,6 +140,28 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 	return clients
 }
 
+func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *clientactivation.Activation, store secrets.Store, clientID, accountID string) {
+	if !facts.CredentialRequired {
+		return
+	}
+	available, observationErr, observed := activation.CredentialAvailability(accountID)
+	if !observed {
+		available, observationErr = store.Exists(accountID)
+	}
+	facts.CredentialAvailable = available
+	if observationErr != nil {
+		facts.CredentialObservationIssue = "Credential metadata is unavailable"
+		return
+	}
+	if available {
+		return
+	}
+	facts.CredentialAction = activation.ClientCredentialPrerequisites[clientID]
+	if facts.CredentialAction == "" {
+		facts.CredentialAction, _ = credential.TokenRecovery(store, accountID)
+	}
+}
+
 func unresolvedClientStatus(cfg *configuration.Config, clientID string, resolveErr error) clientStatus {
 	facts := domainreadiness.ClientFacts{}
 	if route := cfg.SelectedRoute(clientID); route != "" {
@@ -156,7 +182,7 @@ func unresolvedClientStatus(cfg *configuration.Config, clientID string, resolveE
 // InspectClients returns the canonical, secret-free local state of every
 // admitted client without authenticating an endpoint or reading Token values.
 func InspectClients(runtime invocation.Context, cfg configuration.Config) map[string]domainreadiness.Client {
-	observed := inspectStatusClients(runtime, cfg)
+	observed := inspectStatusClients(runtime, cfg, nil, "")
 	clients := make(map[string]domainreadiness.Client, len(observed))
 	for client, status := range observed {
 		clients[client] = status.Client
@@ -164,21 +190,28 @@ func InspectClients(runtime invocation.Context, cfg configuration.Config) map[st
 	return clients
 }
 
+func orderedClientStates(runtime invocation.Context, clients map[string]clientStatus) []domainreadiness.Client {
+	ordered := make([]domainreadiness.Client, 0, len(clients))
+	for _, clientID := range invocation.Synchronizer(runtime).ClientIDs() {
+		ordered = append(ordered, clients[clientID].Client)
+	}
+	return ordered
+}
+
 func collectStatus(runtime invocation.Context, cfg configuration.Config) statusOutput {
 	backend, backendErr := secrets.Inspect(runtime.Secrets)
 	if backendErr != nil {
 		backend.RecoveryAction = domainreadiness.CredentialBackendRecovery
 	}
-	clients := inspectStatusClients(runtime, cfg)
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
+	clients := inspectStatusClients(runtime, cfg, &activation, "")
 	return statusOutput{
-		ConfigPath:        runtime.Config.Path(),
 		CredentialBackend: backend,
 		Clients:           clients,
 		Routes:            len(cfg.Routes),
 		EnabledClients:    activation.EnabledClients,
 		State:             activation.State,
-		NextAction:        activation.NextAction,
+		NextAction:        activation.NextActionFor(orderedClientStates(runtime, clients)),
 	}
 }
 

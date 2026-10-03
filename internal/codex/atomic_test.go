@@ -3,6 +3,7 @@ package codex
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -293,5 +294,33 @@ func TestReconcileConfigsRejectsUnattributedStateWithoutOriginalSelections(t *te
 	afterConfig, readErr := os.ReadFile(path)
 	if readErr != nil || !bytes.Equal(afterConfig, beforeConfig) {
 		t.Fatalf("config changed after unattributed sidecar rejection: %q, %v", afterConfig, readErr)
+	}
+}
+
+func TestReconcileConfigsRollsBackCatalogWhenConfigWriteFails(t *testing.T) {
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
+	original := []byte("model_provider = 'native'\nuser_setting = true\n")
+	path := writeCodexTestConfig(t, string(original))
+	target := codexHomeTarget(path)
+	target.Executable = filepath.Join(filepath.Dir(path), "codex")
+
+	writeOriginal := writeFileAtomicIfUnchanged
+	t.Cleanup(func() { writeFileAtomicIfUnchanged = writeOriginal })
+	writeFileAtomicIfUnchanged = func(target string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+		if target == path {
+			return transaction.FileSnapshot{}, fmt.Errorf("injected config write failure")
+		}
+		return writeOriginal(target, expected, data, mode)
+	}
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, catalogTestRuntime("openai.gpt-5.6-sol")); err == nil || !strings.Contains(err.Error(), "injected config write failure") {
+		t.Fatalf("config failure was not reported: %v", err)
+	}
+	if current, err := os.ReadFile(path); err != nil || !bytes.Equal(current, original) {
+		t.Fatalf("config changed after rollback: %q, %v", current, err)
+	}
+	for _, artifact := range []string{codexCatalogPath(path), codexStatePath(path)} {
+		if _, err := os.Stat(artifact); !os.IsNotExist(err) {
+			t.Fatalf("artifact survived rollback: %s: %v", artifact, err)
+		}
 	}
 }

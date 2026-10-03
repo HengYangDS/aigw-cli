@@ -40,6 +40,15 @@ func (r *recordingRunner) RunCapture(_ context.Context, plan process.Plan) ([]by
 
 type runnerFunc func(context.Context, process.Plan) error
 
+func (r *recordingRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	output, err := r.RunCapture(ctx, plan)
+	return output, nil, err
+}
+
+func (run runnerFunc) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	return nil, nil, run(ctx, plan)
+}
+
 func (run runnerFunc) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
 	return nil, run(ctx, plan)
 }
@@ -286,6 +295,29 @@ func TestCommitReportsSynchronizationRollbackFailure(t *testing.T) {
 	}
 	if store.commits != 1 || store.restores != 1 || !errors.Is(err, want) {
 		t.Fatalf("post-preflight failure: commits=%d restores=%d error=%v", store.commits, store.restores, err)
+	}
+	var recovery interface{ ConfigurationRestored() bool }
+	if !errors.As(err, &recovery) || recovery.ConfigurationRestored() {
+		t.Fatalf("incomplete rollback was not typed accurately: %v", err)
+	}
+}
+
+func TestCommitReportsConfigurationRestoredAfterProjectionFailure(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := &configStoreStub{onCommit: func() {
+		if err := os.WriteFile(target, []byte("invalid TOML {"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}}
+	err := (Synchronizer{
+		Config: store, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
+	}).Commit(t.Context(), configuration.NewConfig(), testConfig(target), "change")
+	var recovery interface{ ConfigurationRestored() bool }
+	if !errors.As(err, &recovery) || !recovery.ConfigurationRestored() || store.commits != 1 || store.restores != 1 {
+		t.Fatalf("restored configuration was not typed accurately: commits=%d restores=%d error=%v", store.commits, store.restores, err)
 	}
 }
 

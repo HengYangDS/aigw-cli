@@ -304,12 +304,13 @@ or weaken integrity policy.
 
 ### Requirement: Source acceptance precedes delivery completion
 
-Source acceptance SHALL require valid official Change artifacts, exact-source
-quality evidence, and authorized object-preserving integration. An active
-Change MAY reach accepted or release refs while delivery remains incomplete;
-its original tasks SHALL retain that work until outcomes are observed. Archive
-SHALL follow completed obligations and SHALL NOT gate enabling integration.
-Native OpenSpec validation SHALL remain the sole repository lifecycle check.
+Source acceptance SHALL require valid Change artifacts, exact-source quality,
+and authorized object-preserving integration. Active Changes MAY reach accepted
+or release refs before delivery completes. Tasks SHALL close implementation and
+candidate acceptance before archive; canonical specs and design SHALL retain
+delivery duties until proved. Archive SHALL precede stable tagging without
+claiming delivery or blocking local integration. OpenSpec SHALL remain the sole
+Change-artifact validator.
 
 #### Scenario: Active Change reaches source verification
 
@@ -320,6 +321,13 @@ Native OpenSpec validation SHALL remain the sole repository lifecycle check.
 - **AND** malformed artifacts or failed quality checks still block acceptance
 - **AND** source acceptance SHALL NOT mark pending publication, installation or
   cleanup complete.
+
+#### Scenario: Archive preserves pending delivery
+
+- **WHEN** source and candidate tasks are complete but a peer's CI, assets,
+  installed lifecycle or retirement remains pending
+- **THEN** archive SHALL retain those duties in canonical specs and design
+- **AND** it SHALL NOT claim the pending external delivery is complete.
 
 ### Requirement: repository text quality has one mature owner per concern
 

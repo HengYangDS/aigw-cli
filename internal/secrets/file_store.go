@@ -35,7 +35,7 @@ func (store *fileStore) get(kind Kind, account string) (string, error) {
 	}
 	defer clear(plain)
 	if len(plain) == 0 {
-		return "", ErrNotFound
+		return "", errors.New("stored credential is empty")
 	}
 	return string(plain), nil
 }

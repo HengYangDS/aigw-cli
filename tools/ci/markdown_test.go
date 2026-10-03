@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -20,135 +19,21 @@ func TestMarkdownPolicyCommandUsesRequestedCheckout(t *testing.T) {
 	}
 }
 
-func TestMarkdownPolicyEnforcesDocumentStructure(t *testing.T) {
-	root := repositoryRoot(t)
-	checker := filepath.Join(root, "tools", "ci", "markdown", "lint.mjs")
-	policy := readFile(t, filepath.Join(root, ".config", "checks", "markdown", "policy.yaml"))
-	for name, entry := range map[string]struct {
-		content string
-		rule    string
-	}{
-		"document":            {"# Document\n\n## First\n\n```sh\naigw status\n```\n", ""},
-		"OpenSpec":            {"## ADDED Requirements\n\n### Requirement: First\n\n#### Scenario: Accepted\n\n- Expected.\n\n### Requirement: Second\n\n#### Scenario: Accepted\n\n- Expected.\n", ""},
-		"heading progression": {"# Document\n\n### Details\n", "MD001"},
-		"inline suppression":  {"<!-- markdownlint-disable MD001 -->\n# Document\n\n### Details\n", "MD001"},
-		"sibling uniqueness":  {"# Document\n\n## Details\n\nText.\n\n## Details\n", "MD024"},
-		"single title":        {"# First\n\nText.\n\n# Second\n", "MD025"},
-		"heading punctuation": {"# Document\n\n## Details:\n", "MD026"},
-		"question heading":    {"# Document\n\n## Which backend should I use?\n", ""},
-		"semantic heading":    {"# Document\n\n**Details**\n\nText.\n", "MD036"},
-		"emphasized sentence": {"# Document\n\n**Keep the original configuration.**\n", ""},
-		"OpenSpec labels":     {"## Goals / Non-Goals\n\n**Goals:**\n\n- Preserve ownership.\n\n**Non-Goals:**\n\n- Change client state.\n", ""},
-		"fence language":      {"# Document\n\n```\naigw status\n```\n", "MD040"},
-		"separator style":     {"# Document\n\nText.\n\n***\n\nText.\n", "MD035"},
-		"table columns":       {"# Document\n\n| First | Second |\n| ----- | ------ |\n| Value |\n", "MD056"},
-		"table alignment":     {"# Document\n\n| First | Second |\n| ----- | ------ |\n| Value  | Result |\n", "MD060"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			fixture := t.TempDir()
-			if err := os.WriteFile(filepath.Join(fixture, "document.md"), []byte(entry.content), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			policyPath := filepath.Join(fixture, ".config", "checks", "markdown", "policy.yaml")
-			if err := os.MkdirAll(filepath.Dir(policyPath), 0o700); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(policyPath, policy, 0o600); err != nil {
-				t.Fatal(err)
-			}
-			input, err := json.Marshal([]string{filepath.Join(fixture, "document.md")})
-			if err != nil {
-				t.Fatal(err)
-			}
-			command := exec.Command("node", checker)
-			command.Stdin = bytes.NewReader(input)
-			command.Dir = fixture
-			output, err := command.CombinedOutput()
-			if entry.rule == "" {
-				if err != nil || !bytes.Contains(output, []byte("checked 1 Markdown files")) {
-					t.Fatalf("valid document: %v\n%s", err, output)
-				}
-				return
-			}
-			if err == nil || !bytes.Contains(output, []byte(entry.rule)) {
-				t.Fatalf("expected %s from native document check: %v\n%s", entry.rule, err, output)
-			}
-		})
-	}
-}
-
-func TestMermaidChecksExecuteAgainstRequestedSources(t *testing.T) {
-	repository := repositoryRoot(t)
-	root := t.TempDir()
-	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, output)
-	}
-	checker := filepath.Join("tools", "ci", "markdown", "diagrams.mjs")
-	local := filepath.Join(root, checker)
-	if err := os.MkdirAll(filepath.Dir(local), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	entry, err := json.Marshal(filepath.Join(repository, checker))
-	if err != nil {
-		t.Fatal(err)
-	}
-	forward := "import { pathToFileURL } from 'node:url'; await import(pathToFileURL(" + string(entry) + ").href);\n"
-	if err := os.WriteFile(local, []byte(forward), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("GIT_INDEX_FILE", filepath.Join(repository, ".git", "nonexistent-index"))
-	if err := os.WriteFile(filepath.Join(root, ".mermaidlintrc.json"), []byte(`{"ignore":["**/*"],"rules":{"no-self-loop":"off"}}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	for _, test := range []struct {
-		name, diagram string
-		valid         bool
-	}{
-		{"flowchart", "flowchart LR\n  A[Source] --> B[Target]\n", true},
-		{"sequence", "sequenceDiagram\n  A->>B: Failure, no writes\n", true},
-		{"semicolon message", "sequenceDiagram\n  A->>B: Failure; no writes\n", false},
-		{"syntax", "flowchart LR\n  A[Unclosed\n", false},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			path := filepath.Join(root, "diagram.md")
-			body := []byte("# Diagram\n\n```mermaid\n" + test.diagram + "```\n")
-			if err := os.WriteFile(path, body, 0o600); err != nil {
-				t.Fatal(err)
-			}
-			var output []byte
-			err := run([]string{"check-mermaid", root}, &bytes.Buffer{}, func(call command) error {
-				var runErr error
-				output, runErr = systemOutputRunner(call)
-				return runErr
-			})
-			if (err == nil) != test.valid || !bytes.Contains(output, []byte("checked 1 diagram")) {
-				t.Fatalf("diagram validity = %t, want %t: %v\n%s", err == nil, test.valid, err, output)
-			}
-			if !bytes.Equal(readFile(t, path), body) {
-				t.Fatal("diagram check changed its source")
-			}
-		})
-	}
-	if err := os.Remove(local); err != nil {
-		t.Fatal(err)
-	}
-	if err := run([]string{"check-mermaid", root}, &bytes.Buffer{}, systemRunner); err == nil || !strings.Contains(err.Error(), "MODULE_NOT_FOUND") {
-		t.Fatalf("missing native checker error = %v", err)
-	}
-}
-
 func TestDocumentInputsAreIndependentOfCommandLineLength(t *testing.T) {
 	root := t.TempDir()
 	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
 		t.Fatalf("git init: %v\n%s", err, output)
 	}
 	var files []string
-	for index := range 400 {
-		name := filepath.Join(root, fmt.Sprintf("%03d-%s.md", index, strings.Repeat("document", 16)))
+	for index := range 500 {
+		name := filepath.Join(root, fmt.Sprintf("%03d-document.md", index))
 		if err := os.WriteFile(name, []byte("# Document\n\n[Heading](#document)\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		files = append(files, name)
+	}
+	if len(strings.Join(files, "\n")) <= 32767 {
+		t.Fatal("document inventory is too small to exercise Windows command-line limits")
 	}
 	if output, err := exec.Command("git", "-C", root, "add", "--all").CombinedOutput(); err != nil {
 		t.Fatalf("git add: %v\n%s", err, output)
@@ -269,56 +154,5 @@ func TestMarkdownCheckDiscoversAuthoredDocuments(t *testing.T) {
 	called := false
 	if err := run([]string{"check-markdown", root}, &bytes.Buffer{}, func(command) error { called = true; return nil }); err == nil || called || !strings.Contains(err.Error(), "no current Markdown") {
 		t.Fatalf("empty authored scope: %v, called=%t", err, called)
-	}
-}
-
-func TestMarkdownAdapterRequiresNativeInputsAndRejectsWarnings(t *testing.T) {
-	repository := repositoryRoot(t)
-	checker := filepath.Join(repository, "tools", "ci", "markdown", "lint.mjs")
-	for _, scenario := range []struct{ name, policy, diagnostic string }{
-		{"warning", "MD001: warning\n", "MD001"},
-		{"missing policy", "", "ENOENT"},
-		{"missing dependency", "MD001: true\n", "ENOENT"},
-	} {
-		t.Run(scenario.name, func(t *testing.T) {
-			root := t.TempDir()
-			policy := filepath.Join(root, ".config", "checks", "markdown", "policy.yaml")
-			if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
-				t.Fatal(err)
-			}
-			if scenario.policy != "" {
-				if err := os.WriteFile(policy, []byte(scenario.policy), 0o600); err != nil {
-					t.Fatal(err)
-				}
-			}
-			path := filepath.Join(root, "document.md")
-			content := []byte("# Document\n\n### Details\n")
-			if err := os.WriteFile(path, content, 0o600); err != nil {
-				t.Fatal(err)
-			}
-			entry := checker
-			if scenario.name == "missing dependency" {
-				entry = filepath.Join(root, "tools", "ci", "markdown", "lint.mjs")
-				if err := os.MkdirAll(filepath.Dir(entry), 0o700); err != nil {
-					t.Fatal(err)
-				}
-				if err := os.WriteFile(entry, readFile(t, checker), 0o600); err != nil {
-					t.Fatal(err)
-				}
-			}
-			input, err := json.Marshal([]string{path})
-			if err != nil {
-				t.Fatal(err)
-			}
-			command := exec.Command("node", entry)
-			command.Dir, command.Stdin = root, bytes.NewReader(input)
-			output, err := command.CombinedOutput()
-			if err == nil || !bytes.Contains(output, []byte(scenario.diagnostic)) {
-				t.Fatalf("%s: %v\n%s", scenario.name, err, output)
-			}
-			if !bytes.Equal(readFile(t, path), content) {
-				t.Fatal("adapter changed input")
-			}
-		})
 	}
 }

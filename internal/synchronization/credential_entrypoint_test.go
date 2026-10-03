@@ -2,16 +2,152 @@ package synchronization
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
 
+	"aigw-cli/internal/claude"
+	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 )
+
+func TestCodexInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
+	root := t.TempDir()
+	data := filepath.Join(root, "data")
+	target := filepath.Join(root, "codex.toml")
+	if err := os.WriteFile(target, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var sources []string
+	for _, version := range []string{"predecessor", "successor"} {
+		source := filepath.Join(root, version)
+		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		sources = append(sources, source)
+	}
+	retained, err := credential.VersionedEntrypointPath(data, sources[0], "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err := credential.VersionedEntrypointPath(data, sources[1], "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := credential.EnsureEntrypoint(sources[0], retained); err != nil {
+		t.Fatal(err)
+	}
+	cfg := testConfig(target)
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected := runtime
+	projected.CredentialCommand = retained
+	if err := codex.SyncConfig(target, projected); err != nil {
+		t.Fatal(err)
+	}
+	syncer := Synchronizer{Discovery: targetDiscovery(target), AIGWExecutable: sources[1], CredentialPath: current}
+	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientCodex, runtime); !status.Ready {
+		t.Fatalf("unchanged Route with an intact retained reader was rejected: %s", status.Issue)
+	}
+	if err := credential.RemoveEntrypoint(retained); err != nil {
+		t.Fatal(err)
+	}
+	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientCodex, runtime); status.Ready {
+		t.Fatal("missing retained reader was accepted as a healthy Codex projection")
+	}
+}
+
+func TestClaudeInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
+	root := t.TempDir()
+	data := filepath.Join(root, "data")
+	settings := filepath.Join(root, "settings.json")
+	if err := os.WriteFile(settings, []byte(`{"theme":"dark"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	paths := make([]string, 0, 2)
+	for _, version := range []string{"predecessor", "successor"} {
+		source := filepath.Join(root, version)
+		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		path, err := credential.VersionedEntrypointPath(data, source, "aigw")
+		if err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, path)
+	}
+	retained, current := paths[0], paths[1]
+	if _, err := credential.EnsureEntrypoint(filepath.Join(root, "predecessor"), retained); err != nil {
+		t.Fatal(err)
+	}
+	cfg := configuration.NewConfig()
+	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetClientActivation(configuration.ClientClaude, true, filepath.Join(root, "predecessor"), nil)
+	runtime, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := claude.ReconcileSettings(settings, false, runtime, retained, runtime.Model); err != nil {
+		t.Fatal(err)
+	}
+	syncer := Synchronizer{ClaudeSettingsPath: settings, AIGWExecutable: filepath.Join(root, "successor"), CredentialPath: current}
+	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientClaude, runtime); !status.Ready {
+		t.Fatalf("unchanged Claude Route with an intact retained reader was rejected: %s", status.Issue)
+	}
+	if err := credential.RemoveEntrypoint(retained); err != nil {
+		t.Fatal(err)
+	}
+	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientClaude, runtime); status.Ready {
+		t.Fatal("missing retained Claude reader was accepted")
+	}
+}
+
+func TestCancelledProjectionAfterVersionedReaderPreparationRestoresOwnedState(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "aigw")
+	target := filepath.Join(root, "codex.toml")
+	original := []byte("model_provider = \"native\"\n")
+	if err := os.WriteFile(source, []byte("AIGW executable fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	store := &configStoreStub{onCommit: func() {
+		if _, err := os.Lstat(reader); err != nil {
+			t.Fatalf("reader was not prepared before configuration commit: %v", err)
+		}
+		cancel()
+	}}
+	syncer := Synchronizer{Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
+	if err := syncer.CommitProjection(ctx, configuration.NewConfig(), testConfig(target), "test"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled projection error = %v, want context cancellation", err)
+	}
+	if store.commits != 1 || store.restores != 1 {
+		t.Fatalf("cancelled projection commits/restores = %d/%d, want 1/1", store.commits, store.restores)
+	}
+	for _, path := range []string{reader, reader + ".sha256"} {
+		if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("cancelled projection retained new reader %s: %v", path, err)
+		}
+	}
+	if got, err := os.ReadFile(target); err != nil || !bytes.Equal(got, original) {
+		t.Fatalf("cancelled projection changed client file: %q, %v", got, err)
+	}
+}
 
 func TestFailedSynchronizationRemovesOnlyItsNewCredentialEntrypoint(t *testing.T) {
 	for _, phase := range []string{"commit", "apply"} {
@@ -119,11 +255,11 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	if _, err := credential.EnsureEntrypoint(source, helper); err != nil {
 		t.Fatal(err)
 	}
-	if action, err := syncer.CredentialEntrypointPlan(disabled); err != nil || action != CredentialEntrypointRemove {
-		t.Fatalf("last client disabled plan = %q, %v; want helper removal", action, err)
+	if action, err := syncer.CredentialEntrypointPlan(disabled); err != nil || action != CredentialEntrypointUnchanged {
+		t.Fatalf("last client disabled plan = %q, %v; cached caller may remain", action, err)
 	}
-	if action, err := syncer.CredentialEntrypointPlan(external); err != nil || action != CredentialEntrypointRemove {
-		t.Fatalf("external credential plan = %q, %v; want AIGW helper removal", action, err)
+	if action, err := syncer.CredentialEntrypointPlan(external); err != nil || action != CredentialEntrypointUnchanged {
+		t.Fatalf("external credential plan = %q, %v; cached caller may remain", action, err)
 	}
 	otherActive := disabled.Clone()
 	account := otherActive.Accounts["gateway"]
@@ -134,6 +270,15 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	otherActive.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	if action, err := syncer.CredentialEntrypointPlan(otherActive); err != nil || action != CredentialEntrypointUnchanged {
 		t.Fatalf("another default Token client plan = %q, %v; want retained helper", action, err)
+	}
+	if err := os.WriteFile(helper+".sha256", []byte("changed receipt\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := syncer.CredentialEntrypointPlan(cfg); err == nil {
+		t.Fatal("active default Token consumer accepted a changed entrypoint")
+	}
+	if action, err := syncer.CredentialEntrypointPlan(disabled); err != nil || action != CredentialEntrypointUnchanged {
+		t.Fatalf("unused changed entrypoint blocked withdrawal: %q, %v", action, err)
 	}
 	explicitConsumer := otherActive.Clone()
 	binding = explicitConsumer.Clients[configuration.ClientClaude]
@@ -189,7 +334,7 @@ func TestReconcileClientPreflightRejectsInvalidTargetBeforeEntrypointCreation(t 
 	}
 }
 
-func TestDisablingLastTokenClientRemovesOwnedCredentialEntrypoint(t *testing.T) {
+func TestDisablingLastTokenClientRetainsUnprovenCachedEntrypoint(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "aigw")
 	helper := filepath.Join(root, "data", "credential", "aigw")
@@ -218,8 +363,8 @@ func TestDisablingLastTokenClientRemovesOwnedCredentialEntrypoint(t *testing.T) 
 		t.Fatal(err)
 	}
 	for _, path := range []string{helper, helper + ".sha256"} {
-		if _, err := os.Lstat(path); !os.IsNotExist(err) {
-			t.Fatalf("last consumer disabled, entrypoint still present at %s: %v", path, err)
+		if _, err := os.Lstat(path); err != nil {
+			t.Fatalf("last configured consumer disabled, cached entrypoint lost at %s: %v", path, err)
 		}
 	}
 	stored, err := store.Load()
@@ -303,53 +448,7 @@ func TestDisablingDefaultClientRetainsEntrypointForExplicitSelfReference(t *test
 	}
 }
 
-func TestCredentialEntrypointAliasRetainsTheOwnedExecutable(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows symbolic links may require a separate privilege")
-	}
-	root := t.TempDir()
-	owned := filepath.Join(root, "credential", "aigw")
-	alias := filepath.Join(root, "explicit-aigw")
-	if err := os.Mkdir(filepath.Dir(owned), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(owned, []byte("executable"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(owned, alias); err != nil {
-		t.Fatal(err)
-	}
-	if !sameCredentialEntrypoint(alias, owned) {
-		t.Fatal("a direct symbolic alias was not recognized as the owned credential executable")
-	}
-}
-
-func TestFinalizeCredentialEntrypointRejectsMissingActiveHelper(t *testing.T) {
-	root := t.TempDir()
-	syncer := Synchronizer{CredentialPath: filepath.Join(root, "data", "credential", "aigw")}
-	err := syncer.finalizeCredentialEntrypoint(testConfig(filepath.Join(root, "codex.toml")))
-	if err == nil || !strings.Contains(err.Error(), "disappeared after client projection") {
-		t.Fatalf("missing active helper finalization = %v", err)
-	}
-}
-
-func TestFinalizeCredentialEntrypointRejectsInvalidBinding(t *testing.T) {
-	root := t.TempDir()
-	cfg := testConfig(filepath.Join(root, "codex.toml"))
-	delete(cfg.Routes, "gpt")
-	syncer := Synchronizer{CredentialPath: filepath.Join(root, "data", "credential", "aigw")}
-	if err := syncer.finalizeCredentialEntrypoint(cfg); err == nil || !strings.Contains(err.Error(), "inspect credential entrypoint") {
-		t.Fatalf("invalid binding finalization = %v", err)
-	}
-}
-
-func TestCredentialEntrypointIdentityRejectsEmptyCommands(t *testing.T) {
-	if sameCredentialEntrypoint("", filepath.Join(t.TempDir(), "aigw")) {
-		t.Fatal("empty explicit credential command became an owned consumer")
-	}
-}
-
-func TestFailedEntrypointCleanupReportsCommittedClientWithdrawal(t *testing.T) {
+func TestWithdrawingLastClientPreservesChangedCachedEntrypoint(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "aigw")
 	helper := filepath.Join(root, "data", "credential", "aigw")
@@ -375,18 +474,17 @@ func TestFailedEntrypointCleanupReportsCommittedClientWithdrawal(t *testing.T) {
 	}
 	after := before.Clone()
 	after.SetClientActivation(configuration.ClientCodex, false, "", nil)
-	err := syncer.CommitProjection(t.Context(), before, after, "disable", configuration.ClientCodex)
-	if err == nil || !strings.Contains(err.Error(), "configuration and client projections completed, but credential entrypoint finalization failed: inspect credential entrypoint") {
-		t.Fatalf("partial cleanup error = %v", err)
+	if err := syncer.CommitProjection(t.Context(), before, after, "disable", configuration.ClientCodex); err != nil {
+		t.Fatalf("withdrawal should not inspect an unneeded cached entrypoint: %v", err)
 	}
 	stored, loadErr := store.Load()
 	if loadErr != nil || stored.Clients[configuration.ClientCodex].Enabled {
-		t.Fatalf("client withdrawal was falsely rolled back: %#v, %v", stored.Clients, loadErr)
+		t.Fatalf("client withdrawal was not committed: %#v, %v", stored.Clients, loadErr)
 	}
 	if got, readErr := os.ReadFile(target); readErr != nil || !bytes.Equal(got, original) {
 		t.Fatalf("client projection was not withdrawn: %q, %v", got, readErr)
 	}
 	if _, statErr := os.Lstat(helper); statErr != nil {
-		t.Fatalf("tampered helper was removed despite cleanup failure: %v", statErr)
+		t.Fatalf("changed cached entrypoint was removed: %v", statErr)
 	}
 }

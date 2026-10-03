@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:forge-operations
+role: how-to
+state: canonical
+relations:
+  canonical_for: independent Forge operation
+---
+-->
+
 # Forge Operations
 
 ## Authority
@@ -16,6 +26,32 @@ object; neither peer is an input to the other.
 | Release assets and records | Each selected peer, independently    |
 
 Transport credentials never construct, rewrite, or sign product objects.
+
+## GitLab Runner Admission
+
+The CUE workflow selects Linux runners before jobs are created. `quality`,
+`native-linux`, `linux-secret-service`, and `release-assets` consume the same
+`AIGW_CI_LINUX_RUNNER_TAG`; no project variable chooses that tag.
+
+| Ref context                        | Linux runner tag                     | Runner access   |
+| ---------------------------------- | ------------------------------------ | --------------- |
+| Same-project MR or unprotected ref | `ci-linux-arm64-container`           | `not_protected` |
+| Accepted branch or release tag     | `ci-linux-arm64-container-protected` | `ref_protected` |
+| Manual run on a protected ref      | `ci-linux-arm64-container-protected` | `ref_protected` |
+| Manual run on an unprotected ref   | `ci-linux-arm64-container`           | `not_protected` |
+
+Each registration is project-scoped, locked, tagged-only, and uses a disposable
+container. Review and protected execution require distinct Runner registrations
+and isolated caches. Public author and allowed-signers inputs remain available
+to review; credentials and protected release variables remain restricted.
+`release-assets` admits only explicit dispatch on a protected release tag.
+Darwin retains control-plane object and tag verification; Windows and Darwin
+native jobs retain their separate review and protected registrations.
+
+The former `AIGW_GITLAB_LINUX_RUNNER_TAG` project variable has no consumer in
+this workflow. Retire it after the updated workflow is admitted and both runner
+paths have executed. Do not set a project variable named
+`AIGW_CI_LINUX_RUNNER_TAG`, which would override the workflow's selection.
 
 ## Verify Local Objects
 
@@ -189,6 +225,14 @@ against that host's published archive, after checksum, signature and source
 verification. This does not publish, replace a tag or rebuild the candidate.
 Separate runner selections can execute independently.
 
+Before downloading assets, the workflow resolves the selected tag to its
+product commit and requires this peer's latest successful tag-push `Verify`
+attempt at that SHA. Quality, macOS, Linux, Windows and version jobs must all
+have passed in that same attempt. Branch or manual runs, an earlier attempt,
+another peer, or incomplete GitHub Actions evidence do not qualify. The
+workflow has read-only Actions access for this check; GitLab instead uses
+same-pipeline `needs` for the same five obligations.
+
 The bounded choices cover the six published OS/architecture pairs. Alongside
 the ordinary Linux, macOS and Windows hosts, `ubuntu-24.04-arm`,
 `macos-15-intel` and `windows-11-arm` execute the additional architectures.
@@ -226,12 +270,29 @@ Git source trust inputs and `AIGW_ACCEPTANCE_BASELINE` pointing to the verified
 published predecessor executable. After tagging, omit `--candidate` and select
 `CI_COMMIT_TAG` to verify the signed release tag as well.
 
+`--baseline-artifacts` with `--baseline-tag` instead admits the complete signed
+predecessor matrix and extracts its native executable through the same owner.
+For published remote inputs, `--tag`, `--baseline-tag`, `--peer` and
+`--repository` select that peer's native CLI with a bounded no-prompt download;
+neither Forge is a transport fallback for the other. See
+[native artifact acceptance](../../CONTRIBUTING.md#tagged-artifact-acceptance).
+
 Pre-archive samples qualify only that candidate. Archive changes source identity;
 measure the newly built, exact-source matrix again before tagging, rather than
 carrying old samples into the final release verdict.
 
 The output must be a new absolute directory. The task installs its locked
 Hyperfine tool only when requested; ordinary checks do not require it.
+An explicit performance output selects only the matching measurements after
+normal artifact, source and predecessor trust checks; it does not repeat core,
+rollback or resource lifecycle acceptance. `--clients` additionally runs the
+requested native-client journey. Neither selection replaces required lifecycle
+evidence for release admission.
+The same measurement owner records first setup and converged sync separately
+from route changes. Setup preparation removes only fixture-owned configuration
+and projection files before each timed command; it preserves the installed program
+and credentials. Construction and CI costs remain tied to their original build
+and job receipts, not these samples.
 
 The GitHub Verify workflow accepts `performance=true` together with
 `baseline_tag` and `candidate_tag`. It reuses historical release acceptance,

@@ -20,8 +20,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	var candidateArchive string
 	var candidateChecksums string
 	cmd := &cobra.Command{
-		Use: "update", Short: "Install a verified release, a local candidate, or restore the previous portable program",
-		Long: "Replace the program without changing client settings. Keep client integrations enabled. Run sync after either replacement, then check readiness before resuming clients. Before rollback, the retained program must read an isolated copy of the current configuration. If incompatible, explicitly restore a supported configuration before retrying.",
+		Use:   "update",
+		Short: "Update or roll back the portable AIGW program",
+		Long: "Replace only a portable AIGW program; Homebrew-managed copies must be\n" +
+			"upgraded with Homebrew. Client settings and credentials do not change.\n" +
+			"Run aigw sync, then aigw check before resuming clients. --rollback\n" +
+			"restores the retained program, not configuration. An incompatible\n" +
+			"current configuration blocks program rollback without changing files.",
 		Args: cobra.MatchAll(cobra.NoArgs, func(cmd *cobra.Command, _ []string) error {
 			for _, name := range []string{"candidate", "checksums"} {
 				flag := cmd.Flags().Lookup(name)
@@ -56,14 +61,38 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			} else {
 				result, err = runtime.Updater.Update(ctx.Context(), runtime.Version)
 			}
-			if err != nil {
-				if errors.Is(err, upgrade.ErrRollbackConfiguration) {
-					return invocation.Problem(runtime,
-						"Program rollback is incompatible with the current configuration",
-						"The retained program could not read an isolated copy of the current configuration.",
-						"The active program, retained program and configuration remain unchanged.",
-						"Restore a configuration supported by the retained program, then retry `aigw update --rollback`.", err)
+			if err != nil && result != "" {
+				title := "Program updated; cleanup is incomplete"
+				if rollback {
+					title = "Program restored; cleanup is incomplete"
 				}
+				return invocation.Problem(runtime, title,
+					"Program replacement completed, but an owned temporary resource could not be removed.",
+					"The replacement is active; client settings and credentials were not changed.",
+					"Run `aigw installation` and `aigw doctor` before retrying cleanup or another program transition.", err)
+			}
+			if !rollback && errors.Is(err, upgrade.ErrCandidateIdentity) {
+				return invocation.Problem(runtime,
+					"Candidate has different program bytes at the current version",
+					"The verified local archive does not match the active program identity.",
+					"The active and retained programs are unchanged.",
+					"Use the exact current release artifact or a verified newer version.", err)
+			}
+			if !rollback && errors.Is(err, upgrade.ErrProgramStartupVerification) {
+				return invocation.Problem(runtime,
+					"Candidate program failed startup verification",
+					"The candidate did not run its version check.",
+					"The installed program is unchanged.",
+					"Verify the candidate archive for this platform and retry only with a valid artifact.", err)
+			}
+			if errors.Is(err, upgrade.ErrRollbackConfiguration) {
+				return invocation.Problem(runtime,
+					"Program rollback is incompatible with the current configuration",
+					"The retained program could not read an isolated copy of the current configuration.",
+					"The active program, retained program and configuration remain unchanged.",
+					"Restore a configuration supported by the retained program, then retry `aigw update --rollback`.", err)
+			}
+			if err != nil {
 				if rollback {
 					return invocation.Problem(
 						runtime,
@@ -74,7 +103,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 						err,
 					)
 				}
-				return err
+				return invocation.Problem(runtime,
+					"Program update did not complete",
+					"AIGW could not complete release verification and program replacement.",
+					"No updated program version was confirmed active; client settings and credentials were not changed.",
+					"Run `aigw doctor` to inspect current state; verify the selected release source or use a verified local archive.", err)
 			}
 			r := invocation.Renderer(runtime)
 			title := "Update"

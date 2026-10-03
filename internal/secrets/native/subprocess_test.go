@@ -50,6 +50,18 @@ func TestInvokeRequiresTheOwningProductExecutable(t *testing.T) {
 	if _, err := invoke("", readCommand, "AIGW_TOKEN", "team", ""); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("empty product executable error = %v, want ErrUnavailable", err)
 	}
+	if value, err := Read("", "AIGW_TOKEN", "team"); value != "" || !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("read without an executable = %q, %v", value, err)
+	}
+	if err := Write("", "AIGW_TOKEN", "team", "synthetic-token"); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("write without an executable = %v", err)
+	}
+	if err := Delete("", "AIGW_TOKEN", "team"); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("delete without an executable = %v", err)
+	}
+	if exists, err := Exists("", "AIGW_TOKEN", "team"); exists || !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("existence without an executable = %t, %v", exists, err)
+	}
 }
 
 type fixtureReader struct{ code int }

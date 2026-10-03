@@ -6,12 +6,15 @@ import (
 	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"maps"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"go.yaml.in/yaml/v3"
 )
 
 type teamManifestJourney struct {
@@ -21,40 +24,70 @@ type teamManifestJourney struct {
 	clients  []string
 }
 
+type manualRouteSelection struct {
+	route    string
+	protocol configuration.EndpointProtocol
+}
+
 func TestNativeTeamManifestJourney(t *testing.T) {
+	callerHome := t.TempDir()
+	callerConfig := filepath.Join(callerHome, "config.yaml")
+	callerBytes := []byte("model: caller-owned-model\n")
+	if err := os.WriteFile(callerConfig, callerBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HERMES_HOME", callerHome)
+	t.Cleanup(func() {
+		entries, err := os.ReadDir(callerHome)
+		if err != nil || len(entries) != 1 || !bytes.Equal(readFile(t, callerConfig), callerBytes) {
+			t.Errorf("native team journey changed the caller's Hermes Home: %v", err)
+		}
+	})
 	plan := newTeamManifestJourney(t)
 	for _, account := range append([]string{""}, configuration.ManifestAccountNames(plan.manifest)...) {
-		t.Run(account, func(t *testing.T) { plan.runAccount(t, account) })
+		if account == "" {
+			t.Run("no-token-no-client", func(t *testing.T) { plan.runAccount(t, account, false) })
+			continue
+		}
+		t.Run(account+"/token-before-client", func(t *testing.T) { plan.runAccount(t, account, false) })
+		t.Run(account+"/client-before-token", func(t *testing.T) { plan.runAccount(t, account, true) })
 	}
 }
 
-func TestTeamManifestAdmitsDirectDMXAPISolAsSetupAlternative(t *testing.T) {
+func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testing.T) {
 	team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
+	sol := "gpt-6.1-sol"
 	manifest, err := configuration.Parse(team)
 	if err != nil {
 		t.Fatal(err)
 	}
-	route, exists := manifest.Routes["dmxapi-gpt-6-sol"]
-	if !exists || route.Account != "dmxapi" || route.Model != "gpt-6-sol" || route.UpstreamModelID() != "gpt-6-sol" {
-		t.Fatalf("direct DMXAPI Sol Route = %#v, present=%t", route, exists)
-	}
-	if len(route.Interfaces) != 1 {
-		t.Fatalf("direct DMXAPI Sol protocols = %#v", route.Interfaces)
-	}
-	if _, ok := route.Interfaces[configuration.ProtocolOpenAIResponses]; !ok {
-		t.Fatalf("direct DMXAPI Sol lacks Responses: %#v", route.Interfaces)
+	for _, account := range []string{"dmxapi", "aihubmix", "ucloud"} {
+		route, exists := manifest.Routes[account+"-gpt-6.1-sol"]
+		if !exists || route.Account != account || route.Model != "gpt-6.1-sol" || route.UpstreamModelID() != "gpt-6.1-sol" {
+			t.Fatalf("%s 6.1 Sol Route = %#v, present=%t", account, route, exists)
+		}
+		if len(route.Interfaces) != 1 {
+			t.Fatalf("%s 6.1 Sol protocols = %#v", account, route.Interfaces)
+		}
+		if _, ok := route.Interfaces[configuration.ProtocolOpenAIResponses]; !ok {
+			t.Fatalf("%s 6.1 Sol lacks Responses: %#v", account, route.Interfaces)
+		}
 	}
 	if got := manifest.Accounts["dmxapi"].Endpoints.OpenAIResponses; got != "https://www.dmxapi.cn/v1" {
 		t.Fatalf("team DMXAPI endpoint = %q, want direct provider", got)
 	}
-	for _, client := range []string{configuration.ClientCodex, configuration.ClientHermes} {
-		recommendation := manifest.Recommendations[client]
-		if recommendation.Primary.Route != "ucloud-gpt-6-sol" {
-			t.Fatalf("%s primary Route changed: %q", client, recommendation.Primary.Route)
+	for client, want := range map[string][]string{
+		configuration.ClientCodex:  {"dmxapi-" + sol + "-cdx", "ucloud-" + sol},
+		configuration.ClientHermes: {"dmxapi-" + sol, "ucloud-" + sol},
+	} {
+		selections := manifest.Recommendations[client].Selections()
+		if len(selections) != len(want) {
+			t.Fatalf("%s setup choices = %#v, want %q", client, selections, want)
 		}
-		if len(recommendation.Alternatives) < 3 || recommendation.Alternatives[0].Route != "aihubmix-gpt-6-sol" ||
-			recommendation.Alternatives[1].Route != "dmxapi-gpt-6-sol" || recommendation.Alternatives[2].Route != "dmxapi-gpt-6-luna" {
-			t.Fatalf("%s setup alternatives changed the existing order: %#v", client, recommendation.Alternatives)
+		for index, selection := range selections {
+			if selection.Route != want[index] {
+				t.Fatalf("%s setup choice %d = %q, want %q", client, index, selection.Route, want[index])
+			}
 		}
 	}
 }
@@ -78,10 +111,15 @@ func newTeamManifestJourney(t *testing.T) teamManifestJourney {
 	t.Logf("team candidate version=%s sha256=%x", version, sha256.Sum256(readFile(t, program)))
 	clients := slices.Collect(maps.Keys(manifest.Recommendations))
 	slices.Sort(clients)
+	admitted := configuration.AdmittedClientIDs()
+	slices.Sort(admitted)
+	if !slices.Equal(clients, admitted) {
+		t.Fatalf("team recommendations cover %q, want every admitted client %q", clients, admitted)
+	}
 	return teamManifestJourney{program: program, team: team, manifest: manifest, clients: clients}
 }
 
-func (plan teamManifestJourney) runAccount(t *testing.T, account string) {
+func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientFirst bool) {
 	t.Helper()
 	journey := newNativeJourney(t, plan.program, "https://unused.example.test", false)
 	journey.setEnvironment("CODEX_HOME", filepath.Join(journey.root, "home", ".codex"))
@@ -93,14 +131,26 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string) {
 	journey.run("doctor", "--json")
 	journey.requireNoClaudeProjection()
 	if account == "" {
-		journey.uninstallAndRequireOwnedFilesAbsent()
+		journey.uninstallAndRequireInstallationRemoved()
 		return
 	}
-	journey.setEnvironment(secrets.EnvironmentKey(account), "team-journey-token")
+	if !clientFirst {
+		journey.setEnvironment(secrets.EnvironmentKey(account), "team-journey-token")
+	}
 	for _, client := range plan.clients {
 		journey.installClientFixture(client)
 	}
-	journey.run("sync")
+	hermesPath := journey.clientProjectionPaths(configuration.ClientHermes)[0]
+	if err := os.MkdirAll(filepath.Dir(hermesPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(hermesPath, []byte("model:\n  ollama_num_ctx: 65536\nmcp_servers:\n  retained:\n    command: user-mcp\nproviders:\n  personal:\n    base_url: https://personal.test\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if clientFirst {
+		requireNoActivationBeforeToken(t, journey)
+		journey.setEnvironment(secrets.EnvironmentKey(account), "team-journey-token")
+	}
 	selected, err := configuration.Merge(configuration.NewConfig(), plan.manifest)
 	if err != nil {
 		t.Fatal(err)
@@ -109,14 +159,113 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	manual := plan.manualSelections(t, account, selected)
+	beforePreview := readFile(t, journey.config)
+	var preview struct {
+		Selections map[string]string `json:"selections"`
+	}
+	if err := json.Unmarshal(journey.run("sync", "--dry-run", "--json"), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(beforePreview, readFile(t, journey.config)) {
+		t.Fatal("late sync preview changed configuration")
+	}
+	journey.run("sync")
+	actual, err := configuration.NewStore(journey.config).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, client := range plan.clients {
 		route := selected.SelectedRoute(client)
-		if route == "" {
-			t.Fatalf("Account %q has no compatible recommended Route for %s", account, client)
+		if planned, got := preview.Selections[client], actual.SelectedRoute(client); planned != route || got != route {
+			t.Fatalf("late sync selected %s Route %q after preview %q, want %q", client, got, planned, route)
 		}
-		journey.run("use", "--for", client, route)
+		if _, isManual := manual[client]; isManual && actual.Clients[client].Enabled {
+			t.Fatalf("sync activated manually selected %s for Account %q", client, account)
+		}
+	}
+	for client, choice := range manual {
+		journey.run("use", "--for", client, "--protocol", string(choice.protocol), choice.route)
+		actual, err = configuration.NewStore(journey.config).Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := actual.SelectedRoute(client); got != choice.route {
+			t.Fatalf("explicit use selected %s Route %q, want %q", client, got, choice.route)
+		}
 	}
 	plan.requireSelectedAccount(t, journey, account)
+}
+
+func (plan teamManifestJourney) manualSelections(
+	t *testing.T, account string, selected configuration.Config,
+) map[string]manualRouteSelection {
+	t.Helper()
+	manual := make(map[string]manualRouteSelection)
+	for _, client := range plan.clients {
+		if selected.SelectedRoute(client) != "" {
+			continue
+		}
+		choice, ok := plan.manualRoute(account, client)
+		if !ok {
+			t.Fatalf("Account %q has no compatible declared or manual Route for %s", account, client)
+		}
+		manual[client] = choice
+	}
+	return manual
+}
+
+func (plan teamManifestJourney) manualRoute(account, client string) (manualRouteSelection, bool) {
+	spec, found := configuration.ClientSpecFor(client)
+	if !found {
+		return manualRouteSelection{}, false
+	}
+	recommendation, found := plan.manifest.Recommendations[client]
+	if !found {
+		return manualRouteSelection{}, false
+	}
+	model := plan.manifest.Routes[recommendation.Primary.Route].Model
+	for _, routeID := range slices.Sorted(maps.Keys(plan.manifest.Routes)) {
+		route := plan.manifest.Routes[routeID]
+		if route.Account != account || route.Model != model {
+			continue
+		}
+		protocols := spec.CompatibleRouteProtocols(plan.manifest.Accounts[account], route)
+		if len(protocols) == 0 {
+			continue
+		}
+		protocol := recommendation.Primary.Protocol
+		if !slices.Contains(protocols, protocol) {
+			protocol = protocols[0]
+		}
+		return manualRouteSelection{route: routeID, protocol: protocol}, true
+	}
+	return manualRouteSelection{}, false
+}
+
+func requireNoActivationBeforeToken(t *testing.T, journey *journeyFixture) {
+	t.Helper()
+	var preview struct {
+		EnabledClients       int               `json:"enabled_clients"`
+		Selections           map[string]string `json:"selections"`
+		Targets              []json.RawMessage `json:"targets"`
+		CredentialEntrypoint *json.RawMessage  `json:"credential_entrypoint"`
+	}
+	if err := json.Unmarshal(journey.run("sync", "--dry-run", "--json"), &preview); err != nil {
+		t.Fatalf("decode client-first sync preview: %v", err)
+	}
+	if preview.EnabledClients != 0 || len(preview.Selections) != 0 || len(preview.Targets) != 0 || preview.CredentialEntrypoint != nil {
+		t.Fatalf("client-first sync planned activation without a Token: %+v", preview)
+	}
+	journey.run("sync")
+	beforeToken, err := configuration.NewStore(journey.config).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(beforeToken.EnabledClientIDs()) != 0 {
+		t.Fatalf("client-first sync activated before a Token: %#v", beforeToken.Clients)
+	}
+	journey.requireNoClaudeProjection()
 }
 
 func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *journeyFixture, account string) {
@@ -133,21 +282,58 @@ func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *jo
 		if err != nil || selected.AccountID != account || !cfg.Clients[clientID].Enabled {
 			t.Fatalf("one connected Account did not activate %s: %#v, %v", clientID, selected, err)
 		}
-		recommended := plan.manifest.Routes[plan.manifest.Recommendations[clientID].Primary.Route]
-		offered := slices.ContainsFunc(slices.Collect(maps.Values(plan.manifest.Routes)), func(route configuration.Route) bool {
-			return route.Account == account && route.Model == recommended.Model
-		})
-		if offered && selected.Model != recommended.Model {
-			t.Fatalf("%s activation lost recommended model %q: %q", clientID, recommended.Model, selected.Model)
-		}
 		if got := strings.TrimSpace(string(journey.run("credential", clientID, selected.CredentialProjectionFingerprint(clientID)))); got != "team-journey-token" {
 			t.Fatalf("environment credential differs for %s", clientID)
 		}
 	}
 	before := readFile(t, journey.config)
+	plan.requireHermesWireCatalogue(t, journey, cfg, account)
 	journey.run("sync")
 	if !bytes.Equal(before, readFile(t, journey.config)) {
 		t.Fatal("repeated team synchronization rewrote configuration")
 	}
-	journey.uninstallAndRequireOwnedFilesAbsent()
+	journey.uninstallAndRequireInstallationRemoved()
+}
+
+func (plan teamManifestJourney) requireHermesWireCatalogue(t *testing.T, journey *journeyFixture, cfg configuration.Config, account string) {
+	t.Helper()
+	var projected struct {
+		Model struct {
+			OllamaContext int `yaml:"ollama_num_ctx"`
+		} `yaml:"model"`
+		MCP       map[string]struct{ Command string } `yaml:"mcp_servers"`
+		Providers map[string]struct {
+			Models   []string `yaml:"models"`
+			Endpoint string   `yaml:"base_url"`
+		} `yaml:"providers"`
+	}
+	if err := yaml.Unmarshal(readFile(t, journey.clientProjectionPaths(configuration.ClientHermes)[0]), &projected); err != nil {
+		t.Fatal(err)
+	}
+	if projected.Model.OllamaContext != 65536 || projected.MCP["retained"].Command != "user-mcp" || projected.Providers["personal"].Endpoint != "https://personal.test" {
+		t.Fatal("native Hermes projection changed unowned settings")
+	}
+	spec, found := configuration.ClientSpecFor(configuration.ClientHermes)
+	if !found {
+		t.Fatal("Hermes client contract is absent")
+	}
+	expected := make(map[string][]string)
+	for _, route := range plan.manifest.Routes {
+		if route.Account != account {
+			continue
+		}
+		for _, protocol := range spec.CompatibleRouteProtocols(cfg.Accounts[account], route) {
+			id := "aigw-" + account + "-" + strings.ReplaceAll(string(protocol), "_", "-")
+			expected[id] = append(expected[id], route.UpstreamModelID())
+		}
+	}
+	for id, models := range expected {
+		slices.Sort(models)
+		models = slices.Compact(models)
+		actual := slices.Clone(projected.Providers[id].Models)
+		slices.Sort(actual)
+		if !slices.Equal(actual, models) {
+			t.Errorf("native Hermes provider %q wire catalogue = %q, want %q", id, actual, models)
+		}
+	}
 }

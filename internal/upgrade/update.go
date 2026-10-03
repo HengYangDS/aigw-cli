@@ -202,7 +202,7 @@ func (u Updater) updateFromResolvedPeers(ctx context.Context, releases []resolve
 	defer func() {
 		if err := robustio.RemoveAll(directory); err != nil {
 			cleanupErr := fmt.Errorf("remove update workspace %s: %w", directory, err)
-			if resultErr == nil {
+			if result != "" {
 				cleanupErr = fmt.Errorf("program update completed; %w", cleanupErr)
 			}
 			resultErr = errors.Join(resultErr, cleanupErr)
@@ -219,10 +219,11 @@ func (u Updater) updateFromResolvedPeers(ctx context.Context, releases []resolve
 	}
 	archive := downloads[0].Asset
 	checksums := filepath.Join(filepath.Dir(archive), "checksums.txt")
-	if err := u.installPortableArchive(ctx, archive, checksums, normalizeVersion(selected.Tag)); err != nil {
+	activated, err := u.installPortableArchive(ctx, archive, checksums, normalizeVersion(selected.Tag))
+	if !activated {
 		return "", err
 	}
-	return "updated to " + selected.Tag + " verified from " + releaseProviders(downloads), nil
+	return "updated to " + selected.Tag + " verified from " + releaseProviders(downloads), err
 }
 
 func (u Updater) downloadPeerAssets(ctx context.Context, releases []resolvedRelease, asset, root string) ([]downloadedRelease, error) {

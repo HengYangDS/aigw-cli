@@ -47,8 +47,9 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 		"0 of 2",
 		"Selected Client Bindings",
 		"Projected clients",
-		"Connect one compatible Account",
-		"aigw rotate <account>",
+		"Choose one compatible Account",
+		"aigw rotate aihubmix",
+		"aigw rotate dmxapi",
 	} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output missing %q:\n%s", want, out.String())
@@ -172,9 +173,9 @@ func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *test
 		t.Fatalf("setup JSON projected clients = %#v", result.ProjectedClients)
 	}
 	wantDeferred := []string{
-		"Connect one compatible Account",
+		"Choose one compatible Account: aigw rotate aihubmix or aigw rotate dmxapi",
 	}
-	if !slices.Equal(result.DeferredActions, wantDeferred) || result.NextAction != "aigw rotate <account>" {
+	if !slices.Equal(result.DeferredActions, wantDeferred) || result.NextAction != wantDeferred[0] {
 		t.Fatalf("setup JSON continuation = %#v", result)
 	}
 	for _, forbidden := range []string{"aigw-test", "token", "secret"} {
@@ -289,7 +290,7 @@ func TestSetupFromConfigurationManifestReportsInstalledClientWaitingForAnAccount
 	if err := cli.Execute(app, []string{"setup", "--from", manifestPath}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Connect one compatible Account") {
+	if !strings.Contains(out.String(), "Choose one compatible Account: aigw rotate aihubmix or aigw rotate dmxapi") {
 		t.Fatalf("installed but deferred client is not explained:\n%s", out.String())
 	}
 }

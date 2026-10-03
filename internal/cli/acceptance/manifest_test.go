@@ -75,112 +75,26 @@ interfaces = { anthropic = ["text"] }
 	}
 }
 
-func TestConfigImportReportsMissingAccountTokensNotRouteTokens(t *testing.T) {
-	app, out, secretStore, _, _ := testApp(t, "")
-	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 7
-[recommendations.codex.primary]
-route = "gpt-long-model"
-
-[recommendations.claude.primary]
-route = "claude-long-model"
-[accounts.dmx]
-label = "DMXAPI"
-[accounts.dmx.endpoints]
-openai_responses = "https://dmx.test/v1"
-anthropic = "https://dmx.test"
-[models.gpt-long-model]
-label = "GPT Long Model"
-[models.claude-long-model]
-label = "Claude Long Model"
-[routes."gpt-long-model"]
-label = "GPT Long Model"
-account = "dmx"
-model = "gpt-long-model"
-upstream_model = "gpt-long-model"
-interfaces = { openai_responses = ["text"] }
-[routes."claude-long-model"]
-label = "Claude Long Model"
-account = "dmx"
-model = "claude-long-model"
-upstream_model = "claude-long-model"
-interfaces = { anthropic = ["text"] }
-`
-	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_ = secretStore.Set("dmx", "existing-token")
-	if err := cli.Execute(app, []string{"config", "import", manifestPath}); err != nil {
-		t.Fatal(err)
-	}
-	text := out.String()
-	if strings.Contains(text, "Token required") || strings.Contains(text, "gpt-long-model  ") || strings.Contains(text, "claude-long-model  ") {
-		t.Fatalf("import reported route-level missing tokens despite account token:\n%s", text)
-	}
-	for _, want := range []string{"Accounts", "Account Token", "dmx", "Token available", "aigw sync"} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("import output lacks %q:\n%s", want, text)
-		}
-	}
-}
-
-func TestConfigImportReportsOnlyMissingAccounts(t *testing.T) {
+func TestConfigImportDefersCredentialObservationToStatus(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 7
-[recommendations.codex.primary]
-route = "gpt-long-model"
-
-[recommendations.claude.primary]
-route = "claude-long-model"
-[accounts.dmx]
-label = "DMXAPI"
-[accounts.dmx.endpoints]
-openai_responses = "https://dmx.test/v1"
-anthropic = "https://dmx.test"
-[models.gpt-long-model]
-label = "GPT Long Model"
-[models.claude-long-model]
-label = "Claude Long Model"
-[routes."gpt-long-model"]
-label = "GPT Long Model"
-account = "dmx"
-model = "gpt-long-model"
-upstream_model = "gpt-long-model"
-interfaces = { openai_responses = ["text"] }
-[routes."claude-long-model"]
-label = "Claude Long Model"
-account = "dmx"
-model = "claude-long-model"
-upstream_model = "claude-long-model"
-interfaces = { anthropic = ["text"] }
-`
-	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := cli.Execute(app, []string{"config", "import", manifestPath}); err != nil {
-		t.Fatal(err)
-	}
-	text := out.String()
-	if !strings.Contains(text, "dmx") || !strings.Contains(text, "Token not connected") || !strings.Contains(text, "aigw rotate dmx") || !strings.Contains(text, "aigw sync") {
-		t.Fatalf("import did not point to missing account token:\n%s", text)
-	}
-	if strings.Contains(text, "gpt-long-model") || strings.Contains(text, "claude-long-model") {
-		t.Fatalf("import should not report route names as missing token slots:\n%s", text)
-	}
-}
-
-func TestConfigImportReportsCredentialObservationFailureWithoutInventingAbsence(t *testing.T) {
-	app, out, _, _, _ := testApp(t, "")
-	want := errors.New("credential observation failed")
-	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: want}
-
+	store := &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: errors.New("unexpected credential observation")}
+	app.Secrets = store
 	if err := cli.Execute(app, []string{"config", "import", writeConfigurationManifest(t, configurationManifestFixture)}); err != nil {
 		t.Fatal(err)
 	}
-	text := out.String()
-	if !strings.Contains(text, "Credential status unavailable") || !strings.Contains(text, want.Error()) {
-		t.Fatalf("import output = %q", text)
+	if len(store.existsCalls) != 0 || len(store.getCalls) != 0 {
+		t.Fatalf("import observed Account credentials: exists=%q get=%q", store.existsCalls, store.getCalls)
+	}
+	cfg, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Accounts) != 2 || len(cfg.Routes) != 3 {
+		t.Fatalf("imported public catalogue = %#v", cfg)
+	}
+	output := out.String()
+	if !strings.Contains(output, "Configuration manifest imported") || !strings.Contains(output, "aigw status") || strings.Contains(output, "Token") || strings.Contains(output, "credential observation") {
+		t.Fatalf("import output mixed configuration and credential state: %q", output)
 	}
 }
 

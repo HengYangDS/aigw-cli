@@ -14,7 +14,7 @@ func TestWriteProvenanceBindsSourceLocksToolsAndUnsignedArtifacts(t *testing.T) 
 		"go.sum":            "sum\n",
 		"package-lock.json": "{}\n",
 		"mise.lock":         "lockfile_version = 1\n",
-		"mise.toml":         "[tools]\ngo = \"1.27.1\"\nnode = \"26.8.1\"\n",
+		"mise.toml":         "[tools]\ngo = \"1.27.1\"\nnode = \"26.8.1\"\n[tools.\"github:google/osv-scanner\"]\nversion = \"2.6.0\"\nslsa_signer_identity = \"https://example.invalid/workflow\"\n",
 	} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)
@@ -40,6 +40,7 @@ func TestWriteProvenanceBindsSourceLocksToolsAndUnsignedArtifacts(t *testing.T) 
 		`"predicateType": "https://slsa.dev/provenance/v1"`,
 		`"version": "1.2.3"`,
 		`"go": "1.27.1"`,
+		`"github:google/osv-scanner": "2.6.0"`,
 		strings.Repeat("a", 40),
 		strings.Repeat("b", 40),
 		`"uri": "file:go.mod"`,
@@ -53,5 +54,14 @@ func TestWriteProvenanceBindsSourceLocksToolsAndUnsignedArtifacts(t *testing.T) 
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("provenance contains forbidden metadata %q: %s", forbidden, text)
 		}
+	}
+}
+
+func TestCurrentMiseToolchainIsRepresentableInProvenance(t *testing.T) {
+	root := filepath.Join("..", "..", "..")
+	if _, err := readToolVersions(func(name string) ([]byte, error) {
+		return os.ReadFile(filepath.Join(root, name))
+	}); err != nil {
+		t.Fatal(err)
 	}
 }

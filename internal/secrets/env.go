@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -45,8 +46,11 @@ func (s environmentStore) get(kind Kind, account string) (string, error) {
 	if kind == ProviderDiagnostic {
 		systemToken := s.getenv(DiagnosticSystemTokenEnvironmentKey(account))
 		userID := s.getenv(DiagnosticUserIDEnvironmentKey(account))
-		if systemToken == "" || userID == "" {
+		if systemToken == "" && userID == "" {
 			return "", ErrNotFound
+		}
+		if systemToken == "" || userID == "" {
+			return "", errors.New("provider diagnostic environment is incomplete")
 		}
 		value, _ := json.Marshal(DiagnosticCredential{SystemToken: systemToken, UserID: userID})
 		return string(value), nil

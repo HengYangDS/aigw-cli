@@ -31,7 +31,7 @@ type DiscoverySource interface {
 // Dependencies are the shared capabilities supplied to one adapter operation.
 type Dependencies struct {
 	Secrets                      secrets.Store
-	Runner                       process.CaptureRunner
+	Runner                       process.VerificationRunner
 	Discovery                    discovery.Discoverer
 	ClaudeSettingsPath           string
 	AIGWExecutable               string
@@ -183,19 +183,19 @@ func (registry Registry) Plan(deps Dependencies, before, after configuration.Con
 	return plans, nil
 }
 
-// Apply executes the already-preparable adapter set and compensates successful
-// earlier adapters in reverse order if a later adapter fails or cancellation
-// prevents the next adapter from starting.
-func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, after configuration.Config, clientIDs ...string) (resultErr error) {
+// Apply executes the already-preparable adapter set. On success it returns one
+// receipt for the complete projection, so its caller can compensate a later
+// transaction failure. Earlier adapters are compensated here on apply failure.
+func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, after configuration.Config, clientIDs ...string) (resultReceipt ProjectionReceipt, resultErr error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return nil, err
 	}
 	adapters, err := registry.selectAdapters(clientIDs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if _, err := registry.Plan(deps, before, after, clientIDs...); err != nil {
-		return err
+		return nil, err
 	}
 	receipts := make([]ProjectionReceipt, 0, len(adapters))
 	defer func() {
@@ -210,16 +210,20 @@ func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, a
 	}()
 	for _, adapter := range adapters {
 		if err := ctx.Err(); err != nil {
-			return err
+			return nil, err
 		}
 		receipt, err := adapter.Apply(ctx, deps, before, after)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		receipts = append(receipts, receipt)
 	}
-	return nil
+	return projectionReceipts(receipts), nil
 }
+
+type projectionReceipts []ProjectionReceipt
+
+func (receipts projectionReceipts) Rollback() error { return rollbackReceipts(receipts) }
 
 // ChangedClients returns clients whose persistent projection changes, in admission order.
 func (registry Registry) ChangedClients(before, after configuration.Config) []string {

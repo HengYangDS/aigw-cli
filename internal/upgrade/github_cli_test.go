@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"aigw-cli/internal/process"
 	"context"
 	"errors"
 	"os"
@@ -15,6 +16,22 @@ type githubCLIRunner struct {
 	latestErr    error
 	listOutput   []byte
 	listErr      error
+}
+
+func TestGitHubReleaseUsesNoninteractiveProcessPlan(t *testing.T) {
+	t.Setenv("GH_PROMPT_DISABLED", "0")
+	t.Setenv("GH_HOST", "unrelated.example.test")
+	runner := &recordingRunner{inspect: func(plan process.Plan) ([]byte, error) {
+		if !slices.Contains(plan.Env, "GH_PROMPT_DISABLED=1") || !slices.Contains(plan.Env, "GH_HOST=github.example.test") || plan.Stdin != "" {
+			t.Fatal("GitHub release plan permits interaction or has the wrong host")
+		}
+		return []byte("metadata"), nil
+	}}
+	u := Updater{Runner: runner}
+	output, err := u.runGitHubCLI(t.Context(), ReleaseSource{Origin: "https://github.example.test", Repository: "o/r"}, "api", "repos/o/r/releases/latest")
+	if err != nil || string(output) != "metadata" || len(runner.plans) != 1 {
+		t.Fatalf("GitHub release invocation: output=%q error=%v", output, err)
+	}
 }
 
 func TestLatestGitHubReleaseWithCLIPropagatesRunError(t *testing.T) {

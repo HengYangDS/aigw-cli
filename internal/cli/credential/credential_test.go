@@ -241,15 +241,18 @@ func TestCredentialCommandRequiresProjectionFingerprintBeforeSecretAccess(t *tes
 }
 
 func TestCredentialHelperUsesAccountTokenLanguage(t *testing.T) {
-	runtime, _ := helperRuntime(t, configuration.ClientClaude, true)
+	runtime, stdout := helperRuntime(t, configuration.ClientClaude, true)
 	command := NewCommand(runtime)
 
 	if command.Short != "Read the Account Token matching a client projection" {
 		t.Fatalf("short help = %q", command.Short)
 	}
 	err := command.RunE(command, helperArgs(t, runtime, configuration.ClientClaude))
-	if err == nil || !strings.Contains(err.Error(), "claude Account Token is unavailable") || strings.Contains(err.Error(), "gateway") {
-		t.Fatalf("credential error = %v", err)
+	var stderr bytes.Buffer
+	presentation.RenderCredentialError(presentation.New(&stderr, false), err)
+	if err == nil || stdout.Len() != 0 || !strings.Contains(stderr.String(), "claude Account Token is not configured") ||
+		!strings.Contains(stderr.String(), "aigw doctor") || strings.Contains(stderr.String(), "gateway") {
+		t.Fatalf("credential error = %v, output = %q", err, stderr.String())
 	}
 }
 
@@ -268,16 +271,18 @@ func TestClaudeCredentialHelperPropagatesOutputFailure(t *testing.T) {
 
 func TestCredentialHelperRedactsBackendDiagnostics(t *testing.T) {
 	runtime, stdout := helperRuntime(t, configuration.ClientCodex, true)
-	runtime.Secrets = &refusingSecretStore{}
+	store := &refusingSecretStore{readError: errors.New("locked login Keychain at /private/account-token")}
+	runtime.Secrets = store
 	command := NewCommand(runtime)
 	err := command.RunE(command, helperArgs(t, runtime, configuration.ClientCodex))
 	var stderr bytes.Buffer
 	renderer := presentation.New(&stderr, false)
-	presentation.RenderError(renderer, err, false)
-	if stdout.Len() != 0 || !strings.Contains(stderr.String(), "Account Token is unavailable") {
+	presentation.RenderCredentialError(renderer, err)
+	if stdout.Len() != 0 || !strings.Contains(stderr.String(), "Account Token could not be read") ||
+		!strings.Contains(stderr.String(), "unlock the native store if locked") {
 		t.Fatalf("stdout=%q stderr=%q", stdout.String(), stderr.String())
 	}
-	if strings.Contains(stderr.String(), "credential access is forbidden") {
+	if store.getCalls != 1 || store.existsCalls != 0 || strings.Contains(stderr.String(), "/private/account-token") {
 		t.Fatalf("raw backend error escaped the credential boundary: %q", stderr.String())
 	}
 }

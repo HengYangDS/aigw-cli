@@ -68,14 +68,14 @@ func TestCredentialPolicyControlsProjectionAndSurvivesDiscovery(t *testing.T) {
 			if got := registry.ChangedClients(before, converged); !reflect.DeepEqual(got, []string{id}) {
 				t.Fatalf("command-only change selected %v", got)
 			}
-			if err := registry.Apply(context.Background(), deps, configuration.NewConfig(), before, id); err != nil {
+			if _, err := registry.Apply(context.Background(), deps, configuration.NewConfig(), before, id); err != nil {
 				t.Fatal(err)
 			}
 			plans, err := registry.Plan(deps, before, converged, id)
 			if err != nil || len(plans) != 1 {
 				t.Fatalf("projection plan = %v, %v", plans, err)
 			}
-			if err := registry.Apply(context.Background(), deps, before, converged, id); err != nil {
+			if _, err := registry.Apply(context.Background(), deps, before, converged, id); err != nil {
 				t.Fatal(err)
 			}
 			runtime, err := converged.ResolveRuntime(id, "")
@@ -151,6 +151,14 @@ func TestMissingCodexTargetRetainsExplicitIntentAndCredentialPolicy(t *testing.T
 
 type rejectingClient struct{ calls int }
 
+func (runner *rejectingClient) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	output, err := runner.RunCapture(ctx, plan)
+	if err != nil {
+		return nil, output, err
+	}
+	return output, nil, nil
+}
+
 func (runner *rejectingClient) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
 	runner.calls++
 	if reflect.DeepEqual(plan.Args, []string{"--version"}) {
@@ -167,7 +175,7 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 			adapter := cfg.Clients[id]
 			adapter.CredentialCommand = filepath.Join(t.TempDir(), "credential adapter")
 			cfg.Clients[id] = adapter
-			if err := registry.Apply(context.Background(), deps, configuration.NewConfig(), cfg, id); err != nil {
+			if _, err := registry.Apply(context.Background(), deps, configuration.NewConfig(), cfg, id); err != nil {
 				t.Fatal(err)
 			}
 			runtime, err := cfg.ResolveRuntime(id, "")

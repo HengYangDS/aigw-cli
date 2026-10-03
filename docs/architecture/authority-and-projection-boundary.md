@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:control-plane-boundary
+role: explanation
+state: canonical
+relations:
+  canonical_for: AIGW control plane and native projection ownership
+---
+-->
+
 # Authority and Projection Boundary
 
 AIGW is a local control plane. It turns reviewed configuration into bounded
@@ -107,10 +117,13 @@ structural check, not evidence of credentials, installed clients, endpoint
 availability, or successful inference.
 
 Imported recommendations and actual selections have separate meanings in that
-same configuration. Import retains the recommendation; setup and sync select
-only for clients without a selected Route. They prefer an available recommendation, then
-its model on another usable Account, then stable Route identifier order.
-Unavailable credentials do not authorize replacing an existing selection.
+same configuration. Import retains the recommendation; setup selects for
+explicitly connected Accounts, while later sync selects for unbound clients
+only when a read-only environment Account Token becomes available. Both use
+only the declared primary Route and ordered alternatives. Other Routes remain
+manual-only, even when they serve the same Model on a connected Account.
+Sync does not search unselected native credentials, and unavailable credentials
+do not authorize replacing an existing selection.
 
 Configuration cloning owns independence of nested Account diagnostics and
 Adapter target slices as well as maps. Read-only runtime resolution observes
@@ -377,19 +390,23 @@ does not import repository tools. Both built and published inputs use that
 reader; acceptance owns scratch, never the input artifact directory.
 
 Construction owns validation of embedded release sources. The standalone
-source check and build admission use the same request-owned validator before
-running tools. Each Forge is optional; a selected source requires its HTTPS
-origin and complete repository path together. GitLab permits nested namespaces,
-while GitHub requires an owner/repository pair. Runtime endpoint overrides
-remain the upgrade owner's responsibility, not a dependency of construction.
+source check and build admission use the same [release-source validator](../../internal/upgrade/source.go)
+before running tools. Each Forge is optional; a selected source requires an
+admitted origin and complete repository path together. HTTPS is required except
+for localhost, `.test` names, and literal loopback, private, or link-local IP
+addresses, which may use HTTP. GitLab permits nested namespaces, while GitHub
+requires an owner/repository pair. Runtime endpoint overrides remain the upgrade
+owner's responsibility, not a dependency of construction.
 
 An origin contains only a scheme and nonempty hostname with an optional port
 and root slash. Native URL reconstruction rejects credentials, paths and even
 empty query or fragment markers. Repository coordinates are unescaped relative
 paths with a namespace; native path validation and URL escaping must preserve
 the input exactly. Encoded separators cannot change its routing meaning.
-Both boundaries use the standard library rather than separate segment scanners;
-runtime-only private HTTP admission does not weaken HTTPS build metadata.
+Both boundaries use the standard library rather than separate segment scanners.
+Embedded metadata and runtime source overrides share this origin admission rule.
+The direct-request `GITLAB_TOKEN` fallback separately requires HTTPS; that
+credential-transport rule does not invalidate admitted private HTTP release metadata.
 
 ## Configuration transaction
 
@@ -553,11 +570,10 @@ The [projection transaction](../decisions/dr-0006-transactional-client-projectio
 prepares every target before writing and guards compensation against newer
 edits. It does not provide atomic visibility across client files or homes.
 
-It must also define its uninstall boundary. OpenCode, Pi, Hermes Agent, Qoder,
-and later clients therefore extend AIGW through the same contract rather than
-through Codex or Claude Code conditionals. Hermes provider projection, for
-example, would never grant AIGW authority over Hermes tools, memory, sessions,
-or runtime lifecycle.
+It must also define its uninstall boundary. The admitted Hermes Adapter and
+future OpenCode, Pi, or Qoder Adapters use this same contract rather than
+Codex or Claude Code conditionals. AIGW projects Hermes provider configuration
+but does not own Hermes tools, memory, sessions, or runtime lifecycle.
 
 The detailed admission evidence belongs to
 [Adapter Admission](../governance/adapter-admission.md). Provider-specific wire

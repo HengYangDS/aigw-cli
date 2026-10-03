@@ -3,6 +3,7 @@ package cli_test
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -188,6 +189,52 @@ func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
+}
+
+func TestAccountDiagnosticsEnableAcceptsExplicitNoninteractiveInput(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "platform-system-token\n")
+	saveProbeRoute(t, app.Config)
+	if err := cli.Execute(app, []string{
+		"account", "diagnostics", "enable", "dmx",
+		"--system-token-stdin", "--user-id", "operator-42",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	credential, err := app.Accounts.Get("dmx")
+	if err != nil || credential != (secrets.DiagnosticCredential{SystemToken: "platform-system-token", UserID: "operator-42"}) {
+		t.Fatalf("explicit diagnostic credential was not stored: %v", err)
+	}
+	if strings.Contains(out.String(), "platform-system-token") || strings.Contains(out.String(), "operator-42") {
+		t.Fatal("diagnostic credential input escaped into CLI output")
+	}
+}
+
+func TestAccountDiagnosticsEnableRejectsIncompleteExplicitInputBeforeReading(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"missing user ID", []string{"--system-token-stdin"}, "--user-id is required"},
+		{"blank user ID", []string{"--system-token-stdin", "--user-id", " "}, "--user-id is required"},
+		{"user ID without stdin", []string{"--user-id", "operator-42"}, "--user-id requires"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			app, out, _, _, _ := testApp(t, "unread-system-token\n")
+			saveProbeRoute(t, app.Config)
+			args := append([]string{"account", "diagnostics", "enable", "dmx"}, test.args...)
+			if err := cli.Execute(app, args); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("incomplete diagnostic input error = %v", err)
+			}
+			unread, err := io.ReadAll(app.In)
+			if err != nil || string(unread) != "unread-system-token\n" {
+				t.Fatalf("invalid invocation consumed credential input: %v", err)
+			}
+			if accountCredentialExists(t, app.Accounts, "dmx") || strings.Contains(out.String(), "unread-system-token") {
+				t.Fatal("invalid diagnostic input changed or disclosed a credential")
+			}
+		})
+	}
 }
 
 func TestAccountDiagnosticsDisableBranches(t *testing.T) {

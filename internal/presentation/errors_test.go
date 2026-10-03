@@ -6,13 +6,68 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/secrets"
 )
 
 type rewrittenOutputError struct{ cause error }
+
+type presentationProjectionError struct {
+	restored bool
+	cause    error
+}
+
+func (e presentationProjectionError) Error() string               { return e.cause.Error() }
+func (e presentationProjectionError) Unwrap() error               { return e.cause }
+func (e presentationProjectionError) ConfigurationRestored() bool { return e.restored }
+
+func TestRenderErrorDoesNotExposeLocalFilePath(t *testing.T) {
+	const privatePath = "/private/account-store/configuration.toml.bak"
+	for _, cause := range []error{
+		&os.PathError{Op: "read", Path: privatePath, Err: os.ErrPermission},
+		&os.LinkError{Op: "rename", Old: privatePath, New: privatePath + ".new", Err: os.ErrPermission},
+	} {
+		for _, jsonMode := range []bool{false, true} {
+			var out bytes.Buffer
+			renderer := New(&out, false)
+			RenderError(renderer, fmt.Errorf("capture current config: %w", cause), jsonMode)
+			if renderer.Err() != nil || strings.Contains(out.String(), privatePath) ||
+				!strings.Contains(out.String(), "Local file access failed") || !strings.Contains(out.String(), "aigw doctor") {
+				t.Fatalf("json=%t local file diagnostic = %q, render error = %v", jsonMode, out.String(), renderer.Err())
+			}
+		}
+	}
+}
+
+func TestRenderProjectionFailureReportsConfigurationRecoveryWithoutPrivatePath(t *testing.T) {
+	const privatePath = "/private/member/hermes/.aigw-state.json"
+	for _, tc := range []struct {
+		name     string
+		restored bool
+		want     string
+	}{
+		{"restored", true, "Configuration was restored"},
+		{"incomplete", false, "Configuration restoration was incomplete"},
+	} {
+		for _, jsonMode := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/json=%t", tc.name, jsonMode), func(t *testing.T) {
+				cause := &os.PathError{Op: "write", Path: privatePath, Err: os.ErrPermission}
+				err := fmt.Errorf("configuration manifest: %w", presentationProjectionError{restored: tc.restored, cause: cause})
+				var out bytes.Buffer
+				renderer := New(&out, false)
+				RenderError(renderer, err, jsonMode)
+				if renderer.Err() != nil || !strings.Contains(out.String(), tc.want) ||
+					!strings.Contains(out.String(), "aigw doctor") || strings.Contains(out.String(), privatePath) {
+					t.Fatalf("projection recovery result = %q, render error = %v", out.String(), renderer.Err())
+				}
+			})
+		}
+	}
+}
 
 func TestCredentialErrorUsesOnlySafeProblems(t *testing.T) {
 	const canary = "private-backend-output"
@@ -36,6 +91,27 @@ func TestCredentialErrorUsesOnlySafeProblems(t *testing.T) {
 				t.Fatal("credential cause was lost")
 			}
 		})
+	}
+}
+
+func TestNativeReaderPreflightReportsRecoveryWithoutPrivateCause(t *testing.T) {
+	const privateCause = "private-token-fragment /Users/operator/keychain"
+	err := fmt.Errorf("%w: %s", secrets.ErrNativeReaderUnverified, privateCause)
+	for _, jsonMode := range []bool{false, true} {
+		var out bytes.Buffer
+		renderer := New(&out, false)
+		RenderError(renderer, err, jsonMode)
+		if renderer.Err() != nil {
+			t.Fatalf("json=%t render error: %v", jsonMode, renderer.Err())
+		}
+		for _, expected := range []string{"native Account Token access", "aigw doctor", "aigw sync"} {
+			if !strings.Contains(out.String(), expected) {
+				t.Fatalf("json=%t output lacks %q: %s", jsonMode, expected, &out)
+			}
+		}
+		if strings.Contains(out.String(), privateCause) || strings.Contains(out.String(), "aigw check") {
+			t.Fatalf("json=%t output exposed a private cause or misleading action: %s", jsonMode, &out)
+		}
 	}
 }
 

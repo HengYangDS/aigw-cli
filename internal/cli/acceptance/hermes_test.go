@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+
+	"go.yaml.in/yaml/v3"
 )
 
 func TestHermesSetupDeferredSyncCredentialCheckAndWithdrawal(t *testing.T) {
@@ -81,5 +84,43 @@ interfaces = { anthropic = ["text", "streaming", "tools"] }
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Fatalf("withdrawal left %s: %v", path, err)
 		}
+	}
+}
+
+func TestHermesUseProjectsShippedChannelWireID(t *testing.T) {
+	app, output, credentials, _, httpClient := testApp(t, "")
+	if err := credentials.Set("dmxapi", "fixture-token"); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(t.TempDir(), "hermes", "config.yaml")
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{configuration.ClientHermes: executableFixture(t, "hermes")},
+		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", Product: "Hermes", Authority: "aigw", ConfigPath: target}},
+	}}
+	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
+	if err := cli.Execute(app, []string{"setup", "--from", manifest, "--account", "dmxapi"}); err != nil {
+		t.Fatalf("shipped setup: %v\n%s", err, output.String())
+	}
+	output.Reset()
+	if err := cli.Execute(app, []string{"use", "--for", "hermes", "--protocol", "openai_responses", "dmxapi-gpt-6-astra-ssvip"}); err != nil {
+		t.Fatalf("select shipped channel: %v\n%s", err, output.String())
+	}
+	var projected struct {
+		Model struct {
+			Provider string `yaml:"provider"`
+			Default  string `yaml:"default"`
+		} `yaml:"model"`
+		Providers map[string]struct {
+			Models []string `yaml:"models"`
+		} `yaml:"providers"`
+	}
+	if err := yaml.Unmarshal(readFile(t, target), &projected); err != nil {
+		t.Fatal(err)
+	}
+	if projected.Model.Default != "gpt-6-astra-ssvip" || !slices.Contains(projected.Providers[projected.Model.Provider].Models, projected.Model.Default) {
+		t.Fatalf("shipped Hermes projection = %#v", projected)
+	}
+	if httpClient.calls != 0 || strings.Contains(string(readFile(t, target)), "fixture-token") {
+		t.Fatal("Hermes selection sent a provider request or disclosed the Account Token")
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -172,10 +171,8 @@ func TestProbeReportsTruncatedHTTPResponse(t *testing.T) {
 	defer server.Close()
 
 	result := diagnostics.Probe(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL}, secret, diagnostics.ScopeEndpoint)
-	if result.Kind != diagnostics.NetworkFailure || result.HTTPStatus != http.StatusOK || !result.Retryable || result.Summary != "Cannot read the endpoint response" || !strings.Contains(result.Detail, "unexpected EOF") {
+	if result.Kind != diagnostics.NetworkFailure || result.HTTPStatus != http.StatusOK || !result.Retryable || result.Summary != "Cannot read the endpoint response" {
 		t.Fatalf("Probe() = %#v", result)
 	}
-	if strings.Contains(result.Detail, secret) {
-		t.Fatalf("read error leaked credential: %#v", result)
-	}
+	assertDiagnosticOmits(t, result, secret, "unexpected EOF")
 }

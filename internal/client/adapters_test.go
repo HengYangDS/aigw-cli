@@ -40,7 +40,16 @@ type captureAdapterRunner struct {
 	deadlines []bool
 	plans     []process.Plan
 	outputs   [][]byte
+	stderr    []byte
 	observe   func(process.Plan)
+}
+
+func (runner *captureAdapterRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	output, err := runner.RunCapture(ctx, plan)
+	if err != nil {
+		return nil, output, err
+	}
+	return output, runner.stderr, nil
 }
 
 func (runner *captureAdapterRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
@@ -190,6 +199,9 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		status := (codexAdapter{}).Inspect(context.Background(), Dependencies{}, cfg, runtime)
 		if status.Ready || !strings.Contains(status.Issue, "projection drift") {
 			t.Fatalf("status = %#v", status)
+		}
+		if strings.Contains(status.Issue, adapter.Targets[0]) || strings.Contains(status.Checks[0].Detail, adapter.Targets[0]) {
+			t.Fatalf("Codex inspection exposed a private target path: %#v", status)
 		}
 	})
 
@@ -457,6 +469,23 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 	})
 }
 
+func TestExternalCredentialRunnerRetainsFailureWithoutUnknownSecrets(t *testing.T) {
+	for _, diagnostic := range []string{
+		"warning: external client secret=public-secret-marker\n",
+		"ERROR external client secret=public-secret-marker\n",
+		"INFO external client secret=public-secret-marker\n",
+	} {
+		runner := externalCredentialRunner{runner: &captureAdapterRunner{outputs: [][]byte{[]byte("AIGW_OK\n")}, stderr: []byte(diagnostic)}}
+		output, stderr, err := runner.RunCaptureStreams(t.Context(), process.Plan{})
+		if err != nil || string(output) != "AIGW_OK\n" || strings.Contains(string(stderr), "public-secret-marker") {
+			t.Fatalf("external diagnostic privacy = %q, %v", stderr, err)
+		}
+		if process.DiagnosticFailure(stderr) != process.DiagnosticFailure([]byte(diagnostic)) {
+			t.Fatal("external credential privacy hid a native failure")
+		}
+	}
+}
+
 func TestExternalCredentialRunnerPreservesCancellationWithoutDiagnostics(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -464,5 +493,9 @@ func TestExternalCredentialRunnerPreservesCancellationWithoutDiagnostics(t *test
 	out, err := runner.RunCapture(ctx, process.Plan{})
 	if !errors.Is(err, context.Canceled) || len(out) != 0 {
 		t.Fatalf("cancellation=%v, output bytes=%d", err, len(out))
+	}
+	stdout, stderr, err := runner.RunCaptureStreams(ctx, process.Plan{})
+	if !errors.Is(err, context.Canceled) || len(stdout) != 0 || len(stderr) != 0 {
+		t.Fatalf("stream cancellation=%v, output bytes=%d/%d", err, len(stdout), len(stderr))
 	}
 }

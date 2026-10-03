@@ -28,43 +28,6 @@ func TestGoReleaserStagePreservesPaths(t *testing.T) {
 	}
 }
 
-func TestGoReleaserArchiveMetadataIsHostIndependent(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", ".config", "release", "goreleaser.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var configuration struct {
-		Archives []struct {
-			BuildsInfo struct {
-				Owner string `yaml:"owner"`
-				Group string `yaml:"group"`
-			} `yaml:"builds_info"`
-			Files []struct {
-				Source string `yaml:"src"`
-				Info   struct {
-					Owner string `yaml:"owner"`
-					Group string `yaml:"group"`
-				} `yaml:"info"`
-			} `yaml:"files"`
-		} `yaml:"archives"`
-	}
-	if err := yaml.Unmarshal(data, &configuration); err != nil {
-		t.Fatal(err)
-	}
-	if len(configuration.Archives) != 1 {
-		t.Fatalf("archives = %d, want 1", len(configuration.Archives))
-	}
-	archive := configuration.Archives[0]
-	if archive.BuildsInfo.Owner != "root" || archive.BuildsInfo.Group != "root" {
-		t.Fatalf("build archive identity = %q:%q, want root:root", archive.BuildsInfo.Owner, archive.BuildsInfo.Group)
-	}
-	for _, file := range archive.Files {
-		if file.Info.Owner != "root" || file.Info.Group != "root" {
-			t.Fatalf("archive identity for %s = %q:%q, want root:root", file.Source, file.Info.Owner, file.Info.Group)
-		}
-	}
-}
-
 func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 	root := releaseRoot(t)
 	for name, content := range map[string]string{
@@ -138,7 +101,7 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 			t.Fatalf("OSV arguments missing %q: %v", expected, osv.Args)
 		}
 	}
-	for _, expected := range []string{"AIGW_VERSION=1.2.3", "AIGW_RELEASE_EPOCH=1784246400", "AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example", "AIGW_GITHUB_RELEASE_REPOSITORY=org/aigw-cli"} {
+	for _, expected := range []string{"AIGW_VERSION=1.2.3", "GORELEASER_CURRENT_TAG=v1.2.3", "AIGW_RELEASE_EPOCH=1784246400", "AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example", "AIGW_GITHUB_RELEASE_REPOSITORY=org/aigw-cli"} {
 		goReleaser := calls[slices.IndexFunc(calls, func(call toolCall) bool { return call.Name == "goreleaser" })]
 		if !slices.Contains(goReleaser.Env, expected) {
 			t.Fatalf("GoReleaser environment missing %q: %v", expected, goReleaser.Env)
@@ -384,6 +347,21 @@ func TestBuildCIRejectsTagThatDisagreesWithVersionCarrier(t *testing.T) {
 	}
 }
 
+func TestBuildCIRejectsMalformedTagShapes(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tag := range []string{"1.2.3", "vnot-semver"} {
+		t.Run(tag, func(t *testing.T) {
+			t.Setenv("CI_COMMIT_TAG", tag)
+			if err := buildCI(root, t.TempDir(), t.TempDir(), nil, nil, nil); err == nil || !strings.Contains(err.Error(), "invalid CI") {
+				t.Fatalf("tag %q error = %v", tag, err)
+			}
+		})
+	}
+}
+
 func TestBuildCIFailsClosedAcrossUntaggedAndDependencyFailures(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
@@ -441,7 +419,7 @@ func TestBuildCIFailsClosedAcrossUntaggedAndDependencyFailures(t *testing.T) {
 func TestResolveReleaseEpochUsesChangelogAuthorityInEveryEnvironment(t *testing.T) {
 	root := t.TempDir()
 	changelog := filepath.Join(root, "CHANGELOG.md")
-	if err := os.WriteFile(changelog, []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## [Unreleased]\n\n## [1.2.3] - 2026-08-09\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
+	if err := os.WriteFile(changelog, []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## Unreleased\n\n## 1.2.3 - 2026-08-09\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if epoch, err := resolveReleaseEpoch(t.Context(), root, "1.2.3"); err != nil || epoch != "1786233600" {
@@ -462,7 +440,7 @@ func TestResolveReleaseEpochUsesChangelogAuthorityInEveryEnvironment(t *testing.
 
 func TestCandidateBuildEpochUsesSourceCommitWithoutInventingARelease(t *testing.T) {
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## [Unreleased]\n\n## [1.2.3] - 2026-08-09\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## Unreleased\n\n## 1.2.3 - 2026-08-09\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{

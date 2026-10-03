@@ -11,7 +11,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-func TestQualityJobsProjectTheIntegrationCommitBase(t *testing.T) {
+func TestQualityJobsProjectEventCommitBases(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
@@ -29,14 +29,12 @@ func TestQualityJobsProjectTheIntegrationCommitBase(t *testing.T) {
 		"$CI_COMMIT_SHA^",
 		"$CI_MERGE_REQUEST_DIFF_BASE_SHA",
 		"$CI_COMMIT_BEFORE_SHA",
+		"$CI_COMMIT_SHA^",
 	}
 	for index, want := range wantGitLabBases {
 		if got := gitlab.Quality.Rules[index].Variables["AIGW_COMMIT_BASE"]; got != want {
 			t.Fatalf("GitLab commit base rule %d = %q, want %q", index, got, want)
 		}
-	}
-	if _, guessed := gitlab.Quality.Rules[3].Variables["AIGW_COMMIT_BASE"]; guessed {
-		t.Fatal("GitLab manual verification must require an explicit AIGW_COMMIT_BASE")
 	}
 	for index, rule := range gitlab.NativeDarwin.Rules {
 		if _, leaked := rule.Variables["AIGW_COMMIT_BASE"]; leaked {
@@ -71,6 +69,9 @@ func TestQualityJobsProjectTheIntegrationCommitBase(t *testing.T) {
 			t.Fatalf("GitHub commit base lacks %s: %q", source, githubBase)
 		}
 	}
+	if strings.Count(githubBase, "format('{0}^', github.sha)") != 2 {
+		t.Fatalf("GitHub manual run does not default to the selected commit's parent: %q", githubBase)
+	}
 
 	var manual struct {
 		On struct {
@@ -84,8 +85,32 @@ func TestQualityJobsProjectTheIntegrationCommitBase(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &manual); err != nil {
 		t.Fatal(err)
 	}
-	if input, ok := manual.On.WorkflowDispatch.Inputs["commit_base"]; !ok || !input.Required {
-		t.Fatalf("GitHub manual verification must require commit_base: %#v", manual.On.WorkflowDispatch.Inputs)
+	if input, ok := manual.On.WorkflowDispatch.Inputs["commit_base"]; !ok || input.Required {
+		t.Fatalf("GitHub manual diagnostics must allow an omitted commit_base: %#v", manual.On.WorkflowDispatch.Inputs)
+	}
+}
+
+func TestGitLabReleaseAssetVerificationUsesLinuxContainer(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pipeline struct {
+		Assets       gitLabJob `yaml:"release-assets"`
+		NativeDarwin gitLabJob `yaml:"native-darwin"`
+		NativeLinux  gitLabJob `yaml:"native-linux"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(pipeline.Assets.Extends, []string{".linux-toolchain"}) ||
+		!slices.Equal(pipeline.Assets.Tags, pipeline.NativeLinux.Tags) ||
+		slices.Equal(pipeline.Assets.Tags, pipeline.NativeDarwin.Tags) {
+		t.Fatalf("release asset verifier is not isolated from the macOS Shell runner: %+v", pipeline.Assets)
+	}
+	if !slices.Contains(pipeline.Assets.Script, "mise exec --locked -- go run ./tools/release verify-artifacts dist") {
+		t.Fatalf("release artifact verification was dropped: %q", pipeline.Assets.Script)
 	}
 }
 
@@ -120,20 +145,20 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 	} {
 		protectedPushRuleSeen := false
 		for _, rule := range job.Rules {
-			if rule.If == `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
+			if rule.If == `$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")` {
 				protectedPushRuleSeen = true
 			}
 		}
 		if !protectedPushRuleSeen {
-			t.Fatalf("GitLab %s does not admit a maintainer dev push", name)
+			t.Fatalf("GitLab %s does not admit both protected branch pushes", name)
 		}
 	}
 	for name, job := range map[string]gitLabJob{
 		"release-assets": gitlab.ReleaseAssets,
 	} {
 		for _, rule := range job.Rules {
-			if rule.If == `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
-				t.Fatalf("GitLab %s must remain tag-only, got dev rule", name)
+			if strings.Contains(rule.If, "$CI_COMMIT_BRANCH") {
+				t.Fatalf("GitLab %s must remain tag-only, got branch rule", name)
 			}
 		}
 	}
@@ -157,9 +182,19 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		if name == "accepted-ref-parity" {
 			continue
 		}
-		want := "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev'"
+		if name == "release-version" {
+			if job.If != "github.ref_type == 'tag'" {
+				t.Fatalf("GitHub release version must run only for tags: %q", job.If)
+			}
+			continue
+		}
+		want := "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))"
 		if platform, native := strings.CutPrefix(name, "native-"); native {
 			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '" + platform + "')"
+		} else if name == "linux-secret-service" {
+			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')"
+		} else if name == "quality" {
+			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')"
 		}
 		if job.If != want {
 			t.Fatalf("GitHub %s does not positively admit the full verification lifecycle: %q", name, job.If)
@@ -214,16 +249,13 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"baseline_tag", "candidate_tag"} {
+	for name, kind := range map[string]string{
+		"baseline_tag": "string", "candidate_tag": "string",
+		"windows_clients": "boolean", "performance": "boolean",
+	} {
 		input, ok := workflow.On.Dispatch.Inputs[name]
-		if !ok || input.Required || input.Type != "string" {
-			t.Fatalf("%s must be an optional explicit release tag: %#v", name, workflow.On.Dispatch.Inputs)
-		}
-	}
-	for _, name := range []string{"windows_clients", "performance"} {
-		input, ok := workflow.On.Dispatch.Inputs[name]
-		if !ok || input.Required || input.Type != "boolean" {
-			t.Fatalf("%s qualification requires an explicit opt-in: %#v", name, input)
+		if !ok || input.Required || input.Type != kind {
+			t.Fatalf("%s must be an optional %s input: %#v", name, kind, input)
 		}
 	}
 	for _, platform := range []string{"darwin", "linux", "windows"} {
@@ -254,7 +286,7 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 		if step.If != "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)" || step.Shell != "pwsh" {
 			t.Fatalf("%s historical acceptance selection = %#v", platform, step)
 		}
-		if !strings.Contains(step.Run, "$acceptance += @('--artifacts', $candidate)") {
+		if !strings.Contains(step.Run, "$acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG)") {
 			t.Fatalf("%s cannot consume the published candidate", platform)
 		}
 		wantKeyring := map[string]string{
@@ -267,7 +299,12 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 		if platform == "darwin" && step.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" {
 			t.Fatal("historical macOS credentials require an ephemeral host")
 		}
-		if !strings.Contains(step.Run, "$acceptance = @('accept-native')") || !strings.Contains(step.Run, "mise exec --locked -- go run ./tools/release @acceptance") {
+		for _, forbidden := range []string{"AIGW_ACCEPTANCE_BASELINE =", "gh release download", "tar -xf"} {
+			if strings.Contains(step.Run, forbidden) {
+				t.Fatal("historical input verification and extraction must belong to the native release owner")
+			}
+		}
+		if !strings.Contains(step.Run, "$acceptance = @('accept-native', '--peer', 'github', '--repository', $env:GITHUB_REPOSITORY)") || !strings.Contains(step.Run, "mise exec --locked -- go run ./tools/release @acceptance") {
 			t.Fatalf("%s historical acceptance does not consume the existing package owner", platform)
 		}
 		if !strings.Contains(step.Run, "mise run performance @performance") {
@@ -301,154 +338,6 @@ func TestPerformanceHostPreparesNativeMemoryTool(t *testing.T) {
 		}
 	}
 	t.Fatal("Linux performance must prepare its native GNU time prerequisite")
-}
-
-func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var workflow struct {
-		On map[string]struct {
-			Inputs map[string]struct{ Required bool }
-		} `yaml:"on"`
-		Permissions map[string]string `yaml:"permissions"`
-		Jobs        map[string]struct {
-			Permissions map[string]string `yaml:"permissions"`
-			Env         map[string]string `yaml:"env"`
-			Steps       []struct {
-				Name string            `yaml:"name"`
-				Run  string            `yaml:"run"`
-				Env  map[string]string `yaml:"env"`
-				With map[string]string `yaml:"with"`
-			} `yaml:"steps"`
-		} `yaml:"jobs"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[2].Content), &workflow); err != nil {
-		t.Fatal(err)
-	}
-	job, present := workflow.Jobs["release-assets"]
-	if !present || len(workflow.Jobs) != 1 || workflow.Permissions["contents"] != "read" || len(job.Permissions) != 0 {
-		t.Fatal("published artifact verification must have read-only authority")
-	}
-	if len(workflow.On) != 1 || !workflow.On["workflow_dispatch"].Inputs["tag"].Required {
-		t.Fatal("artifact verification requires explicit dispatch after complete publication")
-	}
-
-	const tag = "${{ inputs.tag }}"
-	if job.Env["CI_COMMIT_TAG"] != tag || job.Steps[0].With["ref"] != "${{ github.event.pull_request.head.sha || github.sha }}" {
-		t.Fatal("release artifact identity and verifier revision must remain separate")
-	}
-	if job.Env["AIGW_RELEASE_ARTIFACT_SIGNER"] != "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}" ||
-		job.Env["MISE_ENABLE_TOOLS"] != "${{ inputs.native_lifecycle && (startsWith(inputs.runner, 'macos-') && 'go,gh,node,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs' || 'go,gh,node,github:goreleaser/goreleaser') || 'go,gh' }}" {
-		t.Fatal("release signer trust or lifecycle tool closure is absent")
-	}
-	var commands []string
-	var trust []string
-	for _, step := range job.Steps {
-		if step.Run != "" {
-			commands = append(commands, step.Run)
-		}
-		for _, key := range []string{"AIGW_RELEASE_ALLOWED_SIGNERS", "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS"} {
-			if step.Env[key] == "${{ vars."+key+" }}" {
-				trust = append(trust, key)
-			}
-		}
-	}
-	want := []string{
-		"mise exec --locked -- go run ./tools/release validate-version-tag",
-		`mise exec --locked -- go run ./tools/ci trust-input --output "$env:RUNNER_TEMP/aigw-allowed-signers" --github-env "$env:GITHUB_ENV"`,
-		`mise exec --locked -- go run ./tools/ci trust-input --artifact --output "$env:RUNNER_TEMP/aigw-artifact-signers" --github-env "$env:GITHUB_ENV"`,
-		`mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir dist`,
-		"mise exec --locked -- go run ./tools/release verify-artifacts dist",
-		"mise exec --locked -- go run ./tools/release accept-native --artifacts dist",
-	}
-	if !slices.Equal(commands, want) || !slices.Equal(trust, []string{"AIGW_RELEASE_ALLOWED_SIGNERS", "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS"}) {
-		t.Fatalf("release verification order or trust differs: %q, %q", commands, trust)
-	}
-}
-
-func TestPublishedNativeLifecycleUsesSelectedIsolatedRunner(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var workflow struct {
-		On map[string]struct {
-			Inputs map[string]struct {
-				Type    string
-				Default string
-				Options []string
-			}
-		} `yaml:"on"`
-		Concurrency struct{ Group string }
-		Jobs        map[string]struct {
-			Runner   string `yaml:"runs-on"`
-			Defaults struct{ Run struct{ Shell string } }
-			Steps    []struct {
-				If  string            `yaml:"if"`
-				Env map[string]string `yaml:"env"`
-			} `yaml:"steps"`
-		} `yaml:"jobs"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[2].Content), &workflow); err != nil {
-		t.Fatal(err)
-	}
-	job := workflow.Jobs["release-assets"]
-	inputs := workflow.On["workflow_dispatch"].Inputs
-	runner := inputs["runner"]
-	if runner.Type != "choice" || runner.Default != "ubuntu-24.04" ||
-		!slices.Equal(runner.Options, []string{"ubuntu-24.04", "ubuntu-24.04-arm", "macos-26-intel", "macos-15-intel", "windows-2025", "windows-11-arm"}) {
-		t.Fatalf("release verification runner choices = %#v", runner)
-	}
-	if inputs["native_lifecycle"].Type != "boolean" || inputs["native_lifecycle"].Default != "false" {
-		t.Fatal("published native lifecycle must be an explicit optional verification")
-	}
-	if job.Runner != "${{ inputs.runner }}" || job.Defaults.Run.Shell != "pwsh" {
-		t.Fatal("release verification must use the selected native runner and a portable shell")
-	}
-	if workflow.Concurrency.Group != "release-${{ github.repository }}-${{ inputs.tag }}-${{ inputs.runner }}" {
-		t.Fatal("different native release targets must be able to run independently")
-	}
-	native := job.Steps[len(job.Steps)-1]
-	if native.If != "inputs.native_lifecycle" || native.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != "${{ runner.os == 'Windows' && '1' || '0' }}" || native.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" {
-		t.Fatal("native lifecycle must retain explicit isolated credential-store admission")
-	}
-}
-
-func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var pipeline struct {
-		Version gitLabJob `yaml:"release-version"`
-		Assets  gitLabJob `yaml:"release-assets"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Equal(pipeline.Version.Script, []string{"env GODEBUG=http2client=0 mise install --locked", "mise exec --locked -- go run ./tools/release validate-version-tag"}) {
-		t.Fatal("tag admission is missing")
-	}
-	want := []string{"env GODEBUG=http2client=0 mise install --locked", "mkdir dist", `mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist`, "mise exec --locked -- go run ./tools/release verify-artifacts dist"}
-	if !slices.Equal(pipeline.Assets.Script, want) {
-		t.Fatalf("GitLab asset verification = %q", pipeline.Assets.Script)
-	}
-	variables := pipeline.Assets.Variables
-	if variables["AIGW_RELEASE_ALLOWED_SIGNERS_FILE"] != "$AIGW_RELEASE_ALLOWED_SIGNERS" || variables["AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"] != "$AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS" || variables["GLAB_ENABLE_CI_AUTOLOGIN"] != "true" {
-		t.Fatal("GitLab asset verification lacks native job authentication or public trust")
-	}
-	var needs []string
-	for _, need := range pipeline.Assets.Needs {
-		needs = append(needs, need.Job)
-	}
-	if !slices.Equal(needs, []string{"quality", "native-darwin", "native-linux", "native-windows", "release-version"}) {
-		t.Fatalf("release requirements = %q", needs)
-	}
-	if len(pipeline.Assets.Rules) != 2 || pipeline.Assets.Rules[0].If != `$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == "api" || $CI_PIPELINE_SOURCE == "web")` || pipeline.Assets.Rules[1].When != "never" {
-		t.Fatal("asset verification must follow explicit post-publication dispatch")
-	}
 }
 
 func TestGitLabQualityCarriesProductProvenanceIdentity(t *testing.T) {

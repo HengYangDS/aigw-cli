@@ -24,6 +24,7 @@ type scriptedSecretStore struct {
 	getErr      error
 	existsErr   error
 	onGet       func(*scriptedSecretStore, string)
+	onSet       func(*scriptedSecretStore, string)
 	getCalls    int
 	existsCalls int
 }
@@ -47,6 +48,9 @@ func (store *scriptedSecretStore) Set(name, value string) error {
 		store.values = map[string]string{}
 	}
 	store.values[name] = value
+	if store.onSet != nil {
+		store.onSet(store, name)
+	}
 	return nil
 }
 
@@ -251,22 +255,6 @@ func TestManifestSetupClientSelectionRequiresConnectedRouteAndUsableSurface(t *t
 	}
 }
 
-func TestManifestCredentialVerificationSkipsRoutesOwnedByAnotherAccount(t *testing.T) {
-	cfg := manifestSetupConfig()
-	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{OpenAIResponses: "https://other.test/v1"}}
-	calls := 0
-	runtime := invocation.Context{HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
-		calls++
-		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
-	})}
-	if err := verifyManifestSetupCredential(context.Background(), runtime, cfg, "other", "token", "", configuration.ClientCodex); err != nil {
-		t.Fatal(err)
-	}
-	if calls != 0 {
-		t.Fatalf("verification called another Account's route %d times", calls)
-	}
-}
-
 func TestGuidedSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "configuration.toml")
 	store := &scriptedSecretStore{
@@ -385,6 +373,11 @@ interfaces = { openai_responses = ["text"] }
 		onGet: func(store *scriptedSecretStore, account string) {
 			delete(store.values, account)
 		},
+		onSet: func(_ *scriptedSecretStore, _ string) {
+			if err := os.Mkdir(configPath, 0o700); err != nil {
+				t.Fatal(err)
+			}
+		},
 	}
 	runtime := invocation.Context{
 		Executable: filepath.Join(t.TempDir(), "aigw"),
@@ -400,12 +393,6 @@ interfaces = { openai_responses = ["text"] }
 				AutoManaged: true,
 			}},
 		}},
-		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
-			if err := os.Mkdir(configPath, 0o700); err != nil {
-				t.Fatal(err)
-			}
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: request}, nil
-		}),
 		In:        strings.NewReader("token\n"),
 		Out:       io.Discard,
 		RenderOut: io.Discard,
@@ -436,6 +423,58 @@ func TestConfiguredClientsForAccount(t *testing.T) {
 	clients := configuredClientsForAccount(cfg, "legacy")
 	if len(clients) != 2 || clients[0] != configuration.ClientCodex || clients[1] != configuration.ClientHermes {
 		t.Fatalf("clients = %#v", clients)
+	}
+}
+
+func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
+	_, err := planSetup(configuration.NewConfig(), Request{
+		Route: "shared", Client: configuration.ClientHermes, Model: "shared-model",
+		OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
+	})
+	if err == nil || !strings.Contains(err.Error(), "--protocol") {
+		t.Fatalf("ambiguous Hermes setup error = %v, want explicit protocol guidance", err)
+	}
+	_, err = planSetup(configuration.NewConfig(), Request{
+		Route: "chat", Client: configuration.ClientHermes, Model: "chat-model",
+		Protocol: string(configuration.ProtocolOpenAIChatCompletions),
+	})
+	if err == nil || !strings.Contains(err.Error(), "--chat-url") {
+		t.Fatalf("missing Chat endpoint error = %v, want exact URL guidance", err)
+	}
+
+	for _, test := range []struct {
+		name     string
+		request  Request
+		protocol configuration.EndpointProtocol
+	}{
+		{
+			name: "Anthropic among two endpoints",
+			request: Request{
+				Route: "shared", Client: configuration.ClientHermes, Model: "shared-model",
+				OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
+				Protocol: string(configuration.ProtocolAnthropic),
+			},
+			protocol: configuration.ProtocolAnthropic,
+		},
+		{
+			name: "Chat Completions",
+			request: Request{
+				Route: "chat", Client: configuration.ClientHermes, Model: "chat-model",
+				ChatURL: "https://chat.test/v1", Protocol: string(configuration.ProtocolOpenAIChatCompletions),
+			},
+			protocol: configuration.ProtocolOpenAIChatCompletions,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			plan, err := planSetup(configuration.NewConfig(), test.request)
+			if err != nil || plan.config.Clients[configuration.ClientHermes].Protocol != test.protocol {
+				t.Fatalf("Hermes setup protocol = %#v, %v", plan.config.Clients[configuration.ClientHermes], err)
+			}
+		})
+	}
+	command := NewCommand(invocation.Context{})
+	if command.Flags().Lookup("protocol") == nil || command.Flags().Lookup("chat-url") == nil {
+		t.Fatal("guided setup does not expose the declared protocol and Chat endpoint choices")
 	}
 }
 

@@ -65,8 +65,8 @@ func TestSetupAdmitsArgumentsBeforeCreatingConfiguration(t *testing.T) {
 	}
 }
 
-func TestSetupFromConfigurationManifestValidationFailureLeavesNoCredentialsOrConfig(t *testing.T) {
-	app, _, secretStore, _, _ := testApp(t, "")
+func TestSetupFromConfigurationManifestDefersOnlineAuthenticationToCheck(t *testing.T) {
+	app, out, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{secrets: []string{"aigw-test-dmxapi-token"}}
 	requests := 0
@@ -82,7 +82,7 @@ func TestSetupFromConfigurationManifestValidationFailureLeavesNoCredentialsOrCon
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: "/opt/codex-real"},
+		Executables: map[string]string{configuration.ClientCodex: executableFixture(t, "codex")},
 		Surfaces: []discovery.Surface{{
 			ID:          string(surfaceidentity.CodexHomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -93,17 +93,22 @@ func TestSetupFromConfigurationManifestValidationFailureLeavesNoCredentialsOrCon
 	}}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
-	err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--account", "dmxapi"})
-	if err == nil || !strings.Contains(err.Error(), "Token validation failed") {
-		t.Fatalf("error = %v", err)
+	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--account", "dmxapi"}); err != nil {
+		t.Fatalf("declarative setup: %v\n%s", err, out)
 	}
-	if requests != 1 {
-		t.Fatalf("validation requests = %d, want 1", requests)
+	if requests != 0 {
+		t.Fatalf("setup made %d online authentication requests", requests)
 	}
-	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
-		t.Fatal("failed validation left a token")
+	if secretExists(t, secretStore, "aihubmix") || !secretExists(t, secretStore, "dmxapi") {
+		t.Fatal("declarative setup did not preserve only the selected Account Token")
 	}
-	assertManifestSetupLeavesNoConfig(t, app)
+	out.Reset()
+	if err := cli.Execute(app, []string{"check", "--json"}); err == nil {
+		t.Fatal("explicit check accepted rejected authentication")
+	}
+	if requests == 0 || !strings.Contains(out.String(), "invalid_token") || strings.Contains(out.String(), "aigw-test-dmxapi-token") {
+		t.Fatalf("check did not diagnose authentication safely: requests=%d output=%s", requests, out)
+	}
 }
 
 func TestSetupFromConfigurationManifestDefersValidationWhenClientIsAbsent(t *testing.T) {

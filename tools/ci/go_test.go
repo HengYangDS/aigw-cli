@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go/format"
@@ -12,6 +14,9 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
+
+	"aigw-cli/internal/process"
 )
 
 func TestGoChecksUseCurrentRepositorySources(t *testing.T) {
@@ -79,6 +84,60 @@ func TestGoChecksUseCurrentRepositorySources(t *testing.T) {
 	}
 }
 
+func TestGoChecksIgnoreGeneratedToolchainSources(t *testing.T) {
+	root := t.TempDir()
+	policy, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".config", "checks", "go", "policy.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, content := range map[string][]byte{
+		"go.mod":                       []byte("module fixture\n"),
+		".gitignore":                   []byte("build/\n"),
+		"source.go":                    []byte("// Package fixture owns the authored source.\npackage fixture\n"),
+		"build/tmp/generated.go":       []byte("package    generated\n"),
+		".config/checks/go/policy.yml": policy,
+	} {
+		target := filepath.Join(root, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(target, content, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, output)
+	}
+	if output, err := exec.Command("git", "-C", root, "add", "--", ".gitignore", "go.mod", "source.go").CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v\n%s", err, output)
+	}
+	var output []byte
+	err = run([]string{"check-go", root}, &bytes.Buffer{}, func(call command) error {
+		var commandErr error
+		output, commandErr = systemOutputRunner(call)
+		return commandErr
+	})
+	if err != nil {
+		t.Fatalf("ignored generated Go source entered the quality gate: %v\n%s", err, output)
+	}
+	authored := filepath.Join(root, "internal", "build", "source.go")
+	if err := os.MkdirAll(filepath.Dir(authored), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(authored, []byte("// Package build owns authored code.\npackage    build\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output = nil
+	err = run([]string{"check-go", root}, &bytes.Buffer{}, func(call command) error {
+		var commandErr error
+		output, commandErr = systemOutputRunner(call)
+		return commandErr
+	})
+	if err == nil || !bytes.Contains(output, []byte("internal/build/source.go")) {
+		t.Fatalf("authored nested build package escaped formatting: %v\n%s", err, output)
+	}
+}
+
 func TestGoChecksExecuteInRequestedRepository(t *testing.T) {
 	policy, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".config", "checks", "go", "policy.yml"))
 	if err != nil {
@@ -102,6 +161,7 @@ func TestGoChecksExecuteInRequestedRepository(t *testing.T) {
 		t.Fatalf("git init: %v\n%s", err, output)
 	}
 	t.Chdir(caller)
+	nativeInvocations := 0
 	for _, test := range []struct {
 		name, root, file, source, diagnostic string
 		valid                                bool
@@ -110,41 +170,6 @@ func TestGoChecksExecuteInRequestedRepository(t *testing.T) {
 		{"relative root", filepath.Base(root), "doc.go", "// Package fixture owns a test module.\npackage fixture\n", "", true},
 		{"format drift", root, "doc.go", "// Package fixture owns a test module.\npackage    fixture\n", "", false},
 		{"type error", root, "doc.go", "// Package fixture owns a test module.\npackage fixture\n\nvar value int = \"invalid\"\n", "", false},
-		{"checked type assertion", root, "doc.go", goCheckSource(t, "checked assertion", 0), "", true},
-		{"unchecked type assertion", root, "doc.go", goCheckSource(t, "unchecked assertion", 0), "errcheck", false},
-		{"unchecked test assertion", root, "doc_test.go", goCheckSource(t, "unchecked assertion", 0), "errcheck", false},
-		{"bounded nesting", root, "doc.go", goCheckSource(t, "bounded nesting", 0), "", true},
-		{"nested product branches", root, "doc.go", goCheckSource(t, "nested branches", 0), "nestif", false},
-		{"nested test branches", root, "doc_test.go", goCheckSource(t, "nested branches", 0), "nestif", false},
-		{"native product branches", root, "doc_" + runtime.GOOS + ".go", goCheckSource(t, "nested branches", 0), "nestif", false},
-		{"native test branches", root, "doc_" + runtime.GOOS + "_test.go", goCheckSource(t, "nested branches", 0), "nestif", false},
-		{"guarded pointer", root, "doc.go", goCheckSource(t, "guarded pointer", 0), "", true},
-		{"nil dereference", root, "doc.go", goCheckSource(t, "nil dereference", 0), "govet nilness", false},
-		{"nil dereference test", root, "doc_test.go", goCheckSource(t, "nil dereference", 0), "govet nilness", false},
-		{"persistent field write", root, "doc.go", goCheckSource(t, "persistent field write", 0), "", true},
-		{"unused field write", root, "doc.go", goCheckSource(t, "unused field write", 0), "govet unusedwrite", false},
-		{"unused field write test", root, "doc_test.go", goCheckSource(t, "unused field write", 0), "govet unusedwrite", false},
-		{"bounded parameters", root, "doc.go", goCheckSource(t, "parameters", 7), "", true},
-		{"excess parameters", root, "doc.go", goCheckSource(t, "parameters", 8), "revive", false},
-		{"test parameters", root, "doc_test.go", goCheckSource(t, "parameters", 8), "revive", false},
-		{"bounded statements", root, "doc.go", goCheckSource(t, "statements", 60), "", true},
-		{"excess statements", root, "doc.go", goCheckSource(t, "statements", 61), "funlen", false},
-		{"test statements", root, "doc_test.go", goCheckSource(t, "statements", 61), "funlen", false},
-		{"bounded lines", root, "doc.go", goCheckSource(t, "lines", 120), "", true},
-		{"excess lines", root, "doc.go", goCheckSource(t, "lines", 121), "funlen", false},
-		{"test lines", root, "doc_test.go", goCheckSource(t, "lines", 121), "funlen", false},
-		{"bounded branches", root, "doc.go", goCheckSource(t, "branches", 25), "", true},
-		{"excess branches", root, "doc.go", goCheckSource(t, "branches", 26), "cyclop", false},
-		{"test branches", root, "doc_test.go", goCheckSource(t, "branches", 26), "cyclop", false},
-		{"bounded cognition", root, "doc.go", goCheckSource(t, "cognition", 45), "", true},
-		{"excess cognition", root, "doc.go", goCheckSource(t, "cognition", 46), "gocognit", false},
-		{"test cognition", root, "doc_test.go", goCheckSource(t, "cognition", 46), "gocognit", false},
-		{"companion diagnostics", root, "doc.go", goCheckSource(t, "cognition", 66), "cyclop gocognit", false},
-		{"low product maintainability", root, "doc.go", goCheckSource(t, "branches", 61), "maintidx", false},
-		{"low test maintainability", root, "doc_test.go", goCheckSource(t, "branches", 61), "maintidx", false},
-		{"small repeated expressions", root, "doc.go", goCheckSource(t, "duplicates", 2), "", true},
-		{"duplicated product operation", root, "doc.go", goCheckSource(t, "duplicates", 40), "dupl", false},
-		{"duplicated test operation", root, "doc_test.go", goCheckSource(t, "duplicates", 40), "dupl", false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(root, test.file)
@@ -158,6 +183,7 @@ func TestGoChecksExecuteInRequestedRepository(t *testing.T) {
 			})
 			var output []byte
 			err := run([]string{"check-go", test.root}, &bytes.Buffer{}, func(call command) error {
+				nativeInvocations++
 				var err error
 				output, err = systemOutputRunner(call)
 				return err
@@ -172,6 +198,126 @@ func TestGoChecksExecuteInRequestedRepository(t *testing.T) {
 			}
 			if source, err := os.ReadFile(path); err != nil || string(source) != test.source {
 				t.Fatalf("check changed source: %q error=%v", source, err)
+			}
+		})
+	}
+	if nativeInvocations > 8 {
+		t.Fatalf("root/format/type conformance used %d native invocations; batch independent rule fixtures", nativeInvocations)
+	}
+}
+
+func TestGoRulesExecuteInOneNativeBatch(t *testing.T) {
+	root := t.TempDir()
+	policy := readFile(t, filepath.Join(repositoryRoot(t), ".config", "checks", "go", "policy.yml"))
+	policyPath := filepath.Join(root, "policy.yml")
+	if err := os.WriteFile(policyPath, policy, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module fixture\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name, file, source, diagnostic string
+		valid                          bool
+	}{
+		{"checked type assertion", "doc.go", goCheckSource(t, "checked assertion", 0), "", true},
+		{"unchecked type assertion", "doc.go", goCheckSource(t, "unchecked assertion", 0), "errcheck", false},
+		{"unchecked test assertion", "doc_test.go", goCheckSource(t, "unchecked assertion", 0), "errcheck", false},
+		{"bounded nesting", "doc.go", goCheckSource(t, "bounded nesting", 0), "", true},
+		{"nested product branches", "doc.go", goCheckSource(t, "nested branches", 0), "nestif", false},
+		{"nested test branches", "doc_test.go", goCheckSource(t, "nested branches", 0), "nestif", false},
+		{"native product branches", "doc_" + runtime.GOOS + ".go", goCheckSource(t, "nested branches", 0), "nestif", false},
+		{"native test branches", "doc_" + runtime.GOOS + "_test.go", goCheckSource(t, "nested branches", 0), "nestif", false},
+		{"guarded pointer", "doc.go", goCheckSource(t, "guarded pointer", 0), "", true},
+		{"nil dereference", "doc.go", goCheckSource(t, "nil dereference", 0), "govet nilness", false},
+		{"nil dereference test", "doc_test.go", goCheckSource(t, "nil dereference", 0), "govet nilness", false},
+		{"persistent field write", "doc.go", goCheckSource(t, "persistent field write", 0), "", true},
+		{"unused field write", "doc.go", goCheckSource(t, "unused field write", 0), "govet unusedwrite", false},
+		{"unused field write test", "doc_test.go", goCheckSource(t, "unused field write", 0), "govet unusedwrite", false},
+		{"bounded parameters", "doc.go", goCheckSource(t, "parameters", 7), "", true},
+		{"excess parameters", "doc.go", goCheckSource(t, "parameters", 8), "revive", false},
+		{"test parameters", "doc_test.go", goCheckSource(t, "parameters", 8), "revive", false},
+		{"bounded statements", "doc.go", goCheckSource(t, "statements", 60), "", true},
+		{"excess statements", "doc.go", goCheckSource(t, "statements", 61), "funlen", false},
+		{"test statements", "doc_test.go", goCheckSource(t, "statements", 61), "funlen", false},
+		{"bounded lines", "doc.go", goCheckSource(t, "lines", 120), "", true},
+		{"excess lines", "doc.go", goCheckSource(t, "lines", 121), "funlen", false},
+		{"test lines", "doc_test.go", goCheckSource(t, "lines", 121), "funlen", false},
+		{"bounded branches", "doc.go", goCheckSource(t, "branches", 25), "", true},
+		{"excess branches", "doc.go", goCheckSource(t, "branches", 26), "cyclop", false},
+		{"test branches", "doc_test.go", goCheckSource(t, "branches", 26), "cyclop", false},
+		{"bounded cognition", "doc.go", goCheckSource(t, "cognition", 45), "", true},
+		{"excess cognition", "doc.go", goCheckSource(t, "cognition", 46), "gocognit", false},
+		{"test cognition", "doc_test.go", goCheckSource(t, "cognition", 46), "gocognit", false},
+		{"companion diagnostics", "doc.go", goCheckSource(t, "cognition", 66), "cyclop gocognit", false},
+		{"low product maintainability", "doc.go", goCheckSource(t, "branches", 61), "maintidx", false},
+		{"low test maintainability", "doc_test.go", goCheckSource(t, "branches", 61), "maintidx", false},
+		{"small repeated expressions", "doc.go", goCheckSource(t, "duplicates", 2), "", true},
+		{"duplicated product operation", "doc.go", goCheckSource(t, "duplicates", 40), "dupl", false},
+		{"duplicated test operation", "doc_test.go", goCheckSource(t, "duplicates", 40), "dupl", false},
+	}
+	for _, test := range cases {
+		directory := filepath.Join(root, strings.ReplaceAll(test.name, " ", "_"))
+		if err := os.Mkdir(directory, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(directory, test.file), []byte(test.source), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 90*time.Second)
+	defer cancel()
+	reportPath := filepath.Join(root, "issues.json")
+	output, diagnostic, runErr := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
+		Executable: "golangci-lint", Directory: root,
+		Args: []string{"run", "--config", policyPath, "--path-mode", "abs", "--output.json.path", reportPath,
+			"--max-issues-per-linter", "0", "--max-same-issues", "0", "--uniq-by-line=false", "--", "./..."},
+	})
+	var exitError *exec.ExitError
+	if !errors.As(runErr, &exitError) || exitError.ExitCode() != 1 || ctx.Err() != nil || process.DiagnosticFailure(diagnostic) {
+		t.Fatalf("native conformance batch must report rule findings: %v\n%s\n%s", runErr, output, diagnostic)
+	}
+	var report struct {
+		Issues []struct {
+			FromLinter string `json:"FromLinter"`
+			Text       string `json:"Text"`
+			Pos        struct {
+				Filename string `json:"Filename"`
+			} `json:"Pos"`
+		} `json:"Issues"`
+		Report struct {
+			Error    string   `json:"Error"`
+			Warnings []string `json:"Warnings"`
+		} `json:"Report"`
+	}
+	if err := json.Unmarshal(readFile(t, reportPath), &report); err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Issues) == 0 {
+		t.Fatal("native batch reported no isolated negative findings")
+	}
+	if report.Report.Error != "" || len(report.Report.Warnings) != 0 {
+		t.Fatalf("native conformance report is unqualified: error=%q warnings=%v", report.Report.Error, report.Report.Warnings)
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			directory := filepath.Join(root, strings.ReplaceAll(test.name, " ", "_"))
+			var diagnostics []string
+			for _, issue := range report.Issues {
+				if filepath.Dir(issue.Pos.Filename) == directory {
+					diagnostics = append(diagnostics, issue.FromLinter+" "+issue.Text)
+				}
+			}
+			if (len(diagnostics) == 0) != test.valid {
+				t.Fatalf("valid=%t diagnostics=%v", test.valid, diagnostics)
+			}
+			for expected := range strings.FieldsSeq(test.diagnostic) {
+				if !strings.Contains(strings.Join(diagnostics, "\n"), expected) {
+					t.Fatalf("native batch omitted expected %s diagnostic: %v", expected, diagnostics)
+				}
+			}
+			if actual := string(readFile(t, filepath.Join(directory, test.file))); actual != test.source {
+				t.Fatal("native batch mutated its input")
 			}
 		})
 	}

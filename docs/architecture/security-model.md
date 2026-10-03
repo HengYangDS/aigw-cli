@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:security-model
+role: explanation
+state: canonical
+relations:
+  canonical_for: credential, process, and trust boundaries
+---
+-->
+
 # Security Model
 
 AIGW keeps credentials local, mutations bounded, and client ownership explicit.
@@ -34,7 +44,6 @@ mechanism, set `AIGW_SECRET_BACKEND` to
   service is unavailable; AIGW neither retries through another backend nor
   changes access policy. The deadline bounds AIGW's process, not operating-system
   authorization UI controlled by the selected native service.
-
 - **`file`** uses an owner-only directory and regular file per Account on macOS
   and Linux. Windows encrypts each Token with current-user DPAPI before writing
   it beneath the AIGW data directory. Both use bounded paths and same-directory
@@ -61,23 +70,33 @@ it must not assume metadata access is sufficient.
 ### AIGW-owned credential entrypoint
 
 For a default Account-Token Client Binding, AIGW projects the existing
-`aigw credential` protocol through one user-private executable copy under its
-platform data directory. The copy uses the same selected backend and Token
-slots; it is not another credential store or an external helper. Ordinary
-synchronization does not replace it when the package-manager CLI changes.
-Its paired SHA-256 records accidental byte drift, not release provenance or
-native-store authorization. Creation participates in projection compensation.
-After successful withdrawal of the last default Token consumer, AIGW removes
-the intact copy; another default consumer, an enabled explicit binding to the
-same executable, or a failed projection keeps it. A cleanup
-failure is reported as post-commit, not as a false rollback. Uninstall also
-removes an orphan after withdrawing projections.
+`aigw credential` protocol through a user-private, SHA-256-addressed copy of
+the same executable under its platform data directory. A successor gets a new
+path rather than overwriting old bytes. It uses the same selected backend and
+Token slots; it is not another store or helper. The paired SHA-256 receipt
+detects byte drift, not release provenance or native-store authorization.
+Creation participates in projection compensation.
+
+Ordinary sync, repair, and Client Binding withdrawal retain an existing copy:
+absence from current configuration does not prove cached or rollback callers
+have stopped using it. Explicit portable uninstall withdraws projections and
+removes the selected installation executable and its rollback copy, even when
+invoked from a different AIGW binary. It leaves versioned readers and receipts
+unchanged: a content-addressed reader may also serve another installation or
+cached caller. It does not reauthorize a withdrawn Client Binding; a cached
+command using the withdrawn configuration must fail closed. Exact reader
+cleanup requires proof that no configured, cached, explicit, rollback, or
+other-installation caller remains; neither uninstall nor a prefix or age match
+supplies that proof.
 
 An already-running client that cached the old package-manager path is not
-migrated by rewriting settings; replacement must
-wait until that original caller is absent or independently proved migrated.
-The [archived credential-continuity design](../../openspec/changes/archive/2026-09-25-inference-readiness-claude-override/design.md#credential-entrypoint-during-package-replacement)
-defines native qualification. The [post-archive delivery criteria](../../openspec/changes/archive/2026-09-25-inference-readiness-claude-override/design.md#post-archive-delivery-acceptance)
+migrated by rewriting settings. The one-time 0.3.1 transition preprojects the
+private path and uses a bounded, measured Homebrew cutover with immediate
+acceptance and rollback. It cannot claim that every cached public-link call
+remains available during unlink/relink. Later versioned paths remain retained
+for their original callers.
+The [current credential-continuity design](../../openspec/changes/terminal-product-convergence/design.md#4-decide-credential-command-continuity-before-cutover)
+defines native qualification. The [frozen-source and delivery tasks](../../openspec/changes/terminal-product-convergence/tasks.md#9-frozen-source-and-pre-archive-acceptance)
 must also pass before this path is a released guarantee.
 
 ### External credential executable
@@ -160,11 +179,14 @@ owns sequencing and compensation details.
 - HTTPS-to-HTTP redirect is rejected.
 - Tokens are not placed on command lines or persisted in logs.
 - A loopback endpoint is not proof of listener health or ownership.
-- `aigw verify` may consume quota only when the operator requests it.
+- An explicit `aigw check` may consume quota because it probes selected-model
+  inference by default; `--endpoint-only` avoids that inference request.
+- An explicit `aigw verify` may make multiple quota-consuming real-client
+  requests. `--for all` writes a configuration checkpoint only after success.
 
-An initial 401 is transient only when three bounded observations recover, and a
-Token is classified as persistently invalid only after three further 401
-responses. Mixed results or cancellation remain retryable instability. This
+A 401 or 403 is classified immediately after one bounded request; repeated
+credential probes cannot authorize access. Mixed non-authentication results or
+cancellation remain instability rather than a credential diagnosis. This
 single-command observation covers one configured endpoint and in-memory Token;
 it does not prove direct-upstream health, account or billing state, or a later
 request.

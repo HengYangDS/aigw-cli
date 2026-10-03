@@ -42,6 +42,7 @@ type Updater interface {
 type Context struct {
 	Version            string
 	Executable         string
+	DataDir            string
 	CredentialPath     string
 	InstallTarget      string
 	ClaudeSettingsPath string
@@ -53,7 +54,7 @@ type Context struct {
 	Color              bool
 	Width              int
 	Interactive        bool
-	Runner             process.CaptureRunner
+	Runner             process.VerificationRunner
 	HTTP               HTTPDoer
 	Prompt             Prompter
 	Discovery          discovery.Discoverer

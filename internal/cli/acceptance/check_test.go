@@ -29,10 +29,66 @@ func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
 	}
 	_ = secretStore.Set("dmx", "token")
 	httpClient.status = 403
-	httpClient.body = `{"message":"token quota is insufficient"}`
+	httpClient.body = `{"message":"token quota is insufficient; private /private/account-store"}`
 	err := cli.Execute(app, []string{"check"})
 	if err == nil || !strings.Contains(out.String()+err.Error(), "Token quota is exhausted") || !strings.Contains(out.String()+err.Error(), "Increase the Token quota for Account dmx in the provider console") {
 		t.Fatalf("output=%s error=%v", out.String(), err)
+	}
+	if strings.Contains(out.String(), "/private/account-store") {
+		t.Fatalf("check exposed provider response content: %s", out.String())
+	}
+}
+
+func TestCheckJSONSeparatesHardQuotaFromRateLimit(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		body      string
+		kind      string
+		retryable bool
+	}{
+		{"hard quota", `{"error":{"code":"insufficient_quota"}}`, "quota_exhausted", false},
+		{"rate limit", `{"error":{"code":"rate_limit_exceeded"}}`, "rate_limited", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			app, out, secretStore, _, httpClient := testApp(t, "")
+			cfg := configuration.NewConfig()
+			addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, configuration.ClientClaude, "claude-test")
+			cfg.SetSelectedRoute(configuration.ClientClaude, "dmx")
+			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+			synchronizeClaudeProjection(t, app, cfg)
+			if err := app.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := secretStore.Set("dmx", "secret"); err != nil {
+				t.Fatal(err)
+			}
+			httpClient.status = http.StatusTooManyRequests
+			httpClient.body = test.body
+			if err := cli.Execute(app, []string{"check", "--json"}); err == nil {
+				t.Fatal("check accepted a failed diagnostic")
+			}
+			var result struct {
+				OK      bool `json:"ok"`
+				Clients map[string]struct {
+					DiagnosticKind string `json:"diagnostic_kind"`
+					Retryable      bool   `json:"retryable"`
+					NextAction     string `json:"next_action"`
+				} `json:"clients"`
+			}
+			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+				t.Fatalf("decode check JSON: %v\n%s", err, out.String())
+			}
+			if strings.Contains(out.String(), `"config_path"`) || strings.Contains(out.String(), app.Config.Path()) {
+				t.Fatalf("check exposed a private configuration path: %s", out.String())
+			}
+			client := result.Clients[configuration.ClientClaude]
+			if result.OK || client.DiagnosticKind != test.kind || client.Retryable != test.retryable || client.NextAction == "" {
+				t.Fatalf("check JSON = %#v", result)
+			}
+			if strings.Contains(out.String(), "secret") {
+				t.Fatal("check JSON disclosed the Account Token")
+			}
+		})
 	}
 }
 
@@ -173,6 +229,9 @@ func TestCheckJSONKeepsConfigurationFailureMachineReadable(t *testing.T) {
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode malformed-configuration check --json: %v\n%s", err, out.String())
+	}
+	if strings.Contains(out.String(), `"config_path"`) || strings.Contains(out.String(), app.Config.Path()) {
+		t.Fatalf("check exposed a private configuration path: %s", out.String())
 	}
 	if result.OK || result.Error == "" || result.NextAction != "aigw doctor" {
 		t.Fatalf("malformed-configuration JSON result = %#v", result)
@@ -368,27 +427,6 @@ func TestCheckProbesEveryEnabledClientRouteAndIgnoresUnselectedRoute(t *testing.
 	}
 	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Codex") || strings.Contains(out.String(), "Stale") {
 		t.Fatalf("check output does not describe active Client Bindings:\n%s", out.String())
-	}
-}
-
-func TestCheckDoesNotDescribeRemoteHTTPSAsExternalLoopbackTransport(t *testing.T) {
-	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
-	addAccountRoute(&cfg, "remote", "remote", "Remote Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, configuration.ClientClaude, "model-test")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "remote")
-	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
-	synchronizeClaudeProjection(t, app, cfg)
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	if err := secretStore.Set("remote", "token"); err != nil {
-		t.Fatal(err)
-	}
-	if err := cli.Execute(app, []string{"check"}); err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(out.String(), "uses a loopback endpoint") {
-		t.Fatalf("check misclassified remote endpoint:\n%s", out.String())
 	}
 }
 

@@ -2,10 +2,13 @@ package projection
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -15,33 +18,63 @@ import (
 
 type miseLock struct {
 	Tools map[string][]struct {
-		LinuxARM64 misePlatformLock `toml:"platforms.linux-arm64"`
+		LinuxARM64   misePlatformLock `toml:"platforms.linux-arm64"`
+		LinuxX64     misePlatformLock `toml:"platforms.linux-x64"`
+		MacOSARM64   misePlatformLock `toml:"platforms.macos-arm64"`
+		MacOSX64     misePlatformLock `toml:"platforms.macos-x64"`
+		WindowsARM64 misePlatformLock `toml:"platforms.windows-arm64"`
+		WindowsX64   misePlatformLock `toml:"platforms.windows-x64"`
 	} `toml:"tools"`
 }
 
 type misePlatformLock struct {
-	Provenance any `toml:"provenance"`
+	Provenance any    `toml:"provenance"`
+	URL        string `toml:"url"`
+	URLAPI     string `toml:"url_api"`
 }
 
 func TestToolchainCacheStaysOutsideGoPackageDiscovery(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	checkout := filepath.Clean(filepath.Join("..", "..", ".."))
+	projections, err := renderProjections(checkout)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var pipeline struct {
 		Linux struct {
-			Variables map[string]string `yaml:"variables"`
-		} `yaml:".linux-toolchain"`
+			Variables map[string]string "yaml:\"variables\""
+		} "yaml:\".linux-toolchain\""
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
+	mirrorOutput, err := projectionCommand(checkout, "miseMirror.unixDirectory").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mirrorTemplate string
+	if err := yaml.Unmarshal(mirrorOutput, &mirrorTemplate); err != nil {
+		t.Fatal(err)
+	}
 	root := t.TempDir()
-	cache := strings.ReplaceAll(pipeline.Linux.Variables["MISE_DATA_DIR"], "$CI_PROJECT_DIR", root)
+	physicalRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache := strings.ReplaceAll(pipeline.Linux.Variables["MISE_DATA_DIR"], "$CI_PROJECT_DIR", physicalRoot)
+	mirror := strings.NewReplacer(
+		"$(pwd -P)", physicalRoot,
+		"$CI_PROJECT_DIR", "builds/runner/0/group/repo",
+		"$CI_JOB_ID", "123",
+	).Replace(mirrorTemplate)
+	wantMirror := filepath.Join(physicalRoot, "build", "tmp", ".aigw-mise-mirror-123")
+	if filepath.Clean(mirror) != wantMirror {
+		t.Fatalf("peer mirror path = %q, want physical checkout path %q", mirror, wantMirror)
+	}
 	for path, source := range map[string]string{
-		filepath.Join(root, "go.mod"):                              "module fixture\n",
-		filepath.Join(root, "product.go"):                          "package fixture\n",
-		filepath.Join(cache, "installs", "tool", "src", "tool.go"): "package tool\n",
+		filepath.Join(root, "go.mod"):                                            "module fixture\n",
+		filepath.Join(root, "product.go"):                                        "package fixture\n",
+		filepath.Join(cache, "installs", "tool", "src", "tool.go"):               "package tool\n",
+		filepath.Join(mirror, "mise-data", "installs", "tool", "src", "tool.go"): "package mirrored\n",
 	} {
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 			t.Fatal(err)
@@ -113,7 +146,7 @@ func TestToolchainCachesPreserveLockAndExecutionBoundaries(t *testing.T) {
 					Uses string            `yaml:"uses"`
 					Env  map[string]string `yaml:"env"`
 					With struct {
-						Cache          bool   `yaml:"cache"`
+						Cache          string `yaml:"cache"`
 						Install        bool   `yaml:"install"`
 						InstallArgs    string `yaml:"install_args"`
 						CacheKeyPrefix string `yaml:"cache_key_prefix"`
@@ -132,8 +165,8 @@ func TestToolchainCachesPreserveLockAndExecutionBoundaries(t *testing.T) {
 				transport := ""
 				if strings.HasPrefix(step.Uses, "jdx/mise-action@") {
 					transport = "http2client=0"
-					if !step.With.Cache || !step.With.Install || step.With.InstallArgs != "--locked" || step.With.CacheKeyPrefix != "mise-${{ github.job }}" {
-						t.Fatalf("%s/%s does not use a scoped native tool cache with locked installation: %#v", projection.Path, name, step.With)
+					if step.With.Cache != "${{ inputs.tool_source != 'peer' }}" || !step.With.Install || step.With.InstallArgs != "--locked" || step.With.CacheKeyPrefix != "mise-${{ github.job }}" {
+						t.Fatalf("%s/%s must cache upstream installs but bypass cache for peer qualification: %#v", projection.Path, name, step.With)
 					}
 				}
 				if step.Env["GODEBUG"] != transport {
@@ -157,7 +190,7 @@ func TestGitLabToolchainUsesOfficialRunnableMiseImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	image, digest, pinned := strings.Cut(pipeline.Toolchain.Image, "@sha256:")
-	if !pinned || len(digest) != 64 || !strings.HasPrefix(image, "ghcr.io/jdx/mise:") || !strings.HasSuffix(image, "-debian") {
+	if !pinned || len(digest) != 64 || !strings.HasPrefix(image, "docker.io/jdxcode/mise:") || !strings.HasSuffix(image, "-debian") {
 		t.Fatalf("GitLab must use one runnable official mise image pinned by digest: %q", pipeline.Toolchain.Image)
 	}
 	if strings.Contains(projections[0].Content, "entrypoint:") {
@@ -179,15 +212,16 @@ func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
 		t.Fatal(err)
 	}
 	bootstrap := pipeline.LinuxToolchain.BeforeScript
-	if len(bootstrap) != 2 || bootstrap[1] != "env GODEBUG=http2client=0 mise install --locked" {
+	if len(bootstrap) != 3 || bootstrap[2] != "env GODEBUG=http2client=0 mise install --locked" {
 		t.Fatalf("Linux bootstrap does not install locked tools after native preparation: %q", bootstrap)
 	}
 	for _, required := range []string{
 		"timeout --verbose --kill-after=5s 240s",
 		"Acquire::http::Timeout=30",
 		"Acquire::https::Timeout=30",
-		" update && DEBIAN_FRONTEND=noninteractive ",
-		" install --no-install-recommends -y gcc libatomic1 libc6-dev openssh-client procps",
+		"set -eu\n",
+		" update\nDEBIAN_FRONTEND=noninteractive ",
+		" install --no-install-recommends -y libatomic1 openssh-client procps",
 	} {
 		if !strings.Contains(bootstrap[0], required) {
 			t.Fatalf("Linux bootstrap omits %q: %q", required, bootstrap[0])
@@ -202,14 +236,50 @@ func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
 	if !slices.Equal(pipeline.NativeLinux.Extends, []string{".linux-toolchain"}) {
 		t.Fatalf("GitLab native Linux must inherit the shared bootstrap: %#v", pipeline.NativeLinux)
 	}
-	if len(pipeline.Quality.Extends) != 0 || pipeline.Quality.Variables["CGO_ENABLED"] != "1" {
-		t.Fatalf("GitLab quality must use the selected control executor directly: %#v", pipeline.Quality)
+	if !slices.Equal(pipeline.Quality.Extends, []string{".linux-toolchain"}) || pipeline.Quality.Variables["CGO_ENABLED"] != "0" {
+		t.Fatalf("GitLab quality must use the declared Linux toolchain: %#v", pipeline.Quality)
 	}
-	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_GITLAB_DARWIN_RUNNER_TAG"}) {
+	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_CI_LINUX_RUNNER_TAG"}) {
 		t.Fatalf("GitLab quality runner tags = %q", pipeline.Quality.Tags)
 	}
-	if len(pipeline.Quality.Script) < 2 || pipeline.Quality.Script[0] != "env GODEBUG=http2client=0 mise install --locked" || pipeline.Quality.Script[1] != "mise run bootstrap" {
+	if len(pipeline.Quality.Script) < 1 || pipeline.Quality.Script[0] != "mise run bootstrap" {
 		t.Fatalf("GitLab quality bootstrap = %q", pipeline.Quality.Script)
+	}
+}
+
+func TestGitLabLinuxPreparationStopsBeforeToolInstallation(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pipeline struct {
+		LinuxToolchain gitLabJob `yaml:".linux-toolchain"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	prepare := pipeline.LinuxToolchain.BeforeScript[0]
+	if runtime.GOOS == "windows" {
+		return // POSIX prerequisite execution belongs to the native Unix jobs.
+	}
+	for _, shell := range []string{"sh", "bash"} {
+		for failure := range 3 {
+			t.Run(fmt.Sprintf("%s/failure-%d", shell, failure), func(t *testing.T) {
+				script := fmt.Sprintf("set -eu\ncount=0\ntimeout() { count=$((count + 1)); if [ \"$count\" -eq %d ]; then return 47; fi; }\n%s\nprintf 'NEXT_STEP\\n'", failure, prepare)
+				command := exec.CommandContext(t.Context(), shell, "-c", script)
+				output, err := command.CombinedOutput()
+				if failure == 0 {
+					if err != nil || !strings.Contains(string(output), "NEXT_STEP") {
+						t.Fatalf("successful prerequisites did not continue: %v, %s", err, output)
+					}
+					return
+				}
+				var exit *exec.ExitError
+				if !errors.As(err, &exit) || exit.ExitCode() != 47 || strings.Contains(string(output), "NEXT_STEP") {
+					t.Fatalf("failed prerequisite reached tool installation: %v, %s", err, output)
+				}
+			})
+		}
 	}
 }
 
@@ -405,53 +475,5 @@ func TestLockRefreshIsExplicitAndUsesOneNativeTask(t *testing.T) {
 		if !slices.Contains(job.Script, `if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi`) {
 			t.Fatalf("GitLab %s lacks the same opt-in lock task", platform)
 		}
-	}
-}
-
-func TestQualityJobsUseTheirExactToolClosure(t *testing.T) {
-	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	projections, err := renderProjections(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var pipeline struct {
-		Quality gitLabJob `yaml:"quality"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
-		t.Fatal(err)
-	}
-	qualityTools := pipeline.Quality.Variables["MISE_ENABLE_TOOLS"]
-	if qualityTools == "" {
-		t.Fatal("GitLab quality job must declare its native toolchain")
-	}
-	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_GITLAB_DARWIN_RUNNER_TAG"}) {
-		t.Fatalf("GitLab quality runner tags = %q", pipeline.Quality.Tags)
-	}
-	if len(pipeline.Quality.Script) < 2 || pipeline.Quality.Script[0] != "env GODEBUG=http2client=0 mise install --locked" || pipeline.Quality.Script[1] != "mise run bootstrap" {
-		t.Fatalf("GitLab quality job lacks locked dependency preparation: %q", pipeline.Quality.Script)
-	}
-	var github struct {
-		Jobs map[string]struct {
-			Env   map[string]string `yaml:"env"`
-			Steps []struct {
-				Name string `yaml:"name"`
-				Run  string `yaml:"run"`
-			} `yaml:"steps"`
-		} `yaml:"jobs"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
-		t.Fatal(err)
-	}
-	if got := github.Jobs["quality"].Env["MISE_ENABLE_TOOLS"]; got != qualityTools {
-		t.Fatalf("GitHub quality tools = %q, want %q", got, qualityTools)
-	}
-	steps := github.Jobs["quality"].Steps
-	if !slices.ContainsFunc(steps, func(step struct {
-		Name string `yaml:"name"`
-		Run  string `yaml:"run"`
-	}) bool {
-		return step.Name == "Prepare locked dependencies" && step.Run == "mise run bootstrap"
-	}) {
-		t.Fatalf("GitHub quality job lacks locked dependency preparation: %#v", steps)
 	}
 }

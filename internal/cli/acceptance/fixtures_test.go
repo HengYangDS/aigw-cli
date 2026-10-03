@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -42,7 +43,19 @@ func writeFile(t *testing.T, path string, data []byte, mode os.FileMode) {
 type fakeRunner struct {
 	plans   []process.Plan
 	output  []byte
+	stderr  []byte
 	capture error
+}
+
+func (r *fakeRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	output, err := r.RunCapture(ctx, plan)
+	if slices.Equal(plan.Args, []string{"--version"}) {
+		return output, nil, err
+	}
+	if err != nil {
+		return nil, output, err
+	}
+	return output, r.stderr, err
 }
 
 func (r *fakeRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
@@ -444,3 +457,52 @@ func writeConfigurationManifest(t *testing.T, body string) string {
 type fakeDiscovery struct{ result discovery.Result }
 
 func (d fakeDiscovery) Discover() discovery.Result { return d.result }
+
+func readyVerificationApp(t *testing.T) (*cli.App, *fakeRunner) {
+	t.Helper()
+	app, _, secretStore, runner, _ := testApp(t, "")
+	cfg := configuration.NewConfig()
+	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
+	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", configuration.ProtocolAnthropic)
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
+	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg.SetClientActivation(configuration.ClientCodex, true, executableFixture(t, "codex"), []string{codexTarget})
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("dmx", "verify-token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	app.HTTP = &fakeHTTP{status: http.StatusOK, handler: func(req *http.Request) (*http.Response, error) {
+		t.Fatalf("unexpected HTTP request to %s", req.URL)
+		return nil, nil
+	}}
+	return app, runner
+}
+
+type verificationCompletionRunner struct {
+	*fakeRunner
+	completed func()
+}
+
+func (runner verificationCompletionRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
+	output, err := runner.fakeRunner.RunCapture(ctx, plan)
+	if err == nil && slices.Contains(plan.Args, "--output-last-message") {
+		runner.completed()
+	}
+	return output, err
+}
+
+func (runner verificationCompletionRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	output, err := runner.RunCapture(ctx, plan)
+	return output, nil, err
+}

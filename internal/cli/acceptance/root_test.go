@@ -165,6 +165,11 @@ func TestUnknownCommandSuggestsTopLevelHelp(t *testing.T) {
 	if err == nil || !strings.Contains(out.String(), "unknown command") || !strings.Contains(out.String(), "aigw --help") {
 		t.Fatalf("err=%v output=%s", err, out.String())
 	}
+	out.Reset()
+	err = cli.Execute(app, []string{"not-a-command", "--json"})
+	if err == nil || !strings.Contains(out.String(), `unknown command "not-a-command"`) || strings.Contains(out.String(), "unknown option") {
+		t.Fatalf("unknown command with a flag: err=%v output=%s", err, out.String())
+	}
 }
 
 func TestUnknownFlagSuggestsTopLevelHelp(t *testing.T) {
@@ -245,5 +250,24 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 				t.Fatalf("JSON layout differs from the shared document format:\n%s", out)
 			}
 		})
+	}
+}
+
+func TestPublicMutationFailureDoesNotExposePrivatePath(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+	privatePath := app.Config.Path() + ".bak"
+	if err := os.Mkdir(privatePath, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"route", "add", "two", "--account", "one", "--model", "m2", "--protocol", "anthropic"}); err == nil {
+		t.Fatal("route add accepted an unreadable backup target")
+	}
+	if strings.Contains(out.String(), privatePath) || !strings.Contains(out.String(), "aigw doctor") {
+		t.Fatalf("public command exposed the private failure target: %s", out.String())
+	}
+	cfg, err := app.Config.Load()
+	if err != nil || len(cfg.Routes) != 1 {
+		t.Fatalf("mutation changed configuration after failed preflight: %+v, %v", cfg.Routes, err)
 	}
 }

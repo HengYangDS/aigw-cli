@@ -1,3 +1,20 @@
-# Quality and release scans use complete dependency evidence, without local filters.
+# Quality and release scans retain complete vulnerability and license evidence.
 IgnoredVulns = []
-PackageOverrides = []
+
+# These exact locked npm archives contain MIT LICENSE files, but their upstream
+# metadata resolves to UNKNOWN. Only the license observation is corrected;
+# vulnerability scanning remains unchanged. Remove each entry when upstream
+# metadata or the selected package version changes.
+[[PackageOverrides]]
+name = "@mermaid-lint/core"
+version = "0.53.1"
+ecosystem = "npm"
+license.override = ["MIT"]
+reason = "MIT LICENSE in the integrity-locked npm archive; upstream license metadata is UNKNOWN"
+
+[[PackageOverrides]]
+name = "khroma"
+version = "2.1.0"
+ecosystem = "npm"
+license.override = ["MIT"]
+reason = "MIT license in the integrity-locked npm archive; upstream license metadata is UNKNOWN"

@@ -17,7 +17,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	var client, routeName string
 	cmd := &cobra.Command{
 		Use:   "verify",
-		Short: "Run one minimal live request to verify the model protocol path",
+		Short: "Verify a Route through a real native client (may use quota)",
+		Long: "Run a bounded session through one real native client, or all enabled\n" +
+			"clients with --for all. A session may make multiple provider requests\n" +
+			"and may use quota. --for all writes a configuration checkpoint only\n" +
+			"after every client succeeds. No client binding or native settings\n" +
+			"are changed.",
 		Args: cobra.MatchAll(cobra.NoArgs, func(_ *cobra.Command, _ []string) error {
 			if client == "" {
 				return fmt.Errorf("choose a verification client with --for; run `aigw verify --help`")
@@ -60,8 +65,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Live protocol verification")
-			r.Section("Minimal request")
-			r.Detail("This makes one minimal model request; it does not modify client configuration or restart clients.")
+			r.Section("Native client verification")
+			r.Detail("Each selected client runs a bounded verification session and may make multiple provider requests. AIGW does not modify client configuration or restart clients.")
 			for _, target := range clients {
 				clientRuntime := clientRuntimes[target]
 				result, err := synchronizer.Verify(cmd.Context(), cfg, target, clientRuntime, routeName)

@@ -8,6 +8,7 @@ import (
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
+	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/synchronization"
 
 	"github.com/spf13/cobra"
@@ -19,11 +20,7 @@ type credentialEntrypointPlan struct {
 }
 
 func (plan credentialEntrypointPlan) humanAction() string {
-	verb := "Install"
-	if plan.Action == string(synchronization.CredentialEntrypointRemove) {
-		verb = "Remove"
-	}
-	return verb + " " + plan.Path
+	return "Install " + plan.Path
 }
 
 type syncResult struct {
@@ -50,7 +47,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			synchronizer := invocation.Synchronizer(runtime)
-			after, _, err := synchronizer.DesiredClientConfiguration(before)
+			after, _, err := synchronizer.DesiredSyncConfiguration(before)
 			if err != nil {
 				return invocation.Problem(
 					runtime,
@@ -61,13 +58,10 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 					err,
 				)
 			}
-			result := syncResult{DryRun: dryRun, Selections: map[string]string{}, NextAction: "aigw check"}
 			activation := clientactivation.AssessActivation(after, runtime.Secrets)
+			result := syncResult{DryRun: dryRun, Selections: map[string]string{}, NextAction: activation.NextActionFor(nil)}
 			result.EnabledClients = activation.EnabledClients
 			result.State = string(activation.State)
-			if activation.EnabledClients == 0 {
-				result.NextAction = activation.NextAction
-			}
 			for _, client := range configuration.AdmittedClientIDs() {
 				if route := after.SelectedRoute(client); route != "" {
 					result.Selections[client] = route
@@ -92,6 +86,8 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			if result.EnabledClients == 0 {
 				r.Status(presentation.Info, "Client activation", "No client is enabled")
 				r.Detail("Authentication was unchanged; connect one compatible Account, then synchronize")
+			} else if activation.State == domainreadiness.Deferred {
+				r.Status(presentation.Info, "Client activation", "Selected client projection is deferred")
 			} else if !dryRun {
 				r.Success("Client configuration is aligned; authentication was unchanged")
 			}
@@ -115,11 +111,11 @@ func prepareSyncPreview(synchronizer synchronization.Synchronizer, before, after
 	}
 	result.Targets = plans
 	result.CredentialEntrypoint = entrypoint
-	if entrypoint != nil {
+	if entrypoint != nil && result.NextAction == "aigw check" {
 		result.NextAction = "aigw sync"
 	}
 	for _, plan := range plans {
-		if plan.ChangesState {
+		if plan.ChangesState && result.NextAction == "aigw check" {
 			result.NextAction = "aigw sync"
 			break
 		}
@@ -145,7 +141,9 @@ func renderSyncPreview(r *presentation.Renderer, after configuration.Config, res
 		bindings = append(bindings, presentation.Field{Label: "Client · " + client, Value: after.SelectedRoute(client)})
 	}
 	r.Rows(bindings...)
-	if len(result.Targets) == 0 {
+	if len(result.Targets) == 0 && result.EnabledClients != 0 && result.State == string(domainreadiness.Deferred) {
+		r.Status(presentation.Info, "Projection", "No selected client can be projected yet")
+	} else if len(result.Targets) == 0 {
 		r.Status(presentation.OK, "Projection", "No client configuration needs changing")
 	} else {
 		targets := make([]presentation.Field, 0, len(result.Targets))
@@ -162,8 +160,12 @@ func NewRollbackCommand(runtime invocation.Context) *cobra.Command {
 	var lastChange bool
 	cmd := &cobra.Command{
 		Use:   "rollback",
-		Short: "Roll back to the latest fully verified configuration or the previous configuration",
-		Args:  cobra.NoArgs,
+		Short: "Restore configuration and client projections, not the program",
+		Long: "Restore configuration and client projections from the latest fully\n" +
+			"verified checkpoint, or fall back to the previous backup.\n" +
+			"--last-change selects only that backup. This does not replace the\n" +
+			"AIGW program. Use aigw update --rollback for the retained executable.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			current, err := runtime.Config.Load()
 			if err != nil {

@@ -30,7 +30,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
-		cfg.SetClientActivation(client, true, "", nil)
+		cfg.SetClientActivation(client, true, "/opt/"+client, nil)
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -62,7 +62,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := buffer.String(); !strings.Contains(got, "Precise balance enabled") {
+	if got := buffer.String(); !strings.Contains(got, "Diagnostic credential present · content not verified") {
 		t.Fatalf("enabled diagnostic status = %q", got)
 	}
 
@@ -81,6 +81,41 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	}
 	if got := buffer.String(); !strings.Contains(got, "aigw use --for codex codex-only") {
 		t.Fatalf("route selection status = %q", got)
+	}
+}
+
+func TestStatusHumanAndJSONShareMixedClientContinuation(t *testing.T) {
+	runtime, cfg, output := configuredReadinessRuntime(t)
+	if err := runtime.Secrets.Set("one", "available-token"); err != nil {
+		t.Fatal(err)
+	}
+	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{"/opt/codex/config.toml"})
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	originalInspect := inspectAdapter
+	t.Cleanup(func() { inspectAdapter = originalInspect })
+	inspectAdapter = func(_ context.Context, _ invocation.Context, _ configuration.Config, client string, _ configuration.Runtime) clientdomain.Status {
+		return clientdomain.Status{Ready: client == configuration.ClientCodex}
+	}
+	if err := RunStatus(runtime, true); err != nil {
+		t.Fatal(err)
+	}
+	var result statusOutput
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	want := "Install Claude if needed, then run `aigw sync`"
+	if result.Clients[configuration.ClientClaude].NextAction != want || result.NextAction != want {
+		t.Fatalf("mixed-client JSON continuation = %+v", result)
+	}
+	output.Reset()
+	if err := RunStatus(runtime, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), want) {
+		t.Fatalf("human continuation differs from JSON:\n%s", output)
 	}
 }
 
@@ -118,15 +153,17 @@ func TestStatusStatesClaudeDesktopQualifiedModesAndPlatforms(t *testing.T) {
 
 func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T) {
 	for _, test := range []struct {
-		name       string
-		probe      *configuration.AccountProbe
-		credential bool
-		want       string
+		name        string
+		probe       *configuration.AccountProbe
+		credential  bool
+		environment bool
+		want        string
 	}{
 		{name: "no probe", want: "Provider does not expose a balance probe"},
 		{name: "unsupported probe", probe: &configuration.AccountProbe{Kind: "future", BaseURL: "https://probe.test"}, want: "Provider diagnostics unavailable in this version"},
-		{name: "missing probe credential", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Precise balance disabled"},
-		{name: "available probe credential", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Precise balance enabled"},
+		{name: "missing probe credential", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Precise balance not ready"},
+		{name: "available probe credential", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Diagnostic credential present · content not verified"},
+		{name: "incomplete environment pair", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, environment: true, want: secrets.DiagnosticUserIDEnvironmentKey("one")},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, buffer := configuredReadinessRuntime(t)
@@ -140,6 +177,15 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 			if err := runtime.Secrets.Set("one", "token"); err != nil {
 				t.Fatal(err)
 			}
+			if test.environment {
+				values := map[string]string{secrets.EnvironmentKey("one"): "token", secrets.DiagnosticSystemTokenEnvironmentKey("one"): "private-fixture"}
+				backend := secrets.NewEnvironmentStore(func(key string) string { return values[key] })
+				accounts, err := secrets.NewDiagnosticCredentialStore(backend)
+				if err != nil {
+					t.Fatal(err)
+				}
+				runtime.Secrets, runtime.Accounts = backend, accounts
+			}
 			if test.credential {
 				if err := runtime.Accounts.Set("one", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
 					t.Fatal(err)
@@ -151,6 +197,9 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 			output := buffer.String()
 			if !strings.Contains(output, test.want) || !strings.Contains(output, "Loopback endpoint") {
 				t.Fatalf("output = %q", output)
+			}
+			if test.environment && (strings.Contains(output, "aigw account diagnostics enable") || strings.Contains(output, "private-fixture")) {
+				t.Fatalf("environment status recommended a write or disclosed a value: %s", output)
 			}
 		})
 	}
@@ -308,7 +357,7 @@ func TestStatusJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 	}
 }
 
-func TestStatusFallsBackToRepairForUnclassifiedAttention(t *testing.T) {
+func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Out: out, RenderOut: out, Width: 120}
 	cfg := configuration.NewConfig()
@@ -319,7 +368,7 @@ func TestStatusFallsBackToRepairForUnclassifiedAttention(t *testing.T) {
 		clients[client] = clientStatus{Client: state}
 	}
 
-	renderStatus(runtime, cfg, statusOutput{Clients: clients})
+	renderStatus(runtime, cfg, statusOutput{Clients: clients, NextAction: "aigw repair"})
 	got := out.String()
 	if !strings.Contains(got, "aigw repair") || !strings.Contains(got, "No selected account") {
 		t.Fatalf("status fallback = %q", got)
@@ -327,7 +376,6 @@ func TestStatusFallsBackToRepairForUnclassifiedAttention(t *testing.T) {
 }
 
 func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
-	runtime := invocation.Context{Out: &bytes.Buffer{}, Width: 120}
 	for _, state := range []domainreadiness.State{
 		domainreadiness.EndpointChecked,
 		domainreadiness.InferenceChecked,
@@ -335,14 +383,15 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 		domainreadiness.Deferred,
 		domainreadiness.Invalid,
 	} {
-		clientID := string(state)
-		attention, _ := renderClientStatus(
-			invocation.Renderer(runtime),
-			statusOutput{Clients: map[string]clientStatus{clientID: {Client: domainreadiness.Client{State: state}}}},
-			[]string{clientID},
-		)
-		if attention != (state == domainreadiness.Invalid) {
-			t.Fatalf("state %s attention = %v", state, attention)
+		out := &bytes.Buffer{}
+		runtime := invocation.Context{Out: out, Width: 120}
+		renderClientStatus(invocation.Renderer(runtime), statusOutput{
+			Clients: map[string]clientStatus{configuration.ClientClaude: {
+				Client: domainreadiness.Client{State: state, Route: "route"},
+			}},
+		}, []string{configuration.ClientClaude})
+		if !strings.Contains(out.String(), state.Label()) {
+			t.Fatalf("state %s rendering = %q", state, out)
 		}
 	}
 }
@@ -350,7 +399,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 func TestStatusReportsSelectedUnknownRoute(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
 	cfg.SetSelectedRoute(configuration.ClientClaude, "missing")
-	state := inspectStatusClients(runtime, cfg)[configuration.ClientClaude]
+	state := inspectStatusClients(runtime, cfg, nil, "")[configuration.ClientClaude]
 	if state.State != domainreadiness.Invalid || state.Route != "missing" || !strings.Contains(state.Detail, `unknown route "missing"`) {
 		t.Fatalf("Claude status = %#v", state)
 	}
@@ -367,7 +416,7 @@ func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 	}
 
 	collectStatus(runtime, cfg)
-	if store.existsCalls != len([]string{configuration.ClientClaude, configuration.ClientCodex}) || store.getCalls != 0 {
+	if store.existsCalls != 1 || store.getCalls != 0 {
 		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
 	}
 }
@@ -376,6 +425,7 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
 	codexBinding := cfg.Clients[configuration.ClientCodex]
 	codexBinding.Enabled = true
+	codexBinding.Executable = "/opt/codex"
 	codexBinding.ModelProvider = "amazon-bedrock"
 	codexBinding.Authentication = configuration.AuthenticationClientNative
 	cfg.Clients[configuration.ClientCodex] = codexBinding
@@ -400,7 +450,7 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	if store.existsCalls != 1 || store.getCalls != 0 {
 		t.Fatalf("status credential observations = exists %d, get %d; want only the Claude Account-Token lookup", store.existsCalls, store.getCalls)
 	}
-	for _, want := range []string{"Client-owned authentication", "aigw verify --for codex"} {
+	for _, want := range []string{"Client-owned authentication", "Selected client projection is deferred", "aigw verify --for codex"} {
 		if !strings.Contains(strings.ToLower(human), strings.ToLower(want)) {
 			t.Fatalf("client-native status = %q, want %q", human, want)
 		}

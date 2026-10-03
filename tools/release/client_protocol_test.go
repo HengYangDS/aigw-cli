@@ -8,15 +8,103 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
-	"aigw-cli/internal/secrets"
 )
+
+type responsesToolDefinition struct {
+	Name string `json:"name"`
+}
+
+type responsesToolLoopItem struct {
+	Type   string          `json:"type"`
+	CallID string          `json:"call_id"`
+	Output json.RawMessage `json:"output"`
+}
+
+type responsesToolLoopRequest struct {
+	Model     string `json:"model"`
+	Stream    bool   `json:"stream"`
+	Reasoning struct {
+		Effort string `json:"effort"`
+	} `json:"reasoning"`
+	Tools []responsesToolDefinition `json:"tools"`
+	Input json.RawMessage           `json:"input"`
+}
+
+func responsesToolLoopInputCount(input json.RawMessage) int {
+	var items []json.RawMessage
+	if json.Unmarshal(input, &items) == nil {
+		return len(items)
+	}
+	var text string
+	if json.Unmarshal(input, &text) == nil && text == "" {
+		return 0
+	}
+	return 1
+}
+
+func responsesToolLoopOutputs(input json.RawMessage) ([]responsesToolLoopItem, error) {
+	var rawItems []json.RawMessage
+	if err := json.Unmarshal(input, &rawItems); err != nil {
+		var text string
+		if json.Unmarshal(input, &text) == nil {
+			return nil, nil
+		}
+		return nil, err
+	}
+	outputs := make([]responsesToolLoopItem, 0, len(rawItems))
+	for _, raw := range rawItems {
+		var header struct {
+			Type string `json:"type"`
+		}
+		if err := json.Unmarshal(raw, &header); err != nil || header.Type != "function_call_output" {
+			continue
+		}
+		var item responsesToolLoopItem
+		if err := json.Unmarshal(raw, &item); err != nil {
+			return nil, err
+		}
+		outputs = append(outputs, item)
+	}
+	return outputs, nil
+}
+
+func newNativeClientServer(t *testing.T, client string, protocol configuration.EndpointProtocol, model, token string, completions *atomic.Int64) (*httptest.Server, *hermesSessionRecorder) {
+	t.Helper()
+	requiredEffort := "high"
+	if client == configuration.ClientHermes {
+		requiredEffort = ""
+	}
+	handler := clientResponseHandler(protocol, map[string]*atomic.Int64{model: completions}, token, requiredEffort)
+	var hermesSession *hermesSessionRecorder
+	if client == configuration.ClientHermes {
+		hermesSession = &hermesSessionRecorder{Handler: handler, model: model, token: token}
+		handler = hermesSession
+	}
+	requests := map[string]int{}
+	var requestsMu sync.Mutex
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		requestsMu.Lock()
+		requests[request.Method+" "+request.URL.Path]++
+		requestsMu.Unlock()
+		handler.ServeHTTP(response, request)
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(func() {
+		if t.Failed() {
+			requestsMu.Lock()
+			defer requestsMu.Unlock()
+			t.Logf("client request paths: %v", requests)
+		}
+	})
+	return server, hermesSession
+}
 
 func TestNativeClientStreamEnvelope(t *testing.T) {
 	for _, protocol := range []configuration.EndpointProtocol{
@@ -70,67 +158,19 @@ func TestNativeClientInferenceEnvelope(t *testing.T) {
 			}
 			var completions atomic.Int64
 			response := httptest.NewRecorder()
-			clientResponseHandler(protocol, map[string]*atomic.Int64{"configured-model": &completions}, "synthetic", "high").ServeHTTP(response, request)
+			recorder := hermesSessionRecorder{
+				Handler: clientResponseHandler(protocol, map[string]*atomic.Int64{"configured-model": &completions}, "synthetic", "high"),
+				model:   "configured-model",
+			}
+			recorder.ServeHTTP(response, request)
 			if response.Code != http.StatusOK || completions.Load() != 1 || response.Header().Get("Content-Type") != "application/json" || !json.Valid(response.Body.Bytes()) || !strings.Contains(response.Body.String(), `"pong"`) {
 				t.Fatalf("non-stream inference response: status=%d completions=%d content-type=%q body=%s", response.Code, completions.Load(), response.Header().Get("Content-Type"), response.Body.String())
 			}
-		})
-	}
-}
-
-func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
-	t.Helper()
-	const (
-		account = "aihubmix"
-		token   = "native-general-route-token"
-	)
-	routeIDs := make([]string, 0, len(p.manifest.Routes))
-	completions := map[string]*atomic.Int64{}
-	for routeID, route := range p.manifest.Routes {
-		if route.Account != account || !slices.Contains(route.AdmittedProtocols(), configuration.ProtocolOpenAIResponses) {
-			continue
-		}
-		if _, duplicate := completions[route.UpstreamModel]; duplicate {
-			t.Fatalf("AIHubMix Routes reuse upstream model %q", route.UpstreamModel)
-		}
-		routeIDs = append(routeIDs, routeID)
-		completions[route.UpstreamModel] = &atomic.Int64{}
-	}
-	if len(routeIDs) == 0 {
-		t.Fatal("team manifest has no AIHubMix OpenAI Responses Routes")
-	}
-	slices.Sort(routeIDs)
-	server := httptest.NewServer(clientResponseHandler(configuration.ProtocolOpenAIResponses, completions, token, "high"))
-	t.Cleanup(server.Close)
-	executable, err := requiredClientInput("AIGW_ACCEPTANCE_CODEX", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	journey := newNativeJourney(t, p.candidate, server.URL+"/v1", false)
-	journey.prepareNativeClient(configuration.ClientCodex, executable, p.team)
-	journey.isolateNativeClientManifest(configuration.ClientCodex)
-	journey.setEnvironment(secrets.EnvironmentKey(account), token)
-	journey.run("setup", "--from", journey.manifest)
-	journey.run("use", "--for", configuration.ClientCodex, account+"-gpt-6-astra")
-	journey.enableNativeClient(configuration.ClientCodex, executable)
-	selected := readFile(t, journey.config)
-	for _, routeID := range routeIDs {
-		route := p.manifest.Routes[routeID]
-		t.Run(routeID, func(t *testing.T) {
-			before := completions[route.UpstreamModel].Load()
-			journey.testing = t
-			journey.run("verify", "--for", configuration.ClientCodex, "--route", routeID)
-			if completions[route.UpstreamModel].Load() != before+1 {
-				t.Fatalf("Codex did not complete exactly one request for upstream model %q", route.UpstreamModel)
-			}
-			if !slices.Equal(readFile(t, journey.config), selected) {
-				t.Fatal("explicit Route verification changed the selected client binding")
+			if len(recorder.inputCounts()) != 0 {
+				t.Fatal("non-stream inference was recorded as a native client session turn")
 			}
 		})
 	}
-	journey.testing = t
-	journey.runWith(p.candidate, "uninstall", "--target", journey.binary)
-	journey.requireOwnedFilesAbsent()
 }
 
 func assertStreamEvents(t *testing.T, protocol configuration.EndpointProtocol, body string) {
@@ -235,7 +275,7 @@ func clientResponseHandler(protocol configuration.EndpointProtocol, completions 
 		completion.Add(1)
 	})
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Header.Get("Authorization") != "Bearer "+token && request.Header.Get("X-Api-Key") != token {
+		if !clientFixtureAuthorized(request, token) {
 			http.Error(response, "credential mismatch", http.StatusUnauthorized)
 			return
 		}
@@ -296,5 +336,38 @@ func clientResponseEvents(protocol configuration.EndpointProtocol, model string)
 		`{"type":"response.output_text.done","item_id":"msg_fixture","output_index":0,"content_index":0,"text":"AIGW_OK"}`,
 		`{"type":"response.output_item.done","output_index":0,"item":{"id":"msg_fixture","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"AIGW_OK","annotations":[]}]}}`,
 		`{"type":"response.completed","response":{"id":"resp_fixture","object":"response","status":"completed","output":[{"id":"msg_fixture","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"AIGW_OK","annotations":[]}]}],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`,
+	}
+}
+
+func clientFixtureAuthorized(request *http.Request, token string) bool {
+	return request.Header.Get("Authorization") == "Bearer "+token || request.Header.Get("X-Api-Key") == token
+}
+
+func TestResponsesToolLoopOutputsAcceptsTextInput(t *testing.T) {
+	outputs, err := responsesToolLoopOutputs(json.RawMessage(`"reply briefly"`))
+	if err != nil {
+		t.Fatalf("valid Responses text input rejected: %v", err)
+	}
+	if len(outputs) != 0 {
+		t.Fatalf("Responses text input produced tool outputs: %v", outputs)
+	}
+}
+
+func writeResponsesFunctionCall(response http.ResponseWriter, responseID, itemID, callID, name, arguments string) {
+	added := fmt.Sprintf(`{"id":%q,"type":"function_call","call_id":%q,"name":%q,"arguments":"","status":"in_progress"}`, itemID, callID, name)
+	completed := fmt.Sprintf(`{"id":%q,"type":"function_call","call_id":%q,"name":%q,"arguments":%q,"status":"completed"}`, itemID, callID, name, arguments)
+	events := []struct{ name, data string }{
+		{"response.created", fmt.Sprintf(`{"type":"response.created","response":{"id":%q,"object":"response","status":"in_progress","output":[]}}`, responseID)},
+		{"response.output_item.added", fmt.Sprintf(`{"type":"response.output_item.added","output_index":0,"item":%s}`, added)},
+		{"response.function_call_arguments.delta", fmt.Sprintf(`{"type":"response.function_call_arguments.delta","item_id":%q,"output_index":0,"delta":%q}`, itemID, arguments)},
+		{"response.function_call_arguments.done", fmt.Sprintf(`{"type":"response.function_call_arguments.done","item_id":%q,"output_index":0,"arguments":%q}`, itemID, arguments)},
+		{"response.output_item.done", fmt.Sprintf(`{"type":"response.output_item.done","output_index":0,"item":%s}`, completed)},
+		{"response.completed", fmt.Sprintf(`{"type":"response.completed","response":{"id":%q,"object":"response","status":"completed","output":[%s],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`, responseID, completed)},
+	}
+	response.Header().Set("Content-Type", "text/event-stream")
+	for _, event := range events {
+		if _, err := fmt.Fprintf(response, "event: %s\ndata: %s\n\n", event.name, event.data); err != nil {
+			return
+		}
 	}
 }

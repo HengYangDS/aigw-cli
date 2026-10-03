@@ -8,10 +8,12 @@ import (
 // pipeline.cue owns CI topology. Forge files are generated projections.
 
 #OperatingSystem: "darwin" | "linux" | "windows"
-#JobID:           "accepted-ref-parity" | "quality" | "native-darwin" | "native-linux" | "native-windows" | "release-version" | "release-assets"
-#Claim:           "accepted-ref-parity" | "source-quality" | "go-source-compatibility" | "native-product-journey" | "lifecycle-acceptance" | "release-metadata" | "artifact-verification"
+#ToolSource:      "upstream" | "peer"
+#JobID:           "accepted-ref-parity" | "quality" | "native-darwin" | "native-linux" | "native-windows" | "linux-secret-service" | "release-version" | "release-assets"
+#Claim:           "accepted-ref-parity" | "source-quality" | "go-source-compatibility" | "native-product-journey" | "lifecycle-acceptance" | "linux-secret-service" | "release-metadata" | "artifact-verification"
 
 #Job: {
+	name:  string
 	stage: "verify" | "release"
 	rank:  int & >=0
 	needs: [...#JobID]
@@ -21,6 +23,50 @@ import (
 // Go's module and checksum hosts reset HTTP/2 streams during cold installs.
 // Keep this transport choice in the installer process, not product execution.
 installationEnvironment: GODEBUG: "http2client=0"
+
+toolSourceInput: {
+	description: "Locked upstream distribution or the selected peer's verified immutable tool copies"
+	required:    false
+	type:        "choice"
+	default:     #ToolSource & "upstream"
+	options: ["upstream", "peer"]
+}
+
+// Peer-local copies transport only the upstream bytes selected by mise.lock.
+// They do not own dependencies or checksums; missing copies fail locally.
+miseMirror: {
+	package:          "mise-github"
+	version:          "v1"
+	resource:         "packages/generic/\(package)/\(version)/"
+	metadataPattern:  "regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$"
+	metadataResource: "release-$1-$2-$3.json"
+	unixDirectory:    "$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+	unixPrepare:      #"""
+		set -eu
+		case "${AIGW_TOOL_SOURCE:-upstream}" in
+		  upstream) ;;
+		  peer)
+		: "${CI_API_V4_URL:?}"
+		: "${CI_PROJECT_ID:?}"
+		: "${CI_SERVER_HOST:?}"
+		: "${CI_JOB_ID:?}"
+		: "${CI_JOB_TOKEN:?}"
+		mirror_dir="\#(unixDirectory)"
+		mkdir -p -m 700 "$mirror_dir"
+		export MISE_DATA_DIR="$mirror_dir/mise-data"
+		export MISE_CACHE_DIR="$mirror_dir/mise-cache"
+		(umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
+		export MISE_NETRC_FILE="$mirror_dir/netrc"
+		export MISE_NETRC=1
+		mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/\#(resource)"
+		export MISE_URL_REPLACEMENTS="$(printf '{"\#(metadataPattern)":"%s\#(metadataResource)","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
+		    ;;
+		  *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
+		esac
+		"""#
+	unixCleanup:      "if [ -n \"${CI_JOB_ID:-}\" ]; then rm -rf -- \"\(unixDirectory)\"; fi"
+	githubEnvironment: MISE_URL_REPLACEMENTS: "{{\"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$\":\"{0}/{1}/releases/download/mise-glab-$1/$2\",\"regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$\":\"{0}/{1}/releases/download/mise-glab-v$1/$2\"}}"
+}
 
 linuxApt: {
 	deadline: "timeout --verbose --kill-after=5s 240s"
@@ -32,8 +78,9 @@ linuxApt: {
 linuxToolchain: {
 	// The runnable Mise image is intentionally small. Declare the complete
 	// repository execution closure here so every Linux job inherits one owner.
-	runtimePackages: ["gcc", "libatomic1", "libc6-dev", "openssh-client", "procps"]
-	prepare: "\(linuxApt.update) && DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
+	runtimePackages: ["libatomic1", "openssh-client", "procps"]
+	prepare:  "set -eu\n\(linuxApt.update)\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
+	compiler: "set -eu\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) gcc libc6-dev"
 }
 
 linuxSecretService: {
@@ -83,7 +130,7 @@ toolchainTools: {
 		"github:gitleaks/gitleaks",
 		"github:golangci/golangci-lint",
 		"github:goreleaser/goreleaser",
-		"go:github.com/google/osv-scanner/v2/cmd/osv-scanner",
+		"github:google/osv-scanner",
 		"github:rhysd/actionlint",
 		"shellcheck",
 		"taplo",
@@ -91,25 +138,32 @@ toolchainTools: {
 	]])
 	links: ["github:lycheeverse/lychee"]
 	quality: list.Concat([portableQuality, links])
-	native: list.Concat([portableQuality, ["github:anchore/syft", "gh", "glab"]])
-	fullNative: list.Concat([quality, ["github:anchore/syft", "gh", "glab"]])
+	// Native Go suites execute real glab against disposable GitLab origins.
+	native: list.Concat([quality, ["github:anchore/syft", "gh", "glab"]])
+	nativeArtifact: ["go", "gh", "glab", "github:goreleaser/goreleaser"]
+	secretService: ["go", "github:goreleaser/goreleaser"]
 	darwin: ["github:indygreg/apple-platform-rs"]
 }
 
 goToolchain: MISE_ENABLE_TOOLS:      "go"
 qualityToolchain: MISE_ENABLE_TOOLS: strings.Join(toolchainTools.quality, ",")
 nativeToolchain: {
-	darwin: {
-		default: MISE_ENABLE_TOOLS: strings.Join(list.Concat([toolchainTools.native, toolchainTools.links, toolchainTools.darwin]), ",")
-		full: MISE_ENABLE_TOOLS: strings.Join(list.Concat([toolchainTools.fullNative, toolchainTools.darwin]), ",")
+	for platform in ["darwin", "linux", "windows"] {
+		(platform): MISE_ENABLE_TOOLS: strings.Join(list.Concat([
+			toolchainTools.native,
+			if platform == "darwin" {toolchainTools.darwin},
+			if platform != "darwin" {[]},
+		]), ",")
 	}
-	linux: {
-		default: MISE_ENABLE_TOOLS: strings.Join(list.Concat([toolchainTools.native, toolchainTools.links]), ",")
-		full: MISE_ENABLE_TOOLS: strings.Join(toolchainTools.fullNative, ",")
-	}
-	windows: {
-		default: MISE_ENABLE_TOOLS: strings.Join(toolchainTools.native, ",")
-		full: MISE_ENABLE_TOOLS:    strings.Join(toolchainTools.fullNative, ",")
+}
+
+nativeArtifactToolchain: {
+	for platform in ["darwin", "linux", "windows"] {
+		(platform): MISE_ENABLE_TOOLS: strings.Join(list.Concat([
+			toolchainTools.nativeArtifact,
+			if platform == "darwin" {toolchainTools.darwin},
+			if platform != "darwin" {[]},
+		]), ",")
 	}
 }
 
@@ -132,59 +186,91 @@ gitlabControlPlatform: #OperatingSystem & "darwin"
 nativeEvidence: {
 	darwin: {
 		name: "macOS"
-		gitlab: tags: ["$AIGW_GITLAB_DARWIN_RUNNER_TAG"]
+		gitlab: {
+			protectedTag: "ci-macos-arm64-shell"
+			tags: [protectedTag]
+			reviewTag: "ci-macos-arm64-review"
+		}
 		github: runner: "macos-26-intel"
 	}
 	linux: {
 		name: "Linux"
-		gitlab: tags: ["$AIGW_GITLAB_LINUX_RUNNER_TAG"]
+		gitlab: {
+			protectedTag: "ci-linux-arm64-container-protected"
+			reviewTag:    "ci-linux-arm64-container"
+			tags: ["$AIGW_CI_LINUX_RUNNER_TAG"]
+		}
 		github: runner: "ubuntu-24.04"
 	}
 	windows: {
 		name: "Windows"
-		gitlab: tags: ["$AIGW_GITLAB_WINDOWS_RUNNER_TAG"]
+		gitlab: {
+			protectedTag: "ci-windows-arm64-shell"
+			tags: [protectedTag]
+			reviewTag: "ci-windows-arm64-review"
+		}
 		github: runner: "windows-2025"
 	}
 }
 
 graph: {
 	[#JobID]: #Job
-	"accepted-ref-parity": {stage: "verify", rank: 0, needs: [], claims: ["accepted-ref-parity"]}
-	quality: {stage: "verify", rank: 0, needs: [], claims: ["source-quality"]}
+	"accepted-ref-parity": {name: "Accepted ref parity", stage: "verify", rank: 0, needs: [], claims: ["accepted-ref-parity"]}
+	quality: {name: "Quality and governance", stage: "verify", rank: 0, needs: [], claims: ["source-quality"]}
 	for platform in productEvidence.native {
-		"native-\(platform)": {stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
+		"native-\(platform)": {name: "Native \(nativeEvidence[platform].name) acceptance", stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
 	}
-	"release-version": {stage: "verify", rank: 0, needs: [], claims: ["release-metadata"]}
-	"release-assets": {stage: "release", rank: 1, needs: list.Concat([["quality"], [for platform in productEvidence.native {"native-\(platform)"}], ["release-version"]]), claims: ["artifact-verification"]}
+	"linux-secret-service": {name: "Linux Secret Service", stage: "verify", rank: 0, needs: [], claims: ["linux-secret-service"]}
+	"release-version": {name: "Release version", stage: "verify", rank: 0, needs: [], claims: ["release-metadata"]}
+	"release-assets": {name: "Verify published release artifacts", stage: "release", rank: 1, needs: list.Concat([["quality"], [for platform in productEvidence.native {"native-\(platform)"}], ["linux-secret-service", "release-version"]]), claims: ["artifact-verification"]}
 }
 
+// The same declared release dependencies name the GitHub tag jobs; the
+// read-only Release workflow must not substitute another peer or attempt.
+githubTagEvidenceJobs: strings.Join([
+	for dependency in graph["release-assets"].needs {
+		"--job '\(graph[dependency].name)'"
+	},
+], " ")
+
 gitlabVerificationCondition: {
-	tag:           "$CI_COMMIT_TAG"
-	review:        "$CI_PIPELINE_SOURCE == \"merge_request_event\" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.acceptedBranch)\" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.releaseBranch)\")"
+	tag: "$CI_COMMIT_TAG"
+	// A fork MR run in the parent has a different source project ID.
+	review:        "$CI_PIPELINE_SOURCE == \"merge_request_event\" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.acceptedBranch)\" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.releaseBranch)\") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID"
 	protectedPush: "$CI_PIPELINE_SOURCE == \"push\" && ($CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\" || $CI_COMMIT_BRANCH == \"\(lifecycle.releaseBranch)\")"
-	acceptedPush:  "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\""
 	manual:        "$CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\""
+	manualSource:  "($CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\") && (($AIGW_CANDIDATE_ARTIFACTS == null || $AIGW_CANDIDATE_ARTIFACTS == \"\") && ($AIGW_CANDIDATE_TAG == null || $AIGW_CANDIDATE_TAG == \"\") || $AIGW_FULL_NATIVE_QUALITY == \"true\" || $AIGW_REFRESH_LOCKS == \"true\")"
 }
 
 gitlabPipelineRules: [
-	{if: gitlabVerificationCondition.tag},
-	{if: gitlabVerificationCondition.review},
-	{if: gitlabVerificationCondition.protectedPush},
-	{if: gitlabVerificationCondition.manual},
+	{
+		if: gitlabVerificationCondition.tag
+		auto_cancel: on_new_commit:          "none"
+		variables: AIGW_CI_LINUX_RUNNER_TAG: nativeEvidence.linux.gitlab.protectedTag
+	},
+	{
+		if: gitlabVerificationCondition.review
+		variables: AIGW_CI_LINUX_RUNNER_TAG: nativeEvidence.linux.gitlab.reviewTag
+	},
+	{
+		if: gitlabVerificationCondition.protectedPush
+		auto_cancel: on_new_commit:          "none"
+		variables: AIGW_CI_LINUX_RUNNER_TAG: nativeEvidence.linux.gitlab.protectedTag
+	},
+	for protected, tag in {true: nativeEvidence.linux.gitlab.protectedTag, false: nativeEvidence.linux.gitlab.reviewTag} {
+		{
+			if: "(\(gitlabVerificationCondition.manual)) && $CI_COMMIT_REF_PROTECTED == \"\(protected)\""
+			auto_cancel: on_new_commit:          "none"
+			variables: AIGW_CI_LINUX_RUNNER_TAG: tag
+		}
+	},
 	{when: "never"},
 ]
 
-gitlabFullVerificationRules: [
-	{if: gitlabVerificationCondition.tag},
-	{if: gitlabVerificationCondition.review},
-	{if: gitlabVerificationCondition.acceptedPush},
-	{if: gitlabVerificationCondition.manual},
-	{when: "never"},
-]
+githubFullVerificationCondition:   "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == '\(lifecycle.acceptedBranch)' || github.ref_name == '\(lifecycle.releaseBranch)'))"
+githubSourceVerificationCondition: "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')"
 
-githubFullVerificationCondition: "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == '\(lifecycle.acceptedBranch)'"
-
-githubCommitBase: "${{ github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || inputs.commit_base }}"
+githubCommitBase: "${{ github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || inputs.commit_base || format('{0}^', github.sha) }}"
 
 _graphOrder: {
 	for id, job in graph {
@@ -194,17 +280,20 @@ _graphOrder: {
 	}
 }
 
-miseImage:   "ghcr.io/jdx/mise:2026.9.11-debian@sha256:12f3fe18fe6c02c54d1bbb9bdc60a492a72a320252439f0df657c6f01a04c23f"
-miseVersion: strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
+miseImage:                        "docker.io/jdxcode/mise:2026.9.18-debian@sha256:33d301fd5929d6960c102f947e97f08c671ad936573b375fcf4f13a90466f710"
+miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
+miseWindowsArm64ExecutableSHA256: "8c0281d26494bc8aaa2804ccd51cfb8315438d1b0b61575d8f02751828708c14"
+miseWindowsArm64ShimSHA256:       "a25d8a155b485ce92bb776261316e26af5f5b003d528dadbb9e26b7ccd3a5188"
+windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
-	mise:     "jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c"         // v4.3.0
+	mise:     "jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5"         // v5.0.0
 	upload:   "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" // v7.0.1
 }
 
-hermesSourceCommit:    "345cd2b057a452236de401d3534b8502a7465e8d"
-hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5"
+hermesSourceCommit:    "f97608f178d1ffeca59860195ab7da295f7c8e5f"
+hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2"
 
 #ReleaseTrustFiles: {
 	AIGW_RELEASE_ALLOWED_SIGNERS_FILE:          "$AIGW_RELEASE_ALLOWED_SIGNERS"
@@ -226,18 +315,21 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 #Toolchain: {
 	name: "Install the locked toolchain"
 	uses: actions.mise
-	env:  installationEnvironment
+	env: installationEnvironment & {
+		MISE_URL_REPLACEMENTS: "${{ inputs.tool_source == 'peer' && format('\(miseMirror.githubEnvironment.MISE_URL_REPLACEMENTS)', github.server_url, github.repository) || '' }}"
+	}
 	with: {
 		version:          miseVersion
 		install:          true
 		install_args:     "--locked"
-		cache:            true
+		cache:            "${{ inputs.tool_source != 'peer' }}"
 		cache_key_prefix: "mise-${{ github.job }}"
 	}
 }
 
 #NativeGitHubJob: {
-	_platform: #OperatingSystem
+	_platform:        #OperatingSystem
+	_sourceCondition: "github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == ''"
 	_credentialEnvironment: {
 		if _platform == "windows" {
 			AIGW_VERIFY_SYSTEM_KEYRING: "1"
@@ -246,19 +338,19 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 			AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: "ephemeral-host"
 		}
 	}
-	name:              "Native \(nativeEvidence[_platform].name) acceptance"
+	name:              "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph["native-\(_platform)"].name)' || '\(graph["native-\(_platform)"].name)' }}"
 	"runs-on":         nativeEvidence[_platform].github.runner
 	"timeout-minutes": 25
 	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
-	env: MISE_ENABLE_TOOLS: "${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && '\(nativeToolchain[_platform].full.MISE_ENABLE_TOOLS)' || '\(nativeToolchain[_platform].default.MISE_ENABLE_TOOLS)' }}"
+	env: MISE_ENABLE_TOOLS: "${{ (!(\(_sourceCondition))) && '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' || '\(nativeToolchain[_platform].MISE_ENABLE_TOOLS)' }}"
 	steps: [
 		#SourceCheckout,
 		#Toolchain,
-		{name: "Prepare locked dependencies", run: commands.bootstrap},
+		{name: "Prepare locked dependencies", if: _sourceCondition, run: commands.bootstrap},
 		if _platform == "linux" {
 			name: "Prepare native memory measurement"
 			if:   "github.event_name == 'workflow_dispatch' && inputs.performance"
-			run:  "sudo -n \(linuxApt.update) && sudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) time"
+			run:  "set -eu\nsudo -n \(linuxApt.update)\nsudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) time"
 		},
 		{
 			name: "Verify native lock resolution"
@@ -279,7 +371,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		for full in [false, true] {
 			if !full {
 				name: "Run native \(nativeEvidence[_platform].name) acceptance"
-				if:   "github.event_name != 'workflow_dispatch' || !inputs.full_quality"
+				if:   "github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '')"
 				run:  commands.native[_platform]
 			}
 			if full {
@@ -292,10 +384,6 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 					if full {CGO_ENABLED: "1"}
 				}
 			}
-		},
-		if _platform == "linux" {
-			name: "Qualify Linux Secret Service"
-			run:  linuxSecretService.github
 		},
 		// Fetch the Git blob bytes; checkout can rewrite the installer's declared CRLF worktree form.
 		if _platform == "windows" {
@@ -349,45 +437,22 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 				New-Item -ItemType Directory -Path $scope | Out-Null
 				try {
 				  $platform = mise exec --locked -- go env GOOS
-				  $architecture = mise exec --locked -- go env GOARCH
-				  $extension = if ($platform -eq 'windows') { 'zip' } else { 'tar.gz' }
-				  $pattern = "*_${platform}_${architecture}.${extension}"
-				  gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
-				  $archives = @(Get-ChildItem -Path $scope -Filter $pattern -File)
-				  if ($archives.Count -ne 1) { throw 'Expected exactly one native release archive' }
-				  $archive = $archives[0]
-				  $entries = @(Get-Content (Join-Path $scope 'checksums.txt') | ForEach-Object {
-				    $entry = $_ -split '\s+', 2
-				    if ($entry.Count -eq 2 -and $entry[1].TrimStart('*') -eq $archive.Name) { $entry[0] }
-				  })
-				  $actual = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash
-				  if ($entries.Count -ne 1 -or $entries[0] -notmatch '^[0-9a-fA-F]{64}$' -or $entries[0] -ne $actual) {
-				    throw 'Historical release archive checksum mismatch'
-				  }
-				  tar -xf $archive.FullName -C $scope
-				  $program = if ($platform -eq 'windows') { 'aigw.exe' } else { 'aigw' }
-				  $executables = @(Get-ChildItem -Path $scope -Recurse -Filter $program -File)
-				  if ($executables.Count -ne 1) { throw 'Expected exactly one historical executable' }
-				  $env:AIGW_ACCEPTANCE_BASELINE = $executables[0].FullName
-				  Write-Output "Historical release $env:AIGW_BASELINE_TAG archive SHA256=$actual"
-				  $acceptance = @('accept-native')
+				  $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = Join-Path $scope 'source-signers'
+				  $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = Join-Path $scope 'artifact-signers'
+				  [IO.File]::WriteAllText($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ALLOWED_SIGNERS)
+				  [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
+				  $acceptance = @('accept-native', '--peer', 'github', '--repository', $env:GITHUB_REPOSITORY)
+				  $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG)
 				  if (-not [string]::IsNullOrWhiteSpace($env:AIGW_CANDIDATE_TAG)) {
-				    $candidate = Join-Path $scope 'candidate'
-				    New-Item -ItemType Directory -Path $candidate | Out-Null
-				    mise exec --locked -- gh release download $env:AIGW_CANDIDATE_TAG --repo $env:GITHUB_REPOSITORY --dir $candidate
-				    $env:CI_COMMIT_TAG = $env:AIGW_CANDIDATE_TAG
-				    $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = Join-Path $scope 'source-signers'
-				    $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = Join-Path $scope 'artifact-signers'
-				    [IO.File]::WriteAllText($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ALLOWED_SIGNERS)
-				    [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
-				    $acceptance += @('--artifacts', $candidate)
+				    $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG)
 				  }
+				  $downloadToken = $env:GH_TOKEN
 				  Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
 				  if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
 				    $clients = Join-Path $scope 'clients'
 				    New-Item -ItemType Directory -Path $clients | Out-Null
 				    Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-				    mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.154.0' '@anthropic-ai/claude-code-win32-x64@2.1.269'
+				    mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.159.3' '@anthropic-ai/claude-code-win32-x64@2.1.286'
 				    mise exec --locked -- npm audit signatures --prefix $clients
 				    $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
 				    $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
@@ -430,6 +495,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 				    }
 				    $acceptance += '--clients'
 				  }
+				  $env:GH_TOKEN = $downloadToken
 				  if ($env:AIGW_MEASURE_PERFORMANCE -eq 'true') {
 				    $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine'
 				    $output = Join-Path $env:GITHUB_WORKSPACE 'build/performance'
@@ -444,7 +510,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 				  } else {
 				    $env:GIT_CONFIG_GLOBAL = $originalGitConfigGlobal
 				  }
-				  foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
+				  foreach ($name in @('GH_TOKEN', 'AIGW_RELEASE_ALLOWED_SIGNERS_FILE', 'AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
 				    Remove-Item "Env:$name" -ErrorAction SilentlyContinue
 				  }
 				  if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
@@ -468,47 +534,190 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 }
 
 #NativeGitLabJob: {
-	_platform:     #OperatingSystem
-	_install:      string
-	_refreshLocks: string
-	_native:       string
+	_platform:          #OperatingSystem
+	_prepareMise:       string
+	_install:           string
+	_refreshLocks:      string
+	_native:            string
+	_prebuiltCondition: string
+	_selectTools:       string
+	_bootstrap:         string
+	tags: [string, ...string]
+	rules: [...{...}]
 	if _platform == "windows" {
-		_install:      "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
-		_refreshLocks: "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
-		_native:       "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
+		_prebuiltCondition: "($env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true'"
+		_selectTools:       "if (\(_prebuiltCondition)) { $env:MISE_ENABLE_TOOLS = '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' }"
+		_bootstrap:         "if (-not (\(_prebuiltCondition))) { \(commands.bootstrap) }"
+		_prepareMise:       #"""
+			$ErrorActionPreference = 'Stop'
+			foreach ($name in @('CI_API_V4_URL', 'CI_PROJECT_ID', 'CI_PROJECT_DIR', 'CI_JOB_ID', 'CI_JOB_TOKEN', 'CI_SERVER_HOST')) {
+			  if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) { throw "Missing GitLab job input: $name" }
+			}
+			$jobDirectory = \#(windowsMiseJobDirectory)
+			if (Test-Path -LiteralPath $jobDirectory) { throw 'Mise job directory already exists.' }
+			[void](New-Item -ItemType Directory -Path $jobDirectory -ErrorAction Stop)
+			$identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+			& icacls.exe $jobDirectory /inheritance:r /grant:r "${identity}:(OI)(CI)F" | Out-Null
+			if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise job directory ACL.' }
+			foreach ($name in @('MISE_CONFIG_DIR', 'MISE_CACHE_DIR', 'MISE_STATE_DIR', 'MISE_DATA_DIR')) {
+			  $path = Join-Path $jobDirectory $name
+			  [Environment]::SetEnvironmentVariable($name, $path)
+			  [void](New-Item -ItemType Directory -Path $path -ErrorAction Stop)
+			}
+			$env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR
+			$mise = Join-Path $env:ProgramFiles 'mise\bin\mise.exe'
+			if (-not (Test-Path -LiteralPath $mise -PathType Leaf)) { throw 'Runner-owned Mise is missing.' }
+			if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne '\#(miseWindowsArm64ExecutableSHA256)') { throw 'Runner-owned Mise digest differs from the admitted release.' }
+			$reported = & $mise --version
+			if ($LASTEXITCODE -ne 0) { throw 'Runner-owned Mise failed to start under the job identity.' }
+			if ($reported -notmatch ('^' + [regex]::Escape('\#(miseVersion)') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
+			& whoami.exe /user
+			if ($LASTEXITCODE -ne 0) { throw 'Runner identity could not be observed.' }
+			$shim = Join-Path (Split-Path -Parent $mise) 'mise-shim.exe'
+			if (-not (Test-Path -LiteralPath $shim -PathType Leaf)) { throw 'Runner-owned Mise shim is missing.' }
+			try { $shimHash = (Get-FileHash -LiteralPath $shim -Algorithm SHA256 -ErrorAction Stop).Hash }
+			catch { & icacls.exe $shim; throw "Runner-owned Mise shim cannot be read (error=$($_.FullyQualifiedErrorId), hresult=$($_.Exception.HResult))." }
+			if ($shimHash -ne '\#(miseWindowsArm64ShimSHA256)') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
+			$shimsDirectory = Join-Path $env:MISE_DATA_DIR 'shims'
+			$probeDirectory = Join-Path $shimsDirectory '.mise-shims-stage-probe'
+			$probeTarget = Join-Path $probeDirectory 'actionlint.exe'
+			$probeError = $null
+			try {
+			  [void](New-Item -ItemType Directory -Path $shimsDirectory -ErrorAction Stop)
+			  [void](New-Item -ItemType Directory -Path $probeDirectory -ErrorAction Stop)
+			  Copy-Item -LiteralPath $shim -Destination $probeTarget -ErrorAction Stop
+			  $copiedHash = (Get-FileHash -LiteralPath $probeTarget -Algorithm SHA256 -ErrorAction Stop).Hash
+			  if ($copiedHash -ne $shimHash) { throw 'Mise shim copy differs from its source.' }
+			} catch { $probeError = $_ }
+			$cleanupError = $null
+			if (Test-Path -LiteralPath $probeDirectory) {
+			  try { Remove-Item -LiteralPath $probeDirectory -Recurse -Force -ErrorAction Stop }
+			  catch { $cleanupError = $_ }
+			}
+			if ($probeError -or $cleanupError -or (Test-Path -LiteralPath $probeDirectory)) {
+			  & icacls.exe $shim
+			  if (Test-Path -LiteralPath $shimsDirectory) { & icacls.exe $shimsDirectory }
+			  if (Test-Path -LiteralPath $probeDirectory) { & icacls.exe $probeDirectory }
+			  if ($probeError) { throw "Mise shim stage probe failed: $($probeError.Exception.Message)" }
+			  if ($cleanupError) { throw "Mise shim stage cleanup failed: $($cleanupError.Exception.Message)" }
+			  throw 'Mise shim stage probe remains after cleanup.'
+			}
+			$env:PATH = (Split-Path -Parent $mise) + [IO.Path]::PathSeparator + $env:PATH
+			if ($env:AIGW_TOOL_SOURCE -and $env:AIGW_TOOL_SOURCE -notin @('upstream', 'peer')) { throw 'AIGW_TOOL_SOURCE must be upstream or peer.' }
+			if ($env:AIGW_TOOL_SOURCE -eq 'peer') {
+			$netrc = Join-Path $jobDirectory '_netrc'
+			[IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
+			& icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
+			if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise mirror credential ACL.' }
+			$mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/\#(miseMirror.resource)"
+			$replacements = [ordered]@{}
+			$replacements['\#(miseMirror.metadataPattern)'] = "${mirrorBase}" + '\#(miseMirror.metadataResource)'
+			$replacements['https://github.com/'] = $mirrorBase
+			$replacements['https://api.github.com/'] = $mirrorBase
+			$env:MISE_NETRC_FILE = $netrc
+			$env:MISE_NETRC = 'true'
+			$env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
+			}
+			\#(_selectTools)
+			"""#
+		_install:           "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
+		_refreshLocks:      "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
+		_native:            #"""
+			$ErrorActionPreference = 'Stop'
+			$PSNativeCommandUseErrorActionPreference = $true
+			$acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)
+			if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }
+			if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
+			if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
+			if ($env:AIGW_CANDIDATE_SOURCE) { $acceptance += @('--candidate-source', $env:AIGW_CANDIDATE_SOURCE) }
+			if ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
+			  if (-not $env:AIGW_BASELINE_TAG) { throw 'Real-client succession requires AIGW_BASELINE_TAG.' }
+			  $acceptance += '--clients'
+			}
+			if (-not $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }
+			if (-not $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ALLOWED_SIGNERS }
+			\#(commands.native[_platform]) --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')" -- @acceptance
+			"""#
+		after_script: [#"""
+			$jobDirectory = \#(windowsMiseJobDirectory)
+			if (Test-Path -LiteralPath $jobDirectory) {
+			  $emptyDirectory = Join-Path (Split-Path -Parent $jobDirectory) "aigw-ci-mise-empty-$env:CI_JOB_ID"
+			  if (Test-Path -LiteralPath $emptyDirectory) { throw 'Mise cleanup mirror source already exists.' }
+			  [IO.Directory]::CreateDirectory($emptyDirectory) | Out-Null
+			  try {
+			    & robocopy.exe $emptyDirectory $jobDirectory /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+			    $mirrorExit = $LASTEXITCODE
+			    if ($mirrorExit -ge 8) { throw "Mise cleanup mirror failed (robocopy exit $mirrorExit)." }
+			    [IO.Directory]::Delete($jobDirectory)
+			  } catch {
+			    $cause = $_.Exception
+			    Write-Host "Mise cleanup failure type=$($cause.GetType().FullName) HRESULT=0x$($cause.HResult.ToString('X8'))"
+			    throw
+			  } finally {
+			    if (Test-Path -LiteralPath $emptyDirectory) { [IO.Directory]::Delete($emptyDirectory) }
+			  }
+			}
+			if (Test-Path -LiteralPath $jobDirectory) {
+			  throw 'Mise job directory remains after cleanup.'
+			}
+			"""#]
 	}
 	if _platform != "windows" {
-		_install:      commands.install
-		_refreshLocks: "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
-		_native:       "\(commands.native[_platform]) --full-quality=\"${AIGW_FULL_NATIVE_QUALITY:-false}\""
+		_prebuiltCondition: "[ -n \"${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}\" ] && [ \"${AIGW_FULL_NATIVE_QUALITY:-false}\" != true ] && [ \"${AIGW_REFRESH_LOCKS:-false}\" != true ]"
+		_selectTools:       "if \(_prebuiltCondition); then export MISE_ENABLE_TOOLS='\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)'; fi"
+		_bootstrap:         "if ! { \(_prebuiltCondition); }; then \(commands.bootstrap); fi"
+		_install:           commands.install
+		_refreshLocks:      "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
+		_native:            #"""
+			set -eu
+			set -- --peer gitlab --repository "$CI_PROJECT_URL"
+			if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
+			if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
+			if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
+			if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
+			if [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
+			  : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
+			  set -- "$@" --clients
+			fi
+			export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
+			export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
+			\#(commands.native[_platform]) --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
+			"""#
+	}
+	if _platform == "darwin" {
+		"after_script": [miseMirror.unixCleanup]
 	}
 	stage: graph["native-\(_platform)"].stage
-	tags:  nativeEvidence[_platform].gitlab.tags
-	variables: nativeToolchain[_platform].default & {
+	variables: nativeToolchain[_platform] & {
+		GLAB_NO_PROMPT: "1"
 		if _platform == "windows" {
 			AIGW_VERIFY_SYSTEM_KEYRING: "1"
 		}
 	}
-	rules: [for rule in gitlabFullVerificationRules {
-		if rule.if != _|_ {
-			if rule.if == gitlabVerificationCondition.manual {
-				if: "(\(rule.if)) && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == \"\" || $AIGW_NATIVE_PLATFORM == \"all\" || $AIGW_NATIVE_PLATFORM == \"\(_platform)\")"
-			}
-			if rule.if != gitlabVerificationCondition.manual {rule}
-		}
-		if rule.if == _|_ {rule}
-	}]
 	artifacts: {
 		when: "always"
 		paths: ["mise.lock", ".mise/locks"]
 	}
 	if _platform == "linux" {
+		interruptible: true
 		extends: [".linux-toolchain"]
 		variables: CGO_ENABLED: "1"
-		script: [commands.bootstrap, _refreshLocks, _native, linuxSecretService.gitlab]
+		"before_script": [linuxToolchain.prepare, linuxToolchain.compiler, miseMirror.unixPrepare, _selectTools, commands.install]
+		script: [_bootstrap, _refreshLocks, _native]
 	}
 	if _platform != "linux" {
-		script: [_install, commands.bootstrap, _refreshLocks, _native]
+		if _platform == "windows" {
+			script: [_prepareMise, _install, _bootstrap, _refreshLocks, _native]
+		}
+		if _platform != "windows" {
+			script: [miseMirror.unixPrepare, _selectTools, _install, _bootstrap, _refreshLocks, _native]
+		}
+	}
+}
+
+_nativeManualCondition: {
+	for platform in productEvidence.native {
+		(platform): "(\(gitlabVerificationCondition.manual)) && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == \"\" || $AIGW_NATIVE_PLATFORM == \"all\" || $AIGW_NATIVE_PLATFORM == \"\(platform)\")"
 	}
 }
 
@@ -520,16 +729,21 @@ _gitlabControlJob: {
 		script: _commands
 	}
 	if gitlabControlPlatform != "linux" {
-		script: list.Concat([[commands.install], _commands])
+		script: list.Concat([[miseMirror.unixPrepare, commands.install], _commands])
+		"after_script": [miseMirror.unixCleanup]
 	}
 }
 
 gitlab: {
 	variables: {
-		GIT_DEPTH: "0"
-		GOPROXY:   "https://goproxy.cn|https://proxy.golang.org|direct"
+		GIT_DEPTH:        "0"
+		GOPROXY:          "https://goproxy.cn|https://proxy.golang.org|direct"
+		AIGW_TOOL_SOURCE: "upstream"
 	}
-	workflow: rules: gitlabPipelineRules
+	workflow: {
+		auto_cancel: on_new_commit: "conservative"
+		rules: gitlabPipelineRules
+	}
 	stages: ["verify", "release"]
 	".linux-toolchain": {
 		_dataDirectory: "build/runtime/tool-cache/.mise"
@@ -548,16 +762,20 @@ gitlab: {
 			policy: "pull-push"
 			when:   "always"
 		}
-		"before_script": [linuxToolchain.prepare, commands.install]
+		"before_script": [linuxToolchain.prepare, miseMirror.unixPrepare, commands.install]
+		"after_script": [miseMirror.unixCleanup]
 	}
-	quality: _gitlabControlJob & {
-		_commands: [
+	quality: {
+		interruptible: true
+		extends: [".linux-toolchain"]
+		tags: nativeEvidence.linux.gitlab.tags
+		script: [
 			commands.bootstrap,
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
 			commands.quality,
 		]
 		stage: graph.quality.stage
-		variables: qualityToolchain & {CGO_ENABLED: "1"}
+		variables: qualityToolchain & {CGO_ENABLED: "0"}
 		rules: [
 			{if: gitlabVerificationCondition.tag, variables: AIGW_COMMIT_BASE: "$CI_COMMIT_SHA^"},
 			{
@@ -565,10 +783,10 @@ gitlab: {
 				variables: AIGW_COMMIT_BASE: "$CI_MERGE_REQUEST_DIFF_BASE_SHA"
 			},
 			{
-				if: gitlabVerificationCondition.acceptedPush
+				if: gitlabVerificationCondition.protectedPush
 				variables: AIGW_COMMIT_BASE: "$CI_COMMIT_BEFORE_SHA"
 			},
-			{if: gitlabVerificationCondition.manual},
+			{if: gitlabVerificationCondition.manualSource, variables: AIGW_COMMIT_BASE: "$CI_COMMIT_SHA^"},
 			{when: "never"},
 		]
 	}
@@ -582,7 +800,52 @@ gitlab: {
 		]
 	}
 	for platform in productEvidence.native {
-		"native-\(platform)": #NativeGitLabJob & {_platform: platform}
+		if platform == "linux" {
+			"native-linux": #NativeGitLabJob & {
+				_platform: platform
+				tags:      nativeEvidence.linux.gitlab.tags
+				rules: [
+					{if: gitlabVerificationCondition.tag},
+					{if: gitlabVerificationCondition.review},
+					{if: gitlabVerificationCondition.protectedPush},
+					{if: _nativeManualCondition[platform]},
+					{when: "never"},
+				]
+			}
+		}
+		if platform != "linux" {
+			"native-\(platform)": #NativeGitLabJob & {
+				_platform: platform
+				tags: [nativeEvidence[platform].gitlab.protectedTag]
+				rules: [
+					{if: gitlabVerificationCondition.tag},
+					{if: gitlabVerificationCondition.protectedPush},
+					{if: "(\(_nativeManualCondition[platform])) && $CI_COMMIT_REF_PROTECTED == \"true\""},
+					{when: "never"},
+				]
+			}
+			"native-\(platform)-review": #NativeGitLabJob & {
+				_platform: platform
+				tags: [nativeEvidence[platform].gitlab.reviewTag]
+				rules: [
+					{if: gitlabVerificationCondition.review},
+					{if: "(\(_nativeManualCondition[platform])) && $CI_COMMIT_REF_PROTECTED == \"false\""},
+					{when: "never"},
+				]
+			}
+		}
+	}
+	"linux-secret-service": {
+		interruptible: true
+		extends: [".linux-toolchain"]
+		stage: graph["linux-secret-service"].stage
+		tags:  nativeEvidence.linux.gitlab.tags
+		variables: {
+			MISE_ENABLE_TOOLS: strings.Join(toolchainTools.secretService, ",")
+			CGO_ENABLED:       "0"
+		}
+		rules: gitlab["native-linux"].rules
+		script: [linuxSecretService.gitlab]
 	}
 	"release-version": _gitlabControlJob & {
 		_commands: [commands.version]
@@ -593,16 +856,20 @@ gitlab: {
 			{when: "never"},
 		]
 	}
-	"release-assets": _gitlabControlJob & {
-		_commands: [
+	"release-assets": {
+		extends: [".linux-toolchain"]
+		script: [
 			#"mkdir dist"#,
 			#"mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist"#,
 			commands.artifacts,
 		]
 		stage:     graph["release-assets"].stage
+		tags:      nativeEvidence.linux.gitlab.tags
 		variables: #ReleaseTrustFiles
 		rules: [
-			{if: "$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == \"api\" || $CI_PIPELINE_SOURCE == \"web\")"},
+			{
+				if: "$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == \"api\" || $CI_PIPELINE_SOURCE == \"web\") && $CI_COMMIT_REF_PROTECTED == \"true\""
+			},
 			{when: "never"},
 		]
 		needs: [for dependency in graph["release-assets"].needs {{job: dependency}}]
@@ -621,6 +888,7 @@ githubVerify: {
 		push: {branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch], tags: ["v*"]}
 		"pull_request": branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch]
 		"workflow_dispatch": inputs: {
+			tool_source: toolSourceInput
 			native_platform: {
 				description: "Native platform to qualify; partial runs do not establish full release readiness"
 				required:    false
@@ -641,7 +909,7 @@ githubVerify: {
 				default:     false
 			}
 			macos_keychain: {
-				description: "With baseline_tag, qualify retained credentials in the disposable macOS Keychain"
+				description: "With baseline_tag, qualify only the published predecessor Keychain journey on disposable macOS"
 				required:    false
 				type:        "boolean"
 				default:     false
@@ -659,8 +927,8 @@ githubVerify: {
 				default:     false
 			}
 			commit_base: {
-				description: "Exclusive commit base for manual verification"
-				required:    true
+				description: "Optional exclusive base; defaults to the selected commit's parent for manual diagnostics"
+				required:    false
 				type:        "string"
 			}
 			baseline_tag: {
@@ -682,7 +950,7 @@ githubVerify: {
 	}
 	jobs: {
 		"accepted-ref-parity": {
-			name:              "Accepted ref parity"
+			name:              graph["accepted-ref-parity"].name
 			"runs-on":         nativeEvidence.linux.github.runner
 			"timeout-minutes": 5
 			if:                "github.event_name == 'push' && github.ref_name == '\(lifecycle.releaseBranch)'"
@@ -694,10 +962,10 @@ githubVerify: {
 			]
 		}
 		quality: {
-			name:              "Quality and governance"
+			name:              "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph.quality.name)' || '\(graph.quality.name)' }}"
 			"runs-on":         nativeEvidence.linux.github.runner
 			"timeout-minutes": 25
-			if:                githubFullVerificationCondition
+			if:                githubSourceVerificationCondition
 			env:               qualityToolchain
 			steps: [
 				#SourceCheckout,
@@ -717,7 +985,7 @@ githubVerify: {
 				{
 					name: "Run quality and governance"
 					env: {
-						CGO_ENABLED:                       "1"
+						CGO_ENABLED:                       "0"
 						AIGW_COMMIT_BASE:                  githubCommitBase
 						AIGW_RELEASE_AUTHOR_EMAIL:         "${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}"
 						AIGW_RELEASE_ALLOWED_SIGNERS_FILE: "${{ env.AIGW_RELEASE_ALLOWED_SIGNERS_FILE }}"
@@ -725,6 +993,33 @@ githubVerify: {
 					}
 					run: commands.quality
 				},
+			]
+		}
+		"linux-secret-service": {
+			name:              "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph["linux-secret-service"].name)' || '\(graph["linux-secret-service"].name)' }}"
+			"runs-on":         nativeEvidence.linux.github.runner
+			"timeout-minutes": 25
+			if:                githubVerify.jobs["native-linux"].if
+			env: {
+				MISE_ENABLE_TOOLS: strings.Join(toolchainTools.secretService, ",")
+				CGO_ENABLED:       "0"
+			}
+			steps: [
+				#SourceCheckout,
+				#Toolchain,
+				{name: "Qualify Linux Secret Service", run: linuxSecretService.github},
+			]
+		}
+		"release-version": {
+			name:              "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph["release-version"].name)' || '\(graph["release-version"].name)' }}"
+			"runs-on":         nativeEvidence.linux.github.runner
+			"timeout-minutes": 5
+			if:                "github.ref_type == 'tag'"
+			env:               goToolchain
+			steps: [
+				#SourceCheckout,
+				#Toolchain,
+				{name: "Validate tag version", run: commands.version},
 			]
 		}
 		for platform in productEvidence.native {
@@ -742,6 +1037,7 @@ githubRelease: {
 	}
 	"on": {
 		"workflow_dispatch": inputs: {
+			tool_source: toolSourceInput
 			tag: {
 				description: "Existing published v* release to verify"
 				required:    true
@@ -767,14 +1063,17 @@ githubRelease: {
 			}
 		}
 	}
-	permissions: contents: "read"
+	permissions: {
+		contents: "read"
+		actions:  "read"
+	}
 	concurrency: {
 		group:                "release-${{ github.repository }}-${{ inputs.tag }}-${{ inputs.runner }}"
 		"cancel-in-progress": false
 	}
 	jobs: {
 		"release-assets": {
-			name:              "Verify published release artifacts"
+			name:              graph["release-assets"].name
 			"runs-on":         "${{ inputs.runner }}"
 			"timeout-minutes": 25
 			defaults: run: shell: "pwsh"
@@ -797,6 +1096,14 @@ githubRelease: {
 					name: "Materialize artifact signature trust"
 					env: AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }}"
 					run: "mise exec --locked -- go run ./tools/ci trust-input --artifact --output \"$env:RUNNER_TEMP/aigw-artifact-signers\" --github-env \"$env:GITHUB_ENV\""
+				},
+				{
+					name: "Verify this peer's exact tag pipeline"
+					run:  """
+						$tagCommit = git rev-parse --verify "$($env:CI_COMMIT_TAG)^{commit}"
+						if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($tagCommit)) { throw 'Cannot resolve selected release tag' }
+						mise exec --locked -- go run ./tools/ci release-evidence --repository "$env:GITHUB_REPOSITORY" --workflow verify.yml --tag "$env:CI_COMMIT_TAG" --sha "$tagCommit" \(githubTagEvidenceJobs)
+						"""
 				},
 				{
 					name: "Download this peer's published artifacts"

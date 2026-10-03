@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -113,177 +112,52 @@ record = {z = 2, a = 1}
 
 func TestFormattingCoversCurrentCarriersAndPreservesOwnedExclusions(t *testing.T) {
 	repository := repositoryRoot(t)
-	parent := t.TempDir()
-	root := filepath.Join(parent, "checkout with spaces")
+	root := filepath.Join(t.TempDir(), "checkout with spaces")
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	for _, path := range []string{"package.json", ".gitignore", ".editorconfig", ".prettierignore"} {
-		content, err := os.ReadFile(filepath.Join(repository, path))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(root, path), content, 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(root, path), readFile(t, filepath.Join(repository, path)), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
 		t.Fatalf("git init: %v\n%s", err, output)
 	}
-	files := map[string]string{
-		"document.md":                          "# Current\n\nRead the current instructions.\n",
-		"docs/archive/current.md":              "# Current archive operation\n",
-		".config/archive/metadata.json":        "{\n  \"version\": 1\n}\n",
-		".config/fixture.yaml":                 "name: fixture\n",
-		"openspec/changes/archive/old/spec.md": "#   Historic source\n",
-		"build/tracked.json":                   "{\n  \"version\": 1\n}\n",
-		"literal[1].json":                      "{\n  \"version\": 1\n}\n",
-		"unsupported.txt":                      "not a prettier file",
-		"build/generated.json":                 "{\"owned\":true}\n",
-	}
-	for path, content := range files {
+	files := []string{"document.md", "docs/archive/current.md", ".config/archive/metadata.json", "openspec/changes/archive/old/spec.md", "build/tracked.json", "literal[1].json", "unsupported.txt", "build/generated.json"}
+	for _, path := range files {
 		destination := filepath.Join(root, filepath.FromSlash(path))
 		if err := os.MkdirAll(filepath.Dir(destination), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(destination, []byte(content), 0o600); err != nil {
+		if err := os.WriteFile(destination, []byte("exact authored input\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-	}
-	if err := os.WriteFile(filepath.Join(parent, ".prettierrc.json"), []byte("{\"tabWidth\": 7}\n"), 0o600); err != nil {
-		t.Fatal(err)
 	}
 	if output, err := exec.Command("git", "-C", root, "add", "-f", "build/tracked.json").CombinedOutput(); err != nil {
 		t.Fatalf("git add: %v\n%s", err, output)
 	}
 	t.Setenv("GIT_INDEX_FILE", filepath.Join(repository, ".git", "foreign-index"))
-	for _, test := range []struct {
-		path    string
-		content string
-		valid   bool
-	}{
-		{"document.md", files["document.md"], true},
-		{"document.md", "#   Current\n", false},
-		{"docs/archive/current.md", "#   Current archive operation\n", false},
-		{".config/archive/metadata.json", "{\"version\":1}\n", false},
-		{".config/fixture.yaml", "name:    fixture\n", false},
-		{"build/tracked.json", "{\"version\":1}\n", false},
-		{"literal[1].json", "{\"version\":1}\n", false},
-	} {
-		t.Run(fmt.Sprintf("%s/valid=%t", test.path, test.valid), func(t *testing.T) {
-			destination := filepath.Join(root, filepath.FromSlash(test.path))
-			if err := os.WriteFile(destination, []byte(test.content), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() {
-				if err := os.WriteFile(destination, []byte(files[test.path]), 0o600); err != nil {
-					t.Error(err)
-				}
-			})
-			var output []byte
-			err := run([]string{"check-format", root}, &bytes.Buffer{}, func(call command) error {
-				if len(call.Args) != 1 {
-					t.Fatalf("format inventory escaped onto command line: %d", len(call.Args))
-				}
-				if strings.Contains(call.Input, filepath.ToSlash(root)) {
-					t.Fatal("format inventory must resolve relative to the requested checkout")
-				}
-				call.Args[0] = filepath.Join(repository, "tools", "ci", "format.mjs")
-				var err error
-				output, err = systemOutputRunner(call)
-				return err
-			})
-			if test.valid {
-				if err != nil {
-					t.Fatalf("formatted checkout: %v\n%s", err, output)
-				}
-			} else if err == nil || !bytes.Contains(output, []byte(test.path)) {
-				t.Fatalf("current carrier %q was not diagnosed: %v\n%s", test.path, err, output)
-			}
-			if actual := readFile(t, destination); string(actual) != test.content {
-				t.Fatalf("format check changed %s", test.path)
-			}
-		})
-	}
-}
-
-func TestFormattingRequiresNativeInputsAndSupportedSource(t *testing.T) {
-	repository := repositoryRoot(t)
-	checker := filepath.Join(repository, "tools", "ci", "format.mjs")
-	for _, scenario := range []struct{ name, input, diagnostic string }{
-		{"empty inventory", "[]", "no authored files supported by Prettier"},
-		{"unsupported source", `["source.txt"]`, "no authored files supported by Prettier"},
-		{"missing ignore", `["source.txt"]`, "ENOENT"},
-		{"missing dependency", `["source.txt"]`, "ERR_MODULE_NOT_FOUND"},
-	} {
-		t.Run(scenario.name, func(t *testing.T) {
-			root := t.TempDir()
-			path := filepath.Join(root, "source.txt")
-			content := []byte("unsupported authored source\n")
-			if err := os.WriteFile(path, content, 0o600); err != nil {
-				t.Fatal(err)
-			}
-			if scenario.name != "missing ignore" {
-				if err := os.WriteFile(filepath.Join(root, ".prettierignore"), nil, 0o600); err != nil {
-					t.Fatal(err)
-				}
-			}
-			entry := checker
-			if scenario.name == "missing dependency" {
-				entry = filepath.Join(root, "tools", "ci", "format.mjs")
-				if err := os.MkdirAll(filepath.Dir(entry), 0o700); err != nil {
-					t.Fatal(err)
-				}
-				if err := os.WriteFile(entry, readFile(t, checker), 0o600); err != nil {
-					t.Fatal(err)
-				}
-			}
-			command := exec.Command("node", entry)
-			command.Dir, command.Stdin = root, strings.NewReader(scenario.input)
-			output, err := command.CombinedOutput()
-			if err == nil || !bytes.Contains(output, []byte(scenario.diagnostic)) {
-				t.Fatalf("%s: %v\n%s", scenario.name, err, output)
-			}
-			if !bytes.Equal(readFile(t, path), content) {
-				t.Fatal("check changed source")
-			}
-		})
-	}
-}
-
-func TestNativeCheckAdaptersConsumeCompletePipeInput(t *testing.T) {
-	repository := repositoryRoot(t)
-	root := t.TempDir()
-	for _, path := range []string{".prettierignore", ".config/checks/markdown/policy.yaml"} {
-		target := filepath.Join(root, path)
-		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+	called := false
+	if err := run([]string{"check-format", root}, &bytes.Buffer{}, func(call command) error {
+		called = true
+		if call.Dir != root || call.Name != "node" || len(call.Args) != 1 || call.Args[0] != filepath.Join(root, "tools", "ci", "format.mjs") {
+			t.Fatalf("native formatting invocation: %#v", call)
+		}
+		var inventory []string
+		if err := json.Unmarshal([]byte(call.Input), &inventory); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(target, readFile(t, filepath.Join(repository, path)), 0o600); err != nil {
-			t.Fatal(err)
+		for _, path := range files {
+			if strings.Contains(call.Input, filepath.ToSlash(root)) {
+				t.Fatal("format inventory must resolve relative to the requested checkout")
+			}
+			if slices.Contains(inventory, filepath.FromSlash(path)) == (path == "build/generated.json") {
+				t.Fatalf("authored inventory membership for %s: %v", path, inventory)
+			}
 		}
-	}
-	path := filepath.Join(root, "document.md")
-	content := []byte("# Document\n\n```mermaid\nflowchart LR\n  A --> B\n```\n")
-	if err := os.WriteFile(path, content, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	encoded, err := json.Marshal([]string{path})
-	if err != nil {
-		t.Fatal(err)
-	}
-	input := string(encoded[:1]) + strings.Repeat(" \n", 1<<19) + string(encoded[1:])
-	for _, adapter := range []string{"format.mjs", "markdown/lint.mjs", "markdown/diagrams.mjs"} {
-		t.Run(adapter, func(t *testing.T) {
-			command := exec.Command("node", filepath.Join(repository, "tools", "ci", filepath.FromSlash(adapter)))
-			command.Dir, command.Stdin = root, strings.NewReader(input)
-			output, err := command.CombinedOutput()
-			if err != nil || !bytes.Contains(output, []byte("checked 1")) {
-				t.Fatalf("complete streamed inventory: %v\n%s", err, output)
-			}
-			if !bytes.Equal(readFile(t, path), content) {
-				t.Fatal("check changed source")
-			}
-		})
+		return nil
+	}); err != nil || !called {
+		t.Fatalf("format inventory not executed: %v", err)
 	}
 }

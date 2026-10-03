@@ -107,9 +107,6 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 	var jsonMode, all bool
 	cmd := &cobra.Command{Use: "catalog", Short: "Discover authenticated model catalogs for each account (compact summary by default)", Args: cobra.NoArgs}
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
-		if jsonMode && all {
-			return fmt.Errorf("--all cannot be used with --json; JSON already includes the complete catalog")
-		}
 		cfg, err := deps.Config.Load()
 		if err != nil {
 			return err
@@ -146,11 +143,11 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 			}
 			renderMissingRoutes(r, observation.MissingRoutes)
 		}
-		r.Next("aigw route add <route> --account <account> --for <" + strings.Join(configuration.AdmittedClientIDs(), "|") + "> --model <model>")
+		r.Next("aigw route add <route> --account <account> --model <model> --protocol <protocol>")
 		return r.Err()
 	}
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
-	cmd.Flags().BoolVar(&all, "all", false, "Show the complete model catalog")
+	cmd.Flags().BoolVar(&all, "all", false, "Show every model in human output (JSON already includes all)")
 	return cmd
 }
 

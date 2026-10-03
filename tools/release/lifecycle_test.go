@@ -19,7 +19,6 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/transaction"
-	"aigw-cli/tools/release/construction"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -87,10 +86,7 @@ func nativeReleaseCandidate(t *testing.T, root, version string) (program, archiv
 		baseName, archiveName := nativeArchiveNames(version)
 		return filepath.Join(directory, baseName, executableName()), filepath.Join(directory, archiveName), filepath.Join(directory, "checksums.txt")
 	}
-	stage, err := construction.BuildNative(t.Context(), root, t.TempDir(), version)
-	if err != nil {
-		t.Fatal(err)
-	}
+	stage := cachedNativeSource(t, root, version)
 	base, name := nativeArchiveNames(version)
 	return filepath.Join(stage, base, executableName()), filepath.Join(stage, name), filepath.Join(stage, "checksums.txt")
 }
@@ -151,8 +147,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 	journey.requireRepairPreservesUserSettings("user-dark", "user-dark-after-upgrade")
 	requireUserFiles()
 
-	journey.runWith(newArtifact, "uninstall", "--target", journey.binary)
-	journey.requireOwnedFilesAbsent()
+	journey.uninstallWithAndRequireInstallationRemoved(newArtifact)
 	journey.requireUserTheme("user-dark-after-upgrade")
 	if got := readFile(t, codexConfig); string(got) != originalCodex {
 		t.Fatalf("uninstall changed original Codex configuration: %q", got)
@@ -293,7 +288,7 @@ func (j *journeyFixture) requireInvalidSuccessorPreservesInstallation(currentVer
 		problem string
 	}{
 		{currentVersion, "different program bytes"},
-		{"999.0.0", "candidate program failed startup verification"},
+		{"999.0.0", "Candidate program failed startup verification"},
 	} {
 		archive, checksums := writeNativeArchive(j.testing, invalidProgram, test.version)
 		command := exec.CommandContext(j.testing.Context(), j.binary, "update", "--candidate", archive, "--checksums", checksums)

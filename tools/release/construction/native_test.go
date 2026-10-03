@@ -24,12 +24,13 @@ func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
 			var workspace string
 			want := errors.New("injected acceptance failure")
-			err := acceptNative(request, "", false, "", func(call toolCall) error {
-				if call.Name != "go" || call.Directory != request.Root || !slices.Equal(call.Args, []string{"test", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney)$", "-count=1", "-v"}) {
+			err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), false, "", func(call toolCall) error {
+				if call.Name != "go" || call.Directory != request.Root || !slices.Equal(call.Args, []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney|TestNativeVerificationResources)$", "-count=1", "-v"}) {
 					t.Fatalf("source acceptance escaped its product test owner: %#v", call)
 				}
 				workspace = strings.TrimPrefix(call.Env[1], "TMPDIR=")
-				if !filepath.IsAbs(workspace) || !slices.Equal(call.Env, []string{"AIGW_ACCEPTANCE_RELEASE=", "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace, "AIGW_ACCEPTANCE_BASELINE="}) {
+				expected := append([]string{"AIGW_ACCEPTANCE_RELEASE=", "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace}, forgeCredentialOverrides()...)
+				if !filepath.IsAbs(workspace) || !slices.Equal(call.Env, append(expected, "AIGW_ACCEPTANCE_BASELINE=")) {
 					t.Fatalf("source acceptance environment = %#v", call.Env)
 				}
 				if err := os.WriteFile(filepath.Join(workspace, "test-owned-output"), []byte("fixture"), 0o600); err != nil {
@@ -61,7 +62,7 @@ func TestNativeAcceptanceRunsPublishedPredecessorSeparatelyFromCurrentSchemaJour
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", baseline)
 	request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
 	var calls []toolCall
-	if err := acceptNative(request, "", false, "", func(call toolCall) error {
+	if err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), false, "", func(call toolCall) error {
 		calls = append(calls, call)
 		return nil
 	}); err != nil {
@@ -71,7 +72,7 @@ func TestNativeAcceptanceRunsPublishedPredecessorSeparatelyFromCurrentSchemaJour
 		t.Fatalf("published predecessor acceptance calls = %d, want current-schema and published journeys", len(calls))
 	}
 	if !slices.Contains(calls[0].Env, "AIGW_ACCEPTANCE_BASELINE=") ||
-		!slices.Contains(calls[0].Args, "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney)$") {
+		!slices.Contains(calls[0].Args, "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney|TestNativeVerificationResources)$") {
 		t.Fatalf("current-schema journey consumed the published predecessor: %#v", calls[0])
 	}
 	if !slices.Contains(calls[1].Env, "AIGW_ACCEPTANCE_BASELINE="+baseline) ||
@@ -84,14 +85,14 @@ func TestNativeClientSourceAcceptanceSelectsOneHostBuild(t *testing.T) {
 	request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "0"}
 	var stage string
 	calls := 0
-	err := acceptNative(request, "", true, "", func(call toolCall) error {
+	err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), true, "", func(call toolCall) error {
 		calls++
 		if calls == 1 {
-			if call.Name != "goreleaser" || !slices.Contains(call.Env, "AIGW_BUILD_OS="+runtime.GOOS) {
+			if call.Name != "goreleaser" || !slices.Contains(call.Env, "AIGW_BUILD_OS="+runtime.GOOS) || !slices.Contains(call.Env, "GH_TOKEN=") || !slices.Contains(call.Env, "CI_JOB_TOKEN=") {
 				t.Fatalf("client source acceptance selected wrong build: %#v", call)
 			}
 			stage = goReleaserStage(t, call.Args)
-			writeNativeArchive(t, stage)
+			writeNativeArchive(t, stage, "1.2.3")
 			return nil
 		}
 		if call.Name != "go" || !slices.Contains(call.Env, "AIGW_ACCEPTANCE_RELEASE="+stage) {
@@ -115,7 +116,7 @@ func TestBuildNativeRejectsInvalidInputsWithoutOwningCallerWorkspace(t *testing.
 				version = "invalid"
 			}
 			if failure != "changelog" {
-				if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## [Unreleased]\n\n## ["+version+"] - 2026-09-15\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
+				if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## Unreleased\n\n## "+version+" - 2026-09-15\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -175,7 +176,7 @@ func TestNativeArchivePreparationRequiresVerifiedBytes(t *testing.T) {
 	for _, scenario := range []string{"valid", "missing", "corrupt", "collision"} {
 		t.Run(scenario, func(t *testing.T) {
 			stage := t.TempDir()
-			writeNativeArchive(t, stage)
+			writeNativeArchive(t, stage, "1.2.3")
 			target := artifact.Target{OS: runtime.GOOS, Arch: runtime.GOARCH}
 			var err error
 			switch scenario {
@@ -210,11 +211,11 @@ func TestNativeClientAcceptanceSharesStageAndPropagatesFailure(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
 			source := t.TempDir()
-			writeNativeArchive(t, source)
+			writeNativeArchive(t, source, "1.2.3")
 			var stage string
 			var calls []toolCall
 			want := errors.New("acceptance failed")
-			err := acceptNative(request, source, true, "", func(call toolCall) error {
+			err := acceptNative(request, source, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), true, "", func(call toolCall) error {
 				if call.Name != "go" {
 					t.Fatalf("published client acceptance rebuilt artifacts: %#v", call)
 				}
@@ -232,7 +233,8 @@ func TestNativeClientAcceptanceSharesStageAndPropagatesFailure(t *testing.T) {
 				t.Fatalf("executed %d commands with stage %q", len(calls), stage)
 			}
 			for _, call := range calls {
-				if call.Directory != request.Root || !slices.Equal(call.Env, []string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + stage, "TMP=" + stage, "TEMP=" + stage, "AIGW_ACCEPTANCE_BASELINE="}) {
+				expected := append([]string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + stage, "TMP=" + stage, "TEMP=" + stage}, forgeCredentialOverrides()...)
+				if call.Directory != request.Root || !slices.Equal(call.Env, append(expected, "AIGW_ACCEPTANCE_BASELINE=")) {
 					t.Fatalf("acceptance lost stage ownership: %#v", call)
 				}
 			}
@@ -251,7 +253,7 @@ func TestNativeAcceptanceConsumesExistingArchives(t *testing.T) {
 		t.Run(fmt.Sprint(clients), func(t *testing.T) {
 			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
 			source := t.TempDir()
-			writeNativeArchive(t, source)
+			writeNativeArchive(t, source, "1.2.3")
 			before, err := os.ReadFile(filepath.Join(source, "checksums.txt"))
 			if err != nil {
 				t.Fatal(err)
@@ -259,7 +261,7 @@ func TestNativeAcceptanceConsumesExistingArchives(t *testing.T) {
 			var stage string
 			calls := 0
 			want := errors.New("acceptance failed")
-			err = acceptNative(request, source, clients, "", func(call toolCall) error {
+			err = acceptNative(request, source, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), clients, "", func(call toolCall) error {
 				if call.Name != "go" {
 					t.Fatalf("existing artifact acceptance rebuilt: %#v", call)
 				}
@@ -292,21 +294,22 @@ func TestNativeAcceptanceConsumesExistingArchives(t *testing.T) {
 
 func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 	for _, test := range []struct {
-		name   string
-		failAt int
-		emit   bool
+		name    string
+		failAt  int
+		emit    bool
+		clients bool
 	}{
-		{"success", 0, true}, {"lifecycle failure", 1, false},
-		{"performance failure", 2, false}, {"missing results", 0, false},
+		{"success", 0, true, false}, {"performance failure", 1, false, false},
+		{"missing results", 0, false, false}, {"explicit clients and performance", 0, true, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
 			source := t.TempDir()
-			writeNativeArchive(t, source)
+			writeNativeArchive(t, source, "1.2.3")
 			output := filepath.Join(t.TempDir(), "measurements")
 			var stage string
 			calls := 0
-			err := acceptNative(request, source, false, output, func(call toolCall) error {
+			err := acceptNative(request, source, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), test.clients, output, func(call toolCall) error {
 				calls++
 				stage = strings.TrimPrefix(call.Env[0], "AIGW_ACCEPTANCE_RELEASE=")
 				if call.Name != "go" || call.Directory != request.Root || stage == source {
@@ -315,7 +318,7 @@ func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 				if calls == test.failAt {
 					return errors.New(test.name)
 				}
-				if calls == 1 {
+				if slices.Contains(call.Args, "^TestNativeClientJourney$") && test.clients && calls == 1 {
 					return nil
 				}
 				want := []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}
@@ -330,7 +333,7 @@ func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 				}
 				return os.WriteFile(filepath.Join(output, "summary.json"), []byte(`{"blocks":[{}]}`), 0o600)
 			})
-			if (err == nil) != test.emit {
+			if (err == nil) != test.emit || calls != map[bool]int{false: 1, true: 2}[test.clients] {
 				t.Fatalf("%s: %v", test.name, err)
 			}
 			if _, err := os.Stat(stage); !os.IsNotExist(err) {
@@ -348,7 +351,7 @@ func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 func TestNativePerformanceOutputAdmission(t *testing.T) {
 	for _, output := range []string{"relative-performance", t.TempDir()} {
 		request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
-		err := acceptNative(request, "", false, output, func(call toolCall) error {
+		err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), false, output, func(call toolCall) error {
 			t.Fatalf("invalid output admitted an external command: %#v", call)
 			return nil
 		})
@@ -358,18 +361,18 @@ func TestNativePerformanceOutputAdmission(t *testing.T) {
 	}
 }
 
-func writeNativeArchive(t *testing.T, stage string) {
+func writeNativeArchive(t *testing.T, stage, version string) {
 	t.Helper()
 	if err := os.MkdirAll(stage, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	target := artifact.Target{OS: runtime.GOOS, Arch: runtime.GOARCH}
-	archive := filepath.Join(stage, target.ArchiveName("1.2.3"))
+	archive := filepath.Join(stage, target.ArchiveName(version))
 	file, err := os.Create(archive)
 	if err != nil {
 		t.Fatal(err)
 	}
-	name := fmt.Sprintf("aigw_1.2.3_%s_%s/aigw", target.OS, target.Arch)
+	name := fmt.Sprintf("aigw_%s_%s_%s/aigw", version, target.OS, target.Arch)
 	payload := []byte("native candidate")
 	var entry io.Writer
 	closers := []io.Closer{file}

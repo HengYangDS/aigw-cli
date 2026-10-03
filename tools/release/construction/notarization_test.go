@@ -15,6 +15,15 @@ import (
 	"testing"
 )
 
+func TestMacOSDistributionRequiresExplicitIdentity(t *testing.T) {
+	if err := VerifyMacOSDistribution(t.Context(), t.TempDir(), "1.2.3", "", Notarization{}); err == nil {
+		t.Fatal("distribution accepted without explicit publisher")
+	}
+	if err := VerifyMacOSDistribution(t.Context(), t.TempDir(), "invalid", strings.Repeat("a", 40), Notarization{Archive: "upload.zip", SubmissionID: "submission", KeychainProfile: "profile"}); err == nil {
+		t.Fatal("invalid version accepted")
+	}
+}
+
 func TestNotarizationRequiresOneExplicitNativeAuthenticationMode(t *testing.T) {
 	for _, test := range []struct {
 		name    string

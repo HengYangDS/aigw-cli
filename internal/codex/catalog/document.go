@@ -62,30 +62,52 @@ func (d Document) Model(slug string) map[string]json.RawMessage {
 	return entry
 }
 
-// Project adds the complete bundled table under the uniquely proven namespace.
-// A known, unknown or ambiguous model requires no projection and returns nil.
-// The returned base identifies the selected alias without another parse or guess.
-func (d Document) Project(model string) ([]byte, string) {
-	namespace, ok := d.namespace(model)
-	if !ok {
+// Project adapts a uniquely proven namespace or aliases one exact canonical model.
+// It returns nil when the selected id is already native or its base is unproved.
+func (d Document) Project(model, canonicalModelID string) ([]byte, string) {
+	if model == "" {
 		return nil, ""
 	}
-	models := slices.Clone(d.models)
-	for _, slug := range slices.Sorted(maps.Keys(d.slugs)) {
-		alias := namespace + "." + slug
-		if _, present := d.slugs[alias]; present {
-			continue
-		}
-		entry := maps.Clone(d.models[d.slugs[slug]])
-		entry["slug"], _ = json.Marshal(alias)
-		models = append(models, entry)
+	if _, present := d.slugs[model]; present {
+		return nil, ""
 	}
+	namespace, namespaced := d.namespace(model)
+	if namespaced {
+		base := model[len(namespace)+1:]
+		if canonicalModelID != "" && canonicalModelID != base {
+			return nil, ""
+		}
+		models := slices.Clone(d.models)
+		for _, slug := range slices.Sorted(maps.Keys(d.slugs)) {
+			alias := namespace + "." + slug
+			if _, present := d.slugs[alias]; present {
+				continue
+			}
+			entry := maps.Clone(d.models[d.slugs[slug]])
+			entry["slug"], _ = json.Marshal(alias)
+			models = append(models, entry)
+		}
+		return d.withModels(models), base
+	}
+	if canonicalModelID == "" {
+		return nil, ""
+	}
+	entry := d.Model(canonicalModelID)
+	if entry == nil {
+		return nil, ""
+	}
+	entry["slug"], _ = json.Marshal(model)
+	return d.withModels(append(slices.Clone(d.models), entry)), canonicalModelID
+}
+
+// withModels serializes the original document with its model table replaced.
+func (d Document) withModels(models []map[string]json.RawMessage) []byte {
 	fields := maps.Clone(d.fields)
 	// Parse admits only valid JSON; private metadata and string aliases keep
 	// serialization infallible. Observation cannot mutate this document.
 	fields["models"], _ = json.Marshal(models)
 	data, _ := json.Marshal(fields)
-	return append(data, '\n'), model[len(namespace)+1:]
+	return append(data, '\n')
 }
 
 func (d Document) namespace(model string) (string, bool) {

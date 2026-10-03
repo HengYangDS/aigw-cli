@@ -86,16 +86,79 @@ func TestDoctorReportsCredentialObservationFailure(t *testing.T) {
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	want := errors.New("credential observation failed")
+	want := errors.New("credential observation failed at /private/account-store")
 	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: want}
 
 	if err := cli.Execute(app, []string{"doctor", "--json"}); err == nil {
 		t.Fatal(err)
 	}
-	for _, fragment := range []string{`"name": "secret:one"`, `"ok": false`, "credential backend failed", want.Error()} {
+	for _, fragment := range []string{`"name": "secret:one"`, `"ok": false`, `"detail": "credential backend is unavailable"`} {
 		if !strings.Contains(out.String(), fragment) {
 			t.Fatalf("doctor output lacks %q: %s", fragment, out.String())
 		}
+	}
+	if strings.Contains(out.String(), want.Error()) {
+		t.Fatalf("doctor exposed credential backend internals: %s", out.String())
+	}
+}
+
+func TestDoctorJSONDoesNotExposeConfigurationPath(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	bad := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	app.Config = bad
+	if err := os.MkdirAll(bad.Path(), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"doctor", "--json"}); err == nil {
+		t.Fatal("doctor accepted an unreadable configuration")
+	}
+	var result struct {
+		Checks []struct {
+			Name   string `json:"name"`
+			Detail string `json:"detail"`
+			Fix    string `json:"fix"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), bad.Path()) {
+		t.Fatalf("doctor exposed configuration path: %s", out.String())
+	}
+	for _, check := range result.Checks {
+		if check.Name == "config" {
+			if check.Detail != "cannot read or validate configuration" || check.Fix != "inspect or restore the local configuration file" {
+				t.Fatalf("configuration diagnosis = %+v", check)
+			}
+			return
+		}
+	}
+	t.Fatal("doctor omitted the failed configuration check")
+}
+
+func TestDoctorJSONDoesNotExposeMissingCodexTarget(t *testing.T) {
+	app, out, secretStore, _, _ := testApp(t, "")
+	saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
+	cfg, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(t.TempDir(), "private-codex-target.toml")
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("one", "synthetic-test-token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"doctor", "--json"}); err == nil {
+		t.Fatal("doctor accepted a missing Codex target")
+	}
+	if strings.Contains(out.String(), target) {
+		t.Fatalf("doctor exposed Codex target path: %s", out.String())
+	}
+	if !strings.Contains(out.String(), `"codex:target-1"`) || !strings.Contains(out.String(), `"next_action": "aigw sync"`) {
+		t.Fatalf("doctor omitted the Codex recovery decision: %s", out.String())
 	}
 }
 
@@ -138,7 +201,7 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	if err == nil {
 		t.Fatalf("doctor --json error = %v", err)
 	}
-	if !strings.Contains(out.String(), `"codex:target-1"`) || !strings.Contains(out.String(), "model selection") || !strings.Contains(out.String(), `"ok": false`) {
+	if !strings.Contains(out.String(), `"codex:target-1"`) || !strings.Contains(out.String(), "Codex configuration target does not match selected binding") || !strings.Contains(out.String(), `"ok": false`) {
 		t.Fatalf("doctor output = %s", out.String())
 	}
 }
@@ -255,9 +318,24 @@ func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic
 	if err := cli.Execute(app, []string{"doctor", "--json"}); err == nil {
 		t.Fatalf("doctor --json error = %v", err)
 	}
-	if !strings.Contains(out.String(), `"codex:target-1"`) || !strings.Contains(out.String(), "Codex config AIGW state is missing") {
-		t.Fatalf("doctor JSON diagnostic changed = %s", out.String())
+	var result struct {
+		Checks []struct {
+			Name   string `json:"name"`
+			Detail string `json:"detail"`
+		} `json:"checks"`
 	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	for _, check := range result.Checks {
+		if check.Name == "codex:target-1" {
+			if check.Detail != "Codex configuration target does not match selected binding" {
+				t.Fatalf("doctor JSON diagnostic = %+v", check)
+			}
+			return
+		}
+	}
+	t.Fatalf("doctor JSON omitted the Codex target check: %s", out.String())
 }
 
 func TestDoctorHumanOutputNeverExposesRawEnvironmentFixText(t *testing.T) {
@@ -329,8 +407,8 @@ func TestDoctorFormatsPreserveTheDiagnosticOutcome(t *testing.T) {
 	}{
 		{name: "unconfigured text", nextAction: "aigw setup", continuations: 1},
 		{name: "unconfigured JSON", jsonMode: true, nextAction: "aigw setup"},
-		{name: "configured text", configured: true, nextAction: "aigw sync", continuations: 1},
-		{name: "configured JSON", configured: true, jsonMode: true, nextAction: "aigw sync"},
+		{name: "configured text", configured: true, nextAction: "Install Claude if needed, then run `aigw sync`", continuations: 1},
+		{name: "configured JSON", configured: true, jsonMode: true, nextAction: "Install Claude if needed, then run `aigw sync`"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")

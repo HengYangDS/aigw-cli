@@ -6,7 +6,6 @@ import (
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
-	"fmt"
 	"io"
 	"os"
 )
@@ -21,10 +20,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	app, err := cli.NewDefault()
 	if err != nil {
+		renderer := presentation.New(stderr, false)
 		if len(args) > 0 && args[0] == "credential" {
-			presentation.RenderCredentialError(presentation.New(stderr, false), err)
+			presentation.RenderCredentialError(renderer, err)
 		} else {
-			_, _ = fmt.Fprintln(stderr, "aigw:", err)
+			presentation.RenderError(renderer, presentation.ProblemError(
+				"Cannot initialize AIGW", "", "The command did not start.",
+				"Check AIGW's environment and selected credential backend, then retry.", err,
+			), false)
 		}
 		return 1
 	}

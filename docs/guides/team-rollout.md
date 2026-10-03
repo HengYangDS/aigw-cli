@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:team-rollout
+role: how-to
+state: canonical
+relations:
+  canonical_for: team setup and rollout
+---
+-->
+
 # Team Rollout
 
 A team distributes reviewed public configuration; each member supplies Tokens
@@ -99,204 +109,53 @@ Catalogue refresh performs none of those transitions.
 
 ### Reviewed model defaults
 
-The catalogue contains only GPT-6 Astra, Sol, and Luna in the GPT family and
-Claude Fable 5.1, Opus 5.5, and Sonnet 5 in the Claude family. Each other
-admitted vendor keeps one general logical Model globally, with separately
-evidenced Routes: Cohere Command A, Grok 4.7, Gemini 3.1 Pro Preview,
-DeepSeek V4.1 Flash, Doubao Seed 2.1 Pro 260628, ERNIE 5.1, Qwen 3.8 Max,
-GLM 5.3, Kimi K3,
-Hunyuan HY3, Ling 3.0 Flash, LongCat 2.0, Mercury 2.5, MiMo V2.6 Pro,
-MiniMax M3, Mistral Large 3, Meta Muse Spark 1.3, NVIDIA Nemotron 3 Ultra,
-Poolside Laguna S 2.1, Solar Pro 4, and Step 3.7 Flash.
+The tracked [team manifest](../../manifests/team.toml) is the current Route
+inventory. It selects Astra, Luna, and GPT-6.1 Sol, three Claude models, and one reviewed
+general Model per other admitted vendor; the [dated qualification
+evidence](../research/provider-model-qualification.md) explains the observed
+IDs, protocol tests, exclusions, and limits. A catalogue listing is not a live
+Route or native-client availability guarantee.
 
-At the September 25, 2026 read, the public
-[AIHubMix](https://api.inferera.com/v1/models) and
-[UCloud](https://api.modelverse.cn/v1/models) endpoints returned 416 and 132
-IDs respectively. This is a dated provider listing, not Route inference or a
-claim that private catalogues contain no further models. OpenAI/Openai,
-InclusionAI/Inclusionai, and ByteDance/Doubao owner labels refer to the same
-vendors; Llama entries belong to Meta, already represented by Muse Spark.
-Those labels do not create extra general-model slots.
+Claude Code and Claude Desktop recommend DMXAPI Opus 5.5 before UCloud Opus 5.5.
+Codex recommends DMXAPI's GPT-6.1 Sol CDX Route before UCloud GPT-6.1 Sol;
+Hermes recommends DMXAPI's base GPT-6.1 Sol Route before the UCloud base Route.
+AIHubMix Routes remain available but are manual-only, not automatic alternatives.
+The Codex and Hermes DMXAPI Routes bind to the same canonical Model, but are
+distinct Routes. A shared model name does not make every Account/client pair
+interchangeable. A sole DMXAPI or UCloud Account is enough for the declared
+recommendation; select an AIHubMix Route explicitly with `aigw use --for`.
+Luna remains separately selectable, not an automatic recovery Route when the
+selected provider later fails.
+A local Account endpoint override is not silently replaced by the team's
+direct endpoint. Re-importing the team manifest
+against that differing Account fails closed; inspect it with
+`aigw config export` and replace the Account only when intentionally adopting
+the team's direct endpoint.
 
-The public
-AIHubMix catalogue also lists Cohere Command A+ and Microsoft's MAI Thinking 1.
-Command A+ returned HTTP 400 on the tested Responses and Chat endpoints;
-Microsoft documents MAI Thinking 1 as preview. Step 5 Preview is also outside
-the stable-model selection. These listings are not admitted Routes.
+Codex can run a compatible Responses Route even when the model is absent
+from its native `/model` chooser. Select it with
+[`aigw use --for codex`](../../README.md#use-it-every-day), then verify through
+Codex; the [dated client observation](../research/provider-model-qualification.md#codex-native-chooser)
+does not establish current upstream availability. For an AIGW-managed custom
+Provider, AIGW uses the installed Codex client's complete native catalog when
+no exact projection can be produced for the selected model. It never invents
+an entry for an unknown model or treats a provider `/models` response as
+Codex-native metadata.
+An explicit user-owned `model_catalog_json` may mask newer models bundled with
+Codex. AIGW preserves that setting; if Codex reports fallback model metadata,
+review the catalog before deliberately updating or removing it.
 
-AIHubMix's `agnes-3.0-flash` returned Chat text, but the [model card](https://huggingface.co/Agnes-AI/Agnes-3.0-Flash)
-calls it a preview, so it is not admitted. `intern-s2-free` also returned Chat
-text, but that aggregator alias is not bound to the exact current InternAI
-model version in the [vendor's model guide](https://internlm.intern-ai.org.cn/docEn/docs/Models/).
-
-Specialized, small, preview, or unidentified public catalogue entries from
-Jina AI, Liquid, Dots Studio, Sao10k, and Stealth are not general-model Routes.
-
-MiniMax M3 has AIHubMix and UCloud Routes; its DMXAPI candidate timed out.
-Muse Spark 1.3 has an AIHubMix Route only; DMXAPI's unrelated Spark IDs are
-not Meta models, and no UCloud Muse Route was observed.
-
-Model entries carry identity only; client-scoped
-recommendations express preference without a global benchmark or cost claim.
-
-All three configured Accounts listed the retained September 21 set in
-authenticated catalogue observations, and their selected protocols completed
-minimal inference calls at that time. On September 23, 2026, UCloud also
-listed `gpt-6-sol` and `gpt-6-luna`; both completed minimal OpenAI Responses
-requests. On September 25, all three Accounts completed minimal authenticated
-Opus 5.5 requests; AIHubMix and UCloud also completed GPT-6 Sol requests.
-DMXAPI GPT-6 Sol previously completed through the locally configured Proxy
-transport and once through its direct Responses endpoint. Repeated direct
-requests on September 25 returned HTTP 503, so release 0.3.1 omitted that
-Route. Two later direct Responses requests completed with text, so the current
-repository manifest restores it as a setup alternative, not a claim of
-sustained availability or runtime failover. AIHubMix and DMXAPI GPT-6 Luna also
-completed exact Responses requests; all three Accounts have evidenced Luna
-Routes. Existing local Route and Client Binding state remains separate and is
-not rewritten by this catalogue change.
-
-The earlier two rejected UCloud Opus IDs remain historical observations.
-Catalogue membership and one successful text call remain narrower than complete tool, streaming,
-long-context, cost, or latency qualification.
-
-DMXAPI's retained CC, SSVIP, and CDX channels remain separate Routes within
-the Claude and GPT families. Each Route retains its exact wire ID while its
-`model` names the base logical Model; a channel is not another logical model.
-Other Accounts use their ordinary model identifiers. Channel names are not
-substitutes for the native model selected in an existing Codex conversation.
-
-The reviewed [DMXAPI public catalogue](https://rmb.dmxapi.cn/) listed ordinary
-and CC Fable 5.1, ordinary/CC/SSVIP Sonnet 5, and ordinary/CDX/SSVIP GPT-6
-Astra. The current manifest keeps those previously qualified channels. Opus 5
-channels are outside the requested logical set; no Opus 5.5 channel has been
-admitted. An unauthenticated DMXAPI model request returning 401 establishes
-neither presence nor absence of an individual model.
-
-The public AIHubMix `/v1/models` response observed on September 24, 2026,
-listed Opus 5.5, all three GPT-6 IDs, `minimax-m3`,
-`deepseek-v4.1-flash`, and Doubao Seed 2.1 Pro. UCloud's public
-`/v1/models` response listed `MiniMax-M3`, `deepseek-v4.1-flash`, Doubao
-Seed 2.1 Pro, and `MiniMax-H3-Max`. These listings are discovery evidence,
-not newly qualified Routes.
-
-A second read on September 24, 2026 at 10:28 UTC returned 416
-[AIHubMix catalogue IDs](https://api.inferera.com/v1/models) and 132
-[UCloud catalogue IDs](https://api.modelverse.cn/v1/models). AIHubMix also
-listed `cc-minimax-m3`, `coding-minimax-m3`, and `grok-4.7`. The public UCloud
-response listed no GPT-6 or Claude IDs; that omission does not contradict
-prior authenticated UCloud inference. Neither catalogue identifies a model's
-protocol, and a prefixed MiniMax wire ID is not a separate logical Model by
-itself.
-
-MiniMax's [H3 announcement](https://www.minimax.io/blog/minimax-h3)
-describes a multimodal generation model that outputs video with sound. H3
-family names in a provider catalogue are not evidence of a general text
-model. Its [M3 announcement](https://www.minimax.io/blog/minimax-m3)
-positions M3 as an LLM for coding and agentic work. AIHubMix's `minimax-m3`
-and UCloud's `MiniMax-M3` completed bounded text inference; DMXAPI's
-`MiniMax-M3` timed out and remains unadmitted.
-
-DeepSeek's [V4.1 Flash announcement](https://www.deepseek.com/en/news/deepseek-v4-1-flash/)
-claims benchmark results ahead of V4 Pro and says `deepseek-v4-pro` requests
-on DeepSeek's own API now route to V4.1 Flash. That does not establish what
-an aggregator serves for `deepseek-v4-pro-0813`. The exact
-`deepseek-v4.1-flash` ID completed bounded text inference on all three
-Accounts, so it replaces V4 Pro 0813 in the shipped one-DeepSeek catalogue.
-Existing explicit local selections of the old Route are not deleted by a
-manifest import. Do not rank model quality from `Pro`, `Max`, or `Flash` in an ID.
-
-ByteDance [positions Seed2.1](https://seed.bytedance.com/en/seed2_1) for
-general agent and coding work. All three Accounts completed bounded text
-inference for `doubao-seed-2-1-pro-260628`, the exact version listed in their
-catalogues. A newer `260915` appears in the vendor's documentation but was
-not listed by these Accounts, so the shipped Route does not claim it.
-
-Meta [positions Muse Spark 1.3](https://research.meta.ai/blog/introducing-muse-spark-1-3)
-for general agentic and coding tasks. AIHubMix listed the exact
-`muse-spark-1.3` ID. A 16-token Responses probe returned HTTP 200 but an
-incomplete result without output. One earlier 128-token call completed, but
-later short `ping` calls at that cap were incomplete; a 512-token explicit
-short-answer request completed with text. The bounded AIGW probe now allows
-512 output tokens and still rejects an incomplete HTTP 200 response.
-
-Xiaomi's [MiMo model guide](https://mimo.mi.com/docs/en-US/quick-start/summary/model)
-recommends `mimo-v2.6-pro` for complex projects and long-running work; its
-[V2.6 release](https://mimo.mi.com/docs/en-US/news/latest/v2-6) describes Pro
-as the stronger model in that series. The exact lower-case ID returned
-completed text through the configured AIHubMix and UCloud Responses endpoints
-on September 25. A later AIHubMix `ping` call was incomplete even at 512
-tokens, while the explicit short-answer request completed. No DMXAPI MiMo
-Route was inferred from those observations.
-
-Baidu [positions ERNIE 5.1](https://ernie.baidu.com/blog/posts/ernie-5.1-0508-release/)
-as its current general reasoning model; the exact AIHubMix Responses ID
-completed with text at a 512-token cap. Mistral calls
-[Large 3](https://mistral.ai/news/mistral-3/) its most capable general model;
-the exact AIHubMix Chat Completions ID completed with text. The same configured
-AIHubMix Chat endpoint produced text for NVIDIA's
-[Nemotron 3 Ultra](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16),
-Upstage's [Solar Pro 4](https://www.upstage.ai/blog/en/solar-pro-4),
-Inception's [Mercury 2.5](https://www.inceptionlabs.ai/blog/introducing-mercury-2-5),
-Meituan's [LongCat 2.0](https://huggingface.co/meituan-longcat/LongCat-2.0),
-Tencent's [HY3](https://huggingface.co/tencent/Hy3),
-StepFun's [Step 3.7 Flash](https://huggingface.co/stepfun-ai/Step-3.7-Flash),
-and InclusionAI's [Ling 3.0 Flash](https://huggingface.co/inclusionAI/Ling-3.0-flash).
-The Nemotron wire ID carries AIHubMix's `-free` channel suffix; it is one
-canonical NVIDIA Model, not a second logical model.
-
-Cohere's [Command A guide](https://docs.cohere.com/docs/command-a) identifies
-`command-a-03-2025` as a general agent model. AIHubMix completed Chat text
-inference for that exact ID. Its newer listed Command A+ returned HTTP 400
-on both tested protocols, so Command A is the strongest completed Cohere Route
-on this configured Account, not a claim about Cohere's overall strongest model.
-Poolside [positions Laguna S 2.1](https://poolside.ai/blog/introducing-laguna-s-2-1)
-for long-horizon agentic coding; its [model card](https://huggingface.co/poolside/Laguna-S-2.1)
-also documents text-to-text Chat use. It is the strongest S/XS model listed
-by AIHubMix, and its exact `laguna-s-2.1` Chat Route completed text inference.
-
-xAI's current [model guide](https://docs.x.ai/developers/models) calls Grok
-4.7 its flagship for code and other general tasks. The exact `grok-4.7`
-Responses ID completed text inference on AIHubMix, DMXAPI, and UCloud, so it
-replaces Grok 4.6 without losing Account coverage. Existing explicit local
-bindings to Grok 4.6 are not silently rewritten by the team manifest.
-
-UCloud returned a 200 response with nonstandard `response` and `type` fields
-for `glm-5.3` on `/v1/responses`, without a completed Responses output.
-Its `/v1/chat/completions` endpoint returned standard assistant text at 512
-tokens, so the UCloud GLM Route declares Chat Completions only.
-
-AIHubMix Gemini 3.1 Pro Preview timed out once at a 30-second transport limit,
-then returned completed text in 48 seconds with a longer bounded deadline.
-`aigw check` keeps endpoint-only attempts at five seconds and allows one
-60-second inference attempt; neither a timeout nor an HTTP 200 without usable
-output is reported as healthy.
-
-The public UCloud response is not a complete substitute for the earlier
-authenticated GPT and Claude observations. Admit any new Route only after a
-bounded noninteractive call to its exact Account, protocol, and wire model
-succeeds.
-
-The team recommends UCloud GPT-6 Sol for Codex and Hermes, then AIHubMix
-GPT-6 Sol, then direct DMXAPI GPT-6 Sol at setup. A sole connected DMXAPI
-Account therefore selects Sol; Luna remains separately selectable, not an automatic
-recovery route when Sol later fails. A local Proxy endpoint override is not
-silently replaced by the team's direct endpoint. Re-importing the team manifest
-against that differing local Account fails closed; inspect it with
-`aigw config export` and replace the Account only when intentionally leaving
-the Proxy route.
-
-Claude Code and Claude Desktop retain DMXAPI Opus 5.5 as the team default, with
-AIHubMix and UCloud alternatives. Recommendations are selectable, not automatic
-failover. AIHubMix uses the
-[documented backup API domain](https://docs.aihubmix.com/en/quick-start),
+Recommendations apply only to unselected clients at setup or sync; they do not
+switch a running request or replace an explicit Client Binding. AIHubMix uses the
+[documented API endpoint](https://docs.aihubmix.com/en/quick-start),
 `api.inferera.com`: `/v1` is the Responses and Chat Completions base path; the
 Anthropic base is the domain root. A successful minimal request remains narrower than full real-client
 tool, continuation, streaming, and long-context acceptance.
 
-The recommendation applies when its Account is connected. With another
-Account, setup prefers the same model if that Account offers it, otherwise an
-available Route for that client. No provider Token is mandatory, and an
-import preserves existing personal Client Bindings.
+Setup selects only a usable declared primary Route or ordered alternative.
+Other Routes remain available for explicit use, not automatic fallback by
+Model or identifier. No provider Token is mandatory, and import preserves
+existing personal Client Bindings.
 
 Reasoning effort remains a native client preference, outside manifest schema
 version 7. The team preference is `medium`: set `model_reasoning_effort = "medium"`
@@ -330,15 +189,17 @@ provider's maximum context capacity or prove that compaction has executed.
 
 ### Client compatibility
 
-Check `codex --version` or `claude --version` and run `aigw verify --for <client>`
-before rollout. A provider may require a newer client even when an API request
-works. Update through the existing installation owner rather than adding a
-second executable. Claude Code's
+Check `codex --version`, `claude --version`, or `hermes --version` for the
+installed CLI, then run `aigw verify --for <client>` for each enabled client
+before rollout. Claude Desktop needs separate application-version and native
+verification evidence. A provider may require a newer client even when an API
+request works. Update through the existing installation owner rather than
+adding a second executable. Claude Code's
 [`stable` and `latest` channels](https://code.claude.com/docs/en/setup#update-claude-code)
 are distinct; choose deliberately when compatibility requires a channel change.
-The recommended [Fable 5.1](https://code.claude.com/docs/en/model-config#work-with-fable)
+The selectable [Fable 5.1](https://code.claude.com/docs/en/model-config#work-with-fable)
 requires Claude Code **2.1.257 or later**. A passing Sonnet request on an older
-client does not qualify the Fable recommendation; verify the selected Route
+client does not qualify the Fable Route; verify the selected Route
 with the actual client version that team members will use.
 
 A successful short request proves only that client, Route and invocation.
@@ -353,8 +214,8 @@ The examples below use `aigw` after its installed directory is on `PATH`; the
 installed executable's explicit path works with the same arguments. Importing
 team configuration does not install the program or change shell discovery.
 
-Import the reviewed catalogue without requiring every provider Token or either
-supported client. Save the maintainer's `team.toml` in the current directory,
+Import the reviewed catalogue without requiring every provider Token or any
+installed client. Save the maintainer's `team.toml` in the current directory,
 or pass its actual path to `--from`:
 
 ```bash
@@ -378,9 +239,11 @@ aigw setup --from team.toml --account dmxapi
 aigw check
 ```
 
-The interactive command prompts only for the selected Account. Automation may
-pipe exactly one Token by adding `--token-stdin`; it must keep `--account` so
-the Token owner is explicit. The input is read through EOF and is limited to
+The interactive command prompts only for the selected Account with a writable
+backend. In read-only `env` mode, set `AIGW_TOKEN_DMXAPI` in the invoking process;
+`--token-stdin` cannot store it. With a writable backend, automation may pipe
+exactly one Token by adding `--token-stdin`; it must keep `--account` so the
+Token owner is explicit. The input is read through EOF and is limited to
 64 KiB, including an optional terminal LF or CRLF. A Token contains only visible
 ASCII characters; embedded whitespace, extra lines and control characters fail
 before validation or storage.
@@ -400,8 +263,11 @@ canonical envelope, validates the decoded Token, and rejects malformed or nested
 encoding before HTTP. It does not infer a format, recursively decode, or rewrite
 Keychain items. Linux and Windows native stores do not imply this macOS format.
 
-If the catalogue is already imported, do not repeat setup. Add or replace one
-Account Token, then select its Route:
+If the catalogue is already imported, do not repeat setup. With the
+environment backend, supplying one compatible Account variable and running
+`aigw sync` selects unbound reviewed recommendations and projects available
+clients. With a writable backend, store the Token and select its Route
+explicitly:
 
 ```bash
 aigw rotate dmxapi
@@ -416,6 +282,23 @@ pass local diagnostics, but reports zero enabled clients and does not claim
 client or inference readiness. Neither command requires Tokens for unselected
 recommended Routes.
 
+If none is connected yet, setup, status, check, and sync preview present the
+same choice of compatible Accounts. A writable credential store names each
+`aigw rotate <account>` command; the environment backend names each variable.
+With a writable store, rotation only writes the Token; follow its explicit
+`aigw use --for ...` action to select a client Route. With the environment
+backend, set a compatible variable before synchronizing. Import alone does not
+make `aigw sync` useful work.
+
+When a Route is selected but its native client projection is deferred, setup,
+`use`, sync preview, status, check, and doctor retain that selection. If its
+Account Token is available, install the client if needed, then run `aigw sync`.
+If the Token has disappeared, restore that selected Account's Token first;
+the missing Token and deferred projection remain distinct in machine-readable
+status. `check` does not probe a provider until an enabled client has a usable
+projection; `doctor` can pass local diagnostics without claiming client
+readiness.
+
 Interactive `aigw use --for <client> <route>` can also prompt for that
 Account's missing Token. Interactive use may prompt for the client or Route;
 non-interactive use requires both explicitly. If the Token is already available
@@ -423,6 +306,43 @@ and the binding is unchanged, selection performs no writes. A cancelled or
 failed selection compensates its own credential writes; it preserves a newer
 credential and reports any incomplete recovery. An output error after commit
 does not undo the selection. Run `aigw status` before retrying.
+
+### Hermes protocol and model selection
+
+With Hermes installed and a connected DMXAPI Account using the team's direct
+Responses endpoint, select and verify its GPT-6.1 Sol Route without changing
+Codex or Claude bindings:
+
+```bash
+aigw use --for hermes dmxapi-gpt-6.1-sol
+aigw verify --for hermes
+```
+
+If this machine explicitly points the DMXAPI Account at an external Proxy,
+qualify that endpoint separately before selecting this Route; importing the
+team manifest does not silently replace the local endpoint.
+
+The Hermes projection includes compatible models from connected Accounts;
+selecting one active model does not remove the others. A Route may expose more
+than one protocol to Hermes. If no previous binding or team recommendation
+resolves that choice, interactive `use` asks which protocol to use;
+non-interactive use requires one explicitly:
+
+```bash
+aigw use --for hermes --protocol openai_responses <route>
+```
+
+The choice uses the same `anthropic`, `openai_responses`, and
+`openai_chat_completions` names as `team.toml`; AIGW never guesses from a Model
+name. Direct single-Route `setup` also accepts `--protocol` when more than one
+endpoint URL is supplied. Its `--chat-url` supplies an OpenAI Chat Completions
+endpoint for Hermes; the protocol is stored in that Client Binding.
+Guided single-Route setup and interactive selection validate the selected
+protocol and endpoint before activation. Manifest setup is declarative: it
+imports the catalogue and projects installed clients with a locally available
+Token without contacting the provider. This does not prove that the Token is
+accepted or that inference works. Run `aigw check` after import; it reports
+unreachable endpoints and rejected Tokens without exposing credential values.
 
 Rotation validates and replaces only the selected Account's Token. It does not
 select a Route, rewrite client configuration or invoke a native client. The
@@ -445,7 +365,7 @@ to use the client's own authentication:
 ```bash
 aigw sync
 aigw check
-aigw verify --for codex
+aigw verify --for <client>
 ```
 
 `aigw status` observes selection and projection readiness without client
@@ -459,7 +379,13 @@ human or JSON output. Use `aigw account diagnostics enable <account>` to configu
 and `aigw balance <account>` to request provider diagnostics. An unavailable
 balance service does not make a working Client Binding unhealthy.
 
-Claude Code and Account-Token Codex bindings use projection-matching helpers.
+For unattended setup, pipe one platform system-token line to
+`aigw account diagnostics enable <account> --system-token-stdin --user-id <id>`.
+This optional credential is separate from the Account API Token; incomplete
+flag pairs fail before standard input is read.
+
+Claude Code, Hermes, and Account-Token Codex bindings use
+projection-matching helpers.
 Changing Account or endpoint invalidates a retained helper invocation: run
 `aigw sync` and reload the client's configuration. The helper does not return a
 new Account's Token to a client retaining the old endpoint.
@@ -474,23 +400,61 @@ aigw config import manifest.toml
 ```
 
 Review the exported file against the incoming manifest before importing.
-`config import` applies a merge; it has no preview or JSON-output mode.
-Conflicting public metadata requires an explicit `--replace-account <id>` or
-`--replace-route <id>` after review. Tokens are neither exported nor replaced.
+Preview the exact merge before writing:
 
-| Collision                          | Default behavior     | Explicit action                          |
-| ---------------------------------- | -------------------- | ---------------------------------------- |
-| Same semantic Account/Route        | Reuse                | None                                     |
-| Same ID, different public metadata | Stop before mutation | Review and use the specific replace flag |
-| Local-only Route not in manifest   | Preserve             | Remove explicitly if obsolete            |
-| Existing Token                     | Preserve             | Rotate explicitly if required            |
+```bash
+aigw config import manifest.toml --dry-run --json
+```
+
+The preview uses the same merge validation as import. Its
+`projection_candidates` list identifies clients whose desired projection
+would change, not clients that have been written or verified. It does not read
+Tokens or write configuration or client files. An Account collision stops the
+preview until you choose which public metadata owns that Account. For example,
+if this machine intentionally routes DMXAPI through a local optional proxy,
+retain that local endpoint while importing team Routes:
+
+```bash
+aigw config import manifest.toml --keep-account dmxapi --dry-run --json
+aigw config import manifest.toml --keep-account dmxapi
+```
+
+`--keep-account <id>` retains all local public metadata for an Account present
+in both configurations; `--replace-account <id>` uses the incoming metadata.
+They cannot be combined for the same Account. Other conflicting Model or Route
+metadata requires its specific replacement flag after review. Tokens are
+neither exported nor replaced. Actual import also supports `--json`.
+Pass `--retire-route <id>` once per obsolete local Route to retire it in the
+same guarded import, rather than running one removal and projection per Route.
+Import rejects a missing Route, one still declared by the incoming manifest,
+or one selected by any client. It also rejects a retained recommendation that
+would reference a retired Route. Only Models left without a Route reference
+and absent from the incoming manifest are removed; Accounts and Tokens remain.
+The import reports public changes without guessing Token or client readiness;
+run `aigw status` for the selected Route's next step. Use `aigw setup --from`
+when guided team onboarding is wanted instead.
+
+If native client projection fails after a configuration write, AIGW reports
+whether it restored its configuration, not whether every client file was
+restored. Run `aigw doctor` before retrying.
+
+| Collision                               | Default behavior     | Explicit action                                           |
+| --------------------------------------- | -------------------- | --------------------------------------------------------- |
+| Same semantic Account/Route             | Reuse                | None                                                      |
+| Same Account ID, different metadata     | Stop before mutation | Review and choose `--keep-account` or `--replace-account` |
+| Same Model/Route ID, different metadata | Stop before mutation | Review and use the specific replace flag                  |
+| Local-only Route not in manifest        | Preserve             | `--retire-route <id>` after review                        |
+| Existing Token                          | Preserve             | Rotate explicitly if required                             |
 
 Import preserves existing client bindings and stores manifest recommendations
 separately. Importing a recommendation does not select it. First-time setup may
 bind recommendations to Routes reachable through the Accounts explicitly
-connected during that operation. `sync` never invents a binding; it reconciles
-only enabled bindings. An existing selection is preserved even if its Token is
-unavailable; use `aigw use --for <client> <route>` to change it explicitly.
+connected during that operation. Later `sync` may select an unbound reviewed
+recommendation when its Account Token appears in the read-only environment
+backend; it does not search unselected native credentials. An existing
+selection is preserved even if its Token is unavailable, and a manual-only
+Route is never selected automatically. Use `aigw use --for <client> <route>`
+to change a selection explicitly.
 Client-native authentication does not require an AIGW Token. Import reconciles
 enabled native projections through the ordinary guarded transaction; a failed
 projection leaves the import uncommitted.
@@ -504,8 +468,12 @@ local intent in AIGW's own configuration commands:
 ```bash
 aigw use --for <client> <route>
 aigw account edit <account> --openai-url <url>
-aigw route add <route> --account <account> --model <model>
+aigw route add <route> --account <account> --model <model> --protocol <protocol>
 ```
+
+`--model` names the canonical Model. If the provider requires another exact
+wire ID, including case or a channel suffix, add `--upstream-model <wire-id>`.
+Omitting it uses the canonical ID unchanged; AIGW does not infer aliases.
 
 `aigw use` changes only the named client binding. Account and Route commands
 change local configuration and are not written back into [distributed team manifest](../../manifests/team.toml).

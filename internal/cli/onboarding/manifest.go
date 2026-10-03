@@ -1,9 +1,9 @@
 package onboarding
 
 import (
+	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 	"context"
@@ -19,12 +19,13 @@ type manifestSetupImported struct {
 }
 
 type manifestSetupResult struct {
-	Imported          manifestSetupImported `json:"imported"`
-	ConnectedAccounts []string              `json:"connected_accounts"`
-	SelectedBindings  map[string]string     `json:"selected_bindings"`
-	ProjectedClients  []string              `json:"projected_clients"`
-	DeferredActions   []string              `json:"deferred_actions,omitempty"`
-	NextAction        string                `json:"next_action"`
+	Imported           manifestSetupImported `json:"imported"`
+	ConnectedAccounts  []string              `json:"connected_accounts"`
+	SelectedBindings   map[string]string     `json:"selected_bindings"`
+	ProjectedClients   []string              `json:"projected_clients"`
+	OnlineVerification string                `json:"online_verification"`
+	DeferredActions    []string              `json:"deferred_actions,omitempty"`
+	NextAction         string                `json:"next_action"`
 }
 
 func runManifestSetup(ctx context.Context, runtime invocation.Context, request Request) error {
@@ -81,18 +82,12 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	availableClients := manifestSetupAvailableClients(discovered.Executables)
 	selectedClients := manifestSetupSelectedClients(cfg, connected, availableClients)
 
-	for _, credential := range credentials {
-		if err := verifyManifestSetupCredential(ctx, runtime, cfg, credential.account, credential.token, selectedClients...); err != nil {
-			return fmt.Errorf("Token validation failed for Account %q: %w", credential.account, err)
-		}
-	}
-
 	cfg, err = invocation.Synchronizer(runtime).Setup(ctx, before, cfg, tokens, selectedClients...)
 	if err != nil {
 		return err
 	}
 
-	result := buildManifestSetupResult(runtime, cfg, accountNames, connected, availableClients, selectedClients)
+	result := buildManifestSetupResult(runtime, cfg, accountNames, request.Account, connected, selectedClients)
 	if request.JSON {
 		return presentation.WriteJSON(runtime.Out, result)
 	}
@@ -112,8 +107,8 @@ func buildManifestSetupResult(
 	runtime invocation.Context,
 	cfg configuration.Config,
 	accountNames []string,
+	selectedAccount string,
 	connected map[string]setupCredential,
-	availableClients map[string]bool,
 	selectedClients []string,
 ) manifestSetupResult {
 	result := manifestSetupResult{
@@ -121,21 +116,18 @@ func buildManifestSetupResult(
 			Accounts: append([]string(nil), accountNames...),
 			Routes:   cfg.RouteIDs(),
 		},
-		ConnectedAccounts: make([]string, 0, len(connected)),
-		SelectedBindings:  make(map[string]string, len(cfg.Clients)),
+		ConnectedAccounts:  make([]string, 0, len(connected)),
+		SelectedBindings:   make(map[string]string, len(cfg.Clients)),
+		OnlineVerification: "not_checked",
 	}
 	for _, client := range selectedClients {
 		if cfg.Clients[client].Enabled {
 			result.ProjectedClients = append(result.ProjectedClients, client)
 		}
 	}
-	var accountVariables []string
 	for _, name := range accountNames {
 		if _, isConnected := connected[name]; isConnected {
 			result.ConnectedAccounts = append(result.ConnectedAccounts, name)
-		}
-		if accountHasRecommendedTokenSelection(cfg, name) {
-			accountVariables = append(accountVariables, secrets.EnvironmentKey(name))
 		}
 	}
 	for client, binding := range cfg.Clients {
@@ -143,32 +135,30 @@ func buildManifestSetupResult(
 			result.SelectedBindings[client] = binding.Route
 		}
 	}
-	needsAccountToken := len(accountVariables) > 0
-	if needsAccountToken {
-		if secrets.IsReadOnly(runtime.Secrets) {
-			result.DeferredActions = append(result.DeferredActions, "Set one compatible Account variable: "+strings.Join(accountVariables, " or "))
-		} else {
-			result.DeferredActions = append(result.DeferredActions, "Connect one compatible Account")
-		}
+	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
+	explicitlyConnected := selectedAccount != "" && connected[selectedAccount].account != ""
+	if activation.CredentialPrerequisite != "" && !explicitlyConnected {
+		result.DeferredActions = append(result.DeferredActions, activation.CredentialPrerequisite)
 	}
 	for _, spec := range configuration.AdmittedClientSpecs() {
 		binding, selected := cfg.Clients[spec.ID]
 		if !selected || binding.Route == "" || !binding.Enabled || slices.Contains(result.ProjectedClients, spec.ID) {
 			continue
 		}
-		if !availableClients[spec.ID] {
-			result.DeferredActions = append(result.DeferredActions, "Install "+spec.Label+", then run `aigw sync`")
-			continue
+		if action := activation.ClientCredentialPrerequisites[spec.ID]; action != "" && !slices.Contains(result.DeferredActions, action) {
+			result.DeferredActions = append(result.DeferredActions, action)
 		}
-		result.DeferredActions = append(result.DeferredActions, "Connect the selected Account for "+spec.Label+", then run `aigw sync`")
+		if action := activation.ProjectionPrerequisites[spec.ID]; action != "" {
+			result.DeferredActions = append(result.DeferredActions, action)
+		}
 	}
-	switch {
-	case len(result.DeferredActions) == 0:
-		result.NextAction = "aigw check"
-	case needsAccountToken && !secrets.IsReadOnly(runtime.Secrets):
-		result.NextAction = "aigw rotate <account>"
-	default:
-		result.NextAction = "aigw sync"
+	if explicitlyConnected {
+		result.NextAction = clientactivation.NextActionAfterAccountConnection(cfg, selectedAccount)
+		if result.NextAction != "aigw check" && !slices.Contains(result.DeferredActions, result.NextAction) {
+			result.DeferredActions = append(result.DeferredActions, result.NextAction)
+		}
+	} else {
+		result.NextAction = activation.NextActionFor(nil)
 	}
 	return result
 }
@@ -205,9 +195,12 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 		spec, _ := configuration.ClientSpecFor(client)
 		r.Status(presentation.OK, spec.Label, "Projected")
 	}
+	r.Status(presentation.Info, "Online verification", "Not checked")
 	r.Success("Reviewed Accounts and Routes are available; Tokens remain outside configuration")
 	for _, detail := range result.DeferredActions {
-		r.Detail(detail)
+		if detail != result.NextAction {
+			r.Detail(detail)
+		}
 	}
 	r.Next(result.NextAction)
 }
@@ -221,7 +214,7 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg configurati
 	}
 	credentials := make([]setupCredential, 0, len(accountNames))
 	for _, name := range accountNames {
-		if !accountHasRecommendedTokenSelection(cfg, name) {
+		if selectedAccount == "" && !accountHasRecommendedTokenSelection(cfg, name) {
 			continue
 		}
 		credential := setupCredential{account: name}
@@ -308,29 +301,6 @@ func accountHasRecommendedTokenSelection(cfg configuration.Config, accountName s
 		}
 	}
 	return false
-}
-
-func verifyManifestSetupCredential(ctx context.Context, runtime invocation.Context, cfg configuration.Config, accountName, token string, selectedClients ...string) error {
-	type endpointKey struct {
-		endpoint string
-		protocol configuration.EndpointProtocol
-	}
-	verified := map[endpointKey]bool{}
-	for _, client := range selectedClients {
-		clientRuntime, resolveErr := cfg.ResolveRuntime(client, "")
-		if resolveErr != nil || clientRuntime.AccountID != accountName || !clientRuntime.RequiresAccountToken() {
-			continue
-		}
-		key := endpointKey{endpoint: clientRuntime.Endpoint, protocol: clientRuntime.Protocol}
-		if verified[key] {
-			continue
-		}
-		if err := credential.ValidateRuntime(ctx, runtime.HTTP, clientRuntime, token); err != nil {
-			return err
-		}
-		verified[key] = true
-	}
-	return nil
 }
 
 func manifestSetupSelectedClients(cfg configuration.Config, connected map[string]setupCredential, available map[string]bool) []string {

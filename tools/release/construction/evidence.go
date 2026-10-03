@@ -125,6 +125,12 @@ func normalizeDependencyEvidence(source, vulnerabilityTarget, licenseTarget stri
 			if len(item.Licenses) == 0 {
 				return fmt.Errorf("OSV dependency report has no license for %s %s", item.Package.Name, item.Package.Version)
 			}
+			for _, license := range item.Licenses {
+				switch strings.ToUpper(strings.TrimSpace(license)) {
+				case "", "UNKNOWN", "NOASSERTION", "NONE":
+					return fmt.Errorf("OSV dependency report has no established license for %s %s", item.Package.Name, item.Package.Version)
+				}
+			}
 			licenseSource.Packages = append(licenseSource.Packages, licensedDependency{dependencyIdentity: item.Package, Licenses: item.Licenses})
 			if len(item.Vulnerabilities) == 0 {
 				continue

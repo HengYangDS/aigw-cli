@@ -16,6 +16,14 @@ env:
       - main
   workflow_dispatch:
     inputs:
+      tool_source:
+        description: Locked upstream distribution or the selected peer's verified immutable tool copies
+        required: false
+        type: choice
+        default: upstream
+        options:
+          - upstream
+          - peer
       native_platform:
         description: Native platform to qualify; partial runs do not establish full release readiness
         required: false
@@ -37,7 +45,7 @@ env:
         type: boolean
         default: false
       macos_keychain:
-        description: With baseline_tag, qualify retained credentials in the disposable macOS Keychain
+        description: With baseline_tag, qualify only the published predecessor Keychain journey on disposable macOS
         required: false
         type: boolean
         default: false
@@ -52,8 +60,8 @@ env:
         type: boolean
         default: false
       commit_base:
-        description: Exclusive commit base for manual verification
-        required: true
+        description: Optional exclusive base; defaults to the selected commit's parent for manual diagnostics
+        required: false
         type: string
       baseline_tag:
         description: Optional historical release tag for packaged upgrade and rollback acceptance
@@ -83,24 +91,25 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
+        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
         env:
           GODEBUG: http2client=0
+          MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.9.11
+          version: 2026.9.18
           install: true
           install_args: --locked
-          cache: true
+          cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
       - name: Verify main and dev name the same product object
         run: mise exec --locked -- go run ./tools/forge refs --remote origin --expect "main=${{ github.sha }}" --expect "dev=${{ github.sha }}"
   quality:
-    name: Quality and governance
+    name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Quality and governance' || 'Quality and governance' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
-    if: github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev'
+    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')
     env:
-      MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee
+      MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -108,14 +117,15 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
+        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
         env:
           GODEBUG: http2client=0
+          MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.9.11
+          version: 2026.9.18
           install: true
           install_args: --locked
-          cache: true
+          cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
       - name: Prepare locked dependencies
         run: mise run bootstrap
@@ -130,19 +140,20 @@ jobs:
         run: mise exec --locked -- go run ./tools/forge tag --tag "$SELECTED_TAG" --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
       - name: Run quality and governance
         env:
-          CGO_ENABLED: "1"
-          AIGW_COMMIT_BASE: ${{ github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || inputs.commit_base }}
+          CGO_ENABLED: "0"
+          AIGW_COMMIT_BASE: ${{ github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || inputs.commit_base || format('{0}^', github.sha) }}
           AIGW_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
           AIGW_RELEASE_ALLOWED_SIGNERS_FILE: ${{ env.AIGW_RELEASE_ALLOWED_SIGNERS_FILE }}
           AIGW_CHANGELOG_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: mise exec --locked -- go run ./tools/ci quality
-  native-darwin:
-    name: Native macOS acceptance
-    runs-on: macos-26-intel
+  linux-secret-service:
+    name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Linux Secret Service' || 'Linux Secret Service' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
-    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'darwin')
+    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
     env:
-      MISE_ENABLE_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab,github:indygreg/apple-platform-rs' || 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee,github:indygreg/apple-platform-rs' }}
+      MISE_ENABLE_TOOLS: go,github:goreleaser/goreleaser
+      CGO_ENABLED: "0"
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -150,16 +161,82 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
+        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
         env:
           GODEBUG: http2client=0
+          MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.9.11
+          version: 2026.9.18
           install: true
           install_args: --locked
-          cache: true
+          cache: ${{ inputs.tool_source != 'peer' }}
+          cache_key_prefix: mise-${{ github.job }}
+      - name: Qualify Linux Secret Service
+        run: |-
+          sudo -n timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo -n DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
+          dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
+          gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
+          gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
+          result=$(AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./tools/release -run "^TestNativeProductJourney/system_credential_store$" -count=1 -v 2>&1) || {
+            printf '%s\n' "$result"
+            exit 1
+          }
+          printf '%s\n' "$result"
+          grep -Fq -- "--- PASS: TestNativeProductJourney/system_credential_store" <<<"$result"
+          AIGW_SECRET_SERVICE
+  release-version:
+    name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Release version' || 'Release version' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: github.ref_type == 'tag'
+    env:
+      MISE_ENABLE_TOOLS: go
+    steps:
+      - name: Check out the exact product commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Install the locked toolchain
+        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
+        env:
+          GODEBUG: http2client=0
+          MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
+        with:
+          version: 2026.9.18
+          install: true
+          install_args: --locked
+          cache: ${{ inputs.tool_source != 'peer' }}
+          cache_key_prefix: mise-${{ github.job }}
+      - name: Validate tag version
+        run: mise exec --locked -- go run ./tools/release validate-version-tag
+  native-darwin:
+    name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native macOS acceptance' || 'Native macOS acceptance' }}
+    runs-on: macos-26-intel
+    timeout-minutes: 25
+    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'darwin')
+    env:
+      MISE_ENABLE_TOOLS: ${{ (!(github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')) && 'go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs' || 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab,github:indygreg/apple-platform-rs' }}
+    steps:
+      - name: Check out the exact product commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Install the locked toolchain
+        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
+        env:
+          GODEBUG: http2client=0
+          MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
+        with:
+          version: 2026.9.18
+          install: true
+          install_args: --locked
+          cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
       - name: Prepare locked dependencies
+        if: github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == ''
         run: mise run bootstrap
       - name: Verify native lock resolution
         if: github.event_name == 'workflow_dispatch' && inputs.refresh_locks
@@ -178,7 +255,7 @@ jobs:
       - env:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
         name: Run native macOS acceptance
-        if: github.event_name != 'workflow_dispatch' || !inputs.full_quality
+        if: github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '')
         run: mise exec --locked -- go run ./tools/ci native --platform darwin
       - env:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
@@ -210,51 +287,28 @@ jobs:
           New-Item -ItemType Directory -Path $scope | Out-Null
           try {
             $platform = mise exec --locked -- go env GOOS
-            $architecture = mise exec --locked -- go env GOARCH
-            $extension = if ($platform -eq 'windows') { 'zip' } else { 'tar.gz' }
-            $pattern = "*_${platform}_${architecture}.${extension}"
-            gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
-            $archives = @(Get-ChildItem -Path $scope -Filter $pattern -File)
-            if ($archives.Count -ne 1) { throw 'Expected exactly one native release archive' }
-            $archive = $archives[0]
-            $entries = @(Get-Content (Join-Path $scope 'checksums.txt') | ForEach-Object {
-              $entry = $_ -split '\s+', 2
-              if ($entry.Count -eq 2 -and $entry[1].TrimStart('*') -eq $archive.Name) { $entry[0] }
-            })
-            $actual = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash
-            if ($entries.Count -ne 1 -or $entries[0] -notmatch '^[0-9a-fA-F]{64}$' -or $entries[0] -ne $actual) {
-              throw 'Historical release archive checksum mismatch'
-            }
-            tar -xf $archive.FullName -C $scope
-            $program = if ($platform -eq 'windows') { 'aigw.exe' } else { 'aigw' }
-            $executables = @(Get-ChildItem -Path $scope -Recurse -Filter $program -File)
-            if ($executables.Count -ne 1) { throw 'Expected exactly one historical executable' }
-            $env:AIGW_ACCEPTANCE_BASELINE = $executables[0].FullName
-            Write-Output "Historical release $env:AIGW_BASELINE_TAG archive SHA256=$actual"
-            $acceptance = @('accept-native')
+            $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = Join-Path $scope 'source-signers'
+            $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = Join-Path $scope 'artifact-signers'
+            [IO.File]::WriteAllText($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ALLOWED_SIGNERS)
+            [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
+            $acceptance = @('accept-native', '--peer', 'github', '--repository', $env:GITHUB_REPOSITORY)
+            $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG)
             if (-not [string]::IsNullOrWhiteSpace($env:AIGW_CANDIDATE_TAG)) {
-              $candidate = Join-Path $scope 'candidate'
-              New-Item -ItemType Directory -Path $candidate | Out-Null
-              mise exec --locked -- gh release download $env:AIGW_CANDIDATE_TAG --repo $env:GITHUB_REPOSITORY --dir $candidate
-              $env:CI_COMMIT_TAG = $env:AIGW_CANDIDATE_TAG
-              $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = Join-Path $scope 'source-signers'
-              $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = Join-Path $scope 'artifact-signers'
-              [IO.File]::WriteAllText($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ALLOWED_SIGNERS)
-              [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
-              $acceptance += @('--artifacts', $candidate)
+              $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG)
             }
+            $downloadToken = $env:GH_TOKEN
             Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
             if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
               $clients = Join-Path $scope 'clients'
               New-Item -ItemType Directory -Path $clients | Out-Null
               Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.154.0' '@anthropic-ai/claude-code-win32-x64@2.1.269'
+              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.159.3' '@anthropic-ai/claude-code-win32-x64@2.1.286'
               mise exec --locked -- npm audit signatures --prefix $clients
               $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
               $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
               $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-              $hermesCommit = '345cd2b057a452236de401d3534b8502a7465e8d'
-              $hermesInstallerDigest = '226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5'
+              $hermesCommit = 'f97608f178d1ffeca59860195ab7da295f7c8e5f'
+              $hermesInstallerDigest = '0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2'
               $hermesInstaller = Join-Path $env:RUNNER_TEMP 'aigw-hermes-install.ps1'
               $hermesHome = Join-Path $scope 'hermes'
               $hermesInstall = Join-Path $hermesHome 'hermes-agent'
@@ -291,6 +345,7 @@ jobs:
               }
               $acceptance += '--clients'
             }
+            $env:GH_TOKEN = $downloadToken
             if ($env:AIGW_MEASURE_PERFORMANCE -eq 'true') {
               $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine'
               $output = Join-Path $env:GITHUB_WORKSPACE 'build/performance'
@@ -305,7 +360,7 @@ jobs:
             } else {
               $env:GIT_CONFIG_GLOBAL = $originalGitConfigGlobal
             }
-            foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
+            foreach ($name in @('GH_TOKEN', 'AIGW_RELEASE_ALLOWED_SIGNERS_FILE', 'AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
               Remove-Item "Env:$name" -ErrorAction SilentlyContinue
             }
             if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
@@ -321,12 +376,12 @@ jobs:
           path: build/performance
           if-no-files-found: error
   native-linux:
-    name: Native Linux acceptance
+    name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native Linux acceptance' || 'Native Linux acceptance' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
-    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
+    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
     env:
-      MISE_ENABLE_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' || 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee' }}
+      MISE_ENABLE_TOOLS: ${{ (!(github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')) && 'go,gh,glab,github:goreleaser/goreleaser' || 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' }}
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -334,20 +389,25 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
+        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
         env:
           GODEBUG: http2client=0
+          MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.9.11
+          version: 2026.9.18
           install: true
           install_args: --locked
-          cache: true
+          cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
       - name: Prepare locked dependencies
+        if: github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == ''
         run: mise run bootstrap
       - name: Prepare native memory measurement
         if: github.event_name == 'workflow_dispatch' && inputs.performance
-        run: sudo -n timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update && sudo -n DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y time
+        run: |-
+          set -eu
+          sudo -n timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo -n DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y time
       - name: Verify native lock resolution
         if: github.event_name == 'workflow_dispatch' && inputs.refresh_locks
         env:
@@ -363,27 +423,13 @@ jobs:
             .mise/locks
           include-hidden-files: true
       - name: Run native Linux acceptance
-        if: github.event_name != 'workflow_dispatch' || !inputs.full_quality
+        if: github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '')
         run: mise exec --locked -- go run ./tools/ci native --platform linux
       - env:
           CGO_ENABLED: "1"
         name: Qualify all repository tools on Linux
         if: github.event_name == 'workflow_dispatch' && inputs.full_quality
         run: mise exec --locked -- go run ./tools/ci native --platform linux --full-quality
-      - name: Qualify Linux Secret Service
-        run: |-
-          sudo -n timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
-          sudo -n DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
-          dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
-          gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
-          gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-          result=$(AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./tools/release -run "^TestNativeProductJourney/system_credential_store$" -count=1 -v 2>&1) || {
-            printf '%s\n' "$result"
-            exit 1
-          }
-          printf '%s\n' "$result"
-          grep -Fq -- "--- PASS: TestNativeProductJourney/system_credential_store" <<<"$result"
-          AIGW_SECRET_SERVICE
       - name: Run historical release acceptance
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)
         shell: pwsh
@@ -406,51 +452,28 @@ jobs:
           New-Item -ItemType Directory -Path $scope | Out-Null
           try {
             $platform = mise exec --locked -- go env GOOS
-            $architecture = mise exec --locked -- go env GOARCH
-            $extension = if ($platform -eq 'windows') { 'zip' } else { 'tar.gz' }
-            $pattern = "*_${platform}_${architecture}.${extension}"
-            gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
-            $archives = @(Get-ChildItem -Path $scope -Filter $pattern -File)
-            if ($archives.Count -ne 1) { throw 'Expected exactly one native release archive' }
-            $archive = $archives[0]
-            $entries = @(Get-Content (Join-Path $scope 'checksums.txt') | ForEach-Object {
-              $entry = $_ -split '\s+', 2
-              if ($entry.Count -eq 2 -and $entry[1].TrimStart('*') -eq $archive.Name) { $entry[0] }
-            })
-            $actual = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash
-            if ($entries.Count -ne 1 -or $entries[0] -notmatch '^[0-9a-fA-F]{64}$' -or $entries[0] -ne $actual) {
-              throw 'Historical release archive checksum mismatch'
-            }
-            tar -xf $archive.FullName -C $scope
-            $program = if ($platform -eq 'windows') { 'aigw.exe' } else { 'aigw' }
-            $executables = @(Get-ChildItem -Path $scope -Recurse -Filter $program -File)
-            if ($executables.Count -ne 1) { throw 'Expected exactly one historical executable' }
-            $env:AIGW_ACCEPTANCE_BASELINE = $executables[0].FullName
-            Write-Output "Historical release $env:AIGW_BASELINE_TAG archive SHA256=$actual"
-            $acceptance = @('accept-native')
+            $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = Join-Path $scope 'source-signers'
+            $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = Join-Path $scope 'artifact-signers'
+            [IO.File]::WriteAllText($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ALLOWED_SIGNERS)
+            [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
+            $acceptance = @('accept-native', '--peer', 'github', '--repository', $env:GITHUB_REPOSITORY)
+            $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG)
             if (-not [string]::IsNullOrWhiteSpace($env:AIGW_CANDIDATE_TAG)) {
-              $candidate = Join-Path $scope 'candidate'
-              New-Item -ItemType Directory -Path $candidate | Out-Null
-              mise exec --locked -- gh release download $env:AIGW_CANDIDATE_TAG --repo $env:GITHUB_REPOSITORY --dir $candidate
-              $env:CI_COMMIT_TAG = $env:AIGW_CANDIDATE_TAG
-              $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = Join-Path $scope 'source-signers'
-              $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = Join-Path $scope 'artifact-signers'
-              [IO.File]::WriteAllText($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ALLOWED_SIGNERS)
-              [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
-              $acceptance += @('--artifacts', $candidate)
+              $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG)
             }
+            $downloadToken = $env:GH_TOKEN
             Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
             if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
               $clients = Join-Path $scope 'clients'
               New-Item -ItemType Directory -Path $clients | Out-Null
               Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.154.0' '@anthropic-ai/claude-code-win32-x64@2.1.269'
+              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.159.3' '@anthropic-ai/claude-code-win32-x64@2.1.286'
               mise exec --locked -- npm audit signatures --prefix $clients
               $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
               $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
               $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-              $hermesCommit = '345cd2b057a452236de401d3534b8502a7465e8d'
-              $hermesInstallerDigest = '226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5'
+              $hermesCommit = 'f97608f178d1ffeca59860195ab7da295f7c8e5f'
+              $hermesInstallerDigest = '0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2'
               $hermesInstaller = Join-Path $env:RUNNER_TEMP 'aigw-hermes-install.ps1'
               $hermesHome = Join-Path $scope 'hermes'
               $hermesInstall = Join-Path $hermesHome 'hermes-agent'
@@ -487,6 +510,7 @@ jobs:
               }
               $acceptance += '--clients'
             }
+            $env:GH_TOKEN = $downloadToken
             if ($env:AIGW_MEASURE_PERFORMANCE -eq 'true') {
               $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine'
               $output = Join-Path $env:GITHUB_WORKSPACE 'build/performance'
@@ -501,7 +525,7 @@ jobs:
             } else {
               $env:GIT_CONFIG_GLOBAL = $originalGitConfigGlobal
             }
-            foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
+            foreach ($name in @('GH_TOKEN', 'AIGW_RELEASE_ALLOWED_SIGNERS_FILE', 'AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
               Remove-Item "Env:$name" -ErrorAction SilentlyContinue
             }
             if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
@@ -517,12 +541,12 @@ jobs:
           path: build/performance
           if-no-files-found: error
   native-windows:
-    name: Native Windows acceptance
+    name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native Windows acceptance' || 'Native Windows acceptance' }}
     runs-on: windows-2025
     timeout-minutes: 25
-    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'windows')
+    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'windows')
     env:
-      MISE_ENABLE_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' || 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab' }}
+      MISE_ENABLE_TOOLS: ${{ (!(github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')) && 'go,gh,glab,github:goreleaser/goreleaser' || 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' }}
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -530,16 +554,18 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
+        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
         env:
           GODEBUG: http2client=0
+          MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.9.11
+          version: 2026.9.18
           install: true
           install_args: --locked
-          cache: true
+          cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
       - name: Prepare locked dependencies
+        if: github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == ''
         run: mise run bootstrap
       - name: Verify native lock resolution
         if: github.event_name == 'workflow_dispatch' && inputs.refresh_locks
@@ -558,7 +584,7 @@ jobs:
       - env:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
         name: Run native Windows acceptance
-        if: github.event_name != 'workflow_dispatch' || !inputs.full_quality
+        if: github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '')
         run: mise exec --locked -- go run ./tools/ci native --platform windows
       - env:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
@@ -576,8 +602,8 @@ jobs:
         run: |-
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          $hermesCommit = '345cd2b057a452236de401d3534b8502a7465e8d'
-          $hermesInstallerDigest = '226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5'
+          $hermesCommit = 'f97608f178d1ffeca59860195ab7da295f7c8e5f'
+          $hermesInstallerDigest = '0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2'
           $metadata = mise exec --locked -- gh api "repos/NousResearch/hermes-agent/contents/scripts/install.ps1?ref=$hermesCommit" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $metadata.type -ne 'file' -or $metadata.encoding -ne 'base64') { throw 'Pinned Hermes installer metadata is unavailable' }
           $installer = Join-Path $env:RUNNER_TEMP 'aigw-hermes-install.ps1'
@@ -609,51 +635,28 @@ jobs:
           New-Item -ItemType Directory -Path $scope | Out-Null
           try {
             $platform = mise exec --locked -- go env GOOS
-            $architecture = mise exec --locked -- go env GOARCH
-            $extension = if ($platform -eq 'windows') { 'zip' } else { 'tar.gz' }
-            $pattern = "*_${platform}_${architecture}.${extension}"
-            gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
-            $archives = @(Get-ChildItem -Path $scope -Filter $pattern -File)
-            if ($archives.Count -ne 1) { throw 'Expected exactly one native release archive' }
-            $archive = $archives[0]
-            $entries = @(Get-Content (Join-Path $scope 'checksums.txt') | ForEach-Object {
-              $entry = $_ -split '\s+', 2
-              if ($entry.Count -eq 2 -and $entry[1].TrimStart('*') -eq $archive.Name) { $entry[0] }
-            })
-            $actual = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash
-            if ($entries.Count -ne 1 -or $entries[0] -notmatch '^[0-9a-fA-F]{64}$' -or $entries[0] -ne $actual) {
-              throw 'Historical release archive checksum mismatch'
-            }
-            tar -xf $archive.FullName -C $scope
-            $program = if ($platform -eq 'windows') { 'aigw.exe' } else { 'aigw' }
-            $executables = @(Get-ChildItem -Path $scope -Recurse -Filter $program -File)
-            if ($executables.Count -ne 1) { throw 'Expected exactly one historical executable' }
-            $env:AIGW_ACCEPTANCE_BASELINE = $executables[0].FullName
-            Write-Output "Historical release $env:AIGW_BASELINE_TAG archive SHA256=$actual"
-            $acceptance = @('accept-native')
+            $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = Join-Path $scope 'source-signers'
+            $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = Join-Path $scope 'artifact-signers'
+            [IO.File]::WriteAllText($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ALLOWED_SIGNERS)
+            [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
+            $acceptance = @('accept-native', '--peer', 'github', '--repository', $env:GITHUB_REPOSITORY)
+            $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG)
             if (-not [string]::IsNullOrWhiteSpace($env:AIGW_CANDIDATE_TAG)) {
-              $candidate = Join-Path $scope 'candidate'
-              New-Item -ItemType Directory -Path $candidate | Out-Null
-              mise exec --locked -- gh release download $env:AIGW_CANDIDATE_TAG --repo $env:GITHUB_REPOSITORY --dir $candidate
-              $env:CI_COMMIT_TAG = $env:AIGW_CANDIDATE_TAG
-              $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = Join-Path $scope 'source-signers'
-              $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = Join-Path $scope 'artifact-signers'
-              [IO.File]::WriteAllText($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ALLOWED_SIGNERS)
-              [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
-              $acceptance += @('--artifacts', $candidate)
+              $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG)
             }
+            $downloadToken = $env:GH_TOKEN
             Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
             if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
               $clients = Join-Path $scope 'clients'
               New-Item -ItemType Directory -Path $clients | Out-Null
               Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.154.0' '@anthropic-ai/claude-code-win32-x64@2.1.269'
+              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.159.3' '@anthropic-ai/claude-code-win32-x64@2.1.286'
               mise exec --locked -- npm audit signatures --prefix $clients
               $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
               $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
               $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-              $hermesCommit = '345cd2b057a452236de401d3534b8502a7465e8d'
-              $hermesInstallerDigest = '226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5'
+              $hermesCommit = 'f97608f178d1ffeca59860195ab7da295f7c8e5f'
+              $hermesInstallerDigest = '0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2'
               $hermesInstaller = Join-Path $env:RUNNER_TEMP 'aigw-hermes-install.ps1'
               $hermesHome = Join-Path $scope 'hermes'
               $hermesInstall = Join-Path $hermesHome 'hermes-agent'
@@ -690,6 +693,7 @@ jobs:
               }
               $acceptance += '--clients'
             }
+            $env:GH_TOKEN = $downloadToken
             if ($env:AIGW_MEASURE_PERFORMANCE -eq 'true') {
               $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine'
               $output = Join-Path $env:GITHUB_WORKSPACE 'build/performance'
@@ -704,7 +708,7 @@ jobs:
             } else {
               $env:GIT_CONFIG_GLOBAL = $originalGitConfigGlobal
             }
-            foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
+            foreach ($name in @('GH_TOKEN', 'AIGW_RELEASE_ALLOWED_SIGNERS_FILE', 'AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_HERMES', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH', 'UV_CACHE_DIR', 'GIT_TERMINAL_PROMPT')) {
               Remove-Item "Env:$name" -ErrorAction SilentlyContinue
             }
             if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {

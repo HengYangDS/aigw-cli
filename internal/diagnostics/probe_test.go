@@ -2,6 +2,7 @@ package diagnostics_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -19,6 +20,19 @@ func (f clientFunc) Do(r *http.Request) (*http.Response, error) { return f(r) }
 
 func response(status int, body string) *http.Response {
 	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body))}
+}
+
+func assertDiagnosticOmits(t *testing.T, result diagnostics.Result, forbidden ...string) {
+	t.Helper()
+	data, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fragment := range forbidden {
+		if strings.Contains(string(data), fragment) {
+			t.Fatalf("diagnostic exposed private content %q: %s", fragment, data)
+		}
+	}
 }
 
 func runtime() configuration.Runtime {
@@ -50,13 +64,39 @@ func TestProbeClassifiesUsefulFailureCauses(t *testing.T) {
 	}
 }
 
+func TestProbeSeparatesHardQuotaFromTransientRateLimit(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		body      string
+		kind      diagnostics.Kind
+		retryable bool
+	}{
+		{"insufficient quota code", `{"error":{"code":"insufficient_quota","message":"Current quota exceeded"}}`, diagnostics.QuotaExhausted, false},
+		{"quota exhausted code", `{"error":{"code":"quota_exhausted"}}`, diagnostics.QuotaExhausted, false},
+		{"insufficient balance", `{"message":"Insufficient balance"}`, diagnostics.QuotaExhausted, false},
+		{"exhausted balance", `{"message":"Balance exhausted"}`, diagnostics.QuotaExhausted, false},
+		{"exhausted credits", `{"message":"Credits exhausted"}`, diagnostics.QuotaExhausted, false},
+		{"rate limit code", `{"error":{"code":"rate_limit_exceeded","message":"Too many requests"}}`, diagnostics.RateLimited, true},
+		{"concurrency quota", `{"message":"Concurrency quota exhausted; retry later"}`, diagnostics.RateLimited, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := diagnostics.Probe(t.Context(), clientFunc(func(*http.Request) (*http.Response, error) {
+				return response(http.StatusTooManyRequests, test.body), nil
+			}), runtime(), "secret", diagnostics.ScopeEndpoint)
+			if result.Kind != test.kind || result.Retryable != test.retryable || result.Attempts != 1 || result.HTTPStatus != http.StatusTooManyRequests {
+				t.Fatalf("Probe() = %#v, want kind %s retryable %t", result, test.kind, test.retryable)
+			}
+		})
+	}
+}
+
 func TestProbeUsesModelsEndpointAndNeverReturnsCredential(t *testing.T) {
 	secret := "never-return-this-token"
 	var requestURL, authorization string
 	result := diagnostics.Probe(context.Background(), clientFunc(func(req *http.Request) (*http.Response, error) {
 		requestURL = req.URL.String()
 		authorization = req.Header.Get("Authorization")
-		return response(200, `{"data":[]}`), nil
+		return response(200, `{"data":"provider-private-marker"}`), nil
 	}), runtime(), secret, diagnostics.ScopeEndpoint)
 	if result.Kind != diagnostics.Healthy || requestURL != "https://service.test/v1/models" || authorization != "Bearer "+secret {
 		t.Fatalf("result=%#v url=%q auth=%q", result, requestURL, authorization)
@@ -64,19 +104,16 @@ func TestProbeUsesModelsEndpointAndNeverReturnsCredential(t *testing.T) {
 	if result.Summary != "Endpoint diagnostic returned a successful response" {
 		t.Fatalf("summary = %q", result.Summary)
 	}
-	if strings.Contains(result.Summary+result.Detail+result.Fix, secret) {
-		t.Fatalf("credential leaked: %#v", result)
-	}
+	assertDiagnosticOmits(t, result, secret, "provider-private-marker")
 }
 
-func TestProbeRedactsAnAccountTokenEchoedByTheEndpoint(t *testing.T) {
+func TestProbeDoesNotPublishProviderResponseContent(t *testing.T) {
 	secret := "aigw-test-account-token-never-leaks"
+	const fragment = "account-token-never"
 	result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
-		return response(http.StatusForbidden, `{"message":"rejected token aigw-test-account-token-never-leaks"}`), nil
+		return response(http.StatusForbidden, `{"message":"rejected token fragment account-token-never"}`), nil
 	}), runtime(), secret, diagnostics.ScopeEndpoint)
-	if strings.Contains(result.Detail, secret) {
-		t.Fatalf("endpoint response leaked Account Token: %#v", result)
-	}
+	assertDiagnosticOmits(t, result, fragment)
 }
 
 func TestProbeUsesEndpointNeutralFailures(t *testing.T) {
@@ -162,12 +199,27 @@ func TestProbeUsesEndpointNeutralFailures(t *testing.T) {
 }
 
 func TestProbeClassifiesNetworkFailure(t *testing.T) {
+	const privatePath = "/private/account-store"
 	result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
-		return nil, errors.New("dial tcp: network unreachable")
+		return nil, errors.New("dial tcp: network unreachable at " + privatePath)
 	}), runtime(), "secret", diagnostics.ScopeEndpoint)
 	if result.Kind != diagnostics.NetworkFailure || !result.Retryable {
 		t.Fatalf("result = %#v", result)
 	}
+	assertDiagnosticOmits(t, result, privatePath)
+}
+
+func TestProbeOmitsMalformedEndpointText(t *testing.T) {
+	selected := runtime()
+	selected.Endpoint = "://private-account-store"
+	result := diagnostics.Probe(t.Context(), clientFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("malformed endpoint reached the network")
+		return nil, nil
+	}), selected, "synthetic-token", diagnostics.ScopeEndpoint)
+	if result.Kind != diagnostics.EndpointMismatch || result.Attempts != 0 {
+		t.Fatalf("result = %#v", result)
+	}
+	assertDiagnosticOmits(t, result, "private-account-store")
 }
 
 func TestProbeBoundedDoesNotRetryCredentialRejection(t *testing.T) {
@@ -249,9 +301,7 @@ func TestProbeBoundedNeverReturnsCredential(t *testing.T) {
 	result := diagnostics.ProbeBounded(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 		return response(http.StatusUnauthorized, `{"message":"rejected aigw-stability-token-never-leaks"}`), nil
 	}), runtime(), secret, diagnostics.ScopeEndpoint)
-	if strings.Contains(result.Summary+result.Detail+result.Fix, secret) {
-		t.Fatalf("credential leaked: %#v", result)
-	}
+	assertDiagnosticOmits(t, result, secret)
 }
 
 type countingReadCloser struct {

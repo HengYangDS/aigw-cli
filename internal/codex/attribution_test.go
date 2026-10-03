@@ -200,6 +200,33 @@ func TestCanonicalCodexTargetPathResolvesAbsoluteAndSymlinkPaths(t *testing.T) {
 	}
 }
 
+func TestCanonicalCodexTargetPathIsStableBeforeCreation(t *testing.T) {
+	root := t.TempDir()
+	actual := filepath.Join(root, "real")
+	if err := os.Mkdir(actual, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(root, "alias")
+	if err := os.Symlink(actual, alias); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(alias, "new", "config.toml")
+	before, err := canonicalCodexTargetPath(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	after, err := canonicalCodexTargetPath(target)
+	if err != nil || before != after {
+		t.Fatalf("Codex target changed identity after creation: before %q, after %q, err %v", before, after, err)
+	}
+}
+
 func TestValidateDesiredCodexTargetRejectsUnknownSurface(t *testing.T) {
 	err := validateDesiredCodexTarget(TargetRef{SurfaceID: "invalid"})
 	if err == nil {

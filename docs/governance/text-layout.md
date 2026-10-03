@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:text-layout
+role: policy
+state: canonical
+relations:
+  canonical_for: repository text layout and formatting
+---
+-->
+
 # Text Layout Policy
 
 Repository-wide authoring and formatting policy for contributors. Product
@@ -13,6 +23,13 @@ Markdown authors separate distinct semantic paragraphs with one blank line.
 Headings, lists, tables, and fenced blocks also retain one blank line from
 adjacent prose. Formatter wrapping within one semantic paragraph does not create
 a new paragraph; Prettier owns that mechanical wrapping.
+
+Peer items in a list remain contiguous when every item contains only one
+paragraph, including wrapped tasks. A list with multiple paragraphs, a nested
+block, a table, or a fenced example may retain one blank separator between
+items. Do not remove blank lines that delimit those internal blocks or alter
+literal code. These constraints apply to current documents and active OpenSpec
+tasks, not immutable archives.
 
 ## Enforced byte invariants
 
@@ -80,6 +97,12 @@ checks exclude only official OpenSpec archive history. Mermaid syntax checks
 still include archived diagrams; that does not make their historical design
 current. Both adapters receive exact file inventories on standard input,
 preserve source bytes and require their checkout-local dependencies.
+
+Upstream blank-line rules cover block boundaries and repeated empty lines, but
+leave single-paragraph list spacing unconstrained. The existing
+[Markdown lint adapter](../../tools/ci/markdown/lint.mjs) extends that native
+rule API using its parsed list and paragraph tokens. The policy's `blank_lines`
+tag enables this narrow check; no second Markdown parser or formatter is added.
 
 OpenSpec owns document validation. The CI consumer admits its result only when
 the findings report identifies the requested checkout, covers `all` items in a

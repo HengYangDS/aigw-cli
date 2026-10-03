@@ -103,6 +103,58 @@ func TestMigrationRollbackUsesRetainedPredecessorWithoutTouchingCredentialsOrCli
 	}
 }
 
+func TestMigrationPreviewRollbackAndCurrentStatePreserveRetainedInputs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "configuration.toml")
+	target := filepath.Join(t.TempDir(), "client-settings")
+	if err := os.WriteFile(path, legacyMigrationFixture(t, target), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("user-owned client state\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	credentials := &observedSecretStore{Store: secrets.NewMemoryStore()}
+	out := &bytes.Buffer{}
+	runtime := invocation.Context{Config: configuration.NewStore(path), Secrets: credentials, Out: out, RenderOut: out, Width: 120}
+	if err := executeManifestCommand(newMigrateCommand(runtime)); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{"rollback preview", []string{"--dry-run", "--rollback"}, []string{"Configuration migration preview", "aigw config migrate --rollback"}},
+		{"current configuration", nil, []string{"Configuration is current", "No migration was required", "aigw check"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			out.Reset()
+			command := newMigrateCommand(runtime)
+			command.SetArgs(test.args)
+			if err := executeManifestCommand(command); err != nil {
+				t.Fatal(err)
+			}
+			for _, fragment := range test.want {
+				if !strings.Contains(out.String(), fragment) {
+					t.Fatalf("migration result lacks %q: %s", fragment, out)
+				}
+			}
+			if actual, err := os.ReadFile(path); err != nil || !bytes.Equal(actual, before) {
+				t.Fatalf("migration changed current configuration: %v", err)
+			}
+		})
+	}
+	if data, err := os.ReadFile(target); err != nil || string(data) != "user-owned client state\n" {
+		t.Fatalf("migration changed client file: %v", err)
+	}
+	if credentials.reads != 0 || credentials.writes != 0 {
+		t.Fatalf("migration accessed credentials: reads=%d writes=%d", credentials.reads, credentials.writes)
+	}
+}
+
 type observedSecretStore struct {
 	secrets.Store
 	reads  int

@@ -67,6 +67,55 @@ func TestDesiredClientConfigurationDoesNotReselectRoutes(t *testing.T) {
 	}
 }
 
+func TestDesiredSyncConfigurationDoesNotSearchUnselectedWritableCredentials(t *testing.T) {
+	before := configuration.NewConfig()
+	before.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
+	before.Routes["claude"] = configuration.Route{Account: "team", Model: "model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	before.SetRecommendedRoute(configuration.ClientClaude, "claude")
+	want := errors.New("unselected native credential was inspected")
+	syncer := Synchronizer{Secrets: secretReadStub{err: want}, Discovery: staticDiscovery{}}
+
+	after, _, err := syncer.DesiredSyncConfiguration(before)
+	if err != nil || len(after.Clients) != 0 {
+		t.Fatalf("unselected writable Account was probed or activated: %#v, %v", after.Clients, err)
+	}
+}
+
+type failingReadOnlyStore struct{ secretReadStub }
+
+func (failingReadOnlyStore) ReadOnly() bool { return true }
+
+func TestDesiredSyncConfigurationFailsClosedOnReadOnlyMetadataError(t *testing.T) {
+	before := configuration.NewConfig()
+	before.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
+	want := errors.New("environment metadata unavailable")
+	syncer := Synchronizer{Secrets: failingReadOnlyStore{secretReadStub{err: want}}, Discovery: staticDiscovery{}}
+	after, _, err := syncer.DesiredSyncConfiguration(before)
+	if !errors.Is(err, want) || len(after.Accounts) != 0 {
+		t.Fatalf("failed credential observation admitted a selected configuration: %#v, %v", after, err)
+	}
+}
+
+func TestDesiredSyncConfigurationPreservesExplicitDisabledSelection(t *testing.T) {
+	before := configuration.NewConfig()
+	for _, account := range []string{"manual", "recommended"} {
+		before.Accounts[account] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://" + account + ".test"}}
+		before.Routes[account] = configuration.Route{Account: account, Model: "model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	}
+	before.SetRecommendedRoute(configuration.ClientClaude, "recommended")
+	before.SetSelectedRoute(configuration.ClientClaude, "manual")
+	store := secrets.NewEnvironmentStore(func(key string) string {
+		if key == secrets.EnvironmentKey("recommended") {
+			return "token"
+		}
+		return ""
+	})
+	after, _, err := (Synchronizer{Secrets: store, Discovery: staticDiscovery{}}).DesiredSyncConfiguration(before)
+	if err != nil || after.SelectedRoute(configuration.ClientClaude) != "manual" || after.Clients[configuration.ClientClaude].Enabled {
+		t.Fatalf("environment recommendation overrode an explicit disabled selection: %#v, %v", after.Clients, err)
+	}
+}
+
 func TestDesiredClientConfigurationSurfacesCredentialObservationFailures(t *testing.T) {
 	before := configuration.NewConfig()
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{

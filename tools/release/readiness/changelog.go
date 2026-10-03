@@ -14,9 +14,9 @@ import (
 	"github.com/Masterminds/semver/v3"
 )
 
-const unreleasedHeading = "## [Unreleased]"
+const unreleasedHeading = "## Unreleased"
 
-var releaseHeading = regexp.MustCompile(`^## \[([^]]+)] - (\d{4}-\d{2}-\d{2})$`)
+var releaseHeading = regexp.MustCompile(`^## (\S+) - (\d{4}-\d{2}-\d{2})(?: \[YANKED])?$`)
 
 var changelogCategories = map[string]struct{}{
 	"Added":      {},
@@ -152,9 +152,6 @@ func (p *changelogParser) consumeReleaseHeading(line string, lineNumber int) err
 			return fmt.Errorf("CHANGELOG.md: duplicate Unreleased section at line %d", lineNumber)
 		}
 		return nil
-	}
-	if !strings.HasPrefix(line, "## [") {
-		return fmt.Errorf("CHANGELOG.md: unsupported release heading at line %d: %s", lineNumber, line)
 	}
 	match := releaseHeading.FindStringSubmatch(line)
 	if match == nil {

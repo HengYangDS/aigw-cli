@@ -82,7 +82,7 @@ func TestNativeJourneyOwnsWorkingDirectory(t *testing.T) {
 	if output := journey.run("--help"); !bytes.Contains(output, []byte("Usage")) {
 		t.Fatalf("native help is unavailable: %s", output)
 	}
-	journey.uninstallAndRequireOwnedFilesAbsent()
+	journey.uninstallAndRequireInstallationRemoved()
 }
 
 func TestRunBuildCIAndTagReadinessInputBoundaries(t *testing.T) {
@@ -367,6 +367,13 @@ func TestNativeArtifactAcceptanceSeparatesVerifierAndProductRevisions(t *testing
 	if err := run([]string{"accept-native", "--artifacts", artifacts}, io.Discard); !errors.Is(err, want) {
 		t.Fatalf("trusted release must reach archive decoding under a different verifier revision: %v", err)
 	}
+	t.Setenv("CI_COMMIT_TAG", "")
+	if err := run([]string{"accept-native", "--artifacts", artifacts, "--tag", "v0.1.0"}, io.Discard); !errors.Is(err, want) {
+		t.Fatalf("explicit published tag lost product identity: %v", err)
+	}
+	if err := run([]string{"accept-native", "--artifacts", artifacts, "--tag", "v0.1.0", "--candidate"}, io.Discard); err == nil {
+		t.Fatal("tagged artifacts were admitted as an untagged candidate")
+	}
 }
 
 func TestNativePerformanceRequiresExplicitCandidateAndBaseline(t *testing.T) {
@@ -432,7 +439,7 @@ func prepareSignedRelease(t *testing.T, version string) string {
 	source := t.TempDir()
 	for name, content := range map[string]string{
 		"VERSION": version + "\n", "go.mod": "module example.invalid/aigw\n", "go.sum": "sum\n",
-		"CHANGELOG.md":      "# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## [Unreleased]\n\n## [" + version + "] - 2026-01-01\n\n### Fixed\n\n- Fix.\n",
+		"CHANGELOG.md":      "# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## Unreleased\n\n## " + version + " - 2026-01-01\n\n### Fixed\n\n- Fix.\n",
 		"package-lock.json": "{}\n", "mise.lock": "lockfile_version = 1\n", "mise.toml": "[tools]\ngo = \"1.27.1\"\n",
 	} {
 		if err := os.WriteFile(filepath.Join(source, name), []byte(content), 0o600); err != nil {
@@ -450,6 +457,8 @@ func prepareSignedRelease(t *testing.T, version string) string {
 		return strings.TrimSpace(string(output))
 	}
 	git("init", "-q", "-b", "main")
+	git("config", "--local", "user.name", "Release Test")
+	git("config", "--local", "user.email", "release@test.invalid")
 	git("add", ".")
 	git("commit", "-q", "-S", "-m", "test: release source")
 	git("tag", "-s", "-m", "Release "+version, "v"+version)

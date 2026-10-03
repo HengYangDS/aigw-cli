@@ -48,6 +48,6 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.C
 	if strings.TrimSpace(token) == "" {
 		return fmt.Errorf("Account connection requires a non-empty Token")
 	}
-	_, _, err = s.selectRoute(ctx, before, after, client, name, token)
+	_, _, err = s.selectRoute(ctx, before, after, client, name, "", token)
 	return err
 }

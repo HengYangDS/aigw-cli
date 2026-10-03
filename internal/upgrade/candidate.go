@@ -4,11 +4,15 @@ import (
 	"aigw-cli/internal/upgrade/artifact"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+// ErrCandidateIdentity means an equal-version candidate differs from the installed program.
+var ErrCandidateIdentity = errors.New("equal-version candidate has different program bytes")
 
 // UpdateCandidate installs an explicitly supplied local archive. It never
 // consults a release source or HTTP client.
@@ -32,6 +36,9 @@ func (u Updater) UpdateCandidate(ctx context.Context, currentVersion string, can
 	if err != nil {
 		return "", err
 	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if comparison == 0 {
 		program, err := (artifact.Target{OS: u.GOOS, Arch: u.GOARCH}).ReadProgram(archivePath, checksumPath, version)
 		if err != nil {
@@ -42,15 +49,16 @@ func (u Updater) UpdateCandidate(ctx context.Context, currentVersion string, can
 			return "", fmt.Errorf("read current AIGW executable: %w", err)
 		}
 		if !bytes.Equal(program, current) {
-			return "", fmt.Errorf("candidate version v%s has different program bytes from the current executable", version)
+			return "", fmt.Errorf("candidate version v%s: %w", version, ErrCandidateIdentity)
 		}
-		return "verified local candidate already matches the current program at version v" + version, ctx.Err()
+		return "verified local candidate already matches the current program at version v" + version, nil
 	}
 	if comparison < 0 {
 		return "", fmt.Errorf("refusing to replace %s with older verified local candidate v%s", currentVersion, version)
 	}
-	if err := u.installPortableArchive(ctx, archivePath, checksumPath, version); err != nil {
+	activated, err := u.installPortableArchive(ctx, archivePath, checksumPath, version)
+	if !activated {
 		return "", err
 	}
-	return "updated to v" + version + " from a verified local candidate", nil
+	return "updated to v" + version + " from a verified local candidate", err
 }

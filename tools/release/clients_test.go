@@ -10,14 +10,10 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -63,6 +59,19 @@ func TestNativeClientInputs(t *testing.T) {
 			t.Fatal(err)
 		}
 		journey.prepareNativeClient(configuration.ClientCodex, file, team)
+		environment := environmentValues(journey.environment)
+		temporary := environment["TMPDIR"]
+		if filepath.Dir(temporary) != root || temporary == filepath.Join(root, "home") {
+			t.Fatal("native client temporary directory must be owned alongside, not above, its home")
+		}
+		for _, key := range []string{"TMP", "TEMP"} {
+			if environment[key] != temporary {
+				t.Fatalf("native client %s does not share its owned temporary directory", key)
+			}
+		}
+		if info, err := os.Stat(temporary); err != nil || !info.IsDir() {
+			t.Fatal("native client temporary directory is unavailable")
+		}
 		journey.requireNativePreferences(configuration.ClientCodex)
 		prepared, err := configuration.Parse(readFile(t, journey.manifest))
 		if err != nil {
@@ -80,53 +89,6 @@ func TestNativeClientInputs(t *testing.T) {
 		journey.prepareNativeClient(configuration.ClientHermes, file, readFile(t, filepath.Join("..", "..", "manifests", "team.toml")))
 		requireFileContains(t, filepath.Join(root, "home", ".hermes", "config.yaml"), "updates:\n  check: false")
 	})
-}
-
-func TestNativeClientFilePreservation(t *testing.T) {
-	for _, test := range []struct {
-		name string
-		auth []byte
-	}{
-		{"absent authentication", nil},
-		{"empty authentication", []byte{}},
-		{"existing authentication", []byte("{\"owner\":\"user\"}\n")},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			journey := journeyFixture{testing: t, root: t.TempDir()}
-			home := filepath.Join(journey.root, "home", ".codex")
-			if err := os.MkdirAll(home, 0o700); err != nil {
-				t.Fatal(err)
-			}
-			if test.auth != nil {
-				if err := os.WriteFile(filepath.Join(home, "auth.json"), test.auth, 0o600); err != nil {
-					t.Fatal(err)
-				}
-			}
-			check := journey.preserveClientFiles(configuration.ClientCodex)
-			if err := check(); err != nil {
-				t.Fatal(err)
-			}
-			auth := filepath.Join(home, "auth.json")
-			if err := os.WriteFile(auth, []byte("changed"), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			if err := check(); err == nil {
-				t.Fatal("changed authentication was accepted")
-			}
-			if err := os.Remove(auth); err != nil {
-				t.Fatal(err)
-			}
-			if err := check(); (err == nil) != (test.auth == nil) {
-				t.Fatalf("authentication absence: initial=%q, error=%v", test.auth, err)
-			}
-			if err := os.Mkdir(auth, 0o700); err != nil {
-				t.Fatal(err)
-			}
-			if err := check(); err == nil {
-				t.Fatal("a directory was accepted as an authentication file")
-			}
-		})
-	}
 }
 
 func TestNativeClientJourney(t *testing.T) {
@@ -147,7 +109,10 @@ func TestNativeClientJourney(t *testing.T) {
 		t.Fatal("team manifest must recommend one route for every admitted client")
 	}
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
-	baseline := buildNativeProgram(t, root, "0.0.0")
+	baseline, err := nativeLifecycleBaseline(func() string { return buildNativeProgram(t, root, "0.0.0") })
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, path := range []string{candidate, archive, checksums} {
 		t.Logf("artifact %s sha256=%x", filepath.Base(path), sha256.Sum256(readFile(t, path)))
 	}
@@ -159,6 +124,7 @@ func TestNativeClientJourney(t *testing.T) {
 		t.Run(client, func(t *testing.T) { plan.run(t, client) })
 	}
 	t.Run("codex-general-routes", plan.runCodexGeneralRoutes)
+	t.Run("codex-tool-loop", plan.runCodexToolLoop)
 }
 
 type nativeClientJourneyPlan struct {
@@ -183,29 +149,9 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		spec, _ := configuration.ClientSpecFor(client)
 		protocol = spec.EndpointProtocols[0]
 	}
-	requiredEffort := "high"
-	if client == configuration.ClientHermes {
-		requiredEffort = ""
-	}
-	handler := clientResponseHandler(protocol, map[string]*atomic.Int64{route.UpstreamModel: &completions}, token, requiredEffort)
-	requests := map[string]int{}
-	var requestsMu sync.Mutex
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		requestsMu.Lock()
-		requests[request.Method+" "+request.URL.Path]++
-		requestsMu.Unlock()
-		handler.ServeHTTP(response, request)
-	}))
-	t.Cleanup(server.Close)
-	t.Cleanup(func() {
-		if t.Failed() {
-			requestsMu.Lock()
-			defer requestsMu.Unlock()
-			t.Logf("client request paths: %v", requests)
-		}
-	})
+	server, hermesSession := newNativeClientServer(t, client, protocol, route.UpstreamModel, token, &completions)
 	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
-	if client == configuration.ClientHermes {
+	if client == configuration.ClientHermes && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
 		journey.run("update", "--candidate", p.archive, "--checksums", p.checksums)
 		journey.requireVersion(p.version)
 		journey.requireProgramBytes(p.candidate)
@@ -218,10 +164,22 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	retainedCredential := journey.retainedCredential(client)
 	before := journey.preserveClientFiles(client)
 	steps := p.clientLifecycle(journey, client)
+	hermesSessionItems := 0
+	hermesSessionTurns := 0
 	for _, step := range steps {
 		if !t.Run(step.name, func(t *testing.T) {
 			journey.testing = t
 			configurationBefore := readFile(t, journey.config)
+			replacement := step.args[0] == "update"
+			if replacement && step.program == p.candidate {
+				journey.runWith(p.candidate, "sync")
+				if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
+					t.Fatal("candidate preprojection changed retained client configuration")
+				}
+				journey.requireCredential(retainedCredential, token)
+				journey.requireCredential(journey.retainedCredential(client), token)
+			}
+			projectedCredential := journey.retainedCredential(client)
 			journey.run(step.args...)
 			if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
 				t.Fatal("lifecycle operation changed the retained client configuration")
@@ -229,6 +187,21 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 			journey.requireVersion(step.version)
 			journey.requireProgramBytes(step.program)
 			journey.requireCredential(retainedCredential, token)
+			journey.requireCredential(projectedCredential, token)
+			if replacement {
+				count := completions.Load()
+				journey.runWith(p.candidate, "verify", "--for", client)
+				if completions.Load() <= count {
+					t.Fatal("retained client projection stopped serving authenticated inference before synchronization")
+				}
+				journey.run("sync")
+				journey.run("check")
+				if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
+					t.Fatal("post-replacement synchronization changed retained client configuration")
+				}
+				journey.requireCredential(projectedCredential, token)
+				journey.requireCredential(journey.retainedCredential(client), token)
+			}
 			count := completions.Load()
 			journey.run("verify", "--for", client)
 			journey.requireNativePreferences(client)
@@ -237,6 +210,10 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 			}
 			if err := before(); err != nil {
 				t.Fatal(err)
+			}
+			if hermesSession != nil {
+				hermesSessionItems = journey.requireHermesContinuedTurn(executable, hermesSession, &completions, hermesSessionItems, hermesSessionTurns == 0)
+				hermesSessionTurns++
 			}
 		}) {
 			return
@@ -265,8 +242,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		t.Fatalf("repeated retirement = %q: %v", retirement.Status, err)
 	}
 	journey.requireExternalCredentialClient(client, executable, renamedAccount, completions.Load)
-	journey.runWith(p.candidate, "uninstall", "--target", journey.binary)
-	journey.requireOwnedFilesAbsent()
+	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 	journey.requireNativePreferences(client)
 	if err := before(); err != nil {
 		t.Fatal(err)
@@ -297,7 +273,7 @@ func (p nativeClientJourneyPlan) clientLifecycle(journey *journeyFixture, client
 	name, version, program string
 	args                   []string
 } {
-	if client == configuration.ClientHermes {
+	if client == configuration.ClientHermes && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
 		return []struct {
 			name, version, program string
 			args                   []string
@@ -335,6 +311,13 @@ func (j *journeyFixture) verifyNativeConfigEditing(client, executable string) {
 func (j *journeyFixture) prepareNativeClient(client, executable string, team []byte) {
 	j.testing.Helper()
 	home := filepath.Join(j.root, "home")
+	temporary := filepath.Join(j.root, "native-tmp")
+	if err := os.MkdirAll(temporary, 0o700); err != nil {
+		j.testing.Fatal(err)
+	}
+	for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
+		j.setEnvironment(key, temporary)
+	}
 	j.environment = environmentWithout(j.environment, "CODEX_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL")
 	j.setEnvironment("CODEX_HOME", filepath.Join(home, ".codex"))
 	j.setEnvironment("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
@@ -345,6 +328,8 @@ func (j *journeyFixture) prepareNativeClient(client, executable string, team []b
 model_context_window = 500000
 model_auto_compact_token_limit = 450000
 model_auto_compact_token_limit_scope = 'body_after_prefix'
+[windows]
+sandbox = 'unelevated'
 [features]
 plugins = false
 [features.multi_agent_v2]
@@ -432,6 +417,9 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 			Features struct {
 				Plugins *bool `toml:"plugins"`
 			} `toml:"features"`
+			Windows struct {
+				Sandbox string `toml:"sandbox"`
+			} `toml:"windows"`
 		}
 		path := filepath.Join(j.root, "home", ".codex", "config.toml")
 		if err := toml.Unmarshal(readFile(j.testing, path), &preferences); err != nil {
@@ -439,6 +427,9 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 		}
 		if preferences.Effort != "high" || preferences.Window != 500000 || preferences.Compact != 450000 || preferences.Scope != "body_after_prefix" || preferences.Features.Plugins == nil || *preferences.Features.Plugins {
 			j.testing.Fatalf("Codex preferences changed: %+v", preferences)
+		}
+		if preferences.Windows.Sandbox != "unelevated" {
+			j.testing.Fatal("isolated Codex requires its native restricted-token sandbox")
 		}
 	case configuration.ClientClaude:
 		var preferences struct {
@@ -462,44 +453,5 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 		)
 	default:
 		j.testing.Fatalf("unsupported native client %q", client)
-	}
-}
-
-func (j *journeyFixture) preserveClientFiles(client string) func() error {
-	j.testing.Helper()
-	home := filepath.Join(j.root, "home")
-	path, content := filepath.Join(home, ".claude", "CLAUDE.md"), "# User instructions\n"
-	switch client {
-	case configuration.ClientCodex:
-		path, content = filepath.Join(home, ".codex", "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
-	case configuration.ClientHermes:
-		path, content = filepath.Join(home, ".hermes", "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		j.testing.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		j.testing.Fatal(err)
-	}
-	files := map[string][]byte{path: []byte(content)}
-	if client == configuration.ClientCodex {
-		auth := filepath.Join(home, ".codex", "auth.json")
-		data, err := os.ReadFile(auth)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			j.testing.Fatal(err)
-		}
-		files[auth] = data // nil records absence; an empty file has non-nil bytes.
-	}
-	return func() error {
-		for path, want := range files {
-			got, err := os.ReadFile(path)
-			if want == nil && errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-			if err != nil || want == nil || !bytes.Equal(got, want) {
-				return errors.Join(fmt.Errorf("client lifecycle changed user file %s", path), err)
-			}
-		}
-		return nil
 	}
 }

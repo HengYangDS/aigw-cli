@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"aigw-cli/internal/secrets/native"
+
 	keyring "github.com/zalando/go-keyring"
 )
 
@@ -84,13 +86,17 @@ func TestKeyringStoreMapsEmptyValuesAndProviderErrors(t *testing.T) {
 	if err := keyring.Set(Service, "dmx", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := (scopedView{store: mockKeyringStore()}).Get("dmx"); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("empty provider value error = %v", err)
+	store := scopedView{store: mockKeyringStore()}
+	if present, err := store.Exists("dmx"); err != nil || !present {
+		t.Fatalf("empty provider value slot presence = %t, %v", present, err)
+	}
+	if _, err := store.Get("dmx"); err == nil || errors.Is(err, ErrNotFound) {
+		t.Fatalf("present empty provider value was reported absent: %v", err)
 	}
 	want := errors.New("keyring unavailable")
 	keyring.MockInitWithError(want)
 	t.Cleanup(keyring.MockInit)
-	store := scopedView{store: mockKeyringStore()}
+	store = scopedView{store: mockKeyringStore()}
 	if _, err := store.Get("dmx"); !errors.Is(err, want) {
 		t.Fatalf("Get error = %v", err)
 	}
@@ -99,6 +105,22 @@ func TestKeyringStoreMapsEmptyValuesAndProviderErrors(t *testing.T) {
 	}
 	if err := store.Delete("dmx"); !errors.Is(err, want) {
 		t.Fatalf("Delete error = %v", err)
+	}
+}
+
+func TestNativeKeyringStoreRequiresProductExecutable(t *testing.T) {
+	store := newKeyringStore("")
+	if present, err := store.exists(APIToken, "team"); present || !errors.Is(err, native.ErrUnavailable) {
+		t.Fatalf("credential presence without executable = %t, %v", present, err)
+	}
+	if value, err := store.get(APIToken, "team"); value != "" || !errors.Is(err, native.ErrUnavailable) {
+		t.Fatalf("credential read without executable = %q, %v", value, err)
+	}
+	if err := store.set(APIToken, "team", "synthetic-token"); !errors.Is(err, native.ErrUnavailable) {
+		t.Fatalf("credential write without executable = %v", err)
+	}
+	if err := store.delete(APIToken, "team"); !errors.Is(err, native.ErrUnavailable) {
+		t.Fatalf("credential delete without executable = %v", err)
 	}
 }
 

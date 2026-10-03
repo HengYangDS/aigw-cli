@@ -40,6 +40,8 @@ type Check struct {
 	Fix    string `json:"fix,omitempty"`
 }
 
+const credentialBackendUnavailable = "credential backend is unavailable"
+
 type commandResult struct {
 	CredentialBackend secrets.BackendSelection          `json:"credential_backend"`
 	Checks            []Check                           `json:"checks"`
@@ -97,8 +99,15 @@ func NewCommand(deps Dependencies) *cobra.Command {
 				return presentation.Presented(fmt.Errorf("doctor found problems"))
 			}
 			r.Section("Result")
-			if result.State == domainreadiness.Deferred {
-				r.Status(presentation.Info, "Client activation", "No client is enabled")
+			if result.NextAction != "" {
+				message := "Selected client work remains"
+				switch {
+				case result.EnabledClients == 0:
+					message = "No client is enabled"
+				case result.State == domainreadiness.Deferred:
+					message = "Selected client projection is deferred"
+				}
+				r.Status(presentation.Info, "Client activation", message)
 				r.Detail("Local diagnostics passed; no client endpoint or model was checked")
 				r.Next(result.NextAction)
 				return r.Err()
@@ -117,7 +126,7 @@ func collectResult(ctx context.Context, deps Dependencies) commandResult {
 	if backendErr != nil {
 		checks = append([]Check{{
 			Name:   "credential:backend",
-			Detail: "credential backend is unavailable: " + backendErr.Error(),
+			Detail: credentialBackendUnavailable,
 			Fix:    backend.RecoveryAction,
 		}}, checks...)
 	}
@@ -153,17 +162,30 @@ func collectResult(ctx context.Context, deps Dependencies) commandResult {
 		}
 	}
 	if cfg, err := deps.Config.Load(); err == nil {
-		activation := clientactivation.AssessActivation(cfg, deps.Secrets)
-		result.EnabledClients = activation.EnabledClients
-		result.State = activation.State
-		if activation.State == domainreadiness.Unavailable {
-			result.OK = false
-			result.NextAction = activation.NextAction
-		} else if result.OK && activation.State == domainreadiness.Deferred {
-			result.NextAction = activation.NextAction
-		}
+		applyActivation(&result, cfg, deps.Secrets)
 	}
 	return result
+}
+
+func applyActivation(result *commandResult, cfg configuration.Config, store secrets.Store) {
+	activation := clientactivation.AssessActivation(cfg, store)
+	result.EnabledClients = activation.EnabledClients
+	result.State = activation.State
+	if activation.State == domainreadiness.Unavailable {
+		result.OK = false
+		result.NextAction = activation.NextActionFor(nil)
+		return
+	}
+	if !result.OK {
+		return
+	}
+	ordered := make([]domainreadiness.Client, 0, len(result.Clients))
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		ordered = append(ordered, result.Clients[spec.ID])
+	}
+	if action := activation.NextActionFor(ordered); action != "aigw check" {
+		result.NextAction = action
+	}
 }
 
 func inspectClients(deps Dependencies) map[string]domainreadiness.Client {
@@ -198,6 +220,9 @@ func renderClients(renderer *presentation.Renderer, clients map[string]domainrea
 			state = presentation.Warn
 		}
 		message := client.State.Label()
+		if client.ProjectionDeferred {
+			message += " · Native projection deferred"
+		}
 		if client.NativeModelOverride {
 			message += " · " + client.Detail
 		}
@@ -234,7 +259,7 @@ func Collect(ctx context.Context, deps Dependencies) []Check {
 	}
 	cfg, err := deps.Config.Load()
 	if err != nil {
-		return append(checks, Check{"config", false, err.Error(), "inspect or restore " + deps.Config.Path()})
+		return append(checks, Check{"config", false, "cannot read or validate configuration", "inspect or restore the local configuration file"})
 	}
 	if len(cfg.Routes) == 0 {
 		checks = append(checks, Check{"config", false, "not configured", "run `aigw setup`"})
@@ -244,7 +269,7 @@ func Collect(ctx context.Context, deps Dependencies) []Check {
 	for _, name := range cfg.RequiredAccountTokenIDs() {
 		ok, observationErr := deps.Secrets.Exists(name)
 		if observationErr != nil {
-			checks = append(checks, Check{"secret:" + name, false, "credential backend failed: " + observationErr.Error(), "inspect the selected credential backend"})
+			checks = append(checks, Check{"secret:" + name, false, credentialBackendUnavailable, "inspect the selected credential backend"})
 			continue
 		}
 		fix := ""
@@ -263,6 +288,7 @@ func Collect(ctx context.Context, deps Dependencies) []Check {
 
 func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cfg configuration.Config) []Check {
 	checks := make([]Check, 0)
+	projectionPrerequisites := clientactivation.ProjectionPrerequisites(cfg)
 	for _, clientID := range clients.ClientIDs() {
 		adapter := cfg.Clients[clientID]
 		if !adapter.Enabled {
@@ -271,7 +297,10 @@ func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cf
 		}
 		runtime, err := cfg.ResolveRuntime(clientID, "")
 		if err != nil {
-			checks = append(checks, Check{Name: "projection:" + clientID, Detail: err.Error(), Fix: "run `aigw use --for " + clientID + " <route>`"})
+			checks = append(checks, Check{Name: "projection:" + clientID, Detail: "selected client route cannot be resolved", Fix: "run `aigw use --for " + clientID + " <route>`"})
+			continue
+		}
+		if projectionPrerequisites[clientID] != "" {
 			continue
 		}
 		status := clients.Inspect(ctx, cfg, clientID, runtime)
@@ -303,6 +332,16 @@ func commandFix(action string) string {
 
 // Label maps a diagnostic identity to a stable human label.
 func Label(name string) string {
+	if clientID, ok := strings.CutPrefix(name, "adapter:"); ok {
+		if spec, admitted := configuration.ClientSpecFor(clientID); admitted {
+			return spec.Label + " adapter"
+		}
+	}
+	if clientID, ok := strings.CutPrefix(name, "projection:"); ok {
+		if spec, admitted := configuration.ClientSpecFor(clientID); admitted {
+			return spec.Label + " route"
+		}
+	}
 	switch {
 	case name == "environment:client-token":
 		return "Client token environment"
@@ -312,12 +351,6 @@ func Label(name string) string {
 		return "Credential backend"
 	case strings.HasPrefix(name, "secret:"):
 		return "Account Token"
-	case name == "adapter:claude":
-		return "Claude adapter"
-	case name == "adapter:codex":
-		return "Codex adapter"
-	case name == "projection:codex":
-		return "Codex route"
 	case strings.HasPrefix(name, "codex:target-"):
 		return "Codex configuration target " + strings.TrimPrefix(name, "codex:target-")
 	default:
@@ -351,6 +384,9 @@ func Detail(check Check) string {
 		account := strings.TrimPrefix(name, "secret:")
 		if check.OK {
 			return account + " · available"
+		}
+		if detail == credentialBackendUnavailable {
+			return account + " · credential backend unavailable"
 		}
 		return account + " · missing"
 	case name == "adapter:claude" || name == "adapter:codex":

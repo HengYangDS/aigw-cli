@@ -753,10 +753,11 @@ compare-and-swap authority bound to the complete accumulated lane delta.
 
 A local release candidate SHALL require complete canonical intent, admitted
 stable direct dependencies, faithful quantitative evidence, passing native
-source gates, and a reproducible installable matrix. Hosted CI, publication,
-installed-asset proof, and lane retirement SHALL consume that accepted result
-rather than block its production. Active Change tasks SHALL remain authoritative
-until all delivery obligations finish; archive SHALL NOT erase unfinished work.
+source gates, and a reproducible installable matrix. Hosted CI and delivery
+SHALL consume, not gate, that accepted result. Change tasks SHALL close
+implementation and candidate acceptance before archive; canonical specs and
+design SHALL retain publication, installed-asset and lane-retirement duties
+until proved.
 
 #### Scenario: A stable direct dependency update is available
 
@@ -791,10 +792,10 @@ until all delivery obligations finish; archive SHALL NOT erase unfinished work.
 - **WHEN** source has passed exact-HEAD proof and authorized integration
 - **THEN** native hosted verification and each optional peer MAY independently
   consume that exact accepted result
-- **AND** released-asset installation and governed lane retirement occur only
-  after their corresponding external evidence exists
-- **AND** the same official task carrier retains pending outcomes; completed
-  Change obligations are archived afterward rather than predeclared.
+- **AND** accepted-ref and tag CI, published assets, installed lifecycle, and
+  lane retirement SHALL each require their own post-archive evidence
+- **AND** archive SHALL NOT claim those outcomes or block local acceptance when
+  a peer is unavailable.
 
 #### Scenario: A clean runner materializes npm tools
 
@@ -2072,3 +2073,49 @@ Bindings, and exclude inferred Route matrices and proxy endpoints.
 - **AND** an explicit channel or user label SHALL override that derivation
 - **AND** native manifest export SHALL omit a stored label equal to the
   derived form while preserving an explicit distinct label.
+
+### Requirement: Hermes verification excludes unrelated update services
+
+When AIGW verifies an enabled Hermes Client Binding, it SHALL invoke the native
+client against the selected Route without requiring the client's upstream
+software-update service. The disposable verification environment SHALL preserve
+the operator's Hermes configuration and credentials, and version-probe failures
+SHALL be classified without exposing raw vendor output or private paths.
+
+#### Scenario: Vendor update service is unavailable
+
+- **WHEN** the selected inference endpoint is healthy but the Hermes software
+  update service is unavailable
+- **THEN** AIGW can observe the native client version and complete one bounded
+  request for the selected Model without contacting the update service
+- **AND** no user's Hermes configuration or credential is changed.
+
+#### Scenario: Hermes version probe fails
+
+- **WHEN** the native Hermes version probe times out or exits unsuccessfully
+- **THEN** verification fails with the corresponding cause category
+- **AND** it does not report successful inference, retry the probe, prompt for
+  credentials, or disclose raw stderr, Token material, or private paths.
+
+### Requirement: Pre-tag artifact acceptance binds to signed source
+
+Before a stable tag exists, AIGW SHALL accept an explicitly selected artifact
+candidate only when its trusted signature and canonical provenance match the
+current signed source commit and locked inputs. Candidate mode SHALL require a
+clean checkout and reject a selected or same-version local release tag. Release
+verification and publication SHALL still require a signed tag. Supplied
+artifact bytes SHALL not be rebuilt or replaced.
+
+#### Scenario: Signed candidate precedes its release tag
+
+- **WHEN** an operator selects candidate acceptance for a signed artifact
+  matrix before the stable tag exists
+- **THEN** AIGW verifies the artifact signer, signed HEAD, provenance, and
+  supplied native bytes before running client and lifecycle acceptance.
+
+#### Scenario: Candidate mode could bypass a release tag
+
+- **WHEN** a release tag is selected or a same-version local tag exists
+- **THEN** candidate acceptance is rejected
+- **AND** release verification and publication still require tag-signature
+  validation.

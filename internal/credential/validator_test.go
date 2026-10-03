@@ -98,6 +98,28 @@ func TestValidateProtocolsAndDefaultSelection(t *testing.T) {
 	}
 }
 
+func TestValidateRuntimeUsesTheSelectedEndpointProtocol(t *testing.T) {
+	t.Parallel()
+
+	selected := configuration.Runtime{
+		Client:   configuration.ClientHermes,
+		Endpoint: "https://chat.example/v1/",
+		Protocol: configuration.ProtocolOpenAIChatCompletions,
+	}
+	called := false
+	doer := doerFunc(func(request *http.Request) (*http.Response, error) {
+		called = true
+		if request.Method != http.MethodGet || request.URL.String() != "https://chat.example/v1/models" ||
+			request.Header.Get("Authorization") != "Bearer token" {
+			t.Errorf("selected Chat Completions probe = %s %s, bearer_matches=%t", request.Method, request.URL, request.Header.Get("Authorization") == "Bearer token")
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
+	})
+	if err := ValidateRuntime(context.Background(), doer, selected, "token"); err != nil || !called {
+		t.Fatalf("selected runtime validation: called=%t error=%v", called, err)
+	}
+}
+
 func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 	t.Parallel()
 
@@ -135,11 +157,27 @@ func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 	}
 }
 
-func TestProbeRequestRejectsUnknownClient(t *testing.T) {
+func TestProbeRequestRejectsUnknownOrAmbiguousProtocol(t *testing.T) {
 	t.Parallel()
 
-	if _, err := ProbeRequest(context.Background(), "unknown", "https://gateway.example", "secret"); err == nil || !strings.Contains(err.Error(), `unsupported credential validation client "unknown"`) {
-		t.Fatalf("error = %v, want unsupported client", err)
+	tests := []struct {
+		name      string
+		client    string
+		protocols []configuration.EndpointProtocol
+		want      string
+	}{
+		{name: "unknown client", client: "unknown", want: `unsupported credential validation client "unknown"`},
+		{name: "ambiguous Hermes protocol", client: configuration.ClientHermes, want: `requires an admitted endpoint protocol`},
+		{name: "unadmitted Claude protocol", client: configuration.ClientClaude, protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}, want: `requires an admitted endpoint protocol`},
+		{name: "multiple protocols", client: configuration.ClientCodex, protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses, configuration.ProtocolAnthropic}, want: `requires one protocol`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if _, err := ProbeRequest(context.Background(), test.client, "https://gateway.example", "secret", test.protocols...); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want substring %q", err, test.want)
+			}
+		})
 	}
 }
 

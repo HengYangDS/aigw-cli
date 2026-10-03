@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/cli"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -105,6 +106,32 @@ func TestUpdateRollbackReturnsLocalRollbackError(t *testing.T) {
 	}
 }
 
+func TestUpdateRollbackExecutionFailureKeepsRollbackContext(t *testing.T) {
+	privatePath := filepath.Join(t.TempDir(), "previous")
+	permission := &os.PathError{Op: "fork/exec", Path: privatePath, Err: os.ErrPermission}
+	for _, test := range []struct {
+		name    string
+		failure error
+	}{
+		{name: "startup verification", failure: fmt.Errorf("%w: %w", upgrade.ErrProgramStartupVerification, permission)},
+		{name: "configuration export permission", failure: fmt.Errorf("retained program configuration export failed: %w", permission)},
+		{name: "configuration export deadline", failure: fmt.Errorf("retained program configuration export failed: %w", context.DeadlineExceeded)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			app, out, _, _, _ := testApp(t, "")
+			app.Updater = &fakeUpdater{rollbackErr: test.failure}
+			err := cli.Execute(app, []string{"update", "--rollback"})
+			if !errors.Is(err, test.failure) {
+				t.Fatalf("rollback failure lost its typed cause: %v", err)
+			}
+			if !strings.Contains(out.String(), "Program rollback did not complete") ||
+				strings.Contains(out.String(), "incompatible") || strings.Contains(out.String(), "Candidate program") || strings.Contains(out.String(), privatePath) {
+				t.Fatalf("rollback failure lost its safe operation context: %s", out.String())
+			}
+		})
+	}
+}
+
 func TestUpdateRollbackPreservesExactConfigurationOnIncompatibility(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	config := []byte("version = 3\n# Preserve exact user bytes.\n[recommended_routes]\nclaude = 'team'\n")
@@ -147,8 +174,15 @@ func TestUpdateHelpDescribesOfflineProgramRollback(t *testing.T) {
 	if !strings.Contains(out.String(), "Roll back the portable AIGW program to the previous version offline") {
 		t.Fatalf("help = %s", out.String())
 	}
-	for _, want := range []string{"Keep client integrations enabled", "Run sync after either replacement", "isolated copy of the current configuration"} {
-		if !strings.Contains(out.String(), want) {
+	help := strings.Join(strings.Fields(out.String()), " ")
+	for _, want := range []string{
+		"Homebrew-managed copies must be upgraded with Homebrew",
+		"Client settings and credentials do not change",
+		"Run aigw sync, then aigw check before resuming clients",
+		"--rollback restores the retained program, not configuration",
+		"An incompatible current configuration blocks program rollback",
+	} {
+		if !strings.Contains(help, want) {
 			t.Fatalf("help omitted %q: %s", want, out.String())
 		}
 	}
@@ -183,13 +217,59 @@ func TestUpdateCandidateUsesExplicitOfflineInputs(t *testing.T) {
 	}
 }
 
+func TestUpdateCandidateStartupFailureKeepsSafeDiagnosis(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	privatePath := filepath.Join(t.TempDir(), "candidate")
+	cause := &os.PathError{Op: "fork/exec", Path: privatePath, Err: os.ErrPermission}
+	app.Updater = &fakeUpdater{candidateErr: fmt.Errorf("%w: %w", upgrade.ErrProgramStartupVerification, cause)}
+
+	err := cli.Execute(app, []string{"update", "--candidate", "candidate.tar.gz", "--checksums", "checksums.txt"})
+	if !errors.Is(err, upgrade.ErrProgramStartupVerification) || !errors.Is(err, cause) {
+		t.Fatalf("candidate failure lost its typed cause: %v", err)
+	}
+	for _, want := range []string{"Candidate program failed startup verification", "installed program is unchanged", "candidate archive"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("candidate diagnosis lacks %q: %s", want, out.String())
+		}
+	}
+	if strings.Contains(out.String(), privatePath) || strings.Contains(out.String(), "Local file access failed") {
+		t.Fatalf("candidate diagnosis exposed the path or obscured the failure: %s", out.String())
+	}
+}
+
 func TestUpdatePreservesReleaseFailureAsItsCause(t *testing.T) {
-	app, _, _, _, _ := testApp(t, "")
-	cause := errors.New("release lookup failed")
+	app, out, _, _, _ := testApp(t, "")
+	const canary = "TRACEBACK_CANARY /private/forge-only-canary"
+	cause := fmt.Errorf("release lookup failed: %w: %s", errors.New("exit status 1"), canary)
 	app.Updater = &fakeUpdater{updateErr: cause}
 
 	if err := cli.Execute(app, []string{"update"}); !errors.Is(err, cause) {
 		t.Fatalf("error = %v, want %v", err, cause)
+	}
+	if strings.Contains(out.String(), canary) || !strings.Contains(out.String(), "aigw doctor") {
+		t.Fatalf("update exposed private diagnostics or omitted recovery: %s", out.String())
+	}
+}
+
+func TestUpdateReportsCompletedReplacementWithIncompleteCleanup(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	cause := &os.PathError{Op: "remove", Path: "/private/update-only-canary", Err: os.ErrPermission}
+	app.Updater = &fakeUpdater{updateResult: "updated to v1.0.0 verified from GitHub", updateErr: cause}
+	if err := cli.Execute(app, []string{"update"}); !errors.Is(err, cause) {
+		t.Fatalf("completed update lost cleanup failure: %v", err)
+	}
+	if !strings.Contains(out.String(), "Program updated") || !strings.Contains(out.String(), "cleanup is incomplete") || strings.Contains(out.String(), cause.Path) {
+		t.Fatalf("completed update has an incorrect or unsafe state: %s", out.String())
+	}
+}
+
+func TestUpdateSameVersionIdentityConflictHasSafeDiagnosis(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	cause := upgrade.ErrCandidateIdentity
+	app.Updater = &fakeUpdater{candidateErr: cause}
+	err := cli.Execute(app, []string{"update", "--candidate", "candidate.tar.gz", "--checksums", "checksums.txt"})
+	if !errors.Is(err, cause) || !strings.Contains(out.String(), "different program bytes") || !strings.Contains(out.String(), "unchanged") {
+		t.Fatalf("candidate identity failure lost its safe meaning: error=%v output=%s", err, out.String())
 	}
 }
 

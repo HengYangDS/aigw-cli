@@ -13,6 +13,31 @@ import (
 	"testing"
 )
 
+func TestDiagnosticFailureUsesNativeMarkers(t *testing.T) {
+	for _, test := range []struct {
+		text string
+		want bool
+	}{
+		{"warning: missing model metadata\n", true},
+		{"\x1b[33mwarning\x1b[0m: missing model metadata\n", true},
+		{"2026-10-03T05:00:00Z WARN client_core: degraded\n", true},
+		{"DeprecationWarning: obsolete client contract\n", true},
+		{"ERROR client_core: failed\n", true},
+		{"Traceback (most recent call last):\n", true},
+		{"fatal: failed startup\n", true},
+		{"2026-10-03T05:00:00Z INFO client initialized\n", false},
+		{"warning_count=0\n", false},
+		{"error_count=0\n", false},
+		{"OpenAI Codex\nmodel: gpt-test\n", false},
+	} {
+		t.Run(test.text, func(t *testing.T) {
+			if got := DiagnosticFailure([]byte(test.text)); got != test.want {
+				t.Fatalf("DiagnosticFailure(%q) = %t, want %t", test.text, got, test.want)
+			}
+		})
+	}
+}
+
 func TestRunnerStreamsBothOutputsAndPreservesCancellation(t *testing.T) {
 	if os.Getenv("AIGW_TEST_STREAM_EXECUTION") == "child" {
 		_, _ = os.Stdout.WriteString(strings.Repeat("o", 128<<10))
@@ -176,6 +201,41 @@ func TestRunnerRunCaptureReturnsStderrOnFailure(t *testing.T) {
 	}
 	if got := string(diagnostic); !strings.Contains(got, "unknown configuration field mcp_servers.github.disabled_reason") {
 		t.Fatalf("RunCapture() diagnostic = %q", got)
+	}
+}
+
+func TestRunnerCaptureStreamsPreservesBoundedFailureOutput(t *testing.T) {
+	if code := os.Getenv("AIGW_TEST_CAPTURE_STREAMS"); code != "" {
+		_, _ = os.Stdout.WriteString("captured result on stdout")
+		_, _ = os.Stderr.WriteString("Warning: captured detail on stderr")
+		status, _ := strconv.Atoi(code)
+		os.Exit(status)
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, code := range []int{0, 23} {
+		stdout, stderr, err := (Runner{}).RunCaptureStreams(t.Context(), Plan{
+			Executable: executable,
+			Args:       []string{"-test.run=^TestRunnerCaptureStreamsPreservesBoundedFailureOutput$"},
+			Env:        append(os.Environ(), "AIGW_TEST_CAPTURE_STREAMS="+strconv.Itoa(code)),
+		})
+		var exitError *exec.ExitError
+		if code == 0 && err != nil || code != 0 && (!errors.As(err, &exitError) || exitError.ExitCode() != code) ||
+			string(stdout) != "captured result on stdout" || string(stderr) != "Warning: captured detail on stderr" {
+			t.Fatalf("exit %d captured stdout=%q stderr=%q error=%v", code, stdout, stderr, err)
+		}
+	}
+	stdout, stderr, err := (Runner{}).RunCaptureStreams(t.Context(), Plan{
+		Executable: executable,
+		Args:       []string{"-test.run=^TestRunCaptureKeepsResultAndDiagnosticBudgetsSeparate$"},
+		Env: append(os.Environ(),
+			"AIGW_TEST_CAPTURE_STREAM=stdout",
+			"AIGW_TEST_CAPTURE_SIZE="+strconv.Itoa(capturedProcessOutputLimit+1)),
+	})
+	if err == nil || len(stdout) != 0 || len(stderr) != 0 {
+		t.Fatalf("oversized capture returned stdout=%d stderr=%d error=%v", len(stdout), len(stderr), err)
 	}
 }
 

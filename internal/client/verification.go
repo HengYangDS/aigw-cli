@@ -22,24 +22,95 @@ import (
 
 // externalCredentialRunner suppresses unknown external-helper credentials on
 // failure while retaining the existing verifier's response-marker semantics.
-type externalCredentialRunner struct{ runner process.CaptureRunner }
+type externalCredentialRunner struct{ runner process.VerificationRunner }
 
 func (runner externalCredentialRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
-	output, err := runner.runner.RunCapture(ctx, plan)
+	output, diagnostic, err := runner.RunCaptureStreams(ctx, plan)
 	if err != nil {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		return nil, fmt.Errorf("external credential client failed; diagnostics suppressed")
+		return diagnostic, err
 	}
 	return output, nil
 }
 
-func (codexAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime, explicitRoute string) (_ Verification, result error) {
-	if deps.AIGWExecutable != "" {
-		runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
+func (runner externalCredentialRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	output, diagnostic, err := runner.runner.RunCaptureStreams(ctx, plan)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, nil, ctx.Err()
+		}
+		return nil, nil, fmt.Errorf("external credential client failed; diagnostics suppressed")
 	}
+	if process.DiagnosticFailure(diagnostic) {
+		return output, []byte("warning or error: external credential client diagnostics suppressed"), nil
+	}
+	return output, nil, nil
+}
+
+func retainedDefaultReader(current string, external bool, observe func() (string, error)) (string, error) {
+	if current == "" || external || !credential.IsVersionedEntrypointPath(current) {
+		return current, nil
+	}
+	projected, err := observe()
+	if err != nil || projected == current {
+		return current, err
+	}
+	if err := credential.ValidateRetainedEntrypoint(current, projected); err != nil {
+		return current, err
+	}
+	return projected, nil
+}
+
+func codexRetainedRuntime(target string, cfg configuration.Config, runtime configuration.Runtime, currentReader string) (configuration.Runtime, error) {
+	if !runtime.RequiresAccountToken() || currentReader == "" {
+		return runtime, nil
+	}
+	if cfg.Clients[configuration.ClientCodex].CredentialCommand != "" {
+		runtime.CredentialCommand = runtime.CredentialExecutable(currentReader)
+		return runtime, nil
+	}
+	runtime.CredentialCommand = currentReader
+	reader, err := retainedDefaultReader(currentReader, false, func() (string, error) {
+		return codex.ObservedCredentialCommand(target, runtime)
+	})
+	if err != nil {
+		return runtime, fmt.Errorf("inspect retained Codex credential reader: %w", err)
+	}
+	runtime.CredentialCommand = reader
+	return runtime, nil
+}
+
+func claudeRetainedExecutable(path string, cfg configuration.Config, runtime configuration.Runtime, currentReader string) (string, error) {
+	if !runtime.RequiresAccountToken() {
+		return runtime.CredentialExecutable(currentReader), nil
+	}
+	reader, err := retainedDefaultReader(currentReader, cfg.Clients[configuration.ClientClaude].CredentialCommand != "", func() (string, error) {
+		return claude.ObservedCredentialExecutable(path, runtime)
+	})
+	if err != nil {
+		return "", fmt.Errorf("inspect retained Claude credential reader: %w", err)
+	}
+	return runtime.CredentialExecutable(reader), nil
+}
+
+func (codexAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime, explicitRoute string) (_ Verification, result error) {
 	adapter := cfg.Clients[configuration.ClientCodex]
+	reader := deps.AIGWExecutable
+	if adapter.Enabled && adapter.Executable != "" && len(adapter.Targets) > 0 && adapter.Route != "" {
+		targets := append([]string(nil), adapter.Targets...)
+		sort.Strings(targets)
+		selected, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+		if err != nil {
+			return Verification{}, err
+		}
+		selected, err = codexRetainedRuntime(targets[0], cfg, selected, reader)
+		if err != nil {
+			return Verification{}, err
+		}
+		if selected.CredentialCommand != "" {
+			reader = selected.CredentialCommand
+		}
+	}
+	runtime.CredentialCommand = runtime.CredentialExecutable(reader)
 	if explicitRoute != "" && adapter.Enabled && adapter.Executable != "" && len(adapter.Targets) > 0 {
 		isolated, workspace, err := isolateCodexProjection(cfg, runtime, adapter)
 		if err != nil {
@@ -88,7 +159,18 @@ func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configur
 	}
 	verifyCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
 	defer cancel()
-	runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
+	reader := deps.AIGWExecutable
+	if adapter.Route != "" {
+		selected, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
+		if err != nil {
+			return Verification{}, err
+		}
+		reader, err = claudeRetainedExecutable(deps.ClaudeSettingsPath, cfg, selected, reader)
+		if err != nil {
+			return Verification{}, err
+		}
+	}
+	runtime.CredentialCommand = runtime.CredentialExecutable(reader)
 	settingsPath := deps.ClaudeSettingsPath
 	if explicitRoute != "" {
 		isolated, workspace, err := isolateClaudeProjection(cfg, runtime, deps)
@@ -109,11 +191,21 @@ func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configur
 	return Verification{}, clientverification.VerifyClaudeRuntime(verifyCtx, runner, adapter.Executable, settingsPath, runtime, token)
 }
 
-func isolateCodexProjection(cfg configuration.Config, runtime configuration.Runtime, adapter configuration.ClientBinding) (configuration.Config, string, error) {
+func isolateCodexProjection(cfg configuration.Config, runtime configuration.Runtime, adapter configuration.ClientBinding) (isolated configuration.Config, workspace string, result error) {
 	workspace, err := os.MkdirTemp("", "aigw-codex-route-verification-")
 	if err != nil {
 		return configuration.Config{}, "", fmt.Errorf("create isolated Codex verification projection: %w", err)
 	}
+	defer func() {
+		if result == nil {
+			return
+		}
+		if err := robustio.RemoveAll(workspace); err != nil {
+			result = errors.Join(result, fmt.Errorf("remove failed Codex verification projection %s: %w", workspace, err))
+			return
+		}
+		workspace = ""
+	}()
 	selectedTargets := append([]string(nil), adapter.Targets...)
 	sort.Strings(selectedTargets)
 	target := filepath.Join(workspace, "config.toml")
@@ -134,18 +226,28 @@ func isolateCodexProjection(cfg configuration.Config, runtime configuration.Runt
 	if _, err := codex.ReconcileConfigsAuthorizedTransition([]codex.TargetRef{before}, []codex.TargetRef{after}, selected, runtime); err != nil {
 		return configuration.Config{}, workspace, fmt.Errorf("prepare isolated Codex verification projection: %w", err)
 	}
-	isolated := cfg.Clone()
+	isolated = cfg.Clone()
 	adapter.Targets = []string{target}
 	isolated.Clients[configuration.ClientCodex] = adapter
 	return isolated, workspace, nil
 }
 
-func isolateClaudeProjection(cfg configuration.Config, runtime configuration.Runtime, deps Dependencies) (string, string, error) {
+func isolateClaudeProjection(cfg configuration.Config, runtime configuration.Runtime, deps Dependencies) (settingsPath, workspace string, result error) {
 	workspace, err := os.MkdirTemp("", "aigw-claude-route-verification-")
 	if err != nil {
 		return "", "", fmt.Errorf("create isolated Claude verification projection: %w", err)
 	}
-	settingsPath := filepath.Join(workspace, "settings.json")
+	defer func() {
+		if result == nil {
+			return
+		}
+		if err := robustio.RemoveAll(workspace); err != nil {
+			result = errors.Join(result, fmt.Errorf("remove failed Claude verification projection %s: %w", workspace, err))
+			return
+		}
+		workspace = ""
+	}()
+	settingsPath = filepath.Join(workspace, "settings.json")
 	if err := claude.CopyProjection(deps.ClaudeSettingsPath, settingsPath); err != nil {
 		return "", workspace, fmt.Errorf("copy Claude verification projection: %w", err)
 	}

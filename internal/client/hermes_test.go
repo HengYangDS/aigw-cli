@@ -1,7 +1,9 @@
 package client
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -53,11 +55,23 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	if binding := after.Clients["hermes"]; !binding.Enabled || binding.Executable == "" || len(binding.Targets) != 1 {
 		t.Fatalf("installed Hermes intent was not materialized: %#v", binding)
 	}
-	if err := registry.Apply(context.Background(), deps, cfg, after, "hermes"); err != nil {
+	receipt, err := registry.Apply(context.Background(), deps, cfg, after, "hermes")
+	if err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(home, ".hermes", "config.yaml")
 	if _, err := os.Stat(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := receipt.Rollback(); err != nil {
+		t.Fatalf("Hermes rollback failed: %v", err)
+	}
+	for _, target := range []string{path, path + ".aigw-state.json"} {
+		if _, err := os.Stat(target); !os.IsNotExist(err) {
+			t.Fatalf("Hermes rollback left %s: %v", target, err)
+		}
+	}
+	if _, err := registry.Apply(context.Background(), deps, cfg, after, "hermes"); err != nil {
 		t.Fatal(err)
 	}
 	for _, target := range observed.AutoManagedCodexTargets() {
@@ -75,7 +89,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	}
 	disabled := after.Clone()
 	(hermesAdapter{}).Withdraw(&disabled)
-	if err := registry.Apply(context.Background(), deps, after, disabled, "hermes"); err != nil {
+	if _, err := registry.Apply(context.Background(), deps, after, disabled, "hermes"); err != nil {
 		t.Fatal(err)
 	}
 	for _, target := range []string{path, path + ".aigw-state.json"} {
@@ -102,6 +116,66 @@ func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 	}
 	if got := DefaultRegistry().ChangedClients(before, after); !slices.Equal(got, []string{configuration.ClientHermes}) {
 		t.Fatalf("removing an unselected provider Model affected clients %v, want Hermes", got)
+	}
+}
+
+func TestHermesCatalogueUsesProviderWireModelIDs(t *testing.T) {
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	for routeID, wireID := range map[string]string{"ordinary": "gpt-6-astra", "variant": "gpt-6-astra-ssvip"} {
+		cfg.Routes[routeID] = configuration.Route{
+			Account: "gateway", Model: "gpt-6-astra", UpstreamModel: wireID,
+			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		}
+	}
+	cfg.SetSelectedRoute(configuration.ClientHermes, "variant")
+	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := secrets.NewMemoryStore()
+	if err := store.Set("gateway", "fixture-token"); err != nil {
+		t.Fatal(err)
+	}
+	desired, err := hermesDesired(Dependencies{Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, selected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if desired.SelectedModel != "gpt-6-astra-ssvip" || len(desired.Providers) != 1 || !slices.Equal(desired.Providers[0].Models, []string{"gpt-6-astra", "gpt-6-astra-ssvip"}) {
+		t.Fatalf("Hermes wire catalogue = %#v", desired)
+	}
+}
+
+func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
+	team, err := os.ReadFile(filepath.Join("..", "..", "manifests", "team.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := configuration.Parse(team)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := configuration.Merge(configuration.NewConfig(), manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogue, err := hermesCatalogue(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	models := make(map[string][]string, len(catalogue))
+	for _, provider := range catalogue {
+		models[provider.ID] = provider.Models
+	}
+	spec := mustClientSpec(configuration.ClientHermes)
+	for _, routeID := range cfg.RouteIDs() {
+		route := cfg.Routes[routeID]
+		for _, protocol := range spec.CompatibleRouteProtocols(cfg.Accounts[route.Account], route) {
+			providerID := hermesProviderID(route.Account, protocol)
+			if !slices.Contains(models[providerID], route.UpstreamModelID()) {
+				t.Errorf("Hermes provider %q omits Route %q wire ID %q", providerID, routeID, route.UpstreamModelID())
+			}
+		}
 	}
 }
 
@@ -132,6 +206,12 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["hermes"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
 	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: configuration.ProtocolAnthropic, Executable: executable}
+	binding := cfg.Clients[configuration.ClientHermes]
+	binding.Targets = []string{filepath.Join(t.TempDir(), "config.yaml")}
+	cfg.Clients[configuration.ClientHermes] = binding
+	if err := os.WriteFile(binding.Targets[0], []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
 	if err != nil {
 		t.Fatal(err)
@@ -192,6 +272,20 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 			}
 		})
 	}
+	for _, stage := range []int{1, 2} {
+		t.Run(fmt.Sprintf("diagnostic stage=%d", stage), func(t *testing.T) {
+			probe := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
+			probe.observe = func(process.Plan) {
+				if probe.calls+1 == stage {
+					probe.stderr = []byte("warning: secret=must-not-leak native capability incomplete\n")
+				}
+			}
+			_, err := (hermesAdapter{}).Verify(t.Context(), Dependencies{Runner: probe, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, clientRuntime, "")
+			if err == nil || !strings.Contains(err.Error(), "warning") || strings.Contains(err.Error(), "must-not-leak") {
+				t.Fatalf("Hermes diagnostic result = %v", err)
+			}
+		})
+	}
 }
 
 func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *testing.T) {
@@ -244,6 +338,87 @@ func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *
 	for _, unwanted := range []string{"aigw-offline-openai-responses", "deepseek-v3"} {
 		if strings.Contains(string(data), unwanted) {
 			t.Errorf("Hermes projection contains disconnected Account value %q:\n%s", unwanted, data)
+		}
+	}
+}
+
+func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
+	root := t.TempDir()
+	executable := filepath.Join(root, "hermes")
+	target := filepath.Join(root, "config.yaml")
+	original := []byte("agent:\n  reasoning_overrides:\n    mistral-large-3: none\nsecurity:\n  allow_lazy_installs: true\nupdates:\n  check: true\n")
+	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIChatCompletions: "https://gateway.test/v1"}}
+	cfg.Routes["selected"] = qualifiedRoute("", "gateway", "mistral-large-3", configuration.ProtocolOpenAIChatCompletions)
+	cfg.SetSelectedRoute(configuration.ClientHermes, "selected")
+	cfg.SetClientActivation(configuration.ClientHermes, true, executable, []string{target})
+	runtime, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := secrets.NewMemoryStore()
+	if err := store.Set("gateway", "fixture-only-token"); err != nil {
+		t.Fatal(err)
+	}
+	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes fixture"), []byte("AIGW_OK")}}
+	deps := Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(root, "aigw")}
+	if _, err := (hermesAdapter{}).Apply(t.Context(), deps, configuration.NewConfig(), cfg); err != nil {
+		t.Fatal(err)
+	}
+	original, err = os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner.observe = func(plan process.Plan) {
+		data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var observed struct {
+			Agent struct {
+				ReasoningOverrides map[string]string `yaml:"reasoning_overrides"`
+			} `yaml:"agent"`
+			Security struct {
+				AllowLazyInstalls bool `yaml:"allow_lazy_installs"`
+			} `yaml:"security"`
+			Updates struct {
+				Check bool `yaml:"check"`
+			} `yaml:"updates"`
+		}
+		if err := yaml.Unmarshal(data, &observed); err != nil {
+			t.Fatal(err)
+		}
+		if got := observed.Agent.ReasoningOverrides["mistral-large-3"]; got != "none" {
+			t.Fatalf("native per-model reasoning setting was lost: got %q, want none", got)
+		}
+		if observed.Security.AllowLazyInstalls || observed.Updates.Check {
+			t.Fatal("isolated verification enables dependency or update activity")
+		}
+	}
+	_, err = (hermesAdapter{}).Verify(t.Context(), deps, cfg, runtime, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(target)
+	if err != nil || !bytes.Equal(after, original) {
+		t.Fatal("verification changed the original native configuration")
+	}
+}
+
+func TestHermesVerificationRequiresOneConfiguredHome(t *testing.T) {
+	for _, targets := range [][]string{nil, {"one", "two"}} {
+		cfg := configuration.NewConfig()
+		cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Enabled: true, Targets: targets}
+		runner := &captureAdapterRunner{}
+		_, err := (hermesAdapter{}).Verify(t.Context(), Dependencies{Runner: runner}, cfg, configuration.Runtime{}, "")
+		if err == nil || !strings.Contains(err.Error(), "one configured home") || len(runner.plans) != 0 {
+			t.Fatalf("ambiguous configuration home reached native verification: %v", err)
 		}
 	}
 }

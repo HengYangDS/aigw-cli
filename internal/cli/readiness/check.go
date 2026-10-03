@@ -3,6 +3,7 @@
 package readiness
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
+	"aigw-cli/internal/secrets"
 
 	"github.com/spf13/cobra"
 )
@@ -20,8 +22,26 @@ import (
 // NewCheckCommand builds the read-only health check for every enabled client.
 func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
+	var client string
 	cmd := &cobra.Command{
-		Use: "check", Short: "Check client bindings, credentials, projections, and endpoints", Args: cobra.NoArgs,
+		Use:   "check",
+		Short: "Check enabled clients; selected-model probes may use quota",
+		Long: "Check every enabled client by default, or one with --for.\n" +
+			"Inspect its binding, credential, and native projection.\n" +
+			"For AIGW-managed Tokens, the default sends one bounded selected-model\n" +
+			"inference request per eligible client and may use provider quota.\n" +
+			"Use --endpoint-only for a model-free authenticated endpoint request.\n" +
+			"This command does not execute a native client or change configuration;\n" +
+			"use verify for real-client evidence.",
+		Args: cobra.MatchAll(cobra.NoArgs, func(cmd *cobra.Command, _ []string) error {
+			if cmd.Flags().Changed("for") && strings.TrimSpace(client) == "" {
+				return fmt.Errorf("--for requires a non-empty client; run `aigw check --help`")
+			}
+			if client != "" && !configuration.IsAdmittedClient(client) {
+				return fmt.Errorf("--for must be %s; run `aigw check --help`", configuration.AdmittedClientUsage())
+			}
+			return nil
+		}),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if jsonMode {
 				return runJSONCheck(cmd, runtime)
@@ -29,13 +49,13 @@ func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 			return RunCheck(cmd, runtime)
 		},
 	}
+	cmd.Flags().StringVar(&client, "for", "", "Check one enabled client: "+configuration.AdmittedClientLabelUsage()+"; omit for all")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
 	cmd.Flags().Bool("endpoint-only", false, "Use model-free endpoint authentication instead of inference")
 	return cmd
 }
 
 type checkJSON struct {
-	ConfigPath     string                  `json:"config_path"`
 	Clients        map[string]clientStatus `json:"clients"`
 	EnabledClients int                     `json:"enabled_clients"`
 	OK             bool                    `json:"ok"`
@@ -44,11 +64,36 @@ type checkJSON struct {
 	Error          string                  `json:"error,omitempty"`
 }
 
+func activationCheckIssue(activation clientactivation.Activation) (problem, evidence, jsonError string, cause error) {
+	switch {
+	case activation.State == domainreadiness.Unavailable:
+		return "Credential metadata is unavailable",
+			"The selected Account credential backend cannot be observed.",
+			"Credential metadata is unavailable; no endpoint or model was checked",
+			fmt.Errorf("credential metadata unavailable")
+	case activation.EnabledClients != 0:
+		evidence = "A Client Binding is selected, but its native projection is not available."
+		jsonError = "No enabled client has a native projection; no endpoint or model was checked"
+		if len(activation.ClientCredentialPrerequisites) != 0 {
+			evidence = "The selected Account Token is unavailable and its native projection is deferred."
+			jsonError = "The selected Account Token and native projection are unavailable; no endpoint or model was checked"
+		}
+		return "Client projection is deferred", evidence, jsonError,
+			fmt.Errorf("client projection is deferred")
+	default:
+		return "No client is enabled",
+			"The imported Routes are available, but no Client Binding is active.",
+			"No client is enabled; no endpoint or model was checked",
+			fmt.Errorf("no enabled Client Bindings")
+	}
+}
+
 type evaluatedClient struct {
 	client              string
 	runtime             configuration.Runtime
 	resolveErr          error
 	credentialErr       error
+	credentialState     domainreadiness.State
 	fix                 string
 	checkPassed         bool
 	issue               string
@@ -59,8 +104,7 @@ type evaluatedClient struct {
 }
 
 type checkEvaluation struct {
-	configPath string
-	clients    []evaluatedClient
+	clients []evaluatedClient
 }
 
 func selectedCheckScope(cmd *cobra.Command) diagnostics.Scope {
@@ -71,8 +115,37 @@ func selectedCheckScope(cmd *cobra.Command) diagnostics.Scope {
 	return diagnostics.ScopeInference
 }
 
+func selectedCheckClient(cmd *cobra.Command) string {
+	flag := cmd.Flags().Lookup("for")
+	if flag == nil {
+		return ""
+	}
+	return flag.Value.String()
+}
+
+func checkConfigurationFor(cfg configuration.Config, client string) (configuration.Config, string, error) {
+	if client == "" {
+		return cfg, "", nil
+	}
+	if !cfg.Clients[client].Enabled {
+		action := "aigw use --for " + client + " <route>"
+		if cfg.SelectedRoute(client) != "" {
+			action = "aigw client enable " + client
+		}
+		return cfg, action, fmt.Errorf("%s is not enabled", invocation.Title(client))
+	}
+	scoped := cfg.Clone()
+	for id, binding := range scoped.Clients {
+		if id != client {
+			binding.Enabled = false
+			scoped.Clients[id] = binding
+		}
+	}
+	return scoped, "", nil
+}
+
 func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config) checkEvaluation {
-	evaluation := checkEvaluation{configPath: runtime.Config.Path()}
+	var evaluation checkEvaluation
 	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
 		if !cfg.Clients[client].Enabled {
 			continue
@@ -108,8 +181,18 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg configur
 	token, tokenErr := runtime.Secrets.Get(clientRuntime.AccountID)
 	if tokenErr != nil {
 		result.credentialErr = tokenErr
+		if !errors.Is(tokenErr, secrets.ErrNotFound) {
+			result.credentialState = domainreadiness.Unavailable
+			result.issue = "account token could not be read"
+			result.fix = domainreadiness.CredentialBackendRecovery
+			return result
+		}
+		result.credentialState = domainreadiness.Deferred
 		result.issue = "account token is unavailable"
 		result.fix = "aigw rotate " + clientRuntime.AccountID
+		if instruction, writable := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID); !writable {
+			result.fix = instruction
+		}
 		return result
 	}
 	scope := selectedCheckScope(cmd)
@@ -156,30 +239,55 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if len(cfg.Routes) == 0 {
 		return writeJSONFailure(runtime, domainreadiness.Deferred, "not configured", "aigw setup", fmt.Errorf("not configured"))
 	}
+	selected := selectedCheckClient(cmd)
+	cfg, action, err := checkConfigurationFor(cfg, selected)
+	if err != nil {
+		return writeJSONFailure(runtime, domainreadiness.Deferred, err.Error(), action, err)
+	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
-	if activation.EnabledClients == 0 {
+	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
+		_, _, issue, cause := activationCheckIssue(activation)
 		result := checkJSON{
-			ConfigPath:     runtime.Config.Path(),
-			Clients:        inspectStatusClients(runtime, cfg),
-			EnabledClients: 0,
+			Clients:        inspectStatusClients(runtime, cfg, &activation, selected),
+			EnabledClients: activation.EnabledClients,
 			OK:             false,
 			State:          activation.State,
-			NextAction:     activation.NextAction,
-			Error:          "No client is enabled; no endpoint or model was checked",
+			NextAction:     activation.NextActionFor(nil),
+			Error:          issue,
 		}
 		if err := presentation.WriteJSON(runtime.Out, result); err != nil {
 			return err
 		}
-		return presentation.Presented(fmt.Errorf("no enabled Client Bindings"))
+		return presentation.Presented(cause)
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
-	clients := inspectStatusClients(runtime, cfg)
+	clients := checkedClientStatuses(runtime, cfg, &activation, evaluation, selected)
 	result := checkJSON{
-		ConfigPath:     evaluation.configPath,
 		Clients:        clients,
 		EnabledClients: activation.EnabledClients,
 		OK:             evaluation.ok(),
 	}
+	var failure error
+	if !result.OK {
+		result.NextAction, _ = failedCheckContinuation(&activation, evaluation, clients)
+		failure = fmt.Errorf("one or more enabled client checks failed")
+		result.Error = failure.Error()
+	}
+	if err := presentation.WriteJSON(runtime.Out, result); err != nil {
+		return err
+	}
+	if failure != nil {
+		// JSON is a protocol, not a prelude to human error rendering. Mark the
+		// already-serialized failure as presented so the root command preserves
+		// one valid JSON document on stdout while still returning a non-zero
+		// result to callers.
+		return presentation.Presented(failure)
+	}
+	return nil
+}
+
+func checkedClientStatuses(runtime invocation.Context, cfg configuration.Config, activation *clientactivation.Activation, evaluation checkEvaluation, selected string) map[string]clientStatus {
+	clients := inspectStatusClients(runtime, cfg, activation, selected)
 	for _, client := range evaluation.clients {
 		status := clients[client.client]
 		status.Route = client.runtime.RouteID
@@ -194,11 +302,16 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		status.NativeModelOverride = client.nativeModelOverride
 		status.Attempts = client.diagnostic.Attempts
 		status.Retryable = client.diagnostic.Retryable
-		if client.issue != "" {
-			status.Detail = client.issue
+		if client.credentialErr != nil {
+			status.State = client.credentialState
 		}
-		if client.fix != "" {
-			status.NextAction = client.fix
+		if !status.ProjectionDeferred {
+			if client.issue != "" {
+				status.Detail = client.issue
+			}
+			if client.fix != "" {
+				status.NextAction = client.fix
+			}
 		}
 		if client.diagnostic.Kind != "" && status.State == domainreadiness.Configured {
 			status.Client = domainreadiness.WithProbe(status.Client, client.diagnostic)
@@ -209,17 +322,29 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		}
 		clients[client.client] = status
 	}
-	if err := presentation.WriteJSON(runtime.Out, result); err != nil {
-		return err
+	return clients
+}
+
+func failedCheckContinuation(activation *clientactivation.Activation, evaluation checkEvaluation, clients map[string]clientStatus) (action, clientID string) {
+	failed := make([]domainreadiness.Client, 0, len(evaluation.clients))
+	ids := make([]string, 0, len(evaluation.clients))
+	for _, client := range evaluation.clients {
+		if client.checkPassed {
+			continue
+		}
+		failed = append(failed, clients[client.client].Client)
+		ids = append(ids, client.client)
 	}
-	if !result.OK {
-		// JSON is a protocol, not a prelude to human error rendering. Mark the
-		// already-serialized failure as presented so the root command preserves
-		// one valid JSON document on stdout while still returning a non-zero
-		// result to callers.
-		return presentation.Presented(fmt.Errorf("one or more enabled client checks failed"))
+	if len(ids) == 0 {
+		return "aigw repair", ""
 	}
-	return nil
+	action = activation.NextActionFor(failed)
+	for index, client := range failed {
+		if client.NextAction == action {
+			return action, ids[index]
+		}
+	}
+	return action, ids[0]
 }
 
 func writeJSONFailure(runtime invocation.Context, state domainreadiness.State, message, fix string, cause error) error {
@@ -240,11 +365,28 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if len(cfg.Routes) == 0 {
 		return invocation.Problem(runtime, "Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
+	selected := selectedCheckClient(cmd)
+	cfg, action, err := checkConfigurationFor(cfg, selected)
+	if err != nil {
+		return invocation.Problem(runtime, "Client is not enabled", err.Error(), "No endpoint or model was checked.", action, err)
+	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
-	if activation.EnabledClients == 0 {
-		return invocation.Problem(runtime, "No client is enabled", "The imported Routes are available, but no Client Binding is active.", "No endpoint or model was checked.", activation.NextAction, fmt.Errorf("no enabled Client Bindings"))
+	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
+		problem, evidence, _, cause := activationCheckIssue(activation)
+		return invocation.Problem(runtime, problem, evidence, "No endpoint or model was checked.", activation.NextActionFor(nil), cause)
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
+	if !evaluation.ok() {
+		clients := checkedClientStatuses(runtime, cfg, &activation, evaluation, selected)
+		action, clientID := failedCheckContinuation(&activation, evaluation, clients)
+		if client, found := evaluation.client(clientID); found {
+			_, _, err := renderCheckedClient(runtime, invocation.Renderer(runtime), client, action)
+			if err != nil {
+				return err
+			}
+		}
+		return invocation.Problem(runtime, "Enabled client check failed", "At least one enabled client did not pass its applicable check scope.", "All-client readiness was not established.", action, fmt.Errorf("enabled client check failed"))
+	}
 	renderer := invocation.Renderer(runtime)
 	renderer.ProductTitle("Health check")
 	renderer.Section("Configuration")
@@ -253,13 +395,16 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	verificationCommands := []string{}
 	inferenceUnverified := false
 	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
+		if selected != "" && client != selected {
+			continue
+		}
 		adapter := cfg.Clients[client]
 		if !adapter.Enabled {
 			renderer.Status(presentation.Info, invocation.Title(client), "Disabled")
 			continue
 		}
 		result, _ := evaluation.client(client)
-		command, unchecked, err := renderCheckedClient(runtime, renderer, result)
+		command, unchecked, err := renderCheckedClient(runtime, renderer, result, "")
 		if err != nil {
 			return err
 		}
@@ -270,7 +415,11 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	}
 	renderer.Section("Result")
 	// Passing this command establishes only the scopes reported per client.
-	renderer.Success("All enabled client checks passed")
+	if selected == "" {
+		renderer.Success("All enabled client checks passed")
+	} else {
+		renderer.Success("Selected client check passed")
+	}
 	if inferenceUnverified {
 		renderer.Detail("Model inference was not verified for endpoint-only or client-native checks")
 	}
@@ -281,25 +430,34 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	return nil
 }
 
-func renderCheckedClient(runtime invocation.Context, renderer *presentation.Renderer, result evaluatedClient) (string, bool, error) {
+func renderCheckedClient(runtime invocation.Context, renderer *presentation.Renderer, result evaluatedClient, overrideAction string) (string, bool, error) {
 	client := result.client
+	recommendedAction := func(fallback string) string {
+		if overrideAction != "" {
+			return overrideAction
+		}
+		return fallback
+	}
 	if result.resolveErr != nil {
-		return "", false, invocation.Problem(runtime, invocation.Title(client)+" binding cannot be resolved", result.resolveErr.Error(), invocation.Title(client)+" cannot determine which Route to use.", "aigw use --for "+client+" <route>", result.resolveErr)
+		return "", false, invocation.Problem(runtime, invocation.Title(client)+" binding cannot be resolved", result.resolveErr.Error(), invocation.Title(client)+" cannot determine which Route to use.", recommendedAction("aigw use --for "+client+" <route>"), result.resolveErr)
 	}
 	if result.credentialErr != nil {
-		instruction, _ := credential.TokenRecovery(runtime.Secrets, result.runtime.AccountID)
+		evidence := "Account " + result.runtime.AccountID + " has no available Token."
+		if result.credentialState == domainreadiness.Unavailable {
+			evidence = "The selected credential backend could not return Account " + result.runtime.AccountID + "'s Token; its presence cannot be inferred."
+		}
 		return "", false, invocation.Problem(
 			runtime,
-			invocation.Title(client)+" account token is unavailable",
-			"Account "+result.runtime.AccountID+" has no available Token.",
+			invocation.Title(client)+" "+result.issue,
+			evidence,
 			invocation.Title(client)+" cannot authenticate to its selected endpoint.",
-			instruction,
+			recommendedAction(result.fix),
 			fmt.Errorf("%s account token unavailable: %w", client, result.credentialErr),
 		)
 	}
 	if !result.adapter {
 		impact := invocation.Title(client) + " cannot receive its AIGW Route, Token, or configuration projection."
-		return "", false, invocation.Problem(runtime, invocation.Title(client)+" projection is not ready", result.issue, impact, result.fix, fmt.Errorf("%s projection not ready", client))
+		return "", false, invocation.Problem(runtime, invocation.Title(client)+" projection is not ready", result.issue, impact, recommendedAction(result.fix), fmt.Errorf("%s projection not ready", client))
 	}
 	if !result.runtime.UsesAIGWCredentialStore() {
 		renderer.Status(presentation.OK, invocation.Title(client), result.runtime.RouteLabel+" · Local projection checked")
@@ -312,14 +470,13 @@ func renderCheckedClient(runtime invocation.Context, renderer *presentation.Rend
 	}
 	diagnostic := result.diagnostic
 	if diagnostic.Kind != diagnostics.Healthy {
-		evidence := diagnostic.Detail
+		evidence := "No HTTP response was received"
 		if diagnostic.HTTPStatus != 0 {
 			evidence = fmt.Sprintf("HTTP %d", diagnostic.HTTPStatus)
-			if diagnostic.Detail != "" {
-				evidence += " · " + diagnostic.Detail
-			}
+		} else if diagnostic.Attempts == 0 {
+			evidence = "No request was sent"
 		}
-		return "", false, invocation.Problem(runtime, diagnostic.Summary, evidence, invocation.Title(client)+" is unavailable.", diagnostic.Fix, fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
+		return "", false, invocation.Problem(runtime, diagnostic.Summary, evidence, invocation.Title(client)+" is unavailable.", recommendedAction(diagnostic.Fix), fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
 	}
 	label := "Endpoint checked"
 	inferenceUnverified := true

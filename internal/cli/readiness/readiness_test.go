@@ -30,7 +30,7 @@ func (fn roundTripFunc) Do(request *http.Request) (*http.Response, error) { retu
 
 func TestCheckCommandDescribesItsProductBoundary(t *testing.T) {
 	command := NewCheckCommand(invocation.Context{})
-	if command.Short != "Check client bindings, credentials, projections, and endpoints" {
+	if command.Short != "Check enabled clients; selected-model probes may use quota" {
 		t.Fatalf("check summary = %q", command.Short)
 	}
 }
@@ -71,15 +71,18 @@ func (store *failingAccountObservationStore) Exists(string) (bool, error) {
 }
 
 type observingSecretStore struct {
-	value       string
-	getErr      error
-	existsErr   error
-	getCalls    int
-	existsCalls int
+	value          string
+	getErr         error
+	existsErr      error
+	getCalls       int
+	existsCalls    int
+	getAccounts    []string
+	existsAccounts []string
 }
 
-func (store *observingSecretStore) Get(string) (string, error) {
+func (store *observingSecretStore) Get(account string) (string, error) {
 	store.getCalls++
+	store.getAccounts = append(store.getAccounts, account)
 	if store.getErr != nil {
 		return "", store.getErr
 	}
@@ -92,8 +95,9 @@ func (store *observingSecretStore) Get(string) (string, error) {
 func (*observingSecretStore) Set(string, string) error { return nil }
 func (*observingSecretStore) Delete(string) error      { return nil }
 
-func (store *observingSecretStore) Exists(string) (bool, error) {
+func (store *observingSecretStore) Exists(account string) (bool, error) {
 	store.existsCalls++
+	store.existsAccounts = append(store.existsAccounts, account)
 	return store.value != "", store.existsErr
 }
 
@@ -255,7 +259,7 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 	}
 }
 
-func TestCheckAdmitsProjectionBeforeReadingCredentials(t *testing.T) {
+func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
 	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		for _, jsonMode := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%t", client, jsonMode), func(t *testing.T) {
@@ -270,7 +274,7 @@ func TestCheckAdmitsProjectionBeforeReadingCredentials(t *testing.T) {
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
 				}
-				store := &observingSecretStore{getErr: errors.New("secret read before projection admission")}
+				store := &observingSecretStore{value: "available-token", getErr: errors.New("secret read before projection admission")}
 				runtime.Secrets = store
 				runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
 					t.Fatal("invalid projection must not authenticate an endpoint")
@@ -285,8 +289,8 @@ func TestCheckAdmitsProjectionBeforeReadingCredentials(t *testing.T) {
 				if err := executeCommand(command); err == nil {
 					t.Fatal("invalid projection was accepted")
 				}
-				if store.getCalls != 0 {
-					t.Fatalf("invalid projection read secret values %d times", store.getCalls)
+				if store.getCalls != 0 || store.existsCalls != 1 {
+					t.Fatalf("deferred projection observed Token value or repeated metadata lookup: get=%d exists=%d", store.getCalls, store.existsCalls)
 				}
 				if jsonMode {
 					var result checkJSON
@@ -294,15 +298,85 @@ func TestCheckAdmitsProjectionBeforeReadingCredentials(t *testing.T) {
 						t.Fatal(err)
 					}
 					problemDetail, problemAction = result.Clients[client].Detail, result.Clients[client].NextAction
-					if state := result.Clients[client]; state.State != domainreadiness.Invalid || state.NextAction != problemAction || state.Detail != problemDetail {
+					if state := result.Clients[client]; state.State != domainreadiness.Deferred || state.NextAction != problemAction || state.Detail != problemDetail {
 						t.Fatalf("client status = %+v", state)
 					}
 				}
-				if !strings.Contains(problemDetail, "executable is not configured") || problemAction != "aigw repair" {
+				if !strings.Contains(strings.ToLower(problemDetail), "projection") || problemAction != "Install "+invocation.Title(client)+" if needed, then run `aigw sync`" {
 					t.Fatalf("projection recovery was lost: detail=%q action=%q", problemDetail, problemAction)
 				}
 			})
 		}
+	}
+}
+
+func TestCheckExplainsBothMissingTokenAndDeferredProjection(t *testing.T) {
+	runtime, cfg, output := configuredReadinessRuntime(t)
+	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	command := NewCheckCommand(runtime)
+	command.SetArgs([]string{"--json"})
+	if err := executeCommand(command); err == nil {
+		t.Fatal("missing Token and projection were accepted")
+	}
+	var result checkJSON
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.NextAction != "run `aigw rotate one`" || !strings.Contains(result.Error, "Token") || !strings.Contains(result.Error, "projection") {
+		t.Fatalf("missing prerequisites were not explained together: %+v", result)
+	}
+}
+
+func TestCheckReportsCredentialMetadataFailureBeforeClientProjection(t *testing.T) {
+	runtime, cfg, output := configuredReadinessRuntime(t)
+	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := &observingSecretStore{existsErr: errors.New("metadata denied")}
+	runtime.Secrets = store
+	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("unavailable credential metadata must not trigger an endpoint probe")
+		return nil, nil
+	})
+	command := NewCheckCommand(runtime)
+	command.SetArgs([]string{"--json"})
+	if err := executeCommand(command); err == nil {
+		t.Fatal("credential metadata failure was accepted")
+	}
+	var result checkJSON
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.State != domainreadiness.Unavailable || result.NextAction != "aigw doctor" || result.Clients[configuration.ClientClaude].State != domainreadiness.Unavailable {
+		t.Fatalf("metadata failure = %+v", result)
+	}
+	if store.getCalls != 0 || store.existsCalls != 1 {
+		t.Fatalf("metadata failure read Token or repeated observation: get=%d exists=%d", store.getCalls, store.existsCalls)
+	}
+}
+
+func TestJSONCheckSelectsTheFailedClientRecoveryAction(t *testing.T) {
+	runtime, cfg, output := configuredReadinessRuntime(t)
+	cfg.SetClientActivation(configuration.ClientClaude, true, filepath.Join(t.TempDir(), "missing-claude"), nil)
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	command := NewCheckCommand(runtime)
+	command.SetArgs([]string{"--json"})
+	if err := executeCommand(command); err == nil {
+		t.Fatal("missing native client was accepted")
+	}
+	var result checkJSON
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	client := result.Clients[configuration.ClientClaude]
+	if client.NextAction == "" || result.NextAction != client.NextAction {
+		t.Fatalf("top-level recovery differs from the failed client: %+v", result)
 	}
 }
 
@@ -447,51 +521,4 @@ func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 			t.Fatalf("RunCheck() error = %v", err)
 		}
 	})
-}
-
-func TestCheckEndpointReadinessIsIndependentOfDiagnosticCredentials(t *testing.T) {
-	runtime, cfg, buffer := configuredReadinessRuntime(t)
-	runtime.Version = "1.0.0"
-	if err := runtime.Secrets.Set("one", "token"); err != nil {
-		t.Fatal(err)
-	}
-	store := &failingAccountObservationStore{err: errors.New("credential metadata unavailable")}
-	runtime.Accounts = store
-	configureClaudeExecutable(t, &runtime, &cfg)
-	synchronizeClaudeSettings(t, runtime, cfg)
-	providerAccount := cfg.Accounts["one"]
-	providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
-	cfg.Accounts["one"] = providerAccount
-	if err := runtime.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	runtime.HTTP = roundTripFunc(successfulReadinessResponse)
-	for _, mode := range []string{"human", "json"} {
-		t.Run(mode, func(t *testing.T) {
-			store.reads = 0
-			buffer.Reset()
-			command := NewCheckCommand(runtime)
-			if mode == "json" {
-				command.SetArgs([]string{"--json"})
-			} else {
-				command.SetArgs([]string{})
-			}
-			if err := executeCommand(command); err != nil {
-				t.Fatalf("healthy endpoint depends on optional diagnostics: %v", err)
-			}
-			if store.reads != 0 {
-				t.Fatalf("endpoint check read diagnostic credentials %d times", store.reads)
-			}
-			if mode == "human" {
-				if !strings.Contains(buffer.String(), "All enabled client checks passed") {
-					t.Fatalf("human readiness verdict: %s", buffer.String())
-				}
-				return
-			}
-			var result checkJSON
-			if err := json.Unmarshal(buffer.Bytes(), &result); err != nil || !result.OK {
-				t.Fatalf("JSON readiness verdict: %#v, %v", result, err)
-			}
-		})
-	}
 }

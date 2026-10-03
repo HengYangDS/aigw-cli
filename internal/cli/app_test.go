@@ -311,7 +311,7 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 		"Start with one path",
 		"aigw setup", "Connect the first account",
 		"aigw use --for <client> <route>", "Select one Route for one client",
-		"aigw check", "Confirm readiness",
+		"aigw check", "Check enabled clients (may use quota)",
 		"Usage", "aigw [command]",
 		"Connect", "setup",
 		"Use every day", "check", "rotate", "status", "use",
@@ -328,41 +328,51 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 }
 
 func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
-	for _, width := range []int{32, 80, 120} {
-		for _, color := range []bool{false, true} {
-			var out bytes.Buffer
-			app := &App{Out: &out, Err: &out, Color: color, Env: []string{"COLUMNS=" + strconv.Itoa(width)}}
-			command := NewRoot(app)
-			command.Use = "gateway"
-			renderCommandHelp(app, command)
-			_, help, found := strings.Cut(ansi.Strip(out.String()), "Start with one path\n")
-			if !found {
-				t.Fatal("root help omitted the starting journey")
+	nativeName := NewRoot(&App{}).Name()
+	for _, test := range []struct {
+		name  string
+		width int
+		color bool
+	}{
+		{nativeName, 32, false}, {nativeName, 32, true},
+		{nativeName, 80, false}, {nativeName, 80, true},
+		{nativeName, 120, false}, {nativeName, 120, true},
+		{"gateway", 32, false}, {"gateway", 32, true},
+		{"gateway", 80, false}, {"gateway", 80, true},
+		{"gateway", 120, false}, {"gateway", 120, true},
+	} {
+		var out bytes.Buffer
+		app := &App{Out: &out, Err: &out, Color: test.color, Env: []string{"COLUMNS=" + strconv.Itoa(test.width)}}
+		command := NewRoot(app)
+		command.Use = test.name
+		renderCommandHelp(app, command)
+		_, help, found := strings.Cut(ansi.Strip(out.String()), "Start with one path\n")
+		if !found {
+			t.Fatal("root help omitted the starting journey")
+		}
+		help, _, _ = strings.Cut(help, "\nUsage")
+		semanticHelp := strings.Join(strings.Fields(help), " ")
+		column := -1
+		for _, row := range [][2]string{
+			{command.Name() + " setup", "Connect the first account"},
+			{command.Name() + " use --for <client> <route>", "Select one Route for one client"},
+			{command.Name() + " check", "Check enabled clients (may use quota)"},
+		} {
+			if !strings.Contains(semanticHelp, row[0]) || !strings.Contains(semanticHelp, row[1]) {
+				t.Fatalf("width=%d color=%t lost command or description %q:\n%s", test.width, test.color, row, help)
 			}
-			help, _, _ = strings.Cut(help, "\nUsage")
-			semanticHelp := strings.Join(strings.Fields(help), " ")
-			column := -1
-			for _, row := range [][2]string{
-				{"gateway setup", "Connect the first account"},
-				{"gateway use --for <client> <route>", "Select one Route for one client"},
-				{"gateway check", "Confirm readiness"},
-			} {
-				if !strings.Contains(semanticHelp, row[0]) || !strings.Contains(semanticHelp, row[1]) {
-					t.Fatalf("width=%d color=%t lost command or description %q:\n%s", width, color, row, help)
-				}
-				for line := range strings.SplitSeq(help, "\n") {
-					if prefix, _, present := strings.Cut(line, row[1]); present && width >= 80 {
-						position := presentation.DisplayWidth(prefix)
-						if column >= 0 && position != column {
-							t.Fatalf("descriptions use different display columns %d/%d:\n%s", column, position, help)
-						}
-						column = position
+			for line := range strings.SplitSeq(help, "\n") {
+				if prefix, _, present := strings.Cut(line, row[1]); present && test.width >= 80 {
+					position := presentation.DisplayWidth(prefix)
+					if column >= 0 && position != column {
+						t.Fatalf("descriptions use different display columns %d/%d:\n%s", column, position, help)
 					}
+					column = position
 				}
 			}
-			if strings.Contains(help, "#") {
-				t.Fatalf("help embeds explanations as executable shell comments: %q", help)
-			}
+		}
+		if strings.Contains(help, "#") {
+			t.Fatalf("help embeds explanations as executable shell comments: %q", help)
 		}
 	}
 }
@@ -454,12 +464,15 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 		want []string
 	}{
 		{args: []string{"setup", "--help"}, want: []string{"Account ID; uses the first Route ID when omitted", "First route ID", "Read one token line from standard input"}},
-		{args: []string{"test", "--help"}, want: []string{"Test selected endpoints", "Client whose selected Route to test: Claude, Claude Desktop, Codex, or Hermes"}},
+		{args: []string{"test", "--help"}, want: []string{"model-free HTTP request", "does not prove model inference or real-client behavior", "Client whose selected Route to test: Claude, Claude Desktop, Codex, or Hermes"}},
+		{args: []string{"check", "--help"}, want: []string{"may use provider quota", "one bounded selected-model inference request", "--endpoint-only", "--for", "does not execute a native client"}},
 		{args: []string{"models", "--help"}, want: []string{"Compare configured model IDs with provider catalogs", "does not test inference"}},
-		{args: []string{"verify", "--help"}, want: []string{"Client whose selected Route to verify: Claude, Claude Desktop, Codex, Hermes, or all", "Verify this Route for the explicit client without changing its binding"}},
+		{args: []string{"verify", "--help"}, want: []string{"real native client", "multiple provider requests", "may use quota", "--for all writes a configuration checkpoint", "Client whose selected Route to verify: Claude, Claude Desktop, Codex, Hermes, or all", "Verify this Route for the explicit client without changing its binding"}},
 		{args: []string{"rotate", "--help"}, want: []string{"Update one Account Token"}},
 		{args: []string{"completion", "--help"}, want: []string{"Generate shell completion"}},
-		{args: []string{"rollback", "--help"}, want: []string{"Restore only the immediately previous configuration backup"}},
+		{args: []string{"rollback", "--help"}, want: []string{"Restore configuration and client projections", "does not replace the AIGW program", "aigw update --rollback", "Restore only the immediately previous configuration backup"}},
+		{args: []string{"update", "--help"}, want: []string{"portable AIGW program", "Homebrew-managed copies must be upgraded with Homebrew", "--rollback restores the retained program, not configuration"}},
+		{args: []string{"uninstall", "--help"}, want: []string{"Withdraw AIGW-owned client projections", "retains Account and Route data and stored Tokens", "Homebrew-managed copies must be removed with Homebrew"}},
 		{args: []string{"config", "import", "--help"}, want: []string{"Merge a secret-free configuration manifest", "Explicitly replace conflicting account metadata", "system tokens remain unchanged"}},
 	}
 	for _, tc := range cases {
@@ -467,7 +480,7 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 		if err := Execute(app, tc.args); err != nil {
 			t.Fatalf("%v: %v", tc.args, err)
 		}
-		help := out.String()
+		help := strings.Join(strings.Fields(out.String()), " ")
 		for _, want := range tc.want {
 			if !strings.Contains(help, want) {
 				t.Fatalf("%v help missing %q:\n%s", tc.args, want, help)

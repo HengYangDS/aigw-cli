@@ -37,6 +37,7 @@ type toolCall struct {
 	Name, Directory string
 	Args, Env       []string
 	Stdout          io.Writer
+	Timeout         time.Duration
 }
 
 type toolRunner func(toolCall) error
@@ -166,20 +167,9 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 	if err != nil {
 		return "", err
 	}
-	instant, err := readiness.ParseEpoch(request.Epoch)
+	environment, err := goReleaserEnvironment(request)
 	if err != nil {
 		return "", err
-	}
-	environment := []string{
-		"AIGW_BUILD_OS=" + request.TargetOS,
-		"AIGW_MACOS_SIGNING_IDENTITY=" + request.MacOSSigningIdentity,
-		"AIGW_VERSION=" + request.Version,
-		"AIGW_RELEASE_EPOCH=" + request.Epoch,
-		"AIGW_RELEASE_TIMESTAMP=" + instant.Format(time.RFC3339),
-		"AIGW_GITLAB_RELEASE_ORIGIN=" + request.GitLabOrigin,
-		"AIGW_GITLAB_RELEASE_REPOSITORY=" + request.GitLabRepository,
-		"AIGW_GITHUB_RELEASE_ORIGIN=" + request.GitHubOrigin,
-		"AIGW_GITHUB_RELEASE_REPOSITORY=" + request.GitHubRepository,
 	}
 	args := []string{"release", "--snapshot", "--clean", "--skip=publish", "--config", config}
 	if request.TargetOS == "windows" {
@@ -192,6 +182,36 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 		return "", err
 	}
 	return stage, nil
+}
+
+func goReleaserEnvironment(request buildRequest) ([]string, error) {
+	instant, err := readiness.ParseEpoch(request.Epoch)
+	if err != nil {
+		return nil, err
+	}
+	return append(forgeCredentialOverrides(),
+		"AIGW_BUILD_OS="+request.TargetOS,
+		"AIGW_MACOS_SIGNING_IDENTITY="+request.MacOSSigningIdentity,
+		"AIGW_VERSION="+request.Version,
+		"GORELEASER_CURRENT_TAG=v"+request.Version, // Keep snapshots bound to AIGW SemVer, not mirror tags.
+		"AIGW_RELEASE_EPOCH="+request.Epoch,
+		"AIGW_RELEASE_TIMESTAMP="+instant.Format(time.RFC3339),
+		"AIGW_GITLAB_RELEASE_ORIGIN="+request.GitLabOrigin,
+		"AIGW_GITLAB_RELEASE_REPOSITORY="+request.GitLabRepository,
+		"AIGW_GITHUB_RELEASE_ORIGIN="+request.GitHubOrigin,
+		"AIGW_GITHUB_RELEASE_REPOSITORY="+request.GitHubRepository,
+	), nil
+}
+
+func forgeCredentialOverrides() []string {
+	return []string{
+		"GH_TOKEN=", "GITHUB_TOKEN=", "GITLAB_TOKEN=", "CI_JOB_TOKEN=", "AIGW_GITHUB_TOKEN=",
+		"MISE_GITHUB_TOKEN=", "MISE_GITLAB_TOKEN=", "MISE_NETRC_FILE=", "MISE_NETRC=false",
+		"MISE_GITHUB_CREDENTIAL_COMMAND=", "MISE_GITLAB_CREDENTIAL_COMMAND=",
+		"MISE_GITHUB_GH_CLI_TOKENS=false", "MISE_GITLAB_GLAB_CLI_TOKENS=false",
+		"MISE_GITHUB_USE_GIT_CREDENTIALS=false", "MISE_GITLAB_USE_GIT_CREDENTIALS=false",
+		"GLAB_ENABLE_CI_AUTOLOGIN=false",
+	}
 }
 
 func renderGoReleaserConfig(root, workspace, stage string) (string, error) {
@@ -269,6 +289,13 @@ func copyFile(source, target string) error {
 }
 
 func replaceDirectory(source, target string) (result error) {
+	parent, err := os.Stat(filepath.Dir(target))
+	if err != nil {
+		return fmt.Errorf("inspect release output parent: %w", err)
+	}
+	if !parent.IsDir() {
+		return errors.New("inspect release output parent: not a directory")
+	}
 	_, statErr := os.Lstat(target)
 	if os.IsNotExist(statErr) {
 		if err := robustio.Rename(source, target); err != nil {
@@ -312,11 +339,17 @@ func replaceDirectory(source, target string) (result error) {
 
 func executeTool(ctx context.Context) toolRunner {
 	return func(call toolCall) error {
+		callContext := ctx
+		if call.Timeout > 0 {
+			var cancel context.CancelFunc
+			callContext, cancel = context.WithTimeout(ctx, call.Timeout)
+			defer cancel()
+		}
 		stdout := call.Stdout
 		if stdout == nil {
 			stdout = os.Stdout
 		}
-		return (process.Runner{}).RunStream(ctx, process.Plan{
+		return (process.Runner{}).RunStream(callContext, process.Plan{
 			Executable: call.Name, Directory: call.Directory,
 			Args: call.Args, Env: append(os.Environ(), call.Env...),
 		}, stdout, os.Stderr)

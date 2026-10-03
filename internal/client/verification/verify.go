@@ -21,8 +21,8 @@ import (
 	"github.com/rogpeppe/go-internal/robustio"
 )
 
-// ProtocolTimeout allows a cold Claude CLI process to initialize and complete
-// one bounded upstream request.
+// ProtocolTimeout allows a cold native client to initialize and complete a
+// bounded verification session.
 const ProtocolTimeout = time.Minute
 
 const responseSentinel = "AIGW_OK"
@@ -31,8 +31,8 @@ const responseLimit int64 = int64(len(responseSentinel) + 2)
 var removeCodexWorkspace = robustio.RemoveAll
 
 // VerifyCodexInvocation validates one synchronized Codex target, measures the
-// configured executable, and makes exactly one non-persistent client request.
-func VerifyCodexInvocation(ctx context.Context, runner process.CaptureRunner, cfg configuration.Config, clientRuntime configuration.Runtime) (_ codex.ExecutableIdentity, result error) {
+// configured executable, and runs a non-persistent native client session.
+func VerifyCodexInvocation(ctx context.Context, runner process.VerificationRunner, cfg configuration.Config, clientRuntime configuration.Runtime) (_ codex.ExecutableIdentity, result error) {
 	adapter := cfg.Clients[configuration.ClientCodex]
 	if !adapter.Enabled {
 		return codex.ExecutableIdentity{}, fmt.Errorf("Codex adapter is disabled; run `aigw repair`")
@@ -55,10 +55,6 @@ func VerifyCodexInvocation(ctx context.Context, runner process.CaptureRunner, cf
 	if runner == nil {
 		return codex.ExecutableIdentity{}, fmt.Errorf("Codex verification capture runner is unavailable")
 	}
-	identity, err := codex.IdentifyExecutable(ctx, runner, adapter.Executable, filepath.Dir(target))
-	if err != nil {
-		return codex.ExecutableIdentity{}, err
-	}
 	workspace, err := os.MkdirTemp("", "aigw-codex-verification-")
 	if err != nil {
 		return codex.ExecutableIdentity{}, fmt.Errorf("create Codex verification workspace: %w", err)
@@ -68,14 +64,21 @@ func VerifyCodexInvocation(ctx context.Context, runner process.CaptureRunner, cf
 			result = errors.Join(result, fmt.Errorf("remove Codex verification workspace %s: %w", workspace, err))
 		}
 	}()
+	identity, err := codex.IdentifyExecutable(ctx, runner, adapter.Executable, filepath.Dir(target), workspace)
+	if err != nil {
+		return codex.ExecutableIdentity{}, err
+	}
 	outputPath := filepath.Join(workspace, "response.txt")
 	plan, err := codex.VerificationPlan(adapter.Executable, target, outputPath, clientRuntime)
 	if err != nil {
 		return codex.ExecutableIdentity{}, err
 	}
-	diagnostic, err := runner.RunCapture(ctx, plan)
+	_, diagnostic, err := runner.RunCaptureStreams(ctx, plan)
 	if err != nil {
 		return codex.ExecutableIdentity{}, verificationFailure("Codex", configuration.ClientCodex, diagnostic, err)
+	}
+	if process.DiagnosticFailure(diagnostic) {
+		return codex.ExecutableIdentity{}, verificationDiagnostic("Codex", diagnostic)
 	}
 	finalMessage, err := readBoundedFile(outputPath, responseLimit)
 	if err != nil {
@@ -104,7 +107,7 @@ func readBoundedFile(path string, limit int64) ([]byte, error) {
 }
 
 // VerifyClaudeRuntime performs one bounded Claude CLI request.
-func VerifyClaudeRuntime(ctx context.Context, runner process.CaptureRunner, executable, settingsPath string, clientRuntime configuration.Runtime, token string) error {
+func VerifyClaudeRuntime(ctx context.Context, runner process.VerificationRunner, executable, settingsPath string, clientRuntime configuration.Runtime, token string) error {
 	if clientRuntime.Model == "" {
 		return fmt.Errorf("Route %q has no Claude model", clientRuntime.RouteID)
 	}
@@ -115,14 +118,25 @@ func VerifyClaudeRuntime(ctx context.Context, runner process.CaptureRunner, exec
 	if runner == nil {
 		return fmt.Errorf("Claude verification runner is unavailable")
 	}
-	output, err := runner.RunCapture(ctx, plan)
+	output, diagnostic, err := runner.RunCaptureStreams(ctx, plan)
 	if err != nil {
-		return verificationFailure("Claude", configuration.ClientClaude, output, err, token)
+		return verificationFailure("Claude", configuration.ClientClaude, diagnostic, err, token)
+	}
+	if process.DiagnosticFailure(diagnostic) {
+		return verificationDiagnostic("Claude", diagnostic)
 	}
 	if strings.TrimSpace(string(output)) != responseSentinel {
 		return fmt.Errorf("Claude model response did not return the expected AIGW_OK verification marker")
 	}
 	return nil
+}
+
+func verificationDiagnostic(label string, diagnostic []byte) error {
+	text := strings.ToLower(string(diagnostic))
+	if strings.Contains(text, "model metadata") && strings.Contains(text, "fallback metadata") {
+		return fmt.Errorf("%s emitted a model-metadata warning; native metadata is incomplete and verification is unqualified; select a model supported by the client or update the client", label)
+	}
+	return fmt.Errorf("%s emitted a native-client warning or error; verification is incomplete; inspect the client with the selected Route", label)
 }
 
 type requestFailureError struct {

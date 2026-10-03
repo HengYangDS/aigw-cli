@@ -314,8 +314,50 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(shimDir, "claude")); !os.IsNotExist(err) {
 		t.Fatalf("Codex-only first-run wizard mutated a Claude command path: %v", err)
 	}
-	if !strings.Contains(out.String(), "Ready") || strings.Contains(out.String(), "one-paste-token") {
+	if !strings.Contains(out.String(), "Client projection configured") || strings.Contains(out.String(), "one-paste-token") {
 		t.Fatalf("wizard output = %s", out.String())
+	}
+}
+
+func TestFirstRunDefersSelectedHermesProtocolUntilClientInstallation(t *testing.T) {
+	for _, test := range []struct {
+		protocol configuration.EndpointProtocol
+		endpoint string
+	}{
+		{configuration.ProtocolAnthropic, "https://messages.test"},
+		{configuration.ProtocolOpenAIResponses, "https://responses.test/v1"},
+		{configuration.ProtocolOpenAIChatCompletions, "https://chat.test/v1"},
+	} {
+		t.Run(string(test.protocol), func(t *testing.T) {
+			app, out, secretStore, runner, _ := testApp(t, "")
+			app.Interactive = true
+			app.Discovery = fakeDiscovery{}
+			prompt := &scriptedPrompt{
+				selections: []string{configuration.ClientHermes, string(test.protocol)},
+				secrets:    []string{"wizard-token"},
+				texts:      []string{"team", "Team", test.endpoint, "hermes-route", "hermes-model"},
+			}
+			app.Prompt = prompt
+
+			if err := cli.Execute(app, nil); err != nil {
+				t.Fatal(err)
+			}
+			connected := secretExists(t, secretStore, "team")
+			if prompt.selectCalls != 2 || !connected {
+				t.Fatalf("wizard selection calls=%d, Account connected=%t", prompt.selectCalls, connected)
+			}
+			cfg, err := app.Config.Load()
+			if err != nil {
+				t.Fatal(err)
+			}
+			selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+			if err != nil || selected.RouteID != "hermes-route" || selected.Protocol != test.protocol || selected.Endpoint != test.endpoint {
+				t.Fatalf("Hermes selection = %+v, %v", selected, err)
+			}
+			if len(runner.plans) != 0 || !strings.Contains(out.String(), "Install Hermes") || !strings.Contains(out.String(), "aigw sync") || !strings.Contains(out.String(), "Claude Desktop") || strings.Contains(out.String(), "wizard-token") {
+				t.Fatalf("deferred Hermes setup = %s; client plans=%#v", out, runner.plans)
+			}
+		})
 	}
 }
 
@@ -366,8 +408,8 @@ func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
 			"team-gateway",
 			"Team Gateway",
 			"https://gateway.test",
-			"claude-sonnet-5",
-			"claude-sonnet-5",
+			"claude-sonnet-5-5",
+			"claude-sonnet-5-5",
 		},
 	}
 
@@ -378,11 +420,11 @@ func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !secretExists(t, secretStore, "team-gateway") || cfg.SelectedRoute(configuration.ClientClaude) != "claude-sonnet-5" {
+	if !secretExists(t, secretStore, "team-gateway") || cfg.SelectedRoute(configuration.ClientClaude) != "claude-sonnet-5-5" {
 		t.Fatalf("setup state = %#v", cfg)
 	}
 	text := out.String()
-	if !strings.Contains(text, "aigw check") || strings.Contains(text, "aigw sync") {
+	if !strings.Contains(text, "Install Claude") || !strings.Contains(text, "aigw sync") || strings.Contains(text, "aigw check") {
 		t.Fatalf("setup continuation = %q", text)
 	}
 }

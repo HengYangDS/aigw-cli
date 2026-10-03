@@ -92,7 +92,7 @@ func TestStatusDirectsTheSupportedPredecessorToExplicitMigration(t *testing.T) {
 	}
 }
 
-func TestStatusGuidesClientSpecificRouteInsteadOfBlankRepair(t *testing.T) {
+func TestStatusPrioritizesSelectedActivationWhileRetainingRouteGuidance(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
@@ -111,10 +111,23 @@ func TestStatusGuidesClientSpecificRouteInsteadOfBlankRepair(t *testing.T) {
 	if strings.Contains(text, "Claude             ·") || strings.Contains(text, "aigw repair") {
 		t.Fatalf("status should not show blank Claude route or misleading repair:\n%s", text)
 	}
-	for _, want := range []string{"Claude", "No Claude route selected", "aigw use --for claude claude-fable-5"} {
+	for _, want := range []string{"Claude", "No Claude route selected", "Install Codex if needed, then run `aigw sync`"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("status lacks %q:\n%s", want, text)
 		}
+	}
+	out.Reset()
+	if err := cli.Execute(app, []string{"status", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		NextAction string `json:"next_action"`
+		Clients    map[string]struct {
+			NextAction string `json:"next_action"`
+		} `json:"clients"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.NextAction != "Install Codex if needed, then run `aigw sync`" || result.Clients[configuration.ClientClaude].NextAction != "aigw use --for claude claude-fable-5" {
+		t.Fatalf("JSON status action = %+v, error = %v", result, err)
 	}
 }
 
@@ -205,21 +218,20 @@ func TestStatusReportsRouteTransport(t *testing.T) {
 				t.Fatal(err)
 			}
 			var document struct {
-				ConfigPath string                                `json:"config_path"`
-				Clients    map[string]map[string]json.RawMessage `json:"clients"`
+				Clients map[string]map[string]json.RawMessage `json:"clients"`
 			}
 			if err := json.Unmarshal(out.Bytes(), &document); err != nil {
 				t.Fatal(err)
 			}
-			if document.ConfigPath != app.Config.Path() {
-				t.Fatalf("config path = %q, want %q", document.ConfigPath, app.Config.Path())
+			if strings.Contains(out.String(), `"config_path"`) || strings.Contains(out.String(), app.Config.Path()) {
+				t.Fatalf("status exposed a private configuration path: %s", out.String())
 			}
 			want := map[string]json.RawMessage{
 				"state":               json.RawMessage(`"deferred"`),
 				"route":               json.RawMessage(`"team"`),
 				"account":             json.RawMessage(`"team"`),
 				"detail":              json.RawMessage(`"The client is not installed or enabled"`),
-				"next_action":         json.RawMessage(`"aigw sync"`),
+				"next_action":         json.RawMessage("\"Install Codex if needed, then run `aigw sync`\""),
 				"authentication":      json.RawMessage(`"account-token"`),
 				"endpoint_configured": json.RawMessage(`true`),
 				"projection_ready":    json.RawMessage(`false`),

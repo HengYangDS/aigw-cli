@@ -1,17 +1,38 @@
 package claude
 
 import (
+	"encoding/json"
 	"fmt"
 	"maps"
+	"runtime"
 	"strings"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 )
 
 // SettingsInspection identifies a native model preference while retaining
 // AIGW's sidecar-proven endpoint and credential-helper ownership.
 type SettingsInspection struct {
 	NativeModelOverride bool
+}
+
+// ObservedCredentialExecutable reads the exact AIGW helper grammar without
+// trusting the settings. InspectSettings must still verify its ownership state.
+func ObservedCredentialExecutable(path string, selected configuration.Runtime) (string, error) {
+	snapshot, err := captureSnapshot(path)
+	if err != nil {
+		return "", fmt.Errorf("read Claude settings: %w", err)
+	}
+	document, err := decodeSettings(snapshot)
+	if err != nil {
+		return "", err
+	}
+	var command string
+	if err := json.Unmarshal(document["apiKeyHelper"], &command); err != nil {
+		return "", fmt.Errorf("decode Claude credential helper: %w", err)
+	}
+	return credential.ExecutableFromCommand(command, configuration.ClientClaude, selected.CredentialProjectionFingerprint(configuration.ClientClaude), runtime.GOOS)
 }
 
 // InspectSettings checks Claude's owned connection without writing settings,

@@ -3,6 +3,7 @@
 package onboarding
 
 import (
+	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -12,6 +13,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -19,12 +21,12 @@ import (
 
 // Request contains the explicit setup inputs before discovery and validation resolve their effects.
 type Request struct {
-	From, Account, Route, Label string
-	OpenAIURL, AnthropicURL     string
-	Client, Model               string
-	TokenStdin                  bool
-	PromptToken                 bool
-	JSON                        bool
+	From, Account, Route, Label      string
+	OpenAIURL, AnthropicURL, ChatURL string
+	Client, Model, Protocol          string
+	TokenStdin                       bool
+	PromptToken                      bool
+	JSON                             bool
 }
 
 // NewCommand constructs the setup command and binds it to one invocation context.
@@ -76,23 +78,23 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&request.Label, "label", "", "Provider display name")
 	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses base URL")
 	cmd.Flags().StringVar(&request.AnthropicURL, "anthropic-url", "", "Anthropic base URL")
+	cmd.Flags().StringVar(&request.ChatURL, "chat-url", "", "OpenAI Chat Completions base URL")
 	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first route: "+configuration.AdmittedClientUsage())
 	cmd.Flags().StringVar(&request.Model, "model", "", "Upstream model ID for --for")
+	cmd.Flags().StringVar(&request.Protocol, "protocol", "", "Endpoint protocol when more than one URL is configured")
 	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one token line from standard input")
 	cmd.Flags().BoolVar(&request.JSON, "json", false, "Write the manifest setup result as JSON")
-	for _, name := range []string{"route", "label", "openai-url", "anthropic-url", "for", "model"} {
+	for _, name := range []string{"route", "label", "openai-url", "anthropic-url", "chat-url", "for", "model", "protocol"} {
 		cmd.MarkFlagsMutuallyExclusive("from", name)
 	}
 	return cmd
 }
 
 type setupPlan struct {
-	request           Request
-	before            configuration.Config
-	config            configuration.Config
-	account           configuration.Account
-	route             configuration.Route
-	validationClients []string
+	request Request
+	before  configuration.Config
+	config  configuration.Config
+	route   configuration.Route
 }
 
 type setupCredential struct {
@@ -113,11 +115,15 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	if err != nil {
 		return err
 	}
+	selected, err := plan.config.ResolveRuntime(plan.request.Client, "")
+	if err != nil {
+		return err
+	}
 	credentialChange, err := setupToken(runtime, plan.request)
 	if err != nil {
 		return err
 	}
-	if err := credential.Validate(ctx, runtime.HTTP, plan.account, credentialChange.token, plan.validationClients...); err != nil {
+	if err := credential.ValidateRuntime(ctx, runtime.HTTP, selected, credentialChange.token); err != nil {
 		return fmt.Errorf("Token validation failed: %w", err)
 	}
 
@@ -130,7 +136,7 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 		return err
 	}
 	renderSetupService(runtime, plan)
-	renderSetupClients(runtime, plan.config)
+	renderSetupClients(runtime, plan.config, plan.request.Client)
 	return nil
 }
 
@@ -154,8 +160,9 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 		plan.request.Label = plan.request.Account
 	}
 	endpoints := configuration.Endpoints{
-		OpenAIResponses: strings.TrimRight(strings.TrimSpace(plan.request.OpenAIURL), "/"),
-		Anthropic:       strings.TrimRight(strings.TrimSpace(plan.request.AnthropicURL), "/"),
+		OpenAIResponses:       strings.TrimRight(strings.TrimSpace(plan.request.OpenAIURL), "/"),
+		Anthropic:             strings.TrimRight(strings.TrimSpace(plan.request.AnthropicURL), "/"),
+		OpenAIChatCompletions: strings.TrimRight(strings.TrimSpace(plan.request.ChatURL), "/"),
 	}
 	if plan.request.Client == "" {
 		return setupPlan{}, fmt.Errorf("--for is required and must be %s; a model route belongs to exactly one client", configuration.AdmittedClientUsage())
@@ -165,20 +172,24 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 		return setupPlan{}, fmt.Errorf("--for must be %s; run `aigw setup --help`", configuration.AdmittedClientUsage())
 	}
 	account := configuration.Account{ID: plan.request.Account, Endpoints: endpoints}
-	_, protocol, err := spec.ResolveEndpoint(account, "")
+	if plan.request.Protocol == "" && len(spec.CompatibleProtocols(account)) > 1 {
+		return setupPlan{}, fmt.Errorf("--for %s has multiple compatible endpoints; specify --protocol", plan.request.Client)
+	}
+	_, protocol, err := spec.ResolveEndpoint(account, configuration.EndpointProtocol(plan.request.Protocol))
 	if err != nil {
 		if _, ok := errors.AsType[*configuration.RuntimeMissingEndpointError](err); !ok {
 			return setupPlan{}, err
 		}
-		return setupPlan{}, fmt.Errorf("--for %s requires %s", plan.request.Client, setupEndpointFlag(spec.EndpointProtocols[0]))
+		required := spec.EndpointProtocols[0]
+		if plan.request.Protocol != "" {
+			required = configuration.EndpointProtocol(plan.request.Protocol)
+		}
+		return setupPlan{}, fmt.Errorf("--for %s requires %s", plan.request.Client, setupEndpointFlag(required))
 	}
 	if strings.TrimSpace(plan.request.Model) == "" {
 		return setupPlan{}, fmt.Errorf("--for %s requires --model", plan.request.Client)
 	}
-	plan.validationClients = append(plan.validationClients, plan.request.Client)
 	storedAccount := configuration.Account{Label: plan.request.Label, Endpoints: endpoints}
-	plan.account = storedAccount
-	plan.account.ID = plan.request.Account
 	plan.route = configuration.Route{
 		Label: plan.request.Label, Account: plan.request.Account, Model: strings.TrimSpace(plan.request.Model),
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
@@ -202,32 +213,41 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 	r.Status(presentation.OK, "API Token", "Validated")
 }
 
-func renderSetupClients(runtime invocation.Context, cfg configuration.Config) {
+func renderSetupClients(runtime invocation.Context, cfg configuration.Config, selectedClient string) {
 	r := invocation.Renderer(runtime)
+	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	r.Section("Clients")
-	configured := false
-	for _, client := range configuration.AdmittedClientIDs() {
-		if cfg.Clients[client].Enabled {
-			configured = true
-			r.Status(presentation.OK, invocation.Title(client), "Configured")
-		} else {
-			r.Status(presentation.Info, invocation.Title(client), "Not configured")
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		binding := cfg.Clients[spec.ID]
+		switch {
+		case !binding.Enabled:
+			r.Status(presentation.Info, spec.Label, "Not configured")
+		case activation.ProjectionPrerequisites[spec.ID] != "":
+			r.Status(presentation.Info, spec.Label, "Selected; projection deferred")
+		default:
+			r.Status(presentation.OK, spec.Label, "Projection configured")
 		}
 	}
-	if !configured {
-		r.Success("Account ready. Install Claude Code or Codex when needed, then synchronize its configuration.")
-		r.Next("aigw sync")
+	if action := activation.ProjectionPrerequisites[selectedClient]; action != "" {
+		r.Success("Account and Route are ready; selected client activation is deferred.")
+		r.Next(action)
 		return
 	}
-	r.Success("Ready. You can add more model routes for this account.")
-	r.Next("aigw check")
+	r.Success("Client projection configured; real-client use is not yet verified.")
+	r.Next(activation.NextActionFor(nil))
 }
 
 func setupEndpointFlag(protocol configuration.EndpointProtocol) string {
-	if protocol == configuration.ProtocolAnthropic {
+	switch protocol {
+	case configuration.ProtocolAnthropic:
 		return "--anthropic-url"
+	case configuration.ProtocolOpenAIChatCompletions:
+		return "--chat-url"
+	case configuration.ProtocolOpenAIResponses:
+		return "--openai-url"
+	default:
+		return "--protocol"
 	}
-	return "--openai-url"
 }
 
 // setupToken prefers a credential that was already supplied by the active
@@ -272,34 +292,58 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
-	client, err := runtime.Prompt.Select("Client for the first route: ", []prompt.Choice{
-		{Value: configuration.ClientCodex, Label: "Codex (OpenAI Responses)"},
-		{Value: configuration.ClientClaude, Label: "Claude (Anthropic)"},
-	})
+	clientSpecs := configuration.AdmittedClientSpecs()
+	clientChoices := make([]prompt.Choice, 0, len(clientSpecs))
+	for _, spec := range clientSpecs {
+		clientChoices = append(clientChoices, prompt.Choice{Value: spec.ID, Label: spec.Label})
+	}
+	client, err := runtime.Prompt.Select("Client for the first Route: ", clientChoices)
 	if err != nil {
 		return err
 	}
-	endpointLabel := "OpenAI Responses URL: "
-	if client == configuration.ClientClaude {
-		endpointLabel = "Anthropic URL: "
+	spec, ok := configuration.ClientSpecFor(client)
+	if !ok || len(spec.EndpointProtocols) == 0 {
+		return fmt.Errorf("unsupported setup client %q", client)
 	}
-	endpoint, err := runtime.Prompt.Text(endpointLabel)
+	protocol := spec.EndpointProtocols[0]
+	if len(spec.EndpointProtocols) > 1 {
+		protocolChoices := make([]prompt.Choice, 0, len(spec.EndpointProtocols))
+		for _, candidate := range spec.EndpointProtocols {
+			protocolChoices = append(protocolChoices, prompt.Choice{Value: string(candidate), Label: string(candidate)})
+		}
+		selected, selectErr := runtime.Prompt.Select("Endpoint protocol: ", protocolChoices)
+		if selectErr != nil {
+			return selectErr
+		}
+		protocol = configuration.EndpointProtocol(selected)
+		if !slices.Contains(spec.EndpointProtocols, protocol) {
+			return fmt.Errorf("unsupported %s endpoint protocol %q", spec.Label, selected)
+		}
+	}
+	request := Request{Account: account, Label: label, Client: client, Protocol: string(protocol), PromptToken: true}
+	var endpointLabel string
+	var endpointURL *string
+	switch protocol {
+	case configuration.ProtocolAnthropic:
+		endpointLabel, endpointURL = "Anthropic Messages URL: ", &request.AnthropicURL
+	case configuration.ProtocolOpenAIResponses:
+		endpointLabel, endpointURL = "OpenAI Responses URL: ", &request.OpenAIURL
+	case configuration.ProtocolOpenAIChatCompletions:
+		endpointLabel, endpointURL = "OpenAI Chat Completions URL: ", &request.ChatURL
+	default:
+		return fmt.Errorf("unsupported endpoint protocol %q", protocol)
+	}
+	*endpointURL, err = runtime.Prompt.Text(endpointLabel)
 	if err != nil {
 		return err
 	}
-	route, err := runtime.Prompt.Text("Route ID (for example, gpt-5.6-terra): ")
+	request.Route, err = runtime.Prompt.Text("Route ID (for example, team-model): ")
 	if err != nil {
 		return err
 	}
-	model, err := runtime.Prompt.Text("Upstream model ID: ")
+	request.Model, err = runtime.Prompt.Text("Upstream model ID: ")
 	if err != nil {
 		return err
-	}
-	request := Request{Account: account, Route: route, Label: label, Client: client, Model: model, PromptToken: true}
-	if client == configuration.ClientCodex {
-		request.OpenAIURL = endpoint
-	} else {
-		request.AnthropicURL = endpoint
 	}
 	return runSetup(ctx, runtime, request)
 }

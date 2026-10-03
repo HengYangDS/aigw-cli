@@ -13,7 +13,6 @@ import (
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
-	"aigw-cli/internal/redaction"
 )
 
 // Kind classifies a provider endpoint diagnostic outcome.
@@ -66,7 +65,6 @@ type Result struct {
 	Kind       Kind   `json:"kind"`
 	Scope      Scope  `json:"scope,omitempty"`
 	Summary    string `json:"summary"`
-	Detail     string `json:"detail,omitempty"`
 	Fix        string `json:"fix,omitempty"`
 	HTTPStatus int    `json:"http_status,omitempty"`
 	Retryable  bool   `json:"retryable"`
@@ -108,11 +106,11 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 		req, err = credential.ProbeRequest(ctx, runtime.Client, runtime.Endpoint, token, runtime.Protocol)
 	}
 	if err != nil {
-		return Result{Kind: EndpointMismatch, Scope: scope, Summary: "Cannot construct the diagnostic request", Detail: err.Error(), Fix: "Check the endpoint and protocol for the active route"}
+		return Result{Kind: EndpointMismatch, Scope: scope, Summary: "Cannot construct the diagnostic request", Fix: "Check the endpoint and protocol for the active route"}
 	}
 	resp, err := credential.DoProbe(client, req)
 	if err != nil {
-		return Result{Kind: NetworkFailure, Scope: scope, Summary: "Cannot reach the endpoint", Detail: redaction.Text(err.Error(), token), Fix: "Check the configured endpoint and network, then try again", Retryable: true, Attempts: 1}
+		return Result{Kind: NetworkFailure, Scope: scope, Summary: "Cannot reach the endpoint", Fix: "Check the configured endpoint and network, then try again", Retryable: true, Attempts: 1}
 	}
 	defer func() { _ = resp.Body.Close() }()
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
@@ -121,23 +119,21 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 			Kind:       NetworkFailure,
 			Scope:      scope,
 			Summary:    "Cannot read the endpoint response",
-			Detail:     redaction.Text(readErr.Error(), token),
 			Fix:        "Check the configured endpoint and network, then try again",
 			HTTPStatus: resp.StatusCode,
 			Retryable:  true,
 			Attempts:   1,
 		}
 	}
-	message := strings.TrimSpace(string(body))
 	lower := strings.ToLower(providerErrorMessage(body))
-	result := Result{HTTPStatus: resp.StatusCode, Scope: scope, Detail: compact(message, token), Attempts: 1}
+	result := Result{HTTPStatus: resp.StatusCode, Scope: scope, Attempts: 1}
 	switch {
 	case resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices:
 		result = classifySuccessfulResponse(result, runtime.Protocol, body)
 	case resp.StatusCode == http.StatusUnauthorized:
 		result.Kind, result.Summary = InvalidToken, "Account Token is invalid or does not belong to the configured endpoint"
 		result.Fix = "Run `aigw rotate " + runtime.AccountID + "` to enter the token again, and confirm that the configured endpoint belongs to this Account"
-	case resp.StatusCode == http.StatusForbidden && containsAny(lower, "quota", "balance", "insufficient", "exhaust"):
+	case isHardQuotaFailure(resp.StatusCode, lower):
 		result.Kind, result.Summary = QuotaExhausted, "Token quota is exhausted"
 		result.Fix = "Increase the Token quota for Account " + runtime.AccountID + " in the provider console"
 	case resp.StatusCode == http.StatusForbidden && containsAny(lower, "disabled", "disable"):
@@ -152,7 +148,8 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 	case resp.StatusCode == http.StatusNotFound:
 		result.Kind, result.Summary = EndpointMismatch, "API URL or path does not match"
 		result.Fix = "Check whether the configured protocol endpoint requires /v1 and whether its host is correct"
-	case resp.StatusCode == http.StatusServiceUnavailable && containsAny(lower, "model", "channel", "无可用渠道"):
+	case resp.StatusCode == http.StatusServiceUnavailable && containsAny(lower, "model", "channel", "无可用渠道") ||
+		resp.StatusCode == http.StatusBadRequest && strings.Contains(lower, "model") && strings.Contains(lower, "cannot be served at the moment"):
 		result.Kind, result.Summary, result.Retryable = ModelUnavailable, "Current model or channel is unavailable", true
 		result.Fix = "Confirm the model name and token model restrictions, or try again later"
 	case resp.StatusCode >= 500:
@@ -196,6 +193,14 @@ func providerErrorMessage(body []byte) string {
 		values = append(values, plain)
 	}
 	return strings.Join(values, " ")
+}
+
+func isHardQuotaFailure(status int, message string) bool {
+	if status == http.StatusForbidden {
+		return containsAny(message, "quota", "balance", "insufficient", "exhaust")
+	}
+	return status == http.StatusTooManyRequests && containsAny(message,
+		"insufficient_quota", "quota_exhausted", "insufficient balance", "balance exhausted", "credits exhausted")
 }
 
 func classifySuccessfulResponse(result Result, protocol configuration.EndpointProtocol, body []byte) Result {
@@ -281,13 +286,4 @@ func containsAny(value string, candidates ...string) bool {
 		}
 	}
 	return false
-}
-
-func compact(value string, secrets ...string) string {
-	value = redaction.Text(value, secrets...)
-	value = strings.Join(strings.Fields(value), " ")
-	if len(value) > 500 {
-		value = value[:500] + "…"
-	}
-	return redaction.Text(value, secrets...)
 }

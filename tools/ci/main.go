@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -10,9 +11,13 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
+	"time"
 
+	"aigw-cli/tools/ci/evidence"
 	"aigw-cli/tools/ci/markdown"
 	"aigw-cli/tools/ci/projection"
+	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
 )
 
@@ -27,7 +32,7 @@ func main() {
 
 func run(args []string, stdout io.Writer, runner commandRunner) error {
 	if len(args) == 0 {
-		return errors.New("usage: ci <project|source|quality|openspec|links|check-format|check-go|check-source-size|check-spelling|check-toml|check-markdown|check-markdown-policy|check-mermaid|check-secrets|native|trust-input>")
+		return errors.New("usage: ci <project|source|quality|openspec|links|check-format|check-go|check-source-size|check-spelling|check-toml|check-markdown|check-markdown-policy|check-mermaid|check-secrets|native|release-evidence|trust-input>")
 	}
 	checks := map[string]func(string, commandRunner) error{
 		"links": checkLinks, "check-go": checkGo,
@@ -79,6 +84,8 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 		return projection.Reconcile(*root, *check)
 	case "native":
 		return runNative(args[1:], stdout, runner)
+	case "release-evidence":
+		return runReleaseEvidence(args[1:], stdout)
 	case "trust-input":
 		flags := flag.NewFlagSet("ci trust-input", flag.ContinueOnError)
 		flags.SetOutput(io.Discard)
@@ -98,13 +105,60 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 	}
 }
 
+type jobFlags []string
+
+func (flags *jobFlags) String() string { return strings.Join(*flags, ", ") }
+
+func (flags *jobFlags) Set(value string) error {
+	*flags = append(*flags, value)
+	return nil
+}
+
+func runReleaseEvidence(arguments []string, output io.Writer) error {
+	const usage = "usage: ci release-evidence --repository <owner/name> --workflow <file> --tag <v...> --sha <commit> --job <name>..."
+	flags := flag.NewFlagSet("ci release-evidence", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	repository := flags.String("repository", "", "selected GitHub repository")
+	workflow := flags.String("workflow", "", "verification workflow filename")
+	tag := flags.String("tag", "", "selected release tag")
+	sha := flags.String("sha", "", "peeled release commit")
+	var jobs jobFlags
+	flags.Var(&jobs, "job", "required tag workflow job")
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *repository == "" || *workflow == "" || *tag == "" || *sha == "" || len(jobs) == 0 {
+		return errors.New(usage)
+	}
+	apiBase := os.Getenv("GITHUB_API_URL")
+	if apiBase == "" {
+		apiBase = "https://api.github.com"
+	}
+	token := os.Getenv("GH_TOKEN")
+	if token == "" {
+		token = os.Getenv("GITHUB_TOKEN")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	verifier := evidence.GitHubTagVerifier{APIBase: apiBase, Repository: *repository, Workflow: *workflow, Token: token}
+	result, err := verifier.Verify(ctx, *tag, *sha, jobs)
+	if err != nil {
+		return fmt.Errorf("GitHub release evidence: %w", err)
+	}
+	if _, err := fmt.Fprintf(output, "GitHub release evidence verified: run %d attempt %d\n", result.RunID, result.Attempt); err != nil {
+		return fmt.Errorf("report verified GitHub release evidence: %w", err)
+	}
+	return nil
+}
+
 func runNative(args []string, stdout io.Writer, runner commandRunner) error {
+	var releaseArgs []string
+	if separator := slices.Index(args, "--"); separator >= 0 {
+		releaseArgs, args = args[separator+1:], args[:separator]
+	}
 	flags := flag.NewFlagSet("ci native", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	platform := flags.String("platform", runtime.GOOS, "darwin, linux, or windows")
 	fullQuality := flags.Bool("full-quality", false, "Qualify every repository quality tool on this host before native acceptance")
 	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || !supportedNativePlatform(*platform) {
-		return errors.New("usage: ci native [--platform <darwin|linux|windows>] [--full-quality]")
+		return errors.New("usage: ci native [--platform <darwin|linux|windows>] [--full-quality] [-- <release accept-native arguments>]")
 	}
 	if *platform != runtime.GOOS {
 		return fmt.Errorf("native acceptance requires %s host, running on %s", *platform, runtime.GOOS)
@@ -114,11 +168,24 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 		return err
 	}
 	commands := nativeCommands(*platform)
+	commands[len(commands)-1].Args = append(commands[len(commands)-1].Args, releaseArgs...)
+	input, err := construction.ParseNativeAcceptance(releaseArgs)
+	if err != nil {
+		return err
+	}
+	if input.UsesPrebuiltArtifacts() && !*fullQuality && os.Getenv("AIGW_REFRESH_LOCKS") != "true" {
+		commands = commands[len(commands)-1:]
+	}
 	if *fullQuality {
 		if err := validateRepositoryQualityGraph("."); err != nil {
 			return err
 		}
 		commands = append(slices.Clone(qualityCommands), commands[1:]...)
+	}
+	if os.Getenv("AIGW_ACCEPTANCE_BASELINE") != "" {
+		for index := range commands[:len(commands)-1] {
+			commands[index].Env = append(commands[index].Env, "AIGW_ACCEPTANCE_BASELINE=")
+		}
 	}
 	return runCommands(commands, stdout, runner)
 }
@@ -147,8 +214,18 @@ func configuredQualityCommands(root string) ([]command, error) {
 	if base == "" && email == "" && signers == "" {
 		return commands, nil
 	}
-	if base == "" || email == "" || signers == "" {
-		return nil, errors.New("product provenance verification requires commit base, author email, and allowed signers file")
+	var missing []string
+	if base == "" {
+		missing = append(missing, "AIGW_COMMIT_BASE")
+	}
+	if email == "" {
+		missing = append(missing, "AIGW_RELEASE_AUTHOR_EMAIL")
+	}
+	if signers == "" {
+		missing = append(missing, "AIGW_RELEASE_ALLOWED_SIGNERS_FILE")
+	}
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("product provenance verification is missing %s; provide the named CI inputs before running quality", strings.Join(missing, ", "))
 	}
 	provenance := command{Name: "go", Args: []string{"run", "./tools/forge", "commits", "--base", base, "--email", email, "--allowed-signers", signers}}
 	commands = append([]command{provenance}, commands...)
@@ -177,7 +254,7 @@ func supportedNativePlatform(platform string) bool {
 }
 
 func nativeCommands(platform string) []command {
-	tests := command{Name: "go", Args: []string{"test", "-json", "./..."}}
+	tests := command{Name: "go", Args: []string{"test", "./..."}}
 	if platform != "windows" {
 		profile := filepath.Join("build", "acceptance", "coverage-"+platform+".out")
 		tests.Args = []string{"run", "./tools/coverage", "--race", "--profile-output", profile}

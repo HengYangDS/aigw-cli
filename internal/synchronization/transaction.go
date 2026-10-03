@@ -7,7 +7,6 @@ import (
 
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/credential"
 )
 
 // Commit persists one configuration transition and converges affected client
@@ -31,8 +30,15 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 	if err != nil {
 		return err
 	}
+	var projectable []string
 	if reconcileProjection {
-		if _, err := s.registry().Plan(s.clientDependencies(), before, after, clientIDs...); err != nil {
+		projectable, err = s.credentialReadyClients(after, clientIDs...)
+		if err != nil {
+			return fmt.Errorf("%s synchronization preflight failed; configuration and client files were unchanged: %w", subject, err)
+		}
+	}
+	if len(projectable) > 0 {
+		if _, err := s.registry().Plan(s.clientDependencies(), before, after, projectable...); err != nil {
 			return fmt.Errorf("%s synchronization preflight failed; configuration and client files were unchanged: %w", subject, err)
 		}
 	}
@@ -40,8 +46,8 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 		return err
 	}
 	var undoEntrypoint func() error
-	if reconcileProjection {
-		undoEntrypoint, err = s.prepareCredentialEntrypoint(after)
+	if len(projectable) > 0 {
+		undoEntrypoint, err = s.prepareCredentialEntrypoint(after, projectable...)
 		if err != nil {
 			return err
 		}
@@ -53,28 +59,43 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 	if err != nil {
 		return errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
 	}
-	if reconcileProjection {
-		if err := s.applyProjection(ctx, before, after, configBefore, configAfter, undoEntrypoint, clientIDs...); err != nil {
-			return fmt.Errorf("%s %w", subject, err)
+	if len(projectable) == 0 {
+		return nil
+	}
+	receipt, err := s.applyProjection(ctx, before, after, configBefore, configAfter, undoEntrypoint, projectable...)
+	if err != nil {
+		return fmt.Errorf("%s %w", subject, err)
+	}
+	if err := s.finalizeCredentialEntrypoint(after, projectable...); err != nil {
+		projectionErr := receipt.Rollback()
+		configErr := s.Config.RestoreSnapshot(configBefore, configAfter)
+		if projectionErr != nil {
+			projectionErr = fmt.Errorf("%w: %w", client.ErrProjectionRollbackFailed, projectionErr)
 		}
-		if err := s.finalizeCredentialEntrypoint(after); err != nil {
-			return fmt.Errorf("%s configuration and client projections completed, but credential entrypoint finalization failed: %w", subject, err)
+		var entrypointErr error
+		if projectionErr == nil && configErr == nil {
+			entrypointErr = undoCreatedEntrypoint(undoEntrypoint)
+		}
+		if rollbackErr := errors.Join(projectionErr, configErr, entrypointErr); rollbackErr != nil {
+			return projectionError{
+				cause:    fmt.Errorf("%s credential entrypoint finalization failed: %w; compensation incomplete: %w", subject, err, rollbackErr),
+				restored: configErr == nil,
+			}
+		}
+		return projectionError{
+			cause:    fmt.Errorf("%s credential entrypoint finalization failed; configuration and client projections were rolled back: %w", subject, err),
+			restored: true,
 		}
 	}
 	return nil
 }
 
-func (s Synchronizer) finalizeCredentialEntrypoint(cfg configuration.Config) error {
-	action, err := s.CredentialEntrypointPlan(cfg)
+func (s Synchronizer) finalizeCredentialEntrypoint(cfg configuration.Config, clientIDs ...string) error {
+	action, err := s.CredentialEntrypointPlan(cfg, clientIDs...)
 	if err != nil {
 		return fmt.Errorf("inspect credential entrypoint: %w", err)
 	}
 	switch action {
-	case CredentialEntrypointRemove:
-		if err := credential.RemoveEntrypoint(s.CredentialPath); err != nil {
-			return fmt.Errorf("remove unused credential entrypoint: %w", err)
-		}
-		return nil
 	case CredentialEntrypointInstall:
 		return errors.New("credential entrypoint disappeared after client projection")
 	case CredentialEntrypointUnchanged:
@@ -90,18 +111,30 @@ func (s Synchronizer) applyProjection(
 	configBefore, configAfter configuration.Snapshot,
 	undoEntrypoint func() error,
 	clientIDs ...string,
-) error {
-	if err := s.registry().Apply(ctx, s.clientDependencies(), before, after, clientIDs...); err != nil {
+) (client.ProjectionReceipt, error) {
+	receipt, err := s.registry().Apply(ctx, s.clientDependencies(), before, after, clientIDs...)
+	if err != nil {
 		if rollbackErr := s.Config.RestoreSnapshot(configBefore, configAfter); rollbackErr != nil {
-			return fmt.Errorf("synchronization failed: %w; rollback also failed: %w", err, rollbackErr)
+			return nil, projectionError{cause: fmt.Errorf("synchronization failed: %w; rollback also failed: %w", err, rollbackErr)}
 		}
 		if !errors.Is(err, client.ErrProjectionRollbackFailed) {
 			err = errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
 		}
-		return fmt.Errorf("synchronization failed; configuration was rolled back: %w", err)
+		return nil, projectionError{cause: fmt.Errorf("synchronization failed; configuration was rolled back: %w", err), restored: true}
 	}
-	return nil
+	return receipt, nil
 }
+
+// projectionError preserves the verified configuration outcome without
+// claiming that every client or credential entrypoint was restored.
+type projectionError struct {
+	cause    error
+	restored bool
+}
+
+func (e projectionError) Error() string               { return e.cause.Error() }
+func (e projectionError) Unwrap() error               { return e.cause }
+func (e projectionError) ConfigurationRestored() bool { return e.restored }
 
 func undoCreatedEntrypoint(undo func() error) error {
 	if undo == nil {

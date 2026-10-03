@@ -26,9 +26,9 @@ var miseToolProbes = map[string]miseToolProbe{
 	"glab":                         {[]string{"glab", "--version"}, `^glab (\S+)`},
 	"github:goreleaser/goreleaser": {[]string{"goreleaser", "--version"}, `(?m)^GitVersion:\s+(\S+)`},
 	"github:anchore/syft":          {[]string{"syft", "version"}, `(?m)^Version:\s+(\S+)`},
-	"go:github.com/google/osv-scanner/v2/cmd/osv-scanner": {[]string{"osv-scanner", "--version"}, `^osv-scanner version: (\S+)`},
-	"taplo":             {[]string{"taplo", "--version"}, `^taplo (\S+)`},
-	"github:boyter/scc": {[]string{"scc", "--version"}, `^scc version (\S+)`},
+	"github:google/osv-scanner":    {[]string{"osv-scanner", "--version"}, `^osv-scanner version: (\S+)`},
+	"taplo":                        {[]string{"taplo", "--version"}, `^taplo (\S+)`},
+	"github:boyter/scc":            {[]string{"scc", "--version"}, `^scc version (\S+)`},
 	"github:editorconfig-checker/editorconfig-checker": {[]string{"editorconfig-checker", "--version"}, `^v(\S+)`},
 	"github:gitleaks/gitleaks":                         {[]string{"gitleaks", "version"}, `^(\S+)`},
 	"github:golangci/golangci-lint":                    {[]string{"golangci-lint", "version"}, `^golangci-lint has version (\S+)`},
@@ -91,11 +91,12 @@ func TestMiseToolExecutablesMatchDeclaredVersions(t *testing.T) {
 	if err := toml.Unmarshal(content, &configuration); err != nil {
 		t.Fatal(err)
 	}
-	for name, declared := range configuration.Tools {
+	for name := range configuration.Tools {
 		if !miseToolEnabled(name) {
 			continue
 		}
 		t.Run(name, func(t *testing.T) {
+			declared := configuredMiseToolVersion(t, configuration.Tools, name)
 			probe, present := miseToolProbes[name]
 			if !present {
 				t.Fatalf("declared tool %s has no executable version probe", name)

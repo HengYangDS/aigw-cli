@@ -14,7 +14,7 @@ import (
 func stubVerifier(t *testing.T, verification verificationResult, err error) {
 	t.Helper()
 	original := verifyModelCatalog
-	verifyModelCatalog = func(string, string) (verificationResult, error) {
+	verifyModelCatalog = func(string, string, string) (verificationResult, error) {
 		return verification, err
 	}
 	t.Cleanup(func() { verifyModelCatalog = original })
@@ -91,6 +91,27 @@ func TestRunReportsSuccessfulVerification(t *testing.T) {
 	code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-codex", writeExecutableForTest(t)}, out)
 	if code != 0 || err != nil || !strings.Contains(out.String(), "prefixed, generated catalog") {
 		t.Fatalf("run() = %d, %v\n%s", code, err, out)
+	}
+}
+
+func TestRunPassesCanonicalModelToVerifier(t *testing.T) {
+	original := verifyModelCatalog
+	t.Cleanup(func() { verifyModelCatalog = original })
+	var gotModel, gotCanonical string
+	verifyModelCatalog = func(_, model, canonical string) (verificationResult, error) {
+		gotModel, gotCanonical = model, canonical
+		return sampleVerification(), nil
+	}
+	code, err := run([]string{
+		"-model", "gpt-6.1-sol-cdx",
+		"-canonical-model", "gpt-6.1-sol",
+		"-codex", writeExecutableForTest(t),
+	}, io.Discard)
+	if code != 0 || err != nil {
+		t.Fatalf("run() = %d, %v", code, err)
+	}
+	if gotModel != "gpt-6.1-sol-cdx" || gotCanonical != "gpt-6.1-sol" {
+		t.Fatalf("verifier models = %q / %q, want exact route pair", gotModel, gotCanonical)
 	}
 }
 

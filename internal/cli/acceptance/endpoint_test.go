@@ -475,30 +475,3 @@ func TestCheckUsesOneBoundedAuthenticationProbeWithoutMutation(t *testing.T) {
 		})
 	}
 }
-
-func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *testing.T) {
-	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
-	addAccountRoute(&cfg, "local", "local", "Local Endpoint", configuration.Endpoints{Anthropic: "http://127.0.0.2:4567"}, configuration.ClientClaude, "model-test")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "local")
-	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
-	synchronizeClaudeProjection(t, app, cfg)
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	if err := secretStore.Set("local", "token"); err != nil {
-		t.Fatal(err)
-	}
-	if err := cli.Execute(app, []string{"check"}); err != nil {
-		t.Fatal(err)
-	}
-	text := out.String()
-	for _, want := range []string{"Claude", "uses a loopback endpoint; AIGW does not manage the endpoint runtime"} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("check lacks %q:\n%s", want, text)
-		}
-	}
-	if strings.Contains(text, "4567") {
-		t.Fatalf("check exposed the loopback transport port:\n%s", text)
-	}
-}

@@ -20,9 +20,7 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 
 	var gitlab struct {
 		Quality  gitLabJob  `yaml:"quality"`
-		Darwin   gitLabJob  `yaml:"native-darwin"`
 		Linux    *gitLabJob `yaml:"native-linux"`
-		Windows  *gitLabJob `yaml:"native-windows"`
 		Workflow struct {
 			Rules []struct {
 				If   string `yaml:"if"`
@@ -33,17 +31,18 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	if gitlab.Linux == nil || gitlab.Windows == nil {
-		t.Fatal("GitLab must project the complete product-native matrix")
+	if gitlab.Linux == nil {
+		t.Fatal("GitLab lacks native Linux acceptance")
 	}
 	wantGitLabWorkflow := []struct {
 		If   string
 		When string
 	}{
 		{If: "$CI_COMMIT_TAG"},
-		{If: `$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")`},
+		{If: `$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID`},
 		{If: `$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")`},
-		{If: `$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"`},
+		{If: `($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && $CI_COMMIT_REF_PROTECTED == "true"`},
+		{If: `($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && $CI_COMMIT_REF_PROTECTED == "false"`},
 		{When: "never"},
 	}
 	if len(gitlab.Workflow.Rules) != len(wantGitLabWorkflow) {
@@ -55,18 +54,13 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 			t.Errorf("GitLab verification route %d = %#v, want %#v", index, got, want)
 		}
 	}
-	for name, job := range map[string]gitLabJob{
-		"quality":        gitlab.Quality,
-		"native-darwin":  gitlab.Darwin,
-		"native-linux":   *gitlab.Linux,
-		"native-windows": *gitlab.Windows,
-	} {
-		if len(job.Rules) != len(wantGitLabWorkflow) || job.Rules[1].If != wantGitLabWorkflow[1].If {
+	for name, job := range map[string]gitLabJob{"quality": gitlab.Quality, "native-linux": *gitlab.Linux} {
+		if len(job.Rules) != 5 || job.Rules[1].If != wantGitLabWorkflow[1].If {
 			t.Errorf("GitLab %s must verify reviews into both integration and release: %#v", name, job.Rules)
 			continue
 		}
-		if got := job.Rules[2].If; got != `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
-			t.Errorf("GitLab %s accepted-push rule = %q", name, got)
+		if got := job.Rules[2].If; got != wantGitLabWorkflow[2].If {
+			t.Errorf("GitLab %s protected-push rule = %q", name, got)
 		}
 	}
 	var github struct {
@@ -95,87 +89,56 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	}
 }
 
-func TestNativeLinuxJourneyUsesTheLockedProductAndSecretService(t *testing.T) {
-	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	projections, err := renderProjections(root)
+func TestGitLabSupersededReviewCancellationPreservesNativeShellJobs(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var workflow struct {
-		Jobs map[string]struct {
-			Steps []struct {
-				Name string `yaml:"name"`
-				Run  string `yaml:"run"`
-			} `yaml:"steps"`
-		} `yaml:"jobs"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
-		t.Fatal(err)
-	}
-	githubCommands := make([]string, 0, len(workflow.Jobs["native-linux"].Steps))
-	for _, step := range workflow.Jobs["native-linux"].Steps {
-		if step.Name == "Prepare locked dependencies" || step.Name == "Run native Linux acceptance" {
-			githubCommands = append(githubCommands, step.Run)
-		}
-	}
-	want := []string{"mise run bootstrap", "mise exec --locked -- go run ./tools/ci native --platform linux"}
-	if !reflect.DeepEqual(githubCommands, want) {
-		t.Fatalf("GitHub native Linux commands = %q, want locked dependencies then one product journey", githubCommands)
-	}
-	var githubQualification string
-	for _, step := range workflow.Jobs["native-linux"].Steps {
-		if step.Name != "Qualify Linux Secret Service" {
-			continue
-		}
-		for _, required := range []string{
-			"dbus-x11 gnome-keyring",
-			"sudo -n timeout --verbose --kill-after=5s 240s",
-			"Acquire::http::Timeout=30",
-			"dbus-run-session",
-			"SetAlias default /org/freedesktop/secrets/collection/session",
-			"AIGW_VERIFY_SYSTEM_KEYRING=1",
-			"TestNativeProductJourney/system_credential_store",
-			"grep -Fq -- \"--- PASS: TestNativeProductJourney/system_credential_store\"",
-		} {
-			if !strings.Contains(step.Run, required) {
-				t.Fatalf("Linux Secret Service qualification omits %q", required)
-			}
-		}
-		githubQualification = step.Run
-		break
-	}
-	if githubQualification == "" {
-		t.Fatal("GitHub native Linux CI does not qualify real Secret Service")
-	}
 	var gitlab struct {
-		Linux gitLabJob `yaml:"native-linux"`
+		Quality            gitLabJob `yaml:"quality"`
+		Darwin             gitLabJob `yaml:"native-darwin"`
+		DarwinReview       gitLabJob `yaml:"native-darwin-review"`
+		Linux              gitLabJob `yaml:"native-linux"`
+		Windows            gitLabJob `yaml:"native-windows"`
+		WindowsReview      gitLabJob `yaml:"native-windows-review"`
+		LinuxSecretService gitLabJob `yaml:"linux-secret-service"`
+		Workflow           struct {
+			AutoCancel struct {
+				OnNewCommit string `yaml:"on_new_commit"`
+			} `yaml:"auto_cancel"`
+			Rules []struct {
+				AutoCancel struct {
+					OnNewCommit string `yaml:"on_new_commit"`
+				} `yaml:"auto_cancel"`
+			} `yaml:"rules"`
+		} `yaml:"workflow"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	var gitlabQualification string
-	for _, command := range gitlab.Linux.Script {
-		if strings.Contains(command, "TestNativeProductJourney/system_credential_store") {
-			gitlabQualification = command
-			break
+	if gitlab.Workflow.AutoCancel.OnNewCommit != "conservative" {
+		t.Fatal("superseded review pipelines must cancel only before a noninterruptible job starts")
+	}
+	for index, want := range []string{"none", "", "none", "none", "none"} {
+		if got := gitlab.Workflow.Rules[index].AutoCancel.OnNewCommit; got != want {
+			t.Errorf("GitLab route %d auto-cancel = %q, want %q", index, got, want)
 		}
 	}
-	if gitlabQualification == "" {
-		t.Fatal("GitLab native Linux CI does not qualify real Secret Service")
-	}
-	for _, required := range []string{
-		"DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s",
-		"Acquire::http::Timeout=30",
-		"install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin",
+	for name, job := range map[string]gitLabJob{
+		"quality": gitlab.Quality, "native-linux": gitlab.Linux,
+		"linux-secret-service": gitlab.LinuxSecretService,
 	} {
-		if !strings.Contains(gitlabQualification, required) {
-			t.Fatalf("GitLab Secret Service preparation omits %q", required)
+		if job.Interruptible == nil || !*job.Interruptible {
+			t.Errorf("review job %s must be interruptible", name)
 		}
 	}
-	githubBus := strings.Index(githubQualification, "dbus-run-session")
-	gitlabBus := strings.Index(gitlabQualification, "dbus-run-session")
-	if githubBus < 0 || gitlabBus < 0 || githubQualification[githubBus:] != gitlabQualification[gitlabBus:] {
-		t.Fatal("GitHub and GitLab native Linux jobs must run the same Secret Service journey")
+	for name, job := range map[string]gitLabJob{
+		"native-darwin": gitlab.Darwin, "native-darwin-review": gitlab.DarwinReview,
+		"native-windows": gitlab.Windows, "native-windows-review": gitlab.WindowsReview,
+	} {
+		if job.Interruptible != nil && *job.Interruptible {
+			t.Errorf("persistent shell-native job %s must not be interrupted", name)
+		}
 	}
 }
 
@@ -221,7 +184,7 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 			switch step.Run {
 			case base:
 				ordinary++
-				if step.If != "github.event_name != 'workflow_dispatch' || !inputs.full_quality" {
+				if step.If != "github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '')" {
 					t.Fatalf("%s ordinary native selection = %q", platform, step.If)
 				}
 			case base + " --full-quality":
@@ -243,9 +206,11 @@ func TestGitLabFullNativeQualityUsesTheExistingEntryPoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	var gitlab struct {
-		Darwin  gitLabJob  `yaml:"native-darwin"`
-		Linux   *gitLabJob `yaml:"native-linux"`
-		Windows *gitLabJob `yaml:"native-windows"`
+		Darwin        gitLabJob  `yaml:"native-darwin"`
+		DarwinReview  gitLabJob  `yaml:"native-darwin-review"`
+		Linux         *gitLabJob `yaml:"native-linux"`
+		Windows       *gitLabJob `yaml:"native-windows"`
+		WindowsReview gitLabJob  `yaml:"native-windows-review"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
@@ -253,17 +218,17 @@ func TestGitLabFullNativeQualityUsesTheExistingEntryPoint(t *testing.T) {
 	if gitlab.Linux == nil || gitlab.Windows == nil {
 		t.Fatal("GitLab must project native Linux and Windows acceptance")
 	}
-	for platform, job := range map[string]gitLabJob{"darwin": gitlab.Darwin, "linux": *gitlab.Linux, "windows": *gitlab.Windows} {
-		wantRule := `($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "` + platform + `")`
-		if len(job.Rules) != 5 || job.Rules[3].If != wantRule {
-			t.Fatalf("GitLab %s lacks equivalent manual platform selection: %#v", platform, job.Rules)
-		}
+	for name, job := range map[string]gitLabJob{
+		"darwin": gitlab.Darwin, "darwin-review": gitlab.DarwinReview,
+		"linux": *gitlab.Linux, "windows": *gitlab.Windows, "windows-review": gitlab.WindowsReview,
+	} {
+		platform := strings.TrimSuffix(name, "-review")
 		want := "mise exec --locked -- go run ./tools/ci native --platform " + platform + ` --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"`
 		if platform == "windows" {
 			want = `mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"`
 		}
-		if !slices.Contains(job.Script, want) {
-			t.Fatalf("GitLab %s lacks the same explicit native-quality entrypoint", platform)
+		if !slices.ContainsFunc(job.Script, func(script string) bool { return strings.Contains(script, want+" -- ") }) {
+			t.Fatalf("GitLab %s lacks the same explicit native-quality entrypoint", name)
 		}
 	}
 }
@@ -345,7 +310,7 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 	for _, metadata := range []string{".linux-toolchain", "stages", "variables", "workflow"} {
 		delete(gitlab, metadata)
 	}
-	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "native-windows", "quality", "release-assets", "release-version"}
+	wantGitLabJobs := []string{"accepted-ref-parity", "linux-secret-service", "native-darwin", "native-darwin-review", "native-linux", "native-windows", "native-windows-review", "quality", "release-assets", "release-version"}
 	if got := slices.Sorted(maps.Keys(gitlab)); !slices.Equal(got, wantGitLabJobs) {
 		t.Fatalf("GitLab jobs = %q, want %q", got, wantGitLabJobs)
 	}
@@ -360,6 +325,7 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 
 	var github struct {
 		Jobs map[string]struct {
+			If    string   `yaml:"if"`
 			Needs []string `yaml:"needs"`
 			Steps []struct {
 				Run string `yaml:"run"`
@@ -369,9 +335,17 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
 		t.Fatal(err)
 	}
-	wantGitHubJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "native-windows", "quality"}
+	wantGitHubJobs := []string{"accepted-ref-parity", "linux-secret-service", "native-darwin", "native-linux", "native-windows", "quality", "release-version"}
 	if got := slices.Sorted(maps.Keys(github.Jobs)); !slices.Equal(got, wantGitHubJobs) {
 		t.Fatalf("GitHub jobs = %q, want %q", got, wantGitHubJobs)
+	}
+	version := github.Jobs["release-version"]
+	if version.If != "github.ref_type == 'tag'" || !slices.ContainsFunc(version.Steps, func(step struct {
+		Run string `yaml:"run"`
+	}) bool {
+		return step.Run == "mise exec --locked -- go run ./tools/release validate-version-tag"
+	}) {
+		t.Fatalf("GitHub tag version gate = %#v", version)
 	}
 	quality := github.Jobs["quality"]
 	if !slices.ContainsFunc(quality.Steps, func(step struct {
@@ -380,6 +354,47 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 		return step.Run == "mise exec --locked -- go run ./tools/ci quality"
 	}) {
 		t.Fatalf("GitHub quality job = %#v", quality.Steps)
+	}
+}
+
+func TestManualGitHubChecksCannotSatisfyRequiredVerification(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Jobs map[string]struct {
+			Name string `yaml:"name"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	for job, required := range map[string]string{
+		"quality": "Quality and governance", "native-darwin": "Native macOS acceptance",
+		"native-linux": "Native Linux acceptance", "native-windows": "Native Windows acceptance",
+		"linux-secret-service": "Linux Secret Service",
+	} {
+		want := "${{ github.event_name == 'workflow_dispatch' && 'Manual " + required + "' || '" + required + "' }}"
+		if got := workflow.Jobs[job].Name; got != want {
+			t.Errorf("%s check identity = %q; manual runs must not report required %q", job, got, required)
+		}
+	}
+	var release struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				Run string `yaml:"run"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[2].Content), &release); err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range release.Jobs["release-assets"].Steps {
+		if strings.Contains(step.Run, "release-evidence") && strings.Contains(step.Run, "Manual ") {
+			t.Fatal("tag evidence must require canonical checks, not diagnostic identities")
+		}
 	}
 }
 
@@ -444,14 +459,15 @@ func TestGitHubWorkflowsDeclareTheCanonicalInitialBranch(t *testing.T) {
 }
 
 type gitLabJob struct {
-	BeforeScript []string          `yaml:"before_script"`
-	Extends      []string          `yaml:"extends"`
-	Image        string            `yaml:"image"`
-	Needs        []gitLabNeed      `yaml:"needs"`
-	Script       []string          `yaml:"script"`
-	Tags         []string          `yaml:"tags"`
-	Variables    map[string]string `yaml:"variables"`
-	Rules        []struct {
+	BeforeScript  []string          `yaml:"before_script"`
+	Extends       []string          `yaml:"extends"`
+	Image         string            `yaml:"image"`
+	Interruptible *bool             `yaml:"interruptible"`
+	Needs         []gitLabNeed      `yaml:"needs"`
+	Script        []string          `yaml:"script"`
+	Tags          []string          `yaml:"tags"`
+	Variables     map[string]string `yaml:"variables"`
+	Rules         []struct {
 		If        string            `yaml:"if"`
 		When      string            `yaml:"when"`
 		Variables map[string]string `yaml:"variables"`
@@ -480,13 +496,14 @@ func TestSemanticGraphDefinesExactClaims(t *testing.T) {
 	var graph map[string]job
 	export("graph", &graph)
 	wantGraph := map[string]job{
-		"accepted-ref-parity": {Stage: "verify", Needs: []string{}, Claims: []string{"accepted-ref-parity"}},
-		"quality":             {Stage: "verify", Needs: []string{}, Claims: []string{"source-quality"}},
-		"native-darwin":       {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
-		"native-linux":        {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
-		"native-windows":      {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
-		"release-version":     {Stage: "verify", Needs: []string{}, Claims: []string{"release-metadata"}},
-		"release-assets":      {Stage: "release", Rank: 1, Needs: []string{"quality", "native-darwin", "native-linux", "native-windows", "release-version"}, Claims: []string{"artifact-verification"}},
+		"accepted-ref-parity":  {Stage: "verify", Needs: []string{}, Claims: []string{"accepted-ref-parity"}},
+		"quality":              {Stage: "verify", Needs: []string{}, Claims: []string{"source-quality"}},
+		"native-darwin":        {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
+		"native-linux":         {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
+		"native-windows":       {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
+		"linux-secret-service": {Stage: "verify", Needs: []string{}, Claims: []string{"linux-secret-service"}},
+		"release-version":      {Stage: "verify", Needs: []string{}, Claims: []string{"release-metadata"}},
+		"release-assets":       {Stage: "release", Rank: 1, Needs: []string{"quality", "native-darwin", "native-linux", "native-windows", "linux-secret-service", "release-version"}, Claims: []string{"artifact-verification"}},
 	}
 	if !reflect.DeepEqual(graph, wantGraph) {
 		t.Fatalf("CI graph = %#v, want %#v", graph, wantGraph)

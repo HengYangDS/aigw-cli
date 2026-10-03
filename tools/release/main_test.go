@@ -2,12 +2,129 @@ package main
 
 import (
 	"aigw-cli/tools/release/construction"
+	"aigw-cli/tools/release/readiness"
 	"bytes"
+	"context"
+	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
+
+	"github.com/rogpeppe/go-internal/robustio"
 )
+
+var nativeSourceFixtures struct {
+	sync.Mutex
+	directory string
+	stages    map[string]string
+}
+
+func TestMain(m *testing.M) {
+	if len(os.Args) == 5 && os.Args[1] == "prepare-performance-setup" {
+		if os.Args[2] != os.Getenv("AIGW_TEST_PERFORMANCE_ROOT") {
+			os.Exit(2)
+		}
+		if err := preparePerformanceSetup(os.Args[2], os.Args[3], os.Args[4]); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	if handled, code := runInstalledClientFixture(os.Args[0], os.Args[1:]); handled {
+		os.Exit(code)
+	}
+	if len(os.Args) == 4 && os.Args[1] == "credential" && os.Getenv("AIGW_TEST_EXTERNAL_CREDENTIAL") == "1" {
+		if os.Args[2] != os.Getenv("AIGW_TEST_EXTERNAL_CLIENT") || os.Args[3] != os.Getenv("AIGW_TEST_EXTERNAL_FINGERPRINT") {
+			os.Exit(2)
+		}
+		_, _ = fmt.Fprintln(os.Stdout, "native-real-client-token")
+		os.Exit(0)
+	}
+	code := m.Run()
+	if nativeSourceFixtures.directory != "" {
+		if err := robustio.RemoveAll(nativeSourceFixtures.directory); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "remove native test fixtures:", err)
+			code = 1
+		}
+	}
+	os.Exit(code)
+}
+
+func preparePerformanceSetup(root, config, settings string) (result error) {
+	if !filepath.IsAbs(root) {
+		return fmt.Errorf("performance setup requires an absolute owned root")
+	}
+	owned, err := os.OpenRoot(root)
+	if err != nil {
+		return fmt.Errorf("open performance setup root: %w", err)
+	}
+	defer func() { result = errors.Join(result, owned.Close()) }()
+	paths := []string{config, settings, settings + ".aigw-state.json"}
+	for index, path := range paths {
+		relative, err := filepath.Rel(root, path)
+		if err != nil || relative == "." || filepath.IsAbs(relative) || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || relative == ".." {
+			return fmt.Errorf("performance setup input is outside its owned root")
+		}
+		paths[index] = relative
+		info, err := owned.Lstat(relative)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil || !info.Mode().IsRegular() {
+			return fmt.Errorf("performance setup input is not an owned regular file")
+		}
+	}
+	for _, path := range paths {
+		if err := owned.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("prepare empty performance configuration: %w", err)
+		}
+	}
+	return nil
+}
+
+func TestPerformanceSetupPreparation(t *testing.T) {
+	for _, mode := range []string{"owned", "missing", "foreign", "directory"} {
+		root := t.TempDir()
+		config, settings := filepath.Join(root, "config.toml"), filepath.Join(root, "settings.json")
+		paths := []string{config, settings, settings + ".aigw-state.json"}
+		for _, path := range paths {
+			mustWriteFile(t, path, []byte("owned"), 0o600)
+		}
+		preserved := filepath.Join(root, "credentials")
+		mustWriteFile(t, preserved, []byte("retained"), 0o600)
+		selected := config
+		invalid := mode == "foreign" || mode == "directory"
+		if mode == "foreign" {
+			selected = filepath.Join(t.TempDir(), "foreign.toml")
+			mustWriteFile(t, selected, []byte("foreign"), 0o600)
+		}
+		if mode == "directory" {
+			selected = root
+		}
+		if mode == "missing" {
+			if err := os.Remove(config); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := preparePerformanceSetup(root, selected, settings); (err != nil) != invalid {
+			t.Fatalf("preparation ownership decision: %v", err)
+		}
+		for _, path := range paths {
+			_, err := os.Stat(path)
+			if errors.Is(err, os.ErrNotExist) == invalid {
+				t.Fatalf("preparation changed the wrong managed input %s: %v", path, err)
+			}
+		}
+		if string(readFile(t, preserved)) != "retained" {
+			t.Fatal("preparation changed an unrelated credential file")
+		}
+	}
+}
 
 func requireNativeLifecycleBaseline(t *testing.T, buildFixture func() string) string {
 	t.Helper()
@@ -15,7 +132,41 @@ func requireNativeLifecycleBaseline(t *testing.T, buildFixture func() string) st
 	if err != nil {
 		t.Fatal(err)
 	}
-	return baseline
+	if os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
+		return baseline
+	}
+	// Portable lifecycle commands cannot mutate an installer-owned source path.
+	// Staging exact bytes tests that lifecycle, not the installer link or native
+	// credential authorization of the original installation.
+	data, err := os.ReadFile(baseline)
+	if err != nil {
+		t.Fatal(err)
+	}
+	staged := filepath.Join(t.TempDir(), executableName())
+	if err := os.WriteFile(staged, data, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return staged
+}
+
+func TestExplicitNativeBaselineStagesExactBytesOutsideItsInstallation(t *testing.T) {
+	selected := filepath.Join(t.TempDir(), executableName())
+	want := []byte("published predecessor bytes")
+	mustWriteFile(t, selected, want, 0o700)
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", selected)
+	staged := requireNativeLifecycleBaseline(t, func() string {
+		t.Fatal("explicit baseline unexpectedly built a source fixture")
+		return ""
+	})
+	if staged == selected || !filepath.IsAbs(staged) {
+		t.Fatalf("explicit baseline was not staged separately: %q", staged)
+	}
+	if got := readFile(t, staged); !bytes.Equal(got, want) {
+		t.Fatalf("staged baseline bytes = %q, want %q", got, want)
+	}
+	if got := readFile(t, selected); !bytes.Equal(got, want) {
+		t.Fatalf("selected baseline was modified: %q", got)
+	}
 }
 
 func mustWriteFile(t *testing.T, path string, data []byte, mode os.FileMode) {
@@ -60,12 +211,103 @@ func buildNativeProgram(t *testing.T, root, version string) string {
 			}
 		}()
 	}
-	stage, err := construction.BuildNative(t.Context(), root, t.TempDir(), version)
+	stage := cachedNativeSource(t, root, version)
+	base, _ := nativeArchiveNames(version)
+	return filepath.Join(stage, base, executableName())
+}
+
+func cachedNativeSource(t *testing.T, root, version string) string {
+	t.Helper()
+	nativeSourceFixtures.Lock()
+	defer nativeSourceFixtures.Unlock()
+	key := root + "\x00" + version
+	if stage := nativeSourceFixtures.stages[key]; stage != "" {
+		return stage
+	}
+	if nativeSourceFixtures.directory == "" {
+		directory, err := os.MkdirTemp("", "aigw-native-test-fixtures-*")
+		if err != nil {
+			t.Fatal(err)
+		}
+		nativeSourceFixtures.directory = directory
+		nativeSourceFixtures.stages = make(map[string]string)
+	}
+	workspace, err := os.MkdirTemp(nativeSourceFixtures.directory, "source-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stage, err := construction.BuildNative(t.Context(), root, workspace, version)
 	if err != nil {
 		t.Fatalf("build native product %s: %v", version, err)
 	}
-	base, _ := nativeArchiveNames(version)
-	return filepath.Join(stage, base, executableName())
+	nativeSourceFixtures.stages[key] = stage
+	return stage
+}
+
+func TestNativeSourceCandidateReusesProductBytes(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	version, err := readiness.ReadProductVersion(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstProgram, firstArchive, firstChecksums := nativeReleaseCandidate(t, root, version)
+	secondProgram, secondArchive, secondChecksums := nativeReleaseCandidate(t, root, version)
+	if firstProgram != secondProgram || firstArchive != secondArchive || firstChecksums != secondChecksums {
+		t.Fatal("native candidate rebuilt identical source")
+	}
+}
+
+func TestNativeProductSelectionDoesNotBuildUnselectedFixtures(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	version, err := readiness.ReadProductVersion(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	program, _, _ := nativeReleaseCandidate(t, root, version)
+	selected, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name   string
+		builds bool
+	}{
+		{name: "ephemeral_endpoint_credentials"},
+		{name: "delayed_token_and_client_activation", builds: true},
+		{name: "claude", builds: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			missing := filepath.Join(t.TempDir(), "unselected")
+			ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+			defer cancel()
+			command := exec.CommandContext(ctx, selected, "-test.run=^TestNativeProductJourney$/^"+test.name+"$", "-test.count=1", "-test.timeout=20s", "-test.v")
+			command.WaitDelay = 2 * time.Second
+			command.Dir = filepath.Join(root, "tools", "release")
+			command.Env = environmentWith(os.Environ(), map[string]string{
+				"PATH":                       missing,
+				"AIGW_ACCEPTANCE_RELEASE":    filepath.Dir(filepath.Dir(program)),
+				"AIGW_ACCEPTANCE_BASELINE":   missing,
+				"AIGW_VERIFY_SYSTEM_KEYRING": "0",
+			})
+			output, err := command.CombinedOutput()
+			marker := "--- PASS: TestNativeProductJourney/" + test.name
+			if test.builds {
+				marker = "--- FAIL: TestNativeProductJourney/" + test.name
+			}
+			if ctx.Err() != nil || (err != nil) != test.builds || !bytes.Contains(output, []byte(marker)) || bytes.Contains(output, []byte("FailNow on a parent test")) {
+				t.Fatalf("selected native fixture violated build or failure ownership: %v\n%s", err, output)
+			}
+			if test.builds && !bytes.Contains(output, []byte("build native product 0.0.0")) {
+				t.Fatalf("selected source fixture did not retain its build failure: %s", output)
+			}
+		})
+	}
 }
 
 func TestNativeFixturePreservesReleaseEnvironment(t *testing.T) {
@@ -78,6 +320,9 @@ func TestNativeFixturePreservesReleaseEnvironment(t *testing.T) {
 	program := buildNativeProgram(t, root, "0.0.0")
 	if _, err := os.Stat(program); err != nil {
 		t.Fatal(err)
+	}
+	if repeated := buildNativeProgram(t, root, "0.0.0"); repeated != program {
+		t.Fatalf("native fixture rebuilt identical source: first=%q repeated=%q", program, repeated)
 	}
 	if os.Getenv("CI_COMMIT_TAG") != "v0.1.0-rc.116" || os.Getenv("GITHUB_REF_TYPE") != "tag" {
 		t.Fatal("fixture construction changed the surrounding release context")

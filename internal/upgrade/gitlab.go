@@ -256,6 +256,8 @@ func (u Updater) glabPlan(args []string) process.Plan {
 	// Source admission already limits this value to an HTTP(S) origin.
 	protocol, host, _ := strings.Cut(origin, "://")
 	return process.Plan{Executable: "glab", Args: args, Env: append(os.Environ(),
+		"GLAB_NO_PROMPT=1",
+		"GLAB_ENABLE_CI_AUTOLOGIN=false", // Explicit release origins cannot inherit a CI server or Job Token.
 		"GITLAB_HOST="+origin,
 		"GITLAB_API_HOST="+host,
 		"API_PROTOCOL="+protocol,

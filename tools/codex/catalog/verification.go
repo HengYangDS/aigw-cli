@@ -67,7 +67,7 @@ var removeVerificationDirectory = robustio.RemoveAll
 // Every invocation gets a throwaway CODEX_HOME, and the configured probe names
 // the generated catalog explicitly, so the user's configuration is neither
 // read nor changed and no model request is sent.
-func verifyCatalog(executable, model string) (verification verificationResult, result error) {
+func verifyCatalog(executable, model, canonicalModelID string) (verification verificationResult, result error) {
 	client, bundled, err := codex.ReadBundledCatalog(executable)
 	if err != nil {
 		return verificationResult{}, err
@@ -81,8 +81,11 @@ func verifyCatalog(executable, model string) (verification verificationResult, r
 	if err != nil {
 		return verification, err
 	}
-	projected, base := bundledDocument.Project(model)
+	projected, base := bundledDocument.Project(model, canonicalModelID)
 	if projected == nil {
+		if canonicalModelID != "" {
+			return verification, fmt.Errorf("canonical model %q does not prove a Codex catalog entry for %q", canonicalModelID, model)
+		}
 		return verification, fmt.Errorf("no unique Codex model matches %q, so AIGW projects no catalog for it", model)
 	}
 	verification.BaseSlug = base

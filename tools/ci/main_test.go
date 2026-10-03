@@ -41,11 +41,12 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "run", "./tools/release", "validate-release-sources"},
 		{"go", "run", "./tools/release", "validate-changelog"},
 		{"go", "run", "./tools/architecture", "--root", "."},
-		{"node", "--test", "architecture/edition-provider/test/source.test.mjs"},
+		{"node", "--test", "architecture/edition-provider/test/source.test.mjs", "tools/ci/test/text.test.mjs"},
 		{"go", "run", "./tools/ci", "check-source-size", "."},
 		{"go", "run", "./tools/ci", "check-go", "."},
-		{"go", "test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClient(Inputs|StreamEnvelope|FilePreservation)$"},
-		{"go", "test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|Performance(Samples|Command|PooledSamples))$"},
+		{"go", "test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClient(Inputs|StreamEnvelope|InferenceEnvelope|FilePreservation)$"},
+		{"go", "test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^TestVerificationResourceCleanupStopsOwnedFixture$"},
+		{"go", "test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|Performance(Samples|Command|Cases|PooledSamples))$"},
 		{"actionlint"},
 		{"go", "run", "./tools/coverage", "--race"},
 	}
@@ -286,12 +287,16 @@ func TestSourceIncludesProductProvenanceWhenConfigured(t *testing.T) {
 
 func TestSourceConfigurationRejectsIncompleteProductProvenance(t *testing.T) {
 	root := repositoryRoot(t)
-	for _, missing := range []string{"base", "email", "signers"} {
-		t.Run(missing, func(t *testing.T) {
+	for _, test := range []struct{ missing, variable string }{
+		{"base", "AIGW_COMMIT_BASE"},
+		{"email", "AIGW_RELEASE_AUTHOR_EMAIL"},
+		{"signers", "AIGW_RELEASE_ALLOWED_SIGNERS_FILE"},
+	} {
+		t.Run(test.missing, func(t *testing.T) {
 			t.Setenv("AIGW_COMMIT_BASE", "accepted")
 			t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "maintainer@example.com")
 			t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "trust/allowed-signers")
-			switch missing {
+			switch test.missing {
 			case "base":
 				t.Setenv("AIGW_COMMIT_BASE", "")
 			case "email":
@@ -299,8 +304,8 @@ func TestSourceConfigurationRejectsIncompleteProductProvenance(t *testing.T) {
 			case "signers":
 				t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 			}
-			if _, err := configuredSourceCommands(root); err == nil || !strings.Contains(err.Error(), "requires commit base") {
-				t.Fatalf("missing %s error = %v", missing, err)
+			if _, err := configuredSourceCommands(root); err == nil || !strings.Contains(err.Error(), test.variable) {
+				t.Fatalf("missing %s error = %v", test.variable, err)
 			}
 		})
 	}
@@ -313,7 +318,7 @@ func TestSourceReportsInvalidArgumentsAndConfiguredSourceFailure(t *testing.T) {
 	}
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "maintainer@example.com")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
-	if err := run([]string{"source"}, &bytes.Buffer{}, func(command) error { return nil }); err == nil || !strings.Contains(err.Error(), "allowed signers") {
+	if err := run([]string{"source"}, &bytes.Buffer{}, func(command) error { return nil }); err == nil || !strings.Contains(err.Error(), "AIGW_RELEASE_ALLOWED_SIGNERS_FILE") {
 		t.Fatalf("configured source error = %v", err)
 	}
 }

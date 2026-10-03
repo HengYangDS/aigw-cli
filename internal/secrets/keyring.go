@@ -37,6 +37,10 @@ type keyringStore struct {
 	remove  func(service, slot string) error
 }
 
+// ErrNativeReaderUnverified marks a failed noninteractive access check for a
+// versioned reader. The underlying cause remains internal to the operation.
+var ErrNativeReaderUnverified = errors.New("native credential reader access was not verified")
+
 func newKeyringStore(executable string) keyringStore {
 	return keyringStore{
 		observe: func(service, account string) (bool, error) {
@@ -52,6 +56,36 @@ func newKeyringStore(executable string) keyringStore {
 	}
 }
 
+// VerifyNativeReaderAccess checks that a copied executable can read every
+// present Account Token from the selected native store before client files
+// point at it. Other backends have no per-executable native authorization.
+func VerifyNativeReaderAccess(store Store, executable string, accounts []string) error {
+	selection, err := Inspect(store)
+	if err != nil {
+		return err
+	}
+	if selection.Kind != "keyring" {
+		return nil
+	}
+	for _, account := range accounts {
+		present, err := store.Exists(account)
+		if err != nil {
+			return fmt.Errorf("%w: inspect selected Account Token: %w", ErrNativeReaderUnverified, err)
+		}
+		if !present {
+			continue
+		}
+		value, err := native.Read(executable, Service, account)
+		if err != nil {
+			return fmt.Errorf("%w: copied credential reader cannot read the selected Account Token: %w", ErrNativeReaderUnverified, err)
+		}
+		if value == "" {
+			return fmt.Errorf("%w: copied credential reader returned an empty Account Token", ErrNativeReaderUnverified)
+		}
+	}
+	return nil
+}
+
 func (store keyringStore) get(kind Kind, account string) (string, error) {
 	slot := slotName(kind, account)
 	value, err := store.read(Service, slot)
@@ -62,7 +96,7 @@ func (store keyringStore) get(kind Kind, account string) (string, error) {
 		return "", fmt.Errorf("read %s/%s from system keyring: %w", Service, slot, err)
 	}
 	if value == "" {
-		return "", ErrNotFound
+		return "", errors.New("stored credential is empty")
 	}
 	return value, nil
 }

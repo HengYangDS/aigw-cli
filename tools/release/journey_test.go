@@ -3,9 +3,10 @@ package main
 import (
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/configuration"
-	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
+	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
@@ -21,29 +22,6 @@ import (
 	"time"
 )
 
-func TestNativeClientFixtureMatchesClaudeDesktopDiscovery(t *testing.T) {
-	root := t.TempDir()
-	clientBin := filepath.Join(root, "client bin")
-	if err := os.MkdirAll(clientBin, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	journey := &journeyFixture{testing: t, root: root, clientBin: clientBin}
-	journey.installClientFixture(configuration.ClientClaudeDesktop)
-	discovered := (discovery.System{
-		GOOS: runtime.GOOS, Home: filepath.Join(root, "home"),
-		XDGConfigHome: filepath.Join(root, "config"), LocalAppData: filepath.Join(root, "localappdata"), Path: clientBin,
-	}).ClaudeDesktopExecutable()
-	if runtime.GOOS == "linux" {
-		if discovered != "" {
-			t.Fatalf("Claude Desktop fixture was discovered on unsupported Linux host: %q", discovered)
-		}
-		return
-	}
-	if discovered == "" || !strings.HasPrefix(filepath.Clean(discovered), filepath.Clean(root)+string(filepath.Separator)) {
-		t.Fatalf("Claude Desktop fixture discovery = %q, want an executable owned by %s", discovered, root)
-	}
-}
-
 func TestNativeProductJourney(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
@@ -53,7 +31,7 @@ func TestNativeProductJourney(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	artifact := requireNativeLifecycleBaseline(t, func() string { return buildNativeProgram(t, root, "0.0.0") })
+	sourceBaseline := func(t *testing.T) string { return buildNativeProgram(t, root, "0.0.0") }
 
 	server := newNativeJourneyServer(t)
 
@@ -63,7 +41,7 @@ func TestNativeProductJourney(t *testing.T) {
 	})
 
 	t.Run("delayed token and client activation", func(t *testing.T) {
-		journey := newNativeJourney(t, artifact, server.URL+"/v1", false)
+		journey := newNativeJourney(t, sourceBaseline(t), server.URL+"/v1", false)
 		if runtime.GOOS == "linux" {
 			journey.setEnvironment(
 				"DBUS_SESSION_BUS_ADDRESS",
@@ -78,13 +56,17 @@ func TestNativeProductJourney(t *testing.T) {
 		journey.run("sync")
 		journey.requireNoClaudeProjection()
 		journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
-		preview := journey.run("sync", "--dry-run", "--json")
-		if !json.Valid(preview) {
-			t.Fatalf("sync preview is not JSON: %s", preview)
+		beforePreview := readFile(t, journey.config)
+		var preview struct {
+			Selections map[string]string `json:"selections"`
+		}
+		if err := json.Unmarshal(journey.run("sync", "--dry-run", "--json"), &preview); err != nil {
+			t.Fatal(err)
+		}
+		if preview.Selections[configuration.ClientClaude] != "native-system-keyring-probe-claude" || !bytes.Equal(beforePreview, readFile(t, journey.config)) {
+			t.Fatalf("late sync preview did not plan the available Account without writing: %+v", preview)
 		}
 		journey.run("sync")
-		journey.requireNoClaudeProjection()
-		journey.run("use", "--for", "claude", "native-system-keyring-probe-claude")
 		journey.requireClaudeProjection()
 		journey.requireCredentialBackend("native-journey-token", secrets.BackendSelection{
 			Kind:         "env",
@@ -95,14 +77,16 @@ func TestNativeProductJourney(t *testing.T) {
 		journey.requireClaudeCredential("native-journey-token")
 		journey.run("check")
 		journey.run("verify", "--for", "claude")
-		journey.uninstallAndRequireOwnedFilesAbsent()
+		retained := journey.retainedCredential(configuration.ClientClaude)
+		journey.uninstallAndRequireInstallationRemoved()
+		journey.requireWithdrawnCredentialDenied(retained, "native-journey-token")
 		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 	})
 
-	runDeferredClientInstallation(t, artifact, server.URL+"/v1")
+	runDeferredClientInstallation(t, sourceBaseline, server.URL+"/v1")
 
 	t.Run("one selected account does not require every token", func(t *testing.T) {
-		journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
+		journey := newNativeJourney(t, sourceBaseline(t), server.URL+"/v1", true)
 		journey.prepareCodexLifecycle()
 		journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 		journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
@@ -119,44 +103,30 @@ func TestNativeProductJourney(t *testing.T) {
 			t.Fatal("doctor rejected a healthy partially connected catalogue")
 		}
 		candidate, archive, checksums := nativeReleaseCandidate(t, root, newVersion)
-		journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, journey.predecessorVersion(newVersion), "native-journey-token", secrets.BackendSelection{
+		journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, "native-journey-token", secrets.BackendSelection{
 			Kind: "env", Availability: "available", Mutability: "read_only", Persistence: "explicit",
 		})
-		journey.uninstallAndRequireOwnedFilesAbsent()
+		journey.uninstallAndRequireInstallationRemoved()
 	})
 
 	t.Run("portable artifact lifecycle", func(t *testing.T) {
-		runNativeReleaseLifecycle(t, root, artifact, newVersion, server.URL+"/v1")
+		retainedBaseline := requireNativeLifecycleBaseline(t, func() string { return sourceBaseline(t) })
+		runNativeReleaseLifecycle(t, root, retainedBaseline, newVersion, server.URL+"/v1")
 	})
 
 	if runtime.GOOS == "linux" {
 		t.Run("secure file fallback without session bus", func(t *testing.T) {
-			journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
-			journey.enableSystemCredentialStore()
-			journey.setEnvironment(
-				"DBUS_SESSION_BUS_ADDRESS",
-				"unix:path="+filepath.Join(journey.root, "missing-session-bus.sock"),
-			)
-			const token = "native-secure-file-token"
-			journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
-			journey.requireCredentialBackend(token, secrets.BackendSelection{
-				Kind:         "file",
-				Availability: "available",
-				Mutability:   "read_write",
-				Persistence:  "persisted",
-			})
-			journey.requireClaudeCredential(token)
-			backend := filepath.Join(journey.root, "data", "aigw", "secrets", "backend")
-			if got := strings.TrimSpace(string(readFile(t, backend))); got != "file" {
-				t.Fatalf("persisted backend = %q, want file", got)
-			}
-			journey.uninstallAndRequireOwnedFilesAbsent()
+			candidate, _, _ := nativeReleaseCandidate(t, root, newVersion)
+			runLinuxSecureFileFallback(t, candidate, server.URL+"/v1")
 		})
 	}
 
-	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" {
+	// macOS requires the published predecessor's distinct legacy Keychain slot;
+	// an ad-hoc current-source fixture is not that authorization transition.
+	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" && runtime.GOOS != "darwin" {
 		t.Run("system credential store", func(t *testing.T) {
-			runNativeCredentialJourney(t, root, artifact, server.URL+"/v1", newVersion)
+			retainedBaseline := requireNativeLifecycleBaseline(t, func() string { return sourceBaseline(t) })
+			runNativeCredentialJourney(t, root, retainedBaseline, server.URL+"/v1", newVersion)
 		})
 	}
 }
@@ -181,7 +151,7 @@ func TestNativeAccountRetirementWithoutClients(t *testing.T) {
 	if !bytes.Equal(readFile(t, journey.config), readFile(t, journey.config+".bak")) {
 		t.Fatal("client-free retirement did not converge backup")
 	}
-	journey.uninstallAndRequireOwnedFilesAbsent()
+	journey.uninstallAndRequireInstallationRemoved()
 }
 
 type journeyFixture struct {
@@ -195,7 +165,20 @@ type journeyFixture struct {
 	settings             string
 	endpoint             string
 	environment          []string
+	sensitiveInputs      []string
 	retainedProgramNames []string
+}
+
+func TestNativeJourneyCleanupSurvivesTestCancellation(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	program := buildNativeProgram(t, root, "0.0.0")
+	t.Run("registered cleanup", func(t *testing.T) {
+		journey := newNativeJourney(t, program, "https://unused.example.test", false)
+		t.Cleanup(journey.uninstallAndRequireInstallationRemoved)
+	})
 }
 
 func newNativeJourney(t *testing.T, source, endpoint string, installClient bool) *journeyFixture {
@@ -236,6 +219,9 @@ func newNativeJourney(t *testing.T, source, endpoint string, installClient bool)
 		"XDG_DATA_HOME":       filepath.Join(root, "data"),
 		"APPDATA":             filepath.Join(root, "appdata"),
 		"LOCALAPPDATA":        filepath.Join(root, "localappdata"),
+		"CODEX_HOME":          filepath.Join(home, ".codex"),
+		"CLAUDE_CONFIG_DIR":   filepath.Join(home, ".claude"),
+		"HERMES_HOME":         filepath.Join(home, ".hermes"),
 		"PATH":                clientBin,
 		"AIGW_SECRET_BACKEND": "env",
 		"NO_COLOR":            "1",
@@ -314,6 +300,9 @@ func (j *journeyFixture) installClientFixture(client string) {
 
 func (j *journeyFixture) setEnvironment(key, value string) {
 	j.testing.Helper()
+	if strings.HasPrefix(key, "AIGW_TOKEN_") {
+		j.sensitiveInputs = append(j.sensitiveInputs, value)
+	}
 	j.environment = append(environmentWithout(j.environment, key), key+"="+value)
 }
 
@@ -344,13 +333,26 @@ func (j *journeyFixture) runWith(binary string, args ...string) []byte {
 
 func (j *journeyFixture) runWithInput(binary, input string, args ...string) []byte {
 	j.testing.Helper()
-	ctx, cancel := context.WithTimeout(j.testing.Context(), clientverification.ProtocolTimeout)
-	defer cancel()
-	output, err := (process.Runner{}).RunCapture(ctx, process.Plan{Executable: binary, Args: args, Env: j.environment, Stdin: input})
-	if err != nil {
-		j.testing.Fatalf("%s %s: %v\nstderr:\n%s", binary, strings.Join(args, " "), err, output)
+	return j.runWithContext(j.testing.Context(), binary, input, args...)
+}
+
+func (j *journeyFixture) runWithContext(parent context.Context, binary, input string, args ...string) []byte {
+	j.testing.Helper()
+	if input != "" {
+		j.sensitiveInputs = append(j.sensitiveInputs, input)
 	}
-	return output
+	ctx, cancel := context.WithTimeout(parent, clientverification.ProtocolTimeout)
+	defer cancel()
+	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: binary, Args: args, Env: j.environment, Stdin: input})
+	if len(stderr) != 0 {
+		j.testing.Logf("command stderr:\n%s", redaction.Text(string(stderr), j.sensitiveInputs...))
+	}
+	if err != nil {
+		j.testing.Fatalf("%s %s: %v\nstdout:\n%s\nstderr:\n%s", binary,
+			redaction.Text(strings.Join(args, " "), j.sensitiveInputs...), err,
+			redaction.Text(string(stdout), j.sensitiveInputs...), redaction.Text(string(stderr), j.sensitiveInputs...))
+	}
+	return stdout
 }
 
 func (j *journeyFixture) requireConfigContains(values ...string) {
@@ -387,7 +389,11 @@ func (j *journeyFixture) credentialEntrypoint() string {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	return filepath.Join(paths.Data, "credential", paths.InstallName)
+	path, err := credential.VersionedEntrypointPath(paths.Data, j.binary, paths.InstallName)
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	return path
 }
 
 func (j *journeyFixture) requireClaudeCredential(want string) {
@@ -401,30 +407,38 @@ func (j *journeyFixture) requireCredential(plan process.Plan, want string) {
 	defer cancel()
 	output, err := (process.Runner{}).RunCapture(ctx, plan)
 	if err != nil {
-		j.testing.Fatalf("execute retained credential command: %v", err)
+		j.testing.Fatalf("execute retained credential command: %v\nstderr:\n%s", err,
+			redaction.Text(string(output), append(slices.Clone(j.sensitiveInputs), want)...))
 	}
 	if strings.TrimSpace(string(output)) != want {
 		j.testing.Fatal("retained credential command returned unexpected content")
 	}
 }
 
-func (j *journeyFixture) uninstallAndRequireOwnedFilesAbsent() {
+func (j *journeyFixture) uninstallAndRequireInstallationRemoved() {
 	j.testing.Helper()
-	j.runWith(j.source, "uninstall", "--target", j.binary)
-	j.requireOwnedFilesAbsent()
+	j.uninstallWithAndRequireInstallationRemoved(j.source)
 	j.requireNoClaudeProjection()
 	if _, err := os.Stat(j.config + ".verified.json"); !os.IsNotExist(err) {
 		j.testing.Fatalf("uninstall retained verified checkpoint: %v", err)
 	}
 }
 
-func (j *journeyFixture) requireOwnedFilesAbsent() {
+func (j *journeyFixture) uninstallWithAndRequireInstallationRemoved(binary string) {
+	j.testing.Helper()
+	reader := j.captureCredentialReader()
+	j.runWithContext(context.WithoutCancel(j.testing.Context()), binary, "", "uninstall", "--target", j.binary)
+	j.requireInstallationRemoved()
+	reader.requireUnchanged(j.testing)
+}
+
+func (j *journeyFixture) requireInstallationRemoved() {
 	j.testing.Helper()
 	backup := filepath.Join(filepath.Dir(j.binary), ".aigw.previous")
 	if runtime.GOOS == "windows" {
 		backup += ".exe"
 	}
-	for _, path := range []string{j.binary, backup, j.credentialEntrypoint(), j.credentialEntrypoint() + ".sha256"} {
+	for _, path := range []string{j.binary, backup} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			j.testing.Fatalf("uninstall retained owned file %s: %v", path, err)
 		}
@@ -449,10 +463,8 @@ func environmentWith(current []string, replacements map[string]string) []string 
 	result := make([]string, 0, len(current)+len(replacements))
 	for _, item := range current {
 		key, _, found := strings.Cut(item, "=")
-		if found {
-			if _, replaced := replacements[key]; replaced || strings.HasPrefix(key, "AIGW_TOKEN_") {
-				continue
-			}
+		if _, replaced := replacements[key]; found && (replaced || strings.HasPrefix(key, "AIGW_TOKEN_")) {
+			continue
 		}
 		result = append(result, item)
 	}

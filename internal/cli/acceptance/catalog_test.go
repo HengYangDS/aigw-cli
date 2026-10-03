@@ -179,7 +179,7 @@ func TestCatalogDefaultHumanOutputShowsOnlyConfiguredModels(t *testing.T) {
 	}
 }
 
-func TestCatalogAllHumanOutputIncludesEveryModelAsReadableRecord(t *testing.T) {
+func TestCatalogAllHumanAndJSONOutputIncludeEveryModel(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
@@ -207,13 +207,12 @@ func TestCatalogAllHumanOutputIncludesEveryModelAsReadableRecord(t *testing.T) {
 	if strings.Contains(text, "unconfigured-modelCandidate") {
 		t.Fatalf("full catalog ran together the model and its status:\n%s", text)
 	}
-}
-
-func TestCatalogRejectsAllWithJSON(t *testing.T) {
-	app, _, _, _, _ := testApp(t, "")
-	err := cli.Execute(app, []string{"catalog", "--all", "--json"})
-	if err == nil || !strings.Contains(err.Error(), "--all cannot be used with --json") {
-		t.Fatalf("catalog flags error = %v", err)
+	out.Reset()
+	if err := cli.Execute(app, []string{"catalog", "--all", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"id": "unconfigured-model"`) {
+		t.Fatalf("combined catalog flags omitted candidate model:\n%s", out.String())
 	}
 }
 
@@ -331,5 +330,47 @@ func TestModelsCommandKeepsLongRouteNamesOnOneLine(t *testing.T) {
 	}
 	if !strings.Contains(text, "Route  claude-opus-5") || !strings.Contains(text, "claude-opus-5 · Anthropic Messages · Listed · account dmx") {
 		t.Fatalf("models output should use detail layout for long Route names:\n%s", text)
+	}
+}
+
+func TestCatalogContinuationUsesTheActualRouteAddContract(t *testing.T) {
+	app, out, _, runner, httpClient := testApp(t, "")
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://provider.test/v1"}}
+	cfg.Routes["gateway-current"] = qualifiedRoute("Current", "gateway", "current-model", configuration.ProtocolOpenAIResponses)
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"catalog"}); err != nil {
+		t.Fatal(err)
+	}
+	_, next, ok := strings.Cut(out.String(), "\nNext\n")
+	if !ok {
+		t.Fatalf("catalog omitted a continuation: %s", out)
+	}
+	args := strings.Fields(next)
+	if len(args) == 0 || args[0] != "aigw" {
+		t.Fatalf("catalog continuation is not a product command: %q", next)
+	}
+	values := map[string]string{"<route>": "gateway-candidate", "<account>": "gateway", "<model>": "candidate-model", "<protocol>": "openai_responses"}
+	for index, argument := range args {
+		if value, found := values[argument]; found {
+			args[index] = value
+		}
+	}
+	out.Reset()
+	if err := cli.Execute(app, args[1:]); err != nil {
+		t.Fatalf("catalog recommended an unsupported route-add invocation: %v\n%s", err, out)
+	}
+	got, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	added, exists := got.Routes["gateway-candidate"]
+	if !exists || added.Account != "gateway" || added.Model != "candidate-model" || added.UpstreamModelID() != "candidate-model" || len(got.Clients) != 0 {
+		t.Fatalf("catalog continuation did not add only the requested Route: %#v", got)
+	}
+	if len(runner.plans) != 0 || httpClient.calls != 0 {
+		t.Fatal("catalog continuation invoked a client or provider without authorization")
 	}
 }

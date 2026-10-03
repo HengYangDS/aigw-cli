@@ -6,6 +6,14 @@ env:
 "on":
   workflow_dispatch:
     inputs:
+      tool_source:
+        description: Locked upstream distribution or the selected peer's verified immutable tool copies
+        required: false
+        type: choice
+        default: upstream
+        options:
+          - upstream
+          - peer
       tag:
         description: Existing published v* release to verify
         required: true
@@ -27,6 +35,7 @@ env:
         default: false
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: release-${{ github.repository }}-${{ inputs.tag }}-${{ inputs.runner }}
   cancel-in-progress: false
@@ -50,14 +59,15 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
+        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5
         env:
           GODEBUG: http2client=0
+          MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.9.11
+          version: 2026.9.18
           install: true
           install_args: --locked
-          cache: true
+          cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
       - name: Validate release version
         run: mise exec --locked -- go run ./tools/release validate-version-tag
@@ -69,6 +79,11 @@ jobs:
         env:
           AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }}
         run: mise exec --locked -- go run ./tools/ci trust-input --artifact --output "$env:RUNNER_TEMP/aigw-artifact-signers" --github-env "$env:GITHUB_ENV"
+      - name: Verify this peer's exact tag pipeline
+        run: |-
+          $tagCommit = git rev-parse --verify "$($env:CI_COMMIT_TAG)^{commit}"
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($tagCommit)) { throw 'Cannot resolve selected release tag' }
+          mise exec --locked -- go run ./tools/ci release-evidence --repository "$env:GITHUB_REPOSITORY" --workflow verify.yml --tag "$env:CI_COMMIT_TAG" --sha "$tagCommit" --job 'Quality and governance' --job 'Native macOS acceptance' --job 'Native Linux acceptance' --job 'Native Windows acceptance' --job 'Linux Secret Service' --job 'Release version'
       - name: Download this peer's published artifacts
         run: mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir dist
       - name: Verify complete artifacts and signed source

@@ -42,9 +42,7 @@ func TestInferenceScopeCarriesExactModelAndClassifiesDistributorRefusal(t *testi
 		result.Attempts != 1 || !result.Retryable {
 		t.Fatalf("calls=%d result=%#v", calls, result)
 	}
-	if strings.Contains(result.Detail, "fixture-token") {
-		t.Fatal("result disclosed the account token")
-	}
+	assertDiagnosticOmits(t, result, "fixture-token")
 }
 
 func TestInferenceScopeClassifiesDecodedProviderMessage(t *testing.T) {
@@ -71,9 +69,7 @@ func TestInferenceScopeClassifiesDecodedProviderMessage(t *testing.T) {
 			if calls != 1 || result.Kind != test.want || result.Attempts != 1 || !result.Retryable {
 				t.Fatalf("calls=%d result=%#v, want kind %s", calls, result, test.want)
 			}
-			if strings.Contains(result.Detail, "fixture-token") {
-				t.Fatal("diagnostic detail disclosed the Account Token")
-			}
+			assertDiagnosticOmits(t, result, "fixture-token")
 		})
 	}
 }
@@ -181,6 +177,32 @@ func TestInferenceScopeAcceptsTextOutputForEachProtocol(t *testing.T) {
 			}), selected, "fixture-token", diagnostics.ScopeInference)
 			if result.Kind != diagnostics.Healthy || result.Scope != diagnostics.ScopeInference {
 				t.Fatalf("result=%#v", result)
+			}
+		})
+	}
+}
+
+func TestExplicitModelUnavailableAtHTTP400(t *testing.T) {
+	selected := runtime()
+	selected.Protocol = configuration.ProtocolAnthropic
+	selected.Model = "claude-fable-5-1"
+	cases := []struct {
+		name, message string
+		kind          diagnostics.Kind
+		retryable     bool
+	}{
+		{"model cannot currently be served", "The model claude-fable-5-1 cannot be served at the moment. Check the model ID, try again later.", diagnostics.ModelUnavailable, true},
+		{"malformed model request", "Invalid model field: expected a string", diagnostics.Unexpected, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			result := diagnostics.Probe(t.Context(), clientFunc(func(*http.Request) (*http.Response, error) {
+				calls++
+				return response(http.StatusBadRequest, `{"error":{"type":"Aihubmix_api_error","message":"`+tc.message+`"}}`), nil
+			}), selected, "fixture-token", diagnostics.ScopeInference)
+			if result.Kind != tc.kind || result.Retryable != tc.retryable || result.Attempts != 1 || calls != 1 {
+				t.Fatalf("explicit provider cause misclassified: result=%#v calls=%d", result, calls)
 			}
 		})
 	}

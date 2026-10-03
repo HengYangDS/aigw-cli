@@ -48,9 +48,10 @@
   platformAutomerge: false,
   packageRules: [
     {
-      matchManagers: ["mise"],
-      matchDepNames: ["go:github.com/google/osv-scanner/v2/cmd/osv-scanner"],
-      overridePackageName: "github.com/google/osv-scanner/v2",
+      // Other ecosystems have immutable checksums or digest-pinned artifacts;
+      // their current stable release still needs its own admission evidence.
+      matchManagers: ["gomod", "mise", "custom.regex"],
+      minimumReleaseAge: "0 days",
     },
     {
       matchManagers: ["gomod", "mise"],
@@ -93,7 +94,7 @@
         "/^mise\\.toml$/",
       ],
       matchStrings: [
-        '"(?<depName>ghcr\\.io/[\\w./-]+)(?::(?<currentValue>[\\w.-]+))?@(?<currentDigest>sha256:[a-f0-9]{64})"',
+        '"(?<depName>(?:ghcr|docker)\\.io/[\\w./-]+)(?::(?<currentValue>[\\w.-]+))?@(?<currentDigest>sha256:[a-f0-9]{64})"',
       ],
       datasourceTemplate: "docker",
       versioningTemplate: "docker",

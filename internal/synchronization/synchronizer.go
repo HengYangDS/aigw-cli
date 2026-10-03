@@ -6,10 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
+	"maps"
+	"slices"
 
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
@@ -40,6 +38,13 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg configuration.Con
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	projectable, err := s.credentialReadyClients(cfg, clientID)
+	if err != nil {
+		return err
+	}
+	if len(projectable) == 0 {
+		return nil
+	}
 	if _, err := s.registry().Plan(s.clientDependencies(), cfg, cfg, clientID); err != nil {
 		return err
 	}
@@ -47,19 +52,36 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg configuration.Con
 	if err != nil {
 		return err
 	}
-	err = s.registry().Apply(ctx, s.clientDependencies(), cfg, cfg, clientID)
-	if err == nil || errors.Is(err, client.ErrProjectionRollbackFailed) || undoEntrypoint == nil {
+	receipt, err := s.registry().Apply(ctx, s.clientDependencies(), cfg, cfg, clientID)
+	if err != nil {
+		if !errors.Is(err, client.ErrProjectionRollbackFailed) {
+			err = errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
+		}
 		return err
 	}
-	return errors.Join(err, undoEntrypoint())
+	finalizeErr := s.finalizeCredentialEntrypoint(cfg, clientID)
+	if finalizeErr == nil {
+		return nil
+	}
+	if rollbackErr := receipt.Rollback(); rollbackErr != nil {
+		return fmt.Errorf("%w: credential entrypoint finalization failed: %w; client rollback also failed: %w", client.ErrProjectionRollbackFailed, finalizeErr, rollbackErr)
+	}
+	return errors.Join(fmt.Errorf("credential entrypoint finalization failed; client projection was rolled back: %w", finalizeErr), undoCreatedEntrypoint(undoEntrypoint))
 }
 
 func (s Synchronizer) prepareCredentialEntrypoint(cfg configuration.Config, clientIDs ...string) (func() error, error) {
-	required, err := s.needsCredentialEntrypoint(cfg, clientIDs...)
-	if err != nil || !required {
+	accounts, err := s.credentialEntrypointAccounts(cfg, clientIDs...)
+	if err != nil || len(accounts) == 0 {
 		return nil, err
 	}
-	return credential.EnsureEntrypoint(s.AIGWExecutable, s.CredentialPath)
+	undo, err := credential.EnsureEntrypoint(s.AIGWExecutable, s.CredentialPath)
+	if err != nil || s.Secrets == nil {
+		return undo, err
+	}
+	if err := secrets.VerifyNativeReaderAccess(s.Secrets, s.CredentialPath, accounts); err != nil {
+		return nil, errors.Join(err, undoCreatedEntrypoint(undo))
+	}
+	return undo, nil
 }
 
 // ConfigStore is the exact persistence capability needed by a synchronization
@@ -75,7 +97,7 @@ type ConfigStore interface {
 type Synchronizer struct {
 	Config                       ConfigStore
 	Secrets                      secrets.Store
-	Runner                       process.CaptureRunner
+	Runner                       process.VerificationRunner
 	Discovery                    discovery.Discoverer
 	Registry                     client.Registry
 	ClaudeSettingsPath           string
@@ -94,6 +116,30 @@ func (s Synchronizer) DesiredClientConfiguration(before configuration.Config, cl
 	}
 	after, err := s.registry().Converge(s.clientDependencies(), before, discovered, clientIDs...)
 	return after, discovered, err
+}
+
+// DesiredSyncConfiguration activates unselected recommendations when a
+// read-only credential source gains an Account Token after catalogue import.
+// Writable native stores are not searched for unselected credentials.
+func (s Synchronizer) DesiredSyncConfiguration(before configuration.Config) (configuration.Config, discovery.Result, error) {
+	if !secrets.IsReadOnly(s.Secrets) {
+		return s.DesiredClientConfiguration(before)
+	}
+	connected := make([]string, 0, len(before.Accounts))
+	for _, accountID := range slices.Sorted(maps.Keys(before.Accounts)) {
+		available, err := s.Secrets.Exists(accountID)
+		if err != nil {
+			return configuration.Config{}, discovery.Result{}, fmt.Errorf("inspect Account %q Token availability: %w", accountID, err)
+		}
+		if available {
+			connected = append(connected, accountID)
+		}
+	}
+	selected, err := before.SelectRoutesForConnectedAccounts(connected)
+	if err != nil {
+		return configuration.Config{}, discovery.Result{}, err
+	}
+	return s.DesiredClientConfiguration(selected)
 }
 
 // Withdraw removes selected adapters from desired configuration. With no
@@ -132,26 +178,62 @@ func (s Synchronizer) clientDependencies() client.Dependencies {
 	}
 }
 
-func (s Synchronizer) needsCredentialEntrypoint(cfg configuration.Config, clientIDs ...string) (bool, error) {
+// credentialReadyClients excludes default-Token consumers only when their
+// selected Account Token is known absent. Disabled and external-credential
+// clients remain eligible for withdrawal or independent convergence.
+func (s Synchronizer) credentialReadyClients(cfg configuration.Config, clientIDs ...string) ([]string, error) {
+	if len(clientIDs) == 0 {
+		clientIDs = s.ClientIDs()
+	}
+	projectable := make([]string, 0, len(clientIDs))
+	for _, clientID := range clientIDs {
+		accounts, err := s.credentialEntrypointAccounts(cfg, clientID)
+		if err != nil {
+			return nil, err
+		}
+		if s.Secrets == nil {
+			projectable = append(projectable, clientID)
+			continue
+		}
+		ready := true
+		for _, account := range accounts {
+			present, err := s.Secrets.Exists(account)
+			if err != nil {
+				return nil, fmt.Errorf("inspect Account %q Token availability: %w", account, err)
+			}
+			if !present {
+				ready = false
+				break
+			}
+		}
+		if ready {
+			projectable = append(projectable, clientID)
+		}
+	}
+	return projectable, nil
+}
+
+func (s Synchronizer) credentialEntrypointAccounts(cfg configuration.Config, clientIDs ...string) ([]string, error) {
 	if s.CredentialPath == "" {
-		return false, nil
+		return nil, nil
 	}
 	if len(clientIDs) == 0 {
 		clientIDs = s.ClientIDs()
 	}
+	var accounts []string
 	for _, clientID := range clientIDs {
 		if !cfg.Clients[clientID].Enabled {
 			continue
 		}
 		runtime, err := cfg.ResolveRuntime(clientID, "")
 		if err != nil {
-			return false, err
+			return nil, err
 		}
-		if runtime.RequiresAccountToken() && runtime.CredentialCommand == "" {
-			return true, nil
+		if runtime.RequiresAccountToken() && runtime.CredentialCommand == "" && !slices.Contains(accounts, runtime.AccountID) {
+			accounts = append(accounts, runtime.AccountID)
 		}
 	}
-	return false, nil
+	return accounts, nil
 }
 
 // CredentialEntrypointAction names the one filesystem effect required by the
@@ -163,55 +245,40 @@ const (
 	CredentialEntrypointUnchanged CredentialEntrypointAction = ""
 	// CredentialEntrypointInstall creates the helper for a default Token consumer.
 	CredentialEntrypointInstall CredentialEntrypointAction = "install"
-	// CredentialEntrypointRemove withdraws a helper with no configured consumer.
-	CredentialEntrypointRemove CredentialEntrypointAction = "remove"
 )
 
-// CredentialEntrypointPlan observes the shared helper without changing it.
-// Every enabled client is considered even when one projection is selected.
-func (s Synchronizer) CredentialEntrypointPlan(cfg configuration.Config) (CredentialEntrypointAction, error) {
+// CredentialEntrypointPlan prepares the current version only for clients that
+// can project now. A deferred client does not prove that cached or rollback
+// callers have stopped using an earlier command.
+func (s Synchronizer) CredentialEntrypointPlan(cfg configuration.Config, clientIDs ...string) (CredentialEntrypointAction, error) {
 	if s.CredentialPath == "" {
 		return CredentialEntrypointUnchanged, nil
 	}
-	required, err := s.needsCredentialEntrypoint(cfg)
+	if len(clientIDs) == 0 {
+		ready, err := s.credentialReadyClients(cfg)
+		if err != nil {
+			return CredentialEntrypointUnchanged, err
+		}
+		if len(ready) == 0 {
+			return CredentialEntrypointUnchanged, nil
+		}
+		clientIDs = ready
+	}
+	accounts, err := s.credentialEntrypointAccounts(cfg, clientIDs...)
 	if err != nil {
 		return CredentialEntrypointUnchanged, err
+	}
+	if len(accounts) == 0 {
+		return CredentialEntrypointUnchanged, nil
 	}
 	missing, err := credential.EntrypointNeeded(s.CredentialPath)
 	if err != nil {
 		return CredentialEntrypointUnchanged, err
 	}
-	switch {
-	case required && missing:
+	if missing {
 		return CredentialEntrypointInstall, nil
-	case !required && !missing:
-		for _, clientID := range s.ClientIDs() {
-			binding := cfg.Clients[clientID]
-			if binding.Enabled && sameCredentialEntrypoint(binding.CredentialCommand, s.CredentialPath) {
-				return CredentialEntrypointUnchanged, nil
-			}
-		}
-		return CredentialEntrypointRemove, nil
-	default:
-		return CredentialEntrypointUnchanged, nil
 	}
-}
-
-func sameCredentialEntrypoint(command, owned string) bool {
-	if command == "" || owned == "" {
-		return false
-	}
-	command, owned = filepath.Clean(command), filepath.Clean(owned)
-	if runtime.GOOS == "windows" {
-		if strings.EqualFold(command, owned) {
-			return true
-		}
-	} else if command == owned {
-		return true
-	}
-	commandInfo, commandErr := os.Stat(command)
-	ownedInfo, ownedErr := os.Stat(owned)
-	return commandErr == nil && ownedErr == nil && os.SameFile(commandInfo, ownedInfo)
+	return CredentialEntrypointUnchanged, nil
 }
 
 func (s Synchronizer) discoveredResult() (discovery.Result, error) {

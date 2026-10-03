@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
 	domainreadiness "aigw-cli/internal/readiness"
+	"aigw-cli/internal/secrets"
 	"strings"
 )
 
@@ -21,35 +22,25 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	r.ProductTitle("Configuration status")
 	r.Text("The selected Routes, client readiness, and the smallest next action.")
 	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
-	attention, nextAction := renderClientStatus(r, result, clientIDs)
+	renderClientStatus(r, result, clientIDs)
 	if result.State == domainreadiness.Deferred {
 		r.Section("Activation")
-		r.Status(presentation.Info, "Client activation", "No client is enabled")
+		message := "No client is enabled"
+		if result.EnabledClients != 0 {
+			message = "Selected client projection is deferred"
+		}
+		r.Status(presentation.Info, "Client activation", message)
 		r.Detail("The catalogue is available, but no client endpoint or model has been checked")
 	}
 	renderTransportStatus(r, result, clientIDs)
 	renderDiagnosticStatus(runtime, r, cfg)
-	switch {
-	case attention && nextAction != "":
-		r.Next(nextAction)
-	case result.State == domainreadiness.Deferred && strings.HasPrefix(result.NextAction, "set environment variable "):
-		r.Next(result.NextAction)
-	case nextAction != "":
-		r.Next(nextAction)
-	case result.State == domainreadiness.Deferred:
-		r.Next(result.NextAction)
-	case attention:
-		r.Next("aigw repair")
-	default:
-		r.Next("aigw check")
-	}
+	r.Next(result.NextAction)
 }
 
-func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) (bool, string) {
+func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) {
 	r.Section("Clients")
-	attention := false
-	nextAction := ""
 	for _, client := range clientIDs {
+		spec, _ := configuration.ClientSpecFor(client)
 		clientStatus := result.Clients[client]
 		message := clientStatus.Route + " · " + clientStatus.State.Label()
 		state := presentation.Info
@@ -60,11 +51,10 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 			state = presentation.Info
 		case domainreadiness.Deferred:
 			if clientStatus.Route == "" {
-				message = "No " + invocation.Title(client) + " route selected"
+				message = "No " + spec.Label + " route selected"
 			}
 		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
 			state = presentation.Warn
-			attention = true
 		}
 		if clientStatus.Detail != "" && clientStatus.Route != "" {
 			message = clientStatus.Route + " · " + clientStatus.State.Label() + " · " + clientStatus.Detail
@@ -73,12 +63,8 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 			message += " · Qualified: " + strings.Join(clientStatus.QualifiedModes, ", ") + " · " + strings.Join(clientStatus.QualifiedPlatforms, ", ")
 		}
 
-		if nextAction == "" && clientStatus.NextAction != "" {
-			nextAction = clientStatus.NextAction
-		}
-		r.Status(state, invocation.Title(client), message)
+		r.Status(state, spec.Label, message)
 	}
-	return attention, nextAction
 }
 
 func renderTransportStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) {
@@ -121,9 +107,13 @@ func renderDiagnosticStatus(runtime invocation.Context, r *presentation.Renderer
 		case err != nil:
 			r.Status(presentation.Warn, accountName, "Credential metadata unavailable · aigw doctor")
 		case available:
-			r.Status(presentation.OK, accountName, "Precise balance enabled")
+			r.Status(presentation.Info, accountName, "Diagnostic credential present · content not verified")
 		default:
-			r.Status(presentation.Warn, accountName, "Precise balance disabled · aigw account diagnostics enable "+accountName)
+			action := "aigw account diagnostics enable " + accountName
+			if secrets.IsReadOnly(runtime.Secrets) {
+				action = "set `" + secrets.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secrets.DiagnosticUserIDEnvironmentKey(accountName) + "`"
+			}
+			r.Status(presentation.Warn, accountName, "Precise balance not ready · "+action)
 		}
 	}
 }

@@ -7,6 +7,7 @@ id = "gitlab"
 provider = "gitlab"
 role = "organization_collaboration"
 git_remote = "origin"
+forge_repository = "http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli"
 capabilities = ["repository", "ci_cd", "publication"]
 ci_surface = ".gitlab-ci.yml"
 
@@ -15,6 +16,7 @@ id = "github"
 provider = "github"
 role = "public_distribution"
 git_remote = "github"
+forge_repository = "https://github.com/HengYangDS/aigw-cli"
 capabilities = ["repository", "ci_cd", "publication"]
 ci_surface = ".github/workflows/verify.yml"
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -52,11 +53,64 @@ type codexCatalogPlan struct {
 
 func codexCatalogPath(configPath string) string { return configPath + ".aigw-model-catalog.json" }
 
+func rebaseCopiedCodexCatalog(source, target string, config, attribution transaction.FileSnapshot) (transaction.FileSnapshot, error) {
+	if !config.Exists {
+		if attribution.Exists {
+			return config, fmt.Errorf("Codex projection state exists without its configuration")
+		}
+		return config, nil
+	}
+	state := codexState{}
+	if attribution.Exists {
+		var err error
+		state, err = codexStateForTarget(attribution)
+		if err != nil {
+			return config, err
+		}
+	}
+	if err := validateCodexCatalog(source, string(config.Data), state); err != nil {
+		return config, err
+	}
+	if state.CatalogHash == "" {
+		return config, nil
+	}
+	canonical, err := canonicalCodexTargetPath(target)
+	if err != nil {
+		return config, err
+	}
+	quoted, err := codexTOMLString(codexCatalogPath(canonical))
+	if err != nil {
+		return config, err
+	}
+	projected, err := setCodexSelection(string(config.Data), "model_catalog_json", "model_catalog_json = "+quoted+" # managed by AIGW")
+	if err != nil {
+		return config, err
+	}
+	config.Data = []byte(projected)
+	return config, nil
+}
+
+func validateCodexCatalogPreflight(target codexReconciliationTarget, config, state transaction.FileSnapshot) error {
+	if !target.desired && !state.Exists {
+		return nil
+	}
+	attribution := codexState{}
+	if state.Exists {
+		var err error
+		attribution, err = codexStateForTarget(state)
+		if err != nil {
+			return err
+		}
+	}
+	return validateCodexCatalogReference(target.ref.Path, string(config.Data), attribution)
+}
+
 // codexCatalogProjection decides what AIGW owns for one target without writing
-// anything. It withholds a catalog whenever it cannot prove the adaptation is
-// both needed and correct, so an unrecognized model keeps the client's own
-// fallback and its warning instead of being silenced by a looser match.
-func codexCatalogProjection(target TargetRef, model, base string, state codexState, before transaction.FileSnapshot) codexCatalogPlan {
+// anything. An AIGW custom provider pins the installed client's complete table
+// even for a known base model: otherwise Codex may try to decode the provider's
+// standard /models response as its private metadata format. An unrecognized
+// model still keeps the client's fallback rather than a guessed entry.
+func codexCatalogProjection(target TargetRef, model, canonicalModelID, base string, state codexState, before transaction.FileSnapshot) codexCatalogPlan {
 	// A user-authored model_catalog_json is the user's own client policy. AIGW
 	// replaces the bundled table wholesale, so adopting that key here would
 	// silently drop models the user added.
@@ -65,15 +119,15 @@ func codexCatalogProjection(target TargetRef, model, base string, state codexSta
 		return codexCatalogPlan{}
 	}
 	live, bundled, err := codexBundledCatalog(target.Executable)
-	if err == nil {
-		document, parseErr := catalog.Parse(bundled)
-		if parseErr == nil {
-			data, _ := document.Project(model)
-			if data == nil {
-				return codexCatalogPlan{}
-			}
-			return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: live, state: catalogStateProjected}
+	document, parseErr := catalog.Parse(bundled)
+	if err == nil && parseErr == nil {
+		data, _ := document.Project(model, canonicalModelID)
+		if data == nil {
+			// Preserve Codex's native table for unknown provider models. Never
+			// invent metadata or leave Codex to query provider-specific /models.
+			data = bundled
 		}
+		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: live, state: catalogStateProjected}
 	}
 	// Regeneration failed. A previous copy is reusable only while it still
 	// describes the installed build: after an upgrade the old snapshot would
@@ -153,13 +207,13 @@ func ReadBundledCatalog(executable string) (client ExecutableIdentity, data []by
 	if strings.TrimSpace(executable) == "" {
 		return ExecutableIdentity{}, nil, fmt.Errorf("Codex executable is not configured")
 	}
-	result = withCatalogProbe(func(ctx context.Context, home string) error {
+	result = withCatalogProbe(func(ctx context.Context, home, temporary string) error {
 		var err error
-		client, err = IdentifyExecutable(ctx, process.Runner{}, executable, home)
+		client, err = IdentifyExecutable(ctx, process.Runner{}, executable, home, temporary)
 		if err != nil {
 			return err
 		}
-		data, err = runCodexReadOnly(ctx, process.Runner{StdoutLimit: codexCatalogByteLimit}, executable, home, "debug", "models", "--bundled")
+		data, err = runCodexReadOnly(ctx, process.Runner{StdoutLimit: codexCatalogByteLimit}, executable, home, temporary, "debug", "models", "--bundled")
 		return err
 	})
 	return client, data, result
@@ -176,15 +230,15 @@ func ReadEffectiveCatalog(executable, catalogPath string) (data []byte, result e
 		}
 		args = append(args, "-c", "model_catalog_json="+quoted)
 	}
-	result = withCatalogProbe(func(ctx context.Context, home string) error {
+	result = withCatalogProbe(func(ctx context.Context, home, temporary string) error {
 		var err error
-		data, err = runCodexReadOnly(ctx, process.Runner{StdoutLimit: codexCatalogByteLimit}, executable, home, args...)
+		data, err = runCodexReadOnly(ctx, process.Runner{StdoutLimit: codexCatalogByteLimit}, executable, home, temporary, args...)
 		return err
 	})
 	return data, result
 }
 
-func withCatalogProbe(probe func(context.Context, string) error) (result error) {
+func withCatalogProbe(probe func(context.Context, string, string) error) (result error) {
 	home, err := os.MkdirTemp("", "aigw-codex-catalog-")
 	if err != nil {
 		return fmt.Errorf("create Codex probe home: %w", err)
@@ -194,7 +248,13 @@ func withCatalogProbe(probe func(context.Context, string) error) (result error) 
 			result = errors.Join(result, fmt.Errorf("remove Codex probe home %s: %w", home, err))
 		}
 	}()
+	// Codex refuses aliases when its home lies below the child's temporary root.
+	// Both paths stay inside one owned workspace, with temporary files below home.
+	temporary := filepath.Join(home, "tmp")
+	if err := os.Mkdir(temporary, 0o700); err != nil {
+		return fmt.Errorf("create Codex probe temporary root: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), codexCatalogTimeout)
 	defer cancel()
-	return probe(ctx, home)
+	return probe(ctx, home, temporary)
 }

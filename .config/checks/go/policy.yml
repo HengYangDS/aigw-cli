@@ -4,7 +4,8 @@ run:
   tests: true
   build-tags:
     - client_acceptance
-    - keychain_integration
+    - native_hermes
+    - native_resource_acceptance
     - performance_acceptance
   allow-serial-runners: true
 
@@ -12,6 +13,10 @@ formatters:
   enable:
     - gofmt
     - goimports
+  exclusions:
+    paths:
+      # This policy lives three directories below the repository root.
+      - ^(\.\./){3}build/
 
 linters:
   default: none

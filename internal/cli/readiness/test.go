@@ -28,8 +28,12 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 	var tokenStdin bool
 	cmd := &cobra.Command{
 		Use:   "test",
-		Short: "Test selected endpoints",
-		Args:  cobra.MatchAll(cobra.NoArgs, validateEndpointTestSelection),
+		Short: "Probe selected endpoints without model inference",
+		Long: "Send a model-free HTTP request to selected endpoints without changing\n" +
+			"client bindings. --for and --route can target one Route; --token-stdin\n" +
+			"uses a one-time Token without storing it. An endpoint response does not\n" +
+			"prove model inference or real-client behavior.",
+		Args: cobra.MatchAll(cobra.NoArgs, validateEndpointTestSelection),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if configPath != "" {
 				runtime.Config = configuration.NewStore(configPath)

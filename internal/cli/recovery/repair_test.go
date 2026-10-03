@@ -246,7 +246,7 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 	}
 }
 
-func TestRepairPreviewReportsOrphanCredentialEntrypointRemoval(t *testing.T) {
+func TestRepairPreservesUnprovenCachedCredentialEntrypoint(t *testing.T) {
 	store, _ := configuredRepairStore(t)
 	root := t.TempDir()
 	source := filepath.Join(root, "aigw")
@@ -272,8 +272,8 @@ func TestRepairPreviewReportsOrphanCredentialEntrypointRemoval(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
 		t.Fatal(err)
 	}
-	if preview.CredentialEntrypoint == nil || preview.CredentialEntrypoint.Path != helper || preview.CredentialEntrypoint.Action != "remove" || preview.NextAction != "aigw repair" {
-		t.Fatalf("repair preview hid owned cleanup: %+v", preview)
+	if preview.CredentialEntrypoint != nil || preview.NextAction != "aigw check" {
+		t.Fatalf("repair preview invented cached-command cleanup: %+v", preview)
 	}
 	if _, err := os.Lstat(helper); err != nil {
 		t.Fatalf("repair dry-run removed the entrypoint: %v", err)
@@ -282,13 +282,13 @@ func TestRepairPreviewReportsOrphanCredentialEntrypointRemoval(t *testing.T) {
 	if err := runRepair(t.Context(), runtime, true, false); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Remove "+helper) {
-		t.Fatalf("human repair preview hid owned cleanup: %s", out.String())
+	if strings.Contains(out.String(), "Remove "+helper) {
+		t.Fatalf("human repair preview proposed unsafe cached-command cleanup: %s", out.String())
 	}
 	if err := runRepair(t.Context(), runtime, false, true); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Lstat(helper); !os.IsNotExist(err) {
-		t.Fatalf("repair retained orphan entrypoint: %v", err)
+	if _, err := os.Lstat(helper); err != nil {
+		t.Fatalf("repair removed a possible cached command: %v", err)
 	}
 }

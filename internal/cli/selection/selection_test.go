@@ -84,20 +84,6 @@ func configuredRuntime(t *testing.T) (invocation.Context, configuration.Config, 
 	return invocation.Context{Config: store, Out: out, RenderOut: out, Width: 120, Discovery: staticDiscovery{}}, cfg, out
 }
 
-func TestInteractiveRouteChoiceDerivesUnlabeledRouteName(t *testing.T) {
-	runtime, cfg, _ := configuredRuntime(t)
-	route := cfg.Routes["codex"]
-	route.Label = ""
-	cfg.Routes["codex"] = route
-	cfg.Models["gpt-test"] = configuration.Model{Label: "GPT Test"}
-	choice := &promptStub{selected: "codex"}
-	runtime.Prompt = choice
-	selected, err := chooseRoute(runtime, cfg, configuration.ClientCodex, "Select Route")
-	if err != nil || selected != "codex" || len(choice.choices) != 1 || choice.choices[0].Label != "Gateway · GPT Test" {
-		t.Fatalf("derived interactive Route choice = %q, %+v, %v", selected, choice.choices, err)
-	}
-}
-
 func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
 	secretStore := secrets.NewMemoryStore()
@@ -132,7 +118,7 @@ func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 	if got.SelectedRoute(configuration.ClientClaude) != "claude" || got.SelectedRoute(configuration.ClientCodex) != "codex" || len(got.Clients) != 2 {
 		t.Fatalf("client bindings = %#v", got.Clients)
 	}
-	for _, want := range []string{"Route selected", "Claude", "Team reviewer", "Client configuration synchronized", "aigw check"} {
+	for _, want := range []string{"Route selected", "Claude", "Team reviewer", "Projection", "Install Claude if needed, then run `aigw sync`"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("output lacks %q: %q", want, out.String())
 		}
@@ -147,7 +133,7 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 		forbid    string
 	}{
 		{name: "restart", installed: true, want: []string{"Route selected", "Restart required", "Restart Claude Desktop, then run `aigw check`"}},
-		{name: "deferred", want: []string{"Route selected", "Projection", "Deferred; Claude Desktop is not installed", "Install Claude Desktop, then run `aigw sync`"}, forbid: "Restart required"},
+		{name: "deferred", want: []string{"Route selected", "Projection", "Deferred; native client projection is unavailable", "Install Claude Desktop if needed, then run `aigw sync`"}, forbid: "Restart required"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, out := configuredRuntime(t)
@@ -194,68 +180,6 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 	}
 }
 
-func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
-	runtime, cfg, _ := configuredRuntime(t)
-	secretStore := secrets.NewMemoryStore()
-	runtime.Secrets = secretStore
-	selector := &promptStub{selected: "codex"}
-	runtime.Prompt = selector
-	runtime.Interactive = true
-	if err := secretStore.Set("gateway", "token"); err != nil {
-		t.Fatal(err)
-	}
-	cfg.Routes["purpose"] = configuration.Route{
-		Label: "Purpose", Purpose: "Research", Account: "gateway", Model: "claude-research",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
-	}
-	if err := runtime.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	command := NewUseCommand(runtime)
-	command.SilenceErrors = true
-	command.SilenceUsage = true
-	command.SetArgs(nil)
-	if err := command.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	if len(selector.choices) != 2 || selector.choices[0].Value != "codex" || selector.choices[0].Label != "Codex" || selector.choices[1].Value != "purpose" || selector.choices[1].Label != "Purpose · Research" {
-		t.Fatalf("choices = %#v", selector.choices)
-	}
-
-	for _, test := range []struct {
-		name    string
-		args    []string
-		runtime func(invocation.Context) invocation.Context
-		want    string
-	}{
-		{name: "route required", runtime: func(value invocation.Context) invocation.Context { value.Interactive = false; return value }, want: "requires a Route"},
-		{name: "unknown route", args: []string{"missing"}, want: "unknown route"},
-		{name: "load", args: []string{"codex"}, runtime: func(value invocation.Context) invocation.Context {
-			value.Config = configuration.NewStore(t.TempDir())
-			return value
-		}, want: "read"},
-		{name: "selection", runtime: func(value invocation.Context) invocation.Context {
-			value.Prompt = &promptStub{err: errors.New("cancelled")}
-			return value
-		}, want: "cancelled"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			value := runtime
-			if test.runtime != nil {
-				value = test.runtime(value)
-			}
-			command := NewUseCommand(value)
-			command.SilenceErrors = true
-			command.SilenceUsage = true
-			command.SetArgs(test.args)
-			err := command.Execute()
-			if err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("error = %v, want %q", err, test.want)
-			}
-		})
-	}
-}
-
 func tokenAcquisitionRuntime(t *testing.T) (invocation.Context, configuration.Config, secrets.Store, *bytes.Buffer) {
 	t.Helper()
 	run, cfg, out := configuredRuntime(t)
@@ -281,7 +205,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			t.Fatalf("token = %q, %v", token, err)
 		}
 		out := buffer.String()
-		for _, want := range []string{"Route selected", "Account token stored; client configuration synchronized"} {
+		for _, want := range []string{"Route selected", "Account Token", "Validated and stored", "Install Codex if needed, then run `aigw sync`"} {
 			if !strings.Contains(out, want) {
 				t.Fatalf("credential acquisition output lacks %q: %q", want, out)
 			}

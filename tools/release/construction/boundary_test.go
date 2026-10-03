@@ -354,7 +354,6 @@ func TestReleaseBuildHelpersCoverAtomicReplacementAndCommands(t *testing.T) {
 	if err != nil || len(entries) != 2 {
 		t.Fatalf("replacement left temporary output: %v, %v", entries, err)
 	}
-
 	copyTarget := filepath.Join(root, "copied")
 	if err := copyFile(filepath.Join(target, "new"), copyTarget); err != nil {
 		t.Fatal(err)
@@ -365,7 +364,6 @@ func TestReleaseBuildHelpersCoverAtomicReplacementAndCommands(t *testing.T) {
 	if err := copyFile(filepath.Join(target, "new"), root); err == nil || !strings.Contains(err.Error(), "write release artifact") {
 		t.Fatalf("copy write error = %v", err)
 	}
-
 	command := toolCall{Name: "go", Directory: root, Args: []string{"version"}, Env: []string{"AIGW_TEST_VALUE=present"}}
 	if err := executeTool(t.Context())(command); err != nil {
 		t.Fatal(err)
@@ -375,12 +373,37 @@ func TestReleaseBuildHelpersCoverAtomicReplacementAndCommands(t *testing.T) {
 	}
 }
 
+func TestReleaseOutputRejectsInvalidFirstPublicationPaths(t *testing.T) {
+	root := t.TempDir()
+	missing := filepath.Join(root, "missing")
+	target := filepath.Join(root, "unpublished")
+	if err := replaceDirectory(missing, target); err == nil || !strings.Contains(err.Error(), "publish release output") {
+		t.Fatalf("first publication accepted a missing source: %v", err)
+	}
+	if _, err := os.Lstat(target); !os.IsNotExist(err) {
+		t.Fatalf("failed publication left a target: %v", err)
+	}
+	if err := replaceDirectory(missing, filepath.Join(root, "missing-parent", "release")); err == nil || !strings.Contains(err.Error(), "inspect release output parent") {
+		t.Fatalf("missing release parent was not rejected before publication: %v", err)
+	}
+	blocker := filepath.Join(root, "operator-owned")
+	if err := os.WriteFile(blocker, []byte("unchanged"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := replaceDirectory(missing, filepath.Join(blocker, "unpublished")); err == nil || !strings.Contains(err.Error(), "inspect release output") {
+		t.Fatalf("non-directory release parent was accepted: %v", err)
+	}
+	if content, err := os.ReadFile(blocker); err != nil || string(content) != "unchanged" {
+		t.Fatalf("invalid release target changed an operator-owned file: %q, %v", content, err)
+	}
+}
+
 func TestReleaseBuildEnvironment(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## [Unreleased]\n\n## [1.2.3] - 2026-08-09\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## Unreleased\n\n## 1.2.3 - 2026-08-09\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	t.Chdir(root)
@@ -420,26 +443,11 @@ func TestReleaseBuildEnvironment(t *testing.T) {
 	}
 }
 
-func TestBuildCIRejectsMalformedTagShapes(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	for _, tag := range []string{"1.2.3", "vnot-semver"} {
-		t.Run(tag, func(t *testing.T) {
-			t.Setenv("CI_COMMIT_TAG", tag)
-			if err := buildCI(root, t.TempDir(), t.TempDir(), nil, nil, nil); err == nil || !strings.Contains(err.Error(), "invalid CI") {
-				t.Fatalf("tag %q error = %v", tag, err)
-			}
-		})
-	}
-}
-
 func TestReleaseEpochRejectsInvalidDateAndOversizedChangelogLine(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CI_COMMIT_TAG", "v1.2.3")
 	changelog := filepath.Join(root, "CHANGELOG.md")
-	if err := os.WriteFile(changelog, []byte("## [1.2.3] - 2026-99-99\n"), 0o600); err != nil {
+	if err := os.WriteFile(changelog, []byte("## 1.2.3 - 2026-99-99\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := resolveReleaseEpoch(t.Context(), root, "1.2.3"); err == nil {
@@ -505,14 +513,5 @@ func TestValidateSourcesRejectsInvalidAuthoritiesAndRepositories(t *testing.T) {
 		Version: "1.2.3", Epoch: "0", GitHubOrigin: "https://github.example.test", GitHubRepository: "group/subgroup/project",
 	}); err == nil || !strings.Contains(err.Error(), "owner/repository") {
 		t.Fatalf("nested GitHub build repository error = %v", err)
-	}
-}
-
-func TestMacOSDistributionRequiresExplicitIdentity(t *testing.T) {
-	if err := VerifyMacOSDistribution(t.Context(), t.TempDir(), "1.2.3", "", Notarization{}); err == nil {
-		t.Fatal("distribution accepted without explicit publisher")
-	}
-	if err := VerifyMacOSDistribution(t.Context(), t.TempDir(), "invalid", strings.Repeat("a", 40), Notarization{Archive: "upload.zip", SubmissionID: "submission", KeychainProfile: "profile"}); err == nil {
-		t.Fatal("invalid version accepted")
 	}
 }

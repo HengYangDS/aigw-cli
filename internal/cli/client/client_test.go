@@ -33,6 +33,11 @@ func (r *adapterRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte
 	return nil, r.err
 }
 
+func (r *adapterRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	output, err := r.RunCapture(ctx, plan)
+	return output, nil, err
+}
+
 func adapterConfig() configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{

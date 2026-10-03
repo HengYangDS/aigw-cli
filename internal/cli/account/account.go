@@ -4,12 +4,14 @@ package account
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
 	"strings"
 	"time"
 
+	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -201,7 +203,7 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 			r.Row("Account ID", accountName)
 			r.Status(presentation.OK, "Account Token", "Validated and securely stored")
 			r.Success("Credential helpers read the new Token when next invoked; clients control their refresh timing")
-			r.Next("aigw check")
+			r.Next(clientactivation.NextActionAfterAccountConnection(cfg, accountName))
 			return nil
 		},
 	}
@@ -213,51 +215,73 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra.Command {
 	root := &cobra.Command{Use: "account", Short: "Manage account endpoints and optional precise diagnostics"}
 	diagnostics := &cobra.Command{Use: "diagnostics", Short: "Manage optional precise provider diagnostics"}
+	var systemTokenStdin bool
+	var suppliedUserID string
+	enable := &cobra.Command{Use: "enable [account]", Short: "Store credentials for precise provider diagnostics", Args: cobra.MatchAll(cobra.MaximumNArgs(1), func(cmd *cobra.Command, _ []string) error {
+		if systemTokenStdin {
+			if strings.TrimSpace(suppliedUserID) == "" {
+				return fmt.Errorf("--user-id is required with --system-token-stdin")
+			}
+			return nil
+		}
+		if suppliedUserID != "" {
+			return fmt.Errorf("--user-id requires --system-token-stdin")
+		}
+		if !runtime.Interactive {
+			return fmt.Errorf("Enabling precise provider diagnostics requires an interactive terminal or --system-token-stdin with --user-id; run `%s --help`", cmd.CommandPath())
+		}
+		return nil
+	}), RunE: func(_ *cobra.Command, args []string) error {
+		cfg, err := runtime.Config.Load()
+		if err != nil {
+			return err
+		}
+		name, err := accountReference(cfg, args)
+		if err != nil {
+			return err
+		}
+		accountName, providerAccount, err := cfg.ResolveAccount(name)
+		if err != nil {
+			return err
+		}
+		if providerAccount.AccountProbe == nil {
+			return fmt.Errorf("Account %q does not support precise account diagnostics", accountName)
+		}
+		if !providers.Supports(providerAccount.AccountProbe.Kind) {
+			return fmt.Errorf("This AIGW version does not include precise diagnostics for provider %q", providerAccount.AccountProbe.Kind)
+		}
+		var systemToken string
+		if systemTokenStdin {
+			systemToken, err = invocation.ReadToken(runtime, true, false)
+		} else {
+			systemToken, err = runtime.Prompt.Secret("Paste the platform system token (not the API token): ")
+		}
+		if err != nil {
+			return err
+		}
+		userID := suppliedUserID
+		if !systemTokenStdin {
+			userID, err = runtime.Prompt.Text("User ID: ")
+			if err != nil {
+				return err
+			}
+		}
+		if err := runtime.Accounts.Set(accountName, secrets.DiagnosticCredential{SystemToken: systemToken, UserID: userID}); err != nil {
+			return err
+		}
+		r := invocation.Renderer(runtime)
+		r.ProductTitle("Account diagnostics enabled")
+		r.Section("Account")
+		r.Row("Account", providerAccount.Label)
+		r.Row("Account ID", accountName)
+		r.Status(presentation.OK, "Diagnostic credential", "Securely stored")
+		r.Next("aigw balance")
+		return nil
+	}}
+	enable.Flags().BoolVar(&systemTokenStdin, "system-token-stdin", false, "Read one platform system token from standard input")
+	enable.Flags().StringVar(&suppliedUserID, "user-id", "", "Provider account user ID for explicit standard-input setup")
 	diagnostics.AddCommand(
-		&cobra.Command{Use: "enable [account]", Short: "Store credentials for precise provider diagnostics", Args: cobra.MatchAll(cobra.MaximumNArgs(1), func(cmd *cobra.Command, _ []string) error {
-			if !runtime.Interactive {
-				return fmt.Errorf("Enabling precise provider diagnostics requires an interactive terminal; run `%s --help`", cmd.CommandPath())
-			}
-			return nil
-		}), RunE: func(_ *cobra.Command, args []string) error {
-			cfg, err := runtime.Config.Load()
-			if err != nil {
-				return err
-			}
-			name, err := accountReference(cfg, args)
-			if err != nil {
-				return err
-			}
-			accountName, providerAccount, err := cfg.ResolveAccount(name)
-			if err != nil {
-				return err
-			}
-			if providerAccount.AccountProbe == nil {
-				return fmt.Errorf("Account %q does not support precise account diagnostics", accountName)
-			}
-			if !providers.Supports(providerAccount.AccountProbe.Kind) {
-				return fmt.Errorf("This AIGW version does not include precise diagnostics for provider %q", providerAccount.AccountProbe.Kind)
-			}
-			systemToken, err := runtime.Prompt.Secret("Paste the platform system token (not the API token): ")
-			if err != nil {
-				return err
-			}
-			userID, err := runtime.Prompt.Text("User ID: ")
-			if err != nil {
-				return err
-			}
-			if err := runtime.Accounts.Set(accountName, secrets.DiagnosticCredential{SystemToken: systemToken, UserID: userID}); err != nil {
-				return err
-			}
-			r := invocation.Renderer(runtime)
-			r.ProductTitle("Account diagnostics enabled")
-			r.Section("Account")
-			r.Row("Account", providerAccount.Label)
-			r.Row("Account ID", accountName)
-			r.Status(presentation.OK, "Diagnostic credential", "Securely stored")
-			r.Next("aigw balance")
-			return nil
-		}},
+		enable,
 		&cobra.Command{Use: "disable [account]", Short: "Remove credentials for precise provider diagnostics", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 			cfg, err := runtime.Config.Load()
 			if err != nil {
@@ -348,6 +372,19 @@ func NewBalanceCommand(runtime invocation.Context) *cobra.Command {
 		}
 		credential, err := runtime.Accounts.Get(accountName)
 		if err != nil {
+			if !errors.Is(err, secrets.ErrNotFound) {
+				action := "Run `aigw doctor` to inspect the selected credential backend; if it is available, explicitly re-enable diagnostics with `aigw account diagnostics enable " + accountName + "`."
+				if secrets.IsReadOnly(runtime.Secrets) {
+					action = "Set both `" + secrets.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secrets.DiagnosticUserIDEnvironmentKey(accountName) + "` in the parent environment, then retry."
+				}
+				return presentation.ProblemError(
+					"Cannot read provider diagnostic credential",
+					"AIGW could not read a usable provider diagnostic credential for "+accountName+"; this does not establish that it is missing.",
+					"No balance request was sent; the Account Token and diagnostic credential were not changed.",
+					action,
+					err,
+				)
+			}
 			return presentation.ProblemError(
 				"Precise balance diagnostics are not enabled",
 				"Missing "+accountName+" provider platform diagnostic credential; the Account Token is stored separately in the selected credential backend.",

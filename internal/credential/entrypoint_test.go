@@ -25,9 +25,6 @@ func TestEntrypointCopiesOnceAndRollsBackOnlyItsOwnBytes(t *testing.T) {
 	if got, err := os.ReadFile(target); err != nil || !bytes.Equal(got, []byte("first-version")) {
 		t.Fatalf("entrypoint bytes = %q, %v", got, err)
 	}
-	if err := os.WriteFile(source, []byte("second-version"), 0o700); err != nil {
-		t.Fatal(err)
-	}
 	noOpUndo, err := EnsureEntrypoint(source, target)
 	if err != nil {
 		t.Fatal(err)
@@ -35,8 +32,14 @@ func TestEntrypointCopiesOnceAndRollsBackOnlyItsOwnBytes(t *testing.T) {
 	if err := noOpUndo(); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(source, []byte("second-version"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := EnsureEntrypoint(source, target); err == nil {
+		t.Fatal("changed source was accepted for the active fixed-path reader")
+	}
 	if got, err := os.ReadFile(target); err != nil || !bytes.Equal(got, []byte("first-version")) {
-		t.Fatalf("ordinary sync replaced the retained entrypoint: %q, %v", got, err)
+		t.Fatalf("source mismatch replaced the retained entrypoint: %q, %v", got, err)
 	}
 	if err := undo(); err != nil {
 		t.Fatal(err)

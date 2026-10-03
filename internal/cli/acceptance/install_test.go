@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/upgrade"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/surface"
 )
@@ -98,6 +100,138 @@ func TestPortableInstallAndUninstallCommandsOwnOnlyProgramFiles(t *testing.T) {
 func TestUninstallWithdrawsOwnedClientStateAndPreservesCapabilities(t *testing.T) {
 	for _, manager := range []string{"portable", "homebrew"} {
 		t.Run(manager, func(t *testing.T) { verifyUninstallOwnership(t, manager) })
+	}
+}
+
+func TestUninstallReportsCommittedWithdrawalWithIncompleteProgramRemoval(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	writeFile(t, app.Executable, []byte("program"), 0o700)
+	codexTarget := filepath.Join(t.TempDir(), "config.toml")
+	configureUninstallClients(t, app, codexTarget)
+	foreign := filepath.Join(upgrade.RollbackPath(app.Executable), "foreign-child")
+	writeFile(t, foreign, []byte("preserve"), 0o600)
+	out.Reset()
+	if err := cli.Execute(app, []string{"uninstall"}); err == nil {
+		t.Fatal("incomplete program removal was accepted")
+	}
+	cfg, err := app.Config.Load()
+	if err != nil || len(cfg.EnabledClientIDs()) != 0 {
+		t.Fatalf("committed client withdrawal was lost: enabled=%v error=%v", cfg.EnabledClientIDs(), err)
+	}
+	if data, err := os.ReadFile(foreign); err != nil || string(data) != "preserve" {
+		t.Fatalf("foreign rollback content changed: %q error=%v", data, err)
+	}
+	if !strings.Contains(out.String(), "Client withdrawal completed") || !strings.Contains(out.String(), "program removal is incomplete") || strings.Contains(out.String(), app.Executable) {
+		t.Fatalf("uninstall obscured the committed state or exposed its path: %s", out.String())
+	}
+	if !strings.Contains(out.String(), "another verified AIGW executable") {
+		t.Fatalf("partial uninstall requires its removed command: %s", out.String())
+	}
+}
+
+func TestUnconfiguredUninstallReportsRemovalFailureWithoutClaimingWithdrawal(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	writeFile(t, app.Executable, []byte("program"), 0o700)
+	foreign := filepath.Join(upgrade.RollbackPath(app.Executable), "foreign-child")
+	writeFile(t, foreign, []byte("preserve"), 0o600)
+	if err := cli.Execute(app, []string{"uninstall"}); err == nil {
+		t.Fatal("incomplete program removal was accepted")
+	}
+	if !strings.Contains(out.String(), "No AIGW configuration existed") || strings.Contains(out.String(), "withdrawal completed") || strings.Contains(out.String(), app.Executable) {
+		t.Fatalf("unconfigured uninstall claims a nonexistent withdrawal: %s", out.String())
+	}
+	if data, err := os.ReadFile(foreign); err != nil || string(data) != "preserve" {
+		t.Fatalf("foreign rollback content changed: %q error=%v", data, err)
+	}
+}
+
+func TestUninstallPreservesDriftedSharedReader(t *testing.T) {
+	app, _, secretStore, _, _ := testApp(t, "")
+	root := t.TempDir()
+	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
+	app.DataDir = filepath.Join(root, "data")
+	writeFile(t, app.Executable, []byte("portable program"), 0o755)
+	reader, err := credential.VersionedEntrypointPath(app.DataDir, app.Executable, executableName("aigw"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.CredentialPath = reader
+	codexTarget := filepath.Join(root, "codex", "config.toml")
+	writeFile(t, codexTarget, []byte("approval_policy = \"on-request\"\n"), 0o600)
+	configureUninstallClients(t, app, codexTarget)
+	writeFile(t, reader+".sha256", []byte("changed receipt\n"), 0o600)
+
+	if err := cli.Execute(app, []string{"uninstall"}); err != nil {
+		t.Fatal(err)
+	}
+	retained, loadErr := app.Config.Load()
+	if loadErr != nil || len(retained.EnabledClientIDs()) != 0 {
+		t.Fatalf("client withdrawal was not committed: %#v, %v", retained.Clients, loadErr)
+	}
+	if _, err := os.Stat(app.Executable); !os.IsNotExist(err) {
+		t.Fatalf("uninstall retained its executable: %v", err)
+	}
+	if _, err := os.Stat(reader); err != nil {
+		t.Fatalf("uninstall removed a possibly shared reader: %v", err)
+	}
+	if got := string(readFile(t, reader+".sha256")); got != "changed receipt\n" {
+		t.Fatalf("uninstall changed a retained reader receipt: %q", got)
+	}
+	if token, getErr := secretStore.Get("team"); getErr != nil || token != "token" {
+		t.Fatalf("uninstall changed Token: %q, %v", token, getErr)
+	}
+}
+
+func TestPortableUninstallPreservesExternalCredentialCommand(t *testing.T) {
+	app, _, secretStore, _, _ := testApp(t, "")
+	root := t.TempDir()
+	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
+	app.DataDir = filepath.Join(root, "data")
+	writeFile(t, app.Executable, []byte("portable program"), 0o755)
+	reader, err := credential.VersionedEntrypointPath(app.DataDir, app.Executable, executableName("aigw"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.CredentialPath = reader
+	codexTarget := filepath.Join(root, "codex", "config.toml")
+	writeFile(t, codexTarget, []byte("approval_policy = \"on-request\"\n"), 0o600)
+	configureUninstallClients(t, app, codexTarget)
+	external := filepath.Join(root, "external-credential")
+	writeFile(t, external, []byte("operator-owned helper"), 0o700)
+	cfg, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+		binding := cfg.Clients[client]
+		binding.CredentialCommand = external
+		cfg.Clients[client] = binding
+	}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(reader); err != nil {
+		t.Fatalf("external switch removed a potentially cached AIGW reader: %v", err)
+	}
+	if err := cli.Execute(app, []string{"uninstall"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(readFile(t, external)); got != "operator-owned helper" {
+		t.Fatalf("uninstall changed external credential command: %q", got)
+	}
+	if _, err := os.Stat(app.Executable); !os.IsNotExist(err) {
+		t.Fatalf("uninstall retained its executable: %v", err)
+	}
+	for _, path := range []string{reader, reader + ".sha256"} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("uninstall removed a possibly cached reader %s: %v", path, err)
+		}
+	}
+	if token, err := secretStore.Get("team"); err != nil || token != "token" {
+		t.Fatalf("uninstall changed Token: %q, %v", token, err)
 	}
 }
 

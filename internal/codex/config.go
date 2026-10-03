@@ -16,6 +16,8 @@ import (
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/transaction"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 const (
@@ -85,6 +87,27 @@ func (plan ProjectionPlan) ChangesState() bool {
 func SyncConfig(path string, runtime configuration.Runtime) error {
 	_, err := ReconcileConfigs(nil, codexHomeTargets([]string{path}), runtime)
 	return err
+}
+
+// ObservedCredentialCommand reads the projected command without treating it as
+// trusted. The caller must validate the intact reader and the complete owned
+// projection before executing it.
+func ObservedCredentialCommand(path string, runtime configuration.Runtime) (string, error) {
+	if !runtime.RequiresAccountToken() {
+		return "", fmt.Errorf("Codex Route %q does not use an Account Token", runtime.RouteID)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read Codex config: %w", err)
+	}
+	projection, err := codexProviderForProviderIn(string(data), codexRuntimeProvider(runtime))
+	if err != nil {
+		return "", err
+	}
+	if projection.Auth == nil {
+		return "", fmt.Errorf("Codex Route %q has no projected credential command", runtime.RouteID)
+	}
+	return projection.Auth.Command, nil
 }
 
 // ValidateConfig verifies that a Codex target still matches the resolved
@@ -166,14 +189,10 @@ func validateCodexCatalog(path, text string, state codexState) error {
 	if state.CatalogState == catalogStateStale {
 		return fmt.Errorf("Codex model catalog is stale: it was copied from Codex %q and no longer matches the installed client; run aigw sync", state.CatalogClientVersion)
 	}
-	line, err := codexSelectionLine(text, "model_catalog_json")
-	if err != nil {
+	if err := validateCodexCatalogReference(path, text, state); err != nil {
 		return err
 	}
 	if state.CatalogHash == "" {
-		if line != "" && strings.Contains(line, "# managed by AIGW") {
-			return fmt.Errorf("Codex config references an AIGW-managed model catalog that AIGW does not own")
-		}
 		return nil
 	}
 	// The catalog is written beside the canonical configuration path, because that
@@ -185,13 +204,6 @@ func validateCodexCatalog(path, text string, state codexState) error {
 		return err
 	}
 	catalogPath := codexCatalogPath(canonical)
-	quoted, err := codexTOMLString(catalogPath)
-	if err != nil {
-		return err
-	}
-	if !isManagedAssignment(line, "model_catalog_json", quoted) {
-		return fmt.Errorf("Codex config model catalog selection does not match AIGW")
-	}
 	// The catalog's type and permissions are as much a part of what AIGW owns as
 	// its bytes, so they are checked before the contents: a symlink or a widened
 	// mode at the managed path is a drift worth reporting on its own.
@@ -217,6 +229,28 @@ func validateCodexCatalog(path, text string, state codexState) error {
 	}
 	if hashBytes(data) != state.CatalogHash {
 		return fmt.Errorf("Codex config conflict: AIGW-managed model catalog changed; refusing to overwrite user edits")
+	}
+	return nil
+}
+
+func validateCodexCatalogReference(path, text string, state codexState) error {
+	line, err := codexSelectionLine(text, "model_catalog_json")
+	if err != nil {
+		return fmt.Errorf("parse Codex config catalog reference: %w", err)
+	}
+	if state.CatalogHash == "" {
+		if strings.HasSuffix(strings.TrimSpace(line), "# managed by AIGW") {
+			return fmt.Errorf("Codex config references an AIGW-managed model catalog that AIGW does not own")
+		}
+		return nil
+	}
+	canonical, err := canonicalCodexTargetPath(path)
+	if err != nil {
+		return err
+	}
+	catalogPath := codexCatalogPath(canonical)
+	if !isManagedSelection(line, "model_catalog_json", catalogPath) {
+		return fmt.Errorf("Codex config model catalog selection does not match AIGW")
 	}
 	return nil
 }
@@ -408,21 +442,19 @@ func removeCodexProjectionTransition(current string, state codexState, previous 
 	return base, nil
 }
 
-// isManagedSelection accepts harmless formatter changes such as the padded
-// top-level assignments written by the client. Values and the ownership marker
-// must still match exactly, so a semantic edit remains a conflict.
+// isManagedSelection compares the parsed TOML value while requiring the owned
+// comment. Equivalent string spelling is not an ownership conflict.
 func isManagedSelection(line, key, value string) bool {
-	encoded, err := codexTOMLString(value)
-	return err == nil && isManagedAssignment(line, key, encoded)
+	return selectionHasValue(line, key, value) && strings.HasSuffix(strings.TrimSpace(line), "# managed by AIGW")
 }
 
 func selectionHasValue(line, key, value string) bool {
-	encoded, err := codexTOMLString(value)
-	if err != nil {
+	var selection map[string]any
+	if err := toml.Unmarshal([]byte(line), &selection); err != nil || len(selection) != 1 {
 		return false
 	}
-	pattern := `^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=[ \t]*` + regexp.QuoteMeta(encoded) + `(?:[ \t]*#[^\r\n]*)?[ \t]*$`
-	return regexp.MustCompile(pattern).MatchString(line)
+	selected, ok := selection[key].(string)
+	return ok && selected == value
 }
 
 func selectionStringValue(line string) string {
@@ -439,14 +471,6 @@ func selectionStringValue(line string) string {
 		return ""
 	}
 	return decoded
-}
-
-// isManagedAssignment is the same check for a value that is already rendered as
-// a TOML string, which a path must be: it may contain characters that require
-// escaping and so cannot be compared as a bare literal.
-func isManagedAssignment(line, key, encoded string) bool {
-	pattern := `^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=[ \t]*` + regexp.QuoteMeta(encoded) + `[ \t]*#[ \t]*managed by AIGW[ \t]*$`
-	return regexp.MustCompile(pattern).MatchString(line)
 }
 
 func codexRuntimeProvider(runtime configuration.Runtime) string {

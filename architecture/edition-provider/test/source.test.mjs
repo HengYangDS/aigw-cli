@@ -8,12 +8,8 @@ import test from "node:test";
 const providerRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(providerRoot, "../..");
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
-
-async function json(relative) {
-  return JSON.parse(
-    await fs.readFile(path.join(providerRoot, relative), "utf8"),
-  );
-}
+const json = async (relative) => JSON.parse(await regularBytes(relative));
+const git = (...args) => execFileSync("git", args, { cwd: repositoryRoot });
 
 async function regularBytes(relative) {
   const file = path.join(providerRoot, ...relative.split("/"));
@@ -23,198 +19,140 @@ async function regularBytes(relative) {
   return fs.readFile(file);
 }
 
-async function filesBelow(directory, prefix = "") {
-  const files = [];
-  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
-    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
-    assert.equal(entry.isSymbolicLink(), false, relative);
-    if (entry.isDirectory())
-      files.push(
-        ...(await filesBelow(path.join(directory, entry.name), relative)),
-      );
-    else if (entry.isFile()) files.push(relative);
-    else assert.fail(`unsupported Source Bundle member: ${relative}`);
-  }
-  return files.sort();
-}
-
-test("AIGW owns one closed declarative Edition Provider", async () => {
-  const [provider, selection, source] = await Promise.all([
-    json("provider.json"),
-    json("selection.json"),
-    json("_source/manifest.json"),
-  ]);
-
-  assert.equal(provider.schema, "architecture.edition-provider/v1");
+test("the selected native Claim Model uses Provider v2 without source snapshots", async () => {
+  const provider = await json("provider.json");
+  assert.equal(provider.schema, "architecture.edition-provider/v2");
   assert.equal(provider.delivery.kind, "declarative");
   assert.equal(provider.provider.id, "aigw-client-projection-edition");
-  assert.equal(
-    provider.subject.id,
-    "dig/misc/tools/llm-third-party-api/aigw-cli",
-  );
-  assert.deepEqual(provider.subject, source.source);
-  assert.equal(selection.schema, "aigw.architecture-publisher-selection/v1");
+  assert.equal(provider.selected.native.length, 1);
+  const native = provider.selected.native[0];
+  assert.deepEqual(native.format, {
+    id: "architecture.claim-model",
+    version: "2",
+  });
+  assert.deepEqual(native.revision, { kind: "content", algorithm: "sha256" });
+  assert.equal(native.claimant, "aigw-cli");
+  assert.deepEqual(provider.selected.derived, []);
+  const modelBytes = await regularBytes("claim-model.json");
+  assert.equal(native.sha256, sha256(modelBytes));
+  assert.equal(native.bytes, modelBytes.length);
+  const editionBytes = await regularBytes("edition.json");
+  assert.equal(provider.selected.edition.sha256, sha256(editionBytes));
+  assert.equal(provider.selected.edition.bytes, editionBytes.length);
+  assert.deepEqual(provider.delivery.files, [
+    { kind: "native", id: native.id, path: "claim-model.json" },
+    { kind: "edition", id: provider.selected.edition.id, path: "edition.json" },
+  ]);
+  for (const legacy of [
+    "_source",
+    "materialize.mjs",
+    "provider-evolution.json",
+    "evolution.json",
+    "history",
+  ])
+    await assert.rejects(fs.stat(path.join(providerRoot, legacy)), {
+      code: "ENOENT",
+    });
+});
+
+test("the public Build Request pins one declared Provider and no extra inputs", async () => {
+  const [request, provider, selection] = await Promise.all([
+    json("build-request.json"),
+    json("provider.json"),
+    json("selection.json"),
+  ]);
+  assert.deepEqual(request, {
+    schema: "architecture.build-request/v1",
+    edition: { kind: "provider", provider: provider.provider.id },
+    sources: [],
+    providers: [
+      {
+        id: provider.provider.id,
+        manifest: "provider.json",
+        sha256: sha256(await regularBytes("provider.json")),
+      },
+    ],
+    media: ["static", "interactive"],
+    toolchain: { profile: "portable" },
+  });
+  assert.equal(selection.schema, "aigw.architecture-publisher-selection/v2");
   assert.equal(selection.publisher.name, "architecture-publisher");
-  assert.match(
-    selection.publisher.version,
-    /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u,
-  );
-  assert.equal(selection.publisher.state, "published");
   assert.equal(
     selection.publisher.release.tag,
     `v${selection.publisher.version}`,
   );
-  assert.match(selection.publisher.release.commit, /^[0-9a-f]{40}$/u);
-  assert.match(selection.publisher.release.manifestSha256, /^[0-9a-f]{64}$/u);
-  assert.match(
-    selection.publisher.release.packageIdentitiesSha256,
-    /^[0-9a-f]{64}$/u,
-  );
-  assert.equal(
-    selection.providerManifestSha256,
-    sha256(await regularBytes("provider.json")),
-  );
-  assert.equal(
-    provider.delivery.sourceManifestSha256,
-    sha256(await regularBytes(provider.delivery.sourceManifest)),
-  );
-  assert.equal(
-    provider.delivery.editionSha256,
-    sha256(await regularBytes(provider.delivery.edition)),
-  );
-  assert.equal(
-    provider.delivery.evolutionSha256,
-    sha256(await regularBytes(provider.delivery.evolution)),
-  );
-  assert.equal(
-    provider.expected.sourceManifestSha256,
-    provider.delivery.sourceManifestSha256,
-  );
-  assert.equal(
-    provider.expected.editionDigest,
-    selection.migrationBaseline.candidate.editionDigest,
-  );
-  assert.equal(
-    provider.expected.evolutionSha256,
-    selection.migrationBaseline.providerEvolutionSha256,
-  );
-});
-
-test("the checked-in Source Bundle closes exact AIGW provenance", async () => {
-  const [provider, selection, source, semantic] = await Promise.all([
-    json("provider.json"),
-    json("selection.json"),
-    json("_source/manifest.json"),
-    json("_source/semantic.json"),
-  ]);
-  const paths = source.files.map(({ path: relative }) => relative);
-  assert.equal(new Set(paths).size, paths.length);
-  assert.equal(paths.includes(provider.delivery.semanticMember), true);
-  assert.deepEqual(
-    await filesBelow(path.join(providerRoot, "_source")),
-    ["manifest.json", ...paths].sort(),
-  );
-
-  for (const member of source.files) {
-    const bytes = await regularBytes(`_source/${member.path}`);
-    assert.equal(bytes.length, member.bytes, member.path);
-    assert.equal(sha256(bytes), member.sha256, member.path);
-    if (member.path.startsWith("source/")) {
-      const livePath = path.join(
-        repositoryRoot,
-        ...member.path.slice("source/".length).split("/"),
-      );
-      const liveStat = await fs.lstat(livePath);
-      assert.equal(liveStat.isFile(), true, member.path);
-      assert.equal(liveStat.isSymbolicLink(), false, member.path);
-      assert.deepEqual(
-        bytes,
-        await fs.readFile(livePath),
-        `${member.path} differs from its live repository source`,
-      );
-    }
-  }
-  for (const [id, provenance] of Object.entries(semantic.sources)) {
-    const member = source.files.find(
-      ({ path: relative }) => relative === provenance.locator,
-    );
-    assert(member, id);
-    assert.equal(member.sha256, provenance.sha256, id);
-  }
-  const comparison = await json("evolution.json");
-  const providerEvolution = await json("provider-evolution.json");
-  const selected = async ({ path: relative, sha256: expected }) => {
-    const normalized =
-      relative === "claim-model.json" ? "_source/semantic.json" : relative;
-    const bytes = await regularBytes(normalized);
-    assert.equal(sha256(bytes), expected, normalized);
-    return JSON.parse(bytes);
-  };
-  assert.deepEqual(providerEvolution, {
-    before: {
-      claimModel: await selected(comparison.before.claimModel),
-      editions: await Promise.all(comparison.before.editions.map(selected)),
-    },
-    after: {
-      claimModel: await selected(comparison.after.claimModel),
-      editions: await Promise.all(comparison.after.editions.map(selected)),
-    },
-    correspondences: comparison.correspondences,
-  });
-});
-
-test("the provider has one source owner and no executable integration", async () => {
-  const selection = await json("selection.json");
-  const expectedFiles = [
-    "README.md",
-    "edition.json",
-    "evolution.json",
-    "materialize.mjs",
-    "provider.json",
-    "provider-evolution.json",
-    "selection.json",
-  ];
-  for (const relative of expectedFiles) await regularBytes(relative);
-  assert.equal(selection.authority.subject, "AIGW");
+  for (const digest of [
+    selection.publisher.archiveSha256,
+    selection.publisher.release.manifestSha256,
+  ])
+    assert.match(digest, /^[0-9a-f]{64}$/u);
   assert.equal(selection.authority.authorizationOwner, "AIGW");
-  assert.equal(
-    selection.authority.generatedArtifacts,
-    "untracked-reproducible-output",
-  );
-  await assert.rejects(
-    fs.stat(path.join(repositoryRoot, "integrations/architecture-publisher")),
-    {
-      code: "ENOENT",
-    },
-  );
-  await assert.rejects(
-    fs.stat(path.join(repositoryRoot, "docs/architecture/client-projection")),
-    { code: "ENOENT" },
-  );
-  const portable = JSON.stringify(await json("provider.json"));
-  assert.doesNotMatch(portable, /\/Users\/|[A-Za-z]:\\\\/u);
+  assert.equal(selection.authority.scope, "Client Projection only");
+  assert.equal(selection.authority.publisherRole, "non-authorizing compiler");
+  assert.doesNotMatch(JSON.stringify(request), /\/Users\/|[A-Za-z]:\\\\/u);
 });
 
-test("the pre-migration owner remains exactly recoverable from Git", async () => {
-  const selection = await json("selection.json");
-  const baseline = selection.migrationBaseline;
-  execFileSync(
-    "git",
-    ["merge-base", "--is-ancestor", baseline.ownerCommit, "HEAD"],
-    {
-      cwd: repositoryRoot,
-      stdio: "ignore",
-    },
-  );
-  for (const [relative, expected] of Object.entries(baseline.files)) {
-    const bytes = execFileSync(
-      "git",
-      [
-        "show",
-        `${baseline.ownerCommit}:docs/architecture/client-projection/${relative}`,
-      ],
-      { cwd: repositoryRoot, encoding: null },
+test("authored claims and their live provenance retain one source owner", async () => {
+  const model = await json("claim-model.json");
+  const paths = new Set();
+  for (const [id, source] of Object.entries(model.sources)) {
+    assert.equal(source.locator.startsWith("source/"), true, id);
+    const relative = source.locator.slice("source/".length);
+    assert.equal(paths.has(relative), false, id);
+    paths.add(relative);
+    git("ls-files", "--error-unmatch", "--", relative);
+    assert.equal(
+      sha256(await fs.readFile(path.join(repositoryRoot, relative))),
+      source.sha256,
+      id,
     );
-    assert.equal(sha256(bytes), expected, relative);
   }
+  const { rollback } = await json("selection.json");
+  const baseline = JSON.parse(
+    git(
+      "show",
+      `${rollback.commit}:architecture/edition-provider/edition.json`,
+    ),
+  );
+  const edition = await json("edition.json");
+  assert.equal(edition.schema, "architecture.edition-project/v1");
+  assert.equal(edition.id, baseline.id);
+  assert.equal(edition.title, baseline.title);
+  assert.equal(edition.editor, baseline.owner);
+  assert.deepEqual(
+    edition.questions,
+    Object.entries(baseline.questions).map(([id, value]) => ({
+      id,
+      audience: value.audience,
+      text: value.prompt,
+    })),
+  );
+  for (const claim of baseline.requiredClaims)
+    for (const kind of ["claim", "relation"])
+      assert.equal(
+        edition.scope.selections.some(
+          ({ reference }) => reference === `${kind}:${claim}`,
+        ),
+        true,
+        `${kind}:${claim}`,
+      );
+});
+
+test("the complete predecessor is recoverable without retained mutable copies", async () => {
+  const { rollback } = await json("selection.json");
+  git("merge-base", "--is-ancestor", rollback.commit, "HEAD");
+  assert.equal(
+    git("rev-parse", `${rollback.commit}:architecture/edition-provider`)
+      .toString()
+      .trim(),
+    rollback.tree,
+  );
+  const predecessorModel = JSON.parse(
+    git(
+      "show",
+      `${rollback.commit}:architecture/edition-provider/_source/semantic.json`,
+    ).toString(),
+  );
+  assert.equal(predecessorModel.schema, "architecture.claim-model/v2");
+  assert.equal(predecessorModel.owner, "aigw-cli");
 });

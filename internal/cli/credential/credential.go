@@ -10,6 +10,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/secrets"
 
 	"github.com/spf13/cobra"
 )
@@ -46,7 +47,20 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if errors.Is(err, context.DeadlineExceeded) {
 					return presentation.ProblemError("Account Token read exceeded its deadline", "", "The credential subprocess was stopped; no Token was returned.", "Check the selected credential service before retrying; configuration synchronization cannot repair a stalled read.", err)
 				}
-				return presentation.ProblemError(fmt.Sprintf("%s Account Token is unavailable", client), "", "No usable credential was returned.", "Check the selected Account's credential in the configured backend.", err)
+				if errors.Is(err, secrets.ErrNotFound) {
+					return presentation.ProblemError(
+						fmt.Sprintf("%s Account Token is not configured", client), "",
+						"No Token was returned.",
+						"Set the selected Account Token in the configured backend; run `aigw doctor` for backend guidance.",
+						err,
+					)
+				}
+				return presentation.ProblemError(
+					fmt.Sprintf("%s Account Token could not be read", client), "",
+					"No Token was returned.",
+					"Restore read access to the selected backend (unlock the native store if locked), then retry; AIGW will not switch backends.",
+					err,
+				)
 			}
 			_, err = fmt.Fprintln(runtime.Out, token)
 			if err != nil {

@@ -29,6 +29,33 @@ func TestNativeAcceptanceUsesReleaseOwner(t *testing.T) {
 	}
 }
 
+func TestNativeAcceptanceScopesPublishedBaselineToRelease(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
+	for _, args := range [][]string{{"native"}, {"native", "--full-quality"}} {
+		t.Run(strings.Join(args, "-"), func(t *testing.T) {
+			var calls []command
+			if err := run(args, &bytes.Buffer{}, func(call command) error {
+				calls = append(calls, call)
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if len(calls) < 3 {
+				t.Fatalf("native command count = %d", len(calls))
+			}
+			for _, call := range calls[:len(calls)-1] {
+				if !slices.Contains(call.Env, "AIGW_ACCEPTANCE_BASELINE=") {
+					t.Fatalf("source gate inherited the published baseline: %#v", call)
+				}
+			}
+			if slices.Contains(calls[len(calls)-1].Env, "AIGW_ACCEPTANCE_BASELINE=") {
+				t.Fatalf("release acceptance lost the published baseline: %#v", calls[len(calls)-1])
+			}
+		})
+	}
+}
+
 func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "0")
 	t.Setenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE", "")
@@ -51,7 +78,7 @@ func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 			t.Fatalf("native host args=%v error=%v calls=%d", args, err, len(calls))
 		}
 		if runtime.GOOS == "windows" {
-			if got := calls[1]; got.Name != "go" || !slices.Equal(got.Args, []string{"test", "-json", "./..."}) {
+			if got := calls[1]; got.Name != "go" || !slices.Equal(got.Args, []string{"test", "./..."}) {
 				t.Fatalf("native Windows test command = %#v", got)
 			}
 		} else {
@@ -93,7 +120,7 @@ func TestNativeAcceptanceRefusesARepositoryWithoutVersionTruth(t *testing.T) {
 
 func TestNativeCommandsKeepSourceEvidenceDistinct(t *testing.T) {
 	windows := nativeCommands("windows")
-	if !slices.Equal(windows[1].Args, []string{"test", "-json", "./..."}) {
+	if !slices.Equal(windows[1].Args, []string{"test", "./..."}) {
 		t.Fatalf("Windows source verification = %#v", windows[1])
 	}
 	linux := nativeCommands("linux")
@@ -178,5 +205,76 @@ func TestRejectsUnknownCommandsAndPlatforms(t *testing.T) {
 		if err := run(args, &bytes.Buffer{}, func(command) error { return nil }); err == nil {
 			t.Fatalf("accepted %#v", args)
 		}
+	}
+}
+
+func TestNativeAcceptanceForwardsReleaseOwnedArguments(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
+	selected := []string{"--artifacts", "/candidate with spaces", "--candidate", "--clients"}
+	for _, sourceFlags := range [][]string{nil, {"--full-quality"}} {
+		var calls []command
+		args := append([]string{"native"}, sourceFlags...)
+		args = append(append(args, "--"), selected...)
+		err := run(args, &bytes.Buffer{}, func(call command) error {
+			calls = append(calls, call)
+			return nil
+		})
+		if err != nil || (len(sourceFlags) == 0 && len(calls) != 1) || (len(sourceFlags) != 0 && len(calls) < 3) {
+			t.Fatalf("native acceptance discarded explicit release inputs: %v, %#v", err, calls)
+		}
+		final := calls[len(calls)-1]
+		want := append([]string{"run", "./tools/release", "accept-native"}, selected...)
+		if !slices.Equal(final.Args, want) || slices.Contains(final.Env, "AIGW_ACCEPTANCE_BASELINE=") {
+			t.Fatalf("release inputs or predecessor changed: %#v", final)
+		}
+		for _, source := range calls[:len(calls)-1] {
+			if slices.Contains(source.Args, "/candidate with spaces") || !slices.Contains(source.Env, "AIGW_ACCEPTANCE_BASELINE=") {
+				t.Fatalf("release inputs escaped into source verification: %#v", source)
+			}
+		}
+	}
+}
+
+func TestNativePrebuiltAcceptanceDoesNotRepeatSourceQualification(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+	for _, selected := range [][]string{
+		{"--artifacts", "/candidate with spaces", "--candidate"},
+		{"--artifacts=/candidate", "--candidate"},
+		{"--tag", "v0.3.1", "--peer", "gitlab", "--repository", "group/product"},
+	} {
+		var calls []command
+		err := run(append([]string{"native", "--"}, selected...), &bytes.Buffer{}, func(call command) error {
+			calls = append(calls, call)
+			return nil
+		})
+		want := command{Name: "go", Args: append([]string{"run", "./tools/release", "accept-native"}, selected...)}
+		if err != nil || !reflect.DeepEqual(calls, []command{want}) {
+			t.Fatalf("prebuilt native scope = %#v, %v; want only the existing artifact owner", calls, err)
+		}
+	}
+	for _, source := range []struct {
+		args    []string
+		refresh string
+	}{
+		{[]string{"native", "--full-quality", "--", "--artifacts", "/candidate", "--candidate"}, ""},
+		{[]string{"native", "--", "--baseline-tag", "v0.3.1", "--peer", "gitlab", "--repository", "group/product"}, ""},
+		{[]string{"native", "--", "--artifacts", "/candidate", "--candidate"}, "true"},
+	} {
+		t.Setenv("AIGW_REFRESH_LOCKS", source.refresh)
+		calls := 0
+		err := run(source.args, &bytes.Buffer{}, func(command) error { calls++; return nil })
+		if err != nil || calls < 3 {
+			t.Fatalf("source qualification was narrowed: arguments=%q refresh=%q calls=%d error=%v", source.args, source.refresh, calls, err)
+		}
+	}
+}
+
+func TestNativeAcceptanceRequiresTheReleaseArgumentSeparator(t *testing.T) {
+	calls := 0
+	err := run([]string{"native", "unexpected"}, &bytes.Buffer{}, func(command) error { calls++; return nil })
+	if err == nil || calls != 0 {
+		t.Fatalf("unseparated release arguments reached native verification: %v, %d", err, calls)
 	}
 }

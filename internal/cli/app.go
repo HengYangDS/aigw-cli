@@ -34,6 +34,7 @@ import (
 	"aigw-cli/internal/cli/verification"
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/presentation"
@@ -65,7 +66,7 @@ type App struct {
 	Err                io.Writer
 	Interactive        bool
 	Color              bool
-	Runner             process.CaptureRunner
+	Runner             process.VerificationRunner
 	HTTP               invocation.HTTPDoer
 	Prompt             invocation.Prompter
 	Discovery          discovery.Discoverer
@@ -181,9 +182,9 @@ func requiresConfigurationLock(app *App, command *cobra.Command) bool {
 	case "setup", "add", "use", "rotate", "rollback", "uninstall", "update",
 		"account diagnostics enable", "account diagnostics disable", "account edit",
 		"route add", "route edit", "route remove",
-		"client enable", "client disable", "config import":
+		"client enable", "client disable":
 		return true
-	case "sync", "repair", "account rename", "route rename", "config migrate":
+	case "sync", "repair", "account rename", "route rename", "config import", "config migrate":
 		dryRun, err := command.Flags().GetBool("dry-run")
 		return err != nil || !dryRun
 	default:
@@ -201,6 +202,10 @@ func NewDefault() (*App, error) {
 	executable, err := os.Executable()
 	if err != nil {
 		return nil, fmt.Errorf("resolve AIGW executable: %w", err)
+	}
+	credentialPath, err := credential.VersionedEntrypointPath(paths.Data, executable, paths.InstallName)
+	if err != nil {
+		return nil, err
 	}
 	secretStore, err := secrets.Select(secrets.Selection{
 		Backend:    env["AIGW_SECRET_BACKEND"],
@@ -224,7 +229,7 @@ func NewDefault() (*App, error) {
 		Now:                time.Now,
 		Version:            Version,
 		Executable:         executable,
-		CredentialPath:     filepath.Join(paths.Data, "credential", paths.InstallName),
+		CredentialPath:     credentialPath,
 		InstallTarget:      filepath.Join(paths.InstallDir, paths.InstallName),
 		ClaudeSettingsPath: paths.ClaudeSettings,
 		Config:             configuration.NewStore(paths.Config),
@@ -276,7 +281,7 @@ func (a *App) catalogDependencies() catalog.Dependencies {
 
 func (a *App) invocationContext() invocation.Context {
 	return invocation.Context{
-		Version: appVersion(a), Executable: a.Executable, CredentialPath: a.CredentialPath, InstallTarget: a.InstallTarget,
+		Version: appVersion(a), Executable: a.Executable, DataDir: a.DataDir, CredentialPath: a.CredentialPath, InstallTarget: a.InstallTarget,
 		ClaudeSettingsPath: a.ClaudeSettingsPath,
 		Config:             a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.outputWriter(),
 		In:        a.In,
@@ -297,7 +302,6 @@ func NewRoot(app *App) *cobra.Command {
 		Short:         "Local AI provider configuration, routing, and diagnostics",
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		Args:          cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -389,7 +393,7 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 		r.Rows(
 			presentation.Field{Label: command.CommandPath() + " setup", Value: "Connect the first account"},
 			presentation.Field{Label: command.CommandPath() + " use --for <client> <route>", Value: "Select one Route for one client"},
-			presentation.Field{Label: command.CommandPath() + " check", Value: "Confirm readiness"},
+			presentation.Field{Label: command.CommandPath() + " check", Value: "Check enabled clients (may use quota)"},
 		)
 	}
 	r.Section("Usage")

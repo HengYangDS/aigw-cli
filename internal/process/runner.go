@@ -13,6 +13,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 // Runner executes process plans without consulting shell startup state.
@@ -26,6 +28,29 @@ type Runner struct {
 // and standard error with an execution error.
 type CaptureRunner interface {
 	RunCapture(ctx context.Context, plan Plan) ([]byte, error)
+}
+
+// VerificationRunner preserves both streams so a successful native warning
+// cannot be mistaken for completed verification.
+type VerificationRunner interface {
+	CaptureRunner
+	RunCaptureStreams(ctx context.Context, plan Plan) ([]byte, []byte, error)
+}
+
+// DiagnosticFailure reports explicit native warning or error markers, not
+// ordinary stderr progress or arbitrary response text.
+func DiagnosticFailure(diagnostic []byte) bool {
+	for line := range strings.SplitSeq(strings.ToLower(ansi.Strip(string(diagnostic))), "\n") {
+		fields := strings.FieldsFunc(line, func(r rune) bool {
+			return r <= ' ' || strings.ContainsRune("[]():", r)
+		})
+		for _, field := range fields {
+			if field == "warn" || field == "error" || field == "fatal" || field == "traceback" || strings.HasSuffix(field, "warning") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // FileRunner streams a process's standard output into an owned file.
@@ -70,8 +95,18 @@ func (b *limitedBuffer) String() string { return b.buf.String() }
 // standard output on success and standard error with a child-process failure.
 // Captured bytes remain untrusted until the owning caller redacts them.
 func (runner Runner) RunCapture(ctx context.Context, plan Plan) ([]byte, error) {
+	stdout, diagnostic, err := runner.RunCaptureStreams(ctx, plan)
+	if err != nil {
+		return diagnostic, err
+	}
+	return stdout, nil
+}
+
+// RunCaptureStreams retains both bounded output streams, including when the
+// child exits unsuccessfully. Callers must redact captured bytes before logging.
+func (runner Runner) RunCaptureStreams(ctx context.Context, plan Plan) ([]byte, []byte, error) {
 	if runner.StdoutLimit < 0 {
-		return nil, fmt.Errorf("captured stdout limit must not be negative")
+		return nil, nil, fmt.Errorf("captured stdout limit must not be negative")
 	}
 	outputLimit := runner.StdoutLimit
 	if outputLimit == 0 {
@@ -80,12 +115,9 @@ func (runner Runner) RunCapture(ctx context.Context, plan Plan) ([]byte, error) 
 	stdout := &limitedBuffer{limit: outputLimit}
 	diagnostic, err := runCaptured(ctx, plan, stdout)
 	if stdout.overflow {
-		return nil, fmt.Errorf("captured stdout from %s exceeds %d bytes", plan.Executable, outputLimit)
+		return nil, nil, fmt.Errorf("captured stdout from %s exceeds %d bytes", plan.Executable, outputLimit)
 	}
-	if err != nil {
-		return diagnostic, err
-	}
-	return append([]byte(nil), stdout.Bytes()...), nil
+	return append([]byte(nil), stdout.Bytes()...), diagnostic, err
 }
 
 // RunToFile streams standard output without a memory capture limit. Failure
@@ -116,10 +148,7 @@ func runCaptured(ctx context.Context, plan Plan, stdout io.Writer) (diagnostic [
 	if stderr.overflow {
 		return nil, fmt.Errorf("captured stderr from %s exceeds %d bytes", plan.Executable, capturedProcessOutputLimit)
 	}
-	if err != nil {
-		return append([]byte(nil), stderr.Bytes()...), err
-	}
-	return nil, nil
+	return append([]byte(nil), stderr.Bytes()...), err
 }
 
 // RunStream executes an owned non-interactive process with caller-owned output

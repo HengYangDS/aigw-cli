@@ -1,4 +1,4 @@
-# Architecture layout gate — SSOT for Go repository structure checks.
+# Architecture layout gate — SSOT for repository semantic topology.
 # Consumed by tools/architecture; values are not hardcoded in the checker.
 owner = "product-toolchain"
 source = "repository architecture layout"
@@ -54,7 +54,7 @@ package_children."internal/client" = ["verification"]
 package_children."internal/hermes" = ["configuration"]
 allowed_import_edges."internal/hermes/configuration" = ["internal/transaction"]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
-package_children."tools/ci" = ["markdown", "projection"]
+package_children."tools/ci" = ["bootstrap", "evidence", "markdown", "projection", "test"]
 package_children."tools/codex" = ["catalog"]
 package_children."tools/release" = [
   "artifact",
@@ -197,6 +197,7 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/verification",
   "internal/client",
   "internal/configuration",
+  "internal/credential",
   "internal/discovery",
   "internal/platform",
   "internal/presentation",
@@ -220,15 +221,16 @@ allowed_import_edges."internal/cli/credential" = [
   "internal/cli/invocation",
   "internal/configuration",
   "internal/presentation",
+  "internal/secrets",
 ]
 allowed_import_edges."internal/cli/install" = [
   "internal/cli/invocation",
-  "internal/credential",
   "internal/presentation",
   "internal/transaction",
   "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/selection" = [
+  "internal/activation",
   "internal/cli/invocation",
   "internal/configuration",
   "internal/credential",
@@ -252,6 +254,7 @@ allowed_import_edges."internal/cli/recovery" = [
   "internal/configuration",
   "internal/discovery",
   "internal/presentation",
+  "internal/readiness",
   "internal/synchronization",
 ]
 allowed_import_edges."internal/cli/catalog" = [
@@ -262,10 +265,9 @@ allowed_import_edges."internal/cli/catalog" = [
 ]
 allowed_import_edges."internal/cli/manifest" = [
   "internal/cli/invocation",
+  "internal/client",
   "internal/configuration",
-  "internal/credential",
   "internal/presentation",
-  "internal/secrets",
 ]
 allowed_import_edges."internal/cli/doctor" = [
   "internal/activation",
@@ -307,6 +309,7 @@ allowed_import_edges."internal/cli/readiness" = [
   "internal/secrets",
 ]
 allowed_import_edges."internal/cli/account" = [
+  "internal/activation",
   "internal/cli/invocation",
   "internal/configuration",
   "internal/credential",
@@ -315,6 +318,7 @@ allowed_import_edges."internal/cli/account" = [
   "internal/secrets",
 ]
 allowed_import_edges."internal/cli/onboarding" = [
+  "internal/activation",
   "internal/cli/invocation",
   "internal/configuration",
   "internal/credential",
@@ -327,16 +331,20 @@ allowed_import_edges."internal/redaction" = []
 allowed_import_edges."internal/diagnostics" = [
   "internal/configuration",
   "internal/credential",
-  "internal/redaction",
 ]
 allowed_import_edges."internal/providers/diagnostic" = []
-allowed_import_edges."internal/presentation" = ["internal/configuration"]
+allowed_import_edges."internal/presentation" = ["internal/configuration", "internal/secrets"]
 allowed_import_edges."internal/process" = []
 allowed_import_edges."tools/ci" = [
+  "internal/process",
+  "tools/ci/evidence",
   "tools/ci/markdown",
   "tools/ci/projection",
+  "tools/release/construction",
   "tools/release/readiness",
 ]
+allowed_import_edges."tools/ci/evidence" = []
+allowed_import_edges."tools/ci/bootstrap" = []
 allowed_import_edges."tools/ci/markdown" = []
 allowed_import_edges."tools/ci/projection" = []
 allowed_import_edges."tools/release" = [
@@ -414,6 +422,11 @@ prefixes = [".ethos"]
 [tracked_carrier_classes.ci-authority]
 responsibility = "single CI semantic graph"
 exact_paths = [".config/ci/pipeline.cue"]
+
+[tracked_carrier_classes.ci-bootstrap]
+responsibility = "job-local CI toolchain bootstrap implementation"
+prefixes = ["tools/ci/bootstrap"]
+suffixes = [".ps1"]
 
 [tracked_carrier_classes.ci-projection]
 responsibility = "generated GitHub and GitLab CI projections"

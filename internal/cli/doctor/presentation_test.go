@@ -49,8 +49,11 @@ func TestHumanFormattingBranches(t *testing.T) {
 		"credential:backend":       "Credential backend",
 		"secret:team":              "Account Token",
 		"adapter:claude":           "Claude adapter",
+		"adapter:claude-desktop":   "Claude Desktop adapter",
 		"adapter:codex":            "Codex adapter",
+		"adapter:hermes":           "Hermes adapter",
 		"projection:codex":         "Codex route",
+		"projection:hermes":        "Hermes route",
 		"codex:target-7":           "Codex configuration target 7",
 	}
 	for name, want := range labels {
@@ -71,6 +74,7 @@ func TestHumanFormattingBranches(t *testing.T) {
 		{Check{Name: "credential:backend"}, "Credential storage is unavailable"},
 		{Check{Name: "secret:team", OK: true}, "team · available"},
 		{Check{Name: "secret:team"}, "team · missing"},
+		{Check{Name: "secret:team", Detail: "credential backend is unavailable"}, "team · credential backend unavailable"},
 		{Check{Name: "adapter:claude", OK: true, Detail: "enabled"}, "Enabled"},
 		{Check{Name: "adapter:claude", Detail: "Claude executable is not configured"}, "Enabled, but no executable is configured"},
 		{Check{Name: "adapter:codex", Detail: "Codex executable is not configured"}, "Enabled, but no executable is configured"},
@@ -129,7 +133,7 @@ func TestResultClassifiesObservedClientStates(t *testing.T) {
 				return map[string]domainreadiness.Client{configuration.ClientClaude: {State: test.state}}
 			}
 			result := executeJSON(t, deps, out)
-			if result.OK != test.ok || (!test.ok && result.NextAction != "aigw doctor --json") || (test.ok && result.NextAction != "aigw sync") {
+			if result.OK != test.ok || (!test.ok && result.NextAction != "aigw doctor --json") || (test.ok && result.NextAction != "Install Claude if needed, then run `aigw sync`") {
 				t.Fatalf("doctor result=%#v", result)
 			}
 		})

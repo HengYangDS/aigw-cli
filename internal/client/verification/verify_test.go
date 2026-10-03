@@ -27,11 +27,19 @@ func TestProtocolTimeoutAllowsColdClientStartup(t *testing.T) {
 
 type captureRunner struct {
 	output []byte
+	stderr []byte
 	err    error
 }
 
 func (runner captureRunner) RunCapture(context.Context, process.Plan) ([]byte, error) {
 	return runner.output, runner.err
+}
+
+func (runner captureRunner) RunCaptureStreams(context.Context, process.Plan) ([]byte, []byte, error) {
+	if runner.err != nil {
+		return nil, runner.output, runner.err
+	}
+	return runner.output, runner.stderr, runner.err
 }
 
 type recordingCaptureRunner struct {
@@ -40,8 +48,91 @@ type recordingCaptureRunner struct {
 	marker             string
 	removeFinalMessage bool
 	requestOutput      []byte
+	stderr             []byte
 	requestErr         error
 	prepareOutput      func(string) error
+}
+
+func (runner *recordingCaptureRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	output, err := runner.RunCapture(ctx, plan)
+	if slices.Equal(plan.Args, []string{"--version"}) {
+		return output, nil, err
+	}
+	if err != nil {
+		return nil, output, err
+	}
+	return output, runner.stderr, err
+}
+
+func TestSuccessfulClientWarningsDoNotQualifyVerification(t *testing.T) {
+	for _, warning := range []string{
+		"warning: Model metadata for grok-4.7 not found. Defaulting to fallback metadata. /private/operator token=must-not-leak\n",
+		"2026-10-03T05:00:00Z WARN client_core: degraded native capability\n",
+		"/private/operator/client.py:12: DeprecationWarning: unsupported behavior\n",
+	} {
+		t.Run(warning, func(t *testing.T) {
+			cfg, selected := configuredCodexVerification(t, filepath.Join(t.TempDir(), "config.toml"))
+			runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "AIGW_OK", stderr: []byte(warning)}
+			_, err := VerifyCodexInvocation(t.Context(), runner, cfg, selected)
+			if err == nil || !strings.Contains(err.Error(), "warning") {
+				t.Fatalf("successful native warning was accepted: %v", err)
+			}
+			for _, forbidden := range []string{"/private/operator", "must-not-leak", "client_core"} {
+				if strings.Contains(err.Error(), forbidden) {
+					t.Fatalf("warning exposed private diagnostic %q", forbidden)
+				}
+			}
+		})
+	}
+	t.Run("ordinary stderr is not a warning", func(t *testing.T) {
+		cfg, selected := configuredCodexVerification(t, filepath.Join(t.TempDir(), "config.toml"))
+		runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "AIGW_OK", stderr: []byte("OpenAI Codex\n2026-10-03T05:00:00Z INFO client initialized\n")}
+		if _, err := VerifyCodexInvocation(t.Context(), runner, cfg, selected); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func TestSuccessfulClientErrorsDoNotQualifyVerification(t *testing.T) {
+	for _, diagnostic := range []string{
+		"2026-10-03T05:00:00Z ERROR client_core: capability unavailable\n",
+		"Traceback (most recent call last):\n/private/operator/client.py:12\n",
+		"fatal: selected native client could not initialize\n",
+	} {
+		t.Run(diagnostic, func(t *testing.T) {
+			cfg, selected := configuredCodexVerification(t, filepath.Join(t.TempDir(), "config.toml"))
+			runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "AIGW_OK", stderr: []byte(diagnostic)}
+			if _, err := VerifyCodexInvocation(t.Context(), runner, cfg, selected); err == nil {
+				t.Fatal("successful process error diagnostics qualified verification")
+			}
+		})
+	}
+}
+
+func TestClientWarningDoesNotClaimUnprovedInference(t *testing.T) {
+	for _, missing := range []bool{false, true} {
+		t.Run(fmt.Sprintf("missing=%t", missing), func(t *testing.T) {
+			cfg, selected := configuredCodexVerification(t, filepath.Join(t.TempDir(), "config.toml"))
+			runner := &recordingCaptureRunner{
+				version: "codex-cli 9.9.9", marker: "wrong", removeFinalMessage: missing,
+				stderr: []byte("warning: Model metadata unavailable; defaulting to fallback metadata\n"),
+			}
+			_, err := VerifyCodexInvocation(t.Context(), runner, cfg, selected)
+			if err == nil || strings.Contains(err.Error(), "inference completed") {
+				t.Fatalf("warning claimed unproved model evidence: %v", err)
+			}
+		})
+	}
+}
+
+func TestClaudeWarningsDoNotQualifyVerification(t *testing.T) {
+	selected := configuration.Runtime{RouteID: "claude", Model: "claude-test", CredentialCommand: filepath.Join(t.TempDir(), "aigw")}
+	for _, diagnostic := range []string{"warning: native capability incomplete\n", "ERROR client could not initialize\n"} {
+		runner := captureRunner{output: []byte("AIGW_OK\n"), stderr: []byte(diagnostic)}
+		if err := VerifyClaudeRuntime(t.Context(), runner, "claude", filepath.Join(t.TempDir(), "settings.json"), selected, "token"); err == nil {
+			t.Fatal("Claude diagnostics qualified a successful process")
+		}
+	}
 }
 
 func (runner *recordingCaptureRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {

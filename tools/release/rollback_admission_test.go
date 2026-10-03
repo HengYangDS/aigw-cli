@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/transaction"
 	"aigw-cli/internal/upgrade"
 	"aigw-cli/tools/release/readiness"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,6 +38,12 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	rejectedExport := exec.CommandContext(t.Context(), baseline, "config", "export")
+	rejectedExport.Env = journey.environment
+	_, exportErr := rejectedExport.CombinedOutput()
+	if _, ok := errors.AsType[*exec.ExitError](exportErr); !ok {
+		t.Fatalf("unsupported configuration did not fail predecessor export: %v", exportErr)
+	}
 	want := map[string]transaction.FileSnapshot{}
 	for _, path := range []string{journey.binary, upgrade.RollbackPath(journey.binary), journey.config, journey.config + ".bak"} {
 		snapshot, err := transaction.CaptureFileSnapshot(path)
@@ -48,8 +55,9 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 	command := exec.CommandContext(t.Context(), journey.binary, "update", "--rollback")
 	command.Env = journey.environment
 	output, err := command.CombinedOutput()
-	if err == nil || !strings.Contains(string(output), "incompatible with the current configuration") {
-		t.Fatalf("unsafe predecessor activation: %v\n%s", err, output)
+	if err == nil || !strings.Contains(string(output), "Program rollback did not complete") ||
+		strings.Contains(string(output), "incompatible with the current configuration") {
+		t.Fatalf("failed predecessor export lost its execution verdict: %v\n%s", err, output)
 	}
 	for path, expected := range want {
 		actual, err := transaction.CaptureFileSnapshot(path)
@@ -71,5 +79,5 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 	journey.run("update", "--candidate", archive, "--checksums", checksums)
 	journey.requireProgramBytes(candidate)
 	journey.run("config", "export")
-	journey.uninstallAndRequireOwnedFilesAbsent()
+	journey.uninstallAndRequireInstallationRemoved()
 }

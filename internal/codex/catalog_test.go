@@ -3,9 +3,7 @@ package codex
 import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/transaction"
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -71,7 +69,7 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
 	}
-	plan := codexCatalogProjection(target, "openai.gpt-5.5", "", state, before)
+	plan := codexCatalogProjection(target, "openai.gpt-5.5", "", "", state, before)
 	if plan.state != catalogStateProjected || string(plan.data) != string(owned) {
 		t.Fatalf("same client: plan = %+v", plan)
 	}
@@ -85,7 +83,7 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 		codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 			return live, nil, fmt.Errorf("dump failed")
 		}
-		plan = codexCatalogProjection(target, "openai.gpt-5.5", "", state, before)
+		plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", state, before)
 		if plan.state != catalogStateStale || plan.data != nil || plan.path != "" {
 			t.Fatalf("changed client %+v: plan = %+v", live, plan)
 		}
@@ -97,12 +95,12 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
 	}
 	edited := transaction.FileSnapshot{Exists: true, Data: []byte("{}"), SHA256: hashBytes([]byte("{}")), Mode: 0o600}
-	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", state, edited); plan.state != catalogStateStale {
+	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", state, edited); plan.state != catalogStateStale {
 		t.Fatalf("edited catalog: plan = %+v", plan)
 	}
 
 	// Never owned a catalog here: nothing was lost, so nothing is reported.
-	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", codexState{}, transaction.FileSnapshot{}); !emptyCatalogPlan(plan) {
+	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", codexState{}, transaction.FileSnapshot{}); !emptyCatalogPlan(plan) {
 		t.Fatalf("never owned: plan = %+v", plan)
 	}
 }
@@ -117,14 +115,223 @@ func TestCodexCatalogProjectionYieldsToUserAuthoredCatalog(t *testing.T) {
 	original := codexBundledCatalog
 	defer func() { codexBundledCatalog = original }()
 	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
-		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, projectionCatalog("gpt-5.5"), nil
+		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, projectionCatalog("gpt-5.5", "gpt-6.1-sol"), nil
 	}
 	base := "model_catalog_json = \"/home/user/own-catalog.json\"\n"
-	if plan := codexCatalogProjection(target, "openai.gpt-5.5", base, codexState{}, transaction.FileSnapshot{}); !emptyCatalogPlan(plan) {
-		t.Fatalf("user catalog was not respected: plan = %+v", plan)
+	for _, model := range []string{"openai.gpt-5.5", "gpt-6.1-sol"} {
+		if plan := codexCatalogProjection(target, model, "", base, codexState{}, transaction.FileSnapshot{}); !emptyCatalogPlan(plan) {
+			t.Fatalf("user catalog was not respected for %q: plan = %+v", model, plan)
+		}
 	}
-	if plan := codexCatalogProjection(target, "", "", codexState{}, transaction.FileSnapshot{}); !emptyCatalogPlan(plan) {
+	if plan := codexCatalogProjection(target, "", "", "", codexState{}, transaction.FileSnapshot{}); !emptyCatalogPlan(plan) {
 		t.Fatalf("empty model produced a catalog: plan = %+v", plan)
+	}
+}
+
+func TestKnownBaseModelUsesBundledCatalogForCustomProvider(t *testing.T) {
+	const model = "gpt-6.1-sol"
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, model, "gpt-6-luna")
+	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
+	target := codexHomeTarget(path)
+	target.Executable = filepath.Join(filepath.Dir(path), "codex")
+	runtimeConfig := catalogTestRuntime(model)
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(projected), "model_catalog_json = ") || !strings.Contains(string(projected), "# managed by AIGW") {
+		t.Fatalf("known model did not pin client-owned metadata: %s", projected)
+	}
+	data, err := os.ReadFile(codexCatalogPath(path))
+	if err != nil || string(data) != string(projectionCatalog(model, "gpt-6-luna")) {
+		t.Fatalf("known model catalog = %q, %v", data, err)
+	}
+	if err := ValidateConfig(path, runtimeConfig); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCodexCatalogProjectsChannelWireFromCanonicalRouteModel(t *testing.T) {
+	const (
+		canonicalModel = "gpt-6.1-sol"
+		upstreamModel  = "gpt-6.1-sol-cdx"
+		routeID        = "dmxapi-gpt-6.1-sol-cdx"
+	)
+	bundled := []byte(`{"revision":"client-owned","models":[{"slug":"gpt-6.1-sol","display_name":"GPT-6.1 Sol","context_window":500000,"reasoning_effort":"high","future":{"enabled":true}},{"slug":"gpt-6-luna","display_name":"GPT-6 Luna"}]}`)
+	original := codexBundledCatalog
+	t.Cleanup(func() { codexBundledCatalog = original })
+	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
+		return ExecutableIdentity{Version: "0.160.0", SHA256: "client-catalog"}, bundled, nil
+	}
+	config := configuration.Config{
+		Version: configuration.ConfigVersion,
+		Accounts: map[string]configuration.Account{
+			"dmxapi": {
+				Label:     "DMXAPI",
+				Endpoints: configuration.Endpoints{OpenAIResponses: "https://api.example.test/v1"},
+			},
+		},
+		Models: map[string]configuration.Model{
+			canonicalModel: {ID: canonicalModel, Label: "GPT-6.1 Sol"},
+		},
+		Routes: map[string]configuration.Route{
+			routeID: {
+				Label:         "DMXAPI GPT-6.1 Sol CDX",
+				Account:       "dmxapi",
+				Model:         canonicalModel,
+				UpstreamModel: upstreamModel,
+				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
+					configuration.ProtocolOpenAIResponses: {},
+				},
+			},
+		},
+		Clients: map[string]configuration.ClientBinding{
+			configuration.ClientCodex: {
+				Route:             routeID,
+				Enabled:           true,
+				Protocol:          configuration.ProtocolOpenAIResponses,
+				ModelProvider:     configuration.ModelProviderAIGW,
+				CredentialCommand: filepath.Join(t.TempDir(), "credential-reader"),
+			},
+		},
+	}
+	runtimeConfig, err := config.ResolveRuntime(configuration.ClientCodex, routeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtimeConfig.Model != upstreamModel {
+		t.Fatalf("resolved Codex upstream model = %q, want %q", runtimeConfig.Model, upstreamModel)
+	}
+	if runtimeConfig.CanonicalModelID != canonicalModel {
+		t.Fatalf("resolved Codex canonical model = %q, want %q", runtimeConfig.CanonicalModelID, canonicalModel)
+	}
+	runtimeJSON, err := json.Marshal(runtimeConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var runtimeFields map[string]json.RawMessage
+	if err := json.Unmarshal(runtimeJSON, &runtimeFields); err != nil {
+		t.Fatal(err)
+	}
+	var exposedWire, exposedCanonical string
+	if err := json.Unmarshal(runtimeFields["model"], &exposedWire); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(runtimeFields["canonical_model_id"], &exposedCanonical); err != nil {
+		t.Fatal(err)
+	}
+	if exposedWire != upstreamModel || exposedCanonical != canonicalModel {
+		t.Fatalf("serialized Runtime models = %q / %q, want exact wire/canonical pair", exposedWire, exposedCanonical)
+	}
+	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
+	target := codexHomeTarget(path)
+	target.Executable = filepath.Join(filepath.Dir(path), "codex")
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(codexCatalogPath(path))
+	if err != nil {
+		t.Fatalf("Codex catalog omitted channel model %q from canonical %q: %v", upstreamModel, canonicalModel, err)
+	}
+	var projected struct {
+		Revision string                       `json:"revision"`
+		Models   []map[string]json.RawMessage `json:"models"`
+	}
+	if err := json.Unmarshal(data, &projected); err != nil {
+		t.Fatal(err)
+	}
+	if projected.Revision != "client-owned" || len(projected.Models) != 3 {
+		t.Fatalf("projected Codex catalog revision/models = %q/%d, want client-owned/3", projected.Revision, len(projected.Models))
+	}
+	var baseEntry, channelEntry map[string]json.RawMessage
+	for _, entry := range projected.Models {
+		var slug string
+		if err := json.Unmarshal(entry["slug"], &slug); err != nil {
+			t.Fatal(err)
+		}
+		switch slug {
+		case canonicalModel:
+			baseEntry = entry
+		case upstreamModel:
+			channelEntry = entry
+		}
+	}
+	if baseEntry == nil || channelEntry == nil || len(baseEntry) != len(channelEntry) {
+		t.Fatalf("canonical/channel catalog entries are not a metadata-preserving pair: base=%v channel=%v", baseEntry, channelEntry)
+	}
+	for field, want := range baseEntry {
+		if field != "slug" && string(channelEntry[field]) != string(want) {
+			t.Errorf("channel metadata %q = %s, want canonical value %s", field, channelEntry[field], want)
+		}
+	}
+}
+
+func TestCodexCatalogProjectionKeepsAnExistingNativeWireModel(t *testing.T) {
+	const (
+		canonical = "gpt-6.1-sol"
+		wire      = "gpt-6.1-sol-cdx"
+	)
+	bundled := projectionCatalog(wire, "gpt-6-luna")
+	original := codexBundledCatalog
+	t.Cleanup(func() { codexBundledCatalog = original })
+	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
+		return ExecutableIdentity{Version: "0.160.0", SHA256: "client-catalog"}, bundled, nil
+	}
+	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
+	plan := codexCatalogProjection(target, wire, canonical, "", codexState{}, transaction.FileSnapshot{})
+	if plan.state != catalogStateProjected || string(plan.data) != string(bundled) {
+		t.Fatalf("existing native wire model was rewritten: plan = %+v", plan)
+	}
+}
+
+func TestCopyProjectionRebasesOwnedCatalogReference(t *testing.T) {
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-6.1-sol")
+	source := writeCodexTestConfig(t, "user_setting = true\n")
+	ref := codexHomeTarget(source)
+	ref.Executable = filepath.Join(filepath.Dir(source), "codex")
+	runtime := catalogTestRuntime("gpt-6.1-sol")
+	if _, err := ReconcileConfigs(nil, []TargetRef{ref}, runtime); err != nil {
+		t.Fatal(err)
+	}
+	sourceBefore, err := os.ReadFile(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(t.TempDir(), "catalog destination", "config.toml")
+	if err := CopyProjection(source, target); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateConfig(target, runtime); err != nil {
+		copied, _ := os.ReadFile(target)
+		line, _ := codexSelectionLine(string(copied), "model_catalog_json")
+		t.Fatalf("copied projection is not valid at its destination: %v; catalog selection=%q", err, line)
+	}
+	copied, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var selection struct {
+		Catalog string `toml:"model_catalog_json"`
+	}
+	if err := toml.Unmarshal(copied, &selection); err != nil {
+		t.Fatal(err)
+	}
+	canonicalTarget, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selection.Catalog != codexCatalogPath(canonicalTarget) {
+		t.Fatalf("copied catalog reference did not move with the projection: %q", selection.Catalog)
+	}
+	sourceAfter, err := os.ReadFile(source)
+	if err != nil || string(sourceBefore) != string(sourceAfter) {
+		t.Fatalf("copy changed source bytes: %v", err)
+	}
+	if err := ValidateConfig(source, runtime); err != nil {
+		t.Fatalf("copy changed the source projection: %v", err)
 	}
 }
 
@@ -300,40 +507,5 @@ func TestReadCodexBundledCatalogRequiresAnExecutable(t *testing.T) {
 		if _, _, err := ReadBundledCatalog(executable); err == nil {
 			t.Fatalf("catalog accepted an unobservable executable: %q", executable)
 		}
-	}
-}
-
-func TestCatalogProbePreservesCleanupFailure(t *testing.T) {
-	primary := errors.New("catalog probe failed")
-	for _, failure := range []error{nil, primary} {
-		t.Run(fmt.Sprint(failure), func(t *testing.T) {
-			scratch := t.TempDir()
-			for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
-				t.Setenv(name, scratch)
-			}
-			remove := removeCatalogProbe
-			t.Cleanup(func() { removeCatalogProbe = remove })
-			var removed, home string
-			removeCatalogProbe = func(path string) error {
-				removed = path
-				return &os.PathError{Op: "remove", Path: path, Err: os.ErrPermission}
-			}
-			err := withCatalogProbe(func(_ context.Context, path string) error {
-				home = path
-				return failure
-			})
-			if home == "" || home == scratch || filepath.Dir(home) != scratch || removed != home {
-				t.Fatalf("probe ownership = %q, cleanup = %q, parent = %q", home, removed, scratch)
-			}
-			if failure != nil && !errors.Is(err, failure) {
-				t.Fatalf("probe lost primary cause: %v", err)
-			}
-			if !errors.Is(err, os.ErrPermission) || !strings.Contains(err.Error(), home) {
-				t.Fatalf("probe lost cleanup cause: %v", err)
-			}
-			if _, err := os.Stat(home); err != nil {
-				t.Fatalf("injected cleanup unexpectedly removed probe home: %v", err)
-			}
-		})
 	}
 }

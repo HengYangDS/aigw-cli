@@ -61,6 +61,7 @@ type Client struct {
 	Account             string `json:"account,omitempty"`
 	Detail              string `json:"detail,omitempty"`
 	NextAction          string `json:"next_action,omitempty"`
+	ProjectionDeferred  bool   `json:"projection_deferred,omitempty"`
 	NativeModelOverride bool   `json:"native_model_override,omitempty"`
 }
 
@@ -75,6 +76,7 @@ type ClientFacts struct {
 	CredentialAvailable        bool
 	CredentialAction           string
 	ProjectionEnabled          bool
+	ProjectionDeferred         bool
 	ProjectionReady            bool
 	ProjectionIssue            string
 	ProjectionAction           string
@@ -84,7 +86,7 @@ type ClientFacts struct {
 // ClassifyClient classifies local readiness facts without performing probes or
 // reading credential values.
 func ClassifyClient(facts ClientFacts) Client {
-	state := Client{Route: facts.Route, Account: facts.Account}
+	state := Client{Route: facts.Route, Account: facts.Account, ProjectionDeferred: facts.ProjectionDeferred}
 	switch {
 	case facts.BindingIssue != "":
 		state.State = Invalid
@@ -98,7 +100,7 @@ func ClassifyClient(facts ClientFacts) Client {
 		} else {
 			state.NextAction = "aigw route add"
 		}
-	case facts.ProjectionEnabled && !facts.ProjectionReady:
+	case facts.ProjectionEnabled && !facts.ProjectionReady && !facts.ProjectionDeferred:
 		state.State = Invalid
 		state.Detail = facts.ProjectionIssue
 		state.NextAction = facts.ProjectionAction
@@ -116,10 +118,20 @@ func ClassifyClient(facts ClientFacts) Client {
 		if state.NextAction == "" {
 			state.NextAction = "aigw rotate " + facts.Account
 		}
+	case facts.ProjectionDeferred:
+		state.State = Deferred
+		state.Detail = "Selected client projection is deferred"
+		state.NextAction = facts.ProjectionAction
+		if state.NextAction == "" {
+			state.NextAction = "aigw sync"
+		}
 	case !facts.ProjectionEnabled:
 		state.State = Deferred
 		state.Detail = "The client is not installed or enabled"
-		state.NextAction = "aigw sync"
+		state.NextAction = facts.ProjectionAction
+		if state.NextAction == "" {
+			state.NextAction = "aigw sync"
+		}
 	default:
 		state.State = Configured
 	}

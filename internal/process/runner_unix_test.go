@@ -139,3 +139,46 @@ func TestRunCaptureInterruptCancelsOnlyActiveInvocation(t *testing.T) {
 		t.Fatalf("host signal behavior was not restored: %v\n%s", err, output)
 	}
 }
+
+func TestCapturedGroupCleanupAcceptsOnlyProvedDisappearance(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		results []error
+		want    error
+	}{
+		{name: "terminated", results: []error{nil}},
+		{name: "already-absent", results: []error{unix.ESRCH}},
+		{name: "retiring-group", results: []error{unix.EPERM, unix.EPERM, unix.ESRCH}},
+		{name: "permanent-denial", results: []error{unix.EPERM}, want: unix.EPERM},
+		{name: "still-alive", results: []error{unix.EPERM, nil}, want: unix.EPERM},
+		{name: "unrelated-error", results: []error{unix.EIO}, want: unix.EIO},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			calls := 0
+			signal := func(pid int, action syscall.Signal) error {
+				if pid != -7319 {
+					t.Fatalf("cleanup selected group %d, want only -7319", pid)
+				}
+				if calls == 0 && action != unix.SIGKILL {
+					t.Fatalf("initial cleanup signal = %d, want SIGKILL", action)
+				}
+				if calls > 0 && action != 0 {
+					t.Fatalf("cleanup repeated a terminating signal %d", action)
+				}
+				index := calls
+				calls++
+				if index >= len(test.results) {
+					index = len(test.results) - 1
+				}
+				return test.results[index]
+			}
+			err := terminateCapturedProcessGroup(7319, signal)
+			if !errors.Is(err, test.want) {
+				t.Fatalf("cleanup error = %v, want %v", err, test.want)
+			}
+			if test.name == "retiring-group" && calls != 3 {
+				t.Fatalf("disappearance was not observed: %d calls", calls)
+			}
+		})
+	}
+}
