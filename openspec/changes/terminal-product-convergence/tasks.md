@@ -526,6 +526,20 @@
       stderr empty. Format, Markdown, spelling, architecture, ELOC and official
       OpenSpec (11 items, zero findings) pass. This changes CI tooling, not the
       selected product program; final source/security admission remains open.
+      The cold-cache test now separates the matching native-architecture cache
+      invariant from full packaging: official GoReleaser `build --single-target`
+      consumes one complete release-owned environment, verifies the actual Mach-O
+      CPU, signature and floor, and retains the original empty-cache warmup and
+      two-minute context. Explicit native GOOS/GOARCH, CGO and Clang inputs,
+      a cleared TARGET, and the warmup's actual minos 14.0 header establish the
+      cache-pollution premise. The old environment-only compiler target remains
+      RED with cached 14.0 objects linked at 13.0; the final focused native test
+      is GREEN in 3.31s, with complete diagnostics and no retained test workspace.
+      Full six-target deterministic archive/signature acceptance remains in its
+      existing independent test. The initial missing-template-input failure is
+      an invocation defect, retained separately; Intel hosted acceptance is not
+      inferred from this local result. Raw evidence stays in
+      `native-cache-invariant/`; no product compiler policy or timeout is relaxed.
       The common CI executor's exit-zero warning blind spot is reproduced by
       seven native subprocess cases. Explicit WARN, colored warning, ERROR,
       deprecation and truncated evidence are rejected after the four-line owner

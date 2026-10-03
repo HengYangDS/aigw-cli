@@ -125,6 +125,14 @@ or successful execution on the build host.
 - **AND** native signature and deterministic archive validation SHALL remain required
 - **AND** linked-header acceptance SHALL NOT imply execution on an older OS.
 
+#### Scenario: Native CGO cache contains a newer deployment target
+
+- **WHEN** a private empty cache is warmed at a newer deployment target
+- **THEN** the matching host architecture SHALL rebuild through the declared native release configuration
+- **AND** its actual CPU, deployment floor and signature SHALL be verified without deployment warnings
+- **AND** warmup and rebuild SHALL retain one original bounded deadline and no operator signing or Forge credentials
+- **AND** the independent full-matrix journey SHALL retain both architecture archives and deterministic signatures.
+
 ### Requirement: Native artifact acceptance has its own execution closure
 
 An explicitly selected prebuilt candidate or tagged product SHALL execute the

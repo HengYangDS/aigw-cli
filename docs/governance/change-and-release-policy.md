@@ -240,10 +240,12 @@ The macOS archive floor is macOS 13 Ventura, shared by the locked
 native credential APIs. The macOS GoReleaser build selects
 `CC=clang -mmacosx-version-min=13.0` for compilation and external linking.
 Compiler arguments participate in Go's cache key; the deployment environment
-alone can reuse CGO objects compiled for a newer target. Native archive tests
-warm a newer-target cache, reject build warnings, and read both architectures'
-actual load commands. This proves the declared binary floor, not execution on
-every supported macOS release.
+alone can reuse CGO objects compiled for a newer target. The native cache
+regression warms an isolated cache for the host architecture, then consumes the
+same declared GoReleaser build and checks its actual CPU, deployment floor and
+signature without deployment warnings. The independent deterministic archive
+journey retains both architecture load commands, signatures and complete
+six-target packaging. Neither check proves execution on every macOS release.
 
 Credential-free GoReleaser applies deterministic ad-hoc Mach-O/Hardened Runtime
 signatures before archives; native codesign validates extracted bytes. This is local
@@ -436,9 +438,13 @@ Capture, read, replay and cleanup failures also reject qualification.
 The result-only output API preserves its separate capture contract. No blanket
 stderr ban, independent warning parser or report authority is introduced.
 
-The cold macOS compiler-cache regression shares one bounded release context for
-cache warmup and construction. It must not borrow the shorter metadata-probe
-budget, skip its cold cache or discard deployment diagnostics.
+The cold macOS compiler-cache regression shares its original two-minute context
+across cache warmup and the matching native-target build. Go's cache identity
+includes GOOS/GOARCH; opposite-architecture compilation and archive construction
+belong to the independent full-matrix journey, not this poisoned-cache invariant.
+The focused build uses the release owner's complete environment and native
+GoReleaser selection, retaining post-signing, diagnostics and exact CPU checks.
+It must not skip its cold cache, extend its budget or borrow operator credentials.
 
 Public client verification requires both bounded process streams. Explicit native
 stderr warnings, errors and tracebacks prevent successful qualification and

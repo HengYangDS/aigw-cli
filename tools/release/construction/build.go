@@ -167,22 +167,10 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 	if err != nil {
 		return "", err
 	}
-	instant, err := readiness.ParseEpoch(request.Epoch)
+	environment, err := goReleaserEnvironment(request)
 	if err != nil {
 		return "", err
 	}
-	environment := append(forgeCredentialOverrides(),
-		"AIGW_BUILD_OS="+request.TargetOS,
-		"AIGW_MACOS_SIGNING_IDENTITY="+request.MacOSSigningIdentity,
-		"AIGW_VERSION="+request.Version,
-		"GORELEASER_CURRENT_TAG=v"+request.Version, // Keep snapshots bound to AIGW SemVer, not mirror tags.
-		"AIGW_RELEASE_EPOCH="+request.Epoch,
-		"AIGW_RELEASE_TIMESTAMP="+instant.Format(time.RFC3339),
-		"AIGW_GITLAB_RELEASE_ORIGIN="+request.GitLabOrigin,
-		"AIGW_GITLAB_RELEASE_REPOSITORY="+request.GitLabRepository,
-		"AIGW_GITHUB_RELEASE_ORIGIN="+request.GitHubOrigin,
-		"AIGW_GITHUB_RELEASE_REPOSITORY="+request.GitHubRepository,
-	)
 	args := []string{"release", "--snapshot", "--clean", "--skip=publish", "--config", config}
 	if request.TargetOS == "windows" {
 		args = append(args, "--skip=homebrew")
@@ -194,6 +182,25 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 		return "", err
 	}
 	return stage, nil
+}
+
+func goReleaserEnvironment(request buildRequest) ([]string, error) {
+	instant, err := readiness.ParseEpoch(request.Epoch)
+	if err != nil {
+		return nil, err
+	}
+	return append(forgeCredentialOverrides(),
+		"AIGW_BUILD_OS="+request.TargetOS,
+		"AIGW_MACOS_SIGNING_IDENTITY="+request.MacOSSigningIdentity,
+		"AIGW_VERSION="+request.Version,
+		"GORELEASER_CURRENT_TAG=v"+request.Version, // Keep snapshots bound to AIGW SemVer, not mirror tags.
+		"AIGW_RELEASE_EPOCH="+request.Epoch,
+		"AIGW_RELEASE_TIMESTAMP="+instant.Format(time.RFC3339),
+		"AIGW_GITLAB_RELEASE_ORIGIN="+request.GitLabOrigin,
+		"AIGW_GITLAB_RELEASE_REPOSITORY="+request.GitLabRepository,
+		"AIGW_GITHUB_RELEASE_ORIGIN="+request.GitHubOrigin,
+		"AIGW_GITHUB_RELEASE_REPOSITORY="+request.GitHubRepository,
+	), nil
 }
 
 func forgeCredentialOverrides() []string {

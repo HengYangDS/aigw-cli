@@ -8,11 +8,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"debug/macho"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -23,9 +25,18 @@ import (
 
 func TestNativeReleaseUsesCacheSignificantDeploymentTarget(t *testing.T) {
 	request := privateInternalRelease(t)
-	request.TargetOS = "darwin"
+	request.TargetOS = runtime.GOOS
+	t.Setenv("GOOS", runtime.GOOS)
+	t.Setenv("GOARCH", runtime.GOARCH)
+	t.Setenv("TARGET", "")
+	t.Setenv("CGO_ENABLED", "1")
+	t.Setenv("CC", "clang")
 	t.Setenv("GOCACHE", t.TempDir())
 	t.Setenv("MACOSX_DEPLOYMENT_TARGET", "14.0")
+	environment, err := goReleaserEnvironment(request)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
 	defer cancel()
@@ -35,30 +46,52 @@ func TestNativeReleaseUsesCacheSignificantDeploymentTarget(t *testing.T) {
 		if stdout == nil {
 			stdout = &bytes.Buffer{}
 		}
-		return (process.Runner{}).RunStream(ctx, process.Plan{
+		started := time.Now()
+		err := (process.Runner{}).RunStream(ctx, process.Plan{
 			Executable: call.Name, Directory: call.Directory,
 			Args: call.Args, Env: append(os.Environ(), call.Env...),
 		}, stdout, &diagnostic)
+		t.Logf("native cache fixture %s: %s", call.Name, time.Since(started))
+		return err
 	}
-	// The isolated cold compiler cache is part of the release regression, not
-	// a short metadata probe. One caller deadline owns warmup and construction.
+	// GOOS/GOARCH separate Go cache entries. Rebuild the exact warmed native
+	// target here; the deterministic archive journey retains the full matrix.
+	warmupPath := filepath.Join(t.TempDir(), "newer-host")
 	if err := run(toolCall{Name: "go", Directory: request.Root, Args: []string{
-		"build", "-trimpath", "-buildvcs=false", "-o", filepath.Join(t.TempDir(), "newer-host"), "./cmd/aigw",
+		"build", "-trimpath", "-buildvcs=false", "-o", warmupPath, "./cmd/aigw",
 	}}); err != nil {
 		t.Fatalf("warm native release compiler cache: %v\n%s", err, diagnostic.Bytes())
 	}
-	stage, err := buildArchives(request, t.TempDir(), run)
+	var warmupHeader bytes.Buffer
+	if err := run(toolCall{Name: "/usr/bin/otool", Args: []string{"-l", warmupPath}, Stdout: &warmupHeader}); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(warmupHeader.Bytes(), []byte("\n    minos 14.0\n")) {
+		t.Fatal("native cache warmup did not establish the newer deployment target")
+	}
+	programPath := filepath.Join(t.TempDir(), "native-release")
+	err = run(toolCall{
+		Name: "goreleaser", Directory: request.Root,
+		Args: []string{"build", "--snapshot", "--clean", "--id", "macos", "--single-target", "--output", programPath,
+			"--config", filepath.Join(request.Root, ".config", "release", "goreleaser.yaml")},
+		Env: environment,
+	})
 	if err != nil || bytes.Contains(diagnostic.Bytes(), []byte("warning:")) {
 		t.Fatalf("native release must compile and link for its declared floor after a newer-target cache warmup: %v\n%s", err, diagnostic.Bytes())
 	}
-	for _, arch := range []string{"amd64", "arm64"} {
-		target := artifact.Target{OS: "darwin", Arch: arch}
-		program, err := target.ReadProgram(filepath.Join(stage, target.ArchiveName(request.Version)), filepath.Join(stage, "checksums.txt"), request.Version)
-		if err != nil {
-			t.Fatal(err)
-		}
-		requireNativeReleaseSignature(t, program)
+	program, err := os.ReadFile(programPath)
+	if err != nil {
+		t.Fatal(err)
 	}
+	header, err := macho.NewFile(bytes.NewReader(program))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantCPU := map[string]macho.Cpu{"amd64": macho.CpuAmd64, "arm64": macho.CpuArm64}[runtime.GOARCH]
+	if header.Cpu != wantCPU {
+		t.Fatalf("native cache target CPU = %s, expected %s", header.Cpu, wantCPU)
+	}
+	requireNativeReleaseSignature(t, program)
 }
 
 func TestNativeReleaseArchivesHaveDeterministicLocalSignatures(t *testing.T) {
