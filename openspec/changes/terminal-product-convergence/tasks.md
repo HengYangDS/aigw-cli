@@ -504,7 +504,7 @@
       under the old runtime now pass in its corrected native environment; the
       old runtime's hidden `mise`-missing failures remain raw evidence. This
       does not resolve the separate documentation or tool-mirror gaps.
-- [ ] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
+- [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
       Actual Node immediate exit exposes a second capture boundary: pipe output
@@ -568,10 +568,17 @@
       measure race/coverage. GitLab Windows job 47768 completes `tools/ci` in
       146.351s and all five resource outcomes, including the actual 60-second
       deadline. Peer terminal evidence is recorded once in 7.2.
-      Both overall quality pipelines still fail the High advisory in 6.5. Ordinary
-      native jobs do not execute the complete non-Go quality-tool graph; current
-      full-tool and final zero-warning source admission remain open. Original
-      failed controls remain in their existing source-bound verification owners.
+      Current signed `4dd8504a` passes both peers' complete native Go format,
+      lint, static analysis and source tests on macOS, Linux and Windows.
+      Native race/coverage measures 13,752/14,454 statements (95.14%) on GitHub
+      Intel macOS and 13,634/14,341 (95.07%) on GitLab Linux, with zero native
+      Go issues and every canonical package observed. The original cold-cache
+      failure is now qualified by the actual Intel job, not borrowed ARM evidence.
+      Selected safe native summaries and terminal job identities are retained in
+      `4dd8504a/proposal-publication/`; hosted raw profiles were not exported.
+      The non-Go toolchain High advisory remains open in 6.5 and is not a Go
+      quality failure. Full security, final artifact and release admission remain
+      separate. Original failed controls retain their source-bound evidence.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.
@@ -691,17 +698,24 @@
       substitute for canonical event admission. Relative CI tool state resolves
       from the physical checkout. Signed-object fixtures own local committer
       identity; no host identity or signer change is required.
-      Both existing `proposal/hermes-offline-verification` peer refs read back
-      exact signed `82f66fe9`. GitLab MR !178 pipeline 9372 passes macOS, Linux,
-      Windows and Secret Service; quality fails the High advisory in 6.5.
-      GitHub run 37113586152 passes Linux, Windows and Secret Service; quality
-      fails the same advisory, and macOS job 111175998365 fails its original
+      Both existing `proposal/hermes-offline-verification` peer refs now read
+      back exact signed `4dd8504a`. GitLab MR !178 pipeline 9400 and GitHub
+      PR #162 run 37120920504 pass macOS, Linux, Windows and Secret Service;
+      both quality jobs fail the same High advisory in 6.5. Native macOS Intel
+      job 111196700148 succeeds in 806 seconds; the original two-minute
+      cold-cache test budget and independent full archive test remain unchanged.
+      Both watchers are terminal; selected safe metadata and coverage summaries
+      remain in `4dd8504a/proposal-publication/`. No current full CI success,
+      accepted-ref admission, final artifact or installed cutover is claimed.
+      Historical GitLab pipeline 9372 and GitHub run 37113586152 bind `82f66fe9`;
+      the original macOS job 111175998365 fails its cold-cache regression
       cold deployment-target regression after 122.48s with the bounded release
-      context exhausted in GoReleaser. The cause remains unproved; local ARM64
-      isolated success does not qualify this hosted Intel failure. Both original
-      watchers are terminal failure; raw results and markers remain in exact
+      context exhausted in GoReleaser. Hardware/contention causality remains
+      unproved; the focused same-architecture cache invariant removes unrelated
+      opposite-architecture compilation without changing the release matrix.
+      Both original watchers are terminal failure; raw results remain in exact
       `82f66fe9` source-bound `proposal-publication/`. Earlier `f89eb6bf` greens
-      retain their own scope and cannot qualify this source's macOS job.
+      retain their own scope and do not qualify a newer source's macOS job.
       Source publication is proved, successful review admission is not. Accepted
       dev/main/tag events, guarded integration and final archived object remain
       open under Migration Plan; another peer or manual result cannot replace them.
