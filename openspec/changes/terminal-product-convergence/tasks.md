@@ -603,6 +603,14 @@
       pass independent syntax-only availability checks at 13.0. Actual product
       linking/header readback and current artifact lifecycle remain required;
       this does not prove execution on an older macOS host.
+      The actual `25eb46ed` build declares 13.0 but emits twenty-six linker
+      warnings from CGO objects cached at 27.0. The existing archive fixture
+      now warms a newer-target cache with the exact release compile flags;
+      deployment environment alone produces RED. Selecting the deployment
+      target in the native compiler command produces warning-free GREEN and
+      preserves both architecture signatures and load commands. The original
+      `25eb46ed` candidate is retained as failure evidence; a new signed-source
+      candidate and its lifecycle acceptance remain required.
 - [x] 5.5 Verify missing Codex/Claude at setup and later installation on each
       platform; deferred sync must touch only installed admitted clients and
       preserve user-owned files. GitHub run 36560334613 at

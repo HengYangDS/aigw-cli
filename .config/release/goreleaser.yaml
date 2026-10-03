@@ -38,7 +38,9 @@ builds:
     skip: '{{ and (ne .Env.AIGW_BUILD_OS "") (ne .Env.AIGW_BUILD_OS "darwin") }}'
     # Go 1.27 and the published predecessor support macOS 13; the host SDK
     # must not raise the external linker's deployment target.
-    env: [CGO_ENABLED=1, MACOSX_DEPLOYMENT_TARGET=13.0]
+    # Compiler arguments are part of Go's cache key; the deployment environment
+    # alone can reuse CGO objects compiled for a newer host.
+    env: [CGO_ENABLED=1, "CC=clang -mmacosx-version-min=13.0"]
     hooks:
       post:
         - cmd: >-

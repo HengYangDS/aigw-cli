@@ -3,6 +3,7 @@
 package construction
 
 import (
+	"aigw-cli/internal/process"
 	"aigw-cli/internal/upgrade/artifact"
 	"bytes"
 	"context"
@@ -19,6 +20,38 @@ import (
 
 	"golang.org/x/sys/unix"
 )
+
+func TestNativeReleaseUsesCacheSignificantDeploymentTarget(t *testing.T) {
+	request := privateInternalRelease(t)
+	request.TargetOS = "darwin"
+	t.Setenv("GOCACHE", t.TempDir())
+	t.Setenv("MACOSX_DEPLOYMENT_TARGET", "14.0")
+	privateReleaseCommand(t, request.Root, "go", "build", "-trimpath", "-buildvcs=false", "-o", filepath.Join(t.TempDir(), "newer-host"), "./cmd/aigw")
+
+	var diagnostic bytes.Buffer
+	run := func(call toolCall) error {
+		stdout := call.Stdout
+		if stdout == nil {
+			stdout = &bytes.Buffer{}
+		}
+		return (process.Runner{}).RunStream(t.Context(), process.Plan{
+			Executable: call.Name, Directory: call.Directory,
+			Args: call.Args, Env: append(os.Environ(), call.Env...),
+		}, stdout, &diagnostic)
+	}
+	stage, err := buildArchives(request, t.TempDir(), run)
+	if err != nil || bytes.Contains(diagnostic.Bytes(), []byte("warning:")) {
+		t.Fatalf("native release must compile and link for its declared floor after a newer-target cache warmup: %v\n%s", err, diagnostic.Bytes())
+	}
+	for _, arch := range []string{"amd64", "arm64"} {
+		target := artifact.Target{OS: "darwin", Arch: arch}
+		program, err := target.ReadProgram(filepath.Join(stage, target.ArchiveName(request.Version)), filepath.Join(stage, "checksums.txt"), request.Version)
+		if err != nil {
+			t.Fatal(err)
+		}
+		requireNativeReleaseSignature(t, program)
+	}
+}
 
 func TestNativeReleaseArchivesHaveDeterministicLocalSignatures(t *testing.T) {
 	request := privateInternalRelease(t)

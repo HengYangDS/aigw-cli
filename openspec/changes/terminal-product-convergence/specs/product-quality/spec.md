@@ -81,6 +81,7 @@ or successful execution on the build host.
 
 - **WHEN** macOS construction uses external linking for the native credential API
 - **THEN** both architecture archives SHALL declare macOS 13.0 as their minimum
+- **AND** cached CGO objects compiled for a newer target SHALL NOT cause deployment warnings
 - **AND** native signature and deterministic archive validation SHALL remain required
 - **AND** linked-header acceptance SHALL NOT imply execution on an older OS.
 

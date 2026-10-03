@@ -237,9 +237,11 @@ installation is implied by construction.
 
 The macOS archive floor is macOS 13 Ventura, shared by the locked
 [Go 1.27 support contract](https://go.dev/doc/go1.27#darwin) and the selected
-native credential APIs. The macOS GoReleaser build declares
-`MACOSX_DEPLOYMENT_TARGET=13.0`; a newer host SDK must not raise it implicitly.
-Native archive tests exercise external linking and read both architectures'
+native credential APIs. The macOS GoReleaser build selects
+`CC=clang -mmacosx-version-min=13.0` for compilation and external linking.
+Compiler arguments participate in Go's cache key; the deployment environment
+alone can reuse CGO objects compiled for a newer target. Native archive tests
+warm a newer-target cache, reject build warnings, and read both architectures'
 actual load commands. This proves the declared binary floor, not execution on
 every supported macOS release.
 
