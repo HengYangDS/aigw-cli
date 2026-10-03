@@ -4,9 +4,9 @@
   "devDependencies": {
     "@fission-ai/openspec": "1.14.0",
     "@mermaid-lint/core": "0.53.1",
-    "prettier": "3.9.9",
+    "js-yaml": "5.4.2",
     "markdownlint": "0.41.1",
-    "js-yaml": "5.4.1"
+    "prettier": "3.9.9"
   },
   "overrides": {
     "@mermaid-lint/core": {
