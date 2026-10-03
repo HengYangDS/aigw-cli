@@ -220,7 +220,7 @@ func TestNativeAcceptanceForwardsReleaseOwnedArguments(t *testing.T) {
 			calls = append(calls, call)
 			return nil
 		})
-		if err != nil || len(calls) < 3 {
+		if err != nil || (len(sourceFlags) == 0 && len(calls) != 1) || (len(sourceFlags) != 0 && len(calls) < 3) {
 			t.Fatalf("native acceptance discarded explicit release inputs: %v, %#v", err, calls)
 		}
 		final := calls[len(calls)-1]
@@ -232,6 +232,41 @@ func TestNativeAcceptanceForwardsReleaseOwnedArguments(t *testing.T) {
 			if slices.Contains(source.Args, "/candidate with spaces") || !slices.Contains(source.Env, "AIGW_ACCEPTANCE_BASELINE=") {
 				t.Fatalf("release inputs escaped into source verification: %#v", source)
 			}
+		}
+	}
+}
+
+func TestNativePrebuiltAcceptanceDoesNotRepeatSourceQualification(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+	for _, selected := range [][]string{
+		{"--artifacts", "/candidate with spaces", "--candidate"},
+		{"--artifacts=/candidate", "--candidate"},
+		{"--tag", "v0.3.1", "--peer", "gitlab", "--repository", "group/product"},
+	} {
+		var calls []command
+		err := run(append([]string{"native", "--"}, selected...), &bytes.Buffer{}, func(call command) error {
+			calls = append(calls, call)
+			return nil
+		})
+		want := command{Name: "go", Args: append([]string{"run", "./tools/release", "accept-native"}, selected...)}
+		if err != nil || !reflect.DeepEqual(calls, []command{want}) {
+			t.Fatalf("prebuilt native scope = %#v, %v; want only the existing artifact owner", calls, err)
+		}
+	}
+	for _, source := range []struct {
+		args    []string
+		refresh string
+	}{
+		{[]string{"native", "--full-quality", "--", "--artifacts", "/candidate", "--candidate"}, ""},
+		{[]string{"native", "--", "--baseline-tag", "v0.3.1", "--peer", "gitlab", "--repository", "group/product"}, ""},
+		{[]string{"native", "--", "--artifacts", "/candidate", "--candidate"}, "true"},
+	} {
+		t.Setenv("AIGW_REFRESH_LOCKS", source.refresh)
+		calls := 0
+		err := run(source.args, &bytes.Buffer{}, func(command) error { calls++; return nil })
+		if err != nil || calls < 3 {
+			t.Fatalf("source qualification was narrowed: arguments=%q refresh=%q calls=%d error=%v", source.args, source.refresh, calls, err)
 		}
 	}
 }

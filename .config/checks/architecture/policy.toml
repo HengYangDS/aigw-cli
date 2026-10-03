@@ -339,6 +339,7 @@ allowed_import_edges."tools/ci" = [
   "tools/ci/evidence",
   "tools/ci/markdown",
   "tools/ci/projection",
+  "tools/release/construction",
   "tools/release/readiness",
 ]
 allowed_import_edges."tools/ci/evidence" = []

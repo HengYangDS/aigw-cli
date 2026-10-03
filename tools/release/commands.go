@@ -7,7 +7,6 @@ import (
 	"aigw-cli/tools/release/readiness"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,21 +18,8 @@ import (
 func buildCommands(ctx context.Context) commandSet {
 	return commandSet{
 		"accept-native": func(args []string, _ io.Writer) error {
-			flags := flag.NewFlagSet("accept-native", flag.ContinueOnError)
-			input := construction.NativeAcceptance{}
-			flags.StringVar(&input.Artifacts, "artifacts", "", "Consume an existing signed release matrix")
-			flags.StringVar(&input.Tag, "tag", "", "Select the published candidate tag")
-			flags.StringVar(&input.BaselineArtifacts, "baseline-artifacts", "", "Consume a local published predecessor matrix")
-			flags.StringVar(&input.BaselineTag, "baseline-tag", "", "Select the published predecessor tag")
-			flags.StringVar(&input.Peer, "peer", "", "Download missing tagged inputs from github or gitlab")
-			flags.StringVar(&input.Repository, "repository", "", "Explicit repository for the selected peer")
-			flags.BoolVar(&input.Candidate, "candidate", false, "Bind untagged artifacts to signed HEAD")
-			flags.BoolVar(&input.Clients, "clients", false, "Verify explicitly supplied native clients")
-			flags.StringVar(&input.Performance, "performance", "", "Retain Hyperfine samples in this absolute directory")
-			if err := flags.Parse(args); err != nil {
-				return err
-			}
-			if err := requireArguments(flags.Args(), 0, "usage: release accept-native [--artifacts <directory> [--candidate | --tag <tag>]] [--baseline-tag <tag> [--baseline-artifacts <directory>]] [--peer <github|gitlab> --repository <repository>] [--clients] [--performance <absolute-directory>]"); err != nil {
+			input, err := construction.ParseNativeAcceptance(args)
+			if err != nil {
 				return err
 			}
 			return construction.AcceptNative(ctx, input)

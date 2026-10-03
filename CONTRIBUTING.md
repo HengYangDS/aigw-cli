@@ -294,8 +294,11 @@ mise exec --locked -- go run ./tools/release accept-native \
 
 Provide `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE`,
 `AIGW_RELEASE_ARTIFACT_SIGNER` and `AIGW_RELEASE_ALLOWED_SIGNERS_FILE` independently.
-`--candidate` binds a clean signed HEAD and rejects a selected or same-version tag;
-after tagging omit it and select `CI_COMMIT_TAG`. Predecessor matrix inputs verify
+`--candidate` defaults to the clean signed verifier HEAD. An updated verifier may
+use `--candidate-source <full-commit-id>` to bind the same-version untagged product
+to its exact signed commit; mutable refs, unsigned objects and mismatched
+provenance fail before execution. A selected or same-version tag remains invalid
+in candidate mode; after tagging omit it and select `CI_COMMIT_TAG`. Predecessor matrix inputs verify
 complete signatures/tag/provenance before extraction and cannot be combined with
 `AIGW_ACCEPTANCE_BASELINE`. Windows uses the extracted `aigw.exe`. Keep baseline
 inputs scoped to `accept-native`, not the ordinary native suite. The candidate
@@ -405,6 +408,17 @@ GitLab `AIGW_CANDIDATE_TAG` selects a published matrix;
 `AIGW_CANDIDATE_ARTIFACTS` selects local pre-tag bytes. `AIGW_BASELINE_TAG`
 selects the predecessor and `AIGW_NATIVE_CLIENTS=true` adds provisioned clients.
 CUE forwards these after `ci native --`; source checks do not inherit them.
+`AIGW_CANDIDATE_SOURCE` forwards the exact signed pre-tag product commit to
+`--candidate-source` when a newer verifier consumes existing candidate bytes.
+Explicit prebuilt inputs without full quality or lock refresh select only native
+artifact tools and the existing release journey; they do not repeat source-wide
+tests or npm bootstrap. Ordinary source/review jobs and full qualification retain
+their complete quality and security graph. A partial artifact run cannot satisfy
+the failed quality job or release readiness. GitHub dispatches use `Manual`
+check names, including tag dispatches and single-platform runs; only review and
+accepted push events report canonical required checks. Release evidence requires
+the exact tag push and canonical job set. GitLab retains its complete MR graph
+and native MR-pipeline admission, not a manually dispatched pipeline substitute.
 GitLab downloads use its explicit project and Job Token, not sibling credentials.
 GitHub manual `candidate_tag`/`baseline_tag` selects that peer's same bytes, with
 `windows_clients` for real-client execution. A reviewed verifier may have a

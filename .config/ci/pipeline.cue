@@ -13,6 +13,7 @@ import (
 #Claim:           "accepted-ref-parity" | "source-quality" | "go-source-compatibility" | "native-product-journey" | "lifecycle-acceptance" | "linux-secret-service" | "release-metadata" | "artifact-verification"
 
 #Job: {
+	name:  string
 	stage: "verify" | "release"
 	rank:  int & >=0
 	needs: [...#JobID]
@@ -139,6 +140,7 @@ toolchainTools: {
 	quality: list.Concat([portableQuality, links])
 	// Native Go suites execute real glab against disposable GitLab origins.
 	native: list.Concat([quality, ["github:anchore/syft", "gh", "glab"]])
+	nativeArtifact: ["go", "gh", "glab", "github:goreleaser/goreleaser"]
 	secretService: ["go", "github:goreleaser/goreleaser"]
 	darwin: ["github:indygreg/apple-platform-rs"]
 }
@@ -149,6 +151,16 @@ nativeToolchain: {
 	for platform in ["darwin", "linux", "windows"] {
 		(platform): MISE_ENABLE_TOOLS: strings.Join(list.Concat([
 			toolchainTools.native,
+			if platform == "darwin" {toolchainTools.darwin},
+			if platform != "darwin" {[]},
+		]), ",")
+	}
+}
+
+nativeArtifactToolchain: {
+	for platform in ["darwin", "linux", "windows"] {
+		(platform): MISE_ENABLE_TOOLS: strings.Join(list.Concat([
+			toolchainTools.nativeArtifact,
 			if platform == "darwin" {toolchainTools.darwin},
 			if platform != "darwin" {[]},
 		]), ",")
@@ -203,21 +215,21 @@ nativeEvidence: {
 
 graph: {
 	[#JobID]: #Job
-	"accepted-ref-parity": {stage: "verify", rank: 0, needs: [], claims: ["accepted-ref-parity"]}
-	quality: {stage: "verify", rank: 0, needs: [], claims: ["source-quality"]}
+	"accepted-ref-parity": {name: "Accepted ref parity", stage: "verify", rank: 0, needs: [], claims: ["accepted-ref-parity"]}
+	quality: {name: "Quality and governance", stage: "verify", rank: 0, needs: [], claims: ["source-quality"]}
 	for platform in productEvidence.native {
-		"native-\(platform)": {stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
+		"native-\(platform)": {name: "Native \(nativeEvidence[platform].name) acceptance", stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
 	}
-	"linux-secret-service": {stage: "verify", rank: 0, needs: [], claims: ["linux-secret-service"]}
-	"release-version": {stage: "verify", rank: 0, needs: [], claims: ["release-metadata"]}
-	"release-assets": {stage: "release", rank: 1, needs: list.Concat([["quality"], [for platform in productEvidence.native {"native-\(platform)"}], ["linux-secret-service", "release-version"]]), claims: ["artifact-verification"]}
+	"linux-secret-service": {name: "Linux Secret Service", stage: "verify", rank: 0, needs: [], claims: ["linux-secret-service"]}
+	"release-version": {name: "Release version", stage: "verify", rank: 0, needs: [], claims: ["release-metadata"]}
+	"release-assets": {name: "Verify published release artifacts", stage: "release", rank: 1, needs: list.Concat([["quality"], [for platform in productEvidence.native {"native-\(platform)"}], ["linux-secret-service", "release-version"]]), claims: ["artifact-verification"]}
 }
 
 // The same declared release dependencies name the GitHub tag jobs; the
 // read-only Release workflow must not substitute another peer or attempt.
 githubTagEvidenceJobs: strings.Join([
 	for dependency in graph["release-assets"].needs {
-		"--job '\(githubVerify.jobs[dependency].name)'"
+		"--job '\(graph[dependency].name)'"
 	},
 ], " ")
 
@@ -227,6 +239,7 @@ gitlabVerificationCondition: {
 	review:        "$CI_PIPELINE_SOURCE == \"merge_request_event\" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.acceptedBranch)\" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.releaseBranch)\") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID"
 	protectedPush: "$CI_PIPELINE_SOURCE == \"push\" && ($CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\" || $CI_COMMIT_BRANCH == \"\(lifecycle.releaseBranch)\")"
 	manual:        "$CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\""
+	manualSource:  "($CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\") && (($AIGW_CANDIDATE_ARTIFACTS == null || $AIGW_CANDIDATE_ARTIFACTS == \"\") && ($AIGW_CANDIDATE_TAG == null || $AIGW_CANDIDATE_TAG == \"\") || $AIGW_FULL_NATIVE_QUALITY == \"true\" || $AIGW_REFRESH_LOCKS == \"true\")"
 }
 
 gitlabPipelineRules: [
@@ -254,7 +267,8 @@ gitlabPipelineRules: [
 	{when: "never"},
 ]
 
-githubFullVerificationCondition: "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == '\(lifecycle.acceptedBranch)' || github.ref_name == '\(lifecycle.releaseBranch)'))"
+githubFullVerificationCondition:   "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == '\(lifecycle.acceptedBranch)' || github.ref_name == '\(lifecycle.releaseBranch)'))"
+githubSourceVerificationCondition: "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')"
 
 githubCommitBase: "${{ github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || inputs.commit_base || format('{0}^', github.sha) }}"
 
@@ -314,7 +328,8 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 }
 
 #NativeGitHubJob: {
-	_platform: #OperatingSystem
+	_platform:        #OperatingSystem
+	_sourceCondition: "github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == ''"
 	_credentialEnvironment: {
 		if _platform == "windows" {
 			AIGW_VERIFY_SYSTEM_KEYRING: "1"
@@ -323,15 +338,15 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: "ephemeral-host"
 		}
 	}
-	name:              "Native \(nativeEvidence[_platform].name) acceptance"
+	name:              "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph["native-\(_platform)"].name)' || '\(graph["native-\(_platform)"].name)' }}"
 	"runs-on":         nativeEvidence[_platform].github.runner
 	"timeout-minutes": 25
 	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
-	env:               nativeToolchain[_platform]
+	env: MISE_ENABLE_TOOLS: "${{ (!(\(_sourceCondition))) && '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' || '\(nativeToolchain[_platform].MISE_ENABLE_TOOLS)' }}"
 	steps: [
 		#SourceCheckout,
 		#Toolchain,
-		{name: "Prepare locked dependencies", run: commands.bootstrap},
+		{name: "Prepare locked dependencies", if: _sourceCondition, run: commands.bootstrap},
 		if _platform == "linux" {
 			name: "Prepare native memory measurement"
 			if:   "github.event_name == 'workflow_dispatch' && inputs.performance"
@@ -356,7 +371,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		for full in [false, true] {
 			if !full {
 				name: "Run native \(nativeEvidence[_platform].name) acceptance"
-				if:   "github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '')"
+				if:   "github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '')"
 				run:  commands.native[_platform]
 			}
 			if full {
@@ -519,15 +534,21 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 }
 
 #NativeGitLabJob: {
-	_platform:     #OperatingSystem
-	_prepareMise:  string
-	_install:      string
-	_refreshLocks: string
-	_native:       string
+	_platform:          #OperatingSystem
+	_prepareMise:       string
+	_install:           string
+	_refreshLocks:      string
+	_native:            string
+	_prebuiltCondition: string
+	_selectTools:       string
+	_bootstrap:         string
 	tags: [string, ...string]
 	rules: [...{...}]
 	if _platform == "windows" {
-		_prepareMise:  #"""
+		_prebuiltCondition: "($env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true'"
+		_selectTools:       "if (\(_prebuiltCondition)) { $env:MISE_ENABLE_TOOLS = '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' }"
+		_bootstrap:         "if (-not (\(_prebuiltCondition))) { \(commands.bootstrap) }"
+		_prepareMise:       #"""
 			$ErrorActionPreference = 'Stop'
 			foreach ($name in @('CI_API_V4_URL', 'CI_PROJECT_ID', 'CI_PROJECT_DIR', 'CI_JOB_ID', 'CI_JOB_TOKEN', 'CI_SERVER_HOST')) {
 			  if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) { throw "Missing GitLab job input: $name" }
@@ -597,16 +618,18 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			$env:MISE_NETRC = 'true'
 			$env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
 			}
+			\#(_selectTools)
 			"""#
-		_install:      "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
-		_refreshLocks: "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
-		_native:       #"""
+		_install:           "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
+		_refreshLocks:      "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
+		_native:            #"""
 			$ErrorActionPreference = 'Stop'
 			$PSNativeCommandUseErrorActionPreference = $true
 			$acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)
 			if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }
 			if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
 			if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
+			if ($env:AIGW_CANDIDATE_SOURCE) { $acceptance += @('--candidate-source', $env:AIGW_CANDIDATE_SOURCE) }
 			if ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
 			  if (-not $env:AIGW_BASELINE_TAG) { throw 'Real-client succession requires AIGW_BASELINE_TAG.' }
 			  $acceptance += '--clients'
@@ -640,14 +663,18 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			"""#]
 	}
 	if _platform != "windows" {
-		_install:      commands.install
-		_refreshLocks: "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
-		_native:       #"""
+		_prebuiltCondition: "[ -n \"${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}\" ] && [ \"${AIGW_FULL_NATIVE_QUALITY:-false}\" != true ] && [ \"${AIGW_REFRESH_LOCKS:-false}\" != true ]"
+		_selectTools:       "if \(_prebuiltCondition); then export MISE_ENABLE_TOOLS='\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)'; fi"
+		_bootstrap:         "if ! { \(_prebuiltCondition); }; then \(commands.bootstrap); fi"
+		_install:           commands.install
+		_refreshLocks:      "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
+		_native:            #"""
 			set -eu
 			set -- --peer gitlab --repository "$CI_PROJECT_URL"
 			if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
 			if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
 			if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
+			if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
 			if [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
 			  : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
 			  set -- "$@" --clients
@@ -675,15 +702,15 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		interruptible: true
 		extends: [".linux-toolchain"]
 		variables: CGO_ENABLED: "1"
-		"before_script": [linuxToolchain.prepare, linuxToolchain.compiler, miseMirror.unixPrepare, commands.install]
-		script: [commands.bootstrap, _refreshLocks, _native]
+		"before_script": [linuxToolchain.prepare, linuxToolchain.compiler, miseMirror.unixPrepare, _selectTools, commands.install]
+		script: [_bootstrap, _refreshLocks, _native]
 	}
 	if _platform != "linux" {
 		if _platform == "windows" {
-			script: [_prepareMise, _install, commands.bootstrap, _refreshLocks, _native]
+			script: [_prepareMise, _install, _bootstrap, _refreshLocks, _native]
 		}
 		if _platform != "windows" {
-			script: [miseMirror.unixPrepare, _install, commands.bootstrap, _refreshLocks, _native]
+			script: [miseMirror.unixPrepare, _selectTools, _install, _bootstrap, _refreshLocks, _native]
 		}
 	}
 }
@@ -759,7 +786,7 @@ gitlab: {
 				if: gitlabVerificationCondition.protectedPush
 				variables: AIGW_COMMIT_BASE: "$CI_COMMIT_BEFORE_SHA"
 			},
-			{if: gitlabVerificationCondition.manual, variables: AIGW_COMMIT_BASE: "$CI_COMMIT_SHA^"},
+			{if: gitlabVerificationCondition.manualSource, variables: AIGW_COMMIT_BASE: "$CI_COMMIT_SHA^"},
 			{when: "never"},
 		]
 	}
@@ -923,7 +950,7 @@ githubVerify: {
 	}
 	jobs: {
 		"accepted-ref-parity": {
-			name:              "Accepted ref parity"
+			name:              graph["accepted-ref-parity"].name
 			"runs-on":         nativeEvidence.linux.github.runner
 			"timeout-minutes": 5
 			if:                "github.event_name == 'push' && github.ref_name == '\(lifecycle.releaseBranch)'"
@@ -935,10 +962,10 @@ githubVerify: {
 			]
 		}
 		quality: {
-			name:              "Quality and governance"
+			name:              "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph.quality.name)' || '\(graph.quality.name)' }}"
 			"runs-on":         nativeEvidence.linux.github.runner
 			"timeout-minutes": 25
-			if:                githubFullVerificationCondition
+			if:                githubSourceVerificationCondition
 			env:               qualityToolchain
 			steps: [
 				#SourceCheckout,
@@ -969,7 +996,7 @@ githubVerify: {
 			]
 		}
 		"linux-secret-service": {
-			name:              "Linux Secret Service"
+			name:              "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph["linux-secret-service"].name)' || '\(graph["linux-secret-service"].name)' }}"
 			"runs-on":         nativeEvidence.linux.github.runner
 			"timeout-minutes": 25
 			if:                githubVerify.jobs["native-linux"].if
@@ -984,7 +1011,7 @@ githubVerify: {
 			]
 		}
 		"release-version": {
-			name:              "Release version"
+			name:              "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph["release-version"].name)' || '\(graph["release-version"].name)' }}"
 			"runs-on":         nativeEvidence.linux.github.runner
 			"timeout-minutes": 5
 			if:                "github.ref_type == 'tag'"
@@ -1046,7 +1073,7 @@ githubRelease: {
 	}
 	jobs: {
 		"release-assets": {
-			name:              "Verify published release artifacts"
+			name:              graph["release-assets"].name
 			"runs-on":         "${{ inputs.runner }}"
 			"timeout-minutes": 25
 			defaults: run: shell: "pwsh"

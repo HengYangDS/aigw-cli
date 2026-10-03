@@ -184,7 +184,7 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 			switch step.Run {
 			case base:
 				ordinary++
-				if step.If != "github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '')" {
+				if step.If != "github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '')" {
 					t.Fatalf("%s ordinary native selection = %q", platform, step.If)
 				}
 			case base + " --full-quality":
@@ -354,6 +354,47 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 		return step.Run == "mise exec --locked -- go run ./tools/ci quality"
 	}) {
 		t.Fatalf("GitHub quality job = %#v", quality.Steps)
+	}
+}
+
+func TestManualGitHubChecksCannotSatisfyRequiredVerification(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Jobs map[string]struct {
+			Name string `yaml:"name"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	for job, required := range map[string]string{
+		"quality": "Quality and governance", "native-darwin": "Native macOS acceptance",
+		"native-linux": "Native Linux acceptance", "native-windows": "Native Windows acceptance",
+		"linux-secret-service": "Linux Secret Service",
+	} {
+		want := "${{ github.event_name == 'workflow_dispatch' && 'Manual " + required + "' || '" + required + "' }}"
+		if got := workflow.Jobs[job].Name; got != want {
+			t.Errorf("%s check identity = %q; manual runs must not report required %q", job, got, required)
+		}
+	}
+	var release struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				Run string `yaml:"run"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[2].Content), &release); err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range release.Jobs["release-assets"].Steps {
+		if strings.Contains(step.Run, "release-evidence") && strings.Contains(step.Run, "Manual ") {
+			t.Fatal("tag evidence must require canonical checks, not diagnostic identities")
+		}
 	}
 }
 

@@ -50,9 +50,10 @@ native-linux:
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
       esac
+    - if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; then export MISE_ENABLE_TOOLS='go,gh,glab,github:goreleaser/goreleaser'; fi
     - env GODEBUG=http2client=0 mise install --locked
   script:
-    - mise run bootstrap
+    - if ! { [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; }; then mise run bootstrap; fi
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - |-
       set -eu
@@ -60,6 +61,7 @@ native-linux:
       if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
+      if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
       if [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
         : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
         set -- "$@" --clients
@@ -93,8 +95,9 @@ native-darwin:
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
       esac
+    - if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; then export MISE_ENABLE_TOOLS='go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs'; fi
     - env GODEBUG=http2client=0 mise install --locked
-    - mise run bootstrap
+    - if ! { [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; }; then mise run bootstrap; fi
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - |-
       set -eu
@@ -102,6 +105,7 @@ native-darwin:
       if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
+      if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
       if [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
         : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
         set -- "$@" --clients
@@ -151,8 +155,9 @@ native-darwin-review:
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
       esac
+    - if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; then export MISE_ENABLE_TOOLS='go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs'; fi
     - env GODEBUG=http2client=0 mise install --locked
-    - mise run bootstrap
+    - if ! { [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; }; then mise run bootstrap; fi
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - |-
       set -eu
@@ -160,6 +165,7 @@ native-darwin-review:
       if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
+      if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
       if [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
         : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
         set -- "$@" --clients
@@ -277,8 +283,9 @@ native-windows:
       $env:MISE_NETRC = 'true'
       $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
       }
+      if (($env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser' }
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
-    - mise run bootstrap
+    - if (-not (($env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true')) { mise run bootstrap }
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
     - |-
       $ErrorActionPreference = 'Stop'
@@ -287,6 +294,7 @@ native-windows:
       if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }
       if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
       if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
+      if ($env:AIGW_CANDIDATE_SOURCE) { $acceptance += @('--candidate-source', $env:AIGW_CANDIDATE_SOURCE) }
       if ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
         if (-not $env:AIGW_BASELINE_TAG) { throw 'Real-client succession requires AIGW_BASELINE_TAG.' }
         $acceptance += '--clients'
@@ -406,8 +414,9 @@ native-windows-review:
       $env:MISE_NETRC = 'true'
       $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
       }
+      if (($env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser' }
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
-    - mise run bootstrap
+    - if (-not (($env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true')) { mise run bootstrap }
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
     - |-
       $ErrorActionPreference = 'Stop'
@@ -416,6 +425,7 @@ native-windows-review:
       if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }
       if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
       if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
+      if ($env:AIGW_CANDIDATE_SOURCE) { $acceptance += @('--candidate-source', $env:AIGW_CANDIDATE_SOURCE) }
       if ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
         if (-not $env:AIGW_BASELINE_TAG) { throw 'Real-client succession requires AIGW_BASELINE_TAG.' }
         $acceptance += '--clients'
@@ -544,7 +554,7 @@ quality:
     - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
       variables:
         AIGW_COMMIT_BASE: $CI_COMMIT_BEFORE_SHA
-    - if: $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"
+    - if: ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && (($AIGW_CANDIDATE_ARTIFACTS == null || $AIGW_CANDIDATE_ARTIFACTS == "") && ($AIGW_CANDIDATE_TAG == null || $AIGW_CANDIDATE_TAG == "") || $AIGW_FULL_NATIVE_QUALITY == "true" || $AIGW_REFRESH_LOCKS == "true")
       variables:
         AIGW_COMMIT_BASE: $CI_COMMIT_SHA^
     - when: never

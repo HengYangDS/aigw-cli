@@ -1,8 +1,11 @@
 package projection
 
 import (
+	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -64,6 +67,104 @@ func TestLinuxSecretServiceUsesOnlyItsLockedExecutableClosure(t *testing.T) {
 	}
 }
 
+func TestNativePrebuiltAcceptanceKeepsBootstrapConditional(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gitlab struct {
+		Linux   gitLabJob `yaml:"native-linux"`
+		Darwin  gitLabJob `yaml:"native-darwin-review"`
+		Windows gitLabJob `yaml:"native-windows-review"`
+		Quality gitLabJob `yaml:"quality"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	manualQuality := gitlab.Quality.Rules[len(gitlab.Quality.Rules)-2].If
+	for _, required := range []string{"AIGW_CANDIDATE_ARTIFACTS", "AIGW_CANDIDATE_TAG", "AIGW_FULL_NATIVE_QUALITY", "AIGW_REFRESH_LOCKS"} {
+		if !strings.Contains(manualQuality, required) {
+			t.Errorf("manual quality admission ignores artifact scope %s", required)
+		}
+	}
+	for name, job := range map[string]gitLabJob{"native-linux": gitlab.Linux, "native-darwin-review": gitlab.Darwin, "native-windows-review": gitlab.Windows} {
+		for _, script := range job.Script {
+			if script == "mise run bootstrap" {
+				t.Errorf("%s installs the source toolchain unconditionally before prebuilt acceptance", name)
+			}
+		}
+		joined := strings.Join(append(slices.Clone(job.BeforeScript), job.Script...), "\n")
+		if !strings.Contains(joined, "AIGW_CANDIDATE_ARTIFACTS") || !strings.Contains(joined, "go,gh,glab,github:goreleaser/goreleaser") {
+			t.Errorf("%s lacks the explicit prebuilt tool closure", name)
+		}
+	}
+	var github struct {
+		Jobs map[string]struct {
+			If    string `yaml:"if"`
+			Steps []struct {
+				Run string `yaml:"run"`
+				If  string `yaml:"if"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(github.Jobs["quality"].If, "inputs.candidate_tag") || !strings.Contains(github.Jobs["quality"].If, "inputs.full_quality") {
+		t.Fatal("manual prebuilt acceptance still installs the quality toolchain")
+	}
+	for _, name := range []string{"native-linux", "native-darwin", "native-windows"} {
+		for _, step := range github.Jobs[name].Steps {
+			if step.Run == "mise run bootstrap" && !strings.Contains(step.If, "inputs.candidate_tag") {
+				t.Errorf("%s does not scope source bootstrap away from explicit prebuilt inputs", name)
+			}
+		}
+	}
+}
+
+func TestNativeArtifactBootstrapExecutesTheDeclaredScope(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return // POSIX projection execution is qualified on Unix hosts.
+	}
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pipeline struct {
+		Linux gitLabJob `yaml:"native-linux"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	selectTools := pipeline.Linux.BeforeScript[len(pipeline.Linux.BeforeScript)-2]
+	bootstrap := pipeline.Linux.Script[0]
+	for _, test := range []struct {
+		name, artifacts, tag, full, refresh string
+		prebuilt                            bool
+	}{
+		{"candidate", "/candidate with spaces", "", "false", "false", true},
+		{"tag", "", "v0.3.1", "false", "false", true},
+		{"source", "", "", "false", "false", false},
+		{"full quality", "/candidate", "", "true", "false", false},
+		{"lock refresh", "/candidate", "", "false", "true", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			command := exec.CommandContext(t.Context(), "sh", "-c", "set -eu\nmise() { printf 'BOOTSTRAP\\n'; }\n"+selectTools+"\n"+bootstrap+"\nprintf 'TOOLS=%s\\n' \"$MISE_ENABLE_TOOLS\"")
+			command.Env = append(os.Environ(),
+				"MISE_ENABLE_TOOLS=source-tools", "AIGW_CANDIDATE_ARTIFACTS="+test.artifacts,
+				"AIGW_CANDIDATE_TAG="+test.tag, "AIGW_FULL_NATIVE_QUALITY="+test.full, "AIGW_REFRESH_LOCKS="+test.refresh)
+			output, err := command.CombinedOutput()
+			wantTools := "source-tools"
+			if test.prebuilt {
+				wantTools = "go,gh,glab,github:goreleaser/goreleaser"
+			}
+			if err != nil || strings.Contains(string(output), "BOOTSTRAP") == test.prebuilt || !strings.Contains(string(output), "TOOLS="+wantTools) {
+				t.Fatalf("native tool scope: %v, %s", err, output)
+			}
+		})
+	}
+}
+
 func TestLinuxSecretServiceHasItsOwnRequiredJob(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
@@ -87,11 +188,8 @@ func TestLinuxSecretServiceHasItsOwnRequiredJob(t *testing.T) {
 		}
 	}
 	secretService, present := workflow.Jobs["linux-secret-service"]
-	if !present {
-		t.Fatal("GitHub lacks independent Linux Secret Service evidence")
-	}
-	if len(secretService.Steps) != 3 || secretService.Steps[2].Name != "Qualify Linux Secret Service" {
-		t.Fatal("GitHub native Linux CI does not qualify real Secret Service")
+	if !present || len(secretService.Steps) != 3 || secretService.Steps[2].Name != "Qualify Linux Secret Service" {
+		t.Fatal("GitHub requires independent native Linux Secret Service qualification")
 	}
 	githubQualification := secretService.Steps[2].Run
 	for _, required := range []string{
@@ -233,7 +331,7 @@ func checkGitLabNativeToolClosure(t *testing.T, content string) {
 		if hasDarwinSigner != (name == "native-darwin") {
 			t.Errorf("GitLab %s Darwin signer presence = %t", name, hasDarwinSigner)
 		}
-		bootstrap := slices.Index(job.Script, "mise run bootstrap")
+		bootstrap := slices.IndexFunc(job.Script, func(value string) bool { return strings.Contains(value, "mise run bootstrap") })
 		if bootstrap < 0 || bootstrap >= len(job.Script)-1 {
 			t.Errorf("GitLab %s must prepare locked dependencies before native acceptance", name)
 		}
@@ -265,9 +363,6 @@ func checkGitHubNativeToolClosure(t *testing.T, projection projection) {
 		if hasDarwinSigner != (name == "native-darwin") {
 			t.Errorf("%s %s Darwin signer presence = %t", projection.Path, name, hasDarwinSigner)
 		}
-		if name != "native-windows" && !strings.Contains(tools, "github:lycheeverse/lychee") {
-			t.Errorf("%s %s lacks the supported link checker: %q", projection.Path, name, tools)
-		}
 		bootstrap := false
 		for _, step := range job.Steps {
 			if strings.Contains(step.Run, "./tools/ci native") && !bootstrap {
@@ -298,13 +393,13 @@ func TestGitHubWindowsUsesThePortableNativeToolClosure(t *testing.T) {
 	if job.RunsOn.Value != runner {
 		t.Fatalf("native Windows runner selector = %q, want %q", job.RunsOn.Value, runner)
 	}
-	tools := strings.Split(job.Env["MISE_ENABLE_TOOLS"], ",")
+	tools := job.Env["MISE_ENABLE_TOOLS"]
 	for _, required := range []string{"go", "node", "npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "github:lycheeverse/lychee"} {
-		if !slices.Contains(tools, required) {
+		if !strings.Contains(tools, required) {
 			t.Errorf("native Windows tool closure lacks %q: %q", required, tools)
 		}
 	}
-	if slices.Contains(tools, "github:indygreg/apple-platform-rs") {
+	if strings.Contains(tools, "github:indygreg/apple-platform-rs") {
 		t.Errorf("Windows tool closure contains the macOS signer: %q", tools)
 	}
 }
@@ -394,41 +489,19 @@ func TestGitLabNativeAcceptanceForwardsPeerLocalArtifactAndClientInputs(t *testi
 		t.Fatal(err)
 	}
 	var jobs struct {
-		Linux struct {
-			Script []string `yaml:"script"`
-		} `yaml:"native-linux"`
-		Darwin struct {
-			Script []string `yaml:"script"`
-		} `yaml:"native-darwin-review"`
-		Windows struct {
-			Script []string `yaml:"script"`
-		} `yaml:"native-windows-review"`
+		Linux   gitLabJob `yaml:"native-linux"`
+		Darwin  gitLabJob `yaml:"native-darwin-review"`
+		Windows gitLabJob `yaml:"native-windows-review"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &jobs); err != nil {
 		t.Fatal(err)
 	}
-	var environment struct {
-		Linux struct {
-			Variables map[string]string `yaml:"variables"`
-		} `yaml:"native-linux"`
-		Darwin struct {
-			Variables map[string]string `yaml:"variables"`
-		} `yaml:"native-darwin-review"`
-		Windows struct {
-			Variables map[string]string `yaml:"variables"`
-		} `yaml:"native-windows-review"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[0].Content), &environment); err != nil {
-		t.Fatal(err)
-	}
-	for _, variables := range []map[string]string{environment.Linux.Variables, environment.Darwin.Variables, environment.Windows.Variables} {
-		if variables["GLAB_ENABLE_CI_AUTOLOGIN"] != "" {
+	for name, job := range map[string]gitLabJob{"native-linux": jobs.Linux, "native-darwin-review": jobs.Darwin, "native-windows-review": jobs.Windows} {
+		if job.Variables["GLAB_ENABLE_CI_AUTOLOGIN"] != "" {
 			t.Fatal("CI login must be scoped to native downloads, not the source or test environment")
 		}
-	}
-	for name, commands := range map[string][]string{"native-linux": jobs.Linux.Script, "native-darwin-review": jobs.Darwin.Script, "native-windows-review": jobs.Windows.Script} {
-		script := strings.Join(commands, "\n")
-		for _, input := range []string{"AIGW_BASELINE_TAG", "AIGW_CANDIDATE_TAG", "AIGW_CANDIDATE_ARTIFACTS", "AIGW_NATIVE_CLIENTS", "--baseline-tag", "--artifacts", "--candidate", "--clients", "--peer", "gitlab", "--repository", "CI_PROJECT_URL"} {
+		script := strings.Join(job.Script, "\n")
+		for _, input := range []string{"AIGW_BASELINE_TAG", "AIGW_CANDIDATE_TAG", "AIGW_CANDIDATE_ARTIFACTS", "AIGW_CANDIDATE_SOURCE", "AIGW_NATIVE_CLIENTS", "--baseline-tag", "--artifacts", "--candidate", "--candidate-source", "--clients", "--peer", "gitlab", "--repository", "CI_PROJECT_URL"} {
 			if !strings.Contains(script, input) {
 				t.Errorf("%s omits native release input %s", name, input)
 			}

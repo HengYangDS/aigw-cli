@@ -378,6 +378,17 @@
       The earlier proposed-patch Muse receipt used program `aaa311c6` and is
       not reused for this binary; exact current-binary Muse acceptance remains
       unproved, so task 4.5 stays open.
+      October 3 independent official Hermes `f97608f` passes the exact a210
+      package's authentic 0.3.1 succession, rollback and re-upgrade in 129.720
+      seconds, including real `read_file` and same named session/history.
+      Receipt `official-hermes-macos-a210-20261003/delivery.json` in the existing
+      independent recovery owner has SHA-256
+      `3e997806378daddc02325a633552be5e7f3199253a81ab2c75a3c4137ef3b861`.
+      All 15 protected identities remain unchanged; exact 658,269,780-byte
+      scratch and owned processes are absent. This is fixture protocol evidence,
+      not live Provider inference, native Keychain, Desktop GUI or final release.
+      Successful child stderr was not asserted; three official-lock advisories
+      remain unresolved. Whole-client and security acceptance stay open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
@@ -802,6 +813,19 @@
       on that exact SHA. This closes the current proposal-update event; accepted
       dev/main and tag events remain separate. Raw peer results are retained in
       `build/verification/b28ae590bb0098838c24172fcfa3639ceb13efdd/`.
+      October 3 CI scope repair reuses the release input parser for explicit
+      prebuilt acceptance, excluding unrelated source bootstrap only from that
+      scope. Every GitHub dispatch has distinct `Manual` check names; canonical
+      review/push names and exact tag-push release admission remain unchanged.
+      GitLab retains its full MR graph and MR-pipeline admission. The name
+      regression fails before and passes after repair; all six affected packages,
+      native Go lint, actionlint, projection, formatting, Markdown, spelling,
+      architecture and strict OpenSpec checks pass. Raw original failures and
+      corrected results are under `a2108fb2/native-artifact-scope/` verification.
+      Exact product commit verification rejects annotated-tag aliases, mutable,
+      short, uppercase, malformed and unsigned identities. Product build inputs
+      and installed 0.3.1 are unchanged; actual hosted status and native Runner
+      acceptance remain unproved, so event/merge tasks remain open.
 - [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review

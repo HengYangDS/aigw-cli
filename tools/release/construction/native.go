@@ -7,7 +7,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -23,8 +25,39 @@ import (
 type NativeAcceptance struct {
 	Artifacts, Tag, BaselineArtifacts, BaselineTag string
 	Peer, Repository                               string
+	CandidateSource                                string
 	Candidate, Clients                             bool
 	Performance                                    string
+}
+
+// ParseNativeAcceptance keeps native input and scope selection at the release owner.
+func ParseNativeAcceptance(arguments []string) (NativeAcceptance, error) {
+	input := NativeAcceptance{}
+	flags := flag.NewFlagSet("accept-native", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	flags.StringVar(&input.Artifacts, "artifacts", "", "Consume an existing signed release matrix")
+	flags.StringVar(&input.Tag, "tag", "", "Select the published candidate tag")
+	flags.StringVar(&input.BaselineArtifacts, "baseline-artifacts", "", "Consume a local published predecessor matrix")
+	flags.StringVar(&input.BaselineTag, "baseline-tag", "", "Select the published predecessor tag")
+	flags.StringVar(&input.Peer, "peer", "", "Download missing tagged inputs from github or gitlab")
+	flags.StringVar(&input.Repository, "repository", "", "Explicit repository for the selected peer")
+	flags.BoolVar(&input.Candidate, "candidate", false, "Bind untagged artifacts to signed source")
+	flags.StringVar(&input.CandidateSource, "candidate-source", "", "Exact signed candidate commit; defaults to verifier HEAD")
+	flags.BoolVar(&input.Clients, "clients", false, "Verify explicitly supplied native clients")
+	flags.StringVar(&input.Performance, "performance", "", "Retain Hyperfine samples in this absolute directory")
+	if err := flags.Parse(arguments); err != nil {
+		return input, err
+	}
+	if flags.NArg() != 0 {
+		return input, errors.New("native acceptance accepts flags only")
+	}
+	err := input.validate()
+	return input, err
+}
+
+// UsesPrebuiltArtifacts distinguishes product acceptance from source qualification.
+func (input *NativeAcceptance) UsesPrebuiltArtifacts() bool {
+	return input.Artifacts != "" || input.Tag != ""
 }
 
 // AcceptNative proves one host lifecycle with admitted artifact inputs.
@@ -71,6 +104,9 @@ func acceptNativeInput(ctx context.Context, input NativeAcceptance, request buil
 }
 
 func (input *NativeAcceptance) validate() error {
+	if input.CandidateSource != "" && !input.Candidate {
+		return errors.New("candidate source requires --candidate")
+	}
 	if input.Candidate && input.Artifacts == "" {
 		return errors.New("candidate acceptance requires --artifacts")
 	}
@@ -135,7 +171,7 @@ func (input *NativeAcceptance) prepareCandidate(ctx context.Context, request bui
 	if err := releaseartifact.VerifyMatrix(ctx, input.Artifacts, request.Version, trust); err != nil {
 		return err
 	}
-	source := releaseartifact.SourceTrust{Repository: request.Root, AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
+	source := releaseartifact.SourceTrust{Repository: request.Root, AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE"), Commit: input.CandidateSource}
 	if input.Candidate {
 		return releaseartifact.VerifyCandidateProvenance(ctx, input.Artifacts, source)
 	}

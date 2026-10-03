@@ -242,6 +242,22 @@ real-client operation are distinct evidence. Freeze exact source and lock
 inputs before the expensive final matrix; do not rerun identical heavy gates
 because an observation timed out or a progress-only record changed.
 
+Prebuilt native journeys and source qualification have different prerequisites.
+The existing release parser owns artifact selection for `ci native` too.
+Explicit candidate/tag inputs without full quality or lock refresh select only
+the native artifact tool closure and release journey, while ordinary review,
+source, and full qualification retain complete bootstrap, tests and scans. No
+artifact success replaces failed quality. A newer same-version verifier may
+select an exact signed untagged product commit through `--candidate-source`;
+default HEAD, matrix signatures, source/provenance checks and clean-source
+admission remain unchanged. Mutable refs and unsigned sources fail before
+execution. The CUE projection forwards that input without rewriting artifacts.
+The existing graph owns canonical check names. Every GitHub dispatch projects
+distinct `Manual` identities, so skipped or partial diagnostics cannot replace
+required review/push checks. The tag evidence consumer still requires an exact
+tag push and the graph's canonical names. GitLab retains complete MR jobs and
+MR-pipeline admission; a manual native result is not MR acceptance.
+
 Pre-archive CI evidence qualifies the event-to-check mapping and the exact
 candidate review path; it does not claim that a release event has already run.
 The guarded maintainer merge to `dev` must preserve the signed object and remove

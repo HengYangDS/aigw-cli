@@ -193,6 +193,8 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '" + platform + "')"
 		} else if name == "linux-secret-service" {
 			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')"
+		} else if name == "quality" {
+			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')"
 		}
 		if job.If != want {
 			t.Fatalf("GitHub %s does not positively admit the full verification lifecycle: %q", name, job.If)

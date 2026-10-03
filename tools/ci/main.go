@@ -17,6 +17,7 @@ import (
 	"aigw-cli/tools/ci/evidence"
 	"aigw-cli/tools/ci/markdown"
 	"aigw-cli/tools/ci/projection"
+	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
 )
 
@@ -168,6 +169,13 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 	}
 	commands := nativeCommands(*platform)
 	commands[len(commands)-1].Args = append(commands[len(commands)-1].Args, releaseArgs...)
+	input, err := construction.ParseNativeAcceptance(releaseArgs)
+	if err != nil {
+		return err
+	}
+	if input.UsesPrebuiltArtifacts() && !*fullQuality && os.Getenv("AIGW_REFRESH_LOCKS") != "true" {
+		commands = commands[len(commands)-1:]
+	}
 	if *fullQuality {
 		if err := validateRepositoryQualityGraph("."); err != nil {
 			return err

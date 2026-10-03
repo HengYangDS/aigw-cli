@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -65,6 +66,7 @@ type runDetails struct {
 type SourceTrust struct {
 	Repository     string
 	AllowedSigners string
+	Commit         string
 }
 
 // WriteProvenance records the source, locked inputs, toolchain and unsigned artifact subjects.
@@ -86,7 +88,7 @@ func VerifyProvenance(ctx context.Context, directory, tag string, trust SourceTr
 	return verifyProvenance(ctx, directory, tag, trust)
 }
 
-// VerifyCandidateProvenance binds an untagged candidate to the signed current commit.
+// VerifyCandidateProvenance binds an untagged candidate to its explicit signed commit or current HEAD.
 func VerifyCandidateProvenance(ctx context.Context, directory string, trust SourceTrust) error {
 	return verifyProvenance(ctx, directory, "", trust)
 }
@@ -106,30 +108,8 @@ func verifyProvenance(ctx context.Context, directory, tag string, trust SourceTr
 		}
 		return output, nil
 	}
-	version := strings.TrimPrefix(tag, "v")
-	commitRef := "HEAD^{commit}"
-	if tag != "" {
-		parsedVersion, err := semver.StrictNewVersion(version)
-		if err != nil || !strings.HasPrefix(tag, "v") {
-			return errors.New("release provenance requires v<semver> tag")
-		}
-		version = parsedVersion.String()
-		tagObject, err := git("rev-parse", "--verify", "refs/tags/"+tag)
-		if err != nil {
-			return err
-		}
-		object := strings.TrimSpace(string(tagObject))
-		if _, err := git("verify-tag", object); err != nil {
-			return err
-		}
-		commitRef = object + "^{commit}"
-	}
-	commitBytes, err := git("rev-parse", "--verify", commitRef)
+	commit, err := verifySourceCommit(git, tag, trust.Commit)
 	if err != nil {
-		return err
-	}
-	commit := strings.TrimSpace(string(commitBytes))
-	if _, err := git("verify-commit", commit); err != nil {
 		return err
 	}
 	treeBytes, err := git("rev-parse", "--verify", commit+"^{tree}")
@@ -141,6 +121,7 @@ func verifyProvenance(ctx context.Context, directory, tag string, trust SourceTr
 	if err != nil {
 		return err
 	}
+	version := strings.TrimPrefix(tag, "v")
 	declaredVersion := strings.TrimSpace(string(declared))
 	if tag == "" {
 		version, err = admitCandidateVersion(git, declaredVersion)
@@ -162,6 +143,43 @@ func verifyProvenance(ctx context.Context, directory, tag string, trust SourceTr
 		return errors.New("release provenance does not match selected source, locked inputs, toolchain and artifact subjects")
 	}
 	return nil
+}
+
+func verifySourceCommit(git func(...string) ([]byte, error), tag, selected string) (string, error) {
+	commitRef := "HEAD^{commit}"
+	if tag == "" && selected != "" {
+		_, err := hex.DecodeString(selected)
+		if err != nil || (len(selected) != 40 && len(selected) != 64) || selected != strings.ToLower(selected) {
+			return "", errors.New("candidate source requires an exact lowercase Git commit ID")
+		}
+		commitRef = selected + "^{commit}"
+	}
+	if tag != "" {
+		if _, err := semver.StrictNewVersion(strings.TrimPrefix(tag, "v")); err != nil || !strings.HasPrefix(tag, "v") {
+			return "", errors.New("release provenance requires v<semver> tag")
+		}
+		tagObject, err := git("rev-parse", "--verify", "refs/tags/"+tag)
+		if err != nil {
+			return "", err
+		}
+		object := strings.TrimSpace(string(tagObject))
+		if _, err := git("verify-tag", object); err != nil {
+			return "", err
+		}
+		commitRef = object + "^{commit}"
+	}
+	commitBytes, err := git("rev-parse", "--verify", commitRef)
+	if err != nil {
+		return "", err
+	}
+	commit := strings.TrimSpace(string(commitBytes))
+	if tag == "" && selected != "" && commit != selected {
+		return "", errors.New("candidate source does not identify the exact commit object")
+	}
+	if _, err := git("verify-commit", commit); err != nil {
+		return "", err
+	}
+	return commit, nil
 }
 
 func admitCandidateVersion(git func(...string) ([]byte, error), declared string) (string, error) {

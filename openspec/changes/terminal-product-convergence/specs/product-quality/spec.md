@@ -39,6 +39,42 @@ vulnerability observations.
 
 ## ADDED Requirements
 
+### Requirement: Native artifact acceptance has its own execution closure
+
+An explicitly selected prebuilt candidate or tagged product SHALL execute the
+existing release journey with only its required native tools when full source
+quality and lock refresh are not selected. Ordinary source, review and full
+qualification SHALL retain complete locked bootstrap, quality and security
+checks. Artifact acceptance SHALL NOT substitute for failed source qualification.
+A same-version verifier MAY select an exact signed untagged product commit;
+matrix signatures, clean-source and provenance admission SHALL remain required.
+
+#### Scenario: A newer verifier consumes a prebuilt candidate
+
+- **WHEN** native acceptance selects existing candidate bytes and their exact
+  signed commit without full quality or lock refresh
+- **THEN** the original Runner identity SHALL execute the artifact journey
+  without npm bootstrap or repeated source-wide tests
+- **AND** mutable refs, unsigned objects and mismatched provenance SHALL fail
+  before product execution.
+
+#### Scenario: Source qualification remains required
+
+- **WHEN** full quality, lock refresh or a source-only native journey is selected
+- **THEN** the complete declared source tool and gate graph SHALL remain required
+- **AND** a successful prebuilt journey SHALL NOT close an outstanding quality
+  or release-security failure.
+
+#### Scenario: Manual diagnostics cannot impersonate required checks
+
+- **WHEN** GitHub dispatches a manual workflow, including tag or single-platform
+  diagnostics
+- **THEN** its checks SHALL have identities distinct from canonical required
+  review and push checks, even when skipped jobs report success
+- **AND** release admission SHALL retain the exact tag push and canonical job set
+- **AND** GitLab SHALL retain its complete merge-request jobs and native
+  merge-request pipeline admission, independently of manual native results.
+
 ### Requirement: Markdown spacing preserves semantic blocks
 
 Current Markdown SHALL separate adjacent headings, prose, lists, tables and
