@@ -708,8 +708,8 @@
       remain in `4dd8504a/proposal-publication/`. No current full CI success,
       accepted-ref admission, final artifact or installed cutover is claimed.
       Historical GitLab pipeline 9372 and GitHub run 37113586152 bind `82f66fe9`;
-      the original macOS job 111175998365 fails its cold-cache regression
-      cold deployment-target regression after 122.48s with the bounded release
+      the original macOS job 111175998365 fails its cold-cache deployment-target
+      regression after 122.48s with the bounded release
       context exhausted in GoReleaser. Hardware/contention causality remains
       unproved; the focused same-architecture cache invariant removes unrelated
       opposite-architecture compilation without changing the release matrix.
