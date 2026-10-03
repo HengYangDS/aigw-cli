@@ -427,6 +427,10 @@ findings. Root resolution, format drift and type failure remain separate native
 invocations. Batch execution uses a caller-owned deadline and native process
 cleanup; it does not extend the package timeout or substitute mocked findings.
 
+The cold macOS compiler-cache regression shares one bounded release context for
+cache warmup and construction. It must not borrow the shorter metadata-probe
+budget, skip its cold cache or discard deployment diagnostics.
+
 Public client verification requires both bounded process streams. Explicit native
 stderr warnings, errors and tracebacks prevent successful qualification and
 checkpoint publication, even after an exit-zero response. Ordinary stderr progress remains admissible;

@@ -794,6 +794,12 @@
       only native IssuesFound exit 1 qualifies expected rule findings, and
       report errors/warnings fail. Injected exit 7 and a report warning are
       refused; the ordinary native batch remains green.
+      GitHub run 37098868760 independently exposes a cold compiler warmup
+      killed by the metadata helper's 30-second timeout. Warmup and native
+      release now share a bounded two-minute context through the existing
+      process owner. The distinguishing cache/deployment regression passes
+      locally in 10.42s without skipping its cold cache or deployment warnings;
+      exact hosted requalification remains required.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.

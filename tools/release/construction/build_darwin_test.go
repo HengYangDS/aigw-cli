@@ -26,18 +26,26 @@ func TestNativeReleaseUsesCacheSignificantDeploymentTarget(t *testing.T) {
 	request.TargetOS = "darwin"
 	t.Setenv("GOCACHE", t.TempDir())
 	t.Setenv("MACOSX_DEPLOYMENT_TARGET", "14.0")
-	privateReleaseCommand(t, request.Root, "go", "build", "-trimpath", "-buildvcs=false", "-o", filepath.Join(t.TempDir(), "newer-host"), "./cmd/aigw")
 
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer cancel()
 	var diagnostic bytes.Buffer
 	run := func(call toolCall) error {
 		stdout := call.Stdout
 		if stdout == nil {
 			stdout = &bytes.Buffer{}
 		}
-		return (process.Runner{}).RunStream(t.Context(), process.Plan{
+		return (process.Runner{}).RunStream(ctx, process.Plan{
 			Executable: call.Name, Directory: call.Directory,
 			Args: call.Args, Env: append(os.Environ(), call.Env...),
 		}, stdout, &diagnostic)
+	}
+	// The isolated cold compiler cache is part of the release regression, not
+	// a short metadata probe. One caller deadline owns warmup and construction.
+	if err := run(toolCall{Name: "go", Directory: request.Root, Args: []string{
+		"build", "-trimpath", "-buildvcs=false", "-o", filepath.Join(t.TempDir(), "newer-host"), "./cmd/aigw",
+	}}); err != nil {
+		t.Fatalf("warm native release compiler cache: %v\n%s", err, diagnostic.Bytes())
 	}
 	stage, err := buildArchives(request, t.TempDir(), run)
 	if err != nil || bytes.Contains(diagnostic.Bytes(), []byte("warning:")) {
