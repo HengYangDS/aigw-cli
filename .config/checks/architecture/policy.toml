@@ -336,6 +336,7 @@ allowed_import_edges."internal/providers/diagnostic" = []
 allowed_import_edges."internal/presentation" = ["internal/configuration", "internal/secrets"]
 allowed_import_edges."internal/process" = []
 allowed_import_edges."tools/ci" = [
+  "internal/process",
   "tools/ci/evidence",
   "tools/ci/markdown",
   "tools/ci/projection",

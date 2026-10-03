@@ -427,6 +427,12 @@ findings. Root resolution, format drift and type failure remain separate native
 invocations. Batch execution uses a caller-owned deadline and native process
 cleanup; it does not extend the package timeout or substitute mocked findings.
 
+The common CI command runner reuses the native diagnostic classifier. An
+exit-zero tool with explicit stderr warnings/errors or truncated diagnostic
+evidence fails qualification; ordinary progress remains visible and admissible.
+The result-only output API preserves its separate capture contract. No blanket
+stderr ban, independent warning parser or report authority is introduced.
+
 The cold macOS compiler-cache regression shares one bounded release context for
 cache warmup and construction. It must not borrow the shorter metadata-probe
 budget, skip its cold cache or discard deployment diagnostics.

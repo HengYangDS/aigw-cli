@@ -82,6 +82,51 @@ func TestSystemRunnerPreservesSuccessfulToolDiagnostics(t *testing.T) {
 	}
 }
 
+func TestSystemRunnerRejectsSuccessfulNativeWarnings(t *testing.T) {
+	for _, test := range []struct {
+		name, diagnostic string
+		invalid          bool
+	}{
+		{"ordinary progress", "tool progress", false},
+		{"zero finding counts", "warning_count=0 error_count=0", false},
+		{"warning", "WARN native gate: incomplete analysis", true},
+		{"colored warning", "\x1b[33mwarning\x1b[0m: partial analysis", true},
+		{"error", "ERROR native gate: incomplete analysis", true},
+		{"deprecation", "DeprecationWarning: obsolete configuration", true},
+		{"truncated evidence", strings.Repeat("x", commandDiagnosticLimit+1), true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			diagnostics, err := os.Create(filepath.Join(root, "diagnostics.txt"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			environment := "AIGW_CI_TEST_DIAGNOSTIC=" + test.diagnostic
+			if len(test.diagnostic) > commandDiagnosticLimit {
+				environment = fmt.Sprintf("AIGW_CI_TEST_DIAGNOSTIC_SIZE=%d", len(test.diagnostic))
+			}
+			previous := os.Stderr
+			os.Stderr = diagnostics
+			err = systemRunner(command{
+				Name: os.Args[0],
+				Args: []string{"-test.run=^TestSystemRunnerDiagnosticHelper$"},
+				Env:  []string{environment},
+				Dir:  root,
+			})
+			os.Stderr = previous
+			if closeErr := diagnostics.Close(); closeErr != nil {
+				t.Fatal(closeErr)
+			}
+			if (err != nil) != test.invalid {
+				t.Fatalf("native stderr admission: invalid=%t error=%v", test.invalid, err)
+			}
+			if got := readFile(t, diagnostics.Name()); string(got) != test.diagnostic {
+				t.Fatal("native stderr evidence was lost")
+			}
+		})
+	}
+}
+
 func TestSystemRunnerBoundsFailedCommandDiagnostics(t *testing.T) {
 	root := t.TempDir()
 	previous, err := os.Getwd()

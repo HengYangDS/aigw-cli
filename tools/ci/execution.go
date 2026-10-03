@@ -1,6 +1,7 @@
 package main
 
 import (
+	nativeprocess "aigw-cli/internal/process"
 	"bytes"
 	"errors"
 	"fmt"
@@ -92,6 +93,9 @@ func systemRunner(call command) error {
 			return fmt.Errorf("%w: %s", err, text)
 		}
 		return err
+	}
+	if failureOutput.truncated || nativeprocess.DiagnosticFailure(failureOutput.output.Bytes()) {
+		return fmt.Errorf("native gate diagnostics prevent qualification: %s", failureOutput.text())
 	}
 	return nil
 }

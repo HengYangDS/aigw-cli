@@ -503,6 +503,18 @@
 - [ ] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
+      The common CI executor's exit-zero warning blind spot is reproduced by
+      seven native subprocess cases. Explicit WARN, colored warning, ERROR,
+      deprecation and truncated evidence are rejected after the four-line owner
+      repair; ordinary progress and zero counts pass. Original RED and focused
+      GREEN retain stdout/stderr and exact scratch cleanup. The shared native
+      classifier is reused, not another parser or report. Complete affected
+      race packages pass (27.718s/33.447s), native lint and public `check-go` report
+      zero issues. Complete source race/coverage passes in 179.657s at 95.13%
+      (13,727/14,430 statements), every canonical package observed and stderr
+      empty. The graph declares only the required neutral `internal/process`
+      edge; its prior single-edge architecture refusal remains RED evidence.
+      Final full-tool/source/peer and security qualification remain separate.
       Native capture preserves both bounded streams and rejects explicit
       diagnostic warnings; setup, partial-read and cleanup counterexamples remain.
       Conformance retains all 39 rule cases and companion diagnostics with 8 native
@@ -735,9 +747,15 @@
       projection tests, `ci project --check`, and `actionlint` pass. A current-HEAD
       cold peer matrix and GitLab Job Token access remain unproved. The exact
       current lock is `eae00e97570cd88e30bb053cf7a01e52ca21eb7b731d0b5a7c13807d72986459`;
-      old lock coverage is historical until its added entries are independently
-      bound. Local offline/sole-peer acceptance above does not qualify hosted
-      cold acquisition. Protected-runner admission belongs to 7.4.
+      independent `current-lock-eae00e97-immutable-input-binding-20261003.json`
+      (`e909db23`) binds all current 94 GitHub platform records/90 asset URLs and
+      18 unchanged non-GitHub records. The only new entry is Windows ARM64's
+      Lychee selection of the original Windows x64 checksum/URL/API tuple;
+      zero new unique assets are required. Original 96 registry and non-GitHub
+      evidence inputs are conserved. This closes current immutable-input binding,
+      not present registry reachability, native Job Token access or cold execution.
+      Local offline/sole-peer acceptance above does not qualify hosted cold
+      acquisition. Protected-runner admission belongs to 7.4.
 
 ## 8. Repository Topology, Documentation, and Deletion
 
@@ -815,9 +833,15 @@
       Absorbed GitLab `proposal/20260926-terminal-product-convergence` still fails
       native retirement admission; preserve it pending the owning ETHOS transition,
       not prefix deletion or a hook bypass. Unknown native `node-compile-cache`
-      remains preserved. Fleet owns exact Windows public-input cleanup after all
-      jobs drain; a new job invalidates an earlier idle snapshot. Final proposal,
-      tag, output, peer-lock-consumer and installed-release retirement remain open.
+      remains preserved. Fleet completes the authorized Windows a30 public-input
+      retirement after actual queue drain: 12 assets plus original public transport,
+      59,580,603 bytes removed, exact root absence and all eight Runner controls
+      restored without restart or credential-store mutation. Receipt
+      `AIGW-a30-exact-public-root-retirement-after-current-tag-drain-20261003T0925Z.json`
+      (`8793e714`) remains in the existing runner-capacity owner. A later job
+      invalidates that completed operation's idle snapshot, not its exact absence.
+      Final proposal, tag, output, peer-lock-consumer and installed-release
+      retirement remain open.
 - [x] 8.6 Migrate the Client Projection Edition Provider to the published
       Publisher v2 contract. Preserve the authored Claim Model, four reader
       questions, independent media and AIGW acceptance authority; prove exact

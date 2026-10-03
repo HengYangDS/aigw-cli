@@ -32,6 +32,14 @@ SHALL NOT erase captured diagnostic output or establish warning-free acceptance.
 - **AND** native journey evidence SHALL expose redacted diagnostic output
 - **AND** a stdout-only API MAY retain its explicit result-only success contract.
 
+#### Scenario: Successful quality tool emits a native diagnostic
+
+- **WHEN** a supported CI tool exits zero with explicit native stderr warning or error markers
+- **THEN** the common command runner SHALL reject qualification using the existing diagnostic classifier
+- **AND** truncated diagnostic evidence SHALL prevent a warning-free success claim
+- **AND** ordinary progress and zero-finding count fields SHALL remain admissible
+- **AND** complete diagnostics SHALL remain observable without an additional parser or warning authority.
+
 #### Scenario: Successful native inference emits a capability warning
 
 - **WHEN** Codex, Claude or Hermes exits zero but reports an explicit native stderr warning, error or traceback
