@@ -328,41 +328,51 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 }
 
 func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
-	for _, width := range []int{32, 80, 120} {
-		for _, color := range []bool{false, true} {
-			var out bytes.Buffer
-			app := &App{Out: &out, Err: &out, Color: color, Env: []string{"COLUMNS=" + strconv.Itoa(width)}}
-			command := NewRoot(app)
-			command.Use = "gateway"
-			renderCommandHelp(app, command)
-			_, help, found := strings.Cut(ansi.Strip(out.String()), "Start with one path\n")
-			if !found {
-				t.Fatal("root help omitted the starting journey")
+	nativeName := NewRoot(&App{}).Name()
+	for _, test := range []struct {
+		name  string
+		width int
+		color bool
+	}{
+		{nativeName, 32, false}, {nativeName, 32, true},
+		{nativeName, 80, false}, {nativeName, 80, true},
+		{nativeName, 120, false}, {nativeName, 120, true},
+		{"gateway", 32, false}, {"gateway", 32, true},
+		{"gateway", 80, false}, {"gateway", 80, true},
+		{"gateway", 120, false}, {"gateway", 120, true},
+	} {
+		var out bytes.Buffer
+		app := &App{Out: &out, Err: &out, Color: test.color, Env: []string{"COLUMNS=" + strconv.Itoa(test.width)}}
+		command := NewRoot(app)
+		command.Use = test.name
+		renderCommandHelp(app, command)
+		_, help, found := strings.Cut(ansi.Strip(out.String()), "Start with one path\n")
+		if !found {
+			t.Fatal("root help omitted the starting journey")
+		}
+		help, _, _ = strings.Cut(help, "\nUsage")
+		semanticHelp := strings.Join(strings.Fields(help), " ")
+		column := -1
+		for _, row := range [][2]string{
+			{command.Name() + " setup", "Connect the first account"},
+			{command.Name() + " use --for <client> <route>", "Select one Route for one client"},
+			{command.Name() + " check", "Check enabled clients (may use quota)"},
+		} {
+			if !strings.Contains(semanticHelp, row[0]) || !strings.Contains(semanticHelp, row[1]) {
+				t.Fatalf("width=%d color=%t lost command or description %q:\n%s", test.width, test.color, row, help)
 			}
-			help, _, _ = strings.Cut(help, "\nUsage")
-			semanticHelp := strings.Join(strings.Fields(help), " ")
-			column := -1
-			for _, row := range [][2]string{
-				{"gateway setup", "Connect the first account"},
-				{"gateway use --for <client> <route>", "Select one Route for one client"},
-				{"gateway check", "Check enabled clients (may use quota)"},
-			} {
-				if !strings.Contains(semanticHelp, row[0]) || !strings.Contains(semanticHelp, row[1]) {
-					t.Fatalf("width=%d color=%t lost command or description %q:\n%s", width, color, row, help)
-				}
-				for line := range strings.SplitSeq(help, "\n") {
-					if prefix, _, present := strings.Cut(line, row[1]); present && width >= 80 {
-						position := presentation.DisplayWidth(prefix)
-						if column >= 0 && position != column {
-							t.Fatalf("descriptions use different display columns %d/%d:\n%s", column, position, help)
-						}
-						column = position
+			for line := range strings.SplitSeq(help, "\n") {
+				if prefix, _, present := strings.Cut(line, row[1]); present && test.width >= 80 {
+					position := presentation.DisplayWidth(prefix)
+					if column >= 0 && position != column {
+						t.Fatalf("descriptions use different display columns %d/%d:\n%s", column, position, help)
 					}
+					column = position
 				}
 			}
-			if strings.Contains(help, "#") {
-				t.Fatalf("help embeds explanations as executable shell comments: %q", help)
-			}
+		}
+		if strings.Contains(help, "#") {
+			t.Fatalf("help embeds explanations as executable shell comments: %q", help)
 		}
 	}
 }

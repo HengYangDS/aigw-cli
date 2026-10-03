@@ -808,7 +808,7 @@
       `runtime-refreshed-target-current-20261001.json` and
       `cold-tool-source-bound-current-proof-ceb5948d.*` under the existing
       `build/verification/supply-chain-20260930/` owner.
-- [ ] 8.3 Review diagrams, tables, headings, lists, examples, CLI help and
+- [x] 8.3 Review diagrams, tables, headings, lists, examples, CLI help and
       errors for readable layout and accurate links; enforce the chosen native
       formatter/linter rather than adding one-off checks.
       The exact `ebf9adff` archive passes twenty-eight read-only help/catalogue
@@ -828,11 +828,14 @@
       cases pass after repair; all 57 text-gate tests and 48 current Markdown
       files pass. Native format, policy schema, spelling, ELOC and OpenSpec
       checks pass; immutable archive bytes remain unchanged.
-      Actual current `25006e50` root help still misaligns the long
-      `aigw use --for <client> <route>` row under `Start with one path`.
-      Prior layout checks do not close this real product-name counterexample;
-      the existing presentation owner and CLI regression must repair it before
-      this task is closed again.
+      The suspected current `25006e50` root-help misalignment is disproved by
+      exact raw-output measurement: all three `Start with one path` descriptions
+      start at display column 34 at width 80, in both source and packaged output.
+      The existing CLI regression now covers the actual native command name as
+      well as a renamed command, with plain/color output and narrow/wide layouts.
+      Both identities pass without changing the renderer. Raw measurements remain
+      in the source-bound `root-help-layout/` owner; the prior reopening records
+      a suspected defect, not a reproduced product failure.
 - [x] 8.3.1 Correct neutral Changelog headings, explicit peer history, and native repository locators without changing existing historical notes; verify strict release metadata and each actual peer destination. Keep the prepared release links distinct from unpublished tags.
       The source has 60 local headings and 120 explicit peer links. All 59
       versioned bodies and the existing Unreleased body are conserved; the
