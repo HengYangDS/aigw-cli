@@ -826,6 +826,13 @@
       short, uppercase, malformed and unsigned identities. Product build inputs
       and installed 0.3.1 are unchanged; actual hosted status and native Runner
       acceptance remain unproved, so event/merge tasks remain open.
+      The c36 native Linux coverage job then exposes a test-fixture defect:
+      annotated-tag creation relies on host committer identity. A clean global
+      configuration with native `user.useConfigOnly` reproduces the exact
+      failure. The private signed-release repository now owns its local name
+      and email; no host identity, signer or product input changes. Original
+      failed probes and the distinguishing regression remain in the same
+      verification owner. Hosted successor acceptance remains separate.
 - [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review

@@ -457,6 +457,8 @@ func prepareSignedRelease(t *testing.T, version string) string {
 		return strings.TrimSpace(string(output))
 	}
 	git("init", "-q", "-b", "main")
+	git("config", "--local", "user.name", "Release Test")
+	git("config", "--local", "user.email", "release@test.invalid")
 	git("add", ".")
 	git("commit", "-q", "-S", "-m", "test: release source")
 	git("tag", "-s", "-m", "Release "+version, "v"+version)

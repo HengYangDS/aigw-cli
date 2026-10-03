@@ -80,7 +80,12 @@ func TestCandidateArtifactVerificationRejectsExistingReleaseTag(t *testing.T) {
 }
 
 func TestCandidateAcceptanceSeparatesExplicitProductAndVerifierCommits(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(t.TempDir(), "absent-global-config"))
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	artifacts := prepareSignedRelease(t, "0.1.0")
+	if output, err := exec.Command("git", "config", "--local", "user.useConfigOnly", "true").CombinedOutput(); err != nil {
+		t.Fatalf("require explicit fixture identity: %v: %s", err, output)
+	}
 	t.Setenv("CI_COMMIT_TAG", "")
 	if output, err := exec.Command("git", "tag", "-d", "v0.1.0").CombinedOutput(); err != nil {
 		t.Fatalf("remove fixture release tag: %v: %s", err, output)
