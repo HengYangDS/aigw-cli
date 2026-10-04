@@ -254,11 +254,12 @@ func supportedNativePlatform(platform string) bool {
 }
 
 func nativeCommands(platform string) []command {
-	tests := command{Name: "go", Args: []string{"test", "./..."}}
+	profile := filepath.Join("build", "verification", "coverage", "profile.out")
+	tests := command{Name: "go", Args: []string{"run", "./tools/coverage"}}
 	if platform != "windows" {
-		profile := filepath.Join("build", "verification", "coverage", "profile.out")
-		tests.Args = []string{"run", "./tools/coverage", "--race", "--profile-output", profile}
+		tests.Args = append(tests.Args, "--race")
 	}
+	tests.Args = append(tests.Args, "--profile-output", profile)
 	return []command{
 		{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}},
 		tests,

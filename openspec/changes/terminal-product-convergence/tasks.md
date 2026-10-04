@@ -238,7 +238,7 @@ in Git; original raw results stay with their source-bound verification owner.
       transitive compatibility violations nor vendor patches are admitted.
       Current upstream evidence remains in `13e6525c/current-upstream-review-20261004/`;
       latestness does not close security 6.5.
-- [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
+- [ ] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
       Signed `4dd8504a` passes both peers' native Go gates with zero issues and all
@@ -247,6 +247,11 @@ in Git; original raw results stay with their source-bound verification owner.
       `4dd8504a/proposal-publication/`; raw hosted profiles were not exported.
       Diagnostic-tail RED/GREEN, exact cleanup, original two-minute cache budget
       and independent six-target archive test remain accepted; security is in 6.5.
+      Independent review of signed `3626a460` found Windows ran tests without the
+      canonical coverage gate or retained profile. Its green jobs do not prove
+      Windows coverage; this task is reopened until the repaired native owner
+      passes the unchanged policy on both peers. macOS/Linux raw profiles retain
+      their exact-source results.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.
@@ -379,6 +384,10 @@ in Git; original raw results stay with their source-bound verification owner.
       Linux 94.68%, macOS 94.76%. Those terminal failures are retained, not retried.
       Direct native-owner instrumentation and preserved source profiles repair
       that assurance gap; a new exact-source peer result remains required.
+      Signed `3626a460` passes the natural review events on both peers: GitHub
+      run 37178250304 and GitLab pipeline 9446 are terminal, with every required
+      job successful. The independent Windows coverage omission reopens 6.2;
+      those green jobs retain their test/lifecycle scope, not coverage proof.
 - [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review
