@@ -455,7 +455,7 @@ func TestWindowsClientInstallerUsesPinnedContentAPI(t *testing.T) {
 			t.Fatalf("Windows official installation inherits %s", key)
 		}
 	}
-	for _, required := range []string{commit, digest, "npm install", "npm audit signatures", "pwsh -NoProfile -File $hermesInstaller", "hash-verified via uv.lock", "AIGW_ACCEPTANCE_CODEX", "AIGW_ACCEPTANCE_CLAUDE", "AIGW_ACCEPTANCE_HERMES", "AIGW_ACCEPTANCE_CLIENT_PATH", "CLAUDE_CODE_GIT_BASH_PATH", "GITHUB_ENV"} {
+	for _, required := range []string{commit, digest, "npm install", "npm audit signatures", "pwsh -NoProfile -File $hermesInstaller", "hash-verified via uv.lock", "AIGW_ACCEPTANCE_CODEX", "AIGW_ACCEPTANCE_CLAUDE", "AIGW_ACCEPTANCE_HERMES", "AIGW_ACCEPTANCE_CLIENT_PATH", "CLAUDE_CODE_GIT_BASH_PATH", "GITHUB_ENV", "$env:GIT_CONFIG_GLOBAL = Join-Path $clients 'gitconfig'", "git config --file $env:GIT_CONFIG_GLOBAL core.autocrlf false", "git -C $hermesInstall status --porcelain=v1 --untracked-files=no"} {
 		if !strings.Contains(supply.Run, required) {
 			t.Fatalf("Windows native supply lost %q", required)
 		}

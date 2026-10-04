@@ -464,9 +464,6 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				GH_TOKEN:            ""
 				GITHUB_TOKEN:        ""
 				GIT_TERMINAL_PROMPT: "0"
-				GIT_CONFIG_COUNT:    "1"
-				GIT_CONFIG_KEY_0:    "core.autocrlf"
-				GIT_CONFIG_VALUE_0:  "false"
 			}
 			run: #"""
 				$ErrorActionPreference = 'Stop'
@@ -477,6 +474,8 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				$hermesInstaller = $env:AIGW_HERMES_INSTALLER
 				try {
 				  Add-Content -LiteralPath $env:GITHUB_ENV -Value "AIGW_NATIVE_CLIENT_SUPPLY=$clients"
+				  $env:GIT_CONFIG_GLOBAL = Join-Path $clients 'gitconfig'
+				  git config --file $env:GIT_CONFIG_GLOBAL core.autocrlf false
 				  if ((Get-FileHash -LiteralPath $hermesInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne '\#(hermesInstallerDigest)') { throw 'Pinned Hermes installer checksum mismatch.' }
 				  $env:UV_CACHE_DIR = Join-Path $clients 'uv-cache'
 				  Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
@@ -493,6 +492,8 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				  }
 				  $observed = git -C $hermesInstall rev-parse HEAD
 				  if ($LASTEXITCODE -ne 0 -or $observed.Trim() -ne $hermesCommit) { throw 'Hermes installed source differs from the pin.' }
+				  $changes = git -C $hermesInstall status --porcelain=v1 --untracked-files=no
+				  if ($LASTEXITCODE -ne 0 -or $changes) { throw 'Pinned Hermes source is not clean after official installation.' }
 				  $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
 				  $gitBin = Split-Path (Get-Command git.exe).Source
 				  $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'

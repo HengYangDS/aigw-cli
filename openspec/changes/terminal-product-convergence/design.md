@@ -290,6 +290,10 @@ client root are created exclusively, registered after creation and removed by
 exact owned paths on success or failure. Other platforms do not inherit that
 Windows supply block. Native Windows installation, interruption and cleanup
 remain distinct from source projection and the local PowerShell argv witness.
+The official installer owns its `GIT_CONFIG_COUNT` overrides; caller newline
+policy lives in a private Git config inside the same exact supply root instead.
+Original Git verifies the pinned HEAD and clean source before client exposure.
+That configuration is neither the host's global config nor persistent state.
 
 Linux Secret Service CI retains only its isolated D-Bus session and temporary
 collection alias as OS glue. The selected native Go journey owns success and

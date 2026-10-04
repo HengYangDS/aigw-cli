@@ -140,6 +140,12 @@ in Git; original raw results stay with their source-bound verification owner.
       supported native context or with a vendor fix. `AIGW13e-Windows-*` retains
       raw failure, eight pause states, VM isolation and exact cleanup.
       Latest Linux Claude/Hermes scope is in 5.2; historical Windows is in 5.3.
+      Current Windows official-client run 37189658374 at signed `f1eaa269`
+      fails before inference: Hermes overrides caller Git environment policy and
+      its fresh checkout then refuses the pinned commit. Exact supply cleanup
+      succeeds; trust and lifecycle are not executed. The original failure and
+      locked-installer causal review remain in the AIGW recovery owner. The
+      caller-owned private Git config repair still requires target acceptance.
       Hermes tools/history retain original bytes. Isolated `1426c66f` projects all
       eight Hermes wire catalogs and a second preview is unchanged; selections,
       comments and unrelated settings survive, but all eight reader paths change.
