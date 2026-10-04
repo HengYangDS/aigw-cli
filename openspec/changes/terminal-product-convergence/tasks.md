@@ -79,10 +79,9 @@ in Git; original raw results stay with their source-bound verification owner.
       and `build/verification/4dd8504a411135674ad72b0424bb10803882a62c/proposal-publication/`;
       current Debian Secret Service succession and visible registration warnings
       remain in 5.2. Neither proves durable login or warning-free native use.
-      Native metadata confirms the installed predecessor and retained signed
-      reader share a Developer ID requirement, while current candidate `1426c66f`
-      remains ad-hoc. Final current-source signed reader/item succession is open;
-      the old `f4cd7c51` receipt cannot qualify a different candidate.
+      The current signed candidate and environment-reader succession are recorded
+      in 9.3. Exact synthetic native-store succession remains open; an earlier
+      ad-hoc reader or matching Developer ID requirement cannot prove item access.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
@@ -113,9 +112,8 @@ in Git; original raw results stay with their source-bound verification owner.
 - [ ] 4.5 Requalify Claude Code, Claude Desktop, Codex, and Hermes independently
       for native protocol, model selection, credential and rollback behavior; do not
       infer Desktop from CLI or endpoint reachability from real-client success.
-      Current macOS Codex 0.160.0/Claude Code 2.1.288 authentic-0.3.1 four-stage
-      environment journeys and read-only shell use pass; exact bytes, state and
-      cleanup remain in `13e6525c/macos-latest-client-input-20261004/`. The current
+      Current signed-package macOS client succession is recorded in 9.3. Earlier
+      live-provider results retain their source-bound receipts below. The current
       Codex metadata audit identifies 25 Routes across 11 non-GPT Models without
       native metadata and three DMXAPI Routes requiring canonical alias projection;
       client acceptance remains Route-specific, including Sol 6.1 CDX.
@@ -129,7 +127,7 @@ in Git; original raw results stay with their source-bound verification owner.
       inference, native file tools, same-session recall and public verification
       with the same candidate/team bytes; its eight carried commits remain
       explicit, not unmodified-upstream or final signed-byte qualification.
-      Full current-client evidence and exact cleanup are bound in
+      Earlier client evidence and exact cleanup are bound in
       `13e6525c/current-upstream-review-20261004/`; earlier plain DMXAPI timeout
       and native invocation failures remain separate. The timeout's cause is
       unproved; the redundant enable invocation was diagnosed and corrected.
@@ -332,6 +330,12 @@ in Git; original raw results stay with their source-bound verification owner.
       `13e6525c/performance-linux-env-file-20261004/`. Dedicated quiet-host,
       native-store, final signed-byte, inference and build/CI qualification remain
       open; another full measurement requires genuinely qualified new inputs.
+      The `4b3fc946` ad-hoc matrix completes 32 blocks and 1,280 samples in
+      69.684s; absolute budgets and memory calibration pass, but six native
+      Hyperfine warnings keep acceptance inconclusive. Raw JSON, logs and
+      summary remain in `4b3fc946/performance-env/`; exact scratch is removed.
+      Simultaneous host load is observed, not proved failure causality. The
+      Developer ID candidate still needs a qualified measurement window.
       CPU profiling diagnoses eager full-executable identity reads in the default
       CLI constructor. Native invocation-local memoization removes that work from
       non-reader commands without a daemon, launcher or disk/global cache;
@@ -379,38 +383,25 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 7.1 Reconcile the complete CUE CI graph with generated GitHub and GitLab
       projections; prove no hand-edited workflow drift or missing source, native,
       release or publication owner.
-- [ ] 7.2 Prove both peers' exact-SHA event-to-check contract for developer
+- [x] 7.2 Prove both peers' exact-SHA event-to-check contract for developer
       proposal create/update/review, maintainer fast-forward, accepted `dev`/`main`,
       and signed-tag pushes. Run the exact candidate's proposal checks on both
       peers; CUE and projection regressions must bind each other event to its
       intended commit SHA and required-job set. Actual `main`/tag results against
       the archived SHA are post-archive release acceptance under Migration Plan;
       do not infer them from projection tests or a manual run.
-      Normal signed `428f583f` updates the existing proposal on both peers;
-      GitHub PR #162/run 37158943021 passes macOS/Linux/Windows and Secret
-      Service. GitLab MR !178/pipeline 9410 passes the same native groups after
-      canonical guest Mise 2026.10.1 repair: only failed macOS job 48011 is
-      retried as 48031, passing in 382.73s with 95.18% coverage. Original
-      controls are restored; all native watchers are terminal. Both exact-source
-      quality jobs still reject security 6.5. No manual dispatch substitutes for
-      review events or repeats passed groups. The original failure and prior
-      `4dd8504a`/cold-Intel evidence retain their scope and budgets. Signed
-      `07bddf38` then triggers the original review events: GitHub run 37169999080
-      and GitLab pipeline 9431 pass all three native groups and Secret Service;
-      Quality rejects the same advisory. All job handles are terminal. Final
-      required checks, protected events and guarded integration remain open.
-      At signed `3f4b9c1c`, GitHub run 37175033074 and GitLab pipeline 9434
-      pass Quality, Windows and Secret Service but both reject native coverage:
-      Linux 94.68%, macOS 94.76%. Those terminal failures are retained, not retried.
-      Direct native-owner instrumentation and preserved source profiles repair
-      that assurance gap; a new exact-source peer result remains required.
-      Signed `3626a460` passes the natural review events on both peers: GitHub
-      run 37178250304 and GitLab pipeline 9446 are terminal, with every required
-      job successful. The independent Windows coverage omission reopens 6.2;
-      those green jobs retain their test/lifecycle scope, not coverage proof.
-      Signed `86cd24fe` now passes the complete natural review matrix and six
-      original native profiles on both peers; current quality evidence is in
-      6.2. Other event paths and protected admission remain open here.
+      Signed `4b3fc946` passes the natural review events on both peers: GitHub
+      PR #162/run 37192570764 and GitLab MR !178/pipeline 9488 each pass all
+      five required jobs without retry. Six original atomic profiles agree
+      per platform, execute all 59 measurable packages and exceed 95%:
+      macOS 95.148925%, Linux 95.077260%, Windows 95.026355%. Independent
+      custody remains in the AIGW recovery owner. The existing CUE routing,
+      exact checkout, event/base, protected parity and publication-identity
+      regressions pass; raw results are in the source-bound
+      `native-declarative-acceptance/current-ci-*.log`. These prove pre-archive
+      admission only. Actual guarded integration, source-ref deletion and
+      archived main/tag events remain in 7.4 and the Migration Plan. Earlier
+      failed attempts retain their original receipts; none is relabelled.
 - [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review
@@ -535,8 +526,25 @@ in Git; original raw results stay with their source-bound verification owner.
       evidence.
       Native/client evidence is owned by 3.5, 4.5 and 5.2-5.4; exact security and
       provenance by 6.5, performance by 6.6, peer enforcement by 7.2-7.5. Each
-      retains its candidate identity. Remaining: one signed exact-source matrix
-      and byte-bound lifecycle, stable reader identity, native stores, clients,
-      security, provenance and performance. Production signing/publication/
-      installed Homebrew cutover follows the [Migration Plan](design.md#migration-plan).
+      retains its candidate identity. Current `4b3fc946/developer-id-dist/` has
+      six archives, complete SBOM/license/vulnerability/provenance evidence and
+      an independently verified checksum signature. Both macOS executables
+      pass the exact Developer ID requirement, Team, runtime and timestamp
+      checks. Apple submission `a3b623ee-8acb-4574-8a8f-0f255a4f21e6` accepts
+      their exact ZIP; the native final-distribution verifier passes with no
+      issues. Original results remain in `4b3fc946/notarization/`.
+      The signed macOS ARM64 package passes the existing lifecycle/resource,
+      published-predecessor and real-client suites in 110.473s, 8.343s and
+      198.546s. Codex 0.160.0, Claude Code 2.1.289 and local Hermes 0.21.5
+      (+9 carried commits) pass all twelve retained-state stages. The resource
+      cases include the real 60-second deadline. Exact scratch and owned
+      processes are removed; raw results remain in the existing
+      `native-declarative-acceptance/current-developer-id-native-macos.log`.
+      Environment credentials and a loopback Provider do not qualify native
+      stores or external inference. Claude Desktop's deferred-installation
+      case is skipped on this already-installed host; general Codex Route
+      metadata warnings remain explicit. Remaining: final native-store and
+      Linux/Windows package execution, official client and Desktop modes,
+      performance, peer containment and cold supply. Production publication
+      and installed Homebrew cutover follow the [Migration Plan](design.md#migration-plan).
       Equal product inputs do not rebind signatures, source epoch or provenance.
