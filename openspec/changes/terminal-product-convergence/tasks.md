@@ -283,14 +283,14 @@ in Git; original raw results stay with their source-bound verification owner.
       Tracked text/configuration gates, native Markdown/Mermaid behavior and
       malformed-input controls pass. Windows catalogue assertions parse actual
       TOML semantics instead of comparing renderer-specific escape spelling.
-- [ ] 6.5 Verify dependency hygiene, dead-code, secrets, SBOM, vulnerabilities,
+- [x] 6.5 Verify dependency hygiene, dead-code, secrets, SBOM, vulnerabilities,
       licenses, checksums, signatures and provenance from the exact locked
       candidate; delete unconsumed parallel scanners or reports.
       Current native Renovate observes CUE Codex 0.160.0/Claude 2.1.288 pins without
       relaxing release-age/automated proposal policy. Syft 1.54.0 six-platform
       provenance locks and real SBOM tests pass; source receipt is in
       `13e6525c/current-upstream-review-20261004/`. Final native client scope is in
-      4.5/5.2; SBOM/license/signature/provenance retain their original candidates.
+      4.5/5.2; current signed-package custody is recorded in 9.3.
       Supported OpenSpec/Mermaid still consume `braces` 3.0.3,
       [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
       (CVSS 4.0: 8.7); native deep-schema/output probes reproduce the failure.
@@ -310,8 +310,15 @@ in Git; original raw results stay with their source-bound verification owner.
       identities and the raw finding retained; native controls and original
       failed journeys remain in `4b8f3452/native-dependency-closure/`.
       The earlier `b2dbeeb7` 7.06s refusal stays valid for its original policy.
-      This bounded risk disposition is not a vulnerability repair or VEX claim;
-      final exact-lock SBOM, signature/provenance and native matrix remain open.
+      The exact `4b3fc946` signed candidate now passes dependency hygiene,
+      dead-code and secret checks, six-program SBOM binding, the complete
+      309-identity license inventory, checksums, explicit artifact-signature
+      trust and source provenance. The original raw/disposition scans remain
+      inputs to these consumers, not disposable parallel reports. Independent
+      scope acceptance is retained in the AIGW recovery owner. This bounded
+      development-input disposition is not a vulnerability repair, production
+      waiver or VEX claim. Native product journeys remain in 3.5, 4.5,
+      5.2-5.4 and 9.3; performance remains in 6.6.
 - [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
       build and CI costs against predecessor budgets on a quiet host; preserve raw
       samples and optimize only diagnosed owners.
