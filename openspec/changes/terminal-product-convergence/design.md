@@ -312,14 +312,13 @@ alone therefore does not prove consumer-side provenance verification; a mirror
 must retain an independently verified, signed upstream-to-mirror chain or prove
 an equivalent native check before it can satisfy the cold-cache requirement.
 
-An isolated Mise 2026.9.16 Linux ARM64 install used the current lock's
-checksum-verified actionlint asset from a synthetic mirror while both GitHub
-hosts were blocked. Mise's [URL replacement](https://mise.jdx.dev/url-replacements.html)
-sent HEAD then GET with only the target-host netrc's synthetic Job Token Basic
-authorization and installed without GitHub; a mirror HEAD failure instead
-fell back to the locked GitHub API URL. CI must therefore preflight complete,
-redirect-free mirror coverage before invoking Mise. This test does not prove
-the real GitLab package registry or the three native CI platforms.
+Mise's [URL replacement](https://mise.jdx.dev/url-replacements.html) must cover
+the locked direct-download and API fallback URLs, plus release metadata. A missing
+mirror object fails within the selected peer; it must not reintroduce the sibling
+Forge through fallback or redirects. The existing CUE mapping owns these rules,
+and native consumer tests derive expected paths from the platform lock. A separate
+preflight inventory or second mapping authority is unnecessary. Synthetic tests,
+registry metadata and actual peer jobs retain their own acceptance scopes.
 
 The selected GitLab origin currently uses HTTP, and the owner accepts that
 intranet risk without excluding a future HTTPS asset endpoint. TLS is not a
@@ -333,13 +332,9 @@ job-private `0600` netrc, with no Token in URLs or logs, no cross-host
 redirect, and no inherited GitHub authorization. The accepted HTTP risk is
 limited to this ephemeral job credential, not a persistent PAT or runner key.
 Retire a mirrored lock version only after no active source ref or job consumes
-it. On September 30, 2026, the selected GitLab package held 47 file records:
-registry-reported SHA-256 matched the current lock for all 16 Linux ARM64,
-16 macOS ARM64, and 13 Windows ARM64 GitHub assets; the other two records were
-OSV metadata. CUE and the GitLab CI projection configure this mirror before
-locked installation, but registry metadata and projection tests do not prove
-Job Token downloads, cold-cache peer-outage isolation, provenance checks, or
-native installation from the mirror on any of the three platforms.
+it. CUE configures the mirror before locked installation. Task 7.5 owns the current
+inventory and platform evidence; metadata and projection tests alone cannot prove
+Job Token downloads, cold-cache peer-outage isolation or provenance checks.
 
 ### 6. Delete by consumer and authority
 
