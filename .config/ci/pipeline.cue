@@ -604,30 +604,6 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			try { $shimHash = (Get-FileHash -LiteralPath $shim -Algorithm SHA256 -ErrorAction Stop).Hash }
 			catch { & icacls.exe $shim; throw "Runner-owned Mise shim cannot be read (error=$($_.FullyQualifiedErrorId), hresult=$($_.Exception.HResult))." }
 			if ($shimHash -ne '\#(miseWindowsArm64ShimSHA256)') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
-			$shimsDirectory = Join-Path $env:MISE_DATA_DIR 'shims'
-			$probeDirectory = Join-Path $shimsDirectory '.mise-shims-stage-probe'
-			$probeTarget = Join-Path $probeDirectory 'actionlint.exe'
-			$probeError = $null
-			try {
-			  [void](New-Item -ItemType Directory -Path $shimsDirectory -ErrorAction Stop)
-			  [void](New-Item -ItemType Directory -Path $probeDirectory -ErrorAction Stop)
-			  Copy-Item -LiteralPath $shim -Destination $probeTarget -ErrorAction Stop
-			  $copiedHash = (Get-FileHash -LiteralPath $probeTarget -Algorithm SHA256 -ErrorAction Stop).Hash
-			  if ($copiedHash -ne $shimHash) { throw 'Mise shim copy differs from its source.' }
-			} catch { $probeError = $_ }
-			$cleanupError = $null
-			if (Test-Path -LiteralPath $probeDirectory) {
-			  try { Remove-Item -LiteralPath $probeDirectory -Recurse -Force -ErrorAction Stop }
-			  catch { $cleanupError = $_ }
-			}
-			if ($probeError -or $cleanupError -or (Test-Path -LiteralPath $probeDirectory)) {
-			  & icacls.exe $shim
-			  if (Test-Path -LiteralPath $shimsDirectory) { & icacls.exe $shimsDirectory }
-			  if (Test-Path -LiteralPath $probeDirectory) { & icacls.exe $probeDirectory }
-			  if ($probeError) { throw "Mise shim stage probe failed: $($probeError.Exception.Message)" }
-			  if ($cleanupError) { throw "Mise shim stage cleanup failed: $($cleanupError.Exception.Message)" }
-			  throw 'Mise shim stage probe remains after cleanup.'
-			}
 			$env:PATH = (Split-Path -Parent $mise) + [IO.Path]::PathSeparator + $env:PATH
 			if ($env:AIGW_TOOL_SOURCE -and $env:AIGW_TOOL_SOURCE -notin @('upstream', 'peer')) { throw 'AIGW_TOOL_SOURCE must be upstream or peer.' }
 			if ($env:AIGW_TOOL_SOURCE -eq 'peer') {

@@ -232,9 +232,6 @@ func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T)
 		"$shim = Join-Path (Split-Path -Parent $mise) 'mise-shim.exe'",
 		"Get-FileHash -LiteralPath $shim -Algorithm SHA256",
 		identity.Shim,
-		"$shimsDirectory = Join-Path $env:MISE_DATA_DIR 'shims'",
-		"Copy-Item -LiteralPath $shim -Destination $probeTarget -ErrorAction Stop",
-		"Remove-Item -LiteralPath $probeDirectory -Recurse -Force -ErrorAction Stop",
 		"icacls.exe $shim",
 	} {
 		if !strings.Contains(commands[0], required) {
@@ -250,8 +247,8 @@ func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T)
 			}
 		}
 	}
-	if hashReads != 3 {
-		t.Errorf("Windows preflight has %d hash reads, want three exact executable and copy checks", hashReads)
+	if hashReads != 2 {
+		t.Errorf("Windows preflight has %d hash reads, want only the two supplied executable identities", hashReads)
 	}
 	for _, required := range []string{
 		"robocopy.exe $emptyDirectory $jobDirectory /MIR /R:1 /W:1",

@@ -315,6 +315,11 @@ ran macOS and Windows review jobs on unprotected project runners #105 and #103
 at `ddb998a5`, but success on that old SHA does not prove disposable execution,
 absence of persistent Shell credentials, or admission of the final review SHA.
 Keep the review path unadmitted until those boundaries are proved.
+Windows pre-tool admission verifies the supplied Mise executable and shim;
+native `mise install --locked` owns actual shim staging and its failures.
+The historical copy/hash/delete experiment is removed without a replacement
+controller. Per-job state, mirror authentication and exact cleanup remain
+separate from the still-unproved Runner credential-containment boundary.
 Cold-cache CI must remain executable when the sibling Forge platform and its
 tool-distribution endpoints are unavailable. Warm caches are not evidence of
 that property. GitLab consumes Mise's official Debian Docker Hub image pinned
