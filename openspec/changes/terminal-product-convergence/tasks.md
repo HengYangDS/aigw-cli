@@ -238,31 +238,26 @@ in Git; original raw results stay with their source-bound verification owner.
       transitive compatibility violations nor vendor patches are admitted.
       Current upstream evidence remains in `13e6525c/current-upstream-review-20261004/`;
       latestness does not close security 6.5.
-- [ ] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
+- [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
-      Signed `4dd8504a` passes both peers' native Go gates with zero issues and all
-      canonical packages observed: GitHub macOS coverage 13,752/14,454 (95.14%),
-      GitLab Linux 13,634/14,341 (95.07%). Unique safe summaries remain in
-      `4dd8504a/proposal-publication/`; raw hosted profiles were not exported.
-      Diagnostic-tail RED/GREEN, exact cleanup, original two-minute cache budget
-      and independent six-target archive test remain accepted; security is in 6.5.
-      Independent review of signed `3626a460` found Windows ran tests without the
-      canonical coverage gate or retained profile. Its green jobs do not prove
-      Windows coverage; this task is reopened until the repaired native owner
-      passes the unchanged policy on both peers. macOS/Linux raw profiles retain
-      their exact-source results.
-      Current `5c90c796` original profiles agree on both peers: Windows
-      14,047/14,796 (94.94%) refuses; macOS 14,022/14,737 (95.15%) and Linux
-      13,904/14,624 (95.08%) pass. Earlier failed attempts remain retained.
-      Native occupied-storage and path-refusal contracts now verify identity,
-      content, mode and residue preservation, replacing two weaker tests without
-      changing product code or policy. Focused race, static, size and format pass;
-      the complete source gate passes at 14,020/14,737 (95.13%), followed by a
-      focused/static refresh of directory-content assertions. Final Windows
-      execution remains required; compile-only proof is not native acceptance.
-      Raw profiles, failures and independent review remain in
-      `5c90c796/storage-refusal-contract/` and the existing AIGW recovery owner.
+      Signed `86cd24fe` passes both natural review matrices: GitHub run
+      37184615068 and GitLab pipeline 9463. Six retained original atomic profiles
+      agree on each platform's source ranges, statement counts and hit flags:
+      macOS 14,022/14,737 (95.15%), Linux 13,904/14,624 (95.08%) and Windows
+      14,060/14,796 (95.03%), all strictly above the unchanged 95% floor with every
+      measurable canonical package executed. Native Windows retains its declared
+      no-race mode; macOS/Linux and focused storage tests exercise race checks.
+      Complete same-HEAD proof passes with the exact installed Publisher inputs.
+      Storage/path refusal tests preserve unowned identity, content, mode and
+      residue; two weaker tests are removed without changing product code or
+      policy. Earlier coverage omissions, failed native attempts, static failure
+      and caller/input mistakes remain evidence, not successful qualifications.
+      Source/refusal evidence is in `5c90c796/storage-refusal-contract/`; exact
+      proof, publication and cleanup in `86cd24fe/proposal-publication/`. The
+      independent dual-peer matrix and original profiles remain with the existing
+      AIGW recovery owner. Final release, security, clients, protected events and
+      cold full-tool graphs retain their separate open tasks.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.
@@ -399,6 +394,9 @@ in Git; original raw results stay with their source-bound verification owner.
       run 37178250304 and GitLab pipeline 9446 are terminal, with every required
       job successful. The independent Windows coverage omission reopens 6.2;
       those green jobs retain their test/lifecycle scope, not coverage proof.
+      Signed `86cd24fe` now passes the complete natural review matrix and six
+      original native profiles on both peers; current quality evidence is in
+      6.2. Other event paths and protected admission remain open here.
 - [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review
