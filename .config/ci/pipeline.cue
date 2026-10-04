@@ -234,7 +234,7 @@ gitlabVerificationCondition: {
 	review:        "$CI_PIPELINE_SOURCE == \"merge_request_event\" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.acceptedBranch)\" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.releaseBranch)\") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID"
 	protectedPush: "$CI_PIPELINE_SOURCE == \"push\" && ($CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\" || $CI_COMMIT_BRANCH == \"\(lifecycle.releaseBranch)\")"
 	manual:        "$CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\""
-	manualSource:  "($CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\") && (($AIGW_CANDIDATE_ARTIFACTS == null || $AIGW_CANDIDATE_ARTIFACTS == \"\") && ($AIGW_CANDIDATE_TAG == null || $AIGW_CANDIDATE_TAG == \"\") || $AIGW_FULL_NATIVE_QUALITY == \"true\" || $AIGW_REFRESH_LOCKS == \"true\")"
+	manualSource:  "($CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\") && ((($AIGW_NATIVE_INPUT_PACKAGE == null || $AIGW_NATIVE_INPUT_PACKAGE == \"\") || $AIGW_NATIVE_PLATFORM != \"windows\") && ($AIGW_CANDIDATE_ARTIFACTS == null || $AIGW_CANDIDATE_ARTIFACTS == \"\") && ($AIGW_CANDIDATE_TAG == null || $AIGW_CANDIDATE_TAG == \"\") || $AIGW_FULL_NATIVE_QUALITY == \"true\" || $AIGW_REFRESH_LOCKS == \"true\")"
 }
 
 gitlabPipelineRules: [
@@ -280,6 +280,57 @@ miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split
 miseWindowsArm64ExecutableSHA256: "db6e79ce8334786ea8133478de690dce071faa69e19365f696288001448051e5"
 miseWindowsArm64ShimSHA256:       "17325f34d361833dc19ff32e272989ea1ef3dec783f9799c55a08f981994f5d1"
 windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
+
+// The original native job owns acquisition; the existing release parser owns
+// matrix/source admission. No host control window or alternate executor is used.
+nativePublicInputWindows: #"""
+	if ($env:AIGW_NATIVE_INPUT_PACKAGE) {
+	  if ($env:AIGW_NATIVE_PLATFORM -ne 'windows') { throw 'Native public input requires the Windows platform' }
+	  if ($env:AIGW_NATIVE_INPUT_SHA256 -notmatch '^[0-9a-f]{64}$' -or $env:AIGW_CANDIDATE_SOURCE -notmatch '^[0-9a-f]{40}$') { throw 'Native public input requires exact source and checksum.' }
+	  if (-not $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ALLOWED_SIGNERS }
+	  if (-not $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }
+	  if ([string]::IsNullOrWhiteSpace($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) -or [string]::IsNullOrWhiteSpace($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) -or [string]::IsNullOrWhiteSpace($env:AIGW_RELEASE_ARTIFACT_SIGNER) -or -not (Test-Path -LiteralPath $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE -PathType Leaf) -or -not (Test-Path -LiteralPath $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE -PathType Leaf)) { throw 'Native public input requires configured source and artifact trust' }
+	  $jobDirectory = \#(windowsMiseJobDirectory)
+	  $archive = Join-Path $jobDirectory 'native-input.tar'
+	  $fixture = Join-Path $jobDirectory 'native-input'
+	  $previousLogin = $env:GLAB_ENABLE_CI_AUTOLOGIN
+	  $previousConfig = $env:GLAB_CONFIG_DIR
+	  try {
+	    $env:GLAB_ENABLE_CI_AUTOLOGIN = 'true'
+	    $env:GLAB_CONFIG_DIR = Join-Path $jobDirectory 'glab'
+	    mise exec --locked -- glab packages download --repo $env:CI_PROJECT_URL --name $env:AIGW_NATIVE_INPUT_PACKAGE --version $env:AIGW_CANDIDATE_SOURCE --filename public-inputs.tar --path $archive
+	  } finally {
+	    $env:GLAB_CONFIG_DIR = $previousConfig
+	    $env:GLAB_ENABLE_CI_AUTOLOGIN = $previousLogin
+	  }
+	  if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:AIGW_NATIVE_INPUT_SHA256) { throw 'Native public input checksum mismatch' }
+	  [void](New-Item -ItemType Directory -Path $fixture -ErrorAction Stop)
+	  tar -xf $archive -C $fixture
+	  tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.160.0-claude-2.1.288-native-packages.tar.gz') -C $fixture
+	  $hermes = Join-Path $fixture 'clients/hermes'
+	  [void](New-Item -ItemType Directory -Path $hermes -ErrorAction Stop)
+	  tar -xf (Join-Path $fixture 'suppliers/official-hermes-f97608f1-source.tar') -C $hermes
+	  $env:UV_CACHE_DIR = Join-Path $jobDirectory 'uv-cache'
+	  $env:UV_PYTHON_INSTALL_DIR = Join-Path $jobDirectory 'python'
+	  $env:UV_PROJECT_ENVIRONMENT = Join-Path $hermes '.venv'
+	  $env:UV_PYTHON_INSTALL_REGISTRY = '0'
+	  $env:UV_PYTHON_INSTALL_BIN = '0'
+	  $env:UV_NO_CONFIG = '1'
+	  mise exec --locked -- uv sync --project $hermes --python 3.12 --managed-python --frozen --no-dev --no-default-groups --extra edge-tts --extra bedrock
+	  $codex = Join-Path $fixture 'clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
+	  $gitBin = Split-Path (Get-Command git.exe -ErrorAction Stop).Source
+	  $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
+	  if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Native Claude requires Git Bash.' }
+	  $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codex 'bin/codex.exe'
+	  $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $fixture 'clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
+	  $env:AIGW_ACCEPTANCE_HERMES = Join-Path $hermes '.venv/Scripts/hermes.exe'
+	  $node = mise which node
+	  $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), (Join-Path $hermes '.venv/Scripts'), (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+	  $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
+	  $env:AIGW_CANDIDATE_ARTIFACTS = Join-Path $fixture 'candidate'
+	  $env:AIGW_BASELINE_ARTIFACTS = Join-Path $fixture 'baseline'
+	}
+	"""#
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
@@ -571,8 +622,8 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	tags: [string, ...string]
 	rules: [...{...}]
 	if _platform == "windows" {
-		_prebuiltCondition: "($env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true'"
-		_selectTools:       "if (\(_prebuiltCondition)) { $env:MISE_ENABLE_TOOLS = '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' }"
+		_prebuiltCondition: "($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true'"
+		_selectTools:       "if (\(_prebuiltCondition)) { $env:MISE_ENABLE_TOOLS = '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' }; if ($env:AIGW_NATIVE_INPUT_PACKAGE) { $env:MISE_ENABLE_TOOLS += ',node,uv' }"
 		_bootstrap:         "if (-not (\(_prebuiltCondition))) { \(commands.bootstrap) }"
 		_prepareMise:       #"""
 			$ErrorActionPreference = 'Stop'
@@ -627,8 +678,10 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		_native:            #"""
 			$ErrorActionPreference = 'Stop'
 			$PSNativeCommandUseErrorActionPreference = $true
+			\#(nativePublicInputWindows)
 			$acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)
 			if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }
+			if ($env:AIGW_BASELINE_ARTIFACTS) { $acceptance += @('--baseline-artifacts', $env:AIGW_BASELINE_ARTIFACTS) }
 			if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
 			if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
 			if ($env:AIGW_CANDIDATE_SOURCE) { $acceptance += @('--candidate-source', $env:AIGW_CANDIDATE_SOURCE) }

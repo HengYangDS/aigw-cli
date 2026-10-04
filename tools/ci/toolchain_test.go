@@ -21,6 +21,7 @@ var miseToolProbes = map[string]miseToolProbe{
 	"go":                           {[]string{"go", "version"}, `^go version go(\S+)`},
 	"node":                         {[]string{"node", "--version"}, `^v(\S+)`},
 	"npm":                          {[]string{"npm", "--version"}, `^(\S+)`},
+	"uv":                           {[]string{"uv", "--version"}, `^uv (\S+)`},
 	"cue":                          {[]string{"cue", "version"}, `^cue version v(\S+)`},
 	"gh":                           {[]string{"gh", "--version"}, `^gh version (\S+)`},
 	"glab":                         {[]string{"glab", "--version"}, `^glab (\S+)`},

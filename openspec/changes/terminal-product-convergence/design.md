@@ -195,6 +195,16 @@ ambient-fallback tests passed. The exact checkout and test state were removed,
 including read-only Go module-cache files. This does not prove a formal new
 ETHOS Work Lane or any other operating system.
 
+Windows public-fixture preparation belongs to the original native CI job, not a
+host transport or drain controller. Exact package/source/checksum inputs select
+its private job directory; independently configured trust remains outside the
+download. Native glab, tar and locked uv prepare complete client companions and
+official Hermes with managed Python 3.12 and its frozen lock. The original release
+parser is the sole candidate/lifecycle admission owner. Full-quality and
+lock-refresh requests retain source qualification. After actual native consumer
+acceptance, remove superseded installer stages; preparation and archive inspection
+cannot qualify the Windows service token or client tools.
+
 Existing Go, OpenSpec, CUE, formatting, lint, type/structure, security,
 document, link, and supply-chain tools retain
 one property owner each; replace hand-written duplicates only after the mature

@@ -260,6 +260,30 @@ Service still requires the separate isolated user-bus qualification. A queued
 job, inspected archive or successful checksum does not prove native execution.
 Real-client and live-Provider acceptance remain separate from this lifecycle.
 
+### Supply a Windows native job with public inputs
+
+The existing GitLab Windows job can consume a reviewed generic package instead
+of requiring an operator to stage a VM. Set `AIGW_NATIVE_PLATFORM=windows`,
+`AIGW_NATIVE_INPUT_PACKAGE`, the exact `AIGW_CANDIDATE_SOURCE`, and the archive's
+`AIGW_NATIVE_INPUT_SHA256`. The package version is that source commit; its single
+download is `public-inputs.tar`. Select `AIGW_BASELINE_TAG` and
+`AIGW_NATIVE_CLIENTS=true` for retained-predecessor client acceptance.
+
+The archive contains complete `candidate/` and `baseline/` matrices, native client
+distributions and reviewed official Hermes source under `suppliers/`. Acquisition,
+private glab configuration, managed Python 3.12, frozen Hermes dependencies and
+cleanup belong to the existing job directory. Locked uv is an acceptance tool,
+not an AIGW runtime dependency. The original release parser remains responsible
+for signatures, checksums, source identity and native lifecycle results.
+
+Trust comes from the independently configured source/artifact signer file
+variables and signer principal, never from trust files inside the downloaded
+archive. The checkout must contain the selected signed source and published
+predecessor tag. Package inspection or successful preparation is not Windows
+acceptance; original job execution must prove it. Full-quality and lock-refresh
+requests retain their source gates. After the native supplier transition passes,
+retire its superseded installer stages rather than keeping two preparation paths.
+
 ### Measure native candidate performance
 
 The existing `accept-native` command also consumes the

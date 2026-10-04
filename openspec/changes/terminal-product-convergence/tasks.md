@@ -152,6 +152,12 @@ in Git; original raw results stay with their source-bound verification owner.
       original log and earlier failure. Its loopback/source-built scope does
       not qualify final package custody, external Providers, Desktop UI or
       general Codex Routes whose native metadata warnings remain unresolved.
+      The original Windows job now owns reviewed public-package acquisition and
+      private glab/managed-Python preparation. Eight focused admission/tool-scope
+      cases and the full projection suite pass; locked uv, signer inputs, format
+      and size checks retain native results in `native-declarative-acceptance/`.
+      This closes preparation only: exact final Windows package/client execution
+      and retirement of superseded installer stages remain unproved.
       Hermes tools/history retain original bytes. Isolated `1426c66f` projects all
       eight Hermes wire catalogs and a second preview is unchanged; selections,
       comments and unrelated settings survive, but all eight reader paths change.
