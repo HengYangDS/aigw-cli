@@ -368,7 +368,10 @@ in Git; original raw results stay with their source-bound verification owner.
       references have no mirrored files; missing copies may fail locally by
       contract. Native macOS Mise observes both locked download/API paths under
       a synthetic peer returning 404, with exact cleanup; a temporary omitted-API
-      mapping is rejected. Static gates pass with unchanged thresholds. Metadata
+      mapping is rejected. The same native test and cleanup pass on Linux ARM64
+      using locked Mise 2026.10.1, network denial, an unprivileged user and a
+      read-only source mount; container removal is verified in
+      `07bddf38/linux-peer-regression/`. Static gates pass with unchanged thresholds. Metadata
       and synthetic peer execution do not prove downloaded bytes,
       provenance, full cold platform graphs or upstream-outage containment.
 
