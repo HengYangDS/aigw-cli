@@ -270,6 +270,41 @@ func TestVersionedEntrypointRejectsBytesThatMatchOnlyTheirReceipt(t *testing.T) 
 	}
 }
 
+func TestEntrypointVerificationKeepsMemoryBounded(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source")
+	const executableSize = 12 << 20
+	if err := os.WriteFile(source, make([]byte, executableSize), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	target, err := VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	undo, err := EnsureEntrypoint(source, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := undo(); err != nil {
+			t.Error(err)
+		}
+	})
+	measurement := testing.Benchmark(func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(executableSize)
+		for b.Loop() {
+			if missing, err := EntrypointNeeded(target); missing || err != nil {
+				b.Fatalf("intact reader verification = %t, %v", missing, err)
+			}
+		}
+	})
+	t.Logf("native reader verification: %s; %s", measurement.String(), measurement.MemString())
+	if allocated := measurement.AllocedBytesPerOp(); allocated >= 1<<20 {
+		t.Fatalf("reader verification allocated %d bytes per operation for a %d-byte executable; require less than 1 MiB", allocated, executableSize)
+	}
+}
+
 func TestVersionedEntrypointsKeepPredecessorBytesThroughSuccessorRemoval(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "source")

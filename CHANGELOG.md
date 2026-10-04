@@ -16,6 +16,8 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Changed
 
+- Verify retained credential executable digests with bounded memory while preserving
+  independent source and retained-reader integrity checks.
 - Rotate Linux native Tokens in place without replacing existing item metadata;
   reject ambiguous identities and make native Secret Service warnings fatal in CI.
 - Keep version headings in this document and provide each declared Forge's

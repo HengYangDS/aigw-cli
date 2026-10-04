@@ -158,15 +158,20 @@ func EntrypointNeeded(path string) (bool, error) {
 	if err := validatePrivateFile(path+".sha256", receipt, 0o600); err != nil {
 		return false, err
 	}
-	data, err := os.ReadFile(path)
+	executable, err := os.Open(path)
 	if err != nil {
+		return false, fmt.Errorf("read credential entrypoint: %w", err)
+	}
+	hash := sha256.New()
+	_, readErr := io.Copy(hash, executable)
+	if err := errors.Join(readErr, executable.Close()); err != nil {
 		return false, fmt.Errorf("read credential entrypoint: %w", err)
 	}
 	identity, err := os.ReadFile(path + ".sha256")
 	if err != nil {
 		return false, fmt.Errorf("read credential entrypoint receipt: %w", err)
 	}
-	sum := sha256.Sum256(data)
+	sum := [sha256.Size]byte(hash.Sum(nil))
 	if err := validateVersionedDigest(path, sum); err != nil {
 		return false, err
 	}
