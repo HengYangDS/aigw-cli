@@ -414,8 +414,8 @@ in Git; original raw results stay with their source-bound verification owner.
       exact checkout, event/base, protected parity and publication-identity
       regressions pass; raw results are in the source-bound
       `native-declarative-acceptance/current-ci-*.log`. These prove pre-archive
-      admission only. Actual guarded integration, source-ref deletion and
-      archived main/tag events remain in 7.4 and the Migration Plan. Earlier
+      admission only. Actual guarded integration and source-ref deletion precede
+      archive in the Migration Plan; archived main/tag events follow it. Earlier
       failed attempts retain their original receipts; none is relabelled.
 - [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
@@ -431,17 +431,21 @@ in Git; original raw results stay with their source-bound verification owner.
       authentication or divergent commit
       identities. Prove untrusted review code cannot observe persistent Shell
       runner credentials or protected-job state; retain required native evidence.
-      A policy readback proves configuration, not deletion: observe the exact
-      proposal source ref absent after its guarded merge in the delivery sequence.
+      This candidate prerequisite requires effective enforcement and native
+      containment, not its own later integration effects. The Migration Plan
+      requires actual guarded `dev` integration, `dev` checks and exact proposal
+      source-ref deletion before archive, then archived `main`/tag events.
+      A policy readback proves configuration, not any of those effects.
       Required check names, strict/admin enforcement, GitLab merge policy and
       unprotected proposals are observed; configuration is not enforcement proof.
       CUE separates protected/unprotected Linux registrations. The October 4
       native identity receipt still observes an elevated original Windows Shell
       token; a temporary restricted derivative does not qualify actual job
       containment. macOS account/permission metadata likewise lacks a current
-      job's credential-carrier denial witness. Remaining:
-      untrusted Shell credential containment, actual protected-event execution,
-      guarded merge and exact source-branch deletion on each selected peer.
+      job's credential-carrier denial witness. Remaining candidate acceptance:
+      effective required-status admission and untrusted Shell credential
+      containment. Actual protected events, merge and source-ref deletion remain
+      mandatory at their respective Migration Plan boundaries.
 - [ ] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
       or GitHub must not turn the other selected peer or the local product into a
       hidden dependency, and parity claims remain peer-specific.
