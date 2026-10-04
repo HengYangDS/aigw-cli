@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/release/construction"
 	"archive/zip"
 	"bytes"
 	"encoding/json"
@@ -100,5 +101,47 @@ func TestNativeDependencyDispositionPreservesRawAndOtherFindings(t *testing.T) {
 				t.Fatalf("unapproved native finding was lost: %s", content)
 			}
 		}
+	}
+}
+
+func TestDependencyAdmissionRunsNativeScannerInTheActualOwner(t *testing.T) {
+	root := t.TempDir()
+	policy := filepath.Join(root, ".config", "checks", "dependencies", "policy.toml")
+	if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(policy, []byte("IgnoredVulns = []\n[[PackageOverrides]]\nname='example.invalid/dependency'\nversion='1.0.0'\necosystem='Go'\nlicense.override=['MIT']\n[[PackageOverrides]]\nname='fixture'\nversion='1.0.0'\necosystem='npm'\nlicense.override=['MIT']\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for path, value := range map[string]string{
+		"go.mod":            "module example.invalid/fixture\ngo 1.27.1\nrequire example.invalid/dependency v1.0.0\n",
+		"package-lock.json": `{"name":"fixture","lockfileVersion":3,"packages":{"node_modules/fixture":{"version":"1.0.0","dev":true}}}`,
+	} {
+		if err := os.WriteFile(filepath.Join(root, path), []byte(value), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cache := filepath.Join(root, "cache")
+	for _, ecosystem := range []string{"Go", "npm"} {
+		path := filepath.Join(cache, "osv-scalibr", ecosystem, "all.zip")
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		var data bytes.Buffer
+		if err := zip.NewWriter(&data).Close(); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, data.Bytes(), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("OSV_SCALIBR_LOCAL_DB_CACHE_DIRECTORY", cache)
+	output := filepath.Join(root, "evidence")
+	if err := construction.ScanDependencies(t.Context(), root, output); err != nil {
+		t.Fatal(err)
+	}
+	files, err := filepath.Glob(filepath.Join(output, "scan-*", "dependencies.*.json"))
+	if err != nil || len(files) != 4 {
+		t.Fatalf("native raw/decision evidence incomplete: %v %v", files, err)
 	}
 }

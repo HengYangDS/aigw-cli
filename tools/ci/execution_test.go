@@ -408,10 +408,7 @@ func TestWorkflowGateQualifiesNativeLargeShellInputAndRefusesShellDefects(t *tes
 			if err := os.WriteFile(path, []byte(workflow), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			call := qualityCommands[gate]
-			call.Args = slices.Clone(call.Args)
-			call.Args[len(call.Args)-1] = root
-			err := systemRunner(call)
+			err := checkWorkflows(root, systemRunner)
 			if (err != nil) != test.invalid {
 				t.Fatalf("workflow native shell admission: invalid=%v error=%v", test.invalid, err)
 			}

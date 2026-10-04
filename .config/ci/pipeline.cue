@@ -342,12 +342,12 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	}
 }
 
-#WorkflowEvidenceGitHubStep: {
+#SourceEvidenceGitHubStep: {
 	_name: string
-	name:  "Retain native workflow evidence"
+	name:  "Retain native source evidence"
 	if:    "always()"
 	uses:  actions.upload
-	with: {name: _name, path: workflowEvidencePath, "if-no-files-found": "ignore"}
+	with: {name: _name, path: "\(workflowEvidencePath)\nbuild/verification/coverage", "if-no-files-found": "ignore"}
 }
 
 #NativeGitHubJob: {
@@ -546,7 +546,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				"""#
 		},
 		#DependencyEvidenceGitHubStep & {_name: "dependency-evidence-\(_platform)"},
-		#WorkflowEvidenceGitHubStep & {_name: "workflow-evidence-\(_platform)"},
+		#SourceEvidenceGitHubStep & {_name: "source-evidence-\(_platform)"},
 		{
 			name: "Retain native performance samples"
 			if:   "always() && github.event_name == 'workflow_dispatch' && inputs.performance"
@@ -723,7 +723,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	}
 	artifacts: {
 		when: "always"
-		paths: ["mise.lock", ".mise/locks", dependencyEvidencePath, workflowEvidencePath]
+		paths: ["mise.lock", ".mise/locks", dependencyEvidencePath, workflowEvidencePath, "build/verification/coverage"]
 	}
 	if _platform == "linux" {
 		interruptible: true
@@ -801,7 +801,7 @@ gitlab: {
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
 			commands.quality,
 		]
-		artifacts: {when: "always", paths: [dependencyEvidencePath, workflowEvidencePath]}
+		artifacts: {when: "always", paths: [dependencyEvidencePath, workflowEvidencePath, "build/verification/coverage"]}
 
 		stage: graph.quality.stage
 		variables: qualityToolchain & {CGO_ENABLED: "0"}
@@ -1024,7 +1024,7 @@ githubVerify: {
 					run: commands.quality
 				},
 				#DependencyEvidenceGitHubStep & {_name: "dependency-evidence-quality"},
-				#WorkflowEvidenceGitHubStep & {_name: "workflow-evidence-quality"},
+				#SourceEvidenceGitHubStep & {_name: "source-evidence-quality"},
 
 			]
 		}

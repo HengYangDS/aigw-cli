@@ -82,7 +82,7 @@ func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 				t.Fatalf("native Windows test command = %#v", got)
 			}
 		} else {
-			wantProfile := filepath.Join("build", "acceptance", "coverage-"+runtime.GOOS+".out")
+			wantProfile := filepath.Join("build", "verification", "coverage", "profile.out")
 			if got := calls[1]; got.Name != "go" || !slices.Equal(got.Args, []string{"run", "./tools/coverage", "--race", "--profile-output", wantProfile}) {
 				t.Fatalf("native coverage command = %#v", got)
 			}
@@ -123,10 +123,11 @@ func TestNativeCommandsKeepSourceEvidenceDistinct(t *testing.T) {
 	if !slices.Equal(windows[1].Args, []string{"test", "./..."}) {
 		t.Fatalf("Windows source verification = %#v", windows[1])
 	}
-	linux := nativeCommands("linux")
-	want := []string{"run", "./tools/coverage", "--race", "--profile-output", filepath.Join("build", "acceptance", "coverage-linux.out")}
-	if !slices.Equal(linux[1].Args, want) {
-		t.Fatalf("Linux source verification = %#v", linux[1])
+	want := []string{"run", "./tools/coverage", "--race", "--profile-output", filepath.Join("build", "verification", "coverage", "profile.out")}
+	for _, platform := range []string{"darwin", "linux"} {
+		if call := nativeCommands(platform)[1]; !slices.Equal(call.Args, want) {
+			t.Fatalf("%s source verification = %#v", platform, call)
+		}
 	}
 }
 

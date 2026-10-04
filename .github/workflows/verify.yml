@@ -156,12 +156,14 @@ jobs:
           name: dependency-evidence-quality
           path: build/verification/dependencies
           if-no-files-found: ignore
-      - name: Retain native workflow evidence
+      - name: Retain native source evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: workflow-evidence-quality
-          path: build/verification/workflows
+          name: source-evidence-quality
+          path: |-
+            build/verification/workflows
+            build/verification/coverage
           if-no-files-found: ignore
   linux-secret-service:
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Linux Secret Service' || 'Linux Secret Service' }}
@@ -395,12 +397,14 @@ jobs:
           name: dependency-evidence-darwin
           path: build/verification/dependencies
           if-no-files-found: ignore
-      - name: Retain native workflow evidence
+      - name: Retain native source evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: workflow-evidence-darwin
-          path: build/verification/workflows
+          name: source-evidence-darwin
+          path: |-
+            build/verification/workflows
+            build/verification/coverage
           if-no-files-found: ignore
       - name: Retain native performance samples
         if: always() && github.event_name == 'workflow_dispatch' && inputs.performance
@@ -577,12 +581,14 @@ jobs:
           name: dependency-evidence-linux
           path: build/verification/dependencies
           if-no-files-found: ignore
-      - name: Retain native workflow evidence
+      - name: Retain native source evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: workflow-evidence-linux
-          path: build/verification/workflows
+          name: source-evidence-linux
+          path: |-
+            build/verification/workflows
+            build/verification/coverage
           if-no-files-found: ignore
       - name: Retain native performance samples
         if: always() && github.event_name == 'workflow_dispatch' && inputs.performance
@@ -777,12 +783,14 @@ jobs:
           name: dependency-evidence-windows
           path: build/verification/dependencies
           if-no-files-found: ignore
-      - name: Retain native workflow evidence
+      - name: Retain native source evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: workflow-evidence-windows
-          path: build/verification/workflows
+          name: source-evidence-windows
+          path: |-
+            build/verification/workflows
+            build/verification/coverage
           if-no-files-found: ignore
       - name: Retain native performance samples
         if: always() && github.event_name == 'workflow_dispatch' && inputs.performance

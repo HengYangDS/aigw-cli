@@ -326,6 +326,15 @@ in Git; original raw results stay with their source-bound verification owner.
       pass. No wrapper, fork, minification or disabled shell-validation claim.
       Original timeouts and native source evidence stay in
       `108e3c75/native-workflow-input/` and `4b8f3452/native-dependency-closure/`.
+      Coverage tests now execute the original workflow and dependency owners
+      directly, including native tools and exact evidence/resource failures;
+      a subprocess success no longer substitutes for measured implementation.
+      The full macOS source gate passes at 95.04% (13,956/14,684 statements),
+      strictly above the unchanged 95% floor. Original profiles and failures
+      remain in `3f4b9c1c/coverage-owner/`. Source and native commands now retain
+      the original Go profile under one verification directory, projected to both
+      peers' always-upload artifacts; path-mismatch RED/GREEN covers macOS and
+      Linux. This is not final candidate or other-platform acceptance.
 
 ## 7. CI and Dual-Peer Admission
 
@@ -352,6 +361,11 @@ in Git; original raw results stay with their source-bound verification owner.
       and GitLab pipeline 9431 pass all three native groups and Secret Service;
       Quality rejects the same advisory. All job handles are terminal. Final
       required checks, protected events and guarded integration remain open.
+      At signed `3f4b9c1c`, GitHub run 37175033074 and GitLab pipeline 9434
+      pass Quality, Windows and Secret Service but both reject native coverage:
+      Linux 94.68%, macOS 94.76%. Those terminal failures are retained, not retried.
+      Direct native-owner instrumentation and preserved source profiles repair
+      that assurance gap; a new exact-source peer result remains required.
 - [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review
@@ -468,7 +482,8 @@ in Git; original raw results stay with their source-bound verification owner.
       skipped required gate or warning counts as pass.
       Focused native/static/text/OpenSpec checks and distinguishing counterexamples
       pass in their declared scopes. Exact-source native results are in 6.2/7.2;
-      final full security proof remains blocked by 6.5, not silently skipped.
+      The full source gate passes its current native security disposition and
+      coverage floor; final locked-candidate security/provenance remains in 6.5.
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with
       exact-byte install, predecessor upgrade/rollback, credentials and real-client
       journeys; retain the source and artifact hashes and disclose missing platform

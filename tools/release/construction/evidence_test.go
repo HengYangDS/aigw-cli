@@ -420,3 +420,84 @@ func TestReleaseSBOMRequiresPortableBinaries(t *testing.T) {
 		t.Fatalf("missing binary error = %v", err)
 	}
 }
+
+func TestNativeDependencyEvidenceTransportRefusesBrokenResources(t *testing.T) {
+	root := t.TempDir()
+	if _, err := readDependencyPolicy(root); err == nil {
+		t.Fatal("absent dependency policy accepted")
+	}
+	policy := filepath.Join(root, ".config", "checks", "dependencies", "policy.toml")
+	if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(policy, []byte("unexpected = true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readDependencyPolicy(root); err == nil {
+		t.Fatal("unknown native policy field accepted")
+	}
+	approved := "[[IgnoredVulns]]\nid='GHSA-vfj7-8cjw-p6xm'\nreason='Reviewed fixture'\nignoreUntil=2026-10-18\n"
+	if err := os.WriteFile(policy, []byte(approved), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readDependencyPolicy(root); err == nil {
+		t.Fatal("exception accepted without its lockfile")
+	}
+	lock := filepath.Join(root, "package-lock.json")
+	for _, invalid := range []string{"{", `{"lockfileVersion":3,"packages":{"node_modules/braces":{"version":"3.0.4","dev":true}}}`, `{"lockfileVersion":3,"packages":{}}`} {
+		if err := os.WriteFile(lock, []byte(invalid), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := readDependencyPolicy(root); err == nil {
+			t.Fatal("exception accepted outside its exact locked scope")
+		}
+	}
+	blocked := filepath.Join(root, "blocked")
+	if err := os.WriteFile(blocked, []byte("retained"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := scanDependencies(root, blocked, dependencyPolicy{}, func(toolCall) error {
+		t.Fatal("scanner started before its evidence parent was admitted")
+		return nil
+	}); err == nil {
+		t.Fatal("blocked evidence parent accepted")
+	}
+	for _, raw := range []string{"missing", "malformed"} {
+		path := filepath.Join(root, raw)
+		if raw == "malformed" {
+			if err := os.WriteFile(path, []byte("{"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := validateDependencyExceptions(dependencyPolicy{}, path); err == nil {
+			t.Fatal("unavailable raw evidence accepted")
+		}
+	}
+	problem := errors.New("native scanner unavailable")
+	output := filepath.Join(root, "unavailable", "raw.json")
+	if err := runDependencyScan(toolCall{Args: []string{output}}, func(toolCall) error { return problem }); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing capture parent accepted: %v", err)
+	}
+	output = filepath.Join(root, "raw.json")
+	if err := os.Mkdir(output+".stderr", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := runDependencyScan(toolCall{Args: []string{output}}, func(toolCall) error { return problem }); err == nil {
+		t.Fatal("invalid stderr target accepted")
+	}
+	if err := os.Remove(output + ".stderr"); err != nil {
+		t.Fatal(err)
+	}
+	if err := runDependencyScan(toolCall{Args: []string{output}}, func(toolCall) error { return problem }); !errors.Is(err, problem) {
+		t.Fatalf("native failure lost: %v", err)
+	}
+	if err := os.Remove(output + ".exit.json"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(output+".exit.json", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := runDependencyScan(toolCall{Args: []string{output}}, func(toolCall) error { return nil }); err == nil {
+		t.Fatal("unwritable exit evidence accepted")
+	}
+}

@@ -48,7 +48,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^TestVerificationResourceCleanupStopsOwnedFixture$"},
 		{"go", "test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|Performance(Samples|Command|Cases|PooledSamples))$"},
 		{"go", "run", "./tools/ci", "check-workflows", "."},
-		{"go", "run", "./tools/coverage", "--race"},
+		{"go", "run", "./tools/coverage", "--race", "--profile-output", "build/verification/coverage/profile.out"},
 	}
 	var got [][]string
 	runner := func(call command) error {
@@ -224,7 +224,7 @@ func TestSourceExtendsQualityWithCompleteCoverage(t *testing.T) {
 	if len(source) != len(quality)+1 || !reflect.DeepEqual(source[:len(quality)], quality) {
 		t.Fatalf("source gate does not extend quality exactly\nquality: %#v\nsource:  %#v", quality, source)
 	}
-	if call := source[len(quality)]; call.Name != "go" || !slices.Equal(call.Args, []string{"run", "./tools/coverage", "--race"}) {
+	if call := source[len(quality)]; call.Name != "go" || !slices.Equal(call.Args, []string{"run", "./tools/coverage", "--race", "--profile-output", "build/verification/coverage/profile.out"}) {
 		t.Fatalf("source gate lacks complete coverage: %#v", source)
 	}
 

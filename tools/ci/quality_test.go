@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -212,5 +213,47 @@ func TestPortableQualityToolsHaveCompletePlatformLocks(t *testing.T) {
 		if !slices.Equal(got, want) {
 			t.Fatalf("%s platform locks = %q, want %q", tool, got, want)
 		}
+	}
+}
+
+func TestWorkflowGateResourceBoundaryIsNativeAndExact(t *testing.T) {
+	root := t.TempDir()
+	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
+		t.Fatalf("git fixture: %v %s", err, output)
+	}
+	file := filepath.Join(root, ".github", "workflows", "probe.yml")
+	if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	valid := "name: probe\non: push\ndefaults:\n  run:\n    shell: bash\njobs:\n  probe:\n    runs-on: ubuntu-latest\n    steps:\n      - run: printf native\n"
+	write := func(content string) {
+		t.Helper()
+		if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(valid)
+	problem := errors.New("native workflow validator failed")
+	if err := checkWorkflows(root, func(command) error { return problem }); !errors.Is(err, problem) {
+		t.Fatalf("native validator error was not propagated: %v", err)
+	}
+	write(valid)
+	block := filepath.Join(root, "build")
+	if err := os.WriteFile(block, []byte("retained"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkWorkflows(root, func(command) error { return nil }); err == nil {
+		t.Fatal("unavailable evidence parent accepted")
+	}
+	if err := os.Remove(block); err != nil {
+		t.Fatal(err)
+	}
+	write("jobs: [\n")
+	if err := checkWorkflows(root, func(command) error { return nil }); err == nil {
+		t.Fatal("malformed native YAML accepted")
+	}
+	write(strings.ReplaceAll(valid, "shell: bash", "shell: sh"))
+	if err := checkWorkflows(root, systemRunner); err != nil {
+		t.Fatalf("native sh workflow rejected: %v", err)
 	}
 }
