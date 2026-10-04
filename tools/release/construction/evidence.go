@@ -1,18 +1,249 @@
 package construction
 
 import (
+	"aigw-cli/internal/process"
 	"aigw-cli/tools/release/artifact"
+	"bytes"
+	"context"
 	"crypto/sha1" //nolint:gosec // SPDX 2.3 requires SHA1 file metadata; signed SHA256 owns integrity.
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/Masterminds/semver/v3"
+	"github.com/pelletier/go-toml/v2"
 )
+
+type dependencyPolicy struct {
+	IgnoredVulns     []dependencyException `toml:"IgnoredVulns"`
+	PackageOverrides []struct {
+		Name      string `toml:"name"`
+		Version   string `toml:"version"`
+		Ecosystem string `toml:"ecosystem"`
+		Reason    string `toml:"reason"`
+		License   struct {
+			Override []string `toml:"override"`
+		} `toml:"license"`
+	} `toml:"PackageOverrides"`
+}
+
+type dependencyException struct {
+	ID          string    `toml:"id"`
+	Reason      string    `toml:"reason"`
+	IgnoreUntil time.Time `toml:"ignoreUntil"`
+}
+
+func readDependencyPolicy(root string) (dependencyPolicy, error) {
+	var policy dependencyPolicy
+	data, err := os.ReadFile(filepath.Join(root, ".config", "checks", "dependencies", "policy.toml"))
+	if err != nil {
+		return policy, fmt.Errorf("read dependency policy: %w", err)
+	}
+	if err := toml.NewDecoder(strings.NewReader(string(data))).DisallowUnknownFields().Decode(&policy); err != nil {
+		return policy, fmt.Errorf("decode dependency policy: %w", err)
+	}
+	if len(policy.IgnoredVulns) == 0 {
+		return policy, nil
+	}
+	var lock struct {
+		LockfileVersion int `json:"lockfileVersion"`
+		Packages        map[string]struct {
+			Version string `json:"version"`
+			Dev     bool   `json:"dev"`
+		} `json:"packages"`
+	}
+	data, err = os.ReadFile(filepath.Join(root, "package-lock.json"))
+	if err != nil {
+		return policy, fmt.Errorf("read dependency exception scope: %w", err)
+	}
+	if err := json.Unmarshal(data, &lock); err != nil {
+		return policy, fmt.Errorf("decode dependency exception scope: %w", err)
+	}
+	// Exact authorized development boundary; this is product admission, not
+	// a conditional OSV rule. Retire with the native policy entry.
+	for _, exception := range policy.IgnoredVulns {
+		if exception.ID == "" || strings.TrimSpace(exception.Reason) == "" || !exception.IgnoreUntil.After(time.Now()) || exception.IgnoreUntil.After(time.Date(2026, 10, 18, 0, 0, 0, 0, time.UTC)) ||
+			exception.ID != "GHSA-vfj7-8cjw-p6xm" || lock.LockfileVersion != 3 {
+			return policy, fmt.Errorf("dependency exception %q requires an unexpired exact npm development scope", exception.ID)
+		}
+		matches := 0
+		for path, item := range lock.Packages {
+			if path != "node_modules/braces" && !strings.HasSuffix(path, "/node_modules/braces") {
+				continue
+			}
+			if item.Version != "3.0.3" || !item.Dev {
+				return policy, fmt.Errorf("dependency exception %s does not admit the locked package at %s", exception.ID, path)
+			}
+			matches++
+		}
+		if matches == 0 {
+			return policy, fmt.Errorf("dependency exception %s has no current locked consumer", exception.ID)
+		}
+	}
+	return policy, nil
+}
+
+func validateDependencyExceptions(policy dependencyPolicy, raw string) error {
+	data, err := os.ReadFile(raw)
+	if err != nil {
+		return err
+	}
+	var report osvReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		return fmt.Errorf("decode dependency exception evidence: %w", err)
+	}
+	for _, exception := range policy.IgnoredVulns {
+		matches := 0
+		for _, result := range report.Results {
+			for _, item := range result.Packages {
+				for _, finding := range item.Vulnerabilities {
+					if finding.ID != exception.ID && !slices.Contains(finding.Aliases, exception.ID) {
+						continue
+					}
+					if item.Package.Ecosystem != "npm" || item.Package.Name != "braces" || item.Package.Version != "3.0.3" || !slices.Equal(item.DependencyGroups, []string{"dev"}) {
+						return fmt.Errorf("dependency exception %s does not admit the native finding identity", exception.ID)
+					}
+					for _, fixed := range finding.evidenceFor(item.Package).FixedVersions {
+						version, parseErr := semver.StrictNewVersion(fixed)
+						if parseErr == nil && version.Prerelease() == "" {
+							return fmt.Errorf("dependency exception %s must retire: official stable fix %s is reported", exception.ID, fixed)
+						}
+					}
+					matches++
+				}
+			}
+		}
+		if matches == 0 {
+			return fmt.Errorf("dependency exception %s has no current raw finding; remove the obsolete disposition", exception.ID)
+		}
+	}
+	return nil
+}
+
+func scanDependencies(root, output string, policy dependencyPolicy, run toolRunner) (string, error) {
+	root, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(output, 0o700); err != nil {
+		return "", err
+	}
+	evidence, err := os.MkdirTemp(output, "scan-")
+	if err != nil {
+		return "", err
+	}
+	unfiltered := policy
+	unfiltered.IgnoredVulns = nil
+	data, err := toml.Marshal(unfiltered)
+	if err != nil {
+		return "", err
+	}
+	config := filepath.Join(evidence, "unfiltered.toml")
+	if err := os.WriteFile(config, data, 0o600); err != nil {
+		return "", err
+	}
+	raw := filepath.Join(evidence, "dependencies.raw.json")
+	lockfiles := []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")}
+	args := []string{"scan", "source", "--config", config, "--lockfile", lockfiles[0], "--lockfile", lockfiles[1], "--no-call-analysis=go", "--format", "json", "--all-packages", "--all-vulns", "--licenses=", "--output-file", raw}
+	call := toolCall{Name: "osv-scanner", Directory: root, Args: args, Timeout: 2 * time.Minute}
+	if err := runDependencyScan(call, run); err != nil {
+		exit, ok := errors.AsType[*exec.ExitError](err)
+		if !ok || exit.ExitCode() != 1 {
+			return raw, fmt.Errorf("scan raw dependencies: %w", err)
+		}
+	}
+	if err := normalizeDependencyEvidence(raw, filepath.Join(evidence, "vulnerabilities.json"), filepath.Join(evidence, "licenses.json"), lockfiles); err != nil {
+		return raw, err
+	}
+	if err := validateDependencyExceptions(policy, raw); err != nil {
+		return raw, err
+	}
+	call.Args = slices.Clone(args)
+	data, err = toml.Marshal(policy)
+	if err != nil {
+		return raw, err
+	}
+	config = filepath.Join(evidence, "disposition.toml")
+	if err := os.WriteFile(config, data, 0o600); err != nil {
+		return raw, err
+	}
+	call.Args[3] = config
+	disposition := filepath.Join(evidence, "dependencies.disposition.json")
+	call.Args[len(call.Args)-1] = disposition
+	if err := runDependencyScan(call, run); err != nil {
+		return raw, fmt.Errorf("native dependency disposition refused; complete evidence retained at %s: %w", evidence, err)
+	}
+	if err := normalizeDependencyEvidence(disposition, filepath.Join(evidence, "disposition-vulnerabilities.json"), filepath.Join(evidence, "disposition-licenses.json"), lockfiles); err != nil {
+		return raw, err
+	}
+	original, err := os.ReadFile(filepath.Join(evidence, "licenses.json"))
+	if err != nil {
+		return raw, err
+	}
+	decided, err := os.ReadFile(filepath.Join(evidence, "disposition-licenses.json"))
+	if err != nil || !bytes.Equal(original, decided) {
+		return raw, errors.New("native dependency disposition changed the complete package/license inventory")
+	}
+	return raw, nil
+}
+
+func runDependencyScan(call toolCall, run toolRunner) error {
+	output := call.Args[len(call.Args)-1]
+	stdout, err := os.Create(output + ".stdout")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = stdout.Close() }()
+	stderr, err := os.Create(output + ".stderr")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = stderr.Close() }()
+	call.Stdout, call.Stderr = stdout, stderr
+	result := run(call)
+	code := 0
+	if result != nil {
+		code = -1
+		if exit, ok := errors.AsType[*exec.ExitError](result); ok {
+			code = exit.ExitCode()
+		}
+	}
+	if err := stderr.Close(); err != nil {
+		return errors.Join(result, err)
+	}
+	diagnostics, readErr := os.ReadFile(output + ".stderr")
+	if readErr != nil {
+		return errors.Join(result, readErr)
+	}
+	invalidDiagnostics := process.DiagnosticFailure(diagnostics)
+	if err := writeJSON(output+".exit.json", struct {
+		Exit   int  `json:"exit"`
+		Failed bool `json:"failed"`
+	}{code, result != nil || invalidDiagnostics}); err != nil {
+		return errors.Join(result, err)
+	}
+	if invalidDiagnostics {
+		return fmt.Errorf("native dependency diagnostics prevent qualification; retained at %s", output+".stderr")
+	}
+	return result
+}
+
+// ScanDependencies preserves complete raw evidence before native policy disposition.
+func ScanDependencies(ctx context.Context, root, output string) error {
+	policy, err := readDependencyPolicy(root)
+	if err != nil {
+		return err
+	}
+	_, err = scanDependencies(root, output, policy, executeTool(ctx))
+	return err
+}
 
 type dependencyIdentity struct {
 	Ecosystem string `json:"ecosystem"`
@@ -27,9 +258,10 @@ type osvReport struct {
 			Type string `json:"type"`
 		} `json:"source"`
 		Packages []struct {
-			Package         dependencyIdentity `json:"package"`
-			Licenses        []string           `json:"licenses"`
-			Vulnerabilities []osvVulnerability `json:"vulnerabilities"`
+			DependencyGroups []string           `json:"dependency_groups"`
+			Package          dependencyIdentity `json:"package"`
+			Licenses         []string           `json:"licenses"`
+			Vulnerabilities  []osvVulnerability `json:"vulnerabilities"`
 		} `json:"packages"`
 	} `json:"results"`
 }

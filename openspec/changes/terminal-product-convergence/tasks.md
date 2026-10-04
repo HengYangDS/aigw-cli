@@ -268,24 +268,27 @@ in Git; original raw results stay with their source-bound verification owner.
       provenance locks and real SBOM tests pass; source receipt is in
       `13e6525c/current-upstream-review-20261004/`. Final native client scope is in
       4.5/5.2; SBOM/license/signature/provenance retain their original candidates.
-      Blocking: supported OpenSpec/Mermaid still consume `braces` 3.0.3,
+      Supported OpenSpec/Mermaid still consume `braces` 3.0.3,
       [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
-      (CVSS 4.0: 8.7). The 2026-10-04 registry/advisory reads show no patched
-      stable version; [upstream PR #72](https://github.com/micromatch/braces/pull/72)
-      remains unmerged. Both quality jobs reject this finding. Development-only
-      lock classification proves neither deployed absence nor consumer
-      exploitability; VEX applicability remains unproved.
-      Existing isolated native schema output probes reproduce the deep-pattern
-      failure; ordinary controls pass. The affected development consumer is
-      therefore reachable; runtime applicability remains a separate decision.
-      No ignore, downgrade, fork/vendor patch,
-      compatibility violation or schema restriction is admitted. Removing the
-      Markdown CLI intermediary deleted seventeen packages, not this chain.
-      The release owner refuses failed/malformed/incomplete dependency evidence
-      before build/SBOM/signing; source rules and construction race tests pass.
-      Its real locked `b2dbeeb7` refusal takes 7.06s and preserves raw failure,
-      installed/retained bytes and exact workspace absence. This refusal is not
-      bypassed to manufacture signed assets; final exact-lock matrix stays open.
+      (CVSS 4.0: 8.7); native deep-schema/output probes reproduce the failure.
+      No official stable fix is observed; [PR #72](https://github.com/micromatch/braces/pull/72)
+      remains unmerged. The operator explicitly approved only reviewed
+      development-tool inputs on 2026-10-04, not production or arbitrary
+      untrusted input. The native OSV policy expires on 2026-10-18 and retires
+      sooner on changed package/group, an obsolete finding or a reported stable
+      fix. No downgrade, fork, broad package ignore or other-gate waiver is used.
+      Quality and construction share the original dependency-evidence owner:
+      two native scans retain complete raw findings and separate disposition,
+      exact package/license inventory, native diagnostics and exit evidence.
+      Raw scope is checked against the approved npm/braces/3.0.3/dev lock before
+      disposition; malformed/missing/incomplete output and native warnings refuse
+      qualification. Both Forge projections retain evidence after failure.
+      The real current-lock source journey passes in 11.90s with 309 package
+      identities and the raw finding retained; native controls and original
+      failed journeys remain in `4b8f3452/native-dependency-closure/`.
+      The earlier `b2dbeeb7` 7.06s refusal stays valid for its original policy.
+      This bounded risk disposition is not a vulnerability repair or VEX claim;
+      final exact-lock SBOM, signature/provenance and native matrix remain open.
 - [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
       build and CI costs against predecessor budgets on a quiet host; preserve raw
       samples and optimize only diagnosed owners.

@@ -415,6 +415,7 @@ func TestRunReportsCommandFailures(t *testing.T) {
 	cases := [][]string{
 		nil,
 		{"build"},
+		{"scan-dependencies", "."},
 		{"validate-release-sources", "extra"},
 	}
 	for _, args := range cases {

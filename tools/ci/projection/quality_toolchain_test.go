@@ -3,6 +3,7 @@ package projection
 import (
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"go.yaml.in/yaml/v3"
@@ -53,5 +54,50 @@ func TestQualityJobsUseTheirExactToolClosure(t *testing.T) {
 		return step.Name == "Prepare locked dependencies" && step.Run == "mise run bootstrap"
 	}) {
 		t.Fatalf("GitHub quality job lacks locked dependency preparation: %#v", steps)
+	}
+}
+
+func TestEverySourceConsumerRetainsDependencyEvidenceOnFailure(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gitlab map[string]yaml.Node
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	var github struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				If   string            `yaml:"if"`
+				Uses string            `yaml:"uses"`
+				With map[string]string `yaml:"with"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
+		t.Fatal(err)
+	}
+	for _, job := range []string{"quality", "native-darwin", "native-linux", "native-windows"} {
+		var declared struct {
+			Artifacts struct {
+				When  string   `yaml:"when"`
+				Paths []string `yaml:"paths"`
+			} `yaml:"artifacts"`
+		}
+		node := gitlab[job]
+		if err := node.Decode(&declared); err != nil {
+			t.Fatal(err)
+		}
+		if declared.Artifacts.When != "always" || !slices.Contains(declared.Artifacts.Paths, "build/verification/dependencies") {
+			t.Errorf("GitLab %s loses dependency evidence after failure: %+v", job, declared.Artifacts)
+		}
+		found := false
+		for _, step := range github.Jobs[job].Steps {
+			found = found || step.If == "always()" && strings.Contains(step.Uses, "upload-artifact@") && step.With["path"] == "build/verification/dependencies"
+		}
+		if !found {
+			t.Errorf("GitHub %s loses dependency evidence after failure", job)
+		}
 	}
 }

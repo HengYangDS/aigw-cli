@@ -3,6 +3,7 @@ package construction
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -364,5 +365,154 @@ func TestReleaseDependencyAdmissionPrecedesArtifactConstruction(t *testing.T) {
 				t.Fatalf("dependency refusal left workspace residue: %v, %v", workspaces, err)
 			}
 		})
+	}
+}
+
+func TestReleaseDependencyRiskScopeRefusesBeforeNativeExecution(t *testing.T) {
+	const policy = `[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+reason = "Reviewed development-tool fixture"
+ignoreUntil = 2026-10-18
+`
+	for _, test := range []struct {
+		name, policy, packages string
+	}{
+		{"upgraded package", policy, `"node_modules/braces":{"version":"3.0.4","dev":true}`},
+		{"runtime dependency", policy, `"node_modules/braces":{"version":"3.0.3"}`},
+		{"mixed installations", policy, `"node_modules/braces":{"version":"3.0.3","dev":true},"node_modules/tool/node_modules/braces":{"version":"3.0.4","dev":true}`},
+		{"absent package", policy, `"node_modules/other":{"version":"3.0.3","dev":true}`},
+		{"unapproved disposition", strings.ReplaceAll(policy, "GHSA-vfj7-8cjw-p6xm", "OSV-FIXTURE-OTHER"), `"node_modules/braces":{"version":"3.0.3","dev":true}`},
+		{"expired disposition", strings.ReplaceAll(policy, "2026-10-18", "2000-01-01"), `"node_modules/braces":{"version":"3.0.3","dev":true}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := releaseRoot(t)
+			path := filepath.Join(root, ".config", "checks", "dependencies", "policy.toml")
+			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte(test.policy), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			lock := `{"lockfileVersion":3,"packages":{` + test.packages + `}}`
+			if err := os.WriteFile(filepath.Join(root, "package-lock.json"), []byte(lock), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			var calls []string
+			err := buildRelease(t.Context(), buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: "1.2.3", Epoch: "1784246400", SigningKey: "unused"}, func(call toolCall) error {
+				calls = append(calls, call.Name)
+				return errors.New("native execution must not start")
+			})
+			if err == nil || !strings.Contains(err.Error(), "exception") || len(calls) != 0 {
+				t.Fatalf("unadmitted risk scope reached native execution: error=%v calls=%v", err, calls)
+			}
+		})
+	}
+}
+
+func TestDependencyScanBindsRelativeRootToNativeAbsoluteSources(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	calls := 0
+	_, err := scanDependencies(".", filepath.Join(root, "evidence"), dependencyPolicy{}, func(call toolCall) error {
+		calls++
+		return writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(root))
+	})
+	if err != nil || calls != 2 {
+		t.Fatalf("relative root did not bind complete native sources: error=%v calls=%d", err, calls)
+	}
+}
+
+func TestDependencyDispositionRejectsIncompleteNativeOutput(t *testing.T) {
+	for _, failure := range []string{"missing", "malformed", "incomplete", "package omitted"} {
+		t.Run(failure, func(t *testing.T) {
+			root := t.TempDir()
+			calls := 0
+			_, err := scanDependencies(root, filepath.Join(root, "evidence"), dependencyPolicy{}, func(call toolCall) error {
+				calls++
+				report := dependencyReportFixture(root)
+				if calls == 2 {
+					switch failure {
+					case "missing":
+						return nil
+					case "malformed":
+						return os.WriteFile(call.Args[len(call.Args)-1], []byte("{"), 0o600)
+					case "incomplete":
+						report.Results = report.Results[:1]
+					case "package omitted":
+						report.Results[0].Packages[0].Package.Version = "2.0.0"
+					}
+				}
+				return writeJSON(call.Args[len(call.Args)-1], report)
+			})
+			if err == nil || calls != 2 {
+				t.Fatalf("incomplete native disposition accepted: error=%v calls=%d", err, calls)
+			}
+		})
+	}
+}
+
+func TestDependencyPolicyScopeRefusesRawIdentityAndStableFix(t *testing.T) {
+	const approved = `[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+reason = "Reviewed fixture"
+ignoreUntil = 2026-10-18
+`
+	for _, failure := range []string{"missing finding", "wrong version", "runtime group", "stable fix"} {
+		t.Run(failure, func(t *testing.T) {
+			root := t.TempDir()
+			path := filepath.Join(root, ".config", "checks", "dependencies", "policy.toml")
+			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte(approved), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(root, "package-lock.json"), []byte(`{"lockfileVersion":3,"packages":{"node_modules/braces":{"version":"3.0.3","dev":true}}}`), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			policy, err := readDependencyPolicy(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			version, group := "3.0.3", "dev"
+			if failure == "wrong version" {
+				version = "3.0.4"
+			}
+			if failure == "runtime group" {
+				group = "production"
+			}
+			finding := map[string]any{"id": "GHSA-vfj7-8cjw-p6xm"}
+			if failure == "stable fix" {
+				finding["affected"] = []any{map[string]any{"package": map[string]string{"ecosystem": "npm", "name": "braces"}, "ranges": []any{map[string]any{"type": "SEMVER", "events": []any{map[string]string{"fixed": "3.0.4"}}}}}}
+			}
+			findings := []any{finding}
+			if failure == "missing finding" {
+				findings = nil
+			}
+			report := map[string]any{"results": []any{map[string]any{"source": map[string]string{"path": "package-lock.json", "type": "lockfile"}, "packages": []any{map[string]any{"package": map[string]string{"ecosystem": "npm", "name": "braces", "version": version}, "dependency_groups": []string{group}, "vulnerabilities": findings}}}}}
+			raw := filepath.Join(root, "raw.json")
+			if err := writeJSON(raw, report); err != nil {
+				t.Fatal(err)
+			}
+			if err := validateDependencyExceptions(policy, raw); err == nil {
+				t.Fatal("unapproved raw risk identity accepted")
+			}
+		})
+	}
+}
+
+func TestDependencyScanRetainsButRejectsNativeWarning(t *testing.T) {
+	root := t.TempDir()
+	output := filepath.Join(root, "native.json")
+	err := runDependencyScan(toolCall{Args: []string{output}}, func(call toolCall) error {
+		_, err := fmt.Fprintln(call.Stderr, "warning: incomplete native evidence")
+		return err
+	})
+	if err == nil {
+		t.Fatal("native warning was silently accepted")
+	}
+	data, err := os.ReadFile(output + ".stderr")
+	if err != nil || !strings.Contains(string(data), "warning:") {
+		t.Fatalf("native warning was not retained: %q %v", data, err)
 	}
 }

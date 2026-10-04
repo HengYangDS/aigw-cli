@@ -75,7 +75,7 @@ var repositoryQualityGraph = qualityGraph{
 		{ID: "toml", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-toml", "."}}, Concerns: []qualityConcern{qualityFormat, qualitySchema}},
 		{ID: "go-module-tidy", Command: command{Name: "go", Args: []string{"mod", "tidy", "-diff"}}, Concerns: []qualityConcern{qualityLint, qualitySchema}},
 		{ID: "go-module-integrity", Command: command{Name: "go", Args: []string{"mod", "verify"}}, Concerns: []qualityConcern{qualitySecurity}},
-		{ID: "vulnerabilities", Command: command{Name: "osv-scanner", Args: []string{"scan", "source", "--config", ".config/checks/dependencies/policy.toml", "--lockfile", "go.mod", "--lockfile", "package-lock.json", "--format", "table", "--verbosity", "warn", "."}}, Concerns: []qualityConcern{qualitySecurity}},
+		{ID: "vulnerabilities", Command: command{Name: "go", Args: []string{"run", "./tools/release", "scan-dependencies", ".", "build/verification/dependencies"}}, Concerns: []qualityConcern{qualitySecurity}},
 		{ID: "secrets", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-secrets", "."}}, Concerns: []qualityConcern{qualitySecurity}},
 		{ID: "toolchain", Command: command{Name: "go", Args: []string{"run", "./tools/release", "validate-toolchain", "go.mod"}}, Concerns: []qualityConcern{qualitySchema}},
 		{ID: "release-sources", Command: command{Name: "go", Args: []string{"run", "./tools/release", "validate-release-sources"}}, Concerns: []qualityConcern{qualitySchema, qualityProjection}},

@@ -1,10 +1,17 @@
 # Quality and release scans retain complete vulnerability and license evidence.
-IgnoredVulns = []
+# OSV owns the advisory disposition; the release owner validates scope against
+# the exact approved npm/braces/3.0.3/dev lock and raw native finding before
+# applying it; OSV has no conditional scope field. Remove this entry
+# on an official stable fix, a changed version/group, or an obsolete finding.
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2026-10-18
+reason = "Human-approved 2026-10-04: reviewed development checks only; retain complete raw findings, bounded native execution and all other gates. Not production or arbitrary untrusted input."
 
-# These exact locked npm archives contain MIT LICENSE files, but their upstream
-# metadata resolves to UNKNOWN. Only the license observation is corrected;
-# vulnerability scanning remains unchanged. Remove each entry when upstream
-# metadata or the selected package version changes.
+# Exact integrity-locked archive LICENSE files establish these corrections;
+# upstream metadata resolves to UNKNOWN. Only license observations change.
+# Vulnerability findings remain complete in the raw report. Remove each entry
+# when upstream metadata or the selected package version changes.
 [[PackageOverrides]]
 name = "@mermaid-lint/core"
 version = "0.53.1"
@@ -18,3 +25,10 @@ version = "2.1.0"
 ecosystem = "npm"
 license.override = ["MIT"]
 reason = "MIT license in the integrity-locked npm archive; upstream license metadata is UNKNOWN"
+
+[[PackageOverrides]]
+name = "source-map-js"
+version = "1.2.2"
+ecosystem = "npm"
+license.override = ["BSD-3-Clause"]
+reason = "BSD-3-Clause LICENSE in the integrity-locked npm archive; native license metadata is UNKNOWN"

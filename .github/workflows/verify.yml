@@ -146,6 +146,13 @@ jobs:
           AIGW_RELEASE_ALLOWED_SIGNERS_FILE: ${{ env.AIGW_RELEASE_ALLOWED_SIGNERS_FILE }}
           AIGW_CHANGELOG_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: mise exec --locked -- go run ./tools/ci quality
+      - name: Retain native dependency evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: dependency-evidence-quality
+          path: build/verification/dependencies
+          if-no-files-found: ignore
   linux-secret-service:
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Linux Secret Service' || 'Linux Secret Service' }}
     runs-on: ubuntu-24.04
@@ -368,6 +375,13 @@ jobs:
             }
             Remove-Item -LiteralPath $scope -Recurse -Force
           }
+      - name: Retain native dependency evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: dependency-evidence-darwin
+          path: build/verification/dependencies
+          if-no-files-found: ignore
       - name: Retain native performance samples
         if: always() && github.event_name == 'workflow_dispatch' && inputs.performance
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -533,6 +547,13 @@ jobs:
             }
             Remove-Item -LiteralPath $scope -Recurse -Force
           }
+      - name: Retain native dependency evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: dependency-evidence-linux
+          path: build/verification/dependencies
+          if-no-files-found: ignore
       - name: Retain native performance samples
         if: always() && github.event_name == 'workflow_dispatch' && inputs.performance
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -716,6 +737,13 @@ jobs:
             }
             Remove-Item -LiteralPath $scope -Recurse -Force
           }
+      - name: Retain native dependency evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: dependency-evidence-windows
+          path: build/verification/dependencies
+          if-no-files-found: ignore
       - name: Retain native performance samples
         if: always() && github.event_name == 'workflow_dispatch' && inputs.performance
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

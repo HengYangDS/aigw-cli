@@ -179,6 +179,14 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 	t.Run("missing GoReleaser configuration", func(t *testing.T) {
 		request := valid
 		request.Root = t.TempDir()
+		policy := filepath.Join(request.Root, ".config", "checks", "dependencies", "policy.toml")
+		if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(policy, []byte("IgnoredVulns = []\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
 		request.Output = filepath.Join(t.TempDir(), "dist")
 		if err := buildRelease(t.Context(), request, func(call toolCall) error {
 			if call.Name == "osv-scanner" {

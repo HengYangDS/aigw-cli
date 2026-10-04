@@ -24,6 +24,12 @@ func buildCommands(ctx context.Context) commandSet {
 			}
 			return construction.AcceptNative(ctx, input)
 		},
+		"scan-dependencies": func(args []string, _ io.Writer) error {
+			if err := requireArguments(args, 2, "usage: release scan-dependencies <root> <evidence-directory>"); err != nil {
+				return err
+			}
+			return construction.ScanDependencies(ctx, args[0], args[1])
+		},
 		"build": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release build <output-directory>"); err != nil {
 				return err

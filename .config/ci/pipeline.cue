@@ -292,6 +292,20 @@ actions: {
 	upload:   "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" // v7.0.1
 }
 
+dependencyEvidencePath: "build/verification/dependencies"
+
+#DependencyEvidenceGitHubStep: {
+	_name: string
+	name:  "Retain native dependency evidence"
+	if:    "always()"
+	uses:  actions.upload
+	with: {
+		name:                _name
+		path:                dependencyEvidencePath
+		"if-no-files-found": "ignore"
+	}
+}
+
 hermesSourceCommit:    "f97608f178d1ffeca59860195ab7da295f7c8e5f"
 hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2"
 
@@ -520,6 +534,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				}
 				"""#
 		},
+		#DependencyEvidenceGitHubStep & {_name: "dependency-evidence-\(_platform)"},
 		{
 			name: "Retain native performance samples"
 			if:   "always() && github.event_name == 'workflow_dispatch' && inputs.performance"
@@ -696,7 +711,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	}
 	artifacts: {
 		when: "always"
-		paths: ["mise.lock", ".mise/locks"]
+		paths: ["mise.lock", ".mise/locks", dependencyEvidencePath]
 	}
 	if _platform == "linux" {
 		interruptible: true
@@ -774,6 +789,8 @@ gitlab: {
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
 			commands.quality,
 		]
+		artifacts: {when: "always", paths: [dependencyEvidencePath]}
+
 		stage: graph.quality.stage
 		variables: qualityToolchain & {CGO_ENABLED: "0"}
 		rules: [
@@ -993,6 +1010,8 @@ githubVerify: {
 					}
 					run: commands.quality
 				},
+				#DependencyEvidenceGitHubStep & {_name: "dependency-evidence-quality"},
+
 			]
 		}
 		"linux-secret-service": {

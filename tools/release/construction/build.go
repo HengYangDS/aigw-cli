@@ -36,7 +36,7 @@ type buildRequest struct {
 type toolCall struct {
 	Name, Directory string
 	Args, Env       []string
-	Stdout          io.Writer
+	Stdout, Stderr  io.Writer
 	Timeout         time.Duration
 }
 
@@ -47,11 +47,9 @@ type releaseEpochResolver func(root, version string) (string, error)
 type artifactComparator func(left, right, version string) error
 
 func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (result error) {
-	if err := validateRequest(request); err != nil {
+	policy, err := admitReleaseInputs(request)
+	if err != nil {
 		return err
-	}
-	if strings.TrimSpace(request.SigningKey) == "" {
-		return errors.New("release construction requires AIGW_RELEASE_SIGNING_KEY")
 	}
 	if err := ensureCleanSource(request.Root, run); err != nil {
 		return err
@@ -81,28 +79,14 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 	if err := os.MkdirAll(candidate, 0o755); err != nil {
 		return fmt.Errorf("create release candidate: %w", err)
 	}
-	rawDependencies := filepath.Join(workspace, "aigw.dependencies.json")
-	lockfiles := []string{filepath.Join(request.Root, "go.mod"), filepath.Join(request.Root, "package-lock.json")}
-	if err := run(toolCall{
-		Name: "osv-scanner", Directory: request.Root,
-		Args: []string{
-			"scan", "source",
-			"--config", filepath.Join(request.Root, ".config", "checks", "dependencies", "policy.toml"),
-			"--lockfile", lockfiles[0],
-			"--lockfile", lockfiles[1],
-			"--no-call-analysis=go", "--format", "json", "--all-packages", "--licenses=",
-			"--output-file", rawDependencies,
-		},
-	}); err != nil {
-		return fmt.Errorf("scan release dependencies: %w", err)
-	}
-	if err := normalizeDependencyEvidence(
-		rawDependencies,
-		filepath.Join(candidate, "aigw_"+request.Version+".vulnerabilities.json"),
-		filepath.Join(candidate, "aigw_"+request.Version+".licenses.json"),
-		lockfiles,
-	); err != nil {
+	rawDependencies, err := scanDependencies(request.Root, filepath.Join(request.Root, "build", "verification", "dependencies"), policy, run)
+	if err != nil {
 		return err
+	}
+	for _, report := range []string{"vulnerabilities", "licenses"} {
+		if err := copyFile(filepath.Join(filepath.Dir(rawDependencies), report+".json"), filepath.Join(candidate, "aigw_"+request.Version+"."+report+".json")); err != nil {
+			return err
+		}
 	}
 	stage, err := buildArchives(request, workspace, run)
 	if err != nil {
@@ -156,6 +140,16 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 		return fmt.Errorf("retain generated Homebrew projection: %w", err)
 	}
 	return replaceDirectory(candidate, output)
+}
+
+func admitReleaseInputs(request buildRequest) (dependencyPolicy, error) {
+	if err := validateRequest(request); err != nil {
+		return dependencyPolicy{}, err
+	}
+	if strings.TrimSpace(request.SigningKey) == "" {
+		return dependencyPolicy{}, errors.New("release construction requires AIGW_RELEASE_SIGNING_KEY")
+	}
+	return readDependencyPolicy(request.Root)
 }
 
 func buildArchives(request buildRequest, workspace string, run toolRunner) (string, error) {
@@ -349,10 +343,14 @@ func executeTool(ctx context.Context) toolRunner {
 		if stdout == nil {
 			stdout = os.Stdout
 		}
+		stderr := call.Stderr
+		if stderr == nil {
+			stderr = os.Stderr
+		}
 		return (process.Runner{}).RunStream(callContext, process.Plan{
 			Executable: call.Name, Directory: call.Directory,
 			Args: call.Args, Env: append(os.Environ(), call.Env...),
-		}, stdout, os.Stderr)
+		}, stdout, stderr)
 	}
 }
 
