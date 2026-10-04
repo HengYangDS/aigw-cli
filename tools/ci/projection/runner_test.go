@@ -1,10 +1,16 @@
 package projection
 
 import (
+	"bytes"
+	"context"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -267,5 +273,65 @@ func requireWindowsMiseJobStorage(t *testing.T, name string, script, cleanup []s
 		!strings.Contains(cleanup[0], directory) ||
 		!strings.Contains(cleanup[0], "Test-Path -LiteralPath $jobDirectory") {
 		t.Fatalf("%s Mise lifecycle enters the Go module or lacks exact teardown", name)
+	}
+}
+
+func TestNativePowerShellAcceptancePreservesDeclaredEmptyTag(t *testing.T) {
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if os.Getenv("AIGW_NATIVE_ARGUMENT_WITNESS") == "1" {
+		selected := os.Args[len(os.Args)-3:]
+		if !slices.Equal(selected, []string{"--baseline-tag=v1.2.3", "--tag=", "--clients=false"}) {
+			t.Fatalf("native PowerShell changed argument identity: %q", selected)
+		}
+		return
+	}
+	pwsh, err := exec.LookPath("pwsh")
+	if err != nil {
+		if runtime.GOOS == "windows" {
+			t.Fatalf("Windows native acceptance requires PowerShell: %v", err)
+		}
+		t.Skip("PowerShell native execution is optional outside Windows")
+	}
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				Name string `yaml:"name"`
+				Run  string `yaml:"run"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	steps := workflow.Jobs["native-windows"].Steps
+	index := slices.IndexFunc(steps, func(step struct {
+		Name string `yaml:"name"`
+		Run  string `yaml:"run"`
+	}) bool {
+		return step.Name == "Run historical release acceptance"
+	})
+	if index < 0 {
+		t.Fatal("Windows native command is missing")
+	}
+	_, suffix, found := strings.Cut(steps[index].Run, " --baseline-tag=")
+	if !found {
+		t.Fatal("Windows native command must declare the published baseline tag")
+	}
+	suffix = "--baseline-tag=" + strings.ReplaceAll(suffix, "${{ inputs.windows_clients }}", "false")
+	script := "& '" + strings.ReplaceAll(executable, "'", "''") + "' '-test.run=^TestNativePowerShellAcceptancePreservesDeclaredEmptyTag$' -- " + suffix
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script)
+	command.Env = append(os.Environ(), "AIGW_NATIVE_ARGUMENT_WITNESS=1", "AIGW_BASELINE_TAG=v1.2.3", "AIGW_CANDIDATE_TAG=")
+	output, err := command.CombinedOutput()
+	if err != nil || !bytes.Contains(output, []byte("PASS")) {
+		t.Fatalf("native PowerShell argument witness failed: %v\n%s", err, output)
 	}
 }

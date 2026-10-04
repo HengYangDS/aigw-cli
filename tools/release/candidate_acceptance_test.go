@@ -183,7 +183,7 @@ func TestNativePublishedBaselineBindsItsExplicitSignedSource(t *testing.T) {
 func TestNativeClientAcceptanceRejectsMissingExecutableBeforeBuild(t *testing.T) {
 	t.Chdir(filepath.Clean(filepath.Join("..", "..")))
 	t.Setenv("AIGW_ACCEPTANCE_CODEX", "")
-	err := run([]string{"accept-native", "--clients"}, io.Discard)
+	err := run([]string{"accept-native", "--clients", "--baseline-tag", "v0.3.1", "--peer", "github", "--repository", "team/product"}, io.Discard)
 	if err == nil || !strings.Contains(err.Error(), "AIGW_ACCEPTANCE_CODEX") {
 		t.Fatalf("missing native client was not identified before construction: %v", err)
 	}

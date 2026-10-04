@@ -130,6 +130,25 @@ func TestNativeAcceptanceRejectsCompetingPredecessorInputs(t *testing.T) {
 	}
 }
 
+func TestNativeClientSuccessionRequiresPublishedPredecessor(t *testing.T) {
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+	if _, err := ParseNativeAcceptance([]string{"--clients"}); err == nil || !strings.Contains(err.Error(), "published predecessor") {
+		t.Fatalf("client succession accepted missing predecessor: %v", err)
+	}
+	for _, arguments := range [][]string{
+		{"--peer=github", "--repository=team/product", "--baseline-tag=v1.2.3", "--tag=", "--clients=true"},
+		{"--peer=github", "--repository=team/product", "--baseline-tag=", "--tag=", "--clients=false"},
+	} {
+		if _, err := ParseNativeAcceptance(arguments); err != nil {
+			t.Fatalf("declared empty optional inputs were refused: %v", err)
+		}
+	}
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
+	if _, err := ParseNativeAcceptance([]string{"--clients"}); err != nil {
+		t.Fatalf("explicit retained predecessor was refused: %v", err)
+	}
+}
+
 func TestNativeReleaseDownloadUsesSelectedPeerAndBoundedNativeRunner(t *testing.T) {
 	for _, peer := range []string{"github", "gitlab"} {
 		t.Run(peer, func(t *testing.T) {

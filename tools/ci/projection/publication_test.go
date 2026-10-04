@@ -227,88 +227,52 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	type step struct {
+		Name string            `yaml:"name"`
+		If   string            `yaml:"if"`
+		Run  string            `yaml:"run"`
+		Env  map[string]string `yaml:"env"`
+	}
 	var workflow struct {
-		On struct {
-			Dispatch struct {
-				Inputs map[string]struct {
-					Required bool   `yaml:"required"`
-					Type     string `yaml:"type"`
-				} `yaml:"inputs"`
-			} `yaml:"workflow_dispatch"`
-		} `yaml:"on"`
 		Jobs map[string]struct {
-			Steps []struct {
-				Name  string            `yaml:"name"`
-				If    string            `yaml:"if"`
-				Shell string            `yaml:"shell"`
-				Env   map[string]string `yaml:"env"`
-				Run   string            `yaml:"run"`
-			} `yaml:"steps"`
+			Steps []step `yaml:"steps"`
 		} `yaml:"jobs"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
 		t.Fatal(err)
 	}
-	for name, kind := range map[string]string{
-		"baseline_tag": "string", "candidate_tag": "string",
-		"windows_clients": "boolean", "performance": "boolean",
-	} {
-		input, ok := workflow.On.Dispatch.Inputs[name]
-		if !ok || input.Required || input.Type != kind {
-			t.Fatalf("%s must be an optional %s input: %#v", name, kind, input)
-		}
-	}
+	const selection = "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)"
 	for _, platform := range []string{"darwin", "linux", "windows"} {
-		job := workflow.Jobs["native-"+platform]
-		index := slices.IndexFunc(job.Steps, func(step struct {
-			Name  string            `yaml:"name"`
-			If    string            `yaml:"if"`
-			Shell string            `yaml:"shell"`
-			Env   map[string]string `yaml:"env"`
-			Run   string            `yaml:"run"`
-		}) bool {
-			return step.Name == "Run historical release acceptance"
-		})
+		steps := workflow.Jobs["native-"+platform].Steps
+		index := slices.IndexFunc(steps, func(item step) bool { return item.Name == "Run historical release acceptance" })
 		if index < 0 {
 			t.Fatalf("%s has no historical native acceptance", platform)
 		}
-		step := job.Steps[index]
-		for key, value := range map[string]string{
-			"AIGW_QUALIFY_WINDOWS_CLIENTS": "${{ inputs.windows_clients }}",
-			"AIGW_MEASURE_PERFORMANCE":     "${{ inputs.performance }}",
-			"AIGW_BASELINE_TAG":            "${{ inputs.baseline_tag }}",
-			"AIGW_CANDIDATE_TAG":           "${{ inputs.candidate_tag }}",
-		} {
-			if step.Env[key] != value {
-				t.Fatalf("%s lost selection %s", platform, key)
+		selected := steps[index]
+		if selected.If != selection+" && !inputs.performance" || strings.Contains(selected.Run, "\n") {
+			t.Fatalf("%s must select one native lifecycle command: %#v", platform, selected)
+		}
+		for _, argument := range []string{"mise exec --locked -- go run ./tools/release accept-native", "--peer=github", "--repository=", "--baseline-tag=", "--tag="} {
+			if !strings.Contains(selected.Run, argument) {
+				t.Fatalf("%s native lifecycle lost %q", platform, argument)
 			}
 		}
-		if step.If != "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)" || step.Shell != "pwsh" {
-			t.Fatalf("%s historical acceptance selection = %#v", platform, step)
+		clients := "--clients=" + map[string]string{"windows": "${{ inputs.windows_clients }}", "darwin": "false", "linux": "false"}[platform]
+		if !strings.Contains(selected.Run, clients) || selected.Env["AIGW_BASELINE_TAG"] != "${{ inputs.baseline_tag }}" || selected.Env["AIGW_CANDIDATE_TAG"] != "${{ inputs.candidate_tag }}" {
+			t.Fatalf("%s native input selection differs from its declaration", platform)
 		}
-		if !strings.Contains(step.Run, "$acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG)") {
-			t.Fatalf("%s cannot consume the published candidate", platform)
-		}
-		wantKeyring := map[string]string{
-			"darwin":  "${{ github.event_name == 'workflow_dispatch' && inputs.macos_keychain && '1' || '0' }}",
-			"windows": "1",
-		}[platform]
-		if step.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != wantKeyring {
-			t.Fatalf("%s historical acceptance does not match its credential qualification boundary", platform)
-		}
-		if platform == "darwin" && step.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" {
-			t.Fatal("historical macOS credentials require an ephemeral host")
-		}
-		for _, forbidden := range []string{"AIGW_ACCEPTANCE_BASELINE =", "gh release download", "tar -xf"} {
-			if strings.Contains(step.Run, forbidden) {
-				t.Fatal("historical input verification and extraction must belong to the native release owner")
+		for _, kind := range []string{"source", "artifact"} {
+			trust := slices.IndexFunc(steps, func(item step) bool { return item.Name == "Prepare native "+kind+" trust" })
+			if trust < 0 || trust >= index || steps[trust].If != selection || strings.Contains(steps[trust].Run, "\n") ||
+				!strings.Contains(steps[trust].Run, "./tools/ci trust-input") || strings.Contains(steps[trust].Run, "--artifact") != (kind == "artifact") {
+				t.Fatalf("%s %s trust must precede acceptance through its original native owner", platform, kind)
 			}
 		}
-		if !strings.Contains(step.Run, "$acceptance = @('accept-native', '--peer', 'github', '--repository', $env:GITHUB_REPOSITORY)") || !strings.Contains(step.Run, "mise exec --locked -- go run ./tools/release @acceptance") {
-			t.Fatalf("%s historical acceptance does not consume the existing package owner", platform)
-		}
-		if !strings.Contains(step.Run, "mise run performance @performance") {
-			t.Fatalf("%s performance must use the task-specific locked tool", platform)
+		performance := slices.IndexFunc(steps, func(item step) bool { return item.Name == "Measure historical release performance" })
+		if performance < 0 || steps[performance].If != selection+" && inputs.performance" ||
+			!strings.HasPrefix(steps[performance].Run, "mise run performance ") || strings.Contains(steps[performance].Run, "\n") ||
+			!strings.Contains(steps[performance].Run, "--performance") || !strings.Contains(steps[performance].Run, clients) {
+			t.Fatalf("%s performance must retain its separate native task and exact input scope", platform)
 		}
 	}
 }

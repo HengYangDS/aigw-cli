@@ -140,6 +140,9 @@ func (input *NativeAcceptance) validateTagsAndPerformance() error {
 			return errors.New("native release tags require v<semver>")
 		}
 	}
+	if (input.Clients || runtime.GOOS == "darwin" && os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1") && input.BaselineTag == "" && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
+		return errors.New("native succession requires a published predecessor")
+	}
 	if input.Performance != "" && (input.Artifacts == "" && input.Tag == "" || os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" && input.BaselineTag == "") {
 		return errors.New("performance acceptance requires an explicit candidate artifact and published baseline")
 	}

@@ -279,6 +279,18 @@ downloads with prompts disabled and a per-call deadline. Neither CI projection
 downloads nor a second platform-specific verifier owns that decision. Real
 client paths must be declared before construction or download begins.
 
+Historical GitHub acceptance now invokes the original release command once;
+source and artifact trust use `ci trust-input`, and performance uses its native
+task. Equal-sign arguments retain intentionally empty optional tags through
+PowerShell. Selected client or macOS native-store succession requires a
+published predecessor; ordinary isolated lifecycle verification does not.
+The scoped official Windows installer retains its pinned six-stage protocol,
+locked dependencies and blank Forge-token environment. Its installer file and
+client root are created exclusively, registered after creation and removed by
+exact owned paths on success or failure. Other platforms do not inherit that
+Windows supply block. Native Windows installation, interruption and cleanup
+remain distinct from source projection and the local PowerShell argv witness.
+
 Unprotected `proposal/*` reviews must not be protected merely to reach a
 protected runner: eligible protected GitLab merge requests receive protected
 variables and runners together, while a persistent Shell account retains its

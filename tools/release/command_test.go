@@ -143,7 +143,7 @@ func TestRunBuildUsesPublicArgumentContract(t *testing.T) {
 		t.Fatalf("build error = %v", err)
 	}
 
-	for _, args := range [][]string{{"accept-native"}, {"accept-native", "--clients"}} {
+	for _, args := range [][]string{{"accept-native"}, {"accept-native", "--clients", "--baseline-tag", "v0.3.1", "--peer", "github", "--repository", "team/product"}} {
 		err = run(args, &output)
 		if err == nil || !strings.Contains(err.Error(), "invalid release version") {
 			t.Fatalf("native acceptance must validate the same source identity: %v", err)

@@ -426,59 +426,45 @@ func TestWindowsClientInstallerUsesPinnedContentAPI(t *testing.T) {
 	}
 	windows := workflow.Jobs["native-windows"].Steps
 	fetchIndex := slices.IndexFunc(windows, func(item step) bool { return item.Name == "Fetch pinned Hermes installer" })
-	historicalIndex := slices.IndexFunc(windows, func(item step) bool { return item.Name == "Run historical release acceptance" })
-	if fetchIndex < 0 || historicalIndex <= fetchIndex {
-		t.Fatalf("Windows installer fetch order: fetch=%d historical=%d", fetchIndex, historicalIndex)
+	supplyIndex := slices.IndexFunc(windows, func(item step) bool { return item.Name == "Prepare official Windows clients" })
+	nativeIndex := slices.IndexFunc(windows, func(item step) bool { return item.Name == "Run historical release acceptance" })
+	cleanupIndex := slices.IndexFunc(windows, func(item step) bool { return item.Name == "Remove official Windows client supply" })
+	if fetchIndex < 0 || supplyIndex <= fetchIndex || nativeIndex <= supplyIndex || cleanupIndex <= nativeIndex {
+		t.Fatalf("Windows native supply ordering: fetch=%d supply=%d native=%d cleanup=%d", fetchIndex, supplyIndex, nativeIndex, cleanupIndex)
 	}
-	fetch, historical := windows[fetchIndex], windows[historicalIndex]
-	for _, field := range []struct{ name, got, want string }{
-		{"condition", fetch.If, "github.event_name == 'workflow_dispatch' && inputs.windows_clients && inputs.baseline_tag != ''"},
-		{"token", fetch.Env["GH_TOKEN"], "${{ github.token }}"},
-		{"no prompt", fetch.Env["GH_PROMPT_DISABLED"], "1"},
+	fetch, supply := windows[fetchIndex], windows[supplyIndex]
+	const selection = "github.event_name == 'workflow_dispatch' && inputs.windows_clients && inputs.baseline_tag != ''"
+	for _, field := range []struct{ got, want string }{
+		{fetch.If, selection}, {supply.If, selection}, {windows[cleanupIndex].If, "always() && " + selection},
+		{fetch.Env["GH_TOKEN"], "${{ github.token }}"}, {fetch.Env["GH_PROMPT_DISABLED"], "1"},
 	} {
 		if field.got != field.want {
-			t.Fatalf("Hermes installer fetch %s = %q, want %q", field.name, field.got, field.want)
+			t.Fatalf("Windows official supply input = %q, want %q", field.got, field.want)
 		}
 	}
-	if fetch.TimeoutMinutes != 2 {
-		t.Fatalf("Hermes installer fetch deadline = %d minutes", fetch.TimeoutMinutes)
+	if fetch.TimeoutMinutes != 2 || supply.TimeoutMinutes != 12 {
+		t.Fatal("Windows official supply lost its caller deadlines")
 	}
 	const commit = "f97608f178d1ffeca59860195ab7da295f7c8e5f"
 	const digest = "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2"
-	for _, required := range []string{
-		"$hermesCommit = '" + commit + "'",
-		"gh api \"repos/NousResearch/hermes-agent/contents/scripts/install.ps1?ref=$hermesCommit\"",
-		"[Convert]::FromBase64String",
-		digest,
-	} {
-		if !strings.Contains(fetch.Run, required) {
-			t.Fatalf("Hermes installer fetch lacks %q", required)
+	if !strings.Contains(fetch.Run, commit) || !strings.Contains(fetch.Run, digest) || !strings.Contains(fetch.Run, "gh api") || !strings.Contains(fetch.Run, "[Convert]::FromBase64String") {
+		t.Fatal("Hermes installer must preserve original pinned Git blob bytes")
+	}
+	for _, key := range []string{"GH_TOKEN", "GITHUB_TOKEN"} {
+		if value, present := supply.Env[key]; !present || value != "" {
+			t.Fatalf("Windows official installation inherits %s", key)
 		}
 	}
-	for _, required := range []string{
-		"$hermesCommit = '" + commit + "'",
-		"$hermesInstaller = Join-Path $env:RUNNER_TEMP 'aigw-hermes-install.ps1'",
-		"Remove-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'aigw-hermes-install.ps1')",
-		digest,
-	} {
-		if !strings.Contains(historical.Run, required) {
-			t.Fatalf("Windows historical acceptance lacks %q", required)
+	for _, required := range []string{commit, digest, "npm install", "npm audit signatures", "pwsh -NoProfile -File $hermesInstaller", "hash-verified via uv.lock", "AIGW_ACCEPTANCE_CODEX", "AIGW_ACCEPTANCE_CLAUDE", "AIGW_ACCEPTANCE_HERMES", "AIGW_ACCEPTANCE_CLIENT_PATH", "CLAUDE_CODE_GIT_BASH_PATH", "GITHUB_ENV"} {
+		if !strings.Contains(supply.Run, required) {
+			t.Fatalf("Windows native supply lost %q", required)
 		}
 	}
-	removeToken := strings.Index(historical.Run, "Remove-Item Env:GH_TOKEN")
-	installPackages := strings.Index(historical.Run, "npm install")
-	invokeInstaller := strings.Index(historical.Run, "pwsh -NoProfile -File $hermesInstaller")
-	if removeToken < 0 || installPackages <= removeToken || invokeInstaller <= removeToken {
-		t.Fatal("Windows client installation can inherit GH_TOKEN")
-	}
-	for _, platform := range []string{"darwin", "linux", "windows"} {
-		steps := workflow.Jobs["native-"+platform].Steps
-		if platform != "windows" && slices.ContainsFunc(steps, func(item step) bool { return item.Name == fetch.Name }) {
-			t.Fatalf("%s has a Windows-only Hermes installer fetch", platform)
-		}
-		historicalIndex := slices.IndexFunc(steps, func(item step) bool { return item.Name == historical.Name })
-		if historicalIndex < 0 || strings.Contains(steps[historicalIndex].Run, "raw.githubusercontent.com/NousResearch/hermes-agent") {
-			t.Fatalf("%s historical acceptance lacks a safe installer source", platform)
+	for _, platform := range []string{"darwin", "linux"} {
+		if slices.ContainsFunc(workflow.Jobs["native-"+platform].Steps, func(item step) bool {
+			return item.Name == fetch.Name || item.Name == supply.Name || item.Name == windows[cleanupIndex].Name
+		}) {
+			t.Fatalf("%s contains Windows-only supply orchestration", platform)
 		}
 	}
 }
