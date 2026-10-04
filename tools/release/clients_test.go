@@ -202,6 +202,11 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 				journey.requireCredential(projectedCredential, token)
 				journey.requireCredential(journey.retainedCredential(client), token)
 			}
+			if hermesSession != nil {
+				t.Log("observing the retained Hermes session before isolated verification")
+				hermesSessionItems = journey.requireHermesContinuedTurn(executable, hermesSession, &completions, hermesSessionItems, hermesSessionTurns == 0)
+				hermesSessionTurns++
+			}
 			count := completions.Load()
 			journey.run("verify", "--for", client)
 			journey.requireNativePreferences(client)
@@ -210,10 +215,6 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 			}
 			if err := before(); err != nil {
 				t.Fatal(err)
-			}
-			if hermesSession != nil {
-				hermesSessionItems = journey.requireHermesContinuedTurn(executable, hermesSession, &completions, hermesSessionItems, hermesSessionTurns == 0)
-				hermesSessionTurns++
 			}
 		}) {
 			return

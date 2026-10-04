@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -89,7 +90,9 @@ func newNativeClientServer(t *testing.T, client string, protocol configuration.E
 	}
 	requests := map[string]int{}
 	var requestsMu sync.Mutex
+	started := time.Now()
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		t.Logf("client request after %s: %s %s", time.Since(started).Round(time.Millisecond), request.Method, request.URL.Path)
 		requestsMu.Lock()
 		requests[request.Method+" "+request.URL.Path]++
 		requestsMu.Unlock()
