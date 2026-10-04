@@ -427,3 +427,70 @@ func TestGuardedDeleteUsesOneValidatedSnapshot(t *testing.T) {
 		t.Fatalf("backend selection remains after guarded deletion: %v", err)
 	}
 }
+
+func TestFileStoreReadAndDeleteBoundaries(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "secrets")
+	store := newFileStore(root)
+	if _, err := store.Get("missing"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Get() error = %v, want ErrNotFound", err)
+	}
+	if err := store.Delete("missing"); err != nil {
+		t.Fatalf("Delete() missing error = %v", err)
+	}
+	if mustExist(t, store, "missing") {
+		t.Fatal("Has() reported a missing Token")
+	}
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if mustExist(t, store, "still-missing") {
+		t.Fatal("Exists() reported an absent Token file")
+	}
+	if err := store.Delete("still-missing"); err != nil {
+		t.Fatalf("Delete() absent Token error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "empty"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !mustExist(t, store, "empty") {
+		t.Fatal("empty credential file was reported absent")
+	}
+	if _, err := store.Get("empty"); err == nil || errors.Is(err, ErrNotFound) {
+		t.Fatalf("present empty credential file was reported absent: %v", err)
+	}
+	if err := store.Set("present", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set("present", "replacement"); err != nil {
+		t.Fatalf("replace Token error = %v", err)
+	}
+	if !mustExist(t, store, "present") {
+		t.Fatal("Has() did not report the stored Token")
+	}
+}
+
+func TestFileStoreDeleteRejectsDirectoryAtTokenPath(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "secrets")
+	if err := os.MkdirAll(filepath.Join(root, "alpha"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := newFileStore(root).Delete("alpha"); err == nil {
+		t.Fatal("Delete() accepted a directory at the Token path")
+	}
+}
+
+func TestFileStoreRejectsInvalidAccountNames(t *testing.T) {
+	store := newFileStore(filepath.Join(t.TempDir(), "secrets"))
+	if _, err := store.Get("invalid account"); err == nil {
+		t.Fatal("Get() accepted an invalid Account ID")
+	}
+	if err := store.Set("invalid account", "token"); err == nil {
+		t.Fatal("Set() accepted an invalid Account ID")
+	}
+	if err := store.Set("alpha", ""); err == nil {
+		t.Fatal("Set() accepted an empty Token")
+	}
+	if err := store.Delete("invalid account"); err == nil {
+		t.Fatal("Delete() accepted an invalid Account ID")
+	}
+}

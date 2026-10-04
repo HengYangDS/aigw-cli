@@ -44,13 +44,6 @@ func validateOwnedWindowsACL(path string) error {
 	if descriptor == nil {
 		return errors.New("credential path has no security descriptor")
 	}
-	owner, _, err := descriptor.Owner()
-	if err != nil {
-		return fmt.Errorf("inspect credential path owner: %w", err)
-	}
-	if owner == nil {
-		return errors.New("credential path has no owner")
-	}
 	token := windows.GetCurrentProcessToken()
 	current, err := token.GetTokenUser()
 	if err != nil {
@@ -60,7 +53,21 @@ func validateOwnedWindowsACL(path string) error {
 	if err != nil {
 		return fmt.Errorf("inspect current Windows owner groups: %w", err)
 	}
-	if !ownerMatchesWindowsToken(owner, current.User.Sid, groups.AllGroups()) {
+	return validateWindowsCredentialDescriptor(descriptor, current.User.Sid, groups.AllGroups())
+}
+
+func validateWindowsCredentialDescriptor(descriptor *windows.SECURITY_DESCRIPTOR, user *windows.SID, groups []windows.SIDAndAttributes) error {
+	if descriptor == nil {
+		return errors.New("credential path has no security descriptor")
+	}
+	owner, _, err := descriptor.Owner()
+	if err != nil {
+		return fmt.Errorf("inspect credential path owner: %w", err)
+	}
+	if owner == nil {
+		return errors.New("credential path has no owner")
+	}
+	if !ownerMatchesWindowsToken(owner, user, groups) {
 		return errors.New("credential path has an untrusted Windows owner")
 	}
 	dacl, _, err := descriptor.DACL()
@@ -93,7 +100,7 @@ func validateOwnedWindowsACL(path string) error {
 		if !sid.IsValid() {
 			return errors.New("credential ACL contains an invalid principal")
 		}
-		if sid.Equals(current.User.Sid) || sid.IsWellKnown(windows.WinLocalSystemSid) || sid.IsWellKnown(windows.WinBuiltinAdministratorsSid) {
+		if sid.Equals(user) || sid.IsWellKnown(windows.WinLocalSystemSid) || sid.IsWellKnown(windows.WinBuiltinAdministratorsSid) {
 			continue
 		}
 		if ace.Mask&foreignWrite != 0 {

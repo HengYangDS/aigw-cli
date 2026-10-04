@@ -252,6 +252,11 @@ in Git; original raw results stay with their source-bound verification owner.
       Windows coverage; this task is reopened until the repaired native owner
       passes the unchanged policy on both peers. macOS/Linux raw profiles retain
       their exact-source results.
+      Signed `d910b289` connects Windows to that gate and retains failed-attempt
+      profiles. Both peers now refuse the same 14,004/14,793 (94.67%) result;
+      this is an observed assurance gap, not an infrastructure failure. Original
+      profiles and native-owner repair evidence remain in
+      `d910b289/windows-native-assurance/`; native qualification is still required.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.

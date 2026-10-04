@@ -5,6 +5,7 @@ package credential
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"golang.org/x/sys/windows"
@@ -37,6 +38,45 @@ func TestEntrypointRejectsWritableWindowsDirectoryACL(t *testing.T) {
 				t.Fatalf("rejected directory received executable: %v", err)
 			}
 		})
+	}
+}
+
+func TestWindowsCredentialDescriptorOwnsItsNativeAuthorizationDecision(t *testing.T) {
+	user, err := windows.StringToSid("S-1-5-21-1-2-3-1001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name string
+		sddl string
+		want string
+	}{
+		{name: "owner write", sddl: "O:" + user.String() + "D:(A;;FA;;;" + user.String() + ")"},
+		{name: "foreign read", sddl: "O:" + user.String() + "D:(A;;FR;;;WD)"},
+		{name: "deny and inherit only", sddl: "O:" + user.String() + "D:(D;;FA;;;WD)(A;IO;FA;;;WD)"},
+		{name: "foreign write", sddl: "O:" + user.String() + "D:(A;;FW;;;WD)", want: "writable by another"},
+		{name: "no restrictive ACL", sddl: "O:" + user.String(), want: "no restrictive ACL"},
+		{name: "no owner", sddl: "D:(A;;FR;;;WD)", want: "no owner"},
+		{name: "foreign owner", sddl: "O:WDD:(A;;FR;;;WD)", want: "untrusted Windows owner"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			descriptor, err := windows.SecurityDescriptorFromString(test.sddl)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = validateWindowsCredentialDescriptor(descriptor, user, nil)
+			if test.want == "" && err != nil || test.want != "" && (err == nil || !strings.Contains(err.Error(), test.want)) {
+				t.Fatalf("native descriptor decision = %v, want %q", err, test.want)
+			}
+		})
+	}
+	if err := validateWindowsCredentialDescriptor(nil, user, nil); err == nil {
+		t.Fatal("missing native descriptor was accepted")
+	}
+	for _, path := range []string{"invalid\x00path", filepath.Join(t.TempDir(), "missing")} {
+		if err := validateOwnedWindowsACL(path); err == nil {
+			t.Fatalf("unobservable native credential path was accepted: %q", path)
+		}
 	}
 }
 

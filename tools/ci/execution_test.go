@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -28,6 +29,17 @@ func TestGateSequenceStopsBeforeExecutionWhenProgressCannotBeWritten(t *testing.
 	})
 	if !errors.Is(err, os.ErrClosed) || calls != 0 {
 		t.Fatalf("progress output error=%v executed gates=%d", err, calls)
+	}
+}
+
+func TestAuthoredChecksRefuseAnUnavailableCheckoutBeforeNativeExecution(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "absent-checkout")
+	for _, gate := range []string{"check-go", "links", "check-format", "check-markdown", "check-mermaid", "check-spelling", "check-toml", "check-secrets", "check-workflows"} {
+		calls := 0
+		err := run([]string{gate, root}, &bytes.Buffer{}, func(command) error { calls++; return nil })
+		if err == nil || calls != 0 || !strings.Contains(err.Error(), "list repository") {
+			t.Fatalf("%s unavailable-checkout admission: error=%v native_calls=%d", gate, err, calls)
+		}
 	}
 }
 
