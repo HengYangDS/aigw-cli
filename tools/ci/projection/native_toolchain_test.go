@@ -200,7 +200,7 @@ func TestLinuxSecretServiceHasItsOwnRequiredJob(t *testing.T) {
 		"SetAlias default /org/freedesktop/secrets/collection/session",
 		"AIGW_VERIFY_SYSTEM_KEYRING=1",
 		"TestNativeProductJourney/system_credential_store",
-		"grep -Fq -- \"--- PASS: TestNativeProductJourney/system_credential_store\"",
+		"AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./tools/release -run \"^TestNativeProductJourney/system_credential_store$\" -count=1 -v\nAIGW_SECRET_SERVICE",
 	} {
 		if !strings.Contains(githubQualification, required) {
 			t.Fatalf("Linux Secret Service qualification omits %q", required)

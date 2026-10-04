@@ -89,12 +89,7 @@ linuxSecretService: {
 		dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
 		gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
 		gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-		result=$(AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./tools/release -run "^TestNativeProductJourney/system_credential_store$" -count=1 -v 2>&1) || {
-		  printf '%s\n' "$result"
-		  exit 1
-		}
-		printf '%s\n' "$result"
-		grep -Fq -- "--- PASS: TestNativeProductJourney/system_credential_store" <<<"$result"
+		AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./tools/release -run "^TestNativeProductJourney/system_credential_store$" -count=1 -v
 		AIGW_SECRET_SERVICE
 		"""#
 	github: "sudo -n \(linuxApt.update)\nsudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(packages)\n\(journey)"

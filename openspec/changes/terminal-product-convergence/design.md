@@ -291,6 +291,13 @@ exact owned paths on success or failure. Other platforms do not inherit that
 Windows supply block. Native Windows installation, interruption and cleanup
 remain distinct from source projection and the local PowerShell argv witness.
 
+Linux Secret Service CI retains only its isolated D-Bus session and temporary
+collection alias as OS glue. The selected native Go journey owns success and
+failure; CI forwards its output and exit directly instead of merging streams
+and searching a human-readable PASS line. The explicit native-store flag selects
+that non-skipping Linux journey, while unavailable or occupied stores fail at
+the original credential owner.
+
 Unprotected `proposal/*` reviews must not be protected merely to reach a
 protected runner: eligible protected GitLab merge requests receive protected
 variables and runners together, while a persistent Shell account retains its
