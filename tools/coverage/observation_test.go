@@ -242,4 +242,15 @@ func TestRetainCoverageProfile(t *testing.T) {
 	if err := retainCoverageProfile(source, filepath.Join(blocked, "coverage.out")); err == nil {
 		t.Fatal("invalid target parent was accepted")
 	}
+	runner := &recordingRunner{profile: "mode: atomic\nexample/a.go:1.1,2.1 100 1\n", err: errors.New("native test refused")}
+	var stdout, stderr bytes.Buffer
+	if code := realMain([]string{"--policy", writePolicy(t, validPolicy), "--profile-output", filepath.Join(blocked, "coverage.out")}, &stdout, &stderr, runner); code != 1 {
+		t.Fatalf("combined test/retention failure code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "native test refused") || !strings.Contains(stderr.String(), blocked) || stdout.Len() != 0 {
+		t.Fatalf("combined native failures lost evidence: stdout=%q stderr=%q", &stdout, &stderr)
+	}
+	if _, err := os.Stat(runner.path); !os.IsNotExist(err) {
+		t.Fatalf("combined native failures left their temporary profile: %v", err)
+	}
 }

@@ -148,12 +148,10 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 		goArgs = append(goArgs, "-race")
 	}
 	goArgs = append(goArgs, policy.Packages...)
-	if err := runner.Run("go", goArgs, stdout, stderr); err != nil {
-		_, _ = fmt.Fprintf(stderr, "go test failed: %v\n", err)
-		return 1
-	}
-	if err := retainCoverageProfile(profilePath, *profileOutput); err != nil {
-		_, _ = fmt.Fprintf(stderr, "retain coverage profile: %v\n", err)
+	testErr := runner.Run("go", goArgs, stdout, stderr)
+	retainErr := retainCoverageProfile(profilePath, *profileOutput)
+	if err := errors.Join(testErr, retainErr); err != nil {
+		_, _ = fmt.Fprintf(stderr, "native coverage attempt failed: %v\n", err)
 		return 1
 	}
 

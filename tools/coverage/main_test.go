@@ -303,15 +303,32 @@ func TestRealMainRejectsNativeCommandFailure(t *testing.T) {
 		want   string
 	}{
 		{"package enumeration", recordingRunner{listErr: errors.New("list failed")}, "go list failed"},
-		{"test execution", recordingRunner{err: errors.New("test failure")}, "go test failed"},
+		{"test execution", recordingRunner{err: errors.New("test failure")}, "native coverage attempt failed: test failure"},
+		{"test execution with counters", recordingRunner{profile: "mode: atomic\nexample/a.go:1.1,2.1 100 1\n", err: errors.New("test failure")}, "native coverage attempt failed: test failure"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			if code := realMain([]string{"--policy", writePolicy(t, validPolicy)}, &stdout, &stderr, &test.runner); code != 1 {
+			output := filepath.Join(t.TempDir(), "profile.out")
+			if code := realMain([]string{"--policy", writePolicy(t, validPolicy), "--profile-output", output}, &stdout, &stderr, &test.runner); code != 1 {
 				t.Fatalf("realMain code = %d, want 1", code)
 			}
 			if !strings.Contains(stderr.String(), test.want) {
 				t.Fatalf("stderr = %q, want %q", stderr.String(), test.want)
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("failed native attempt emitted success evidence: %s", &stdout)
+			}
+			if test.runner.path == "" {
+				if _, err := os.Stat(output); !os.IsNotExist(err) {
+					t.Fatalf("failed enumeration created a profile: %v", err)
+				}
+				return
+			}
+			if retained, err := os.ReadFile(output); err != nil || string(retained) != test.runner.profile {
+				t.Fatalf("failed native attempt lost its exact diagnostic profile: %q, %v", retained, err)
+			}
+			if _, err := os.Stat(test.runner.path); !os.IsNotExist(err) {
+				t.Fatalf("failed native attempt left its temporary profile: %v", err)
 			}
 		})
 	}

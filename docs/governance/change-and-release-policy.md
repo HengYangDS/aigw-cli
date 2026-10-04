@@ -370,6 +370,8 @@ separate native identity, storage and execution containment.
 All three native platforms invoke that same gate and retain its raw profile.
 Windows omits the race detector because the native graph includes ARM64 with
 CGO disabled; that limit does not remove coverage or package observation.
+If tests fail, any emitted profile remains diagnostic evidence only; retention
+and test errors stay visible, and partial counters cannot qualify coverage.
 No package/source exclusion or zero-denominator percentage is permitted. Observe
 complete packages, use actual native numerator/denominator, and keep rounded display
 separate from comparison. Unit count and branch inference cannot replace the metric.
