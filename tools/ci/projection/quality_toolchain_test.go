@@ -90,7 +90,14 @@ func TestEverySourceConsumerRetainsDependencyEvidenceOnFailure(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, evidence := range []string{"build/verification/dependencies", "build/verification/workflows", "build/verification/coverage"} {
-			if declared.Artifacts.When != "always" || !slices.Contains(declared.Artifacts.Paths, evidence) {
+			retained := slices.Contains(declared.Artifacts.Paths, evidence)
+			if job != "quality" {
+				retained = slices.Contains(declared.Artifacts.Paths, "build/verification")
+				if slices.Contains(declared.Artifacts.Paths, evidence) {
+					t.Errorf("GitLab %s declares optional child evidence %s as an unconditional artifact", job, evidence)
+				}
+			}
+			if declared.Artifacts.When != "always" || !retained {
 				t.Errorf("GitLab %s loses native evidence %s after failure: %+v", job, evidence, declared.Artifacts)
 			}
 			found := false

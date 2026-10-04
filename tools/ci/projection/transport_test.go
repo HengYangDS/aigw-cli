@@ -65,7 +65,7 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 		if !strings.Contains(prelude, "AIGW_TOOL_SOURCE") {
 			t.Errorf("GitLab %s has no explicit mirror selection", name)
 		}
-		for _, required := range []string{"CI_API_V4_URL", "CI_PROJECT_ID", "CI_SERVER_HOST", "CI_JOB_TOKEN", "MISE_NETRC_FILE", "$mirror_dir/mise-data", "$mirror_dir/mise-cache", "github.com/", "api.github.com/", "mise-github/v1/", "CI_JOB_ID"} {
+		for _, required := range []string{"CI_API_V4_URL", "CI_PROJECT_ID", "CI_SERVER_HOST", "CI_JOB_TOKEN", "MISE_NETRC_FILE", "$mirror_dir/mise-data", "$MISE_DATA_DIR/cache", "github.com/", "api.github.com/", "mise-github/v1/", "CI_JOB_ID"} {
 			if !strings.Contains(prelude, required) {
 				t.Errorf("GitLab %s mirror prelude omits %q", name, required)
 			}
@@ -228,11 +228,13 @@ func TestGitLabMiseMirrorUsesCheckoutOwnedPath(t *testing.T) {
 			t.Fatalf("mirror path must be rooted at the checked-out working directory: %q", script)
 		}
 	}
+	if !strings.Contains(prepare, `export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"`) || !strings.Contains(prepare, `export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"`) {
+		t.Fatal("the declared cache root must select both native Mise directories")
+	}
 	if runtime.GOOS == "windows" {
 		return // Windows runners do not provide a POSIX shell.
 	}
 	project := t.TempDir()
-	neighbor := filepath.Join(project, "build", "tmp", "keep")
 	for _, choice := range []string{"upstream", "invalid"} {
 		command := exec.Command("sh", "-c", prepare)
 		command.Dir = project
@@ -248,43 +250,38 @@ func TestGitLabMiseMirrorUsesCheckoutOwnedPath(t *testing.T) {
 			t.Fatalf("unselected mirror wrote private state: %v, %v", entries, err)
 		}
 	}
-	env := append(os.Environ(),
-		"AIGW_TOOL_SOURCE=peer",
-		"CI_PROJECT_DIR="+project,
-		"CI_BUILDS_DIR=builds",
-		"CI_API_V4_URL=https://gitlab.example.invalid/api/v4",
-		"CI_PROJECT_ID=456",
-		"CI_SERVER_HOST=gitlab.example.invalid",
-		"CI_JOB_ID=123",
-		"CI_JOB_TOKEN=fixture-only",
-	)
-	for _, script := range []string{prepare, cleanup} {
-		command := exec.Command("sh", "-c", script)
-		command.Dir, command.Env = project, env
+	t.Run("cached installation survives exact credential cleanup", func(t *testing.T) {
+		root := t.TempDir()
+		cache := filepath.Join(root, "build", "runtime", "tool-cache", ".mise", "peer")
+		neighbor := filepath.Join(root, "keep")
+		if err := os.WriteFile(neighbor, []byte("keep"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		command := exec.CommandContext(t.Context(), "sh", "-eu", "-c", prepare+`
+test "$MISE_DATA_DIR" = "$AIGW_MISE_DATA_ROOT"
+test "$MISE_CACHE_DIR" = "$AIGW_MISE_DATA_ROOT/cache"
+mkdir -p "$MISE_DATA_DIR/installs" "$MISE_CACHE_DIR"
+printf '%s' completed > "$MISE_DATA_DIR/installs/fixture"
+test -f "$MISE_NETRC_FILE"
+`+cleanup+`
+test ! -e "$mirror_dir"
+test -f "$MISE_DATA_DIR/installs/fixture"
+`)
+		command.Dir = root
+		command.Env = append(os.Environ(), "AIGW_TOOL_SOURCE=peer", "AIGW_MISE_DATA_ROOT="+cache, "CI_JOB_ID=cache-fixture", "CI_PROJECT_ID=example", "CI_SERVER_HOST=gitlab.example", "CI_API_V4_URL=https://gitlab.example/api/v4", "CI_JOB_TOKEN=synthetic-job-token")
 		if output, err := command.CombinedOutput(); err != nil {
-			t.Fatalf("mirror lifecycle: %v\n%s", err, output)
-		}
-		mirror := filepath.Join(project, "build", "tmp", ".aigw-mise-mirror-123")
-		if script == prepare {
-			if _, err := os.Stat(filepath.Join(mirror, "netrc")); err != nil {
-				t.Fatalf("mirror was not prepared: %v", err)
-			}
-			if err := os.WriteFile(neighbor, []byte("keep"), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			continue
-		}
-		if _, err := os.Stat(mirror); !os.IsNotExist(err) {
-			t.Fatalf("mirror remains after cleanup: %v", err)
+			t.Fatalf("native cache and exact credential cleanup diverged: %s, %v", output, err)
 		}
 		if _, err := os.Stat(neighbor); err != nil {
 			t.Fatalf("mirror cleanup removed neighboring state: %v", err)
 		}
-	}
+	})
 	t.Run("relative checkout survives installer directory changes", func(t *testing.T) {
 		project := t.TempDir()
+		t.Setenv("AIGW_MISE_DATA_ROOT", t.TempDir())
 		env := append(os.Environ(),
 			"AIGW_TOOL_SOURCE=peer",
+			"AIGW_MISE_DATA_ROOT=",
 			"CI_PROJECT_DIR=builds/runner/0/group/repo",
 			"CI_API_V4_URL=https://gitlab.example.invalid/api/v4",
 			"CI_PROJECT_ID=456",
@@ -292,7 +289,8 @@ func TestGitLabMiseMirrorUsesCheckoutOwnedPath(t *testing.T) {
 			"CI_JOB_ID=456",
 			"CI_JOB_TOKEN=fixture-only",
 		)
-		probe := `mkdir -p "$MISE_DATA_DIR/installs/go/probe/bin"
+		probe := `test "$MISE_DATA_DIR" = "$mirror_dir/mise-data"
+mkdir -p "$MISE_DATA_DIR/installs/go/probe/bin"
 fake_go="$MISE_DATA_DIR/installs/go/probe/bin/go"
 printf '%s\n' '#!/bin/sh' 'printf "go-probe=pass\\n"' > "$fake_go"
 chmod 700 "$fake_go"
@@ -326,6 +324,7 @@ func TestGitLabUnixMiseMirrorFailureStaysOnSelectedPeer(t *testing.T) {
 	repository := filepath.Clean(filepath.Join("..", "..", ".."))
 	prepare, cleanup := unixMiseMirrorCommands(t)
 	project, selected := nativeMiseMirrorInputs(t, repository)
+	t.Setenv("AIGW_MISE_DATA_ROOT", t.TempDir())
 	var requests []string
 	var mutex sync.Mutex
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -337,7 +336,7 @@ func TestGitLabUnixMiseMirrorFailureStaysOnSelectedPeer(t *testing.T) {
 	defer server.Close()
 	environment := slices.DeleteFunc(os.Environ(), func(value string) bool {
 		name, _, _ := strings.Cut(value, "=")
-		return strings.HasPrefix(name, "MISE_") || strings.HasPrefix(name, "__MISE_") ||
+		return name == "AIGW_MISE_DATA_ROOT" || strings.HasPrefix(name, "MISE_") || strings.HasPrefix(name, "__MISE_") ||
 			strings.HasPrefix(name, "GH_") || strings.HasPrefix(name, "GITHUB_") || strings.HasPrefix(name, "GITLAB_")
 	})
 	environment = append(environment,
@@ -367,7 +366,7 @@ func TestGitLabUnixMiseMirrorFailureStaysOnSelectedPeer(t *testing.T) {
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	command := exec.CommandContext(ctx, "sh", "-eu", "-c", prepare+"\nexec mise install --locked github:anchore/syft --jobs=1")
+	command := exec.CommandContext(ctx, "sh", "-eu", "-c", prepare+"\ntest \"$MISE_DATA_DIR\" = \"$mirror_dir/mise-data\"\nexec mise install --locked github:anchore/syft --jobs=1")
 	command.Dir, command.Env, command.WaitDelay = project, environment, time.Second
 	output, err := command.CombinedOutput()
 	if err == nil || ctx.Err() != nil {

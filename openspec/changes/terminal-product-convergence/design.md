@@ -12,15 +12,89 @@ service, configuration hierarchy, or status ledger.
 
 ## Goals / Non-Goals
 
-**Goals:** one coherent setup-to-use journey; explicit provider/client
-extensibility; safe credential-reader succession; qualified native behavior on
-macOS, Linux, and Windows; one effective quality and CI graph; and smaller,
-navigable source, test, configuration, and documentation surfaces.
+**Goal:** deliver and retire the existing AIGW convergence before the existing
+provider-neutral Responses Proxy convergence. Acceptance covers these semantic
+outcomes through the existing task owners, not another checklist:
+
+- **Onboarding and readiness (2):** optional Accounts and clients, independent
+  explicit bindings, late sync, ownership-preserving merge and compensation,
+  and consistent setup, use, status, check, verify and doctor decisions.
+- **Credential continuity (3):** one native or explicitly selected environment
+  backend; precise Account and diagnostic item ownership; authentic retained
+  predecessor reads, signed successor qualification, original-command survival,
+  bounded package replacement and rollback without prompt loops.
+- **Routes and clients (4):** current qualified provider wire IDs, protocols,
+  capabilities and consistent catalogue grammar; ordered usable recommendations
+  preserve explicit/manual choices. Each Codex, Claude and Hermes mode proves
+  native model selection, authentication, tool use and continuation separately.
+  Other adapters require a complete ownership and withdrawal contract.
+- **Portable lifecycle (5):** actual macOS, Linux and Windows setup, upgrade,
+  rollback, forward, uninstall and failure-cleanup journeys with exact candidate
+  bytes, retained state and independently reconstructed locked environments.
+- **Quality and performance (6):** strict proportionate all-format gates,
+  narrow public types and errors, supply trust and measured predecessor budgets;
+  modern syntax or tools serve meaning rather than add superficial machinery.
+- **Forge admission (7):** one CUE graph generates symmetric optional peers;
+  proposal/review, maintainer, dev/main and tag paths bind exact signed objects,
+  required checks, runner containment and complete cold supply custody.
+- **Repository meaning (8):** deep cohesive modules and tests, one authority per
+  concern, lean English navigable docs/configs and rendered diagrams, qualified
+  references, bounded decision-support research and consumer-based deletion.
+- **Delivery (9 and Migration Plan):** one frozen accepted candidate, governed
+  integration and official archive, SemVer/Changelog, signed immutable assets,
+  native package-manager installation and exact retirement of owned residue.
+
+**Completion:** accept the [task checklist](tasks.md) through its
+[requirement and acceptance routing](#requirement-and-acceptance-routing), then
+finish the [Migration Plan](#migration-plan): guarded integration, official
+archive, publication, installed upgrade and rollback, and exact retirement.
+Source checks, signed candidates, pipeline success, and task counts are distinct
+intermediate evidence, not installed-product completion. A requested client mode
+remains unqualified until its own native contract passes.
+
+Finish AIGW before extending the existing Responses Proxy convergence; a live
+service incident permits only bounded restoration before returning to that
+order. Close one semantic acceptance gap at a time and reuse unchanged qualified
+inputs. This work retains its current Goal, Change, lane, and sole task ledger.
+
+Qualify a capability with its exact client mode, protocol, provider wire ID,
+artifact and retained state. A previous failure is not a permanent exclusion;
+newer acceptance supersedes it only within the measured scope. A reproducible
+contradiction reopens the owning task before dependent delivery. Unsupported
+native behavior remains an explicit limit, not an invented adapter or success.
+Refresh repository-owned pins to the latest compatible stable releases before
+the final input freeze; host upgrades do not alter locked project inputs.
+
+Each closure uses its existing owner: focused RED/GREEN where behavior changes,
+sibling-consumer reconciliation, exact staging, affected gates, evidence and
+owned cleanup. Evidence references retain failed results and rollback consumers.
+Two unsuccessful repairs trigger a new hypothesis before another expensive run.
+Every active-hour checkpoint reports facts, evidence, unproved scope and next
+action in the existing task context. Guidance is not enforced Agent behavior.
+Bound each Agent/tool input, output and execution to its owning operation;
+context pressure is not evidence of a new credential or transport defect.
 
 **Non-goals:** request transport, transparent mid-request retries, external
 Proxy lifecycle, Codex conversation or model-choice mutation, automatic browser
 or Keychain authorization, a universal client config patcher, a new daemon,
 or a second OpenSpec/ETHOS command plane.
+
+## Execution Dependencies
+
+This is dependency order, not a second progress ledger. The checklist owns
+state; the routing table owns acceptance; the Migration Plan owns delivery.
+
+| Order | Semantic closure                                                                                  | Existing task owners                            | Exit condition                                                                                                                             |
+| ----- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1     | Repair CI resource declarations; prove peer admission, runner containment and cold supply custody | 7.4, 7.5                                        | Declared caches/artifacts have real consumers; exact checks reject invalid admission; each selected peer remains independent.              |
+| 2     | Consume the accepted ETHOS identity/reference successor                                           | 8.3.2                                           | The installed adopter rejects wrong-repository references and qualifies the authorized history repair; no private checker.                 |
+| 3     | Freeze one candidate for retained-predecessor, native-client and performance acceptance           | 3.5, 4.5, 5.2, 6.6, 9.3                         | The same candidate passes required macOS/Linux/Windows, store, client-mode, upgrade, rollback, forward and cleanup journeys.               |
+| 4     | Deliver and retire AIGW through the Migration Plan                                                | Migration Plan                                  | Exact signed integration, archive, publication, package-manager cutover and installed acceptance pass; owned obsolete consumers retire.    |
+| 5     | Resume the existing provider-neutral Responses Proxy closure                                      | Existing Proxy Change and its authorized holder | Replay, transport, native lifecycle, repository quality, release and installed-product evidence satisfy that Change without AIGW coupling. |
+
+Only the accepted-ETHOS-dependent scope waits for its successor. Advance
+independent candidate preparation without competing host assays. A prose-only
+commit needs fresh exact-HEAD governance, not rebuilt unchanged product bytes.
 
 ## Decisions
 
@@ -162,6 +236,9 @@ The new macOS reader addresses `native@` plus each logical Account slot,
 including the separate optional provider-diagnostic slot. Native metadata
 observation now requests attributes through Security.framework under the
 same no-UI policy; the old `/usr/bin/security` observer is removed.
+Native item service, Account and display names have one precise grammar in the
+existing secrets owner. Metadata and exact-path cleanup must preserve operator,
+predecessor and diagnostic consumers; naming similarity grants no ownership.
 Old `/usr/bin/security` items remain at their original addresses for cached
 predecessor commands and rollback. This is one backend with separate physical
 items across an explicit, one-time authorization transition; neither reader
@@ -181,6 +258,11 @@ every versioned original command callable through replacement. Retain exact
 owned bytes for configured, cached, explicit and rollback callers; unknown
 consumers block deletion. A fixed path, Unix rename, fresh-client test or green
 source gate alone does not establish Windows behavior.
+
+Task 4.5 and final installed acceptance also qualify actual App reload when
+needed and retained conversation continuation, including delegated tool use.
+CLI success does not qualify a Desktop mode. Preserve native per-conversation
+model choice and history; report unsupported modes rather than rewrite metadata.
 
 ### 5. One native qualification graph and one publication identity
 
@@ -204,6 +286,14 @@ parser is the sole candidate/lifecycle admission owner. Full-quality and
 lock-refresh requests retain source qualification. After actual native consumer
 acceptance, remove superseded installer stages; preparation and archive inspection
 cannot qualify the Windows service token or client tools.
+
+GitLab source jobs retain the selected acquisition source's locked tool cache;
+job-private mirror credentials are removed independently. Isolated fixtures
+must not inherit that retained root. Ordinary native source runs retain their
+actual verification outputs rather than declare optional child reports as
+unconditional artifacts. Prebuilt-only acceptance and failures before an output
+is produced may have no verification directory; artifact declarations do not
+prove mode-specific evidence or justify empty placeholders.
 
 Existing Go, OpenSpec, CUE, formatting, lint, type/structure, security,
 document, link, and supply-chain tools retain

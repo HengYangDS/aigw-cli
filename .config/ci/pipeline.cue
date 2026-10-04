@@ -53,8 +53,8 @@ miseMirror: {
 		: "${CI_JOB_TOKEN:?}"
 		mirror_dir="\#(unixDirectory)"
 		mkdir -p -m 700 "$mirror_dir"
-		export MISE_DATA_DIR="$mirror_dir/mise-data"
-		export MISE_CACHE_DIR="$mirror_dir/mise-cache"
+		export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"
+		export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"
 		(umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
 		export MISE_NETRC_FILE="$mirror_dir/netrc"
 		export MISE_NETRC=1
@@ -761,7 +761,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	}
 	artifacts: {
 		when: "always"
-		paths: ["mise.lock", ".mise/locks", dependencyEvidencePath, workflowEvidencePath, "build/verification/coverage"]
+		paths: ["mise.lock", ".mise/locks", "build/verification"]
 	}
 	if _platform == "linux" {
 		interruptible: true
@@ -811,12 +811,13 @@ gitlab: {
 	}
 	stages: ["verify", "release"]
 	".linux-toolchain": {
-		_dataDirectory: "build/runtime/tool-cache/.mise"
+		_dataDirectory: "build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE"
 		_cacheDirectories: ["installs", "cache"]
 		image: miseImage
 		variables: {
-			MISE_DATA_DIR:  "$CI_PROJECT_DIR/\(_dataDirectory)"
-			MISE_CACHE_DIR: "$CI_PROJECT_DIR/\(_dataDirectory)/cache"
+			AIGW_MISE_DATA_ROOT: "$CI_PROJECT_DIR/\(_dataDirectory)"
+			MISE_DATA_DIR:       "$CI_PROJECT_DIR/\(_dataDirectory)"
+			MISE_CACHE_DIR:      "$CI_PROJECT_DIR/\(_dataDirectory)/cache"
 		}
 		cache: {
 			key: {

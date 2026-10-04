@@ -116,6 +116,11 @@ func TestToolchainCachesPreserveLockAndExecutionBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	linux := pipeline.Linux
+	cacheRoot := "$CI_PROJECT_DIR/build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE"
+	cacheRoots := []string{linux.Variables["AIGW_MISE_DATA_ROOT"], linux.Variables["MISE_DATA_DIR"]}
+	if !slices.Equal(cacheRoots, []string{cacheRoot, cacheRoot}) {
+		t.Fatalf("the selected acquisition source must own the same cache and native Mise root: %q, want %q", cacheRoots, cacheRoot)
+	}
 	if !slices.Equal(linux.Cache.Key.Files, []string{"mise.toml", "mise.lock"}) || linux.Cache.Policy != "pull-push" {
 		t.Fatalf("tool cache must be bound to native manifests and locks: %#v", linux.Cache)
 	}

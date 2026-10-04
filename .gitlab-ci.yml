@@ -20,9 +20,7 @@ native-linux:
     paths:
       - mise.lock
       - .mise/locks
-      - build/verification/dependencies
-      - build/verification/workflows
-      - build/verification/coverage
+      - build/verification
   before_script:
     - |-
       set -eu
@@ -43,8 +41,8 @@ native-linux:
       : "${CI_JOB_TOKEN:?}"
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
-      export MISE_DATA_DIR="$mirror_dir/mise-data"
-      export MISE_CACHE_DIR="$mirror_dir/mise-cache"
+      export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"
+      export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -94,8 +92,8 @@ native-darwin:
       : "${CI_JOB_TOKEN:?}"
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
-      export MISE_DATA_DIR="$mirror_dir/mise-data"
-      export MISE_CACHE_DIR="$mirror_dir/mise-cache"
+      export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"
+      export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -144,9 +142,7 @@ native-darwin:
     paths:
       - mise.lock
       - .mise/locks
-      - build/verification/dependencies
-      - build/verification/workflows
-      - build/verification/coverage
+      - build/verification
 native-darwin-review:
   after_script:
     - if [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"; fi
@@ -163,8 +159,8 @@ native-darwin-review:
       : "${CI_JOB_TOKEN:?}"
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
-      export MISE_DATA_DIR="$mirror_dir/mise-data"
-      export MISE_CACHE_DIR="$mirror_dir/mise-cache"
+      export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"
+      export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -212,9 +208,7 @@ native-darwin-review:
     paths:
       - mise.lock
       - .mise/locks
-      - build/verification/dependencies
-      - build/verification/workflows
-      - build/verification/coverage
+      - build/verification
 native-windows:
   after_script:
     - |-
@@ -372,9 +366,7 @@ native-windows:
     paths:
       - mise.lock
       - .mise/locks
-      - build/verification/dependencies
-      - build/verification/workflows
-      - build/verification/coverage
+      - build/verification
 native-windows-review:
   after_script:
     - |-
@@ -531,9 +523,7 @@ native-windows-review:
     paths:
       - mise.lock
       - .mise/locks
-      - build/verification/dependencies
-      - build/verification/workflows
-      - build/verification/coverage
+      - build/verification
 variables:
   GIT_DEPTH: "0"
   GOPROXY: https://goproxy.cn|https://proxy.golang.org|direct
@@ -572,17 +562,18 @@ stages:
 .linux-toolchain:
   image: docker.io/jdxcode/mise:2026.10.1-debian@sha256:3daa20e31600afa0b4182736b1d46ba87d47dccb41db55880e657d4290f47574
   variables:
-    MISE_DATA_DIR: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise
-    MISE_CACHE_DIR: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise/cache
+    AIGW_MISE_DATA_ROOT: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE
+    MISE_DATA_DIR: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE
+    MISE_CACHE_DIR: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE/cache
   cache:
     key:
       files:
         - mise.toml
         - mise.lock
-      prefix: mise-linux-3daa20e31600afa0b4182736b1d46ba87d47dccb41db55880e657d4290f47574-build-runtime-tool-cache-.mise-installs-cache-$CI_RUNNER_ID-$CI_JOB_NAME
+      prefix: mise-linux-3daa20e31600afa0b4182736b1d46ba87d47dccb41db55880e657d4290f47574-build-runtime-tool-cache-.mise-$AIGW_TOOL_SOURCE-installs-cache-$CI_RUNNER_ID-$CI_JOB_NAME
     paths:
-      - build/runtime/tool-cache/.mise/installs/
-      - build/runtime/tool-cache/.mise/cache/
+      - build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE/installs/
+      - build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE/cache/
     policy: pull-push
     when: always
   before_script:
@@ -602,8 +593,8 @@ stages:
       : "${CI_JOB_TOKEN:?}"
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
-      export MISE_DATA_DIR="$mirror_dir/mise-data"
-      export MISE_CACHE_DIR="$mirror_dir/mise-cache"
+      export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"
+      export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -663,8 +654,8 @@ accepted-ref-parity:
       : "${CI_JOB_TOKEN:?}"
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
-      export MISE_DATA_DIR="$mirror_dir/mise-data"
-      export MISE_CACHE_DIR="$mirror_dir/mise-cache"
+      export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"
+      export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
@@ -723,8 +714,8 @@ release-version:
       : "${CI_JOB_TOKEN:?}"
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
-      export MISE_DATA_DIR="$mirror_dir/mise-data"
-      export MISE_CACHE_DIR="$mirror_dir/mise-cache"
+      export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"
+      export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
