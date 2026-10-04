@@ -487,13 +487,16 @@ func TestGitLabNativeAcceptanceForwardsPeerLocalArtifactAndClientInputs(t *testi
 			t.Fatal("CI login must be scoped to native downloads, not the source or test environment")
 		}
 		script := strings.Join(job.Script, "\n")
-		for _, input := range []string{"AIGW_BASELINE_TAG", "AIGW_CANDIDATE_TAG", "AIGW_CANDIDATE_ARTIFACTS", "AIGW_CANDIDATE_SOURCE", "AIGW_NATIVE_CLIENTS", "--baseline-tag", "--artifacts", "--candidate", "--candidate-source", "--clients", "--peer", "gitlab", "--repository", "CI_PROJECT_URL"} {
+		for _, input := range []string{"AIGW_BASELINE_TAG", "AIGW_CANDIDATE_TAG", "AIGW_CANDIDATE_ARTIFACTS", "AIGW_CANDIDATE_SOURCE", "AIGW_NATIVE_CLIENTS", "AIGW_NATIVE_DIAGNOSTIC_CLIENT", "--baseline-tag", "--artifacts", "--candidate", "--candidate-source", "--clients", "--diagnostic-client", "--peer", "gitlab", "--repository", "CI_PROJECT_URL"} {
 			if !strings.Contains(script, input) {
 				t.Errorf("%s omits native release input %s", name, input)
 			}
 		}
 		if strings.Contains(script, "gh release download") || !strings.Contains(script, "native --platform") {
 			t.Errorf("%s must use its own peer and the existing native controller", name)
+		}
+		if !strings.Contains(script, "Native client diagnostics require a manual pipeline") {
+			t.Errorf("%s does not fence diagnostics from required review and release jobs", name)
 		}
 	}
 }

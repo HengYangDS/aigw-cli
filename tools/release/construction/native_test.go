@@ -24,7 +24,7 @@ func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
 			var workspace string
 			want := errors.New("injected acceptance failure")
-			err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), false, "", func(call toolCall) error {
+			err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), NativeAcceptance{}, func(call toolCall) error {
 				if call.Name != "go" || call.Directory != request.Root || !slices.Equal(call.Args, []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney|TestNativeVerificationResources)$", "-count=1", "-v"}) {
 					t.Fatalf("source acceptance escaped its product test owner: %#v", call)
 				}
@@ -62,7 +62,7 @@ func TestNativeAcceptanceRunsPublishedPredecessorSeparatelyFromCurrentSchemaJour
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", baseline)
 	request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
 	var calls []toolCall
-	if err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), false, "", func(call toolCall) error {
+	if err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), NativeAcceptance{}, func(call toolCall) error {
 		calls = append(calls, call)
 		return nil
 	}); err != nil {
@@ -85,7 +85,7 @@ func TestNativeClientSourceAcceptanceSelectsOneHostBuild(t *testing.T) {
 	request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "0"}
 	var stage string
 	calls := 0
-	err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), true, "", func(call toolCall) error {
+	err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), NativeAcceptance{Clients: true}, func(call toolCall) error {
 		calls++
 		if calls == 1 {
 			if call.Name != "goreleaser" || !slices.Contains(call.Env, "AIGW_BUILD_OS="+runtime.GOOS) || !slices.Contains(call.Env, "GH_TOKEN=") || !slices.Contains(call.Env, "CI_JOB_TOKEN=") {
@@ -215,7 +215,7 @@ func TestNativeClientAcceptanceSharesStageAndPropagatesFailure(t *testing.T) {
 			var stage string
 			var calls []toolCall
 			want := errors.New("acceptance failed")
-			err := acceptNative(request, source, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), true, "", func(call toolCall) error {
+			err := acceptNative(request, source, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), NativeAcceptance{Clients: true}, func(call toolCall) error {
 				if call.Name != "go" {
 					t.Fatalf("published client acceptance rebuilt artifacts: %#v", call)
 				}
@@ -261,7 +261,7 @@ func TestNativeAcceptanceConsumesExistingArchives(t *testing.T) {
 			var stage string
 			calls := 0
 			want := errors.New("acceptance failed")
-			err = acceptNative(request, source, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), clients, "", func(call toolCall) error {
+			err = acceptNative(request, source, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), NativeAcceptance{Clients: clients}, func(call toolCall) error {
 				if call.Name != "go" {
 					t.Fatalf("existing artifact acceptance rebuilt: %#v", call)
 				}
@@ -309,7 +309,7 @@ func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 			output := filepath.Join(t.TempDir(), "measurements")
 			var stage string
 			calls := 0
-			err := acceptNative(request, source, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), test.clients, output, func(call toolCall) error {
+			err := acceptNative(request, source, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), NativeAcceptance{Clients: test.clients, Performance: output}, func(call toolCall) error {
 				calls++
 				stage = strings.TrimPrefix(call.Env[0], "AIGW_ACCEPTANCE_RELEASE=")
 				if call.Name != "go" || call.Directory != request.Root || stage == source {
@@ -351,7 +351,7 @@ func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 func TestNativePerformanceOutputAdmission(t *testing.T) {
 	for _, output := range []string{"relative-performance", t.TempDir()} {
 		request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
-		err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), false, output, func(call toolCall) error {
+		err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), NativeAcceptance{Performance: output}, func(call toolCall) error {
 			t.Fatalf("invalid output admitted an external command: %#v", call)
 			return nil
 		})

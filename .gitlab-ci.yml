@@ -59,13 +59,19 @@ native-linux:
     - if ! { [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; }; then mise run bootstrap; fi
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - |-
+      if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
+        printf '%s\n' 'Native client diagnostics require a manual pipeline' >&2
+        exit 1
+      fi
       set -eu
       set -- --peer gitlab --repository "$CI_PROJECT_URL"
       if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
       if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
-      if [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
+      if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ]; then
+        set -- "$@" --diagnostic-client "$AIGW_NATIVE_DIAGNOSTIC_CLIENT"
+      elif [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
         : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
         set -- "$@" --clients
       fi
@@ -103,13 +109,19 @@ native-darwin:
     - if ! { [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; }; then mise run bootstrap; fi
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - |-
+      if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
+        printf '%s\n' 'Native client diagnostics require a manual pipeline' >&2
+        exit 1
+      fi
       set -eu
       set -- --peer gitlab --repository "$CI_PROJECT_URL"
       if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
       if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
-      if [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
+      if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ]; then
+        set -- "$@" --diagnostic-client "$AIGW_NATIVE_DIAGNOSTIC_CLIENT"
+      elif [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
         : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
         set -- "$@" --clients
       fi
@@ -166,13 +178,19 @@ native-darwin-review:
     - if ! { [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; }; then mise run bootstrap; fi
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - |-
+      if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
+        printf '%s\n' 'Native client diagnostics require a manual pipeline' >&2
+        exit 1
+      fi
       set -eu
       set -- --peer gitlab --repository "$CI_PROJECT_URL"
       if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
       if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
-      if [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
+      if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ]; then
+        set -- "$@" --diagnostic-client "$AIGW_NATIVE_DIAGNOSTIC_CLIENT"
+      elif [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
         : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
         set -- "$@" --clients
       fi
@@ -275,6 +293,7 @@ native-windows:
     - |-
       $ErrorActionPreference = 'Stop'
       $PSNativeCommandUseErrorActionPreference = $true
+      if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT -and $env:CI_PIPELINE_SOURCE -notin @('web', 'api')) { throw 'Native client diagnostics require a manual pipeline' }
       if ($env:AIGW_NATIVE_INPUT_PACKAGE) {
         if ($env:AIGW_NATIVE_PLATFORM -ne 'windows') { throw 'Native public input requires the Windows platform' }
         if ($env:AIGW_NATIVE_INPUT_SHA256 -notmatch '^[0-9a-f]{64}$' -or $env:AIGW_CANDIDATE_SOURCE -notmatch '^[0-9a-f]{40}$') { throw 'Native public input requires exact source and checksum.' }
@@ -327,7 +346,9 @@ native-windows:
       if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
       if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
       if ($env:AIGW_CANDIDATE_SOURCE) { $acceptance += @('--candidate-source', $env:AIGW_CANDIDATE_SOURCE) }
-      if ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
+      if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT) {
+        $acceptance += @('--diagnostic-client', $env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)
+      } elseif ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
         if (-not $env:AIGW_BASELINE_TAG) { throw 'Real-client succession requires AIGW_BASELINE_TAG.' }
         $acceptance += '--clients'
       }
@@ -432,6 +453,7 @@ native-windows-review:
     - |-
       $ErrorActionPreference = 'Stop'
       $PSNativeCommandUseErrorActionPreference = $true
+      if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT -and $env:CI_PIPELINE_SOURCE -notin @('web', 'api')) { throw 'Native client diagnostics require a manual pipeline' }
       if ($env:AIGW_NATIVE_INPUT_PACKAGE) {
         if ($env:AIGW_NATIVE_PLATFORM -ne 'windows') { throw 'Native public input requires the Windows platform' }
         if ($env:AIGW_NATIVE_INPUT_SHA256 -notmatch '^[0-9a-f]{64}$' -or $env:AIGW_CANDIDATE_SOURCE -notmatch '^[0-9a-f]{40}$') { throw 'Native public input requires exact source and checksum.' }
@@ -484,7 +506,9 @@ native-windows-review:
       if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
       if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
       if ($env:AIGW_CANDIDATE_SOURCE) { $acceptance += @('--candidate-source', $env:AIGW_CANDIDATE_SOURCE) }
-      if ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
+      if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT) {
+        $acceptance += @('--diagnostic-client', $env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)
+      } elseif ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
         if (-not $env:AIGW_BASELINE_TAG) { throw 'Real-client succession requires AIGW_BASELINE_TAG.' }
         $acceptance += '--clients'
       }

@@ -284,6 +284,15 @@ for required PR checks](https://docs.github.com/en/pull-requests/how-tos/merge-a
 GitLab `AIGW_COMMIT_BASE` is an exclusive base; omitted means the selected
 commit's first parent. Missing author/signer trust fails before other gates.
 
+`accept-native --diagnostic-client <client>` runs only that supplied client's
+retained predecessor journey using Go subtest selection. It requires admitted
+prebuilt candidate and predecessor inputs, preserves source/artifact trust and
+the original client budgets, and does not establish full product acceptance.
+Manual peers expose `diagnostic_client` / `AIGW_NATIVE_DIAGNOSTIC_CLIENT`; leave
+them empty for ordinary verification. GitHub also needs `windows_clients=true`
+to supply Windows clients. Review, accepted-push and tag jobs cannot use this
+diagnostic scope instead of their full suites.
+
 Default acceptance uses a synthetic current-schema predecessor. Test-owned
 macOS signing fixtures neither import identities nor authorize historical
 credentials. Explicit candidate bytes are never replaced by a source build.

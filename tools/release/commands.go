@@ -17,10 +17,15 @@ import (
 
 func buildCommands(ctx context.Context) commandSet {
 	return commandSet{
-		"accept-native": func(args []string, _ io.Writer) error {
+		"accept-native": func(args []string, output io.Writer) error {
 			input, err := construction.ParseNativeAcceptance(args)
 			if err != nil {
 				return err
+			}
+			if input.DiagnosticClient != "" {
+				if _, err := fmt.Fprintf(output, "Native client diagnostic: %s; full product acceptance is not established.\n", input.DiagnosticClient); err != nil {
+					return err
+				}
 			}
 			return construction.AcceptNative(ctx, input)
 		},

@@ -227,6 +227,21 @@ func TestNativeAcceptanceForwardsReleaseOwnedArguments(t *testing.T) {
 	}
 }
 
+func TestNativeDiagnosticClientForwardsOnlyTheAdmittedReleaseScope(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
+	selected := []string{"--artifacts=/candidate", "--candidate", "--diagnostic-client=hermes"}
+	var calls []command
+	err := run(append([]string{"native", "--"}, selected...), &bytes.Buffer{}, func(call command) error {
+		calls = append(calls, call)
+		return nil
+	})
+	want := command{Name: "go", Args: append([]string{"run", "./tools/release", "accept-native"}, selected...)}
+	if err != nil || !reflect.DeepEqual(calls, []command{want}) {
+		t.Fatalf("diagnostic scope changed or repeated source qualification: %#v, %v", calls, err)
+	}
+}
+
 func TestNativePrebuiltAcceptanceDoesNotRepeatSourceQualification(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")

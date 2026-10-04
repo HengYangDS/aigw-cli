@@ -241,7 +241,7 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
 		t.Fatal(err)
 	}
-	const selection = "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)"
+	const selection = "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance)"
 	for _, platform := range []string{"darwin", "linux", "windows"} {
 		steps := workflow.Jobs["native-"+platform].Steps
 		index := slices.IndexFunc(steps, func(item step) bool { return item.Name == "Run historical release acceptance" })
@@ -257,9 +257,20 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 				t.Fatalf("%s native lifecycle lost %q", platform, argument)
 			}
 		}
-		clients := "--clients=" + map[string]string{"windows": "${{ inputs.windows_clients }}", "darwin": "false", "linux": "false"}[platform]
-		if !strings.Contains(selected.Run, clients) || selected.Env["AIGW_BASELINE_TAG"] != "${{ inputs.baseline_tag }}" || selected.Env["AIGW_CANDIDATE_TAG"] != "${{ inputs.candidate_tag }}" {
-			t.Fatalf("%s native input selection differs from its declaration", platform)
+		clients := "--clients=" + map[string]string{"windows": "${{ inputs.windows_clients && inputs.diagnostic_client == '' }}", "darwin": "false", "linux": "false"}[platform]
+		for _, input := range []struct {
+			name    string
+			matches bool
+		}{
+			{"clients", strings.Contains(selected.Run, clients)},
+			{"diagnostic argument", strings.Contains(selected.Run, "--diagnostic-client=")},
+			{"baseline", selected.Env["AIGW_BASELINE_TAG"] == "${{ inputs.baseline_tag }}"},
+			{"candidate", selected.Env["AIGW_CANDIDATE_TAG"] == "${{ inputs.candidate_tag }}"},
+			{"diagnostic", selected.Env["AIGW_NATIVE_DIAGNOSTIC_CLIENT"] == "${{ inputs.diagnostic_client }}"},
+		} {
+			if !input.matches {
+				t.Fatalf("%s native %s input differs from its declaration", platform, input.name)
+			}
 		}
 		for _, kind := range []string{"source", "artifact"} {
 			trust := slices.IndexFunc(steps, func(item step) bool { return item.Name == "Prepare native "+kind+" trust" })

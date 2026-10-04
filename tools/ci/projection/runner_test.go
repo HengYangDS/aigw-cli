@@ -281,8 +281,9 @@ func TestNativePowerShellAcceptancePreservesDeclaredEmptyTag(t *testing.T) {
 		t.Fatal(err)
 	}
 	if os.Getenv("AIGW_NATIVE_ARGUMENT_WITNESS") == "1" {
-		selected := os.Args[len(os.Args)-3:]
-		if !slices.Equal(selected, []string{"--baseline-tag=v1.2.3", "--tag=", "--clients=false"}) {
+		selected := os.Args[len(os.Args)-4:]
+		want := []string{"--baseline-tag=v1.2.3", "--tag=", "--clients=false", "--diagnostic-client=" + os.Getenv("AIGW_NATIVE_DIAGNOSTIC_CLIENT")}
+		if !slices.Equal(selected, want) {
 			t.Fatalf("native PowerShell changed argument identity: %q", selected)
 		}
 		return
@@ -323,15 +324,17 @@ func TestNativePowerShellAcceptancePreservesDeclaredEmptyTag(t *testing.T) {
 	if !found {
 		t.Fatal("Windows native command must declare the published baseline tag")
 	}
-	suffix = "--baseline-tag=" + strings.ReplaceAll(suffix, "${{ inputs.windows_clients }}", "false")
+	suffix = "--baseline-tag=" + strings.ReplaceAll(suffix, "${{ inputs.windows_clients && inputs.diagnostic_client == '' }}", "false")
 	script := "& '" + strings.ReplaceAll(executable, "'", "''") + "' '-test.run=^TestNativePowerShellAcceptancePreservesDeclaredEmptyTag$' -- " + suffix
-	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
-	defer cancel()
-	command := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script)
-	command.Env = append(os.Environ(), "AIGW_NATIVE_ARGUMENT_WITNESS=1", "AIGW_BASELINE_TAG=v1.2.3", "AIGW_CANDIDATE_TAG=")
-	output, err := command.CombinedOutput()
-	if err != nil || !bytes.Contains(output, []byte("PASS")) {
-		t.Fatalf("native PowerShell argument witness failed: %v\n%s", err, output)
+	for _, client := range []string{"", "hermes"} {
+		ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+		command := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script)
+		command.Env = append(os.Environ(), "AIGW_NATIVE_ARGUMENT_WITNESS=1", "AIGW_BASELINE_TAG=v1.2.3", "AIGW_CANDIDATE_TAG=", "AIGW_NATIVE_DIAGNOSTIC_CLIENT="+client)
+		output, err := command.CombinedOutput()
+		cancel()
+		if err != nil || !bytes.Contains(output, []byte("PASS")) {
+			t.Fatalf("native PowerShell argument witness failed: %v\n%s", err, output)
+		}
 	}
 }
 

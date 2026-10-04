@@ -1,6 +1,7 @@
 package construction
 
 import (
+	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/upgrade/artifact"
 	releaseartifact "aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/readiness"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -28,7 +30,10 @@ type NativeAcceptance struct {
 	CandidateSource                                string
 	Candidate, Clients                             bool
 	Performance                                    string
+	DiagnosticClient                               string
 }
+
+var nativeAcceptanceClients = []string{configuration.ClientClaude, configuration.ClientCodex, configuration.ClientHermes}
 
 // ParseNativeAcceptance keeps native input and scope selection at the release owner.
 func ParseNativeAcceptance(arguments []string) (NativeAcceptance, error) {
@@ -44,6 +49,7 @@ func ParseNativeAcceptance(arguments []string) (NativeAcceptance, error) {
 	flags.BoolVar(&input.Candidate, "candidate", false, "Bind untagged artifacts to signed source")
 	flags.StringVar(&input.CandidateSource, "candidate-source", "", "Exact signed candidate commit; defaults to verifier HEAD")
 	flags.BoolVar(&input.Clients, "clients", false, "Verify explicitly supplied native clients")
+	flags.StringVar(&input.DiagnosticClient, "diagnostic-client", "", "Diagnose one native client; does not qualify complete product acceptance")
 	flags.StringVar(&input.Performance, "performance", "", "Retain Hyperfine samples in this absolute directory")
 	if err := flags.Parse(arguments); err != nil {
 		return input, err
@@ -70,8 +76,8 @@ func AcceptNative(ctx context.Context, input NativeAcceptance) error {
 	if err != nil {
 		return err
 	}
-	if input.Clients {
-		if err := requireNativeClients(); err != nil {
+	if input.Clients || input.DiagnosticClient != "" {
+		if err := requireNativeClients(input.DiagnosticClient); err != nil {
 			return err
 		}
 	}
@@ -81,7 +87,7 @@ func AcceptNative(ctx context.Context, input NativeAcceptance) error {
 func acceptNativeInput(ctx context.Context, input NativeAcceptance, request buildRequest, run toolRunner) (result error) {
 	baseline := os.Getenv("AIGW_ACCEPTANCE_BASELINE")
 	if input.Artifacts == "" && input.Tag == "" && input.BaselineTag == "" {
-		return acceptNative(request, "", baseline, input.Clients, input.Performance, run)
+		return acceptNative(request, "", baseline, input, run)
 	}
 	if err := ensureCleanSource(request.Root, run); err != nil {
 		return err
@@ -100,7 +106,7 @@ func acceptNativeInput(ctx context.Context, input NativeAcceptance, request buil
 			return err
 		}
 	}
-	return acceptNative(request, input.Artifacts, baseline, input.Clients, input.Performance, run)
+	return acceptNative(request, input.Artifacts, baseline, input, run)
 }
 
 func (input *NativeAcceptance) validate() error {
@@ -125,13 +131,16 @@ func (input *NativeAcceptance) validate() error {
 	if (input.BaselineTag != "" || input.BaselineArtifacts != "") && os.Getenv("AIGW_ACCEPTANCE_BASELINE") != "" {
 		return errors.New("published baseline inputs and an explicit baseline executable are mutually exclusive")
 	}
-	if err := input.validateTagsAndPerformance(); err != nil {
+	if err := input.validateOptionalScopes(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (input *NativeAcceptance) validateTagsAndPerformance() error {
+func (input *NativeAcceptance) validateOptionalScopes() error {
+	if input.DiagnosticClient != "" && (!slices.Contains(nativeAcceptanceClients, input.DiagnosticClient) || !input.UsesPrebuiltArtifacts() || input.Clients || input.Performance != "") {
+		return errors.New("native client diagnostics require one supported client, prebuilt artifacts, and no full-client or performance scope")
+	}
 	for _, tag := range []string{input.Tag, input.BaselineTag} {
 		if tag == "" {
 			continue
@@ -140,7 +149,7 @@ func (input *NativeAcceptance) validateTagsAndPerformance() error {
 			return errors.New("native release tags require v<semver>")
 		}
 	}
-	if (input.Clients || runtime.GOOS == "darwin" && os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1") && input.BaselineTag == "" && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
+	if (input.Clients || input.DiagnosticClient != "" || runtime.GOOS == "darwin" && os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1") && input.BaselineTag == "" && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
 		return errors.New("native succession requires a published predecessor")
 	}
 	if input.Performance != "" && (input.Artifacts == "" && input.Tag == "" || os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" && input.BaselineTag == "") {
@@ -149,8 +158,12 @@ func (input *NativeAcceptance) validateTagsAndPerformance() error {
 	return nil
 }
 
-func requireNativeClients() error {
-	for _, key := range []string{"AIGW_ACCEPTANCE_CODEX", "AIGW_ACCEPTANCE_CLAUDE", "AIGW_ACCEPTANCE_HERMES"} {
+func requireNativeClients(selected string) error {
+	for _, client := range nativeAcceptanceClients {
+		if selected != "" && selected != client {
+			continue
+		}
+		key := "AIGW_ACCEPTANCE_" + strings.ToUpper(client)
 		path := os.Getenv(key)
 		info, err := os.Stat(path)
 		if err != nil || !filepath.IsAbs(path) || !info.Mode().IsRegular() {
@@ -228,7 +241,8 @@ func BuildNative(ctx context.Context, root, workspace, version string) (string, 
 	return stage, prepareNativeBinary(stage, version)
 }
 
-func acceptNative(request buildRequest, artifacts, baseline string, clients bool, performance string, run toolRunner) (result error) {
+func acceptNative(request buildRequest, artifacts, baseline string, input NativeAcceptance, run toolRunner) (result error) {
+	clients, performance := input.Clients, input.Performance
 	if performance != "" && !filepath.IsAbs(performance) {
 		return errors.New("performance output must be an absolute directory")
 	}
@@ -275,14 +289,20 @@ func acceptNative(request buildRequest, artifacts, baseline string, clients bool
 	commonEnvironment := append([]string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace}, forgeCredentialOverrides()...)
 	currentEnvironment := append(append([]string{}, commonEnvironment...), "AIGW_ACCEPTANCE_BASELINE=")
 	publishedEnvironment := append(append([]string{}, commonEnvironment...), "AIGW_ACCEPTANCE_BASELINE="+baseline)
+	clientPattern := "^TestNativeClientJourney$"
+	if input.DiagnosticClient != "" {
+		clients = true
+		clientPattern += "/^" + input.DiagnosticClient + "($|-)"
+	}
+	lifecycle := performance == "" && input.DiagnosticClient == ""
 	for _, suite := range []struct {
 		selected    bool
 		args        []string
 		environment []string
 	}{
-		{performance == "", []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney|TestNativeVerificationResources)$", "-count=1", "-v"}, currentEnvironment},
-		{performance == "" && baseline != "", []string{"test", "./tools/release", "-run", "^TestNativePublishedPredecessorJourney$", "-count=1", "-v"}, publishedEnvironment},
-		{clients, []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClientJourney$", "-count=1", "-v"}, publishedEnvironment},
+		{lifecycle, []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney|TestNativeVerificationResources)$", "-count=1", "-v"}, currentEnvironment},
+		{lifecycle && baseline != "", []string{"test", "./tools/release", "-run", "^TestNativePublishedPredecessorJourney$", "-count=1", "-v"}, publishedEnvironment},
+		{clients, []string{"test", "-tags=client_acceptance", "./tools/release", "-run", clientPattern, "-count=1", "-v"}, publishedEnvironment},
 		{performance != "", []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}, append(publishedEnvironment, "AIGW_PERFORMANCE_OUTPUT="+performance)},
 	} {
 		if !suite.selected {

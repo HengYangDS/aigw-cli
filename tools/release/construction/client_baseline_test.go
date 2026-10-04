@@ -69,7 +69,7 @@ func TestReleaseToolSeparatesAcquisitionCredentials(t *testing.T) {
 			var err error
 			switch mode {
 			case "acceptance":
-				err = acceptNative(request, "", "", false, "", child)
+				err = acceptNative(request, "", "", NativeAcceptance{}, child)
 			case "construction":
 				_, err = buildArchives(request, t.TempDir(), child)
 				if errors.Is(err, stopConstruction) {
@@ -105,7 +105,7 @@ func TestNativeClientAcceptancePreservesExplicitPublishedPredecessor(t *testing.
 	artifacts := t.TempDir()
 	writeNativeArchive(t, artifacts, "1.2.3")
 	observed := false
-	err := acceptNative(request, artifacts, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), true, "", func(call toolCall) error {
+	err := acceptNative(request, artifacts, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), NativeAcceptance{Clients: true}, func(call toolCall) error {
 		if slices.Contains(call.Args, "-tags=client_acceptance") {
 			observed = true
 			if !slices.Contains(call.Env, "AIGW_ACCEPTANCE_BASELINE="+baseline) {
@@ -146,6 +146,72 @@ func TestNativeClientSuccessionRequiresPublishedPredecessor(t *testing.T) {
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
 	if _, err := ParseNativeAcceptance([]string{"--clients"}); err != nil {
 		t.Fatalf("explicit retained predecessor was refused: %v", err)
+	}
+}
+
+func TestNativeDiagnosticClientAdmission(t *testing.T) {
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
+	t.Setenv("AIGW_RELEASE_TAG", "")
+	executable := filepath.Join(t.TempDir(), "client")
+	if err := os.WriteFile(executable, []byte("test-owned executable"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, client := range nativeAcceptanceClients {
+		t.Setenv("AIGW_ACCEPTANCE_"+strings.ToUpper(client), "")
+	}
+	for _, client := range nativeAcceptanceClients {
+		if _, err := ParseNativeAcceptance([]string{"--artifacts=/candidate", "--candidate", "--diagnostic-client=" + client}); err != nil {
+			t.Errorf("explicit %s diagnostic was refused: %v", client, err)
+		}
+		key := "AIGW_ACCEPTANCE_" + strings.ToUpper(client)
+		t.Setenv(key, executable)
+		if err := requireNativeClients(client); err != nil {
+			t.Errorf("%s diagnostic requires an unrelated executable: %v", client, err)
+		}
+		t.Setenv(key, "")
+		if err := requireNativeClients(client); err == nil {
+			t.Errorf("%s diagnostic admitted a missing executable", client)
+		}
+	}
+	for _, arguments := range [][]string{
+		{"--diagnostic-client=hermes"},
+		{"--artifacts=/candidate", "--candidate", "--diagnostic-client=unknown"},
+		{"--artifacts=/candidate", "--candidate", "--diagnostic-client=hermes|codex"},
+		{"--artifacts=/candidate", "--candidate", "--clients", "--diagnostic-client=hermes"},
+		{"--artifacts=/candidate", "--candidate", "--performance=/samples", "--diagnostic-client=hermes"},
+	} {
+		if _, err := ParseNativeAcceptance(arguments); err == nil {
+			t.Errorf("ambiguous or unqualified diagnostic was admitted: %q", arguments)
+		}
+	}
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+	if _, err := ParseNativeAcceptance([]string{"--artifacts=/candidate", "--candidate", "--diagnostic-client=hermes"}); err == nil {
+		t.Fatal("client diagnostic admitted a missing published predecessor")
+	}
+}
+
+func TestNativeDiagnosticClientSelectsOnlyItsRetainedJourney(t *testing.T) {
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
+	for _, client := range nativeAcceptanceClients {
+		t.Run(client, func(t *testing.T) {
+			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
+			artifacts := t.TempDir()
+			writeNativeArchive(t, artifacts, "1.2.3")
+			want := errors.New("diagnosed client failure")
+			var calls []toolCall
+			err := acceptNative(request, artifacts, "/published/aigw", NativeAcceptance{DiagnosticClient: client}, func(call toolCall) error {
+				calls = append(calls, call)
+				return want
+			})
+			pattern := "^TestNativeClientJourney$/^" + client + "($|-)"
+			if !errors.Is(err, want) || len(calls) != 1 || !slices.Contains(calls[0].Args, pattern) || !slices.Contains(calls[0].Args, "-tags=client_acceptance") || !slices.Contains(calls[0].Env, "AIGW_ACCEPTANCE_BASELINE=/published/aigw") {
+				t.Fatalf("diagnostic changed scope, predecessor, or failure: %#v, %v", calls, err)
+			}
+			stage := strings.TrimPrefix(calls[0].Env[0], "AIGW_ACCEPTANCE_RELEASE=")
+			if _, err := os.Stat(stage); !os.IsNotExist(err) {
+				t.Fatalf("diagnostic-owned stage survived: %s, %v", stage, err)
+			}
+		})
 	}
 }
 

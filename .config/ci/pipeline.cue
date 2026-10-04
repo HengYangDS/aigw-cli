@@ -399,27 +399,28 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 #NativeGitHubJob: {
 	_platform:            #OperatingSystem
 	_sourceCondition:     "github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == ''"
-	_historicalCondition: "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)"
+	_historicalCondition: "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance)"
 	_environmentPrefix:   string
 	_clients:             string
 	if _platform == "windows" {
 		_environmentPrefix: "$env:"
-		_clients:           "${{ inputs.windows_clients }}"
+		_clients:           "${{ inputs.windows_clients && inputs.diagnostic_client == '' }}"
 	}
 	if _platform != "windows" {
 		_environmentPrefix: "$"
 		_clients:           "false"
 	}
-	_historicalArguments: "--peer=github --repository=\"\(_environmentPrefix)GITHUB_REPOSITORY\" --baseline-tag=\"\(_environmentPrefix)AIGW_BASELINE_TAG\" --tag=\"\(_environmentPrefix)AIGW_CANDIDATE_TAG\" --clients=\(_clients)"
+	_historicalArguments: "--peer=github --repository=\"\(_environmentPrefix)GITHUB_REPOSITORY\" --baseline-tag=\"\(_environmentPrefix)AIGW_BASELINE_TAG\" --tag=\"\(_environmentPrefix)AIGW_CANDIDATE_TAG\" --clients=\(_clients) --diagnostic-client=\"\(_environmentPrefix)AIGW_NATIVE_DIAGNOSTIC_CLIENT\""
 	_historicalEnvironment: _credentialEnvironment & {
 		if _platform == "darwin" {
 			AIGW_VERIFY_SYSTEM_KEYRING: "${{ github.event_name == 'workflow_dispatch' && inputs.macos_keychain && '1' || '0' }}"
 		}
-		GH_TOKEN:                     "${{ github.token }}"
-		GH_PROMPT_DISABLED:           "1"
-		AIGW_BASELINE_TAG:            "${{ inputs.baseline_tag }}"
-		AIGW_CANDIDATE_TAG:           "${{ inputs.candidate_tag }}"
-		AIGW_RELEASE_ARTIFACT_SIGNER: "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}"
+		GH_TOKEN:                      "${{ github.token }}"
+		GH_PROMPT_DISABLED:            "1"
+		AIGW_BASELINE_TAG:             "${{ inputs.baseline_tag }}"
+		AIGW_CANDIDATE_TAG:            "${{ inputs.candidate_tag }}"
+		AIGW_NATIVE_DIAGNOSTIC_CLIENT: "${{ inputs.diagnostic_client }}"
+		AIGW_RELEASE_ARTIFACT_SIGNER:  "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}"
 	}
 	_credentialEnvironment: {
 		if _platform == "windows" {
@@ -678,6 +679,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		_native:            #"""
 			$ErrorActionPreference = 'Stop'
 			$PSNativeCommandUseErrorActionPreference = $true
+			if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT -and $env:CI_PIPELINE_SOURCE -notin @('web', 'api')) { throw 'Native client diagnostics require a manual pipeline' }
 			\#(nativePublicInputWindows)
 			$acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)
 			if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }
@@ -685,7 +687,9 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
 			if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
 			if ($env:AIGW_CANDIDATE_SOURCE) { $acceptance += @('--candidate-source', $env:AIGW_CANDIDATE_SOURCE) }
-			if ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
+			if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT) {
+			  $acceptance += @('--diagnostic-client', $env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)
+			} elseif ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
 			  if (-not $env:AIGW_BASELINE_TAG) { throw 'Real-client succession requires AIGW_BASELINE_TAG.' }
 			  $acceptance += '--clients'
 			}
@@ -724,13 +728,19 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		_install:           commands.install
 		_refreshLocks:      "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
 		_native:            #"""
+			if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
+			  printf '%s\n' 'Native client diagnostics require a manual pipeline' >&2
+			  exit 1
+			fi
 			set -eu
 			set -- --peer gitlab --repository "$CI_PROJECT_URL"
 			if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
 			if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
 			if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
 			if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
-			if [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
+			if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ]; then
+			  set -- "$@" --diagnostic-client "$AIGW_NATIVE_DIAGNOSTIC_CLIENT"
+			elif [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
 			  : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
 			  set -- "$@" --clients
 			fi
@@ -965,6 +975,12 @@ githubVerify: {
 				required:    false
 				type:        "boolean"
 				default:     false
+			}
+			diagnostic_client: {
+				description: "Diagnose one supplied native client with baseline/candidate inputs; not full acceptance"
+				required:    false
+				type:        "string"
+				default:     ""
 			}
 			macos_keychain: {
 				description: "With baseline_tag, qualify only the published predecessor Keychain journey on disposable macOS"
