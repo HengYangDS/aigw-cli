@@ -113,15 +113,47 @@ func TestBackendChoiceRollbackRemovesItsOwnPostimage(t *testing.T) {
 	}
 }
 
-func TestBackendChoiceReportsAtomicWriteFailure(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "secrets")
-	if err := os.Mkdir(root, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(filepath.Join(root, "backend"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := newBackendChoice(root).Persist("file"); err == nil {
-		t.Fatal("Persist() replaced a backend directory")
+func TestBackendChoicePreservesInvalidStorage(t *testing.T) {
+	for _, shape := range []string{"root-file", "marker-directory"} {
+		t.Run(shape, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "secrets")
+			path := root
+			const original = "unowned storage\n"
+			retained := path
+			if shape == "marker-directory" {
+				path = filepath.Join(root, backendChoiceName)
+				if err := os.MkdirAll(path, 0o700); err != nil {
+					t.Fatal(err)
+				}
+				retained = filepath.Join(path, "unowned")
+			}
+			if err := os.WriteFile(retained, []byte(original), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			before, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			choice := newBackendChoice(root)
+			if selected, err := choice.Read(); err == nil || errors.Is(err, ErrNotFound) || selected != "" {
+				t.Fatalf("Read() did not refuse occupied storage: selected=%q, error=%v", selected, err)
+			}
+			if snapshot, written, err := choice.Persist("file"); err == nil || written || snapshot.exists {
+				t.Fatalf("Persist() did not refuse occupied storage: written=%v, error=%v", written, err)
+			}
+			after, err := os.Stat(path)
+			if err != nil || !os.SameFile(before, after) || after.Mode() != before.Mode() {
+				t.Fatalf("refusal changed unowned storage identity or mode: %v", err)
+			}
+			if before.IsDir() {
+				entries, err := os.ReadDir(root)
+				if err != nil || len(entries) != 1 || entries[0].Name() != backendChoiceName {
+					t.Fatalf("refusal left staging or replacement files: %v", err)
+				}
+			}
+			if content, err := os.ReadFile(retained); err != nil || string(content) != original {
+				t.Fatalf("refusal changed unowned storage contents: %v", err)
+			}
+		})
 	}
 }

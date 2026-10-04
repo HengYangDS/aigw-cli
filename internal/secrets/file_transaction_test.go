@@ -469,16 +469,6 @@ func TestFileStoreReadAndDeleteBoundaries(t *testing.T) {
 	}
 }
 
-func TestFileStoreDeleteRejectsDirectoryAtTokenPath(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "secrets")
-	if err := os.MkdirAll(filepath.Join(root, "alpha"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := newFileStore(root).Delete("alpha"); err == nil {
-		t.Fatal("Delete() accepted a directory at the Token path")
-	}
-}
-
 func TestFileStoreRejectsInvalidAccountNames(t *testing.T) {
 	store := newFileStore(filepath.Join(t.TempDir(), "secrets"))
 	if _, err := store.Get("invalid account"); err == nil {
@@ -492,5 +482,42 @@ func TestFileStoreRejectsInvalidAccountNames(t *testing.T) {
 	}
 	if err := store.Delete("invalid account"); err == nil {
 		t.Fatal("Delete() accepted an invalid Account ID")
+	}
+}
+
+func TestFileStorePreservesNonDirectoryRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "storage")
+	const original = "unowned storage\n"
+	if err := os.WriteFile(root, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Stat(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := newFileStore(root)
+	operations := []struct {
+		name string
+		run  func() error
+	}{
+		{"read", func() error { _, err := store.Get("alpha"); return err }},
+		{"exists", func() error { _, err := store.Exists("alpha"); return err }},
+		{"write", func() error { return store.Set("alpha", "synthetic-token") }},
+		{"delete", func() error { return store.Delete("alpha") }},
+	}
+	for _, operation := range operations {
+		t.Run(operation.name, func(t *testing.T) {
+			if err := operation.run(); err == nil || errors.Is(err, ErrNotFound) {
+				t.Fatalf("occupied storage root was not refused: %v", err)
+			}
+			content, err := os.ReadFile(root)
+			if err != nil || string(content) != original {
+				t.Fatalf("refused operation changed unowned storage: %v", err)
+			}
+			after, err := os.Stat(root)
+			if err != nil || !os.SameFile(before, after) || after.Mode() != before.Mode() {
+				t.Fatalf("refused operation changed storage identity or mode: %v", err)
+			}
+		})
 	}
 }

@@ -368,3 +368,49 @@ func TestDeleteSecureFilePreservesRecreatedValueWhenCompensationObservesDrift(t 
 		t.Fatalf("Token after guarded compensation = %q, %v; want newer-token", value, readErr)
 	}
 }
+
+func TestFileStorePreservesDirectoryAtTokenPath(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "secrets")
+	path := filepath.Join(root, "alpha")
+	if err := os.MkdirAll(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	retained := filepath.Join(path, "unowned")
+	const original = "unowned storage\n"
+	if err := os.WriteFile(retained, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := newFileStore(root)
+	operations := []struct {
+		name string
+		run  func() error
+	}{
+		{"read", func() error { _, err := store.Get("alpha"); return err }},
+		{"exists", func() error { _, err := store.Exists("alpha"); return err }},
+		{"write", func() error { return store.Set("alpha", "synthetic-token") }},
+		{"delete", func() error { return store.Delete("alpha") }},
+	}
+	for _, operation := range operations {
+		t.Run(operation.name, func(t *testing.T) {
+			if err := operation.run(); err == nil || errors.Is(err, ErrNotFound) {
+				t.Fatalf("directory-shaped Token slot was not refused: %v", err)
+			}
+			after, err := os.Stat(path)
+			if err != nil || !os.SameFile(before, after) || after.Mode() != before.Mode() {
+				t.Fatalf("refused operation changed directory identity or mode: %v", err)
+			}
+			content, err := os.ReadFile(retained)
+			if err != nil || string(content) != original {
+				t.Fatalf("refused operation changed directory contents: %v", err)
+			}
+			entries, err := os.ReadDir(root)
+			if err != nil || len(entries) != 1 || entries[0].Name() != "alpha" {
+				t.Fatalf("refused operation left staging or replacement files: %v", err)
+			}
+		})
+	}
+}

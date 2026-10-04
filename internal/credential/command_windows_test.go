@@ -41,3 +41,14 @@ func TestWindowsCommandParserPreservesNativeShortAncestorSpelling(t *testing.T) 
 		t.Fatalf("captured credential command changed after parsing: %v", err)
 	}
 }
+
+func TestNativeCredentialPathsRefuseInvalidOrMissingInputs(t *testing.T) {
+	if path, err := nativeShellPath("invalid\x00path"); err == nil || path != "" {
+		t.Fatalf("native shell path accepted invalid encoding: path=%q, error=%v", path, err)
+	}
+	for _, input := range []string{"invalid\x00path", filepath.Join(t.TempDir(), "missing")} {
+		if path, err := nativePathName(input); err == nil || path != "" {
+			t.Fatalf("native path resolution accepted invalid or absent input: path=%q, error=%v", path, err)
+		}
+	}
+}

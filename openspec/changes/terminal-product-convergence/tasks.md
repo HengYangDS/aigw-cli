@@ -252,11 +252,17 @@ in Git; original raw results stay with their source-bound verification owner.
       Windows coverage; this task is reopened until the repaired native owner
       passes the unchanged policy on both peers. macOS/Linux raw profiles retain
       their exact-source results.
-      Signed `d910b289` connects Windows to that gate and retains failed-attempt
-      profiles. Both peers now refuse the same 14,004/14,793 (94.67%) result;
-      this is an observed assurance gap, not an infrastructure failure. Original
-      profiles and native-owner repair evidence remain in
-      `d910b289/windows-native-assurance/`; native qualification is still required.
+      Current `5c90c796` original profiles agree on both peers: Windows
+      14,047/14,796 (94.94%) refuses; macOS 14,022/14,737 (95.15%) and Linux
+      13,904/14,624 (95.08%) pass. Earlier failed attempts remain retained.
+      Native occupied-storage and path-refusal contracts now verify identity,
+      content, mode and residue preservation, replacing two weaker tests without
+      changing product code or policy. Focused race, static, size and format pass;
+      the complete source gate passes at 14,020/14,737 (95.13%), followed by a
+      focused/static refresh of directory-content assertions. Final Windows
+      execution remains required; compile-only proof is not native acceptance.
+      Raw profiles, failures and independent review remain in
+      `5c90c796/storage-refusal-contract/` and the existing AIGW recovery owner.
 - [x] 6.3 Measure ELOC, logical statements, nesting and complexity by semantic
       owner; set risk-justified blocking bounds and simplify real hotspots without
       mechanical file splitting or suppressions.
