@@ -273,11 +273,13 @@ mise exec --locked -- go run ./tools/ci native --full-quality
 Manual GitHub `native_platform` and GitLab `AIGW_NATIVE_PLATFORM` select
 `all|darwin|linux|windows`; empty means all. Combine with `full_quality` /
 `AIGW_FULL_NATIVE_QUALITY=true` and `refresh_locks` / `AIGW_REFRESH_LOCKS=true`
-for targeted diagnostics. Each native job uses one complete tool closure for both
-check modes. Lychee publishes a Windows x64 binary; Mise explicitly selects that
+for targeted diagnostics. Source-native and full-quality runs share their locked
+native tool closure; explicit prebuilt acceptance selects only artifact tools.
+Lychee publishes a Windows x64 binary; Mise explicitly selects that
 locked official asset for Windows ARM64, where Windows runs it through x64
-emulation. Product archives retain their declared architecture. Quality always
-runs; review, accepted push and tag admission still require the full native set. [Manual runs do not substitute
+emulation. Product archives retain their declared architecture. Review, accepted
+push and tag admission require quality and the complete native set. Scoped manual
+artifact diagnostics may omit source quality; [manual runs do not substitute
 for required PR checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#checks-from-some-workflow-jobs-are-not-evaluated).
 GitLab `AIGW_COMMIT_BASE` is an exclusive base; omitted means the selected
 commit's first parent. Missing author/signer trust fails before other gates.
