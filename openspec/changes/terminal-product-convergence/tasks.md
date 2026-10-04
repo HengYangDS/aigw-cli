@@ -79,7 +79,9 @@ in Git; original raw results stay with their source-bound verification owner.
       and `build/verification/4dd8504a411135674ad72b0424bb10803882a62c/proposal-publication/`;
       current Debian Secret Service succession and visible registration warnings
       remain in 5.2. Neither proves durable login or warning-free native use.
-      Remaining: final signed macOS reader's stable designated requirement;
+      Native metadata confirms the installed predecessor and retained signed
+      reader share a Developer ID requirement, while current candidate `1426c66f`
+      remains ad-hoc. Final current-source signed reader/item succession is open;
       the old `f4cd7c51` receipt cannot qualify a different candidate.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
@@ -119,6 +121,10 @@ in Git; original raw results stay with their source-bound verification owner.
       same-session recall on three Sonnet 5.5 Routes (DMXAPI CC) and UCloud Opus
       5.5. Current Codex program/team/client bytes match retained AIHubMix and
       UCloud Sol 6.1 continuations; the missing DMXAPI CDX cell passes in 31.33s.
+      Current installed Hermes `75e98367` also passes selected UCloud Sol 6.1
+      inference, native file tools, same-session recall and public verification
+      with the same candidate/team bytes; its eight carried commits remain
+      explicit, not unmodified-upstream or final signed-byte qualification.
       Full current-client evidence and exact cleanup are bound in
       `13e6525c/current-upstream-review-20261004/`; earlier plain DMXAPI timeout
       and native invocation failures remain separate. The timeout's cause is
@@ -130,9 +136,16 @@ in Git; original raw results stay with their source-bound verification owner.
       supported native context or with a vendor fix. `AIGW13e-Windows-*` retains
       raw failure, eight pause states, VM isolation and exact cleanup.
       Latest Linux Claude/Hermes scope is in 5.2; historical Windows is in 5.3.
-      Hermes tools/history retain original bytes; Claude Desktop Chat/Cowork/
-      Code remains macOS-only. Final signed/store qualification stays in 9.3;
-      operator/GUI/Homebrew cutover follows the [Migration Plan](design.md#migration-plan).
+      Hermes tools/history retain original bytes. Isolated `1426c66f` projects all
+      eight Hermes wire catalogs and a second preview is unchanged; selections,
+      comments and unrelated settings survive, but all eight reader paths change.
+      Authentic 0.3.1 cannot project those wire IDs. Independent 2026-10-04
+      catalog-replay and Claude-bundle receipts remain in the AIGW recovery owner.
+      Claude Desktop 2.19675.0 has complete file/link identity and strict native
+      signature evidence; dated Chat/Cowork/Code observations preserve launcher/
+      profile continuity without qualifying final-mode use. Current signed
+      reader and GUI qualification remain open. Final signed/store qualification
+      stays in 9.3; operator/GUI/Homebrew cutover follows the [Migration Plan](design.md#migration-plan).
       Claude-in-Codex still needs external Responses tool/replay qualification.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
@@ -213,8 +226,9 @@ in Git; original raw results stay with their source-bound verification owner.
       against the latest stable compatible upstream; update authored pins and locks
       once, then prove clean-context reproducibility and license/security
       admissibility.
-      Latest stable-compatible authored Go/npm/Mise/OpenSpec pins, complete native
-      locks and registry signatures pass. Native npm resolves the same graph;
+      Normal signed `428f583f` checkpoints the latest stable-compatible authored
+      Go/npm/Mise/OpenSpec pins, complete native locks and registry signatures.
+      Native npm resolves the same graph;
       stable parents constrain three newer transitive suggestions, and Go's newer
       consumed suggestion is untagged development. Retain parents' pins: neither
       transitive compatibility violations nor vendor patches are admitted.
@@ -251,8 +265,16 @@ in Git; original raw results stay with their source-bound verification owner.
       `13e6525c/current-upstream-review-20261004/`. Final native client scope is in
       4.5/5.2; SBOM/license/signature/provenance retain their original candidates.
       Blocking: supported OpenSpec/Mermaid still consume `braces` 3.0.3,
-      `GHSA-vfj7-8cjw-p6xm` (High 8.7); both quality jobs fail, and no supported
-      patched stable chain is proved. No ignore, downgrade, fork/vendor patch,
+      [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+      (CVSS 4.0: 8.7). The 2026-10-04 registry/advisory reads show no patched
+      stable version; [upstream PR #72](https://github.com/micromatch/braces/pull/72)
+      remains unmerged. Both quality jobs reject this finding. Development-only
+      lock classification proves neither deployed absence nor consumer
+      exploitability; VEX applicability remains unproved.
+      Existing isolated native schema output probes reproduce the deep-pattern
+      failure; ordinary controls pass. The affected development consumer is
+      therefore reachable; runtime applicability remains a separate decision.
+      No ignore, downgrade, fork/vendor patch,
       compatibility violation or schema restriction is admitted. Removing the
       Markdown CLI intermediary deleted seventeen packages, not this chain.
       The release owner refuses failed/malformed/incomplete dependency evidence
@@ -298,12 +320,16 @@ in Git; original raw results stay with their source-bound verification owner.
       intended commit SHA and required-job set. Actual `main`/tag results against
       the archived SHA are post-archive release acceptance under Migration Plan;
       do not infer them from projection tests or a manual run.
-      Signed `4dd8504a` proposal checks (GitLab MR !178/pipeline 9400; GitHub
-      PR #162/run 37120920504) pass macOS/Linux/Windows/Secret Service, while
-      quality fails security 6.5. Intel job 111196700148 passes in 806s with cold
-      budget unchanged. All watchers are terminal; historical `82f66fe9` timeout
-      retains unproved cause. Final exact-source required checks, accepted events
-      and guarded integration remain open; manual runs do not replace them.
+      Normal signed `428f583f` updates the existing proposal on both peers;
+      GitHub PR #162/run 37158943021 passes macOS/Linux/Windows and Secret
+      Service. GitLab MR !178/pipeline 9410 passes the same native groups after
+      canonical guest Mise 2026.10.1 repair: only failed macOS job 48011 is
+      retried as 48031, passing in 382.73s with 95.18% coverage. Original
+      controls are restored; all native watchers are terminal. Both exact-source
+      quality jobs still reject security 6.5. No manual dispatch substitutes for
+      review events or repeats passed groups. The original failure and prior
+      `4dd8504a`/cold-Intel evidence retain their scope and budgets. Final
+      required checks, protected events and guarded integration remain open.
 - [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
       immutable evidence and content-addressed caches. Cancel superseded review
@@ -334,8 +360,17 @@ in Git; original raw results stay with their source-bound verification owner.
       `13e6525c/offline-current-native-product-20261004/`. Earlier sole-peer local
       Git controls keep their candidate. Lock coverage is identity, not availability.
       Run 37122724491 proves cold Intel macOS URL substitution/locked glab.
-      Full platform/tool graphs, upstream-outage denial and real GitLab Job Token
-      downloads remain unproved; this does not close canonical CI.
+      Current exact-source GitLab peer mode installs 18/19/18 locked tools and
+      passes Linux/macOS/Windows; the actual UID 504 executables use the owned
+      job mirror. Fresh GitLab metadata matches all 94 locked archive references
+      (90 files); six projection/cleanup race tests pass in
+      `428f583f/peer-tool-independence-20261004T013302Z/`. The 94 API fallback
+      references have no mirrored files; missing copies may fail locally by
+      contract. Native macOS Mise observes both locked download/API paths under
+      a synthetic peer returning 404, with exact cleanup; a temporary omitted-API
+      mapping is rejected. Static gates pass with unchanged thresholds. Metadata
+      and synthetic peer execution do not prove downloaded bytes,
+      provenance, full cold platform graphs or upstream-outage containment.
 
 ## 8. Repository Topology, Documentation, and Deletion
 

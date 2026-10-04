@@ -333,9 +333,10 @@ effectiveness; add every applicable concern without another registry or generic 
 Taplo and typos. Actionlint invokes locked ShellCheck for embedded workflow fragments;
 GitLab relies on CUE projection and actual native execution. No separate YAML formatter,
 Pants/Dagger/Nix/CEL plane is admitted without demonstrated replaced responsibility and
-native three-platform benefit. OpenSpec INFO remains visible advice; WARNING/ERROR,
-unknown severities, malformed reports and failed summaries block. Cohesive requirement
-length prompts semantic review rather than arbitrary fragmentation.
+native three-platform benefit. OpenSpec findings remain visible and block admission
+at every severity, including INFO; unknown severities, malformed reports and failed
+summaries also block. Cohesive requirement length prompts semantic review rather than
+arbitrary fragmentation.
 
 [ETHOS gates](../../.ethos/profile.toml) select execution, not sandboxing: prepared
 behavior fixtures are offline; signature/OSV quality needs network evidence.

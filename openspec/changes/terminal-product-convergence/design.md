@@ -241,6 +241,10 @@ proof, review CI, accepted-ref CI, signed/tagged assets, installation, and
 real-client operation are distinct evidence. Freeze exact source and lock
 inputs before the expensive final matrix; do not rerun identical heavy gates
 because an observation timed out or a progress-only record changed.
+Review approval or a comment alone does not require another content pipeline.
+Reuse requires unchanged verification inputs, including the merge base, and
+still-valid required results; matching only the source SHA is insufficient.
+Approval remains an independent merge requirement.
 
 Prebuilt native journeys and source qualification have different prerequisites.
 The existing release parser owns artifact selection for `ci native` too.

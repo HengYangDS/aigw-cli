@@ -1,8 +1,11 @@
 package projection
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"os/exec"
@@ -13,7 +16,9 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 	"go.yaml.in/yaml/v3"
@@ -217,23 +222,7 @@ func TestGitHubMirrorRewritesEveryLockedGlabEndpoint(t *testing.T) {
 }
 
 func TestGitLabMiseMirrorUsesCheckoutOwnedPath(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var pipeline struct {
-		Review struct {
-			Script      []string `yaml:"script"`
-			AfterScript []string `yaml:"after_script"`
-		} `yaml:"native-darwin-review"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
-		t.Fatal(err)
-	}
-	if len(pipeline.Review.Script) == 0 || len(pipeline.Review.AfterScript) != 1 {
-		t.Fatalf("macOS review mirror lifecycle is incomplete: %+v", pipeline.Review)
-	}
-	prepare, cleanup := pipeline.Review.Script[0], pipeline.Review.AfterScript[0]
+	prepare, cleanup := unixMiseMirrorCommands(t)
 	for _, script := range []string{prepare, cleanup} {
 		if strings.Contains(script, "CI_BUILDS_DIR") || !strings.Contains(script, "$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID") {
 			t.Fatalf("mirror path must be rooted at the checked-out working directory: %q", script)
@@ -328,6 +317,126 @@ done`
 			t.Fatalf("relative mirror remains after cleanup: %v", err)
 		}
 	})
+}
+
+func TestGitLabUnixMiseMirrorFailureStaysOnSelectedPeer(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return // The Unix projection requires a POSIX shell.
+	}
+	repository := filepath.Clean(filepath.Join("..", "..", ".."))
+	prepare, cleanup := unixMiseMirrorCommands(t)
+	project, selected := nativeMiseMirrorInputs(t, repository)
+	var requests []string
+	var mutex sync.Mutex
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mutex.Lock()
+		requests = append(requests, r.Method+" "+r.Host+r.URL.Path)
+		mutex.Unlock()
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+	environment := slices.DeleteFunc(os.Environ(), func(value string) bool {
+		name, _, _ := strings.Cut(value, "=")
+		return strings.HasPrefix(name, "MISE_") || strings.HasPrefix(name, "__MISE_") ||
+			strings.HasPrefix(name, "GH_") || strings.HasPrefix(name, "GITHUB_") || strings.HasPrefix(name, "GITLAB_")
+	})
+	environment = append(environment,
+		"HOME="+project, "XDG_CONFIG_HOME="+filepath.Join(project, ".config"),
+		"MISE_TRUSTED_CONFIG_PATHS="+project, "MISE_CONFIG_DIR="+filepath.Join(project, ".config", "mise"),
+		"MISE_CEILING_PATHS="+filepath.Dir(project),
+		"MISE_GLOBAL_CONFIG_FILE="+filepath.Join(project, ".config", "mise", "config.toml"), "MISE_SYSTEM_CONFIG_DIR="+filepath.Join(project, "system"),
+		"MISE_GITHUB_CREDENTIAL_COMMAND=", "MISE_GITLAB_CREDENTIAL_COMMAND=",
+		"MISE_GITHUB_GH_CLI_TOKENS=false", "MISE_GITLAB_GLAB_CLI_TOKENS=false",
+		"MISE_HTTP_RETRIES=0", "MISE_HTTP_TIMEOUT=2s", "MISE_USE_VERSIONS_HOST=false",
+		"AIGW_TOOL_SOURCE=peer", "CI_API_V4_URL="+server.URL+"/api/v4", "CI_PROJECT_ID=456",
+		"CI_SERVER_HOST="+strings.TrimPrefix(server.URL, "http://"), "CI_JOB_ID=123", "CI_JOB_TOKEN=fixture-only",
+		"HTTP_PROXY="+server.URL, "HTTPS_PROXY="+server.URL, "ALL_PROXY="+server.URL,
+		"NO_PROXY=127.0.0.1", "http_proxy="+server.URL, "https_proxy="+server.URL, "all_proxy="+server.URL, "no_proxy=127.0.0.1",
+	)
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		command := exec.CommandContext(ctx, "sh", "-eu", "-c", cleanup)
+		command.Dir, command.Env = project, environment
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Errorf("native mirror cleanup: %v\n%s", err, output)
+		}
+		if _, err := os.Stat(filepath.Join(project, "build", "tmp", ".aigw-mise-mirror-123")); !os.IsNotExist(err) {
+			t.Errorf("owned mirror remains: %v", err)
+		}
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, "sh", "-eu", "-c", prepare+"\nexec mise install --locked github:anchore/syft --jobs=1")
+	command.Dir, command.Env, command.WaitDelay = project, environment, time.Second
+	output, err := command.CombinedOutput()
+	if err == nil || ctx.Err() != nil {
+		t.Errorf("missing mirror must fail without expiry: %v\n%s", err, output)
+	}
+	if !strings.Contains(string(output), "404 Not Found") || strings.Contains(string(output), "mise WARN") {
+		t.Errorf("missing mirror must report 404 without warnings: %s", output)
+	}
+	mutex.Lock()
+	defer mutex.Unlock()
+	for _, request := range requests {
+		method, target, _ := strings.Cut(request, " ")
+		if (method != http.MethodGet && method != http.MethodHead) || !strings.HasPrefix(target, strings.TrimPrefix(server.URL, "http://")+"/api/v4/projects/456/packages/generic/mise-github/v1/") {
+			t.Errorf("native acquisition escaped selected peer: %s", request)
+		}
+	}
+	for _, upstream := range []string{selected.URL, selected.URLAPI} {
+		parsed, err := url.Parse(upstream)
+		if err != nil {
+			t.Fatalf("unexpected native locked URL: %q, %v", upstream, err)
+		}
+		want := strings.TrimPrefix(server.URL, "http://") + "/api/v4/projects/456/packages/generic/mise-github/v1" + parsed.Path
+		if !slices.ContainsFunc(requests, func(request string) bool { _, target, _ := strings.Cut(request, " "); return target == want }) {
+			t.Errorf("native locked request was not observed: %s in %v", want, requests)
+		}
+	}
+}
+
+func unixMiseMirrorCommands(t *testing.T) (string, string) {
+	t.Helper()
+	output, err := projectionCommand(filepath.Clean(filepath.Join("..", "..", "..")), "{prepare: miseMirror.unixPrepare, cleanup: miseMirror.unixCleanup}").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var commands struct {
+		Prepare string `yaml:"prepare"`
+		Cleanup string `yaml:"cleanup"`
+	}
+	if err := yaml.Unmarshal(output, &commands); err != nil {
+		t.Fatal(err)
+	}
+	return commands.Prepare, commands.Cleanup
+}
+
+func nativeMiseMirrorInputs(t *testing.T, repository string) (string, misePlatformLock) {
+	t.Helper()
+	project := t.TempDir()
+	var lock miseLock
+	for _, name := range []string{"mise.toml", "mise.lock"} {
+		content, err := os.ReadFile(filepath.Join(repository, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if name == "mise.lock" {
+			if err := toml.Unmarshal(content, &lock); err != nil {
+				t.Fatal(err)
+			}
+		}
+		target := filepath.Join(project, name)
+		if err := os.WriteFile(target, content, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	versions := lock.Tools["github:anchore/syft"]
+	selected := map[string]misePlatformLock{
+		"darwin-arm64": versions[0].MacOSARM64, "darwin-amd64": versions[0].MacOSX64,
+		"linux-arm64": versions[0].LinuxARM64, "linux-amd64": versions[0].LinuxX64,
+	}[runtime.GOOS+"-"+runtime.GOARCH]
+	return project, selected
 }
 
 func TestGitLabWindowsLockedToolsUseJobScopedMirror(t *testing.T) {
