@@ -89,15 +89,17 @@ func TestEverySourceConsumerRetainsDependencyEvidenceOnFailure(t *testing.T) {
 		if err := node.Decode(&declared); err != nil {
 			t.Fatal(err)
 		}
-		if declared.Artifacts.When != "always" || !slices.Contains(declared.Artifacts.Paths, "build/verification/dependencies") {
+		if declared.Artifacts.When != "always" || !slices.Contains(declared.Artifacts.Paths, "build/verification/dependencies") || !slices.Contains(declared.Artifacts.Paths, "build/verification/workflows") {
 			t.Errorf("GitLab %s loses dependency evidence after failure: %+v", job, declared.Artifacts)
 		}
-		found := false
-		for _, step := range github.Jobs[job].Steps {
-			found = found || step.If == "always()" && strings.Contains(step.Uses, "upload-artifact@") && step.With["path"] == "build/verification/dependencies"
-		}
-		if !found {
-			t.Errorf("GitHub %s loses dependency evidence after failure", job)
+		for _, evidence := range []string{"build/verification/dependencies", "build/verification/workflows"} {
+			found := false
+			for _, step := range github.Jobs[job].Steps {
+				found = found || step.If == "always()" && strings.Contains(step.Uses, "upload-artifact@") && step.With["path"] == evidence
+			}
+			if !found {
+				t.Errorf("GitHub %s loses native evidence %s after failure", job, evidence)
+			}
 		}
 	}
 }

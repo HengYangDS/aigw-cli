@@ -293,6 +293,7 @@ actions: {
 }
 
 dependencyEvidencePath: "build/verification/dependencies"
+workflowEvidencePath:   "build/verification/workflows"
 
 #DependencyEvidenceGitHubStep: {
 	_name: string
@@ -341,6 +342,14 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	}
 }
 
+#WorkflowEvidenceGitHubStep: {
+	_name: string
+	name:  "Retain native workflow evidence"
+	if:    "always()"
+	uses:  actions.upload
+	with: {name: _name, path: workflowEvidencePath, "if-no-files-found": "ignore"}
+}
+
 #NativeGitHubJob: {
 	_platform:        #OperatingSystem
 	_sourceCondition: "github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == ''"
@@ -352,8 +361,10 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: "ephemeral-host"
 		}
 	}
-	name:              "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph["native-\(_platform)"].name)' || '\(graph["native-\(_platform)"].name)' }}"
-	"runs-on":         nativeEvidence[_platform].github.runner
+	name:      "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph["native-\(_platform)"].name)' || '\(graph["native-\(_platform)"].name)' }}"
+	"runs-on": nativeEvidence[_platform].github.runner
+	if _platform != "windows" {defaults: run: shell: "bash"}
+	if _platform == "windows" {defaults: run: shell: "pwsh"}
 	"timeout-minutes": 25
 	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
 	env: MISE_ENABLE_TOOLS: "${{ (!(\(_sourceCondition))) && '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' || '\(nativeToolchain[_platform].MISE_ENABLE_TOOLS)' }}"
@@ -535,6 +546,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				"""#
 		},
 		#DependencyEvidenceGitHubStep & {_name: "dependency-evidence-\(_platform)"},
+		#WorkflowEvidenceGitHubStep & {_name: "workflow-evidence-\(_platform)"},
 		{
 			name: "Retain native performance samples"
 			if:   "always() && github.event_name == 'workflow_dispatch' && inputs.performance"
@@ -711,7 +723,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	}
 	artifacts: {
 		when: "always"
-		paths: ["mise.lock", ".mise/locks", dependencyEvidencePath]
+		paths: ["mise.lock", ".mise/locks", dependencyEvidencePath, workflowEvidencePath]
 	}
 	if _platform == "linux" {
 		interruptible: true
@@ -789,7 +801,7 @@ gitlab: {
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
 			commands.quality,
 		]
-		artifacts: {when: "always", paths: [dependencyEvidencePath]}
+		artifacts: {when: "always", paths: [dependencyEvidencePath, workflowEvidencePath]}
 
 		stage: graph.quality.stage
 		variables: qualityToolchain & {CGO_ENABLED: "0"}
@@ -896,6 +908,7 @@ gitlab: {
 
 githubVerify: {
 	name: "Verify"
+	defaults: run: shell: "bash"
 	env: {
 		GIT_CONFIG_COUNT:   "1"
 		GIT_CONFIG_KEY_0:   "init.defaultBranch"
@@ -1011,6 +1024,7 @@ githubVerify: {
 					run: commands.quality
 				},
 				#DependencyEvidenceGitHubStep & {_name: "dependency-evidence-quality"},
+				#WorkflowEvidenceGitHubStep & {_name: "workflow-evidence-quality"},
 
 			]
 		}

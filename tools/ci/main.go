@@ -35,7 +35,7 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 		return errors.New("usage: ci <project|source|quality|openspec|links|check-format|check-go|check-source-size|check-spelling|check-toml|check-markdown|check-markdown-policy|check-mermaid|check-secrets|native|release-evidence|trust-input>")
 	}
 	checks := map[string]func(string, commandRunner) error{
-		"links": checkLinks, "check-go": checkGo,
+		"links": checkLinks, "check-go": checkGo, "check-workflows": checkWorkflows,
 		"check-toml": checkTOML, "check-secrets": checkSecrets,
 		"check-format":          checkFormat,
 		"check-source-size":     checkSourceSize,

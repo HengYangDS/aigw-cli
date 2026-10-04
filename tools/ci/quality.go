@@ -87,7 +87,7 @@ var repositoryQualityGraph = qualityGraph{
 		{ID: "client-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClient(Inputs|StreamEnvelope|InferenceEnvelope|FilePreservation)$"}}, Concerns: []qualityConcern{qualityTest}},
 		{ID: "native-resource-fixture", Command: command{Name: "go", Args: []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^TestVerificationResourceCleanupStopsOwnedFixture$"}}, Concerns: []qualityConcern{qualityTest}},
 		{ID: "performance-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|Performance(Samples|Command|Cases|PooledSamples))$"}}, Concerns: []qualityConcern{qualityTest}},
-		{ID: "workflow-lint", Command: command{Name: "actionlint"}, Concerns: []qualityConcern{qualityLint, qualitySchema, qualityWorkflow}},
+		{ID: "workflow-lint", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-workflows", "."}}, Concerns: []qualityConcern{qualityLint, qualitySchema, qualityWorkflow}},
 		{ID: "coverage", Command: command{Name: "go", Args: []string{"run", "./tools/coverage", "--race"}}, Concerns: []qualityConcern{qualityTest}, SourceOnly: true},
 	},
 	CommonGates: []string{"text-layout", "secrets", "architecture"},

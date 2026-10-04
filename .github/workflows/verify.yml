@@ -1,4 +1,7 @@
 name: Verify
+defaults:
+  run:
+    shell: bash
 env:
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: init.defaultBranch
@@ -153,6 +156,13 @@ jobs:
           name: dependency-evidence-quality
           path: build/verification/dependencies
           if-no-files-found: ignore
+      - name: Retain native workflow evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: workflow-evidence-quality
+          path: build/verification/workflows
+          if-no-files-found: ignore
   linux-secret-service:
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Linux Secret Service' || 'Linux Secret Service' }}
     runs-on: ubuntu-24.04
@@ -219,6 +229,9 @@ jobs:
       - name: Validate tag version
         run: mise exec --locked -- go run ./tools/release validate-version-tag
   native-darwin:
+    defaults:
+      run:
+        shell: bash
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native macOS acceptance' || 'Native macOS acceptance' }}
     runs-on: macos-26-intel
     timeout-minutes: 25
@@ -382,6 +395,13 @@ jobs:
           name: dependency-evidence-darwin
           path: build/verification/dependencies
           if-no-files-found: ignore
+      - name: Retain native workflow evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: workflow-evidence-darwin
+          path: build/verification/workflows
+          if-no-files-found: ignore
       - name: Retain native performance samples
         if: always() && github.event_name == 'workflow_dispatch' && inputs.performance
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -390,6 +410,9 @@ jobs:
           path: build/performance
           if-no-files-found: error
   native-linux:
+    defaults:
+      run:
+        shell: bash
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native Linux acceptance' || 'Native Linux acceptance' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -554,6 +577,13 @@ jobs:
           name: dependency-evidence-linux
           path: build/verification/dependencies
           if-no-files-found: ignore
+      - name: Retain native workflow evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: workflow-evidence-linux
+          path: build/verification/workflows
+          if-no-files-found: ignore
       - name: Retain native performance samples
         if: always() && github.event_name == 'workflow_dispatch' && inputs.performance
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -562,6 +592,9 @@ jobs:
           path: build/performance
           if-no-files-found: error
   native-windows:
+    defaults:
+      run:
+        shell: pwsh
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native Windows acceptance' || 'Native Windows acceptance' }}
     runs-on: windows-2025
     timeout-minutes: 25
@@ -743,6 +776,13 @@ jobs:
         with:
           name: dependency-evidence-windows
           path: build/verification/dependencies
+          if-no-files-found: ignore
+      - name: Retain native workflow evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: workflow-evidence-windows
+          path: build/verification/workflows
           if-no-files-found: ignore
       - name: Retain native performance samples
         if: always() && github.event_name == 'workflow_dispatch' && inputs.performance

@@ -47,7 +47,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClient(Inputs|StreamEnvelope|InferenceEnvelope|FilePreservation)$"},
 		{"go", "test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^TestVerificationResourceCleanupStopsOwnedFixture$"},
 		{"go", "test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|Performance(Samples|Command|Cases|PooledSamples))$"},
-		{"actionlint"},
+		{"go", "run", "./tools/ci", "check-workflows", "."},
 		{"go", "run", "./tools/coverage", "--race"},
 	}
 	var got [][]string

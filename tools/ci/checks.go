@@ -1,7 +1,10 @@
 package main
 
 import (
+	nativeprocess "aigw-cli/internal/process"
 	"bytes"
+	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +15,9 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
+
+	"go.yaml.in/yaml/v3"
 
 	"aigw-cli/tools/ci/markdown"
 )
@@ -311,4 +317,146 @@ func checkSecrets(root string, runner commandRunner) (err error) {
 		"dir", "--config", ".config/checks/secrets/policy.toml",
 		"--redact", "--no-banner", "--log-level", "warn", ".",
 	}})
+}
+
+func checkWorkflows(root string, runner commandRunner) error {
+	files, err := currentRepositoryFiles(root, "GitHub workflows", ".github/workflows/*.yml", ".github/workflows/*.yaml")
+	if err != nil {
+		return err
+	}
+	if err := runner(command{Name: "actionlint", Args: append([]string{"-shellcheck="}, files...), Dir: root}); err != nil {
+		return err
+	}
+	parent := filepath.Join(root, "build", "verification", "workflows")
+	if err := os.MkdirAll(parent, 0o700); err != nil {
+		return err
+	}
+	evidence, err := os.MkdirTemp(parent, "check-")
+	if err != nil {
+		return err
+	}
+	records := make([]workflowScript, 0)
+	for _, file := range files {
+		scripts, err := workflowScripts(file)
+		if err != nil {
+			return err
+		}
+		records = append(records, scripts...)
+	}
+	data, err := json.MarshalIndent(records, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(evidence, "scripts.json"), append(data, '\n'), 0o600); err != nil {
+		return err
+	}
+	for index, script := range records {
+		if script.Shell != "bash" && script.Shell != "sh" {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		stdout, stderr, runErr := (nativeprocess.Runner{}).RunCaptureStreams(ctx, nativeprocess.Plan{Executable: "shellcheck", Directory: root, Env: os.Environ(), Args: []string{"--norc", "-f", "json", "-x", "--shell", script.Shell, "-e", "SC1091,SC2194,SC2050,SC2153,SC2154,SC2157,SC2043", "-"}, Stdin: script.Input})
+		cancel()
+		stem := filepath.Join(evidence, fmt.Sprintf("script-%d", index))
+		if err := os.WriteFile(stem+".json", stdout, 0o600); err != nil {
+			return err
+		}
+		if err := os.WriteFile(stem+".stderr", stderr, 0o600); err != nil {
+			return err
+		}
+		var findings []json.RawMessage
+		if err := json.Unmarshal(stdout, &findings); err != nil {
+			return fmt.Errorf("native shell validation for %s: %w", script.File, err)
+		}
+		if runErr != nil || findings == nil || len(findings) > 0 || nativeprocess.DiagnosticFailure(stderr) {
+			return fmt.Errorf("native ShellCheck refused %s job %s step %d; evidence %s: %w", script.File, script.Job, script.Step, stem, errors.Join(runErr, errors.New("shell validation is incomplete or has findings")))
+		}
+	}
+	return nil
+}
+
+type workflowScript struct {
+	File   string `json:"file"`
+	Job    string `json:"job"`
+	Shell  string `json:"shell"`
+	SHA256 string `json:"sha256"`
+	Step   int    `json:"step"`
+	Bytes  int    `json:"bytes"`
+	Input  string `json:"-"`
+}
+
+func workflowScripts(path string) ([]workflowScript, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var workflow struct {
+		Defaults struct {
+			Run struct {
+				Shell string `yaml:"shell"`
+			} `yaml:"run"`
+		} `yaml:"defaults"`
+		Jobs map[string]struct {
+			Defaults struct {
+				Run struct {
+					Shell string `yaml:"shell"`
+				} `yaml:"run"`
+			} `yaml:"defaults"`
+			Steps []struct{ Run, Shell string } `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal(data, &workflow); err != nil {
+		return nil, fmt.Errorf("parse workflow %s: %w", path, err)
+	}
+	jobs := slices.Sorted(maps.Keys(workflow.Jobs))
+	var scripts []workflowScript
+	for _, name := range jobs {
+		job := workflow.Jobs[name]
+		for index, step := range job.Steps {
+			if step.Run == "" {
+				continue
+			}
+			shell := step.Shell
+			if shell == "" {
+				shell = job.Defaults.Run.Shell
+			}
+			if shell == "" {
+				shell = workflow.Defaults.Run.Shell
+			}
+			fields := strings.Fields(shell)
+			if len(fields) == 0 || strings.Contains(shell, "${{") || !slices.Contains([]string{"bash", "sh", "pwsh", "powershell"}, fields[0]) {
+				return nil, fmt.Errorf("workflow %s job %s step %d requires an explicit supported shell", path, name, index)
+			}
+			input, err := workflowShellInput(step.Run, fields[0])
+			if err != nil {
+				return nil, err
+			}
+			scripts = append(scripts, workflowScript{File: path, Job: name, Step: index, Shell: fields[0], SHA256: fmt.Sprintf("%x", sha256.Sum256([]byte(step.Run))), Bytes: len(step.Run), Input: input})
+		}
+	}
+	return scripts, nil
+}
+
+func workflowShellInput(script, shell string) (string, error) {
+	var input strings.Builder
+	for {
+		start := strings.Index(script, "${{")
+		if start < 0 {
+			input.WriteString(script)
+			break
+		}
+		input.WriteString(script[:start])
+		end := strings.Index(script[start:], "}}")
+		if end < 0 {
+			return "", errors.New("workflow shell expression is unterminated")
+		}
+		end += start + 2
+		input.WriteString(strings.Repeat("_", end-start))
+		script = script[end:]
+	}
+	setup := "set -e"
+	if shell == "bash" {
+		setup = "set -eo pipefail"
+	}
+	return setup + "\n" + input.String() + "\n", nil
 }

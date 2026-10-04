@@ -314,6 +314,18 @@ in Git; original raw results stay with their source-bound verification owner.
       checkpoint preservation and Codex/Claude retained-state regressions pass
       (`27e761ad`, `faa46eab`). Native capture rejects explicit diagnostics while
       preserving normal progress; original failed controls remain retained.
+      Original actionlint 1.7.12 writes ShellCheck stdin before starting its
+      child; native oversized-input tests time out and the captured stack proves
+      this owner-level failure. The same workflow gate now retains actionlint
+      schema/expression checks and runs mandatory native ShellCheck through the
+      existing bounded process owner. CUE declares shell defaults; native YAML
+      enumerates every generated run rather than guessing runners. All 31 run
+      identities are recorded, 16 Bash/sh scripts are checked and 15 PowerShell
+      scripts retain their native classification. The real gate completes in
+      0.53s; large-input, actual shell-defect, expression and inheritance controls
+      pass. No wrapper, fork, minification or disabled shell-validation claim.
+      Original timeouts and native source evidence stay in
+      `108e3c75/native-workflow-input/` and `4b8f3452/native-dependency-closure/`.
 
 ## 7. CI and Dual-Peer Admission
 

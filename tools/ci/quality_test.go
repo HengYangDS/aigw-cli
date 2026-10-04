@@ -76,7 +76,7 @@ func TestRepositoryQualityGraphIncludesStableGenericChecks(t *testing.T) {
 		name string
 	}{
 		{"spelling", "go"},
-		{"workflow-lint", "actionlint"},
+		{"workflow-lint", "go"},
 	} {
 		if !slices.ContainsFunc(repositoryQualityGraph.Gates, func(candidate qualityGate) bool {
 			return candidate.ID == gate.id && candidate.Command.Name == gate.name

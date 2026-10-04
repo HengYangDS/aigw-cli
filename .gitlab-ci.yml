@@ -21,6 +21,7 @@ native-linux:
       - mise.lock
       - .mise/locks
       - build/verification/dependencies
+      - build/verification/workflows
   before_script:
     - |-
       set -eu
@@ -131,6 +132,7 @@ native-darwin:
       - mise.lock
       - .mise/locks
       - build/verification/dependencies
+      - build/verification/workflows
 native-darwin-review:
   after_script:
     - if [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"; fi
@@ -191,6 +193,7 @@ native-darwin-review:
       - mise.lock
       - .mise/locks
       - build/verification/dependencies
+      - build/verification/workflows
 native-windows:
   after_script:
     - |-
@@ -323,6 +326,7 @@ native-windows:
       - mise.lock
       - .mise/locks
       - build/verification/dependencies
+      - build/verification/workflows
 native-windows-review:
   after_script:
     - |-
@@ -454,6 +458,7 @@ native-windows-review:
       - mise.lock
       - .mise/locks
       - build/verification/dependencies
+      - build/verification/workflows
 variables:
   GIT_DEPTH: "0"
   GOPROXY: https://goproxy.cn|https://proxy.golang.org|direct
@@ -549,6 +554,7 @@ quality:
     when: always
     paths:
       - build/verification/dependencies
+      - build/verification/workflows
   stage: verify
   variables:
     CGO_ENABLED: "0"

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -374,5 +375,98 @@ func TestCommandRunnersHonorExecutionContextWithoutCreatingArtifacts(t *testing.
 	}
 	if content, err := os.ReadFile("build"); err != nil || string(content) != "unowned caller content" {
 		t.Fatalf("caller content changed: %q error=%v", content, err)
+	}
+}
+
+func TestWorkflowGateQualifiesNativeLargeShellInputAndRefusesShellDefects(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	gate := slices.IndexFunc(qualityCommands, func(call command) bool { return slices.Contains(call.Args, "check-workflows") })
+	if gate < 0 {
+		t.Fatal("workflow gate lacks complete native shell validation")
+	}
+	root := t.TempDir()
+	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
+		t.Fatalf("fixture git: %v %s", err, output)
+	}
+	path := filepath.Join(root, ".github", "workflows", "verify.yml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name, script string
+		invalid      bool
+	}{
+		{"large finite input", strings.Repeat("# native finite input\n", 600) + "printf '%s\\n' '${{ github.ref }}'\n", false},
+		{"native shell defect", "echo $unquoted\n", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			workflow := "name: Probe\non: workflow_dispatch\ndefaults:\n  run:\n    shell: bash\njobs:\n  probe:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n"
+			for line := range strings.SplitSeq(strings.TrimSuffix(test.script, "\n"), "\n") {
+				workflow += "          " + line + "\n"
+			}
+			workflow += "  windows:\n    runs-on: windows-latest\n    defaults:\n      run:\n        shell: pwsh\n    steps:\n      - run: Write-Output 'native Windows'\n"
+			if err := os.WriteFile(path, []byte(workflow), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			call := qualityCommands[gate]
+			call.Args = slices.Clone(call.Args)
+			call.Args[len(call.Args)-1] = root
+			err := systemRunner(call)
+			if (err != nil) != test.invalid {
+				t.Fatalf("workflow native shell admission: invalid=%v error=%v", test.invalid, err)
+			}
+			ledgers, err := filepath.Glob(filepath.Join(root, "build", "verification", "workflows", "check-*", "scripts.json"))
+			if err != nil || len(ledgers) == 0 {
+				t.Fatalf("workflow failure lost the complete input identity ledger: %v %v", ledgers, err)
+			}
+		})
+	}
+}
+
+func TestWorkflowScriptSelectionPreservesSourceAndShellInheritance(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "workflow.yml")
+	const source = `name: Native
+on: workflow_dispatch
+defaults:
+  run:
+    shell: bash
+jobs:
+  unix:
+    runs-on: ubuntu-latest
+    steps:
+      - run: >
+          printf '%s' '${{ github.ref }}'
+          retained
+      - run: Write-Output native
+        shell: pwsh
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - run: Write-Output native
+`
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	scripts, err := workflowScripts(file)
+	if err != nil || len(scripts) != 3 {
+		t.Fatalf("native YAML scripts: %+v %v", scripts, err)
+	}
+	if scripts[0].Shell != "bash" || scripts[1].Shell != "pwsh" || scripts[2].Shell != "pwsh" || scripts[0].Bytes != len("printf '%s' '${{ github.ref }}' retained\n") || strings.Contains(scripts[0].Input, "${{") {
+		t.Fatalf("source/shell projection changed: %+v", scripts)
+	}
+	for _, shell := range []string{"", "${{ inputs.shell }}", "unknown-shell"} {
+		invalid := strings.ReplaceAll(source, "shell: bash", "shell: "+shell)
+		if err := os.WriteFile(file, []byte(invalid), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := workflowScripts(file); err == nil {
+			t.Fatalf("unadmitted shell %q silently skipped", shell)
+		}
+	}
+	if _, err := workflowShellInput("echo '${{ unterminated'", "bash"); err == nil {
+		t.Fatal("unterminated workflow expression accepted")
 	}
 }
