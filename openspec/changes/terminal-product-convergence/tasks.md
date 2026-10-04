@@ -145,7 +145,15 @@ in Git; original raw results stay with their source-bound verification owner.
       its fresh checkout then refuses the pinned commit. Exact supply cleanup
       succeeds; trust and lifecycle are not executed. The original failure and
       locked-installer causal review remain in the AIGW recovery owner. The
-      caller-owned private Git config repair still requires target acceptance.
+      caller-owned private Git config repair is accepted by the following run.
+      Corrected run 37190612507 at signed `fa19f76d` passes official supply,
+      authentic 0.3.1 Credential Manager succession, all three clients' twelve
+      retained-state stages, team activation and five resource cases including
+      the real 60-second deadline; exact supply cleanup passes. Independent
+      receipt `aigw-fa19f76d-windows-corrected-native-acceptance` preserves the
+      original log and earlier failure. Its loopback/source-built scope does
+      not qualify final package custody, external Providers, Desktop UI or
+      general Codex Routes whose native metadata warnings remain unresolved.
       Hermes tools/history retain original bytes. Isolated `1426c66f` projects all
       eight Hermes wire catalogs and a second preview is unchanged; selections,
       comments and unrelated settings survive, but all eight reader paths change.
