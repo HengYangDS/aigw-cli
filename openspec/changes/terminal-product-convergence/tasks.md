@@ -197,9 +197,17 @@ in Git; original raw results stay with their source-bound verification owner.
       remain explicit in `13e6525c/container-codex-current-20261004/`; exact
       container/scratch retirement and foreign-resource preservation pass. The
       tool-loop metadata warning still prevents full Route qualification; it is
-      not suppressed. Earlier results retain their own bytes/backends. Remaining:
-      final signed artifact/client acceptance in 9.3. UID 1003/Runner 105 is not
-      neutral; private DBus alone does not establish store isolation.
+      not suppressed. The exact final Linux ARM64 `89974d7c` package now passes
+      retained 0.3.1 published-predecessor acceptance in 1.30s, Claude 2.1.288
+      and official Hermes 0.21.5 in 179.96s, and all five resource cases including
+      the real 60-second deadline. Original raw results and unchanged-input,
+      foreign-container and exact-retirement observations remain in
+      `native-declarative-acceptance/current-linux-missing-client-corrected-20261004/`.
+      The earlier overall failure preserves a caller-omitted archive; only its
+      failed predecessor and never-run client scopes were repeated. Passed
+      resources and Codex cells were reused. Remaining: exact native-host/store
+      qualification. UID 1003/Runner 105 is not neutral; private DBus alone does
+      not establish store isolation.
 - [x] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
@@ -564,10 +572,12 @@ in Git; original raw results stay with their source-bound verification owner.
       succession now passes in 5.4. The same Linux ARM64 package passes authentic
       0.3.1 retained-state Codex/tool-loop container acceptance in 69.31s;
       `current-linux-container-native.log` retains the original result. Exact
-      container/scratch removal and unchanged foreign inputs are verified.
+      container/scratch removal and unchanged foreign inputs are verified. The
+      same exact package now also passes official Claude/Hermes retained-state
+      container journeys, published predecessor and five resource cases in 5.2.
       Claude Desktop's deferred-installation
       case is skipped on this already-installed host; general Codex Route
-      metadata warnings remain explicit. Remaining: Linux native-store/client
+      metadata warnings remain explicit. Remaining: Linux native-host/store
       and Windows package acceptance, official client and Desktop modes,
       performance, peer containment and cold supply. Production publication
       and installed Homebrew cutover follow the [Migration Plan](design.md#migration-plan).
