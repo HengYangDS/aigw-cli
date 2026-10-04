@@ -69,7 +69,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 		if err != nil {
 			return err
 		}
-		entrypoint, err = planCredentialEntrypoint(synchronizer, after, runtime.CredentialPath)
+		entrypoint, err = planCredentialEntrypoint(synchronizer, after)
 		if err != nil {
 			return err
 		}

@@ -9,7 +9,7 @@
     {
       "id": "aigw-client-projection-edition",
       "manifest": "provider.json",
-      "sha256": "04ab24a537ac36bef6f12035c7b15ebb1fdd2be5e4f7a1547928810223ed8a11"
+      "sha256": "3e780fd2f525273cf86fbe1adea714a3ef4da3de0611c94e22bda8ff081bf623"
     }
   ],
   "media": ["static", "interactive"],

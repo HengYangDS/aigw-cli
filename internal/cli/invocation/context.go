@@ -40,28 +40,29 @@ type Updater interface {
 
 // Context carries capabilities for one command execution without product-global state.
 type Context struct {
-	Version            string
-	Executable         string
-	DataDir            string
-	CredentialPath     string
-	InstallTarget      string
-	ClaudeSettingsPath string
-	Config             configuration.Store
-	Secrets            secrets.Store
-	Accounts           secrets.DiagnosticCredentialStore
-	In                 io.Reader
-	Out                io.Writer
-	Color              bool
-	Width              int
-	Interactive        bool
-	Runner             process.VerificationRunner
-	HTTP               HTTPDoer
-	Prompt             Prompter
-	Discovery          discovery.Discoverer
-	Updater            Updater
-	RenderOut          io.Writer
-	Now                func() time.Time
-	Problem            func(title, evidence, impact, fix string, cause error) error
+	Version               string
+	Executable            string
+	DataDir               string
+	CredentialPath        string
+	ResolveCredentialPath func() (string, error)
+	InstallTarget         string
+	ClaudeSettingsPath    string
+	Config                configuration.Store
+	Secrets               secrets.Store
+	Accounts              secrets.DiagnosticCredentialStore
+	In                    io.Reader
+	Out                   io.Writer
+	Color                 bool
+	Width                 int
+	Interactive           bool
+	Runner                process.VerificationRunner
+	HTTP                  HTTPDoer
+	Prompt                Prompter
+	Discovery             discovery.Discoverer
+	Updater               Updater
+	RenderOut             io.Writer
+	Now                   func() time.Time
+	Problem               func(title, evidence, impact, fix string, cause error) error
 }
 
 // ReadToken reads an explicitly requested token source without consulting
@@ -147,12 +148,13 @@ func Title(value string) string {
 // capabilities without leaking CLI composition details into domain packages.
 func Synchronizer(runtime Context) synchronization.Synchronizer {
 	return synchronization.Synchronizer{
-		Config:             runtime.Config,
-		Secrets:            runtime.Secrets,
-		Runner:             runtime.Runner,
-		Discovery:          runtime.Discovery,
-		ClaudeSettingsPath: runtime.ClaudeSettingsPath,
-		AIGWExecutable:     runtime.Executable,
-		CredentialPath:     runtime.CredentialPath,
+		Config:                runtime.Config,
+		Secrets:               runtime.Secrets,
+		Runner:                runtime.Runner,
+		Discovery:             runtime.Discovery,
+		ClaudeSettingsPath:    runtime.ClaudeSettingsPath,
+		AIGWExecutable:        runtime.Executable,
+		CredentialPath:        runtime.CredentialPath,
+		ResolveCredentialPath: runtime.ResolveCredentialPath,
 	}
 }

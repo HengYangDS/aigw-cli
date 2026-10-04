@@ -69,7 +69,7 @@
   },
   "sources": {
     "cli": {
-      "sha256": "496d1f61c625da268912c4698f45554f8fa505100ecbe6c296c07cc236cb380b",
+      "sha256": "d49e0fd7e02966f4c40a9e1bcba38ac5f5705784f948ef3fa312deb338dc3be3",
       "locator": "source/internal/cli/app.go",
       "authority": "AIGW command composition at the selected product revision"
     },
@@ -99,12 +99,12 @@
       "authority": "AIGW built-in Adapter composition"
     },
     "synchronizer": {
-      "sha256": "06d9c2cae1508cd4f008ab976f028fbb6fd08243c39d37644513e2bda00540c8",
+      "sha256": "7761875764e8adb7cde27572a73f1079412419f6c57f874ff06a33e874959745",
       "locator": "source/internal/synchronization/synchronizer.go",
       "authority": "AIGW client convergence coordinator"
     },
     "projection-transaction": {
-      "sha256": "a5d490e83e7815879b81c3697158a0f6cc183c15551656bd947a404017a10da9",
+      "sha256": "29e1516b45e8605b605a67e045e6a4ade8a33c8f278cbac42fa163a34aab1b58",
       "locator": "source/internal/synchronization/transaction.go",
       "authority": "AIGW configuration and projection transaction"
     },

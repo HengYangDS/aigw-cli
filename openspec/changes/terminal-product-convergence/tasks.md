@@ -307,6 +307,19 @@ in Git; original raw results stay with their source-bound verification owner.
       `13e6525c/performance-linux-env-file-20261004/`. Dedicated quiet-host,
       native-store, final signed-byte, inference and build/CI qualification remain
       open; another full measurement requires genuinely qualified new inputs.
+      CPU profiling diagnoses eager full-executable identity reads in the default
+      CLI constructor. Native invocation-local memoization removes that work from
+      non-reader commands without a daemon, launcher or disk/global cache;
+      explicit paths, failed identities and native projection/rollback remain
+      governed by the same owner. Synthetic macOS `--version` Hyperfine reports
+      16.1ms to 7.3ms mean (40 runs, five warmups each, no warnings); the original
+      constructor benchmark moves from 6.96–7.22ms to 4.50–5.05µs, not an installed
+      product claim. The complete native coverage attempt passes at 95.08%
+      (14,009/14,734 statements); subsequent independent review reproduces and
+      closes explicit native-auth-to-account-token selection with focused
+      RED/GREEN. Exact raw profiles, original source-provenance refusal, fixture
+      failure and review remain in `3f4b9c1c/startup-identity/`. Final signed
+      artifacts, other platforms and native stores remain open.
 - [x] 6.7 Assert warnings and malformed public errors fail at their origin;
       human and JSON output must expose precise state and safe action without
       private paths, Token fragments, internal modules or tracebacks.

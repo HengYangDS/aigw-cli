@@ -25,6 +25,82 @@ func TestFinalizeCredentialEntrypointRejectsMissingActiveHelper(t *testing.T) {
 	}
 }
 
+func TestExplicitTokenVerificationRefusesUnresolvedReaderFromNativeBinding(t *testing.T) {
+	cfg := testConfig(filepath.Join(t.TempDir(), "codex.toml"))
+	binding := cfg.Clients[configuration.ClientCodex]
+	binding.Authentication = configuration.AuthenticationClientNative
+	binding.ModelProvider = "amazon-bedrock"
+	cfg.Clients[configuration.ClientCodex] = binding
+	cfg.Accounts["explicit"] = cfg.Accounts["gateway"]
+	cfg.Routes["explicit"] = cfg.Routes["gpt"]
+	route := cfg.Routes["explicit"]
+	route.Account = "explicit"
+	cfg.Routes["explicit"] = route
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "explicit")
+	if err != nil || !runtime.UsesAIGWCredentialStore() {
+		t.Fatalf("explicit account-token runtime = %+v, %v", runtime, err)
+	}
+	problem := errors.New("identity source unavailable")
+	syncer := Synchronizer{ResolveCredentialPath: func() (string, error) { return "", problem }}
+	if _, err := syncer.Verify(t.Context(), cfg, configuration.ClientCodex, runtime, "explicit"); !errors.Is(err, problem) {
+		t.Fatalf("explicit Token verification used the public fallback: %v", err)
+	}
+	if current := cfg.Clients[configuration.ClientCodex]; current.Authentication != binding.Authentication || current.Route != binding.Route || current.ModelProvider != binding.ModelProvider {
+		t.Fatal("explicit verification changed the configured native binding")
+	}
+}
+
+func TestUnresolvedReaderIdentityRefusesConsumersBeforeMutation(t *testing.T) {
+	for _, empty := range []bool{false, true} {
+		t.Run(fmt.Sprint(empty), func(t *testing.T) {
+			root := t.TempDir()
+			cfg := testConfig(filepath.Join(root, "codex.toml"))
+			store := &configStoreStub{}
+			problem := errors.New("identity source unavailable")
+			syncer := Synchronizer{Config: store, ResolveCredentialPath: func() (string, error) {
+				if empty {
+					return "", nil
+				}
+				return "", problem
+			}}
+			runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, operation := range []func() error{
+				func() error { _, err := syncer.Plan(cfg, cfg); return err },
+				func() error { _, err := syncer.CredentialEntrypointPlan(cfg); return err },
+				func() error { return syncer.ReconcileClient(t.Context(), cfg, configuration.ClientCodex) },
+				func() error { return syncer.CommitProjection(t.Context(), cfg, cfg, "test") },
+				func() error {
+					_, err := syncer.Verify(t.Context(), cfg, configuration.ClientCodex, runtime, "")
+					return err
+				},
+			} {
+				if err := operation(); err == nil || !empty && !errors.Is(err, problem) {
+					t.Fatalf("unresolved reader admitted: %v", err)
+				}
+			}
+			if status := syncer.Inspect(t.Context(), cfg, configuration.ClientCodex, runtime); status.Ready || !strings.Contains(status.Issue, "reader identity") {
+				t.Fatalf("unresolved reader status = %+v", status)
+			}
+			if store.commits != 0 {
+				t.Fatal("reader resolution failure changed configuration")
+			}
+			for _, unused := range []configuration.Config{configuration.NewConfig(), cfg.Clone()} {
+				if len(unused.Clients) > 0 {
+					binding := unused.Clients[configuration.ClientCodex]
+					binding.CredentialCommand = filepath.Join(root, "external-reader")
+					unused.Clients[configuration.ClientCodex] = binding
+				}
+				if action, err := syncer.CredentialEntrypointPlan(unused); err != nil || action != CredentialEntrypointUnchanged {
+					t.Fatalf("unused reader plan = %q, %v", action, err)
+				}
+			}
+		})
+	}
+}
+
 type removedEntrypointAdapter struct {
 	client.Adapter
 	target      string

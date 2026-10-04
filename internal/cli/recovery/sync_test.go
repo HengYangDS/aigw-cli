@@ -2,9 +2,11 @@ package recovery
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
@@ -57,6 +59,58 @@ func TestDryRunPreservesUnusedChangedCredentialEntrypointWithoutWriting(t *testi
 			}
 			if _, statErr := os.Lstat(helper); statErr != nil {
 				t.Fatalf("%s dry-run removed a changed helper: %v", command, statErr)
+			}
+		})
+	}
+}
+
+func TestDryRunUsesOneResolvedReaderWithoutWriting(t *testing.T) {
+	for _, operation := range []string{"sync", "repair"} {
+		t.Run(operation, func(t *testing.T) {
+			store, cfg := configuredRepairStore(t)
+			root := t.TempDir()
+			source, reader := filepath.Join(root, "source"), filepath.Join(root, "data", "credential", "reader")
+			cfg.SetClientActivation(configuration.ClientClaude, true, source, nil)
+			if err := store.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			before, err := os.ReadFile(store.Path())
+			if err != nil {
+				t.Fatal(err)
+			}
+			calls := 0
+			out := &bytes.Buffer{}
+			tokens := secrets.NewMemoryStore()
+			if err := tokens.Set("one", "synthetic-fixture"); err != nil {
+				t.Fatal(err)
+			}
+			runtime := invocation.Context{Config: store, Executable: source, Secrets: tokens, Out: out, Discovery: staticDiscovery{}, ClaudeSettingsPath: filepath.Join(root, "settings.json"), ResolveCredentialPath: sync.OnceValues(func() (string, error) {
+				calls++
+				return reader, nil
+			})}
+			if operation == "sync" {
+				cmd := NewSyncCommand(runtime)
+				cmd.SilenceErrors, cmd.SilenceUsage = true, true
+				cmd.SetArgs([]string{"--dry-run", "--json"})
+				err = cmd.Execute()
+			} else {
+				err = runRepair(t.Context(), runtime, true, true)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			var result struct {
+				Reader *credentialEntrypointPlan `json:"credential_entrypoint"`
+			}
+			if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.Reader == nil || result.Reader.Path != reader || result.Reader.Action != "install" || calls != 1 {
+				t.Fatalf("preview reader = %+v; resolutions=%d error=%v", result.Reader, calls, err)
+			}
+			after, err := os.ReadFile(store.Path())
+			if err != nil || !bytes.Equal(before, after) {
+				t.Fatalf("preview changed configuration: %v", err)
+			}
+			if _, err := os.Lstat(reader); !os.IsNotExist(err) {
+				t.Fatalf("preview wrote reader: %v", err)
 			}
 		})
 	}

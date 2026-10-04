@@ -38,7 +38,11 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 		}
 	}
 	if len(projectable) > 0 {
-		if _, err := s.registry().Plan(s.clientDependencies(), before, after, projectable...); err != nil {
+		dependencies, err := s.clientDependencies(projectable, before, after)
+		if err != nil {
+			return err
+		}
+		if _, err := s.registry().Plan(dependencies, before, after, projectable...); err != nil {
 			return fmt.Errorf("%s synchronization preflight failed; configuration and client files were unchanged: %w", subject, err)
 		}
 	}
@@ -112,7 +116,11 @@ func (s Synchronizer) applyProjection(
 	undoEntrypoint func() error,
 	clientIDs ...string,
 ) (client.ProjectionReceipt, error) {
-	receipt, err := s.registry().Apply(ctx, s.clientDependencies(), before, after, clientIDs...)
+	dependencies, err := s.clientDependencies(clientIDs, before, after)
+	var receipt client.ProjectionReceipt
+	if err == nil {
+		receipt, err = s.registry().Apply(ctx, dependencies, before, after, clientIDs...)
+	}
 	if err != nil {
 		if rollbackErr := s.Config.RestoreSnapshot(configBefore, configAfter); rollbackErr != nil {
 			return nil, projectionError{cause: fmt.Errorf("synchronization failed: %w; rollback also failed: %w", err, rollbackErr)}

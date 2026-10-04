@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -49,29 +50,30 @@ import (
 
 // App owns the dependencies and presentation state for one AIGW invocation.
 type App struct {
-	GOOS               string
-	DataDir            string
-	Now                func() time.Time
-	Version            string
-	Executable         string
-	CredentialPath     string
-	InstallTarget      string
-	ClaudeSettingsPath string
-	Config             configuration.Store
-	Secrets            secrets.Store
-	Accounts           secrets.DiagnosticCredentialStore
-	Env                []string
-	In                 io.Reader
-	Out                io.Writer
-	Err                io.Writer
-	Interactive        bool
-	Color              bool
-	Runner             process.VerificationRunner
-	HTTP               invocation.HTTPDoer
-	Prompt             invocation.Prompter
-	Discovery          discovery.Discoverer
-	Updater            invocation.Updater
-	output             *commandOutput
+	GOOS                  string
+	DataDir               string
+	Now                   func() time.Time
+	Version               string
+	Executable            string
+	CredentialPath        string
+	ResolveCredentialPath func() (string, error)
+	InstallTarget         string
+	ClaudeSettingsPath    string
+	Config                configuration.Store
+	Secrets               secrets.Store
+	Accounts              secrets.DiagnosticCredentialStore
+	Env                   []string
+	In                    io.Reader
+	Out                   io.Writer
+	Err                   io.Writer
+	Interactive           bool
+	Color                 bool
+	Runner                process.VerificationRunner
+	HTTP                  invocation.HTTPDoer
+	Prompt                invocation.Prompter
+	Discovery             discovery.Discoverer
+	Updater               invocation.Updater
+	output                *commandOutput
 }
 
 // commandOutput owns write progress and the first failure for one invocation.
@@ -203,10 +205,9 @@ func NewDefault() (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve AIGW executable: %w", err)
 	}
-	credentialPath, err := credential.VersionedEntrypointPath(paths.Data, executable, paths.InstallName)
-	if err != nil {
-		return nil, err
-	}
+	resolveCredentialPath := sync.OnceValues(func() (string, error) {
+		return credential.VersionedEntrypointPath(paths.Data, executable, paths.InstallName)
+	})
 	secretStore, err := secrets.Select(secrets.Selection{
 		Backend:    env["AIGW_SECRET_BACKEND"],
 		GOOS:       runtime.GOOS,
@@ -224,28 +225,28 @@ func NewDefault() (*App, error) {
 	host := discovery.Current()
 	host.ClaudeDesktopLibrary = paths.ClaudeDesktopLibrary
 	return &App{
-		GOOS:               runtime.GOOS,
-		DataDir:            paths.Data,
-		Now:                time.Now,
-		Version:            Version,
-		Executable:         executable,
-		CredentialPath:     credentialPath,
-		InstallTarget:      filepath.Join(paths.InstallDir, paths.InstallName),
-		ClaudeSettingsPath: paths.ClaudeSettings,
-		Config:             configuration.NewStore(paths.Config),
-		Secrets:            secretStore,
-		Accounts:           diagnosticCredentialStore,
-		Env:                os.Environ(),
-		In:                 os.Stdin,
-		Out:                os.Stdout,
-		Err:                os.Stderr,
-		Interactive:        presentation.Interactive(os.Stdin),
-		Color:              presentation.ColorEnabled(runtime.GOOS, env, presentation.Interactive(os.Stdout), presentation.EnableVirtualTerminal),
-		Runner:             process.Runner{},
-		HTTP:               &http.Client{},
-		Prompt:             prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
-		Discovery:          client.NewDiscoverer(client.DefaultRegistry(), host),
-		Updater:            upgrade.Current(executable),
+		GOOS:                  runtime.GOOS,
+		DataDir:               paths.Data,
+		Now:                   time.Now,
+		Version:               Version,
+		Executable:            executable,
+		ResolveCredentialPath: resolveCredentialPath,
+		InstallTarget:         filepath.Join(paths.InstallDir, paths.InstallName),
+		ClaudeSettingsPath:    paths.ClaudeSettings,
+		Config:                configuration.NewStore(paths.Config),
+		Secrets:               secretStore,
+		Accounts:              diagnosticCredentialStore,
+		Env:                   os.Environ(),
+		In:                    os.Stdin,
+		Out:                   os.Stdout,
+		Err:                   os.Stderr,
+		Interactive:           presentation.Interactive(os.Stdin),
+		Color:                 presentation.ColorEnabled(runtime.GOOS, env, presentation.Interactive(os.Stdout), presentation.EnableVirtualTerminal),
+		Runner:                process.Runner{},
+		HTTP:                  &http.Client{},
+		Prompt:                prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
+		Discovery:             client.NewDiscoverer(client.DefaultRegistry(), host),
+		Updater:               upgrade.Current(executable),
 	}, nil
 }
 
@@ -282,8 +283,9 @@ func (a *App) catalogDependencies() catalog.Dependencies {
 func (a *App) invocationContext() invocation.Context {
 	return invocation.Context{
 		Version: appVersion(a), Executable: a.Executable, DataDir: a.DataDir, CredentialPath: a.CredentialPath, InstallTarget: a.InstallTarget,
-		ClaudeSettingsPath: a.ClaudeSettingsPath,
-		Config:             a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.outputWriter(),
+		ResolveCredentialPath: a.ResolveCredentialPath,
+		ClaudeSettingsPath:    a.ClaudeSettingsPath,
+		Config:                a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.outputWriter(),
 		In:        a.In,
 		RenderOut: a.outputWriter(),
 		Color:     a.Color, Width: presentation.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,

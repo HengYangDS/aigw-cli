@@ -12,5 +12,9 @@ func (s Synchronizer) Plan(before, after configuration.Config) ([]client.Project
 	if err != nil || len(projectable) == 0 {
 		return nil, err
 	}
-	return s.registry().Plan(s.clientDependencies(), before, after, projectable...)
+	dependencies, err := s.clientDependencies(projectable, before, after)
+	if err != nil {
+		return nil, err
+	}
+	return s.registry().Plan(dependencies, before, after, projectable...)
 }

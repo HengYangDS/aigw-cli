@@ -68,7 +68,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 			if dryRun {
-				if err := prepareSyncPreview(synchronizer, before, after, runtime.CredentialPath, &result); err != nil {
+				if err := prepareSyncPreview(synchronizer, before, after, &result); err != nil {
 					return err
 				}
 			} else if err := synchronizer.CommitProjection(cmd.Context(), before, after, "sync"); err != nil {
@@ -100,12 +100,12 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
-func prepareSyncPreview(synchronizer synchronization.Synchronizer, before, after configuration.Config, credentialPath string, result *syncResult) error {
+func prepareSyncPreview(synchronizer synchronization.Synchronizer, before, after configuration.Config, result *syncResult) error {
 	plans, err := synchronizer.Plan(before, after)
 	if err != nil {
 		return err
 	}
-	entrypoint, err := planCredentialEntrypoint(synchronizer, after, credentialPath)
+	entrypoint, err := planCredentialEntrypoint(synchronizer, after)
 	if err != nil {
 		return err
 	}
@@ -123,9 +123,13 @@ func prepareSyncPreview(synchronizer synchronization.Synchronizer, before, after
 	return nil
 }
 
-func planCredentialEntrypoint(synchronizer synchronization.Synchronizer, after configuration.Config, path string) (*credentialEntrypointPlan, error) {
+func planCredentialEntrypoint(synchronizer synchronization.Synchronizer, after configuration.Config) (*credentialEntrypointPlan, error) {
 	action, err := synchronizer.CredentialEntrypointPlan(after)
 	if err != nil || action == synchronization.CredentialEntrypointUnchanged {
+		return nil, err
+	}
+	path, err := synchronizer.CredentialEntrypointPath()
+	if err != nil {
 		return nil, err
 	}
 	return &credentialEntrypointPlan{Path: path, Action: string(action)}, nil

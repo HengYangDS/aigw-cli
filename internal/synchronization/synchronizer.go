@@ -24,12 +24,25 @@ func (s Synchronizer) ClientIDs() []string {
 
 // Inspect observes one admitted client through its operational adapter.
 func (s Synchronizer) Inspect(ctx context.Context, cfg configuration.Config, clientID string, runtime configuration.Runtime) client.Status {
-	return s.registry().Inspect(ctx, s.clientDependencies(), cfg, clientID, runtime)
+	dependencies, err := s.clientDependencies([]string{clientID}, cfg)
+	if err != nil {
+		return client.Status{Issue: "AIGW credential reader identity is unavailable", RepairAction: "aigw doctor"}
+	}
+	return s.registry().Inspect(ctx, dependencies, cfg, clientID, runtime)
 }
 
 // Verify runs one explicit live request through the admitted client adapter.
 func (s Synchronizer) Verify(ctx context.Context, cfg configuration.Config, clientID string, runtime configuration.Runtime, explicitRoute string) (client.Verification, error) {
-	return s.registry().Verify(ctx, s.clientDependencies(), cfg, clientID, runtime, explicitRoute)
+	selected := cfg.Clone()
+	selected.SetSelectedRoute(clientID, runtime.RouteID)
+	binding := selected.Clients[clientID]
+	binding.Protocol, binding.ModelProvider, binding.Authentication = runtime.Protocol, runtime.ModelProvider, runtime.Authentication
+	selected.Clients[clientID] = binding
+	dependencies, err := s.clientDependencies([]string{clientID}, cfg, selected)
+	if err != nil {
+		return client.Verification{}, err
+	}
+	return s.registry().Verify(ctx, dependencies, cfg, clientID, runtime, explicitRoute)
 }
 
 // ReconcileClient projects one unchanged Route without saving configuration or
@@ -45,14 +58,18 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg configuration.Con
 	if len(projectable) == 0 {
 		return nil
 	}
-	if _, err := s.registry().Plan(s.clientDependencies(), cfg, cfg, clientID); err != nil {
+	dependencies, err := s.clientDependencies([]string{clientID}, cfg)
+	if err != nil {
+		return err
+	}
+	if _, err := s.registry().Plan(dependencies, cfg, cfg, clientID); err != nil {
 		return err
 	}
 	undoEntrypoint, err := s.prepareCredentialEntrypoint(cfg, clientID)
 	if err != nil {
 		return err
 	}
-	receipt, err := s.registry().Apply(ctx, s.clientDependencies(), cfg, cfg, clientID)
+	receipt, err := s.registry().Apply(ctx, dependencies, cfg, cfg, clientID)
 	if err != nil {
 		if !errors.Is(err, client.ErrProjectionRollbackFailed) {
 			err = errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
@@ -74,11 +91,15 @@ func (s Synchronizer) prepareCredentialEntrypoint(cfg configuration.Config, clie
 	if err != nil || len(accounts) == 0 {
 		return nil, err
 	}
-	undo, err := credential.EnsureEntrypoint(s.AIGWExecutable, s.CredentialPath)
+	path, err := s.CredentialEntrypointPath()
+	if err != nil {
+		return nil, err
+	}
+	undo, err := credential.EnsureEntrypoint(s.AIGWExecutable, path)
 	if err != nil || s.Secrets == nil {
 		return undo, err
 	}
-	if err := secrets.VerifyNativeReaderAccess(s.Secrets, s.CredentialPath, accounts); err != nil {
+	if err := secrets.VerifyNativeReaderAccess(s.Secrets, path, accounts); err != nil {
 		return nil, errors.Join(err, undoCreatedEntrypoint(undo))
 	}
 	return undo, nil
@@ -103,6 +124,7 @@ type Synchronizer struct {
 	ClaudeSettingsPath           string
 	AIGWExecutable               string
 	CredentialPath               string
+	ResolveCredentialPath        func() (string, error)
 	AuthorizeCodexRouteSelection bool
 }
 
@@ -114,7 +136,11 @@ func (s Synchronizer) DesiredClientConfiguration(before configuration.Config, cl
 	if err != nil {
 		return configuration.Config{}, discovery.Result{}, err
 	}
-	after, err := s.registry().Converge(s.clientDependencies(), before, discovered, clientIDs...)
+	dependencies, err := s.clientDependencies(nil)
+	if err != nil {
+		return configuration.Config{}, discovered, err
+	}
+	after, err := s.registry().Converge(dependencies, before, discovered, clientIDs...)
 	return after, discovered, err
 }
 
@@ -163,10 +189,42 @@ func (s Synchronizer) registry() client.Registry {
 	return s.Registry
 }
 
-func (s Synchronizer) clientDependencies() client.Dependencies {
+// CredentialEntrypointPath resolves the invocation-owned reader identity only
+// when needed. Explicit paths remain authoritative; a failed resolver never
+// authorizes fallback to an installer-owned public executable.
+func (s Synchronizer) CredentialEntrypointPath() (string, error) {
+	if s.CredentialPath != "" || s.ResolveCredentialPath == nil {
+		return s.CredentialPath, nil
+	}
+	path, err := s.ResolveCredentialPath()
+	if err != nil {
+		return "", err
+	}
+	if path == "" {
+		return "", errors.New("AIGW credential reader identity is unavailable")
+	}
+	return path, nil
+}
+
+func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...configuration.Config) (client.Dependencies, error) {
 	executable := s.AIGWExecutable
 	if s.CredentialPath != "" {
 		executable = s.CredentialPath
+	}
+	for _, cfg := range configurations {
+		accounts, err := s.credentialEntrypointAccounts(cfg, clientIDs...)
+		if err != nil {
+			return client.Dependencies{}, err
+		}
+		if len(accounts) == 0 {
+			continue
+		}
+		path, err := s.CredentialEntrypointPath()
+		if err != nil {
+			return client.Dependencies{}, err
+		}
+		executable = path
+		break
 	}
 	return client.Dependencies{
 		Secrets:                      s.Secrets,
@@ -175,7 +233,7 @@ func (s Synchronizer) clientDependencies() client.Dependencies {
 		ClaudeSettingsPath:           s.ClaudeSettingsPath,
 		AIGWExecutable:               executable,
 		AuthorizeCodexRouteSelection: s.AuthorizeCodexRouteSelection,
-	}
+	}, nil
 }
 
 // credentialReadyClients excludes default-Token consumers only when their
@@ -214,7 +272,7 @@ func (s Synchronizer) credentialReadyClients(cfg configuration.Config, clientIDs
 }
 
 func (s Synchronizer) credentialEntrypointAccounts(cfg configuration.Config, clientIDs ...string) ([]string, error) {
-	if s.CredentialPath == "" {
+	if s.CredentialPath == "" && s.ResolveCredentialPath == nil {
 		return nil, nil
 	}
 	if len(clientIDs) == 0 {
@@ -251,7 +309,7 @@ const (
 // can project now. A deferred client does not prove that cached or rollback
 // callers have stopped using an earlier command.
 func (s Synchronizer) CredentialEntrypointPlan(cfg configuration.Config, clientIDs ...string) (CredentialEntrypointAction, error) {
-	if s.CredentialPath == "" {
+	if s.CredentialPath == "" && s.ResolveCredentialPath == nil {
 		return CredentialEntrypointUnchanged, nil
 	}
 	if len(clientIDs) == 0 {
@@ -271,7 +329,11 @@ func (s Synchronizer) CredentialEntrypointPlan(cfg configuration.Config, clientI
 	if len(accounts) == 0 {
 		return CredentialEntrypointUnchanged, nil
 	}
-	missing, err := credential.EntrypointNeeded(s.CredentialPath)
+	path, err := s.CredentialEntrypointPath()
+	if err != nil {
+		return CredentialEntrypointUnchanged, err
+	}
+	missing, err := credential.EntrypointNeeded(path)
 	if err != nil {
 		return CredentialEntrypointUnchanged, err
 	}
