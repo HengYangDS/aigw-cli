@@ -16,6 +16,8 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Changed
 
+- Rotate Linux native Tokens in place without replacing existing item metadata;
+  reject ambiguous identities and make native Secret Service warnings fatal in CI.
 - Keep version headings in this document and provide each declared Forge's
   own history, with web identity independent of Git transport.
 - Withdraw the DMXAPI Claude Fable 5.1 CC channel from the reviewed team

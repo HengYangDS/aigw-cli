@@ -72,16 +72,14 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 		if exists, err := store.Exists(sourceAccount); err != nil || exists {
 			t.Fatalf("published predecessor occupied the candidate native Token slot: exists=%t error=%v", exists, err)
 		}
-	} else if value, err := store.Get(sourceAccount); err != nil || value != replacement {
-		t.Fatalf("candidate could not read the retained native Token slot: %v", err)
-	}
-	configurationBeforeStaging := readFile(t, journey.config)
-	stageNativeCandidateToken(t, journey, candidate, sourceAccount, replacement)
-	if !bytes.Equal(configurationBeforeStaging, readFile(t, journey.config)) {
-		t.Fatal("candidate credential staging changed retained configuration")
+		configurationBeforeStaging := readFile(t, journey.config)
+		stageNativeCandidateToken(t, journey, candidate, sourceAccount, replacement)
+		if !bytes.Equal(configurationBeforeStaging, readFile(t, journey.config)) {
+			t.Fatal("candidate credential staging changed retained configuration")
+		}
 	}
 	if value, err := store.Get(sourceAccount); err != nil || value != replacement {
-		t.Fatalf("candidate credential was not staged from explicit input: %v", err)
+		t.Fatalf("candidate could not read the retained native Token slot: %v", err)
 	}
 	output := journey.runWithInput(candidate, diagnostic+"\n", "account", "diagnostics", "enable", sourceAccount, "--system-token-stdin", "--user-id", diagnosticID)
 	if bytes.Contains(output, []byte(diagnostic)) || bytes.Contains(output, []byte(diagnosticID)) {

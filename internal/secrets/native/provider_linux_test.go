@@ -3,11 +3,14 @@
 package native
 
 import (
+	"crypto/rand"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	ss "github.com/zalando/go-keyring/secret_service"
 )
 
 func TestProviderExistsRejectsSecretServiceConnectionFailure(t *testing.T) {
@@ -72,5 +75,74 @@ func TestNativeEnvironmentRetainsOnlySecretServiceContext(t *testing.T) {
 	want := "HOME=/home/runner\nDBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus\nXDG_RUNTIME_DIR=/run/user/1000"
 	if got := strings.Join(nativeEnvironment(func(name string) string { return values[name] }), "\n"); got != want {
 		t.Fatalf("native environment = %q, want %q", got, want)
+	}
+}
+
+func TestSecretServiceRotationPreservesExistingItem(t *testing.T) {
+	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") != "1" {
+		t.Skip("native Secret Service verification was not selected")
+	}
+	credentialService, err := ss.NewSecretService()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := credentialService.Conn.Close(); err != nil {
+			t.Errorf("close native credential connection: %v", err)
+		}
+	})
+	collection := credentialService.GetLoginCollection()
+	service, account := "AIGW_TOKEN", "native-rotation-"+rand.Text()
+	attributes := map[string]string{"service": service, "username": account}
+	t.Cleanup(func() {
+		items, err := credentialService.SearchItems(collection, attributes)
+		if err != nil {
+			t.Errorf("observe exact owned native items: %v", err)
+			return
+		}
+		for _, item := range items {
+			if err := credentialService.Delete(item); err != nil {
+				t.Errorf("delete exact owned native item: %v", err)
+			}
+		}
+		if remaining, err := credentialService.SearchItems(collection, attributes); err != nil || len(remaining) != 0 {
+			t.Errorf("native item cleanup is incomplete: %v", err)
+		}
+	})
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Write(executable, service, account, "synthetic-initial"); err != nil {
+		t.Fatal(err)
+	}
+	before, err := credentialService.SearchItems(collection, attributes)
+	if err != nil || len(before) != 1 {
+		t.Fatalf("fixture did not create one exact native item: %v", err)
+	}
+	const label = "Existing synthetic Account Token"
+	original := credentialService.Object("org.freedesktop.secrets", before[0])
+	if err := original.SetProperty("org.freedesktop.Secret.Item.Label", label); err != nil {
+		t.Fatal(err)
+	}
+	if err := Write(executable, service, account, "synthetic-replacement"); err != nil {
+		t.Fatal(err)
+	}
+	after, err := credentialService.SearchItems(collection, attributes)
+	if err != nil || len(after) != 1 || after[0] != before[0] {
+		t.Fatalf("rotation changed native item identity: %v", err)
+	}
+	item := credentialService.Object("org.freedesktop.secrets", after[0])
+	gotLabel, err := item.GetProperty("org.freedesktop.Secret.Item.Label")
+	if err != nil || gotLabel.Value() != label {
+		t.Fatalf("rotation rewrote existing native item metadata: %v", err)
+	}
+	if value, err := Read(executable, service, account); err != nil || value != "synthetic-replacement" {
+		t.Fatalf("native reader did not return the rotated value: %v", err)
+	}
+	for range 2 {
+		if err := Delete(executable, service, account); err != nil {
+			t.Fatalf("native removal was not idempotent: %v", err)
+		}
 	}
 }

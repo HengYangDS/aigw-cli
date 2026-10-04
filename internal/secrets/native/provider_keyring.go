@@ -16,10 +16,6 @@ func readCredential(service, account string) (string, error) {
 	return value, err
 }
 
-func writeCredential(service, account string, value []byte) error {
-	return keyring.Set(service, account, string(value))
-}
-
 func deleteCredential(service, account string) error {
 	err := keyring.Delete(service, account)
 	if errors.Is(err, keyring.ErrNotFound) {

@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	keyring "github.com/zalando/go-keyring"
 	"golang.org/x/sys/windows"
 )
 
@@ -69,4 +70,8 @@ func observeCredential(service, account string) (bool, error) {
 
 func nativeEnvironment(getenv func(string) string) []string {
 	return retainedEnvironment(getenv, "USERPROFILE", "APPDATA", "LOCALAPPDATA", "SystemRoot", "HOMEDRIVE", "HOMEPATH")
+}
+
+func writeCredential(service, account string, value []byte) error {
+	return keyring.Set(service, account, string(value))
 }
