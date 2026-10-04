@@ -79,9 +79,9 @@ in Git; original raw results stay with their source-bound verification owner.
       and `build/verification/4dd8504a411135674ad72b0424bb10803882a62c/proposal-publication/`;
       current Debian Secret Service succession and visible registration warnings
       remain in 5.2. Neither proves durable login or warning-free native use.
-      The current signed candidate and environment-reader succession are recorded
-      in 9.3. Exact synthetic native-store succession remains open; an earlier
-      ad-hoc reader or matching Developer ID requirement cannot prove item access.
+      The exact signed macOS native-store and environment-reader succession
+      now pass in 5.4/9.3. Other-platform native-store conjunctions remain open;
+      an earlier ad-hoc reader or matching signer cannot prove item access.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
       ownership; test its exact-path preservation, live-client verification
       boundary, and removal of only unused AIGW-owned readers.
@@ -211,18 +211,22 @@ in Git; original raw results stay with their source-bound verification owner.
       and consumer hashes are not independently replayed. Earlier ARM64 scope is
       retained; latest-client failure, final bytes, security and Runner containment
       remain in 4.5, 9.3, 6.5 and 7.4.
-- [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
+- [x] 5.4 Run equivalent macOS journeys with native Keychain authorization and
       environment backend separately in isolated acceptance; final operator-item
       authorization remains required before post-archive installed cutover.
       No password/biometric retry loop, service restart, or hidden native-store
       policy change is permitted.
-      Intel macOS run 37122724491/job 111201877396 passes authentic 0.3.1
-      (`ffc89cb9`) to candidate (`7b2cb1fa`) synthetic Keychain succession,
-      retained readers, rotation, rollback, re-upgrade and cleanup; unique markers
-      remain in `4dd8504a/proposal-publication/github-keychain-peer-*`. Separate
-      environment-backend lifecycle is in 4.5. Remaining: final native-store bytes
-      and stable Developer ID identity; neither result proves operator-item access
-      or Homebrew replacement.
+      Exact ARM64 Developer ID candidate `03f03849` and authentic 0.3.1
+      `ebfa8775` pass the original native Keychain retained-reader, rotation,
+      rollback, re-upgrade and cleanup journey in 27.95s. The existing ordinary
+      UID 504 SSH Security Session fixes the earlier root-session write refusal;
+      no product fallback or ACL workaround was added. Fleet's
+      `AIGW4b3f-Mac-authenticated-SSH-native-Keychain-final-custody-20261004T1035Z.json`
+      preserves raw output and exact restoration; the retirement receipt proves
+      owned stage removal. Independent review verifies candidate/tester custody.
+      The separate signed environment-backend lifecycle passes in 9.3. Earlier
+      Intel evidence remains in `4dd8504a/proposal-publication/`; none proves
+      operator-item authorization, Desktop modes or Homebrew replacement.
 - [x] 5.5 Verify missing Codex/Claude at setup and later installation on each
       platform; deferred sync must touch only installed admitted clients and
       preserve user-owned files.
@@ -342,7 +346,11 @@ in Git; original raw results stay with their source-bound verification owner.
       Hyperfine warnings keep acceptance inconclusive. Raw JSON, logs and
       summary remain in `4b3fc946/performance-env/`; exact scratch is removed.
       Simultaneous host load is observed, not proved failure causality. The
-      Developer ID candidate still needs a qualified measurement window.
+      Developer ID ARM64 measurement completes in 78.208s but fails with five
+      warnings and credential block-2 p95 103.881ms above 100ms. All 1,280
+      samples remain in Fleet's complete raw custody (`608b2dc8`). Short native
+      CPU diagnosis does not identify a resolver hotspot or prove the cause of
+      cross-block wall/CPU changes; no cache or threshold change is admitted.
       CPU profiling diagnoses eager full-executable identity reads in the default
       CLI constructor. Native invocation-local memoization removes that work from
       non-reader commands without a daemon, launcher or disk/global cache;
@@ -548,10 +556,15 @@ in Git; original raw results stay with their source-bound verification owner.
       processes are removed; raw results remain in the existing
       `native-declarative-acceptance/current-developer-id-native-macos.log`.
       Environment credentials and a loopback Provider do not qualify native
-      stores or external inference. Claude Desktop's deferred-installation
+      stores or external inference. The separate exact synthetic Keychain
+      succession now passes in 5.4. The same Linux ARM64 package passes authentic
+      0.3.1 retained-state Codex/tool-loop container acceptance in 69.31s;
+      `current-linux-container-native.log` retains the original result. Exact
+      container/scratch removal and unchanged foreign inputs are verified.
+      Claude Desktop's deferred-installation
       case is skipped on this already-installed host; general Codex Route
-      metadata warnings remain explicit. Remaining: final native-store and
-      Linux/Windows package execution, official client and Desktop modes,
+      metadata warnings remain explicit. Remaining: Linux native-store/client
+      and Windows package acceptance, official client and Desktop modes,
       performance, peer containment and cold supply. Production publication
       and installed Homebrew cutover follow the [Migration Plan](design.md#migration-plan).
       Equal product inputs do not rebind signatures, source epoch or provenance.
