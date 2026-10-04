@@ -435,6 +435,17 @@ therefore reports incomplete native qualification and does not update a successf
 checkpoint; it does not invent an entry to silence Codex. Functional inference,
 native metadata, the chooser, and current upstream availability are separate claims.
 
+On October 4, 2026, the installed official Codex 0.160.0 bundled catalogue contained
+11 models. The current team manifest had 37 Responses Routes: nine matched native
+wire IDs, three DMXAPI Routes required canonical alias projection, and 25 Routes
+across 11 non-GPT Models lacked native metadata. AIHubMix had 11 such Routes,
+DMXAPI seven and UCloud seven. Client acceptance remains Route-specific, including
+the recorded Sol 6.1 CDX acceptance. The selected GPT-6.1 Sol entry existed in both the
+native and preserved user catalogues. This identity audit does not qualify live
+inference or authorize replacing the user's catalogue. The earlier fourteen-Route
+observation described a provider's complete test scope, not the current missing
+metadata count.
+
 Every Claude Route in the [shipped team manifest](../../manifests/team.toml)
 currently declares only an Anthropic interface, whereas Codex's
 [custom-provider contract](https://learn.chatgpt.com/docs/config-file/config-reference#configtoml)

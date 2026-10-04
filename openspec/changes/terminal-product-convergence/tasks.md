@@ -115,8 +115,12 @@ in Git; original raw results stay with their source-bound verification owner.
       infer Desktop from CLI or endpoint reachability from real-client success.
       Current macOS Codex 0.160.0/Claude Code 2.1.288 authentic-0.3.1 four-stage
       environment journeys and read-only shell use pass; exact bytes, state and
-      cleanup remain in `13e6525c/macos-latest-client-input-20261004/`. Fourteen
-      general Routes retain incomplete metadata qualification where observed.
+      cleanup remain in `13e6525c/macos-latest-client-input-20261004/`. The current
+      Codex metadata audit identifies 25 Routes across 11 non-GPT Models without
+      native metadata and three DMXAPI Routes requiring canonical alias projection;
+      client acceptance remains Route-specific, including Sol 6.1 CDX.
+      [catalogue evidence](../../../docs/research/provider-model-qualification.md#codex-native-chooser)
+      owns the count and its limits. The explicit Sol 6.1 selection remains intact.
       Current Claude 2.1.288 passes public setup/use/check/verify, Read tools and
       same-session recall on three Sonnet 5.5 Routes (DMXAPI CC) and UCloud Opus
       5.5. Current Codex program/team/client bytes match retained AIHubMix and
@@ -328,7 +332,10 @@ in Git; original raw results stay with their source-bound verification owner.
       controls are restored; all native watchers are terminal. Both exact-source
       quality jobs still reject security 6.5. No manual dispatch substitutes for
       review events or repeats passed groups. The original failure and prior
-      `4dd8504a`/cold-Intel evidence retain their scope and budgets. Final
+      `4dd8504a`/cold-Intel evidence retain their scope and budgets. Signed
+      `07bddf38` then triggers the original review events: GitHub run 37169999080
+      and GitLab pipeline 9431 pass all three native groups and Secret Service;
+      Quality rejects the same advisory. All job handles are terminal. Final
       required checks, protected events and guarded integration remain open.
 - [x] 7.3 Separate fast quality, locked bootstrap, macOS, Linux, Windows, native
       clients and release construction where independence saves time; share only
@@ -348,7 +355,11 @@ in Git; original raw results stay with their source-bound verification owner.
       proposal source ref absent after its guarded merge in the delivery sequence.
       Required check names, strict/admin enforcement, GitLab merge policy and
       unprotected proposals are observed; configuration is not enforcement proof.
-      CUE separates protected/unprotected Linux registrations. Remaining:
+      CUE separates protected/unprotected Linux registrations. The October 4
+      native identity receipt still observes an elevated original Windows Shell
+      token; a temporary restricted derivative does not qualify actual job
+      containment. macOS account/permission metadata likewise lacks a current
+      job's credential-carrier denial witness. Remaining:
       untrusted Shell credential containment, actual protected-event execution,
       guarded merge and exact source-branch deletion on each selected peer.
 - [ ] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab

@@ -20,6 +20,12 @@ prerequisites from assumptions introduced by the implementation. Reproduce the
 failure, keep its smallest distinguishing regression, repair the owner and delete
 superseded mechanics. Review sibling source, tests, schemas and guidance together.
 
+Use the current Lease holder's `ETHOS_ACTOR` and the selected existing Change's
+logical identifier in `ETHOS_CHANGE` for admission and hooked Git operations.
+Before executing a native fixture, derive its expected behavior from the actual
+consumer and locked inputs, and isolate its configuration discovery. Complete the
+changed package's format, static and size checks before the broader native matrix.
+
 Run focused checks before one complete gate on stable inputs. Shipped manifests
 must also pass through the actual delivery command; fixtures alone do not qualify
 the catalogue. Native authorization tests must retain the deployed security format
