@@ -32,16 +32,19 @@ func TestNativeProductJourney(t *testing.T) {
 		t.Fatal(err)
 	}
 	sourceBaseline := func(t *testing.T) string { return buildNativeProgram(t, root, "0.0.0") }
+	currentProgram := func(t *testing.T) string {
+		program, _, _ := nativeReleaseCandidate(t, root, newVersion)
+		return program
+	}
 
 	server := newNativeJourneyServer(t)
 
 	t.Run("ephemeral endpoint credentials", func(t *testing.T) {
-		candidate, _, _ := nativeReleaseCandidate(t, root, newVersion)
-		runNativeEphemeralCredentials(t, candidate)
+		runNativeEphemeralCredentials(t, currentProgram(t))
 	})
 
 	t.Run("delayed token and client activation", func(t *testing.T) {
-		journey := newNativeJourney(t, sourceBaseline(t), server.URL+"/v1", false)
+		journey := newNativeJourney(t, currentProgram(t), server.URL+"/v1", false)
 		if runtime.GOOS == "linux" {
 			journey.setEnvironment(
 				"DBUS_SESSION_BUS_ADDRESS",
@@ -83,7 +86,7 @@ func TestNativeProductJourney(t *testing.T) {
 		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 	})
 
-	runDeferredClientInstallation(t, sourceBaseline, server.URL+"/v1")
+	runDeferredClientInstallation(t, currentProgram, server.URL+"/v1")
 
 	t.Run("one selected account does not require every token", func(t *testing.T) {
 		journey := newNativeJourney(t, sourceBaseline(t), server.URL+"/v1", true)

@@ -274,19 +274,12 @@ func TestNativeProductSelectionDoesNotBuildUnselectedFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, test := range []struct {
-		name   string
-		builds bool
-	}{
-		{name: "ephemeral_endpoint_credentials"},
-		{name: "delayed_token_and_client_activation", builds: true},
-		{name: "claude", builds: true},
-	} {
-		t.Run(test.name, func(t *testing.T) {
+	for _, name := range []string{"ephemeral_endpoint_credentials", "delayed_token_and_client_activation", "claude"} {
+		t.Run(name, func(t *testing.T) {
 			missing := filepath.Join(t.TempDir(), "unselected")
 			ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 			defer cancel()
-			command := exec.CommandContext(ctx, selected, "-test.run=^TestNativeProductJourney$/^"+test.name+"$", "-test.count=1", "-test.timeout=20s", "-test.v")
+			command := exec.CommandContext(ctx, selected, "-test.run=^TestNativeProductJourney$/^"+name+"$", "-test.count=1", "-test.timeout=20s", "-test.v")
 			command.WaitDelay = 2 * time.Second
 			command.Dir = filepath.Join(root, "tools", "release")
 			command.Env = environmentWith(os.Environ(), map[string]string{
@@ -296,15 +289,9 @@ func TestNativeProductSelectionDoesNotBuildUnselectedFixtures(t *testing.T) {
 				"AIGW_VERIFY_SYSTEM_KEYRING": "0",
 			})
 			output, err := command.CombinedOutput()
-			marker := "--- PASS: TestNativeProductJourney/" + test.name
-			if test.builds {
-				marker = "--- FAIL: TestNativeProductJourney/" + test.name
-			}
-			if ctx.Err() != nil || (err != nil) != test.builds || !bytes.Contains(output, []byte(marker)) || bytes.Contains(output, []byte("FailNow on a parent test")) {
+			marker := "--- PASS: TestNativeProductJourney/" + name
+			if ctx.Err() != nil || err != nil || !bytes.Contains(output, []byte(marker)) || bytes.Contains(output, []byte("FailNow on a parent test")) {
 				t.Fatalf("selected native fixture violated build or failure ownership: %v\n%s", err, output)
-			}
-			if test.builds && !bytes.Contains(output, []byte("build native product 0.0.0")) {
-				t.Fatalf("selected source fixture did not retain its build failure: %s", output)
 			}
 		})
 	}
