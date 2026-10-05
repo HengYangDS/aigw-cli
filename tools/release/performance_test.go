@@ -3,10 +3,13 @@
 package main
 
 import (
+	"aigw-cli/internal/process"
+	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/upgrade/artifact"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -22,6 +25,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -30,13 +34,6 @@ type performanceSamples struct {
 	Times       []float64 `json:"times"`
 	ExitCodes   []int     `json:"exit_codes"`
 	MemoryBytes []uint64  `json:"memory_usage_byte"`
-}
-
-func performanceWarning(log []byte) error {
-	if bytes.Contains(bytes.ToLower(log), []byte("warning:")) {
-		return errors.New("native benchmark warning makes performance acceptance inconclusive")
-	}
-	return nil
 }
 
 func (s performanceSamples) percentile() (float64, error) {
@@ -74,6 +71,14 @@ type performanceProgram struct {
 type performanceCase struct {
 	name, command, prepare string
 	budget                 float64
+}
+
+func (c performanceCase) arguments(raw string) []string {
+	args := []string{"--shell=none", "--warmup", "5", "--runs", "40", "--output=inherit", "--style", "basic", "--export-json", raw}
+	if c.prepare != "" {
+		args = append(args, "--prepare", c.prepare)
+	}
+	return append(args, c.command)
 }
 
 func TestNativePerformance(t *testing.T) {
@@ -285,21 +290,21 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 	for _, test := range j.performanceCases(helper, backend, preparer) {
 		name := fmt.Sprintf("%s-%s-%s-%d", variant, backend, test.name, block)
 		raw := filepath.Join(output, name+".json")
-		args := []string{"--shell=none", "--warmup", "5", "--runs", "40", "--output=pipe", "--style", "basic", "--export-json", raw}
-		if test.prepare != "" {
-			args = append(args, "--prepare", test.prepare)
-		}
-		command := exec.CommandContext(j.testing.Context(), hyperfine, append(args, test.command)...)
-		command.Env, command.Dir = j.environment, j.root
-		log, runErr := command.CombinedOutput()
-		if err := os.WriteFile(filepath.Join(output, name+".log"), log, 0o600); err != nil {
-			j.testing.Fatal(err)
+		ctx, cancel := context.WithTimeout(j.testing.Context(), time.Minute)
+		stdout, stderr, runErr := (process.Runner{StdoutLimit: 4 << 20}).RunCaptureStreams(ctx, process.Plan{
+			Executable: hyperfine, Args: test.arguments(raw), Env: j.environment, Directory: j.root,
+		})
+		cancel()
+		for stream, log := range map[string][]byte{"stdout": stdout, "stderr": stderr} {
+			if err := os.WriteFile(filepath.Join(output, name+"."+stream), []byte(redaction.Text(string(log), j.sensitiveInputs...)), 0o600); err != nil {
+				j.testing.Fatal(err)
+			}
 		}
 		if runErr != nil {
-			j.testing.Fatalf("Hyperfine %s: %v\n%s", name, runErr, log)
+			j.testing.Fatalf("Hyperfine %s: %s; separate redacted streams retained", name, redaction.Text(runErr.Error(), j.sensitiveInputs...))
 		}
-		if err := performanceWarning(log); err != nil {
-			j.testing.Errorf("Hyperfine %s: %v; raw samples and warning retained", name, err)
+		if process.DiagnosticFailure(stderr) {
+			j.testing.Errorf("Hyperfine %s: native diagnostics prevent qualification; raw samples and redacted streams retained", name)
 		}
 		var report struct {
 			Results []performanceSamples `json:"results"`
@@ -382,13 +387,49 @@ func pooledPerformance(t *testing.T, measurements []performanceMeasurement) []pe
 }
 
 func TestNativePerformanceSamples(t *testing.T) {
-	if err := performanceWarning([]byte("Benchmark 1: configured command\nTime (mean): 12 ms\n")); err != nil {
+	const token = "synthetic-performance-diagnostic-token"
+	if marker := os.Getenv("AIGW_TEST_PERFORMANCE_DIAGNOSTIC"); marker != "" {
+		_, _ = fmt.Fprintln(os.Stdout, "Warning: stdout data", token)
+		_, _ = fmt.Fprintln(os.Stderr, marker, token)
+		time.Sleep(20 * time.Millisecond)
+		os.Exit(0)
+	}
+	hyperfine, err := exec.LookPath("hyperfine")
+	if err != nil {
 		t.Fatal(err)
 	}
-	for _, log := range []string{"Warning: Statistical outliers were detected.", "WARNING: command timing is inconclusive."} {
-		if err := performanceWarning([]byte(log)); err == nil {
-			t.Fatal("native warning qualified as clean performance evidence")
-		}
+	program, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range []string{"Working: benchmark-child", "[WARN] benchmark-child"} {
+		t.Run(marker, func(t *testing.T) {
+			raw := filepath.Join(t.TempDir(), "samples.json")
+			benchmark := performanceCase{command: performanceCommand(program, "-test.run=^TestNativePerformanceSamples$")}
+			stdout, stderr, err := (process.Runner{}).RunCaptureStreams(t.Context(), process.Plan{
+				Executable: hyperfine, Args: benchmark.arguments(raw),
+				Env: append(os.Environ(), "AIGW_TEST_PERFORMANCE_DIAGNOSTIC="+marker),
+			})
+			if err != nil || !bytes.Contains(stdout, []byte("Warning: stdout data")) || !bytes.Contains(stderr, []byte(marker)) {
+				t.Fatal("native benchmark lost its separate child output streams")
+			}
+			safe := redaction.Text(string(stdout)+string(stderr), token+"\n")
+			if strings.Contains(safe, token) || !strings.Contains(safe, "[REDACTED]") {
+				t.Fatal("native benchmark output leaked its bare Token")
+			}
+			if strings.HasPrefix(marker, "[WARN]") && !process.DiagnosticFailure(stderr) {
+				t.Fatal("native benchmark lost child warning qualification")
+			}
+			var report struct {
+				Results []performanceSamples `json:"results"`
+			}
+			if err := json.Unmarshal(readFile(t, raw), &report); err != nil || len(report.Results) != 1 {
+				t.Fatal("native benchmark lost raw samples")
+			}
+			if _, err := report.Results[0].percentile(); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 	times := make([]float64, 40)
 	for index := range times {
