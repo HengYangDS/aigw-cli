@@ -27,7 +27,8 @@ func queryCredential(operation, service, account string, input []byte) (_ []byte
 	if err != nil {
 		return nil, fmt.Errorf("connect to Secret Service: %w", err)
 	}
-	defer func() { resultErr = errors.Join(resultErr, credentialService.Conn.Close()) }()
+	// The library borrows the process-wide D-Bus connection; this call only owns
+	// the Secret Service session created below.
 	collection := credentialService.GetLoginCollection()
 	attributes := map[string]string{"service": service, "username": account}
 	items, err := credentialService.SearchItems(collection, attributes)

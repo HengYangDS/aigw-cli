@@ -19,6 +19,11 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 - Run source-native lifecycle and resource acceptance once within canonical
   coverage; retain separate signed-artifact, predecessor, client and performance
   acceptance.
+- Cover native Linux credential behavior in an isolated D-Bus session without
+  closing another caller's shared connection; retain locked-store refusal and
+  exact cleanup in one source journey.
+- Keep native Git fixture paths compact on Windows and reclaim their exact
+  owned directories after successful or failed tests.
 - Verify retained credential executable digests with bounded memory while preserving
   independent source and retained-reader integrity checks.
 - Rotate Linux native Tokens in place without replacing existing item metadata;

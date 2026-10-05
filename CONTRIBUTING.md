@@ -166,6 +166,11 @@ Plain `mise run native` runs source tests and native resource acceptance once in
 the same canonical Go coverage invocation. Signed/prebuilt artifacts, a published
 predecessor, real clients and performance remain separate release-owned
 `accept-native` scopes; source coverage does not qualify those delivered bytes.
+Linux source acceptance requires `dbus-x11`, `gnome-keyring` and `libglib2.0-bin`.
+It owns a private D-Bus session and disposable native store; the independent
+Secret Service job qualifies released-product behavior rather than repeating
+source tests. Git fixtures use compact, exactly cleaned private directories so
+test names do not exhaust Windows path limits.
 
 Both tasks and `mise exec --locked --` use `GOENV=off`, `GOWORK=off` and
 `GOTOOLCHAIN=local`: user Go settings, parent workspaces and automatic compilers

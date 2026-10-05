@@ -203,7 +203,12 @@ func TestNativeCommandsRequireCoverageOnEveryPlatform(t *testing.T) {
 			want = append(want, "--race")
 		}
 		want = append(want, "--profile-output", filepath.Join("build", "verification", "coverage", "profile.out"))
-		if call := nativeCommands(platform)[1]; call.Name != "go" || !slices.Equal(call.Args, want) {
+		name := "go"
+		if platform == "linux" {
+			name = "dbus-run-session"
+			want = append([]string{"--", "env", "G_DEBUG=fatal-warnings", "AIGW_VERIFY_LOCKED_SECRET_SERVICE=1", "AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host", "go"}, want...)
+		}
+		if call := nativeCommands(platform)[1]; call.Name != name || !slices.Equal(call.Args, want) {
 			t.Fatalf("%s canonical coverage verification = %#v, want %v", platform, call, want)
 		}
 	}

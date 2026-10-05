@@ -28,7 +28,7 @@ native-linux:
       DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y libatomic1 openssh-client procps
     - |-
       set -eu
-      DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y gcc libc6-dev
+      DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y gcc libc6-dev dbus-x11 gnome-keyring libglib2.0-bin
     - |-
       set -eu
       case "${AIGW_TOOL_SOURCE:-upstream}" in
@@ -695,11 +695,9 @@ linux-secret-service:
   script:
     - |-
       DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
-      G_DEBUG=fatal-warnings dbus-run-session -- env AIGW_VERIFY_LOCKED_SECRET_SERVICE=1 AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host mise exec --locked -- go test ./internal/secrets/native -run "^TestLockedSecretServiceRefusesInteractiveOperations$" -count=1 -v -timeout=45s
       G_DEBUG=fatal-warnings dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
       gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
       gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-      AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./internal/secrets/native -run "^TestSecretServiceRotationPreservesExistingItem$" -count=1 -v
       AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./tools/release -run "^TestNativeProductJourney/system_credential_store$" -count=1 -v
       AIGW_SECRET_SERVICE
 release-version:

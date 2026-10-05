@@ -80,21 +80,20 @@ linuxToolchain: {
 	// repository execution closure here so every Linux job inherits one owner.
 	runtimePackages: ["libatomic1", "openssh-client", "procps"]
 	prepare:  "set -eu\n\(linuxApt.update)\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
-	compiler: "set -eu\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) gcc libc6-dev"
+	compiler: "set -eu\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) gcc libc6-dev \(linuxSecretService.packages)"
 }
 
 linuxSecretService: {
 	packages: "dbus-x11 gnome-keyring libglib2.0-bin"
 	journey: #"""
-		G_DEBUG=fatal-warnings dbus-run-session -- env AIGW_VERIFY_LOCKED_SECRET_SERVICE=1 AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host mise exec --locked -- go test ./internal/secrets/native -run "^TestLockedSecretServiceRefusesInteractiveOperations$" -count=1 -v -timeout=45s
 		G_DEBUG=fatal-warnings dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
 		gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
 		gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-		AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./internal/secrets/native -run "^TestSecretServiceRotationPreservesExistingItem$" -count=1 -v
 		AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./tools/release -run "^TestNativeProductJourney/system_credential_store$" -count=1 -v
 		AIGW_SECRET_SERVICE
 		"""#
-	github: "sudo -n \(linuxApt.update)\nsudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(packages)\n\(journey)"
+	githubPrepare: "sudo -n \(linuxApt.update)\nsudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(packages)"
+	github:        "\(githubPrepare)\n\(journey)"
 	// The GitLab Mise image is root-owned; its shared before_script updates apt.
 	gitlab: "DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(packages)\n\(journey)"
 }
@@ -443,6 +442,11 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		#SourceCheckout,
 		#Toolchain,
 		{name: "Prepare locked dependencies", if: _sourceCondition, run: commands.bootstrap},
+		if _platform == "linux" {
+			name: "Prepare native Secret Service"
+			if:   _sourceCondition
+			run:  linuxSecretService.githubPrepare
+		},
 		if _platform == "linux" {
 			name: "Prepare native memory measurement"
 			if:   "github.event_name == 'workflow_dispatch' && inputs.performance"

@@ -182,16 +182,26 @@ func TestLinuxSecretServiceHasItsOwnRequiredJob(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
 		t.Fatal(err)
 	}
+	prepared := false
 	for _, step := range workflow.Jobs["native-linux"].Steps {
+		if step.Name == "Prepare native Secret Service" {
+			prepared = strings.Contains(step.Run, "dbus-x11 gnome-keyring libglib2.0-bin")
+		}
 		if step.Name == "Qualify Linux Secret Service" {
 			t.Fatal("native Linux job duplicates the Secret Service qualification")
 		}
+	}
+	if !prepared {
+		t.Fatal("Linux source coverage lacks its native Secret Service preparation")
 	}
 	secretService, present := workflow.Jobs["linux-secret-service"]
 	if !present || len(secretService.Steps) != 3 || secretService.Steps[2].Name != "Qualify Linux Secret Service" {
 		t.Fatal("GitHub requires independent native Linux Secret Service qualification")
 	}
 	githubQualification := secretService.Steps[2].Run
+	if strings.Contains(githubQualification, "./internal/secrets/native") {
+		t.Fatal("standalone Secret Service job repeats source-level credential qualification")
+	}
 	for _, required := range []string{
 		"dbus-x11 gnome-keyring",
 		"sudo -n timeout --verbose --kill-after=5s 240s",
@@ -216,10 +226,8 @@ func TestLinuxSecretServiceHasItsOwnRequiredJob(t *testing.T) {
 	if gitlab.SecretService == nil {
 		t.Fatal("GitLab lacks independent Linux Secret Service evidence")
 	}
-	for _, command := range gitlab.Linux.Script {
-		if strings.Contains(command, "TestNativeProductJourney/system_credential_store") {
-			t.Fatal("GitLab native Linux job duplicates Secret Service qualification")
-		}
+	if strings.Contains(strings.Join(gitlab.Linux.Script, "\n"), "TestNativeProductJourney/system_credential_store") {
+		t.Fatal("GitLab native Linux job duplicates Secret Service qualification")
 	}
 	if !slices.Equal(gitlab.SecretService.Extends, []string{".linux-toolchain"}) ||
 		!slices.Equal(gitlab.SecretService.Tags, gitlab.Linux.Tags) ||

@@ -83,75 +83,6 @@ func TestNativeEnvironmentRetainsOnlySecretServiceContext(t *testing.T) {
 	}
 }
 
-func TestSecretServiceRotationPreservesExistingItem(t *testing.T) {
-	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") != "1" {
-		t.Skip("native Secret Service verification was not selected")
-	}
-	credentialService, err := ss.NewSecretService()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := credentialService.Conn.Close(); err != nil {
-			t.Errorf("close native credential connection: %v", err)
-		}
-	})
-	collection := credentialService.GetLoginCollection()
-	service, account := "AIGW_TOKEN", "native-rotation-"+rand.Text()
-	attributes := map[string]string{"service": service, "username": account}
-	t.Cleanup(func() {
-		items, err := credentialService.SearchItems(collection, attributes)
-		if err != nil {
-			t.Errorf("observe exact owned native items: %v", err)
-			return
-		}
-		for _, item := range items {
-			if err := credentialService.Delete(item); err != nil {
-				t.Errorf("delete exact owned native item: %v", err)
-			}
-		}
-		if remaining, err := credentialService.SearchItems(collection, attributes); err != nil || len(remaining) != 0 {
-			t.Errorf("native item cleanup is incomplete: %v", err)
-		}
-	})
-	executable, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := Write(executable, service, account, "synthetic-initial"); err != nil {
-		t.Fatal(err)
-	}
-	before, err := credentialService.SearchItems(collection, attributes)
-	if err != nil || len(before) != 1 {
-		t.Fatalf("fixture did not create one exact native item: %v", err)
-	}
-	const label = "Existing synthetic Account Token"
-	original := credentialService.Object("org.freedesktop.secrets", before[0])
-	if err := original.SetProperty("org.freedesktop.Secret.Item.Label", label); err != nil {
-		t.Fatal(err)
-	}
-	if err := Write(executable, service, account, "synthetic-replacement"); err != nil {
-		t.Fatal(err)
-	}
-	after, err := credentialService.SearchItems(collection, attributes)
-	if err != nil || len(after) != 1 || after[0] != before[0] {
-		t.Fatalf("rotation changed native item identity: %v", err)
-	}
-	item := credentialService.Object("org.freedesktop.secrets", after[0])
-	gotLabel, err := item.GetProperty("org.freedesktop.Secret.Item.Label")
-	if err != nil || gotLabel.Value() != label {
-		t.Fatalf("rotation rewrote existing native item metadata: %v", err)
-	}
-	if value, err := Read(executable, service, account); err != nil || value != "synthetic-replacement" {
-		t.Fatalf("native reader did not return the rotated value: %v", err)
-	}
-	for range 2 {
-		if err := Delete(executable, service, account); err != nil {
-			t.Fatalf("native removal was not idempotent: %v", err)
-		}
-	}
-}
-
 func TestLockedSecretServiceRefusesInteractiveOperations(t *testing.T) {
 	if os.Getenv("AIGW_VERIFY_LOCKED_SECRET_SERVICE") != "1" {
 		t.Skip("disposable locked Secret Service verification was not selected")
@@ -186,7 +117,10 @@ func TestLockedSecretServiceRefusesInteractiveOperations(t *testing.T) {
 		t.Fatal(err)
 	}
 	service, account := "AIGW_TOKEN", "native-locked-"+rand.Text()
-	if err := Write(executable, service, account, "synthetic-retained"); err != nil {
+	if _, err := queryCredential(writeCommand, service, account, []byte("synthetic-initial")); err != nil {
+		t.Fatal(err)
+	}
+	if err := Write(executable, service, account, "synthetic-before-update"); err != nil {
 		t.Fatal(err)
 	}
 	unlockDisposableSecretService(t, true)
@@ -197,8 +131,14 @@ func TestLockedSecretServiceRefusesInteractiveOperations(t *testing.T) {
 		t.Fatalf("locked fixture requires one native item: %v", err)
 	}
 	item := credentialService.Object(secretServiceName, before[0])
+	if err := item.SetProperty(secretItemInterface+".Label", "Existing synthetic Account Token"); err != nil {
+		t.Fatal(err)
+	}
 	label, err := item.GetProperty(secretItemInterface + ".Label")
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := queryCredential(writeCommand, service, account, []byte("synthetic-retained")); err != nil {
 		t.Fatal(err)
 	}
 	itemAttributes, err := item.GetProperty(secretItemInterface + ".Attributes")
@@ -242,23 +182,36 @@ func requireLockedSecretServiceRefusal(t *testing.T, executable, service, accoun
 	if present, err := Exists(executable, service, account); err != nil || !present {
 		t.Fatalf("locked native item metadata was not observable: %v", err)
 	}
+	if present, err := queryCredential(existsCommand, service, account, nil); err != nil || string(present) != "1" {
+		t.Fatalf("locked native provider metadata was not observable: %v", err)
+	}
+	if absent, err := queryCredential(existsCommand, service, account+"-absent", nil); err != nil || string(absent) != "0" {
+		t.Fatalf("absent native provider item was not observable: %v", err)
+	}
 	if _, err := Read(executable, service, account+"-absent"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("absent native item read must remain not found while locked: %v", err)
+	}
+	if _, err := queryCredential(readCommand, service, account+"-absent", nil); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("absent native provider read must remain not found while locked: %v", err)
 	}
 	if err := Delete(executable, service, account+"-absent"); err != nil {
 		t.Fatalf("absent native item removal must remain a no-op while locked: %v", err)
 	}
 	for _, operation := range []struct {
-		name string
-		run  func() error
+		name    string
+		command string
+		run     func() error
 	}{
-		{"read", func() error { _, err := Read(executable, service, account); return err }},
-		{"write", func() error { return Write(executable, service, account, "synthetic-replacement") }},
-		{"delete", func() error { return Delete(executable, service, account) }},
+		{"read", readCommand, func() error { _, err := Read(executable, service, account); return err }},
+		{"write", writeCommand, func() error { return Write(executable, service, account, "synthetic-replacement") }},
+		{"delete", deleteCommand, func() error { return Delete(executable, service, account) }},
 	} {
 		t.Run(operation.name, func(t *testing.T) {
 			if err := operation.run(); !errors.Is(err, ErrUnavailable) {
 				t.Errorf("locked operation must refuse without waiting for interaction: %v", err)
+			}
+			if _, err := queryCredential(operation.command, service, account, []byte("synthetic-replacement")); !errors.Is(err, ErrUnavailable) {
+				t.Errorf("locked provider operation must refuse without interaction: %v", err)
 			}
 		})
 	}
@@ -280,8 +233,19 @@ func requireRetainedSecretServiceItem(t *testing.T, credentialService *ss.Secret
 	if value, err := Read(executable, service, account); err != nil || value != "synthetic-retained" {
 		t.Fatalf("locked operations changed retained credential bytes: %v", err)
 	}
+	if value, err := queryCredential(readCommand, service, account, nil); err != nil || string(value) != "synthetic-retained" {
+		t.Fatalf("native provider changed retained credential bytes: %v", err)
+	}
+	for range 2 {
+		if _, err := queryCredential(deleteCommand, service, account, nil); err != nil {
+			t.Fatalf("native provider removal was not idempotent: %v", err)
+		}
+	}
 	if err := Delete(executable, service, account); err != nil {
 		t.Fatal(err)
+	}
+	if remaining, err := credentialService.SearchItems(credentialService.GetLoginCollection(), map[string]string{"service": service, "username": account}); err != nil || len(remaining) != 0 {
+		t.Fatalf("owned native item survived cleanup: %v", err)
 	}
 }
 
@@ -349,10 +313,7 @@ func requireNoSecretServiceInteraction(t *testing.T, messages <-chan *dbus.Messa
 			if member == "Dismiss" {
 				dismissed = true
 			}
-			if member == "Get" && message.Headers[dbus.FieldSender].Value() == witnessSender {
-				if !dismissed {
-					t.Fatal("native monitor did not witness dismissal of the pending prompt")
-				}
+			if dismissed && member == "Get" && message.Headers[dbus.FieldSender].Value() == witnessSender {
 				t.Log("native monitor witnessed the final locked-state observation")
 				return
 			}

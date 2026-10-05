@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rogpeppe/go-internal/robustio"
 )
 
 type forgeFixture struct {
@@ -95,10 +97,38 @@ func writeCommitForTest(t *testing.T, repository, name, content string) {
 
 func newBareRepository(t *testing.T) string {
 	t.Helper()
-	repository := filepath.Join(t.TempDir(), "peer.git")
+	repository, err := os.MkdirTemp("", "peer-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := robustio.RemoveAll(repository); err != nil {
+			t.Error(err)
+		}
+	})
 	runCommand(t, "git", "init", "-q", "--bare", repository)
 	gitTest(t, repository, "config", "core.hooksPath", filepath.Join(repository, "hooks"))
 	return repository
+}
+
+func TestBareRepositoryUsesCompactOwnedScratch(t *testing.T) {
+	workspace := t.TempDir()
+	for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+		t.Setenv(name, workspace)
+	}
+	var repository string
+	t.Run("nested-test-name-is-not-a-repository-directory", func(t *testing.T) {
+		repository = newBareRepository(t)
+		if filepath.Dir(repository) != workspace {
+			t.Fatalf("bare repository escaped its compact native scratch root: %s", repository)
+		}
+		if output := gitOutputForTest(t, repository, "rev-parse", "--is-bare-repository"); output != "true" {
+			t.Fatalf("fixture is not a native bare repository: %s", output)
+		}
+	})
+	if _, err := os.Stat(repository); !os.IsNotExist(err) {
+		t.Fatalf("owned bare repository survived test cleanup: %s, %v", repository, err)
+	}
 }
 
 func setHostileGitHooks(t *testing.T) {
