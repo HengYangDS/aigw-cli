@@ -2,10 +2,14 @@ package main
 
 import (
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
+	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/transaction"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -270,6 +274,45 @@ func (j *journeyFixture) requireExternalCredentialClient(client, executable, acc
 	}
 }
 
+func (j *journeyFixture) credentialEntrypoint() string {
+	j.testing.Helper()
+	paths, err := platform.PathsFor(runtime.GOOS, environmentValues(j.environment))
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	path, err := credential.VersionedEntrypointPath(paths.Data, j.binary, paths.InstallName)
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	return path
+}
+
+func (j *journeyFixture) requireClaudeCredential(want string) {
+	j.testing.Helper()
+	j.requireCredential(j.retainedCredential(configuration.ClientClaude), want)
+}
+
+func (j *journeyFixture) requireCredential(plan process.Plan, want string) {
+	j.testing.Helper()
+	ctx, cancel := context.WithTimeout(j.testing.Context(), 10*time.Second)
+	defer cancel()
+	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, plan)
+	sensitive := append(slices.Clone(j.sensitiveInputs), want)
+	if len(stderr) != 0 {
+		j.testing.Logf("retained credential stderr:\n%s", redaction.Text(string(stderr), sensitive...))
+	}
+	if process.DiagnosticFailure(stderr) {
+		err = errors.Join(err, fmt.Errorf("retained credential diagnostics prevent qualification"))
+	}
+	if err != nil {
+		j.testing.Fatalf("execute retained credential command: %v\nstderr:\n%s", err,
+			redaction.Text(string(stderr), sensitive...))
+	}
+	if strings.TrimSpace(string(stdout)) != want {
+		j.testing.Fatal("retained credential command returned unexpected content")
+	}
+}
+
 func (j *journeyFixture) requireCredentialBackend(token string, want secrets.BackendSelection) {
 	j.testing.Helper()
 	for _, command := range [][]string{{"status", "--json"}, {"doctor", "--json"}} {
@@ -381,27 +424,37 @@ func TestJourneyQualifiesRedactedChildDiagnostics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	switch os.Getenv("AIGW_TEST_JOURNEY_DIAGNOSTIC") {
+	switch mode := os.Getenv("AIGW_TEST_JOURNEY_DIAGNOSTIC"); mode {
 	case "writer":
+		_, _ = fmt.Fprintln(os.Stdout, secret)
 		_, _ = fmt.Fprintln(os.Stderr, os.Getenv("AIGW_TEST_JOURNEY_MARKER"), secret)
 		os.Exit(0)
-	case "journey":
+	case "journey", "retained":
 		journey := &journeyFixture{testing: t, sensitiveInputs: []string{secret}, environment: append(os.Environ(), "AIGW_TEST_JOURNEY_DIAGNOSTIC=writer")}
-		journey.runWith(program, "-test.run=^TestJourneyQualifiesRedactedChildDiagnostics$")
+		args := []string{"-test.run=^TestJourneyQualifiesRedactedChildDiagnostics$"}
+		if mode == "retained" {
+			journey.sensitiveInputs = nil
+			journey.requireCredential(process.Plan{Executable: program, Args: args, Env: journey.environment}, secret)
+		} else {
+			journey.runWith(program, args...)
+		}
 		return
 	}
 	for _, test := range []struct {
 		name   string
+		mode   string
 		marker string
 		fails  bool
 	}{
-		{name: "progress", marker: "Working: successful-child-canary"},
-		{name: "warning", marker: "Warning: successful-child-canary", fails: true},
+		{name: "progress", mode: "journey", marker: "Working: successful-child-canary"},
+		{name: "warning", mode: "journey", marker: "Warning: successful-child-canary", fails: true},
+		{name: "retained-progress", mode: "retained", marker: "Working: successful-child-canary"},
+		{name: "retained-warning", mode: "retained", marker: "Warning: successful-child-canary", fails: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			stdout, stderr, err := (process.Runner{}).RunCaptureStreams(t.Context(), process.Plan{
 				Executable: program, Args: []string{"-test.run=^TestJourneyQualifiesRedactedChildDiagnostics$", "-test.v"},
-				Env: append(os.Environ(), "AIGW_TEST_JOURNEY_DIAGNOSTIC=journey", "AIGW_TEST_JOURNEY_MARKER="+test.marker),
+				Env: append(os.Environ(), "AIGW_TEST_JOURNEY_DIAGNOSTIC="+test.mode, "AIGW_TEST_JOURNEY_MARKER="+test.marker),
 			})
 			_, failed := errors.AsType[*exec.ExitError](err)
 			if failed != test.fails || (err != nil && !failed) || !bytes.Contains(stdout, []byte(test.marker+" [REDACTED]")) || bytes.Contains(stdout, []byte(secret)) || len(stderr) != 0 {

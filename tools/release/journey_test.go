@@ -3,7 +3,6 @@ package main
 import (
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/configuration"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
@@ -19,7 +18,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestNativeProductJourney(t *testing.T) {
@@ -386,38 +384,6 @@ func (j *journeyFixture) requireClaudeProjection() {
 	}
 	if !strings.Contains(settings.APIKeyHelper, j.credentialEntrypoint()) {
 		j.testing.Fatalf("Claude apiKeyHelper %q lacks %q", settings.APIKeyHelper, j.credentialEntrypoint())
-	}
-}
-
-func (j *journeyFixture) credentialEntrypoint() string {
-	j.testing.Helper()
-	paths, err := platform.PathsFor(runtime.GOOS, environmentValues(j.environment))
-	if err != nil {
-		j.testing.Fatal(err)
-	}
-	path, err := credential.VersionedEntrypointPath(paths.Data, j.binary, paths.InstallName)
-	if err != nil {
-		j.testing.Fatal(err)
-	}
-	return path
-}
-
-func (j *journeyFixture) requireClaudeCredential(want string) {
-	j.testing.Helper()
-	j.requireCredential(j.retainedCredential(configuration.ClientClaude), want)
-}
-
-func (j *journeyFixture) requireCredential(plan process.Plan, want string) {
-	j.testing.Helper()
-	ctx, cancel := context.WithTimeout(j.testing.Context(), 10*time.Second)
-	defer cancel()
-	output, err := (process.Runner{}).RunCapture(ctx, plan)
-	if err != nil {
-		j.testing.Fatalf("execute retained credential command: %v\nstderr:\n%s", err,
-			redaction.Text(string(output), append(slices.Clone(j.sensitiveInputs), want)...))
-	}
-	if strings.TrimSpace(string(output)) != want {
-		j.testing.Fatal("retained credential command returned unexpected content")
 	}
 }
 
