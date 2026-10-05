@@ -135,6 +135,7 @@ commands: {
 
 toolchainTools: {
 	bootstrap: ["go", "node", "npm"]
+	performance: ["github:sharkdp/hyperfine"]
 	portableQuality: list.Concat([bootstrap, [
 		"cue",
 		"github:boyter/scc",
@@ -144,7 +145,7 @@ toolchainTools: {
 		"github:goreleaser/goreleaser",
 		"github:google/osv-scanner",
 		"github:rhysd/actionlint",
-		"github:sharkdp/hyperfine",
+	], performance, [
 		"shellcheck",
 		"taplo",
 		"typos",
@@ -454,7 +455,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	if _platform == "windows" {defaults: run: shell: "pwsh"}
 	"timeout-minutes": 25
 	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
-	env: MISE_ENABLE_TOOLS: "${{ (!(\(_sourceCondition))) && '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' || '\(nativeToolchain[_platform].MISE_ENABLE_TOOLS)' }}"
+	env: MISE_ENABLE_TOOLS: "${{ (\(_sourceCondition)) && '\(nativeToolchain[_platform].MISE_ENABLE_TOOLS)' || inputs.performance && '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS),\(strings.Join(toolchainTools.performance, ","))' || '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' }}"
 	steps: [
 		#SourceCheckout,
 		#Toolchain,
@@ -606,8 +607,8 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		{
 			name: "Measure historical release performance"
 			if:   _historicalCondition + " && inputs.performance"
-			env: _historicalEnvironment
-			run: "mise run performance \(_historicalArguments) --performance \"\(_environmentPrefix)GITHUB_WORKSPACE/build/performance\""
+			env:  _historicalEnvironment
+			run:  "mise run performance \(_historicalArguments) --performance \"\(_environmentPrefix)GITHUB_WORKSPACE/build/performance\""
 		},
 		if _platform == "windows" {
 			name: "Remove official Windows client supply"

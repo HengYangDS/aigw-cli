@@ -288,6 +288,33 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 	}
 }
 
+func TestManualPrebuiltPerformanceUsesItsExactToolClosure(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Jobs map[string]struct {
+			Env map[string]string `yaml:"env"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	const source = "${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '') && '"
+	for _, platform := range []string{"darwin", "linux", "windows"} {
+		artifactTools := "go,gh,glab,github:goreleaser/goreleaser"
+		if platform == "darwin" {
+			artifactTools += ",github:indygreg/apple-platform-rs"
+		}
+		selected := "' || inputs.performance && '" + artifactTools + ",github:sharkdp/hyperfine' || '" + artifactTools + "' }}"
+		tools := workflow.Jobs["native-"+platform].Env["MISE_ENABLE_TOOLS"]
+		if !strings.HasPrefix(tools, source) || !strings.HasSuffix(tools, selected) {
+			t.Errorf("%s must prepare selected performance tools without widening ordinary artifact acceptance: %s", platform, tools)
+		}
+	}
+}
+
 func TestPerformanceHostPreparesNativeMemoryTool(t *testing.T) {
 	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {
