@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/upgrade"
 	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/readiness"
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/hex"
@@ -332,7 +333,7 @@ func replaceDirectory(source, target string) (result error) {
 }
 
 func executeTool(ctx context.Context) toolRunner {
-	return func(call toolCall) error {
+	return func(call toolCall) (result error) {
 		callContext := ctx
 		if call.Timeout > 0 {
 			var cancel context.CancelFunc
@@ -347,10 +348,27 @@ func executeTool(ctx context.Context) toolRunner {
 		if stderr == nil {
 			stderr = os.Stderr
 		}
-		return (process.Runner{}).RunStream(callContext, process.Plan{
+		diagnostics, err := os.CreateTemp("", "aigw-release-diagnostics-*")
+		if err != nil {
+			return fmt.Errorf("create native tool diagnostics: %w", err)
+		}
+		defer func() {
+			result = errors.Join(result, diagnostics.Close(), os.Remove(diagnostics.Name()))
+		}()
+		runErr := (process.Runner{}).RunStream(callContext, process.Plan{
 			Executable: call.Name, Directory: call.Directory,
 			Args: call.Args, Env: append(os.Environ(), call.Env...),
-		}, stdout, stderr)
+		}, stdout, io.MultiWriter(stderr, diagnostics))
+		if _, err := diagnostics.Seek(0, io.SeekStart); err != nil {
+			return errors.Join(runErr, err)
+		}
+		scanner := bufio.NewScanner(diagnostics)
+		for scanner.Scan() {
+			if process.DiagnosticFailure(scanner.Bytes()) {
+				return errors.Join(runErr, fmt.Errorf("%s diagnostics prevent qualification", call.Name))
+			}
+		}
+		return errors.Join(runErr, scanner.Err())
 	}
 }
 

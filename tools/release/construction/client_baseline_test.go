@@ -15,6 +15,42 @@ import (
 	"time"
 )
 
+func TestReleaseToolQualifiesNativeDiagnostics(t *testing.T) {
+	if diagnostic := os.Getenv("AIGW_TEST_RELEASE_DIAGNOSTIC"); diagnostic != "" {
+		_, _ = fmt.Fprint(os.Stdout, "Warning output remains ordinary tool data\n")
+		_, _ = fmt.Fprint(os.Stderr, diagnostic)
+		return
+	}
+	binary, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name       string
+		diagnostic string
+		rejected   bool
+	}{
+		{"progress", "Preparing native artifacts\n", false},
+		{"warning", "[WARN] native tool needs attention\n", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			err := executeTool(t.Context())(toolCall{
+				Name: binary, Directory: t.TempDir(),
+				Args:   []string{"-test.run=^TestReleaseToolQualifiesNativeDiagnostics$"},
+				Env:    []string{"AIGW_TEST_RELEASE_DIAGNOSTIC=" + test.diagnostic},
+				Stdout: &stdout, Stderr: &stderr,
+			})
+			if (err != nil) != test.rejected {
+				t.Fatalf("native diagnostic qualification: rejected=%t error=%v", test.rejected, err)
+			}
+			if !strings.HasPrefix(stdout.String(), "Warning output remains ordinary tool data\n") || stderr.String() != test.diagnostic {
+				t.Fatalf("native tool streams changed: stdout=%q stderr=%q", stdout.String(), stderr.String())
+			}
+		})
+	}
+}
+
 func TestReleaseToolSeparatesAcquisitionCredentials(t *testing.T) {
 	credentialNames := []string{
 		"GH_TOKEN", "GITHUB_TOKEN", "GITLAB_TOKEN", "CI_JOB_TOKEN", "AIGW_GITHUB_TOKEN",
