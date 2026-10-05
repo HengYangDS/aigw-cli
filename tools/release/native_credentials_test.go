@@ -62,9 +62,10 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 		Kind:         "keyring",
 		Availability: "available",
 		Mutability:   "read_write",
-		Persistence:  "persisted",
+		Persistence:  "explicit",
 	}
 	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", sourceAccount, "--token-stdin")
+	journey.requireCredentialBackend(token, backend)
 	journey.requireClaudeCredential(token)
 	journey.runWithInput(journey.binary, replacement+"\n", "rotate", sourceAccount, "--token-stdin")
 	journey.requireClaudeCredential(replacement)
@@ -347,6 +348,9 @@ func TestSystemCredentialJourneyUsesItsEffectiveHome(t *testing.T) {
 		t.Run("isolated native paths", func(t *testing.T) {
 			journey.testing = t
 			journey.enableSystemCredentialStore()
+			if backend := environmentValues(journey.environment)["AIGW_SECRET_BACKEND"]; backend != "keyring" {
+				t.Fatalf("native credential journey selected backend %q, want explicit keyring", backend)
+			}
 			if journey.settings != filepath.Join(wantHome, ".claude", "settings.json") || journey.config != wantConfig {
 				t.Fatalf("credential journey paths = %q, %q; want effective home %q and config %q", journey.settings, journey.config, wantHome, wantConfig)
 			}
@@ -375,6 +379,7 @@ func (j *journeyFixture) enableSystemCredentialStore() {
 		j.testing.Fatal(err)
 	}
 	j.environment = environment
+	j.setEnvironment("AIGW_SECRET_BACKEND", "keyring")
 	paths, err := platform.PathsFor(runtime.GOOS, environmentValues(environment))
 	if err != nil {
 		j.testing.Fatal(err)
@@ -491,6 +496,7 @@ func runLinuxSecureFileFallback(t *testing.T, candidate, endpoint string) {
 	t.Helper()
 	journey := newNativeJourney(t, candidate, endpoint, true)
 	journey.enableSystemCredentialStore()
+	journey.setEnvironment("AIGW_SECRET_BACKEND", "")
 	journey.setEnvironment(
 		"DBUS_SESSION_BUS_ADDRESS",
 		"unix:path="+filepath.Join(journey.root, "missing-session-bus.sock"),
