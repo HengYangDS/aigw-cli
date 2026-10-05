@@ -9,7 +9,7 @@ relations: {}
 
 # Provider Model Qualification Evidence
 
-These dated observations inform the reviewed October 2, 2026 team
+These dated observations inform the reviewed October 5, 2026 team
 manifest. They do not maintain a live catalogue or override the
 [current Route inventory](../../manifests/team.toml). For member setup and
 model selection, use the [team rollout guide](../guides/team-rollout.md#reviewed-model-defaults).
@@ -30,10 +30,10 @@ The October 1, 2026 primary-source review closes four missing rationales:
   precise multi-step tool use. Retain this explicitly labelled Preview as the
   qualified Pro-class option, not a stable-release claim. Google's newer
   [Gemini 3.8 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash)
-  targets long-horizon agents and is listed by AIHubMix, but has no current
-  AIGW inference/client qualification. Neither `Flash` nor a newer number
-  proves superiority over the selected Pro Route; qualify that exact channel
-  before replacing it.
+  targets long-horizon agents. The October 5 qualification below replaces the
+  Pro Preview Route with this GA agent option after exact provider inference,
+  file-tool execution and same-session recall. This is a role and availability
+  choice, not a claim that its newer number wins every reasoning benchmark.
 - Z.ai's [GLM 5.3 model card](https://huggingface.co/zai-org/GLM-5.3)
   identifies post-training improvements over GLM 5.2 for complex coding and
   long-horizon tasks. This supports GLM 5.3 as the reviewed general coding
@@ -74,6 +74,57 @@ A Preview may remain a non-default, explicitly named Route when its general
 agent role and exact provider/client behavior are qualified. An unqualified
 Preview remains discovery-only; do not conceal that distinction or silently
 replace an explicit local selection.
+
+## October 5 model refresh
+
+Authenticated discovery completed eight Account/protocol reads: 417 AIHubMix,
+523 DMXAPI and 275 UCloud IDs. All three Accounts list GPT-6.1 Sol, GPT-6
+Astra, GPT-6 Luna, Claude Opus 5.5, Sonnet 5.5 and Fable 5.1. Anthropic's
+[current model overview](https://platform.claude.com/docs/en/models/overview)
+and these catalogues did not establish Fable 5.5 or Haiku 5.5. Haiku 4.5 is
+listed but is not substituted for the requested unverified generation.
+Gemini 4 remains a trusted-tester announcement, not an admitted aggregator Route.
+
+The following direct channels completed text inference, an actual Hermes
+`read_file` call, a final marker and same-session recall with medium effort:
+
+| Model               | Qualified Account / protocol                               | Selection rationale                                                                                                                                                              |
+| ------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gemini 3.8 Flash    | AIHubMix and DMXAPI / Responses; UCloud / Chat Completions | Google's [current GA workhorse](https://deepmind.google/models/gemini/flash/) targets coding and agents.                                                                         |
+| Step 5 Preview      | AIHubMix / Chat Completions; DMXAPI / Responses            | StepFun's [flagship agent release](https://www.stepfun.com/step-5-preview) replaces the earlier Step 3.7 option.                                                                 |
+| HY4 Preview         | DMXAPI / Responses                                         | Tencent's [successor announcement](https://www.tencent.com/tencent-releases-and-open-sources-tencent-hy4-preview/) identifies improvements over HY3 for real productivity tasks. |
+| LongCat 2.5 Preview | DMXAPI / Responses, exact wire `LongCat-2.5-Preview`       | Meituan's [September 25 release](https://longcat.chat/platform/docs/change-log) adds multimodal understanding and stronger coding.                                               |
+
+The three Preview labels remain explicit, non-default model choices. Their
+vendor claims are not independent benchmarks. UCloud Gemini 3.8 Responses
+returned `convert_request_failed`; its admitted Chat route passed instead.
+AIHubMix HY4 returned the file-tool output but exceeded the bounded completion
+deadline, so that Account's Route remains unadmitted. Cohere Command A+ returned
+`no_available_channel` on Chat Completions and stays discovery-only.
+DeepSeek's [current announcement](https://www.deepseek.com/en/news/deepseek-v4-1-flash/)
+phases out V4 Pro in favor of V4.1 Flash. Retain qualified V4.1 Flash rather than
+restoring the older Pro name solely because it sounds stronger.
+
+The isolated Hermes executable was version 0.21.5, upstream `af90026a`, local
+`75e983671a840a1adcf249ab524d3c7847105489`, with OpenAI SDK 2.24.0. This proves
+that installed client's direct file-tool/continuation journey, not an unmodified
+upstream client, every client/OS, large-context behavior or final release bytes.
+DMXAPI's operator-selected local Responses Proxy rejected these native inputs
+with `unproved provider-portable structure`; the direct HTTPS channels passed.
+Preserve that separate compatibility failure and the explicit local endpoint;
+do not infer Proxy acceptance from direct-provider success.
+
+This release's catalogue is frozen at these qualified identities. Import retains
+explicit selected Routes, credentials and endpoint overrides. Retire an older
+unselected Route through native import retirement only after its projections and
+recovery consumer are checked; absence from the new manifest is not deletion.
+
+The local retained-state import passed with 26 Models and 58 Routes. It
+preserved Account endpoints, explicit client selections, the installed credential
+executable and all credential commands. Hermes read the updated native catalogue
+with exact wire IDs. Installed AIGW 0.3.1 still reports Hermes projection drift
+because its catalogue checker compares logical IDs; the current source checker
+passes. This data refresh is not a binary upgrade or final release acceptance.
 
 ## Provider catalogue and route evidence
 

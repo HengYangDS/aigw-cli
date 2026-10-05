@@ -81,8 +81,8 @@ label = 'Doubao Seed 2.1 Pro 260628'
 [models.'ernie-5.1']
 label = 'ERNIE 5.1'
 
-[models.'gemini-3.1-pro-preview']
-label = 'Gemini 3.1 Pro Preview'
+[models.'gemini-3.8-flash']
+label = 'Gemini 3.8 Flash'
 
 [models.'glm-5.3']
 label = 'GLM 5.3'
@@ -99,8 +99,8 @@ label = 'GPT-6.1 Sol'
 [models.'grok-4.7']
 label = 'Grok 4.7'
 
-[models.hy3]
-label = 'Hunyuan HY3'
+[models.hy4-preview]
+label = 'HY4 Preview'
 
 [models.kimi-k3]
 label = 'Kimi K3'
@@ -111,8 +111,8 @@ label = 'Poolside Laguna S 2.1'
 [models.'ling-3.0-flash']
 label = 'Ling 3.0 Flash'
 
-[models.'longcat-2.0']
-label = 'LongCat 2.0'
+[models.'longcat-2.5-preview']
+label = 'LongCat 2.5 Preview'
 
 [models.'mercury-2.5']
 label = 'Mercury 2.5'
@@ -135,8 +135,8 @@ label = 'NVIDIA Nemotron 3 Ultra'
 [models.'qwen3.8-max']
 label = 'Qwen 3.8 Max'
 
-[models.'step-3.7-flash']
-label = 'Step 3.7 Flash'
+[models.step-5-preview]
+label = 'Step 5 Preview'
 
 [routes]
 [routes.aihubmix-claude-opus-5-5]
@@ -187,12 +187,12 @@ upstream_model = 'ernie-5.1'
 [routes.'aihubmix-ernie-5.1'.interfaces]
 openai_responses = []
 
-[routes.'aihubmix-gemini-3.1-pro-preview']
+[routes.'aihubmix-gemini-3.8-flash']
 account = 'aihubmix'
-model = 'gemini-3.1-pro-preview'
-upstream_model = 'gemini-3.1-pro-preview'
+model = 'gemini-3.8-flash'
+upstream_model = 'gemini-3.8-flash'
 
-[routes.'aihubmix-gemini-3.1-pro-preview'.interfaces]
+[routes.'aihubmix-gemini-3.8-flash'.interfaces]
 openai_responses = []
 
 [routes.'aihubmix-glm-5.3']
@@ -235,14 +235,6 @@ upstream_model = 'grok-4.7'
 [routes.'aihubmix-grok-4.7'.interfaces]
 openai_responses = []
 
-[routes.aihubmix-hy3]
-account = 'aihubmix'
-model = 'hy3'
-upstream_model = 'hy3'
-
-[routes.aihubmix-hy3.interfaces]
-openai_chat_completions = []
-
 [routes.aihubmix-kimi-k3]
 account = 'aihubmix'
 model = 'kimi-k3'
@@ -265,14 +257,6 @@ model = 'ling-3.0-flash'
 upstream_model = 'ling-3.0-flash'
 
 [routes.'aihubmix-ling-3.0-flash'.interfaces]
-openai_chat_completions = []
-
-[routes.'aihubmix-longcat-2.0']
-account = 'aihubmix'
-model = 'longcat-2.0'
-upstream_model = 'longcat-2.0'
-
-[routes.'aihubmix-longcat-2.0'.interfaces]
 openai_chat_completions = []
 
 [routes.'aihubmix-mercury-2.5']
@@ -333,12 +317,12 @@ upstream_model = 'qwen3.8-max'
 [routes.'aihubmix-qwen3.8-max'.interfaces]
 openai_responses = []
 
-[routes.'aihubmix-step-3.7-flash']
+[routes.aihubmix-step-5-preview]
 account = 'aihubmix'
-model = 'step-3.7-flash'
-upstream_model = 'step-3.7-flash'
+model = 'step-5-preview'
+upstream_model = 'step-5-preview'
 
-[routes.'aihubmix-step-3.7-flash'.interfaces]
+[routes.aihubmix-step-5-preview.interfaces]
 openai_chat_completions = []
 
 [routes.dmxapi-claude-fable-5-1]
@@ -391,12 +375,12 @@ upstream_model = 'doubao-seed-2-1-pro-260628'
 [routes.dmxapi-doubao-seed-2-1-pro-260628.interfaces]
 openai_responses = []
 
-[routes.'dmxapi-gemini-3.1-pro-preview']
+[routes.'dmxapi-gemini-3.8-flash']
 account = 'dmxapi'
-model = 'gemini-3.1-pro-preview'
-upstream_model = 'gemini-3.1-pro-preview'
+model = 'gemini-3.8-flash'
+upstream_model = 'gemini-3.8-flash'
 
-[routes.'dmxapi-gemini-3.1-pro-preview'.interfaces]
+[routes.'dmxapi-gemini-3.8-flash'.interfaces]
 openai_responses = []
 
 [routes.'dmxapi-glm-5.3']
@@ -466,6 +450,14 @@ upstream_model = 'grok-4.7'
 [routes.'dmxapi-grok-4.7'.interfaces]
 openai_responses = []
 
+[routes.dmxapi-hy4-preview]
+account = 'dmxapi'
+model = 'hy4-preview'
+upstream_model = 'hy4-preview'
+
+[routes.dmxapi-hy4-preview.interfaces]
+openai_responses = []
+
 [routes.dmxapi-kimi-k3]
 account = 'dmxapi'
 model = 'kimi-k3'
@@ -474,12 +466,28 @@ upstream_model = 'kimi-k3'
 [routes.dmxapi-kimi-k3.interfaces]
 openai_responses = []
 
+[routes.'dmxapi-longcat-2.5-preview']
+account = 'dmxapi'
+model = 'longcat-2.5-preview'
+upstream_model = 'LongCat-2.5-Preview'
+
+[routes.'dmxapi-longcat-2.5-preview'.interfaces]
+openai_responses = []
+
 [routes.'dmxapi-qwen3.8-max']
 account = 'dmxapi'
 model = 'qwen3.8-max'
 upstream_model = 'qwen3.8-max'
 
 [routes.'dmxapi-qwen3.8-max'.interfaces]
+openai_responses = []
+
+[routes.dmxapi-step-5-preview]
+account = 'dmxapi'
+model = 'step-5-preview'
+upstream_model = 'step-5-preview'
+
+[routes.dmxapi-step-5-preview.interfaces]
 openai_responses = []
 
 [routes.ucloud-claude-fable-5-1]
@@ -522,12 +530,12 @@ upstream_model = 'doubao-seed-2-1-pro-260628'
 [routes.ucloud-doubao-seed-2-1-pro-260628.interfaces]
 openai_responses = []
 
-[routes.'ucloud-gemini-3.1-pro-preview']
+[routes.'ucloud-gemini-3.8-flash']
 account = 'ucloud'
-model = 'gemini-3.1-pro-preview'
-upstream_model = 'gemini-3.1-pro-preview'
+model = 'gemini-3.8-flash'
+upstream_model = 'gemini-3.8-flash'
 
-[routes.'ucloud-gemini-3.1-pro-preview'.interfaces]
+[routes.'ucloud-gemini-3.8-flash'.interfaces]
 openai_chat_completions = []
 
 [routes.'ucloud-glm-5.3']

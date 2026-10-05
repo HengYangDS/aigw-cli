@@ -141,11 +141,11 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 	want := []string{
 		"claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5",
 		"cohere-command-a",
-		"deepseek-v4.1-flash", "doubao-seed-2-1-pro-260628", "ernie-5.1", "gemini-3.1-pro-preview", "glm-5.3",
+		"deepseek-v4.1-flash", "doubao-seed-2-1-pro-260628", "ernie-5.1", "gemini-3.8-flash", "glm-5.3",
 		"gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol", "grok-4.7",
-		"hy3", "kimi-k3", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.0", "mercury-2.5", "mimo-v2.6-pro",
+		"hy4-preview", "kimi-k3", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.5-preview", "mercury-2.5", "mimo-v2.6-pro",
 		"minimax-m3", "mistral-large-3", "muse-spark-1.3", "nemotron-3-ultra-550b-a55b",
-		"qwen3.8-max", "step-3.7-flash",
+		"qwen3.8-max", "step-5-preview",
 	}
 	if got := slices.Sorted(maps.Keys(manifest.Models)); !slices.Equal(got, want) {
 		t.Fatalf("team logical Models = %v, want %v", got, want)
@@ -269,14 +269,12 @@ func TestTeamManifestKeepsQualifiedAdditionalVendorRoutes(t *testing.T) {
 	}{
 		"aihubmix-cohere-command-a":                {"cohere-command-a", "cohere-command-a", ProtocolOpenAIChatCompletions},
 		"aihubmix-ernie-5.1":                       {"ernie-5.1", "ernie-5.1", ProtocolOpenAIResponses},
-		"aihubmix-hy3":                             {"hy3", "hy3", ProtocolOpenAIChatCompletions},
 		"aihubmix-laguna-s-2.1":                    {"laguna-s-2.1", "laguna-s-2.1", ProtocolOpenAIChatCompletions},
 		"aihubmix-ling-3.0-flash":                  {"ling-3.0-flash", "ling-3.0-flash", ProtocolOpenAIChatCompletions},
-		"aihubmix-longcat-2.0":                     {"longcat-2.0", "longcat-2.0", ProtocolOpenAIChatCompletions},
 		"aihubmix-mercury-2.5":                     {"mercury-2.5", "mercury-2.5", ProtocolOpenAIChatCompletions},
 		"aihubmix-mistral-large-3":                 {"mistral-large-3", "mistral-large-3", ProtocolOpenAIChatCompletions},
 		"aihubmix-nemotron-3-ultra-550b-a55b-free": {"nemotron-3-ultra-550b-a55b", "nemotron-3-ultra-550b-a55b-free", ProtocolOpenAIChatCompletions},
-		"aihubmix-step-3.7-flash":                  {"step-3.7-flash", "step-3.7-flash", ProtocolOpenAIChatCompletions},
+		"aihubmix-step-5-preview":                  {"step-5-preview", "step-5-preview", ProtocolOpenAIChatCompletions},
 	}
 	for id, expected := range want {
 		route, ok := manifest.Routes[id]
@@ -288,6 +286,29 @@ func TestTeamManifestKeepsQualifiedAdditionalVendorRoutes(t *testing.T) {
 	for _, superseded := range []string{"aihubmix-command-a-03-2025", "aihubmix-nemotron-3-super-120b-a12b-free"} {
 		if _, retained := manifest.Routes[superseded]; retained {
 			t.Errorf("superseded Route %q remains in the shipped manifest", superseded)
+		}
+	}
+}
+
+func TestTeamManifestFrontierRefreshUsesQualifiedAccountProtocols(t *testing.T) {
+	_, manifest := loadTeamManifest(t)
+	want := map[string]struct {
+		model    string
+		wire     string
+		protocol EndpointProtocol
+	}{
+		"aihubmix-gemini-3.8-flash":  {"gemini-3.8-flash", "gemini-3.8-flash", ProtocolOpenAIResponses},
+		"dmxapi-gemini-3.8-flash":    {"gemini-3.8-flash", "gemini-3.8-flash", ProtocolOpenAIResponses},
+		"ucloud-gemini-3.8-flash":    {"gemini-3.8-flash", "gemini-3.8-flash", ProtocolOpenAIChatCompletions},
+		"dmxapi-hy4-preview":         {"hy4-preview", "hy4-preview", ProtocolOpenAIResponses},
+		"dmxapi-longcat-2.5-preview": {"longcat-2.5-preview", "LongCat-2.5-Preview", ProtocolOpenAIResponses},
+		"dmxapi-step-5-preview":      {"step-5-preview", "step-5-preview", ProtocolOpenAIResponses},
+	}
+	for id, expected := range want {
+		route, ok := manifest.Routes[id]
+		if !ok || route.Model != expected.model || route.UpstreamModelID() != expected.wire ||
+			!slices.Equal(route.AdmittedProtocols(), []EndpointProtocol{expected.protocol}) {
+			t.Errorf("qualified frontier Route %q = %+v, want %+v", id, route, expected)
 		}
 	}
 }
