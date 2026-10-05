@@ -431,6 +431,17 @@ func executableName() string {
 	return "aigw"
 }
 
+func environmentValues(environment []string) map[string]string {
+	values := make(map[string]string, len(environment))
+	for _, entry := range environment {
+		key, value, present := strings.Cut(entry, "=")
+		if present {
+			values[key] = value
+		}
+	}
+	return values
+}
+
 func environmentWith(current []string, replacements map[string]string) []string {
 	result := make([]string, 0, len(current)+len(replacements))
 	for _, item := range current {

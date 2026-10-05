@@ -272,7 +272,8 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	j.setEnvironment("AIGW_TEST_PERFORMANCE_ROOT", j.root)
+	j.setEnvironment("AIGW_TEST_PERFORMANCE_CONFIG_ROOT", filepath.Dir(j.config))
+	j.setEnvironment("AIGW_TEST_PERFORMANCE_SETTINGS_ROOT", filepath.Dir(j.settings))
 	var settings struct {
 		APIKeyHelper string `json:"apiKeyHelper"`
 	}
@@ -333,7 +334,7 @@ func (j *journeyFixture) performanceCases(helper, backend, preparer string) []pe
 	cases := []performanceCase{
 		{"credential", helper, "", 0.1},
 		{"projection", performanceCommand(selectArgs...), performanceCommand(resetArgs...), 0.25},
-		{"setup", performanceCommand(j.binary, "setup", "--from", j.manifest, "--account", "native-system-keyring-probe"), performanceCommand(preparer, "prepare-performance-setup", j.root, j.config, j.settings), 0.25},
+		{"setup", performanceCommand(j.binary, "setup", "--from", j.manifest, "--account", "native-system-keyring-probe"), performanceCommand(preparer, "prepare-performance-setup", filepath.Dir(j.config), filepath.Dir(j.settings), j.config, j.settings), 0.25},
 		{"sync", performanceCommand(j.binary, "sync"), performanceCommand(resetArgs...), 0.25},
 	}
 	if backend == "env" {
@@ -464,7 +465,7 @@ func TestNativePerformanceCommand(t *testing.T) {
 }
 
 func TestNativePerformanceCases(t *testing.T) {
-	journey := &journeyFixture{root: "owned root", binary: "installed program", config: "owned config", settings: "owned settings", manifest: "team manifest"}
+	journey := &journeyFixture{root: "owned root", binary: "installed program", config: filepath.Join("owned config directory", "config.toml"), settings: filepath.Join("owned settings directory", "settings.json"), manifest: "team manifest"}
 	reset := performanceCommand(journey.binary, "use", "--for", "claude", "native-system-keyring-probe-claude")
 	for _, backend := range []string{"env", "file", "keyring"} {
 		t.Run(backend, func(t *testing.T) {
@@ -472,7 +473,7 @@ func TestNativePerformanceCases(t *testing.T) {
 			want := []performanceCase{
 				{"credential", "projected helper", "", 0.1},
 				{"projection", performanceCommand(journey.binary, "use", "--for", "claude", "performance-second"), reset, 0.25},
-				{"setup", performanceCommand(journey.binary, "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe"), performanceCommand("test preparer", "prepare-performance-setup", journey.root, journey.config, journey.settings), 0.25},
+				{"setup", performanceCommand(journey.binary, "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe"), performanceCommand("test preparer", "prepare-performance-setup", "owned config directory", "owned settings directory", journey.config, journey.settings), 0.25},
 				{"sync", performanceCommand(journey.binary, "sync"), reset, 0.25},
 			}
 			if backend == "env" {

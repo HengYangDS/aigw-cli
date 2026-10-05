@@ -354,11 +354,16 @@ func TestSystemCredentialJourneyUsesItsEffectiveHome(t *testing.T) {
 			if journey.settings != filepath.Join(wantHome, ".claude", "settings.json") || journey.config != wantConfig {
 				t.Fatalf("credential journey paths = %q, %q; want effective home %q and config %q", journey.settings, journey.config, wantHome, wantConfig)
 			}
-			if runtime.GOOS == "darwin" {
-				for _, path := range []string{journey.config, journey.settings} {
-					if err := os.WriteFile(path, []byte("test-owned state"), 0o600); err != nil {
-						t.Fatal(err)
-					}
+			paths := []string{journey.config, journey.settings, journey.settings + ".aigw-state.json"}
+			for _, path := range paths {
+				mustWriteFile(t, path, []byte("test-owned state"), 0o600)
+			}
+			if err := preparePerformanceSetup(filepath.Dir(journey.config), filepath.Dir(journey.settings), journey.config, journey.settings); err != nil {
+				t.Fatalf("prepare owned effective-home inputs: %v", err)
+			}
+			for _, path := range paths {
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					t.Fatalf("owned performance input remains: %s, %v", path, err)
 				}
 			}
 		})
@@ -419,17 +424,6 @@ func systemCredentialEnvironment(goos string, current []string, hostHome, scope 
 		"USERPROFILE": hostHome,
 		"CODEX_HOME":  filepath.Join(hostHome, ".codex"),
 	}), nil
-}
-
-func environmentValues(environment []string) map[string]string {
-	values := make(map[string]string, len(environment))
-	for _, entry := range environment {
-		key, value, present := strings.Cut(entry, "=")
-		if present {
-			values[key] = value
-		}
-	}
-	return values
 }
 
 func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, token string, backend secrets.BackendSelection, prior ...process.Plan) {
