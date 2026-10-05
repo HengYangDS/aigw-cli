@@ -256,14 +256,10 @@ func (j *journeyFixture) preparePerformanceCredentials(backend, account, credent
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	if exists, err := store.Exists(account); err != nil || exists {
-		j.testing.Fatalf("native performance requires unoccupied credential slot: exists=%t error=%v", exists, err)
+	requireUnoccupiedNativeCredentialSlots(j.testing, store, account)
+	if runtime.GOOS == "darwin" {
+		requireUnoccupiedLegacyKeychainSlot(j.testing, account, "")
 	}
-	j.testing.Cleanup(func() {
-		if err := store.Delete(account); err != nil {
-			j.testing.Errorf("remove owned performance credential: %v", err)
-		}
-	})
 }
 
 func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend string, block int) []performanceMeasurement {
