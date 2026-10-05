@@ -6,6 +6,21 @@ projections.
 It does not run a proxy, listen on a port, carry API traffic, or own Codex
 conversation state.
 
+## Governance entry
+
+In the target worktree, use the ETHOS executable from the immutable installation
+selected by `ethos/runtime/CURRENT` in the Git common-dir. Run
+`ethos status --json`, load the Skill at
+`governance_context.agent_guidance.path`, and follow the selected Change and
+rule or document owners. Before a tracked edit, obtain a passing current
+`ethos lane prewrite` for the exact worktree, paths, and editor root.
+
+Shared governance comes from that installed product. AIGW's executable quality
+policies live in `.config/checks/`; repository-specific constraints stay with
+their owning documents. Add a local Skill under `.agents/skills/` only for a
+distinct repeated AIGW procedure, with its references inside that Skill. Runtime
+assets belong to their consuming package, not an unowned root `resources/`.
+
 ## Canonical Surfaces
 
 - [Project overview and setup](README.md)
