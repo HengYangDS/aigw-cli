@@ -350,6 +350,9 @@ func (j *journeyFixture) runWithContext(parent context.Context, binary, input st
 	if len(stderr) != 0 {
 		j.testing.Logf("command stderr:\n%s", redaction.Text(string(stderr), j.sensitiveInputs...))
 	}
+	if err == nil && process.DiagnosticFailure(stderr) {
+		err = fmt.Errorf("native product diagnostics prevent qualification")
+	}
 	if err != nil {
 		j.testing.Fatalf("%s %s: %v\nstdout:\n%s\nstderr:\n%s", binary,
 			redaction.Text(strings.Join(args, " "), j.sensitiveInputs...), err,

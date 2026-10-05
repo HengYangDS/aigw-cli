@@ -375,27 +375,38 @@ func TestRetainedCredentialFailurePreservesSafeDiagnostics(t *testing.T) {
 	}
 }
 
-func TestJourneyRetainsRedactedSuccessfulDiagnostics(t *testing.T) {
+func TestJourneyQualifiesRedactedChildDiagnostics(t *testing.T) {
 	const secret = "synthetic-diagnostic-value"
-	const marker = "Warning: successful-child-canary"
 	program, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
 	switch os.Getenv("AIGW_TEST_JOURNEY_DIAGNOSTIC") {
 	case "writer":
-		_, _ = fmt.Fprintln(os.Stderr, marker, secret)
+		_, _ = fmt.Fprintln(os.Stderr, os.Getenv("AIGW_TEST_JOURNEY_MARKER"), secret)
 		os.Exit(0)
 	case "journey":
 		journey := &journeyFixture{testing: t, sensitiveInputs: []string{secret}, environment: append(os.Environ(), "AIGW_TEST_JOURNEY_DIAGNOSTIC=writer")}
-		journey.runWith(program, "-test.run=^TestJourneyRetainsRedactedSuccessfulDiagnostics$")
+		journey.runWith(program, "-test.run=^TestJourneyQualifiesRedactedChildDiagnostics$")
 		return
 	}
-	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(t.Context(), process.Plan{
-		Executable: program, Args: []string{"-test.run=^TestJourneyRetainsRedactedSuccessfulDiagnostics$", "-test.v"},
-		Env: append(os.Environ(), "AIGW_TEST_JOURNEY_DIAGNOSTIC=journey"),
-	})
-	if err != nil || !bytes.Contains(stdout, []byte(marker+" [REDACTED]")) || bytes.Contains(stdout, []byte(secret)) || len(stderr) != 0 {
-		t.Fatal("successful journey diagnostic is missing, unredacted or failed")
+	for _, test := range []struct {
+		name   string
+		marker string
+		fails  bool
+	}{
+		{name: "progress", marker: "Working: successful-child-canary"},
+		{name: "warning", marker: "Warning: successful-child-canary", fails: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stdout, stderr, err := (process.Runner{}).RunCaptureStreams(t.Context(), process.Plan{
+				Executable: program, Args: []string{"-test.run=^TestJourneyQualifiesRedactedChildDiagnostics$", "-test.v"},
+				Env: append(os.Environ(), "AIGW_TEST_JOURNEY_DIAGNOSTIC=journey", "AIGW_TEST_JOURNEY_MARKER="+test.marker),
+			})
+			_, failed := errors.AsType[*exec.ExitError](err)
+			if failed != test.fails || (err != nil && !failed) || !bytes.Contains(stdout, []byte(test.marker+" [REDACTED]")) || bytes.Contains(stdout, []byte(secret)) || len(stderr) != 0 {
+				t.Fatal("journey diagnostic lost qualification or safe redacted evidence")
+			}
+		})
 	}
 }
