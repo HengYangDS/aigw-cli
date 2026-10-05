@@ -621,6 +621,13 @@ success, an unchanged signer or an item label cannot substitute for that read.
 The one-time 0.3.1 Homebrew transition must preproject versioned commands,
 prefetch the final package, measure the bounded unlink/relink gap, verify the
 captured original commands immediately, and restore the predecessor on failure.
+Brief interruption is acceptable only when the native consumer recovers
+automatically, the same thread and turn finish, context and all outputs survive,
+and each tool effect executes once. Measure the cutover window and verify that
+continuation immediately; a restarted task, lost output or duplicate effect
+fails acceptance and requires bounded rollback. Controlled outage evidence
+does not replace the final-byte package-manager transition.
+
 Retain old items and readers for cached and rollback callers; disclose residual
 cached-public-link risk. Later versioned commands remain callable throughout
 replacement. These are post-archive acceptance conditions, not prerequisites

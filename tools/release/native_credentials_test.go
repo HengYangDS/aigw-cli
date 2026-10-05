@@ -67,19 +67,19 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", sourceAccount, "--token-stdin")
 	journey.requireCredentialBackend(token, backend)
 	journey.requireClaudeCredential(token)
-	journey.runWithInput(journey.binary, replacement+"\n", "rotate", sourceAccount, "--token-stdin")
-	journey.requireClaudeCredential(replacement)
+	// Upgrade retains the predecessor's readable Token; successor rotation is
+	// not conditional on an immutable predecessor's replacement implementation.
 	if runtime.GOOS == "darwin" {
 		if exists, err := store.Exists(sourceAccount); err != nil || exists {
 			t.Fatalf("published predecessor occupied the candidate native Token slot: exists=%t error=%v", exists, err)
 		}
 		configurationBeforeStaging := readFile(t, journey.config)
-		stageNativeCandidateToken(t, journey, candidate, sourceAccount, replacement)
+		stageNativeCandidateToken(t, journey, candidate, sourceAccount, token)
 		if !bytes.Equal(configurationBeforeStaging, readFile(t, journey.config)) {
 			t.Fatal("candidate credential staging changed retained configuration")
 		}
 	}
-	if value, err := store.Get(sourceAccount); err != nil || value != replacement {
+	if value, err := store.Get(sourceAccount); err != nil || value != token {
 		t.Fatalf("candidate could not read the retained native Token slot: %v", err)
 	}
 	output := journey.runWithInput(candidate, diagnostic+"\n", "account", "diagnostics", "enable", sourceAccount, "--system-token-stdin", "--user-id", diagnosticID)
@@ -90,15 +90,21 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	if got, err := diagnostics.Get(sourceAccount); err != nil || got != wantDiagnostic {
 		t.Fatalf("candidate diagnostic credential was not staged from explicit input: %v", err)
 	}
-	journey.requireClaudeCredential(replacement)
+	journey.requireClaudeCredential(token)
 	var predecessorReaders []process.Plan
 	if runtime.GOOS == "darwin" {
-		predecessorReaders = preprojectNativeCredentialJourney(t, journey, candidate, oldVersion, replacement)
+		predecessorReaders = preprojectNativeCredentialJourney(t, journey, candidate, oldVersion, token)
 	}
-	journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, replacement, backend, predecessorReaders...)
+	journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, token, backend, predecessorReaders...)
 	if got, err := diagnostics.Get(sourceAccount); err != nil || got != wantDiagnostic {
 		t.Fatalf("candidate diagnostic credential did not survive update and rollback: %v", err)
 	}
+	configurationBeforeRotation := readFile(t, journey.config)
+	journey.runWithInput(journey.binary, replacement+"\n", "rotate", sourceAccount, "--token-stdin")
+	if !bytes.Equal(configurationBeforeRotation, readFile(t, journey.config)) {
+		t.Fatal("successor Token rotation changed retained configuration")
+	}
+	journey.requireClaudeCredential(replacement)
 	activeToken := replacement
 	if runtime.GOOS == "darwin" && oldVersion == "0.3.1" {
 		bridge := publishedNativeJourney{journey: journey, candidate: candidate, archive: archive, checksums: checksums}

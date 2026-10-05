@@ -341,12 +341,16 @@ Linux needs a real user bus/Secret Service; Windows uses Credential Manager.
 An occupied exact test slot fails before writes. The installed helper proves
 reads; fixture metadata/cleanup neither grants access nor replaces them.
 
-Backend daemon diagnostics are separate from product results. GNOME Keyring 48
-emits an already-registered-item warning when replacing the single retained item;
-[upstream 50 retains that CreateItem path](https://github.com/GNOME/gnome-keyring/blob/50.0/daemon/dbus/gkd-secret-objects.c).
-An upstream-only go-keyring 0.2.8 probe retained one readable item and deleted it
-exactly. Preserve warning/backend version; do not silence it, delete before replace,
-or call that run warning-free.
+Set `G_DEBUG=fatal-warnings` before D-Bus activation. Published AIGW 0.3.1 uses
+go-keyring's `CreateItem(replace=true)` path, which emits a duplicate-registration
+warning on the qualified GNOME backend;
+[upstream retains that CreateItem path](https://github.com/GNOME/gnome-keyring/blob/50.0/daemon/dbus/gkd-secret-objects.c).
+The successor searches first and replaces through `SetSecret`. Native succession
+retains and reads the predecessor's original Token, verifies upgrade, rollback
+and forward, then exercises successor rotation. It does not require the immutable
+predecessor to repair its own rotation. Preserve original warning and failed
+diagnostics; do not suppress them, delete before replacement or alter published
+bytes to manufacture a pass.
 
 ### Tagged artifact acceptance
 
