@@ -36,10 +36,11 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 			BeforeScript []string `yaml:"before_script"`
 			AfterScript  []string `yaml:"after_script"`
 		} `yaml:".linux-toolchain"`
-		NativeDarwin struct {
-			Script      []string `yaml:"script"`
-			AfterScript []string `yaml:"after_script"`
-		} `yaml:"native-darwin"`
+		NativeDarwin  gitLabJob `yaml:"native-darwin"`
+		NativeLinux   gitLabJob `yaml:"native-linux"`
+		NativeWindows gitLabJob `yaml:"native-windows"`
+		Quality       gitLabJob `yaml:"quality"`
+		SecretService gitLabJob `yaml:"linux-secret-service"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
@@ -89,6 +90,28 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 			return strings.Contains(command, "CI_JOB_ID") && strings.Contains(command, "mise-mirror")
 		}) {
 			t.Errorf("GitLab %s has no exact job-owned mirror credential cleanup: %v", name, commands)
+		}
+	}
+	for name, job := range map[string]gitLabJob{
+		"macOS":          gitlab.NativeDarwin,
+		"Linux":          gitlab.NativeLinux,
+		"Windows":        gitlab.NativeWindows,
+		"Quality":        gitlab.Quality,
+		"Secret Service": gitlab.SecretService,
+	} {
+		cleanup := job.AfterScript
+		if len(cleanup) == 0 {
+			cleanup = gitlab.LinuxToolchain.AfterScript
+		}
+		if len(job.Script) == 0 || len(cleanup) != 1 {
+			t.Errorf("GitLab %s must retain one primary and fallback cleanup owner", name)
+			continue
+		}
+		if job.Script[len(job.Script)-1] != cleanup[0] {
+			t.Errorf("GitLab %s cleanup must gate the job before after_script", name)
+		}
+		if !strings.Contains(cleanup[0], "Mise job-owned supply state retired.") {
+			t.Errorf("GitLab %s cleanup must attest exact absence after removal", name)
 		}
 	}
 	if strings.Contains(projections[1].Content, "packages/generic/mise-github/") {
@@ -322,6 +345,23 @@ done`
 		mirror := filepath.Join(project, "build", "tmp", ".aigw-mise-mirror-456")
 		if _, err := os.Stat(mirror); !os.IsNotExist(err) {
 			t.Fatalf("relative mirror remains after cleanup: %v", err)
+		}
+	})
+	t.Run("cleanup rejects a successful removal that leaves owned state", func(t *testing.T) {
+		project := t.TempDir()
+		mirror := filepath.Join(project, "build", "tmp", ".aigw-mise-mirror-retained")
+		if err := os.MkdirAll(mirror, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		command := exec.CommandContext(t.Context(), "sh", "-eu", "-c", "rm() { return 0; }\n"+cleanup)
+		command.Dir = project
+		command.Env = append(os.Environ(), "CI_JOB_ID=retained")
+		output, err := command.CombinedOutput()
+		if err == nil || strings.Contains(string(output), "Mise job-owned supply state retired.") {
+			t.Fatalf("retained mirror must refuse cleanup acceptance: %v, %s", err, output)
+		}
+		if _, err := os.Stat(mirror); err != nil {
+			t.Fatalf("failed cleanup must preserve its retained fixture: %v", err)
 		}
 	})
 }

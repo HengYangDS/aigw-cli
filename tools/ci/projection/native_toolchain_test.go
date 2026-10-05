@@ -44,7 +44,8 @@ func TestLinuxSecretServiceUsesOnlyItsLockedExecutableClosure(t *testing.T) {
 	if got := gitlab.SecretService.Variables["MISE_ENABLE_TOOLS"]; got != tools {
 		t.Fatalf("GitLab Secret Service toolchain = %q, want %q", got, tools)
 	}
-	if len(gitlab.SecretService.Script) != 1 || !strings.Contains(gitlab.SecretService.Script[0], "TestNativeProductJourney/system_credential_store") {
+	if len(gitlab.SecretService.Script) != 2 || !strings.Contains(gitlab.SecretService.Script[0], "TestNativeProductJourney/system_credential_store") ||
+		!strings.Contains(gitlab.SecretService.Script[1], "Mise job-owned supply state retired.") {
 		t.Fatal("GitLab Secret Service job runs more than its focused qualification")
 	}
 	var github struct {
@@ -234,7 +235,7 @@ func TestLinuxSecretServiceHasItsOwnRequiredJob(t *testing.T) {
 		!reflect.DeepEqual(gitlab.SecretService.Rules, gitlab.Linux.Rules) {
 		t.Fatal("GitLab Secret Service job must use the same Linux runner and event admission")
 	}
-	if len(gitlab.SecretService.Script) != 1 {
+	if len(gitlab.SecretService.Script) != 2 {
 		t.Fatal("GitLab native Linux CI does not qualify real Secret Service")
 	}
 	gitlabQualification := gitlab.SecretService.Script[0]

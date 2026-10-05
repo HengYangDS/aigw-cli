@@ -459,6 +459,7 @@ func TestGitHubWorkflowsDeclareTheCanonicalInitialBranch(t *testing.T) {
 }
 
 type gitLabJob struct {
+	AfterScript   []string          `yaml:"after_script"`
 	BeforeScript  []string          `yaml:"before_script"`
 	Extends       []string          `yaml:"extends"`
 	Image         string            `yaml:"image"`

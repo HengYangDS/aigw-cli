@@ -69,7 +69,18 @@ miseMirror: {
 		  *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
 		esac
 		"""#
-	unixCleanup:      "if [ -n \"${CI_JOB_ID:-}\" ]; then rm -rf -- \"\(unixDirectory)\"; fi"
+	unixCleanup:      #"""
+		set -eu
+		if [ -n "${CI_JOB_ID:-}" ]; then
+		  mirror_dir="\#(unixDirectory)"
+		  rm -rf -- "$mirror_dir"
+		  if [ -e "$mirror_dir" ] || [ -L "$mirror_dir" ]; then
+		    printf '%s\n' 'Mise job-owned supply state remains after cleanup.' >&2
+		    exit 1
+		  fi
+		  printf '%s\n' 'Mise job-owned supply state retired.'
+		fi
+		"""#
 	githubEnvironment: MISE_URL_REPLACEMENTS: "{{\"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$\":\"{0}/{1}/releases/download/mise-glab-$1/$2\",\"regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$\":\"{0}/{1}/releases/download/mise-glab-v$1/$2\"}}"
 }
 
@@ -631,6 +642,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	_prebuiltCondition: string
 	_selectTools:       string
 	_bootstrap:         string
+	_cleanup:           string
 	tags: [string, ...string]
 	rules: [...{...}]
 	if _platform == "windows" {
@@ -709,7 +721,8 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			if (-not $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ALLOWED_SIGNERS }
 			\#(commands.native[_platform]) --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')" -- @acceptance
 			"""#
-		after_script: [#"""
+		_cleanup:           #"""
+			$ErrorActionPreference = 'Stop'
 			$jobDirectory = \#(windowsMiseJobDirectory)
 			if (Test-Path -LiteralPath $jobDirectory) {
 			  $emptyDirectory = Join-Path (Split-Path -Parent $jobDirectory) "aigw-ci-mise-empty-$env:CI_JOB_ID"
@@ -731,9 +744,11 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			if (Test-Path -LiteralPath $jobDirectory) {
 			  throw 'Mise job directory remains after cleanup.'
 			}
-			"""#]
+			Write-Host 'Mise job-owned supply state retired.'
+			"""#
 	}
 	if _platform != "windows" {
+		_cleanup:           miseMirror.unixCleanup
 		_prebuiltCondition: "[ -n \"${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}\" ] && [ \"${AIGW_FULL_NATIVE_QUALITY:-false}\" != true ] && [ \"${AIGW_REFRESH_LOCKS:-false}\" != true ]"
 		_selectTools:       "if \(_prebuiltCondition); then export MISE_ENABLE_TOOLS='\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)'; fi"
 		_bootstrap:         "if ! { \(_prebuiltCondition); }; then \(commands.bootstrap); fi"
@@ -761,8 +776,8 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			\#(commands.native[_platform]) --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
 			"""#
 	}
-	if _platform == "darwin" {
-		"after_script": [miseMirror.unixCleanup]
+	if _platform != "linux" {
+		"after_script": [_cleanup]
 	}
 	stage: graph["native-\(_platform)"].stage
 	variables: nativeToolchain[_platform] & {
@@ -780,14 +795,14 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		extends: [".linux-toolchain"]
 		variables: CGO_ENABLED: "1"
 		"before_script": [linuxToolchain.prepare, linuxToolchain.compiler, miseMirror.unixPrepare, _selectTools, commands.install]
-		script: [_bootstrap, _refreshLocks, _native]
+		script: [_bootstrap, _refreshLocks, _native, _cleanup]
 	}
 	if _platform != "linux" {
 		if _platform == "windows" {
-			script: [_prepareMise, _install, _bootstrap, _refreshLocks, _native]
+			script: [_prepareMise, _install, _bootstrap, _refreshLocks, _native, _cleanup]
 		}
 		if _platform != "windows" {
-			script: [miseMirror.unixPrepare, _selectTools, _install, _bootstrap, _refreshLocks, _native]
+			script: [miseMirror.unixPrepare, _selectTools, _install, _bootstrap, _refreshLocks, _native, _cleanup]
 		}
 	}
 }
@@ -803,10 +818,10 @@ _gitlabControlJob: {
 	tags: nativeEvidence[gitlabControlPlatform].gitlab.tags
 	if gitlabControlPlatform == "linux" {
 		extends: [".linux-toolchain"]
-		script: _commands
+		script: list.Concat([_commands, [miseMirror.unixCleanup]])
 	}
 	if gitlabControlPlatform != "linux" {
-		script: list.Concat([[miseMirror.unixPrepare, commands.install], _commands])
+		script: list.Concat([[miseMirror.unixPrepare, commands.install], _commands, [miseMirror.unixCleanup]])
 		"after_script": [miseMirror.unixCleanup]
 	}
 }
@@ -851,6 +866,7 @@ gitlab: {
 			commands.bootstrap,
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
 			commands.quality,
+			miseMirror.unixCleanup,
 		]
 		artifacts: {when: "always", paths: [dependencyEvidencePath, workflowEvidencePath, "build/verification/coverage"]}
 
@@ -925,7 +941,7 @@ gitlab: {
 			CGO_ENABLED:       "0"
 		}
 		rules: gitlab["native-linux"].rules
-		script: [linuxSecretService.gitlab]
+		script: [linuxSecretService.gitlab, miseMirror.unixCleanup]
 	}
 	"release-version": _gitlabControlJob & {
 		_commands: [commands.version]
@@ -942,6 +958,7 @@ gitlab: {
 			#"mkdir dist"#,
 			#"mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist"#,
 			commands.artifacts,
+			miseMirror.unixCleanup,
 		]
 		stage:     graph["release-assets"].stage
 		tags:      nativeEvidence.linux.gitlab.tags

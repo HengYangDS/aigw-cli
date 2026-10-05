@@ -139,18 +139,26 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 		t.Fatal(err)
 	}
 	var pipeline struct {
-		Version gitLabJob `yaml:"release-version"`
-		Assets  gitLabJob `yaml:"release-assets"`
+		Version   gitLabJob `yaml:"release-version"`
+		Assets    gitLabJob `yaml:"release-assets"`
+		Toolchain struct {
+			AfterScript []string `yaml:"after_script"`
+		} `yaml:".linux-toolchain"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	if len(pipeline.Version.Script) != 3 ||
+	if len(pipeline.Version.Script) != 4 || len(pipeline.Version.AfterScript) != 1 ||
 		!strings.Contains(pipeline.Version.Script[0], "MISE_NETRC_FILE") ||
-		!slices.Equal(pipeline.Version.Script[1:], []string{"env GODEBUG=http2client=0 mise install --locked", "mise exec --locked -- go run ./tools/release validate-version-tag"}) {
+		!slices.Equal(pipeline.Version.Script[1:3], []string{"env GODEBUG=http2client=0 mise install --locked", "mise exec --locked -- go run ./tools/release validate-version-tag"}) ||
+		pipeline.Version.Script[3] != pipeline.Version.AfterScript[0] {
 		t.Fatal("tag admission is missing")
 	}
 	want := []string{"mkdir dist", `mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist`, "mise exec --locked -- go run ./tools/release verify-artifacts dist"}
+	if len(pipeline.Toolchain.AfterScript) != 1 || !strings.Contains(pipeline.Toolchain.AfterScript[0], "Mise job-owned supply state retired.") {
+		t.Fatal("published asset acceptance requires exact job-owned cleanup")
+	}
+	want = append(want, pipeline.Toolchain.AfterScript[0])
 	if !slices.Equal(pipeline.Assets.Extends, []string{".linux-toolchain"}) || !slices.Equal(pipeline.Assets.Script, want) {
 		t.Fatalf("GitLab asset verification = %q", pipeline.Assets.Script)
 	}

@@ -82,9 +82,30 @@ native-linux:
       export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
       export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
       mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
+    - |-
+      set -eu
+      if [ -n "${CI_JOB_ID:-}" ]; then
+        mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+        rm -rf -- "$mirror_dir"
+        if [ -e "$mirror_dir" ] || [ -L "$mirror_dir" ]; then
+          printf '%s\n' 'Mise job-owned supply state remains after cleanup.' >&2
+          exit 1
+        fi
+        printf '%s\n' 'Mise job-owned supply state retired.'
+      fi
 native-darwin:
   after_script:
-    - if [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"; fi
+    - |-
+      set -eu
+      if [ -n "${CI_JOB_ID:-}" ]; then
+        mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+        rm -rf -- "$mirror_dir"
+        if [ -e "$mirror_dir" ] || [ -L "$mirror_dir" ]; then
+          printf '%s\n' 'Mise job-owned supply state remains after cleanup.' >&2
+          exit 1
+        fi
+        printf '%s\n' 'Mise job-owned supply state retired.'
+      fi
   script:
     - |-
       set -eu
@@ -138,6 +159,17 @@ native-darwin:
       export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
       export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
       mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
+    - |-
+      set -eu
+      if [ -n "${CI_JOB_ID:-}" ]; then
+        mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+        rm -rf -- "$mirror_dir"
+        if [ -e "$mirror_dir" ] || [ -L "$mirror_dir" ]; then
+          printf '%s\n' 'Mise job-owned supply state remains after cleanup.' >&2
+          exit 1
+        fi
+        printf '%s\n' 'Mise job-owned supply state retired.'
+      fi
   tags:
     - ci-macos-arm64-shell
   rules:
@@ -157,7 +189,17 @@ native-darwin:
       - build/verification
 native-darwin-review:
   after_script:
-    - if [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"; fi
+    - |-
+      set -eu
+      if [ -n "${CI_JOB_ID:-}" ]; then
+        mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+        rm -rf -- "$mirror_dir"
+        if [ -e "$mirror_dir" ] || [ -L "$mirror_dir" ]; then
+          printf '%s\n' 'Mise job-owned supply state remains after cleanup.' >&2
+          exit 1
+        fi
+        printf '%s\n' 'Mise job-owned supply state retired.'
+      fi
   script:
     - |-
       set -eu
@@ -211,6 +253,17 @@ native-darwin-review:
       export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
       export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
       mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
+    - |-
+      set -eu
+      if [ -n "${CI_JOB_ID:-}" ]; then
+        mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+        rm -rf -- "$mirror_dir"
+        if [ -e "$mirror_dir" ] || [ -L "$mirror_dir" ]; then
+          printf '%s\n' 'Mise job-owned supply state remains after cleanup.' >&2
+          exit 1
+        fi
+        printf '%s\n' 'Mise job-owned supply state retired.'
+      fi
   tags:
     - ci-macos-arm64-review
   rules:
@@ -230,6 +283,7 @@ native-darwin-review:
 native-windows:
   after_script:
     - |-
+      $ErrorActionPreference = 'Stop'
       $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
       if (Test-Path -LiteralPath $jobDirectory) {
         $emptyDirectory = Join-Path (Split-Path -Parent $jobDirectory) "aigw-ci-mise-empty-$env:CI_JOB_ID"
@@ -251,6 +305,7 @@ native-windows:
       if (Test-Path -LiteralPath $jobDirectory) {
         throw 'Mise job directory remains after cleanup.'
       }
+      Write-Host 'Mise job-owned supply state retired.'
   script:
     - |-
       $ErrorActionPreference = 'Stop'
@@ -368,6 +423,30 @@ native-windows:
       if (-not $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }
       if (-not $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ALLOWED_SIGNERS }
       mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')" -- @acceptance
+    - |-
+      $ErrorActionPreference = 'Stop'
+      $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
+      if (Test-Path -LiteralPath $jobDirectory) {
+        $emptyDirectory = Join-Path (Split-Path -Parent $jobDirectory) "aigw-ci-mise-empty-$env:CI_JOB_ID"
+        if (Test-Path -LiteralPath $emptyDirectory) { throw 'Mise cleanup mirror source already exists.' }
+        [IO.Directory]::CreateDirectory($emptyDirectory) | Out-Null
+        try {
+          & robocopy.exe $emptyDirectory $jobDirectory /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+          $mirrorExit = $LASTEXITCODE
+          if ($mirrorExit -ge 8) { throw "Mise cleanup mirror failed (robocopy exit $mirrorExit)." }
+          [IO.Directory]::Delete($jobDirectory)
+        } catch {
+          $cause = $_.Exception
+          Write-Host "Mise cleanup failure type=$($cause.GetType().FullName) HRESULT=0x$($cause.HResult.ToString('X8'))"
+          throw
+        } finally {
+          if (Test-Path -LiteralPath $emptyDirectory) { [IO.Directory]::Delete($emptyDirectory) }
+        }
+      }
+      if (Test-Path -LiteralPath $jobDirectory) {
+        throw 'Mise job directory remains after cleanup.'
+      }
+      Write-Host 'Mise job-owned supply state retired.'
   tags:
     - ci-windows-arm64-shell
   rules:
@@ -389,6 +468,7 @@ native-windows:
 native-windows-review:
   after_script:
     - |-
+      $ErrorActionPreference = 'Stop'
       $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
       if (Test-Path -LiteralPath $jobDirectory) {
         $emptyDirectory = Join-Path (Split-Path -Parent $jobDirectory) "aigw-ci-mise-empty-$env:CI_JOB_ID"
@@ -410,6 +490,7 @@ native-windows-review:
       if (Test-Path -LiteralPath $jobDirectory) {
         throw 'Mise job directory remains after cleanup.'
       }
+      Write-Host 'Mise job-owned supply state retired.'
   script:
     - |-
       $ErrorActionPreference = 'Stop'
@@ -527,6 +608,30 @@ native-windows-review:
       if (-not $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }
       if (-not $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ALLOWED_SIGNERS }
       mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')" -- @acceptance
+    - |-
+      $ErrorActionPreference = 'Stop'
+      $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
+      if (Test-Path -LiteralPath $jobDirectory) {
+        $emptyDirectory = Join-Path (Split-Path -Parent $jobDirectory) "aigw-ci-mise-empty-$env:CI_JOB_ID"
+        if (Test-Path -LiteralPath $emptyDirectory) { throw 'Mise cleanup mirror source already exists.' }
+        [IO.Directory]::CreateDirectory($emptyDirectory) | Out-Null
+        try {
+          & robocopy.exe $emptyDirectory $jobDirectory /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+          $mirrorExit = $LASTEXITCODE
+          if ($mirrorExit -ge 8) { throw "Mise cleanup mirror failed (robocopy exit $mirrorExit)." }
+          [IO.Directory]::Delete($jobDirectory)
+        } catch {
+          $cause = $_.Exception
+          Write-Host "Mise cleanup failure type=$($cause.GetType().FullName) HRESULT=0x$($cause.HResult.ToString('X8'))"
+          throw
+        } finally {
+          if (Test-Path -LiteralPath $emptyDirectory) { [IO.Directory]::Delete($emptyDirectory) }
+        }
+      }
+      if (Test-Path -LiteralPath $jobDirectory) {
+        throw 'Mise job directory remains after cleanup.'
+      }
+      Write-Host 'Mise job-owned supply state retired.'
   tags:
     - ci-windows-arm64-review
   rules:
@@ -631,7 +736,17 @@ stages:
       esac
     - env GODEBUG=http2client=0 mise install --locked
   after_script:
-    - if [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"; fi
+    - |-
+      set -eu
+      if [ -n "${CI_JOB_ID:-}" ]; then
+        mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+        rm -rf -- "$mirror_dir"
+        if [ -e "$mirror_dir" ] || [ -L "$mirror_dir" ]; then
+          printf '%s\n' 'Mise job-owned supply state remains after cleanup.' >&2
+          exit 1
+        fi
+        printf '%s\n' 'Mise job-owned supply state retired.'
+      fi
 quality:
   interruptible: true
   extends:
@@ -642,6 +757,17 @@ quality:
     - mise run bootstrap
     - export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="$AIGW_RELEASE_ALLOWED_SIGNERS"
     - mise exec --locked -- go run ./tools/ci quality
+    - |-
+      set -eu
+      if [ -n "${CI_JOB_ID:-}" ]; then
+        mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+        rm -rf -- "$mirror_dir"
+        if [ -e "$mirror_dir" ] || [ -L "$mirror_dir" ]; then
+          printf '%s\n' 'Mise job-owned supply state remains after cleanup.' >&2
+          exit 1
+        fi
+        printf '%s\n' 'Mise job-owned supply state retired.'
+      fi
   artifacts:
     when: always
     paths:
@@ -698,8 +824,29 @@ accepted-ref-parity:
       esac
     - env GODEBUG=http2client=0 mise install --locked
     - mise exec --locked -- go run ./tools/forge refs --remote origin --expect "main=$CI_COMMIT_SHA" --expect "dev=$CI_COMMIT_SHA"
+    - |-
+      set -eu
+      if [ -n "${CI_JOB_ID:-}" ]; then
+        mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+        rm -rf -- "$mirror_dir"
+        if [ -e "$mirror_dir" ] || [ -L "$mirror_dir" ]; then
+          printf '%s\n' 'Mise job-owned supply state remains after cleanup.' >&2
+          exit 1
+        fi
+        printf '%s\n' 'Mise job-owned supply state retired.'
+      fi
   after_script:
-    - if [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"; fi
+    - |-
+      set -eu
+      if [ -n "${CI_JOB_ID:-}" ]; then
+        mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+        rm -rf -- "$mirror_dir"
+        if [ -e "$mirror_dir" ] || [ -L "$mirror_dir" ]; then
+          printf '%s\n' 'Mise job-owned supply state remains after cleanup.' >&2
+          exit 1
+        fi
+        printf '%s\n' 'Mise job-owned supply state retired.'
+      fi
   stage: verify
   tags:
     - ci-macos-arm64-shell
@@ -732,6 +879,17 @@ linux-secret-service:
       gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
       AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./tools/release -run "^TestNativeProductJourney/system_credential_store$" -count=1 -v
       AIGW_SECRET_SERVICE
+    - |-
+      set -eu
+      if [ -n "${CI_JOB_ID:-}" ]; then
+        mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+        rm -rf -- "$mirror_dir"
+        if [ -e "$mirror_dir" ] || [ -L "$mirror_dir" ]; then
+          printf '%s\n' 'Mise job-owned supply state remains after cleanup.' >&2
+          exit 1
+        fi
+        printf '%s\n' 'Mise job-owned supply state retired.'
+      fi
 release-version:
   script:
     - |-
@@ -764,8 +922,29 @@ release-version:
       esac
     - env GODEBUG=http2client=0 mise install --locked
     - mise exec --locked -- go run ./tools/release validate-version-tag
+    - |-
+      set -eu
+      if [ -n "${CI_JOB_ID:-}" ]; then
+        mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+        rm -rf -- "$mirror_dir"
+        if [ -e "$mirror_dir" ] || [ -L "$mirror_dir" ]; then
+          printf '%s\n' 'Mise job-owned supply state remains after cleanup.' >&2
+          exit 1
+        fi
+        printf '%s\n' 'Mise job-owned supply state retired.'
+      fi
   after_script:
-    - if [ -n "${CI_JOB_ID:-}" ]; then rm -rf -- "$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"; fi
+    - |-
+      set -eu
+      if [ -n "${CI_JOB_ID:-}" ]; then
+        mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+        rm -rf -- "$mirror_dir"
+        if [ -e "$mirror_dir" ] || [ -L "$mirror_dir" ]; then
+          printf '%s\n' 'Mise job-owned supply state remains after cleanup.' >&2
+          exit 1
+        fi
+        printf '%s\n' 'Mise job-owned supply state retired.'
+      fi
   stage: verify
   tags:
     - ci-macos-arm64-shell
@@ -781,6 +960,17 @@ release-assets:
     - mkdir dist
     - mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist
     - mise exec --locked -- go run ./tools/release verify-artifacts dist
+    - |-
+      set -eu
+      if [ -n "${CI_JOB_ID:-}" ]; then
+        mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
+        rm -rf -- "$mirror_dir"
+        if [ -e "$mirror_dir" ] || [ -L "$mirror_dir" ]; then
+          printf '%s\n' 'Mise job-owned supply state remains after cleanup.' >&2
+          exit 1
+        fi
+        printf '%s\n' 'Mise job-owned supply state retired.'
+      fi
   stage: release
   tags:
     - $AIGW_CI_LINUX_RUNNER_TAG
