@@ -2,17 +2,14 @@
 package construction
 
 import (
-	"aigw-cli/internal/process"
 	"aigw-cli/internal/upgrade"
 	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/readiness"
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -33,15 +30,6 @@ type buildRequest struct {
 	TargetOS                       string
 	MacOSSigningIdentity           string
 }
-
-type toolCall struct {
-	Name, Directory string
-	Args, Env       []string
-	Stdout, Stderr  io.Writer
-	Timeout         time.Duration
-}
-
-type toolRunner func(toolCall) error
 
 type releaseBuilder func(buildRequest) error
 type releaseEpochResolver func(root, version string) (string, error)
@@ -330,46 +318,6 @@ func replaceDirectory(source, target string) (result error) {
 		return fmt.Errorf("publish release output: %w", err)
 	}
 	return nil
-}
-
-func executeTool(ctx context.Context) toolRunner {
-	return func(call toolCall) (result error) {
-		callContext := ctx
-		if call.Timeout > 0 {
-			var cancel context.CancelFunc
-			callContext, cancel = context.WithTimeout(ctx, call.Timeout)
-			defer cancel()
-		}
-		stdout := call.Stdout
-		if stdout == nil {
-			stdout = os.Stdout
-		}
-		stderr := call.Stderr
-		if stderr == nil {
-			stderr = os.Stderr
-		}
-		diagnostics, err := os.CreateTemp("", "aigw-release-diagnostics-*")
-		if err != nil {
-			return fmt.Errorf("create native tool diagnostics: %w", err)
-		}
-		defer func() {
-			result = errors.Join(result, diagnostics.Close(), os.Remove(diagnostics.Name()))
-		}()
-		runErr := (process.Runner{}).RunStream(callContext, process.Plan{
-			Executable: call.Name, Directory: call.Directory,
-			Args: call.Args, Env: append(os.Environ(), call.Env...),
-		}, stdout, io.MultiWriter(stderr, diagnostics))
-		if _, err := diagnostics.Seek(0, io.SeekStart); err != nil {
-			return errors.Join(runErr, err)
-		}
-		scanner := bufio.NewScanner(diagnostics)
-		for scanner.Scan() {
-			if process.DiagnosticFailure(scanner.Bytes()) {
-				return errors.Join(runErr, fmt.Errorf("%s diagnostics prevent qualification", call.Name))
-			}
-		}
-		return errors.Join(runErr, scanner.Err())
-	}
 }
 
 func resolveGitObject(root, revision string, run toolRunner) (string, error) {

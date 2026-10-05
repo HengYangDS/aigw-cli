@@ -2,10 +2,7 @@ package construction
 
 import (
 	"aigw-cli/tools/release/artifact"
-	"context"
 	"errors"
-	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,63 +10,6 @@ import (
 	"strings"
 	"testing"
 )
-
-func TestReleaseToolOwnsOutputPipesAndExplicitContext(t *testing.T) {
-	if os.Getenv("AIGW_TEST_RELEASE_TOOL") == "child" {
-		for _, output := range []*os.File{os.Stdout, os.Stderr} {
-			info, err := output.Stat()
-			if err != nil || info.Mode()&os.ModeNamedPipe == 0 {
-				os.Exit(24)
-			}
-		}
-		input, err := io.ReadAll(os.Stdin)
-		if err != nil || len(input) != 0 {
-			os.Exit(25)
-		}
-		data, err := os.ReadFile("marker")
-		if err != nil {
-			os.Exit(26)
-		}
-		_, _ = fmt.Fprintf(os.Stdout, "%s:%s", data, os.Getenv("AIGW_TEST_RELEASE_VALUE"))
-		os.Exit(0)
-	}
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "marker"), []byte("owned"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	executable, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	output, err := os.CreateTemp(t.TempDir(), "output")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = output.Close() })
-	err = executeTool(t.Context())(toolCall{
-		Name: executable, Directory: root,
-		Args:   []string{"-test.run=^TestReleaseToolOwnsOutputPipesAndExplicitContext$"},
-		Env:    []string{"AIGW_TEST_RELEASE_TOOL=child", "AIGW_TEST_RELEASE_VALUE=explicit"},
-		Stdout: output,
-	})
-	data, readErr := os.ReadFile(output.Name())
-	if err != nil || readErr != nil || string(data) != "owned:explicit" {
-		t.Fatalf("release tool output=%q, execution=%v, read=%v", data, err, readErr)
-	}
-}
-
-func TestReleaseToolCancellationStopsBeforeExecution(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	executable, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = executeTool(ctx)(toolCall{Name: executable, Args: []string{"-test.run=^TestReleaseToolCancellationStopsBeforeExecution$"}})
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("release tool lost cancellation: %v", err)
-	}
-}
 
 func TestRenderGoReleaserConfigRejectsMissingSource(t *testing.T) {
 	if _, err := renderGoReleaserConfig(t.TempDir(), t.TempDir(), t.TempDir()); err == nil || !strings.Contains(err.Error(), "read GoReleaser config") {

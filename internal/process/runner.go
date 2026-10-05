@@ -144,7 +144,8 @@ func (Runner) RunToFile(ctx context.Context, destination string, plan Plan) erro
 
 func runCaptured(ctx context.Context, plan Plan, stdout io.Writer) (diagnostic []byte, err error) {
 	stderr := &limitedBuffer{limit: capturedProcessOutputLimit}
-	err = (Runner{}).RunStream(ctx, plan, stdout, stderr)
+	// Capture and downloads keep destination handles in the parent.
+	err = (Runner{}).RunStream(ctx, plan, struct{ io.Writer }{stdout}, stderr)
 	if stderr.overflow {
 		return nil, fmt.Errorf("captured stderr from %s exceeds %d bytes", plan.Executable, capturedProcessOutputLimit)
 	}
@@ -161,14 +162,9 @@ func (Runner) RunStream(ctx context.Context, plan Plan, stdout, stderr io.Writer
 	cmd.Env = plan.Env
 	cmd.Stdin = strings.NewReader(plan.Stdin)
 	cmd.WaitDelay = capturedProcessWaitDelay
-	// Retain file ownership in this process instead of passing native handles
-	// to descendants, which can otherwise outlive the output boundary.
-	if stdout != nil {
-		cmd.Stdout = struct{ io.Writer }{stdout}
-	}
-	if stderr != nil {
-		cmd.Stderr = struct{ io.Writer }{stderr}
-	}
+	// Native files retain immediate-exit writes. Other writers use bounded
+	// output pipes; the owned process group or job is reclaimed before return.
+	cmd.Stdout, cmd.Stderr = stdout, stderr
 	cleanup, err := startCapturedProcess(cmd)
 	if err != nil {
 		return fmt.Errorf("start %s: %w", plan.Executable, err)
