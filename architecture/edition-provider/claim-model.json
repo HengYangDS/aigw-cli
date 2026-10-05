@@ -89,7 +89,7 @@
       "authority": "AIGW read-only native client discovery contract"
     },
     "registry": {
-      "sha256": "3e83757192b4bbe4afadc73b27deeac5b4bea82eacc7561c25d80ddc9cc44724",
+      "sha256": "32dca23c1771779e22f7b68016c7c60250b4a130761a374c4e694269379d92e2",
       "locator": "source/internal/client/registry.go",
       "authority": "AIGW ordered client registry and Adapter contract"
     },
