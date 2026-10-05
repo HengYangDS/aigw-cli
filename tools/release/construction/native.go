@@ -66,6 +66,15 @@ func (input *NativeAcceptance) UsesPrebuiltArtifacts() bool {
 	return input.Artifacts != "" || input.Tag != ""
 }
 
+// NativeTestEnvironment isolates fixture scratch and excludes Forge credentials.
+// Empty artifact and baseline paths select source fixtures, not delivered bytes.
+func NativeTestEnvironment(workspace, artifacts, baseline string) []string {
+	return append(append([]string{
+		"AIGW_ACCEPTANCE_RELEASE=" + artifacts, "TMPDIR=" + workspace,
+		"TMP=" + workspace, "TEMP=" + workspace,
+	}, forgeCredentialOverrides()...), "AIGW_ACCEPTANCE_BASELINE="+baseline)
+}
+
 // AcceptNative proves one host lifecycle with admitted artifact inputs.
 // It publishes nothing and owns every download and extracted predecessor.
 func AcceptNative(ctx context.Context, input NativeAcceptance) error {
@@ -286,9 +295,8 @@ func acceptNative(request buildRequest, artifacts, baseline string, input Native
 			return err
 		}
 	}
-	commonEnvironment := append([]string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace}, forgeCredentialOverrides()...)
-	currentEnvironment := append(append([]string{}, commonEnvironment...), "AIGW_ACCEPTANCE_BASELINE=")
-	publishedEnvironment := append(append([]string{}, commonEnvironment...), "AIGW_ACCEPTANCE_BASELINE="+baseline)
+	currentEnvironment := NativeTestEnvironment(workspace, stage, "")
+	publishedEnvironment := NativeTestEnvironment(workspace, stage, baseline)
 	clientPattern := "^TestNativeClientJourney$"
 	if input.DiagnosticClient != "" {
 		clients = true

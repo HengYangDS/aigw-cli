@@ -19,6 +19,8 @@ import (
 	"aigw-cli/tools/ci/projection"
 	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
+
+	"github.com/rogpeppe/go-internal/robustio"
 )
 
 var qualityCommands = repositoryQualityGraph.commands(false)
@@ -148,7 +150,7 @@ func runReleaseEvidence(arguments []string, output io.Writer) error {
 	return nil
 }
 
-func runNative(args []string, stdout io.Writer, runner commandRunner) error {
+func runNative(args []string, stdout io.Writer, runner commandRunner) (result error) {
 	var releaseArgs []string
 	if separator := slices.Index(args, "--"); separator >= 0 {
 		releaseArgs, args = args[separator+1:], args[:separator]
@@ -167,14 +169,13 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 	if err != nil {
 		return err
 	}
-	commands := nativeCommands(*platform)
-	commands[len(commands)-1].Args = append(commands[len(commands)-1].Args, releaseArgs...)
 	input, err := construction.ParseNativeAcceptance(releaseArgs)
 	if err != nil {
 		return err
 	}
+	commands := nativeCommands(*platform)
 	if input.UsesPrebuiltArtifacts() && !*fullQuality && os.Getenv("AIGW_REFRESH_LOCKS") != "true" {
-		commands = commands[len(commands)-1:]
+		commands = nil
 	}
 	if *fullQuality {
 		if err := validateRepositoryQualityGraph("."); err != nil {
@@ -183,9 +184,20 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 		commands = append(slices.Clone(qualityCommands), commands[1:]...)
 	}
 	if os.Getenv("AIGW_ACCEPTANCE_BASELINE") != "" {
-		for index := range commands[:len(commands)-1] {
+		for index := range commands {
 			commands[index].Env = append(commands[index].Env, "AIGW_ACCEPTANCE_BASELINE=")
 		}
+	}
+	if len(commands) != 0 {
+		workspace, err := os.MkdirTemp("", "aigw-native-source-*")
+		if err != nil {
+			return err
+		}
+		defer func() { result = errors.Join(result, robustio.RemoveAll(workspace)) }()
+		commands[len(commands)-1].Env = construction.NativeTestEnvironment(workspace, "", "")
+	}
+	if len(releaseArgs) != 0 || os.Getenv("AIGW_ACCEPTANCE_BASELINE") != "" {
+		commands = append(commands, command{Name: "go", Args: append([]string{"run", "./tools/release", "accept-native"}, releaseArgs...)})
 	}
 	return runCommands(commands, stdout, runner)
 }
@@ -255,7 +267,7 @@ func supportedNativePlatform(platform string) bool {
 
 func nativeCommands(platform string) []command {
 	profile := filepath.Join("build", "verification", "coverage", "profile.out")
-	tests := command{Name: "go", Args: []string{"run", "./tools/coverage"}}
+	tests := command{Name: "go", Args: []string{"run", "./tools/coverage", "--tags=native_resource_acceptance"}}
 	if platform != "windows" {
 		tests.Args = append(tests.Args, "--race")
 	}
@@ -263,6 +275,5 @@ func nativeCommands(platform string) []command {
 	return []command{
 		{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}},
 		tests,
-		{Name: "go", Args: []string{"run", "./tools/release", "accept-native"}},
 	}
 }

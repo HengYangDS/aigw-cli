@@ -30,6 +30,34 @@ func TestReadCoverageMergesRepeatedCrossPackageRanges(t *testing.T) {
 	}
 }
 
+func TestRealMainForwardsBuildTagsToTheWholeGoScope(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.WriteFile(filepath.Join(directory, "declarations.go"), []byte("package declarations\ntype Value string\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runner := &recordingRunner{
+		profile:        "mode: atomic\nexample/a/a.go:1.1,2.1 100 1\n",
+		listedPackages: []string{"example/a", "example/declarations"},
+		metadata:       fmt.Sprintf(`{"Dir":%q,"ImportPath":"example/declarations","GoFiles":["declarations.go"]}`, directory),
+	}
+	var stdout, stderr bytes.Buffer
+	arguments := []string{"--policy", writePolicy(t, validPolicy), "--tags=native_resource_acceptance"}
+	if code := realMain(arguments, &stdout, &stderr, runner); code != 0 {
+		t.Fatalf("tagged coverage code=%d stderr=%s", code, &stderr)
+	}
+	if len(runner.calls) != 3 {
+		t.Fatalf("Go scope calls=%q, want inventory, tests and declaration inspection", runner.calls)
+	}
+	for _, arguments := range runner.calls {
+		if !slices.Contains(arguments, "-tags=native_resource_acceptance") {
+			t.Fatalf("Go scope lost selected build tags: %q", arguments)
+		}
+	}
+	if !strings.Contains(stdout.String(), "statement coverage: 100.00%") || !strings.Contains(stdout.String(), "declarations only") {
+		t.Fatalf("tagged coverage lost aggregate or declaration evidence: %s", &stdout)
+	}
+}
+
 func TestReadCoverageRejectsConflictingRepeatedRange(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "coverage.out")
 	body := "mode: atomic\nexample/a.go:1.1,2.1 1 0\nexample/a.go:1.1,2.1 2 1\n"

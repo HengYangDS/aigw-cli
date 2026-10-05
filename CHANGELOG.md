@@ -16,6 +16,9 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Changed
 
+- Run source-native lifecycle and resource acceptance once within canonical
+  coverage; retain separate signed-artifact, predecessor, client and performance
+  acceptance.
 - Verify retained credential executable digests with bounded memory while preserving
   independent source and retained-reader integrity checks.
 - Rotate Linux native Tokens in place without replacing existing item metadata;

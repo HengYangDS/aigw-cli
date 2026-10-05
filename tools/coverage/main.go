@@ -94,6 +94,7 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 	flags.SetOutput(stderr)
 	policyPath := flags.String("policy", defaultPolicyPath, "coverage policy TOML")
 	race := flags.Bool("race", false, "enable Go's race detector")
+	tags := flags.String("tags", "", "Go build tags for package observation and tests")
 	profileOutput := flags.String("profile-output", "", "retain the Go coverage profile at this path")
 	if err := flags.Parse(args); err != nil {
 		return 2
@@ -111,7 +112,7 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 	var packageOutput bytes.Buffer
 	// Test-only packages still run. Every production package is observed;
 	// a missing profile requires positive declaration-only source evidence.
-	listArgs := append([]string{"list", "-f", "{{if .GoFiles}}{{.ImportPath}}\t{{.Module.Path}}{{end}}"}, policy.Packages...)
+	listArgs := append([]string{"list", "-f", "{{if .GoFiles}}{{.ImportPath}}\t{{.Module.Path}}{{end}}", "-tags=" + *tags}, policy.Packages...)
 	if err := runner.Run("go", listArgs, &packageOutput, stderr); err != nil {
 		_, _ = fmt.Fprintf(stderr, "go list failed: %v\n", err)
 		return 1
@@ -141,7 +142,7 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 	// Bind instrumentation to the same canonical package inventory as observation.
 	// A relative coverpkg pattern also matches a toolchain installed below root.
 	goArgs := []string{
-		"test", "-count=1", "-covermode=" + policy.CoverMode,
+		"test", "-count=1", "-tags=" + *tags, "-covermode=" + policy.CoverMode,
 		"-coverpkg=" + strings.Join(expectedPackages, ","), "-coverprofile=" + profilePath,
 	}
 	if *race {
@@ -160,7 +161,7 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 		_, _ = fmt.Fprintf(stderr, "read coverage profile: %v\n", err)
 		return 1
 	}
-	if err := result.requirePackages(expectedPackages, runner, stdout); err != nil {
+	if err := result.requirePackages(expectedPackages, runner, stdout, "-tags="+*tags); err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
@@ -176,7 +177,7 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 	return 0
 }
 
-func (result coverageResult) requirePackages(expected []string, runner commandRunner, stdout io.Writer) error {
+func (result coverageResult) requirePackages(expected []string, runner commandRunner, stdout io.Writer, selection ...string) error {
 	var missing error
 	selected := make(map[string]bool, len(expected))
 	for _, name := range expected {
@@ -184,7 +185,7 @@ func (result coverageResult) requirePackages(expected []string, runner commandRu
 		if _, observed := result.Packages[name]; observed {
 			continue
 		}
-		declarations, err := declarationOnlyPackage(name, runner)
+		declarations, err := declarationOnlyPackage(name, runner, selection...)
 		if err == nil && declarations {
 			if _, err := fmt.Fprintf(stdout, "package %s statement coverage: not applicable (declarations only)\n", name); err != nil {
 				return fmt.Errorf("write package observation: %w", err)
@@ -222,9 +223,9 @@ func (result coverageResult) requirePackages(expected []string, runner commandRu
 
 // declarationOnlyPackage proves missing counters are justified using Go's
 // platform-selected source files, without implementing statement counting.
-func declarationOnlyPackage(name string, runner commandRunner) (bool, error) {
+func declarationOnlyPackage(name string, runner commandRunner, selection ...string) (bool, error) {
 	var output, diagnostics bytes.Buffer
-	if err := runner.Run("go", []string{"list", "-json", name}, &output, &diagnostics); err != nil {
+	if err := runner.Run("go", append(append([]string{"list", "-json"}, selection...), name), &output, &diagnostics); err != nil {
 		return false, fmt.Errorf("go list %s: %w: %s", name, err, &diagnostics)
 	}
 	var pkg struct {

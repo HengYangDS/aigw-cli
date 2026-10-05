@@ -162,6 +162,11 @@ runs `npm ci --include=dev --ignore-scripts`. Development dependencies remain
 required despite caller `NODE_ENV=production` or `omit=dev`; user settings do not
 change. Tidy prepares dependency-test inputs without rewriting [go.mod](go.mod) or [go.sum](go.sum).
 
+Plain `mise run native` runs source tests and native resource acceptance once in
+the same canonical Go coverage invocation. Signed/prebuilt artifacts, a published
+predecessor, real clients and performance remain separate release-owned
+`accept-native` scopes; source coverage does not qualify those delivered bytes.
+
 Both tasks and `mise exec --locked --` use `GOENV=off`, `GOWORK=off` and
 `GOTOOLCHAIN=local`: user Go settings, parent workspaces and automatic compilers
 cannot replace the repository [toolchain](https://go.dev/doc/toolchain). Process-level build targets remain

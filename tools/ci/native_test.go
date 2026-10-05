@@ -13,19 +13,106 @@ import (
 	"testing"
 )
 
-func TestNativeAcceptanceUsesReleaseOwner(t *testing.T) {
+func TestNativeSourceQualificationUsesCanonicalCoverage(t *testing.T) {
 	for _, platform := range []string{"darwin", "linux", "windows"} {
 		t.Run(platform, func(t *testing.T) {
 			calls := nativeCommands(platform)
 			quality := command{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}}
-			release := command{Name: "go", Args: []string{"run", "./tools/release", "accept-native"}}
-			if len(calls) != 3 || !reflect.DeepEqual(calls[0], quality) || !reflect.DeepEqual(calls[2], release) {
-				t.Fatalf("native acceptance = %#v, want shared static checks before tests and release-owned lifecycle", calls)
+			if len(calls) != 2 || !reflect.DeepEqual(calls[0], quality) || !slices.Contains(calls[1].Args, "--tags=native_resource_acceptance") {
+				t.Fatalf("native source qualification = %#v, want static checks before one tagged coverage scope", calls)
 			}
 			if len(calls[1].Env) != 0 {
 				t.Fatal("ordinary native acceptance enabled host credential integration")
 			}
 		})
+	}
+}
+
+func TestNativeSourceQualificationRunsLifecycleOnce(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "0")
+	t.Setenv("AIGW_REFRESH_LOCKS", "")
+	for _, arguments := range [][]string{{"native"}, {"native", "--full-quality"}} {
+		t.Run(strings.Join(arguments, "-"), func(t *testing.T) {
+			var calls []command
+			if err := run(arguments, &bytes.Buffer{}, func(call command) error {
+				calls = append(calls, call)
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			coverageCalls := 0
+			for _, call := range calls {
+				if slices.Contains(call.Args, "accept-native") {
+					t.Fatalf("source lifecycle would run again in a second test process: %#v", call)
+				}
+				if slices.Contains(call.Args, "./tools/coverage") {
+					coverageCalls++
+					if !slices.Contains(call.Args, "--tags=native_resource_acceptance") {
+						t.Fatalf("source coverage omitted native resource acceptance: %#v", call)
+					}
+				}
+			}
+			if coverageCalls != 1 {
+				t.Fatalf("source coverage ran %d times, want once", coverageCalls)
+			}
+		})
+	}
+}
+
+func TestNativeExplicitReleaseScopeRemainsIndependent(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+	selected := []string{"--peer", "github", "--repository", "owner/product"}
+	var calls []command
+	if err := run(append([]string{"native", "--"}, selected...), &bytes.Buffer{}, func(call command) error {
+		calls = append(calls, call)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	want := command{Name: "go", Args: append([]string{"run", "./tools/release", "accept-native"}, selected...)}
+	if len(calls) != 3 || !reflect.DeepEqual(calls[len(calls)-1], want) {
+		t.Fatalf("explicit release scope was absorbed by source coverage: %#v", calls)
+	}
+}
+
+func TestNativeSourceFixturesRetainIsolationAndCleanup(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+	t.Setenv("AIGW_ACCEPTANCE_RELEASE", "/unrelated/candidate")
+	t.Setenv("CI_JOB_TOKEN", "fixture-only")
+	for _, failure := range []error{nil, errors.New("source coverage failed")} {
+		var workspace string
+		err := run([]string{"native"}, &bytes.Buffer{}, func(call command) error {
+			if !slices.Contains(call.Args, "./tools/coverage") {
+				return nil
+			}
+			for _, value := range call.Env {
+				if after, ok := strings.CutPrefix(value, "TMPDIR="); ok {
+					workspace = after
+				}
+			}
+			if workspace == "" || !filepath.IsAbs(workspace) {
+				t.Fatalf("source fixtures have no private workspace: %#v", call)
+			}
+			if _, err := os.Stat(workspace); err != nil {
+				t.Fatal(err)
+			}
+			for _, value := range []string{"TMP=" + workspace, "TEMP=" + workspace, "CI_JOB_TOKEN=", "GH_TOKEN=", "MISE_NETRC=false", "AIGW_ACCEPTANCE_RELEASE=", "AIGW_ACCEPTANCE_BASELINE="} {
+				if !slices.Contains(call.Env, value) {
+					t.Fatalf("source fixture isolation omitted %q: %#v", value, call)
+				}
+			}
+			return failure
+		})
+		if !errors.Is(err, failure) {
+			t.Fatalf("source result changed: %v, want %v", err, failure)
+		}
+		if _, err := os.Stat(workspace); !os.IsNotExist(err) {
+			t.Fatalf("source fixture workspace survived: %s, %v", workspace, err)
+		}
 	}
 }
 
@@ -59,6 +146,7 @@ func TestNativeAcceptanceScopesPublishedBaselineToRelease(t *testing.T) {
 func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "0")
 	t.Setenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE", "")
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
 	root := repositoryRoot(t)
 	previous, err := os.Getwd()
 	if err != nil {
@@ -74,7 +162,7 @@ func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 		if err := run(args, &bytes.Buffer{}, func(call command) error {
 			calls = append(calls, call)
 			return nil
-		}); err != nil || len(calls) != 3 {
+		}); err != nil || len(calls) != 2 {
 			t.Fatalf("native host args=%v error=%v calls=%d", args, err, len(calls))
 		}
 	}
@@ -110,7 +198,7 @@ func TestNativeAcceptanceRefusesARepositoryWithoutVersionTruth(t *testing.T) {
 
 func TestNativeCommandsRequireCoverageOnEveryPlatform(t *testing.T) {
 	for _, platform := range []string{"darwin", "linux", "windows"} {
-		want := []string{"run", "./tools/coverage"}
+		want := []string{"run", "./tools/coverage", "--tags=native_resource_acceptance"}
 		if platform != "windows" {
 			want = append(want, "--race")
 		}
@@ -133,6 +221,10 @@ func TestNativeFullQualityUsesTheExistingGateOnce(t *testing.T) {
 		calls = append(calls, call)
 		return nil
 	})
+	// The per-run fixture environment is qualified separately from this graph.
+	if len(calls) == len(want) {
+		calls[len(calls)-1].Env = nil
+	}
 	if err != nil || !reflect.DeepEqual(calls, want) {
 		t.Fatalf("full native quality = %#v, %v; want existing gate then native tests and lifecycle", calls, err)
 	}

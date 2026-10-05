@@ -23,6 +23,7 @@ type recordingRunner struct {
 	listErr        error
 	metadata       string
 	metadataErr    error
+	calls          [][]string
 }
 
 type rejectingWriter struct{ prefix string }
@@ -35,6 +36,7 @@ func (writer rejectingWriter) Write(data []byte) (int, error) {
 }
 
 func (r *recordingRunner) Run(name string, args []string, stdout, stderr io.Writer) error {
+	r.calls = append(r.calls, slices.Clone(args))
 	if slices.Equal(args[:min(2, len(args))], []string{"list", "-json"}) {
 		if _, err := io.WriteString(stdout, r.metadata); err != nil {
 			return err
