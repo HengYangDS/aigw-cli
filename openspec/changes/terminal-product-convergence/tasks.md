@@ -142,7 +142,7 @@ in Git; original raw results stay with their source-bound verification owner.
 - [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
       build and CI costs against predecessor budgets on a quiet host; preserve raw
       samples and optimize only diagnosed owners.
-- [ ] 6.7 Assert warnings and malformed public errors fail at their origin;
+- [x] 6.7 Assert warnings and malformed public errors fail at their origin;
       human and JSON output must expose precise state and safe action without
       private paths, Token fragments, internal modules or tracebacks.
 

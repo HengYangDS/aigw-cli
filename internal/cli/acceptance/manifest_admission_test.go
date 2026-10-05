@@ -5,6 +5,7 @@ import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	surfaceidentity "aigw-cli/internal/surface"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -242,4 +243,40 @@ func TestManifestSetupSurfacesManifestAndConfigFailures(t *testing.T) {
 			t.Fatalf("error = %v", err)
 		}
 	})
+}
+
+func TestManifestDecodeFailureKeepsNativeTypesOutOfPublicOutput(t *testing.T) {
+	for _, mode := range []struct {
+		name string
+		json bool
+	}{{name: "human"}, {name: "JSON", json: true}} {
+		t.Run(mode.name, func(t *testing.T) {
+			app, out, _, _, _ := testApp(t, "")
+			path := writeConfigurationManifest(t, "version = 7\n[recommendations.codex]\nprimary = 'invalid-shape'\n")
+			args := []string{"setup", "--from", path}
+			if mode.json {
+				args = append(args, "--json")
+			}
+			if err := cli.Execute(app, args); err == nil {
+				t.Fatal("invalid manifest shape was accepted")
+			}
+			if strings.Contains(out.String(), "configuration.") || strings.Contains(out.String(), path) {
+				t.Fatal("manifest decoding exposed a native implementation type or private path")
+			}
+			if !strings.Contains(out.String(), "line 3") || !strings.Contains(out.String(), "column") {
+				t.Fatal("manifest decoding did not identify the document location")
+			}
+			if mode.json {
+				var result struct {
+					OK         bool   `json:"ok"`
+					Error      string `json:"error"`
+					NextAction string `json:"next_action"`
+				}
+				if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.OK || result.Error == "" || !strings.Contains(result.NextAction, "document") || !strings.Contains(result.NextAction, "rerun") {
+					t.Fatalf("manifest decoding did not emit one actionable JSON failure: %v", err)
+				}
+			}
+			assertManifestSetupLeavesNoConfig(t, app)
+		})
+	}
 }

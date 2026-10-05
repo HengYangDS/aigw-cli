@@ -8,6 +8,8 @@ import (
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 type userError struct {
@@ -130,6 +132,10 @@ func typedErrorMessage(err error) (string, bool) {
 	if hasPathError || hasLinkError {
 		return "Local file access failed; run `aigw doctor` to inspect current state", true
 	}
+	if document, ok := errors.AsType[*toml.DecodeError](err); ok {
+		line, column := document.Position()
+		return fmt.Sprintf("Cannot decode TOML document at line %d, column %d", line, column), true
+	}
 	return "", false
 }
 
@@ -177,6 +183,8 @@ func suggestedFix(message string) string {
 		return "aigw --help"
 	case strings.Contains(message, "unsupported configuration version"):
 		return "aigw doctor"
+	case strings.Contains(message, "Cannot decode TOML document"):
+		return "Correct the value at the reported document location and rerun the command."
 	default:
 		return "aigw check"
 	}

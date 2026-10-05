@@ -77,6 +77,8 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Fixed
 
+- Report malformed TOML values by document line and column, with correction
+  guidance instead of internal implementation types or private paths.
 - Include a top-level error in failed `check --json` results while retaining
   each enabled client's precise state and next action.
 - Let `aigw catalog --all --json` return the complete JSON catalogue instead
