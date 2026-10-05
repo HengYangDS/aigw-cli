@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,8 +24,8 @@ func TestOpenSpecCheckRequiresTheRepositoryLocalDependency(t *testing.T) {
 
 func TestTOMLChecksExecuteInRequestedRepository(t *testing.T) {
 	repository := repositoryRoot(t)
-	caller := t.TempDir()
-	root := filepath.Join(caller, "checkout with spaces")
+	root := newGitRepository(t)
+	caller := filepath.Dir(root)
 	valid := `z = 2
 a = 1
 choices = [
@@ -51,9 +52,6 @@ record = {z = 2, a = 1}
 		if err := os.WriteFile(destination, []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
-	}
-	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, output)
 	}
 	t.Chdir(caller)
 	for _, test := range []struct {
@@ -112,17 +110,11 @@ record = {z = 2, a = 1}
 
 func TestFormattingCoversCurrentCarriersAndPreservesOwnedExclusions(t *testing.T) {
 	repository := repositoryRoot(t)
-	root := filepath.Join(t.TempDir(), "checkout with spaces")
-	if err := os.MkdirAll(root, 0o700); err != nil {
-		t.Fatal(err)
-	}
+	root := newGitRepository(t)
 	for _, path := range []string{"package.json", ".gitignore", ".editorconfig", ".prettierignore"} {
 		if err := os.WriteFile(filepath.Join(root, path), readFile(t, filepath.Join(repository, path)), 0o600); err != nil {
 			t.Fatal(err)
 		}
-	}
-	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, output)
 	}
 	files := []string{"document.md", "docs/archive/current.md", ".config/archive/metadata.json", "openspec/changes/archive/old/spec.md", "build/tracked.json", "literal[1].json", "unsupported.txt", "build/generated.json"}
 	for _, path := range files {
@@ -159,5 +151,28 @@ func TestFormattingCoversCurrentCarriersAndPreservesOwnedExclusions(t *testing.T
 		return nil
 	}); err != nil || !called {
 		t.Fatalf("format inventory not executed: %v", err)
+	}
+}
+
+func TestGitRepositoryOwnsCompactNativeScratch(t *testing.T) {
+	workspace := t.TempDir()
+	for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+		t.Setenv(name, workspace)
+	}
+	var root string
+	t.Run("descriptive test names do not become Git object directories", func(t *testing.T) {
+		root = newGitRepository(t)
+		if filepath.Dir(root) != workspace || !strings.Contains(filepath.Base(root), " ") {
+			t.Fatalf("Git fixture must retain spaces directly under owned native scratch: %s", root)
+		}
+		if err := os.WriteFile(filepath.Join(root, "tracked.json"), []byte("{}\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if output, err := exec.Command("git", "-C", root, "add", "tracked.json").CombinedOutput(); err != nil {
+			t.Fatalf("compact Git object write: %v\n%s", err, output)
+		}
+	})
+	if _, err := os.Stat(root); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("owned Git fixture survived teardown: %v", err)
 	}
 }

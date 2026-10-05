@@ -40,8 +40,9 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 - Roll back owned client projections and configuration when credential-reader
   finalization fails after projection; unchanged-client reconciliation now
   checks the same post-apply invariant.
-- Add the direct DMXAPI GPT-6.1 Sol Responses Route and prefer it for new Codex
-  and Hermes bindings, followed by UCloud GPT-6.1 Sol; keep AIHubMix manual-only.
+- Add the direct DMXAPI GPT-6.1 Sol Responses Route. Prefer the CDX channel for
+  new Codex bindings and the direct Route for Hermes, followed by UCloud
+  GPT-6.1 Sol; keep AIHubMix manual-only.
   Existing explicit bindings remain untouched by a team-manifest update.
 - Make catalogue continuation use the actual `route add --protocol` contract;
   separate canonical `--model` from an optional exact provider

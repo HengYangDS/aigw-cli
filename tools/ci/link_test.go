@@ -13,7 +13,7 @@ import (
 
 func TestLinksChecksCurrentRepositoryMarkdown(t *testing.T) {
 	requireMiseTool(t, "github:lycheeverse/lychee")
-	root := t.TempDir()
+	root := newGitRepository(t)
 	git := func(args ...string) {
 		t.Helper()
 		process := exec.Command("git", append([]string{"-C", root}, args...)...)
@@ -31,7 +31,6 @@ func TestLinksChecksCurrentRepositoryMarkdown(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	git("init", "--quiet")
 	write("README.md", "[valid](docs/guide.md)\n")
 	write("--literal.md", "# Literal\n")
 	write("docs/guide.md", "# Guide\n")
@@ -63,10 +62,7 @@ func TestLinksChecksCurrentRepositoryMarkdown(t *testing.T) {
 
 func TestLinksChecksLocalHeadingTargets(t *testing.T) {
 	requireMiseTool(t, "github:lycheeverse/lychee")
-	root := t.TempDir()
-	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, output)
-	}
+	root := newGitRepository(t)
 	guide := filepath.Join(root, "guide.md")
 	if err := os.WriteFile(guide, []byte("# Guide\n\n## Setup and verification\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -121,14 +117,13 @@ func TestLinksRequireTrackedTargets(t *testing.T) {
 		{"tracked directory", "guide/", true},
 	} {
 		t.Run(target.name, func(t *testing.T) {
-			root := t.TempDir()
+			root := newGitRepository(t)
 			git := func(args ...string) {
 				t.Helper()
 				if output, err := exec.Command("git", append([]string{"-C", root}, args...)...).CombinedOutput(); err != nil {
 					t.Fatalf("git %v: %v\n%s", args, err, output)
 				}
 			}
-			git("init", "--quiet")
 			file := target.reference
 			if strings.HasSuffix(file, "/") {
 				file += "README.md"
@@ -159,11 +154,7 @@ func TestLinksRequireTrackedTargets(t *testing.T) {
 }
 
 func TestLinksRejectsInvalidRepositoriesAndEmptyMarkdownSets(t *testing.T) {
-	parent := t.TempDir()
-	process := exec.Command("git", "-C", parent, "init", "--quiet")
-	if output, err := process.CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v: %s", err, output)
-	}
+	parent := newGitRepository(t)
 	invalidRoot := filepath.Join(parent, "not-a-repository")
 	if err := os.Mkdir(invalidRoot, 0o700); err != nil {
 		t.Fatal(err)
@@ -175,11 +166,7 @@ func TestLinksRejectsInvalidRepositoriesAndEmptyMarkdownSets(t *testing.T) {
 		t.Fatalf("links non-repository error = %v", err)
 	}
 
-	root := t.TempDir()
-	process = exec.Command("git", "-C", root, "init", "--quiet")
-	if output, err := process.CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v: %s", err, output)
-	}
+	root := newGitRepository(t)
 	if markdown, err := currentRepositoryFiles(root, "Markdown", "*.md"); err == nil || !strings.Contains(err.Error(), "no current Markdown") || markdown != nil {
 		t.Fatalf("empty Markdown set = %#v, error = %v", markdown, err)
 	}
@@ -187,15 +174,11 @@ func TestLinksRejectsInvalidRepositoriesAndEmptyMarkdownSets(t *testing.T) {
 
 func TestLinksPropagatesLycheeFailure(t *testing.T) {
 	requireMiseTool(t, "github:lycheeverse/lychee")
-	root := t.TempDir()
-	process := exec.Command("git", "-C", root, "init", "--quiet")
-	if output, err := process.CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v: %s", err, output)
-	}
+	root := newGitRepository(t)
 	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte("# AIGW\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	process = exec.Command("git", "-C", root, "add", "--", "README.md")
+	process := exec.Command("git", "-C", root, "add", "--", "README.md")
 	if output, err := process.CombinedOutput(); err != nil {
 		t.Fatalf("git add: %v: %s", err, output)
 	}

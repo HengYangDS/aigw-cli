@@ -5,23 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestSourceSizeUsesExactNativeCodeLines(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "checkout with spaces")
+	root := newGitRepository(t)
 	policy := filepath.Join(root, ".config", "checks", "go", "size.toml")
 	if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(policy, []byte("max_code_lines = 500\n"), 0o600); err != nil {
 		t.Fatal(err)
-	}
-	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, output)
 	}
 	t.Setenv("GIT_INDEX_FILE", filepath.Join(t.TempDir(), "foreign-index"))
 	for _, test := range []struct {
@@ -90,16 +86,13 @@ func TestSourceSizeRequiresCompleteMeasurement(t *testing.T) {
 }
 
 func TestSourceSizeStopsOnNativeFailure(t *testing.T) {
-	root := t.TempDir()
+	root := newGitRepository(t)
 	policy := filepath.Join(root, ".config", "checks", "go", "size.toml")
 	if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(policy, []byte("max_code_lines = 500\n"), 0o600); err != nil {
 		t.Fatal(err)
-	}
-	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, output)
 	}
 	if err := os.WriteFile(filepath.Join(root, "source.go"), []byte("package fixture\n"), 0o600); err != nil {
 		t.Fatal(err)

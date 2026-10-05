@@ -20,11 +20,7 @@ import (
 )
 
 func TestGoChecksUseCurrentRepositorySources(t *testing.T) {
-	root := t.TempDir()
-	process := exec.Command("git", "-C", root, "init", "--quiet")
-	if output, err := process.CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v: %s", err, output)
-	}
+	root := newGitRepository(t)
 	for path, content := range map[string]string{
 		".gitignore":          "build/\n",
 		"source.go":           "package fixture\n",
@@ -43,7 +39,7 @@ func TestGoChecksUseCurrentRepositorySources(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	process = exec.Command(
+	process := exec.Command(
 		"git", "-C", root, "add", "--",
 		".gitignore", "source.go", "retired.go", "_snapshot/source.go", ".snapshot/source.go",
 	)
@@ -85,7 +81,7 @@ func TestGoChecksUseCurrentRepositorySources(t *testing.T) {
 }
 
 func TestGoChecksIgnoreGeneratedToolchainSources(t *testing.T) {
-	root := t.TempDir()
+	root := newGitRepository(t)
 	policy, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".config", "checks", "go", "policy.yml"))
 	if err != nil {
 		t.Fatal(err)
@@ -104,9 +100,6 @@ func TestGoChecksIgnoreGeneratedToolchainSources(t *testing.T) {
 		if err := os.WriteFile(target, content, 0o600); err != nil {
 			t.Fatal(err)
 		}
-	}
-	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, output)
 	}
 	if output, err := exec.Command("git", "-C", root, "add", "--", ".gitignore", "go.mod", "source.go").CombinedOutput(); err != nil {
 		t.Fatalf("git add: %v\n%s", err, output)
@@ -143,8 +136,8 @@ func TestGoChecksExecuteInRequestedRepository(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	caller := t.TempDir()
-	root := filepath.Join(caller, "checkout with spaces")
+	root := newGitRepository(t)
+	caller := filepath.Dir(root)
 	for path, content := range map[string][]byte{
 		"go.mod":                       []byte("module fixture\n"),
 		".config/checks/go/policy.yml": policy,
@@ -156,9 +149,6 @@ func TestGoChecksExecuteInRequestedRepository(t *testing.T) {
 		if err := os.WriteFile(target, content, 0o600); err != nil {
 			t.Fatal(err)
 		}
-	}
-	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, output)
 	}
 	t.Chdir(caller)
 	nativeInvocations := 0

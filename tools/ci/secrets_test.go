@@ -15,8 +15,8 @@ import (
 
 func TestSecretChecksMeasureCurrentAuthoredFiles(t *testing.T) {
 	repository := repositoryRoot(t)
-	caller := t.TempDir()
-	root := filepath.Join(caller, "checkout with spaces")
+	root := newGitRepository(t)
+	caller := filepath.Dir(root)
 	write := func(path, content string) {
 		t.Helper()
 		path = filepath.Join(root, filepath.FromSlash(path))
@@ -37,7 +37,6 @@ func TestSecretChecksMeasureCurrentAuthoredFiles(t *testing.T) {
 			t.Fatalf("git fixture: %v\n%s", err, output)
 		}
 	}
-	git("init", "--quiet")
 	secret := strings.Join([]string{"aB9x", "V2mN", "r4Qz", "W7kL", "p5S8", "j0C3", "D6fG", "h1T4"}, "")
 	content := "api_key = " + strconv.Quote(secret) + "\n"
 	write("build/signature.log", content)
@@ -150,12 +149,9 @@ func TestSecretChecksPreserveNativeSymlinkScope(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink fixture requires privileges not granted to ordinary Windows users")
 	}
-	root, outside := t.TempDir(), filepath.Join(t.TempDir(), "outside.txt")
+	root, outside := newGitRepository(t), filepath.Join(t.TempDir(), "outside.txt")
 	if err := os.WriteFile(outside, []byte("outside repository"), 0o600); err != nil {
 		t.Fatal(err)
-	}
-	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, output)
 	}
 	link := filepath.Join(root, "linked.txt")
 	if err := os.Symlink(outside, link); err != nil {
@@ -187,9 +183,7 @@ func TestSecretChecksFailWithoutSourceOrNativePolicy(t *testing.T) {
 	if err := run([]string{"check-secrets", root}, &bytes.Buffer{}, systemRunner); err == nil {
 		t.Fatal("nonrepository was accepted")
 	}
-	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, output)
-	}
+	root = newGitRepository(t)
 	if err := run([]string{"check-secrets", root}, &bytes.Buffer{}, systemRunner); err == nil {
 		t.Fatal("empty repository was accepted")
 	}

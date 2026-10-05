@@ -127,10 +127,7 @@ func TestRepositoryQualityGraphOwnsTheArchitectureEditionProvider(t *testing.T) 
 
 func TestSpellingUsesCurrentCheckoutAndNativePolicy(t *testing.T) {
 	repository := repositoryRoot(t)
-	root := t.TempDir()
-	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, output)
-	}
+	root := newGitRepository(t)
 	write := func(relative, content string) {
 		t.Helper()
 		path := filepath.Join(root, filepath.FromSlash(relative))
@@ -217,10 +214,7 @@ func TestPortableQualityToolsHaveCompletePlatformLocks(t *testing.T) {
 }
 
 func TestWorkflowGateResourceBoundaryIsNativeAndExact(t *testing.T) {
-	root := t.TempDir()
-	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
-		t.Fatalf("git fixture: %v %s", err, output)
-	}
+	root := newGitRepository(t)
 	file := filepath.Join(root, ".github", "workflows", "probe.yml")
 	if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
 		t.Fatal(err)

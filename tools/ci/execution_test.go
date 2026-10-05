@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -396,10 +395,7 @@ func TestWorkflowGateQualifiesNativeLargeShellInputAndRefusesShellDefects(t *tes
 	if gate < 0 {
 		t.Fatal("workflow gate lacks complete native shell validation")
 	}
-	root := t.TempDir()
-	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
-		t.Fatalf("fixture git: %v %s", err, output)
-	}
+	root := newGitRepository(t)
 	path := filepath.Join(root, ".github", "workflows", "verify.yml")
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)

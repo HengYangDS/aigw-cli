@@ -20,20 +20,14 @@ func TestMarkdownPolicyCommandUsesRequestedCheckout(t *testing.T) {
 }
 
 func TestDocumentInputsAreIndependentOfCommandLineLength(t *testing.T) {
-	root := t.TempDir()
-	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, output)
-	}
+	root := newGitRepository(t)
 	var files []string
-	for index := range 500 {
+	for index := 0; len(strings.Join(files, "\n")) <= 32767; index++ {
 		name := filepath.Join(root, fmt.Sprintf("%03d-document.md", index))
 		if err := os.WriteFile(name, []byte("# Document\n\n[Heading](#document)\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		files = append(files, name)
-	}
-	if len(strings.Join(files, "\n")) <= 32767 {
-		t.Fatal("document inventory is too small to exercise Windows command-line limits")
 	}
 	if output, err := exec.Command("git", "-C", root, "add", "--all").CombinedOutput(); err != nil {
 		t.Fatalf("git add: %v\n%s", err, output)
@@ -65,17 +59,13 @@ func TestDocumentInputsAreIndependentOfCommandLineLength(t *testing.T) {
 
 func TestMarkdownCheckDiscoversAuthoredDocuments(t *testing.T) {
 	repository := repositoryRoot(t)
-	root := filepath.Join(t.TempDir(), "checkout with spaces")
-	if err := os.MkdirAll(root, 0o700); err != nil {
-		t.Fatal(err)
-	}
+	root := newGitRepository(t)
 	git := func(args ...string) {
 		t.Helper()
 		if output, err := exec.Command("git", append([]string{"-C", root}, args...)...).CombinedOutput(); err != nil {
 			t.Fatalf("git: %v\n%s", err, output)
 		}
 	}
-	git("init", "--quiet")
 	valid, invalid := "# Document\n\n## Details\n", "# Document\n\n### Details\n"
 	files := map[string]string{
 		".gitignore":                           "/build/\n/node_modules/\n.serena/\n",

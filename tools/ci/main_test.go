@@ -12,6 +12,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/rogpeppe/go-internal/robustio"
 )
 
 func TestSourceRunsThePortableGateSequence(t *testing.T) {
@@ -171,11 +173,8 @@ func TestQualityUsesNativeConfigurationSchemas(t *testing.T) {
 }
 
 func TestRepositoryInventoryUsesTheRequestedCheckoutIndex(t *testing.T) {
-	root, foreign := t.TempDir(), t.TempDir()
+	root, foreign := newGitRepository(t), newGitRepository(t)
 	for _, directory := range []string{root, foreign} {
-		if output, err := exec.Command("git", "-C", directory, "init", "--quiet").CombinedOutput(); err != nil {
-			t.Fatalf("git init: %v\n%s", err, output)
-		}
 		if err := os.WriteFile(filepath.Join(directory, ".gitignore"), []byte("*.md\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -469,6 +468,23 @@ func repositoryRoot(t *testing.T) string {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
+	}
+	return root
+}
+
+func newGitRepository(t *testing.T) string {
+	t.Helper()
+	root, err := os.MkdirTemp("", "repo -")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := robustio.RemoveAll(root); err != nil {
+			t.Error(err)
+		}
+	})
+	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, output)
 	}
 	return root
 }
