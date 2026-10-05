@@ -107,11 +107,13 @@ Keep source snapshots as `.go.txt` or archives. Ordinary `.go` files in ignored
 handwritten verdict or summary checksum. [`.serena/`](.gitignore) and other local
 indexes remain ignored, disposable and outside product authority.
 
-Before transporting a private Git snapshot between hosts, disable
-`core.untrackedCache` in that snapshot's local configuration before producing
-its index. A copied `UNTR` extension carries host filesystem assumptions and
-can warn on another platform; changing the destination's global Git policy or
-filtering the warning is not a repair.
+Create transported acceptance snapshots with native `git clone --no-hardlinks`.
+Pin the exact source revision, retain its declared canonical remote as metadata,
+and disable `core.untrackedCache` locally before checkout. Verify the source tree
+and selected file hashes before mounting it read-only. This preserves native
+build metadata without fetching a peer. A copied `UNTR` index extension or a
+remote-less reconstruction can produce native-tool diagnostics; repair the
+snapshot, not the destination's global Git policy or its logs.
 
 ## Projection changes
 
