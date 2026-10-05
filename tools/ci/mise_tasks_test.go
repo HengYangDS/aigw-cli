@@ -62,8 +62,8 @@ func TestMisePerformanceToolIsTaskScoped(t *testing.T) {
 		t.Fatal(err)
 	}
 	task := configuration.Tasks.Performance
-	if task.Tools["github:sharkdp/hyperfine"] == "" || task.Run != "go run ./tools/release accept-native" {
-		t.Fatalf("performance must bind Hyperfine to the existing native acceptance owner: %#v", task)
+	if task.Tools["github:sharkdp/hyperfine"] == "" || task.Run != "go run ./tools/ci native --" {
+		t.Fatalf("performance must bind Hyperfine to diagnostic-gated native acceptance: %#v", task)
 	}
 	if _, present := configuration.Tools["github:sharkdp/hyperfine"]; present {
 		t.Fatal("a task-specific measurement tool became a mandatory general tool")
