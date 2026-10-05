@@ -144,6 +144,7 @@ toolchainTools: {
 		"github:goreleaser/goreleaser",
 		"github:google/osv-scanner",
 		"github:rhysd/actionlint",
+		"github:sharkdp/hyperfine",
 		"shellcheck",
 		"taplo",
 		"typos",
@@ -605,7 +606,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		{
 			name: "Measure historical release performance"
 			if:   _historicalCondition + " && inputs.performance"
-			env: _historicalEnvironment & {MISE_ENABLE_TOOLS: "${{ env.MISE_ENABLE_TOOLS }},github:sharkdp/hyperfine"}
+			env: _historicalEnvironment
 			run: "mise run performance \(_historicalArguments) --performance \"\(_environmentPrefix)GITHUB_WORKSPACE/build/performance\""
 		},
 		if _platform == "windows" {

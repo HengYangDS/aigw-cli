@@ -80,7 +80,7 @@ func TestQualityCommandsResolveInDeclaredToolchain(t *testing.T) {
 		t.Fatal("quality toolchain must declare its native tools")
 	}
 	toolchain := strings.Split(environment["MISE_ENABLE_TOOLS"], ",")
-	for _, required := range []string{"shellcheck", "typos"} {
+	for _, required := range []string{"shellcheck", "typos", "github:sharkdp/hyperfine"} {
 		if !slices.Contains(toolchain, required) {
 			t.Fatalf("quality toolchain lacks %s: %q", required, toolchain)
 		}

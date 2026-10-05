@@ -51,6 +51,7 @@ taplo = "0.10.0"
 "github:golangci/golangci-lint" = "2.14.0"
 shellcheck = "0.11.0"
 "github:rhysd/actionlint" = "1.7.12"
+"github:sharkdp/hyperfine" = "1.20.0"
 "github:lycheeverse/lychee" = {version = "lychee-v0.24.2", platforms.windows-arm64.asset_pattern = "lychee-x86_64-pc-windows-msvc.zip"}
 typos = "1.50.3"
 
@@ -88,7 +89,6 @@ timeout = "5m"
 
 [tasks.performance]
 description = "Measure explicit signed native candidate artifacts with retained Hyperfine samples."
-tools."github:sharkdp/hyperfine" = "1.20.0"
 run = "go run ./tools/ci native --"
 
 [tasks."dependencies:resolve"]

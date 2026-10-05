@@ -25,6 +25,9 @@ func TestQualityJobsUseTheirExactToolClosure(t *testing.T) {
 	if qualityTools == "" {
 		t.Fatal("GitLab quality job must declare its native toolchain")
 	}
+	if !slices.Contains(strings.Split(qualityTools, ","), "github:sharkdp/hyperfine") {
+		t.Fatal("quality toolchain omits Hyperfine required by its selected performance diagnostics")
+	}
 	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_CI_LINUX_RUNNER_TAG"}) {
 		t.Fatalf("GitLab quality runner tags = %q", pipeline.Quality.Tags)
 	}

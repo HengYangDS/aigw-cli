@@ -362,6 +362,9 @@ func TestSystemCredentialJourneyUsesItsEffectiveHome(t *testing.T) {
 			}
 			paths := []string{journey.config, journey.settings, journey.settings + ".aigw-state.json"}
 			for _, path := range paths {
+				if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+					t.Fatal(err)
+				}
 				mustWriteFile(t, path, []byte("test-owned state"), 0o600)
 			}
 			if err := preparePerformanceSetup(filepath.Dir(journey.config), filepath.Dir(journey.settings), journey.config, journey.settings); err != nil {

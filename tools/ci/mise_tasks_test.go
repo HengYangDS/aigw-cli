@@ -44,7 +44,7 @@ type miseTask struct {
 	Run  []string `json:"run"`
 }
 
-func TestMisePerformanceToolIsTaskScoped(t *testing.T) {
+func TestMisePerformanceDiagnosticsHaveDeclaredSupply(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), "mise.toml"))
 	if err != nil {
 		t.Fatal(err)
@@ -53,8 +53,7 @@ func TestMisePerformanceToolIsTaskScoped(t *testing.T) {
 		Tools map[string]any `toml:"tools"`
 		Tasks struct {
 			Performance struct {
-				Tools map[string]string `toml:"tools"`
-				Run   string            `toml:"run"`
+				Run string `toml:"run"`
 			} `toml:"performance"`
 		} `toml:"tasks"`
 	}
@@ -62,11 +61,11 @@ func TestMisePerformanceToolIsTaskScoped(t *testing.T) {
 		t.Fatal(err)
 	}
 	task := configuration.Tasks.Performance
-	if task.Tools["github:sharkdp/hyperfine"] == "" || task.Run != "go run ./tools/ci native --" {
-		t.Fatalf("performance must bind Hyperfine to diagnostic-gated native acceptance: %#v", task)
+	if configuredMiseToolVersion(t, configuration.Tools, "github:sharkdp/hyperfine") == "" {
+		t.Fatal("source performance diagnostics lack their locked Hyperfine supply")
 	}
-	if _, present := configuration.Tools["github:sharkdp/hyperfine"]; present {
-		t.Fatal("a task-specific measurement tool became a mandatory general tool")
+	if task.Run != "go run ./tools/ci native --" {
+		t.Fatalf("performance must use diagnostic-gated native acceptance: %#v", task)
 	}
 }
 

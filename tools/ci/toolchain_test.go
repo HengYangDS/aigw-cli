@@ -28,6 +28,7 @@ var miseToolProbes = map[string]miseToolProbe{
 	"github:goreleaser/goreleaser": {[]string{"goreleaser", "--version"}, `(?m)^GitVersion:\s+(\S+)`},
 	"github:anchore/syft":          {[]string{"syft", "version"}, `(?m)^Version:\s+(\S+)`},
 	"github:google/osv-scanner":    {[]string{"osv-scanner", "--version"}, `^osv-scanner version: (\S+)`},
+	"github:sharkdp/hyperfine":     {[]string{"hyperfine", "--version"}, `^hyperfine (\S+)`},
 	"taplo":                        {[]string{"taplo", "--version"}, `^taplo (\S+)`},
 	"github:boyter/scc":            {[]string{"scc", "--version"}, `^scc version (\S+)`},
 	"github:editorconfig-checker/editorconfig-checker": {[]string{"editorconfig-checker", "--version"}, `^v(\S+)`},

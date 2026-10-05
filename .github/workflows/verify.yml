@@ -117,7 +117,7 @@ jobs:
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')
     env:
-      MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee
+      MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -239,7 +239,7 @@ jobs:
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'darwin')
     env:
-      MISE_ENABLE_TOOLS: ${{ (!(github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')) && 'go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs' || 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab,github:indygreg/apple-platform-rs' }}
+      MISE_ENABLE_TOOLS: ${{ (!(github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')) && 'go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs' || 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab,github:indygreg/apple-platform-rs' }}
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -320,7 +320,6 @@ jobs:
           AIGW_CANDIDATE_TAG: ${{ inputs.candidate_tag }}
           AIGW_NATIVE_DIAGNOSTIC_CLIENT: ${{ inputs.diagnostic_client }}
           AIGW_RELEASE_ARTIFACT_SIGNER: ${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}
-          MISE_ENABLE_TOOLS: ${{ env.MISE_ENABLE_TOOLS }},github:sharkdp/hyperfine
         run: mise run performance --peer=github --repository="$GITHUB_REPOSITORY" --baseline-tag="$AIGW_BASELINE_TAG" --tag="$AIGW_CANDIDATE_TAG" --clients=false --diagnostic-client="$AIGW_NATIVE_DIAGNOSTIC_CLIENT" --performance "$GITHUB_WORKSPACE/build/performance"
       - name: Retain native dependency evidence
         if: always()
@@ -354,7 +353,7 @@ jobs:
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
     env:
-      MISE_ENABLE_TOOLS: ${{ (!(github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')) && 'go,gh,glab,github:goreleaser/goreleaser' || 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' }}
+      MISE_ENABLE_TOOLS: ${{ (!(github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')) && 'go,gh,glab,github:goreleaser/goreleaser' || 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' }}
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -439,7 +438,6 @@ jobs:
           AIGW_CANDIDATE_TAG: ${{ inputs.candidate_tag }}
           AIGW_NATIVE_DIAGNOSTIC_CLIENT: ${{ inputs.diagnostic_client }}
           AIGW_RELEASE_ARTIFACT_SIGNER: ${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}
-          MISE_ENABLE_TOOLS: ${{ env.MISE_ENABLE_TOOLS }},github:sharkdp/hyperfine
         run: mise run performance --peer=github --repository="$GITHUB_REPOSITORY" --baseline-tag="$AIGW_BASELINE_TAG" --tag="$AIGW_CANDIDATE_TAG" --clients=false --diagnostic-client="$AIGW_NATIVE_DIAGNOSTIC_CLIENT" --performance "$GITHUB_WORKSPACE/build/performance"
       - name: Retain native dependency evidence
         if: always()
@@ -473,7 +471,7 @@ jobs:
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'windows')
     env:
-      MISE_ENABLE_TOOLS: ${{ (!(github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')) && 'go,gh,glab,github:goreleaser/goreleaser' || 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' }}
+      MISE_ENABLE_TOOLS: ${{ (!(github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')) && 'go,gh,glab,github:goreleaser/goreleaser' || 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' }}
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -629,7 +627,6 @@ jobs:
           AIGW_CANDIDATE_TAG: ${{ inputs.candidate_tag }}
           AIGW_NATIVE_DIAGNOSTIC_CLIENT: ${{ inputs.diagnostic_client }}
           AIGW_RELEASE_ARTIFACT_SIGNER: ${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}
-          MISE_ENABLE_TOOLS: ${{ env.MISE_ENABLE_TOOLS }},github:sharkdp/hyperfine
         run: mise run performance --peer=github --repository="$env:GITHUB_REPOSITORY" --baseline-tag="$env:AIGW_BASELINE_TAG" --tag="$env:AIGW_CANDIDATE_TAG" --clients=${{ inputs.windows_clients && inputs.diagnostic_client == '' }} --diagnostic-client="$env:AIGW_NATIVE_DIAGNOSTIC_CLIENT" --performance "$env:GITHUB_WORKSPACE/build/performance"
       - name: Remove official Windows client supply
         if: always() && github.event_name == 'workflow_dispatch' && inputs.windows_clients && inputs.baseline_tag != ''

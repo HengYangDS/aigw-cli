@@ -305,8 +305,8 @@ Pre-archive samples qualify only that candidate. Archive changes source identity
 measure the newly built, exact-source matrix again before tagging, rather than
 carrying old samples into the final release verdict.
 
-The output must be a new absolute directory. The task installs its locked
-Hyperfine tool only when requested; ordinary checks do not require it.
+The output must be a new absolute directory. Locked Hyperfine supplies both
+source diagnostic regressions and explicitly selected artifact measurements.
 An explicit performance output selects only the matching measurements after
 normal artifact, source and predecessor trust checks; it does not repeat core,
 rollback or resource lifecycle acceptance. `--clients` additionally runs the
