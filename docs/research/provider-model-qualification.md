@@ -75,7 +75,7 @@ agent role and exact provider/client behavior are qualified. An unqualified
 Preview remains discovery-only; do not conceal that distinction or silently
 replace an explicit local selection.
 
-## October 5 model refresh
+## October 5–6 model refresh
 
 Authenticated discovery completed eight Account/protocol reads: 417 AIHubMix,
 523 DMXAPI and 275 UCloud IDs. All three Accounts list GPT-6.1 Sol, GPT-6
@@ -84,6 +84,17 @@ Astra, GPT-6 Luna, Claude Opus 5.5, Sonnet 5.5 and Fable 5.1. Anthropic's
 and these catalogues did not establish Fable 5.5 or Haiku 5.5. Haiku 4.5 is
 listed but is not substituted for the requested unverified generation.
 Gemini 4 remains a trusted-tester announcement, not an admitted aggregator Route.
+
+The October 6 recheck found no ID changes across these eight authenticated
+surfaces. The current [Claude release notes](https://platform.claude.com/docs/en/release-notes/overview)
+do not establish the requested Fable 5.5 or Haiku 5.5 successors.
+[MiniMax M3.1 Flash Preview](https://platform.minimax.io/docs/guides/models-intro)
+is newer, but available only through M Plan and MiniMax Code; none of these
+Accounts lists it. Retain the qualified M3 Routes rather than inventing an ID.
+Installed AIGW 0.3.1 completed native Claude and Codex verifications of the
+selected UCloud Opus 5.5 and Sol 6.1 Routes. The team and secret-free local
+configuration remained byte-identical; no import, sync or restart occurred.
+This recheck does not requalify every Route or rank models independently.
 
 The following direct channels completed text inference, an actual Hermes
 `read_file` call, a final marker and same-session recall with medium effort:

@@ -24,23 +24,34 @@ func VersionedEntrypointPath(dataDir, source, installName string) (path string, 
 	if installName == "" || installName == "." || installName == ".." || filepath.Base(installName) != installName {
 		return "", errors.New("credential executable name must be one file name")
 	}
+	sum, err := executableDigest(source)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dataDir, entrypointDirectory, hex.EncodeToString(sum[:]), installName), nil
+}
+
+func executableDigest(source string) (sum [sha256.Size]byte, err error) {
 	executable, err := os.Open(source)
 	if err != nil {
-		return "", fmt.Errorf("open AIGW executable for credential identity: %w", err)
+		return sum, fmt.Errorf("open AIGW executable for credential identity: %w", err)
 	}
 	defer func() { err = errors.Join(err, executable.Close()) }()
 	info, err := executable.Stat()
 	if err != nil {
-		return "", fmt.Errorf("inspect AIGW executable for credential identity: %w", err)
+		return sum, fmt.Errorf("inspect AIGW executable for credential identity: %w", err)
 	}
 	if !info.Mode().IsRegular() {
-		return "", errors.New("AIGW credential source is not a regular executable")
+		return sum, errors.New("AIGW credential source is not a regular executable")
+	}
+	if info.Size() == 0 {
+		return sum, errors.New("AIGW credential source is empty")
 	}
 	hash := sha256.New()
 	if _, err := io.Copy(hash, executable); err != nil {
-		return "", fmt.Errorf("hash AIGW executable for credential identity: %w", err)
+		return sum, fmt.Errorf("hash AIGW executable for credential identity: %w", err)
 	}
-	return filepath.Join(dataDir, entrypointDirectory, hex.EncodeToString(hash.Sum(nil)), installName), nil
+	return [sha256.Size]byte(hash.Sum(nil)), nil
 }
 
 // ValidateRetainedEntrypoint accepts only an intact predecessor in the current
@@ -196,6 +207,12 @@ func ensureEntrypoint(
 	if err != nil {
 		return nil, err
 	}
+	if !needed {
+		if err := verifyEntrypointSource(source, target); err != nil {
+			return nil, err
+		}
+		return func() error { return nil }, nil
+	}
 	data, err := os.ReadFile(source)
 	if err != nil {
 		return nil, fmt.Errorf("read AIGW credential source: %w", err)
@@ -208,16 +225,6 @@ func ensureEntrypoint(
 		return nil, err
 	}
 	identity := hex.EncodeToString(sum[:]) + "\n"
-	if !needed {
-		recorded, err := os.ReadFile(target + ".sha256")
-		if err != nil {
-			return nil, fmt.Errorf("read credential entrypoint receipt: %w", err)
-		}
-		if string(recorded) != identity {
-			return nil, errors.New("credential entrypoint does not match the current AIGW executable; refusing to replace active bytes")
-		}
-		return func() error { return nil }, nil
-	}
 	parent := filepath.Dir(target)
 	cleanupDirectories, err := createCredentialDirectoryChain(parent)
 	if err != nil {
@@ -255,6 +262,24 @@ func ensureEntrypoint(
 		return nil, errors.Join(err, undo())
 	}
 	return undo, nil
+}
+
+func verifyEntrypointSource(source, target string) error {
+	sum, err := executableDigest(source)
+	if err != nil {
+		return err
+	}
+	if err := validateVersionedDigest(target, sum); err != nil {
+		return err
+	}
+	recorded, err := os.ReadFile(target + ".sha256")
+	if err != nil {
+		return fmt.Errorf("read credential entrypoint receipt: %w", err)
+	}
+	if string(recorded) != hex.EncodeToString(sum[:])+"\n" {
+		return errors.New("credential entrypoint does not match the current AIGW executable; refusing to replace active bytes")
+	}
+	return nil
 }
 
 func createCredentialDirectoryChain(parent string) (func() error, error) {

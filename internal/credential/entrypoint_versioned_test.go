@@ -290,18 +290,40 @@ func TestEntrypointVerificationKeepsMemoryBounded(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	measurement := testing.Benchmark(func(b *testing.B) {
-		b.ReportAllocs()
-		b.SetBytes(executableSize)
-		for b.Loop() {
-			if missing, err := EntrypointNeeded(target); missing || err != nil {
-				b.Fatalf("intact reader verification = %t, %v", missing, err)
+	for _, operation := range []struct {
+		name string
+		run  func() error
+	}{
+		{"verify", func() error {
+			missing, err := EntrypointNeeded(target)
+			if missing {
+				return errors.New("intact reader disappeared")
 			}
-		}
-	})
-	t.Logf("native reader verification: %s; %s", measurement.String(), measurement.MemString())
-	if allocated := measurement.AllocedBytesPerOp(); allocated >= 1<<20 {
-		t.Fatalf("reader verification allocated %d bytes per operation for a %d-byte executable; require less than 1 MiB", allocated, executableSize)
+			return err
+		}},
+		{"ensure-existing", func() error {
+			undo, err := EnsureEntrypoint(source, target)
+			if err != nil {
+				return err
+			}
+			return undo()
+		}},
+	} {
+		t.Run(operation.name, func(t *testing.T) {
+			measurement := testing.Benchmark(func(b *testing.B) {
+				b.ReportAllocs()
+				b.SetBytes(executableSize)
+				for b.Loop() {
+					if err := operation.run(); err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+			t.Logf("native reader %s: %s; %s", operation.name, measurement.String(), measurement.MemString())
+			if allocated := measurement.AllocedBytesPerOp(); allocated >= 1<<20 {
+				t.Fatalf("reader %s allocated %d bytes per operation for a %d-byte executable; require less than 1 MiB", operation.name, allocated, executableSize)
+			}
+		})
 	}
 }
 

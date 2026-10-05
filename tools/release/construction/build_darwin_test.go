@@ -191,6 +191,7 @@ func privateInternalRelease(t *testing.T) buildRequest {
 		t.Setenv(name, "")
 	}
 	privateReleaseCommand(t, root, "git", "init", "--quiet")
+	privateReleaseCommand(t, root, "git", "remote", "add", "origin", "https://github.com/HengYangDS/aigw-cli.git")
 	privateReleaseCommand(t, root, "git", "-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.test", "commit", "--allow-empty", "--quiet", "-m", "test fixture")
 	request := buildRequest{Root: root, Version: "1.2.3", Epoch: strconv.FormatInt(time.Now().Unix(), 10)}
 	return request
