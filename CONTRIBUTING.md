@@ -456,12 +456,22 @@ binds execution to the selected source.
 
 #### Disposable Linux clients
 
-Use Docker `--init`, isolated non-root identity, owned tmpfs/output and exact
-before/after process/resource observations. Synthetic credentials never authorize
-host-store access. Transfer inputs/results through `docker exec -i` and portable
-tar streams without host extended attributes or mount-root ownership; `docker cp`
-may miss live tmpfs. Verify hashes as the actual user before execution and before
-stopping the container, then remove only its owned resources.
+Use Docker `--init`, a complete non-root account and owned tmpfs/output. Keep
+the root filesystem read-only, drop capabilities and prohibit host mounts. Select
+Mise at or above the repository minimum; the image must also supply `ssh-keygen`,
+the native compiler and C runtime. Probe these inputs as the actual user before
+starting product acceptance.
+
+Docker tmpfs defaults to `noexec`. Explicitly allow execution only on private
+Mise, work and test directories that contain tools, extracted product binaries or
+Go test executables; retain `noexec` on artifact and trust input mounts. Check
+actual mount flags and run the selected tools before a heavy gate. Synthetic
+credentials never authorize host-store access.
+
+Transfer inputs/results through `docker exec -i`. On macOS, create portable tar
+streams with `--no-xattrs --no-acls --no-fflags --no-mac-metadata`; extract with
+`--no-same-owner`. `docker cp` may miss live tmpfs. Verify hashes, process/resource
+state and exact cleanup before stopping and removing only owned resources.
 
 Codex requires working user namespaces and bubblewrap. Check both through the
 actual client; containers are not interchangeable with native Linux hosts.
