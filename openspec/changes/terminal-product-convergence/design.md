@@ -395,12 +395,16 @@ policy lives in a private Git config inside the same exact supply root instead.
 Original Git verifies the pinned HEAD and clean source before client exposure.
 That configuration is neither the host's global config nor persistent state.
 
-Linux Secret Service CI retains only its isolated D-Bus session and temporary
-collection alias as OS glue. The selected native Go journey owns success and
-failure; CI forwards its output and exit directly instead of merging streams
-and searching a human-readable PASS line. The explicit native-store flag selects
-that non-skipping Linux journey, while unavailable or occupied stores fail at
-the original credential owner.
+Linux Secret Service CI uses separate private D-Bus sessions for locked-store
+refusal and the unlocked native lifecycle. The locked fixture owns its temporary
+HOME, synthetic login collection and controlled native-daemon unlock. A native
+method monitor proves that denied operations never request an unlock, display a
+prompt or access credential bytes; the fixture also proves pending-prompt
+dismissal and retained value and metadata after controlled unlock. The selected
+native Go journeys own success and failure; CI forwards their output and exit
+directly. Metadata-only existence and already-absent deletion remain available
+without unlocking a collection. Unavailable or ambiguous stores fail at the
+original credential owner.
 
 Unprotected `proposal/*` reviews must not be protected merely to reach a
 protected runner: eligible protected GitLab merge requests receive protected

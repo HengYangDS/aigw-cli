@@ -86,6 +86,7 @@ linuxToolchain: {
 linuxSecretService: {
 	packages: "dbus-x11 gnome-keyring libglib2.0-bin"
 	journey: #"""
+		G_DEBUG=fatal-warnings dbus-run-session -- env AIGW_VERIFY_LOCKED_SECRET_SERVICE=1 AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host mise exec --locked -- go test ./internal/secrets/native -run "^TestLockedSecretServiceRefusesInteractiveOperations$" -count=1 -v -timeout=45s
 		G_DEBUG=fatal-warnings dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
 		gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
 		gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null

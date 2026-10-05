@@ -42,8 +42,11 @@ mechanism, set `AIGW_SECRET_BACKEND` to
   writes carry the logical Token only through standard input. Metadata queries
   never request credential bytes. Explicit selection fails closed if the native
   service is unavailable; AIGW neither retries through another backend nor
-  changes access policy. The deadline bounds AIGW's process, not operating-system
-  authorization UI controlled by the selected native service.
+  changes access policy. Linux reads the collection and item lock metadata before
+  value access or mutation; locked items fail without requesting an unlock or
+  invoking a native prompt. Pending prompts returned by native creation or
+  deletion are dismissed, not displayed. The subprocess deadline bounds cleanup;
+  it is not a substitute for refusing native authorization UI.
 - **`file`** uses an owner-only directory and regular file per Account on macOS
   and Linux. Windows encrypts each Token with current-user DPAPI before writing
   it beneath the AIGW data directory. Both use bounded paths and same-directory
