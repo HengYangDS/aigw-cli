@@ -2,8 +2,9 @@ package projection
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,7 +12,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"runtime"
 	"slices"
@@ -65,7 +65,7 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 		if !strings.Contains(prelude, "AIGW_TOOL_SOURCE") {
 			t.Errorf("GitLab %s has no explicit mirror selection", name)
 		}
-		for _, required := range []string{"CI_API_V4_URL", "CI_PROJECT_ID", "CI_SERVER_HOST", "CI_JOB_TOKEN", "MISE_NETRC_FILE", "$mirror_dir/mise-data", "$MISE_DATA_DIR/cache", "github.com/", "api.github.com/", "mise-github/v1/", "CI_JOB_ID"} {
+		for _, required := range []string{"CI_API_V4_URL", "CI_PROJECT_ID", "CI_SERVER_HOST", "CI_JOB_TOKEN", "MISE_NETRC_FILE", "$mirror_dir/mise-data", "$MISE_DATA_DIR/cache", "github.com/", "api.github.com/", "packages/generic/mise-github/", "mise.lock", "lock_digest", "CI_JOB_ID"} {
 			if !strings.Contains(prelude, required) {
 				t.Errorf("GitLab %s mirror prelude omits %q", name, required)
 			}
@@ -91,7 +91,7 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 			t.Errorf("GitLab %s has no exact job-owned mirror credential cleanup: %v", name, commands)
 		}
 	}
-	if strings.Contains(projections[1].Content, "mise-github/v1/") {
+	if strings.Contains(projections[1].Content, "packages/generic/mise-github/") {
 		t.Fatal("GitHub projection unexpectedly depends on the GitLab tool mirror")
 	}
 }
@@ -228,8 +228,8 @@ func TestGitLabMiseMirrorUsesCheckoutOwnedPath(t *testing.T) {
 			t.Fatalf("mirror path must be rooted at the checked-out working directory: %q", script)
 		}
 	}
-	if !strings.Contains(prepare, `export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"`) || !strings.Contains(prepare, `export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"`) {
-		t.Fatal("the declared cache root must select both native Mise directories")
+	if !strings.Contains(prepare, `export MISE_DATA_DIR="$mirror_dir/mise-data"`) || !strings.Contains(prepare, `export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"`) {
+		t.Fatal("peer selection must own cold native Mise data and cache directories")
 	}
 	if runtime.GOOS == "windows" {
 		return // Windows runners do not provide a POSIX shell.
@@ -250,34 +250,43 @@ func TestGitLabMiseMirrorUsesCheckoutOwnedPath(t *testing.T) {
 			t.Fatalf("unselected mirror wrote private state: %v, %v", entries, err)
 		}
 	}
-	t.Run("cached installation survives exact credential cleanup", func(t *testing.T) {
-		root := t.TempDir()
+	t.Run("cold peer state retires without changing restored cache", func(t *testing.T) {
+		root, _ := nativeMiseMirrorInputs(t, filepath.Clean(filepath.Join("..", "..", "..")))
 		cache := filepath.Join(root, "build", "runtime", "tool-cache", ".mise", "peer")
 		neighbor := filepath.Join(root, "keep")
 		if err := os.WriteFile(neighbor, []byte("keep"), 0o600); err != nil {
 			t.Fatal(err)
 		}
+		if err := os.MkdirAll(cache, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(cache, "preserved"), []byte("restored"), 0o600); err != nil {
+			t.Fatal(err)
+		}
 		command := exec.CommandContext(t.Context(), "sh", "-eu", "-c", prepare+`
-test "$MISE_DATA_DIR" = "$AIGW_MISE_DATA_ROOT"
-test "$MISE_CACHE_DIR" = "$AIGW_MISE_DATA_ROOT/cache"
+test "$MISE_DATA_DIR" = "$mirror_dir/mise-data"
+test "$MISE_DATA_DIR" != "$AIGW_MISE_DATA_ROOT"
+test "$MISE_CACHE_DIR" = "$MISE_DATA_DIR/cache"
+test ! -e "$MISE_DATA_DIR"
 mkdir -p "$MISE_DATA_DIR/installs" "$MISE_CACHE_DIR"
 printf '%s' completed > "$MISE_DATA_DIR/installs/fixture"
 test -f "$MISE_NETRC_FILE"
 `+cleanup+`
 test ! -e "$mirror_dir"
-test -f "$MISE_DATA_DIR/installs/fixture"
+test ! -e "$MISE_DATA_DIR"
+test "$(cat "$AIGW_MISE_DATA_ROOT/preserved")" = restored
 `)
 		command.Dir = root
 		command.Env = append(os.Environ(), "AIGW_TOOL_SOURCE=peer", "AIGW_MISE_DATA_ROOT="+cache, "CI_JOB_ID=cache-fixture", "CI_PROJECT_ID=example", "CI_SERVER_HOST=gitlab.example", "CI_API_V4_URL=https://gitlab.example/api/v4", "CI_JOB_TOKEN=synthetic-job-token")
 		if output, err := command.CombinedOutput(); err != nil {
-			t.Fatalf("native cache and exact credential cleanup diverged: %s, %v", output, err)
+			t.Fatalf("cold peer state and exact credential cleanup diverged: %s, %v", output, err)
 		}
 		if _, err := os.Stat(neighbor); err != nil {
 			t.Fatalf("mirror cleanup removed neighboring state: %v", err)
 		}
 	})
 	t.Run("relative checkout survives installer directory changes", func(t *testing.T) {
-		project := t.TempDir()
+		project, _ := nativeMiseMirrorInputs(t, filepath.Clean(filepath.Join("..", "..", "..")))
 		t.Setenv("AIGW_MISE_DATA_ROOT", t.TempDir())
 		env := append(os.Environ(),
 			"AIGW_TOOL_SOURCE=peer",
@@ -324,6 +333,7 @@ func TestGitLabUnixMiseMirrorFailureStaysOnSelectedPeer(t *testing.T) {
 	repository := filepath.Clean(filepath.Join("..", "..", ".."))
 	prepare, cleanup := unixMiseMirrorCommands(t)
 	project, selected := nativeMiseMirrorInputs(t, repository)
+	mirrorPath := "/api/v4/projects/456/" + lockedMiseMirrorPath(t, project)
 	t.Setenv("AIGW_MISE_DATA_ROOT", t.TempDir())
 	var requests []string
 	var mutex sync.Mutex
@@ -340,6 +350,7 @@ func TestGitLabUnixMiseMirrorFailureStaysOnSelectedPeer(t *testing.T) {
 			strings.HasPrefix(name, "GH_") || strings.HasPrefix(name, "GITHUB_") || strings.HasPrefix(name, "GITLAB_")
 	})
 	environment = append(environment,
+		"AIGW_MISE_DATA_ROOT="+t.TempDir(),
 		"HOME="+project, "XDG_CONFIG_HOME="+filepath.Join(project, ".config"),
 		"MISE_TRUSTED_CONFIG_PATHS="+project, "MISE_CONFIG_DIR="+filepath.Join(project, ".config", "mise"),
 		"MISE_CEILING_PATHS="+filepath.Dir(project),
@@ -379,7 +390,7 @@ func TestGitLabUnixMiseMirrorFailureStaysOnSelectedPeer(t *testing.T) {
 	defer mutex.Unlock()
 	for _, request := range requests {
 		method, target, _ := strings.Cut(request, " ")
-		if (method != http.MethodGet && method != http.MethodHead) || !strings.HasPrefix(target, strings.TrimPrefix(server.URL, "http://")+"/api/v4/projects/456/packages/generic/mise-github/v1/") {
+		if (method != http.MethodGet && method != http.MethodHead) || !strings.HasPrefix(target, strings.TrimPrefix(server.URL, "http://")+mirrorPath) {
 			t.Errorf("native acquisition escaped selected peer: %s", request)
 		}
 	}
@@ -388,7 +399,7 @@ func TestGitLabUnixMiseMirrorFailureStaysOnSelectedPeer(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected native locked URL: %q, %v", upstream, err)
 		}
-		want := strings.TrimPrefix(server.URL, "http://") + "/api/v4/projects/456/packages/generic/mise-github/v1" + parsed.Path
+		want := strings.TrimPrefix(server.URL, "http://") + strings.TrimSuffix(mirrorPath, "/") + parsed.Path
 		if !slices.ContainsFunc(requests, func(request string) bool { _, target, _ := strings.Cut(request, " "); return target == want }) {
 			t.Errorf("native locked request was not observed: %s in %v", want, requests)
 		}
@@ -438,72 +449,11 @@ func nativeMiseMirrorInputs(t *testing.T, repository string) (string, misePlatfo
 	return project, selected
 }
 
-func TestGitLabWindowsLockedToolsUseJobScopedMirror(t *testing.T) {
-	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	projections, err := renderProjections(root)
+func lockedMiseMirrorPath(t *testing.T, repository string) string {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join(repository, "mise.lock"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	type windowsJob struct {
-		Script      []string `yaml:"script"`
-		AfterScript []string `yaml:"after_script"`
-	}
-	var gitlab struct {
-		NativeWindows       windowsJob `yaml:"native-windows"`
-		NativeWindowsReview windowsJob `yaml:"native-windows-review"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
-		t.Fatal(err)
-	}
-	windows := gitlab.NativeWindows
-	if len(windows.Script) < 2 {
-		t.Fatalf("Windows job lacks the Mise preflight and locked install: %+v", windows)
-	}
-	if !strings.Contains(windows.Script[1], "mise install --locked") {
-		t.Fatalf("Windows job does not install locked tools: %+v", windows)
-	}
-	const jobDirectory = `Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"`
-	for name, job := range map[string]windowsJob{"protected": windows, "review": gitlab.NativeWindowsReview} {
-		requireWindowsMiseJobStorage(t, name, job.Script, job.AfterScript, jobDirectory)
-		selected := strings.Index(job.Script[0], "if ($env:AIGW_TOOL_SOURCE -eq 'peer')")
-		credentials := strings.Index(job.Script[0], "$netrc = ")
-		if selected < 0 || credentials <= selected {
-			t.Errorf("%s Windows job acquires mirror credentials before explicit selection", name)
-		}
-		if !strings.Contains(job.Script[0], `= "${mirrorBase}" + 'release-$1-$2-$3.json'`) {
-			t.Errorf("%s Windows job expands Mise regex captures before Mise receives them", name)
-		}
-	}
-	if len(gitlab.NativeWindowsReview.Script) == 0 || windows.Script[0] != gitlab.NativeWindowsReview.Script[0] ||
-		!reflect.DeepEqual(windows.AfterScript, gitlab.NativeWindowsReview.AfterScript) {
-		t.Fatal("protected and review Windows jobs use different Mise admission or cleanup")
-	}
-	if _, err := os.Stat(filepath.Join(root, "tools", "ci", "bootstrap", "mise-windows.ps1")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("obsolete Windows bootstrap remains: %v", err)
-	}
-	for _, required := range []string{"MISE_URL_REPLACEMENTS", "MISE_NETRC_FILE", "CI_SERVER_HOST", "CI_JOB_TOKEN", "packages/generic/mise-github/v1/", "release-$1-$2-$3.json", "https://github.com/", "https://api.github.com/", "icacls"} {
-		if !strings.Contains(windows.Script[0], required) {
-			t.Errorf("Windows job omits scoped mirror control %q", required)
-		}
-	}
-	probe := strings.Index(windows.Script[0], "$reported = & $mise --version")
-	if probe < 0 {
-		t.Fatal("Windows job never probes the runner-owned Mise executable")
-	}
-	for _, name := range []string{"MISE_CONFIG_DIR", "MISE_CACHE_DIR", "MISE_STATE_DIR", "MISE_DATA_DIR"} {
-		assignment := strings.Index(windows.Script[0], "'"+name+"'")
-		if assignment < 0 || assignment > probe {
-			t.Fatalf("%s is not owned by the job before Mise loads configuration", name)
-		}
-	}
-	if assignment := strings.Index(windows.Script[0], "[Environment]::SetEnvironmentVariable($name, $path)"); assignment < 0 || assignment > probe ||
-		!strings.Contains(windows.Script[0], "$path = Join-Path $jobDirectory $name") {
-		t.Fatal("Windows job does not confine Mise state before its first invocation")
-	}
-	if trust := strings.Index(windows.Script[0], "$env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR"); trust < 0 || trust > probe {
-		t.Fatal("Windows job does not trust its exact checkout before Mise walks config ancestors")
-	}
-	if !strings.Contains(windows.Script[0], "throw 'Runner-owned Mise failed to start under the job identity.'") {
-		t.Fatal("Windows job conflates a Mise startup failure with a version mismatch")
-	}
+	return fmt.Sprintf("packages/generic/mise-github/%x/", sha256.Sum256(content))
 }

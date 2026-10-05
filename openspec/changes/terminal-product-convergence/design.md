@@ -437,6 +437,12 @@ verified deployment, while a public anonymous mirror avoids download secrets
 but adds a project, publishing authority and storage retention. Do not put
 the tool archives into permanent Git history.
 
+Each native consumer derives the mirror version from the SHA-256 of its exact
+`mise.lock` bytes. Unix uses the available native SHA-256 command; Windows uses
+`Get-FileHash`. CUE owns the shared package path, not a second digest manifest.
+Peer selection uses job-private Mise data and cache directories even when an
+upstream cache was restored; a warm upstream cache cannot satisfy this scope.
+
 An isolated Mise 2026.9.15 install accepted a checksum-identical OSV Scanner
 2.6.0 asset from a loopback mirror without requesting its deliberately corrupted
 SLSA file, although both GitHub attestation settings were enabled. URL rewriting
@@ -467,6 +473,13 @@ Retire a mirrored lock version only after no active source ref or job consumes
 it. CUE configures the mirror before locked installation. Task 7.5 owns the current
 inventory and platform evidence; metadata and projection tests alone cannot prove
 Job Token downloads, cold-cache peer-outage isolation or provenance checks.
+
+Mise 2026.10.2 follows same-scheme cross-host redirects and exposes no native
+redirect allowlist. URL replacement does not enforce that boundary. Qualify
+direct `200` downloads from the admitted mirror with sibling endpoints
+unavailable, or use an existing executor network boundary where arbitrary
+redirect rejection is required. Do not claim CUE supplies an unsupported Mise
+setting; retain unproved redirect containment as a separate admission gap.
 
 ### 6. Delete by consumer and authority
 

@@ -41,12 +41,18 @@ native-linux:
       : "${CI_JOB_TOKEN:?}"
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
-      export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"
+      if command -v sha256sum >/dev/null 2>&1; then
+        lock_digest="$(sha256sum mise.lock)"
+      else
+        lock_digest="$(shasum -a 256 mise.lock)"
+      fi
+      lock_digest="${lock_digest%% *}"
+      export MISE_DATA_DIR="$mirror_dir/mise-data"
       export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
-      mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
+      mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/$lock_digest/"
       export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
@@ -92,12 +98,18 @@ native-darwin:
       : "${CI_JOB_TOKEN:?}"
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
-      export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"
+      if command -v sha256sum >/dev/null 2>&1; then
+        lock_digest="$(sha256sum mise.lock)"
+      else
+        lock_digest="$(shasum -a 256 mise.lock)"
+      fi
+      lock_digest="${lock_digest%% *}"
+      export MISE_DATA_DIR="$mirror_dir/mise-data"
       export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
-      mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
+      mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/$lock_digest/"
       export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
@@ -159,12 +171,18 @@ native-darwin-review:
       : "${CI_JOB_TOKEN:?}"
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
-      export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"
+      if command -v sha256sum >/dev/null 2>&1; then
+        lock_digest="$(sha256sum mise.lock)"
+      else
+        lock_digest="$(shasum -a 256 mise.lock)"
+      fi
+      lock_digest="${lock_digest%% *}"
+      export MISE_DATA_DIR="$mirror_dir/mise-data"
       export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
-      mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
+      mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/$lock_digest/"
       export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
@@ -271,7 +289,8 @@ native-windows:
       [IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
       & icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
       if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise mirror credential ACL.' }
-      $mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/packages/generic/mise-github/v1/"
+      $lockDigest = (Get-FileHash -LiteralPath (Join-Path $env:CI_PROJECT_DIR 'mise.lock') -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+      $mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/packages/generic/mise-github/$lockDigest/"
       $replacements = [ordered]@{}
       $replacements['regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$'] = "${mirrorBase}" + 'release-$1-$2-$3.json'
       $replacements['https://github.com/'] = $mirrorBase
@@ -429,7 +448,8 @@ native-windows-review:
       [IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
       & icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
       if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise mirror credential ACL.' }
-      $mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/packages/generic/mise-github/v1/"
+      $lockDigest = (Get-FileHash -LiteralPath (Join-Path $env:CI_PROJECT_DIR 'mise.lock') -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+      $mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/packages/generic/mise-github/$lockDigest/"
       $replacements = [ordered]@{}
       $replacements['regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$'] = "${mirrorBase}" + 'release-$1-$2-$3.json'
       $replacements['https://github.com/'] = $mirrorBase
@@ -593,12 +613,18 @@ stages:
       : "${CI_JOB_TOKEN:?}"
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
-      export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"
+      if command -v sha256sum >/dev/null 2>&1; then
+        lock_digest="$(sha256sum mise.lock)"
+      else
+        lock_digest="$(shasum -a 256 mise.lock)"
+      fi
+      lock_digest="${lock_digest%% *}"
+      export MISE_DATA_DIR="$mirror_dir/mise-data"
       export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
-      mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
+      mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/$lock_digest/"
       export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
@@ -654,12 +680,18 @@ accepted-ref-parity:
       : "${CI_JOB_TOKEN:?}"
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
-      export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"
+      if command -v sha256sum >/dev/null 2>&1; then
+        lock_digest="$(sha256sum mise.lock)"
+      else
+        lock_digest="$(shasum -a 256 mise.lock)"
+      fi
+      lock_digest="${lock_digest%% *}"
+      export MISE_DATA_DIR="$mirror_dir/mise-data"
       export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
-      mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
+      mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/$lock_digest/"
       export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
@@ -714,12 +746,18 @@ release-version:
       : "${CI_JOB_TOKEN:?}"
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
-      export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"
+      if command -v sha256sum >/dev/null 2>&1; then
+        lock_digest="$(sha256sum mise.lock)"
+      else
+        lock_digest="$(shasum -a 256 mise.lock)"
+      fi
+      lock_digest="${lock_digest%% *}"
+      export MISE_DATA_DIR="$mirror_dir/mise-data"
       export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"
       (umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
       export MISE_NETRC_FILE="$mirror_dir/netrc"
       export MISE_NETRC=1
-      mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/v1/"
+      mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/mise-github/$lock_digest/"
       export MISE_URL_REPLACEMENTS="$(printf '{"regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$":"%srelease-$1-$2-$3.json","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;

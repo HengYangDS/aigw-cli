@@ -36,8 +36,7 @@ toolSourceInput: {
 // They do not own dependencies or checksums; missing copies fail locally.
 miseMirror: {
 	package:          "mise-github"
-	version:          "v1"
-	resource:         "packages/generic/\(package)/\(version)/"
+	resource:         "packages/generic/\(package)/"
 	metadataPattern:  "regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$"
 	metadataResource: "release-$1-$2-$3.json"
 	unixDirectory:    "$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
@@ -53,12 +52,18 @@ miseMirror: {
 		: "${CI_JOB_TOKEN:?}"
 		mirror_dir="\#(unixDirectory)"
 		mkdir -p -m 700 "$mirror_dir"
-		export MISE_DATA_DIR="${AIGW_MISE_DATA_ROOT:-$mirror_dir/mise-data}"
+		if command -v sha256sum >/dev/null 2>&1; then
+		  lock_digest="$(sha256sum mise.lock)"
+		else
+		  lock_digest="$(shasum -a 256 mise.lock)"
+		fi
+		lock_digest="${lock_digest%% *}"
+		export MISE_DATA_DIR="$mirror_dir/mise-data"
 		export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"
 		(umask 077; printf 'machine %s login gitlab-ci-token password %s\n' "$CI_SERVER_HOST" "$CI_JOB_TOKEN" > "$mirror_dir/netrc")
 		export MISE_NETRC_FILE="$mirror_dir/netrc"
 		export MISE_NETRC=1
-		mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/\#(resource)"
+		mirror_base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/\#(resource)$lock_digest/"
 		export MISE_URL_REPLACEMENTS="$(printf '{"\#(metadataPattern)":"%s\#(metadataResource)","https://github.com/":"%s","https://api.github.com/":"%s"}' "$mirror_base" "$mirror_base" "$mirror_base")"
 		    ;;
 		  *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
@@ -669,7 +674,8 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			[IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
 			& icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
 			if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise mirror credential ACL.' }
-			$mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/\#(miseMirror.resource)"
+			$lockDigest = (Get-FileHash -LiteralPath (Join-Path $env:CI_PROJECT_DIR 'mise.lock') -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+			$mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/\#(miseMirror.resource)$lockDigest/"
 			$replacements = [ordered]@{}
 			$replacements['\#(miseMirror.metadataPattern)'] = "${mirrorBase}" + '\#(miseMirror.metadataResource)'
 			$replacements['https://github.com/'] = $mirrorBase

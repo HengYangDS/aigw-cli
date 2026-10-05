@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -243,7 +245,9 @@ func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T)
 	hashReads := 0
 	for line := range strings.SplitSeq(commands[0], "\n") {
 		if strings.Contains(line, "Get-FileHash -LiteralPath") {
-			hashReads++
+			if !strings.Contains(line, "'mise.lock'") {
+				hashReads++
+			}
 			if !strings.Contains(line, "-ErrorAction Stop") {
 				t.Errorf("Windows hash read can hide its actual failure: %s", line)
 			}
@@ -272,6 +276,76 @@ func requireWindowsMiseJobStorage(t *testing.T, name string, script, cleanup []s
 		!strings.Contains(cleanup[0], directory) ||
 		!strings.Contains(cleanup[0], "Test-Path -LiteralPath $jobDirectory") {
 		t.Fatalf("%s Mise lifecycle enters the Go module or lacks exact teardown", name)
+	}
+}
+
+func TestGitLabWindowsLockedToolsUseJobScopedMirror(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type windowsJob struct {
+		Script      []string `yaml:"script"`
+		AfterScript []string `yaml:"after_script"`
+	}
+	var gitlab struct {
+		NativeWindows       windowsJob `yaml:"native-windows"`
+		NativeWindowsReview windowsJob `yaml:"native-windows-review"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	windows := gitlab.NativeWindows
+	if len(windows.Script) < 2 {
+		t.Fatalf("Windows job lacks the Mise preflight and locked install: %+v", windows)
+	}
+	if !strings.Contains(windows.Script[1], "mise install --locked") {
+		t.Fatalf("Windows job does not install locked tools: %+v", windows)
+	}
+	const jobDirectory = `Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"`
+	for name, job := range map[string]windowsJob{"protected": windows, "review": gitlab.NativeWindowsReview} {
+		requireWindowsMiseJobStorage(t, name, job.Script, job.AfterScript, jobDirectory)
+		selected := strings.Index(job.Script[0], "if ($env:AIGW_TOOL_SOURCE -eq 'peer')")
+		credentials := strings.Index(job.Script[0], "$netrc = ")
+		if selected < 0 || credentials <= selected {
+			t.Errorf("%s Windows job acquires mirror credentials before explicit selection", name)
+		}
+		if !strings.Contains(job.Script[0], `= "${mirrorBase}" + 'release-$1-$2-$3.json'`) {
+			t.Errorf("%s Windows job expands Mise regex captures before Mise receives them", name)
+		}
+	}
+	if len(gitlab.NativeWindowsReview.Script) == 0 || windows.Script[0] != gitlab.NativeWindowsReview.Script[0] ||
+		!reflect.DeepEqual(windows.AfterScript, gitlab.NativeWindowsReview.AfterScript) {
+		t.Fatal("protected and review Windows jobs use different Mise admission or cleanup")
+	}
+	if _, err := os.Stat(filepath.Join(root, "tools", "ci", "bootstrap", "mise-windows.ps1")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("obsolete Windows bootstrap remains: %v", err)
+	}
+	for _, required := range []string{"MISE_URL_REPLACEMENTS", "MISE_NETRC_FILE", "CI_SERVER_HOST", "CI_JOB_TOKEN", "packages/generic/mise-github/", "mise.lock", "Get-FileHash", "$lockDigest/", "release-$1-$2-$3.json", "https://github.com/", "https://api.github.com/", "icacls"} {
+		if !strings.Contains(windows.Script[0], required) {
+			t.Errorf("Windows job omits scoped mirror control %q", required)
+		}
+	}
+	probe := strings.Index(windows.Script[0], "$reported = & $mise --version")
+	if probe < 0 {
+		t.Fatal("Windows job never probes the runner-owned Mise executable")
+	}
+	for _, name := range []string{"MISE_CONFIG_DIR", "MISE_CACHE_DIR", "MISE_STATE_DIR", "MISE_DATA_DIR"} {
+		assignment := strings.Index(windows.Script[0], "'"+name+"'")
+		if assignment < 0 || assignment > probe {
+			t.Fatalf("%s is not owned by the job before Mise loads configuration", name)
+		}
+	}
+	if assignment := strings.Index(windows.Script[0], "[Environment]::SetEnvironmentVariable($name, $path)"); assignment < 0 || assignment > probe ||
+		!strings.Contains(windows.Script[0], "$path = Join-Path $jobDirectory $name") {
+		t.Fatal("Windows job does not confine Mise state before its first invocation")
+	}
+	if trust := strings.Index(windows.Script[0], "$env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR"); trust < 0 || trust > probe {
+		t.Fatal("Windows job does not trust its exact checkout before Mise walks config ancestors")
+	}
+	if !strings.Contains(windows.Script[0], "throw 'Runner-owned Mise failed to start under the job identity.'") {
+		t.Fatal("Windows job conflates a Mise startup failure with a version mismatch")
 	}
 }
 
