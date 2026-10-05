@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -26,6 +27,7 @@ type failingProjectionAdapter struct {
 	applyErr    error
 	rollbackErr error
 	nilReceipt  bool
+	plans       []ProjectionPlan
 	onPlan      func()
 	onApply     func()
 }
@@ -47,7 +49,7 @@ func (adapter failingProjectionAdapter) Plan(Dependencies, configuration.Config,
 	if adapter.onPlan != nil {
 		adapter.onPlan()
 	}
-	return nil, nil
+	return adapter.plans, nil
 }
 
 func (adapter failingProjectionAdapter) Apply(context.Context, Dependencies, configuration.Config, configuration.Config) (ProjectionReceipt, error) {
@@ -96,16 +98,6 @@ func TestRegistryScopesProjectionToTheRequestedClient(t *testing.T) {
 	if !reflect.DeepEqual(events, []string{"plan:first", "apply:first"}) {
 		t.Fatalf("scoped projection touched another client: %v", events)
 	}
-	events = nil
-	if _, err := registry.Plan(Dependencies{}, cfg, cfg, "unknown"); err == nil {
-		t.Fatal("unknown planning client accepted")
-	}
-	if _, err := registry.Apply(t.Context(), Dependencies{}, cfg, cfg, "unknown"); err == nil {
-		t.Fatal("unknown projection client accepted")
-	}
-	if len(events) != 0 {
-		t.Fatalf("invalid selection touched clients: %v", events)
-	}
 }
 
 type recordingAdapter struct {
@@ -129,7 +121,7 @@ func (adapter *recordingAdapter) Converge(_ Dependencies, cfg *configuration.Con
 
 func (adapter *recordingAdapter) Plan(_ Dependencies, _, _ configuration.Config) ([]ProjectionPlan, error) {
 	adapter.calls = append(adapter.calls, "plan")
-	return []ProjectionPlan{{Client: adapter.Spec().ID, Target: "/future", Action: "project"}}, nil
+	return []ProjectionPlan{{Client: adapter.Spec().ID, Target: "/future", Action: "project", ChangesState: true}}, nil
 }
 
 func (adapter *recordingAdapter) Apply(_ context.Context, _ Dependencies, _, _ configuration.Config) (ProjectionReceipt, error) {
@@ -252,43 +244,58 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 }
 
 func TestRegistryCompensatesAppliedAdaptersInReverseOrder(t *testing.T) {
-	events := []string{}
-	failure := errors.New("second adapter failed")
-	first := failingProjectionAdapter{id: "first", events: &events}
-	second := failingProjectionAdapter{id: "second", events: &events, applyErr: failure}
-	registry, err := NewRegistry([]configuration.ClientSpec{first.Spec(), second.Spec()}, second, first)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
-	if !errors.Is(err, failure) || !strings.Contains(err.Error(), "prior adapters were rolled back") {
-		t.Fatalf("Apply() error = %v", err)
-	}
-	want := []string{"plan:first", "plan:second", "apply:first", "apply:second", "rollback:first"}
-	if !reflect.DeepEqual(events, want) {
-		t.Fatalf("events = %#v, want %#v", events, want)
+	for _, nilReceipt := range []bool{false, true} {
+		t.Run(fmt.Sprintf("nil-receipt=%t", nilReceipt), func(t *testing.T) {
+			var events []string
+			failure := errors.New("third adapter failed")
+			first := failingProjectionAdapter{id: "first", events: &events, nilReceipt: nilReceipt}
+			second := failingProjectionAdapter{id: "second", events: &events}
+			third := failingProjectionAdapter{id: "third", events: &events, applyErr: failure}
+			registry, err := NewRegistry([]configuration.ClientSpec{first.Spec(), second.Spec(), third.Spec()}, third, second, first)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = registry.Apply(t.Context(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
+			if !errors.Is(err, failure) || !strings.Contains(err.Error(), "prior adapters were rolled back") {
+				t.Fatalf("Apply() error = %v", err)
+			}
+			want := []string{"plan:first", "plan:second", "plan:third", "apply:first", "apply:second", "apply:third", "rollback:second"}
+			if !nilReceipt {
+				want = append(want, "rollback:first")
+			}
+			if !reflect.DeepEqual(events, want) {
+				t.Fatalf("events = %#v, want %#v", events, want)
+			}
+		})
 	}
 }
 
 func TestRegistryReturnsOneRollbackForSuccessfulProjection(t *testing.T) {
-	var events []string
-	first := failingProjectionAdapter{id: "first", events: &events}
-	second := failingProjectionAdapter{id: "second", events: &events}
-	registry, err := NewRegistry([]configuration.ClientSpec{first.Spec(), second.Spec()}, first, second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	receipt, err := registry.Apply(t.Context(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
-	if err != nil || receipt == nil {
-		t.Fatalf("successful projection receipt = %v, %v", receipt, err)
-	}
-	if err := receipt.Rollback(); err != nil {
-		t.Fatal(err)
-	}
-	want := []string{"plan:first", "plan:second", "apply:first", "apply:second", "rollback:second", "rollback:first"}
-	if !reflect.DeepEqual(events, want) {
-		t.Fatalf("events = %#v, want %#v", events, want)
+	for _, state := range []string{"converged", "changed-target", "changed-config"} {
+		t.Run(state, func(t *testing.T) {
+			var events []string
+			first := failingProjectionAdapter{id: "first", events: &events, plans: []ProjectionPlan{{Client: "first", ChangesState: state == "changed-target"}}}
+			second := failingProjectionAdapter{id: "second", events: &events}
+			registry, err := NewRegistry([]configuration.ClientSpec{first.Spec(), second.Spec()}, first, second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			before, after := configuration.NewConfig(), configuration.NewConfig()
+			if state == "changed-config" {
+				after.Accounts["new"] = configuration.Account{Label: "New"}
+			}
+			receipt, err := registry.Apply(t.Context(), Dependencies{}, before, after)
+			if err != nil || receipt == nil {
+				t.Fatalf("successful projection receipt = %v, %v", receipt, err)
+			}
+			want := []string{"plan:first", "plan:second"}
+			if state != "converged" {
+				want = append(want, "apply:first", "apply:second", "rollback:second", "rollback:first")
+			}
+			if err := receipt.Rollback(); err != nil || !reflect.DeepEqual(events, want) {
+				t.Fatalf("rollback = %v, events = %v; want %v", err, events, want)
+			}
+		})
 	}
 }
 
@@ -374,30 +381,18 @@ func TestRegistryRejectsUnknownClientOperations(t *testing.T) {
 	}
 	_, err = registry.Converge(Dependencies{}, cfg, discovery.Result{}, "unknown")
 	assertUnknown("converge", err)
+	_, err = registry.Plan(Dependencies{}, cfg, cfg, "unknown")
+	assertUnknown("plan", err)
+	_, err = registry.Apply(t.Context(), Dependencies{}, cfg, cfg, "unknown")
+	assertUnknown("apply", err)
 	if status := registry.Inspect(context.Background(), Dependencies{}, cfg, "unknown", configuration.Runtime{}); status.Ready || !strings.Contains(status.Issue, "no admitted operational adapter") {
 		t.Fatalf("unknown inspection = %#v", status)
 	}
 	_, err = registry.Verify(context.Background(), Dependencies{}, cfg, "unknown", configuration.Runtime{}, "")
 	assertUnknown("verify", err)
 	assertUnknown("withdraw", registry.Withdraw(&cfg, "unknown"))
-}
-
-func TestRegistryRollbackIgnoresAdaptersWithoutReceipts(t *testing.T) {
-	events := []string{}
-	failure := errors.New("third adapter failed")
-	first := failingProjectionAdapter{id: "first", events: &events, nilReceipt: true}
-	second := failingProjectionAdapter{id: "second", events: &events}
-	third := failingProjectionAdapter{id: "third", events: &events, applyErr: failure}
-	registry, err := NewRegistry([]configuration.ClientSpec{first.Spec(), second.Spec(), third.Spec()}, first, second, third)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig()); !errors.Is(err, failure) {
-		t.Fatalf("Apply() error = %v", err)
-	}
-	want := []string{"plan:first", "plan:second", "plan:third", "apply:first", "apply:second", "apply:third", "rollback:second"}
-	if !reflect.DeepEqual(events, want) {
-		t.Fatalf("events = %#v, want %#v", events, want)
+	if len(adapter.calls) != 0 {
+		t.Fatalf("unknown client operations touched an adapter: %v", adapter.calls)
 	}
 }
 

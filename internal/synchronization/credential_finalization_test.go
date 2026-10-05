@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -113,7 +114,7 @@ func (adapter removedEntrypointAdapter) Spec() configuration.ClientSpec {
 }
 
 func (adapter removedEntrypointAdapter) Plan(client.Dependencies, configuration.Config, configuration.Config) ([]client.ProjectionPlan, error) {
-	return []client.ProjectionPlan{{Client: configuration.ClientCodex, Target: adapter.target, Action: "update"}}, nil
+	return []client.ProjectionPlan{{Client: configuration.ClientCodex, Target: adapter.target, Action: "update", ChangesState: true}}, nil
 }
 
 func (adapter removedEntrypointAdapter) Apply(context.Context, client.Dependencies, configuration.Config, configuration.Config) (client.ProjectionReceipt, error) {
@@ -138,6 +139,130 @@ func (adapter removedEntrypointAdapter) Apply(context.Context, client.Dependenci
 type projectionUndo func() error
 
 func (undo projectionUndo) Rollback() error { return undo() }
+
+type convergedProjectionAdapter struct {
+	removedEntrypointAdapter
+	applied *int
+}
+
+func (adapter convergedProjectionAdapter) Plan(client.Dependencies, configuration.Config, configuration.Config) ([]client.ProjectionPlan, error) {
+	return []client.ProjectionPlan{{Client: configuration.ClientCodex, Target: adapter.target, Action: "unchanged"}}, nil
+}
+
+func (adapter convergedProjectionAdapter) Apply(context.Context, client.Dependencies, configuration.Config, configuration.Config) (client.ProjectionReceipt, error) {
+	*adapter.applied++
+	return projectionUndo(func() error { return nil }), nil
+}
+
+func TestConvergedProjectionValidatesReaderWithoutApplying(t *testing.T) {
+	for _, tc := range []struct {
+		name, changedTarget string
+		duringCommit        bool
+		commits, restores   int
+	}{
+		{"unchanged", "", false, 1, 0},
+		{"source", "source", false, 0, 0},
+		{"reader", "reader", false, 0, 0},
+		{"reader-during-commit", "", true, 1, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			source := filepath.Join(root, "aigw")
+			if err := os.WriteFile(source, []byte("executable fixture"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := credential.EnsureEntrypoint(source, reader); err != nil {
+				t.Fatal(err)
+			}
+			if path := map[string]string{"source": source, "reader": reader}[tc.changedTarget]; path != "" {
+				if err := os.WriteFile(path, []byte("changed executable"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			applied := 0
+			adapter := convergedProjectionAdapter{target: filepath.Join(root, "codex.toml"), applied: &applied}
+			registry, err := client.NewRegistry([]configuration.ClientSpec{adapter.Spec()}, adapter)
+			if err != nil {
+				t.Fatal(err)
+			}
+			store := &configStoreStub{}
+			if tc.duringCommit {
+				store.onCommit = func() {
+					if err := credential.RemoveEntrypoint(reader); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
+			cfg := testConfig(adapter.target)
+			err = syncer.CommitProjection(t.Context(), cfg, cfg, "sync")
+			if wantError := tc.changedTarget != "" || tc.duringCommit; (err != nil) != wantError || store.commits != tc.commits || store.restores != tc.restores {
+				t.Fatalf("synchronization = %v, commits = %d, restores = %d; want error = %t, commits = %d, restores = %d", err, store.commits, store.restores, wantError, tc.commits, tc.restores)
+			}
+			if applied != 0 {
+				t.Fatalf("converged projection was unnecessarily applied %d times", applied)
+			}
+		})
+	}
+}
+
+func TestConvergedProjectionRechecksTargetsAfterConfigurationCommit(t *testing.T) {
+	for _, invalid := range []bool{false, true} {
+		t.Run(fmt.Sprintf("invalid=%t", invalid), func(t *testing.T) {
+			root := t.TempDir()
+			source, target := filepath.Join(root, "aigw"), filepath.Join(root, "codex.toml")
+			if err := os.WriteFile(source, []byte("executable fixture"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+			if err != nil {
+				t.Fatal(err)
+			}
+			store := &configStoreStub{}
+			syncer := Synchronizer{Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
+			cfg := testConfig(target)
+			if err := syncer.CommitProjection(t.Context(), cfg, cfg, "initial sync"); err != nil {
+				t.Fatal(err)
+			}
+			dependencies, err := syncer.clientDependencies([]string{configuration.ClientCodex}, cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			plans, err := syncer.registry().Plan(dependencies, cfg, cfg, configuration.ClientCodex)
+			if err != nil || len(plans) == 0 || slices.ContainsFunc(plans, func(plan client.ProjectionPlan) bool { return plan.ChangesState }) {
+				t.Fatalf("initial managed projection plan = %v, %v", plans, err)
+			}
+			store.commits = 0
+			store.onCommit = func() {
+				if invalid {
+					err = os.WriteFile(target, []byte("invalid TOML {"), 0o600)
+				} else {
+					err = os.Remove(target)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			err = syncer.CommitProjection(t.Context(), cfg, cfg, "sync")
+			var recovery interface{ ConfigurationRestored() bool }
+			if !errors.As(err, &recovery) || !recovery.ConfigurationRestored() || store.commits != 1 || store.restores != 1 {
+				t.Fatalf("target mutation synchronization = %v, commits/restores = %d/%d", err, store.commits, store.restores)
+			}
+			got, readErr := os.ReadFile(target)
+			if invalid {
+				if readErr != nil || !bytes.Equal(got, []byte("invalid TOML {")) {
+					t.Fatalf("external target edit was overwritten: %q, %v", got, readErr)
+				}
+			} else if !errors.Is(readErr, os.ErrNotExist) {
+				t.Fatalf("removed target was recreated without ownership: %q, %v", got, readErr)
+			}
+		})
+	}
+}
 
 func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
 	for _, mode := range []string{"commit", "reconcile"} {

@@ -38,7 +38,8 @@ type Dependencies struct {
 	AuthorizeCodexRouteSelection bool
 }
 
-// ProjectionPlan describes one side-effect-free client projection change.
+// ProjectionPlan is a side-effect-free description of one owned projection
+// effect. ChangesState identifies whether that effect changes current state.
 type ProjectionPlan struct {
 	Client       string `json:"client"`
 	Target       string `json:"target"`
@@ -84,6 +85,9 @@ type Adapter interface {
 	Spec() configuration.ClientSpec
 	Discover(source DiscoverySource) discovery.Result
 	Converge(deps Dependencies, cfg *configuration.Config, discovered discovery.Result) error
+	// Plan completely describes Apply's owned projection effects at observation
+	// time. Nil or empty plans mean no projection effects; ChangesState covers
+	// every effect that would alter the current native state.
 	Plan(deps Dependencies, before, after configuration.Config) ([]ProjectionPlan, error)
 	Apply(ctx context.Context, deps Dependencies, before, after configuration.Config) (ProjectionReceipt, error)
 	ProjectionChanged(before, after configuration.Config) bool
@@ -183,9 +187,9 @@ func (registry Registry) Plan(deps Dependencies, before, after configuration.Con
 	return plans, nil
 }
 
-// Apply executes the already-preparable adapter set. On success it returns one
-// receipt for the complete projection, so its caller can compensate a later
-// transaction failure. Earlier adapters are compensated here on apply failure.
+// Apply rechecks current plans and skips converged, unchanged configurations.
+// On success it returns one receipt for the complete projection, so its caller
+// can compensate a later failure. Earlier adapters are compensated on failure.
 func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, after configuration.Config, clientIDs ...string) (resultReceipt ProjectionReceipt, resultErr error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -194,8 +198,12 @@ func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, a
 	if err != nil {
 		return nil, err
 	}
-	if _, err := registry.Plan(deps, before, after, clientIDs...); err != nil {
+	plans, err := registry.Plan(deps, before, after, clientIDs...)
+	if err != nil {
 		return nil, err
+	}
+	if len(plans) > 0 && reflect.DeepEqual(before, after) && !slices.ContainsFunc(plans, func(plan ProjectionPlan) bool { return plan.ChangesState }) {
+		return projectionReceipts{}, ctx.Err()
 	}
 	receipts := make([]ProjectionReceipt, 0, len(adapters))
 	defer func() {

@@ -40,6 +40,8 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 - Roll back owned client projections and configuration when credential-reader
   finalization fails after projection; unchanged-client reconciliation now
   checks the same post-apply invariant.
+- Avoid reapplying converged client projections while retaining guarded
+  configuration commits and late credential-reader integrity checks.
 - Add the direct DMXAPI GPT-6.1 Sol Responses Route. Prefer the CDX channel for
   new Codex bindings and the direct Route for Hermes, followed by UCloud
   GPT-6.1 Sol; keep AIHubMix manual-only.
