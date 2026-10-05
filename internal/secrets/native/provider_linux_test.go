@@ -107,16 +107,41 @@ func TestLockedSecretServiceRefusesInteractiveOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := credentialService.Conn.Close(); err != nil {
-			t.Error(err)
-		}
-	})
 	executable, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
 	service, account := "AIGW_TOKEN", "native-locked-"+rand.Text()
+	itemPath, label, itemAttributes := prepareLockedSecretServiceItem(t, credentialService, executable, service, account)
+	collection := credentialService.GetLoginCollection()
+	monitor, messages := monitorSecretService(t)
+	requireLockedSecretServiceRefusal(t, executable, service, account)
+	var pendingCollection, prompt dbus.ObjectPath
+	properties := map[string]dbus.Variant{secretCollectionInterface + ".Label": dbus.MakeVariant("disposable-pending-collection")}
+	if err := credentialService.Object(secretServiceName, "/org/freedesktop/secrets").Call("org.freedesktop.Secret.Service.CreateCollection", 0, properties, "").Store(&pendingCollection, &prompt); err != nil || pendingCollection != "/" || prompt == "/" {
+		t.Fatalf("native fixture did not return a pending prompt without a collection: %v", err)
+	}
+	if err := refuseSecretServicePrompt(credentialService.Object(secretServiceName, prompt)); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("pending native prompt was not refused: %v", err)
+	}
+	after, err := credentialService.SearchItems(collection, map[string]string{"service": service, "username": account})
+	if err != nil || len(after) != 1 || after[0] != itemPath {
+		t.Fatalf("locked operation changed owned native item identity: %v", err)
+	}
+	state, err := collection.GetProperty(secretCollectionInterface + ".Locked")
+	if err != nil || state.Value() != true {
+		t.Fatalf("native collection is not still locked: %v", err)
+	}
+	requireNoSecretServiceInteraction(t, messages, credentialService.Names()[0])
+	if err := monitor.Close(); err != nil {
+		t.Fatal(err)
+	}
+	unlockDisposableSecretService(t, true)
+	requireRetainedSecretServiceItem(t, credentialService, executable, service, account, label, itemAttributes)
+}
+
+func prepareLockedSecretServiceItem(t *testing.T, credentialService *ss.SecretService, executable, service, account string) (dbus.ObjectPath, dbus.Variant, dbus.Variant) {
+	t.Helper()
 	if _, err := queryCredential(writeCommand, service, account, []byte("synthetic-initial")); err != nil {
 		t.Fatal(err)
 	}
@@ -151,30 +176,7 @@ func TestLockedSecretServiceRefusesInteractiveOperations(t *testing.T) {
 		t.Fatalf("native item did not become locked: %v", err)
 	}
 	lockSecretServiceObject(t, credentialService, collection.Path())
-	monitor, messages := monitorSecretService(t)
-	requireLockedSecretServiceRefusal(t, executable, service, account)
-	var pendingCollection, prompt dbus.ObjectPath
-	properties := map[string]dbus.Variant{secretCollectionInterface + ".Label": dbus.MakeVariant("disposable-pending-collection")}
-	if err := credentialService.Object(secretServiceName, "/org/freedesktop/secrets").Call("org.freedesktop.Secret.Service.CreateCollection", 0, properties, "").Store(&pendingCollection, &prompt); err != nil || pendingCollection != "/" || prompt == "/" {
-		t.Fatalf("native fixture did not return a pending prompt without a collection: %v", err)
-	}
-	if err := refuseSecretServicePrompt(credentialService.Object(secretServiceName, prompt)); !errors.Is(err, ErrUnavailable) {
-		t.Fatalf("pending native prompt was not refused: %v", err)
-	}
-	after, err := credentialService.SearchItems(collection, attributes)
-	if err != nil || len(after) != 1 || after[0] != before[0] {
-		t.Fatalf("locked operation changed owned native item identity: %v", err)
-	}
-	state, err := collection.GetProperty(secretCollectionInterface + ".Locked")
-	if err != nil || state.Value() != true {
-		t.Fatalf("native collection is not still locked: %v", err)
-	}
-	requireNoSecretServiceInteraction(t, messages, credentialService.Names()[0])
-	if err := monitor.Close(); err != nil {
-		t.Fatal(err)
-	}
-	unlockDisposableSecretService(t, true)
-	requireRetainedSecretServiceItem(t, credentialService, executable, service, account, label, itemAttributes)
+	return before[0], label, itemAttributes
 }
 
 func requireLockedSecretServiceRefusal(t *testing.T, executable, service, account string) {

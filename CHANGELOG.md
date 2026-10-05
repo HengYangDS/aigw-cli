@@ -66,12 +66,10 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 - Classify local file read and write failures without disclosing private paths
   in human or JSON command errors.
 - Refresh the locked CI Mise runtime, mise-action, and Renovate image to their
-  current stable releases; bind OSV Scanner's SLSA signer so current Mise can
-  verify the locked binary on every platform.
+  current stable releases; bind OSV Scanner's SLSA signer for native provenance
+  verification.
 - Keep the automated three-day release-age gate for npm without imposing that
   npm-specific delay on checksummed Go or digest-pinned CI tools.
-- Select AIHubMix's currently qualified Nemotron 3 Super channel instead of its
-  intermittently failing Ultra channel; Ultra remains NVIDIA's stronger model.
 
 ### Removed
 
