@@ -56,10 +56,9 @@ func TestIdentityMeasuresTheSelectedNativeFile(t *testing.T) {
 }
 
 func TestIdentityRejectsUnrecognizedNativeMachine(t *testing.T) {
-	header := elf.Header64{Type: uint16(elf.ET_EXEC), Machine: uint16(elf.EM_NONE), Version: uint32(elf.EV_CURRENT)}
+	header := elf.Header64{Type: uint16(elf.ET_EXEC), Machine: uint16(elf.EM_NONE), Version: uint32(elf.EV_CURRENT), Ehsize: 64}
 	copy(header.Ident[:], elf.ELFMAG)
 	header.Ident[elf.EI_CLASS], header.Ident[elf.EI_DATA], header.Ident[elf.EI_VERSION] = byte(elf.ELFCLASS64), byte(elf.ELFDATA2LSB), byte(elf.EV_CURRENT)
-	header.Ehsize = uint16(binary.Size(header))
 	var data bytes.Buffer
 	if err := binary.Write(&data, binary.LittleEndian, header); err != nil {
 		t.Fatal(err)
