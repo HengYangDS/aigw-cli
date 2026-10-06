@@ -274,6 +274,8 @@ interfaces = { anthropic = ["text"] }
 
 func (j *journeyFixture) installClientFixture(client string) {
 	j.testing.Helper()
+	// Synchronous copied clients need no race-runtime exit grace; keep all other options.
+	j.setEnvironment("GORACE", strings.TrimSpace(os.Getenv("GORACE")+" atexit_sleep_ms=0"))
 	program, err := os.Executable()
 	if err != nil {
 		j.testing.Fatal(err)
