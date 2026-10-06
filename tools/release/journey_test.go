@@ -87,7 +87,7 @@ func TestNativeProductJourney(t *testing.T) {
 	runDeferredClientInstallation(t, currentProgram, server.URL+"/v1")
 
 	t.Run("one selected account does not require every token", func(t *testing.T) {
-		journey := newNativeJourney(t, sourceBaseline(t), server.URL+"/v1", true)
+		journey := newNativeJourney(t, currentProgram(t), server.URL+"/v1", true)
 		journey.prepareCodexLifecycle()
 		journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 		journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
@@ -103,10 +103,10 @@ func TestNativeProductJourney(t *testing.T) {
 		if !diagnosis.OK {
 			t.Fatal("doctor rejected a healthy partially connected catalogue")
 		}
-		candidate, archive, checksums := nativeReleaseCandidate(t, root, newVersion)
-		journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, "native-journey-token", secrets.BackendSelection{
+		journey.requireCredentialBackend("native-journey-token", secrets.BackendSelection{
 			Kind: "env", Availability: "available", Mutability: "read_only", Persistence: "explicit",
 		})
+		journey.requireClaudeCredential("native-journey-token")
 		journey.uninstallAndRequireInstallationRemoved()
 	})
 

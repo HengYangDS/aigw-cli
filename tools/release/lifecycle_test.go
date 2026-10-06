@@ -23,47 +23,12 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-func TestNativeLifecycleBaselineSelection(t *testing.T) {
-	t.Run("source fixture", func(t *testing.T) {
-		t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
-		got, err := nativeLifecycleBaseline(func() string { return "/built/fixture" })
-		if err != nil || got != "/built/fixture" {
-			t.Fatalf("source fixture = %q, %v", got, err)
-		}
-	})
-	t.Run("explicit released binary", func(t *testing.T) {
-		baseline := filepath.Join(t.TempDir(), executableName())
-		mustWriteFile(t, baseline, []byte("baseline"), 0o700)
-		t.Setenv("AIGW_ACCEPTANCE_BASELINE", baseline)
-		built := false
-		got, err := nativeLifecycleBaseline(func() string {
-			built = true
-			return "/built/fixture"
-		})
-		if err != nil || got != baseline {
-			t.Fatalf("released baseline = %q, %v", got, err)
-		}
-		if built {
-			t.Fatal("explicit released baseline still built its source fallback")
-		}
-	})
-	t.Run("unavailable release is not replaced by fixture", func(t *testing.T) {
-		t.Setenv("AIGW_ACCEPTANCE_BASELINE", filepath.Join(t.TempDir(), "missing"))
-		if _, err := nativeLifecycleBaseline(func() string { return "/built/fixture" }); err == nil {
-			t.Fatal("missing requested baseline was silently replaced")
-		}
-	})
-	t.Run("directory is not a release executable", func(t *testing.T) {
-		t.Setenv("AIGW_ACCEPTANCE_BASELINE", t.TempDir())
-		if _, err := nativeLifecycleBaseline(func() string { return "/built/fixture" }); err == nil {
-			t.Fatal("directory accepted as a release executable")
-		}
-	})
-}
-
 func nativeLifecycleBaseline(buildFixture func() string) (string, error) {
 	path := os.Getenv("AIGW_ACCEPTANCE_BASELINE")
 	if path == "" {
+		if os.Getenv("AIGW_ACCEPTANCE_RELEASE") != "" {
+			return "", fmt.Errorf("prebuilt lifecycle requires an explicit published predecessor")
+		}
 		return buildFixture(), nil
 	}
 	absolute, err := filepath.Abs(path)

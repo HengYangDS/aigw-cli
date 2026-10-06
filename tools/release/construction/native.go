@@ -278,7 +278,9 @@ func acceptNative(request buildRequest, artifacts, baseline string, input Native
 		}
 	}()
 	stage := ""
+	lifecycleBaseline := ""
 	if artifacts == "" && clients {
+		lifecycleBaseline = baseline
 		request.TargetOS = runtime.GOOS
 		stage, err = buildArchives(request, workspace, run)
 		if err != nil {
@@ -289,6 +291,7 @@ func acceptNative(request buildRequest, artifacts, baseline string, input Native
 		}
 	}
 	if artifacts != "" {
+		lifecycleBaseline = baseline
 		stage = workspace
 		target := artifact.Target{OS: runtime.GOOS, Arch: runtime.GOARCH}
 		for _, name := range []string{target.ArchiveName(request.Version), "checksums.txt"} {
@@ -300,7 +303,7 @@ func acceptNative(request buildRequest, artifacts, baseline string, input Native
 			return err
 		}
 	}
-	currentEnvironment := NativeTestEnvironment(workspace, stage, "")
+	currentEnvironment := NativeTestEnvironment(workspace, stage, lifecycleBaseline)
 	publishedEnvironment := NativeTestEnvironment(workspace, stage, baseline)
 	clientPattern := "^TestNativeClientJourney$"
 	if input.DiagnosticClient != "" {

@@ -56,9 +56,6 @@ func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 
 func TestNativeAcceptanceRunsPublishedPredecessorSeparatelyFromCurrentSchemaJourneys(t *testing.T) {
 	baseline := filepath.Join(t.TempDir(), "published-aigw")
-	if err := os.WriteFile(baseline, []byte("published predecessor"), 0o700); err != nil {
-		t.Fatal(err)
-	}
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", baseline)
 	request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
 	var calls []toolCall
@@ -249,6 +246,8 @@ func TestNativeClientAcceptanceSharesStageAndPropagatesFailure(t *testing.T) {
 }
 
 func TestNativeAcceptanceConsumesExistingArchives(t *testing.T) {
+	baseline := filepath.Join(t.TempDir(), "published-aigw")
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", baseline)
 	for _, clients := range []bool{false, true} {
 		t.Run(fmt.Sprint(clients), func(t *testing.T) {
 			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
@@ -262,8 +261,8 @@ func TestNativeAcceptanceConsumesExistingArchives(t *testing.T) {
 			calls := 0
 			want := errors.New("acceptance failed")
 			err = acceptNative(request, source, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), NativeAcceptance{Clients: clients}, func(call toolCall) error {
-				if call.Name != "go" {
-					t.Fatalf("existing artifact acceptance rebuilt: %#v", call)
+				if call.Name != "go" || !slices.Contains(call.Env, "AIGW_ACCEPTANCE_BASELINE="+baseline) {
+					t.Fatalf("existing artifact acceptance rebuilt or lost its published predecessor: %#v", call)
 				}
 				stage = strings.TrimPrefix(call.Env[0], "AIGW_ACCEPTANCE_RELEASE=")
 				if stage == source {

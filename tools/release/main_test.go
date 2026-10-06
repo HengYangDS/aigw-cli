@@ -181,6 +181,57 @@ func requireNativeLifecycleBaseline(t *testing.T, buildFixture func() string) st
 	return staged
 }
 
+func TestNativeLifecycleBaselineSelection(t *testing.T) {
+	t.Run("source fixture", func(t *testing.T) {
+		t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+		t.Setenv("AIGW_ACCEPTANCE_RELEASE", "")
+		got, err := nativeLifecycleBaseline(func() string { return "/built/fixture" })
+		if err != nil || got != "/built/fixture" {
+			t.Fatalf("source fixture = %q, %v", got, err)
+		}
+	})
+	t.Run("prebuilt lifecycle requires its admitted predecessor", func(t *testing.T) {
+		t.Setenv("AIGW_ACCEPTANCE_RELEASE", t.TempDir())
+		t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+		built := false
+		_, err := nativeLifecycleBaseline(func() string {
+			built = true
+			return "/built/fixture"
+		})
+		if err == nil || built {
+			t.Fatalf("prebuilt lifecycle substituted a source fixture: built=%v, error=%v", built, err)
+		}
+	})
+	t.Run("explicit released binary", func(t *testing.T) {
+		baseline := filepath.Join(t.TempDir(), executableName())
+		mustWriteFile(t, baseline, []byte("baseline"), 0o700)
+		t.Setenv("AIGW_ACCEPTANCE_BASELINE", baseline)
+		built := false
+		got, err := nativeLifecycleBaseline(func() string {
+			built = true
+			return "/built/fixture"
+		})
+		if err != nil || got != baseline {
+			t.Fatalf("released baseline = %q, %v", got, err)
+		}
+		if built {
+			t.Fatal("explicit released baseline still built its source fallback")
+		}
+	})
+	t.Run("unavailable release is not replaced by fixture", func(t *testing.T) {
+		t.Setenv("AIGW_ACCEPTANCE_BASELINE", filepath.Join(t.TempDir(), "missing"))
+		if _, err := nativeLifecycleBaseline(func() string { return "/built/fixture" }); err == nil {
+			t.Fatal("missing requested baseline was silently replaced")
+		}
+	})
+	t.Run("directory is not a release executable", func(t *testing.T) {
+		t.Setenv("AIGW_ACCEPTANCE_BASELINE", t.TempDir())
+		if _, err := nativeLifecycleBaseline(func() string { return "/built/fixture" }); err == nil {
+			t.Fatal("directory accepted as a release executable")
+		}
+	})
+}
+
 func TestExplicitNativeBaselineStagesExactBytesOutsideItsInstallation(t *testing.T) {
 	selected := filepath.Join(t.TempDir(), executableName())
 	want := []byte("published predecessor bytes")
@@ -306,22 +357,40 @@ func TestNativeProductSelectionDoesNotBuildUnselectedFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"ephemeral_endpoint_credentials", "delayed_token_and_client_activation", "claude"} {
-		t.Run(name, func(t *testing.T) {
+	for _, fixture := range []struct {
+		test, subtest string
+		baseline      bool
+	}{
+		{"TestNativeProductJourney", "ephemeral_endpoint_credentials", false},
+		{"TestNativeProductJourney", "delayed_token_and_client_activation", false},
+		{"TestNativeProductJourney", "one_selected_account_does_not_require_every_token", false},
+		{"TestNativeProductJourney", "claude", false},
+		{"TestNativeProductJourney", "portable_artifact_lifecycle", true},
+		{"TestNativeRollbackConfigurationAdmission", "", true},
+	} {
+		t.Run(fixture.test+"/"+fixture.subtest, func(t *testing.T) {
 			missing := filepath.Join(t.TempDir(), "unselected")
+			baseline := missing
+			if fixture.baseline {
+				baseline = requireNativeLifecycleBaseline(t, func() string { return buildNativeProgram(t, root, "0.0.0") })
+			}
+			pattern, marker := "^"+fixture.test+"$", "--- PASS: "+fixture.test
+			if fixture.subtest != "" {
+				pattern += "/^" + fixture.subtest + "$"
+				marker += "/" + fixture.subtest
+			}
 			ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 			defer cancel()
-			command := exec.CommandContext(ctx, selected, "-test.run=^TestNativeProductJourney$/^"+name+"$", "-test.count=1", "-test.timeout=20s", "-test.v")
+			command := exec.CommandContext(ctx, selected, "-test.run="+pattern, "-test.count=1", "-test.timeout=20s", "-test.v")
 			command.WaitDelay = 2 * time.Second
 			command.Dir = filepath.Join(root, "tools", "release")
 			command.Env = environmentWith(os.Environ(), map[string]string{
 				"PATH":                       missing,
 				"AIGW_ACCEPTANCE_RELEASE":    filepath.Dir(filepath.Dir(program)),
-				"AIGW_ACCEPTANCE_BASELINE":   missing,
+				"AIGW_ACCEPTANCE_BASELINE":   baseline,
 				"AIGW_VERIFY_SYSTEM_KEYRING": "0",
 			})
 			output, err := command.CombinedOutput()
-			marker := "--- PASS: TestNativeProductJourney/" + name
 			if ctx.Err() != nil || err != nil || !bytes.Contains(output, []byte(marker)) || bytes.Contains(output, []byte("FailNow on a parent test")) {
 				t.Fatalf("selected native fixture violated build or failure ownership: %v\n%s", err, output)
 			}
