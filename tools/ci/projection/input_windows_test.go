@@ -11,7 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -22,10 +22,7 @@ import (
 func TestNativePublicInputPreparesSelectedArtifactAndClientRoots(t *testing.T) {
 	pwsh, err := exec.LookPath("pwsh")
 	if err != nil {
-		if runtime.GOOS == "windows" {
-			t.Fatal(err)
-		}
-		t.Skip("PowerShell native execution is optional outside Windows")
+		t.Fatalf("Windows native input requires PowerShell: %v", err)
 	}
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	data, err := projectionCommand(root, "nativePublicInputWindows").Output()
@@ -129,10 +126,7 @@ func requireProjectionInput(t *testing.T, err error) {
 func TestNativePublicInputAdmission(t *testing.T) {
 	pwsh, err := exec.LookPath("pwsh")
 	if err != nil {
-		if runtime.GOOS == "windows" {
-			t.Fatalf("Windows native input requires PowerShell: %v", err)
-		}
-		t.Skip("PowerShell native execution is optional outside Windows")
+		t.Fatalf("Windows native input requires PowerShell: %v", err)
 	}
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	command := projectionCommand(root, "nativePublicInputWindows")
@@ -195,10 +189,7 @@ func TestNativePublicInputAdmission(t *testing.T) {
 func TestWindowsPublicInputToolsPreserveSourceScope(t *testing.T) {
 	pwsh, err := exec.LookPath("pwsh")
 	if err != nil {
-		if runtime.GOOS == "windows" {
-			t.Fatal(err)
-		}
-		t.Skip("PowerShell native execution is optional outside Windows")
+		t.Fatalf("Windows native input requires PowerShell: %v", err)
 	}
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	data, err := projectionCommand(root, `(#NativeGitLabJob & {_platform: "windows", tags: [], rules: []})._selectTools`).Output()
@@ -228,5 +219,66 @@ func TestWindowsPublicInputToolsPreserveSourceScope(t *testing.T) {
 				t.Fatalf("Windows public input tool scope: %v, %s; want %s", err, output, test.want)
 			}
 		})
+	}
+}
+
+func TestNativePowerShellAcceptancePreservesDeclaredEmptyTag(t *testing.T) {
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if os.Getenv("AIGW_NATIVE_ARGUMENT_WITNESS") == "1" {
+		selected := os.Args[len(os.Args)-5:]
+		want := []string{"--baseline-tag=v1.2.3", "--tag=", "--clients=false", "--diagnostic-client=" + os.Getenv("AIGW_NATIVE_DIAGNOSTIC_CLIENT"), "--performance-attribution=false"}
+		if !slices.Equal(selected, want) {
+			t.Fatalf("native PowerShell changed argument identity: %q", selected)
+		}
+		return
+	}
+	pwsh, err := exec.LookPath("pwsh")
+	if err != nil {
+		t.Fatalf("Windows native acceptance requires PowerShell: %v", err)
+	}
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				Name string `yaml:"name"`
+				Run  string `yaml:"run"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	steps := workflow.Jobs["native-windows"].Steps
+	index := slices.IndexFunc(steps, func(step struct {
+		Name string `yaml:"name"`
+		Run  string `yaml:"run"`
+	}) bool {
+		return step.Name == "Run historical release acceptance"
+	})
+	if index < 0 {
+		t.Fatal("Windows native command is missing")
+	}
+	_, suffix, found := strings.Cut(steps[index].Run, " --baseline-tag=")
+	if !found {
+		t.Fatal("Windows native command must declare the published baseline tag")
+	}
+	suffix = "--baseline-tag=" + strings.ReplaceAll(suffix, "${{ inputs.windows_clients && inputs.diagnostic_client == '' }}", "false")
+	suffix = strings.ReplaceAll(suffix, "${{ inputs.performance_attribution }}", "false")
+	script := "& '" + strings.ReplaceAll(executable, "'", "''") + "' '-test.run=^TestNativePowerShellAcceptancePreservesDeclaredEmptyTag$' -- " + suffix
+	for _, client := range []string{"", "hermes"} {
+		ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+		command := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script)
+		command.Env = append(os.Environ(), "AIGW_NATIVE_ARGUMENT_WITNESS=1", "AIGW_BASELINE_TAG=v1.2.3", "AIGW_CANDIDATE_TAG=", "AIGW_NATIVE_DIAGNOSTIC_CLIENT="+client)
+		output, err := command.CombinedOutput()
+		cancel()
+		if err != nil || !bytes.Contains(output, []byte("PASS")) {
+			t.Fatalf("native PowerShell argument witness failed: %v\n%s", err, output)
+		}
 	}
 }
