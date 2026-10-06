@@ -182,10 +182,14 @@ func TestMiseNpmEnvironmentIsBoundToThisRepository(t *testing.T) {
 	}
 	t.Setenv("NPM_CONFIG_REGISTRY", "https://unselected.invalid/")
 	t.Setenv("CI_JOB_ID", "")
+	nullConfig := os.DevNull
+	if !filepath.IsAbs(nullConfig) {
+		nullConfig = filepath.Join(root, nullConfig)
+	}
 	for name, want := range map[string]string{
 		"registry":     "https://registry.npmjs.org/",
 		"userconfig":   filepath.Join(root, ".npmrc"),
-		"globalconfig": os.DevNull,
+		"globalconfig": nullConfig,
 		"cache":        filepath.Join(root, "build", "runtime", "npm-cache"),
 	} {
 		ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)

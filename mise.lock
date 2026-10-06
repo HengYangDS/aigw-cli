@@ -79,44 +79,44 @@ url_api = "https://api.github.com/repos/cli/cli/releases/assets/599854760"
 provenance = "github-attestations"
 
 [[tools."github:anchore/syft"]]
-version = "1.54.0"
+version = "1.54.1"
 backend = "github:anchore/syft"
-specifiers = ["1.54.0"]
+specifiers = ["1.54.1"]
 
 [tools."github:anchore/syft"."platforms.linux-arm64"]
-checksum = "sha256:ee6d4566373a05b344bc6b5f1706f14419bf9338ba39ff686e247deefe9b8818"
-url = "https://github.com/anchore/syft/releases/download/v1.54.0/syft_1.54.0_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/anchore/syft/releases/assets/604117598"
+checksum = "sha256:dfdf0537610113edbefe1f1fc6548bc957b2d77439636ec824fcf0e10d46d054"
+url = "https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/syft/releases/assets/615916319"
 provenance = "github-attestations"
 
 [tools."github:anchore/syft"."platforms.linux-x64"]
-checksum = "sha256:54a87372498168b2d033e876fd41fa4e8035b872699e525a57046e1f2f09c860"
-url = "https://github.com/anchore/syft/releases/download/v1.54.0/syft_1.54.0_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/anchore/syft/releases/assets/604117627"
+checksum = "sha256:c069905b391cc4c20a5ba65ad5c10be2a7ba074f8ea6ad203e24d14e303dad47"
+url = "https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/syft/releases/assets/615916330"
 provenance = "github-attestations"
 
 [tools."github:anchore/syft"."platforms.macos-arm64"]
-checksum = "sha256:7e0bdad94c569fc6d5785c9a657bbae3d4c4e140ccb5eace3d0b5b6bc2b6dbcf"
-url = "https://github.com/anchore/syft/releases/download/v1.54.0/syft_1.54.0_darwin_arm64.tar.gz"
-url_api = "https://api.github.com/repos/anchore/syft/releases/assets/604117599"
+checksum = "sha256:b4319c3abaa87a0170ab76ee83ea2260ca34b53aecfa3ab0dd5428d2319d744f"
+url = "https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/syft/releases/assets/615916332"
 provenance = "github-attestations"
 
 [tools."github:anchore/syft"."platforms.macos-x64"]
-checksum = "sha256:22b71725e388a4c0de385249c4bc1044f78a870f2894f34b43ba957e792145d7"
-url = "https://github.com/anchore/syft/releases/download/v1.54.0/syft_1.54.0_darwin_amd64.tar.gz"
-url_api = "https://api.github.com/repos/anchore/syft/releases/assets/604117610"
+checksum = "sha256:2956322838b2f64e470eea474495f0cd96be4f222b1ac037258cdc47d965064e"
+url = "https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_darwin_amd64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/syft/releases/assets/615916329"
 provenance = "github-attestations"
 
 [tools."github:anchore/syft"."platforms.windows-arm64"]
-checksum = "sha256:0fdfa61470a69b99ace491df1fd7ef9803439c15d4d3d19a0bcb139d8b9fba4e"
-url = "https://github.com/anchore/syft/releases/download/v1.54.0/syft_1.54.0_windows_arm64.zip"
-url_api = "https://api.github.com/repos/anchore/syft/releases/assets/604117592"
+checksum = "sha256:440019acac7c5b3b44edb8d224aa226b52aadca66a1c3a0a8d58a9525f675e36"
+url = "https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_windows_arm64.zip"
+url_api = "https://api.github.com/repos/anchore/syft/releases/assets/615916324"
 provenance = "github-attestations"
 
 [tools."github:anchore/syft"."platforms.windows-x64"]
-checksum = "sha256:77f4b472779058e819eec9a054753a5071a996aaa40db31a290f8b256748593f"
-url = "https://github.com/anchore/syft/releases/download/v1.54.0/syft_1.54.0_windows_amd64.zip"
-url_api = "https://api.github.com/repos/anchore/syft/releases/assets/604117608"
+checksum = "sha256:8b56e8285e295e0bbed26eeea9b16ed51c493be97ccdf42dae6326c84fe8e19f"
+url = "https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_windows_amd64.zip"
+url_api = "https://api.github.com/repos/anchore/syft/releases/assets/615916316"
 provenance = "github-attestations"
 
 [[tools."github:boyter/scc"]]
@@ -687,39 +687,39 @@ url = "https://github.com/tamasfe/taplo/releases/download/0.10.0/taplo-windows-x
 url_api = "https://api.github.com/repos/tamasfe/taplo/releases/assets/257323062"
 
 [[tools.typos]]
-version = "1.50.3"
+version = "1.51.0"
 backend = "aqua:crate-ci/typos"
-specifiers = ["1.50.3"]
+specifiers = ["1.51.0"]
 
 [tools.typos."platforms.linux-arm64"]
-checksum = "sha256:456f9fe7aa6e7c1597879f5e951d7de2fab261a9ca05f16f324f896c806c55db"
-url = "https://github.com/crate-ci/typos/releases/download/v1.50.3/typos-v1.50.3-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/588999780"
+checksum = "sha256:ec77ba48a6cf05f8416455b83e9aa86e206480c2be72136071842aba3b9f71ea"
+url = "https://github.com/crate-ci/typos/releases/download/v1.51.0/typos-v1.51.0-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/615958302"
 
 [tools.typos."platforms.linux-x64"]
-checksum = "sha256:aca6b5d546307092b8d0a8e0a89dd80f9da51f2f7617c5e45c5607c1684ffbf2"
-url = "https://github.com/crate-ci/typos/releases/download/v1.50.3/typos-v1.50.3-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/589000924"
+checksum = "sha256:cfaf1683883b2851afeccf310c8f9c086e70d6ea33f939e595a6b1b1c2c8e5d6"
+url = "https://github.com/crate-ci/typos/releases/download/v1.51.0/typos-v1.51.0-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/615959214"
 
 [tools.typos."platforms.macos-arm64"]
-checksum = "sha256:844d4121fb47a95604aa5566843bb9e3d6078040b3c8f22367709f563038f2c5"
-url = "https://github.com/crate-ci/typos/releases/download/v1.50.3/typos-v1.50.3-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/589002568"
+checksum = "sha256:9b650aed321349d9b0b2d61ac1c03b0a291be4c3c02b4d0d4d3d103bffb7fd96"
+url = "https://github.com/crate-ci/typos/releases/download/v1.51.0/typos-v1.51.0-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/615959461"
 
 [tools.typos."platforms.macos-x64"]
-checksum = "sha256:7cc75e42fff1e3b66928de325b3ea1ec7e23ce35ffaa3561fdb0ede8e7275f6f"
-url = "https://github.com/crate-ci/typos/releases/download/v1.50.3/typos-v1.50.3-x86_64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/589006772"
+checksum = "sha256:fef59b9297a808bffeffe3be61754d5f71d9ab0d4eeaf46bd281929d4dd8f95d"
+url = "https://github.com/crate-ci/typos/releases/download/v1.51.0/typos-v1.51.0-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/615959073"
 
 [tools.typos."platforms.windows-arm64"]
-checksum = "sha256:b59f149d84e86aab535d52db029fa8d3ac5ecba9ae5c7f19cf07acb5aa0caaaf"
-url = "https://github.com/crate-ci/typos/releases/download/v1.50.3/typos-v1.50.3-x86_64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/589001623"
+checksum = "sha256:6b9a2084e508cf90553430ffe920c5b186bb87b66f5d6e75400e446c1d9ea494"
+url = "https://github.com/crate-ci/typos/releases/download/v1.51.0/typos-v1.51.0-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/615957729"
 
 [tools.typos."platforms.windows-x64"]
-checksum = "sha256:b59f149d84e86aab535d52db029fa8d3ac5ecba9ae5c7f19cf07acb5aa0caaaf"
-url = "https://github.com/crate-ci/typos/releases/download/v1.50.3/typos-v1.50.3-x86_64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/589001623"
+checksum = "sha256:6b9a2084e508cf90553430ffe920c5b186bb87b66f5d6e75400e446c1d9ea494"
+url = "https://github.com/crate-ci/typos/releases/download/v1.51.0/typos-v1.51.0-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/615957729"
 
 [[tools.uv]]
 version = "0.12.23"
