@@ -57,11 +57,11 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 	for index, call := range calls {
 		names[index] = call.Name
 	}
-	if !slices.Equal(names, []string{"git", "osv-scanner", "osv-scanner", "goreleaser", "syft", "git", "git", "ssh-keygen"}) {
+	if !slices.Equal(names, []string{"git", "osv-scanner", "goreleaser", "syft", "git", "git", "ssh-keygen"}) {
 		t.Fatalf("calls = %#v", calls)
 	}
-	osv := calls[slices.IndexFunc(calls, func(call toolCall) bool { return call.Name == "osv-scanner" })+1]
-	for _, expected := range []string{"scan", "source", "--config", filepath.Join(filepath.Dir(osv.Args[len(osv.Args)-1]), "disposition.toml"), "--lockfile", filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json"), "--no-call-analysis=go", "--all-packages", "--licenses="} {
+	osv := calls[slices.IndexFunc(calls, func(call toolCall) bool { return call.Name == "osv-scanner" })]
+	for _, expected := range []string{"scan", "source", "--config", filepath.Join(filepath.Dir(osv.Args[len(osv.Args)-1]), "policy.toml"), "--lockfile", filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json"), "--no-call-analysis=go", "--all-packages", "--all-vulns", "--licenses="} {
 		if !slices.Contains(osv.Args, expected) {
 			t.Fatalf("OSV arguments missing %q: %v", expected, osv.Args)
 		}
@@ -161,7 +161,7 @@ func releaseRoot(t *testing.T) string {
 	if err := os.MkdirAll(filepath.Dir(dependencyPolicy), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(dependencyPolicy, []byte("IgnoredVulns = []\n"), 0o600); err != nil {
+	if err := os.WriteFile(dependencyPolicy, []byte("PackageOverrides = []\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return root

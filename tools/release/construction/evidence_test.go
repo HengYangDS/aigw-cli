@@ -436,22 +436,6 @@ func TestNativeDependencyEvidenceTransportRefusesBrokenResources(t *testing.T) {
 	if _, err := readDependencyPolicy(root); err == nil {
 		t.Fatal("unknown native policy field accepted")
 	}
-	approved := "[[IgnoredVulns]]\nid='GHSA-vfj7-8cjw-p6xm'\nreason='Reviewed fixture'\nignoreUntil=2026-10-18\n"
-	if err := os.WriteFile(policy, []byte(approved), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := readDependencyPolicy(root); err == nil {
-		t.Fatal("exception accepted without its lockfile")
-	}
-	lock := filepath.Join(root, "package-lock.json")
-	for _, invalid := range []string{"{", `{"lockfileVersion":3,"packages":{"node_modules/braces":{"version":"3.0.4","dev":true}}}`, `{"lockfileVersion":3,"packages":{}}`} {
-		if err := os.WriteFile(lock, []byte(invalid), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := readDependencyPolicy(root); err == nil {
-			t.Fatal("exception accepted outside its exact locked scope")
-		}
-	}
 	blocked := filepath.Join(root, "blocked")
 	if err := os.WriteFile(blocked, []byte("retained"), 0o600); err != nil {
 		t.Fatal(err)
@@ -469,7 +453,7 @@ func TestNativeDependencyEvidenceTransportRefusesBrokenResources(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if err := validateDependencyExceptions(dependencyPolicy{}, path); err == nil {
+		if err := normalizeDependencyEvidence(path, filepath.Join(root, "vulnerabilities.json"), filepath.Join(root, "licenses.json"), []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")}); err == nil {
 			t.Fatal("unavailable raw evidence accepted")
 		}
 	}

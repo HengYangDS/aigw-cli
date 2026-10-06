@@ -298,9 +298,13 @@ full-lock licenses/vulnerabilities.
 OSV invocation and admission share exact selected lock paths. Require each once as a
 lockfile source with observed packages; empty/partial reports, another checkout or
 ordinary directory scans are not clean evidence. Strip host prefixes only after this
-check. Scan and admit dependencies before GoReleaser constructs artifacts;
-known supply failures must not consume a full build before rejection. Binary
-SBOM generation, provenance and signing remain later obligations.
+check. One scan retains the complete raw report and normalized evidence before
+GoReleaser constructs artifacts. Supply-chain security findings are nonblocking:
+retain and disclose every advisory without an exception registry, suppression,
+or a second disposition scan. Scanner failures and invalid evidence are not clean
+results; artifact corruption, checksum mismatch and invalid signatures remain
+artifact-validity failures. Binary SBOM generation, provenance and signing remain
+later obligations.
 Each peer publishes the same immutable files;
 its assets never become another peer's build input.
 

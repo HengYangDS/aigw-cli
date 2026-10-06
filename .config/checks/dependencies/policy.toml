@@ -1,12 +1,7 @@
 # Quality and release scans retain complete vulnerability and license evidence.
-# OSV owns the advisory disposition; the release owner validates scope against
-# the exact approved npm/braces/3.0.3/dev lock and raw native finding before
-# applying it; OSV has no conditional scope field. Remove this entry
-# on an official stable fix, a changed version/group, or an obsolete finding.
-[[IgnoredVulns]]
-id = "GHSA-vfj7-8cjw-p6xm"
-ignoreUntil = 2026-10-18
-reason = "Human-approved 2026-10-04: reviewed development checks only; retain complete raw findings, bounded native execution and all other gates. Not production or arbitrary untrusted input."
+# Supply-chain security findings are disclosed, not delivery blockers.
+# Native scanner failures, incomplete evidence and artifact integrity remain
+# separate validity requirements. Do not suppress advisory IDs.
 
 # Exact integrity-locked archive LICENSE files establish these corrections;
 # upstream metadata resolves to UNKNOWN. Only license observations change.

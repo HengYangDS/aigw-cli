@@ -138,7 +138,8 @@ in Git; original raw results stay with their source-bound verification owner.
       malformed or unreachable authored carrier must fail the relevant gate.
 - [ ] 6.5 Verify dependency hygiene, dead-code, secrets, SBOM, vulnerabilities,
       licenses, checksums, signatures and provenance from the exact locked
-      candidate; delete unconsumed parallel scanners or reports.
+      candidate; retain and disclose nonblocking supply-chain security findings,
+      preserve artifact validity, and delete unconsumed parallel scans or reports.
 - [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
       build and CI costs against predecessor budgets on a quiet host; preserve raw
       samples and optimize only diagnosed owners.

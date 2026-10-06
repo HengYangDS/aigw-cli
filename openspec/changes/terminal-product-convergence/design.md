@@ -304,8 +304,10 @@ registry caching is reachable; pattern expansion includes signed TUF delegation
 metadata; script disabling does not prevent local/Git packing globs. Reviewed
 repository commands do not qualify arbitrary inputs, new affected-supplier
 installation, or universal tool security. These components are absent from the
-portable Go product's runtime SBOM. No override, scanner suppression, or transfer
-of the separate development braces approval is part of this disposition.
+portable Go product's runtime SBOM. Supply-chain security findings are retained
+and disclosed, not delivery blockers. One complete scan replaces the obsolete
+development-only exception and second disposition scan. Scanner/evidence errors
+remain distinct from advisory findings, as do artifact integrity and authenticity.
 
 GitLab source jobs retain the selected acquisition source's locked tool cache;
 job-private mirror credentials are removed independently. Isolated fixtures

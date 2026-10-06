@@ -123,7 +123,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 		if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(policy, []byte("IgnoredVulns = []\n"), 0o600); err != nil {
+		if err := os.WriteFile(policy, []byte("PackageOverrides = []\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 
