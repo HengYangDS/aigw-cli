@@ -186,7 +186,7 @@ func TestOpenSpecValidationMeasuresOnlyTheRequestedCheckout(t *testing.T) {
 		{"complete checkout", root, "", "1 items, 0 findings", content},
 		{"parent fallback", child, "OpenSpec validation root", "", content},
 		{"empty checkout", empty, "OpenSpec validation checked no items", "", content},
-		{"native informational advice", root, "[INFO]: Requirement text is very long", "", strings.Replace(content, "The example SHALL complete.", strings.Repeat("The example SHALL preserve its observable contract. ", 12), 1)},
+		{"native warning admission", root, "Requirement text is very long", "", strings.Replace(content, "The example SHALL complete.", strings.Repeat("The example SHALL preserve its observable contract. ", 12), 1)},
 	} {
 		t.Run(item.name, func(t *testing.T) {
 			if err := os.WriteFile(spec, []byte(item.content), 0o600); err != nil {
