@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -195,20 +196,35 @@ func TestPortableQualityToolsHaveCompletePlatformLocks(t *testing.T) {
 		"platforms.windows-arm64",
 		"platforms.windows-x64",
 	}
-	for _, tool := range []string{"shellcheck", "typos"} {
-		entries := lock.Tools[tool]
-		if len(entries) != 1 {
-			t.Fatalf("%s lock entries = %d, want one", tool, len(entries))
-		}
-		var got []string
-		for key := range entries[0] {
-			if strings.HasPrefix(key, "platforms.") {
-				got = append(got, key)
+	call := exec.CommandContext(t.Context(), "cue", "export", ".config/ci/pipeline.cue", ".ethos/workspace.toml", "--expression", "toolchainTools.native", "--out", "json")
+	call.Dir = repositoryRoot(t)
+	output, err := call.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tools []string
+	if err := json.Unmarshal(output, &tools); err != nil {
+		t.Fatal(err)
+	}
+	if len(tools) == 0 {
+		t.Fatal("native toolchain must declare its portable tools")
+	}
+	for _, tool := range tools {
+		for _, platform := range want {
+			matches := 0
+			for _, entry := range lock.Tools[tool] {
+				_, native := entry[platform]
+				packageLock, _ := entry["aube"].(map[string]any)
+				path, _ := packageLock["path"].(string)
+				digest, _ := packageLock["digest"].(string)
+				packageLocked := entry["backend"] == "npm:npm" && path != "" && strings.HasPrefix(digest, "sha256:")
+				if native || packageLocked {
+					matches++
+				}
 			}
-		}
-		slices.Sort(got)
-		if !slices.Equal(got, want) {
-			t.Fatalf("%s platform locks = %q, want %q", tool, got, want)
+			if matches != 1 {
+				t.Errorf("%s %s locks = %d, want one native or platform-independent package lock", tool, platform, matches)
+			}
 		}
 	}
 }

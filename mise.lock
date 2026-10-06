@@ -512,6 +512,19 @@ checksum = "sha256:2508c549b049b1d4342d08edc1cb42bfac169082b6e3069431b5bab9822db
 url = "https://github.com/sharkdp/hyperfine/releases/download/v1.20.0/hyperfine-v1.20.0-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/sharkdp/hyperfine/releases/assets/317832313"
 
+[[tools."github:sharkdp/hyperfine"]]
+version = "1.20.0"
+backend = "github:sharkdp/hyperfine"
+specifiers = ["1.20.0"]
+
+[tools."github:sharkdp/hyperfine".options]
+asset_pattern = "hyperfine-v1.20.0-x86_64-pc-windows-msvc.zip"
+
+[tools."github:sharkdp/hyperfine"."platforms.windows-arm64"]
+checksum = "sha256:2508c549b049b1d4342d08edc1cb42bfac169082b6e3069431b5bab9822dbb32"
+url = "https://github.com/sharkdp/hyperfine/releases/download/v1.20.0/hyperfine-v1.20.0-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/sharkdp/hyperfine/releases/assets/317832313"
+
 [[tools.glab]]
 version = "1.120.0"
 backend = "gitlab:gitlab-org/cli"

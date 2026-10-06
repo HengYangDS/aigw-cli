@@ -22,9 +22,10 @@ func TestNativeMathConsumersRejectInheritedTrust(t *testing.T) {
 	code := `
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 for (const consumer of ["mermaid", "micromark-extension-math"]) {
   const require = createRequire(import.meta.resolve(consumer));
-  const { default: katex } = await import(require.resolve("katex"));
+  const { default: katex } = await import(pathToFileURL(require.resolve("katex")).href);
   const expression = "\\href{https://example.invalid/owned}{owned}";
   assert.ok(!katex.renderToString(expression).includes("<a "), consumer);
   Object.prototype.trust = true;

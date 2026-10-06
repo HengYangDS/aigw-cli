@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -147,7 +148,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 		toolOutput atomic.Bool
 		probe      codexToolLoopProbe
 	)
-	server := httptest.NewServer(codexToolLoopHandler(token, &toolOutput, &probe))
+	server := httptest.NewServer(codexToolLoopHandler(token, &toolOutput, &probe, nativeCodexToolShell(t)))
 	t.Cleanup(func() {
 		t.Logf("Combined Codex journey requests=%d calls=%d results=%d rejected=%d",
 			probe.requests.Load(), probe.toolCalls.Load(), probe.toolResults.Load(), probe.rejected.Load())
@@ -233,7 +234,7 @@ type codexToolLoopProbe struct {
 	firstResult                                atomic.Pointer[string]
 }
 
-func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToolLoopProbe) http.Handler {
+func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToolLoopProbe, shell string) http.Handler {
 	var completions atomic.Int64
 	base := clientResponseHandler(configuration.ProtocolOpenAIResponses, map[string]*atomic.Int64{"grok-4.7": &completions}, token, "high")
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
@@ -289,6 +290,16 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 				base.ServeHTTP(response, request)
 				return
 			}
+			command := map[string]any{"cmd": "echo AIGW_TOOL_OK"}
+			if shell != "" {
+				command["shell"], command["login"] = shell, false
+			}
+			arguments, err := json.Marshal(command)
+			if err != nil {
+				probe.rejected.Add(1)
+				http.Error(response, "encode native command", http.StatusInternalServerError)
+				return
+			}
 			probe.toolCalls.Add(1)
 			writeResponsesFunctionCall(
 				response,
@@ -296,7 +307,7 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 				"fc_aigw",
 				"call_aigw",
 				"exec_command",
-				`{"cmd":"echo AIGW_TOOL_OK"}`,
+				string(arguments),
 			)
 			return
 		}
@@ -304,27 +315,72 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 	})
 }
 
+func nativeCodexToolShell(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS != "windows" {
+		return ""
+	}
+	shell, err := requiredClientInput("ComSpec", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return shell
+}
+
 func TestCodexToolLoopStopsAfterUnsuccessfulToolResult(t *testing.T) {
 	const token = "fixture-token"
-	var toolOutput atomic.Bool
-	var probe codexToolLoopProbe
-	handler := codexToolLoopHandler(token, &toolOutput, &probe)
-	for _, body := range []string{
-		`{"model":"grok-4.7","stream":true,"reasoning":{"effort":"high"},"tools":[{"name":"exec_command"}],"input":[]}`,
-		`{"model":"grok-4.7","stream":true,"reasoning":{"effort":"high"},"tools":[{"name":"exec_command"}],"input":[{"type":"function_call_output","output":"permission denied fixture-token"}]}`,
-	} {
-		request := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))
-		request.Header.Set("Authorization", "Bearer "+token)
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		if response.Code != http.StatusOK {
-			t.Fatalf("tool-loop fixture response status = %d", response.Code)
+	for _, shell := range []string{"", `C:\Windows\System32\cmd.exe`} {
+		t.Run(shell, func(t *testing.T) {
+			var toolOutput atomic.Bool
+			var probe codexToolLoopProbe
+			handler := codexToolLoopHandler(token, &toolOutput, &probe, shell)
+			for index, body := range []string{
+				`{"model":"grok-4.7","stream":true,"reasoning":{"effort":"high"},"tools":[{"name":"exec_command"}],"input":[]}`,
+				`{"model":"grok-4.7","stream":true,"reasoning":{"effort":"high"},"tools":[{"name":"exec_command"}],"input":[{"type":"function_call_output","output":"permission denied fixture-token"}]}`,
+			} {
+				request := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))
+				request.Header.Set("Authorization", "Bearer "+token)
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				if response.Code != http.StatusOK {
+					t.Fatalf("tool-loop fixture response status = %d", response.Code)
+				}
+				if index == 0 {
+					requireCodexToolCommand(t, response.Body.String(), shell)
+				}
+			}
+			if probe.requests.Load() != 2 || probe.toolCalls.Load() != 1 || probe.toolResults.Load() != 1 || toolOutput.Load() {
+				t.Fatal("unsuccessful tool result caused another tool call or false acceptance")
+			}
+			if first := probe.firstResult.Load(); first == nil || strings.Contains(*first, token) {
+				t.Fatal("bounded tool diagnostic was absent or exposed its Token")
+			}
+		})
+	}
+}
+
+func requireCodexToolCommand(t *testing.T, response, shell string) {
+	t.Helper()
+	var arguments map[string]any
+	for line := range strings.SplitSeq(response, "\n") {
+		data, found := strings.CutPrefix(line, "data: ")
+		var event struct {
+			Type      string `json:"type"`
+			Arguments string `json:"arguments"`
+		}
+		if found && json.Unmarshal([]byte(data), &event) == nil && event.Type == "response.function_call_arguments.done" {
+			if err := json.Unmarshal([]byte(event.Arguments), &arguments); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
-	if probe.requests.Load() != 2 || probe.toolCalls.Load() != 1 || probe.toolResults.Load() != 1 || toolOutput.Load() {
-		t.Fatal("unsuccessful tool result caused another tool call or false acceptance")
+	if arguments["cmd"] != "echo AIGW_TOOL_OK" {
+		t.Fatalf("native command = %v", arguments)
 	}
-	if first := probe.firstResult.Load(); first == nil || strings.Contains(*first, token) {
-		t.Fatal("bounded tool diagnostic was absent or exposed its Token")
+	if shell != "" && (arguments["shell"] != shell || arguments["login"] != false) {
+		t.Fatalf("native non-login shell = %v, want %q", arguments, shell)
+	}
+	if shell == "" && len(arguments) != 1 {
+		t.Fatalf("default shell acquired an override: %v", arguments)
 	}
 }
