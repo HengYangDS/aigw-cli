@@ -495,7 +495,7 @@ func TestGitLabNativeAcceptanceForwardsPeerLocalArtifactAndClientInputs(t *testi
 			t.Fatal("CI login must be scoped to native downloads, not the source or test environment")
 		}
 		script := strings.Join(job.Script, "\n")
-		for _, input := range []string{"AIGW_BASELINE_TAG", "AIGW_CANDIDATE_TAG", "AIGW_CANDIDATE_ARTIFACTS", "AIGW_CANDIDATE_SOURCE", "AIGW_NATIVE_CLIENTS", "AIGW_NATIVE_DIAGNOSTIC_CLIENT", "--baseline-tag", "--artifacts", "--candidate", "--candidate-source", "--clients", "--diagnostic-client", "--peer", "gitlab", "--repository", "CI_PROJECT_URL"} {
+		for _, input := range []string{"AIGW_BASELINE_TAG", "AIGW_BASELINE_ARTIFACTS", "AIGW_CANDIDATE_TAG", "AIGW_CANDIDATE_ARTIFACTS", "AIGW_CANDIDATE_SOURCE", "AIGW_NATIVE_CLIENTS", "AIGW_NATIVE_DIAGNOSTIC_CLIENT", "--baseline-tag", "--baseline-artifacts", "--artifacts", "--candidate", "--candidate-source", "--clients", "--diagnostic-client", "--peer", "gitlab", "--repository", "CI_PROJECT_URL"} {
 			if !strings.Contains(script, input) {
 				t.Errorf("%s omits native release input %s", name, input)
 			}

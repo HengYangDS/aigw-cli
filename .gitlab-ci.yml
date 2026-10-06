@@ -71,6 +71,7 @@ native-linux:
       set -eu
       set -- --peer gitlab --repository "$CI_PROJECT_URL"
       if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
+      if [ -n "${AIGW_BASELINE_ARTIFACTS:-}" ]; then set -- "$@" --baseline-artifacts "$AIGW_BASELINE_ARTIFACTS"; fi
       if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
       if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
@@ -149,6 +150,7 @@ native-darwin:
       set -eu
       set -- --peer gitlab --repository "$CI_PROJECT_URL"
       if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
+      if [ -n "${AIGW_BASELINE_ARTIFACTS:-}" ]; then set -- "$@" --baseline-artifacts "$AIGW_BASELINE_ARTIFACTS"; fi
       if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
       if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
@@ -244,6 +246,7 @@ native-darwin-review:
       set -eu
       set -- --peer gitlab --repository "$CI_PROJECT_URL"
       if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
+      if [ -n "${AIGW_BASELINE_ARTIFACTS:-}" ]; then set -- "$@" --baseline-artifacts "$AIGW_BASELINE_ARTIFACTS"; fi
       if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
       if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
