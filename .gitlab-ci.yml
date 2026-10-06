@@ -364,7 +364,7 @@ native-windows:
       $env:MISE_NETRC = 'true'
       $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
       }
-      if (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE) { $env:MISE_ENABLE_TOOLS += ',node,uv' }
+      if (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE -and ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT))) { $env:MISE_ENABLE_TOOLS += ',node,uv' }
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - if (-not (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true')) { mise run bootstrap }
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
@@ -393,30 +393,33 @@ native-windows:
         }
         if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:AIGW_NATIVE_INPUT_SHA256) { throw 'Native public input checksum mismatch' }
         [void](New-Item -ItemType Directory -Path $fixture -ErrorAction Stop)
-        tar -xf $archive -C $fixture
-        tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.160.0-claude-2.1.288-native-packages.tar.gz') -C $fixture
-        $hermes = Join-Path $fixture 'clients/hermes'
-        [void](New-Item -ItemType Directory -Path $hermes -ErrorAction Stop)
-        tar -xf (Join-Path $fixture 'suppliers/official-hermes-f97608f1-source.tar') -C $hermes
-        $env:UV_CACHE_DIR = Join-Path $jobDirectory 'uv-cache'
-        $env:UV_PYTHON_INSTALL_DIR = Join-Path $jobDirectory 'python'
-        $env:UV_PROJECT_ENVIRONMENT = Join-Path $hermes '.venv'
-        $env:UV_PYTHON_INSTALL_REGISTRY = '0'
-        $env:UV_PYTHON_INSTALL_BIN = '0'
-        $env:UV_NO_CONFIG = '1'
-        mise exec --locked -- uv sync --project $hermes --python 3.12 --managed-python --frozen --no-dev --no-default-groups --extra edge-tts --extra bedrock
-        $codex = Join-Path $fixture 'clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
-        $gitBin = Split-Path (Get-Command git.exe -ErrorAction Stop).Source
-        $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
-        if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Native Claude requires Git Bash.' }
-        $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codex 'bin/codex.exe'
-        $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $fixture 'clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-        $env:AIGW_ACCEPTANCE_HERMES = Join-Path $hermes '.venv/Scripts/hermes.exe'
-        $node = mise which node
-        $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), (Join-Path $hermes '.venv/Scripts'), (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
-        $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
+        tar -xf $archive -C $fixture candidate/ baseline/
         $env:AIGW_CANDIDATE_ARTIFACTS = Join-Path $fixture 'candidate'
         $env:AIGW_BASELINE_ARTIFACTS = Join-Path $fixture 'baseline'
+        if ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)) {
+          tar -xf $archive -C $fixture suppliers/
+          tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.160.0-claude-2.1.288-native-packages.tar.gz') -C $fixture
+          $hermes = Join-Path $fixture 'clients/hermes'
+          [void](New-Item -ItemType Directory -Path $hermes -ErrorAction Stop)
+          tar -xf (Join-Path $fixture 'suppliers/official-hermes-f97608f1-source.tar') -C $hermes
+          $env:UV_CACHE_DIR = Join-Path $jobDirectory 'uv-cache'
+          $env:UV_PYTHON_INSTALL_DIR = Join-Path $jobDirectory 'python'
+          $env:UV_PROJECT_ENVIRONMENT = Join-Path $hermes '.venv'
+          $env:UV_PYTHON_INSTALL_REGISTRY = '0'
+          $env:UV_PYTHON_INSTALL_BIN = '0'
+          $env:UV_NO_CONFIG = '1'
+          mise exec --locked -- uv sync --project $hermes --python 3.12 --managed-python --frozen --no-dev --no-default-groups --extra edge-tts --extra bedrock
+          $codex = Join-Path $fixture 'clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
+          $gitBin = Split-Path (Get-Command git.exe -ErrorAction Stop).Source
+          $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
+          if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Native Claude requires Git Bash.' }
+          $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codex 'bin/codex.exe'
+          $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $fixture 'clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
+          $env:AIGW_ACCEPTANCE_HERMES = Join-Path $hermes '.venv/Scripts/hermes.exe'
+          $node = mise which node
+          $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), (Join-Path $hermes '.venv/Scripts'), (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+          $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
+        }
       }
       $acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)
       if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }
@@ -551,7 +554,7 @@ native-windows-review:
       $env:MISE_NETRC = 'true'
       $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
       }
-      if (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE) { $env:MISE_ENABLE_TOOLS += ',node,uv' }
+      if (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE -and ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT))) { $env:MISE_ENABLE_TOOLS += ',node,uv' }
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - if (-not (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true')) { mise run bootstrap }
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
@@ -580,30 +583,33 @@ native-windows-review:
         }
         if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:AIGW_NATIVE_INPUT_SHA256) { throw 'Native public input checksum mismatch' }
         [void](New-Item -ItemType Directory -Path $fixture -ErrorAction Stop)
-        tar -xf $archive -C $fixture
-        tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.160.0-claude-2.1.288-native-packages.tar.gz') -C $fixture
-        $hermes = Join-Path $fixture 'clients/hermes'
-        [void](New-Item -ItemType Directory -Path $hermes -ErrorAction Stop)
-        tar -xf (Join-Path $fixture 'suppliers/official-hermes-f97608f1-source.tar') -C $hermes
-        $env:UV_CACHE_DIR = Join-Path $jobDirectory 'uv-cache'
-        $env:UV_PYTHON_INSTALL_DIR = Join-Path $jobDirectory 'python'
-        $env:UV_PROJECT_ENVIRONMENT = Join-Path $hermes '.venv'
-        $env:UV_PYTHON_INSTALL_REGISTRY = '0'
-        $env:UV_PYTHON_INSTALL_BIN = '0'
-        $env:UV_NO_CONFIG = '1'
-        mise exec --locked -- uv sync --project $hermes --python 3.12 --managed-python --frozen --no-dev --no-default-groups --extra edge-tts --extra bedrock
-        $codex = Join-Path $fixture 'clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
-        $gitBin = Split-Path (Get-Command git.exe -ErrorAction Stop).Source
-        $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
-        if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Native Claude requires Git Bash.' }
-        $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codex 'bin/codex.exe'
-        $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $fixture 'clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-        $env:AIGW_ACCEPTANCE_HERMES = Join-Path $hermes '.venv/Scripts/hermes.exe'
-        $node = mise which node
-        $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), (Join-Path $hermes '.venv/Scripts'), (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
-        $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
+        tar -xf $archive -C $fixture candidate/ baseline/
         $env:AIGW_CANDIDATE_ARTIFACTS = Join-Path $fixture 'candidate'
         $env:AIGW_BASELINE_ARTIFACTS = Join-Path $fixture 'baseline'
+        if ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)) {
+          tar -xf $archive -C $fixture suppliers/
+          tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.160.0-claude-2.1.288-native-packages.tar.gz') -C $fixture
+          $hermes = Join-Path $fixture 'clients/hermes'
+          [void](New-Item -ItemType Directory -Path $hermes -ErrorAction Stop)
+          tar -xf (Join-Path $fixture 'suppliers/official-hermes-f97608f1-source.tar') -C $hermes
+          $env:UV_CACHE_DIR = Join-Path $jobDirectory 'uv-cache'
+          $env:UV_PYTHON_INSTALL_DIR = Join-Path $jobDirectory 'python'
+          $env:UV_PROJECT_ENVIRONMENT = Join-Path $hermes '.venv'
+          $env:UV_PYTHON_INSTALL_REGISTRY = '0'
+          $env:UV_PYTHON_INSTALL_BIN = '0'
+          $env:UV_NO_CONFIG = '1'
+          mise exec --locked -- uv sync --project $hermes --python 3.12 --managed-python --frozen --no-dev --no-default-groups --extra edge-tts --extra bedrock
+          $codex = Join-Path $fixture 'clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
+          $gitBin = Split-Path (Get-Command git.exe -ErrorAction Stop).Source
+          $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
+          if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Native Claude requires Git Bash.' }
+          $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codex 'bin/codex.exe'
+          $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $fixture 'clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
+          $env:AIGW_ACCEPTANCE_HERMES = Join-Path $hermes '.venv/Scripts/hermes.exe'
+          $node = mise which node
+          $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), (Join-Path $hermes '.venv/Scripts'), (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+          $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
+        }
       }
       $acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)
       if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }

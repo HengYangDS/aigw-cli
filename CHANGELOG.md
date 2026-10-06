@@ -22,6 +22,9 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Changed
 
+- Prepare Windows native client dependencies only for explicit client or
+  diagnostic acceptance; signed-artifact performance checks retain their
+  original trust inputs without installing unrelated clients.
 - Avoid unrelated native credential probes for an explicit or persisted backend;
   verify selected Account access with one copied-reader operation, retaining
   initial automatic fallback, precise missing-item results and authorization

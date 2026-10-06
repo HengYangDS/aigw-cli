@@ -280,8 +280,10 @@ ETHOS Work Lane or any other operating system.
 Windows public-fixture preparation belongs to the original native CI job, not a
 host transport or drain controller. Exact package/source/checksum inputs select
 its private job directory; independently configured trust remains outside the
-download. Native glab, tar and locked uv prepare complete client companions and
-official Hermes with managed Python 3.12 and its frozen lock. The original release
+download. Native glab and tar prepare the selected candidate and predecessor
+matrices. Only explicit client or diagnostic selection extracts client companions
+and prepares official Hermes with managed Python 3.12, locked uv and its frozen
+dependencies; performance-only acceptance does not install clients. The original release
 parser is the sole candidate/lifecycle admission owner. Full-quality and
 lock-refresh requests retain source qualification. After actual native consumer
 acceptance, remove superseded installer stages; preparation and archive inspection
