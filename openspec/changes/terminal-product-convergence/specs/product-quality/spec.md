@@ -140,13 +140,13 @@ or successful execution on the build host.
 
 ### Requirement: Native artifact acceptance has its own execution closure
 
-An explicitly selected prebuilt candidate or tagged product SHALL execute the
-existing release journey with only its required native tools when full source
-quality and lock refresh are not selected. Ordinary source, review and full
-qualification SHALL retain complete locked bootstrap, quality and security
-checks. Artifact acceptance SHALL NOT substitute for failed source qualification.
-A same-version verifier MAY select an exact signed untagged product commit;
-matrix signatures, clean-source and provenance admission SHALL remain required.
+Selected prebuilt or tagged products SHALL use only the artifact journey's
+required native tools unless full source quality or lock refresh is selected.
+Source, review, and full qualification SHALL retain the complete locked
+bootstrap, quality, and security graph. A same-version verifier MAY accept an
+exact signed untagged product commit with matrix signatures, clean source,
+and matching provenance. Artifact results SHALL NOT replace failed source
+qualification.
 
 #### Scenario: A newer verifier consumes a prebuilt candidate
 

@@ -242,14 +242,12 @@ SHALL remain unchanged.
 
 ### Requirement: Explicit Route retirement shares the import transaction
 
-Configuration import SHALL retain local-only Routes unless the operator names
-each one with `--retire-route`. A named Route SHALL exist locally, be absent
-from the incoming manifest, and not be selected by any Client Binding. The
-result SHALL have no recommendation referencing a retired Route. A Model
-referenced by a retired Route SHALL be removed only if no remaining Route references it
-and the incoming manifest does not declare it. Account metadata and Tokens
-SHALL remain untouched by retirement. Import, retirement, and any affected
-native client projection SHALL use one guarded commit with compensation.
+Import SHALL retain local-only Routes unless each is named with `--retire-route`.
+Retired Routes SHALL exist locally, be absent from the incoming manifest,
+and have no Client Binding or retained recommendation. Only their Models
+with no remaining Route or incoming declaration SHALL be removed. Account
+metadata and Tokens SHALL remain unchanged. Import, retirement, and affected
+native projections SHALL share one guarded commit with compensation.
 
 #### Scenario: Reviewed catalogue replaces obsolete recommendations
 
