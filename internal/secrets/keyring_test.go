@@ -144,35 +144,23 @@ func mockKeyringObserver(service, slot string) (bool, error) {
 	return err == nil, err
 }
 
-func TestVerifyNativeReaderAccessObservesOnlySelectedAccounts(t *testing.T) {
-	for _, test := range []struct {
-		name       string
-		present    bool
-		observeErr error
-		wantError  bool
-	}{
-		{name: "absent account"},
-		{name: "present account requires copied reader", present: true, wantError: true},
-		{name: "selected account inspection denied", observeErr: errors.New("native inspection denied"), wantError: true},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			observed := make([]string, 0, 1)
-			store := mockKeyringStore()
-			store.observe = func(service, slot string) (bool, error) {
-				observed = append(observed, slot)
-				if service != Service || slot != "selected-account" {
-					return false, errors.New("unrelated native observation")
-				}
-				return test.present, test.observeErr
-			}
-			err := VerifyNativeReaderAccess(scopedView{store: store}, filepath.Join(t.TempDir(), "unavailable-copied-reader"), []string{"selected-account"})
-			if test.wantError != errors.Is(err, ErrNativeReaderUnverified) || !test.wantError && err != nil {
-				t.Fatalf("copied reader authorization error = %v, want refusal=%t", err, test.wantError)
-			}
-			if len(observed) != 1 || observed[0] != "selected-account" {
-				t.Fatalf("native observations = %v, want only selected-account", observed)
-			}
-		})
+func TestVerifyNativeReaderAccessUsesOnlyTheCopiedReader(t *testing.T) {
+	store := mockKeyringStore()
+	store.observe = func(_, _ string) (bool, error) {
+		t.Fatal("copied-reader authorization launched a redundant source metadata query")
+		return false, nil
+	}
+	path := filepath.Join(t.TempDir(), "unavailable-copied-reader")
+	if err := VerifyNativeReaderAccess(scopedView{store: store}, path, nil); err != nil {
+		t.Fatalf("unused reader required authorization: %v", err)
+	}
+	if err := VerifyNativeReaderAccess(scopedView{store: store}, path, []string{"selected-account"}); !errors.Is(err, ErrNativeReaderUnverified) {
+		t.Fatalf("unavailable copied reader authorization error = %v", err)
+	}
+	for _, account := range []string{"", "invalid/account"} {
+		if err := VerifyNativeReaderAccess(scopedView{store: store}, path, []string{account}); !errors.Is(err, ErrNativeReaderUnverified) || !strings.Contains(err.Error(), "invalid Account identifier") {
+			t.Fatalf("invalid Account reached the copied reader: %v", err)
+		}
 	}
 }
 

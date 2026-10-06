@@ -15,8 +15,9 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
-	root := t.TempDir()
+func newKeyringReaderFixture(t *testing.T, target string) Synchronizer {
+	t.Helper()
+	root := filepath.Dir(target)
 	sourceName := "aigw"
 	if runtime.GOOS == "windows" {
 		sourceName += ".exe"
@@ -27,11 +28,16 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 import ("os"; "path/filepath"; "strings")
 func main() {
     if len(os.Args) != 4 { os.Exit(3) }
+    log, err := os.OpenFile(filepath.Join(filepath.Dir(os.Args[0]), "operations"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+    if err != nil { os.Exit(3) }
+    if _, err := log.WriteString(strings.Join(os.Args[1:], " ")+"\n"); err != nil { os.Exit(3) }
+    if err := log.Close(); err != nil { os.Exit(3) }
     if os.Args[1] == "__aigw-native-credential-exists" {
         if os.Args[3] == "missing" { _, _ = os.Stdout.WriteString("0") } else { _, _ = os.Stdout.WriteString("1") }
         return
     }
     if os.Args[1] != "__aigw-native-credential-read" { os.Exit(3) }
+    if os.Args[3] == "missing" { os.Exit(2) }
     if strings.Contains(filepath.ToSlash(os.Args[0]), "/credential/") {
         if _, err := os.Stat(filepath.Join(filepath.Dir(os.Args[0]), "allow-reader")); err != nil { os.Exit(3) }
         if os.Args[3] == "blocked" { os.Exit(3) }
@@ -41,7 +47,7 @@ func main() {
 	if err := os.WriteFile(fixture, []byte(program), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	build := exec.Command("go", "build", "-o", source, fixture)
+	build := exec.CommandContext(t.Context(), "go", "build", "-o", source, fixture)
 	build.Env = append(os.Environ(), "GOTOOLCHAIN=local", "GOWORK=off", "GOPROXY=off")
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build disposable credential reader: %v\n%s", err, output)
@@ -57,14 +63,19 @@ func main() {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return Synchronizer{Config: &configStoreStub{}, Secrets: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
+}
+
+func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
+	root := t.TempDir()
 	target := filepath.Join(root, "codex.toml")
+	syncer := newKeyringReaderFixture(t, target)
+	reader := syncer.CredentialPath
 	original := []byte("model_provider = \"native\"\n")
 	if err := os.WriteFile(target, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	configStore := &configStoreStub{}
-	syncer := Synchronizer{Config: configStore, Secrets: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
-	err = syncer.CommitProjection(t.Context(), configuration.NewConfig(), testConfig(target), "test")
+	err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), testConfig(target), "test")
 	if err == nil {
 		t.Fatal("copied reader denied by the native store was accepted")
 	}
@@ -79,7 +90,8 @@ func main() {
 	if current, readErr := os.ReadFile(target); readErr != nil || !bytes.Equal(current, original) {
 		t.Fatalf("preflight changed client projection: %q, %v", current, readErr)
 	}
-	if configStore.commits != 0 {
+	configStore, ok := syncer.Config.(*configStoreStub)
+	if !ok || configStore.commits != 0 {
 		t.Fatal("denied credential reader reached configuration commit")
 	}
 	deferred := testConfig(target)
@@ -114,5 +126,53 @@ func main() {
 	selected.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), selected, "codex", configuration.ClientCodex); err != nil {
 		t.Fatalf("unrelated Claude Token blocked a Codex-only projection: %v", err)
+	}
+}
+
+func TestKeyringReaderCopyVerifiesEachSelectedAccountOnce(t *testing.T) {
+	for _, account := range []string{"gateway", "missing"} {
+		t.Run(account, func(t *testing.T) {
+			target := filepath.Join(t.TempDir(), "codex.toml")
+			syncer := newKeyringReaderFixture(t, target)
+			reader := syncer.CredentialPath
+			if err := os.MkdirAll(filepath.Dir(reader), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(filepath.Dir(reader), "allow-reader"), nil, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			cfg := testConfig(target)
+			cfg.Accounts[account] = cfg.Accounts["gateway"]
+			route := cfg.Routes["gpt"]
+			route.Account = account
+			cfg.Routes["gpt"] = route
+			requireSingleCopiedCredentialRead(t, syncer, cfg, account)
+		})
+	}
+}
+
+func requireSingleCopiedCredentialRead(t *testing.T, syncer Synchronizer, cfg configuration.Config, account string) {
+	t.Helper()
+	logs := []string{filepath.Join(filepath.Dir(syncer.AIGWExecutable), "operations"), filepath.Join(filepath.Dir(syncer.CredentialPath), "operations")}
+	for _, path := range logs {
+		if err := os.WriteFile(path, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := syncer.prepareCredentialEntrypoint(cfg, configuration.ClientCodex); err != nil {
+		t.Fatal(err)
+	}
+	var operations []string
+	for _, path := range logs {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		operations = append(operations, strings.FieldsFunc(string(data), func(r rune) bool { return r == '\n' })...)
+	}
+	t.Logf("native credential operations: %v", operations)
+	want := "__aigw-native-credential-read " + secrets.Service + " " + account
+	if len(operations) != 1 || operations[0] != want {
+		t.Fatalf("copied-reader authorization operations = %v, want one exact copied read: %s", operations, want)
 	}
 }
