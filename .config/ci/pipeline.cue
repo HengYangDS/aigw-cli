@@ -340,7 +340,7 @@ nativePublicInputWindows: #"""
 	  $env:AIGW_BASELINE_ARTIFACTS = Join-Path $fixture 'baseline'
 	  if (\#(nativeWindowsClientSelection)) {
 	    tar -xf $archive -C $fixture suppliers/
-	    tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.160.1-claude-2.1.291-native-packages.tar.gz') -C $fixture
+	    tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.160.1-claude-2.1.292-native-packages.tar.gz') -C $fixture
 	    $hermes = Join-Path $fixture 'clients/hermes'
 	    [void](New-Item -ItemType Directory -Path $hermes -ErrorAction Stop)
 	    tar -xf (Join-Path $fixture 'suppliers/official-hermes-f97608f1-source.tar') -C $hermes
@@ -569,7 +569,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				  if ((Get-FileHash -LiteralPath $hermesInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne '\#(hermesInstallerDigest)') { throw 'Pinned Hermes installer checksum mismatch.' }
 				  $env:UV_CACHE_DIR = Join-Path $clients 'uv-cache'
 				  Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-				  mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.160.1' '@anthropic-ai/claude-code-win32-x64@2.1.291'
+				  mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.160.1' '@anthropic-ai/claude-code-win32-x64@2.1.292'
 				  mise exec --locked -- npm audit signatures --prefix $clients
 				  $hermesHome = Join-Path $clients 'hermes'
 				  $hermesInstall = Join-Path $hermesHome 'hermes-agent'

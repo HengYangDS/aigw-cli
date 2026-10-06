@@ -67,7 +67,7 @@ func TestNativePublicInputPreparesSelectedArtifactAndClientRoots(t *testing.T) {
 	archive := pack(map[string][]byte{
 		"candidate/checksums.txt": []byte("test"),
 		"baseline/checksums.txt":  []byte("test"),
-		"suppliers/windows-codex-0.160.1-claude-2.1.291-native-packages.tar.gz": pack(map[string][]byte{
+		"suppliers/windows-codex-0.160.1-claude-2.1.292-native-packages.tar.gz": pack(map[string][]byte{
 			"clients/node_modules/@openai/codex/vendor/x86_64-pc-windows-msvc/bin/codex.exe":     []byte("codex fixture"),
 			"clients/node_modules/@openai/codex/vendor/x86_64-pc-windows-msvc/codex-path/rg.exe": []byte("resource fixture"),
 			"clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe":                []byte("claude fixture"),

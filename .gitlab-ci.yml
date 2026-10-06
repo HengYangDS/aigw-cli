@@ -398,7 +398,7 @@ native-windows:
         $env:AIGW_BASELINE_ARTIFACTS = Join-Path $fixture 'baseline'
         if ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)) {
           tar -xf $archive -C $fixture suppliers/
-          tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.160.1-claude-2.1.291-native-packages.tar.gz') -C $fixture
+          tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.160.1-claude-2.1.292-native-packages.tar.gz') -C $fixture
           $hermes = Join-Path $fixture 'clients/hermes'
           [void](New-Item -ItemType Directory -Path $hermes -ErrorAction Stop)
           tar -xf (Join-Path $fixture 'suppliers/official-hermes-f97608f1-source.tar') -C $hermes
@@ -588,7 +588,7 @@ native-windows-review:
         $env:AIGW_BASELINE_ARTIFACTS = Join-Path $fixture 'baseline'
         if ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)) {
           tar -xf $archive -C $fixture suppliers/
-          tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.160.1-claude-2.1.291-native-packages.tar.gz') -C $fixture
+          tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.160.1-claude-2.1.292-native-packages.tar.gz') -C $fixture
           $hermes = Join-Path $fixture 'clients/hermes'
           [void](New-Item -ItemType Directory -Path $hermes -ErrorAction Stop)
           tar -xf (Join-Path $fixture 'suppliers/official-hermes-f97608f1-source.tar') -C $hermes
