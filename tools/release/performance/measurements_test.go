@@ -3,6 +3,8 @@ package performance
 import (
 	"bytes"
 	"context"
+	"debug/elf"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +17,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"aigw-cli/internal/process"
 )
 
 func TestIdentityMeasuresTheSelectedNativeFile(t *testing.T) {
@@ -35,11 +39,37 @@ func TestIdentityMeasuresTheSelectedNativeFile(t *testing.T) {
 			t.Fatal("a missing, invalid or nonregular file acquired native identity")
 		}
 	}
+	for _, header := range [][]byte{[]byte("MZ"), []byte("\x7fELF")} {
+		if err := os.WriteFile(invalid, header, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Identify(invalid); err == nil {
+			t.Fatal("a truncated native executable acquired file identity")
+		}
+	}
 	if runtime.GOOS == "darwin" {
 		shell, err := Identify("/bin/sh")
 		if err != nil || shell.Format != "Mach-O" || (shell.Arch != runtime.GOARCH && (shell.Arch != "universal" || !slices.Contains(shell.Architectures, runtime.GOARCH))) {
 			t.Fatalf("native shell file identity is incomplete: %#v, %v", shell, err)
 		}
+	}
+}
+
+func TestIdentityRejectsUnrecognizedNativeMachine(t *testing.T) {
+	header := elf.Header64{Type: uint16(elf.ET_EXEC), Machine: uint16(elf.EM_NONE), Version: uint32(elf.EV_CURRENT)}
+	copy(header.Ident[:], elf.ELFMAG)
+	header.Ident[elf.EI_CLASS], header.Ident[elf.EI_DATA], header.Ident[elf.EI_VERSION] = byte(elf.ELFCLASS64), byte(elf.ELFDATA2LSB), byte(elf.EV_CURRENT)
+	header.Ehsize = uint16(binary.Size(header))
+	var data bytes.Buffer
+	if err := binary.Write(&data, binary.LittleEndian, header); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "unrecognized-machine")
+	if err := os.WriteFile(path, data.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Identify(path); err == nil || !strings.Contains(err.Error(), "unsupported ELF machine") {
+		t.Fatalf("unrecognized native machine authorization = %v", err)
 	}
 }
 
@@ -99,11 +129,19 @@ func TestMeasureOperationRetainsExactCompletedSamples(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatal("interrupted native samples were not retained")
 	}
+	if _, err := MeasureOperation(t.Context(), filepath.Join(t.TempDir(), "missing", "samples.json"), Measurement{}, func() error { return nil }); err == nil {
+		t.Fatal("unretained native samples acquired a measurement")
+	}
 }
 
 func TestArgvPreservesNativeArguments(t *testing.T) {
 	if got := Argv(`C:\program files\aigw.exe`, "a'b", ""); got != `'C:\program files\aigw.exe' 'a'\''b' ''` {
 		t.Fatalf("Hyperfine argv quoting = %s", got)
+	}
+	workload := Workload{Command: "measured command", Prepare: "prepare command"}
+	want := []string{"--shell=none", "--warmup", "5", "--runs", "40", "--output=inherit", "--style", "basic", "--export-json", "samples.json", "--prepare", workload.Prepare, workload.Command}
+	if got := workload.Arguments("samples.json"); !slices.Equal(got, want) {
+		t.Fatalf("prepared native workload = %q, want %q", got, want)
 	}
 }
 
@@ -127,9 +165,12 @@ func TestMeasureRetainsSeparateDiagnosticStreams(t *testing.T) {
 		t.Run(marker, func(t *testing.T) {
 			raw := filepath.Join(t.TempDir(), "samples.json")
 			benchmark := Workload{Command: Argv(program, "-test.run=^TestMeasureRetainsSeparateDiagnosticStreams$")}
+			// Only the synchronous fixture child omits the race runtime's exit delay.
+			environment := append(os.Environ(), "AIGW_TEST_PERFORMANCE_DIAGNOSTIC="+marker,
+				"GORACE="+strings.TrimSpace(os.Getenv("GORACE")+" atexit_sleep_ms=0"))
 			row, err := Measure(t.Context(), Command{
 				Tool: hyperfine, Arguments: benchmark.Arguments(raw), Output: raw,
-				Environment: append(os.Environ(), "AIGW_TEST_PERFORMANCE_DIAGNOSTIC="+marker),
+				Environment: environment,
 				Sensitive:   []string{token + "\n"},
 				Measurement: Measurement{Variant: "candidate", Backend: "env", Case: "credential", Block: 1, Budget: 0.1},
 			})
@@ -144,7 +185,10 @@ func TestMeasureRetainsSeparateDiagnosticStreams(t *testing.T) {
 			if strings.Contains(string(stdout)+string(stderr), token) || !bytes.Contains(stdout, []byte("[REDACTED]")) || !bytes.Contains(stderr, []byte("[REDACTED]")) {
 				t.Fatal("native benchmark output leaked its bare Token")
 			}
-			if row.Diagnostics != strings.HasPrefix(marker, "[WARN]") || row.Raw != filepath.Base(raw) || row.P95 <= 0 || row.Variant != "candidate" || row.Budget != 0.1 || len(row.Samples.Times) != 40 {
+			if row.Diagnostics != process.DiagnosticFailure(stderr) || strings.HasPrefix(marker, "[WARN]") && !row.Diagnostics {
+				t.Fatal("native benchmark did not preserve the complete stderr diagnostic decision")
+			}
+			if row.Raw != filepath.Base(raw) || row.P95 <= 0 || row.Variant != "candidate" || row.Budget != 0.1 || len(row.Samples.Times) != 40 {
 				t.Fatalf("native benchmark lost its admitted measurement boundary: %#v", row)
 			}
 			var report struct {
@@ -194,7 +238,7 @@ func TestMeasureRejectsUnprovedNativeEvidence(t *testing.T) {
 }
 
 func TestIdentityRecognizesPortableExecutableFormats(t *testing.T) {
-	for _, target := range []struct{ os, arch, format string }{{"windows", "arm64", "PE"}, {"linux", "amd64", "ELF"}} {
+	for _, target := range []struct{ os, arch, format string }{{"windows", "arm64", "PE"}, {"linux", "amd64", "ELF"}, {"darwin", "arm64", "Mach-O"}} {
 		t.Run(target.format, func(t *testing.T) {
 			root := t.TempDir()
 			source, executable := filepath.Join(root, "main.go"), filepath.Join(root, "selected-executable")

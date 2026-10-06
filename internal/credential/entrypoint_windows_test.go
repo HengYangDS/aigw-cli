@@ -56,6 +56,8 @@ func TestWindowsCredentialDescriptorOwnsItsNativeAuthorizationDecision(t *testin
 		{name: "deny and inherit only", sddl: "O:" + user.String() + "D:(D;;FA;;;WD)(A;IO;FA;;;WD)"},
 		{name: "foreign write", sddl: "O:" + user.String() + "D:(A;;FW;;;WD)", want: "writable by another"},
 		{name: "no restrictive ACL", sddl: "O:" + user.String(), want: "no restrictive ACL"},
+		{name: "null ACL", sddl: "O:" + user.String() + "D:NO_ACCESS_CONTROL", want: "no restrictive ACL"},
+		{name: "object-specific grant", sddl: "O:" + user.String() + "D:(OA;;FW;00000000-0000-0000-0000-000000000001;;WD)", want: "unsupported grant"},
 		{name: "no owner", sddl: "D:(A;;FR;;;WD)", want: "no owner"},
 		{name: "foreign owner", sddl: "O:WDD:(A;;FR;;;WD)", want: "untrusted Windows owner"},
 	} {
@@ -77,6 +79,14 @@ func TestWindowsCredentialDescriptorOwnsItsNativeAuthorizationDecision(t *testin
 		if err := validateOwnedWindowsACL(path); err == nil {
 			t.Fatalf("unobservable native credential path was accepted: %q", path)
 		}
+	}
+	directory := t.TempDir()
+	info, err := os.Stat(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validatePrivateFile(directory, info, 0o700); err == nil || !strings.Contains(err.Error(), "not regular") {
+		t.Fatalf("a directory acquired credential executable authorization: %v", err)
 	}
 }
 
