@@ -173,7 +173,7 @@ in Git; original raw results stay with their source-bound verification owner.
       requires actual guarded `dev` integration, `dev` checks and exact proposal
       source-ref deletion before archive, then archived `main`/tag events.
       A policy readback proves configuration, not any of those effects.
-- [ ] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
+- [x] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
       or GitHub must not turn the other selected peer or the local product into a
       hidden dependency, and parity claims remain peer-specific.
 
