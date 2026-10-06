@@ -60,11 +60,20 @@ func newKeyringStore(executable string) keyringStore {
 // present Account Token from the selected native store before client files
 // point at it. Other backends have no per-executable native authorization.
 func VerifyNativeReaderAccess(store Store, executable string, accounts []string) error {
-	selection, err := Inspect(store)
-	if err != nil {
-		return err
+	if store == nil {
+		return errors.New("credential backend is unavailable")
 	}
-	if selection.Kind != "keyring" {
+	backend := backendStore(store)
+	if automatic, ok := backend.(*automaticStore); ok {
+		automatic.mutex.Lock()
+		selected, _, err := automatic.observeSelectionLocked()
+		automatic.mutex.Unlock()
+		if err != nil {
+			return err
+		}
+		backend = selected
+	}
+	if backendKind(backend) != "keyring" {
 		return nil
 	}
 	for _, account := range accounts {

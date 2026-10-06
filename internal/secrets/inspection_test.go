@@ -2,16 +2,22 @@ package secrets
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	keyring "github.com/zalando/go-keyring"
 )
 
 func TestInspectReportsExplicitBackendCapabilities(t *testing.T) {
+	keyring.MockInit()
 	tests := []struct {
 		name      string
 		selection Selection
+		store     Store
 		want      BackendSelection
 	}{
 		{
@@ -35,13 +41,8 @@ func TestInspectReportsExplicitBackendCapabilities(t *testing.T) {
 			},
 		},
 		{
-			name: "keyring",
-			selection: Selection{
-				Backend:      "keyring",
-				GOOS:         "linux",
-				Root:         t.TempDir(),
-				KeyringProbe: func(Store) error { return nil },
-			},
+			name:  "keyring",
+			store: scopedView{store: mockKeyringStore()},
 			want: BackendSelection{
 				Kind:         "keyring",
 				Availability: "available",
@@ -53,9 +54,13 @@ func TestInspectReportsExplicitBackendCapabilities(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, err := Select(test.selection)
-			if err != nil {
-				t.Fatal(err)
+			store := test.store
+			if store == nil {
+				selected, err := Select(test.selection)
+				if err != nil {
+					t.Fatal(err)
+				}
+				store = selected
 			}
 			got, err := Inspect(store)
 			if err != nil {
@@ -293,5 +298,78 @@ func TestInspectReportsUnavailableBackendAndOneRecoveryAction(t *testing.T) {
 	}
 	if got.RecoveryAction != "aigw doctor" {
 		t.Fatalf("recovery action = %q, want aigw doctor", got.RecoveryAction)
+	}
+}
+
+func TestExplicitKeyringSelectionUsesOnlyTheRequestedNativeOperation(t *testing.T) {
+	root := t.TempDir()
+	store, err := Select(Selection{
+		Backend: "keyring", GOOS: runtime.GOOS, Root: root,
+		Executable: filepath.Join(root, "unavailable-native-program"),
+	})
+	if err != nil {
+		t.Fatalf("explicit backend selection performed an unrelated native probe: %v", err)
+	}
+	if _, ok := backendStore(store).(keyringStore); !ok {
+		t.Fatalf("explicit selection = %T, want keyringStore", backendStore(store))
+	}
+	if _, err := store.Exists("selected-account"); err == nil {
+		t.Fatal("unavailable exact native operation did not fail closed")
+	}
+	inspected, err := Inspect(store)
+	if err == nil || inspected.Kind != "keyring" || inspected.Availability != "unavailable" {
+		t.Fatalf("explicit native inspection = %+v, %v", inspected, err)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("explicit native failure created fallback state: %v, %v", entries, err)
+	}
+}
+
+func TestAutomaticNativeSelectionObservesAvailabilityAndPreservesPersistedChoice(t *testing.T) {
+	for _, persisted := range []bool{false, true} {
+		t.Run(fmt.Sprintf("persisted=%t", persisted), func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "secrets")
+			if persisted {
+				if _, _, err := newBackendChoice(root).Persist("keyring"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			store, err := Select(Selection{
+				GOOS: runtime.GOOS, Root: root,
+				Executable: filepath.Join(root, "unavailable-native-program"),
+			})
+			if err != nil {
+				t.Fatalf("automatic selection was not deferred: %v", err)
+			}
+			observed, err := Inspect(store)
+			if persisted {
+				if err == nil || observed.Kind != "keyring" || observed.Availability != "unavailable" || observed.Persistence != "persisted" {
+					t.Fatalf("persisted native inspection = %+v, %v", observed, err)
+				}
+				if err := store.Set("selected-account", "fixture-token"); err == nil {
+					t.Fatal("persisted native failure silently selected another backend")
+				}
+				if _, err := os.Stat(filepath.Join(root, "tokens")); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("persisted native failure created fallback storage: %v", err)
+				}
+				return
+			}
+			if err != nil || observed.Kind != "file" || observed.Availability != "available" || observed.Persistence != "deferred" {
+				t.Fatalf("initial automatic inspection = %+v, %v", observed, err)
+			}
+			if _, err := os.Stat(filepath.Join(root, backendChoiceName)); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("inspection persisted a backend choice: %v", err)
+			}
+			if err := store.Set("selected-account", "fixture-token"); err != nil {
+				t.Fatalf("initial native unavailability blocked permitted file storage: %v", err)
+			}
+			if backend, err := newBackendChoice(root).Read(); err != nil || backend != "file" {
+				t.Fatalf("persisted fallback choice = %q, %v", backend, err)
+			}
+			if value, err := store.Get("selected-account"); err != nil || value != "fixture-token" {
+				t.Fatalf("selected fallback credential = %q, %v", value, err)
+			}
+		})
 	}
 }

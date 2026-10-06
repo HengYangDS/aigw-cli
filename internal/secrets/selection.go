@@ -95,8 +95,10 @@ func selectBackend(selection Selection) (credentialBackend, error) {
 	switch selection.Backend {
 	case "keyring":
 		store := newKeyringStore(selection.Executable)
-		if err := probeKeyring(scopedView{store: store}, selection.KeyringProbe); err != nil {
-			return nil, fmt.Errorf("use keyring secret backend: %w", err)
+		if selection.KeyringProbe != nil {
+			if err := probeKeyring(scopedView{store: store}, selection.KeyringProbe); err != nil {
+				return nil, fmt.Errorf("use keyring secret backend: %w", err)
+			}
 		}
 		return store, nil
 	case "env":
@@ -172,7 +174,11 @@ func (store *automaticStore) resolveLocked() (credentialBackend, error) {
 	}
 	selection := store.selection
 	selection.Backend = backend
+	selection.KeyringProbe = nil
 	selected, err := selectBackend(selection)
+	if err == nil && !persisted {
+		err = probeKeyring(scopedView{store: selected}, store.selection.KeyringProbe)
+	}
 	if err != nil && !persisted {
 		selection.Backend = "file"
 		selected, err = selectBackend(selection)
@@ -213,22 +219,39 @@ func (store *automaticStore) mutate(operation func(credentialBackend) error) err
 func (store *automaticStore) inspectBackend() (BackendSelection, error) {
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
-	selected, err := store.resolveLocked()
+	selected, persisted, err := store.observeSelectionLocked()
 	if err != nil {
 		return unavailableBackendSelection(), err
 	}
-	backend, err := store.choice.Read()
-	if err != nil && !errors.Is(err, ErrNotFound) {
-		return unavailableBackendSelection(), err
-	}
 	persistence := "deferred"
-	if err == nil {
-		if backend != store.selectedBackend {
-			return unavailableBackendSelection(), errors.New("secret backend selection changed; retry the credential operation")
-		}
+	if persisted {
 		persistence = "persisted"
 	}
-	return availableBackendSelection(store.selectedBackend, IsReadOnly(scopedView{store: selected}), persistence), nil
+	observed := availableBackendSelection(store.selectedBackend, IsReadOnly(scopedView{store: selected}), persistence)
+	if persistence == "persisted" && store.selectedBackend == "keyring" {
+		if err := probeKeyring(scopedView{store: selected}, store.selection.KeyringProbe); err != nil {
+			observed.Availability = "unavailable"
+			observed.RecoveryAction = "aigw doctor"
+			return observed, err
+		}
+	}
+	return observed, nil
+}
+
+func (store *automaticStore) observeSelectionLocked() (credentialBackend, bool, error) {
+	selected, err := store.resolveLocked()
+	if err != nil {
+		return nil, false, err
+	}
+	backend, err := store.choice.Read()
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return nil, false, err
+	}
+	persisted := err == nil
+	if persisted && backend != store.selectedBackend {
+		return nil, false, errors.New("secret backend selection changed; retry the credential operation")
+	}
+	return selected, persisted, nil
 }
 
 func backendKind(store credentialBackend) string {
@@ -284,7 +307,15 @@ func Inspect(store Store) (BackendSelection, error) {
 	if _, ok := backend.(*memoryStore); ok {
 		persistence = "ephemeral"
 	}
-	return availableBackendSelection(backendKind(backend), IsReadOnly(store), persistence), nil
+	selection := availableBackendSelection(backendKind(backend), IsReadOnly(store), persistence)
+	if _, native := backend.(keyringStore); native {
+		if err := probeKeyring(store, nil); err != nil {
+			selection.Availability = "unavailable"
+			selection.RecoveryAction = "aigw doctor"
+			return selection, err
+		}
+	}
+	return selection, nil
 }
 
 func (store *automaticStore) persistSelectionLocked() (bool, error) {

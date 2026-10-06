@@ -3,6 +3,9 @@ package secrets
 import (
 	"encoding/base64"
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"aigw-cli/internal/secrets/native"
@@ -139,4 +142,82 @@ func mockKeyringObserver(service, slot string) (bool, error) {
 		return false, nil
 	}
 	return err == nil, err
+}
+
+func TestVerifyNativeReaderAccessObservesOnlySelectedAccounts(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		present    bool
+		observeErr error
+		wantError  bool
+	}{
+		{name: "absent account"},
+		{name: "present account requires copied reader", present: true, wantError: true},
+		{name: "selected account inspection denied", observeErr: errors.New("native inspection denied"), wantError: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			observed := make([]string, 0, 1)
+			store := mockKeyringStore()
+			store.observe = func(service, slot string) (bool, error) {
+				observed = append(observed, slot)
+				if service != Service || slot != "selected-account" {
+					return false, errors.New("unrelated native observation")
+				}
+				return test.present, test.observeErr
+			}
+			err := VerifyNativeReaderAccess(scopedView{store: store}, filepath.Join(t.TempDir(), "unavailable-copied-reader"), []string{"selected-account"})
+			if test.wantError != errors.Is(err, ErrNativeReaderUnverified) || !test.wantError && err != nil {
+				t.Fatalf("copied reader authorization error = %v, want refusal=%t", err, test.wantError)
+			}
+			if len(observed) != 1 || observed[0] != "selected-account" {
+				t.Fatalf("native observations = %v, want only selected-account", observed)
+			}
+		})
+	}
+}
+
+func TestVerifyNativeReaderAccessRechecksAutomaticBackendIdentity(t *testing.T) {
+	for _, test := range []struct {
+		backend string
+		problem string
+	}{
+		{backend: "file"},
+		{},
+		{backend: "keyring", problem: "selection changed"},
+		{backend: "invalid", problem: "invalid persisted"},
+	} {
+		t.Run("current="+test.backend, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "secrets")
+			choice := newBackendChoice(root)
+			if _, _, err := choice.Persist("file"); err != nil {
+				t.Fatal(err)
+			}
+			store, err := Select(Selection{GOOS: "linux", Root: root, KeyringProbe: func(Store) error {
+				t.Fatal("identity validation probed or changed the selected backend")
+				return nil
+			}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Inspect(store); err != nil {
+				t.Fatal(err)
+			}
+			marker := filepath.Join(root, backendChoiceName)
+			if test.backend == "" {
+				err = os.Remove(marker)
+			} else {
+				err = replaceBackendChoice(choice, test.backend)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = VerifyNativeReaderAccess(store, filepath.Join(root, "unavailable-copied-reader"), []string{"selected-account"})
+			if test.problem == "" && err != nil || test.problem != "" && (err == nil || !strings.Contains(err.Error(), test.problem)) {
+				t.Fatalf("automatic reader identity error = %v, want %q", err, test.problem)
+			}
+			if _, err := os.Stat(filepath.Join(root, "tokens")); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("identity validation created another credential store: %v", err)
+			}
+		})
+	}
 }

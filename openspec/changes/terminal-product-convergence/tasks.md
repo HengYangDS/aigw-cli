@@ -151,7 +151,7 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 7.1 Reconcile the complete CUE CI graph with generated GitHub and GitLab
       projections; prove no hand-edited workflow drift or missing source, native,
       release or publication owner.
-- [ ] 7.2 Prove both peers' exact-SHA event-to-check contract for developer
+- [x] 7.2 Prove both peers' exact-SHA event-to-check contract for developer
       proposal create/update/review, maintainer fast-forward, accepted `dev`/`main`,
       and signed-tag pushes. Run the exact candidate's proposal checks on both
       peers; CUE and projection regressions must bind each other event to its
@@ -173,7 +173,7 @@ in Git; original raw results stay with their source-bound verification owner.
       requires actual guarded `dev` integration, `dev` checks and exact proposal
       source-ref deletion before archive, then archived `main`/tag events.
       A policy readback proves configuration, not any of those effects.
-- [ ] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
+- [x] 7.5 Test one-peer-only and offline-local operation; an unavailable GitLab
       or GitHub must not turn the other selected peer or the local product into a
       hidden dependency, and parity claims remain peer-specific.
 

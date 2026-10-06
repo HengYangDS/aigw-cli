@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/secrets/native"
 )
 
 func TestAutomaticSelectionFallsBackAndPersistsOnLinux(t *testing.T) {
@@ -92,14 +94,14 @@ func TestAutomaticSelectionPersistedKeyringNeverFallsBack(t *testing.T) {
 		t.Fatalf("persist keyring selection: %v", err)
 	}
 	store, err := Select(Selection{
-		GOOS:         "linux",
-		Root:         root,
-		KeyringProbe: func(Store) error { return errors.New("service unavailable") },
+		GOOS:       "linux",
+		Root:       root,
+		Executable: filepath.Join(root, "unavailable-native-program"),
 	})
 	if err != nil {
 		t.Fatalf("Select() error = %v", err)
 	}
-	if _, err := store.Get("alpha"); err == nil || !strings.Contains(err.Error(), "service unavailable") {
+	if _, err := store.Get("alpha"); !errors.Is(err, native.ErrUnavailable) {
 		t.Fatalf("Get() error = %v, want persisted keyring failure", err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "tokens")); !errors.Is(err, os.ErrNotExist) {

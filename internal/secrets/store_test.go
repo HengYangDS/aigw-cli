@@ -143,8 +143,8 @@ func TestSelectDefaultsToKeyringBackend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Select(keyring) error = %v", err)
 	}
-	if observed, err := Inspect(store); err != nil || observed.Kind != "keyring" {
-		t.Fatalf("Select(keyring) observation = %#v, %v", observed, err)
+	if backend := backendKind(backendStore(store)); backend != "keyring" {
+		t.Fatalf("Select(keyring) identity = %q", backend)
 	}
 }
 
