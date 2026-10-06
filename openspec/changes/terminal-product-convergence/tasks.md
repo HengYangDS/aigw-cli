@@ -136,7 +136,7 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 6.4 Exercise Markdown, Mermaid rendering, internal/external links, TOML,
       YAML, JSON, CUE, shell and generated-text checks on tracked content; a
       malformed or unreachable authored carrier must fail the relevant gate.
-- [x] 6.5 Verify dependency hygiene, dead-code, secrets, SBOM, vulnerabilities,
+- [ ] 6.5 Verify dependency hygiene, dead-code, secrets, SBOM, vulnerabilities,
       licenses, checksums, signatures and provenance from the exact locked
       candidate; delete unconsumed parallel scanners or reports.
 - [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
@@ -212,7 +212,7 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 9.1 Review each changed requirement against source, tests, CLI, team
       manifest, quality/CI projection and docs; remove contradictory old text and
       unused compatibility paths before freezing inputs.
-- [x] 9.2 Run focused RED/GREEN suites, native static/behavior checks and strict
+- [ ] 9.2 Run focused RED/GREEN suites, native static/behavior checks and strict
       official OpenSpec validation with pristine output on the frozen source; no
       skipped required gate or warning counts as pass.
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with

@@ -14,6 +14,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Security
+
+- Upgrade the development math renderer to KaTeX 0.19.0, preventing inherited
+  prototype properties from enabling trusted rendering; verify the Mermaid and
+  Markdown math consumers without changing production credentials or runtime.
+
 ### Changed
 
 - Run source-native lifecycle and resource acceptance once within canonical

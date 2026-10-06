@@ -4,6 +4,7 @@ import (
 	"aigw-cli/tools/release/construction"
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -12,7 +13,45 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestNativeMathConsumersRejectInheritedTrust(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	code := `
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+for (const consumer of ["mermaid", "micromark-extension-math"]) {
+  const require = createRequire(import.meta.resolve(consumer));
+  const { default: katex } = await import(require.resolve("katex"));
+  const expression = "\\href{https://example.invalid/owned}{owned}";
+  assert.ok(!katex.renderToString(expression).includes("<a "), consumer);
+  Object.prototype.trust = true;
+  try {
+    assert.ok(!katex.renderToString(expression).includes("<a "), consumer);
+  } finally {
+    delete Object.prototype.trust;
+  }
+  assert.ok(katex.renderToString(expression, { trust: true }).includes("<a "), consumer);
+  for (const output of ["mathml", "htmlAndMathml"]) {
+    assert.ok(katex.renderToString("x^2", {
+      throwOnError: true, displayMode: true, output,
+    }).includes("<math"), consumer);
+  }
+}
+const { micromark } = await import("micromark");
+const { math, mathHtml } = await import("micromark-extension-math");
+assert.ok(micromark("$x^2$", {
+  extensions: [math()], htmlExtensions: [mathHtml()],
+}).includes('class="katex"'));
+`
+	call := exec.CommandContext(ctx, "node", "--input-type=module", "-e", code)
+	call.Dir = repositoryRoot(t)
+	if output, err := call.CombinedOutput(); err != nil {
+		t.Fatalf("native math security and compatibility: %v\n%s", err, output)
+	}
+}
 
 func TestNPMDependencyGraphHasNoDeprecatedPackages(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), "package-lock.json"))
