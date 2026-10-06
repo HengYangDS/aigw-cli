@@ -355,8 +355,8 @@ func TestNativePowerShellAcceptancePreservesDeclaredEmptyTag(t *testing.T) {
 		t.Fatal(err)
 	}
 	if os.Getenv("AIGW_NATIVE_ARGUMENT_WITNESS") == "1" {
-		selected := os.Args[len(os.Args)-4:]
-		want := []string{"--baseline-tag=v1.2.3", "--tag=", "--clients=false", "--diagnostic-client=" + os.Getenv("AIGW_NATIVE_DIAGNOSTIC_CLIENT")}
+		selected := os.Args[len(os.Args)-5:]
+		want := []string{"--baseline-tag=v1.2.3", "--tag=", "--clients=false", "--diagnostic-client=" + os.Getenv("AIGW_NATIVE_DIAGNOSTIC_CLIENT"), "--performance-attribution=false"}
 		if !slices.Equal(selected, want) {
 			t.Fatalf("native PowerShell changed argument identity: %q", selected)
 		}
@@ -399,6 +399,7 @@ func TestNativePowerShellAcceptancePreservesDeclaredEmptyTag(t *testing.T) {
 		t.Fatal("Windows native command must declare the published baseline tag")
 	}
 	suffix = "--baseline-tag=" + strings.ReplaceAll(suffix, "${{ inputs.windows_clients && inputs.diagnostic_client == '' }}", "false")
+	suffix = strings.ReplaceAll(suffix, "${{ inputs.performance_attribution }}", "false")
 	script := "& '" + strings.ReplaceAll(executable, "'", "''") + "' '-test.run=^TestNativePowerShellAcceptancePreservesDeclaredEmptyTag$' -- " + suffix
 	for _, client := range []string{"", "hermes"} {
 		ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)

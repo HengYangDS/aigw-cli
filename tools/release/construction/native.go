@@ -28,7 +28,7 @@ type NativeAcceptance struct {
 	Artifacts, Tag, BaselineArtifacts, BaselineTag string
 	Peer, Repository                               string
 	CandidateSource                                string
-	Candidate, Clients                             bool
+	Candidate, Clients, PerformanceAttribution     bool
 	Performance                                    string
 	DiagnosticClient                               string
 }
@@ -51,6 +51,7 @@ func ParseNativeAcceptance(arguments []string) (NativeAcceptance, error) {
 	flags.BoolVar(&input.Clients, "clients", false, "Verify explicitly supplied native clients")
 	flags.StringVar(&input.DiagnosticClient, "diagnostic-client", "", "Diagnose one native client; does not qualify complete product acceptance")
 	flags.StringVar(&input.Performance, "performance", "", "Retain Hyperfine samples in this absolute directory")
+	flags.BoolVar(&input.PerformanceAttribution, "performance-attribution", false, "Diagnose native components without qualifying performance budgets")
 	if err := flags.Parse(arguments); err != nil {
 		return input, err
 	}
@@ -72,6 +73,7 @@ func NativeTestEnvironment(workspace, artifacts, baseline string) []string {
 	return append(append([]string{
 		"AIGW_ACCEPTANCE_RELEASE=" + artifacts, "TMPDIR=" + workspace,
 		"TMP=" + workspace, "TEMP=" + workspace,
+		"AIGW_PERFORMANCE_ATTRIBUTION=0",
 	}, forgeCredentialOverrides()...), "AIGW_ACCEPTANCE_BASELINE="+baseline)
 }
 
@@ -147,6 +149,9 @@ func (input *NativeAcceptance) validate() error {
 }
 
 func (input *NativeAcceptance) validateOptionalScopes() error {
+	if input.PerformanceAttribution && (input.Performance == "" || input.Clients || input.DiagnosticClient != "") {
+		return errors.New("performance attribution requires an explicit performance output and no client scope")
+	}
 	if input.DiagnosticClient != "" && (!slices.Contains(nativeAcceptanceClients, input.DiagnosticClient) || !input.UsesPrebuiltArtifacts() || input.Clients || input.Performance != "") {
 		return errors.New("native client diagnostics require one supported client, prebuilt artifacts, and no full-client or performance scope")
 	}
@@ -303,6 +308,8 @@ func acceptNative(request buildRequest, artifacts, baseline string, input Native
 		clientPattern += "/^" + input.DiagnosticClient + "($|-)"
 	}
 	lifecycle := performance == "" && input.DiagnosticClient == ""
+	performanceEnvironment := append(publishedEnvironment, "AIGW_PERFORMANCE_OUTPUT="+performance,
+		"AIGW_PERFORMANCE_ATTRIBUTION="+map[bool]string{false: "0", true: "1"}[input.PerformanceAttribution])
 	for _, suite := range []struct {
 		selected    bool
 		args        []string
@@ -311,7 +318,7 @@ func acceptNative(request buildRequest, artifacts, baseline string, input Native
 		{lifecycle, []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney|TestNativeVerificationResources)$", "-count=1", "-v"}, currentEnvironment},
 		{lifecycle && baseline != "", []string{"test", "./tools/release", "-run", "^TestNativePublishedPredecessorJourney$", "-count=1", "-v"}, publishedEnvironment},
 		{clients, []string{"test", "-tags=client_acceptance", "./tools/release", "-run", clientPattern, "-count=1", "-v"}, publishedEnvironment},
-		{performance != "", []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}, append(publishedEnvironment, "AIGW_PERFORMANCE_OUTPUT="+performance)},
+		{performance != "", []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}, performanceEnvironment},
 	} {
 		if !suite.selected {
 			continue

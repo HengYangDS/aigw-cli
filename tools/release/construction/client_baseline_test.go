@@ -108,6 +108,71 @@ func TestNativeDiagnosticClientAdmission(t *testing.T) {
 	}
 }
 
+func TestNativePerformanceAttributionRequiresExplicitScope(t *testing.T) {
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
+	args := []string{"--artifacts=/candidate", "--candidate", "--performance=/samples", "--performance-attribution"}
+	if _, err := ParseNativeAcceptance(args); err != nil {
+		t.Fatalf("bounded native attribution was refused: %v", err)
+	}
+	for _, arguments := range [][]string{
+		{"--performance-attribution"},
+		{"--artifacts=/candidate", "--candidate", "--performance-attribution"},
+		append(slices.Clone(args), "--clients"),
+		append(slices.Clone(args), "--diagnostic-client=hermes"),
+	} {
+		if _, err := ParseNativeAcceptance(arguments); err == nil {
+			t.Fatalf("attribution admitted ambiguous or unbound scope: %v", arguments)
+		}
+	}
+}
+
+func TestNativePerformanceAttributionRetainsOnlyItsOwnMeasurements(t *testing.T) {
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
+	output := filepath.Join(t.TempDir(), "measurements")
+	input, err := ParseNativeAcceptance([]string{"--artifacts=/candidate", "--candidate", "--performance=" + output, "--performance-attribution"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
+	calls := 0
+	if err := acceptNative(request, "", "/published/aigw", input, func(call toolCall) error {
+		calls++
+		if !slices.Contains(call.Args, "^TestNativePerformance$") || !slices.Contains(call.Env, "AIGW_PERFORMANCE_ATTRIBUTION=1") {
+			t.Fatalf("attribution repeated or weakened another native gate: %#v", call)
+		}
+		if err := os.Mkdir(output, 0o700); err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(output, "summary.json"), []byte(`{"qualification":false,"scope":"component-attribution"}`), 0o600)
+	}); err != nil || calls != 1 {
+		t.Fatalf("native attribution calls=%d error=%v", calls, err)
+	}
+}
+
+func TestNativePerformanceScopeCannotInheritAttribution(t *testing.T) {
+	t.Setenv("AIGW_PERFORMANCE_ATTRIBUTION", "1")
+	for _, attribution := range []bool{false, true} {
+		output := filepath.Join(t.TempDir(), "measurements")
+		input := NativeAcceptance{Performance: output, PerformanceAttribution: attribution}
+		request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
+		if err := acceptNative(request, "", "/published/aigw", input, func(call toolCall) error {
+			want := "AIGW_PERFORMANCE_ATTRIBUTION=0"
+			if attribution {
+				want = "AIGW_PERFORMANCE_ATTRIBUTION=1"
+			}
+			if !slices.Contains(call.Env, want) {
+				t.Fatalf("native performance inherited a different scope: %#v", call.Env)
+			}
+			if err := os.Mkdir(output, 0o700); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(output, "summary.json"), []byte(`{"blocks":[{}]}`), 0o600)
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestNativeDiagnosticClientSelectsOnlyItsRetainedJourney(t *testing.T) {
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
 	for _, client := range nativeAcceptanceClients {

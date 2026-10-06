@@ -29,7 +29,7 @@ func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 					t.Fatalf("source acceptance escaped its product test owner: %#v", call)
 				}
 				workspace = strings.TrimPrefix(call.Env[1], "TMPDIR=")
-				expected := append([]string{"AIGW_ACCEPTANCE_RELEASE=", "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace}, forgeCredentialOverrides()...)
+				expected := append([]string{"AIGW_ACCEPTANCE_RELEASE=", "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace, "AIGW_PERFORMANCE_ATTRIBUTION=0"}, forgeCredentialOverrides()...)
 				if !filepath.IsAbs(workspace) || !slices.Equal(call.Env, append(expected, "AIGW_ACCEPTANCE_BASELINE=")) {
 					t.Fatalf("source acceptance environment = %#v", call.Env)
 				}
@@ -233,7 +233,7 @@ func TestNativeClientAcceptanceSharesStageAndPropagatesFailure(t *testing.T) {
 				t.Fatalf("executed %d commands with stage %q", len(calls), stage)
 			}
 			for _, call := range calls {
-				expected := append([]string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + stage, "TMP=" + stage, "TEMP=" + stage}, forgeCredentialOverrides()...)
+				expected := append([]string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + stage, "TMP=" + stage, "TEMP=" + stage, "AIGW_PERFORMANCE_ATTRIBUTION=0"}, forgeCredentialOverrides()...)
 				if call.Directory != request.Root || !slices.Equal(call.Env, append(expected, "AIGW_ACCEPTANCE_BASELINE=")) {
 					t.Fatalf("acceptance lost stage ownership: %#v", call)
 				}

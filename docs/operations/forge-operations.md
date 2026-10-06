@@ -334,6 +334,26 @@ Setup uses an isolated synthetic endpoint; the timed helper executes its
 actual projected command through the native shell. Client discovery is a
 controlled fixture, not evidence of Provider inference.
 
+For a failed native measurement, add `--performance-attribution` to the same
+explicit signed-input command. It selects only component diagnosis: the original
+shell helper, shell startup, source and copied-reader startup, direct invocation
+of that exact projected reader, and keyring `Read`/`Exists` through each variant's
+native source worker. Worker calls retain the product's restricted environment;
+these API timings include the native subprocess but exclude Hyperfine and the
+shell. The receipt states
+`qualification=false` and `scope=component-attribution`. It retains raw samples,
+warnings and selected executable file identities without weakening or satisfying
+the full-performance budgets. Selected file architecture does not prove the
+architecture of a shell started after Windows x64-controller path redirection.
+Ordinary acceptance explicitly disables inherited attribution scope.
+
+Both peers project this scope from the same CUE owner. GitHub requires
+`performance=true` with `performance_attribution=true`; GitLab requires
+`AIGW_NATIVE_PERFORMANCE=true` with `AIGW_NATIVE_PERFORMANCE_ATTRIBUTION=true`.
+Use one bounded diagnostic before choosing a product repair or repeating full
+qualification; unchanged signed inputs may diagnose their own bytes, not a newer
+source commit.
+
 Environment credentials run on every measurement host. Linux additionally
 measures its explicit file backend; native vault measurement requires the
 existing isolated-credential opt-in. Never enable macOS vault tests on an

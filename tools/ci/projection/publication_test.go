@@ -241,7 +241,7 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
 		t.Fatal(err)
 	}
-	const selection = "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance)"
+	const selection = "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)"
 	for _, platform := range []string{"darwin", "linux", "windows"} {
 		steps := workflow.Jobs["native-"+platform].Steps
 		index := slices.IndexFunc(steps, func(item step) bool { return item.Name == "Run historical release acceptance" })
@@ -252,7 +252,7 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 		if selected.If != selection+" && !inputs.performance" || strings.Contains(selected.Run, "\n") {
 			t.Fatalf("%s must select one native lifecycle command: %#v", platform, selected)
 		}
-		for _, argument := range []string{"mise exec --locked -- go run ./tools/release accept-native", "--peer=github", "--repository=", "--baseline-tag=", "--tag="} {
+		for _, argument := range []string{"mise exec --locked -- go run ./tools/release accept-native", "--peer=github", "--repository=", "--baseline-tag=", "--tag=", "--performance-attribution=${{ inputs.performance_attribution }}"} {
 			if !strings.Contains(selected.Run, argument) {
 				t.Fatalf("%s native lifecycle lost %q", platform, argument)
 			}

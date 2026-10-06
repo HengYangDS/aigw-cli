@@ -59,6 +59,7 @@ package_children."tools/codex" = ["catalog"]
 package_children."tools/release" = [
   "artifact",
   "construction",
+  "performance",
   "publication",
   "readiness",
 ]
@@ -363,6 +364,7 @@ allowed_import_edges."tools/release/construction" = [
   "tools/release/artifact",
   "tools/release/readiness",
 ]
+allowed_import_edges."tools/release/performance" = ["internal/process", "internal/redaction"]
 allowed_import_edges."tools/release/publication" = ["tools/release/artifact"]
 allowed_import_edges."tools/release/readiness" = []
 allowed_import_edges."tools/architecture" = []
