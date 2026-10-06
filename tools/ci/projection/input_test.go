@@ -37,6 +37,10 @@ func TestNativePublicInputPreparesSelectedArtifactAndClientRoots(t *testing.T) {
 		t.Fatal(err)
 	}
 	operation := t.TempDir()
+	systemRoot := os.Getenv("SystemRoot")
+	if systemRoot == "" {
+		systemRoot = operation
+	}
 	project := filepath.Join(operation, "project")
 	job := filepath.Join(operation, "aigw-ci-mise-123")
 	for _, directory := range []string{project, job} {
@@ -82,38 +86,36 @@ func TestNativePublicInputPreparesSelectedArtifactAndClientRoots(t *testing.T) {
 	requireProjectionInput(t, os.MkdirAll(filepath.Dir(bash), 0o700))
 	requireProjectionInput(t, os.WriteFile(bash, []byte("Git Bash fixture"), 0o600))
 	prelude := "$ErrorActionPreference = 'Stop'\n$PSNativeCommandUseErrorActionPreference = $true\n" +
+		"if ($env:SystemRoot -cne $env:AIGW_TEST_SYSTEM_ROOT) { throw 'native SystemRoot was replaced by a fixture' }\n" +
 		"function Get-Command { [pscustomobject]@{ Source = $env:AIGW_TEST_GIT_PATH } }\n" +
 		"function mise { if ($args[0] -eq 'which') { return $env:AIGW_TEST_NODE_PATH }; " +
 		"if ($args[2] -eq 'uv' -and $env:AIGW_NATIVE_CLIENTS -eq 'true') { $global:LASTEXITCODE = 0; return }; " +
 		"if ($args[0] -ne 'exec' -or $args[2] -ne 'glab') { throw 'unselected native client tool invoked' }; " +
 		"Copy-Item -LiteralPath $env:AIGW_TEST_PUBLIC_ARCHIVE -Destination $args[[array]::IndexOf($args, '--path') + 1]; $global:LASTEXITCODE = 0 }\n"
-	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
-	defer cancel()
-	command := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", prelude+script+
-		"\nif ($env:AIGW_CANDIDATE_ARTIFACTS -ne (Join-Path $fixture 'candidate') -or $env:AIGW_BASELINE_ARTIFACTS -ne (Join-Path $fixture 'baseline')) { throw 'artifact identities were not prepared' }")
-	command.Dir = operation
 	environment := append(os.Environ(), "AIGW_NATIVE_INPUT_PACKAGE=fixture", "AIGW_CANDIDATE_SOURCE=0123456789012345678901234567890123456789",
-		"AIGW_NATIVE_PLATFORM=windows", "AIGW_NATIVE_CLIENTS=false", "AIGW_NATIVE_DIAGNOSTIC_CLIENT=", "AIGW_NATIVE_PERFORMANCE=true",
+		"AIGW_NATIVE_PLATFORM=windows", "AIGW_NATIVE_DIAGNOSTIC_CLIENT=",
 		"AIGW_RELEASE_ALLOWED_SIGNERS_FILE="+trust, "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="+trust, "AIGW_RELEASE_ARTIFACT_SIGNER=fixture@example.invalid",
 		"AIGW_NATIVE_INPUT_SHA256="+fmt.Sprintf("%x", sha256.Sum256(archive)), "AIGW_TEST_PUBLIC_ARCHIVE="+input,
-		"AIGW_TEST_GIT_PATH="+filepath.Join(operation, "git", "cmd", "git.exe"), "AIGW_TEST_NODE_PATH="+filepath.Join(operation, "node", "node.exe"), "SystemRoot="+operation,
+		"AIGW_TEST_SYSTEM_ROOT="+systemRoot,
+		"AIGW_TEST_GIT_PATH="+filepath.Join(operation, "git", "cmd", "git.exe"), "AIGW_TEST_NODE_PATH="+filepath.Join(operation, "node", "node.exe"), "SystemRoot="+systemRoot,
 		"CI_PROJECT_DIR="+project, "CI_PROJECT_URL=https://gitlab.test/team/aigw", "CI_JOB_ID=123")
-	command.Env = environment
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("artifact-only native preparation failed: %v\n%s", err, output)
-	}
-	entries, err := os.ReadDir(filepath.Join(job, "native-input"))
-	if err != nil || len(entries) != 2 || entries[0].Name() != "baseline" || entries[1].Name() != "candidate" {
-		t.Fatalf("native preparation did not preserve the two selected artifact roots: %v, %v", entries, err)
-	}
-	requireProjectionInput(t, os.RemoveAll(filepath.Join(job, "native-input")))
-	command = exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", prelude+script+
-		"\nforeach ($client in @{ codex = $env:AIGW_ACCEPTANCE_CODEX; claude = $env:AIGW_ACCEPTANCE_CLAUDE; hermes = $env:AIGW_ACCEPTANCE_HERMES }.GetEnumerator()) { "+
-		"if (-not (Test-Path -LiteralPath $client.Value -PathType Leaf) -or (Get-Content -LiteralPath $client.Value -Raw) -cne ($client.Key + ' fixture')) { throw 'selected native client identity is unavailable' } }")
-	command.Dir = operation
-	command.Env = append(environment, "AIGW_NATIVE_CLIENTS=true", "AIGW_NATIVE_PERFORMANCE=false")
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("selected native client preparation failed: %v\n%s", err, output)
+	for _, mode := range []struct{ name, clients, performance, assertion string }{
+		{"artifact-only", "false", "true", "if ((Get-ChildItem -LiteralPath $fixture).Count -ne 2 -or (Test-Path (Join-Path $fixture 'suppliers'))) { throw 'unselected client inputs were retained' }"},
+		{"selected-clients", "true", "false", "foreach ($client in @{ codex = $env:AIGW_ACCEPTANCE_CODEX; claude = $env:AIGW_ACCEPTANCE_CLAUDE; hermes = $env:AIGW_ACCEPTANCE_HERMES }.GetEnumerator()) { " +
+			"if (-not (Test-Path -LiteralPath $client.Value -PathType Leaf) -or (Get-Content -LiteralPath $client.Value -Raw) -cne ($client.Key + ' fixture')) { throw 'selected native client identity is unavailable' } }"},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
+			requireProjectionInput(t, os.RemoveAll(filepath.Join(job, "native-input")))
+			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+			defer cancel()
+			command := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", prelude+script+
+				"\nif ($env:AIGW_CANDIDATE_ARTIFACTS -ne (Join-Path $fixture 'candidate') -or $env:AIGW_BASELINE_ARTIFACTS -ne (Join-Path $fixture 'baseline')) { throw 'artifact identities were not prepared' }\n"+mode.assertion)
+			command.Dir = operation
+			command.Env = append(environment, "AIGW_NATIVE_CLIENTS="+mode.clients, "AIGW_NATIVE_PERFORMANCE="+mode.performance)
+			if output, err := command.CombinedOutput(); err != nil {
+				t.Fatalf("native input preparation failed: %v (context: %v)\n%s", err, ctx.Err(), output)
+			}
+		})
 	}
 }
 
