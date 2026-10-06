@@ -105,7 +105,7 @@ func runDependencyScan(call toolCall, run toolRunner) error {
 		return errors.Join(result, readErr)
 	}
 	invalidDiagnostics := process.DiagnosticFailure(diagnostics)
-	findings := code == 1 && !invalidDiagnostics
+	findings := onlyDependencyFindingExit(result) && !invalidDiagnostics
 	if err := writeJSON(output+".exit.json", struct {
 		Exit     int  `json:"exit"`
 		Failed   bool `json:"failed"`
@@ -120,6 +120,18 @@ func runDependencyScan(call toolCall, run toolRunner) error {
 		return nil
 	}
 	return result
+}
+
+func onlyDependencyFindingExit(err error) bool {
+	if joined, ok := errors.AsType[interface {
+		error
+		Unwrap() []error
+	}](err); ok {
+		children := joined.Unwrap()
+		return len(children) > 0 && !slices.ContainsFunc(children, func(child error) bool { return !onlyDependencyFindingExit(child) })
+	}
+	exit, ok := errors.AsType[*exec.ExitError](err)
+	return ok && exit.ExitCode() == 1
 }
 
 // ScanDependencies retains complete nonblocking findings and rejects invalid evidence.

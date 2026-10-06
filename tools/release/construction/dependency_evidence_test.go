@@ -1,6 +1,7 @@
 package construction
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -362,6 +363,27 @@ func TestDependencyFindingsAreNonblockingAndRetained(t *testing.T) {
 	}
 	if err := json.Unmarshal(data, &terminal); err != nil || terminal.Exit != 1 || terminal.Failed || !terminal.Findings {
 		t.Fatalf("finding terminal was misclassified: %s %v", data, err)
+	}
+	for name, failure := range map[string]error{"deadline": context.DeadlineExceeded, "cleanup": os.ErrPermission} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			raw, err := scanDependencies(root, filepath.Join(root, "evidence"), dependencyPolicy{}, func(call toolCall) error {
+				if err := writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(root)); err != nil {
+					return err
+				}
+				return fmt.Errorf("execution: %w", errors.Join(fmt.Errorf("findings: %w", nativeExit), failure))
+			})
+			if !errors.Is(err, failure) {
+				t.Fatalf("advisory exit swallowed the independent %s failure: %v", name, err)
+			}
+			data, err := os.ReadFile(raw + ".exit.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(data, &terminal); err != nil || terminal.Exit != 1 || !terminal.Failed || terminal.Findings {
+				t.Fatalf("independent %s failure was classified as findings: %s %v", name, data, err)
+			}
+		})
 	}
 }
 
