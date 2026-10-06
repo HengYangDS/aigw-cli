@@ -143,16 +143,16 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var toolOutput atomic.Bool
-	var probe codexToolLoopProbe
+	var (
+		toolOutput atomic.Bool
+		probe      codexToolLoopProbe
+	)
 	server := httptest.NewServer(codexToolLoopHandler(token, &toolOutput, &probe))
 	t.Cleanup(func() {
-		if t.Failed() {
-			t.Logf("Codex tool-loop requests=%d calls=%d results=%d rejected=%d",
-				probe.requests.Load(), probe.toolCalls.Load(), probe.toolResults.Load(), probe.rejected.Load())
-			if first := probe.firstResult.Load(); first != nil {
-				t.Logf("first bounded tool result: %q", *first)
-			}
+		t.Logf("Combined Codex journey requests=%d calls=%d results=%d rejected=%d",
+			probe.requests.Load(), probe.toolCalls.Load(), probe.toolResults.Load(), probe.rejected.Load())
+		if first := probe.firstResult.Load(); first != nil {
+			t.Logf("first bounded tool result: %q", *first)
 		}
 	})
 	t.Cleanup(server.Close)
@@ -171,11 +171,11 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), clientverification.ProtocolTimeout)
-	defer cancel()
 	stdout, stderr, verifyErr := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
 		Executable: journey.binary, Env: journey.environment,
 		Args: []string{"verify", "--for", configuration.ClientCodex},
 	})
+	cancel()
 	requireNativeCodexRouteOutcome(t, executable, p.manifest.Routes[routeID], stdout, stderr, verifyErr, token)
 	if verifyErr == nil {
 		t.Fatal("Grok native metadata warning was accepted as complete verification")
@@ -197,14 +197,35 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 		t.Fatal(err)
 	}
 	plan.Args[len(plan.Args)-1] = "Use a shell tool to run echo AIGW_TOOL_OK, then reply exactly AIGW_OK."
-	journey.runWith(executable, plan.Args...)
-	if !toolOutput.Load() {
-		t.Fatal("Codex completed without a successful exec_command result")
+	plan.Env = journey.environment
+	callsBefore, resultsBefore := probe.toolCalls.Load(), probe.toolResults.Load()
+	toolOutput.Store(false)
+	ctx, cancel = context.WithTimeout(t.Context(), clientverification.ProtocolTimeout)
+	stdout, stderr, runErr := (process.Runner{}).RunCaptureStreams(ctx, plan)
+	cancel()
+	if runErr != nil {
+		t.Fatalf("Codex native tool loop: %v\nstdout:\n%s\nstderr:\n%s", runErr,
+			redaction.Text(string(stdout), token), redaction.Text(string(stderr), token))
+	}
+	metadataWarning := false
+	for line := range strings.SplitSeq(string(stderr), "\n") {
+		if strings.TrimSuffix(line, "\r") == "warning: Model metadata for `"+runtime.Model+"` not found. Defaulting to fallback metadata; this can degrade performance and cause issues." {
+			metadataWarning = true
+			continue
+		}
+		if process.DiagnosticFailure([]byte(line)) {
+			t.Fatalf("Codex tool loop emitted an unexpected diagnostic: %s", redaction.Text(line, token))
+		}
+	}
+	if !metadataWarning || !toolOutput.Load() || probe.toolCalls.Load()-callsBefore != 1 || probe.toolResults.Load()-resultsBefore != 1 || probe.rejected.Load() != 0 {
+		t.Fatalf("Codex tool loop evidence: incomplete-metadata diagnostic=%t successful tool result=%t calls=%d results=%d rejected=%d",
+			metadataWarning, toolOutput.Load(), probe.toolCalls.Load()-callsBefore, probe.toolResults.Load()-resultsBefore, probe.rejected.Load())
 	}
 	if got, err := os.ReadFile(output); err != nil || strings.TrimSpace(string(got)) != "AIGW_OK" {
 		t.Fatalf("Codex final tool-loop response = %q, %v", got, err)
 	}
 	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
+	t.Logf("Codex tool loop completed; native model metadata remains unqualified; stderr:\n%s", redaction.Text(string(stderr), token))
 }
 
 type codexToolLoopProbe struct {
