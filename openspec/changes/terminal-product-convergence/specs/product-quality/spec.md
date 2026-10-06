@@ -4,11 +4,13 @@
 
 ### Requirement: Warnings are owned failures
 
-Every repository-owned warning and nonempty native validation finding emitted
-by a supported build, test, analysis, documentation, packaging, or CI path
-SHALL be resolved at its semantic owner. A validator's advisory severity does
-not waive this repository's clean-evidence policy. Successful subprocess exit
-SHALL NOT erase captured diagnostic output or establish warning-free acceptance.
+Repository-owned source and configuration warnings SHALL block qualification
+until resolved at their semantic owner. Supply-chain security findings SHALL
+remain nonblocking and fully disclosed under the
+[release evidence contract](../../../../../docs/governance/change-and-release-policy.md#reproducible-assets).
+Scanner execution, evidence completeness and artifact validity SHALL remain
+required. Successful subprocess exit SHALL NOT erase captured diagnostics or
+establish warning-free acceptance.
 
 #### Scenario: A supported gate emits a warning
 

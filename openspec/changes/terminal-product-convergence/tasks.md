@@ -136,7 +136,7 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 6.4 Exercise Markdown, Mermaid rendering, internal/external links, TOML,
       YAML, JSON, CUE, shell and generated-text checks on tracked content; a
       malformed or unreachable authored carrier must fail the relevant gate.
-- [ ] 6.5 Verify dependency hygiene, dead-code, secrets, SBOM, vulnerabilities,
+- [x] 6.5 Verify dependency hygiene, dead-code, secrets, SBOM, vulnerabilities,
       licenses, checksums, signatures and provenance from the exact locked
       candidate; retain and disclose nonblocking supply-chain security findings,
       preserve artifact validity, and delete unconsumed parallel scans or reports.
