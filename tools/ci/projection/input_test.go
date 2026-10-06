@@ -3,6 +3,7 @@ package projection
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -18,7 +19,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-func TestNativePublicInputPreparesOnlySelectedArtifacts(t *testing.T) {
+func TestNativePublicInputPreparesSelectedArtifactAndClientRoots(t *testing.T) {
 	pwsh, err := exec.LookPath("pwsh")
 	if err != nil {
 		if runtime.GOOS == "windows" {
@@ -39,49 +40,87 @@ func TestNativePublicInputPreparesOnlySelectedArtifacts(t *testing.T) {
 	project := filepath.Join(operation, "project")
 	job := filepath.Join(operation, "aigw-ci-mise-123")
 	for _, directory := range []string{project, job} {
-		if err := os.Mkdir(directory, 0o700); err != nil {
-			t.Fatal(err)
-		}
+		requireProjectionInput(t, os.Mkdir(directory, 0o700))
 	}
-	var archive bytes.Buffer
-	writer := tar.NewWriter(&archive)
-	for _, name := range []string{"candidate/checksums.txt", "baseline/checksums.txt", "clients/native.exe", "suppliers/official-hermes-f97608f1-source.tar"} {
-		if err := writer.WriteHeader(&tar.Header{Name: name, Mode: 0o600, Size: 4}); err != nil {
-			t.Fatal(err)
+	pack := func(files map[string][]byte, compressed bool) []byte {
+		var archive bytes.Buffer
+		var output io.Writer = &archive
+		var zipped *gzip.Writer
+		if compressed {
+			zipped = gzip.NewWriter(&archive)
+			output = zipped
 		}
-		if _, err := io.WriteString(writer, "test"); err != nil {
-			t.Fatal(err)
+		writer := tar.NewWriter(output)
+		for name, data := range files {
+			requireProjectionInput(t, writer.WriteHeader(&tar.Header{Name: name, Mode: 0o600, Size: int64(len(data))}))
+			_, err := writer.Write(data)
+			requireProjectionInput(t, err)
 		}
+		requireProjectionInput(t, writer.Close())
+		if zipped != nil {
+			requireProjectionInput(t, zipped.Close())
+		}
+		return archive.Bytes()
 	}
-	if err := writer.Close(); err != nil {
-		t.Fatal(err)
-	}
+	// Direct platform archives retain their package name, not npm's optional alias.
+	archive := pack(map[string][]byte{
+		"candidate/checksums.txt": []byte("test"),
+		"baseline/checksums.txt":  []byte("test"),
+		"suppliers/windows-codex-0.160.1-claude-2.1.291-native-packages.tar.gz": pack(map[string][]byte{
+			"clients/node_modules/@openai/codex/vendor/x86_64-pc-windows-msvc/bin/codex.exe":     []byte("codex fixture"),
+			"clients/node_modules/@openai/codex/vendor/x86_64-pc-windows-msvc/codex-path/rg.exe": []byte("resource fixture"),
+			"clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe":                []byte("claude fixture"),
+		}, true),
+		"suppliers/official-hermes-f97608f1-source.tar": pack(map[string][]byte{
+			".venv/Scripts/hermes.exe": []byte("hermes fixture"),
+		}, false),
+	}, false)
 	input, trust := filepath.Join(operation, "inputs.tar"), filepath.Join(operation, "trust")
-	if err := os.WriteFile(input, archive.Bytes(), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(trust, []byte("fixture-only public trust"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	requireProjectionInput(t, os.WriteFile(input, archive, 0o600))
+	requireProjectionInput(t, os.WriteFile(trust, []byte("fixture-only public trust"), 0o600))
+	bash := filepath.Join(operation, "git", "bin", "bash.exe")
+	requireProjectionInput(t, os.MkdirAll(filepath.Dir(bash), 0o700))
+	requireProjectionInput(t, os.WriteFile(bash, []byte("Git Bash fixture"), 0o600))
 	prelude := "$ErrorActionPreference = 'Stop'\n$PSNativeCommandUseErrorActionPreference = $true\n" +
-		"function mise { if ($args[0] -ne 'exec' -or $args[2] -ne 'glab') { throw 'unselected native client tool invoked' }; " +
+		"function Get-Command { [pscustomobject]@{ Source = $env:AIGW_TEST_GIT_PATH } }\n" +
+		"function mise { if ($args[0] -eq 'which') { return $env:AIGW_TEST_NODE_PATH }; " +
+		"if ($args[2] -eq 'uv' -and $env:AIGW_NATIVE_CLIENTS -eq 'true') { $global:LASTEXITCODE = 0; return }; " +
+		"if ($args[0] -ne 'exec' -or $args[2] -ne 'glab') { throw 'unselected native client tool invoked' }; " +
 		"Copy-Item -LiteralPath $env:AIGW_TEST_PUBLIC_ARCHIVE -Destination $args[[array]::IndexOf($args, '--path') + 1]; $global:LASTEXITCODE = 0 }\n"
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", prelude+script+
 		"\nif ($env:AIGW_CANDIDATE_ARTIFACTS -ne (Join-Path $fixture 'candidate') -or $env:AIGW_BASELINE_ARTIFACTS -ne (Join-Path $fixture 'baseline')) { throw 'artifact identities were not prepared' }")
 	command.Dir = operation
-	command.Env = append(os.Environ(), "AIGW_NATIVE_INPUT_PACKAGE=fixture", "AIGW_CANDIDATE_SOURCE=0123456789012345678901234567890123456789",
+	environment := append(os.Environ(), "AIGW_NATIVE_INPUT_PACKAGE=fixture", "AIGW_CANDIDATE_SOURCE=0123456789012345678901234567890123456789",
 		"AIGW_NATIVE_PLATFORM=windows", "AIGW_NATIVE_CLIENTS=false", "AIGW_NATIVE_DIAGNOSTIC_CLIENT=", "AIGW_NATIVE_PERFORMANCE=true",
 		"AIGW_RELEASE_ALLOWED_SIGNERS_FILE="+trust, "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="+trust, "AIGW_RELEASE_ARTIFACT_SIGNER=fixture@example.invalid",
-		"AIGW_NATIVE_INPUT_SHA256="+fmt.Sprintf("%x", sha256.Sum256(archive.Bytes())), "AIGW_TEST_PUBLIC_ARCHIVE="+input,
+		"AIGW_NATIVE_INPUT_SHA256="+fmt.Sprintf("%x", sha256.Sum256(archive)), "AIGW_TEST_PUBLIC_ARCHIVE="+input,
+		"AIGW_TEST_GIT_PATH="+filepath.Join(operation, "git", "cmd", "git.exe"), "AIGW_TEST_NODE_PATH="+filepath.Join(operation, "node", "node.exe"), "SystemRoot="+operation,
 		"CI_PROJECT_DIR="+project, "CI_PROJECT_URL=https://gitlab.test/team/aigw", "CI_JOB_ID=123")
+	command.Env = environment
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("artifact-only native preparation failed: %v\n%s", err, output)
 	}
 	entries, err := os.ReadDir(filepath.Join(job, "native-input"))
 	if err != nil || len(entries) != 2 || entries[0].Name() != "baseline" || entries[1].Name() != "candidate" {
 		t.Fatalf("native preparation did not preserve the two selected artifact roots: %v, %v", entries, err)
+	}
+	requireProjectionInput(t, os.RemoveAll(filepath.Join(job, "native-input")))
+	command = exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", prelude+script+
+		"\nforeach ($client in @{ codex = $env:AIGW_ACCEPTANCE_CODEX; claude = $env:AIGW_ACCEPTANCE_CLAUDE; hermes = $env:AIGW_ACCEPTANCE_HERMES }.GetEnumerator()) { "+
+		"if (-not (Test-Path -LiteralPath $client.Value -PathType Leaf) -or (Get-Content -LiteralPath $client.Value -Raw) -cne ($client.Key + ' fixture')) { throw 'selected native client identity is unavailable' } }")
+	command.Dir = operation
+	command.Env = append(environment, "AIGW_NATIVE_CLIENTS=true", "AIGW_NATIVE_PERFORMANCE=false")
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("selected native client preparation failed: %v\n%s", err, output)
+	}
+}
+
+func requireProjectionInput(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

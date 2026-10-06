@@ -409,7 +409,7 @@ native-windows:
           $env:UV_PYTHON_INSTALL_BIN = '0'
           $env:UV_NO_CONFIG = '1'
           mise exec --locked -- uv sync --project $hermes --python 3.12 --managed-python --frozen --no-dev --no-default-groups --extra edge-tts --extra bedrock
-          $codex = Join-Path $fixture 'clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
+          $codex = Join-Path $fixture 'clients/node_modules/@openai/codex/vendor/x86_64-pc-windows-msvc'
           $gitBin = Split-Path (Get-Command git.exe -ErrorAction Stop).Source
           $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
           if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Native Claude requires Git Bash.' }
@@ -599,7 +599,7 @@ native-windows-review:
           $env:UV_PYTHON_INSTALL_BIN = '0'
           $env:UV_NO_CONFIG = '1'
           mise exec --locked -- uv sync --project $hermes --python 3.12 --managed-python --frozen --no-dev --no-default-groups --extra edge-tts --extra bedrock
-          $codex = Join-Path $fixture 'clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
+          $codex = Join-Path $fixture 'clients/node_modules/@openai/codex/vendor/x86_64-pc-windows-msvc'
           $gitBin = Split-Path (Get-Command git.exe -ErrorAction Stop).Source
           $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
           if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Native Claude requires Git Bash.' }
