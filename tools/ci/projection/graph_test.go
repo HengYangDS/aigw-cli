@@ -432,27 +432,34 @@ func TestGitHubVerificationChecksOutTheExactProductCommit(t *testing.T) {
 	}
 }
 
-func TestGitHubWorkflowsDeclareTheCanonicalInitialBranch(t *testing.T) {
+func TestHostedGitCommandsUseCanonicalBranchAndLongPaths(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, index := range []int{1, 2} {
+	for index, carrier := range projections {
 		var workflow struct {
-			Env map[string]string `yaml:"env"`
+			Env       map[string]string `yaml:"env"`
+			Variables map[string]string `yaml:"variables"`
 		}
-		if err := yaml.Unmarshal([]byte(projections[index].Content), &workflow); err != nil {
+		if err := yaml.Unmarshal([]byte(carrier.Content), &workflow); err != nil {
 			t.Fatal(err)
 		}
+		environment := workflow.Env
+		if index == 0 {
+			environment = workflow.Variables
+		}
 		want := map[string]string{
-			"GIT_CONFIG_COUNT":   "1",
+			"GIT_CONFIG_COUNT":   "2",
 			"GIT_CONFIG_KEY_0":   "init.defaultBranch",
 			"GIT_CONFIG_VALUE_0": "main",
+			"GIT_CONFIG_KEY_1":   "core.longpaths",
+			"GIT_CONFIG_VALUE_1": "true",
 		}
 		for name, value := range want {
-			if got := workflow.Env[name]; got != value {
-				t.Fatalf("GitHub projection %d %s = %q, want %q", index, name, got, value)
+			if got := environment[name]; got != value {
+				t.Fatalf("projection %d %s = %q, want %q", index, name, got, value)
 			}
 		}
 	}

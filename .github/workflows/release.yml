@@ -1,8 +1,10 @@
 name: Release
 env:
-  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_COUNT: "2"
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
+  GIT_CONFIG_KEY_1: core.longpaths
+  GIT_CONFIG_VALUE_1: "true"
 "on":
   workflow_dispatch:
     inputs:

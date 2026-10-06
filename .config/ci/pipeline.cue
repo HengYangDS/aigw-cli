@@ -24,6 +24,15 @@ import (
 // Keep this transport choice in the installer process, not product execution.
 installationEnvironment: GODEBUG: "http2client=0"
 
+// Git source acquisition must admit the same paths as native tool caches.
+gitEnvironment: {
+	GIT_CONFIG_COUNT:   "2"
+	GIT_CONFIG_KEY_0:   "init.defaultBranch"
+	GIT_CONFIG_VALUE_0: "main"
+	GIT_CONFIG_KEY_1:   "core.longpaths"
+	GIT_CONFIG_VALUE_1: "true"
+}
+
 toolSourceInput: {
 	description: "Locked upstream distribution or the selected peer's verified immutable tool copies"
 	required:    false
@@ -839,7 +848,7 @@ _gitlabControlJob: {
 }
 
 gitlab: {
-	variables: {
+	variables: gitEnvironment & {
 		GIT_DEPTH:        "0"
 		GOPROXY:          "https://goproxy.cn|https://proxy.golang.org|direct"
 		AIGW_TOOL_SOURCE: "upstream"
@@ -989,11 +998,7 @@ gitlab: {
 githubVerify: {
 	name: "Verify"
 	defaults: run: shell: "bash"
-	env: {
-		GIT_CONFIG_COUNT:   "1"
-		GIT_CONFIG_KEY_0:   "init.defaultBranch"
-		GIT_CONFIG_VALUE_0: "main"
-	}
+	env: gitEnvironment
 	"on": {
 		push: {branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch], tags: ["v*"]}
 		"pull_request": branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch]
@@ -1155,11 +1160,7 @@ githubVerify: {
 
 githubRelease: {
 	name: "Release"
-	env: {
-		GIT_CONFIG_COUNT:   "1"
-		GIT_CONFIG_KEY_0:   "init.defaultBranch"
-		GIT_CONFIG_VALUE_0: "main"
-	}
+	env:  gitEnvironment
 	"on": {
 		"workflow_dispatch": inputs: {
 			tool_source: toolSourceInput

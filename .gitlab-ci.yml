@@ -670,6 +670,11 @@ native-windows-review:
       - .mise/locks
       - build/verification
 variables:
+  GIT_CONFIG_COUNT: "2"
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+  GIT_CONFIG_KEY_1: core.longpaths
+  GIT_CONFIG_VALUE_1: "true"
   GIT_DEPTH: "0"
   GOPROXY: https://goproxy.cn|https://proxy.golang.org|direct
   AIGW_TOOL_SOURCE: upstream
