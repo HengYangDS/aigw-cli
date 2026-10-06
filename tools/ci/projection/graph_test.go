@@ -205,24 +205,17 @@ func TestGitLabFullNativeQualityUsesTheExistingEntryPoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var gitlab struct {
-		Darwin        gitLabJob  `yaml:"native-darwin"`
-		DarwinReview  gitLabJob  `yaml:"native-darwin-review"`
-		Linux         *gitLabJob `yaml:"native-linux"`
-		Windows       *gitLabJob `yaml:"native-windows"`
-		WindowsReview gitLabJob  `yaml:"native-windows-review"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+	var jobs map[string]yaml.Node
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &jobs); err != nil {
 		t.Fatal(err)
 	}
-	if gitlab.Linux == nil || gitlab.Windows == nil {
-		t.Fatal("GitLab must project native Linux and Windows acceptance")
-	}
-	for name, job := range map[string]gitLabJob{
-		"darwin": gitlab.Darwin, "darwin-review": gitlab.DarwinReview,
-		"linux": *gitlab.Linux, "windows": *gitlab.Windows, "windows-review": gitlab.WindowsReview,
-	} {
-		platform := strings.TrimSuffix(name, "-review")
+	for _, name := range []string{"native-darwin", "native-darwin-review", "native-linux", "native-windows", "native-windows-review"} {
+		var job gitLabJob
+		node := jobs[name]
+		if err := node.Decode(&job); err != nil {
+			t.Fatal(err)
+		}
+		platform := strings.TrimSuffix(strings.TrimPrefix(name, "native-"), "-review")
 		want := "mise exec --locked -- go run ./tools/ci native --platform " + platform + ` --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"`
 		if platform == "windows" {
 			want = `mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"`
@@ -433,8 +426,7 @@ func TestGitHubVerificationChecksOutTheExactProductCommit(t *testing.T) {
 }
 
 func TestHostedGitCommandsUseCanonicalBranchAndLongPaths(t *testing.T) {
-	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	projections, err := renderProjections(root)
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -450,14 +442,13 @@ func TestHostedGitCommandsUseCanonicalBranchAndLongPaths(t *testing.T) {
 		if index == 0 {
 			environment = workflow.Variables
 		}
-		want := map[string]string{
+		for name, value := range map[string]string{
 			"GIT_CONFIG_COUNT":   "2",
 			"GIT_CONFIG_KEY_0":   "init.defaultBranch",
 			"GIT_CONFIG_VALUE_0": "main",
 			"GIT_CONFIG_KEY_1":   "core.longpaths",
 			"GIT_CONFIG_VALUE_1": "true",
-		}
-		for name, value := range want {
+		} {
 			if got := environment[name]; got != value {
 				t.Fatalf("projection %d %s = %q, want %q", index, name, got, value)
 			}

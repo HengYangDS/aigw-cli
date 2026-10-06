@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -89,15 +90,35 @@ func TestRepositoryQualityGraphIncludesStableGenericChecks(t *testing.T) {
 }
 
 func TestRepositoryQualityGraphIncludesNativePerformanceCases(t *testing.T) {
-	for _, gate := range repositoryQualityGraph.Gates {
-		if gate.ID == "performance-acceptance" {
-			if !slices.Contains(gate.Command.Args, "^TestNative(PeakMemoryBudget|Performance(Samples|Command|Cases|PooledSamples))$") {
-				t.Fatalf("performance case coverage is disconnected from source admission: %v", gate.Command.Args)
-			}
-			return
+	index := slices.IndexFunc(repositoryQualityGraph.Gates, func(gate qualityGate) bool {
+		return gate.ID == "performance-acceptance"
+	})
+	if index < 0 {
+		t.Fatal("source admission lacks its native performance owner")
+	}
+	args := repositoryQualityGraph.Gates[index].Command.Args
+	index = slices.Index(args, "-run")
+	if index < 0 || index+1 >= len(args) {
+		t.Fatalf("performance acceptance lacks its bounded test selection: %v", args)
+	}
+	selection, err := regexp.Compile(args[index+1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]bool{
+		"TestNativePeakMemoryBudget":                               true,
+		"TestNativePerformanceSamples":                             true,
+		"TestNativePerformanceCommand":                             true,
+		"TestNativePerformanceCases":                               true,
+		"TestNativePerformancePooledSamples":                       true,
+		"TestNativeAttributionKeepsTheProjectedReaderBoundary":     true,
+		"TestNativeAttributionSummaryRetainsItsNonqualifyingScope": true,
+		"TestNativePerformance":                                    false,
+	} {
+		if got := selection.MatchString(name); got != want {
+			t.Fatalf("performance source admission selects %s = %t, want %t", name, got, want)
 		}
 	}
-	t.Fatal("source admission lacks its native performance owner")
 }
 
 func TestRepositoryQualityGraphOwnsTheArchitectureEditionProvider(t *testing.T) {

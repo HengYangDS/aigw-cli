@@ -48,7 +48,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "run", "./tools/ci", "check-go", "."},
 		{"go", "test", "-tags=client_acceptance", "./tools/release", "-run", "^(TestNativeClient(Inputs|StreamEnvelope|InferenceEnvelope|FilePreservation)|TestCodexToolLoopStopsAfterUnsuccessfulToolResult)$"},
 		{"go", "test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^TestVerificationResourceCleanupStopsOwnedFixture$"},
-		{"go", "test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|Performance(Samples|Command|Cases|PooledSamples))$"},
+		{"go", "test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|Performance(Samples|Command|Cases|PooledSamples)|Attribution(KeepsTheProjectedReaderBoundary|SummaryRetainsItsNonqualifyingScope))$"},
 		{"go", "run", "./tools/ci", "check-workflows", "."},
 		{"go", "run", "./tools/coverage", "--race", "--profile-output", "build/verification/coverage/profile.out"},
 	}
