@@ -123,7 +123,7 @@ in Git; original raw results stay with their source-bound verification owner.
 
 ## 6. Quality, Supply Chain, and Performance
 
-- [ ] 6.1 Audit every direct Go, npm, OpenSpec, Mise and release-tool version
+- [x] 6.1 Audit every direct Go, npm, OpenSpec, Mise and release-tool version
       against the latest stable compatible upstream; update authored pins and locks
       once, then prove clean-context reproducibility and license/security
       admissibility.
