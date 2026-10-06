@@ -357,9 +357,9 @@ source commit.
 Environment credentials run on every measurement host. Linux additionally
 measures its explicit file backend; native vault measurement requires the
 existing isolated-credential opt-in. Never enable macOS vault tests on an
-operator's login host. Native Hyperfine binaries are locked for Linux/macOS
-AMD64 and ARM64, and Windows AMD64. Windows ARM64 product acceptance remains
-independent of this measurement tool's missing native binary.
+operator's login host. Native Hyperfine binaries are locked for Linux, macOS,
+and Windows on both AMD64 and ARM64. Tool installation and product performance
+acceptance remain separate evidence boundaries.
 
 Memory acceptance runs separately from Hyperfine's timings. It measures the
 configured `status` process with macOS wait accounting, GNU time at
