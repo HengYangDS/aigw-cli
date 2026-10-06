@@ -33,7 +33,7 @@ cue = "0.17.1"
 
 # Release transport conformance
 gh = "2.102.0"
-glab = "1.120.0"
+glab = "1.121.0"
 
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.18.2"
@@ -51,7 +51,7 @@ taplo = "0.10.0"
 "github:golangci/golangci-lint" = "2.14.0"
 shellcheck = "0.11.0"
 "github:rhysd/actionlint" = "1.7.12"
-"github:sharkdp/hyperfine" = {version = "1.20.0", platforms.windows-arm64.asset_pattern = "hyperfine-v1.20.0-x86_64-pc-windows-msvc.zip"}
+"github:sharkdp/hyperfine" = "1.21.0"
 "github:lycheeverse/lychee" = {version = "lychee-v0.24.2", platforms.windows-arm64.asset_pattern = "lychee-x86_64-pc-windows-msvc.zip"}
 typos = "1.50.3"
 
