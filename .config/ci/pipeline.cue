@@ -95,8 +95,9 @@ linuxToolchain: {
 	// The runnable Mise image is intentionally small. Declare the complete
 	// repository execution closure here so every Linux job inherits one owner.
 	runtimePackages: ["libatomic1", "openssh-client", "procps"]
-	prepare:  "set -eu\n\(linuxApt.update)\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
-	compiler: "set -eu\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) gcc libc6-dev \(linuxSecretService.packages)"
+	prepare:           "set -eu\n\(linuxApt.update)\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
+	compiler:          "set -eu\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) gcc libc6-dev \(linuxSecretService.packages)"
+	memoryMeasurement: "if [ \"${AIGW_NATIVE_PERFORMANCE:-false}\" = true ]; then DEBIAN_FRONTEND=noninteractive \(linuxApt.install) time; fi"
 }
 
 linuxSecretService: {
@@ -649,7 +650,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	rules: [...{...}]
 	if _platform == "windows" {
 		_prebuiltCondition: "($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true'"
-		_selectTools:       "if (\(_prebuiltCondition)) { $env:MISE_ENABLE_TOOLS = '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' }; if ($env:AIGW_NATIVE_INPUT_PACKAGE) { $env:MISE_ENABLE_TOOLS += ',node,uv' }"
+		_selectTools:       "if (\(_prebuiltCondition)) { $env:MISE_ENABLE_TOOLS = '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',\(strings.Join(toolchainTools.performance, ","))' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE) { $env:MISE_ENABLE_TOOLS += ',node,uv' }"
 		_bootstrap:         "if (-not (\(_prebuiltCondition))) { \(commands.bootstrap) }"
 		_prepareMise:       #"""
 			$ErrorActionPreference = 'Stop'
@@ -705,7 +706,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		_native:            #"""
 			$ErrorActionPreference = 'Stop'
 			$PSNativeCommandUseErrorActionPreference = $true
-			if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT -and $env:CI_PIPELINE_SOURCE -notin @('web', 'api')) { throw 'Native client diagnostics require a manual pipeline' }
+			if (($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT -or $env:AIGW_NATIVE_PERFORMANCE -eq 'true') -and $env:CI_PIPELINE_SOURCE -notin @('web', 'api')) { throw 'Native diagnostics and performance require a manual pipeline' }
 			\#(nativePublicInputWindows)
 			$acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)
 			if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }
@@ -713,6 +714,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
 			if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
 			if ($env:AIGW_CANDIDATE_SOURCE) { $acceptance += @('--candidate-source', $env:AIGW_CANDIDATE_SOURCE) }
+			if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $acceptance += @('--performance', (Join-Path $env:CI_PROJECT_DIR 'build/verification/performance')) }
 			if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT) {
 			  $acceptance += @('--diagnostic-client', $env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)
 			} elseif ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
@@ -752,13 +754,13 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	if _platform != "windows" {
 		_cleanup:           miseMirror.unixCleanup
 		_prebuiltCondition: "[ -n \"${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}\" ] && [ \"${AIGW_FULL_NATIVE_QUALITY:-false}\" != true ] && [ \"${AIGW_REFRESH_LOCKS:-false}\" != true ]"
-		_selectTools:       "if \(_prebuiltCondition); then export MISE_ENABLE_TOOLS='\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)'; fi"
+		_selectTools:       "if \(_prebuiltCondition); then export MISE_ENABLE_TOOLS='\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)'; if [ \"${AIGW_NATIVE_PERFORMANCE:-false}\" = true ]; then export MISE_ENABLE_TOOLS=\"$MISE_ENABLE_TOOLS,\(strings.Join(toolchainTools.performance, ","))\"; fi; fi"
 		_bootstrap:         "if ! { \(_prebuiltCondition); }; then \(commands.bootstrap); fi"
 		_install:           commands.install
 		_refreshLocks:      "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
 		_native:            #"""
-			if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
-			  printf '%s\n' 'Native client diagnostics require a manual pipeline' >&2
+			if { [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] || [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; } && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
+			  printf '%s\n' 'Native diagnostics and performance require a manual pipeline' >&2
 			  exit 1
 			fi
 			set -eu
@@ -767,6 +769,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
 			if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
 			if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
+			if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then set -- "$@" --performance "$CI_PROJECT_DIR/build/verification/performance"; fi
 			if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ]; then
 			  set -- "$@" --diagnostic-client "$AIGW_NATIVE_DIAGNOSTIC_CLIENT"
 			elif [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
@@ -796,7 +799,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		interruptible: true
 		extends: [".linux-toolchain"]
 		variables: CGO_ENABLED: "1"
-		"before_script": [linuxToolchain.prepare, linuxToolchain.compiler, miseMirror.unixPrepare, _selectTools, commands.install]
+		"before_script": [linuxToolchain.prepare, linuxToolchain.compiler, linuxToolchain.memoryMeasurement, miseMirror.unixPrepare, _selectTools, commands.install]
 		script: [_bootstrap, _refreshLocks, _native, _cleanup]
 	}
 	if _platform != "linux" {

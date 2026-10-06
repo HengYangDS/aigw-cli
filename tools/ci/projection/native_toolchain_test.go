@@ -140,26 +140,25 @@ func TestNativeArtifactBootstrapExecutesTheDeclaredScope(t *testing.T) {
 	selectTools := pipeline.Linux.BeforeScript[len(pipeline.Linux.BeforeScript)-2]
 	bootstrap := pipeline.Linux.Script[0]
 	for _, test := range []struct {
-		name, artifacts, tag, full, refresh string
-		prebuilt                            bool
+		name, artifacts, tag, full, refresh, performance string
+		tools                                            string
 	}{
-		{"candidate", "/candidate with spaces", "", "false", "false", true},
-		{"tag", "", "v0.3.1", "false", "false", true},
-		{"source", "", "", "false", "false", false},
-		{"full quality", "/candidate", "", "true", "false", false},
-		{"lock refresh", "/candidate", "", "false", "true", false},
+		{"candidate", "/candidate with spaces", "", "false", "false", "false", "go,gh,glab,github:goreleaser/goreleaser"},
+		{"tag", "", "v0.3.1", "false", "false", "false", "go,gh,glab,github:goreleaser/goreleaser"},
+		{"source", "", "", "false", "false", "false", "source-tools"},
+		{"full quality", "/candidate", "", "true", "false", "false", "source-tools"},
+		{"lock refresh", "/candidate", "", "false", "true", "false", "source-tools"},
+		{"candidate performance", "/candidate", "", "false", "false", "true", "go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine"},
+		{"tag performance", "", "v0.3.1", "false", "false", "true", "go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			command := exec.CommandContext(t.Context(), "sh", "-c", "set -eu\nmise() { printf 'BOOTSTRAP\\n'; }\n"+selectTools+"\n"+bootstrap+"\nprintf 'TOOLS=%s\\n' \"$MISE_ENABLE_TOOLS\"")
 			command.Env = append(os.Environ(),
 				"MISE_ENABLE_TOOLS=source-tools", "AIGW_CANDIDATE_ARTIFACTS="+test.artifacts,
-				"AIGW_CANDIDATE_TAG="+test.tag, "AIGW_FULL_NATIVE_QUALITY="+test.full, "AIGW_REFRESH_LOCKS="+test.refresh)
+				"AIGW_CANDIDATE_TAG="+test.tag, "AIGW_FULL_NATIVE_QUALITY="+test.full, "AIGW_REFRESH_LOCKS="+test.refresh,
+				"AIGW_NATIVE_PERFORMANCE="+test.performance)
 			output, err := command.CombinedOutput()
-			wantTools := "source-tools"
-			if test.prebuilt {
-				wantTools = "go,gh,glab,github:goreleaser/goreleaser"
-			}
-			if err != nil || strings.Contains(string(output), "BOOTSTRAP") == test.prebuilt || !strings.Contains(string(output), "TOOLS="+wantTools) {
+			if err != nil || strings.Contains(string(output), "BOOTSTRAP") != (test.tools == "source-tools") || !strings.HasSuffix(string(output), "TOOLS="+test.tools+"\n") {
 				t.Fatalf("native tool scope: %v, %s", err, output)
 			}
 		})
@@ -504,7 +503,7 @@ func TestGitLabNativeAcceptanceForwardsPeerLocalArtifactAndClientInputs(t *testi
 		if strings.Contains(script, "gh release download") || !strings.Contains(script, "native --platform") {
 			t.Errorf("%s must use its own peer and the existing native controller", name)
 		}
-		if !strings.Contains(script, "Native client diagnostics require a manual pipeline") {
+		if !strings.Contains(script, "Native diagnostics and performance require a manual pipeline") {
 			t.Errorf("%s does not fence diagnostics from required review and release jobs", name)
 		}
 	}

@@ -331,15 +331,65 @@ func TestPerformanceHostPreparesNativeMemoryTool(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
 		t.Fatal(err)
 	}
+	prepared := false
 	for _, step := range workflow.Jobs["native-linux"].Steps {
 		if step.If == "github.event_name == 'workflow_dispatch' && inputs.performance" &&
 			strings.Contains(step.Run, "sudo -n timeout --verbose --kill-after=5s 240s") &&
 			strings.Contains(step.Run, "Acquire::http::Timeout=30") &&
 			strings.Contains(step.Run, "install --no-install-recommends -y time") {
-			return
+			prepared = true
 		}
 	}
-	t.Fatal("Linux performance must prepare its native GNU time prerequisite")
+	if !prepared {
+		t.Fatal("GitHub Linux performance must prepare its native GNU time prerequisite")
+	}
+	var pipeline struct {
+		Linux gitLabJob `yaml:"native-linux"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	preparation := strings.Join(pipeline.Linux.BeforeScript, "\n")
+	if !strings.Contains(preparation, `"${AIGW_NATIVE_PERFORMANCE:-false}" = true`) ||
+		!strings.Contains(preparation, "install --no-install-recommends -y time") {
+		t.Fatal("GitLab Linux selected performance must prepare its native GNU time prerequisite")
+	}
+}
+
+func TestGitLabPerformanceUsesItsSelectedNativeClosure(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pipeline map[string]yaml.Node
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"native-linux", "native-darwin-review", "native-darwin", "native-windows-review", "native-windows"} {
+		t.Run(name, func(t *testing.T) {
+			var job struct {
+				BeforeScript []string `yaml:"before_script"`
+				Script       []string `yaml:"script"`
+				Artifacts    struct {
+					When  string   `yaml:"when"`
+					Paths []string `yaml:"paths"`
+				} `yaml:"artifacts"`
+			}
+			node := pipeline[name]
+			if err := node.Decode(&job); err != nil {
+				t.Fatal(err)
+			}
+			script := strings.Join(append(slices.Clone(job.BeforeScript), job.Script...), "\n")
+			for _, input := range []string{"AIGW_NATIVE_PERFORMANCE", "github:sharkdp/hyperfine", "--performance", "build/verification/performance", "Native diagnostics and performance require a manual pipeline"} {
+				if !strings.Contains(script, input) {
+					t.Errorf("selected native performance omits %q", input)
+				}
+			}
+			if job.Artifacts.When != "always" || !slices.Contains(job.Artifacts.Paths, "build/verification") {
+				t.Fatal("performance samples must remain in the existing verification artifact on success and failure")
+			}
+		})
+	}
 }
 
 func TestGitLabQualityCarriesProductProvenanceIdentity(t *testing.T) {

@@ -319,9 +319,16 @@ and credentials. Construction and CI costs remain tied to their original build
 and job receipts, not these samples.
 
 The GitHub Verify workflow accepts `performance=true` together with
-`baseline_tag` and `candidate_tag`. It reuses historical release acceptance,
-not a second build or lifecycle. Raw samples, warnings, individual blocks and
-pooled p95 are retained as native job artifacts, including on failure.
+`baseline_tag` and `candidate_tag`. GitLab's existing native jobs accept
+`AIGW_NATIVE_PERFORMANCE=true` in a web or API pipeline with `AIGW_BASELINE_TAG`
+and either `AIGW_CANDIDATE_TAG` or the signed `AIGW_CANDIDATE_ARTIFACTS` input.
+Both peers reuse the same release acceptance and measurement owner, not a
+second build or lifecycle. Transport-only `--peer` and `--repository` inputs
+do not repeat source lifecycle qualification. GitLab prepares Hyperfine for
+selected prebuilt performance and GNU time on Linux; raw samples, warnings,
+individual blocks and pooled p95 remain under `build/verification/performance`
+in the existing always-retained verification artifact. GitHub retains the
+corresponding native performance artifact, including on failure.
 Each case uses five warmups and two reversed-order blocks of forty samples.
 Setup uses an isolated synthetic endpoint; the timed helper executes its
 actual projected command through the native shell. Client discovery is a

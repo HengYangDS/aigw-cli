@@ -29,6 +29,7 @@ native-linux:
     - |-
       set -eu
       DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y gcc libc6-dev dbus-x11 gnome-keyring libglib2.0-bin
+    - if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y time; fi
     - |-
       set -eu
       case "${AIGW_TOOL_SOURCE:-upstream}" in
@@ -57,14 +58,14 @@ native-linux:
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
       esac
-    - if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; then export MISE_ENABLE_TOOLS='go,gh,glab,github:goreleaser/goreleaser'; fi
+    - if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; then export MISE_ENABLE_TOOLS='go,gh,glab,github:goreleaser/goreleaser'; if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then export MISE_ENABLE_TOOLS="$MISE_ENABLE_TOOLS,github:sharkdp/hyperfine"; fi; fi
     - env GODEBUG=http2client=0 mise install --locked
   script:
     - if ! { [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; }; then mise run bootstrap; fi
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - |-
-      if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
-        printf '%s\n' 'Native client diagnostics require a manual pipeline' >&2
+      if { [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] || [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; } && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
+        printf '%s\n' 'Native diagnostics and performance require a manual pipeline' >&2
         exit 1
       fi
       set -eu
@@ -73,6 +74,7 @@ native-linux:
       if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
       if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
+      if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then set -- "$@" --performance "$CI_PROJECT_DIR/build/verification/performance"; fi
       if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ]; then
         set -- "$@" --diagnostic-client "$AIGW_NATIVE_DIAGNOSTIC_CLIENT"
       elif [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
@@ -135,13 +137,13 @@ native-darwin:
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
       esac
-    - if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; then export MISE_ENABLE_TOOLS='go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs'; fi
+    - if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; then export MISE_ENABLE_TOOLS='go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs'; if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then export MISE_ENABLE_TOOLS="$MISE_ENABLE_TOOLS,github:sharkdp/hyperfine"; fi; fi
     - env GODEBUG=http2client=0 mise install --locked
     - if ! { [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; }; then mise run bootstrap; fi
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - |-
-      if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
-        printf '%s\n' 'Native client diagnostics require a manual pipeline' >&2
+      if { [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] || [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; } && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
+        printf '%s\n' 'Native diagnostics and performance require a manual pipeline' >&2
         exit 1
       fi
       set -eu
@@ -150,6 +152,7 @@ native-darwin:
       if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
       if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
+      if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then set -- "$@" --performance "$CI_PROJECT_DIR/build/verification/performance"; fi
       if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ]; then
         set -- "$@" --diagnostic-client "$AIGW_NATIVE_DIAGNOSTIC_CLIENT"
       elif [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
@@ -229,13 +232,13 @@ native-darwin-review:
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
       esac
-    - if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; then export MISE_ENABLE_TOOLS='go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs'; fi
+    - if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; then export MISE_ENABLE_TOOLS='go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs'; if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then export MISE_ENABLE_TOOLS="$MISE_ENABLE_TOOLS,github:sharkdp/hyperfine"; fi; fi
     - env GODEBUG=http2client=0 mise install --locked
     - if ! { [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; }; then mise run bootstrap; fi
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - |-
-      if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
-        printf '%s\n' 'Native client diagnostics require a manual pipeline' >&2
+      if { [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] || [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; } && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
+        printf '%s\n' 'Native diagnostics and performance require a manual pipeline' >&2
         exit 1
       fi
       set -eu
@@ -244,6 +247,7 @@ native-darwin-review:
       if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
       if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
       if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
+      if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then set -- "$@" --performance "$CI_PROJECT_DIR/build/verification/performance"; fi
       if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ]; then
         set -- "$@" --diagnostic-client "$AIGW_NATIVE_DIAGNOSTIC_CLIENT"
       elif [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
@@ -354,14 +358,14 @@ native-windows:
       $env:MISE_NETRC = 'true'
       $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
       }
-      if (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser' }; if ($env:AIGW_NATIVE_INPUT_PACKAGE) { $env:MISE_ENABLE_TOOLS += ',node,uv' }
+      if (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE) { $env:MISE_ENABLE_TOOLS += ',node,uv' }
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - if (-not (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true')) { mise run bootstrap }
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
     - |-
       $ErrorActionPreference = 'Stop'
       $PSNativeCommandUseErrorActionPreference = $true
-      if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT -and $env:CI_PIPELINE_SOURCE -notin @('web', 'api')) { throw 'Native client diagnostics require a manual pipeline' }
+      if (($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT -or $env:AIGW_NATIVE_PERFORMANCE -eq 'true') -and $env:CI_PIPELINE_SOURCE -notin @('web', 'api')) { throw 'Native diagnostics and performance require a manual pipeline' }
       if ($env:AIGW_NATIVE_INPUT_PACKAGE) {
         if ($env:AIGW_NATIVE_PLATFORM -ne 'windows') { throw 'Native public input requires the Windows platform' }
         if ($env:AIGW_NATIVE_INPUT_SHA256 -notmatch '^[0-9a-f]{64}$' -or $env:AIGW_CANDIDATE_SOURCE -notmatch '^[0-9a-f]{40}$') { throw 'Native public input requires exact source and checksum.' }
@@ -414,6 +418,7 @@ native-windows:
       if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
       if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
       if ($env:AIGW_CANDIDATE_SOURCE) { $acceptance += @('--candidate-source', $env:AIGW_CANDIDATE_SOURCE) }
+      if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $acceptance += @('--performance', (Join-Path $env:CI_PROJECT_DIR 'build/verification/performance')) }
       if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT) {
         $acceptance += @('--diagnostic-client', $env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)
       } elseif ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
@@ -539,14 +544,14 @@ native-windows-review:
       $env:MISE_NETRC = 'true'
       $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
       }
-      if (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser' }; if ($env:AIGW_NATIVE_INPUT_PACKAGE) { $env:MISE_ENABLE_TOOLS += ',node,uv' }
+      if (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE) { $env:MISE_ENABLE_TOOLS += ',node,uv' }
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - if (-not (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true')) { mise run bootstrap }
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
     - |-
       $ErrorActionPreference = 'Stop'
       $PSNativeCommandUseErrorActionPreference = $true
-      if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT -and $env:CI_PIPELINE_SOURCE -notin @('web', 'api')) { throw 'Native client diagnostics require a manual pipeline' }
+      if (($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT -or $env:AIGW_NATIVE_PERFORMANCE -eq 'true') -and $env:CI_PIPELINE_SOURCE -notin @('web', 'api')) { throw 'Native diagnostics and performance require a manual pipeline' }
       if ($env:AIGW_NATIVE_INPUT_PACKAGE) {
         if ($env:AIGW_NATIVE_PLATFORM -ne 'windows') { throw 'Native public input requires the Windows platform' }
         if ($env:AIGW_NATIVE_INPUT_SHA256 -notmatch '^[0-9a-f]{64}$' -or $env:AIGW_CANDIDATE_SOURCE -notmatch '^[0-9a-f]{40}$') { throw 'Native public input requires exact source and checksum.' }
@@ -599,6 +604,7 @@ native-windows-review:
       if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
       if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
       if ($env:AIGW_CANDIDATE_SOURCE) { $acceptance += @('--candidate-source', $env:AIGW_CANDIDATE_SOURCE) }
+      if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $acceptance += @('--performance', (Join-Path $env:CI_PROJECT_DIR 'build/verification/performance')) }
       if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT) {
         $acceptance += @('--diagnostic-client', $env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)
       } elseif ($env:AIGW_NATIVE_CLIENTS -eq 'true') {

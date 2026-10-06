@@ -62,6 +62,25 @@ a required job on the other Forge.
 - **AND** the partial result does not satisfy complete review, accepted-branch,
   tag, or release readiness.
 
+#### Scenario: Transport inputs accompany source qualification
+
+- **WHEN** a native source job supplies only peer and repository locators
+- **THEN** it SHALL execute its source lifecycle once
+- **AND** transport locators SHALL NOT select a second release acceptance
+- **AND** explicit artifact, published-predecessor, client and performance scopes
+  SHALL remain independently selected and verified.
+
+#### Scenario: A maintainer selects native performance
+
+- **WHEN** either Forge's manual pipeline selects an exact signed candidate and
+  published predecessor for performance measurement
+- **THEN** the existing native executor SHALL select the release-owned
+  measurement scope with its complete platform tool closure
+- **AND** unselected jobs SHALL NOT add performance-only prerequisites
+- **AND** raw samples and diagnostics SHALL remain in the existing job artifacts
+  on success and failure
+- **AND** performance SHALL NOT substitute for required lifecycle evidence.
+
 #### Scenario: A fork requests review execution in the parent project
 
 - **WHEN** a GitLab merge request names a source project other than the project

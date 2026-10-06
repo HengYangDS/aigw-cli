@@ -33,7 +33,11 @@ func TestNativeSourceQualificationRunsLifecycleOnce(t *testing.T) {
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
 	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "0")
 	t.Setenv("AIGW_REFRESH_LOCKS", "")
-	for _, arguments := range [][]string{{"native"}, {"native", "--full-quality"}} {
+	for _, arguments := range [][]string{
+		{"native"}, {"native", "--full-quality"},
+		{"native", "--", "--peer", "gitlab", "--repository", "https://gitlab.example/owner/product"},
+		{"native", "--full-quality", "--", "--peer", "github", "--repository", "owner/product"},
+	} {
 		t.Run(strings.Join(arguments, "-"), func(t *testing.T) {
 			var calls []command
 			if err := run(arguments, &bytes.Buffer{}, func(call command) error {
@@ -64,7 +68,7 @@ func TestNativeSourceQualificationRunsLifecycleOnce(t *testing.T) {
 func TestNativeExplicitReleaseScopeRemainsIndependent(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
-	selected := []string{"--peer", "github", "--repository", "owner/product"}
+	selected := []string{"--baseline-tag", "v0.3.1", "--peer", "github", "--repository", "owner/product"}
 	var calls []command
 	if err := run(append([]string{"native", "--"}, selected...), &bytes.Buffer{}, func(call command) error {
 		calls = append(calls, call)

@@ -196,7 +196,7 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) (result er
 		defer func() { result = errors.Join(result, robustio.RemoveAll(workspace)) }()
 		commands[len(commands)-1].Env = construction.NativeTestEnvironment(workspace, "", "")
 	}
-	if len(releaseArgs) != 0 || os.Getenv("AIGW_ACCEPTANCE_BASELINE") != "" {
+	if input.UsesPrebuiltArtifacts() || input.BaselineTag != "" || os.Getenv("AIGW_ACCEPTANCE_BASELINE") != "" {
 		commands = append(commands, command{Name: "go", Args: append([]string{"run", "./tools/release", "accept-native"}, releaseArgs...)})
 	}
 	return runCommands(commands, stdout, runner)

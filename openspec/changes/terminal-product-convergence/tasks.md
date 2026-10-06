@@ -151,7 +151,7 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 7.1 Reconcile the complete CUE CI graph with generated GitHub and GitLab
       projections; prove no hand-edited workflow drift or missing source, native,
       release or publication owner.
-- [x] 7.2 Prove both peers' exact-SHA event-to-check contract for developer
+- [ ] 7.2 Prove both peers' exact-SHA event-to-check contract for developer
       proposal create/update/review, maintainer fast-forward, accepted `dev`/`main`,
       and signed-tag pushes. Run the exact candidate's proposal checks on both
       peers; CUE and projection regressions must bind each other event to its
