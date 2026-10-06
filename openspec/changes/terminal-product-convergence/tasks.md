@@ -61,7 +61,7 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 3.4 Exercise rollback, uninstall, and exact owned-byte cleanup for that
       strategy; preserve unknown, cached, explicit, or rollback consumers and
       reject prefix/age-based deletion.
-- [ ] 3.5 Run published-predecessor-to-successor reader journeys on macOS,
+- [x] 3.5 Run published-predecessor-to-successor reader journeys on macOS,
       Linux, and Windows with actual native stores or the explicit environment
       backend and isolated synthetic native items before archive. Verify stable
       native reader identity across signed successors without treating signing
@@ -213,7 +213,7 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 9.1 Review each changed requirement against source, tests, CLI, team
       manifest, quality/CI projection and docs; remove contradictory old text and
       unused compatibility paths before freezing inputs.
-- [ ] 9.2 Run focused RED/GREEN suites, native static/behavior checks and strict
+- [x] 9.2 Run focused RED/GREEN suites, native static/behavior checks and strict
       official OpenSpec validation with pristine output on the frozen source; no
       skipped required gate or warning counts as pass.
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with
