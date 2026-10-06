@@ -13,6 +13,17 @@ GOENV = "off"
 GOTOOLCHAIN = "local"
 GOWORK = "off"
 
+# Development tools must not inherit operator registries or shared auth caches.
+# npm treats environment names case-insensitively; remove its POSIX aliases.
+npm_config_userconfig = false
+npm_config_globalconfig = false
+npm_config_cache = false
+NPM_CONFIG_REGISTRY = false
+npm_config_registry = false
+NPM_CONFIG_USERCONFIG = "{{ config_root }}/.npmrc"
+NPM_CONFIG_GLOBALCONFIG = "{% if os() == 'windows' %}NUL{% else %}/dev/null{% endif %}"
+NPM_CONFIG_CACHE = "{{ config_root }}/build/runtime/npm-cache{% if env.CI_JOB_ID | default(value='') != '' %}/{{ env.CI_JOB_ID }}{% endif %}"
+
 [vars]
 renovate_image = "ghcr.io/renovatebot/renovate:44.139.0@sha256:67e76082eded90c6fa1d1552cc9d8d93d1eb06e13e81591aab57b6f4994217be"
 

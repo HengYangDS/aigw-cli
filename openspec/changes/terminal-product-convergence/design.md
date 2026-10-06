@@ -289,6 +289,24 @@ lock-refresh requests retain source qualification. After actual native consumer
 acceptance, remove superseded installer stages; preparation and archive inspection
 cannot qualify the Windows service token or client tools.
 
+Repository npm commands select the tracked registry configuration and disable
+operator-global configuration through native npm settings. Their mutable cache
+belongs to this checkout, with a distinct GitLab job identity when supplied;
+no command borrows the operator's global npm cache. Native configuration probes
+must preserve synthetic foreign settings and refuse their cache, not merely
+assert the authored spelling. Proxy selection and operator credentials remain
+outside this change; filesystem separation is not mutual protection against
+another process running as the same OS identity.
+
+Official npm 12.2.0 retains twelve advisory occurrences in five bundled
+components. Keep the complete source-bound report and selected-use review:
+registry caching is reachable; pattern expansion includes signed TUF delegation
+metadata; script disabling does not prevent local/Git packing globs. Reviewed
+repository commands do not qualify arbitrary inputs, new affected-supplier
+installation, or universal tool security. These components are absent from the
+portable Go product's runtime SBOM. No override, scanner suppression, or transfer
+of the separate development braces approval is part of this disposition.
+
 GitLab source jobs retain the selected acquisition source's locked tool cache;
 job-private mirror credentials are removed independently. Isolated fixtures
 must not inherit that retained root. Ordinary native source runs retain their

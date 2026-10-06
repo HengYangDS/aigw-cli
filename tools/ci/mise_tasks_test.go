@@ -160,6 +160,69 @@ type ethosProfile struct {
 	} `toml:"proof"`
 }
 
+func TestMiseNpmEnvironmentIsBoundToThisRepository(t *testing.T) {
+	root := repositoryRoot(t)
+	foreign := t.TempDir()
+	userConfig := filepath.Join(foreign, "user.npmrc")
+	globalConfig := filepath.Join(foreign, "global.npmrc")
+	const settings = "registry=https://unselected.invalid/\n"
+	for _, path := range []string{userConfig, globalConfig} {
+		if err := os.WriteFile(path, []byte(settings), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("NPM_CONFIG_USERCONFIG", userConfig)
+	t.Setenv("NPM_CONFIG_GLOBALCONFIG", globalConfig)
+	t.Setenv("NPM_CONFIG_CACHE", filepath.Join(foreign, "cache"))
+	if runtime.GOOS != "windows" {
+		t.Setenv("npm_config_userconfig", userConfig)
+		t.Setenv("npm_config_globalconfig", globalConfig)
+		t.Setenv("npm_config_cache", filepath.Join(foreign, "cache"))
+		t.Setenv("npm_config_registry", "https://unselected.invalid/")
+	}
+	t.Setenv("NPM_CONFIG_REGISTRY", "https://unselected.invalid/")
+	t.Setenv("CI_JOB_ID", "")
+	for name, want := range map[string]string{
+		"registry":     "https://registry.npmjs.org/",
+		"userconfig":   filepath.Join(root, ".npmrc"),
+		"globalconfig": os.DevNull,
+		"cache":        filepath.Join(root, "build", "runtime", "npm-cache"),
+	} {
+		ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+		command := exec.CommandContext(ctx, "mise", "-C", root, "exec", "--locked", "--", "npm", "config", "get", name)
+		command.Env = append(os.Environ(), "MISE_SAFE=0")
+		output, err := command.CombinedOutput()
+		cancel()
+		if err != nil {
+			t.Fatalf("observe repository npm %s: %v\n%s", name, err, output)
+		}
+		got := strings.TrimSpace(string(output))
+		if name != "registry" {
+			got, want = filepath.Clean(got), filepath.Clean(want)
+		}
+		if got != want {
+			t.Errorf("npm %s = %q, want %q", name, got, want)
+		}
+	}
+	t.Setenv("CI_JOB_ID", "native-synthetic-job")
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	command := exec.CommandContext(ctx, "mise", "-C", root, "exec", "--locked", "--", "npm", "config", "get", "cache")
+	command.Env = append(os.Environ(), "MISE_SAFE=0")
+	output, err := command.CombinedOutput()
+	cancel()
+	if err != nil || filepath.Clean(strings.TrimSpace(string(output))) != filepath.Join(root, "build", "runtime", "npm-cache", "native-synthetic-job") {
+		t.Fatalf("npm did not select its job-owned cache: %q, %v", output, err)
+	}
+	for _, path := range []string{userConfig, globalConfig} {
+		if content, err := os.ReadFile(path); err != nil || string(content) != settings {
+			t.Fatalf("repository tooling modified foreign npm settings: %q, %v", content, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(foreign, "cache")); !os.IsNotExist(err) {
+		t.Fatalf("repository tooling materialized a foreign npm cache: %v", err)
+	}
+}
+
 func TestMiseConfigurationKeepsToolResolutionRepositoryBound(t *testing.T) {
 	root := repositoryRoot(t)
 	content, err := os.ReadFile(filepath.Join(root, "mise.toml"))
