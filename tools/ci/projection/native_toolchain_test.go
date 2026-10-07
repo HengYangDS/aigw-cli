@@ -289,10 +289,10 @@ func TestLinuxCompilerPrerequisitesBelongOnlyToNativeRaceExecution(t *testing.T)
 	if pipeline.NativeLinux.Variables["CGO_ENABLED"] != "1" || len(pipeline.NativeLinux.BeforeScript) < 2 {
 		t.Fatal("native Linux race lacks its explicit compiler prerequisite")
 	}
-	compiler := pipeline.NativeLinux.BeforeScript[1]
-	if !strings.Contains(compiler, " install --no-install-recommends -y gcc libc6-dev") {
+	if compiler := pipeline.NativeLinux.BeforeScript[1]; !strings.Contains(compiler, " install --no-install-recommends -y gcc libc6-dev") {
 		t.Fatalf("native Linux compiler preparation = %q", compiler)
 	}
+	checkLinuxNativeSupplySelection(t, pipeline.NativeLinux.BeforeScript)
 	var github struct {
 		Jobs map[string]struct {
 			Env   map[string]string `yaml:"env"`

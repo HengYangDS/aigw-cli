@@ -105,18 +105,22 @@ linuxToolchain: {
 	// repository execution closure here so every Linux job inherits one owner.
 	runtimePackages: ["libatomic1", "openssh-client", "procps", "time"]
 	prepare:  "set -eu\n\(linuxApt.update)\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
-	compiler: "set -eu\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) gcc libc6-dev \(linuxSecretService.packages)"
+	compiler: "set -eu\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) gcc libc6-dev"
 }
 
 linuxSecretService: {
 	packages: "dbus-x11 gnome-keyring libglib2.0-bin"
-	journey: #"""
-		G_DEBUG=fatal-warnings dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
-		gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
-		gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-		AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./tools/release -run "^TestNativeProductJourney/system_credential_store$" -count=1 -v
-		AIGW_SECRET_SERVICE
-		"""#
+	session: {
+		command: string
+		run:     #"""
+			G_DEBUG=fatal-warnings dbus-run-session -- bash -s -euo pipefail -- "$@" <<'AIGW_SECRET_SERVICE'
+			gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
+			gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
+			AIGW_VERIFY_SYSTEM_KEYRING=1 \#(command)
+			AIGW_SECRET_SERVICE
+			"""#
+	}
+	journey: (session & {command: "mise exec --locked -- go test ./tools/release -run \"^TestNativeProductJourney/system_credential_store$\" -count=1 -v"}).run
 	githubPrepare: "sudo -n \(linuxApt.update)\nsudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(packages)"
 	github:        "\(githubPrepare)\n\(journey)"
 	// The GitLab Mise image is root-owned; its shared before_script updates apt.
@@ -438,6 +442,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		_clients:           "false"
 	}
 	_historicalArguments: "--peer=github --repository=\"\(_environmentPrefix)GITHUB_REPOSITORY\" --baseline-tag=\"\(_environmentPrefix)AIGW_BASELINE_TAG\" --tag=\"\(_environmentPrefix)AIGW_CANDIDATE_TAG\" --clients=\(_clients) --diagnostic-client=\"\(_environmentPrefix)AIGW_NATIVE_DIAGNOSTIC_CLIENT\" --performance-attribution=${{ inputs.performance_attribution }}"
+	_performanceCommand:  "mise run performance \(_historicalArguments) --performance \"\(_environmentPrefix)GITHUB_WORKSPACE/build/performance\""
 	_historicalEnvironment: _credentialEnvironment & {
 		if _platform == "darwin" {
 			AIGW_VERIFY_SYSTEM_KEYRING: "${{ github.event_name == 'workflow_dispatch' && inputs.macos_keychain && '1' || '0' }}"
@@ -470,7 +475,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		{name: "Prepare locked dependencies", if: _sourceCondition, run: commands.bootstrap},
 		if _platform == "linux" {
 			name: "Prepare native Secret Service"
-			if:   _sourceCondition
+			if:   "\(_sourceCondition) || inputs.performance"
 			run:  linuxSecretService.githubPrepare
 		},
 		if _platform == "linux" {
@@ -616,7 +621,12 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			name: "Measure historical release performance"
 			if:   _historicalCondition + " && inputs.performance"
 			env:  _historicalEnvironment
-			run:  "mise run performance \(_historicalArguments) --performance \"\(_environmentPrefix)GITHUB_WORKSPACE/build/performance\""
+			if _platform == "linux" {
+				run: (linuxSecretService.session & {command: _performanceCommand}).run
+			}
+			if _platform != "linux" {
+				run: _performanceCommand
+			}
 		},
 		if _platform == "windows" {
 			name: "Remove official Windows client supply"
@@ -774,7 +784,21 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		_bootstrap:         "if ! { \(_prebuiltCondition); }; then \(commands.bootstrap); fi"
 		_install:           commands.install
 		_refreshLocks:      "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
-		_native:            #"""
+		_nativeCommand:     "\(commands.native[_platform]) --full-quality=\"${AIGW_FULL_NATIVE_QUALITY:-false}\" -- \"$@\""
+		_nativeExecution:   string
+		if _platform != "linux" {
+			_nativeExecution: _nativeCommand
+		}
+		if _platform == "linux" {
+			_nativeExecution: #"""
+				if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then
+				\#((linuxSecretService.session & {command: _nativeCommand}).run)
+				else
+				  \#(_nativeCommand)
+				fi
+				"""#
+		}
+		_native: #"""
 			if { [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] || [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ] || [ "${AIGW_NATIVE_PERFORMANCE_ATTRIBUTION:-false}" = true ]; } && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
 			  printf '%s\n' 'Native diagnostics and performance require a manual pipeline' >&2
 			  exit 1
@@ -797,7 +821,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			fi
 			export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
 			export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
-			\#(commands.native[_platform]) --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
+			\#(_nativeExecution)
 			"""#
 	}
 	"after_script": [_cleanup]
@@ -816,7 +840,12 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		interruptible: true
 		extends: [".linux-toolchain"]
 		variables: CGO_ENABLED: "1"
-		"before_script": [linuxToolchain.prepare, linuxToolchain.compiler, miseMirror.unixPrepare, _selectTools, commands.install]
+		"before_script": [
+			linuxToolchain.prepare,
+			"if ! { \(_prebuiltCondition); }; then \(linuxToolchain.compiler); fi",
+			"if ! { \(_prebuiltCondition); } || [ \"${AIGW_NATIVE_PERFORMANCE:-false}\" = true ]; then DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(linuxSecretService.packages); fi",
+			miseMirror.unixPrepare, _selectTools, commands.install,
+		]
 		script: [_bootstrap, _refreshLocks, _native, _cleanup]
 	}
 	if _platform != "linux" {

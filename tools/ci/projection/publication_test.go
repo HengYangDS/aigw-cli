@@ -2,7 +2,6 @@ package projection
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -280,9 +279,16 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 			}
 		}
 		performance := slices.IndexFunc(steps, func(item step) bool { return item.Name == "Measure historical release performance" })
-		if performance < 0 || steps[performance].If != selection+" && inputs.performance" ||
-			!strings.HasPrefix(steps[performance].Run, "mise run performance ") || strings.Contains(steps[performance].Run, "\n") ||
-			!strings.Contains(steps[performance].Run, "--performance") || !strings.Contains(steps[performance].Run, clients) {
+		if performance < 0 || steps[performance].If != selection+" && inputs.performance" {
+			t.Fatalf("%s performance must retain its separate native selection", platform)
+		}
+		performanceCommand := steps[performance].Run
+		if platform == "linux" {
+			_, performanceCommand, _ = strings.Cut(performanceCommand, "AIGW_VERIFY_SYSTEM_KEYRING=1 ")
+			performanceCommand, _, _ = strings.Cut(performanceCommand, "\n")
+		}
+		if !strings.HasPrefix(performanceCommand, "mise run performance ") || strings.Contains(performanceCommand, "\n") ||
+			!strings.Contains(performanceCommand, "--performance") || !strings.Contains(performanceCommand, clients) {
 			t.Fatalf("%s performance must retain its separate native task and exact input scope", platform)
 		}
 	}
@@ -404,18 +410,14 @@ func TestGitLabPerformanceUsesItsSelectedNativeClosure(t *testing.T) {
 			}
 			if runtime.GOOS != "windows" && !strings.HasPrefix(name, "native-windows") {
 				native := slices.IndexFunc(job.Script, func(step string) bool { return strings.Contains(step, "--performance") })
-				command := exec.CommandContext(t.Context(), "sh", "-c", "mise() { printf '%s\\n' \"$@\"; }\n"+job.Script[native])
-				command.Dir = filepath.Join(t.TempDir(), "native checkout")
-				if err := os.Mkdir(command.Dir, 0o700); err != nil {
-					t.Fatal(err)
+				if native < 0 {
+					t.Fatal("native performance command is missing")
 				}
-				command.Env = append(os.Environ(), "CI_PIPELINE_SOURCE=api", "CI_PROJECT_DIR=manager-relative-build", "CI_PROJECT_URL=https://forge.invalid/aigw", "AIGW_NATIVE_PERFORMANCE=true")
-				output, err := command.CombinedOutput()
-				physical, pathErr := filepath.EvalSymlinks(command.Dir)
-				want := "\n--performance\n" + filepath.Join(physical, "build", "verification", "performance") + "\n"
-				if err != nil || pathErr != nil || !strings.Contains(string(output), want) {
-					t.Fatalf("native performance output: execution=%v path=%v output=%s", err, pathErr, output)
+				platform := "darwin"
+				if name == "native-linux" {
+					platform = "linux"
 				}
+				checkProjectedPerformanceArguments(t, job.Script[native], platform)
 			}
 			if job.Artifacts.When != "always" || !slices.Contains(job.Artifacts.Paths, "build/verification") {
 				t.Fatal("performance samples must remain in the existing verification artifact on success and failure")
