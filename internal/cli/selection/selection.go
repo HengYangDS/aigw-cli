@@ -85,8 +85,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			r.Row("Protocol", string(selected.Protocol))
 			updated := cfg.Clone()
 			updated.Clients[client] = binding
-			activation := clientactivation.AssessActivation(updated, runtime.Secrets)
-			if action := activation.ProjectionPrerequisites[client]; action != "" {
+			if action := clientactivation.ProjectionPrerequisites(updated)[client]; action != "" {
 				if token != "" {
 					r.Row("Account Token", "Validated and stored")
 				}

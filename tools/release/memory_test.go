@@ -13,7 +13,10 @@ import (
 	"runtime"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
+
+	"aigw-cli/tools/release/performance"
 )
 
 type memoryMeasurement struct {
@@ -23,23 +26,26 @@ type memoryMeasurement struct {
 	Bytes   []uint64 `json:"peak_resident_bytes"`
 }
 
-func (j *journeyFixture) measureMemory(variant string, block int) memoryMeasurement {
+func (j *journeyFixture) measureMemory(variant string, block int) (memoryMeasurement, error) {
 	j.testing.Helper()
-	row := memoryMeasurement{Variant: variant, Case: "status", Block: block}
+	row := memoryMeasurement{Variant: variant, Case: "status", Block: block, Bytes: []uint64{}}
 	for sample := range 45 {
 		command := exec.CommandContext(j.testing.Context(), j.binary, "status", "--json")
 		command.Env, command.Dir = j.environment, j.root
 		var output bytes.Buffer
 		command.Stdout, command.Stderr = &output, &output
 		peak, err := measurePeakMemory(command)
-		if err != nil || !json.Valid(output.Bytes()) {
-			j.testing.Fatalf("configured status memory observation: %v\n%s", err, &output)
+		if err != nil {
+			return row, fmt.Errorf("configured status memory observation: %w", err)
+		}
+		if !json.Valid(output.Bytes()) {
+			return row, errors.New("configured status memory observation did not return JSON")
 		}
 		if sample >= 5 {
 			row.Bytes = append(row.Bytes, peak)
 		}
 	}
-	return row
+	return row, nil
 }
 
 func reviewPeakMemory(rows []memoryMeasurement) error {
@@ -149,4 +155,57 @@ func TestNativePeakMemoryChild(t *testing.T) {
 		pages[offset] = 1
 	}
 	runtime.KeepAlive(pages)
+}
+
+func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
+	if output := os.Getenv("AIGW_TEST_PARTIAL_MEMORY"); output != "" {
+		program, err := os.Executable()
+		if err != nil {
+			t.Fatal(err)
+		}
+		journey := &journeyFixture{testing: t, binary: program, root: output,
+			environment: append(os.Environ(), "AIGW_TEST_MEMORY_OBSERVATIONS="+filepath.Join(output, "observations"))}
+		row, err := journey.measureMemory("candidate", 1)
+		if err != nil {
+			t.Error(err)
+		}
+		rows := []performance.Measurement{{Variant: "candidate", Backend: "env", Case: "status", Block: 1, Raw: "partial.json"}}
+		writeNativePerformanceSummary(t, output, os.Getenv("AIGW_TEST_HYPERFINE"), nil, rows, []memoryMeasurement{row}, false)
+		return
+	}
+	program, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tool, err := exec.LookPath("hyperfine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := t.TempDir()
+	command := exec.CommandContext(t.Context(), program, "-test.run=^TestNativeMemoryRetainsInterruptedObservations$")
+	command.Env = append(os.Environ(), "AIGW_TEST_PARTIAL_MEMORY="+output,
+		"AIGW_TEST_HYPERFINE="+tool,
+		"GORACE="+strings.TrimSpace(os.Getenv("GORACE")+" atexit_sleep_ms=0"))
+	if err := command.Run(); err == nil {
+		t.Fatal("interrupted memory block qualified")
+	}
+	var summary struct {
+		Qualification bool                      `json:"qualification"`
+		Blocks        []performance.Measurement `json:"blocks"`
+		Pooled        []performance.Measurement `json:"pooled"`
+		Memory        []memoryMeasurement       `json:"memory"`
+	}
+	if err := json.Unmarshal(readFile(t, filepath.Join(output, "summary.json")), &summary); err != nil {
+		t.Fatal(err)
+	}
+	if summary.Qualification || len(summary.Blocks) != 1 || summary.Blocks[0].Raw != "partial.json" || summary.Pooled == nil || len(summary.Pooled) != 0 || len(summary.Memory) != 1 {
+		t.Fatalf("failed performance summary lost or qualified partial blocks: %#v", summary)
+	}
+	row := summary.Memory[0]
+	if row.Variant != "candidate" || row.Case != "status" || row.Block != 1 || len(row.Bytes) != 2 || slices.Contains(row.Bytes, 0) {
+		t.Fatalf("interrupted block lost its two completed native observations: %#v", row)
+	}
+	if err := reviewPeakMemory([]memoryMeasurement{row}); err == nil {
+		t.Fatal("partial memory observations satisfied qualification")
+	}
 }

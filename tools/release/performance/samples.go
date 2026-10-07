@@ -11,9 +11,9 @@ import (
 
 // Samples retains successful command durations without credential values.
 type Samples struct {
-	Times       []float64 `json:"times"`
-	ExitCodes   []int     `json:"exit_codes"`
-	MemoryBytes []uint64  `json:"memory_usage_byte"`
+	Command   string    `json:"command,omitempty"`
+	Times     []float64 `json:"times"`
+	ExitCodes []int     `json:"exit_codes"`
 }
 
 // Percentile returns nearest-rank p95 without mutating raw evidence.
@@ -58,8 +58,8 @@ func Pooled(measurements []Measurement) ([]Measurement, error) {
 		if row.Block < 1 || row.Block > 2 || len(row.Samples.Times) != 40 {
 			return nil, fmt.Errorf("%s requires two distinct forty-sample blocks", key)
 		}
-		if _, err := row.Samples.Percentile(); err != nil {
-			return nil, err
+		if p95, err := row.Samples.Percentile(); err != nil || row.P95 != p95 {
+			return nil, errors.Join(err, fmt.Errorf("%s has an unqualified measurement block", key))
 		}
 		bit := uint8(1 << (row.Block - 1))
 		if blocks[key]&bit != 0 {
@@ -70,10 +70,18 @@ func Pooled(measurements []Measurement) ([]Measurement, error) {
 		if exists && group.Budget != row.Budget {
 			return nil, fmt.Errorf("%s changed its measured budget", key)
 		}
+		if exists && ((group.Executable == nil) != (row.Executable == nil) ||
+			(group.Executable != nil && !group.Executable.sameFile(*row.Executable))) {
+			return nil, fmt.Errorf("%s changed its executable byte or platform identity", key)
+		}
 		if !exists {
 			group = row
 			group.Block, group.Raw, group.Samples = 0, "", Samples{}
-			group.Executable = nil
+			if row.Executable != nil {
+				selected := *row.Executable
+				selected.Path = ""
+				group.Executable = &selected
+			}
 		}
 		group.Diagnostics = group.Diagnostics || row.Diagnostics
 		group.Samples.Times = append(group.Samples.Times, row.Samples.Times...)

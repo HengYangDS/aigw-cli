@@ -40,8 +40,8 @@ type performanceProgram struct {
 
 func TestNativePerformance(t *testing.T) {
 	attribution := os.Getenv("AIGW_PERFORMANCE_ATTRIBUTION") == "1"
-	if !attribution && !t.Run("native memory calibration", TestNativePeakMemory) {
-		t.Fatal("native memory accounting failed its independent allocation calibration")
+	if !attribution {
+		TestNativePeakMemory(t)
 	}
 	output, candidateRoot := os.Getenv("AIGW_PERFORMANCE_OUTPUT"), os.Getenv("AIGW_ACCEPTANCE_RELEASE")
 	if !filepath.IsAbs(output) || !filepath.IsAbs(candidateRoot) || os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
@@ -67,23 +67,44 @@ func TestNativePerformance(t *testing.T) {
 	}
 	var measurements []performance.Measurement
 	var memory []memoryMeasurement
+	defer func() {
+		writeNativePerformanceSummary(t, output, hyperfine, programs, measurements, memory, attribution)
+	}()
 	for block, order := range [][]int{{0, 1}, {1, 0}} {
 		for _, index := range order {
 			program := programs[index]
 			for _, backend := range backends {
+				complete := false
 				t.Run(fmt.Sprintf("block-%d/%s/%s", block+1, program.Variant, backend), func(t *testing.T) {
 					journey := nativePerformanceJourney(t, program.Path, programs[1].Path, backend)
-					rows := journey.measurePerformance(hyperfine, output, program.Variant, backend, block+1)
+					rows, err := journey.measurePerformance(hyperfine, output, program.Variant, backend, block+1)
 					measurements = append(measurements, rows...)
-					if backend == "env" && !attribution {
-						memory = append(memory, journey.measureMemory(program.Variant, block+1))
+					if err != nil {
+						t.Error(err)
+						return
 					}
+					before, sidecar := readFile(t, journey.settings), readFile(t, journey.settings+".aigw-state.json")
+					journey.run("sync")
+					if !bytes.Equal(before, readFile(t, journey.settings)) || !bytes.Equal(sidecar, readFile(t, journey.settings+".aigw-state.json")) {
+						t.Fatal("performance journey changed a converged projection")
+					}
+					if backend == "env" && !attribution {
+						row, err := journey.measureMemory(program.Variant, block+1)
+						memory = append(memory, row)
+						if err != nil {
+							t.Error(err)
+							return
+						}
+					}
+					complete = true
 				})
+				if !complete {
+					return
+				}
 			}
 		}
 	}
 	if attribution {
-		writeNativePerformanceSummary(t, output, hyperfine, programs, measurements, memory, true)
 		return
 	}
 	baseline, candidate := programs[0].Bytes, programs[1].Bytes
@@ -93,19 +114,19 @@ func TestNativePerformance(t *testing.T) {
 	if err := reviewPeakMemory(memory); err != nil {
 		t.Error(err)
 	}
-	writeNativePerformanceSummary(t, output, hyperfine, programs, measurements, memory, false)
 }
 
 func writeNativePerformanceSummary(t *testing.T, output, hyperfine string, programs []performanceProgram, measurements []performance.Measurement, memory []memoryMeasurement, attribution bool) []performance.Measurement {
 	t.Helper()
 	identity, err := exec.CommandContext(t.Context(), hyperfine, "--version").Output()
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 	tool := strings.TrimSpace(string(identity))
 	pooled, err := performance.Pooled(measurements)
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
+		pooled = []performance.Measurement{}
 	}
 	for _, row := range append(slices.Clone(measurements), pooled...) {
 		t.Logf("%s/%s/%s block=%d p95=%.3fms budget=%.0fms", row.Variant, row.Backend, row.Case, row.Block, row.P95*1000, row.Budget*1000)
@@ -137,17 +158,19 @@ func writeNativePerformanceSummary(t *testing.T, output, hyperfine string, progr
 		summary.Scope, summary.MemoryScope = "component-attribution", "not measured; diagnostic-only scope"
 		verifier, err := os.Executable()
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 		summary.Controllers = make(map[string]performance.Identity)
 		for name, path := range map[string]string{"hyperfine": hyperfine, "verifier": verifier} {
 			selected, err := performance.Identify(path)
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
+				continue
 			}
 			summary.Controllers[name] = selected
 		}
 	}
+	summary.Qualification = !attribution && !t.Failed()
 	encoded, err := json.MarshalIndent(summary, "", "  ")
 	if err != nil {
 		t.Fatal(err)
@@ -255,45 +278,48 @@ func (j *journeyFixture) preparePerformanceCredentials(backend, account, credent
 	}
 }
 
-func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend string, block int) []performance.Measurement {
+func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend string, block int) ([]performance.Measurement, error) {
 	j.testing.Helper()
 	preparer, err := os.Executable()
 	if err != nil {
-		j.testing.Fatal(err)
+		return nil, err
 	}
 	j.setEnvironment("AIGW_TEST_PERFORMANCE_CONFIG_ROOT", filepath.Dir(j.config))
 	j.setEnvironment("AIGW_TEST_PERFORMANCE_SETTINGS_ROOT", filepath.Dir(j.settings))
 	var settings struct {
 		APIKeyHelper string `json:"apiKeyHelper"`
 	}
-	if err := json.Unmarshal(readFile(j.testing, j.settings), &settings); err != nil || settings.APIKeyHelper == "" {
-		j.testing.Fatalf("read projected helper: %v", err)
+	if err := json.Unmarshal(readFile(j.testing, j.settings), &settings); err != nil {
+		return nil, fmt.Errorf("read projected helper: %w", err)
+	}
+	if settings.APIKeyHelper == "" {
+		return nil, errors.New("projected helper is absent")
 	}
 	shell := "/bin/sh"
 	helper := performance.Argv(shell, "-c", settings.APIKeyHelper)
 	if runtime.GOOS == "windows" {
 		shell = os.Getenv("ComSpec")
 		if err := os.WriteFile(filepath.Join(j.root, "credential.cmd"), []byte("@echo off\r\n"+settings.APIKeyHelper+"\r\n"), 0o600); err != nil {
-			j.testing.Fatal(err)
+			return nil, err
 		}
 		helper = performance.Argv(shell, "/d", "/c", "credential.cmd")
 	}
 	attribution := os.Getenv("AIGW_PERFORMANCE_ATTRIBUTION") == "1"
 	cases := j.performanceCases(helper, backend, preparer)
-	selected := make(map[string]string)
+	selected := map[string]string{"credential": shell}
 	if attribution {
 		config, err := configuration.NewStore(j.config).Load()
 		if err != nil {
-			j.testing.Fatal(err)
+			return nil, err
 		}
 		resolved, err := config.ResolveRuntime(configuration.ClientClaude, "")
 		if err != nil {
-			j.testing.Fatal(err)
+			return nil, err
 		}
 		scope := resolved.CredentialProjectionFingerprint(configuration.ClientClaude)
 		reader, err := credential.ExecutableFromCommand(settings.APIKeyHelper, configuration.ClientClaude, scope, runtime.GOOS)
 		if err != nil {
-			j.testing.Fatal(err)
+			return nil, err
 		}
 		cases = j.attributionCases(helper, shell, reader, scope)
 		selected = map[string]string{"credential": shell, "shell-startup": shell, "source-startup": j.source, "reader-startup": reader, "credential-direct": reader}
@@ -302,34 +328,32 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 	for _, test := range cases {
 		name := fmt.Sprintf("%s-%s-%s-%d", variant, backend, test.Name, block)
 		row := performance.Measurement{Variant: variant, Backend: backend, Case: test.Name, Block: block, Budget: test.Budget}
-		if path := selected[test.Name]; path != "" {
-			identity, err := performance.Identify(path)
-			if err != nil {
-				j.testing.Fatal(err)
-			}
-			row.Executable = &identity
+		path := selected[test.Name]
+		if path == "" {
+			path = j.binary
 		}
-		row, err := performance.Measure(j.testing.Context(), performance.Command{
+		identity, err := performance.Identify(path)
+		if err != nil {
+			return append(measurements, row), err
+		}
+		row.Executable = &identity
+		row, err = performance.Measure(j.testing.Context(), performance.Command{
 			Tool: hyperfine, Directory: j.root, Output: filepath.Join(output, name+".json"),
 			Arguments: test.Arguments(filepath.Join(output, name+".json")), Environment: j.environment, Sensitive: j.sensitiveInputs, Measurement: row,
 		})
+		measurements = append(measurements, row)
 		if err != nil {
-			j.testing.Fatal(err)
+			return measurements, err
 		}
 		if row.Diagnostics && !attribution {
 			j.testing.Errorf("Hyperfine %s: native diagnostics prevent qualification; raw samples and redacted streams retained", name)
 		}
-		measurements = append(measurements, row)
 	}
 	if attribution && backend == "keyring" {
-		measurements = append(measurements, j.measureNativeCredentialOperations(output, variant, backend, block)...)
+		rows, err := j.measureNativeCredentialOperations(output, variant, backend, block)
+		return append(measurements, rows...), err
 	}
-	before, sidecar := readFile(j.testing, j.settings), readFile(j.testing, j.settings+".aigw-state.json")
-	j.run("sync")
-	if !bytes.Equal(before, readFile(j.testing, j.settings)) || !bytes.Equal(sidecar, readFile(j.testing, j.settings+".aigw-state.json")) {
-		j.testing.Fatal("performance journey changed a converged projection")
-	}
-	return measurements
+	return measurements, nil
 }
 
 func (j *journeyFixture) performanceCases(helper, backend, preparer string) []performance.Workload {
@@ -363,7 +387,7 @@ func (j *journeyFixture) attributionCases(helper, shell, reader, scope string) [
 	}
 }
 
-func (j *journeyFixture) measureNativeCredentialOperations(output, variant, backend string, block int) []performance.Measurement {
+func (j *journeyFixture) measureNativeCredentialOperations(output, variant, backend string, block int) ([]performance.Measurement, error) {
 	j.testing.Helper()
 	for key, value := range environmentValues(j.environment) {
 		if os.Getenv(key) != value {
@@ -372,7 +396,7 @@ func (j *journeyFixture) measureNativeCredentialOperations(output, variant, back
 	}
 	identity, err := performance.Identify(j.source)
 	if err != nil {
-		j.testing.Fatal(err)
+		return nil, err
 	}
 	operations := []struct {
 		name string
@@ -406,12 +430,12 @@ func (j *journeyFixture) measureNativeCredentialOperations(output, variant, back
 		ctx, cancel := context.WithTimeout(j.testing.Context(), time.Minute)
 		row, err := performance.MeasureOperation(ctx, path, row, operation.run)
 		cancel()
-		if err != nil {
-			j.testing.Fatal(err)
-		}
 		rows = append(rows, row)
+		if err != nil {
+			return rows, err
+		}
 	}
-	return rows
+	return rows, nil
 }
 
 // Hyperfine shell=none uses shell_words on every OS, including Windows.
@@ -469,8 +493,8 @@ func TestNativeAttributionSummaryRetainsItsNonqualifyingScope(t *testing.T) {
 			times[index] = 0.2
 		}
 		rows = append(rows, performance.Measurement{Variant: "candidate", Backend: "env", Case: "credential",
-			Block: block + 1, Budget: 0.1, Raw: fmt.Sprintf("credential-%d.json", block+1), Diagnostics: true,
-			Samples: performance.Samples{Times: times, ExitCodes: make([]int, 40)}})
+			Block: block + 1, Budget: 0.1, P95: 0.2, Raw: fmt.Sprintf("credential-%d.json", block+1), Diagnostics: true,
+			Samples: performance.Samples{Command: "observed helper", Times: times, ExitCodes: make([]int, 40)}})
 	}
 	output := t.TempDir()
 	writeNativePerformanceSummary(t, output, tool, nil, rows, nil, true)

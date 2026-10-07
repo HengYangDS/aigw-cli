@@ -107,12 +107,10 @@ func TestRepositoryQualityGraphIncludesNativePerformanceCases(t *testing.T) {
 	}
 	for name, want := range map[string]bool{
 		"TestNativePeakMemoryBudget":                               true,
-		"TestNativePerformanceSamples":                             true,
-		"TestNativePerformanceCommand":                             true,
 		"TestNativePerformanceCases":                               true,
-		"TestNativePerformancePooledSamples":                       true,
 		"TestNativeAttributionKeepsTheProjectedReaderBoundary":     true,
 		"TestNativeAttributionSummaryRetainsItsNonqualifyingScope": true,
+		"TestNativeMemoryRetainsInterruptedObservations":           true,
 		"TestNativePerformance":                                    false,
 	} {
 		if got := selection.MatchString(name); got != want {

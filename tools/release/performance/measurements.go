@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -81,6 +82,22 @@ func Identify(path string) (Identity, error) {
 	return identity, nil
 }
 
+func (i Identity) sameFile(other Identity) bool {
+	return i.Format == other.Format && i.Machine == other.Machine && i.Arch == other.Arch &&
+		i.SHA256 == other.SHA256 && i.Bytes == other.Bytes && slices.Equal(i.Architectures, other.Architectures)
+}
+
+func (i Identity) verify() error {
+	observed, err := Identify(i.Path)
+	if err != nil {
+		return err
+	}
+	if !i.sameFile(observed) {
+		return errors.New("selected executable bytes or platform identity changed")
+	}
+	return nil
+}
+
 // Command binds one Hyperfine invocation to caller-owned output and environment.
 type Command struct {
 	Tool, Directory, Output           string
@@ -90,44 +107,88 @@ type Command struct {
 
 // Measure retains raw samples and separate redacted streams before validation.
 func Measure(parent context.Context, input Command) (Measurement, error) {
+	row := input.Measurement
+	row.Raw, row.P95, row.Samples = "", 0, Samples{}
+	if _, err := os.Lstat(input.Output); !errors.Is(err, os.ErrNotExist) {
+		return row, errors.New("performance output must be new")
+	}
+	if len(input.Arguments) == 0 {
+		return row, errors.New("performance requires an explicit measured command")
+	}
+	command := input.Arguments[len(input.Arguments)-1]
+	if row.Executable != nil {
+		if selected := Argv(row.Executable.Path); command != selected && !strings.HasPrefix(command, selected+" ") {
+			return row, errors.New("measured command does not select its declared executable")
+		}
+		if err := row.Executable.verify(); err != nil {
+			return row, err
+		}
+	}
 	ctx, cancel := context.WithTimeout(parent, time.Minute)
 	defer cancel()
 	stdout, stderr, runErr := (process.Runner{StdoutLimit: 4 << 20}).RunCaptureStreams(ctx, process.Plan{
 		Executable: input.Tool, Args: input.Arguments, Env: input.Environment, Directory: input.Directory,
 	})
+	if row.Executable != nil {
+		runErr = errors.Join(runErr, row.Executable.verify())
+	}
 	for stream, log := range map[string][]byte{"stdout": stdout, "stderr": stderr} {
 		if err := os.WriteFile(strings.TrimSuffix(input.Output, ".json")+"."+stream, []byte(redaction.Text(string(log), input.Sensitive...)), 0o600); err != nil {
-			return Measurement{}, err
+			runErr = errors.Join(runErr, err)
 		}
 	}
+	row.Diagnostics = process.DiagnosticFailure(stderr)
 	if runErr != nil {
-		return Measurement{}, fmt.Errorf("Hyperfine: %s; separate redacted streams retained", redaction.Text(runErr.Error(), input.Sensitive...))
+		runErr = fmt.Errorf("Hyperfine: %s; separate redacted streams retained", redaction.Text(runErr.Error(), input.Sensitive...))
 	}
 	data, err := os.ReadFile(input.Output)
 	if err != nil {
-		return Measurement{}, err
+		return row, errors.Join(runErr, err)
 	}
+	row.Raw = filepath.Base(input.Output)
 	var report struct {
-		Results []Samples `json:"results"`
+		Results []struct {
+			Samples
+			ExitCodes []*int `json:"exit_codes"`
+		} `json:"results"`
 	}
 	if err := json.Unmarshal(data, &report); err != nil || len(report.Results) != 1 {
-		return Measurement{}, errors.New("Hyperfine must produce one nonempty result")
+		return row, errors.Join(runErr, errors.New("Hyperfine must produce one nonempty result"))
 	}
-	row := input.Measurement
-	row.Samples = report.Results[0]
-	row.P95, err = row.Samples.Percentile()
-	if err != nil {
-		return Measurement{}, err
+	row.Samples = report.Results[0].Samples
+	row.Samples.ExitCodes = []int{}
+	for _, code := range report.Results[0].ExitCodes {
+		if code == nil {
+			return row, errors.Join(runErr, errors.New("performance export requires explicit integer exit codes"))
+		}
+		row.Samples.ExitCodes = append(row.Samples.ExitCodes, *code)
 	}
-	row.Raw, row.Diagnostics = filepath.Base(input.Output), process.DiagnosticFailure(stderr)
+	if row.Samples.Command != command {
+		return row, errors.Join(runErr, errors.New("Hyperfine export differs from its requested command"))
+	}
+	if len(row.Samples.Times) != 40 {
+		return row, errors.Join(runErr, errors.New("Hyperfine must retain exactly forty measured samples"))
+	}
+	p95, err := row.Samples.Percentile()
+	if err = errors.Join(runErr, err); err != nil {
+		return row, err
+	}
+	row.P95 = p95
 	return row, nil
 }
 
 // MeasureOperation times the existing native API with its own bounded worker
 // environment. Native subprocess launch is included; Hyperfine and shell are not.
 func MeasureOperation(ctx context.Context, output string, row Measurement, operation func() error) (Measurement, error) {
+	row.P95, row.Samples = 0, Samples{Times: []float64{}, ExitCodes: []int{}}
 	var stop error
+	if row.Executable != nil {
+		stop = row.Executable.verify()
+	}
 	for index := range 45 {
+		if stop != nil {
+			break
+		}
 		if err := ctx.Err(); err != nil {
 			stop = err
 			break
@@ -148,18 +209,25 @@ func MeasureOperation(ctx context.Context, output string, row Measurement, opera
 			break
 		}
 	}
+	if row.Executable != nil {
+		stop = errors.Join(stop, row.Executable.verify())
+	}
 	row.Raw = filepath.Base(output)
 	data, err := json.MarshalIndent(struct {
 		Results []Samples `json:"results"`
 	}{[]Samples{row.Samples}}, "", "  ")
 	if err != nil {
-		return Measurement{}, err
+		return row, errors.Join(stop, err)
 	}
 	if err := os.WriteFile(output, append(data, '\n'), 0o600); err != nil {
-		return Measurement{}, err
+		return row, errors.Join(stop, err)
 	}
-	row.P95, err = row.Samples.Percentile()
-	return row, errors.Join(stop, err)
+	p95, err := row.Samples.Percentile()
+	if err := errors.Join(stop, err); err != nil {
+		return row, err
+	}
+	row.P95 = p95
+	return row, nil
 }
 
 // Argv renders exact arguments for Hyperfine's shell-free command parser.

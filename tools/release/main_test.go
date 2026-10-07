@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -26,6 +27,9 @@ var nativeSourceFixtures struct {
 }
 
 func TestMain(m *testing.M) {
+	if counter := os.Getenv("AIGW_TEST_MEMORY_OBSERVATIONS"); counter != "" && len(os.Args) == 3 && os.Args[1] == "status" && os.Args[2] == "--json" {
+		os.Exit(runMemoryObservationFixture(counter))
+	}
 	if len(os.Args) == 6 && os.Args[1] == "prepare-performance-setup" {
 		if os.Args[2] != os.Getenv("AIGW_TEST_PERFORMANCE_CONFIG_ROOT") || os.Args[3] != os.Getenv("AIGW_TEST_PERFORMANCE_SETTINGS_ROOT") {
 			os.Exit(2)
@@ -54,6 +58,25 @@ func TestMain(m *testing.M) {
 		}
 	}
 	os.Exit(code)
+}
+
+func runMemoryObservationFixture(counter string) int {
+	data, err := os.ReadFile(counter)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return 3
+	}
+	count := 0
+	if len(data) != 0 {
+		count, err = strconv.Atoi(string(data))
+		if err != nil {
+			return 3
+		}
+	}
+	if os.WriteFile(counter, []byte(strconv.Itoa(count+1)), 0o600) != nil || count == 7 {
+		return 4
+	}
+	_, _ = fmt.Fprintln(os.Stdout, `{}`)
+	return 0
 }
 
 func preparePerformanceSetup(configRoot, settingsRoot, config, settings string) (result error) {

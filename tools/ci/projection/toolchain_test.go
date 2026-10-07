@@ -226,7 +226,7 @@ func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
 		"Acquire::https::Timeout=30",
 		"set -eu\n",
 		" update\nDEBIAN_FRONTEND=noninteractive ",
-		" install --no-install-recommends -y libatomic1 openssh-client procps",
+		" install --no-install-recommends -y libatomic1 openssh-client procps time",
 	} {
 		if !strings.Contains(bootstrap[0], required) {
 			t.Fatalf("Linux bootstrap omits %q: %q", required, bootstrap[0])

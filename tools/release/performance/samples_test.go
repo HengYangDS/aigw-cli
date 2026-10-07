@@ -2,6 +2,7 @@ package performance
 
 import (
 	"math"
+	"os"
 	"slices"
 	"testing"
 )
@@ -34,17 +35,29 @@ func TestPercentileRequiresCompletedFiniteSamples(t *testing.T) {
 }
 
 func TestPooledPreservesBlocksAndDiagnostics(t *testing.T) {
+	program, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := Identify(program)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var rows []Measurement
 	for block := range 2 {
 		times := make([]float64, 40)
 		for index := range times {
 			times[index] = float64(block+1) / 100
 		}
+		selected := identity
+		selected.Path = "independent-fixture-" + string(rune('1'+block))
 		rows = append(rows, Measurement{Variant: "candidate", Backend: "env", Case: "status", Block: block + 1,
-			Diagnostics: block == 1, Samples: Samples{Times: times, ExitCodes: make([]int, 40)}})
+			P95: float64(block+1) / 100, Executable: &selected,
+			Diagnostics: block == 1, Samples: Samples{Command: Argv(selected.Path, "status"), Times: times, ExitCodes: make([]int, 40)}})
 	}
 	pooled, err := Pooled(rows)
-	if err != nil || len(pooled) != 1 || pooled[0].P95 != 0.02 || len(rows[0].Samples.Times) != 40 || !pooled[0].Diagnostics {
+	if err != nil || len(pooled) != 1 || pooled[0].P95 != 0.02 || len(rows[0].Samples.Times) != 40 || !pooled[0].Diagnostics ||
+		pooled[0].Executable == nil || pooled[0].Executable.SHA256 != identity.SHA256 || pooled[0].Executable.Path != "" || rows[0].Samples.Command == rows[1].Samples.Command {
 		t.Fatalf("pooled result lost a block or changed its source: %#v, %v", pooled, err)
 	}
 	if _, err := Pooled(rows[:1]); err == nil {
@@ -57,6 +70,20 @@ func TestPooledPreservesBlocksAndDiagnostics(t *testing.T) {
 	} {
 		if _, err := Pooled(invalid); err == nil {
 			t.Fatal("pooled evidence admitted an incomplete or inconsistent block contract")
+		}
+	}
+	for _, change := range []func(*Measurement){
+		func(row *Measurement) { row.Executable = nil },
+		func(row *Measurement) { row.Executable.SHA256 = "different-bytes" },
+		func(row *Measurement) { row.Executable.Arch = "different-platform" },
+		func(row *Measurement) { row.P95 = 0 },
+	} {
+		changed := rows[1]
+		selected := *changed.Executable
+		changed.Executable = &selected
+		change(&changed)
+		if _, err := Pooled([]Measurement{rows[0], changed}); err == nil {
+			t.Fatal("pooled evidence admitted an unqualified or different executable block")
 		}
 	}
 }

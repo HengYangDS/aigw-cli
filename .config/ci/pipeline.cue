@@ -103,10 +103,9 @@ linuxApt: {
 linuxToolchain: {
 	// The runnable Mise image is intentionally small. Declare the complete
 	// repository execution closure here so every Linux job inherits one owner.
-	runtimePackages: ["libatomic1", "openssh-client", "procps"]
-	prepare:           "set -eu\n\(linuxApt.update)\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
-	compiler:          "set -eu\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) gcc libc6-dev \(linuxSecretService.packages)"
-	memoryMeasurement: "if [ \"${AIGW_NATIVE_PERFORMANCE:-false}\" = true ]; then DEBIAN_FRONTEND=noninteractive \(linuxApt.install) time; fi"
+	runtimePackages: ["libatomic1", "openssh-client", "procps", "time"]
+	prepare:  "set -eu\n\(linuxApt.update)\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
+	compiler: "set -eu\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) gcc libc6-dev \(linuxSecretService.packages)"
 }
 
 linuxSecretService: {
@@ -815,7 +814,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		interruptible: true
 		extends: [".linux-toolchain"]
 		variables: CGO_ENABLED: "1"
-		"before_script": [linuxToolchain.prepare, linuxToolchain.compiler, linuxToolchain.memoryMeasurement, miseMirror.unixPrepare, _selectTools, commands.install]
+		"before_script": [linuxToolchain.prepare, linuxToolchain.compiler, miseMirror.unixPrepare, _selectTools, commands.install]
 		script: [_bootstrap, _refreshLocks, _native, _cleanup]
 	}
 	if _platform != "linux" {
@@ -1098,6 +1097,10 @@ githubVerify: {
 			steps: [
 				#SourceCheckout,
 				#Toolchain,
+				{
+					name: "Prepare native memory measurement"
+					run:  "set -eu\nsudo -n \(linuxApt.update)\nsudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) time"
+				},
 				{name: "Prepare locked dependencies", run: commands.bootstrap},
 				{
 					name: "Materialize provenance trust input"

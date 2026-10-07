@@ -125,6 +125,26 @@ func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 	}
 }
 
+func TestUseRenderingDoesNotReinspectCredentialMetadata(t *testing.T) {
+	run, _, out := configuredRuntime(t)
+	reads, renderingReads := 0, 0
+	run.Secrets = secrets.NewEnvironmentStore(func(string) string {
+		reads++
+		if out.Len() > 0 {
+			renderingReads++
+		}
+		return "synthetic-token"
+	})
+	cmd := NewUseCommand(run)
+	cmd.SetArgs([]string{"--for", configuration.ClientCodex, "codex"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if reads == 0 || renderingReads != 0 {
+		t.Fatalf("credential observations: total=%d during rendering=%d", reads, renderingReads)
+	}
+}
+
 func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 	for _, test := range []struct {
 		name      string

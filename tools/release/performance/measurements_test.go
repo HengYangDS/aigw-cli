@@ -107,8 +107,13 @@ func TestMeasureOperationRetainsExactCompletedSamples(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, err := MeasureOperation(ctx, filepath.Join(t.TempDir(), "canceled.json"), Measurement{}, func() error { t.Fatal("canceled measurement executed"); return nil }); !errors.Is(err, context.Canceled) {
+	canceled := filepath.Join(t.TempDir(), "canceled.json")
+	if _, err := MeasureOperation(ctx, canceled, Measurement{}, func() error { t.Fatal("canceled measurement executed"); return nil }); !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled native API measurement continued: %v", err)
+	}
+	data, err := os.ReadFile(canceled)
+	if err != nil || !bytes.Contains(data, []byte(`"times": []`)) || !bytes.Contains(data, []byte(`"exit_codes": []`)) {
+		t.Fatalf("never-completed observations must retain empty arrays: %s, %v", data, err)
 	}
 	ctx, cancel = context.WithCancel(t.Context())
 	defer cancel()
@@ -233,6 +238,118 @@ func TestMeasureRejectsUnprovedNativeEvidence(t *testing.T) {
 		if _, err := Measure(t.Context(), Command{Tool: filepath.Join(root, "missing-tool"), Output: raw}); err == nil {
 			t.Fatal("a failed native tool or unavailable stream destination acquired a measurement")
 		}
+	}
+}
+
+func TestMeasureBindsRawEvidenceAndRetainsFailure(t *testing.T) {
+	if output := os.Getenv("AIGW_TEST_PERFORMANCE_EXPORT"); output != "" {
+		os.Exit(writePerformanceExportFixture(output))
+	}
+	program, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"matched", "wrong-command", "failed-tool", "stale-output", "extra-sample", "stale-identity", "changed-file", "unbound-file", "null-exit"} {
+		t.Run(name, func(t *testing.T) {
+			input := performanceExportFixture(t, program, name)
+			row, err := Measure(t.Context(), input)
+			switch name {
+			case "matched":
+				if err != nil || row.P95 != 0.01 {
+					t.Fatalf("owned command did not qualify: %#v, %v", row, err)
+				}
+			case "stale-identity", "unbound-file":
+				if _, observed := os.Stat(input.Output); !errors.Is(observed, os.ErrNotExist) || err == nil || row.P95 != 0 {
+					t.Fatal("an unbound executable ran before refusal")
+				}
+			case "stale-output":
+				data, observed := os.ReadFile(input.Output)
+				if err == nil || observed != nil || string(data) != "previous evidence" {
+					t.Fatal("stale evidence was overwritten before refusal")
+				}
+			default:
+				count := 40
+				if name == "extra-sample" {
+					count++
+				}
+				if err == nil || row.Raw != "samples.json" || row.Variant != "candidate" || row.P95 != 0 || len(row.Samples.Times) != count || row.Samples.Command == "" {
+					t.Fatalf("failed measurement lost its exact partial evidence: %#v, %v", row, err)
+				}
+			}
+		})
+	}
+}
+
+func writePerformanceExportFixture(output string) int {
+	name := os.Getenv("AIGW_TEST_PERFORMANCE_CASE")
+	command := os.Getenv("AIGW_TEST_PERFORMANCE_COMMAND")
+	count := 40
+	if name == "wrong-command" {
+		command = "different command"
+	}
+	if name == "extra-sample" {
+		count++
+	}
+	times, codes := make([]float64, count), make([]any, count)
+	for index := range times {
+		times[index], codes[index] = 0.01, 0
+	}
+	if name == "null-exit" {
+		codes[0] = nil
+	}
+	data, err := json.Marshal(map[string]any{"results": []any{map[string]any{
+		"command": command, "times": times, "exit_codes": codes,
+	}}})
+	if err != nil || os.WriteFile(output, data, 0o600) != nil {
+		return 5
+	}
+	if path := os.Getenv("AIGW_TEST_PERFORMANCE_CHANGED_FILE"); path != "" {
+		if err := os.WriteFile(path, []byte("replaced during measurement"), 0o600); err != nil {
+			return 6
+		}
+	}
+	if name == "failed-tool" {
+		return 4
+	}
+	return 0
+}
+
+func performanceExportFixture(t *testing.T, program, name string) Command {
+	t.Helper()
+	output := filepath.Join(t.TempDir(), "samples.json")
+	selected, changed := program, ""
+	if name == "changed-file" {
+		data, err := os.ReadFile(program)
+		if err != nil {
+			t.Fatal(err)
+		}
+		selected = filepath.Join(filepath.Dir(output), "selected-executable")
+		if err := os.WriteFile(selected, data, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		changed = selected
+	}
+	identity, err := Identify(selected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := Argv(selected, "status")
+	switch name {
+	case "stale-identity":
+		identity.SHA256 = strings.Repeat("0", 64)
+	case "unbound-file":
+		command = Argv("different-executable", "status")
+	case "stale-output":
+		if err := os.WriteFile(output, []byte("previous evidence"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return Command{
+		Tool: program, Arguments: []string{"-test.run=^TestMeasureBindsRawEvidenceAndRetainsFailure$", "--", command}, Output: output,
+		Environment: append(os.Environ(), "AIGW_TEST_PERFORMANCE_EXPORT="+output, "AIGW_TEST_PERFORMANCE_CASE="+name,
+			"AIGW_TEST_PERFORMANCE_COMMAND="+command, "AIGW_TEST_PERFORMANCE_CHANGED_FILE="+changed,
+			"GORACE="+strings.TrimSpace(os.Getenv("GORACE")+" atexit_sleep_ms=0")),
+		Measurement: Measurement{Variant: "candidate", Backend: "env", Case: "credential", Block: 1, Executable: &identity},
 	}
 }
 

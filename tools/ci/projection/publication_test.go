@@ -343,15 +343,25 @@ func TestPerformanceHostPreparesNativeMemoryTool(t *testing.T) {
 	if !prepared {
 		t.Fatal("GitHub Linux performance must prepare its native GNU time prerequisite")
 	}
+	prepared = false
+	for _, step := range workflow.Jobs["quality"].Steps {
+		if step.If == "" && strings.Contains(step.Run, "install --no-install-recommends -y time") {
+			prepared = true
+		}
+	}
+	if !prepared {
+		t.Fatal("GitHub Linux source qualification lacks its native memory sampler")
+	}
 	var pipeline struct {
-		Linux gitLabJob `yaml:"native-linux"`
+		Linux          gitLabJob `yaml:"native-linux"`
+		LinuxToolchain gitLabJob `yaml:".linux-toolchain"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
 	preparation := strings.Join(pipeline.Linux.BeforeScript, "\n")
-	if !strings.Contains(preparation, `"${AIGW_NATIVE_PERFORMANCE:-false}" = true`) ||
-		!strings.Contains(preparation, "install --no-install-recommends -y time") {
+	if !strings.Contains(preparation, "install --no-install-recommends -y libatomic1 openssh-client procps time") ||
+		!strings.Contains(strings.Join(pipeline.LinuxToolchain.BeforeScript, "\n"), "install --no-install-recommends -y libatomic1 openssh-client procps time") {
 		t.Fatal("GitLab Linux selected performance must prepare its native GNU time prerequisite")
 	}
 }

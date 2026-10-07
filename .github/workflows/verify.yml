@@ -142,6 +142,11 @@ jobs:
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
+      - name: Prepare native memory measurement
+        run: |-
+          set -eu
+          sudo -n timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo -n DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y time
       - name: Prepare locked dependencies
         run: mise run bootstrap
       - name: Materialize provenance trust input
