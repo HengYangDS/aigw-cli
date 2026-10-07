@@ -9,6 +9,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
+	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/synchronization"
 
 	"github.com/spf13/cobra"
@@ -46,7 +47,9 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			synchronizer := invocation.Synchronizer(runtime)
+			operation := runtime
+			operation.Secrets = secrets.ObserveAvailability(runtime.Secrets)
+			synchronizer := invocation.Synchronizer(operation)
 			after, _, err := synchronizer.DesiredSyncConfiguration(before)
 			if err != nil {
 				return invocation.Problem(
@@ -58,7 +61,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 					err,
 				)
 			}
-			activation := clientactivation.AssessActivation(after, runtime.Secrets)
+			activation := clientactivation.AssessActivation(after, operation.Secrets)
 			result := syncResult{DryRun: dryRun, Selections: map[string]string{}, NextAction: activation.NextActionFor(nil)}
 			result.EnabledClients = activation.EnabledClients
 			result.State = string(activation.State)

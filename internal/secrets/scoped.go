@@ -1,6 +1,9 @@
 package secrets
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 // Kind identifies a credential purpose independently of the selected storage
 // backend. One backend owns every kind for an AIGW installation.
@@ -14,8 +17,32 @@ const (
 )
 
 type scopedView struct {
-	store credentialBackend
-	kind  Kind
+	store        credentialBackend
+	kind         Kind
+	availability *availabilityObservation
+}
+
+type availabilityObservation struct {
+	mutex sync.Mutex
+	slots map[string]availabilityResult
+}
+
+type availabilityResult struct {
+	present bool
+	err     error
+}
+
+// ObserveAvailability starts one operation's presence-metadata scope without
+// changing its backend or caching credential reads. Purpose views share the
+// scope; each new operation gets fresh observations, including prior errors.
+// Stores without AIGW's typed backend remain unchanged.
+func ObserveAvailability(store Store) Store {
+	view, ok := store.(scopedView)
+	if !ok {
+		return store
+	}
+	view.availability = &availabilityObservation{slots: map[string]availabilityResult{}}
+	return view
 }
 
 // ForKind returns a narrow string-store view over one credential kind without
@@ -43,12 +70,22 @@ func (view scopedView) Set(account, value string) error {
 	if err := validate(account, value, true); err != nil {
 		return err
 	}
+	if view.availability != nil {
+		view.availability.mutex.Lock()
+		defer view.availability.mutex.Unlock()
+		delete(view.availability.slots, slotName(view.kind, account))
+	}
 	return view.store.set(view.kind, account, value)
 }
 
 func (view scopedView) Delete(account string) error {
 	if err := validate(account, "", false); err != nil {
 		return err
+	}
+	if view.availability != nil {
+		view.availability.mutex.Lock()
+		defer view.availability.mutex.Unlock()
+		delete(view.availability.slots, slotName(view.kind, account))
 	}
 	return view.store.delete(view.kind, account)
 }
@@ -57,7 +94,18 @@ func (view scopedView) Exists(account string) (bool, error) {
 	if err := validate(account, "", false); err != nil {
 		return false, err
 	}
-	return view.store.exists(view.kind, account)
+	if view.availability == nil {
+		return view.store.exists(view.kind, account)
+	}
+	view.availability.mutex.Lock()
+	defer view.availability.mutex.Unlock()
+	slot := slotName(view.kind, account)
+	result, observed := view.availability.slots[slot]
+	if !observed {
+		result.present, result.err = view.store.exists(view.kind, account)
+		view.availability.slots[slot] = result
+	}
+	return result.present, result.err
 }
 
 func (view scopedView) ReadOnly() bool {

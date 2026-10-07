@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/activation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/secrets"
@@ -148,6 +149,43 @@ func TestKeyringReaderCopyVerifiesEachSelectedAccountOnce(t *testing.T) {
 			cfg.Routes["gpt"] = route
 			requireSingleCopiedCredentialRead(t, syncer, cfg, account)
 		})
+	}
+}
+
+func TestSyncObservesNativeAvailabilityOncePerInvocation(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "codex.toml")
+	syncer := newKeyringReaderFixture(t, target)
+	if err := os.MkdirAll(filepath.Dir(syncer.CredentialPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(filepath.Dir(syncer.CredentialPath), "allow-reader"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before := testConfig(target)
+	for invocation := 1; invocation <= 2; invocation++ {
+		syncer.Secrets = secrets.ObserveAvailability(syncer.Secrets)
+		after, _, err := syncer.DesiredSyncConfiguration(before)
+		if err != nil {
+			t.Fatal(err)
+		}
+		activation.AssessActivation(after, syncer.Secrets)
+		if err := syncer.CommitProjection(t.Context(), before, after, "sync"); err != nil {
+			t.Fatal(err)
+		}
+		for _, operation := range []struct{ executable, name string }{
+			{syncer.AIGWExecutable, "__aigw-native-credential-exists"},
+			{syncer.CredentialPath, "__aigw-native-credential-read"},
+		} {
+			data, err := os.ReadFile(filepath.Join(filepath.Dir(operation.executable), "operations"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := operation.name + " " + secrets.Service + " gateway\n"
+			if string(data) != strings.Repeat(want, invocation) {
+				t.Fatalf("invocation %d: native operations = %q; want one exact operation per invocation: %q", invocation, data, want)
+			}
+		}
+		before = after
 	}
 }
 

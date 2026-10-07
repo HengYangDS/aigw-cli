@@ -116,6 +116,43 @@ func TestDryRunUsesOneResolvedReaderWithoutWriting(t *testing.T) {
 	}
 }
 
+func TestSyncMetadataObservationScopeExpiresWithCommand(t *testing.T) {
+	store, cfg := configuredRepairStore(t)
+	root := t.TempDir()
+	source := filepath.Join(root, "source")
+	reader := filepath.Join(root, "data", "credential", "reader")
+	cfg.SetClientActivation(configuration.ClientClaude, true, source, nil)
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	lookups := 0
+	tokens := secrets.NewEnvironmentStore(func(key string) string {
+		if key == secrets.EnvironmentKey("one") {
+			lookups++
+			return "synthetic-fixture"
+		}
+		return ""
+	})
+	runtime := invocation.Context{
+		Config: store, Executable: source, Secrets: tokens, Out: &bytes.Buffer{}, Discovery: staticDiscovery{},
+		ClaudeSettingsPath: filepath.Join(root, "settings.json"), CredentialPath: reader,
+	}
+	cmd := NewSyncCommand(runtime)
+	cmd.SilenceErrors, cmd.SilenceUsage = true, true
+	cmd.SetArgs([]string{"--dry-run", "--json"})
+	for invocation := 1; invocation <= 2; invocation++ {
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if lookups != invocation {
+			t.Fatalf("command %d observed Account metadata %d times; want one fresh observation per command", invocation, lookups)
+		}
+		if _, err := os.Stat(reader); !os.IsNotExist(err) {
+			t.Fatalf("dry-run wrote a credential reader: %v", err)
+		}
+	}
+}
+
 func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 	t.Run("configuration load", func(t *testing.T) {
 		command := NewSyncCommand(invocation.Context{Config: configuration.NewStore(t.TempDir())})
