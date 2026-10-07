@@ -104,7 +104,7 @@ func TestNativePackageAdmissionRequiresOneExactSourceAndTransport(t *testing.T) 
 	for _, conflicting := range [][]string{
 		{"--peer", "github"}, {"--artifacts", "/foreign"}, {"--tag", "v1.2.4"},
 		{"--baseline-artifacts", "/foreign"}, {"--input-sha256", strings.Repeat("g", 64)},
-		{"--candidate-source", "HEAD"}, {"--candidate=false"},
+		{"--candidate-source", "HEAD"}, {"--candidate=false"}, {"--input-archive", filepath.Join(t.TempDir(), "retained.tar")},
 	} {
 		if _, err := ParseNativeAcceptance(append(slices.Clone(args), conflicting...)); err == nil {
 			t.Errorf("native package accepted competing or unbound input: %q", conflicting)
@@ -112,6 +112,11 @@ func TestNativePackageAdmissionRequiresOneExactSourceAndTransport(t *testing.T) 
 	}
 	if _, err := ParseNativeAcceptance([]string{"--input-sha256", strings.Repeat("a", 64)}); err == nil {
 		t.Fatal("package checksum was accepted without its package")
+	}
+	local := slices.Clone(args[:len(args)-4])
+	local[0], local[1] = "--input-archive", "public-inputs.tar"
+	if _, err := ParseNativeAcceptance(local); err == nil {
+		t.Fatal("native input accepted a relative caller-owned archive")
 	}
 }
 
@@ -163,16 +168,21 @@ func TestNativePackageFailuresNeverExecuteAndReclaimOwnedScratch(t *testing.T) {
 	regular := &tar.Header{Name: "candidate/checksums.txt", Mode: 0o600}
 	link := &tar.Header{Name: regular.Name, Typeflag: tar.TypeSymlink, Linkname: "../../foreign"}
 	for _, failure := range []struct {
-		name, checksum string
-		contents       []byte
-		transport      error
+		name, checksum  string
+		contents        []byte
+		transport, want error
+		omit, cancel    bool
 	}{
-		{"download", "", valid, errors.New("owned transport stopped")},
-		{"checksum", strings.Repeat("0", 64), valid, nil},
-		{"missing matrix", "", nil, nil},
-		{"selected link", "", nativePackageHeaders(t, link), nil},
-		{"duplicate matrix", "", nativePackageHeaders(t, regular, regular), nil},
-		{"interrupted download", "", valid, context.Canceled},
+		{name: "download", contents: valid, transport: errors.New("owned transport stopped")},
+		{name: "checksum", checksum: strings.Repeat("0", 64), contents: valid},
+		{name: "missing matrix"},
+		{name: "selected link", contents: nativePackageHeaders(t, link)},
+		{name: "duplicate matrix", contents: nativePackageHeaders(t, regular, regular)},
+		{name: "interrupted download", contents: valid, transport: context.Canceled},
+		{name: "missing download", contents: valid, want: os.ErrNotExist, omit: true},
+		{name: "corrupt header", contents: bytes.Repeat([]byte{1}, 512), want: tar.ErrHeader},
+		{name: "truncated member", contents: valid[:513], want: io.ErrUnexpectedEOF},
+		{name: "interrupted extraction", contents: valid, want: context.Canceled, cancel: true},
 	} {
 		t.Run(failure.name, func(t *testing.T) {
 			temp := t.TempDir()
@@ -187,7 +197,9 @@ func TestNativePackageFailuresNeverExecuteAndReclaimOwnedScratch(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.4", Epoch: "1784246400"}, func(call toolCall) error {
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			err = acceptNativeInput(ctx, input, buildRequest{Root: root, Version: "1.2.4", Epoch: "1784246400"}, func(call toolCall) error {
 				if call.Name == "git" {
 					return nil
 				}
@@ -195,12 +207,21 @@ func TestNativePackageFailuresNeverExecuteAndReclaimOwnedScratch(t *testing.T) {
 					t.Fatalf("invalid native package reached execution: %#v", call)
 				}
 				archive := call.Args[slices.Index(call.Args, "--path")+1]
-				if err := os.WriteFile(archive, failure.contents, 0o600); err != nil {
-					return err
+				if !failure.omit {
+					if err := os.WriteFile(archive, failure.contents, 0o600); err != nil {
+						return err
+					}
+				}
+				if failure.cancel {
+					cancel()
 				}
 				return failure.transport
 			})
-			if err == nil || failure.transport != nil && !errors.Is(err, failure.transport) {
+			want := failure.want
+			if want == nil {
+				want = failure.transport
+			}
+			if err == nil || want != nil && !errors.Is(err, want) {
 				t.Fatalf("native package failure changed identity: %v", err)
 			}
 			if matches, err := filepath.Glob(filepath.Join(temp, "aigw-native-inputs-*")); err != nil || len(matches) != 0 {

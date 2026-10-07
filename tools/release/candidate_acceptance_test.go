@@ -140,7 +140,7 @@ func TestCandidateAcceptanceRequiresExplicitArtifactAndNoTag(t *testing.T) {
 	if err := run([]string{"accept-native", "--candidate-source", "HEAD"}, io.Discard); err == nil || !strings.Contains(err.Error(), "candidate source requires --candidate") {
 		t.Fatalf("candidate source without candidate mode: %v", err)
 	}
-	if err := run([]string{"accept-native", "--candidate"}, io.Discard); err == nil || !strings.Contains(err.Error(), "candidate acceptance requires --artifacts") {
+	if err := run([]string{"accept-native", "--candidate"}, io.Discard); err == nil || !strings.Contains(err.Error(), "candidate acceptance requires an explicit artifact matrix or input package") {
 		t.Fatalf("candidate mode without artifact input: %v", err)
 	}
 	t.Setenv("CI_COMMIT_TAG", "v0.1.0")
