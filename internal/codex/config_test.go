@@ -33,6 +33,7 @@ func TestCodexSyncProjectsOwnedProviderAndPreservesOtherSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := codexRuntime("dmx", "DMXAPI", "https://example.test/v1", "gpt-test")
+	profile.CredentialCommand = filepath.Join(dir, "secret-token AIGW", "aigw")
 	if err := codex.SyncConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -43,8 +44,8 @@ func TestCodexSyncProjectsOwnedProviderAndPreservesOtherSettings(t *testing.T) {
 			t.Errorf("projected config lacks %q:\n%s", want, text)
 		}
 	}
-	if strings.Contains(text, "secret") {
-		t.Fatalf("config contains secret-like fixture: %s", text)
+	if err := codex.ValidateConfig(path, profile); err != nil {
+		t.Fatal(err)
 	}
 	if err := codex.DisableConfig(path); err != nil {
 		t.Fatal(err)

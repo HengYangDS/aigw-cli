@@ -3,8 +3,10 @@ package synchronization
 import (
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
+	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
 	"bytes"
 	"context"
@@ -12,6 +14,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -391,31 +394,47 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	aigwExecutable := filepath.Join(t.TempDir(), "aigw")
-	syncer := Synchronizer{Config: store, ClaudeSettingsPath: settingsPath, AIGWExecutable: aigwExecutable}
-	if err := syncer.Commit(context.Background(), before, after, "enable Claude"); err != nil {
+	aigwExecutable := filepath.Join(t.TempDir(), "secret-token-aigw")
+	credentials := secrets.NewMemoryStore()
+	const accountToken = "synthetic-account-token-not-for-authentication"
+	if err := credentials.Set("gateway", accountToken); err != nil {
+		t.Fatal(err)
+	}
+	syncer := Synchronizer{Config: store, Secrets: credentials, ClaudeSettingsPath: settingsPath, AIGWExecutable: aigwExecutable}
+	if err := syncer.Commit(t.Context(), before, after, "enable Claude"); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(settingsPath)
-	if err != nil || !strings.Contains(string(projected), `"ANTHROPIC_BASE_URL": "https://gateway.test"`) {
-		t.Fatalf("projected settings = %s, %v", projected, err)
-	}
-	var document map[string]any
-	if err := json.Unmarshal(projected, &document); err != nil {
+	if err != nil {
 		t.Fatal(err)
 	}
-	helper, ok := document["apiKeyHelper"].(string)
+	var document struct {
+		Theme        string            `json:"theme"`
+		Model        string            `json:"model"`
+		APIKeyHelper string            `json:"apiKeyHelper"`
+		Environment  map[string]string `json:"env"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(projected))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&document); err != nil {
+		t.Fatal(err)
+	}
 	projection, err := after.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !ok || !strings.Contains(helper, aigwExecutable) || !strings.HasSuffix(helper, " credential claude "+projection.CredentialProjectionFingerprint(configuration.ClientClaude)) {
-		t.Fatalf("apiKeyHelper = %#v", document["apiKeyHelper"])
+	helper, err := credential.Command(aigwExecutable, configuration.ClientClaude, projection.CredentialProjectionFingerprint(configuration.ClientClaude), runtime.GOOS)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if strings.Contains(string(projected), "token") || strings.Contains(string(projected), "secret") {
-		t.Fatalf("projected settings leaked credential material: %s", projected)
+	if document.Theme != "dark" || document.Model != "claude-team" || document.APIKeyHelper != helper ||
+		len(document.Environment) != 1 || document.Environment["ANTHROPIC_BASE_URL"] != "https://gateway.test" {
+		t.Fatal("projected settings differ from the selected route, native credential command, or preserved user settings")
 	}
-	if err := syncer.Commit(context.Background(), after, before, "disable Claude"); err != nil {
+	if bytes.Contains(projected, []byte(accountToken)) {
+		t.Fatal("projected settings contain the synthetic Account Token")
+	}
+	if err := syncer.Commit(t.Context(), after, before, "disable Claude"); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(settingsPath)

@@ -89,7 +89,7 @@ func TestSettingsReconcilePreservesForeignContentAndKeepsCredentialsOutOfJSON(t 
 		RouteID: "team-claude", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team",
 	}
 
-	executable := filepath.Join(t.TempDir(), "AIGW CLI", "aigw")
+	executable := filepath.Join(t.TempDir(), "secret-token AIGW CLI", "aigw")
 	receipt, err := ReconcileSettings(path, false, runtime, executable, runtime.Model)
 	if err != nil {
 		t.Fatal(err)
@@ -102,11 +102,11 @@ func TestSettingsReconcilePreservesForeignContentAndKeepsCredentialsOutOfJSON(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(data), "secret") {
-		t.Fatalf("settings contain credential material: %s", data)
-	}
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatal(err)
+	}
+	if len(got) != 4 {
+		t.Fatal("settings contain fields outside the native projection and preserved user permissions")
 	}
 	if !reflect.DeepEqual(got["permissions"], map[string]any{"allow": []any{"Read"}}) {
 		t.Fatalf("foreign permissions changed: %#v", got["permissions"])
