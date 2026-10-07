@@ -68,9 +68,11 @@ func TestNativeClientSuccessionRequiresPublishedPredecessor(t *testing.T) {
 }
 
 func TestNativeDiagnosticClientAdmission(t *testing.T) {
-	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
+	root := t.TempDir()
+	artifacts := "--artifacts=" + filepath.Join(root, "candidate")
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", filepath.Join(root, "published-aigw"))
 	t.Setenv("AIGW_RELEASE_TAG", "")
-	executable := filepath.Join(t.TempDir(), "client")
+	executable := filepath.Join(root, "client")
 	if err := os.WriteFile(executable, []byte("test-owned executable"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +80,7 @@ func TestNativeDiagnosticClientAdmission(t *testing.T) {
 		t.Setenv("AIGW_ACCEPTANCE_"+strings.ToUpper(client), "")
 	}
 	for _, client := range nativeAcceptanceClients {
-		if _, err := ParseNativeAcceptance([]string{"--artifacts=/candidate", "--candidate", "--diagnostic-client=" + client}); err != nil {
+		if _, err := ParseNativeAcceptance([]string{artifacts, "--candidate", "--diagnostic-client=" + client}); err != nil {
 			t.Errorf("explicit %s diagnostic was refused: %v", client, err)
 		}
 		key := "AIGW_ACCEPTANCE_" + strings.ToUpper(client)
@@ -93,30 +95,32 @@ func TestNativeDiagnosticClientAdmission(t *testing.T) {
 	}
 	for _, arguments := range [][]string{
 		{"--diagnostic-client=hermes"},
-		{"--artifacts=/candidate", "--candidate", "--diagnostic-client=unknown"},
-		{"--artifacts=/candidate", "--candidate", "--diagnostic-client=hermes|codex"},
-		{"--artifacts=/candidate", "--candidate", "--clients", "--diagnostic-client=hermes"},
-		{"--artifacts=/candidate", "--candidate", "--performance=/samples", "--diagnostic-client=hermes"},
+		{artifacts, "--candidate", "--diagnostic-client=unknown"},
+		{artifacts, "--candidate", "--diagnostic-client=hermes|codex"},
+		{artifacts, "--candidate", "--clients", "--diagnostic-client=hermes"},
+		{artifacts, "--candidate", "--performance=" + filepath.Join(root, "samples"), "--diagnostic-client=hermes"},
 	} {
 		if _, err := ParseNativeAcceptance(arguments); err == nil {
 			t.Errorf("ambiguous or unqualified diagnostic was admitted: %q", arguments)
 		}
 	}
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
-	if _, err := ParseNativeAcceptance([]string{"--artifacts=/candidate", "--candidate", "--diagnostic-client=hermes"}); err == nil {
+	if _, err := ParseNativeAcceptance([]string{artifacts, "--candidate", "--diagnostic-client=hermes"}); err == nil {
 		t.Fatal("client diagnostic admitted a missing published predecessor")
 	}
 }
 
 func TestNativePerformanceAttributionRequiresExplicitScope(t *testing.T) {
-	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
-	args := []string{"--artifacts=/candidate", "--candidate", "--performance=/samples", "--performance-attribution"}
+	root := t.TempDir()
+	artifacts := "--artifacts=" + filepath.Join(root, "candidate")
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", filepath.Join(root, "published-aigw"))
+	args := []string{artifacts, "--candidate", "--performance=" + filepath.Join(root, "samples"), "--performance-attribution"}
 	if _, err := ParseNativeAcceptance(args); err != nil {
 		t.Fatalf("bounded native attribution was refused: %v", err)
 	}
 	for _, arguments := range [][]string{
 		{"--performance-attribution"},
-		{"--artifacts=/candidate", "--candidate", "--performance-attribution"},
+		{artifacts, "--candidate", "--performance-attribution"},
 		append(slices.Clone(args), "--clients"),
 		append(slices.Clone(args), "--diagnostic-client=hermes"),
 	} {
