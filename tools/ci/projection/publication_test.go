@@ -2,7 +2,9 @@ package projection
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -393,6 +395,28 @@ func TestGitLabPerformanceUsesItsSelectedNativeClosure(t *testing.T) {
 			for _, input := range []string{"AIGW_NATIVE_PERFORMANCE", "github:sharkdp/hyperfine", "--performance", "build/verification/performance", "Native diagnostics and performance require a manual pipeline"} {
 				if !strings.Contains(script, input) {
 					t.Errorf("selected native performance omits %q", input)
+				}
+			}
+			performanceArgument := `--performance "$(pwd -P)/build/verification/performance"`
+			if strings.HasPrefix(name, "native-windows") {
+				performanceArgument = `'--performance', (Join-Path (Get-Location).ProviderPath 'build/verification/performance')`
+			}
+			if !strings.Contains(script, performanceArgument) {
+				t.Error("performance output must belong to the native checkout, not the runner manager path")
+			}
+			if runtime.GOOS != "windows" && !strings.HasPrefix(name, "native-windows") {
+				native := slices.IndexFunc(job.Script, func(step string) bool { return strings.Contains(step, "--performance") })
+				command := exec.CommandContext(t.Context(), "sh", "-c", "mise() { printf '%s\\n' \"$@\"; }\n"+job.Script[native])
+				command.Dir = filepath.Join(t.TempDir(), "native checkout")
+				if err := os.Mkdir(command.Dir, 0o700); err != nil {
+					t.Fatal(err)
+				}
+				command.Env = append(os.Environ(), "CI_PIPELINE_SOURCE=api", "CI_PROJECT_DIR=manager-relative-build", "CI_PROJECT_URL=https://forge.invalid/aigw", "AIGW_NATIVE_PERFORMANCE=true")
+				output, err := command.CombinedOutput()
+				physical, pathErr := filepath.EvalSymlinks(command.Dir)
+				want := "\n--performance\n" + filepath.Join(physical, "build", "verification", "performance") + "\n"
+				if err != nil || pathErr != nil || !strings.Contains(string(output), want) {
+					t.Fatalf("native performance output: execution=%v path=%v output=%s", err, pathErr, output)
 				}
 			}
 			if job.Artifacts.When != "always" || !slices.Contains(job.Artifacts.Paths, "build/verification") {

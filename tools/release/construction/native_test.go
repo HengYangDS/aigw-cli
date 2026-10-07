@@ -348,15 +348,14 @@ func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 }
 
 func TestNativePerformanceOutputAdmission(t *testing.T) {
-	for _, output := range []string{"relative-performance", t.TempDir()} {
-		request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
-		err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), NativeAcceptance{Performance: output}, func(call toolCall) error {
-			t.Fatalf("invalid output admitted an external command: %#v", call)
-			return nil
-		})
-		if err == nil {
-			t.Fatalf("invalid performance output accepted: %s", output)
-		}
+	output := t.TempDir()
+	request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
+	err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), NativeAcceptance{Performance: output}, func(call toolCall) error {
+		t.Fatalf("invalid output admitted an external command: %#v", call)
+		return nil
+	})
+	if err == nil || err.Error() != "performance output must be a new directory" {
+		t.Fatalf("existing performance output accepted: %s: %v", output, err)
 	}
 }
 

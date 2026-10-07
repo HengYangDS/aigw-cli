@@ -729,7 +729,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			  }
 			  $acceptance += @('--input-sha256', $env:AIGW_NATIVE_INPUT_SHA256, '--candidate')
 			}
-			if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $acceptance += @('--performance', (Join-Path $env:CI_PROJECT_DIR 'build/verification/performance')) }
+			if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $acceptance += @('--performance', (Join-Path (Get-Location).ProviderPath 'build/verification/performance')) }
 			if ($env:AIGW_NATIVE_PERFORMANCE_ATTRIBUTION -eq 'true') { $acceptance += @('--performance-attribution') }
 			if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT) {
 			  $acceptance += @('--diagnostic-client', $env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)
@@ -787,7 +787,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
 			if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
 			if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ]; then set -- "$@" --input-package "$AIGW_NATIVE_INPUT_PACKAGE" --input-sha256 "$AIGW_NATIVE_INPUT_SHA256" --candidate; fi
-			if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then set -- "$@" --performance "$CI_PROJECT_DIR/build/verification/performance"; fi
+			if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then set -- "$@" --performance "$(pwd -P)/build/verification/performance"; fi
 			if [ "${AIGW_NATIVE_PERFORMANCE_ATTRIBUTION:-false}" = true ]; then set -- "$@" --performance-attribution; fi
 			if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ]; then
 			  set -- "$@" --diagnostic-client "$AIGW_NATIVE_DIAGNOSTIC_CLIENT"

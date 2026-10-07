@@ -176,8 +176,13 @@ func (input *NativeAcceptance) validateOptionalScopes() error {
 	if (input.Clients || input.DiagnosticClient != "" || runtime.GOOS == "darwin" && os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1") && input.BaselineTag == "" && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
 		return errors.New("native succession requires a published predecessor")
 	}
-	if input.Performance != "" && (!input.UsesPrebuiltArtifacts() || os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" && input.BaselineTag == "") {
-		return errors.New("performance acceptance requires an explicit candidate artifact and published baseline")
+	if input.Performance != "" {
+		if !filepath.IsAbs(input.Performance) {
+			return errors.New("performance output must be an absolute directory")
+		}
+		if !input.UsesPrebuiltArtifacts() || os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" && input.BaselineTag == "" {
+			return errors.New("performance acceptance requires an explicit candidate artifact and published baseline")
+		}
 	}
 	return nil
 }
@@ -267,9 +272,6 @@ func BuildNative(ctx context.Context, root, workspace, version string) (string, 
 
 func acceptNative(request buildRequest, artifacts, baseline string, input NativeAcceptance, run toolRunner) (result error) {
 	clients, performance := input.Clients, input.Performance
-	if performance != "" && !filepath.IsAbs(performance) {
-		return errors.New("performance output must be an absolute directory")
-	}
 	if performance != "" {
 		if _, err := os.Stat(performance); !os.IsNotExist(err) {
 			return errors.New("performance output must be a new directory")

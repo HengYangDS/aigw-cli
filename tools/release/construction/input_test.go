@@ -93,6 +93,13 @@ func TestNativePackageAdmissionRequiresOneExactSourceAndTransport(t *testing.T) 
 	if _, err := ParseNativeAcceptance(args); err != nil {
 		t.Fatalf("complete native package identity was refused: %v", err)
 	}
+	output := filepath.Join(t.TempDir(), "performance")
+	if _, err := ParseNativeAcceptance(append(slices.Clone(args), "--performance", output)); err != nil {
+		t.Fatalf("native package performance output was refused: %v", err)
+	}
+	if _, err := ParseNativeAcceptance(append(slices.Clone(args), "--performance", "manager-relative-build/performance")); err == nil || err.Error() != "performance output must be an absolute directory" {
+		t.Fatalf("relative performance input reached package acquisition: %v", err)
+	}
 	for _, missing := range []string{"--input-sha256", "--candidate-source", "--baseline-tag", "--peer", "--repository"} {
 		selected := slices.Clone(args)
 		index := slices.Index(selected, missing)
