@@ -480,7 +480,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		},
 		if _platform == "linux" {
 			name: "Prepare native memory measurement"
-			if:   "github.event_name == 'workflow_dispatch' && inputs.performance"
+			if:   "\(_sourceCondition) || inputs.performance"
 			run:  "set -eu\nsudo -n \(linuxApt.update)\nsudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) time"
 		},
 		{
