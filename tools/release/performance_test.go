@@ -341,8 +341,8 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 			return append(measurements, row), err
 		}
 		row.Executable = &identity
-		if attribution && test.Name == "projection" {
-			row, err = j.measureProjectionProcesses(j.testing.Context(), filepath.Join(output, name+".json"), row, test)
+		if attribution && (test.Name == "projection" || test.Name == "sync") {
+			row, err = j.measureWorkloadProcesses(j.testing.Context(), filepath.Join(output, name+".json"), row, test)
 		} else {
 			row, err = performance.Measure(j.testing.Context(), performance.Command{
 				Tool: hyperfine, Directory: j.root, Output: filepath.Join(output, name+".json"),
@@ -393,6 +393,7 @@ func (j *journeyFixture) attributionCases(helper []string, shell, reader, scope 
 		{Name: "reader-startup", Command: []string{reader, "--version"}},
 		{Name: "credential-direct", Command: []string{reader, "credential", configuration.ClientClaude, scope}},
 		j.performanceCases(helper, "env", "")[1],
+		j.performanceCases(helper, "env", "")[3],
 	}
 }
 
@@ -482,6 +483,7 @@ func TestNativeAttributionKeepsTheProjectedReaderBoundary(t *testing.T) {
 		{Name: "reader-startup", Command: []string{"copied reader", "--version"}},
 		{Name: "credential-direct", Command: []string{"copied reader", "credential", configuration.ClientClaude, "exact-scope"}},
 		journey.performanceCases([]string{"original shell helper"}, "env", "")[1],
+		journey.performanceCases([]string{"original shell helper"}, "env", "")[3],
 	}
 	if runtime.GOOS != "windows" {
 		want[1].Command = []string{"selected shell", "-c", "exit 0"}

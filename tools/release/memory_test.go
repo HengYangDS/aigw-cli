@@ -51,16 +51,16 @@ type processUsage struct {
 	Involuntary  int64  `json:"involuntary_context_switches"`
 }
 
-// measureProjectionProcesses observes the exact env workload inside accept-native's
+// measureWorkloadProcesses observes an exact prepared workload inside accept-native's
 // existing bounded suite group/Job. It adds no independent process controller.
-func (j *journeyFixture) measureProjectionProcesses(parent context.Context, path string, row performance.Measurement, workload performance.Workload) (result performance.Measurement, resultErr error) {
+func (j *journeyFixture) measureWorkloadProcesses(parent context.Context, path string, row performance.Measurement, workload performance.Workload) (result performance.Measurement, resultErr error) {
 	if row.Executable == nil || len(workload.Command) == 0 || workload.Command[0] != row.Executable.Path || len(workload.Prepare) != 0 && workload.Prepare[0] != row.Executable.Path {
-		return row, errors.New("projection diagnosis requires one exact executable identity")
+		return row, errors.New("workload diagnosis requires one exact executable identity")
 	}
 	verify := func() error {
 		observed, err := performance.Identify(row.Executable.Path)
 		if err == nil && !reflect.DeepEqual(observed, *row.Executable) {
-			err = errors.New("projection diagnostic executable identity changed")
+			err = errors.New("workload diagnostic executable identity changed")
 		}
 		return err
 	}
@@ -118,20 +118,25 @@ func (j *journeyFixture) measureProjectionProcesses(parent context.Context, path
 		index++
 		return err
 	})
+	cpuScope := "completed process and waited-for descendants, as reported by native ProcessState"
+	if runtime.GOOS == "windows" {
+		cpuScope = "completed process only; descendant credential workers are excluded"
+	}
 	data, encodeErr := json.MarshalIndent(struct {
 		Qualification bool                  `json:"qualification"`
 		Scope         string                `json:"scope"`
+		Case          string                `json:"case"`
 		CPUAccounting string                `json:"cpu_accounting"`
 		Limits        string                `json:"limits"`
 		Executable    *performance.Identity `json:"executable"`
 		Records       []processMeasurement  `json:"records"`
-	}{false, "projection-process-attribution", "completed process and descendants, as reported by native ProcessState",
+	}{false, "workload-process-attribution", row.Case, cpuScope,
 		"Row timings include prepare, sample and evidence writes; sample records alone measure each completed command. Neither is Hyperfine qualification. Wall-minus-CPU does not distinguish scheduler, storage or IPC waits. Zero or unavailable counters do not prove absence of work.", row.Executable, records}, "", "  ")
 	_, writeErr := recordFile.Write(append(data, '\n'))
 	return row, errors.Join(runErr, verify(), encodeErr, writeErr)
 }
 
-func TestNativeProjectionRetainsCompletedProcessObservations(t *testing.T) {
+func TestNativePreparedWorkloadRetainsCompletedProcessObservations(t *testing.T) {
 	if phase := os.Getenv("AIGW_TEST_PROCESS_PHASE"); phase != "" {
 		if code := map[string]int{"failure/sample": 7, "prepare-failure/prepare": 7}[phase+"/"+os.Args[len(os.Args)-1]]; code != 0 {
 			os.Exit(code)
@@ -155,23 +160,26 @@ func TestNativeProjectionRetainsCompletedProcessObservations(t *testing.T) {
 	}
 	for _, test := range []struct {
 		phase       string
+		workload    string
+		backend     string
 		count, exit int
 		timeout     time.Duration
 	}{
-		{"success", 90, 0, 30 * time.Second},
-		{"failure", 2, 7, 30 * time.Second},
-		{"prepare-failure", 1, 7, 30 * time.Second},
-		{"deadline", 1, deadlineExit, 100 * time.Millisecond},
+		{"success", "projection", "env", 90, 0, 30 * time.Second},
+		{"success", "sync", "keyring", 90, 0, 30 * time.Second},
+		{"failure", "sync", "keyring", 2, 7, 30 * time.Second},
+		{"prepare-failure", "sync", "keyring", 1, 7, 30 * time.Second},
+		{"deadline", "sync", "keyring", 1, deadlineExit, 100 * time.Millisecond},
 	} {
-		t.Run(test.phase, func(t *testing.T) {
+		t.Run(test.phase+"/"+test.workload, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), test.timeout)
 			defer cancel()
 			journey := &journeyFixture{testing: t, root: t.TempDir(), binary: program,
 				environment: append(os.Environ(), "AIGW_TEST_PROCESS_PHASE="+test.phase, "GORACE=atexit_sleep_ms=0")}
 			path := filepath.Join(journey.root, "projection.json")
-			base := []string{program, "-test.run=^TestNativeProjectionRetainsCompletedProcessObservations$"}
-			workload := performance.Workload{Name: "projection", Command: append(slices.Clone(base), "sample"), Prepare: append(slices.Clone(base), "prepare")}
-			row, runErr := journey.measureProjectionProcesses(ctx, path, performance.Measurement{Variant: "candidate", Backend: "env", Case: "projection", Block: 2, Executable: &identity}, workload)
+			base := []string{program, "-test.run=^TestNativePreparedWorkloadRetainsCompletedProcessObservations$"}
+			workload := performance.Workload{Name: test.workload, Command: append(slices.Clone(base), "sample"), Prepare: append(slices.Clone(base), "prepare")}
+			row, runErr := journey.measureWorkloadProcesses(ctx, path, performance.Measurement{Variant: "candidate", Backend: test.backend, Case: test.workload, Block: 2, Executable: &identity}, workload)
 			if test.phase == "deadline" && !errors.Is(runErr, context.DeadlineExceeded) {
 				t.Fatalf("native deadline was not retained: %v", runErr)
 			}
@@ -181,6 +189,7 @@ func TestNativeProjectionRetainsCompletedProcessObservations(t *testing.T) {
 			var report struct {
 				Qualification bool                 `json:"qualification"`
 				Scope         string               `json:"scope"`
+				Case          string               `json:"case"`
 				Records       []processMeasurement `json:"records"`
 			}
 			if err := json.Unmarshal(readFile(t, strings.TrimSuffix(path, ".json")+".processes.json"), &report); err != nil {
@@ -189,20 +198,20 @@ func TestNativeProjectionRetainsCompletedProcessObservations(t *testing.T) {
 			if test.exit == 0 && (len(row.Samples.Times) != 40 || row.Raw != "projection.json") {
 				t.Fatalf("measured samples lost their output binding: %#v", row)
 			}
-			if report.Qualification || report.Scope != "projection-process-attribution" || len(report.Records) != test.count {
+			if report.Qualification || report.Scope != "workload-process-attribution" || report.Case != test.workload || len(report.Records) != test.count {
 				t.Fatalf("process evidence was lost or qualified: %#v", report)
 			}
-			requireProcessMeasurements(t, report.Records, test.exit)
+			requireProcessMeasurements(t, report.Records, test.backend, test.exit)
 		})
 	}
 }
 
 // requireProcessMeasurements checks the same native record contract on successful
 // and interrupted prepared journeys, including partial final observations.
-func requireProcessMeasurements(t *testing.T, records []processMeasurement, finalExit int) {
+func requireProcessMeasurements(t *testing.T, records []processMeasurement, backend string, finalExit int) {
 	t.Helper()
 	for index, record := range records {
-		if record.PID <= 0 || record.WallSeconds <= 0 || record.FinishedAt.Before(record.StartedAt) || record.Phase != []string{"prepare", "sample"}[index%2] || record.Warmup != (index/2 < 5) || record.Block != 2 || record.Variant != "candidate" {
+		if record.PID <= 0 || record.WallSeconds <= 0 || record.FinishedAt.Before(record.StartedAt) || record.Phase != []string{"prepare", "sample"}[index%2] || record.Warmup != (index/2 < 5) || record.Block != 2 || record.Variant != "candidate" || record.Backend != backend {
 			t.Fatalf("completed process binding is incomplete: %#v", record)
 		}
 		wantExit := 0
