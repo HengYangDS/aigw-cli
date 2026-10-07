@@ -109,10 +109,7 @@ func TestNativeClientJourney(t *testing.T) {
 		t.Fatal("team manifest must recommend one route for every admitted client")
 	}
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
-	baseline, err := nativeLifecycleBaseline(func() string { return buildNativeProgram(t, root, "0.0.0") })
-	if err != nil {
-		t.Fatal(err)
-	}
+	baseline := requireNativeLifecycleBaseline(t, func() string { return buildNativeProgram(t, root, "0.0.0") })
 	for _, path := range []string{candidate, archive, checksums} {
 		t.Logf("artifact %s sha256=%x", filepath.Base(path), sha256.Sum256(readFile(t, path)))
 	}

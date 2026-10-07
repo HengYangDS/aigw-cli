@@ -65,18 +65,31 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 	selected := readFile(t, journey.config)
 	for _, routeID := range routeIDs {
 		route := p.manifest.Routes[routeID]
+		route.ID = routeID
 		t.Run(routeID, func(t *testing.T) {
 			before := completions[route.UpstreamModel].Load()
 			journey.testing = t
+			checkpoint := journey.config + ".verified.json"
+			beforeCheckpoint, err := os.ReadFile(checkpoint)
+			if err != nil && !os.IsNotExist(err) {
+				t.Fatal(err)
+			}
 			ctx, cancel := context.WithTimeout(t.Context(), 3*clientverification.ProtocolTimeout)
 			defer cancel()
 			stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
 				Executable: journey.binary, Env: journey.environment,
 				Args: []string{"verify", "--for", configuration.ClientCodex, "--route", routeID},
 			})
-			requireNativeCodexRouteOutcome(t, executable, route, stdout, stderr, err, token)
-			if completions[route.UpstreamModel].Load() != before+3 {
-				t.Fatalf("Codex did not complete a file tool, response and recalled response for upstream model %q", route.UpstreamModel)
+			completed := requireNativeCodexRouteOutcome(t, executable, route, stdout, stderr, err, token)
+			want := int64(3)
+			if !completed {
+				want = 2
+				if afterCheckpoint, err := os.ReadFile(checkpoint); err != nil && !os.IsNotExist(err) || !bytes.Equal(beforeCheckpoint, afterCheckpoint) {
+					t.Fatalf("incomplete metadata changed the verification checkpoint: %v", err)
+				}
+			}
+			if got := completions[route.UpstreamModel].Load() - before; got != want {
+				t.Fatalf("Codex Route %s completed=%t requests=%d, want %d", routeID, completed, got, want)
 			}
 			if !slices.Equal(readFile(t, journey.config), selected) {
 				t.Fatal("explicit Route verification changed the selected client binding")
@@ -87,13 +100,13 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 }
 
-func requireNativeCodexRouteOutcome(t *testing.T, executable string, route configuration.Route, stdout, stderr []byte, runErr error, token string) {
+func requireNativeCodexRouteOutcome(t *testing.T, executable string, route configuration.Route, stdout, stderr []byte, runErr error, token string) bool {
 	t.Helper()
 	if runErr == nil {
 		if !bytes.Contains(stdout, []byte("Completed")) || process.DiagnosticFailure(stderr) {
 			t.Fatalf("native Route verification did not complete cleanly: %s", redaction.Text(string(stderr), token))
 		}
-		return
+		return true
 	}
 	diagnostic := string(stdout) + string(stderr)
 	if !strings.Contains(diagnostic, "model-metadata warning") {
@@ -108,6 +121,7 @@ func requireNativeCodexRouteOutcome(t *testing.T, executable string, route confi
 		t.Fatalf("model-metadata refusal is not supported by the native catalogue: %v", err)
 	}
 	t.Logf("Route %s issued the native request; metadata qualification remains incomplete", route.ID)
+	return false
 }
 
 func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
@@ -154,7 +168,9 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 		Args: []string{"verify", "--for", configuration.ClientCodex},
 	})
 	cancel()
-	requireNativeCodexRouteOutcome(t, executable, p.manifest.Routes[routeID], stdout, stderr, verifyErr, token)
+	route := p.manifest.Routes[routeID]
+	route.ID = routeID
+	requireNativeCodexRouteOutcome(t, executable, route, stdout, stderr, verifyErr, token)
 	if verifyErr == nil {
 		t.Fatal("Grok native metadata warning was accepted as complete verification")
 	}
