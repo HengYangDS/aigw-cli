@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -41,6 +42,8 @@ func writeFile(t *testing.T, path string, data []byte, mode os.FileMode) {
 }
 
 type fakeRunner struct {
+	challenge string
+
 	plans   []process.Plan
 	output  []byte
 	stderr  []byte
@@ -66,20 +69,41 @@ func (r *fakeRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, e
 	if r.capture != nil {
 		return append([]byte(nil), r.output...), r.capture
 	}
-	if outputPath := planArgumentValue(plan.Args, "--output-last-message"); outputPath != "" {
-		output := r.output
-		if output == nil {
-			output = []byte("AIGW_OK\n")
+	outputPath := planArgumentValue(plan.Args, "--output-last-message")
+	if outputPath == "" {
+		if r.output == nil {
+			return []byte("AIGW_OK\n"), nil
 		}
-		if err := os.WriteFile(outputPath, output, 0o600); err != nil {
+		return append([]byte(nil), r.output...), nil
+	}
+	if !slices.Contains(plan.Args, "resume") {
+		challenge, err := os.ReadFile(filepath.Join(filepath.Dir(outputPath), "challenge.txt"))
+		if err != nil {
 			return nil, err
 		}
-		return []byte("non-authoritative diagnostic output\n"), nil
+		r.challenge = strings.TrimSpace(string(challenge))
 	}
-	if r.output == nil {
-		return []byte("AIGW_OK\n"), nil
+	output := r.output
+	if output == nil {
+		output = []byte(r.challenge + "\n")
 	}
-	return append([]byte(nil), r.output...), nil
+	if err := os.WriteFile(outputPath, output, 0o600); err != nil {
+		return nil, err
+	}
+	events := []map[string]any{{"type": "thread.started", "thread_id": "00000000-0000-4000-8000-000000000001"}}
+	if !slices.Contains(plan.Args, "resume") {
+		events = append(events, map[string]any{"type": "item.completed", "item": map[string]any{
+			"type": "command_execution", "status": "completed", "command": "cat challenge.txt", "exit_code": 0, "aggregated_output": r.challenge,
+		}})
+	}
+	events = append(events, map[string]any{"type": "item.completed", "item": map[string]any{"type": "agent_message", "text": strings.TrimSpace(string(output))}}, map[string]any{"type": "turn.completed"})
+	var captured bytes.Buffer
+	for _, event := range events {
+		if err := json.NewEncoder(&captured).Encode(event); err != nil {
+			return nil, err
+		}
+	}
+	return captured.Bytes(), nil
 }
 
 func planArgumentValue(arguments []string, name string) string {

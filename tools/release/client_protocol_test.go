@@ -3,11 +3,13 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,7 +21,9 @@ import (
 )
 
 type responsesToolDefinition struct {
-	Name string `json:"name"`
+	Type  string                    `json:"type"`
+	Name  string                    `json:"name"`
+	Tools []responsesToolDefinition `json:"tools"`
 }
 
 type responsesToolLoopItem struct {
@@ -28,14 +32,22 @@ type responsesToolLoopItem struct {
 	Output json.RawMessage `json:"output"`
 }
 
-type responsesToolLoopRequest struct {
-	Model     string `json:"model"`
-	Stream    bool   `json:"stream"`
-	Reasoning struct {
+type clientInferenceRequest struct {
+	Model           string          `json:"model"`
+	Stream          bool            `json:"stream"`
+	Input           json.RawMessage `json:"input"`
+	MaxOutputTokens int             `json:"max_output_tokens"`
+	MaxTokens       int             `json:"max_tokens"`
+	Store           bool            `json:"store"`
+	Messages        json.RawMessage `json:"messages"`
+	Reasoning       struct {
 		Effort string `json:"effort"`
 	} `json:"reasoning"`
-	Tools []responsesToolDefinition `json:"tools"`
-	Input json.RawMessage           `json:"input"`
+	OutputConfig struct {
+		Effort string `json:"effort"`
+	} `json:"output_config"`
+	ReasoningEffort string                    `json:"reasoning_effort"`
+	Tools           []responsesToolDefinition `json:"tools"`
 }
 
 func responsesToolLoopInputCount(input json.RawMessage) int {
@@ -51,29 +63,87 @@ func responsesToolLoopInputCount(input json.RawMessage) int {
 }
 
 func responsesToolLoopOutputs(input json.RawMessage) ([]responsesToolLoopItem, error) {
-	var rawItems []json.RawMessage
-	if err := json.Unmarshal(input, &rawItems); err != nil {
+	var items []responsesToolLoopItem
+	if err := json.Unmarshal(input, &items); err != nil {
 		var text string
 		if json.Unmarshal(input, &text) == nil {
 			return nil, nil
 		}
 		return nil, err
 	}
-	outputs := make([]responsesToolLoopItem, 0, len(rawItems))
-	for _, raw := range rawItems {
-		var header struct {
-			Type string `json:"type"`
-		}
-		if err := json.Unmarshal(raw, &header); err != nil || header.Type != "function_call_output" {
+	return slices.DeleteFunc(items, func(item responsesToolLoopItem) bool {
+		return item.Type != "function_call_output" && item.Type != "custom_tool_call_output"
+	}), nil
+}
+
+func codexChallengeReply(input clientInferenceRequest) (string, error) {
+	outputs, err := responsesToolLoopOutputs(input.Input)
+	if err != nil {
+		return "", fmt.Errorf("invalid native challenge input")
+	}
+	for _, item := range outputs {
+		if item.CallID != "call_aigw_challenge" {
 			continue
 		}
-		var item responsesToolLoopItem
-		if err := json.Unmarshal(raw, &item); err != nil {
-			return nil, err
+		var output string
+		if json.Unmarshal(item.Output, &output) != nil {
+			var content []struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+			}
+			if err := json.Unmarshal(item.Output, &content); err != nil {
+				return "", fmt.Errorf("native challenge tool output is malformed")
+			}
+			for _, part := range content {
+				if part.Type != "input_text" {
+					return "", fmt.Errorf("native challenge tool output is not text")
+				}
+				output += part.Text
+			}
 		}
-		outputs = append(outputs, item)
+		if !strings.Contains(output, "Process exited with code 0") {
+			return "", fmt.Errorf("native challenge tool did not complete successfully")
+		}
+		fields := strings.Fields(output)
+		marker := fields[len(fields)-1]
+		if decoded, err := hex.DecodeString(marker); err != nil || len(decoded) != 24 {
+			return "", fmt.Errorf("native challenge tool did not return the file contents")
+		}
+		return marker, nil
 	}
-	return outputs, nil
+	return "", nil
+}
+
+func (input clientInferenceRequest) codexCommandTool() (custom bool, err error) {
+	for _, tool := range input.Tools {
+		if tool.Type == "function" && tool.Name == "exec_command" {
+			return false, nil
+		}
+	}
+	var items []struct {
+		Type  string                    `json:"type"`
+		Role  string                    `json:"role"`
+		Tools []responsesToolDefinition `json:"tools"`
+	}
+	if err := json.Unmarshal(input.Input, &items); err != nil {
+		return false, err
+	}
+	for _, item := range items {
+		if item.Type != "additional_tools" || item.Role != "developer" {
+			continue
+		}
+		for _, namespace := range item.Tools {
+			if namespace.Type != "namespace" || namespace.Name != "functions" {
+				continue
+			}
+			for _, tool := range namespace.Tools {
+				if tool.Type == "custom" && tool.Name == "exec" {
+					return true, nil
+				}
+			}
+		}
+	}
+	return false, fmt.Errorf("native challenge requires the client's declared command tool")
 }
 
 func newNativeClientServer(t *testing.T, client string, protocol configuration.EndpointProtocol, model, token string, completions *atomic.Int64) (*httptest.Server, *hermesSessionRecorder) {
@@ -82,7 +152,11 @@ func newNativeClientServer(t *testing.T, client string, protocol configuration.E
 	if client == configuration.ClientHermes {
 		requiredEffort = ""
 	}
-	handler := clientResponseHandler(protocol, map[string]*atomic.Int64{model: completions}, token, requiredEffort)
+	shell := ""
+	if client == configuration.ClientCodex {
+		shell = nativeCodexToolShell(t)
+	}
+	handler := clientResponseHandler(protocol, map[string]*atomic.Int64{model: completions}, token, requiredEffort, shell)
 	var hermesSession *hermesSessionRecorder
 	if client == configuration.ClientHermes {
 		hermesSession = &hermesSessionRecorder{Handler: handler, model: model, token: token}
@@ -138,7 +212,7 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 				request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
 				request.Header.Set("Authorization", "Bearer "+test.credential)
 				response = httptest.NewRecorder()
-				clientResponseHandler(protocol, expected, "synthetic", "high").ServeHTTP(response, request)
+				clientResponseHandler(protocol, expected, "synthetic", "high", "").ServeHTTP(response, request)
 				if response.Code != test.status || completions.Load() != test.completed {
 					t.Fatalf("%s %s: status=%d completions=%d", test.method, test.path, response.Code, completions.Load())
 				}
@@ -162,7 +236,7 @@ func TestNativeClientInferenceEnvelope(t *testing.T) {
 			var completions atomic.Int64
 			response := httptest.NewRecorder()
 			recorder := hermesSessionRecorder{
-				Handler: clientResponseHandler(protocol, map[string]*atomic.Int64{"configured-model": &completions}, "synthetic", "high"),
+				Handler: clientResponseHandler(protocol, map[string]*atomic.Int64{"configured-model": &completions}, "synthetic", "high", ""),
 				model:   "configured-model",
 			}
 			recorder.ServeHTTP(response, request)
@@ -178,7 +252,7 @@ func TestNativeClientInferenceEnvelope(t *testing.T) {
 
 func assertStreamEvents(t *testing.T, protocol configuration.EndpointProtocol, body string) {
 	t.Helper()
-	for _, data := range clientResponseEvents(protocol, "configured-model") {
+	for _, data := range clientResponseEvents(protocol, "configured-model", "AIGW_OK") {
 		if protocol == configuration.ProtocolOpenAIChatCompletions {
 			if !strings.Contains(body, "data: "+data+"\n\n") {
 				t.Fatalf("missing Chat Completions event: %s", body)
@@ -197,7 +271,7 @@ func assertStreamEvents(t *testing.T, protocol configuration.EndpointProtocol, b
 	}
 }
 
-func clientResponseHandler(protocol configuration.EndpointProtocol, completions map[string]*atomic.Int64, token, requiredEffort string) http.Handler {
+func clientResponseHandler(protocol configuration.EndpointProtocol, completions map[string]*atomic.Int64, token, requiredEffort, shell string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/models", func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
@@ -205,22 +279,7 @@ func clientResponseHandler(protocol configuration.EndpointProtocol, completions 
 	})
 	path, _ := streamRequest(protocol, "")
 	mux.HandleFunc("POST "+path, func(response http.ResponseWriter, request *http.Request) {
-		var input struct {
-			Model           string          `json:"model"`
-			Stream          bool            `json:"stream"`
-			Input           json.RawMessage `json:"input"`
-			MaxOutputTokens int             `json:"max_output_tokens"`
-			MaxTokens       int             `json:"max_tokens"`
-			Store           bool            `json:"store"`
-			Messages        json.RawMessage `json:"messages"`
-			Reasoning       struct {
-				Effort string `json:"effort"`
-			} `json:"reasoning"`
-			OutputConfig struct {
-				Effort string `json:"effort"`
-			} `json:"output_config"`
-			ReasoningEffort string `json:"reasoning_effort"`
-		}
+		var input clientInferenceRequest
 		if err := json.NewDecoder(request.Body).Decode(&input); err != nil {
 			http.Error(response, "invalid model request", http.StatusBadRequest)
 			return
@@ -256,24 +315,9 @@ func clientResponseHandler(protocol configuration.EndpointProtocol, completions 
 			http.Error(response, "configured effort required", http.StatusBadRequest)
 			return
 		}
-		response.Header().Set("Content-Type", "text/event-stream")
-		for _, data := range clientResponseEvents(protocol, input.Model) {
-			if protocol == configuration.ProtocolOpenAIChatCompletions {
-				if _, err := fmt.Fprintf(response, "data: %s\n\n", data); err != nil {
-					return
-				}
-				continue
-			}
-			var event struct {
-				Type string `json:"type"`
-			}
-			if err := json.Unmarshal([]byte(data), &event); err != nil {
-				http.Error(response, "invalid fixture event", http.StatusInternalServerError)
-				return
-			}
-			if _, err := fmt.Fprintf(response, "event: %s\ndata: %s\n\n", event.Type, data); err != nil {
-				return
-			}
+		if err := input.writeStream(response, protocol, shell); err != nil {
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
 		}
 		completion.Add(1)
 	})
@@ -284,6 +328,55 @@ func clientResponseHandler(protocol configuration.EndpointProtocol, completions 
 		}
 		mux.ServeHTTP(response, request)
 	})
+}
+
+func (input clientInferenceRequest) writeStream(response http.ResponseWriter, protocol configuration.EndpointProtocol, shell string) error {
+	text := "AIGW_OK"
+	if protocol == configuration.ProtocolOpenAIResponses && strings.Contains(string(input.Input), "challenge.txt") {
+		var err error
+		text, err = codexChallengeReply(input)
+		if err != nil {
+			return err
+		}
+	}
+	if text == "" {
+		custom, err := input.codexCommandTool()
+		if err != nil {
+			return err
+		}
+		command := map[string]any{"cmd": "cat challenge.txt"}
+		if shell != "" {
+			command["cmd"], command["shell"], command["login"] = "type challenge.txt", shell, false
+		}
+		arguments, err := json.Marshal(command)
+		if err != nil {
+			return err
+		}
+		return writeResponsesToolCall(response, "resp_aigw_challenge", "fc_aigw_challenge", "call_aigw_challenge", "exec_command", string(arguments), custom)
+	}
+	return writeNativeResponseEvents(response, protocol, clientResponseEvents(protocol, input.Model, text))
+}
+
+func writeNativeResponseEvents(response http.ResponseWriter, protocol configuration.EndpointProtocol, events []string) error {
+	response.Header().Set("Content-Type", "text/event-stream")
+	for _, data := range events {
+		if protocol == configuration.ProtocolOpenAIChatCompletions {
+			if _, err := fmt.Fprintf(response, "data: %s\n\n", data); err != nil {
+				return err
+			}
+			continue
+		}
+		var event struct {
+			Type string `json:"type"`
+		}
+		if err := json.Unmarshal([]byte(data), &event); err != nil {
+			return fmt.Errorf("invalid fixture event")
+		}
+		if _, err := fmt.Fprintf(response, "event: %s\ndata: %s\n\n", event.Type, data); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func streamEffort(protocol configuration.EndpointProtocol, responses, messages, chat string) string {
@@ -312,7 +405,7 @@ func streamRequest(protocol configuration.EndpointProtocol, model string) (strin
 	}
 }
 
-func clientResponseEvents(protocol configuration.EndpointProtocol, model string) []string {
+func clientResponseEvents(protocol configuration.EndpointProtocol, model, text string) []string {
 	if protocol == configuration.ProtocolAnthropic {
 		return []string{
 			fmt.Sprintf(`{"type":"message_start","message":{"id":"msg_fixture","type":"message","role":"assistant","model":%q,"content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":1,"output_tokens":0}}}`, model),
@@ -335,10 +428,10 @@ func clientResponseEvents(protocol configuration.EndpointProtocol, model string)
 		`{"type":"response.created","response":{"id":"resp_fixture","object":"response","status":"in_progress","output":[]}}`,
 		`{"type":"response.output_item.added","output_index":0,"item":{"id":"msg_fixture","type":"message","role":"assistant","status":"in_progress","content":[]}}`,
 		`{"type":"response.content_part.added","item_id":"msg_fixture","output_index":0,"content_index":0,"part":{"type":"output_text","text":"","annotations":[]}}`,
-		`{"type":"response.output_text.delta","item_id":"msg_fixture","output_index":0,"content_index":0,"delta":"AIGW_OK"}`,
-		`{"type":"response.output_text.done","item_id":"msg_fixture","output_index":0,"content_index":0,"text":"AIGW_OK"}`,
-		`{"type":"response.output_item.done","output_index":0,"item":{"id":"msg_fixture","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"AIGW_OK","annotations":[]}]}}`,
-		`{"type":"response.completed","response":{"id":"resp_fixture","object":"response","status":"completed","output":[{"id":"msg_fixture","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"AIGW_OK","annotations":[]}]}],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`,
+		fmt.Sprintf(`{"type":"response.output_text.delta","item_id":"msg_fixture","output_index":0,"content_index":0,"delta":%q}`, text),
+		fmt.Sprintf(`{"type":"response.output_text.done","item_id":"msg_fixture","output_index":0,"content_index":0,"text":%q}`, text),
+		fmt.Sprintf(`{"type":"response.output_item.done","output_index":0,"item":{"id":"msg_fixture","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":%q,"annotations":[]}]}}`, text),
+		fmt.Sprintf(`{"type":"response.completed","response":{"id":"resp_fixture","object":"response","status":"completed","output":[{"id":"msg_fixture","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":%q,"annotations":[]}]}],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`, text),
 	}
 }
 
@@ -356,21 +449,78 @@ func TestResponsesToolLoopOutputsAcceptsTextInput(t *testing.T) {
 	}
 }
 
-func writeResponsesFunctionCall(response http.ResponseWriter, responseID, itemID, callID, name, arguments string) {
-	added := fmt.Sprintf(`{"id":%q,"type":"function_call","call_id":%q,"name":%q,"arguments":"","status":"in_progress"}`, itemID, callID, name)
-	completed := fmt.Sprintf(`{"id":%q,"type":"function_call","call_id":%q,"name":%q,"arguments":%q,"status":"completed"}`, itemID, callID, name, arguments)
-	events := []struct{ name, data string }{
-		{"response.created", fmt.Sprintf(`{"type":"response.created","response":{"id":%q,"object":"response","status":"in_progress","output":[]}}`, responseID)},
-		{"response.output_item.added", fmt.Sprintf(`{"type":"response.output_item.added","output_index":0,"item":%s}`, added)},
-		{"response.function_call_arguments.delta", fmt.Sprintf(`{"type":"response.function_call_arguments.delta","item_id":%q,"output_index":0,"delta":%q}`, itemID, arguments)},
-		{"response.function_call_arguments.done", fmt.Sprintf(`{"type":"response.function_call_arguments.done","item_id":%q,"output_index":0,"arguments":%q}`, itemID, arguments)},
-		{"response.output_item.done", fmt.Sprintf(`{"type":"response.output_item.done","output_index":0,"item":%s}`, completed)},
-		{"response.completed", fmt.Sprintf(`{"type":"response.completed","response":{"id":%q,"object":"response","status":"completed","output":[%s],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`, responseID, completed)},
+func TestNativeCodexChallengeStreamRequiresToolOutputAndRecall(t *testing.T) {
+	const marker = "0123456789abcdef0123456789abcdef0123456789abcdef"
+	for _, client := range []struct{ name, tools, declaration, call, outputType string }{
+		{"function", `[{"type":"function","name":"exec_command"}]`, "", `"name":"exec_command"`, "function_call_output"},
+		{"native custom", `[]`, `{"type":"additional_tools","role":"developer","tools":[{"type":"namespace","name":"functions","tools":[{"type":"custom","name":"exec"}]}]},`, `"namespace":"functions"`, "custom_tool_call_output"},
+	} {
+		t.Run(client.name, func(t *testing.T) {
+			var completed atomic.Int64
+			handler := clientResponseHandler(configuration.ProtocolOpenAIResponses, map[string]*atomic.Int64{"configured-model": &completed}, "synthetic", "high", "")
+			challenge := client.declaration + `{"role":"user","content":"Use a shell tool to read challenge.txt"}`
+			result := `"Process exited with code 0\nFinal output:\n` + marker + `"`
+			if client.outputType == "custom_tool_call_output" {
+				result = `[{"type":"input_text","text":"Script completed\nWall time 0.1 seconds\nOutput:\n"},{"type":"input_text","text":` + result + `}]`
+			}
+			output := `,{"type":"` + client.outputType + `","call_id":"call_aigw_challenge","output":` + result + `}`
+			for index, input := range []string{
+				`[` + challenge + `]`,
+				`[` + challenge + output + `]`,
+				`[` + challenge + output + `,{"role":"assistant","content":"` + marker + `"},{"role":"user","content":"Recall the previous turn without using tools"}]`,
+			} {
+				body := `{"model":"configured-model","stream":true,"reasoning":{"effort":"high"},"tools":` + client.tools + `,"input":` + input + `}`
+				request := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))
+				request.Header.Set("Authorization", "Bearer synthetic")
+				response := httptest.NewRecorder()
+				if index == 0 {
+					handler.ServeHTTP(failedNativeResponseWriter{httptest.NewRecorder()}, request)
+					if completed.Load() != 0 {
+						t.Fatal("failed native stream counted as a completed tool call")
+					}
+					request.Body = io.NopCloser(strings.NewReader(body))
+				}
+				handler.ServeHTTP(response, request)
+				if response.Code != http.StatusOK {
+					t.Fatalf("native challenge request %d failed: %d", index, response.Code)
+				}
+				if index == 0 {
+					if !strings.Contains(response.Body.String(), client.call) || strings.Contains(response.Body.String(), marker) {
+						t.Fatal("the first turn did not require an actual challenge file tool read")
+					}
+				} else if !strings.Contains(response.Body.String(), marker) || strings.Contains(response.Body.String(), `"type":"function_call"`) || strings.Contains(response.Body.String(), `"type":"custom_tool_call"`) {
+					t.Fatal("native tool output or its same-session recall was not preserved")
+				}
+			}
+			if completed.Load() != 3 {
+				t.Fatalf("native challenge completion count = %d, want tool call, final text and recalled text", completed.Load())
+			}
+		})
 	}
-	response.Header().Set("Content-Type", "text/event-stream")
-	for _, event := range events {
-		if _, err := fmt.Fprintf(response, "event: %s\ndata: %s\n\n", event.name, event.data); err != nil {
-			return
-		}
+}
+
+type failedNativeResponseWriter struct{ *httptest.ResponseRecorder }
+
+func (failedNativeResponseWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+func writeResponsesToolCall(response http.ResponseWriter, responseID, itemID, callID, name, input string, custom bool) error {
+	kind, field, deltaEvent := "function_call", "arguments", "response.function_call_arguments"
+	namespace := ""
+	if custom {
+		kind, field, deltaEvent = "custom_tool_call", "input", "response.custom_tool_call_input"
+		name = "exec"
+		input = `const result = await tools.exec_command(` + input + `); if (result.exit_code !== 0) throw new Error("Native command failed"); text("Process exited with code 0\nFinal output:\n" + result.output);`
+		namespace = `,"namespace":"functions"`
 	}
+	added := fmt.Sprintf(`{"id":%q,"type":%q,"call_id":%q,"name":%q%s,%q:"","status":"in_progress"}`, itemID, kind, callID, name, namespace, field)
+	completed := fmt.Sprintf(`{"id":%q,"type":%q,"call_id":%q,"name":%q%s,%q:%q,"status":"completed"}`, itemID, kind, callID, name, namespace, field, input)
+	events := []string{
+		fmt.Sprintf(`{"type":"response.created","response":{"id":%q,"object":"response","status":"in_progress","output":[]}}`, responseID),
+		fmt.Sprintf(`{"type":"response.output_item.added","output_index":0,"item":%s}`, added),
+		fmt.Sprintf(`{"type":%q,"item_id":%q,"output_index":0,"delta":%q}`, deltaEvent+".delta", itemID, input),
+		fmt.Sprintf(`{"type":%q,"item_id":%q,"output_index":0,%q:%q}`, deltaEvent+".done", itemID, field, input),
+		fmt.Sprintf(`{"type":"response.output_item.done","output_index":0,"item":%s}`, completed),
+		fmt.Sprintf(`{"type":"response.completed","response":{"id":%q,"object":"response","status":"completed","output":[%s],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`, responseID, completed),
+	}
+	return writeNativeResponseEvents(response, configuration.ProtocolOpenAIResponses, events)
 }

@@ -72,7 +72,7 @@ func TestRouteInterfacesConstrainClientCompatibilityAndRuntimeSelection(t *testi
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if compatible, err := cfg.CompatibleClientIDs("chat-only"); err != nil || len(compatible) != 1 || compatible[0] != ClientHermes {
+	if compatible, err := cfg.ProtocolClientIDs("chat-only"); err != nil || len(compatible) != 1 || compatible[0] != ClientHermes {
 		t.Fatalf("compatible clients = %v, %v", compatible, err)
 	}
 	runtime, err := cfg.ResolveRuntime(ClientHermes, "")

@@ -237,7 +237,7 @@ func (c *Config) RouteIDs() []string {
 // ClientForRoute returns the sole admitted client compatible with a Route.
 // Callers must ask for an explicit client when more than one is compatible.
 func (c *Config) ClientForRoute(name string) (string, error) {
-	compatible, err := c.CompatibleClientIDs(name)
+	compatible, err := c.ProtocolClientIDs(name)
 	if err != nil {
 		return "", err
 	}
@@ -247,9 +247,9 @@ func (c *Config) ClientForRoute(name string) (string, error) {
 	return compatible[0], nil
 }
 
-// CompatibleClientIDs returns admitted clients that can resolve one Route
-// without guessing between several compatible protocols.
-func (c *Config) CompatibleClientIDs(name string) ([]string, error) {
+// ProtocolClientIDs returns clients whose declared protocol overlaps one Route.
+// Protocol overlap permits selection; it does not qualify native client behavior.
+func (c *Config) ProtocolClientIDs(name string) ([]string, error) {
 	route, ok := c.Routes[name]
 	if !ok {
 		return nil, fmt.Errorf("unknown route %q", name)

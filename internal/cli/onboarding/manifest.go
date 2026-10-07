@@ -274,7 +274,7 @@ func configuredClientsForAccount(cfg configuration.Config, accountName string) [
 		if route.Account != accountName {
 			continue
 		}
-		clients, err := cfg.CompatibleClientIDs(routeID)
+		clients, err := cfg.ProtocolClientIDs(routeID)
 		if err != nil {
 			continue
 		}

@@ -74,7 +74,7 @@
       "authority": "AIGW command composition at the selected product revision"
     },
     "configuration": {
-      "sha256": "24875f83e6a9c3f499ce1f845f05c4a8ac50fae5183f5471d78fba5cab2d0b1b",
+      "sha256": "b06acdfb8e15077a068e328c3579f5745356ddfa5df4cbad496d137a940ba207",
       "locator": "source/internal/configuration/model.go",
       "authority": "AIGW Account, Model, Route, recommendation, and Client Binding authority"
     },
@@ -89,7 +89,7 @@
       "authority": "AIGW read-only native client discovery contract"
     },
     "registry": {
-      "sha256": "32dca23c1771779e22f7b68016c7c60250b4a130761a374c4e694269379d92e2",
+      "sha256": "ea53dc3c72de1365790d2cc3a5fa535c33542b67ad7e9422f8c081bbbe311be7",
       "locator": "source/internal/client/registry.go",
       "authority": "AIGW ordered client registry and Adapter contract"
     },

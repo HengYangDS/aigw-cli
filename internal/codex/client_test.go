@@ -128,7 +128,7 @@ func TestVerificationPlanRejectsIncompleteInputs(t *testing.T) {
 		{name: "missing output", executable: "codex", configPath: "config.toml", runtime: runtime, want: "output path is not configured"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := VerificationPlan(test.executable, test.configPath, test.outputPath, test.runtime)
+			_, err := VerificationPlan(test.executable, test.configPath, test.outputPath, test.runtime, "Read challenge.txt", "")
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("VerificationPlan() error = %v, want %q", err, test.want)
 			}
@@ -141,7 +141,7 @@ func TestVerificationPlanPreservesCredentialHelperEnvironment(t *testing.T) {
 	t.Setenv("AIGW_TOKEN_GATEWAY", "fixture-token")
 	t.Setenv("CODEX_HOME", filepath.Join(t.TempDir(), "ambient-home"))
 	home := t.TempDir()
-	plan, err := VerificationPlan("codex", filepath.Join(home, "config.toml"), filepath.Join(t.TempDir(), "output.txt"), configuration.Runtime{RouteID: "codex", Model: "gpt-test"})
+	plan, err := VerificationPlan("codex", filepath.Join(home, "config.toml"), filepath.Join(t.TempDir(), "output.txt"), configuration.Runtime{RouteID: "codex", Model: "gpt-test"}, "Read challenge.txt", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,13 +164,13 @@ func TestVerificationPlanOwnsNativeTemporaryRoot(t *testing.T) {
 	}
 	home := filepath.Join(parent, "codex-home")
 	temporary := filepath.Join(parent, "verification-output")
-	plan, err := VerificationPlan("codex", filepath.Join(home, "config.toml"), filepath.Join(temporary, "response.txt"), configuration.Runtime{RouteID: "codex", Model: "gpt-test"})
+	plan, err := VerificationPlan("codex", filepath.Join(home, "config.toml"), filepath.Join(temporary, "response.txt"), configuration.Runtime{RouteID: "codex", Model: "gpt-test"}, "Read challenge.txt", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
-		if !slices.Contains(plan.Env, key+"="+temporary) || slices.Contains(plan.Env, key+"="+parent) {
-			t.Fatalf("native temporary environment %s did not select the owned output workspace", key)
+		if !slices.Contains(plan.Env, key+"="+filepath.Join(home, "tmp")) || slices.Contains(plan.Env, key+"="+parent) {
+			t.Fatalf("native temporary environment %s did not select the private Codex home's child workspace", key)
 		}
 	}
 	if os.Getenv("TMPDIR") != parent {

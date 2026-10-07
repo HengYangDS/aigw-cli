@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -170,8 +171,9 @@ func TestClaudeDesktopInspectionKeepsIntactRetainedVersionedReader(t *testing.T)
 }
 
 type routeVerificationRunner struct {
-	plans  []process.Plan
-	config []byte
+	plans     []process.Plan
+	config    []byte
+	challenge string
 }
 
 func (runner *routeVerificationRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
@@ -194,7 +196,19 @@ func (runner *routeVerificationRunner) RunCapture(_ context.Context, plan proces
 	if err != nil {
 		return nil, err
 	}
-	return nil, os.WriteFile(outputPath, []byte("AIGW_OK\n"), 0o600)
+	tool := ""
+	if !slices.Contains(plan.Args, "resume") {
+		challenge, err := os.ReadFile(filepath.Join(filepath.Dir(outputPath), "challenge.txt"))
+		if err != nil {
+			return nil, err
+		}
+		runner.challenge = strings.TrimSpace(string(challenge))
+		tool = fmt.Sprintf(`{"type":"item.completed","item":{"type":"command_execution","status":"completed","command":"cat challenge.txt","exit_code":0,"aggregated_output":%q}}`+"\n", runner.challenge)
+	}
+	if err := os.WriteFile(outputPath, []byte(runner.challenge+"\n"), 0o600); err != nil {
+		return nil, err
+	}
+	return []byte(fmt.Sprintf(`{"type":"thread.started","thread_id":"00000000-0000-4000-8000-000000000001"}`+"\n"+`%s{"type":"item.completed","item":{"type":"agent_message","text":%q}}`+"\n"+`{"type":"turn.completed"}`+"\n", tool, runner.challenge)), nil
 }
 
 func argumentValue(arguments []string, name string) string {

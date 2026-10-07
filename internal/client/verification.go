@@ -123,14 +123,14 @@ func (codexAdapter) Verify(ctx context.Context, deps Dependencies, cfg configura
 		}()
 		cfg = isolated
 	}
-	verifyCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
+	verifyCtx, cancel := context.WithTimeout(ctx, 3*clientverification.ProtocolTimeout)
 	defer cancel()
 	runner := deps.Runner
 	if cfg.Clients[configuration.ClientCodex].CredentialCommand != "" && runner != nil {
 		runner = externalCredentialRunner{runner: runner}
 	}
 	identity, err := clientverification.VerifyCodexInvocation(verifyCtx, runner, cfg, runtime)
-	return Verification{Version: identity.Version, SHA256: identity.SHA256}, err
+	return Verification{Version: identity.Version, SHA256: identity.SHA256, Scope: "Native file-tool execution and same-session recall"}, err
 }
 
 func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime, explicitRoute string) (_ Verification, result error) {
@@ -188,7 +188,7 @@ func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configur
 	if adapter.CredentialCommand != "" && runner != nil {
 		runner = externalCredentialRunner{runner: runner}
 	}
-	return Verification{}, clientverification.VerifyClaudeRuntime(verifyCtx, runner, adapter.Executable, settingsPath, runtime, token)
+	return Verification{Scope: "Native text response; tools and continuation are not probed"}, clientverification.VerifyClaudeRuntime(verifyCtx, runner, adapter.Executable, settingsPath, runtime, token)
 }
 
 func isolateCodexProjection(cfg configuration.Config, runtime configuration.Runtime, adapter configuration.ClientBinding) (isolated configuration.Config, workspace string, result error) {

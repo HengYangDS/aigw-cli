@@ -61,7 +61,9 @@ The October 4, 2026 primary-source review does not admit speculative replacement
 - MiniMax's [current language models](https://platform.minimax.io/docs/guides/models-intro)
   identify M3 for frontier coding. Its [H3 release](https://www.minimax.io/blog/minimax-h3)
   generates video and sound; H3 catalogue entries do not replace a text-agent
-  Model. Step 5 Preview remains discovery-only without equivalent qualification.
+  Model. At this September 25 read, Step 5 Preview was discovery-only; the
+  [October 5–6 successor qualification](#october-56-model-refresh)
+  below records the later admitted Routes.
 
 The public catalogues returned 417 AIHubMix and 128 UCloud IDs. UCloud's anonymous
 listing omits GPT and Claude, which does not establish their absence from an
@@ -265,9 +267,11 @@ Those labels do not create extra general-model slots.
 The public
 AIHubMix catalogue also lists Cohere Command A+ and Microsoft's MAI Thinking 1.
 Command A+ returned HTTP 400 on the tested Responses and Chat endpoints;
-MAI Thinking 1 and Step 5 Preview lack the completed general-agent
-provider/client qualification required above. These listings are not admitted
-Routes; their Preview labels alone do not establish unavailability.
+At that September 25 read, MAI Thinking 1 and Step 5 Preview lacked completed
+general-agent qualification. The later October 5–6 results supersede that
+Step 5 observation; historical listing and failed endpoint evidence remain
+separate from admitted Routes. Preview labels alone do not establish
+unavailability.
 
 AIHubMix's `agnes-3.0-flash` returned Chat text, but its
 [preview model card](https://huggingface.co/Agnes-AI/Agnes-3.0-Flash) and that

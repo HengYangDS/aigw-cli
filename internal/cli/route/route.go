@@ -126,8 +126,8 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 					state, stateText = presentation.OK, "Selected for "+strings.Join(item.SelectedClients, ", ")
 				}
 				detail := []string{choiceLabel(configuration.Route{Label: item.Label, Purpose: item.Purpose}), stateText, "Account " + item.Account}
-				if len(item.CompatibleClients) > 0 {
-					detail = append(detail, "Clients "+strings.Join(item.CompatibleClients, ", "))
+				if len(item.ProtocolClients) > 0 {
+					detail = append(detail, "Clients "+strings.Join(item.ProtocolClients, ", "))
 				}
 				r.StatusLine(state, "Route", item.ID)
 				r.Detail(strings.Join(detail, " · "))
@@ -145,24 +145,24 @@ type routeListOutput struct {
 }
 
 type routeListItem struct {
-	ID                string   `json:"id"`
-	Label             string   `json:"label"`
-	Purpose           string   `json:"purpose,omitempty"`
-	Account           string   `json:"account"`
-	CompatibleClients []string `json:"compatible_clients"`
-	SelectedClients   []string `json:"selected_clients"`
-	Model             string   `json:"model"`
+	ID              string   `json:"id"`
+	Label           string   `json:"label"`
+	Purpose         string   `json:"purpose,omitempty"`
+	Account         string   `json:"account"`
+	ProtocolClients []string `json:"protocol_clients"`
+	SelectedClients []string `json:"selected_clients"`
+	Model           string   `json:"model"`
 }
 
 func collectRouteListItem(runtime invocation.Context, cfg configuration.Config, name string) (routeListItem, error) {
 	route := cfg.Routes[name]
-	compatible, err := cfg.CompatibleClientIDs(name)
+	compatible, err := cfg.ProtocolClientIDs(name)
 	if err != nil {
 		return routeListItem{}, err
 	}
 	return routeListItem{
 		ID: name, Label: cfg.RouteLabel(name), Purpose: route.Purpose, Account: route.Account,
-		CompatibleClients: compatible, SelectedClients: cfg.SelectedClientsForRoute(name), Model: route.Model,
+		ProtocolClients: compatible, SelectedClients: cfg.SelectedClientsForRoute(name), Model: route.Model,
 	}, nil
 }
 
@@ -181,7 +181,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			}
 			accountName := route.Account
 			account := cfg.Accounts[accountName]
-			compatible, err := cfg.CompatibleClientIDs(args[0])
+			compatible, err := cfg.ProtocolClientIDs(args[0])
 			if err != nil {
 				return err
 			}
@@ -190,7 +190,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 				result := map[string]any{
 					"id": args[0], "label": cfg.RouteLabel(args[0]), "purpose": route.Purpose,
 					"account": accountName, "model": route.Model,
-					"compatible_clients": compatible, "selected_clients": selected,
+					"protocol_clients": compatible, "selected_clients": selected,
 					"endpoints": account.Endpoints,
 				}
 				return presentation.WriteJSON(runtime.Out, result)
@@ -205,7 +205,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r.Row("Account", accountName)
 			r.Row("Model", route.Model)
-			r.Row("Compatible clients", strings.Join(compatible, ", "))
+			r.Row("Protocol clients", strings.Join(compatible, ", "))
 			if len(selected) > 0 {
 				r.Row("Selected for", strings.Join(selected, ", "))
 			}

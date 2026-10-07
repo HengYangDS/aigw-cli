@@ -76,6 +76,7 @@ type Check struct {
 
 // Verification is the non-sensitive result of one explicit live client probe.
 type Verification struct {
+	Scope   string
 	Version string
 	SHA256  string
 }

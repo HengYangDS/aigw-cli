@@ -8,7 +8,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	configuration "aigw-cli/internal/configuration"
@@ -60,11 +62,12 @@ func IdentifyExecutable(ctx context.Context, runner process.VerificationRunner, 
 	return ExecutableIdentity{Version: version, SHA256: digest}, nil
 }
 
-// VerificationPlan builds the non-persistent real-client request used by
-// `aigw verify`. The selected Codex home supplies the projected route and
-// authentication; the final message is written to a private temporary file so
-// diagnostic output cannot be mistaken for model evidence.
-func VerificationPlan(executable, configPath, outputPath string, runtime configuration.Runtime) (process.Plan, error) {
+var verificationSessionID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+// VerificationPlan builds one native turn in an operation-owned Codex home.
+// An exact session ID resumes that home's synthetic history, never the newest
+// operator session. JSON events and the private final file are separate evidence.
+func VerificationPlan(executable, configPath, outputPath string, runtime configuration.Runtime, prompt, sessionID string) (process.Plan, error) {
 	if strings.TrimSpace(executable) == "" {
 		return process.Plan{}, fmt.Errorf("Codex executable is not configured")
 	}
@@ -77,22 +80,28 @@ func VerificationPlan(executable, configPath, outputPath string, runtime configu
 	if strings.TrimSpace(outputPath) == "" {
 		return process.Plan{}, fmt.Errorf("Codex verification output path is not configured")
 	}
+	if strings.TrimSpace(prompt) == "" {
+		return process.Plan{}, fmt.Errorf("Codex verification prompt is missing")
+	}
+	if sessionID != "" && !verificationSessionID.MatchString(sessionID) {
+		return process.Plan{}, fmt.Errorf("Codex verification session identity is invalid")
+	}
+	args := []string{"exec", "--sandbox", "read-only", "--color", "never", "--cd", filepath.Dir(outputPath),
+		"-c", "sqlite_home=" + strconv.Quote(filepath.Join(filepath.Dir(configPath), "state")),
+		"-c", "log_dir=" + strconv.Quote(filepath.Join(filepath.Dir(configPath), "log")),
+	}
+	if sessionID != "" {
+		args = append(args, "resume")
+	}
+	args = append(args, "--ignore-rules", "--skip-git-repo-check", "--strict-config", "--json", "--output-last-message", outputPath, "--model", runtime.Model)
+	if sessionID != "" {
+		args = append(args, sessionID)
+	}
+	args = append(args, prompt)
 	return process.Plan{
 		Executable: executable,
-		Args: []string{
-			"exec",
-			"--ephemeral",
-			"--ignore-rules",
-			"--skip-git-repo-check",
-			"--strict-config",
-			"--sandbox", "read-only",
-			"--color", "never",
-			"--cd", filepath.Dir(outputPath),
-			"--output-last-message", outputPath,
-			"--model", runtime.Model,
-			"Reply with exactly: AIGW_OK",
-		},
-		Env: codexEnvironment(filepath.Dir(configPath), filepath.Dir(outputPath)),
+		Args:       args,
+		Env:        codexEnvironment(filepath.Dir(configPath), filepath.Join(filepath.Dir(configPath), "tmp")),
 	}, nil
 }
 

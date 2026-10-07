@@ -76,6 +76,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if result.Version != "" || result.SHA256 != "" {
 					r.Detail(fmt.Sprintf("%s client: %s · SHA-256 %s", invocation.Title(target), result.Version, result.SHA256))
 				}
+				r.Detail(result.Scope)
 				r.Status(presentation.OK, invocation.Title(target), clientRuntime.RouteID+" · Completed")
 			}
 			if client == "all" {

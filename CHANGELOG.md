@@ -22,6 +22,16 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Changed
 
+- Prefer DMXAPI, then UCloud, for unselected team Clients; preserve explicit
+  bindings and local endpoint overrides.
+- Prepare the next pre-1.0 minor edition as 0.4.0. Route list/show JSON replaces
+  `compatible_clients` with `protocol_clients`: protocol overlap permits selection,
+  not native qualification. Update JSON consumers to the new field; configuration
+  and recovery checkpoint formats are unchanged.
+- Distinguish protocol-selectable clients from native qualification. Codex live
+  verification requires a real file tool and exact-session recall in a disposable
+  home; other clients disclose their actual probe scope without changing stored
+  configuration or recovery checkpoint formats.
 - Retire the plain AIHubMix MiniMax M3 team Route after its failed native tool
   continuation; retain the qualified CC channel, UCloud Route and existing user
   configuration without introducing a separate eligibility mechanism.
@@ -102,25 +112,6 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Fixed
 
-- Report malformed TOML values by document line and column, with correction
-  guidance instead of internal implementation types or private paths.
-- Include a top-level error in failed `check --json` results while retaining
-  each enabled client's precise state and next action.
-- Let `aigw catalog --all --json` return the complete JSON catalogue instead
-  of rejecting two compatible output flags.
-
-## 0.3.3 - 2026-09-26
-
-Prepared changes: [GitLab][0.3.3-gitlab] · [GitHub][0.3.3-github]
-
-### Added
-
-- Restore the direct DMXAPI GPT-6 Sol Responses Route after renewed exact-wire
-  inference. Prefer DMXAPI, then UCloud, for unselected team Clients while
-  preserving explicit bindings and local endpoint overrides.
-
-### Fixed
-
 - Prevent disposable Hermes verification from contacting its unrelated
   software-update service before the selected model request.
 - Classify Hermes version-probe timeout, interruption, and execution failure
@@ -128,6 +119,12 @@ Prepared changes: [GitLab][0.3.3-gitlab] · [GitHub][0.3.3-github]
 - Stop after one bounded endpoint diagnostic when a provider rejects the
   credential with HTTP 401 or 403; remove misleading authentication recovery
   output and repeated requests.
+- Report malformed TOML values by document line and column, with correction
+  guidance instead of internal implementation types or private paths.
+- Include a top-level error in failed `check --json` results while retaining
+  each enabled client's precise state and next action.
+- Let `aigw catalog --all --json` return the complete JSON catalogue instead
+  of rejecting two compatible output flags.
 
 ## 0.3.1 - 2026-09-25
 
@@ -1275,8 +1272,6 @@ History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 
 [Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.1...main
 [Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.1...main
-[0.3.3-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.1...main
-[0.3.3-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.1...main
 [0.3.1-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.0...v0.3.1
 [0.3.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.0...v0.3.1
 [0.3.0-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.2.0...v0.3.0

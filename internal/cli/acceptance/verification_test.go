@@ -237,7 +237,7 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 	}
 }
 
-func TestVerifyCodexRunsTheConfiguredClientOnceAndReportsItsIdentity(t *testing.T) {
+func TestVerifyCodexRunsTheConfiguredClientWithIsolatedContinuation(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
@@ -253,17 +253,14 @@ func TestVerifyCodexRunsTheConfiguredClientOnceAndReportsItsIdentity(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
+	projections := make(map[string][]byte, len(targets))
 	for _, target := range targets {
-		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
+		writeFile(t, target, []byte("model_provider = \"native\"\n"), 0o600)
 		runtime.CredentialCommand = app.Executable
 		if err := codex.SyncConfig(target, runtime); err != nil {
 			t.Fatal(err)
 		}
+		projections[target] = readFile(t, target)
 	}
 	cfg.SetClientActivation(configuration.ClientCodex, true, executable, targets)
 	if err := app.Config.Save(cfg); err != nil {
@@ -277,20 +274,31 @@ func TestVerifyCodexRunsTheConfiguredClientOnceAndReportsItsIdentity(t *testing.
 	if err := cli.Execute(app, []string{"verify", "--for", "codex"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(runner.plans) != 2 || !slices.Equal(runner.plans[0].Args, []string{"--version"}) {
-		t.Fatalf("plans = %#v", runner.plans)
+	if len(runner.plans) != 3 || !slices.Equal(runner.plans[0].Args, []string{"--version"}) {
+		t.Fatalf("verification must identify the executable, execute a tool turn and resume: %d plans", len(runner.plans))
 	}
 	execPlan := runner.plans[1]
 	if execPlan.Executable != executable || planArgumentValue(execPlan.Args, "--output-last-message") == "" || planArgumentValue(execPlan.Args, "--model") != "gpt-test" {
-		t.Fatalf("Codex execution plan = %#v", execPlan)
+		t.Fatal("Codex verification lost the configured executable, model or final output")
 	}
-	if got := planEnvironmentValue(execPlan.Env, "CODEX_HOME"); got != filepath.Dir(targets[1]) {
-		t.Fatalf("CODEX_HOME = %q", got)
+	home := planEnvironmentValue(execPlan.Env, "CODEX_HOME")
+	workspace := filepath.Dir(planArgumentValue(execPlan.Args, "--output-last-message"))
+	if home != filepath.Join(workspace, "home") || home == filepath.Dir(targets[1]) {
+		t.Fatal("Codex verification did not isolate its native home")
 	}
-	executableBytes, err := os.ReadFile(executable)
-	if err != nil {
-		t.Fatal(err)
+	resume := runner.plans[2]
+	if !slices.Contains(resume.Args, "resume") || !slices.Contains(resume.Args, "00000000-0000-4000-8000-000000000001") || planEnvironmentValue(resume.Env, "CODEX_HOME") != home {
+		t.Fatal("Codex verification did not resume the exact owned native session")
 	}
+	for target, before := range projections {
+		if !slices.Equal(before, readFile(t, target)) {
+			t.Fatal("verification changed an operator projection")
+		}
+	}
+	if _, err := os.Stat(workspace); !os.IsNotExist(err) {
+		t.Fatalf("private native state survived verification: %v", err)
+	}
+	executableBytes := readFile(t, executable)
 	wantSHA256 := fmt.Sprintf("%x", sha256.Sum256(executableBytes))
 	if strings.Contains(out.String(), "verify-token") || strings.Contains(out.String(), "AIGW_OK") || !strings.Contains(out.String(), "codex-cli 0.0.0-test") || !strings.Contains(out.String(), wantSHA256) {
 		t.Fatalf("verify output = %s", out.String())
@@ -367,7 +375,7 @@ func TestVerifyUsesExplicitClientWithRouteOverride(t *testing.T) {
 	if err := cli.Execute(app, []string{"verify", "--for", "codex", "--route", "other-gpt"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(runner.plans) != 2 {
+	if len(runner.plans) != 3 {
 		t.Fatalf("plans = %#v", runner.plans)
 	}
 	plan := runner.plans[1]
@@ -449,7 +457,7 @@ func TestVerifyAllWritesVerifiedCheckpoint(t *testing.T) {
 	if err := cli.Execute(app, []string{"verify", "--for", "all"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(runner.plans) != 3 {
+	if len(runner.plans) != 4 {
 		t.Fatalf("verification plans = %#v", runner.plans)
 	}
 	checkpoint, err := app.Config.LoadVerifiedCheckpoint()
@@ -473,7 +481,7 @@ func TestVerifyAllReturnsCheckpointWriteFailure(t *testing.T) {
 	if err := cli.Execute(app, []string{"verify", "--for", "all"}); err == nil {
 		t.Fatal("checkpoint write failure was accepted")
 	}
-	if len(runner.plans) != 3 {
+	if len(runner.plans) != 4 {
 		t.Fatalf("failure occurred before live verification: %#v", runner.plans)
 	}
 }
@@ -484,7 +492,11 @@ func TestVerifyRejectsMissingResponseSentinel(t *testing.T) {
 			app, runner := readyVerificationApp(t)
 			runner.output = []byte("wrong\n")
 			err := cli.Execute(app, []string{"verify", "--for", client})
-			if err == nil || !strings.Contains(err.Error(), "did not return the expected AIGW_OK verification marker") {
+			want := "did not return the expected AIGW_OK verification marker"
+			if client == configuration.ClientCodex {
+				want = "private verification challenge"
+			}
+			if err == nil || !strings.Contains(err.Error(), want) {
 				t.Fatalf("error = %v", err)
 			}
 		})

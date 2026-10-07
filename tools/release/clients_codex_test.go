@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -48,7 +49,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 		t.Fatal("team manifest has no AIHubMix OpenAI Responses Routes")
 	}
 	slices.Sort(routeIDs)
-	server := httptest.NewServer(clientResponseHandler(configuration.ProtocolOpenAIResponses, completions, token, "high"))
+	server := httptest.NewServer(clientResponseHandler(configuration.ProtocolOpenAIResponses, completions, token, "high", nativeCodexToolShell(t)))
 	t.Cleanup(server.Close)
 	executable, err := requiredClientInput("AIGW_ACCEPTANCE_CODEX", false)
 	if err != nil {
@@ -67,15 +68,15 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 		t.Run(routeID, func(t *testing.T) {
 			before := completions[route.UpstreamModel].Load()
 			journey.testing = t
-			ctx, cancel := context.WithTimeout(t.Context(), clientverification.ProtocolTimeout)
+			ctx, cancel := context.WithTimeout(t.Context(), 3*clientverification.ProtocolTimeout)
 			defer cancel()
 			stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
 				Executable: journey.binary, Env: journey.environment,
 				Args: []string{"verify", "--for", configuration.ClientCodex, "--route", routeID},
 			})
 			requireNativeCodexRouteOutcome(t, executable, route, stdout, stderr, err, token)
-			if completions[route.UpstreamModel].Load() != before+1 {
-				t.Fatalf("Codex did not complete exactly one request for upstream model %q", route.UpstreamModel)
+			if completions[route.UpstreamModel].Load() != before+3 {
+				t.Fatalf("Codex did not complete a file tool, response and recalled response for upstream model %q", route.UpstreamModel)
 			}
 			if !slices.Equal(readFile(t, journey.config), selected) {
 				t.Fatal("explicit Route verification changed the selected client binding")
@@ -83,30 +84,6 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 		})
 	}
 	journey.testing = t
-	journey.run("use", "--for", configuration.ClientCodex, "aihubmix-gpt-6.1-sol")
-	configured, err := configuration.NewStore(journey.config).Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	runtime, err := configured.ResolveRuntime(configuration.ClientCodex, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	output := filepath.Join(journey.root, "base-model-response.txt")
-	plan, err := codex.VerificationPlan(executable, filepath.Join(journey.root, "home", ".codex", "config.toml"), output, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
-	plan.Env = journey.environment
-	ctx, cancel := context.WithTimeout(t.Context(), clientverification.ProtocolTimeout)
-	defer cancel()
-	_, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, plan)
-	if err != nil || strings.Contains(string(stderr), "codex_models_manager") {
-		t.Fatalf("Codex base-model metadata request failed: %v; stderr: %s", err, redaction.Text(string(stderr), token))
-	}
-	if got := strings.TrimSpace(string(readFile(t, output))); got != "AIGW_OK" {
-		t.Fatalf("Codex base-model response = %q", got)
-	}
 	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 }
 
@@ -193,11 +170,11 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 		t.Fatal(err)
 	}
 	output := filepath.Join(journey.root, "tool-response.txt")
-	plan, err := codex.VerificationPlan(executable, filepath.Join(journey.root, "home", ".codex", "config.toml"), output, runtime)
+	plan, err := codex.VerificationPlan(executable, filepath.Join(journey.root, "home", ".codex", "config.toml"), output, runtime, "Use a shell tool to run echo AIGW_TOOL_OK, then reply exactly AIGW_OK.", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan.Args[len(plan.Args)-1] = "Use a shell tool to run echo AIGW_TOOL_OK, then reply exactly AIGW_OK."
+	plan.Args = append(plan.Args[:1], append([]string{"--ephemeral"}, plan.Args[1:]...)...)
 	plan.Env = journey.environment
 	callsBefore, resultsBefore := probe.toolCalls.Load(), probe.toolResults.Load()
 	toolOutput.Store(false)
@@ -208,9 +185,24 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 		t.Fatalf("Codex native tool loop: %v\nstdout:\n%s\nstderr:\n%s", runErr,
 			redaction.Text(string(stdout), token), redaction.Text(string(stderr), token))
 	}
+	requireNativeCodexMetadataDiagnostic(t, runtime.Model, stdout, stderr, token)
+	if !toolOutput.Load() || probe.toolCalls.Load()-callsBefore != 1 || probe.toolResults.Load()-resultsBefore != 1 || probe.rejected.Load() != 0 {
+		t.Fatalf("Codex tool loop evidence: successful tool result=%t calls=%d results=%d rejected=%d",
+			toolOutput.Load(), probe.toolCalls.Load()-callsBefore, probe.toolResults.Load()-resultsBefore, probe.rejected.Load())
+	}
+	if got, err := os.ReadFile(output); err != nil || strings.TrimSpace(string(got)) != "AIGW_OK" {
+		t.Fatalf("Codex final tool-loop response = %q, %v", got, err)
+	}
+	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
+	t.Logf("Codex tool loop completed; native model metadata remains unqualified; stderr:\n%s", redaction.Text(string(stderr), token))
+}
+
+func requireNativeCodexMetadataDiagnostic(t *testing.T, model string, stdout, stderr []byte, token string) {
+	t.Helper()
+	metadataMessage := "Model metadata for `" + model + "` not found. Defaulting to fallback metadata; this can degrade performance and cause issues."
 	metadataWarning := false
 	for line := range strings.SplitSeq(string(stderr), "\n") {
-		if strings.TrimSuffix(line, "\r") == "warning: Model metadata for `"+runtime.Model+"` not found. Defaulting to fallback metadata; this can degrade performance and cause issues." {
+		if strings.TrimSuffix(line, "\r") == "warning: "+metadataMessage {
 			metadataWarning = true
 			continue
 		}
@@ -218,15 +210,30 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 			t.Fatalf("Codex tool loop emitted an unexpected diagnostic: %s", redaction.Text(line, token))
 		}
 	}
-	if !metadataWarning || !toolOutput.Load() || probe.toolCalls.Load()-callsBefore != 1 || probe.toolResults.Load()-resultsBefore != 1 || probe.rejected.Load() != 0 {
-		t.Fatalf("Codex tool loop evidence: incomplete-metadata diagnostic=%t successful tool result=%t calls=%d results=%d rejected=%d",
-			metadataWarning, toolOutput.Load(), probe.toolCalls.Load()-callsBefore, probe.toolResults.Load()-resultsBefore, probe.rejected.Load())
+	decoder := json.NewDecoder(bytes.NewReader(stdout))
+	for {
+		var event struct {
+			Type string `json:"type"`
+			Item struct {
+				Type    string `json:"type"`
+				Message string `json:"message"`
+			} `json:"item"`
+		}
+		if err := decoder.Decode(&event); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			t.Fatal("Codex tool loop emitted malformed native events")
+		}
+		switch {
+		case event.Type == "item.completed" && event.Item.Type == "error" && event.Item.Message == metadataMessage:
+			metadataWarning = true
+		case event.Type == "error" || event.Type == "warning" || event.Type == "turn.failed" || event.Item.Type == "error" || event.Item.Type == "warning":
+			t.Fatal("Codex tool loop emitted an unexpected native diagnostic")
+		}
 	}
-	if got, err := os.ReadFile(output); err != nil || strings.TrimSpace(string(got)) != "AIGW_OK" {
-		t.Fatalf("Codex final tool-loop response = %q, %v", got, err)
+	if !metadataWarning {
+		t.Fatal("Codex native tool loop did not report its incomplete model metadata")
 	}
-	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
-	t.Logf("Codex tool loop completed; native model metadata remains unqualified; stderr:\n%s", redaction.Text(string(stderr), token))
 }
 
 type codexToolLoopProbe struct {
@@ -236,7 +243,7 @@ type codexToolLoopProbe struct {
 
 func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToolLoopProbe, shell string) http.Handler {
 	var completions atomic.Int64
-	base := clientResponseHandler(configuration.ProtocolOpenAIResponses, map[string]*atomic.Int64{"grok-4.7": &completions}, token, "high")
+	base := clientResponseHandler(configuration.ProtocolOpenAIResponses, map[string]*atomic.Int64{"grok-4.7": &completions}, token, "high", shell)
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		probe.requests.Add(1)
 		if request.Method != http.MethodPost || request.URL.Path != "/v1/responses" {
@@ -250,7 +257,7 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 			return
 		}
 		request.Body = io.NopCloser(bytes.NewReader(body))
-		var input responsesToolLoopRequest
+		var input clientInferenceRequest
 		if err := json.Unmarshal(body, &input); err != nil {
 			probe.rejected.Add(1)
 			http.Error(response, "decode request", http.StatusBadRequest)
@@ -259,6 +266,10 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 		if input.Model != "grok-4.7" || !input.Stream || input.Reasoning.Effort != "high" {
 			probe.rejected.Add(1)
 			http.Error(response, "configured model and effort required", http.StatusBadRequest)
+			return
+		}
+		if strings.Contains(string(input.Input), "challenge.txt") {
+			base.ServeHTTP(response, request)
 			return
 		}
 		outputs, err := responsesToolLoopOutputs(input.Input)
@@ -280,38 +291,30 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 				toolOutput.Store(true)
 			}
 		}
-		hasExec := false
-		for _, tool := range input.Tools {
-			hasExec = hasExec || tool.Name == "exec_command"
-		}
-		if !toolOutput.Load() && hasExec && !sawResult {
-			if !clientFixtureAuthorized(request, token) {
-				probe.rejected.Add(1)
-				base.ServeHTTP(response, request)
-				return
-			}
-			command := map[string]any{"cmd": "echo AIGW_TOOL_OK"}
-			if shell != "" {
-				command["shell"], command["login"] = shell, false
-			}
-			arguments, err := json.Marshal(command)
-			if err != nil {
-				probe.rejected.Add(1)
-				http.Error(response, "encode native command", http.StatusInternalServerError)
-				return
-			}
-			probe.toolCalls.Add(1)
-			writeResponsesFunctionCall(
-				response,
-				"resp_aigw_tool",
-				"fc_aigw",
-				"call_aigw",
-				"exec_command",
-				string(arguments),
-			)
+		custom, toolErr := input.codexCommandTool()
+		if toolOutput.Load() || toolErr != nil || sawResult {
+			base.ServeHTTP(response, request)
 			return
 		}
-		base.ServeHTTP(response, request)
+		if !clientFixtureAuthorized(request, token) {
+			probe.rejected.Add(1)
+			base.ServeHTTP(response, request)
+			return
+		}
+		command := map[string]any{"cmd": "echo AIGW_TOOL_OK"}
+		if shell != "" {
+			command["shell"], command["login"] = shell, false
+		}
+		arguments, err := json.Marshal(command)
+		if err != nil {
+			probe.rejected.Add(1)
+			http.Error(response, "encode native command", http.StatusInternalServerError)
+			return
+		}
+		probe.toolCalls.Add(1)
+		if err := writeResponsesToolCall(response, "resp_aigw_tool", "fc_aigw", "call_aigw", "exec_command", string(arguments), custom); err != nil {
+			probe.rejected.Add(1)
+		}
 	})
 }
 
@@ -330,36 +333,45 @@ func nativeCodexToolShell(t *testing.T) string {
 func TestCodexToolLoopStopsAfterUnsuccessfulToolResult(t *testing.T) {
 	const token = "fixture-token"
 	for _, shell := range []string{"", `C:\Windows\System32\cmd.exe`} {
-		t.Run(shell, func(t *testing.T) {
-			var toolOutput atomic.Bool
-			var probe codexToolLoopProbe
-			handler := codexToolLoopHandler(token, &toolOutput, &probe, shell)
-			for index, body := range []string{
-				`{"model":"grok-4.7","stream":true,"reasoning":{"effort":"high"},"tools":[{"name":"exec_command"}],"input":[]}`,
-				`{"model":"grok-4.7","stream":true,"reasoning":{"effort":"high"},"tools":[{"name":"exec_command"}],"input":[{"type":"function_call_output","output":"permission denied fixture-token"}]}`,
-			} {
-				request := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))
-				request.Header.Set("Authorization", "Bearer "+token)
-				response := httptest.NewRecorder()
-				handler.ServeHTTP(response, request)
-				if response.Code != http.StatusOK {
-					t.Fatalf("tool-loop fixture response status = %d", response.Code)
+		for _, client := range []struct{ name, tools, declaration, output string }{
+			{"function", `[{"type":"function","name":"exec_command"}]`, "", "function_call_output"},
+			{"native custom", `[]`, `{"type":"additional_tools","role":"developer","tools":[{"type":"namespace","name":"functions","tools":[{"type":"custom","name":"exec"}]}]},`, "custom_tool_call_output"},
+		} {
+			t.Run(shell+"/"+client.name, func(t *testing.T) {
+				var toolOutput atomic.Bool
+				var probe codexToolLoopProbe
+				handler := codexToolLoopHandler(token, &toolOutput, &probe, shell)
+				for index, body := range []string{
+					`{"model":"grok-4.7","stream":true,"reasoning":{"effort":"high"},"tools":` + client.tools + `,"input":[` + strings.TrimSuffix(client.declaration, ",") + `]}`,
+					`{"model":"grok-4.7","stream":true,"reasoning":{"effort":"high"},"tools":` + client.tools + `,"input":[` + client.declaration + `{"type":"` + client.output + `","output":"permission denied fixture-token"}]}`,
+					`{"model":"grok-4.7","stream":true,"reasoning":{"effort":"high"},"tools":` + client.tools + `,"input":[` + client.declaration + `{"role":"user","content":"Use a shell tool to read challenge.txt"}]}`,
+				} {
+					request := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))
+					request.Header.Set("Authorization", "Bearer "+token)
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, request)
+					if response.Code != http.StatusOK {
+						t.Fatalf("tool-loop fixture response status = %d", response.Code)
+					}
+					if index == 0 {
+						requireCodexToolCommand(t, response.Body.String(), shell, client.output == "custom_tool_call_output")
+					}
+					if index == 2 && !strings.Contains(response.Body.String(), `call_aigw_challenge`) {
+						t.Fatal("public challenge was intercepted by the independent echo tool loop")
+					}
 				}
-				if index == 0 {
-					requireCodexToolCommand(t, response.Body.String(), shell)
+				if probe.requests.Load() != 3 || probe.toolCalls.Load() != 1 || probe.toolResults.Load() != 1 || toolOutput.Load() {
+					t.Fatal("unsuccessful tool result caused another tool call or false acceptance")
 				}
-			}
-			if probe.requests.Load() != 2 || probe.toolCalls.Load() != 1 || probe.toolResults.Load() != 1 || toolOutput.Load() {
-				t.Fatal("unsuccessful tool result caused another tool call or false acceptance")
-			}
-			if first := probe.firstResult.Load(); first == nil || strings.Contains(*first, token) {
-				t.Fatal("bounded tool diagnostic was absent or exposed its Token")
-			}
-		})
+				if first := probe.firstResult.Load(); first == nil || strings.Contains(*first, token) {
+					t.Fatal("bounded tool diagnostic was absent or exposed its Token")
+				}
+			})
+		}
 	}
 }
 
-func requireCodexToolCommand(t *testing.T, response, shell string) {
+func requireCodexToolCommand(t *testing.T, response, shell string, custom bool) {
 	t.Helper()
 	var arguments map[string]any
 	for line := range strings.SplitSeq(response, "\n") {
@@ -367,11 +379,23 @@ func requireCodexToolCommand(t *testing.T, response, shell string) {
 		var event struct {
 			Type      string `json:"type"`
 			Arguments string `json:"arguments"`
+			Input     string `json:"input"`
 		}
-		if found && json.Unmarshal([]byte(data), &event) == nil && event.Type == "response.function_call_arguments.done" {
-			if err := json.Unmarshal([]byte(event.Arguments), &arguments); err != nil {
-				t.Fatal(err)
+		if !found || json.Unmarshal([]byte(data), &event) != nil {
+			continue
+		}
+		command := event.Arguments
+		if custom && event.Type == "response.custom_tool_call_input.done" {
+			input, declared := strings.CutPrefix(event.Input, "const result = await tools.exec_command(")
+			if !declared {
+				t.Fatal("custom tool did not invoke the native command executor")
 			}
+			command, _, _ = strings.Cut(input, ");")
+		} else if custom || event.Type != "response.function_call_arguments.done" {
+			continue
+		}
+		if err := json.Unmarshal([]byte(command), &arguments); err != nil {
+			t.Fatal(err)
 		}
 	}
 	if arguments["cmd"] != "echo AIGW_TOOL_OK" {

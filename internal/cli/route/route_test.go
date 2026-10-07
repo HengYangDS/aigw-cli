@@ -39,6 +39,9 @@ func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
 	if len(listed.Routes) != 1 || listed.Routes[0].Label != "UCloud · GPT-6 Sol" {
 		t.Fatalf("derived route inventory = %+v", listed.Routes)
 	}
+	if !strings.Contains(out.String(), `"protocol_clients"`) || strings.Contains(out.String(), `"compatible_clients"`) {
+		t.Fatalf("protocol overlap was presented as client qualification: %s", out)
+	}
 	out.Reset()
 	show := newShowCommand(runtime)
 	show.SetArgs([]string{"ucloud-gpt-6-sol", "--json"})
@@ -50,6 +53,9 @@ func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
 	}
 	if err := json.Unmarshal(out.Bytes(), &shown); err != nil || shown.Label != "UCloud · GPT-6 Sol" {
 		t.Fatalf("derived route detail = %+v, %v", shown, err)
+	}
+	if !strings.Contains(out.String(), `"protocol_clients"`) || strings.Contains(out.String(), `"compatible_clients"`) {
+		t.Fatalf("route detail implied native client qualification: %s", out)
 	}
 }
 

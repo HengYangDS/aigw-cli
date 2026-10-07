@@ -50,7 +50,7 @@ func (recorder *hermesSessionRecorder) ServeHTTP(response http.ResponseWriter, r
 		return
 	}
 	request.Body = io.NopCloser(bytes.NewReader(body))
-	var input responsesToolLoopRequest
+	var input clientInferenceRequest
 	if json.Unmarshal(body, &input) != nil || input.Model != recorder.model || responsesToolLoopInputCount(input.Input) == 0 {
 		http.Error(response, "configured model input required", http.StatusBadRequest)
 		return
@@ -112,7 +112,7 @@ func (recorder *hermesSessionRecorder) validateReadFileHistory(input json.RawMes
 	return hasReadFileSession, hasReadFileOutput, nil
 }
 
-func (recorder *hermesSessionRecorder) offerReadFileCall(response http.ResponseWriter, request *http.Request, input responsesToolLoopRequest, state hermesSessionSnapshot, hasReadFileSession bool) bool {
+func (recorder *hermesSessionRecorder) offerReadFileCall(response http.ResponseWriter, request *http.Request, input clientInferenceRequest, state hermesSessionSnapshot, hasReadFileSession bool) bool {
 	if state.readFilePath == "" || state.readFileCallIssued {
 		return false
 	}
@@ -130,9 +130,6 @@ func (recorder *hermesSessionRecorder) offerReadFileCall(response http.ResponseW
 		http.Error(response, "read_file tool declaration required", http.StatusBadRequest)
 		return true
 	}
-	recorder.mu.Lock()
-	recorder.readFileCallIssued = true
-	recorder.mu.Unlock()
 	arguments, err := json.Marshal(struct {
 		Path string `json:"path"`
 	}{Path: state.readFilePath})
@@ -140,14 +137,12 @@ func (recorder *hermesSessionRecorder) offerReadFileCall(response http.ResponseW
 		http.Error(response, "invalid read_file arguments", http.StatusInternalServerError)
 		return true
 	}
-	writeResponsesFunctionCall(
-		response,
-		"resp_hermes_read_file",
-		"fc_hermes_read_file",
-		hermesReadFileCallID,
-		"read_file",
-		string(arguments),
-	)
+	if err := writeResponsesToolCall(response, "resp_hermes_read_file", "fc_hermes_read_file", hermesReadFileCallID, "read_file", string(arguments), false); err != nil {
+		return true
+	}
+	recorder.mu.Lock()
+	recorder.readFileCallIssued = true
+	recorder.mu.Unlock()
 	return true
 }
 
@@ -233,6 +228,7 @@ func newHermesSessionRecorderForTest(model, token string, completions *atomic.In
 			configuration.ProtocolOpenAIResponses,
 			map[string]*atomic.Int64{model: completions},
 			token,
+			"",
 			"",
 		),
 		model: model,

@@ -3,6 +3,7 @@ package verification
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -46,11 +47,65 @@ type recordingCaptureRunner struct {
 	plans              []process.Plan
 	version            string
 	marker             string
+	textOnly           bool
+	challenge          string
 	removeFinalMessage bool
 	requestOutput      []byte
 	stderr             []byte
 	requestErr         error
 	prepareOutput      func(string) error
+}
+
+func TestVerifyCodexRejectsTextWithoutToolContinuation(t *testing.T) {
+	cfg, selected := configuredCodexVerification(t, filepath.Join(t.TempDir(), "config.toml"))
+	runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "AIGW_OK", textOnly: true}
+	if _, err := VerifyCodexInvocation(t.Context(), runner, cfg, selected); err == nil || !strings.Contains(err.Error(), "native reply preceded its challenge tool read") {
+		t.Fatalf("correct text without native tool evidence was not rejected by the evidence owner: %v", err)
+	}
+}
+
+func TestCodexNativeEvidenceRejectsEventsOutsideTheOwnedTurn(t *testing.T) {
+	const (
+		session   = "{\"type\":\"thread.started\",\"thread_id\":\"00000000-0000-4000-8000-000000000001\"}"
+		tool      = "{\"type\":\"item.completed\",\"item\":{\"type\":\"command_execution\",\"status\":\"completed\",\"command\":\"cat challenge.txt\",\"exit_code\":0,\"aggregated_output\":\"challenge\"}}"
+		message   = "{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":\"challenge\"}}"
+		completed = "{\"type\":\"turn.completed\"}"
+		reasoning = "{\"type\":\"item.completed\",\"item\":{\"type\":\"reasoning\"}}"
+		previous  = "00000000-0000-4000-8000-000000000001"
+		private   = "/private/operator token=must-not-leak"
+	)
+	for name, test := range map[string]struct {
+		events   []string
+		previous string
+		rejected bool
+	}{
+		"items before session":               {events: []string{tool, message, session, completed}, rejected: true},
+		"completion before items":            {events: []string{session, completed, tool, message}, rejected: true},
+		"items after completion":             {events: []string{session, tool, message, completed, message}, rejected: true},
+		"reply before tool read":             {events: []string{session, message, tool, completed}, rejected: true},
+		"reasoning preserves tool order":     {events: []string{session, reasoning, tool, reasoning, message, completed}},
+		"same session recalls without tools": {events: []string{session, reasoning, message, completed}, previous: previous},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := codexTurnEvidence([]byte(strings.Join(test.events, "\n")), test.previous, "challenge"); (err != nil) != test.rejected {
+				t.Fatalf("native turn rejection=%t, want %t: %v", err != nil, test.rejected, err)
+			}
+		})
+	}
+	for name, diagnostic := range map[string]struct{ message, want string }{
+		"metadata":       {"Model metadata for grok-4.7 not found. Defaulting to fallback metadata; " + private, "model-metadata warning"},
+		"native failure": {"Native capability failed " + private, "native-client warning or error"},
+	} {
+		for phase, prior := range map[string]string{"initial": "", "resume": previous} {
+			t.Run(name+"/"+phase, func(t *testing.T) {
+				item := fmt.Sprintf("{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"error\",\"message\":%q}}", diagnostic.message)
+				_, err := codexTurnEvidence([]byte(strings.Join([]string{session, item, tool, message, completed}, "\n")), prior, "challenge")
+				if err == nil || !strings.Contains(err.Error(), diagnostic.want) || strings.Contains(err.Error(), private) {
+					t.Fatalf("native error item classification is missing or unsafe: %v", err)
+				}
+			})
+		}
+	}
 }
 
 func (runner *recordingCaptureRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
@@ -59,27 +114,35 @@ func (runner *recordingCaptureRunner) RunCaptureStreams(ctx context.Context, pla
 		return output, nil, err
 	}
 	if err != nil {
-		return nil, output, err
+		return output, runner.stderr, err
 	}
 	return output, runner.stderr, err
 }
 
-func TestSuccessfulClientWarningsDoNotQualifyVerification(t *testing.T) {
-	for _, warning := range []string{
-		"warning: Model metadata for grok-4.7 not found. Defaulting to fallback metadata. /private/operator token=must-not-leak\n",
-		"2026-10-03T05:00:00Z WARN client_core: degraded native capability\n",
-		"/private/operator/client.py:12: DeprecationWarning: unsupported behavior\n",
+func TestSuccessfulClientDiagnosticsDoNotQualifyVerification(t *testing.T) {
+	for _, input := range []struct {
+		diagnostic, marker string
+		missing            bool
+	}{
+		{"warning: Model metadata for grok-4.7 not found. Defaulting to fallback metadata. /private/operator token=must-not-leak\n", "AIGW_OK", false},
+		{"2026-10-03T05:00:00Z WARN client_core: degraded native capability\n", "AIGW_OK", false},
+		{"/private/operator/client.py:12: DeprecationWarning: unsupported behavior\n", "AIGW_OK", false},
+		{"2026-10-03T05:00:00Z ERROR client_core: capability unavailable\n", "AIGW_OK", false},
+		{"Traceback (most recent call last):\n/private/operator/client.py:12\n", "AIGW_OK", false},
+		{"fatal: selected native client could not initialize\n", "AIGW_OK", false},
+		{"warning: Model metadata unavailable; defaulting to fallback metadata\n", "wrong", false},
+		{"warning: Model metadata unavailable; defaulting to fallback metadata\n", "wrong", true},
 	} {
-		t.Run(warning, func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s/missing=%t", input.diagnostic, input.missing), func(t *testing.T) {
 			cfg, selected := configuredCodexVerification(t, filepath.Join(t.TempDir(), "config.toml"))
-			runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "AIGW_OK", stderr: []byte(warning)}
+			runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: input.marker, removeFinalMessage: input.missing, stderr: []byte(input.diagnostic)}
 			_, err := VerifyCodexInvocation(t.Context(), runner, cfg, selected)
-			if err == nil || !strings.Contains(err.Error(), "warning") {
-				t.Fatalf("successful native warning was accepted: %v", err)
+			if err == nil || !strings.Contains(err.Error(), "warning") || strings.Contains(err.Error(), "inference completed") {
+				t.Fatalf("native diagnostics claimed qualified inference: %v", err)
 			}
 			for _, forbidden := range []string{"/private/operator", "must-not-leak", "client_core"} {
 				if strings.Contains(err.Error(), forbidden) {
-					t.Fatalf("warning exposed private diagnostic %q", forbidden)
+					t.Fatalf("verification exposed private diagnostic %q", forbidden)
 				}
 			}
 		})
@@ -91,38 +154,6 @@ func TestSuccessfulClientWarningsDoNotQualifyVerification(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-}
-
-func TestSuccessfulClientErrorsDoNotQualifyVerification(t *testing.T) {
-	for _, diagnostic := range []string{
-		"2026-10-03T05:00:00Z ERROR client_core: capability unavailable\n",
-		"Traceback (most recent call last):\n/private/operator/client.py:12\n",
-		"fatal: selected native client could not initialize\n",
-	} {
-		t.Run(diagnostic, func(t *testing.T) {
-			cfg, selected := configuredCodexVerification(t, filepath.Join(t.TempDir(), "config.toml"))
-			runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "AIGW_OK", stderr: []byte(diagnostic)}
-			if _, err := VerifyCodexInvocation(t.Context(), runner, cfg, selected); err == nil {
-				t.Fatal("successful process error diagnostics qualified verification")
-			}
-		})
-	}
-}
-
-func TestClientWarningDoesNotClaimUnprovedInference(t *testing.T) {
-	for _, missing := range []bool{false, true} {
-		t.Run(fmt.Sprintf("missing=%t", missing), func(t *testing.T) {
-			cfg, selected := configuredCodexVerification(t, filepath.Join(t.TempDir(), "config.toml"))
-			runner := &recordingCaptureRunner{
-				version: "codex-cli 9.9.9", marker: "wrong", removeFinalMessage: missing,
-				stderr: []byte("warning: Model metadata unavailable; defaulting to fallback metadata\n"),
-			}
-			_, err := VerifyCodexInvocation(t.Context(), runner, cfg, selected)
-			if err == nil || strings.Contains(err.Error(), "inference completed") {
-				t.Fatalf("warning claimed unproved model evidence: %v", err)
-			}
-		})
-	}
 }
 
 func TestClaudeWarningsDoNotQualifyVerification(t *testing.T) {
@@ -158,10 +189,29 @@ func (runner *recordingCaptureRunner) RunCapture(_ context.Context, plan process
 		}
 		return []byte("non-authoritative diagnostic output\n"), nil
 	}
-	if err := os.WriteFile(outputPath, []byte(runner.marker+"\n"), 0o600); err != nil {
+	marker := runner.marker
+	if !slices.Contains(plan.Args, "resume") {
+		challenge, err := os.ReadFile(filepath.Join(filepath.Dir(outputPath), "challenge.txt"))
+		if err != nil {
+			return nil, err
+		}
+		runner.challenge = strings.TrimSpace(string(challenge))
+	}
+	if marker == "AIGW_OK" {
+		marker = runner.challenge
+	}
+	if err := os.WriteFile(outputPath, []byte(marker+"\n"), 0o600); err != nil {
 		return nil, err
 	}
-	return []byte("non-authoritative diagnostic output\n"), nil
+	markerJSON, err := json.Marshal(marker)
+	if err != nil {
+		return nil, err
+	}
+	output := []byte("{\"type\":\"thread.started\",\"thread_id\":\"00000000-0000-4000-8000-000000000001\"}\n")
+	if !runner.textOnly && !slices.Contains(plan.Args, "resume") {
+		output = fmt.Appendf(output, "{\"type\":\"item.completed\",\"item\":{\"type\":\"command_execution\",\"status\":\"completed\",\"command\":\"cat challenge.txt\",\"exit_code\":0,\"aggregated_output\":%q}}\n", runner.challenge)
+	}
+	return fmt.Appendf(output, "{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":%s}}\n{\"type\":\"turn.completed\"}\n", markerJSON), nil
 }
 
 func finalMessagePath(arguments []string) string {
@@ -240,20 +290,26 @@ func TestVerifyCodexUsesConfiguredClientAndOneSynchronizedTarget(t *testing.T) {
 	if identity.Version != "codex-cli 9.9.9" || identity.SHA256 != fmt.Sprintf("%x", wantSHA256) {
 		t.Fatalf("identity = %#v", identity)
 	}
-	if len(runner.plans) != 2 {
-		t.Fatalf("plans = %#v", runner.plans)
-	}
-	if !slices.Equal(runner.plans[0].Args, []string{"--version"}) {
-		t.Fatalf("identity plan = %#v", runner.plans[0])
+	if len(runner.plans) != 3 || !slices.Equal(runner.plans[0].Args, []string{"--version"}) {
+		t.Fatalf("identity/tool/recall plans = %#v", runner.plans)
 	}
 	plan := runner.plans[1]
 	outputPath := finalMessagePath(plan.Args)
-	wantArgs := []string{"exec", "--ephemeral", "--ignore-rules", "--skip-git-repo-check", "--strict-config", "--sandbox", "read-only", "--color", "never", "--cd", filepath.Dir(outputPath), "--output-last-message", outputPath, "--model", "gpt-test", "Reply with exactly: AIGW_OK"}
-	if plan.Executable != executable || outputPath == "" || !slices.Equal(plan.Args, wantArgs) {
+	if plan.Executable != executable || outputPath == "" || slices.Contains(plan.Args, "--ephemeral") || !slices.Contains(plan.Args, "--json") {
 		t.Fatalf("plan = %#v", plan)
 	}
-	if got := environmentValue(plan.Env, "CODEX_HOME"); got != filepath.Dir(first) {
-		t.Fatalf("CODEX_HOME = %q", got)
+	home := environmentValue(plan.Env, "CODEX_HOME")
+	if home == filepath.Dir(first) || home != filepath.Join(filepath.Dir(outputPath), "home") {
+		t.Fatalf("CODEX_HOME = %q", home)
+	}
+	for _, invocation := range runner.plans {
+		if temporary := environmentValue(invocation.Env, "TMPDIR"); temporary != filepath.Join(home, "tmp") {
+			t.Fatalf("native temporary root %q contains or escapes the private home", temporary)
+		}
+	}
+	resume := runner.plans[2]
+	if !slices.Contains(resume.Args, "resume") || !slices.Contains(resume.Args, "00000000-0000-4000-8000-000000000001") || environmentValue(resume.Env, "CODEX_HOME") != home {
+		t.Fatalf("continuation was not bound to the owned session: %#v", resume)
 	}
 	if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
 		t.Fatalf("verification output remains after success: %v", err)
@@ -278,10 +334,9 @@ func TestVerifyCodexOwnsClientWorkspace(t *testing.T) {
 			for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
 				t.Setenv(name, scratch)
 			}
-			var workspace string
+			var workspace, removed string
 			remove := removeCodexWorkspace
 			t.Cleanup(func() { removeCodexWorkspace = remove })
-			var removed string
 			removeCodexWorkspace = func(path string) error {
 				removed = path
 				if test.cleanupFailure {
@@ -294,10 +349,7 @@ func TestVerifyCodexOwnsClientWorkspace(t *testing.T) {
 				if workspace == scratch || filepath.Dir(workspace) != scratch {
 					t.Fatalf("verification does not own a private workspace: %s", workspace)
 				}
-				if err := os.WriteFile(filepath.Join(workspace, "client-output"), []byte("owned"), 0o600); err != nil {
-					return err
-				}
-				return nil
+				return os.WriteFile(filepath.Join(workspace, "client-output"), []byte("owned"), 0o600)
 			}}
 			_, err := VerifyCodexInvocation(t.Context(), probe, cfg, runtime)
 			if test.requestErr != nil && !errors.Is(err, test.requestErr) {
@@ -365,12 +417,30 @@ func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 func TestVerifyCodexRequiresSuccessfulFinalMessage(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "codex", "config.toml")
 	cfg, runtime := configuredCodexVerification(t, target)
-	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "wrong"}, cfg, runtime); err == nil || !strings.Contains(err.Error(), "expected AIGW_OK") {
-		t.Fatalf("marker error = %v", err)
+	for name, test := range map[string]struct {
+		marker, want string
+		missing      bool
+	}{
+		"wrong":     {marker: "wrong", want: "private verification challenge"},
+		"missing":   {missing: true, want: "read Codex final response"},
+		"oversized": {marker: strings.Repeat("x", 1024), want: "exceeds"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: test.marker, removeFinalMessage: test.missing}
+			if _, err := VerifyCodexInvocation(t.Context(), runner, cfg, runtime); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("final message error = %v, want %q", err, test.want)
+			}
+			if outputPath := finalMessagePath(runner.plans[len(runner.plans)-1].Args); outputPath == "" {
+				t.Fatal("request plan has no output path")
+			} else if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
+				t.Fatalf("verification output remains: %v", err)
+			}
+		})
 	}
 	requestFailure := &recordingCaptureRunner{
 		version:       "codex-cli 9.9.9",
-		requestOutput: []byte("workdir: /Users/operator/private\nsession id: secret-session\nERROR: model gpt-next is unavailable at https://gateway.example/v1 (request id: secret-request); token=must-not-leak\n"),
+		requestOutput: []byte(`{"type":"thread.started","thread_id":"secret-session"}` + "\n" + `{"type":"error","message":"model gpt-next is unavailable at https://gateway.example/v1 (request id: secret-request); token=must-not-leak"}` + "\n"),
+		stderr:        []byte("workdir: /Users/operator/private\n"),
 		requestErr:    errors.New("exit status 1"),
 	}
 	_, err := VerifyCodexInvocation(context.Background(), requestFailure, cfg, runtime)
@@ -395,24 +465,6 @@ func TestVerifyCodexRequiresSuccessfulFinalMessage(t *testing.T) {
 		t.Fatal("failed request plan has no output path")
 	} else if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
 		t.Fatalf("verification output remains after failed request: %v", err)
-	}
-	missing := &recordingCaptureRunner{version: "codex-cli 9.9.9", removeFinalMessage: true}
-	if _, err := VerifyCodexInvocation(context.Background(), missing, cfg, runtime); err == nil || !strings.Contains(err.Error(), "read Codex final response") {
-		t.Fatalf("missing final message error = %v", err)
-	}
-	if outputPath := finalMessagePath(missing.plans[len(missing.plans)-1].Args); outputPath == "" {
-		t.Fatal("missing final message plan has no output path")
-	} else if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
-		t.Fatalf("verification output remains after missing response: %v", err)
-	}
-	oversized := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: strings.Repeat("x", 1024)}
-	if _, err := VerifyCodexInvocation(context.Background(), oversized, cfg, runtime); err == nil || !strings.Contains(err.Error(), "exceeds") {
-		t.Fatalf("oversized final message error = %v", err)
-	}
-	if outputPath := finalMessagePath(oversized.plans[len(oversized.plans)-1].Args); outputPath == "" {
-		t.Fatal("oversized final message plan has no output path")
-	} else if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
-		t.Fatalf("verification output remains after oversized response: %v", err)
 	}
 }
 

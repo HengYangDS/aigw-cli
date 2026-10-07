@@ -356,7 +356,7 @@ func TestTeamManifestRoutesUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 		if _, ok := manifest.Models[route.Model]; !ok {
 			t.Errorf("Route %q references unknown Model %q", routeID, route.Model)
 		}
-		compatible, compatibilityErr := cfg.CompatibleClientIDs(routeID)
+		compatible, compatibilityErr := cfg.ProtocolClientIDs(routeID)
 		if route.UpstreamModelID() == "" || len(routeAdmittedProtocols(route)) == 0 || compatibilityErr != nil || len(compatible) == 0 {
 			t.Errorf("Route %q has no exact wire ID or compatible client/protocol: %v", routeID, compatibilityErr)
 		}
