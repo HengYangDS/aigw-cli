@@ -1,6 +1,7 @@
 package main
 
 import (
+	nativeprocess "aigw-cli/internal/process"
 	"context"
 	"encoding/json"
 	"os"
@@ -186,36 +187,61 @@ func TestMiseNpmEnvironmentIsBoundToThisRepository(t *testing.T) {
 	if !filepath.IsAbs(nullConfig) {
 		nullConfig = filepath.Join(root, nullConfig)
 	}
-	for name, want := range map[string]string{
-		"registry":     "https://registry.npmjs.org/",
-		"userconfig":   filepath.Join(root, ".npmrc"),
-		"globalconfig": nullConfig,
-		"cache":        filepath.Join(root, "build", "runtime", "npm-cache"),
-	} {
-		ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
-		command := exec.CommandContext(ctx, "mise", "-C", root, "exec", "--locked", "--", "npm", "config", "get", name)
-		command.Env = append(os.Environ(), "MISE_SAFE=0")
-		output, err := command.CombinedOutput()
-		cancel()
-		if err != nil {
-			t.Fatalf("observe repository npm %s: %v\n%s", name, err, output)
-		}
-		got := strings.TrimSpace(string(output))
-		if name != "registry" {
-			got, want = filepath.Clean(got), filepath.Clean(want)
-		}
-		if got != want {
-			t.Errorf("npm %s = %q, want %q", name, got, want)
-		}
-	}
-	t.Setenv("CI_JOB_ID", "native-synthetic-job")
-	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
-	command := exec.CommandContext(ctx, "mise", "-C", root, "exec", "--locked", "--", "npm", "config", "get", "cache")
-	command.Env = append(os.Environ(), "MISE_SAFE=0")
-	output, err := command.CombinedOutput()
-	cancel()
-	if err != nil || filepath.Clean(strings.TrimSpace(string(output))) != filepath.Join(root, "build", "runtime", "npm-cache", "native-synthetic-job") {
-		t.Fatalf("npm did not select its job-owned cache: %q, %v", output, err)
+	for _, job := range []string{"", "native-synthetic-job"} {
+		t.Run("cache/"+job, func(t *testing.T) {
+			t.Setenv("CI_JOB_ID", job)
+			capture := t.TempDir()
+			stdout, err := os.Create(filepath.Join(capture, "stdout"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = stdout.Close() })
+			stderr, err := os.Create(filepath.Join(capture, "stderr"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = stderr.Close() })
+			ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+			defer cancel()
+			start := time.Now()
+			err = (nativeprocess.Runner{}).RunStream(ctx, nativeprocess.Plan{
+				Executable: "mise", Directory: root, Env: append(os.Environ(), "MISE_SAFE=0"),
+				Args: []string{"-C", root, "exec", "--locked", "--", "npm", "config", "get", "registry", "userconfig", "globalconfig", "cache"},
+			}, stdout, stderr)
+			elapsed, deadline := time.Since(start), ctx.Err()
+			if closeErr := stdout.Close(); closeErr != nil {
+				t.Fatal(closeErr)
+			}
+			if closeErr := stderr.Close(); closeErr != nil {
+				t.Fatal(closeErr)
+			}
+			output, diagnostics := readFile(t, stdout.Name()), readFile(t, stderr.Name())
+			if err != nil || deadline != nil || len(diagnostics) != 0 {
+				t.Fatalf("observe repository npm: elapsed=%s deadline=%v error=%v stdout=%q stderr=%q", elapsed, deadline, err, output, diagnostics)
+			}
+			t.Logf("repository npm completed in %s with pristine stderr", elapsed)
+			expected := map[string]string{
+				"registry": "https://registry.npmjs.org/", "userconfig": filepath.Join(root, ".npmrc"),
+				"globalconfig": nullConfig, "cache": filepath.Join(root, "build", "runtime", "npm-cache", job),
+			}
+			for line := range strings.SplitSeq(strings.TrimSpace(string(output)), "\n") {
+				name, got, _ := strings.Cut(strings.TrimSpace(line), "=")
+				want, selected := expected[name]
+				if !selected {
+					t.Fatalf("unexpected or repeated npm setting: %q", line)
+				}
+				if name != "registry" {
+					got, want = filepath.Clean(got), filepath.Clean(want)
+				}
+				if got != want {
+					t.Errorf("npm %s = %q, want %q", name, got, want)
+				}
+				delete(expected, name)
+			}
+			if len(expected) != 0 {
+				t.Fatalf("npm omitted selected settings: %v", expected)
+			}
+		})
 	}
 	for _, path := range []string{userConfig, globalConfig} {
 		if content, err := os.ReadFile(path); err != nil || string(content) != settings {
