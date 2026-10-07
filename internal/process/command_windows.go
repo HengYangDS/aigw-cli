@@ -16,7 +16,11 @@ import (
 func commandContext(ctx context.Context, plan Plan) *exec.Cmd {
 	extension := strings.ToLower(filepath.Ext(plan.Executable))
 	if extension != ".cmd" && extension != ".bat" {
-		return exec.CommandContext(ctx, plan.Executable, plan.Args...)
+		cmd := exec.CommandContext(ctx, plan.Executable, plan.Args...)
+		if plan.DebugProcess {
+			cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.DEBUG_PROCESS}
+		}
+		return cmd
 	}
 	interpreter := os.Getenv("ComSpec")
 	if interpreter == "" {
@@ -30,5 +34,8 @@ func commandContext(ctx context.Context, plan Plan) *exec.Cmd {
 	}
 	cmd := exec.CommandContext(ctx, interpreter)
 	cmd.SysProcAttr = &syscall.SysProcAttr{CmdLine: `/d /s /c "` + commandLine.String() + `"`}
+	if plan.DebugProcess {
+		cmd.SysProcAttr.CreationFlags = windows.DEBUG_PROCESS
+	}
 	return cmd
 }

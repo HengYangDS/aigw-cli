@@ -4,6 +4,7 @@ package process
 
 import (
 	"errors"
+	"os"
 	"os/exec"
 	"syscall"
 	"time"
@@ -17,6 +18,18 @@ func startCapturedProcess(cmd *exec.Cmd) (func() error, error) {
 		return nil, err
 	}
 	return func() error { return terminateCapturedProcessGroup(cmd.Process.Pid, unix.Kill) }, nil
+}
+
+func stopCapturedCommand(command *exec.Cmd) error {
+	if err := command.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		return err
+	}
+	if err := command.Wait(); err != nil {
+		if _, exited := errors.AsType[*exec.ExitError](err); !exited {
+			return err
+		}
+	}
+	return nil
 }
 
 func terminateCapturedProcessGroup(pid int, signal func(int, syscall.Signal) error) error {

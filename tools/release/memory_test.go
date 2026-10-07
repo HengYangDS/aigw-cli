@@ -270,16 +270,9 @@ func TestNativeAttributionSummaryRetainsItsNonqualifyingScope(t *testing.T) {
 	}
 }
 
-type memoryMeasurement struct {
-	Variant string   `json:"variant"`
-	Case    string   `json:"case"`
-	Block   int      `json:"block"`
-	Bytes   []uint64 `json:"peak_resident_bytes"`
-}
-
-func (j *journeyFixture) measureMemory(variant string, block int) (memoryMeasurement, error) {
+func (j *journeyFixture) measureMemory(variant string, block int) (performance.Memory, error) {
 	j.testing.Helper()
-	row := memoryMeasurement{Variant: variant, Case: "status", Block: block, Bytes: []uint64{}}
+	row := performance.Memory{Variant: variant, Case: "status", Block: block, Bytes: []uint64{}}
 	for sample := range 45 {
 		command := exec.CommandContext(j.testing.Context(), j.binary, "status", "--json")
 		command.Env, command.Dir = j.environment, j.root
@@ -299,35 +292,6 @@ func (j *journeyFixture) measureMemory(variant string, block int) (memoryMeasure
 	return row, nil
 }
 
-func reviewPeakMemory(rows []memoryMeasurement) error {
-	type boundary struct {
-		variant string
-		block   int
-	}
-	if len(rows) != 4 {
-		return errors.New("peak-memory acceptance requires two candidate and predecessor blocks")
-	}
-	peaks := make(map[boundary]uint64)
-	for _, row := range rows {
-		key := boundary{row.Variant, row.Block}
-		if row.Case != "status" || (row.Variant != "candidate" && row.Variant != "baseline") ||
-			row.Block < 1 || row.Block > 2 || len(row.Bytes) != 40 || slices.Contains(row.Bytes, 0) || peaks[key] != 0 {
-			return errors.New("peak-memory acceptance requires unique status blocks with forty positive native observations")
-		}
-		peaks[key] = slices.Max(row.Bytes)
-	}
-	for block := 1; block <= 2; block++ {
-		baseline, candidate := peaks[boundary{"baseline", block}], peaks[boundary{"candidate", block}]
-		if baseline == 0 || candidate == 0 {
-			return errors.New("peak-memory review requires matched predecessor and candidate blocks")
-		}
-		if candidate > baseline && candidate-baseline > 4<<20 && float64(candidate) > 1.2*float64(baseline) {
-			return fmt.Errorf("status block %d peak memory requires review: %d -> %d bytes exceeds both 20%% and 4 MiB", block, baseline, candidate)
-		}
-	}
-	return nil
-}
-
 func TestNativePeakMemoryBudget(t *testing.T) {
 	const baseline = 16 << 20
 	for _, test := range []struct {
@@ -338,7 +302,7 @@ func TestNativePeakMemoryBudget(t *testing.T) {
 		{baseline + 4<<20, false},
 		{baseline + 5<<20, true},
 	} {
-		var rows []memoryMeasurement
+		var rows []performance.Memory
 		for block := 1; block <= 2; block++ {
 			for _, program := range []struct {
 				variant string
@@ -348,17 +312,17 @@ func TestNativePeakMemoryBudget(t *testing.T) {
 				for index := range peaks {
 					peaks[index] = program.peak
 				}
-				rows = append(rows, memoryMeasurement{Variant: program.variant, Case: "status", Block: block, Bytes: peaks})
+				rows = append(rows, performance.Memory{Variant: program.variant, Case: "status", Block: block, Bytes: peaks})
 			}
 		}
-		if err := reviewPeakMemory(rows); (err != nil) != test.review {
+		if err := performance.ReviewMemory(rows); (err != nil) != test.review {
 			t.Fatalf("candidate peak %d: review=%t error=%v", test.candidate, test.review, err)
 		}
 	}
-	if err := reviewPeakMemory(nil); err == nil {
+	if err := performance.ReviewMemory(nil); err == nil {
 		t.Fatal("empty evidence qualified as completed memory acceptance")
 	}
-	if err := reviewPeakMemory([]memoryMeasurement{{Variant: "candidate", Case: "status", Block: 1, Bytes: []uint64{baseline}}}); err == nil {
+	if err := performance.ReviewMemory([]performance.Memory{{Variant: "candidate", Case: "status", Block: 1, Bytes: []uint64{baseline}}}); err == nil {
 		t.Fatal("candidate memory was accepted without a matching predecessor observation")
 	}
 }
@@ -421,7 +385,7 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 			t.Error(err)
 		}
 		rows := []performance.Measurement{{Variant: "candidate", Backend: "env", Case: "status", Block: 1, Raw: "partial.json"}}
-		writeNativePerformanceSummary(t, output, os.Getenv("AIGW_TEST_HYPERFINE"), nil, rows, []memoryMeasurement{row}, false)
+		writeNativePerformanceSummary(t, output, os.Getenv("AIGW_TEST_HYPERFINE"), nil, rows, []performance.Memory{row}, false)
 		return
 	}
 	program, err := os.Executable()
@@ -444,7 +408,7 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 		Qualification bool                      `json:"qualification"`
 		Blocks        []performance.Measurement `json:"blocks"`
 		Pooled        []performance.Measurement `json:"pooled"`
-		Memory        []memoryMeasurement       `json:"memory"`
+		Memory        []performance.Memory      `json:"memory"`
 	}
 	if err := json.Unmarshal(readFile(t, filepath.Join(output, "summary.json")), &summary); err != nil {
 		t.Fatal(err)
@@ -456,7 +420,46 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 	if row.Variant != "candidate" || row.Case != "status" || row.Block != 1 || len(row.Bytes) != 2 || slices.Contains(row.Bytes, 0) {
 		t.Fatalf("interrupted block lost its two completed native observations: %#v", row)
 	}
-	if err := reviewPeakMemory([]memoryMeasurement{row}); err == nil {
+	if err := performance.ReviewMemory([]performance.Memory{row}); err == nil {
 		t.Fatal("partial memory observations satisfied qualification")
+	}
+}
+
+func TestNativePerformanceSummaryRejectsUnprovedExecution(t *testing.T) {
+	if os.Getenv("AIGW_TEST_UNPROVED_PERFORMANCE") == "1" {
+		var rows []performance.Measurement
+		for block := range 2 {
+			times := make([]float64, 40)
+			for index := range times {
+				times[index] = 0.01
+			}
+			rows = append(rows, performance.Measurement{Variant: "candidate", Backend: "env", Case: "credential",
+				Block: block + 1, Budget: 0.1, P95: 0.01, Raw: fmt.Sprintf("credential-%d.json", block+1),
+				Samples: performance.Samples{Command: "unobserved helper", Times: times, ExitCodes: make([]int, 40)}})
+		}
+		writeNativePerformanceSummary(t, os.Getenv("AIGW_TEST_PERFORMANCE_OUTPUT"), os.Getenv("AIGW_TEST_HYPERFINE"), nil, rows, nil, false)
+		return
+	}
+	tool, err := exec.LookPath("hyperfine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	program, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := t.TempDir()
+	command := exec.CommandContext(t.Context(), program, "-test.run=^TestNativePerformanceSummaryRejectsUnprovedExecution$")
+	command.Env = append(os.Environ(), "AIGW_TEST_UNPROVED_PERFORMANCE=1", "AIGW_TEST_PERFORMANCE_OUTPUT="+output, "AIGW_TEST_HYPERFINE="+tool)
+	result, runErr := command.CombinedOutput()
+	var summary struct {
+		Qualification bool   `json:"qualification"`
+		Scope         string `json:"scope"`
+	}
+	if err := json.Unmarshal(readFile(t, filepath.Join(output, "summary.json")), &summary); err != nil {
+		t.Fatal(err)
+	}
+	if runErr == nil || summary.Qualification || summary.Scope != "full-performance" || !strings.Contains(string(result), "performance execution identity is incomplete") {
+		t.Fatalf("unproved execution qualified: %#v, %v\n%s", summary, runErr, result)
 	}
 }

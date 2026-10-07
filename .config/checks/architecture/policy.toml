@@ -364,6 +364,7 @@ allowed_import_edges."tools/release/construction" = [
   "internal/upgrade/artifact",
   "tools/release/artifact",
   "tools/release/readiness",
+  "tools/release/performance",
 ]
 allowed_import_edges."tools/release/performance" = ["internal/process", "internal/redaction"]
 allowed_import_edges."tools/release/publication" = ["tools/release/artifact"]

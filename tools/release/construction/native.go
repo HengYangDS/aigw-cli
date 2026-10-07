@@ -4,9 +4,9 @@ import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/upgrade/artifact"
 	releaseartifact "aigw-cli/tools/release/artifact"
+	"aigw-cli/tools/release/performance"
 	"aigw-cli/tools/release/readiness"
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -271,9 +271,9 @@ func BuildNative(ctx context.Context, root, workspace, version string) (string, 
 }
 
 func acceptNative(request buildRequest, artifacts, baseline string, input NativeAcceptance, run toolRunner) (result error) {
-	clients, performance := input.Clients, input.Performance
-	if performance != "" {
-		if _, err := os.Stat(performance); !os.IsNotExist(err) {
+	clients, performanceDirectory := input.Clients, input.Performance
+	if performanceDirectory != "" {
+		if _, err := os.Stat(performanceDirectory); !os.IsNotExist(err) {
 			return errors.New("performance output must be a new directory")
 		}
 	}
@@ -322,8 +322,8 @@ func acceptNative(request buildRequest, artifacts, baseline string, input Native
 		clients = true
 		clientPattern += "/^" + input.DiagnosticClient + "($|-)"
 	}
-	lifecycle := performance == "" && input.DiagnosticClient == ""
-	performanceEnvironment := append(publishedEnvironment, "AIGW_PERFORMANCE_OUTPUT="+performance,
+	lifecycle := performanceDirectory == "" && input.DiagnosticClient == ""
+	performanceEnvironment := append(publishedEnvironment, "AIGW_PERFORMANCE_OUTPUT="+performanceDirectory,
 		"AIGW_PERFORMANCE_ATTRIBUTION="+map[bool]string{false: "0", true: "1"}[input.PerformanceAttribution])
 	for _, suite := range []struct {
 		selected    bool
@@ -333,7 +333,7 @@ func acceptNative(request buildRequest, artifacts, baseline string, input Native
 		{lifecycle, []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney|TestNativeVerificationResources)$", "-count=1", "-v"}, currentEnvironment},
 		{lifecycle && baseline != "", []string{"test", "./tools/release", "-run", "^TestNativePublishedPredecessorJourney$", "-count=1", "-v"}, publishedEnvironment},
 		{clients, []string{"test", "-tags=client_acceptance", "./tools/release", "-run", clientPattern, "-count=1", "-v"}, publishedEnvironment},
-		{performance != "", []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}, performanceEnvironment},
+		{performanceDirectory != "", []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}, performanceEnvironment},
 	} {
 		if !suite.selected {
 			continue
@@ -342,10 +342,9 @@ func acceptNative(request buildRequest, artifacts, baseline string, input Native
 			return err
 		}
 	}
-	if performance != "" {
-		data, err := os.ReadFile(filepath.Join(performance, "summary.json"))
-		if err != nil || !json.Valid(data) {
-			return errors.New("performance acceptance did not produce its result summary")
+	if performanceDirectory != "" {
+		if _, err := performance.ReadSummary(performanceDirectory, input.PerformanceAttribution); err != nil {
+			return fmt.Errorf("performance acceptance result: %w", err)
 		}
 	}
 	return nil

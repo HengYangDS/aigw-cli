@@ -32,13 +32,6 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-type performanceProgram struct {
-	Variant string `json:"variant"`
-	Path    string `json:"path"`
-	SHA256  string `json:"sha256"`
-	Bytes   int    `json:"bytes"`
-}
-
 func TestNativePerformance(t *testing.T) {
 	attribution := os.Getenv("AIGW_PERFORMANCE_ATTRIBUTION") == "1"
 	if !attribution {
@@ -67,7 +60,7 @@ func TestNativePerformance(t *testing.T) {
 		backends = append(backends, "keyring")
 	}
 	var measurements []performance.Measurement
-	var memory []memoryMeasurement
+	var memory []performance.Memory
 	defer func() {
 		writeNativePerformanceSummary(t, output, hyperfine, programs, measurements, memory, attribution)
 	}()
@@ -108,16 +101,9 @@ func TestNativePerformance(t *testing.T) {
 	if attribution {
 		return
 	}
-	baseline, candidate := programs[0].Bytes, programs[1].Bytes
-	if candidate-baseline > 1<<20 && float64(candidate) > float64(baseline)*1.1 {
-		t.Error("executable size growth requires review: exceeds both 10% and 1 MiB")
-	}
-	if err := reviewPeakMemory(memory); err != nil {
-		t.Error(err)
-	}
 }
 
-func writeNativePerformanceSummary(t *testing.T, output, hyperfine string, programs []performanceProgram, measurements []performance.Measurement, memory []memoryMeasurement, attribution bool) []performance.Measurement {
+func writeNativePerformanceSummary(t *testing.T, output, hyperfine string, programs []performance.Program, measurements []performance.Measurement, memory []performance.Memory, attribution bool) []performance.Measurement {
 	t.Helper()
 	identity, err := exec.CommandContext(t.Context(), hyperfine, "--version").Output()
 	if err != nil {
@@ -131,47 +117,46 @@ func writeNativePerformanceSummary(t *testing.T, output, hyperfine string, progr
 	}
 	for _, row := range append(slices.Clone(measurements), pooled...) {
 		t.Logf("%s/%s/%s block=%d p95=%.3fms budget=%.0fms", row.Variant, row.Backend, row.Case, row.Block, row.P95*1000, row.Budget*1000)
-		if !attribution && row.Variant == "candidate" && row.P95 > row.Budget {
-			t.Errorf("candidate %s/%s block=%d exceeds declared budget", row.Backend, row.Case, row.Block)
+	}
+	summary := performance.Summary{
+		Scope: "full-performance", Controllers: make(map[string]performance.Identity), ControllerExecution: make(map[string][]performance.Execution),
+		OS: runtime.GOOS, Arch: runtime.GOARCH, Tool: tool,
+		IdentityScope: "Immutable selected files; Windows controller and descendant image, machine, creation time and parent ownership observed through untimed native create events and retained handles",
+		MemoryScope:   "Configured status: per-child wait4 on macOS, GNU time on Linux, retained-handle peak working set on Windows; bytes, no periodic sampling; calibrated against a large parent",
+		ClientScope:   "controlled client discovery; native projected helper; no Provider inference",
+		Programs:      programs, Blocks: measurements, Pooled: pooled, Memory: memory,
+	}
+	current, err := performance.ObserveCurrent()
+	if err != nil {
+		t.Error(err)
+	}
+	summary.ControllerExecution["verifier"] = current
+	for _, row := range measurements {
+		if len(row.ControllerExecution) != 0 {
+			summary.ControllerExecution["hyperfine"] = row.ControllerExecution
+			break
 		}
 	}
-	summary := struct {
-		Qualification bool                            `json:"qualification"`
-		Scope         string                          `json:"scope"`
-		Controllers   map[string]performance.Identity `json:"selected_controller_files,omitempty"`
-		IdentityScope string                          `json:"identity_scope"`
-		OS            string                          `json:"os"`
-		Arch          string                          `json:"arch"`
-		Tool          string                          `json:"tool"`
-		MemoryScope   string                          `json:"memory_scope"`
-		ClientScope   string                          `json:"client_scope"`
-		Programs      []performanceProgram            `json:"programs"`
-		Blocks        []performance.Measurement       `json:"blocks"`
-		Pooled        []performance.Measurement       `json:"pooled"`
-		Memory        []memoryMeasurement             `json:"memory"`
-	}{!attribution && !t.Failed(), "full-performance", nil,
-		"Selected file identity is not executed process architecture; x64-controller shell redirection is unproved",
-		runtime.GOOS, runtime.GOARCH, tool,
-		"Configured status: per-child wait4 on macOS, GNU time on Linux, retained-handle peak working set on Windows; bytes, no periodic sampling; calibrated against a large parent",
-		"controlled client discovery; native projected helper; no Provider inference",
-		programs, measurements, pooled, memory}
-	if attribution {
-		summary.Scope, summary.MemoryScope = "component-attribution", "not measured; diagnostic-only scope"
-		verifier, err := os.Executable()
+	verifier, err := os.Executable()
+	if err != nil {
+		t.Error(err)
+	}
+	for name, path := range map[string]string{"hyperfine": hyperfine, "verifier": verifier} {
+		selected, err := performance.Identify(path)
 		if err != nil {
 			t.Error(err)
+			continue
 		}
-		summary.Controllers = make(map[string]performance.Identity)
-		for name, path := range map[string]string{"hyperfine": hyperfine, "verifier": verifier} {
-			selected, err := performance.Identify(path)
-			if err != nil {
-				t.Error(err)
-				continue
-			}
-			summary.Controllers[name] = selected
-		}
+		summary.Controllers[name] = selected
+	}
+
+	if attribution {
+		summary.Scope, summary.MemoryScope = "component-attribution", "not measured; diagnostic-only scope"
+	} else if err := summary.Review(); err != nil {
+		t.Error(err)
 	}
 	summary.Qualification = !attribution && !t.Failed()
+
 	encoded, err := json.MarshalIndent(summary, "", "  ")
 	if err != nil {
 		t.Fatal(err)
@@ -182,7 +167,7 @@ func writeNativePerformanceSummary(t *testing.T, output, hyperfine string, progr
 	return pooled
 }
 
-func nativePerformancePrograms(t *testing.T) []performanceProgram {
+func nativePerformancePrograms(t *testing.T) []performance.Program {
 	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
@@ -199,7 +184,7 @@ func nativePerformancePrograms(t *testing.T) []performanceProgram {
 		t.Fatalf("candidate program differs from verified archive: %v", err)
 	}
 	baseline := requireNativeLifecycleBaseline(t, func() string { return "" })
-	programs := []performanceProgram{{Variant: "baseline", Path: baseline}, {Variant: "candidate", Path: candidate}}
+	programs := []performance.Program{{Variant: "baseline", Path: baseline}, {Variant: "candidate", Path: candidate}}
 	for index := range programs {
 		data := readFile(t, programs[index].Path)
 		programs[index].SHA256 = fmt.Sprintf("%x", sha256.Sum256(data))
@@ -296,11 +281,28 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 	if settings.APIKeyHelper == "" {
 		return nil, errors.New("projected helper is absent")
 	}
+	return j.measureSelectedPerformance(hyperfine, output, variant, backend, preparer, settings.APIKeyHelper, block)
+}
+
+func (j *journeyFixture) measureSelectedPerformance(hyperfine, output, variant, backend, preparer, helperCommand string, block int) ([]performance.Measurement, error) {
+	config, err := configuration.NewStore(j.config).Load()
+	if err != nil {
+		return nil, err
+	}
+	resolved, err := config.ResolveRuntime(configuration.ClientClaude, "")
+	if err != nil {
+		return nil, err
+	}
+	scope := resolved.CredentialProjectionFingerprint(configuration.ClientClaude)
+	reader, err := credential.ExecutableFromCommand(helperCommand, configuration.ClientClaude, scope, runtime.GOOS)
+	if err != nil {
+		return nil, err
+	}
 	shell := "/bin/sh"
-	helper := []string{shell, "-c", settings.APIKeyHelper}
+	helper := []string{shell, "-c", helperCommand}
 	if runtime.GOOS == "windows" {
 		shell = os.Getenv("ComSpec")
-		if err := os.WriteFile(filepath.Join(j.root, "credential.cmd"), []byte("@echo off\r\n"+settings.APIKeyHelper+"\r\n"), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(j.root, "credential.cmd"), []byte("@echo off\r\n"+helperCommand+"\r\n"), 0o600); err != nil {
 			return nil, err
 		}
 		helper = []string{shell, "/d", "/c", "credential.cmd"}
@@ -309,19 +311,6 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 	cases := j.performanceCases(helper, backend, preparer)
 	selected := map[string]string{"credential": shell}
 	if attribution {
-		config, err := configuration.NewStore(j.config).Load()
-		if err != nil {
-			return nil, err
-		}
-		resolved, err := config.ResolveRuntime(configuration.ClientClaude, "")
-		if err != nil {
-			return nil, err
-		}
-		scope := resolved.CredentialProjectionFingerprint(configuration.ClientClaude)
-		reader, err := credential.ExecutableFromCommand(settings.APIKeyHelper, configuration.ClientClaude, scope, runtime.GOOS)
-		if err != nil {
-			return nil, err
-		}
 		cases = j.attributionCases(helper, shell, reader, scope)
 		selected = map[string]string{"credential": shell, "shell-startup": shell, "source-startup": j.source, "reader-startup": reader, "credential-direct": reader}
 	}
@@ -341,13 +330,17 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 			return append(measurements, row), err
 		}
 		row.Executable = &identity
+		if test.Name == "credential" {
+			readerIdentity, err := performance.Identify(reader)
+			if err != nil {
+				return append(measurements, row), err
+			}
+			row.Reader = &readerIdentity
+		}
 		if attribution && (test.Name == "projection" || test.Name == "sync") {
 			row, err = j.measureWorkloadProcesses(j.testing.Context(), filepath.Join(output, name+".json"), row, test)
 		} else {
-			row, err = performance.Measure(j.testing.Context(), performance.Command{
-				Tool: hyperfine, Directory: j.root, Output: filepath.Join(output, name+".json"),
-				Arguments: test.Arguments(filepath.Join(output, name+".json")), Environment: j.environment, Sensitive: j.sensitiveInputs, Measurement: row,
-			})
+			row, err = j.measureNativeCommand(hyperfine, filepath.Join(output, name+".json"), row, test)
 		}
 		measurements = append(measurements, row)
 		if err != nil {
@@ -364,18 +357,36 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 	return measurements, nil
 }
 
+func (j *journeyFixture) measureNativeCommand(hyperfine, output string, row performance.Measurement, workload performance.Workload) (performance.Measurement, error) {
+	row.Command = slices.Clone(workload.Command)
+	if os.Getenv("AIGW_PERFORMANCE_ATTRIBUTION") != "1" {
+		if err := workload.Review(row.Executable); err != nil {
+			return row, err
+		}
+	}
+	command := performance.Command{Tool: hyperfine, Directory: j.root, Output: output,
+		Arguments: workload.Arguments(output), Environment: j.environment, Sensitive: j.sensitiveInputs, Measurement: row}
+	var err error
+	row.Execution, row.ControllerExecution, err = performance.ObserveCommand(j.testing.Context(), command, workload)
+	if err != nil {
+		return row, err
+	}
+	command.Measurement = row
+	return performance.Measure(j.testing.Context(), command)
+}
+
 func (j *journeyFixture) performanceCases(helper []string, backend, preparer string) []performance.Workload {
 	selectArgs := []string{j.binary, "use", "--for", "claude", "performance-second"}
 	resetArgs := []string{j.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
 	cases := []performance.Workload{
-		{Name: "credential", Command: helper, Budget: 0.1},
-		{Name: "projection", Command: selectArgs, Prepare: resetArgs, Budget: 0.25},
-		{Name: "setup", Command: []string{j.binary, "setup", "--from", j.manifest, "--account", "native-system-keyring-probe"}, Prepare: []string{preparer, "prepare-performance-setup", filepath.Dir(j.config), filepath.Dir(j.settings), j.config, j.settings}, Budget: 0.25},
-		{Name: "sync", Command: []string{j.binary, "sync"}, Prepare: resetArgs, Budget: 0.25},
+		{Name: "credential", Command: helper, Budget: performance.Budget("credential")},
+		{Name: "projection", Command: selectArgs, Prepare: resetArgs, Budget: performance.Budget("projection")},
+		{Name: "setup", Command: []string{j.binary, "setup", "--from", j.manifest, "--account", "native-system-keyring-probe"}, Prepare: []string{preparer, "prepare-performance-setup", filepath.Dir(j.config), filepath.Dir(j.settings), j.config, j.settings}, Budget: performance.Budget("setup")},
+		{Name: "sync", Command: []string{j.binary, "sync"}, Prepare: resetArgs, Budget: performance.Budget("sync")},
 	}
 	if backend == "env" {
 		for _, args := range [][]string{{"version", "--version"}, {"help", "--help"}, {"status", "status", "--json"}, {"export", "config", "export"}} {
-			cases = append(cases, performance.Workload{Name: args[0], Command: append([]string{j.binary}, args[1:]...), Budget: 0.1})
+			cases = append(cases, performance.Workload{Name: args[0], Command: append([]string{j.binary}, args[1:]...), Budget: performance.Budget(args[0])})
 		}
 	}
 	return cases

@@ -116,9 +116,12 @@ func Measure(parent context.Context, input Command) (Measurement, error) {
 		return row, errors.New("performance requires an explicit measured command")
 	}
 	command := input.Arguments[len(input.Arguments)-1]
+	if len(row.Command) != 0 && command != Argv(row.Command...) {
+		return row, errors.New("performance export differs from its requested command")
+	}
 	if row.Executable != nil {
-		if selected := Argv(row.Executable.Path); command != selected && !strings.HasPrefix(command, selected+" ") {
-			return row, errors.New("measured command does not select its declared executable")
+		if err := selectsExecutable(command, row.Executable); err != nil {
+			return row, err
 		}
 		if err := row.Executable.verify(); err != nil {
 			return row, err
@@ -146,6 +149,26 @@ func Measure(parent context.Context, input Command) (Measurement, error) {
 		return row, errors.Join(runErr, err)
 	}
 	row.Raw = filepath.Base(input.Output)
+	row.Samples, err = decodeSamples(data, command)
+	if err = errors.Join(runErr, err); err != nil {
+		return row, err
+	}
+	row.P95, err = row.Samples.Percentile()
+	return row, err
+}
+
+func selectsExecutable(command string, selected *Identity) error {
+	if selected == nil || selected.Path == "" {
+		return errors.New("measured command does not select its declared executable")
+	}
+	executable := Argv(selected.Path)
+	if command != executable && !strings.HasPrefix(command, executable+" ") {
+		return errors.New("measured command does not select its declared executable")
+	}
+	return nil
+}
+
+func decodeSamples(data []byte, command string) (Samples, error) {
 	var report struct {
 		Results []struct {
 			Samples
@@ -153,28 +176,24 @@ func Measure(parent context.Context, input Command) (Measurement, error) {
 		} `json:"results"`
 	}
 	if err := json.Unmarshal(data, &report); err != nil || len(report.Results) != 1 {
-		return row, errors.Join(runErr, errors.New("Hyperfine must produce one nonempty result"))
+		return Samples{}, errors.New("Hyperfine must produce one nonempty result")
 	}
-	row.Samples = report.Results[0].Samples
-	row.Samples.ExitCodes = []int{}
+	samples := report.Results[0].Samples
+	samples.ExitCodes = []int{}
 	for _, code := range report.Results[0].ExitCodes {
 		if code == nil {
-			return row, errors.Join(runErr, errors.New("performance export requires explicit integer exit codes"))
+			return samples, errors.New("performance export requires explicit integer exit codes")
 		}
-		row.Samples.ExitCodes = append(row.Samples.ExitCodes, *code)
+		samples.ExitCodes = append(samples.ExitCodes, *code)
 	}
-	if row.Samples.Command != command {
-		return row, errors.Join(runErr, errors.New("Hyperfine export differs from its requested command"))
+	if samples.Command != command {
+		return samples, errors.New("Hyperfine export differs from its requested command")
 	}
-	if len(row.Samples.Times) != 40 {
-		return row, errors.Join(runErr, errors.New("Hyperfine must retain exactly forty measured samples"))
+	if len(samples.Times) != 40 {
+		return samples, errors.New("Hyperfine must retain exactly forty measured samples")
 	}
-	p95, err := row.Samples.Percentile()
-	if err = errors.Join(runErr, err); err != nil {
-		return row, err
-	}
-	row.P95 = p95
-	return row, nil
+	_, err := samples.Percentile()
+	return samples, err
 }
 
 // MeasureOperation times the existing native API with its own bounded worker
@@ -249,6 +268,38 @@ type Workload struct {
 	Budget           float64
 }
 
+// Review binds a qualifying case to its native operation and selected executable.
+// Dynamic paths and identifiers stay invocation inputs, not another workload list.
+func (c Workload) Review(selected *Identity) error {
+	if err := selectsExecutable(Argv(c.Command...), selected); err != nil {
+		return err
+	}
+	args := c.Command[1:]
+	valid := false
+	switch c.Name {
+	case "projection":
+		valid = len(args) == 4 && slices.Equal(args[:2], []string{"use", "--for"}) && args[2] != "" && args[3] != ""
+	case "setup":
+		valid = len(args) == 5 && slices.Equal(args[:2], []string{"setup", "--from"}) && args[2] != "" && args[3] == "--account" && args[4] != ""
+	case "sync":
+		valid = slices.Equal(args, []string{"sync"})
+	case "version":
+		valid = slices.Equal(args, []string{"--version"})
+	case "help":
+		valid = slices.Equal(args, []string{"--help"})
+	case "status":
+		valid = slices.Equal(args, []string{"status", "--json"})
+	case "export":
+		valid = slices.Equal(args, []string{"config", "export"})
+	case "credential":
+		valid = len(args) == 2 && args[0] == "-c" && args[1] != "" || len(args) == 3 && slices.Equal(args[:2], []string{"/d", "/c"}) && args[2] != ""
+	}
+	if !valid {
+		return errors.New("performance command differs from its declared workload")
+	}
+	return nil
+}
+
 // Arguments retains the official five-warmup, forty-sample Hyperfine contract.
 func (c Workload) Arguments(raw string) []string {
 	args := []string{"--shell=none", "--warmup", "5", "--runs", "40", "--output=inherit", "--style", "basic", "--export-json", raw}
@@ -256,4 +307,16 @@ func (c Workload) Arguments(raw string) []string {
 		args = append(args, "--prepare", Argv(c.Prepare...))
 	}
 	return append(args, Argv(c.Command...))
+}
+
+// Budget is the original native workload ceiling; other cases are diagnostic.
+func Budget(name string) float64 {
+	switch name {
+	case "projection", "setup", "sync":
+		return 0.25
+	case "credential", "version", "help", "status", "export":
+		return 0.1
+	default:
+		return 0
+	}
 }

@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -155,6 +156,13 @@ func runCaptured(ctx context.Context, plan Plan, stdout io.Writer) (diagnostic [
 // RunStream executes an owned non-interactive process with caller-owned output
 // streams. Cancellation and return reclaim its native process group or Job.
 func (Runner) RunStream(ctx context.Context, plan Plan, stdout, stderr io.Writer) (err error) {
+	if plan.DebugProcess {
+		if runtime.GOOS != "windows" || plan.OnStart == nil {
+			return errors.New("native debug execution requires a Windows observer")
+		}
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+	}
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	cmd := commandContext(ctx, plan)
@@ -170,6 +178,11 @@ func (Runner) RunStream(ctx context.Context, plan Plan, stdout, stderr io.Writer
 		return fmt.Errorf("start %s: %w", plan.Executable, err)
 	}
 	defer func() { err = errors.Join(err, cleanup()) }()
+	if plan.OnStart != nil {
+		if observeErr := plan.OnStart(cmd.Process); observeErr != nil {
+			return fmt.Errorf("observe started %s: %w", plan.Executable, errors.Join(observeErr, stopCapturedCommand(cmd)))
+		}
+	}
 	if err := cmd.Wait(); err != nil {
 		if errors.Is(err, exec.ErrWaitDelay) {
 			err = fmt.Errorf("output pipes did not close within %s: %w", capturedProcessWaitDelay, err)

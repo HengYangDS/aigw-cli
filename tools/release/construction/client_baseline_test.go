@@ -2,6 +2,7 @@ package construction
 
 import (
 	releaseartifact "aigw-cli/tools/release/artifact"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -147,7 +148,13 @@ func TestNativePerformanceAttributionRetainsOnlyItsOwnMeasurements(t *testing.T)
 		if err := os.Mkdir(output, 0o700); err != nil {
 			return err
 		}
-		return os.WriteFile(filepath.Join(output, "summary.json"), []byte(`{"qualification":false,"scope":"component-attribution"}`), 0o600)
+		summary := writeQualifiedPerformanceSummary(t, output)
+		summary.Qualification, summary.Scope = false, "component-attribution"
+		data, err := json.Marshal(summary)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(output, "summary.json"), data, 0o600)
 	}); err != nil || calls != 1 {
 		t.Fatalf("native attribution calls=%d error=%v", calls, err)
 	}
@@ -170,7 +177,15 @@ func TestNativePerformanceScopeCannotInheritAttribution(t *testing.T) {
 			if err := os.Mkdir(output, 0o700); err != nil {
 				return err
 			}
-			return os.WriteFile(filepath.Join(output, "summary.json"), []byte(`{"blocks":[{}]}`), 0o600)
+			summary := writeQualifiedPerformanceSummary(t, output)
+			if attribution {
+				summary.Qualification, summary.Scope = false, "component-attribution"
+			}
+			data, err := json.Marshal(summary)
+			if err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(output, "summary.json"), data, 0o600)
 		}); err != nil {
 			t.Fatal(err)
 		}

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDiagnosticFailureUsesNativeMarkers(t *testing.T) {
@@ -359,5 +360,47 @@ func TestRunnerPreservesPlanEnvironment(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestRunnerOwnsStartedProcessObservation(t *testing.T) {
+	if os.Getenv("AIGW_TEST_PROCESS_OBSERVER") == "1" {
+		if os.Args[len(os.Args)-1] == "refuse" {
+			time.Sleep(time.Minute)
+		}
+		if _, err := fmt.Fprint(os.Stdout, "observed"); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	program, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, refuse := range []bool{false, true} {
+		t.Run(fmt.Sprint(refuse), func(t *testing.T) {
+			var child *os.Process
+			rejected := errors.New("identity refused")
+			mode := "accept"
+			if refuse {
+				mode = "refuse"
+			}
+			plan := Plan{Executable: program, Args: []string{"-test.run=^TestRunnerOwnsStartedProcessObservation$", mode},
+				Env: append(os.Environ(), "AIGW_TEST_PROCESS_OBSERVER=1", "GORACE=atexit_sleep_ms=0"),
+				OnStart: func(process *os.Process) error {
+					child = process
+					if refuse {
+						return rejected
+					}
+					return nil
+				}}
+			output, runErr := (Runner{}).RunCapture(t.Context(), plan)
+			if child == nil || child.Pid < 1 || refuse != errors.Is(runErr, rejected) || !refuse && !strings.Contains(string(output), "observed") {
+				t.Fatalf("started-process observation lost ownership or refusal: child=%v error=%v", child, runErr)
+			}
+			if err := child.Kill(); !errors.Is(err, os.ErrProcessDone) {
+				t.Fatalf("observed child survived runner return: %v", err)
+			}
+		})
 	}
 }

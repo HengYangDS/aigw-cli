@@ -6,7 +6,10 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"runtime"
+	"syscall"
 	"testing"
+	"time"
 
 	"golang.org/x/sys/windows"
 )
@@ -68,7 +71,7 @@ func TestStartCapturedWindowsProcessOwnsEveryFailureBoundary(t *testing.T) {
 					}
 					return nil
 				},
-				stopCommand: func(*exec.Cmd) { stopped = true },
+				stopCommand: func(*exec.Cmd) error { stopped = true; return nil },
 			}
 
 			cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api)
@@ -97,7 +100,7 @@ func TestStartCapturedWindowsProcessReturnsIdempotentCleanup(t *testing.T) {
 			closed++
 			return nil
 		},
-		stopCommand: func(*exec.Cmd) {},
+		stopCommand: func(*exec.Cmd) error { return nil },
 	}
 
 	cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api)
@@ -149,5 +152,60 @@ func TestStartCapturedWindowsProcessRetainsCleanupFailures(t *testing.T) {
 	cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api)
 	if cleanup != nil || !errors.Is(err, configureFailure) || !errors.Is(err, closeFailure) {
 		t.Fatalf("cleanup_present=%t error=%v", cleanup != nil, err)
+	}
+}
+
+func TestStartCapturedWindowsProcessReclaimsRejectedDebuggee(t *testing.T) {
+	if os.Getenv("AIGW_TEST_DEBUG_START_REFUSAL") == "1" {
+		time.Sleep(time.Minute)
+		return
+	}
+	program, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, boundary := range []string{"open", "assign"} {
+		t.Run(boundary, func(t *testing.T) {
+			runtime.LockOSThread()
+			defer runtime.UnlockOSThread()
+			failure := errors.New("selected native startup refusal")
+			api := nativeWindowsProcessAPI
+			if boundary == "open" {
+				api.openProcess = func(uint32, bool, uint32) (windows.Handle, error) { return 0, failure }
+			} else {
+				api.assignProcess = func(windows.Handle, windows.Handle) error { return failure }
+			}
+			command := exec.Command(program, "-test.run=^TestStartCapturedWindowsProcessReclaimsRejectedDebuggee$")
+			command.Env = append(os.Environ(), "AIGW_TEST_DEBUG_START_REFUSAL=1")
+			command.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.DEBUG_PROCESS}
+			started := time.Now()
+			cleanup, err := startCapturedWindowsProcess(command, api)
+			if cleanup != nil || !errors.Is(err, failure) {
+				t.Fatalf("native startup refusal was not preserved: cleanup=%t error=%v", cleanup != nil, err)
+			}
+			if elapsed := time.Since(started); elapsed > 3*time.Second {
+				t.Fatalf("rejected native debuggee exceeded the total cleanup bound: %s", elapsed)
+			}
+			if command.ProcessState == nil || !command.ProcessState.Exited() {
+				t.Fatal("rejected native debuggee was not reaped")
+			}
+		})
+	}
+}
+
+func TestStartCapturedWindowsProcessRetainsStopFailure(t *testing.T) {
+	refused, stopFailure := errors.New("assign refused"), errors.New("stop failed")
+	api := windowsProcessAPI{
+		createJob:     func(*windows.SecurityAttributes, *uint16) (windows.Handle, error) { return 10, nil },
+		configureJob:  func(windows.Handle, uint32, uintptr, uint32) (int, error) { return 1, nil },
+		startCommand:  func(command *exec.Cmd) error { command.Process = &os.Process{Pid: 42}; return nil },
+		openProcess:   func(uint32, bool, uint32) (windows.Handle, error) { return 20, nil },
+		assignProcess: func(windows.Handle, windows.Handle) error { return refused },
+		closeHandle:   func(windows.Handle) error { return nil },
+		stopCommand:   func(*exec.Cmd) error { return stopFailure },
+	}
+	cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api)
+	if cleanup != nil || !errors.Is(err, refused) || !errors.Is(err, stopFailure) {
+		t.Fatalf("startup lost exact owned cleanup failure: cleanup=%t error=%v", cleanup != nil, err)
 	}
 }

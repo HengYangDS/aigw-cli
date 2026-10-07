@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"runtime"
 	"sync"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -20,7 +21,7 @@ type windowsProcessAPI struct {
 	openProcess   func(uint32, bool, uint32) (windows.Handle, error)
 	assignProcess func(windows.Handle, windows.Handle) error
 	closeHandle   func(windows.Handle) error
-	stopCommand   func(*exec.Cmd)
+	stopCommand   func(*exec.Cmd) error
 }
 
 var nativeWindowsProcessAPI = windowsProcessAPI{
@@ -30,10 +31,36 @@ var nativeWindowsProcessAPI = windowsProcessAPI{
 	openProcess:   windows.OpenProcess,
 	assignProcess: windows.AssignProcessToJobObject,
 	closeHandle:   windows.CloseHandle,
-	stopCommand: func(command *exec.Cmd) {
-		_ = command.Process.Kill()
-		_ = command.Wait()
-	},
+	stopCommand:   stopCapturedCommand,
+}
+
+func stopCapturedCommand(command *exec.Cmd) (result error) {
+	deadline := time.Now().Add(capturedProcessWaitDelay)
+	handle, openErr := windows.OpenProcess(windows.SYNCHRONIZE, false, uint32(command.Process.Pid)) // #nosec G115 -- exec.Start returns the native DWORD PID; the child has not been reaped.
+	killErr := command.Process.Kill()
+	if openErr != nil {
+		return errors.Join(openErr, killErr)
+	}
+	defer func() { result = errors.Join(result, windows.CloseHandle(handle)) }()
+	event, err := windows.WaitForSingleObject(handle, 0)
+	if err == nil && event != windows.WAIT_OBJECT_0 && command.SysProcAttr != nil && command.SysProcAttr.CreationFlags&windows.DEBUG_PROCESS != 0 {
+		stopped, _, err := windows.NewLazySystemDLL("kernel32.dll").NewProc("DebugActiveProcessStop").Call(uintptr(command.Process.Pid))
+		if stopped == 0 {
+			result = fmt.Errorf("detach rejected native debug process: %w", err)
+		}
+	}
+	remaining := max(time.Until(deadline).Milliseconds(), 0)
+	event, err = windows.WaitForSingleObject(handle, uint32(remaining)) // #nosec G115 -- The shared remaining cleanup budget is bounded to 0..2000 milliseconds.
+	if err != nil || event != windows.WAIT_OBJECT_0 {
+		return errors.Join(result, killErr, err, errors.New("rejected native process did not exit within its cleanup bound"))
+	}
+	command.WaitDelay = max(time.Until(deadline), time.Millisecond)
+	if err := command.Wait(); err != nil {
+		if _, exited := errors.AsType[*exec.ExitError](err); !exited {
+			result = errors.Join(result, err)
+		}
+	}
+	return result
 }
 
 // startCapturedProcess puts an AIGW-owned non-interactive child into a Job
@@ -79,7 +106,7 @@ func startCapturedWindowsProcess(command *exec.Cmd, api windowsProcessAPI) (clea
 	}
 	defer func() {
 		if err != nil {
-			api.stopCommand(command)
+			err = errors.Join(err, api.stopCommand(command))
 		}
 	}()
 	process, err := api.openProcess(
