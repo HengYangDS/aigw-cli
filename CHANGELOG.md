@@ -22,6 +22,9 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Changed
 
+- Retire the plain AIHubMix MiniMax M3 team Route after its failed native tool
+  continuation; retain the qualified CC channel, UCloud Route and existing user
+  configuration without introducing a separate eligibility mechanism.
 - Prepare Windows native client dependencies only for explicit client or
   diagnostic acceptance; signed-artifact performance checks retain their
   original trust inputs without installing unrelated clients.

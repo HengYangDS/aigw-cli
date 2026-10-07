@@ -293,6 +293,10 @@ MiniMax M3 has AIHubMix and UCloud Routes; its DMXAPI candidate timed out.
 AIHubMix's plain `minimax-m3` and `coding-minimax-m3` wire IDs produced
 reasoning tags in final assistant text and failed strict Codex 0.159.3
 verification; their successful text inference does not settle that client gap.
+The plain AIHubMix Route was removed from the shipped manifest on October 7;
+protocol membership alone must not expose a failed tool-continuation channel
+as a usable Codex choice. The qualified CC Route and UCloud Route remain.
+This manifest retirement does not alter an operator's existing Route or binding.
 Its authenticated catalogue also listed `cc-minimax-m3`. With native effort
 `none`, that exact channel and UCloud's `MiniMax-M3` each completed a real
 Codex shell tool and same-thread note/follow-up sequence on October 1, 2026.

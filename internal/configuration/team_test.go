@@ -213,15 +213,17 @@ func TestTeamManifestKeepsOnlyQualifiedMiniMaxAndMuseRoutes(t *testing.T) {
 	if _, admitted := manifest.Routes["dmxapi-minimax-m3"]; admitted {
 		t.Error("timed-out DMXAPI MiniMax M3 Route was admitted")
 	}
-	for _, account := range []string{"aihubmix", "ucloud"} {
-		id := account + "-minimax-m3"
+	if _, admitted := manifest.Routes["aihubmix-minimax-m3"]; admitted {
+		t.Error("plain AIHubMix MiniMax M3 Route failed native tool continuation and remains admitted")
+	}
+	for id, expected := range map[string]struct{ account, wire string }{
+		"aihubmix-minimax-m3-cc": {"aihubmix", "cc-minimax-m3"},
+		"ucloud-minimax-m3":      {"ucloud", "MiniMax-M3"},
+	} {
 		route, ok := manifest.Routes[id]
-		wire := "minimax-m3"
-		if account == "ucloud" {
-			wire = "MiniMax-M3"
-		}
-		if !ok || route.Account != account || route.Model != "minimax-m3" || route.UpstreamModelID() != wire {
-			t.Errorf("MiniMax Route %q = %+v, want wire %q", id, route, wire)
+		if !ok || route.Account != expected.account || route.Model != "minimax-m3" || route.UpstreamModelID() != expected.wire ||
+			!slices.Equal(route.AdmittedProtocols(), []EndpointProtocol{ProtocolOpenAIResponses}) {
+			t.Errorf("qualified MiniMax Route %q = %+v, want wire %q", id, route, expected.wire)
 		}
 	}
 	muse, ok := manifest.Routes["aihubmix-muse-spark-1.3"]
