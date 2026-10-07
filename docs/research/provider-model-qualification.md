@@ -310,6 +310,17 @@ Desktop GUI or final distribution; no reasoning text was stripped or retried.
 Muse Spark 1.3 has an AIHubMix Route only; DMXAPI's unrelated Spark IDs are
 not Meta models, and no UCloud Muse Route was observed.
 
+On October 7, the existing native Hermes installation independently qualified
+AIHubMix's exact `muse-spark-1.3` Responses and `laguna-s-2.1` Chat Routes.
+Each read an unpredictable private file through the real `read_file` tool and
+recalled its content in the same resumed session without another tool call.
+All four bounded turns completed without native diagnostics. The isolated
+homes used only the selected Account's existing credential command; operator
+configuration remained unchanged and owned temporary state was removed.
+This closes the earlier text-only evidence gap for these Hermes Routes, not
+Codex, Claude Desktop, other platforms, sustained availability or final release
+bytes. The source-bound native receipt remains under the verification owner.
+
 Model entries carry identity only; client-scoped
 recommendations express preference without a global benchmark or cost claim.
 
