@@ -213,6 +213,9 @@ func (o *windowsObserver) collect(ctx context.Context, root uint32) (result erro
 		case 9:
 			eventErr = errors.New("native debugger reported a RIP event")
 		}
+		if event.Code == 3 && eventErr != nil {
+			return eventErr
+		}
 		continueErr := o.continueEvent(event, status)
 		if continueErr == nil && event.Code == 5 {
 			delete(o.active, event.PID)

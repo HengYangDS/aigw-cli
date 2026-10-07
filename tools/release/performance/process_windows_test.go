@@ -79,6 +79,60 @@ func TestWindowsExecutionPreflightOwnsImmediateDescendants(t *testing.T) {
 	}
 }
 
+func TestWindowsExecutionPreflightDoesNotExecuteRejectedImage(t *testing.T) {
+	if marker := os.Getenv("AIGW_TEST_NATIVE_REFUSAL_MARKER"); marker != "" {
+		if err := os.WriteFile(marker, []byte("executed"), 0o600); err != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	program, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	shell, err := Identify(os.Getenv("ComSpec"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tool, err := exec.LookPath("hyperfine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(t.TempDir(), "rejected-image-executed")
+	observer := windowsObserver{selected: Measurement{Executable: &shell}, handles: make(map[uint32]windows.Handle), active: make(map[uint32]windows.Handle)}
+	var root uint32
+	observer.continueEvent = func(event debugEvent, status uintptr) error {
+		err := continueWindowsDebugEvent(event, status)
+		if err == nil && event.Code == 3 && event.PID != root {
+			deadline := time.Now().Add(time.Second)
+			for time.Now().Before(deadline) {
+				if _, err := os.Stat(marker); err == nil {
+					break
+				}
+				time.Sleep(time.Millisecond)
+			}
+		}
+		return err
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	_, _, err = (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
+		Executable: tool, Args: []string{"--shell=none", "--runs", "1", "--output=inherit", "--style", "basic", Argv(program, "-test.run=^TestWindowsExecutionPreflightDoesNotExecuteRejectedImage$")},
+		Env: append(os.Environ(), "AIGW_TEST_NATIVE_REFUSAL_MARKER="+marker), DebugProcess: true,
+		OnStart: func(child *os.Process) error {
+			root = uint32(child.Pid) // #nosec G115 -- exec.Start returns the native DWORD PID.
+			return observer.collect(ctx, root)
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "selected workload") {
+		t.Fatalf("native image refusal did not reach its owning validation: %v", err)
+	}
+	if _, err := os.Stat(marker); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("rejected native image executed before cleanup: %v", err)
+	}
+	assertWindowsExecutionsExited(t, observer.controllers)
+}
+
 func TestWindowsExecutionPreflightReclaimsInterruptedProcesses(t *testing.T) {
 	if os.Getenv("AIGW_TEST_NATIVE_EXECUTION_WAIT") == "1" {
 		time.Sleep(time.Minute)
