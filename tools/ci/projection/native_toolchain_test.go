@@ -173,6 +173,7 @@ func TestLinuxSecretServiceHasItsOwnRequiredJob(t *testing.T) {
 	}
 	var workflow struct {
 		Jobs map[string]struct {
+			If    string `yaml:"if"`
 			Steps []struct {
 				Name string `yaml:"name"`
 				Run  string `yaml:"run"`
@@ -194,9 +195,12 @@ func TestLinuxSecretServiceHasItsOwnRequiredJob(t *testing.T) {
 	if !prepared {
 		t.Fatal("Linux source coverage lacks its native Secret Service preparation")
 	}
-	secretService, present := workflow.Jobs["linux-secret-service"]
-	if !present || len(secretService.Steps) != 3 || secretService.Steps[2].Name != "Qualify Linux Secret Service" {
+	secretService := workflow.Jobs["linux-secret-service"]
+	if len(secretService.Steps) != 3 || secretService.Steps[2].Name != "Qualify Linux Secret Service" {
 		t.Fatal("GitHub requires independent native Linux Secret Service qualification")
+	}
+	if secretService.If != workflow.Jobs["quality"].If {
+		t.Fatal("GitHub Secret Service qualification must follow source admission, not artifact-only native selection")
 	}
 	githubQualification := secretService.Steps[2].Run
 	if strings.Contains(githubQualification, "./internal/secrets/native") {
@@ -217,6 +221,7 @@ func TestLinuxSecretServiceHasItsOwnRequiredJob(t *testing.T) {
 		}
 	}
 	var gitlab struct {
+		Quality       gitLabJob  `yaml:"quality"`
 		Linux         gitLabJob  `yaml:"native-linux"`
 		SecretService *gitLabJob `yaml:"linux-secret-service"`
 	}
@@ -231,8 +236,8 @@ func TestLinuxSecretServiceHasItsOwnRequiredJob(t *testing.T) {
 	}
 	if !slices.Equal(gitlab.SecretService.Extends, []string{".linux-toolchain"}) ||
 		!slices.Equal(gitlab.SecretService.Tags, gitlab.Linux.Tags) ||
-		!reflect.DeepEqual(gitlab.SecretService.Rules, gitlab.Linux.Rules) {
-		t.Fatal("GitLab Secret Service job must use the same Linux runner and event admission")
+		!reflect.DeepEqual(gitlab.SecretService.Rules, gitlab.Quality.Rules) {
+		t.Fatal("GitLab Secret Service job must use its Linux runner and source admission")
 	}
 	if len(gitlab.SecretService.Script) != 2 {
 		t.Fatal("GitLab native Linux CI does not qualify real Secret Service")

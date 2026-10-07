@@ -963,7 +963,7 @@ gitlab: {
 			MISE_ENABLE_TOOLS: strings.Join(toolchainTools.secretService, ",")
 			CGO_ENABLED:       "0"
 		}
-		rules: gitlab["native-linux"].rules
+		rules: gitlab.quality.rules
 		script: [linuxSecretService.gitlab, miseMirror.unixCleanup]
 	}
 	"release-version": _gitlabControlJob & {
@@ -1135,7 +1135,7 @@ githubVerify: {
 			name:              "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph["linux-secret-service"].name)' || '\(graph["linux-secret-service"].name)' }}"
 			"runs-on":         nativeEvidence.linux.github.runner
 			"timeout-minutes": 25
-			if:                githubVerify.jobs["native-linux"].if
+			if:                githubSourceVerificationCondition
 			env: {
 				MISE_ENABLE_TOOLS: strings.Join(toolchainTools.secretService, ",")
 				CGO_ENABLED:       "0"

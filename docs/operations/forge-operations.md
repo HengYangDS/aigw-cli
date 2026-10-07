@@ -342,7 +342,10 @@ The GitHub Verify workflow accepts `performance=true` together with
 `AIGW_NATIVE_PERFORMANCE=true` in a web or API pipeline with `AIGW_BASELINE_TAG`
 and either `AIGW_CANDIDATE_TAG` or the signed `AIGW_CANDIDATE_ARTIFACTS` input.
 Both peers reuse the same release acceptance and measurement owner, not a
-second build or lifecycle. Transport-only `--peer` and `--repository` inputs
+second build or lifecycle. Standalone Secret Service qualification follows
+source-quality admission on both peers: review, accepted-branch push, tag, and
+explicit source checks retain it; artifact-only performance runs stay isolated.
+Transport-only `--peer` and `--repository` inputs
 do not repeat source lifecycle qualification. GitLab prepares Hyperfine for
 selected prebuilt performance and GNU time on Linux; raw samples, warnings,
 individual blocks and pooled p95 remain under `build/verification/performance`

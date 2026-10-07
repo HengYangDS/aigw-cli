@@ -913,9 +913,17 @@ linux-secret-service:
     CGO_ENABLED: "0"
   rules:
     - if: $CI_COMMIT_TAG
+      variables:
+        AIGW_COMMIT_BASE: $CI_COMMIT_SHA^
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
+      variables:
+        AIGW_COMMIT_BASE: $CI_MERGE_REQUEST_DIFF_BASE_SHA
     - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
-    - if: ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "linux")
+      variables:
+        AIGW_COMMIT_BASE: $CI_COMMIT_BEFORE_SHA
+    - if: ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && (($AIGW_NATIVE_INPUT_PACKAGE == null || $AIGW_NATIVE_INPUT_PACKAGE == "") && ($AIGW_CANDIDATE_ARTIFACTS == null || $AIGW_CANDIDATE_ARTIFACTS == "") && ($AIGW_CANDIDATE_TAG == null || $AIGW_CANDIDATE_TAG == "") || $AIGW_FULL_NATIVE_QUALITY == "true" || $AIGW_REFRESH_LOCKS == "true")
+      variables:
+        AIGW_COMMIT_BASE: $CI_COMMIT_SHA^
     - when: never
   script:
     - |-

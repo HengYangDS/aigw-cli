@@ -186,7 +186,7 @@ jobs:
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Linux Secret Service' || 'Linux Secret Service' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
-    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
+    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')
     env:
       MISE_ENABLE_TOOLS: go,github:goreleaser/goreleaser
       CGO_ENABLED: "0"
