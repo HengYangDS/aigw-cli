@@ -256,6 +256,7 @@ allowed_import_edges."internal/cli/recovery" = [
   "internal/discovery",
   "internal/presentation",
   "internal/readiness",
+  "internal/secrets",
   "internal/synchronization",
 ]
 allowed_import_edges."internal/cli/catalog" = [
