@@ -1,6 +1,9 @@
 package main
 
 import (
+	clientverification "aigw-cli/internal/client/verification"
+	"aigw-cli/internal/codex"
+	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
@@ -11,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -58,6 +62,36 @@ func TestMain(m *testing.M) {
 		}
 	}
 	os.Exit(code)
+}
+
+func TestCodexFixtureCompletesCurrentVerification(t *testing.T) {
+	fixture := &journeyFixture{testing: t, clientBin: t.TempDir()}
+	fixture.installClientFixture(configuration.ClientCodex)
+	executable := filepath.Join(fixture.clientBin, configuration.ClientCodex)
+	if runtime.GOOS == "windows" {
+		executable += ".exe"
+	}
+	reader, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected := configuration.Runtime{
+		RouteID: "fixture", RouteLabel: "Fixture", AccountID: "fixture",
+		Client: configuration.ClientCodex, Endpoint: "https://api.example.invalid/v1",
+		Model: "gpt-test", CredentialCommand: reader,
+	}
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = 'native'\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := codex.SyncConfig(target, selected); err != nil {
+		t.Fatal(err)
+	}
+	cfg := configuration.Config{}
+	cfg.SetClientActivation(configuration.ClientCodex, true, executable, []string{target})
+	if _, err := clientverification.VerifyCodexInvocation(t.Context(), process.Runner{}, cfg, selected); err != nil {
+		t.Fatalf("copied Codex fixture cannot satisfy the current verifier: %v", err)
+	}
 }
 
 func runMemoryObservationFixture(counter string) int {
