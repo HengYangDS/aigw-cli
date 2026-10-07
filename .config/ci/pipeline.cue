@@ -849,9 +849,10 @@ _gitlabControlJob: {
 
 gitlab: {
 	variables: gitEnvironment & {
-		GIT_DEPTH:        "0"
-		GOPROXY:          "https://goproxy.cn|https://proxy.golang.org|direct"
-		AIGW_TOOL_SOURCE: "upstream"
+		GIT_DEPTH:                  "0"
+		FF_GIT_URLS_WITHOUT_TOKENS: "true"
+		GOPROXY:                    "https://goproxy.cn|https://proxy.golang.org|direct"
+		AIGW_TOOL_SOURCE:           "upstream"
 	}
 	workflow: {
 		auto_cancel: on_new_commit: "conservative"

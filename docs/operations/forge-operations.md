@@ -48,6 +48,12 @@ to review; credentials and protected release variables remain restricted.
 Darwin retains control-plane object and tag verification; Windows and Darwin
 native jobs retain their separate review and protected registrations.
 
+CUE enables GitLab's [`FF_GIT_URLS_WITHOUT_TOKENS`](https://docs.gitlab.com/runner/configuration/feature-flags/)
+for every job. The native Runner obtains the job Token from its environment
+instead of embedding it in Git configuration or caching it in a credential
+helper. This limits job-Token persistence; it does not isolate a persistent
+Shell account from its Runner registration credential or other jobs.
+
 The former `AIGW_GITLAB_LINUX_RUNNER_TAG` project variable has no consumer in
 this workflow. Retire it after the updated workflow is admitted and both runner
 paths have executed. Do not set a project variable named

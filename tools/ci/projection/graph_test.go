@@ -425,7 +425,7 @@ func TestGitHubVerificationChecksOutTheExactProductCommit(t *testing.T) {
 	}
 }
 
-func TestHostedGitCommandsUseCanonicalBranchAndLongPaths(t *testing.T) {
+func TestHostedGitCommandsPreserveBranchesPathsAndJobTokenScope(t *testing.T) {
 	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {
 		t.Fatal(err)
@@ -441,6 +441,9 @@ func TestHostedGitCommandsUseCanonicalBranchAndLongPaths(t *testing.T) {
 		environment := workflow.Env
 		if index == 0 {
 			environment = workflow.Variables
+			if environment["FF_GIT_URLS_WITHOUT_TOKENS"] != "true" {
+				t.Fatal("GitLab job tokens must remain outside Git configuration and native credential caches")
+			}
 		}
 		for name, value := range map[string]string{
 			"GIT_CONFIG_COUNT":   "2",
