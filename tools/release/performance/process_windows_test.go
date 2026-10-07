@@ -101,18 +101,12 @@ func TestWindowsExecutionPreflightDoesNotExecuteRejectedImage(t *testing.T) {
 	marker := filepath.Join(t.TempDir(), "rejected-image-executed")
 	observer := windowsObserver{selected: Measurement{Executable: &shell}, handles: make(map[uint32]windows.Handle), active: make(map[uint32]windows.Handle)}
 	var root uint32
+	var continuedChildCreate bool
 	observer.continueEvent = func(event debugEvent, status uintptr) error {
-		err := continueWindowsDebugEvent(event, status)
-		if err == nil && event.Code == 3 && event.PID != root {
-			deadline := time.Now().Add(time.Second)
-			for time.Now().Before(deadline) {
-				if _, err := os.Stat(marker); err == nil {
-					break
-				}
-				time.Sleep(time.Millisecond)
-			}
+		if event.Code == 3 && event.PID != root {
+			continuedChildCreate = true
 		}
-		return err
+		return continueWindowsDebugEvent(event, status)
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
@@ -126,6 +120,9 @@ func TestWindowsExecutionPreflightDoesNotExecuteRejectedImage(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "selected workload") {
 		t.Fatalf("native image refusal did not reach its owning validation: %v", err)
+	}
+	if continuedChildCreate {
+		t.Fatal("rejected native image was continued before validation")
 	}
 	if _, err := os.Stat(marker); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("rejected native image executed before cleanup: %v", err)
