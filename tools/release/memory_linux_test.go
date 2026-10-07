@@ -8,7 +8,17 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
 )
+
+func completedProcessUsage(state *os.ProcessState) *processUsage {
+	usage, ok := state.SysUsage().(*syscall.Rusage)
+	if !ok {
+		return nil
+	}
+	return &processUsage{MaxRSS: usage.Maxrss, RSSUnit: "KiB", MinorFaults: usage.Minflt, MajorFaults: usage.Majflt,
+		InputBlocks: usage.Inblock, OutputBlocks: usage.Oublock, Voluntary: usage.Nvcsw, Involuntary: usage.Nivcsw}
+}
 
 // measurePeakMemory uses GNU time's small post-exec supervisor so the Go
 // parent's address space cannot become the measured child's initial high-water.

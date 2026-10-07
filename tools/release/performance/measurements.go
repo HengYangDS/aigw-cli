@@ -180,7 +180,10 @@ func Measure(parent context.Context, input Command) (Measurement, error) {
 // MeasureOperation times the existing native API with its own bounded worker
 // environment. Native subprocess launch is included; Hyperfine and shell are not.
 func MeasureOperation(ctx context.Context, output string, row Measurement, operation func() error) (Measurement, error) {
-	row.P95, row.Samples = 0, Samples{Times: []float64{}, ExitCodes: []int{}}
+	if _, err := os.Lstat(output); !errors.Is(err, os.ErrNotExist) {
+		return row, errors.New("performance output must be new")
+	}
+	row.P95, row.Samples = 0, Samples{Command: row.Samples.Command, Times: []float64{}, ExitCodes: []int{}}
 	var stop error
 	if row.Executable != nil {
 		stop = row.Executable.verify()
@@ -241,15 +244,16 @@ func Argv(args ...string) string {
 
 // Workload binds the original command, optional preparation and declared budget.
 type Workload struct {
-	Name, Command, Prepare string
-	Budget                 float64
+	Name             string
+	Command, Prepare []string
+	Budget           float64
 }
 
 // Arguments retains the official five-warmup, forty-sample Hyperfine contract.
 func (c Workload) Arguments(raw string) []string {
 	args := []string{"--shell=none", "--warmup", "5", "--runs", "40", "--output=inherit", "--style", "basic", "--export-json", raw}
-	if c.Prepare != "" {
-		args = append(args, "--prepare", c.Prepare)
+	if len(c.Prepare) != 0 {
+		args = append(args, "--prepare", Argv(c.Prepare...))
 	}
-	return append(args, c.Command)
+	return append(args, Argv(c.Command...))
 }

@@ -6,12 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"os/exec"
 	"runtime"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
+
+func completedProcessUsage(*os.ProcessState) *processUsage { return nil }
 
 // processMemoryCounters follows the native PROCESS_MEMORY_COUNTERS ABI.
 type processMemoryCounters struct {

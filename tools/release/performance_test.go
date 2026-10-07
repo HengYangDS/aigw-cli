@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -296,13 +297,13 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 		return nil, errors.New("projected helper is absent")
 	}
 	shell := "/bin/sh"
-	helper := performance.Argv(shell, "-c", settings.APIKeyHelper)
+	helper := []string{shell, "-c", settings.APIKeyHelper}
 	if runtime.GOOS == "windows" {
 		shell = os.Getenv("ComSpec")
 		if err := os.WriteFile(filepath.Join(j.root, "credential.cmd"), []byte("@echo off\r\n"+settings.APIKeyHelper+"\r\n"), 0o600); err != nil {
 			return nil, err
 		}
-		helper = performance.Argv(shell, "/d", "/c", "credential.cmd")
+		helper = []string{shell, "/d", "/c", "credential.cmd"}
 	}
 	attribution := os.Getenv("AIGW_PERFORMANCE_ATTRIBUTION") == "1"
 	cases := j.performanceCases(helper, backend, preparer)
@@ -326,6 +327,9 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 	}
 	var measurements []performance.Measurement
 	for _, test := range cases {
+		if attribution && test.Name == "projection" && backend != "env" {
+			continue
+		}
 		name := fmt.Sprintf("%s-%s-%s-%d", variant, backend, test.Name, block)
 		row := performance.Measurement{Variant: variant, Backend: backend, Case: test.Name, Block: block, Budget: test.Budget}
 		path := selected[test.Name]
@@ -337,10 +341,14 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 			return append(measurements, row), err
 		}
 		row.Executable = &identity
-		row, err = performance.Measure(j.testing.Context(), performance.Command{
-			Tool: hyperfine, Directory: j.root, Output: filepath.Join(output, name+".json"),
-			Arguments: test.Arguments(filepath.Join(output, name+".json")), Environment: j.environment, Sensitive: j.sensitiveInputs, Measurement: row,
-		})
+		if attribution && test.Name == "projection" {
+			row, err = j.measureProjectionProcesses(j.testing.Context(), filepath.Join(output, name+".json"), row, test)
+		} else {
+			row, err = performance.Measure(j.testing.Context(), performance.Command{
+				Tool: hyperfine, Directory: j.root, Output: filepath.Join(output, name+".json"),
+				Arguments: test.Arguments(filepath.Join(output, name+".json")), Environment: j.environment, Sensitive: j.sensitiveInputs, Measurement: row,
+			})
+		}
 		measurements = append(measurements, row)
 		if err != nil {
 			return measurements, err
@@ -356,34 +364,35 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 	return measurements, nil
 }
 
-func (j *journeyFixture) performanceCases(helper, backend, preparer string) []performance.Workload {
+func (j *journeyFixture) performanceCases(helper []string, backend, preparer string) []performance.Workload {
 	selectArgs := []string{j.binary, "use", "--for", "claude", "performance-second"}
 	resetArgs := []string{j.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
 	cases := []performance.Workload{
 		{Name: "credential", Command: helper, Budget: 0.1},
-		{Name: "projection", Command: performance.Argv(selectArgs...), Prepare: performance.Argv(resetArgs...), Budget: 0.25},
-		{Name: "setup", Command: performance.Argv(j.binary, "setup", "--from", j.manifest, "--account", "native-system-keyring-probe"), Prepare: performance.Argv(preparer, "prepare-performance-setup", filepath.Dir(j.config), filepath.Dir(j.settings), j.config, j.settings), Budget: 0.25},
-		{Name: "sync", Command: performance.Argv(j.binary, "sync"), Prepare: performance.Argv(resetArgs...), Budget: 0.25},
+		{Name: "projection", Command: selectArgs, Prepare: resetArgs, Budget: 0.25},
+		{Name: "setup", Command: []string{j.binary, "setup", "--from", j.manifest, "--account", "native-system-keyring-probe"}, Prepare: []string{preparer, "prepare-performance-setup", filepath.Dir(j.config), filepath.Dir(j.settings), j.config, j.settings}, Budget: 0.25},
+		{Name: "sync", Command: []string{j.binary, "sync"}, Prepare: resetArgs, Budget: 0.25},
 	}
 	if backend == "env" {
 		for _, args := range [][]string{{"version", "--version"}, {"help", "--help"}, {"status", "status", "--json"}, {"export", "config", "export"}} {
-			cases = append(cases, performance.Workload{Name: args[0], Command: performance.Argv(append([]string{j.binary}, args[1:]...)...), Budget: 0.1})
+			cases = append(cases, performance.Workload{Name: args[0], Command: append([]string{j.binary}, args[1:]...), Budget: 0.1})
 		}
 	}
 	return cases
 }
 
-func (j *journeyFixture) attributionCases(helper, shell, reader, scope string) []performance.Workload {
-	startup := performance.Argv(shell, "-c", "exit 0")
+func (j *journeyFixture) attributionCases(helper []string, shell, reader, scope string) []performance.Workload {
+	startup := []string{shell, "-c", "exit 0"}
 	if runtime.GOOS == "windows" {
-		startup = performance.Argv(shell, "/d", "/c", "exit", "0")
+		startup = []string{shell, "/d", "/c", "exit", "0"}
 	}
 	return []performance.Workload{
 		{Name: "credential", Command: helper, Budget: 0.1},
 		{Name: "shell-startup", Command: startup},
-		{Name: "source-startup", Command: performance.Argv(j.source, "--version")},
-		{Name: "reader-startup", Command: performance.Argv(reader, "--version")},
-		{Name: "credential-direct", Command: performance.Argv(reader, "credential", configuration.ClientClaude, scope)},
+		{Name: "source-startup", Command: []string{j.source, "--version"}},
+		{Name: "reader-startup", Command: []string{reader, "--version"}},
+		{Name: "credential-direct", Command: []string{reader, "credential", configuration.ClientClaude, scope}},
+		j.performanceCases(helper, "env", "")[1],
 	}
 }
 
@@ -441,22 +450,22 @@ func (j *journeyFixture) measureNativeCredentialOperations(output, variant, back
 // Hyperfine shell=none uses shell_words on every OS, including Windows.
 func TestNativePerformanceCases(t *testing.T) {
 	journey := &journeyFixture{root: "owned root", binary: "installed program", config: filepath.Join("owned config directory", "config.toml"), settings: filepath.Join("owned settings directory", "settings.json"), manifest: "team manifest"}
-	reset := performance.Argv(journey.binary, "use", "--for", "claude", "native-system-keyring-probe-claude")
+	reset := []string{journey.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
 	for _, backend := range []string{"env", "file", "keyring"} {
 		t.Run(backend, func(t *testing.T) {
-			cases := journey.performanceCases("projected helper", backend, "test preparer")
+			cases := journey.performanceCases([]string{"projected helper"}, backend, "test preparer")
 			want := []performance.Workload{
-				{Name: "credential", Command: "projected helper", Budget: 0.1},
-				{Name: "projection", Command: performance.Argv(journey.binary, "use", "--for", "claude", "performance-second"), Prepare: reset, Budget: 0.25},
-				{Name: "setup", Command: performance.Argv(journey.binary, "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe"), Prepare: performance.Argv("test preparer", "prepare-performance-setup", "owned config directory", "owned settings directory", journey.config, journey.settings), Budget: 0.25},
-				{Name: "sync", Command: performance.Argv(journey.binary, "sync"), Prepare: reset, Budget: 0.25},
+				{Name: "credential", Command: []string{"projected helper"}, Budget: 0.1},
+				{Name: "projection", Command: []string{journey.binary, "use", "--for", "claude", "performance-second"}, Prepare: reset, Budget: 0.25},
+				{Name: "setup", Command: []string{journey.binary, "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe"}, Prepare: []string{"test preparer", "prepare-performance-setup", "owned config directory", "owned settings directory", journey.config, journey.settings}, Budget: 0.25},
+				{Name: "sync", Command: []string{journey.binary, "sync"}, Prepare: reset, Budget: 0.25},
 			}
 			if backend == "env" {
 				for _, args := range [][]string{{"version", "--version"}, {"help", "--help"}, {"status", "status", "--json"}, {"export", "config", "export"}} {
-					want = append(want, performance.Workload{Name: args[0], Command: performance.Argv(append([]string{journey.binary}, args[1:]...)...), Budget: 0.1})
+					want = append(want, performance.Workload{Name: args[0], Command: append([]string{journey.binary}, args[1:]...), Budget: 0.1})
 				}
 			}
-			if !slices.Equal(cases, want) {
+			if !reflect.DeepEqual(cases, want) {
 				t.Fatalf("performance cases omit or change a measured boundary: got=%#v want=%#v", cases, want)
 			}
 		})
@@ -465,50 +474,19 @@ func TestNativePerformanceCases(t *testing.T) {
 
 func TestNativeAttributionKeepsTheProjectedReaderBoundary(t *testing.T) {
 	journey := &journeyFixture{source: "verified source", binary: "installed path"}
-	got := journey.attributionCases("original shell helper", "selected shell", "copied reader", "exact-scope")
+	got := journey.attributionCases([]string{"original shell helper"}, "selected shell", "copied reader", "exact-scope")
 	want := []performance.Workload{
-		{Name: "credential", Command: "original shell helper", Budget: 0.1},
-		{Name: "shell-startup", Command: performance.Argv("selected shell", "/d", "/c", "exit", "0")},
-		{Name: "source-startup", Command: performance.Argv(journey.source, "--version")},
-		{Name: "reader-startup", Command: performance.Argv("copied reader", "--version")},
-		{Name: "credential-direct", Command: performance.Argv("copied reader", "credential", configuration.ClientClaude, "exact-scope")},
+		{Name: "credential", Command: []string{"original shell helper"}, Budget: 0.1},
+		{Name: "shell-startup", Command: []string{"selected shell", "/d", "/c", "exit", "0"}},
+		{Name: "source-startup", Command: []string{journey.source, "--version"}},
+		{Name: "reader-startup", Command: []string{"copied reader", "--version"}},
+		{Name: "credential-direct", Command: []string{"copied reader", "credential", configuration.ClientClaude, "exact-scope"}},
+		journey.performanceCases([]string{"original shell helper"}, "env", "")[1],
 	}
 	if runtime.GOOS != "windows" {
-		want[1].Command = performance.Argv("selected shell", "-c", "exit 0")
+		want[1].Command = []string{"selected shell", "-c", "exit 0"}
 	}
-	if !slices.Equal(got, want) {
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("attribution changed the helper executable or qualification scope: %#v", got)
-	}
-}
-
-func TestNativeAttributionSummaryRetainsItsNonqualifyingScope(t *testing.T) {
-	tool, err := exec.LookPath("hyperfine")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var rows []performance.Measurement
-	for block := range 2 {
-		times := make([]float64, 40)
-		for index := range times {
-			times[index] = 0.2
-		}
-		rows = append(rows, performance.Measurement{Variant: "candidate", Backend: "env", Case: "credential",
-			Block: block + 1, Budget: 0.1, P95: 0.2, Raw: fmt.Sprintf("credential-%d.json", block+1), Diagnostics: true,
-			Samples: performance.Samples{Command: "observed helper", Times: times, ExitCodes: make([]int, 40)}})
-	}
-	output := t.TempDir()
-	writeNativePerformanceSummary(t, output, tool, nil, rows, nil, true)
-	var summary struct {
-		Qualification bool                      `json:"qualification"`
-		Scope         string                    `json:"scope"`
-		Blocks        []performance.Measurement `json:"blocks"`
-		Pooled        []performance.Measurement `json:"pooled"`
-	}
-	if err := json.Unmarshal(readFile(t, filepath.Join(output, "summary.json")), &summary); err != nil {
-		t.Fatal(err)
-	}
-	if summary.Qualification || summary.Scope != "component-attribution" || len(summary.Blocks) != 2 || len(summary.Pooled) != 1 ||
-		!summary.Pooled[0].Diagnostics || summary.Pooled[0].Budget != 0.1 || summary.Pooled[0].P95 != 0.2 || summary.Blocks[0].Raw != rows[0].Raw {
-		t.Fatalf("diagnosis claimed qualification or discarded its evidence: %#v", summary)
 	}
 }

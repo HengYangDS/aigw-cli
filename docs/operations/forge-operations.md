@@ -359,7 +359,26 @@ shell helper, shell startup, source and copied-reader startup, direct invocation
 of that exact projected reader, and keyring `Read`/`Exists` through each variant's
 native source worker. Worker calls retain the product's restricted environment;
 these API timings include the native subprocess but exclude Hyperfine and the
-shell. The receipt states
+shell. The environment-backed projection uses the same declared prepare and
+command argv as full measurement, with five warmups and forty samples in each
+reversed-order block. It records both completed prepare and sample processes:
+exact PID, native exit, start/end, monotonic elapsed time, native CPU accounting
+and available per-OS resource usage. These children inherit the public
+`accept-native` suite's bounded process group or Windows Job; a manually invoked
+test alone does not supply that outer cleanup boundary.
+
+Projection process records are diagnostic, not Hyperfine-equivalent timing.
+Its summary row includes preparation and evidence writes; compare individual
+sample records, not that aggregate row, with a historical measured command.
+Native CPU accounting includes the exited process and its descendants; wall
+minus CPU does not distinguish scheduling, storage or IPC waits. Darwin RSS is
+bytes, Linux RSS is KiB, and unavailable Windows counters are explicitly null.
+Zero counters do not prove no work occurred. Keep failed evidence, run one bounded
+diagnosis, and either repair a demonstrated owner or disclose the unproved cause
+before any separately declared full qualification. Do not remove durability
+boundaries, drop samples or suppress native warnings to obtain a pass.
+
+The receipt states
 `qualification=false` and `scope=component-attribution`. It retains raw samples,
 warnings and selected executable file identities without weakening or satisfying
 the full-performance budgets. Selected file architecture does not prove the

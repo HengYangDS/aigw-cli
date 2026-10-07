@@ -4,9 +4,19 @@ package main
 
 import (
 	"errors"
+	"os"
 	"os/exec"
 	"syscall"
 )
+
+func completedProcessUsage(state *os.ProcessState) *processUsage {
+	usage, ok := state.SysUsage().(*syscall.Rusage)
+	if !ok {
+		return nil
+	}
+	return &processUsage{MaxRSS: usage.Maxrss, RSSUnit: "bytes", MinorFaults: usage.Minflt, MajorFaults: usage.Majflt,
+		InputBlocks: usage.Inblock, OutputBlocks: usage.Oublock, Voluntary: usage.Nvcsw, Involuntary: usage.Nivcsw}
+}
 
 // measurePeakMemory reads this child's wait result, not cumulative child usage.
 func measurePeakMemory(command *exec.Cmd) (uint64, error) {

@@ -142,8 +142,8 @@ func TestArgvPreservesNativeArguments(t *testing.T) {
 	if got := Argv(`C:\program files\aigw.exe`, "a'b", ""); got != `'C:\program files\aigw.exe' 'a'\''b' ''` {
 		t.Fatalf("Hyperfine argv quoting = %s", got)
 	}
-	workload := Workload{Command: "measured command", Prepare: "prepare command"}
-	want := []string{"--shell=none", "--warmup", "5", "--runs", "40", "--output=inherit", "--style", "basic", "--export-json", "samples.json", "--prepare", workload.Prepare, workload.Command}
+	workload := Workload{Command: []string{"measured command"}, Prepare: []string{"prepare command"}}
+	want := []string{"--shell=none", "--warmup", "5", "--runs", "40", "--output=inherit", "--style", "basic", "--export-json", "samples.json", "--prepare", Argv(workload.Prepare...), Argv(workload.Command...)}
 	if got := workload.Arguments("samples.json"); !slices.Equal(got, want) {
 		t.Fatalf("prepared native workload = %q, want %q", got, want)
 	}
@@ -168,7 +168,7 @@ func TestMeasureRetainsSeparateDiagnosticStreams(t *testing.T) {
 	for _, marker := range []string{"Working: benchmark-child", "[WARN] benchmark-child"} {
 		t.Run(marker, func(t *testing.T) {
 			raw := filepath.Join(t.TempDir(), "samples.json")
-			benchmark := Workload{Command: Argv(program, "-test.run=^TestMeasureRetainsSeparateDiagnosticStreams$")}
+			benchmark := Workload{Command: []string{program, "-test.run=^TestMeasureRetainsSeparateDiagnosticStreams$"}}
 			// Only the synchronous fixture child omits the race runtime's exit delay.
 			environment := append(os.Environ(), "AIGW_TEST_PERFORMANCE_DIAGNOSTIC="+marker,
 				"GORACE="+strings.TrimSpace(os.Getenv("GORACE")+" atexit_sleep_ms=0"))
