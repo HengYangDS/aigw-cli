@@ -1,6 +1,8 @@
 package main
 
 import (
+	clientverification "aigw-cli/internal/client/verification"
+	"aigw-cli/internal/codex"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/platform"
@@ -52,6 +54,9 @@ func runInstalledClientFixture(executable string, args []string) (bool, int) {
 	}
 	for index, argument := range args {
 		if argument == "--output-last-message" && index+1 < len(args) {
+			if slices.Contains(args, "--json") {
+				return true, runCodexVerificationFixture(args, args[index+1])
+			}
 			if err := os.WriteFile(args[index+1], []byte("AIGW_OK\n"), 0o600); err != nil {
 				return true, 3
 			}
@@ -59,6 +64,53 @@ func runInstalledClientFixture(executable string, args []string) (bool, int) {
 		}
 	}
 	return true, 2
+}
+
+func runCodexVerificationFixture(args []string, outputPath string) int {
+	var state struct {
+		Session string `json:"session"`
+		Marker  string `json:"marker"`
+	}
+	home := os.Getenv("CODEX_HOME")
+	if home == "" {
+		return 3
+	}
+	statePath := filepath.Join(home, "fixture-session.json")
+	challengePath := filepath.Join(filepath.Dir(outputPath), "challenge.txt")
+	resume := slices.Contains(args, "resume")
+	switch {
+	case resume:
+		data, err := os.ReadFile(statePath)
+		if err != nil || json.Unmarshal(data, &state) != nil || len(args) < 2 || args[len(args)-2] != state.Session || state.Marker == "" {
+			return 3
+		}
+		if _, err := os.Stat(challengePath); !os.IsNotExist(err) {
+			return 3
+		}
+	default:
+		challenge, err := os.ReadFile(challengePath)
+		if err != nil {
+			return 3
+		}
+		state.Session = "00000000-0000-4000-8000-000000000001"
+		state.Marker = strings.TrimSpace(string(challenge))
+		data, err := json.Marshal(state)
+		if err != nil || os.WriteFile(statePath, data, 0o600) != nil {
+			return 3
+		}
+	}
+	if err := os.WriteFile(outputPath, []byte(state.Marker+"\n"), 0o600); err != nil {
+		return 3
+	}
+	events := fmt.Appendf(nil, "{\"type\":\"thread.started\",\"thread_id\":%q}\n", state.Session)
+	if !resume {
+		events = fmt.Appendf(events, "{\"type\":\"item.completed\",\"item\":{\"type\":\"command_execution\",\"status\":\"completed\",\"command\":\"cat challenge.txt\",\"exit_code\":0,\"aggregated_output\":%q}}\n", state.Marker+"\n")
+	}
+	events = fmt.Appendf(events, "{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":%q}}\n{\"type\":\"turn.completed\"}\n", state.Marker)
+	if _, err := os.Stdout.Write(events); err != nil {
+		return 3
+	}
+	return 0
 }
 
 type verificationResourceProcess struct {
@@ -212,6 +264,36 @@ func TestCodexFixtureWritesItsFinalResponse(t *testing.T) {
 	}
 	if got := strings.TrimSpace(string(readFile(t, response))); got != "AIGW_OK" {
 		t.Fatalf("Codex fixture final response = %q", got)
+	}
+}
+
+func TestCodexFixtureCompletesCurrentVerification(t *testing.T) {
+	fixture := &journeyFixture{testing: t, clientBin: t.TempDir()}
+	fixture.installClientFixture(configuration.ClientCodex)
+	executable := filepath.Join(fixture.clientBin, configuration.ClientCodex)
+	if runtime.GOOS == "windows" {
+		executable += ".exe"
+	}
+	reader, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected := configuration.Runtime{
+		RouteID: "fixture", RouteLabel: "Fixture", AccountID: "fixture",
+		Client: configuration.ClientCodex, Endpoint: "https://api.example.invalid/v1",
+		Model: "gpt-test", CredentialCommand: reader,
+	}
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = 'native'\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := codex.SyncConfig(target, selected); err != nil {
+		t.Fatal(err)
+	}
+	cfg := configuration.Config{}
+	cfg.SetClientActivation(configuration.ClientCodex, true, executable, []string{target})
+	if _, err := clientverification.VerifyCodexInvocation(t.Context(), process.Runner{}, cfg, selected); err != nil {
+		t.Fatalf("copied Codex fixture cannot satisfy the current verifier: %v", err)
 	}
 }
 
