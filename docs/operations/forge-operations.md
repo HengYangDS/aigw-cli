@@ -266,26 +266,35 @@ Service still requires the separate isolated user-bus qualification. A queued
 job, inspected archive or successful checksum does not prove native execution.
 Real-client and live-Provider acceptance remain separate from this lifecycle.
 
-### Supply a Windows native job with public inputs
+### Supply a native job with public inputs
 
-The existing GitLab Windows job can consume a reviewed generic package instead
-of requiring an operator to stage a VM. Set `AIGW_NATIVE_PLATFORM=windows`,
+The existing GitLab native jobs can consume a reviewed generic package instead
+of requiring an operator to stage a host or VM. Select `AIGW_NATIVE_PLATFORM`,
 `AIGW_NATIVE_INPUT_PACKAGE`, the exact `AIGW_CANDIDATE_SOURCE`, and the archive's
 `AIGW_NATIVE_INPUT_SHA256`. The package version is that source commit; its single
 download is `public-inputs.tar`. Select `AIGW_BASELINE_TAG` and
-`AIGW_NATIVE_CLIENTS=true` for retained-predecessor client acceptance.
+`AIGW_NATIVE_CLIENTS=true` for retained-predecessor client acceptance with
+explicitly supplied native clients.
 
 The archive contains complete `candidate/` and `baseline/` matrices, native client
-distributions and reviewed official Hermes source under `suppliers/`. Acquisition,
-private glab configuration, managed Python 3.12, frozen Hermes dependencies and
-cleanup belong to the existing job directory. Locked uv is an acceptance tool,
-not an AIGW runtime dependency. The original release parser remains responsible
-for signatures, checksums, source identity and native lifecycle results.
+distributions and reviewed official Hermes source under `suppliers/`. The
+portable release owner downloads once into private scratch, verifies the exact
+archive SHA256, and extracts only the complete positive candidate/predecessor
+matrix names. Signatures, source identity, published-predecessor admission and
+lifecycle execution retain their existing release owners.
+
+Windows client supply alone uses the existing job directory, managed Python
+3.12 and frozen official Hermes dependencies. It forwards its already downloaded
+archive through `--input-archive`; the release owner rechecks the same SHA256 and
+matrices without another download. It never changes or deletes that caller-owned
+file. Locked uv is an acceptance tool, not an AIGW runtime dependency. The job
+cleans its supplies; release acceptance cleans its extracted inputs on success
+or failure.
 
 Trust comes from the independently configured source/artifact signer file
 variables and signer principal, never from trust files inside the downloaded
 archive. The checkout must contain the selected signed source and published
-predecessor tag. Package inspection or successful preparation is not Windows
+predecessor tag. Package inspection or successful preparation is not native
 acceptance; original job execution must prove it. Full-quality and lock-refresh
 requests retain their source gates. After the native supplier transition passes,
 retire its superseded installer stages rather than keeping two preparation paths.
@@ -302,6 +311,10 @@ published predecessor executable. After tagging, omit `--candidate` and select
 
 `--baseline-artifacts` with `--baseline-tag` instead admits the complete signed
 predecessor matrix and extracts its native executable through the same owner.
+`--input-package` with `--input-sha256`, `--candidate-source`, `--candidate`,
+`--baseline-tag`, `--peer gitlab` and `--repository` admits the complete package
+without staging a host. An absolute `--input-archive` instead consumes the same
+signed input contract offline and is mutually exclusive with `--input-package`.
 For published remote inputs, `--tag`, `--baseline-tag`, `--peer` and
 `--repository` select that peer's native CLI with a bounded no-prompt download;
 neither Forge is a transport fallback for the other. See

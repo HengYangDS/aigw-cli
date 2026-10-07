@@ -26,6 +26,7 @@ import (
 // Local paths never imply a network request; tags require an explicit peer to download.
 type NativeAcceptance struct {
 	Artifacts, Tag, BaselineArtifacts, BaselineTag string
+	InputPackage, InputArchive, InputSHA256        string
 	Peer, Repository                               string
 	CandidateSource                                string
 	Candidate, Clients, PerformanceAttribution     bool
@@ -48,6 +49,9 @@ func ParseNativeAcceptance(arguments []string) (NativeAcceptance, error) {
 	flags.StringVar(&input.Repository, "repository", "", "Explicit repository for the selected peer")
 	flags.BoolVar(&input.Candidate, "candidate", false, "Bind untagged artifacts to signed source")
 	flags.StringVar(&input.CandidateSource, "candidate-source", "", "Exact signed candidate commit; defaults to verifier HEAD")
+	flags.StringVar(&input.InputPackage, "input-package", "", "Acquire signed candidate and predecessor matrices from a GitLab package")
+	flags.StringVar(&input.InputArchive, "input-archive", "", "Consume a caller-owned native input package without downloading")
+	flags.StringVar(&input.InputSHA256, "input-sha256", "", "Exact SHA256 of the selected native input package")
 	flags.BoolVar(&input.Clients, "clients", false, "Verify explicitly supplied native clients")
 	flags.StringVar(&input.DiagnosticClient, "diagnostic-client", "", "Diagnose one native client; does not qualify complete product acceptance")
 	flags.StringVar(&input.Performance, "performance", "", "Retain Hyperfine samples in this absolute directory")
@@ -64,7 +68,7 @@ func ParseNativeAcceptance(arguments []string) (NativeAcceptance, error) {
 
 // UsesPrebuiltArtifacts distinguishes product acceptance from source qualification.
 func (input *NativeAcceptance) UsesPrebuiltArtifacts() bool {
-	return input.Artifacts != "" || input.Tag != ""
+	return input.Artifacts != "" || input.Tag != "" || input.hasPackage()
 }
 
 // NativeTestEnvironment isolates fixture scratch and excludes Forge credentials.
@@ -108,6 +112,9 @@ func acceptNativeInput(ctx context.Context, input NativeAcceptance, request buil
 		return err
 	}
 	defer func() { result = errors.Join(result, robustio.RemoveAll(workspace)) }()
+	if err := input.preparePackage(ctx, request, workspace, run); err != nil {
+		return err
+	}
 	if err := input.prepareCandidate(ctx, request, workspace, run); err != nil {
 		return err
 	}
@@ -121,11 +128,14 @@ func acceptNativeInput(ctx context.Context, input NativeAcceptance, request buil
 }
 
 func (input *NativeAcceptance) validate() error {
+	if err := input.validatePackage(); err != nil {
+		return err
+	}
 	if input.CandidateSource != "" && !input.Candidate {
 		return errors.New("candidate source requires --candidate")
 	}
-	if input.Candidate && input.Artifacts == "" {
-		return errors.New("candidate acceptance requires --artifacts")
+	if input.Candidate && !input.UsesPrebuiltArtifacts() {
+		return errors.New("candidate acceptance requires an explicit artifact matrix or input package")
 	}
 	if input.Candidate && (input.Tag != "" || readiness.SelectedReleaseTag() != "") {
 		return errors.New("candidate acceptance cannot select a release tag")
@@ -133,7 +143,7 @@ func (input *NativeAcceptance) validate() error {
 	if input.Peer != "" && (input.Peer != "github" && input.Peer != "gitlab" || input.Repository == "") {
 		return errors.New("native release transport requires github or gitlab and an explicit repository")
 	}
-	if input.Peer == "" && (input.Tag != "" && input.Artifacts == "" || input.BaselineTag != "" && input.BaselineArtifacts == "") {
+	if input.Peer == "" && (input.Tag != "" && input.Artifacts == "" || input.BaselineTag != "" && input.BaselineArtifacts == "" && input.InputArchive == "") {
 		return errors.New("native tagged acceptance requires local artifacts or an explicit peer")
 	}
 	if input.BaselineArtifacts != "" && input.BaselineTag == "" {
@@ -166,7 +176,7 @@ func (input *NativeAcceptance) validateOptionalScopes() error {
 	if (input.Clients || input.DiagnosticClient != "" || runtime.GOOS == "darwin" && os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1") && input.BaselineTag == "" && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
 		return errors.New("native succession requires a published predecessor")
 	}
-	if input.Performance != "" && (input.Artifacts == "" && input.Tag == "" || os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" && input.BaselineTag == "") {
+	if input.Performance != "" && (!input.UsesPrebuiltArtifacts() || os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" && input.BaselineTag == "") {
 		return errors.New("performance acceptance requires an explicit candidate artifact and published baseline")
 	}
 	return nil

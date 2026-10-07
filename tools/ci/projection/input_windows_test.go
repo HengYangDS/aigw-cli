@@ -19,13 +19,13 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-func TestNativePublicInputPreparesSelectedArtifactAndClientRoots(t *testing.T) {
+func TestWindowsClientSupplyPreservesPortableProductInputOwner(t *testing.T) {
 	pwsh, err := exec.LookPath("pwsh")
 	if err != nil {
 		t.Fatalf("Windows native input requires PowerShell: %v", err)
 	}
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	data, err := projectionCommand(root, "nativePublicInputWindows").Output()
+	data, err := projectionCommand(root, "nativeWindowsClientSupply").Output()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestNativePublicInputPreparesSelectedArtifactAndClientRoots(t *testing.T) {
 		"AIGW_TEST_GIT_PATH="+filepath.Join(operation, "git", "cmd", "git.exe"), "AIGW_TEST_NODE_PATH="+filepath.Join(operation, "node", "node.exe"), "SystemRoot="+systemRoot,
 		"CI_PROJECT_DIR="+project, "CI_PROJECT_URL=https://gitlab.test/team/aigw", "CI_JOB_ID=123")
 	for _, mode := range []struct{ name, clients, performance, assertion string }{
-		{"artifact-only", "false", "true", "if ((Get-ChildItem -LiteralPath $fixture).Count -ne 2 -or (Test-Path (Join-Path $fixture 'suppliers'))) { throw 'unselected client inputs were retained' }"},
+		{"artifact-only", "false", "true", "if ($env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_BASELINE_ARTIFACTS -or (Get-ChildItem -LiteralPath $env:AIGW_TEST_JOB_ROOT).Count -ne 0) { throw 'product inputs escaped their portable release owner' }"},
 		{"selected-clients", "true", "false", "foreach ($client in @{ codex = $env:AIGW_ACCEPTANCE_CODEX; claude = $env:AIGW_ACCEPTANCE_CLAUDE; hermes = $env:AIGW_ACCEPTANCE_HERMES }.GetEnumerator()) { " +
 			"if (-not (Test-Path -LiteralPath $client.Value -PathType Leaf) -or (Get-Content -LiteralPath $client.Value -Raw) -cne ($client.Key + ' fixture')) { throw 'selected native client identity is unavailable' } }"},
 	} {
@@ -105,10 +105,9 @@ func TestNativePublicInputPreparesSelectedArtifactAndClientRoots(t *testing.T) {
 			requireProjectionInput(t, os.RemoveAll(filepath.Join(job, "native-input")))
 			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 			defer cancel()
-			command := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", prelude+script+
-				"\nif ($env:AIGW_CANDIDATE_ARTIFACTS -ne (Join-Path $fixture 'candidate') -or $env:AIGW_BASELINE_ARTIFACTS -ne (Join-Path $fixture 'baseline')) { throw 'artifact identities were not prepared' }\n"+mode.assertion)
+			command := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", prelude+script+"\n"+mode.assertion)
 			command.Dir = operation
-			command.Env = append(environment, "AIGW_NATIVE_CLIENTS="+mode.clients, "AIGW_NATIVE_PERFORMANCE="+mode.performance)
+			command.Env = append(slices.Clone(environment), "AIGW_TEST_JOB_ROOT="+job, "AIGW_CANDIDATE_ARTIFACTS=", "AIGW_BASELINE_ARTIFACTS=", "AIGW_NATIVE_CLIENTS="+mode.clients, "AIGW_NATIVE_PERFORMANCE="+mode.performance)
 			if output, err := command.CombinedOutput(); err != nil {
 				t.Fatalf("native input preparation failed: %v (context: %v)\n%s", err, ctx.Err(), output)
 			}
@@ -123,13 +122,13 @@ func requireProjectionInput(t *testing.T, err error) {
 	}
 }
 
-func TestNativePublicInputAdmission(t *testing.T) {
+func TestWindowsClientSupplyAdmission(t *testing.T) {
 	pwsh, err := exec.LookPath("pwsh")
 	if err != nil {
 		t.Fatalf("Windows native input requires PowerShell: %v", err)
 	}
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	command := projectionCommand(root, "nativePublicInputWindows")
+	command := projectionCommand(root, "nativeWindowsClientSupply")
 	data, err := command.Output()
 	if err != nil {
 		t.Fatalf("native public input has no original job prerequisite: %v", err)
@@ -171,6 +170,7 @@ func TestNativePublicInputAdmission(t *testing.T) {
 			process := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", prelude+script)
 			process.Dir = operation
 			process.Env = append(os.Environ(),
+				"AIGW_NATIVE_CLIENTS=true", "AIGW_NATIVE_DIAGNOSTIC_CLIENT=",
 				"AIGW_NATIVE_INPUT_PACKAGE=fixture", "AIGW_CANDIDATE_SOURCE=0123456789012345678901234567890123456789",
 				"AIGW_RELEASE_ALLOWED_SIGNERS=", "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS=",
 				"AIGW_NATIVE_PLATFORM="+test.platform, "AIGW_RELEASE_ALLOWED_SIGNERS_FILE="+test.signers,

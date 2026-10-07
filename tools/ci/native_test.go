@@ -350,6 +350,7 @@ func TestNativePrebuiltAcceptanceDoesNotRepeatSourceQualification(t *testing.T) 
 		{"--artifacts", "/candidate with spaces", "--candidate"},
 		{"--artifacts=/candidate", "--candidate"},
 		{"--tag", "v0.3.1", "--peer", "gitlab", "--repository", "group/product"},
+		{"--input-package", "native-inputs", "--input-sha256", strings.Repeat("a", 64), "--candidate-source", strings.Repeat("b", 40), "--candidate", "--baseline-tag", "v0.3.1", "--peer", "gitlab", "--repository", "group/product"},
 	} {
 		var calls []command
 		err := run(append([]string{"native", "--"}, selected...), &bytes.Buffer{}, func(call command) error {

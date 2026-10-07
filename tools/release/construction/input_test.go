@@ -1,0 +1,271 @@
+package construction
+
+import (
+	"aigw-cli/tools/release/artifact"
+	"archive/tar"
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestNativePackagedInputsShareSignedMatrixAndOwnedLifecycle(t *testing.T) {
+	root, source, contents := nativePackageFixture(t)
+	input, err := ParseNativeAcceptance(nativePackageArguments(source, contents))
+	if err != nil {
+		t.Fatalf("explicit native package input was refused: %v", err)
+	}
+	if !input.UsesPrebuiltArtifacts() {
+		t.Fatal("native package input repeated source qualification")
+	}
+	downloads, journeys := 0, 0
+	var workspace string
+	err = acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.4", Epoch: "1784246400"}, func(call toolCall) error {
+		switch call.Name {
+		case "git":
+			return nil
+		case "glab":
+			downloads++
+			index := slices.Index(call.Args, "--path")
+			if index < 0 {
+				t.Fatalf("native package has no exact download path: %#v", call)
+			}
+			archive := call.Args[index+1]
+			workspace = filepath.Dir(archive)
+			want := []string{"packages", "download", "--repo", "group/product", "--name", "native-inputs", "--version", source, "--filename", "public-inputs.tar", "--path", archive}
+			if !slices.Equal(call.Args, want) || call.Directory != root || call.Timeout != 2*time.Minute {
+				t.Fatalf("native package identity or deadline changed: %#v", call)
+			}
+			for _, setting := range []string{"GLAB_NO_PROMPT=1", "GLAB_ENABLE_CI_AUTOLOGIN=true", "GLAB_CONFIG_DIR=" + filepath.Join(workspace, "glab")} {
+				if !slices.Contains(call.Env, setting) {
+					t.Fatalf("native package discarded quiet isolated authentication: %#v", call.Env)
+				}
+			}
+			return os.WriteFile(archive, contents, 0o600)
+		case "go":
+			journeys++
+			for _, directory := range []string{"candidate", "baseline"} {
+				entries, err := os.ReadDir(filepath.Join(workspace, directory))
+				if err != nil || len(entries) != len(artifact.Names("1.2.4")) {
+					t.Fatalf("native package did not select the complete matrix: %s, %v, %v", directory, entries, err)
+				}
+			}
+			if _, err := os.Stat(filepath.Join(workspace, "suppliers")); !os.IsNotExist(err) {
+				t.Fatalf("product acceptance extracted independent client supplies: %v", err)
+			}
+			if !slices.Contains(call.Args, "^TestNativePublishedPredecessorJourney$") {
+				return nil
+			}
+			index := slices.IndexFunc(call.Env, func(setting string) bool { return strings.HasPrefix(setting, "AIGW_ACCEPTANCE_BASELINE=") })
+			if index < 0 {
+				t.Fatal("native package discarded its published predecessor")
+			}
+			_, baseline, _ := strings.Cut(call.Env[index], "=")
+			data, err := os.ReadFile(baseline)
+			if err != nil || string(data) != "native candidate" {
+				t.Fatalf("published predecessor bytes changed: %q, %v", data, err)
+			}
+		default:
+			t.Fatalf("unexpected native package tool: %#v", call)
+		}
+		return nil
+	})
+	if err != nil || downloads != 1 || journeys != 2 {
+		t.Fatalf("native package lifecycle=%v, downloads=%d, journeys=%d", err, downloads, journeys)
+	}
+	if _, err := os.Stat(workspace); !os.IsNotExist(err) {
+		t.Fatalf("native package retained its exact workspace: %v", err)
+	}
+}
+
+func TestNativePackageAdmissionRequiresOneExactSourceAndTransport(t *testing.T) {
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+	args := nativePackageArguments(strings.Repeat("a", 40), nil)
+	if _, err := ParseNativeAcceptance(args); err != nil {
+		t.Fatalf("complete native package identity was refused: %v", err)
+	}
+	for _, missing := range []string{"--input-sha256", "--candidate-source", "--baseline-tag", "--peer", "--repository"} {
+		selected := slices.Clone(args)
+		index := slices.Index(selected, missing)
+		selected = slices.Delete(selected, index, index+2)
+		if _, err := ParseNativeAcceptance(selected); err == nil {
+			t.Errorf("native package accepted missing %s", missing)
+		}
+	}
+	for _, conflicting := range [][]string{
+		{"--peer", "github"}, {"--artifacts", "/foreign"}, {"--tag", "v1.2.4"},
+		{"--baseline-artifacts", "/foreign"}, {"--input-sha256", strings.Repeat("g", 64)},
+		{"--candidate-source", "HEAD"}, {"--candidate=false"},
+	} {
+		if _, err := ParseNativeAcceptance(append(slices.Clone(args), conflicting...)); err == nil {
+			t.Errorf("native package accepted competing or unbound input: %q", conflicting)
+		}
+	}
+	if _, err := ParseNativeAcceptance([]string{"--input-sha256", strings.Repeat("a", 64)}); err == nil {
+		t.Fatal("package checksum was accepted without its package")
+	}
+}
+
+func TestNativeRetainedPackagePreservesCallerArchiveWithoutTransport(t *testing.T) {
+	root, source, contents := nativePackageFixture(t)
+	archive := filepath.Join(t.TempDir(), "retained native input.tar")
+	if err := os.WriteFile(archive, contents, 0o400); err != nil {
+		t.Fatal(err)
+	}
+	args := nativePackageArguments(source, contents)
+	args[0], args[1] = "--input-archive", archive
+	args = args[:len(args)-4]
+	input, err := ParseNativeAcceptance(args)
+	if err != nil {
+		t.Fatalf("retained native input was refused: %v", err)
+	}
+	journeys := 0
+	err = acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.4", Epoch: "1784246400"}, func(call toolCall) error {
+		if call.Name == "git" {
+			return nil
+		}
+		if call.Name != "go" {
+			t.Fatalf("retained native input caused another download: %#v", call)
+		}
+		journeys++
+		return nil
+	})
+	if err != nil || journeys != 2 {
+		t.Fatalf("retained native input journeys=%d, error=%v", journeys, err)
+	}
+	readback, err := os.ReadFile(archive)
+	if err != nil || !bytes.Equal(readback, contents) {
+		t.Fatalf("native acceptance changed its caller-owned archive: %v", err)
+	}
+	input.InputArchive = t.TempDir()
+	err = acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.4", Epoch: "1784246400"}, func(call toolCall) error {
+		if call.Name != "git" {
+			t.Fatalf("nonregular caller input reached execution: %#v", call)
+		}
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "regular file") {
+		t.Fatalf("native retained input accepted a directory: %v", err)
+	}
+}
+
+func TestNativePackageFailuresNeverExecuteAndReclaimOwnedScratch(t *testing.T) {
+	root, source, valid := nativePackageFixture(t)
+	regular := &tar.Header{Name: "candidate/checksums.txt", Mode: 0o600}
+	link := &tar.Header{Name: regular.Name, Typeflag: tar.TypeSymlink, Linkname: "../../foreign"}
+	for _, failure := range []struct {
+		name, checksum string
+		contents       []byte
+		transport      error
+	}{
+		{"download", "", valid, errors.New("owned transport stopped")},
+		{"checksum", strings.Repeat("0", 64), valid, nil},
+		{"missing matrix", "", nil, nil},
+		{"selected link", "", nativePackageHeaders(t, link), nil},
+		{"duplicate matrix", "", nativePackageHeaders(t, regular, regular), nil},
+		{"interrupted download", "", valid, context.Canceled},
+	} {
+		t.Run(failure.name, func(t *testing.T) {
+			temp := t.TempDir()
+			for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+				t.Setenv(name, temp)
+			}
+			args := nativePackageArguments(source, failure.contents)
+			if failure.checksum != "" {
+				args[slices.Index(args, "--input-sha256")+1] = failure.checksum
+			}
+			input, err := ParseNativeAcceptance(args)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.4", Epoch: "1784246400"}, func(call toolCall) error {
+				if call.Name == "git" {
+					return nil
+				}
+				if call.Name != "glab" {
+					t.Fatalf("invalid native package reached execution: %#v", call)
+				}
+				archive := call.Args[slices.Index(call.Args, "--path")+1]
+				if err := os.WriteFile(archive, failure.contents, 0o600); err != nil {
+					return err
+				}
+				return failure.transport
+			})
+			if err == nil || failure.transport != nil && !errors.Is(err, failure.transport) {
+				t.Fatalf("native package failure changed identity: %v", err)
+			}
+			if matches, err := filepath.Glob(filepath.Join(temp, "aigw-native-inputs-*")); err != nil || len(matches) != 0 {
+				t.Fatalf("failed native package retained owned scratch: %v, %v", matches, err)
+			}
+		})
+	}
+}
+
+func nativePackageHeaders(t *testing.T, headers ...*tar.Header) []byte {
+	t.Helper()
+	var archive bytes.Buffer
+	writer := tar.NewWriter(&archive)
+	for _, header := range headers {
+		if err := writer.WriteHeader(header); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return archive.Bytes()
+}
+
+func nativePackageArguments(source string, contents []byte) []string {
+	return []string{"--input-package", "native-inputs", "--input-sha256", fmt.Sprintf("%x", sha256.Sum256(contents)), "--candidate-source", source, "--candidate", "--baseline-tag", "v1.2.3", "--peer", "gitlab", "--repository", "group/product"}
+}
+
+func nativePackageFixture(t *testing.T) (string, string, []byte) {
+	t.Helper()
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+	root, key := releaseRoot(t), signingKey(t)
+	baseline := signedNativeInputFixture(t, root, "1.2.3", key)
+	candidate := signedNativeInputFixture(t, root, "1.2.4", key)
+	if output, err := exec.CommandContext(t.Context(), "git", "-C", root, "tag", "-d", "v1.2.4").CombinedOutput(); err != nil {
+		t.Fatalf("untagged candidate fixture failed: %v, %s", err, output)
+	}
+	output, err := exec.CommandContext(t.Context(), "git", "-C", root, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contents bytes.Buffer
+	writer := tar.NewWriter(&contents)
+	for _, input := range []struct{ directory, path, version string }{{"candidate", candidate, "1.2.4"}, {"baseline", baseline, "1.2.3"}} {
+		for _, name := range artifact.Names(input.version) {
+			data, err := os.ReadFile(filepath.Join(input.path, name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := writer.WriteHeader(&tar.Header{Name: input.directory + "/" + name, Mode: 0o600, Size: int64(len(data))}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := writer.Write(data); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := writer.WriteHeader(&tar.Header{Name: "suppliers/ignored.tar", Size: 1, Mode: 0o600}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.WriteString(writer, "x"); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return root, strings.TrimSpace(string(output)), contents.Bytes()
+}
