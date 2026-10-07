@@ -195,12 +195,20 @@ func checkLinuxNativeSupplySelection(t *testing.T, before []string) {
 			if err := os.WriteFile(witness, nil, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			command := exec.CommandContext(t.Context(), "sh", "-c", strings.Join(before[1:3], "\n"))
+			command := exec.CommandContext(t.Context(), "sh", "-c", strings.Join(before[1:3], "\n")+"\nprintf '%s' \"$CGO_ENABLED\"")
 			command.Env = append(os.Environ(), "PATH="+root+":/usr/bin:/bin", "AIGW_PACKAGE_WITNESS="+witness, "AIGW_NATIVE_INPUT_PACKAGE="+test.pack,
 				"AIGW_CANDIDATE_ARTIFACTS=", "AIGW_CANDIDATE_TAG=", "AIGW_FULL_NATIVE_QUALITY="+test.full,
-				"AIGW_REFRESH_LOCKS="+test.refresh, "AIGW_NATIVE_PERFORMANCE="+test.performance)
-			if output, err := command.CombinedOutput(); err != nil {
+				"AIGW_REFRESH_LOCKS="+test.refresh, "AIGW_NATIVE_PERFORMANCE="+test.performance, "CGO_ENABLED=1")
+			output, err := command.CombinedOutput()
+			if err != nil {
 				t.Fatalf("selected Linux prerequisites: %v, %s", err, output)
+			}
+			wantCGO := "0"
+			if test.compiler {
+				wantCGO = "1"
+			}
+			if got := string(output); got != wantCGO {
+				t.Fatalf("selected compiler environment = %q, want %q", got, wantCGO)
 			}
 			data, err := os.ReadFile(witness)
 			if err != nil {

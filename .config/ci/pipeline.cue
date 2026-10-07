@@ -842,7 +842,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		variables: CGO_ENABLED: "1"
 		"before_script": [
 			linuxToolchain.prepare,
-			"if ! { \(_prebuiltCondition); }; then \(linuxToolchain.compiler); fi",
+			"if \(_prebuiltCondition); then export CGO_ENABLED=0; else export CGO_ENABLED=1; \(linuxToolchain.compiler); fi",
 			"if ! { \(_prebuiltCondition); } || [ \"${AIGW_NATIVE_PERFORMANCE:-false}\" = true ]; then DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(linuxSecretService.packages); fi",
 			miseMirror.unixPrepare, _selectTools, commands.install,
 		]
