@@ -2,7 +2,9 @@ package credential
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -211,7 +213,7 @@ func TestExecutableWriteFailureLeavesNoCredentialEntrypoint(t *testing.T) {
 }
 
 func TestEntrypointRejectsIncompleteOrDriftedReceipt(t *testing.T) {
-	for _, state := range []string{"missing", "drifted"} {
+	for _, state := range []string{"missing", "drifted", "empty-reader"} {
 		t.Run(state, func(t *testing.T) {
 			root := t.TempDir()
 			source := filepath.Join(root, "source")
@@ -223,12 +225,22 @@ func TestEntrypointRejectsIncompleteOrDriftedReceipt(t *testing.T) {
 				t.Fatal(err)
 			}
 			receipt := target + ".sha256"
-			if state == "missing" {
+			switch state {
+			case "missing":
 				if err := os.Remove(receipt); err != nil {
 					t.Fatal(err)
 				}
-			} else if err := os.WriteFile(receipt, []byte("wrong digest\n"), 0o600); err != nil {
-				t.Fatal(err)
+			case "empty-reader":
+				if err := os.WriteFile(target, nil, 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(receipt, fmt.Appendf(nil, "%x\n", sha256.Sum256(nil)), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			case "drifted":
+				if err := os.WriteFile(receipt, []byte("wrong digest\n"), 0o600); err != nil {
+					t.Fatal(err)
+				}
 			}
 			if _, err := EntrypointNeeded(target); err == nil {
 				t.Fatalf("%s receipt was admitted", state)

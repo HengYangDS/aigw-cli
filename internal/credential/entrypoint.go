@@ -48,7 +48,8 @@ func executableDigest(source string) (sum [sha256.Size]byte, err error) {
 		return sum, errors.New("AIGW credential source is empty")
 	}
 	hash := sha256.New()
-	if _, err := io.Copy(hash, executable); err != nil {
+	// Hide File.WriteTo so CopyBuffer uses the bounded buffer for every read.
+	if _, err := io.CopyBuffer(hash, struct{ io.Reader }{executable}, make([]byte, 256<<10)); err != nil {
 		return sum, fmt.Errorf("hash AIGW executable for credential identity: %w", err)
 	}
 	return [sha256.Size]byte(hash.Sum(nil)), nil
@@ -169,20 +170,14 @@ func EntrypointNeeded(path string) (bool, error) {
 	if err := validatePrivateFile(path+".sha256", receipt, 0o600); err != nil {
 		return false, err
 	}
-	executable, err := os.Open(path)
+	sum, err := executableDigest(path)
 	if err != nil {
-		return false, fmt.Errorf("read credential entrypoint: %w", err)
-	}
-	hash := sha256.New()
-	_, readErr := io.Copy(hash, executable)
-	if err := errors.Join(readErr, executable.Close()); err != nil {
 		return false, fmt.Errorf("read credential entrypoint: %w", err)
 	}
 	identity, err := os.ReadFile(path + ".sha256")
 	if err != nil {
 		return false, fmt.Errorf("read credential entrypoint receipt: %w", err)
 	}
-	sum := [sha256.Size]byte(hash.Sum(nil))
 	if err := validateVersionedDigest(path, sum); err != nil {
 		return false, err
 	}

@@ -50,8 +50,9 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   exact cleanup in one source journey.
 - Keep native Git fixture paths compact on Windows and reclaim their exact
   owned directories after successful or failed tests.
-- Verify retained credential executable digests with bounded memory while preserving
-  independent source and retained-reader integrity checks.
+- Verify retained credential executable digests with bounded memory and buffered
+  native reads; reject empty readers while preserving independent source and
+  retained-reader integrity checks.
 - Rotate Linux native Tokens in place without replacing existing item metadata;
   reject ambiguous identities and make native Secret Service warnings fatal in CI.
 - Keep version headings in this document and provide each declared Forge's
