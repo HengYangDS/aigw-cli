@@ -205,6 +205,16 @@ func nativePerformanceJourney(t *testing.T, program, credentialWorker, backend s
 	}))
 	t.Cleanup(server.Close)
 	j := newNativeJourney(t, program, server.URL, true)
+	if runtime.GOOS != "windows" {
+		// Hyperfine's untimed preparation resolves sh even with --shell=none.
+		shell, err := exec.LookPath("sh")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(shell, filepath.Join(j.clientBin, "sh")); err != nil {
+			t.Fatal(err)
+		}
+	}
 	manifest := []byte(nativeCurrentSchemaManifest(server.URL) + `
 [models.claude-second]
 label = "Claude Second"
@@ -457,6 +467,37 @@ func (j *journeyFixture) measureNativeCredentialOperations(output, variant, back
 		}
 	}
 	return rows, nil
+}
+
+func TestNativePerformancePreparationUsesIsolatedShell(t *testing.T) {
+	hyperfine, err := exec.LookPath("hyperfine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	version, err := readiness.ReadProductVersion(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	program, _, _ := nativeReleaseCandidate(t, root, version)
+	journey := nativePerformanceJourney(t, program, program, "env")
+	if !slices.Contains(journey.environment, "PATH="+journey.clientBin) {
+		t.Fatal("performance preparation widened native client discovery")
+	}
+	raw := filepath.Join(journey.root, "preparation.json")
+	workload := performance.Workload{
+		Command: []string{journey.binary, "--version"},
+		Prepare: []string{journey.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"},
+	}
+	if _, err := performance.Measure(t.Context(), performance.Command{
+		Tool: hyperfine, Arguments: workload.Arguments(raw), Output: raw,
+		Directory: journey.root, Environment: journey.environment,
+	}); err != nil {
+		t.Fatalf("native preparation failed with isolated client discovery: %v", err)
+	}
 }
 
 // Hyperfine shell=none uses shell_words on every OS, including Windows.
