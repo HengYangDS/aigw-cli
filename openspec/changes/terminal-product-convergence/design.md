@@ -184,6 +184,17 @@ clients are assessed against the same admission checklist. Unsupported or
 non-extensible modes are reported as such, not approximated by writing a
 plausible config file.
 
+An Account endpoint declares upstream service identity. An explicitly selected
+Client Binding may declare a forwarding endpoint without changing that Account,
+Route, provider identity or another client. The existing resolver derives the
+effective client destination, and the native CLI, credential reader and guarded
+projection consume that same binding. Preserve the cached predecessor's direct
+credential reference without copying its Token or weakening endpoint admission.
+No second controller, provider alias or manually patched sidecar owns this
+choice. Acceptance requires credential-free preview, fresh and retained-child
+tool loops through installed forwarding bytes, converged sync, rollback and
+exact cleanup; source mapping or a reachable listener alone is insufficient.
+
 OpenCode is a feasibility candidate, not an admitted Adapter. On 2026-09-28,
 its installed 1.18.32 CLI listed an isolated custom model and completed a
 synthetic-Token Chat Completions `read` tool loop without user state. This
@@ -503,6 +514,18 @@ direct `200` downloads from the admitted mirror with sibling endpoints
 unavailable, or use an existing executor network boundary where arbitrary
 redirect rejection is required. Do not claim CUE supplies an unsupported Mise
 setting; retain unproved redirect containment as a separate admission gap.
+
+The signed `dadc9cb7` product with `4218a9d3` verifier passed the ordinary-user
+Linux native-store and retained-predecessor journey. Its exact unit, cgroup,
+cache, private temporary state and staging were retired; original Runner controls
+and VM isolation were restored. Independent review of the original macOS,
+Windows and Linux performance samples accepted 144 blocks, 5,760 measurements
+and 72 pooled results under the existing 100/250 ms budgets and size/memory
+review thresholds. Retain those thresholds and the current graph. The observed
+12.669-second matrix build and 450/858-second source pipelines have unmatched
+source, cache and load conditions; they prove neither optimization benefit nor
+regression. Later forwarding changes require affected-path measurement and
+final signed-byte qualification, not a claim that these results cover new bytes.
 
 ### 6. Delete by consumer and authority
 

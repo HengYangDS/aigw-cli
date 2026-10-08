@@ -53,3 +53,36 @@ the same protocol names used by the team manifest.
   for a client with multiple compatible protocols
 - **THEN** validation probes only the explicitly selected protocol and endpoint
 - **AND** a failed probe does not store the Token or change the Client Binding.
+
+### Requirement: Forwarding selection belongs to one Client Binding
+
+A Client Binding MAY explicitly select a forwarding endpoint independently of
+its Account upstream endpoint. The native selection, resolver, credential reader,
+guarded projection, dry-run and rollback SHALL derive the same effective
+destination from that binding. Selection SHALL preserve the Account credential,
+Route, provider identity, model and reasoning choices, unrelated clients and
+unmanaged content. AIGW SHALL NOT manage the external service or carry requests.
+
+#### Scenario: One client selects an installed forwarding endpoint
+
+- **WHEN** an enabled client explicitly selects a forwarding endpoint
+- **THEN** credential-free preview SHALL identify only that client's changes
+- **AND** native selection SHALL preserve the upstream Account and other clients
+- **AND** the next sync SHALL retain the selected forwarding endpoint.
+
+#### Scenario: A cached predecessor still requests its direct credential
+
+- **WHEN** a retained client uses its original direct credential reference after
+  forwarding selection
+- **THEN** the native reader SHALL resolve that exact admitted Account reference
+- **AND** SHALL NOT copy a Token, require a new provider identity or rewrite
+  conversation history.
+
+#### Scenario: Forwarding selection is accepted or rolled back
+
+- **WHEN** the selected forwarding service is installed and exercised by the
+  actual native client
+- **THEN** fresh and cold-resumed child task, message and result loops SHALL pass
+- **AND** rollback SHALL restore the exact prior client semantics and usable
+  credential reference
+- **AND** acceptance SHALL verify cleanup of the exact owned test resources.

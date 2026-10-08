@@ -94,16 +94,21 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
-- [x] 4.7 Verify direct HTTPS, optional external Responses endpoint, and
-      no-Proxy/no-Forge/no-client operation through the same Account path; assert
-      AIGW does not install, route traffic through, or manage the external service.
+- [ ] 4.7 Qualify an explicit client-scoped forwarding endpoint independently
+      of its Account upstream through the existing selection, resolver, credential,
+      guarded projection, dry-run and rollback owners. Preserve the Account,
+      provider identity, cached direct credential reader and unrelated clients;
+      prove fresh and retained-child tool loops through the installed endpoint,
+      converged sync, exact rollback and cleanup. Direct HTTPS and
+      no-Proxy/no-Forge/no-client operation remain valid; AIGW does not install,
+      carry traffic through, or manage the external service.
 
 ## 5. Portable Native Product Lifecycle
 
 - [x] 5.1 Reconstruct a fresh current-HEAD Git worktree's locked Go, Node, npm
       and tool environment with independent mutable state; test empty HOME/cache
       bootstrap, reject ambient fallback, and remove exact owned test state.
-- [ ] 5.2 Run Linux container and native-host setup, selected provider,
+- [x] 5.2 Run Linux container and native-host setup, selected provider,
       projection, update, rollback, uninstall, and cleanup journeys using exact
       release bytes and one retained predecessor state.
 - [x] 5.3 Run equivalent Windows native journeys, including ACL, executable
@@ -140,7 +145,7 @@ in Git; original raw results stay with their source-bound verification owner.
       licenses, checksums, signatures and provenance from the exact locked
       candidate; retain and disclose nonblocking supply-chain security findings,
       preserve artifact validity, and delete unconsumed parallel scans or reports.
-- [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
+- [x] 6.6 Measure startup, setup, sync, credential read, native projection,
       build and CI costs against retained predecessor budgets through the
       [native measurement contract](../../../docs/governance/change-and-release-policy.md#behavioral-and-quantitative-evidence).
       Preserve raw samples and host/order evidence; budget qualification does not
