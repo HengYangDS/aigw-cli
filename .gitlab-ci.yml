@@ -30,9 +30,7 @@ native-linux:
   artifacts:
     when: always
     paths:
-      - mise.lock
-      - .mise/locks
-      - build/verification
+      - ./{mise.lock,.mise/locks,build/verification}
   before_script:
     - |-
       set -eu
@@ -213,9 +211,7 @@ native-darwin:
   artifacts:
     when: always
     paths:
-      - mise.lock
-      - .mise/locks
-      - build/verification
+      - ./{mise.lock,.mise/locks,build/verification}
 native-darwin-review:
   script:
     - |-
@@ -310,9 +306,7 @@ native-darwin-review:
   artifacts:
     when: always
     paths:
-      - mise.lock
-      - .mise/locks
-      - build/verification
+      - ./{mise.lock,.mise/locks,build/verification}
 native-windows:
   script:
     - |-
@@ -503,9 +497,7 @@ native-windows:
   artifacts:
     when: always
     paths:
-      - mise.lock
-      - .mise/locks
-      - build/verification
+      - ./{mise.lock,.mise/locks,build/verification}
 native-windows-review:
   script:
     - |-
@@ -695,9 +687,7 @@ native-windows-review:
   artifacts:
     when: always
     paths:
-      - mise.lock
-      - .mise/locks
-      - build/verification
+      - ./{mise.lock,.mise/locks,build/verification}
 variables:
   GIT_CONFIG_COUNT: "2"
   GIT_CONFIG_KEY_0: init.defaultBranch

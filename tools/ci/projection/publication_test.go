@@ -419,7 +419,7 @@ func TestGitLabPerformanceUsesItsSelectedNativeClosure(t *testing.T) {
 				}
 				checkProjectedNativeReleaseArguments(t, job.Script[native], platform)
 			}
-			if job.Artifacts.When != "always" || !slices.Contains(job.Artifacts.Paths, "build/verification") {
+			if job.Artifacts.When != "always" || !slices.Contains(job.Artifacts.Paths, "./{mise.lock,.mise/locks,build/verification}") {
 				t.Fatal("performance samples must remain in the existing verification artifact on success and failure")
 			}
 		})

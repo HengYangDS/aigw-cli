@@ -839,7 +839,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	}
 	artifacts: {
 		when: "always"
-		paths: ["mise.lock", ".mise/locks", "build/verification"]
+		paths: ["./{mise.lock,.mise/locks,build/verification}"]
 	}
 	if _platform == "linux" {
 		interruptible: true
