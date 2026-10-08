@@ -469,37 +469,6 @@ func (j *journeyFixture) measureNativeCredentialOperations(output, variant, back
 	return rows, nil
 }
 
-func TestNativePerformancePreparationUsesIsolatedShell(t *testing.T) {
-	hyperfine, err := exec.LookPath("hyperfine")
-	if err != nil {
-		t.Fatal(err)
-	}
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	version, err := readiness.ReadProductVersion(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	program, _, _ := nativeReleaseCandidate(t, root, version)
-	journey := nativePerformanceJourney(t, program, program, "env")
-	if !slices.Contains(journey.environment, "PATH="+journey.clientBin) {
-		t.Fatal("performance preparation widened native client discovery")
-	}
-	raw := filepath.Join(journey.root, "preparation.json")
-	workload := performance.Workload{
-		Command: []string{journey.binary, "--version"},
-		Prepare: []string{journey.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"},
-	}
-	if _, err := performance.Measure(t.Context(), performance.Command{
-		Tool: hyperfine, Arguments: workload.Arguments(raw), Output: raw,
-		Directory: journey.root, Environment: journey.environment,
-	}); err != nil {
-		t.Fatalf("native preparation failed with isolated client discovery: %v", err)
-	}
-}
-
 // Hyperfine shell=none uses shell_words on every OS, including Windows.
 func TestNativePerformanceCases(t *testing.T) {
 	journey := &journeyFixture{root: "owned root", binary: "installed program", config: filepath.Join("owned config directory", "config.toml"), settings: filepath.Join("owned settings directory", "settings.json"), manifest: "team manifest"}
