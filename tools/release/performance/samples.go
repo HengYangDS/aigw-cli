@@ -196,11 +196,6 @@ type Summary struct {
 
 // Review checks measured evidence rather than trusting the qualification flag.
 func (s Summary) Review() error {
-	for _, row := range s.Blocks {
-		if err := reviewWorkloadExecution(row, s.Controllers["hyperfine"], s.OS); err != nil {
-			return err
-		}
-	}
 	for _, name := range []string{"verifier", "hyperfine"} {
 		selected, ok := s.Controllers[name]
 		if !ok {
@@ -208,6 +203,14 @@ func (s Summary) Review() error {
 		}
 		if err := reviewExecution(&selected, s.ControllerExecution[name], s.OS); err != nil {
 			return err
+		}
+	}
+	for _, row := range s.Blocks {
+		if err := reviewWorkloadExecution(row, s.Controllers["hyperfine"], s.OS); err != nil {
+			return err
+		}
+		if s.OS == "windows" && !s.ControllerExecution["verifier"][0].owns(row.ControllerExecution[0]) {
+			return errors.New("performance measurement is not owned by its observed verifier")
 		}
 	}
 	if s.Scope != "full-performance" || s.OS == "" || s.Arch == "" || s.Tool == "" || s.IdentityScope == "" || s.MemoryScope == "" || s.ClientScope == "" || len(s.Programs) != 2 {

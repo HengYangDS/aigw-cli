@@ -164,6 +164,40 @@ func TestNativePerformanceSummaryBindsNativeEvidence(t *testing.T) {
 	}
 }
 
+func TestNativePerformanceSummaryOwnsWindowsMeasurements(t *testing.T) {
+	for _, name := range []string{"mixed-native-blocks", "reused-verifier", "foreign-controller"} {
+		t.Run(name, func(t *testing.T) {
+			summary := writeQualifiedPerformanceSummary(t, t.TempDir())
+			summary.OS = "windows"
+			if err := summary.Review(); err != nil {
+				t.Fatalf("one verifier's x64-on-ARM64 measurements were refused: %v", err)
+			}
+			for index := range summary.Blocks {
+				row := &summary.Blocks[index]
+				row.ControllerExecution = slices.Clone(row.ControllerExecution)
+				switch name {
+				case "mixed-native-blocks":
+					if row.Block != 2 {
+						continue
+					}
+					row.ControllerExecution[0].NativeMachine, row.ControllerExecution[0].WOW64Machine = 0x8664, 0
+					row.Execution = slices.Clone(row.Execution)
+					for process := range row.Execution {
+						row.Execution[process].NativeMachine, row.Execution[process].WOW64Machine = 0x8664, 0
+					}
+				case "reused-verifier":
+					row.ControllerExecution[0].ParentCreated++
+				case "foreign-controller":
+					row.ControllerExecution[0].ParentPID = 9
+				}
+			}
+			if err := summary.Review(); err == nil || !strings.Contains(err.Error(), "owned by its observed verifier") {
+				t.Fatalf("%s acquired native performance qualification: %v", name, err)
+			}
+		})
+	}
+}
+
 func inflatePerformanceMemory(rows []performance.Memory) {
 	for index := range rows {
 		if rows[index].Variant == "candidate" {
@@ -239,13 +273,15 @@ func inflatePerformanceBlock(t *testing.T, output string, rows []performance.Mea
 
 func writeQualifiedPerformanceSummary(t *testing.T, output string) performance.Summary {
 	t.Helper()
-	image := performance.Identity{Path: "measured-image", Format: "PE", Machine: 0xaa64, Arch: "arm64", SHA256: strings.Repeat("a", 64), Bytes: 1}
+	image := performance.Identity{Path: "measured-image", Format: "PE", Machine: 0x8664, Arch: "amd64", SHA256: strings.Repeat("a", 64), Bytes: 1}
 	observed := []performance.Execution{{PID: 2, ParentPID: 1, Created: 20, ParentCreated: 10, Role: "controller", Image: image,
-		Machine: 0xaa64, Arch: "arm64", NativeMachine: 0xaa64, Attributes: 1}}
+		Machine: 0x8664, Arch: "amd64", WOW64Machine: 0x8664, NativeMachine: 0xaa64, Attributes: 1}}
+	verifier := []performance.Execution{{PID: 1, ParentPID: 9, Created: 10, ParentCreated: 1, Role: "controller", Image: image,
+		Machine: 0x8664, Arch: "amd64", WOW64Machine: 0x8664, NativeMachine: 0xaa64, Attributes: 1}}
 	summary := performance.Summary{Qualification: true, Scope: "full-performance", OS: runtime.GOOS, Arch: runtime.GOARCH, Tool: "Hyperfine fixture",
 		IdentityScope: "fixture", MemoryScope: "fixture", ClientScope: "fixture",
 		Controllers:         map[string]performance.Identity{"hyperfine": image, "verifier": image},
-		ControllerExecution: map[string][]performance.Execution{"hyperfine": observed, "verifier": observed},
+		ControllerExecution: map[string][]performance.Execution{"hyperfine": observed, "verifier": verifier},
 		Programs:            []performance.Program{{Variant: "baseline", Path: image.Path, SHA256: image.SHA256, Bytes: 1}, {Variant: "candidate", Path: image.Path, SHA256: strings.Repeat("b", 64), Bytes: 2}}}
 	for _, variant := range []string{"baseline", "candidate"} {
 		selected := image
@@ -253,7 +289,7 @@ func writeQualifiedPerformanceSummary(t *testing.T, output string) performance.S
 			selected.Path, selected.SHA256, selected.Bytes = "candidate-image", strings.Repeat("b", 64), 2
 		}
 		observed := []performance.Execution{{PID: 3, ParentPID: 2, Created: 30, ParentCreated: 20, Role: "workload", Image: selected,
-			Machine: 0xaa64, Arch: "arm64", NativeMachine: 0xaa64, Attributes: 1}}
+			Machine: 0x8664, Arch: "amd64", WOW64Machine: 0x8664, NativeMachine: 0xaa64, Attributes: 1}}
 		for block := range 2 {
 			for _, name := range []string{"credential", "projection", "setup", "sync", "version", "help", "status", "export"} {
 				budget := 0.1
@@ -282,7 +318,7 @@ func writeQualifiedPerformanceSummary(t *testing.T, output string) performance.S
 				if name == "credential" {
 					row.Reader = &selected
 					row.Execution = append(row.Execution, performance.Execution{PID: 4, ParentPID: 3, Created: 40, ParentCreated: 30, Role: "reader", Image: selected,
-						Machine: 0xaa64, Arch: "arm64", NativeMachine: 0xaa64, Attributes: 1})
+						Machine: 0x8664, Arch: "amd64", WOW64Machine: 0x8664, NativeMachine: 0xaa64, Attributes: 1})
 				}
 				for index := range row.Samples.Times {
 					row.Samples.Times[index] = 0.01
