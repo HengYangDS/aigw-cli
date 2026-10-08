@@ -2,6 +2,7 @@ package construction
 
 import (
 	"aigw-cli/tools/release/artifact"
+	"bytes"
 	"errors"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -89,8 +91,33 @@ func TestReleaseSourceMustBeClean(t *testing.T) {
 		}); err != nil {
 			t.Fatal(err)
 		}
-		if call.Name != "git" || call.Directory != "repository" || !reflect.DeepEqual(call.Args, []string{"status", "--porcelain=v1", "--untracked-files=all"}) {
+		if call.Name != "git" || call.Directory != "repository" || !reflect.DeepEqual(call.Args, []string{"--no-optional-locks", "status", "--porcelain=v1", "--untracked-files=all"}) {
 			t.Fatalf("clean-source call = %#v", call)
+		}
+	})
+
+	t.Run("inspection preserves the source index", func(t *testing.T) {
+		root := t.TempDir()
+		signedNativeInputFixture(t, root, "0.3.1", signingKey(t))
+		t.Setenv("GIT_OPTIONAL_LOCKS", "1")
+		index := filepath.Join(root, ".git", "index")
+		before, err := os.ReadFile(index)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stamp := time.Unix(1, 0)
+		if err := os.Chtimes(filepath.Join(root, "VERSION"), stamp, stamp); err != nil {
+			t.Fatal(err)
+		}
+		if err := ensureCleanSource(root, executeTool(t.Context())); err != nil {
+			t.Fatal(err)
+		}
+		after, err := os.ReadFile(index)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(before, after) {
+			t.Fatal("source inspection rewrote the Git index")
 		}
 	})
 

@@ -336,7 +336,7 @@ func ensureCleanSource(root string, run toolRunner) error {
 	var output bytes.Buffer
 	if err := run(toolCall{
 		Name: "git", Directory: root,
-		Args: []string{"status", "--porcelain=v1", "--untracked-files=all"}, Stdout: &output,
+		Args: []string{"--no-optional-locks", "status", "--porcelain=v1", "--untracked-files=all"}, Stdout: &output,
 	}); err != nil {
 		return fmt.Errorf("inspect release source: %w", err)
 	}
