@@ -1,8 +1,12 @@
 package performance
 
 import (
+	"encoding/json"
+	"errors"
 	"math"
 	"os"
+	"path/filepath"
+	"runtime"
 	"slices"
 	"testing"
 )
@@ -85,5 +89,52 @@ func TestPooledPreservesBlocksAndDiagnostics(t *testing.T) {
 		if _, err := Pooled([]Measurement{rows[0], changed}); err == nil {
 			t.Fatal("pooled evidence admitted an unqualified or different executable block")
 		}
+	}
+}
+
+func TestReadSummaryRequiresNativeRawEvidence(t *testing.T) {
+	directory := t.TempDir()
+	if _, err := ReadSummary(directory, false); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing summary was not refused by its file owner: %v", err)
+	}
+	file := filepath.Join(directory, "summary.json")
+	if err := os.WriteFile(file, []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadSummary(directory, false); err == nil {
+		t.Fatal("malformed summary qualified")
+	}
+	summary := Summary{OS: runtime.GOOS, Arch: runtime.GOARCH, Qualification: true, Scope: "full-performance",
+		Blocks: []Measurement{{Raw: "missing-status.json"}}}
+	data, err := json.Marshal(summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadSummary(directory, false); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("qualified summary admitted absent raw samples: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(directory, "missing-status.json"), []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadSummary(directory, false); err == nil {
+		t.Fatal("qualified summary admitted malformed raw samples")
+	}
+	summary.Qualification, summary.Scope = false, "component-attribution"
+	summary.Pooled = slices.Clone(summary.Blocks)
+	data, err = json.Marshal(summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadSummary(directory, true); err != nil {
+		t.Fatalf("nonqualifying diagnostic evidence was refused: %v", err)
+	}
+	if _, err := ReadSummary(directory, false); err == nil {
+		t.Fatal("diagnostic evidence was promoted to performance qualification")
 	}
 }

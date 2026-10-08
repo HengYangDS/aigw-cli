@@ -182,3 +182,13 @@ func TestCapturedGroupCleanupAcceptsOnlyProvedDisappearance(t *testing.T) {
 		})
 	}
 }
+
+func captureProcessExit(t *testing.T, child *os.Process) func() {
+	t.Helper()
+	return func() {
+		t.Helper()
+		if err := child.Signal(syscall.Signal(0)); !errors.Is(err, os.ErrProcessDone) {
+			t.Fatalf("observed child was not reaped before runner return: %v", err)
+		}
+	}
+}

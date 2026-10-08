@@ -380,6 +380,7 @@ func TestRunnerOwnsStartedProcessObservation(t *testing.T) {
 	for _, refuse := range []bool{false, true} {
 		t.Run(fmt.Sprint(refuse), func(t *testing.T) {
 			var child *os.Process
+			var assertExit func()
 			rejected := errors.New("identity refused")
 			mode := "accept"
 			if refuse {
@@ -389,6 +390,7 @@ func TestRunnerOwnsStartedProcessObservation(t *testing.T) {
 				Env: append(os.Environ(), "AIGW_TEST_PROCESS_OBSERVER=1", "GORACE=atexit_sleep_ms=0"),
 				OnStart: func(process *os.Process) error {
 					child = process
+					assertExit = captureProcessExit(t, process)
 					if refuse {
 						return rejected
 					}
@@ -398,9 +400,7 @@ func TestRunnerOwnsStartedProcessObservation(t *testing.T) {
 			if child == nil || child.Pid < 1 || refuse != errors.Is(runErr, rejected) || !refuse && !strings.Contains(string(output), "observed") {
 				t.Fatalf("started-process observation lost ownership or refusal: child=%v error=%v", child, runErr)
 			}
-			if err := child.Kill(); !errors.Is(err, os.ErrProcessDone) {
-				t.Fatalf("observed child survived runner return: %v", err)
-			}
+			assertExit()
 		})
 	}
 }

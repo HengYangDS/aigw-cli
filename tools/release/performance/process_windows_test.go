@@ -178,12 +178,23 @@ func TestWindowsExecutionPreflightReclaimsBeforeFirstEvent(t *testing.T) {
 	defer cancel()
 	observer := windowsObserver{handles: make(map[uint32]windows.Handle), active: make(map[uint32]windows.Handle), continueEvent: continueWindowsDebugEvent}
 	var child *os.Process
+	var handle windows.Handle
 	started := time.Now()
 	_, _, err = (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
 		Executable: program, Args: []string{"-test.run=^TestWindowsExecutionPreflightReclaimsBeforeFirstEvent$"},
 		Env: append(os.Environ(), "AIGW_TEST_NATIVE_EXECUTION_WAIT=1"), DebugProcess: true,
 		OnStart: func(started *os.Process) error {
 			child = started
+			var err error
+			handle, err = windows.OpenProcess(windows.SYNCHRONIZE, false, uint32(started.Pid)) // #nosec G115 -- exec.Start supplies the native DWORD PID before its handle is released.
+			if err != nil {
+				return err
+			}
+			t.Cleanup(func() {
+				if err := windows.CloseHandle(handle); err != nil {
+					t.Fatal(err)
+				}
+			})
 			cancel()
 			return observer.collect(ctx, uint32(started.Pid)) // #nosec G115 -- exec.Start returns the native DWORD PID.
 		},
@@ -194,8 +205,9 @@ func TestWindowsExecutionPreflightReclaimsBeforeFirstEvent(t *testing.T) {
 	if elapsed := time.Since(started); elapsed > 3*time.Second {
 		t.Fatalf("unobserved native debuggee exceeded its total cleanup bound: %s", elapsed)
 	}
-	if err := child.Kill(); !errors.Is(err, os.ErrProcessDone) {
-		t.Fatalf("unobserved native debuggee survived runner return: %v", err)
+	event, err := windows.WaitForSingleObject(handle, 0)
+	if err != nil || event != windows.WAIT_OBJECT_0 {
+		t.Fatalf("exact unobserved native debuggee survived runner return: event=%d error=%v", event, err)
 	}
 }
 

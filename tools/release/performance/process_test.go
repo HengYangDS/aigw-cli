@@ -19,6 +19,7 @@ func TestExecutionRequiresNativeProcessOwnership(t *testing.T) {
 		"missing-parent-creation":    func(p *Execution) { p.ParentCreated = 0 },
 		"reused-parent":              func(p *Execution) { p.ParentCreated = p.Created + 1 },
 		"missing-role":               func(p *Execution) { p.Role = "" },
+		"different-image":            func(p *Execution) { p.Image.SHA256 = strings.Repeat("b", 64) },
 		"missing-native-machine":     func(p *Execution) { p.NativeMachine = 0 },
 		"inconsistent-wow64":         func(p *Execution) { p.WOW64Machine = 0x014c },
 		"missing-machine-attributes": func(p *Execution) { p.Attributes = 0 },
@@ -30,6 +31,36 @@ func TestExecutionRequiresNativeProcessOwnership(t *testing.T) {
 				t.Fatal("incomplete native process ownership qualified")
 			}
 		})
+	}
+}
+
+func TestExecutionRequiresAnObservedParentGraph(t *testing.T) {
+	image := Identity{Path: "C:\\owned\\program.exe", Format: "PE", Machine: 0x8664, Arch: "amd64", SHA256: strings.Repeat("a", 64), Bytes: 1}
+	root := Execution{PID: 2, ParentPID: 1, Created: 20, ParentCreated: 10, Role: "controller", Image: image,
+		Machine: 0x8664, Arch: "amd64", NativeMachine: 0xaa64, Attributes: 1}
+	child := root
+	child.PID, child.ParentPID, child.Created, child.ParentCreated, child.Role = 3, 2, 30, 20, "workload"
+	if err := reviewExecution(&image, []Execution{root, child}, "windows"); err != nil {
+		t.Fatal(err)
+	}
+	for name, change := range map[string]func(*Execution){
+		"unobserved-parent": func(p *Execution) { p.ParentPID = 1 },
+		"reused-parent":     func(p *Execution) { p.ParentCreated++ },
+		"repeated-pid":      func(p *Execution) { p.PID = root.PID },
+	} {
+		t.Run(name, func(t *testing.T) {
+			changed := child
+			change(&changed)
+			if err := reviewExecution(&image, []Execution{root, changed}, "windows"); err == nil {
+				t.Fatal("unproved native process graph qualified")
+			}
+		})
+	}
+	if err := reviewExecution(nil, []Execution{root}, "windows"); err == nil {
+		t.Fatal("an unselected process image qualified")
+	}
+	if err := reviewExecution(&image, nil, "windows"); err == nil {
+		t.Fatal("a missing native observation qualified")
 	}
 }
 
@@ -47,6 +78,7 @@ func TestExecutionRequiresTheOriginalCredentialChain(t *testing.T) {
 	}
 	for name, change := range map[string]func(*Measurement){
 		"missing-reader":       func(r *Measurement) { r.Execution[1].Role = "descendant" },
+		"missing-controller":   func(r *Measurement) { r.ControllerExecution = nil },
 		"missing-worker":       func(r *Measurement) { r.Execution = r.Execution[:2] },
 		"different-controller": func(r *Measurement) { r.ControllerExecution[0].PID = 10 },
 		"reused-parent":        func(r *Measurement) { r.Execution[2].ParentCreated++ },
@@ -69,5 +101,9 @@ func TestExecutionRequiresTheOriginalCredentialChain(t *testing.T) {
 	row.Backend, row.Execution = "env", row.Execution[:2]
 	if err := reviewWorkloadExecution(row, image, "windows"); err != nil {
 		t.Fatalf("environment credentials incorrectly require a native worker: %v", err)
+	}
+	row.Case, row.Execution = "status", row.Execution[:1]
+	if err := reviewWorkloadExecution(row, image, "windows"); err != nil {
+		t.Fatalf("noncredential workload incorrectly requires a credential chain: %v", err)
 	}
 }

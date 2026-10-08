@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"golang.org/x/sys/windows"
 )
 
 // Windows fixtures exercise captured executables and discovered batch clients.
@@ -59,5 +61,25 @@ func TestStartCapturedProcessReportsMissingExecutable(t *testing.T) {
 	cleanup, err := startCapturedProcess(exec.Command("aigw-definitely-not-a-real-binary"))
 	if err == nil || cleanup != nil {
 		t.Fatalf("cleanup_present=%t error=%v", cleanup != nil, err)
+	}
+}
+
+func captureProcessExit(t *testing.T, child *os.Process) func() {
+	t.Helper()
+	handle, err := windows.OpenProcess(windows.SYNCHRONIZE, false, uint32(child.Pid)) // #nosec G115 -- exec.Start supplies the native DWORD PID, before its handle is released.
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := windows.CloseHandle(handle); err != nil {
+			t.Fatal(err)
+		}
+	})
+	return func() {
+		t.Helper()
+		event, err := windows.WaitForSingleObject(handle, 0)
+		if err != nil || event != windows.WAIT_OBJECT_0 {
+			t.Fatalf("exact observed child survived runner return: event=%d error=%v", event, err)
+		}
 	}
 }
