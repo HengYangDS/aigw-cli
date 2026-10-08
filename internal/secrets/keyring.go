@@ -57,8 +57,8 @@ func newKeyringStore(executable string) keyringStore {
 }
 
 // VerifyNativeReaderAccess checks that a copied executable can read every
-// present Account Token from the selected native store before client files
-// point at it. Other backends have no per-executable native authorization.
+// preflight-confirmed Account Token from the selected native store before client
+// files point at it. Other backends have no per-executable native authorization.
 func VerifyNativeReaderAccess(store Store, executable string, accounts []string) error {
 	if store == nil {
 		return errors.New("credential backend is unavailable")
@@ -81,9 +81,6 @@ func VerifyNativeReaderAccess(store Store, executable string, accounts []string)
 			return fmt.Errorf("%w: inspect selected Account Token: %w", ErrNativeReaderUnverified, err)
 		}
 		value, err := native.Read(executable, Service, account)
-		if errors.Is(err, native.ErrNotFound) {
-			continue
-		}
 		if err != nil {
 			return fmt.Errorf("%w: copied credential reader cannot read the selected Account Token: %w", ErrNativeReaderUnverified, err)
 		}

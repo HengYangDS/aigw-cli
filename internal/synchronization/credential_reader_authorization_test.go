@@ -40,6 +40,7 @@ func main() {
     if os.Args[1] != "__aigw-native-credential-read" { os.Exit(3) }
     if os.Args[3] == "missing" { os.Exit(2) }
     if strings.Contains(filepath.ToSlash(os.Args[0]), "/credential/") {
+        if os.Args[3] == "copied-missing" { os.Exit(2) }
         if _, err := os.Stat(filepath.Join(filepath.Dir(os.Args[0]), "allow-reader")); err != nil { os.Exit(3) }
         if os.Args[3] == "blocked" { os.Exit(3) }
     }
@@ -68,88 +69,85 @@ func main() {
 }
 
 func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
-	root := t.TempDir()
-	target := filepath.Join(root, "codex.toml")
-	syncer := newKeyringReaderFixture(t, target)
-	reader := syncer.CredentialPath
-	original := []byte("model_provider = \"native\"\n")
-	if err := os.WriteFile(target, original, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), testConfig(target), "test")
-	if err == nil {
-		t.Fatal("copied reader denied by the native store was accepted")
-	}
-	if !strings.Contains(err.Error(), "copied credential reader") || !errors.Is(err, secrets.ErrNativeReaderUnverified) {
-		t.Fatalf("failure lost its reader boundary or public diagnostic category: %v", err)
-	}
-	for _, path := range []string{reader, reader + ".sha256"} {
-		if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
-			t.Fatalf("denied copied reader resource remains at %s: %v", path, statErr)
-		}
-	}
-	if current, readErr := os.ReadFile(target); readErr != nil || !bytes.Equal(current, original) {
-		t.Fatalf("preflight changed client projection: %q, %v", current, readErr)
-	}
-	configStore, ok := syncer.Config.(*configStoreStub)
-	if !ok || configStore.commits != 0 {
-		t.Fatal("denied credential reader reached configuration commit")
-	}
-	deferred := testConfig(target)
-	deferred.Accounts["missing"] = deferred.Accounts["gateway"]
-	route := deferred.Routes["gpt"]
-	route.Account = "missing"
-	deferred.Routes["gpt"] = route
-	undo, err := syncer.prepareCredentialEntrypoint(deferred)
-	if err != nil {
-		t.Fatalf("absent Token blocked deferred selection: %v", err)
-	}
-	if undo != nil {
-		if err := undo(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := os.MkdirAll(filepath.Dir(reader), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(filepath.Dir(reader), "allow-reader"), nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	selected := testConfig(target)
-	selected.Accounts["blocked"] = configuration.Account{
-		Label: "Blocked", Endpoints: configuration.Endpoints{Anthropic: "https://blocked.test"},
-	}
-	selected.Routes["blocked-claude"] = configuration.Route{
-		Account: "blocked", Model: "claude-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
-	}
-	selected.SetSelectedRoute(configuration.ClientClaude, "blocked-claude", "")
-	selected.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
-	if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), selected, "codex", configuration.ClientCodex); err != nil {
-		t.Fatalf("unrelated Claude Token blocked a Codex-only projection: %v", err)
-	}
-}
-
-func TestKeyringReaderCopyVerifiesEachSelectedAccountOnce(t *testing.T) {
-	for _, account := range []string{"gateway", "missing"} {
+	for _, account := range []string{"gateway", "copied-missing"} {
 		t.Run(account, func(t *testing.T) {
-			target := filepath.Join(t.TempDir(), "codex.toml")
+			root := t.TempDir()
+			target := filepath.Join(root, "codex.toml")
 			syncer := newKeyringReaderFixture(t, target)
 			reader := syncer.CredentialPath
+			original := []byte("model_provider = \"native\"\n")
+			if err := os.WriteFile(target, original, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			selected := testConfig(target)
+			selected.Accounts[account] = selected.Accounts["gateway"]
+			route := selected.Routes["gpt"]
+			route.Account = account
+			selected.Routes["gpt"] = route
+			err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), selected, "test")
+			if err == nil {
+				t.Fatal("copied reader denied by the native store was accepted")
+			}
+			if !strings.Contains(err.Error(), "copied credential reader") || !errors.Is(err, secrets.ErrNativeReaderUnverified) {
+				t.Fatalf("failure lost its reader boundary or public diagnostic category: %v", err)
+			}
+			for _, path := range []string{reader, reader + ".sha256"} {
+				if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
+					t.Fatalf("denied copied reader resource remains at %s: %v", path, statErr)
+				}
+			}
+			if current, readErr := os.ReadFile(target); readErr != nil || !bytes.Equal(current, original) {
+				t.Fatalf("preflight changed client projection: %q, %v", current, readErr)
+			}
+			configStore, ok := syncer.Config.(*configStoreStub)
+			if !ok || configStore.commits != 0 {
+				t.Fatal("denied credential reader reached configuration commit")
+			}
+			deferred := testConfig(target)
+			deferred.Accounts["missing"] = deferred.Accounts["gateway"]
+			route = deferred.Routes["gpt"]
+			route.Account = "missing"
+			deferred.Routes["gpt"] = route
+			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), deferred, "deferred", configuration.ClientCodex); err != nil {
+				t.Fatalf("absent Token blocked deferred selection: %v", err)
+			}
+			if current, err := os.ReadFile(target); err != nil || !bytes.Equal(current, original) {
+				t.Fatal("deferred selection changed the client projection")
+			}
 			if err := os.MkdirAll(filepath.Dir(reader), 0o700); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.WriteFile(filepath.Join(filepath.Dir(reader), "allow-reader"), nil, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			cfg := testConfig(target)
-			cfg.Accounts[account] = cfg.Accounts["gateway"]
-			route := cfg.Routes["gpt"]
-			route.Account = account
-			cfg.Routes["gpt"] = route
-			requireSingleCopiedCredentialRead(t, syncer, cfg, account)
+			selected = testConfig(target)
+			selected.Accounts["blocked"] = configuration.Account{
+				Label: "Blocked", Endpoints: configuration.Endpoints{Anthropic: "https://blocked.test"},
+			}
+			selected.Routes["blocked-claude"] = configuration.Route{
+				Account: "blocked", Model: "claude-test",
+				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+			}
+			selected.SetSelectedRoute(configuration.ClientClaude, "blocked-claude", "")
+			selected.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
+			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), selected, "codex", configuration.ClientCodex); err != nil {
+				t.Fatalf("unrelated Claude Token blocked a Codex-only projection: %v", err)
+			}
 		})
 	}
+}
+
+func TestKeyringReaderCopyVerifiesEachSelectedAccountOnce(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "codex.toml")
+	syncer := newKeyringReaderFixture(t, target)
+	reader := syncer.CredentialPath
+	if err := os.MkdirAll(filepath.Dir(reader), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(filepath.Dir(reader), "allow-reader"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	requireSingleCopiedCredentialRead(t, syncer, testConfig(target), "gateway")
 }
 
 func TestSyncObservesNativeAvailabilityOncePerInvocation(t *testing.T) {
