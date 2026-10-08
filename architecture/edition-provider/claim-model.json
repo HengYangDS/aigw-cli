@@ -69,12 +69,12 @@
   },
   "sources": {
     "cli": {
-      "sha256": "d49e0fd7e02966f4c40a9e1bcba38ac5f5705784f948ef3fa312deb338dc3be3",
+      "sha256": "e33079fb48bc78e56ea783a103e27e808806e302c3f59e381e8a73dc1f25ec7f",
       "locator": "source/internal/cli/app.go",
       "authority": "AIGW command composition at the selected product revision"
     },
     "configuration": {
-      "sha256": "b06acdfb8e15077a068e328c3579f5745356ddfa5df4cbad496d137a940ba207",
+      "sha256": "f86594841f333e028b61b3e723b1d9bbcc4f3505b602a5d99e92acae8f88bcbb",
       "locator": "source/internal/configuration/model.go",
       "authority": "AIGW Account, Model, Route, recommendation, and Client Binding authority"
     },
@@ -89,22 +89,22 @@
       "authority": "AIGW read-only native client discovery contract"
     },
     "registry": {
-      "sha256": "ea53dc3c72de1365790d2cc3a5fa535c33542b67ad7e9422f8c081bbbe311be7",
+      "sha256": "966ae78636efa45dfa95220c1c3ad4df4d6545b72f96edcb195a18e101e24b1f",
       "locator": "source/internal/client/registry.go",
       "authority": "AIGW ordered client registry and Adapter contract"
     },
     "adapters": {
-      "sha256": "4aeb503161502ee83af417dfbcbc189269494996abb84e99711de8b56aa468c8",
+      "sha256": "023e74cf816ac00bf507d7abdebe6bcf3ea8555552dc3e560ffdf1a5e23f94b5",
       "locator": "source/internal/client/adapters.go",
       "authority": "AIGW built-in Adapter composition"
     },
     "synchronizer": {
-      "sha256": "7761875764e8adb7cde27572a73f1079412419f6c57f874ff06a33e874959745",
+      "sha256": "6d23fa5f3e1752626ca2c3fad1c2617271aa43200c8f08ba8226bb3cf162e282",
       "locator": "source/internal/synchronization/synchronizer.go",
       "authority": "AIGW client convergence coordinator"
     },
     "projection-transaction": {
-      "sha256": "29e1516b45e8605b605a67e045e6a4ade8a33c8f278cbac42fa163a34aab1b58",
+      "sha256": "6f1dd2de9c370e6ca0b2bb1fc9159e316c9b0cb04a1ee150c8b42c68ee0ceb2f",
       "locator": "source/internal/synchronization/transaction.go",
       "authority": "AIGW configuration and projection transaction"
     },
