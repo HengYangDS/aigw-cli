@@ -191,8 +191,16 @@ separate obligations. A green review does not imply merge or proposal deletion.
 
 Same-project GitLab MR admission requires equal source/project IDs and disabled
 fork-parent pipelines. This closes a fork path, not arbitrary developer-code trust
-or persistent Shell credential isolation. Keep proposals unprotected and provide
-separately identified disposable native executors before claiming safe admission.
+or persistent Runner credential isolation. Keep proposals unprotected.
+Runner-manager credentials and protected-job state must live outside the ordinary
+review identity's authority. Native review admission requires OS-enforced identity,
+storage and execution separation: review code cannot read those resources or
+elevate into their owner. Qualify denied access from the actual job context and
+per-job state cleanup before reuse using nonsecret metadata and denied opens.
+Distinct UIDs/SIDs, cleared environments and green jobs are not containment proof.
+Per-job executor destruction is one possible implementation, not a required
+topology; broader arbitrary hostile-code sandboxing remains unproved unless
+separately qualified.
 
 Transport SSH/PAT/OIDC keys can differ across peers without changing product bytes.
 Forge `Verified` is an account projection; its trusted signer principal is not the
@@ -505,14 +513,17 @@ Sync starts from a converged explicit binding. Both include guarded durable
 projection work with warm process and filesystem caches; human authorization,
 cold-cache onboarding, repository construction and CI duration remain separate.
 Use five warmups and two reversed-order blocks of at least forty samples; retain
-outliers, per-block and pooled p95. Host-contention/order sensitivity means inconclusive,
-not a raised threshold. Backend/OS/client/tool identity remains explicit.
+outliers, per-block and pooled p95. Backend/OS/client/tool identity remains explicit.
 Any native benchmark warning makes the acceptance command fail after preserving
 all samples and the summary, even when every measured duration is within budget.
 
 Use native [candidate performance](../operations/forge-operations.md#measure-native-candidate-performance)
-with one exact signed matrix and retained predecessor on a quiet host. Preserve raw
-samples, reversed blocks, warmups, outliers and native peak-memory calibration. Timed
+with one exact signed matrix and retained predecessor. Prefer low-contention
+conditions and retain observed host load, identities and order. Review raw blocks
+for host-contention/order sensitivity; affected comparisons are inconclusive, not
+a reason to raise thresholds. Meeting absolute budgets supports only the measured
+scope, not a quiet-host claim or optimization benefit. Preserve raw samples,
+reversed blocks, warmups, outliers and native peak-memory calibration. Timed
 synthetic endpoints prove overhead, not Provider latency or real-client inference.
 Any exceeded budget requires measured repair or an explicitly accepted product
 trade-off; rerunning identical failed inputs or silently raising a limit is not acceptance.

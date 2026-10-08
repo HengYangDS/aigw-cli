@@ -433,14 +433,15 @@ protected runner: eligible protected GitLab merge requests receive protected
 variables and runners together, while a persistent Shell account retains its
 runner credential across jobs. The fork-parent denial and same-project CUE
 guard close only the fork path. Complete GitLab review admission requires
-disposable, separately identified macOS and Windows MR executors; protected
-`dev`/`main`/`v*` jobs may use a distinct protected runner pool only after
-event-specific routing is proved. GitHub-hosted checks cannot substitute for
-GitLab's required peer-local native evidence. GitLab MR !178 pipeline 8887
-ran macOS and Windows review jobs on unprotected project runners #105 and #103
-at `ddb998a5`, but success on that old SHA does not prove disposable execution,
-absence of persistent Shell credentials, or admission of the final review SHA.
-Keep the review path unadmitted until those boundaries are proved.
+the [native review boundary](../../../docs/governance/change-and-release-policy.md#commit-and-tag-identity):
+OS-enforced separation from Runner-manager credentials and protected-job state,
+denied access from the actual job context, and per-job cleanup before reuse.
+An existing native executor may implement that boundary without destruction
+after every job; separate IDs, cleared environments or passing jobs alone do
+not qualify it. Protected `dev`/`main`/`v*` jobs may use a distinct protected
+runner pool only after event-specific routing is proved. GitHub-hosted checks
+cannot substitute for GitLab's required peer-local native evidence. Keep the
+review path unadmitted until those boundaries are proved.
 Windows pre-tool admission verifies the supplied Mise executable and shim;
 native `mise install --locked` owns actual shim staging and its failures.
 The historical copy/hash/delete experiment is removed without a replacement

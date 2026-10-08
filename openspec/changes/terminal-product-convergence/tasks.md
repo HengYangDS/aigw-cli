@@ -141,8 +141,10 @@ in Git; original raw results stay with their source-bound verification owner.
       candidate; retain and disclose nonblocking supply-chain security findings,
       preserve artifact validity, and delete unconsumed parallel scans or reports.
 - [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
-      build and CI costs against predecessor budgets on a quiet host; preserve raw
-      samples and optimize only diagnosed owners.
+      build and CI costs against retained predecessor budgets through the
+      [native measurement contract](../../../docs/governance/change-and-release-policy.md#behavioral-and-quantitative-evidence).
+      Preserve raw samples and host/order evidence; budget qualification does not
+      prove a quiet host or optimization benefit. Optimize only diagnosed owners.
 - [x] 6.7 Assert warnings and malformed public errors fail at their origin;
       human and JSON output must expose precise state and safe action without
       private paths, Token fragments, internal modules or tracebacks.
@@ -166,9 +168,10 @@ in Git; original raw results stay with their source-bound verification owner.
 - [ ] 7.4 Prove required-status enforcement, unprotected proposal branches,
       guarded-merge policy, source-branch auto-delete configuration, signer trust
       and branch protection on each selected peer without interactive
-      authentication or divergent commit
-      identities. Prove untrusted review code cannot observe persistent Shell
-      runner credentials or protected-job state; retain required native evidence.
+      authentication or divergent commit identities. Prove untrusted review code
+      cannot read persistent Runner-manager credentials or protected-job state;
+      qualify native separation and per-job cleanup against the
+      [release policy](../../../docs/governance/change-and-release-policy.md#commit-and-tag-identity).
       This candidate prerequisite requires effective enforcement and native
       containment, not its own later integration effects. The Migration Plan
       requires actual guarded `dev` integration, `dev` checks and exact proposal

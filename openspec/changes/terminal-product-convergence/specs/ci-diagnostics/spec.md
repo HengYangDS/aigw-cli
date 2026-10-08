@@ -92,6 +92,19 @@ a required job on the other Forge.
 - **AND** this fork guard does not establish isolation between same-project
   developer jobs and protected jobs on persistent Shell runners.
 
+#### Scenario: Native review preserves manager and protected authority
+
+- **WHEN** a selected peer admits untrusted review code to a native executor
+- **THEN** OS-enforced identity, storage and execution separation SHALL prevent
+  that code from reading Runner-manager credentials or protected-job state, or
+  elevating into their owner's authority
+- **AND** actual job-context denied access and per-job cleanup before reuse SHALL
+  be qualified without reading secret values
+- **AND** distinct identities, cleared environments and successful source checks
+  alone SHALL NOT qualify containment
+- **AND** executor destruction MAY implement the boundary but SHALL NOT be the
+  required topology.
+
 #### Scenario: A maintainer omits the manual commit base
 
 - **WHEN** either Forge starts manual verification without an explicit commit base
