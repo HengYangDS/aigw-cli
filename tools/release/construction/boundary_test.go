@@ -272,23 +272,6 @@ func TestReleaseBuildEnvironment(t *testing.T) {
 	if request.Version != "1.2.3" || request.Epoch != "1786233600" || request.Output != "dist" || requestRootErr != nil || wantRootErr != nil || !os.SameFile(requestRoot, wantRoot) {
 		t.Fatalf("request = %#v", request)
 	}
-	request.ReleasePublicKey, err = releasePublicKey(signingKey(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	request.SigningKey = filepath.Join(root, "missing.pub")
-	environment, err := goReleaserEnvironment(request)
-	if err != nil || !slices.Contains(environment, "AIGW_RELEASE_PUBLIC_KEY="+request.ReleasePublicKey) {
-		t.Fatalf("frozen signer was reread or changed: %v, %v", environment, err)
-	}
-	request.ReleasePublicKey = ""
-	if _, err := goReleaserEnvironment(request); err == nil || !strings.Contains(err.Error(), "read release signing public key") {
-		t.Fatalf("unreadable signer entered release environment: %v", err)
-	}
-	request.Epoch = "invalid"
-	if _, err := goReleaserEnvironment(request); err == nil {
-		t.Fatal("invalid epoch entered release environment")
-	}
 	missingVersion := t.TempDir()
 	if err := os.Chdir(missingVersion); err != nil {
 		t.Fatal(err)

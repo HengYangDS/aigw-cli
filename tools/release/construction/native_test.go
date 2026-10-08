@@ -489,3 +489,33 @@ func writeMacOSArchiveFixtures(t *testing.T, stage string, includeChecksums bool
 		}
 	}
 }
+
+func TestNativeArchiveConstructionUsesFrozenSigner(t *testing.T) {
+	root := releaseRoot(t)
+	request := buildRequest{Root: root, Version: "1.2.3", Epoch: "1784246400"}
+	var err error
+	request.ReleasePublicKey, err = releasePublicKey(signingKey(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.SigningKey = filepath.Join(root, "missing.pub")
+	environment, err := goReleaserEnvironment(request)
+	if err != nil || !slices.Contains(environment, "AIGW_RELEASE_PUBLIC_KEY="+request.ReleasePublicKey) {
+		t.Fatalf("frozen signer was reread or changed: %v, %v", environment, err)
+	}
+	request.ReleasePublicKey = ""
+	noExecution := func(call toolCall) error {
+		t.Fatalf("unadmitted native build reached %s", call.Name)
+		return nil
+	}
+	if stage, err := buildArchives(request, t.TempDir(), noExecution); err == nil || stage != "" || !strings.Contains(err.Error(), "read release signing public key") {
+		t.Fatalf("unreadable signer entered native construction: %q, %v", stage, err)
+	}
+	request.Epoch = "invalid"
+	if _, err := goReleaserEnvironment(request); err == nil {
+		t.Fatal("invalid epoch entered release environment")
+	}
+	if stage, err := buildArchives(request, t.TempDir(), noExecution); err == nil || stage != "" {
+		t.Fatalf("invalid epoch entered native construction: %q, %v", stage, err)
+	}
+}
