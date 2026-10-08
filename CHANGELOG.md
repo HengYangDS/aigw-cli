@@ -22,6 +22,9 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Changed
 
+- Observe native credential availability once per setup invocation, sharing it
+  through activation, projection and result rendering while keeping Token reads
+  and copied-reader authorization live.
 - Prefer DMXAPI, then UCloud, for unselected team Clients; preserve explicit
   bindings and local endpoint overrides.
 - Prepare the next pre-1.0 minor edition as 0.4.0. Route list/show JSON replaces

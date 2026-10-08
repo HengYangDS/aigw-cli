@@ -56,20 +56,22 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		}),
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			operation := runtime
+			operation.Secrets = secrets.ObserveAvailability(runtime.Secrets)
 			if cmd.Flags().Changed("from") {
-				return runManifestSetup(cmd.Context(), runtime, request)
+				return runManifestSetup(cmd.Context(), operation, request)
 			}
-			if runtime.Interactive && request == (Request{}) {
-				cfg, err := runtime.Config.Load()
+			if operation.Interactive && request == (Request{}) {
+				cfg, err := operation.Config.Load()
 				if err != nil {
 					return err
 				}
-				if err := invocation.Synchronizer(runtime).AdmitSetup(cfg); err != nil {
+				if err := invocation.Synchronizer(operation).AdmitSetup(cfg); err != nil {
 					return err
 				}
-				return RunWizard(cmd.Context(), runtime)
+				return RunWizard(cmd.Context(), operation)
 			}
-			return runSetup(cmd.Context(), runtime, request)
+			return runSetup(cmd.Context(), operation, request)
 		},
 	}
 	cmd.Flags().StringVar(&request.From, "from", "", "Set up all routes from a token-free configuration manifest")
