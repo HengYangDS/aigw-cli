@@ -250,19 +250,25 @@ func continueWindowsDebugEvent(event debugEvent, status uintptr) error {
 
 func (o *windowsObserver) reclaim() (result error) {
 	deadline := time.Now().Add(2 * time.Second)
+	terminationErrors := make(map[uint32]error, len(o.active))
 	for pid, handle := range o.active {
-		result = errors.Join(result, windows.TerminateProcess(handle, 1))
+		terminationErr := windows.TerminateProcess(handle, 1)
+		if o.handles[pid] == handle {
+			// Termination is asynchronous; only this exact handle's exit discharges its error.
+			terminationErrors[pid] = terminationErr
+		} else {
+			result = errors.Join(result, terminationErr)
+		}
 		stopped, _, err := debugStop.Call(uintptr(pid))
 		if stopped == 0 {
 			result = errors.Join(result, fmt.Errorf("detach owned debug process: %w", err))
 		}
 	}
-	for _, handle := range o.handles {
+	for pid, handle := range o.handles {
 		remaining := max(time.Until(deadline).Milliseconds(), 0)
 		event, err := windows.WaitForSingleObject(handle, uint32(remaining)) // #nosec G115 -- The shared remaining budget is bounded to 0..2000 milliseconds.
-		result = errors.Join(result, err)
-		if err == nil && event != windows.WAIT_OBJECT_0 {
-			result = errors.Join(result, errors.New("owned native preflight process did not exit"))
+		if err != nil || event != windows.WAIT_OBJECT_0 {
+			result = errors.Join(result, terminationErrors[pid], err, errors.New("owned native preflight process did not exit"))
 		}
 		result = errors.Join(result, windows.CloseHandle(handle))
 	}
