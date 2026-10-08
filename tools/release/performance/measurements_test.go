@@ -17,6 +17,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"aigw-cli/internal/process"
 )
 
 func currentTestImage(t *testing.T) Identity {
@@ -192,6 +194,7 @@ func TestMeasureRetainsSeparateDiagnosticStreams(t *testing.T) {
 	for _, test := range []struct{ marker, prepared string }{
 		{"Working: benchmark-child", "prepared space's.log"},
 		{"[WARN] benchmark-child", "prepared&native.log"},
+		{"Warning: benchmark-child", "prepared-warning.log"},
 	} {
 		t.Run(test.marker, func(t *testing.T) {
 			raw := filepath.Join(t.TempDir(), "samples.json")
@@ -228,8 +231,8 @@ func TestMeasureRetainsSeparateDiagnosticStreams(t *testing.T) {
 			if strings.Contains(string(stdout)+string(stderr), token) || !bytes.Contains(stdout, []byte("[REDACTED]")) || !bytes.Contains(stderr, []byte("[REDACTED]")) {
 				t.Fatal("native benchmark output leaked its bare Token")
 			}
-			if row.Diagnostics != strings.HasPrefix(test.marker, "[WARN]") {
-				t.Fatal("native benchmark did not preserve the complete stderr diagnostic decision")
+			if row.Diagnostics != process.DiagnosticFailure(stderr) {
+				t.Fatalf("native benchmark diagnostic decision=%t differs from complete redacted stderr:\n%s", row.Diagnostics, stderr)
 			}
 			if row.Raw != filepath.Base(raw) || row.P95 <= 0 || row.Variant != "candidate" || row.Budget != 0.1 || len(row.Samples.Times) != 40 {
 				t.Fatalf("native benchmark lost its admitted measurement boundary: %#v", row)

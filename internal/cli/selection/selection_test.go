@@ -135,13 +135,16 @@ func TestUseRenderingDoesNotReinspectCredentialMetadata(t *testing.T) {
 		}
 		return "synthetic-token"
 	})
-	cmd := NewUseCommand(run)
-	cmd.SetArgs([]string{"--for", configuration.ClientCodex, "codex"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	if reads == 0 || renderingReads != 0 {
-		t.Fatalf("credential observations: total=%d during rendering=%d", reads, renderingReads)
+	for invocation := 1; invocation <= 2; invocation++ {
+		out.Reset()
+		cmd := NewUseCommand(run)
+		cmd.SetArgs([]string{"--for", configuration.ClientCodex, "codex"})
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if reads != invocation || renderingReads != 0 {
+			t.Fatalf("invocation %d: credential observations total=%d during rendering=%d; want one fresh observation", invocation, reads, renderingReads)
+		}
 	}
 }
 

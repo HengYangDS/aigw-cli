@@ -12,6 +12,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/prompt"
+	"aigw-cli/internal/secrets"
 
 	"github.com/spf13/cobra"
 )
@@ -43,11 +44,13 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			client, name, err := resolveUseSelection(runtime, cfg, client, args)
+			operation := runtime
+			operation.Secrets = secrets.ObserveAvailability(runtime.Secrets)
+			client, name, err := resolveUseSelection(operation, cfg, client, args)
 			if err != nil {
 				return err
 			}
-			selected, err := resolveUseRuntime(runtime, cfg, client, name, configuration.EndpointProtocol(protocol))
+			selected, err := resolveUseRuntime(operation, cfg, client, name, configuration.EndpointProtocol(protocol))
 			if err != nil {
 				return err
 			}
@@ -55,11 +58,11 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if !ok {
 				return fmt.Errorf("unknown route %q; run `aigw route list`", name)
 			}
-			token, err := selectionToken(cmd.Context(), runtime, cfg, selected)
+			token, err := selectionToken(cmd.Context(), operation, cfg, selected)
 			if err != nil {
 				return err
 			}
-			synchronizer := invocation.Synchronizer(runtime)
+			synchronizer := invocation.Synchronizer(operation)
 			configurationChanged, binding, err := synchronizer.SelectRoute(cmd.Context(), cfg, client, name, selected.Protocol, token)
 			if err != nil {
 				return err
