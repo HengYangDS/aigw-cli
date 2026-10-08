@@ -400,7 +400,7 @@ func TestReleaseDependencyAdmissionPrecedesArtifactConstruction(t *testing.T) {
 				t.Fatal(err)
 			}
 			var calls []string
-			err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: "unused"}, func(call toolCall) error {
+			err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}, func(call toolCall) error {
 				calls = append(calls, call.Name)
 				switch call.Name {
 				case "git":
