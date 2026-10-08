@@ -54,6 +54,11 @@ instead of embedding it in Git configuration or caching it in a credential
 helper. This limits job-Token persistence; it does not isolate a persistent
 Shell account from its Runner registration credential or other jobs.
 
+Selected Linux release and performance journeys use the same private Secret
+Service session on either peer. This includes prebuilt candidates and published
+predecessors; source-only locked-store checks remain separate. A passing source
+store check does not qualify the shipped executable's credential succession.
+
 The former `AIGW_GITLAB_LINUX_RUNNER_TAG` project variable has no consumer in
 this workflow. Retire it after the updated workflow is admitted and both runner
 paths have executed. Do not set a project variable named

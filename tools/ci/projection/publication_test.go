@@ -248,7 +248,7 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 			t.Fatalf("%s has no historical native acceptance", platform)
 		}
 		selected := steps[index]
-		if selected.If != selection+" && !inputs.performance" || strings.Contains(selected.Run, "\n") {
+		if selected.If != selection+" && !inputs.performance" || strings.Count(selected.Run, "go run ./tools/release accept-native") != 1 {
 			t.Fatalf("%s must select one native lifecycle command: %#v", platform, selected)
 		}
 		for _, argument := range []string{"mise exec --locked -- go run ./tools/release accept-native", "--peer=github", "--repository=", "--baseline-tag=", "--tag=", "--performance-attribution=${{ inputs.performance_attribution }}"} {
@@ -417,7 +417,7 @@ func TestGitLabPerformanceUsesItsSelectedNativeClosure(t *testing.T) {
 				if name == "native-linux" {
 					platform = "linux"
 				}
-				checkProjectedPerformanceArguments(t, job.Script[native], platform)
+				checkProjectedNativeReleaseArguments(t, job.Script[native], platform)
 			}
 			if job.Artifacts.When != "always" || !slices.Contains(job.Artifacts.Paths, "build/verification") {
 				t.Fatal("performance samples must remain in the existing verification artifact on success and failure")

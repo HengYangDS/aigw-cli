@@ -475,7 +475,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		{name: "Prepare locked dependencies", if: _sourceCondition, run: commands.bootstrap},
 		if _platform == "linux" {
 			name: "Prepare native Secret Service"
-			if:   "\(_sourceCondition) || inputs.performance"
+			if:   "\(_sourceCondition) || \(_historicalCondition)"
 			run:  linuxSecretService.githubPrepare
 		},
 		if _platform == "linux" {
@@ -615,7 +615,12 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			name: "Run historical release acceptance"
 			if:   _historicalCondition + " && !inputs.performance"
 			env:  _historicalEnvironment
-			run:  "mise exec --locked -- go run ./tools/release accept-native \(_historicalArguments)"
+			if _platform == "linux" {
+				run: (linuxSecretService.session & {command: "mise exec --locked -- go run ./tools/release accept-native \(_historicalArguments)"}).run
+			}
+			if _platform != "linux" {
+				run: "mise exec --locked -- go run ./tools/release accept-native \(_historicalArguments)"
+			}
 		},
 		{
 			name: "Measure historical release performance"
@@ -791,7 +796,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		}
 		if _platform == "linux" {
 			_nativeExecution: #"""
-				if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then
+				if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}${AIGW_BASELINE_TAG:-}${AIGW_BASELINE_ARTIFACTS:-}" ]; then
 				\#((linuxSecretService.session & {command: _nativeCommand}).run)
 				else
 				  \#(_nativeCommand)
@@ -843,7 +848,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		"before_script": [
 			linuxToolchain.prepare,
 			"if \(_prebuiltCondition); then export CGO_ENABLED=0; else export CGO_ENABLED=1; \(linuxToolchain.compiler); fi",
-			"if ! { \(_prebuiltCondition); } || [ \"${AIGW_NATIVE_PERFORMANCE:-false}\" = true ]; then DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(linuxSecretService.packages); fi",
+			"DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(linuxSecretService.packages)",
 			miseMirror.unixPrepare, _selectTools, commands.install,
 		]
 		script: [_bootstrap, _refreshLocks, _native, _cleanup]

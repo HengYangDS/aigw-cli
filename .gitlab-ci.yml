@@ -41,7 +41,7 @@ native-linux:
     - |-
       if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; then export CGO_ENABLED=0; else export CGO_ENABLED=1; set -eu
       DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y gcc libc6-dev; fi
-    - if ! { [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; } || [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin; fi
+    - DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
     - |-
       set -eu
       case "${AIGW_TOOL_SOURCE:-upstream}" in
@@ -98,7 +98,7 @@ native-linux:
       fi
       export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
       export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
-      if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then
+      if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}${AIGW_BASELINE_TAG:-}${AIGW_BASELINE_ARTIFACTS:-}" ]; then
       G_DEBUG=fatal-warnings dbus-run-session -- bash -s -euo pipefail -- "$@" <<'AIGW_SECRET_SERVICE'
       gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
       gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null

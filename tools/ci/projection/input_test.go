@@ -49,7 +49,7 @@ func TestNativePackageProjectionUsesOnePortableReleaseInputOwner(t *testing.T) {
 	}
 }
 
-func checkProjectedPerformanceArguments(t *testing.T, script, platform string) {
+func checkProjectedNativeReleaseArguments(t *testing.T, script, platform string) {
 	t.Helper()
 	root := t.TempDir()
 	checkout := filepath.Join(root, "native checkout")
@@ -70,9 +70,11 @@ func checkProjectedPerformanceArguments(t *testing.T, script, platform string) {
 			t.Fatal(err)
 		}
 	}
-	for _, test := range []struct{ name, repository, exit string }{
-		{"success", "https://forge.invalid/native checkout", "0"},
-		{"failure with empty argument", "", "23"},
+	for _, test := range []struct{ name, repository, performance, exit string }{
+		{"performance", "https://forge.invalid/native checkout", "true", "0"},
+		{"performance failure with empty argument", "", "true", "23"},
+		{"lifecycle", "https://forge.invalid/native checkout", "false", "0"},
+		{"lifecycle failure with empty argument", "", "false", "23"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
@@ -81,7 +83,7 @@ func checkProjectedPerformanceArguments(t *testing.T, script, platform string) {
 			command.Dir = checkout
 			command.WaitDelay = time.Second
 			command.Env = append(os.Environ(), "PATH="+root+":/usr/bin:/bin", "CI_PIPELINE_SOURCE=api", "CI_PROJECT_DIR=manager-relative-build",
-				"CI_PROJECT_URL="+test.repository, "AIGW_NATIVE_PERFORMANCE=true", "AIGW_VERIFY_SYSTEM_KEYRING=0", "AIGW_FULL_NATIVE_QUALITY=false",
+				"CI_PROJECT_URL="+test.repository, "AIGW_NATIVE_PERFORMANCE="+test.performance, "AIGW_VERIFY_SYSTEM_KEYRING=0", "AIGW_FULL_NATIVE_QUALITY=false",
 				"AIGW_BASELINE_TAG=v1.2.3", "AIGW_BASELINE_ARTIFACTS=", "AIGW_CANDIDATE_TAG=", "AIGW_CANDIDATE_ARTIFACTS=candidate bytes",
 				"AIGW_CANDIDATE_SOURCE=selected-source", "AIGW_NATIVE_INPUT_PACKAGE=", "AIGW_NATIVE_PERFORMANCE_ATTRIBUTION=false",
 				"AIGW_NATIVE_DIAGNOSTIC_CLIENT=", "AIGW_NATIVE_CLIENTS=false", "AIGW_ARGUMENT_WITNESS="+witness, "AIGW_NATIVE_COMMAND_EXIT="+test.exit)
@@ -100,7 +102,10 @@ func checkProjectedPerformanceArguments(t *testing.T, script, platform string) {
 			}
 			want := []string{keyring, "exec", "--locked", "--", "go", "run", "./tools/ci", "native", "--platform", platform, "--full-quality=false", "--",
 				"--peer", "gitlab", "--repository", test.repository, "--baseline-tag", "v1.2.3", "--artifacts", "candidate bytes", "--candidate",
-				"--candidate-source", "selected-source", "--performance", filepath.Join(physical, "build", "verification", "performance")}
+				"--candidate-source", "selected-source"}
+			if test.performance == "true" {
+				want = append(want, "--performance", filepath.Join(physical, "build", "verification", "performance"))
+			}
 			if got := strings.Split(strings.TrimSuffix(string(arguments), "\x00"), "\x00"); !slices.Equal(got, want) {
 				t.Fatalf("native command argument identity = %q, want %q", got, want)
 			}
@@ -108,7 +113,7 @@ func checkProjectedPerformanceArguments(t *testing.T, script, platform string) {
 	}
 }
 
-func TestLinuxPerformanceUsesPrivateSecretServiceOnBothPeers(t *testing.T) {
+func TestLinuxNativeReleaseUsesPrivateSecretServiceOnBothPeers(t *testing.T) {
 	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {
 		t.Fatal(err)
@@ -132,29 +137,32 @@ func TestLinuxPerformanceUsesPrivateSecretServiceOnBothPeers(t *testing.T) {
 		t.Fatal(err)
 	}
 	prepared := false
-	performance := ""
+	performance, lifecycle := "", ""
 	for _, step := range github.Jobs["native-linux"].Steps {
 		if step.Name == "Prepare native Secret Service" {
-			prepared = strings.Contains(step.If, "inputs.performance") && strings.Contains(step.Run, "dbus-x11 gnome-keyring libglib2.0-bin")
+			prepared = strings.Contains(step.If, "inputs.baseline_tag") && strings.Contains(step.If, "inputs.performance") && strings.Contains(step.Run, "dbus-x11 gnome-keyring libglib2.0-bin")
 		}
 		if step.Name == "Measure historical release performance" {
 			performance = step.Run
 		}
+		if step.Name == "Run historical release acceptance" {
+			lifecycle = step.Run
+		}
 	}
 	if !prepared {
-		t.Error("artifact-only GitHub performance lacks its native-store prerequisites")
+		t.Error("GitHub native release acceptance lacks its native-store prerequisites")
 	}
-	commands := map[string]string{"github": performance, "gitlab": strings.Join(gitlab.Linux.Script, "\n")}
+	commands := map[string]string{"github performance": performance, "github lifecycle": lifecycle, "gitlab": strings.Join(gitlab.Linux.Script, "\n")}
 	for peer, command := range commands {
 		bus := strings.Index(command, "dbus-run-session")
 		alias := strings.Index(command, "SetAlias default /org/freedesktop/secrets/collection/session")
 		worker := strings.Index(command, "AIGW_VERIFY_SYSTEM_KEYRING=1")
 		if bus < 0 || alias <= bus || worker <= alias {
-			t.Errorf("%s performance starts outside an unlocked private Secret Service session", peer)
+			t.Errorf("%s acceptance starts outside an unlocked private Secret Service session", peer)
 			continue
 		}
-		if !strings.Contains(command, "--performance") || !strings.Contains(command[worker:], "AIGW_SECRET_SERVICE") {
-			t.Errorf("%s private native-store session does not enclose the selected performance command", peer)
+		if !strings.Contains(command[worker:], "AIGW_SECRET_SERVICE") || peer == "github lifecycle" && !strings.Contains(command, "accept-native") || peer != "github lifecycle" && !strings.Contains(command, "--performance") {
+			t.Errorf("%s private native-store session does not enclose the selected release command", peer)
 		}
 		if peer == "gitlab" && !strings.Contains(command[worker:], "./tools/ci native --platform linux --full-quality=\"${AIGW_FULL_NATIVE_QUALITY:-false}\" -- \"$@\"") {
 			t.Error("GitLab private session does not receive the release owner's selected argument vector")
@@ -163,7 +171,7 @@ func TestLinuxPerformanceUsesPrivateSecretServiceOnBothPeers(t *testing.T) {
 			t.Errorf("%s private session loses the native command's exact argument vector", peer)
 		}
 		if strings.Contains(command, "TestNativeProductJourney/system_credential_store") {
-			t.Errorf("%s performance duplicates standalone lifecycle qualification", peer)
+			t.Errorf("%s release acceptance duplicates standalone lifecycle qualification", peer)
 		}
 	}
 }
@@ -183,13 +191,13 @@ func checkLinuxNativeSupplySelection(t *testing.T, before []string) {
 	options := []string{"-o", "Acquire::Retries=1", "-o", "Acquire::http::Timeout=30", "-o", "Acquire::https::Timeout=30", "install", "--no-install-recommends", "-y"}
 	for _, test := range []struct {
 		name, pack, full, refresh, performance string
-		compiler, store                        bool
+		compiler                               bool
 	}{
-		{"source", "", "false", "false", "false", true, true},
-		{"prebuilt lifecycle", "fixture", "false", "false", "false", false, false},
-		{"prebuilt performance", "fixture", "false", "false", "true", false, true},
-		{"full source", "fixture", "true", "false", "false", true, true},
-		{"lock refresh", "fixture", "false", "true", "false", true, true},
+		{"source", "", "false", "false", "false", true},
+		{"prebuilt lifecycle", "fixture", "false", "false", "false", false},
+		{"prebuilt performance", "fixture", "false", "false", "true", false},
+		{"full source", "fixture", "true", "false", "false", true},
+		{"lock refresh", "fixture", "false", "true", "false", true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if err := os.WriteFile(witness, nil, 0o600); err != nil {
@@ -219,10 +227,8 @@ func checkLinuxNativeSupplySelection(t *testing.T, before []string) {
 				want = append(want, options...)
 				want = append(want, "gcc", "libc6-dev")
 			}
-			if test.store {
-				want = append(want, options...)
-				want = append(want, "dbus-x11", "gnome-keyring", "libglib2.0-bin")
-			}
+			want = append(want, options...)
+			want = append(want, "dbus-x11", "gnome-keyring", "libglib2.0-bin")
 			if got := strings.Fields(string(data)); !slices.Equal(got, want) {
 				t.Fatalf("selected native prerequisites = %q, want %q", got, want)
 			}
