@@ -202,7 +202,7 @@ func (assessment *inactiveClientAssessment) consider(client, route string, selec
 	}
 	spec, _ := configuration.ClientSpecFor(client)
 	assessment.result.ProjectionPrerequisites[client] = projectionAction(spec)
-	if !candidate.RequiresAccountToken() {
+	if !candidate.UsesAIGWCredentialStore() {
 		delete(assessment.result.ClientCredentialPrerequisites, client)
 		return true
 	}

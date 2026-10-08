@@ -2,6 +2,7 @@ package activation
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"aigw-cli/internal/configuration"
@@ -99,13 +100,23 @@ func TestAssessActivationDoesNotRequireTokenBackendBeforeItsUse(t *testing.T) {
 	}
 
 	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
-	binding := cfg.Clients[configuration.ClientCodex]
-	binding.Authentication = configuration.AuthenticationClientNative
-	binding.ModelProvider = "native-provider"
-	cfg.Clients[configuration.ClientCodex] = binding
-	native := AssessActivation(cfg, nil)
-	if native.State != domainreadiness.Deferred || native.NextActionFor(nil) != "Install Codex if needed, then run `aigw sync`" {
-		t.Fatalf("client-native selection required an unused Token backend: %+v", native)
+	for _, test := range []struct {
+		authentication configuration.Authentication
+		provider       string
+		command        string
+	}{
+		{authentication: configuration.AuthenticationClientNative, provider: "native-provider"},
+		{authentication: configuration.AuthenticationAccountToken, command: filepath.Join(t.TempDir(), "external-credential")},
+	} {
+		binding := cfg.Clients[configuration.ClientCodex]
+		binding.Authentication, binding.ModelProvider, binding.CredentialCommand = test.authentication, test.provider, test.command
+		cfg.Clients[configuration.ClientCodex] = binding
+		for _, store := range []secrets.Store{nil, unobservedWritableStore{}} {
+			decision := AssessActivation(cfg, store)
+			if decision.State != domainreadiness.Deferred || decision.NextActionFor(nil) != "Install Codex if needed, then run `aigw sync`" || len(decision.ClientCredentialPrerequisites) != 0 {
+				t.Fatalf("independent credential selection required an unused AIGW Token backend: %+v", decision)
+			}
+		}
 	}
 }
 
