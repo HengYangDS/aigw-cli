@@ -531,6 +531,17 @@ source, cache and load conditions; they prove neither optimization benefit nor
 regression. Later forwarding changes require affected-path measurement and
 final signed-byte qualification, not a claim that these results cover new bytes.
 
+The signed `2e9c2007` candidate passed the original macOS forwarding performance
+owner: ten reversed blocks, 400 raw timing samples, five pooled cases and 160
+paired memory observations. Each p95 stayed within its original 100/250 ms
+budget; the predecessor remained direct because it cannot forward. Runtime,
+credential-reader and timed-status bindings passed independent review. The exact
+empty caller scratch and native parent were retired; summary, raw results and
+cleanup remain under `build/verification/2e9c20074583c1c213932241c5f1035c19bb746a/forwarding-native-20261009`.
+This is controlled client discovery and native projection/credential performance,
+not Provider inference, Linux/Windows forwarding, final installed-client or
+publication acceptance. Tasks 4.5, 4.7 and 9.3 retain those distinct obligations.
+
 ### 6. Delete by consumer and authority
 
 Review source, tests, tools, root and `.config` files, OpenSpec, docs, generated
