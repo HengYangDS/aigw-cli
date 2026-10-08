@@ -272,6 +272,23 @@ func TestReleaseBuildEnvironment(t *testing.T) {
 	if request.Version != "1.2.3" || request.Epoch != "1786233600" || request.Output != "dist" || requestRootErr != nil || wantRootErr != nil || !os.SameFile(requestRoot, wantRoot) {
 		t.Fatalf("request = %#v", request)
 	}
+	request.ReleasePublicKey, err = releasePublicKey(signingKey(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.SigningKey = filepath.Join(root, "missing.pub")
+	environment, err := goReleaserEnvironment(request)
+	if err != nil || !slices.Contains(environment, "AIGW_RELEASE_PUBLIC_KEY="+request.ReleasePublicKey) {
+		t.Fatalf("frozen signer was reread or changed: %v, %v", environment, err)
+	}
+	request.ReleasePublicKey = ""
+	if _, err := goReleaserEnvironment(request); err == nil || !strings.Contains(err.Error(), "read release signing public key") {
+		t.Fatalf("unreadable signer entered release environment: %v", err)
+	}
+	request.Epoch = "invalid"
+	if _, err := goReleaserEnvironment(request); err == nil {
+		t.Fatal("invalid epoch entered release environment")
+	}
 	missingVersion := t.TempDir()
 	if err := os.Chdir(missingVersion); err != nil {
 		t.Fatal(err)
@@ -461,5 +478,55 @@ func TestReleaseBindsEmbeddedSignerToActualChecksumSignature(t *testing.T) {
 	}
 	if data, err := os.ReadFile(accepted); err != nil || string(data) != "previous release" {
 		t.Fatalf("mismatched signer changed accepted output: %q, %v", data, err)
+	}
+}
+
+func TestReleaseSignerAdmissionPreservesAcceptedOutput(t *testing.T) {
+	for _, test := range []struct {
+		name, key, contents, diagnostic string
+	}{
+		{"absent signer", "", "", "requires AIGW_RELEASE_SIGNING_KEY"},
+		{"unreadable signer", "missing.pub", "", "read release signing public key"},
+		{"invalid signer", "invalid.pub", "invalid", "valid SSH public key"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := releaseRoot(t)
+			key := test.key
+			if key != "" {
+				key = filepath.Join(root, key)
+			}
+			if test.contents != "" {
+				if err := os.WriteFile(key, []byte(test.contents), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			output := filepath.Join(root, "dist")
+			if err := os.Mkdir(output, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			accepted := filepath.Join(output, "accepted")
+			if err := os.WriteFile(accepted, []byte("previous release"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			var calls []string
+			err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: key}, func(call toolCall) error {
+				calls = append(calls, call.Name)
+				return nil
+			})
+			var expected []string
+			if key != "" {
+				expected = []string{"git"}
+			}
+			if err == nil || !strings.Contains(err.Error(), test.diagnostic) || !slices.Equal(calls, expected) {
+				t.Fatalf("signer refusal = %v, calls %v; want %s, %v", err, calls, test.diagnostic, expected)
+			}
+			if data, err := os.ReadFile(accepted); err != nil || string(data) != "previous release" {
+				t.Fatalf("signer refusal changed accepted output: %q, %v", data, err)
+			}
+			workspaces, err := filepath.Glob(filepath.Join(root, ".aigw-release-*"))
+			if err != nil || len(workspaces) != 0 {
+				t.Fatalf("signer refusal left workspace residue: %v, %v", workspaces, err)
+			}
+		})
 	}
 }
