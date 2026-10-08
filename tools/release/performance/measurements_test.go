@@ -17,8 +17,6 @@ import (
 	"slices"
 	"testing"
 	"time"
-
-	"aigw-cli/internal/process"
 )
 
 func currentTestImage(t *testing.T) Identity {
@@ -148,7 +146,11 @@ func TestMeasureOperationRetainsExactCompletedSamples(t *testing.T) {
 }
 
 func TestArgvPreservesNativeArguments(t *testing.T) {
-	if len(os.Args) == 4 && os.Args[3] == "prepare" {
+	prepared := len(os.Args) == 7 && os.Args[6] == "prepare"
+	if prepared && !slices.Equal(os.Args[3:6], []string{"", "a'b", `C:\native\`}) {
+		t.Fatal("native preparation changed its empty, apostrophe, or trailing-backslash argument")
+	}
+	if prepared {
 		file, err := os.OpenFile(os.Args[2], os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 		if err != nil {
 			t.Fatal(err)
@@ -196,7 +198,7 @@ func TestMeasureRetainsSeparateDiagnosticStreams(t *testing.T) {
 			prepared := filepath.Join(filepath.Dir(raw), test.prepared)
 			benchmark := Workload{
 				Command: []string{program, "-test.run=^TestMeasureRetainsSeparateDiagnosticStreams$"},
-				Prepare: []string{program, "-test.run=^TestArgvPreservesNativeArguments$", test.prepared, "prepare"},
+				Prepare: []string{program, "-test.run=^TestArgvPreservesNativeArguments$", test.prepared, "", "a'b", `C:\native\`, "prepare"},
 			}
 			// Only the synchronous fixture child omits the race runtime's exit delay.
 			environment := append(os.Environ(), "AIGW_TEST_PERFORMANCE_DIAGNOSTIC="+test.marker,
@@ -208,6 +210,10 @@ func TestMeasureRetainsSeparateDiagnosticStreams(t *testing.T) {
 				Measurement: Measurement{Variant: "candidate", Backend: "env", Case: "credential", Block: 1, Budget: 0.1},
 			})
 			if err != nil {
+				for _, stream := range []string{"stdout", "stderr"} {
+					content, readErr := os.ReadFile(strings.TrimSuffix(raw, ".json") + "." + stream)
+					t.Logf("Hyperfine %s (redacted; read error %v):\n%s", stream, readErr, content)
+				}
 				t.Fatal(err)
 			}
 			data, err := os.ReadFile(prepared)
@@ -222,7 +228,7 @@ func TestMeasureRetainsSeparateDiagnosticStreams(t *testing.T) {
 			if strings.Contains(string(stdout)+string(stderr), token) || !bytes.Contains(stdout, []byte("[REDACTED]")) || !bytes.Contains(stderr, []byte("[REDACTED]")) {
 				t.Fatal("native benchmark output leaked its bare Token")
 			}
-			if row.Diagnostics != process.DiagnosticFailure(stderr) || strings.HasPrefix(test.marker, "[WARN]") && !row.Diagnostics {
+			if row.Diagnostics != strings.HasPrefix(test.marker, "[WARN]") {
 				t.Fatal("native benchmark did not preserve the complete stderr diagnostic decision")
 			}
 			if row.Raw != filepath.Base(raw) || row.P95 <= 0 || row.Variant != "candidate" || row.Budget != 0.1 || len(row.Samples.Times) != 40 {

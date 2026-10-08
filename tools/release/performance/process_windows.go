@@ -18,7 +18,12 @@ import (
 )
 
 func preparationCommand(arguments []string) string {
-	return `"` + windows.ComposeCommandLine(arguments) + `"`
+	quoted := make([]string, len(arguments))
+	for index, argument := range arguments {
+		// Force cmd token quotes without replacing the native backslash encoder.
+		quoted[index] = `"` + windows.EscapeArg(" " + argument)[2:]
+	}
+	return `"` + strings.Join(quoted, " ") + `"`
 }
 
 var (

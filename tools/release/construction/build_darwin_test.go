@@ -62,11 +62,23 @@ func TestNativeReleaseUsesCacheSignificantDeploymentTarget(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("warm native release compiler cache: %v\n%s", err, diagnostic.Bytes())
 	}
-	var warmupHeader bytes.Buffer
-	if err := run(toolCall{Name: "/usr/bin/otool", Args: []string{"-l", warmupPath}, Stdout: &warmupHeader}); err != nil {
+	warmupHeader, err := macho.Open(warmupPath)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(warmupHeader.Bytes(), []byte("\n    minos 14.0\n")) {
+	const buildVersionCommand, macOSPlatform, warmupMinOS = 0x32, 1, 14 << 16
+	newerTarget := false
+	for _, load := range warmupHeader.Loads {
+		raw := load.Raw()
+		if len(raw) >= 24 && warmupHeader.ByteOrder.Uint32(raw[:4]) == buildVersionCommand {
+			newerTarget = warmupHeader.ByteOrder.Uint32(raw[8:12]) == macOSPlatform &&
+				warmupHeader.ByteOrder.Uint32(raw[12:16]) == warmupMinOS
+		}
+	}
+	if err := warmupHeader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !newerTarget {
 		t.Fatal("native cache warmup did not establish the newer deployment target")
 	}
 	programPath := filepath.Join(t.TempDir(), "native-release")
