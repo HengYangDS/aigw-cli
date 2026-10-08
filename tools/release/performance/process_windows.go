@@ -17,6 +17,10 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+func preparationCommand(arguments []string) string {
+	return `"` + windows.ComposeCommandLine(arguments) + `"`
+}
+
 var (
 	processKernel  = windows.NewLazySystemDLL("kernel32.dll")
 	processMachine = processKernel.NewProc("GetProcessInformation")

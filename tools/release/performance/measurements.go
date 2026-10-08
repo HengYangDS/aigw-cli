@@ -170,21 +170,43 @@ func selectsExecutable(command string, selected *Identity) error {
 
 func decodeSamples(data []byte, command string) (Samples, error) {
 	var report struct {
-		Results []struct {
-			Samples
-			ExitCodes []*int `json:"exit_codes"`
+		SchemaVersion int    `json:"schema_version"`
+		PrimaryMetric string `json:"primary_metric"`
+		Results       []struct {
+			Command      string `json:"command"`
+			Measurements []struct {
+				Time struct {
+					Value *float64 `json:"value"`
+					Unit  string   `json:"unit"`
+				} `json:"time_wall_clock"`
+				ExitCode *int `json:"exit_code"`
+			} `json:"measurements"`
 		} `json:"results"`
 	}
 	if err := json.Unmarshal(data, &report); err != nil || len(report.Results) != 1 {
 		return Samples{}, errors.New("Hyperfine must produce one nonempty result")
 	}
-	samples := report.Results[0].Samples
-	samples.ExitCodes = []int{}
-	for _, code := range report.Results[0].ExitCodes {
-		if code == nil {
-			return samples, errors.New("performance export requires explicit integer exit codes")
+	result := report.Results[0]
+	samples := Samples{Command: result.Command, Times: make([]float64, len(result.Measurements)), ExitCodes: make([]int, len(result.Measurements))}
+	valid := true
+	for index, measurement := range result.Measurements {
+		if measurement.Time.Value != nil {
+			samples.Times[index] = *measurement.Time.Value
+		} else {
+			valid = false
 		}
-		samples.ExitCodes = append(samples.ExitCodes, *code)
+		if measurement.ExitCode != nil {
+			samples.ExitCodes[index] = *measurement.ExitCode
+		} else {
+			valid = false
+		}
+		valid = valid && measurement.Time.Unit == "second"
+	}
+	if report.SchemaVersion != 2 || report.PrimaryMetric != "time_wall_clock" {
+		return samples, errors.New("Hyperfine requires schema 2 wall-clock evidence")
+	}
+	if !valid {
+		return samples, errors.New("performance export requires wall-clock seconds and explicit integer exit codes")
 	}
 	if samples.Command != command {
 		return samples, errors.New("Hyperfine export differs from its requested command")
@@ -302,9 +324,9 @@ func (c Workload) Review(selected *Identity) error {
 
 // Arguments retains the official five-warmup, forty-sample Hyperfine contract.
 func (c Workload) Arguments(raw string) []string {
-	args := []string{"--shell=none", "--warmup", "5", "--runs", "40", "--output=inherit", "--style", "basic", "--export-json", raw}
+	args := []string{"--shell=none", "--metrics=time", "--warmup", "5", "--runs", "40", "--output=inherit", "--style", "basic", "--export-json", raw}
 	if len(c.Prepare) != 0 {
-		args = append(args, "--prepare", Argv(c.Prepare...))
+		args = append(args, "--prepare", preparationCommand(c.Prepare))
 	}
 	return append(args, Argv(c.Command...))
 }

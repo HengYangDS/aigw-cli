@@ -148,11 +148,24 @@ func TestMeasureOperationRetainsExactCompletedSamples(t *testing.T) {
 }
 
 func TestArgvPreservesNativeArguments(t *testing.T) {
+	if len(os.Args) == 4 && os.Args[3] == "prepare" {
+		file, err := os.OpenFile(os.Args[2], os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fmt.Fprintln(file, "prepared"); err != nil {
+			t.Fatal(err)
+		}
+		if err := file.Close(); err != nil {
+			t.Fatal(err)
+		}
+		os.Exit(0)
+	}
 	if got := Argv(`C:\program files\aigw.exe`, "a'b", ""); got != `'C:\program files\aigw.exe' 'a'\''b' ''` {
 		t.Fatalf("Hyperfine argv quoting = %s", got)
 	}
 	workload := Workload{Command: []string{"measured command"}, Prepare: []string{"prepare command"}}
-	want := []string{"--shell=none", "--warmup", "5", "--runs", "40", "--output=inherit", "--style", "basic", "--export-json", "samples.json", "--prepare", Argv(workload.Prepare...), Argv(workload.Command...)}
+	want := []string{"--shell=none", "--metrics=time", "--warmup", "5", "--runs", "40", "--output=inherit", "--style", "basic", "--export-json", "samples.json", "--prepare", preparationCommand(workload.Prepare), Argv(workload.Command...)}
 	if got := workload.Arguments("samples.json"); !slices.Equal(got, want) {
 		t.Fatalf("prepared native workload = %q, want %q", got, want)
 	}
@@ -177,7 +190,11 @@ func TestMeasureRetainsSeparateDiagnosticStreams(t *testing.T) {
 	for _, marker := range []string{"Working: benchmark-child", "[WARN] benchmark-child"} {
 		t.Run(marker, func(t *testing.T) {
 			raw := filepath.Join(t.TempDir(), "samples.json")
-			benchmark := Workload{Command: []string{program, "-test.run=^TestMeasureRetainsSeparateDiagnosticStreams$"}}
+			prepared := filepath.Join(filepath.Dir(raw), "prepared space's.log")
+			benchmark := Workload{
+				Command: []string{program, "-test.run=^TestMeasureRetainsSeparateDiagnosticStreams$"},
+				Prepare: []string{program, "-test.run=^TestArgvPreservesNativeArguments$", prepared, "prepare"},
+			}
 			// Only the synchronous fixture child omits the race runtime's exit delay.
 			environment := append(os.Environ(), "AIGW_TEST_PERFORMANCE_DIAGNOSTIC="+marker,
 				"GORACE="+strings.TrimSpace(os.Getenv("GORACE")+" atexit_sleep_ms=0"))
@@ -189,6 +206,10 @@ func TestMeasureRetainsSeparateDiagnosticStreams(t *testing.T) {
 			})
 			if err != nil {
 				t.Fatal(err)
+			}
+			data, err := os.ReadFile(prepared)
+			if err != nil || string(data) != strings.Repeat("prepared\n", 45) {
+				t.Fatalf("native preparation lost its exact arguments or five warmups and forty samples: %v", err)
 			}
 			stdout, stdoutErr := os.ReadFile(strings.TrimSuffix(raw, ".json") + ".stdout")
 			stderr, stderrErr := os.ReadFile(strings.TrimSuffix(raw, ".json") + ".stderr")
@@ -204,18 +225,13 @@ func TestMeasureRetainsSeparateDiagnosticStreams(t *testing.T) {
 			if row.Raw != filepath.Base(raw) || row.P95 <= 0 || row.Variant != "candidate" || row.Budget != 0.1 || len(row.Samples.Times) != 40 {
 				t.Fatalf("native benchmark lost its admitted measurement boundary: %#v", row)
 			}
-			var report struct {
-				Results []Samples `json:"results"`
-			}
 			data, readErr := os.ReadFile(raw)
 			if readErr != nil {
 				t.Fatal(readErr)
 			}
-			if err := json.Unmarshal(data, &report); err != nil || len(report.Results) != 1 {
-				t.Fatal("native benchmark lost raw samples")
-			}
-			if _, err := report.Results[0].Percentile(); err != nil {
-				t.Fatal(err)
+			_, decodeErr := decodeSamples(data, Argv(benchmark.Command...))
+			if decodeErr != nil {
+				t.Fatalf("native benchmark lost schema 2 raw samples: %v", decodeErr)
 			}
 		})
 	}
@@ -258,7 +274,7 @@ func TestMeasureBindsRawEvidenceAndRetainsFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"matched", "wrong-command", "failed-tool", "stale-output", "extra-sample", "stale-identity", "changed-file", "unbound-file", "null-exit"} {
+	for _, name := range []string{"matched", "wrong-command", "failed-tool", "stale-output", "extra-sample", "stale-identity", "changed-file", "unbound-file", "null-exit", "null-time", "wrong-unit", "wrong-schema", "wrong-metric"} {
 		t.Run(name, func(t *testing.T) {
 			input := performanceExportFixture(t, program, name)
 			row, err := Measure(t.Context(), input)
@@ -299,16 +315,28 @@ func writePerformanceExportFixture(output string) int {
 	if name == "extra-sample" {
 		count++
 	}
-	times, codes := make([]float64, count), make([]any, count)
-	for index := range times {
-		times[index], codes[index] = 0.01, 0
+	measurements := make([]map[string]any, count)
+	for index := range measurements {
+		measurements[index] = map[string]any{
+			"time_wall_clock": map[string]any{"value": 0.01, "unit": "second"}, "exit_code": 0,
+		}
 	}
-	if name == "null-exit" {
-		codes[0] = nil
+	report := map[string]any{"schema_version": 2, "primary_metric": "time_wall_clock", "results": []any{map[string]any{
+		"command": command, "measurements": measurements,
+	}}}
+	switch name {
+	case "null-exit":
+		measurements[0]["exit_code"] = nil
+	case "null-time":
+		measurements[0]["time_wall_clock"] = map[string]any{"value": nil, "unit": "second"}
+	case "wrong-unit":
+		measurements[0]["time_wall_clock"] = map[string]any{"value": 0.01, "unit": "millisecond"}
+	case "wrong-schema":
+		report["schema_version"] = 1
+	case "wrong-metric":
+		report["primary_metric"] = "memory_peak_resident"
 	}
-	data, err := json.Marshal(map[string]any{"results": []any{map[string]any{
-		"command": command, "times": times, "exit_codes": codes,
-	}}})
+	data, err := json.Marshal(report)
 	if err != nil || os.WriteFile(output, data, 0o600) != nil {
 		return 5
 	}

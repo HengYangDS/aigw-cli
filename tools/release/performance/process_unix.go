@@ -4,6 +4,8 @@ package performance
 
 import "context"
 
+func preparationCommand(arguments []string) string { return Argv(arguments...) }
+
 // ObserveCurrent leaves Windows-only execution evidence absent on Unix.
 func ObserveCurrent() ([]Execution, error) { return nil, nil }
 

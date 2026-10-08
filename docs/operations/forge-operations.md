@@ -352,6 +352,9 @@ individual blocks and pooled p95 remain under `build/verification/performance`
 in the existing always-retained verification artifact. GitHub retains the
 corresponding native performance artifact, including on failure.
 Each case uses five warmups and two reversed-order blocks of forty samples.
+Hyperfine 2.0 invokes each workload directly with time metrics; preparation still
+uses the platform shell. Schema 2 exports retain each run's wall-clock seconds and
+exit code, not only aggregate summaries.
 Setup uses an isolated synthetic endpoint; the timed helper executes its
 actual projected command through the native shell. Client discovery is a
 controlled fixture, not evidence of Provider inference.

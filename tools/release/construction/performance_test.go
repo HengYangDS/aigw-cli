@@ -272,7 +272,7 @@ func changePerformanceRawEvidence(t *testing.T, output string, row *performance.
 	replacement := "different command"
 	switch kind {
 	case "null-exit":
-		data = bytes.Replace(data, []byte(`"exit_codes":[0`), []byte(`"exit_codes":[null`), 1)
+		data = bytes.Replace(data, []byte(`"exit_code":0`), []byte(`"exit_code":null`), 1)
 	case "declared-case":
 		row.Command = []string{row.Executable.Path, "--version"}
 		row.Samples.Command = performance.Argv(row.Command...)
@@ -309,15 +309,7 @@ func inflatePerformanceBlock(t *testing.T, output string, rows []performance.Mea
 		if err != nil {
 			t.Fatal(err)
 		}
-		data, err := json.Marshal(struct {
-			Results []performance.Samples `json:"results"`
-		}{[]performance.Samples{row.Samples}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(output, row.Raw), data, 0o600); err != nil {
-			t.Fatal(err)
-		}
+		writeHyperfineSamples(t, filepath.Join(output, row.Raw), row.Samples)
 	}
 }
 
@@ -373,15 +365,7 @@ func writeQualifiedPerformanceSummary(t *testing.T, output string) performance.S
 				for index := range row.Samples.Times {
 					row.Samples.Times[index] = 0.01
 				}
-				data, err := json.Marshal(struct {
-					Results []performance.Samples `json:"results"`
-				}{[]performance.Samples{row.Samples}})
-				if err != nil {
-					t.Fatal(err)
-				}
-				if err := os.WriteFile(filepath.Join(output, row.Raw), data, 0o600); err != nil {
-					t.Fatal(err)
-				}
+				writeHyperfineSamples(t, filepath.Join(output, row.Raw), row.Samples)
 				summary.Blocks = append(summary.Blocks, row)
 			}
 			peak := make([]uint64, 40)
@@ -407,4 +391,35 @@ func writeQualifiedPerformanceSummary(t *testing.T, output string) performance.S
 		t.Fatal(err)
 	}
 	return summary
+}
+
+func writeHyperfineSamples(t *testing.T, path string, samples performance.Samples) {
+	t.Helper()
+	type metric struct {
+		Value float64 `json:"value"`
+		Unit  string  `json:"unit"`
+	}
+	type measurement struct {
+		Time     metric `json:"time_wall_clock"`
+		ExitCode int    `json:"exit_code"`
+	}
+	type result struct {
+		Command      string        `json:"command"`
+		Measurements []measurement `json:"measurements"`
+	}
+	observed := result{Command: samples.Command}
+	for index, duration := range samples.Times {
+		observed.Measurements = append(observed.Measurements, measurement{Time: metric{Value: duration, Unit: "second"}, ExitCode: samples.ExitCodes[index]})
+	}
+	data, err := json.Marshal(struct {
+		SchemaVersion int      `json:"schema_version"`
+		PrimaryMetric string   `json:"primary_metric"`
+		Results       []result `json:"results"`
+	}{SchemaVersion: 2, PrimaryMetric: "time_wall_clock", Results: []result{observed}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
 }
