@@ -62,7 +62,7 @@ func TestNativePackagedInputsShareSignedMatrixAndOwnedLifecycle(t *testing.T) {
 			if _, err := os.Stat(filepath.Join(workspace, "suppliers")); !os.IsNotExist(err) {
 				t.Fatalf("product acceptance extracted independent client supplies: %v", err)
 			}
-			if !slices.Contains(call.Args, "^TestNativePublishedPredecessorJourney$") {
+			if !slices.Contains(call.Args, "^TestNativePublishedPredecessor(Journey|ForwardingJourney)$") {
 				return nil
 			}
 			index := slices.IndexFunc(call.Env, func(setting string) bool { return strings.HasPrefix(setting, "AIGW_ACCEPTANCE_BASELINE=") })

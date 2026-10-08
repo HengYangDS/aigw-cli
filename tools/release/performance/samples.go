@@ -2,6 +2,7 @@
 package performance
 
 import (
+	"aigw-cli/internal/configuration"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -39,20 +40,22 @@ func (s Samples) Percentile() (float64, error) {
 // Measurement binds one retained timing block to its workload and budget.
 // A zero budget denotes component diagnosis, never performance qualification.
 type Measurement struct {
-	Variant             string      `json:"variant"`
-	Backend             string      `json:"backend"`
-	Case                string      `json:"case"`
-	Command             []string    `json:"command"`
-	Block               int         `json:"block"`
-	P95                 float64     `json:"p95_seconds"`
-	Budget              float64     `json:"budget_seconds"`
-	Raw                 string      `json:"raw"`
-	Diagnostics         bool        `json:"diagnostics"`
-	Samples             Samples     `json:"-"`
-	Executable          *Identity   `json:"selected_executable,omitempty"`
-	Reader              *Identity   `json:"selected_credential_reader,omitempty"`
-	Execution           []Execution `json:"execution,omitempty"`
-	ControllerExecution []Execution `json:"controller_execution,omitempty"`
+	Mode                string                `json:"mode,omitempty"`
+	Runtime             configuration.Runtime `json:"runtime,omitzero"`
+	Variant             string                `json:"variant"`
+	Backend             string                `json:"backend"`
+	Case                string                `json:"case"`
+	Command             []string              `json:"command"`
+	Block               int                   `json:"block"`
+	P95                 float64               `json:"p95_seconds"`
+	Budget              float64               `json:"budget_seconds"`
+	Raw                 string                `json:"raw"`
+	Diagnostics         bool                  `json:"diagnostics"`
+	Samples             Samples               `json:"-"`
+	Executable          *Identity             `json:"selected_executable,omitempty"`
+	Reader              *Identity             `json:"selected_credential_reader,omitempty"`
+	Execution           []Execution           `json:"execution,omitempty"`
+	ControllerExecution []Execution           `json:"controller_execution,omitempty"`
 }
 
 // Pooled combines exactly two forty-sample blocks for each measured boundary.
@@ -63,7 +66,7 @@ func Pooled(measurements []Measurement) ([]Measurement, error) {
 	groups := make(map[string]Measurement)
 	blocks := make(map[string]uint8)
 	for _, row := range measurements {
-		key := row.Variant + "/" + row.Backend + "/" + row.Case
+		key := row.Variant + "/" + row.Backend + "/" + row.Mode + "/" + row.Case
 		if row.Block < 1 || row.Block > 2 || len(row.Samples.Times) != 40 {
 			return nil, fmt.Errorf("%s requires two distinct forty-sample blocks", key)
 		}
@@ -78,6 +81,9 @@ func Pooled(measurements []Measurement) ([]Measurement, error) {
 		group, exists := groups[key]
 		if exists && group.Budget != row.Budget {
 			return nil, fmt.Errorf("%s changed its measured budget", key)
+		}
+		if exists && group.Runtime != row.Runtime {
+			return nil, fmt.Errorf("%s changed its resolved runtime binding", key)
 		}
 		if exists && ((group.Executable == nil) != (row.Executable == nil) ||
 			(group.Executable != nil && !group.Executable.sameFile(*row.Executable))) {
@@ -110,7 +116,7 @@ func Pooled(measurements []Measurement) ([]Measurement, error) {
 		pooled = append(pooled, row)
 	}
 	slices.SortFunc(pooled, func(a, b Measurement) int {
-		return strings.Compare(a.Variant+a.Backend+a.Case, b.Variant+b.Backend+b.Case)
+		return strings.Compare(a.Variant+a.Backend+a.Mode+a.Case, b.Variant+b.Backend+b.Mode+b.Case)
 	})
 	return pooled, nil
 }
@@ -125,10 +131,13 @@ type Program struct {
 
 // Memory retains per-child native peak observations for one workload block.
 type Memory struct {
-	Variant string   `json:"variant"`
-	Case    string   `json:"case"`
-	Block   int      `json:"block"`
-	Bytes   []uint64 `json:"bytes"`
+	Mode       string                `json:"mode,omitempty"`
+	Runtime    configuration.Runtime `json:"runtime,omitzero"`
+	Executable *Identity             `json:"selected_executable,omitempty"`
+	Variant    string                `json:"variant"`
+	Case       string                `json:"case"`
+	Block      int                   `json:"block"`
+	Bytes      []uint64              `json:"bytes"`
 }
 
 // ReviewMemory applies the retained two-block native peak-memory budget.
@@ -213,7 +222,7 @@ func (s Summary) Review() error {
 			return errors.New("performance measurement is not owned by its observed verifier")
 		}
 	}
-	if s.Scope != "full-performance" || s.OS == "" || s.Arch == "" || s.Tool == "" || s.IdentityScope == "" || s.MemoryScope == "" || s.ClientScope == "" || len(s.Programs) != 2 {
+	if (s.Scope != "full-performance" && s.Scope != "forwarding-performance") || s.OS == "" || s.Arch == "" || s.Tool == "" || s.IdentityScope == "" || s.MemoryScope == "" || s.ClientScope == "" || len(s.Programs) != 2 {
 		return errors.New("performance summary lacks its complete native scope")
 	}
 	programs, err := reviewPrograms(s.Programs)
@@ -234,22 +243,61 @@ func (s Summary) Review() error {
 	if !bytes.Equal(encoded, declared) {
 		return errors.New("performance summary differs from its retained samples")
 	}
-	return errors.Join(reviewWorkloads(pooled, programs), ReviewMemory(s.Memory))
+	return errors.Join(reviewWorkloads(pooled, programs, s.Scope), s.reviewMemoryBindings(programs), ReviewMemory(s.Memory))
 }
 
-func reviewWorkloads(pooled []Measurement, programs map[string]Program) error {
+func reviewWorkloads(pooled []Measurement, programs map[string]Program, scope string) error {
+	variants, cases := []string{"baseline", "candidate"}, []string{"credential", "projection", "setup", "sync", "version", "help", "status", "export"}
+	if scope == "forwarding-performance" {
+		variants, cases = []string{"candidate"}, []string{"credential", "projection", "sync", "status", "export"}
+	}
 	groups := make(map[string]bool)
 	for _, row := range pooled {
 		if row.Diagnostics || row.Budget <= 0 || row.Variant == "candidate" && row.P95 > row.Budget || programs[row.Variant].Variant == "" {
 			return errors.New("performance measurements are not qualified")
 		}
+		if !slices.Contains(cases, row.Case) || scope == "forwarding-performance" && (row.Variant != "candidate" || row.Mode != "forwarding") || scope == "full-performance" && row.Mode == "forwarding" {
+			return errors.New("performance measurements differ from their declared scope")
+		}
 		groups[row.Variant+"/"+row.Backend+"/"+row.Case] = true
 	}
-	for _, variant := range []string{"baseline", "candidate"} {
-		for _, name := range []string{"credential", "projection", "setup", "sync", "version", "help", "status", "export"} {
+	for _, variant := range variants {
+		for _, name := range cases {
 			if !groups[variant+"/env/"+name] {
 				return errors.New("performance summary omits a native workload")
 			}
+		}
+	}
+	return nil
+}
+
+func (s Summary) reviewMemoryBindings(programs map[string]Program) error {
+	bindings := make(map[string]configuration.Runtime)
+	for _, row := range s.Memory {
+		if err := reviewRuntime(row.Mode, row.Runtime); err != nil {
+			return err
+		}
+		if (row.Mode == "forwarding") != (s.Scope == "forwarding-performance" && row.Variant == "candidate") {
+			return errors.New("peak memory differs from the requested direct or forwarding scope")
+		}
+		if s.Scope == "forwarding-performance" && (row.Mode == "" || row.Executable == nil) {
+			return errors.New("forwarding memory requires explicit predecessor and candidate bindings")
+		}
+		if row.Executable != nil && (row.Executable.SHA256 != programs[row.Variant].SHA256 || row.Executable.Bytes != programs[row.Variant].Bytes) {
+			return errors.New("peak memory differs from its released program")
+		}
+		if binding, ok := bindings[row.Variant]; ok && binding != row.Runtime {
+			return errors.New("peak-memory blocks differ from their resolved native binding")
+		}
+		bindings[row.Variant] = row.Runtime
+		if row.Mode == "" || (s.Scope == "forwarding-performance" && row.Variant == "baseline") {
+			continue
+		}
+		index := slices.IndexFunc(s.Blocks, func(measurement Measurement) bool {
+			return measurement.Variant == row.Variant && measurement.Backend == "env" && measurement.Case == row.Case && measurement.Block == row.Block
+		})
+		if index < 0 || s.Blocks[index].Mode != row.Mode || s.Blocks[index].Runtime != row.Runtime {
+			return errors.New("peak memory differs from its timed status workload")
 		}
 	}
 	return nil
@@ -277,7 +325,7 @@ func (row Measurement) review(program Program) error {
 	if len(row.Command) == 0 || row.Samples.Command != Argv(row.Command...) {
 		return errors.New("performance export differs from its requested command")
 	}
-	if err := (Workload{Name: row.Case, Command: row.Command}).Review(row.Executable); err != nil {
+	if err := (Workload{Name: row.Case, Command: row.Command, Mode: row.Mode, Runtime: row.Runtime}).Review(row.Executable); err != nil {
 		return err
 	}
 	if budget := Budget(row.Case); budget == 0 || row.Budget != budget {
@@ -297,7 +345,7 @@ func (row Measurement) review(program Program) error {
 }
 
 // ReadSummary rehydrates retained samples and enforces the same native contract.
-func ReadSummary(directory string, attribution bool) (Summary, error) {
+func ReadSummary(directory, scope string) (Summary, error) {
 	var summary Summary
 	data, err := os.ReadFile(filepath.Join(directory, "summary.json"))
 	if err != nil {
@@ -309,14 +357,14 @@ func ReadSummary(directory string, attribution bool) (Summary, error) {
 	if summary.OS != runtime.GOOS || summary.Arch != runtime.GOARCH {
 		return summary, errors.New("performance summary differs from its native consumer")
 	}
-	if attribution {
+	if scope == "component-attribution" {
 		if summary.Qualification || summary.Scope != "component-attribution" || len(summary.Blocks) == 0 || len(summary.Pooled) == 0 {
 			return summary, errors.New("performance attribution requires nonqualifying diagnostic evidence")
 		}
 		return summary, nil
 	}
-	if !summary.Qualification || summary.Scope != "full-performance" {
-		return summary, errors.New("performance acceptance requires a qualified full-performance summary")
+	if !summary.Qualification || summary.Scope != scope || (scope != "full-performance" && scope != "forwarding-performance") {
+		return summary, errors.New("performance acceptance requires a qualified summary for the exact requested scope")
 	}
 	for index := range summary.Blocks {
 		row := &summary.Blocks[index]

@@ -16,7 +16,7 @@ func TestSourceSizeUsesExactNativeCodeLines(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(policy, []byte("max_code_lines = 500\n"), 0o600); err != nil {
+	if err := os.WriteFile(policy, readFile(t, filepath.Join("..", "..", ".config", "checks", "go", "size.toml")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("GIT_INDEX_FILE", filepath.Join(t.TempDir(), "foreign-index"))
@@ -24,10 +24,10 @@ func TestSourceSizeUsesExactNativeCodeLines(t *testing.T) {
 		name, file, source string
 		valid              bool
 	}{
-		{"boundary", "source.go", "package fixture\n" + strings.Repeat("var _ = 1\n", 499), true},
-		{"inline comments", "source.go", "package fixture\n" + strings.Repeat("var _ = 1 // explanation\n", 500), false},
-		{"test source", "source_test.go", "package fixture\n" + strings.Repeat("var _ = 1\n", 500), false},
-		{"foreign platform", "source_windows.go", "package fixture\n" + strings.Repeat("var _ = 1\n", 500), false},
+		{"boundary", "source.go", "package fixture\n" + strings.Repeat("var _ = 1\n", 511), true},
+		{"inline comments", "source.go", "package fixture\n" + strings.Repeat("var _ = 1 // explanation\n", 512), false},
+		{"test source", "source_test.go", "package fixture\n" + strings.Repeat("var _ = 1\n", 512), false},
+		{"foreign platform", "source_windows.go", "package fixture\n" + strings.Repeat("var _ = 1\n", 512), false},
 		{"comment only", "source.go", "package fixture\n" + strings.Repeat("// explanation\n\n", 600), true},
 		{"quoted filename", "source's #1.go", "package fixture\n", true},
 	} {
@@ -45,7 +45,7 @@ func TestSourceSizeUsesExactNativeCodeLines(t *testing.T) {
 			if (err == nil) != test.valid {
 				t.Fatalf("source size validity=%t, want %t: %v", err == nil, test.valid, err)
 			}
-			if !test.valid && (!strings.Contains(err.Error(), test.file) || !strings.Contains(err.Error(), "501 > 500")) {
+			if !test.valid && (!strings.Contains(err.Error(), test.file) || !strings.Contains(err.Error(), "513 > 512")) {
 				t.Fatalf("missing exact file budget finding: %v", err)
 			}
 			if got := string(readFile(t, path)); got != test.source {

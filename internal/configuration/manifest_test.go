@@ -55,7 +55,7 @@ func TestManifestMergeTreatsOldPlainLabelAsDerivedButPreservesCustomOverride(t *
 	current.Models["gpt-6-sol"] = Model{Label: "GPT-6 Sol"}
 	route := Route{Label: "UCloud · GPT-6 Sol", Account: "ucloud", Model: "gpt-6-sol", UpstreamModel: "gpt-6-sol", Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {CapabilityText}}}
 	current.Routes["ucloud-gpt-6-sol"] = route
-	current.SetSelectedRoute(ClientCodex, "ucloud-gpt-6-sol")
+	current.SetSelectedRoute(ClientCodex, "ucloud-gpt-6-sol", "")
 	incoming := Manifest{
 		Version:  currentVersion,
 		Accounts: map[string]Account{"ucloud": current.Accounts["ucloud"]},
@@ -272,7 +272,7 @@ func TestExportRejectsRouteThatCannotBeParsedBack(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
 	cfg.Routes["codex"] = testRoute("Codex", "team", "gpt-test", ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(ClientCodex, "codex")
+	cfg.SetSelectedRoute(ClientCodex, "codex", "")
 	cfg.Clients[ClientClaude] = ClientBinding{Route: "codex", Protocol: ProtocolOpenAIResponses}
 
 	if _, err := Export(cfg); err == nil {
@@ -461,7 +461,7 @@ func TestExportOmitsSecretsAndAdaptersAndPublishesRouteRecommendations(t *testin
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["team"] = testRoute("Team", "team", "claude-team", ProtocolAnthropic)
-	cfg.SetSelectedRoute(ClientClaude, "team")
+	cfg.SetSelectedRoute(ClientClaude, "team", "")
 	binding := cfg.Clients[ClientClaude]
 	binding.Enabled = true
 	binding.Executable = "/personal/claude"
@@ -498,7 +498,7 @@ func TestExportIsCanonicalTypedManifestProjection(t *testing.T) {
 			ProtocolAnthropic: {},
 		},
 	}
-	cfg.SetSelectedRoute(ClientClaude, "team")
+	cfg.SetSelectedRoute(ClientClaude, "team", "")
 
 	first, err := Export(cfg)
 	if err != nil {

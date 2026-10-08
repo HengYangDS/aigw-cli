@@ -30,7 +30,7 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryAccountChoices(t *
 			}
 			cfg := configuration.NewConfig()
 			addAccountRoute(&cfg, "codex", "provider", "Provider", configuration.Endpoints{OpenAIResponses: test.endpoint}, configuration.ClientCodex, "gpt-test")
-			cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
+			cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 			cfg.SetClientActivation(configuration.ClientCodex, true, "/usr/local/bin/codex", []string{target})
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -76,7 +76,7 @@ func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *tes
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "local", "local", "Local Endpoint", configuration.Endpoints{Anthropic: "http://127.0.0.2:4567"}, configuration.ClientClaude, "model-test")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "local")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "local", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
@@ -103,7 +103,7 @@ func TestCheckDoesNotDescribeRemoteHTTPSAsExternalLoopbackTransport(t *testing.T
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "remote", "remote", "Remote Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, configuration.ClientClaude, "model-test")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "remote")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "remote", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
@@ -144,7 +144,7 @@ func TestEndpointOnlyCheckUsesSelectedTLSOrLoopbackAccount(t *testing.T) {
 			}
 			cfg := configuration.NewConfig()
 			addAccountRoute(&cfg, "codex", "selected", "Selected", configuration.Endpoints{OpenAIResponses: server.URL + "/v1"}, configuration.ClientCodex, "gpt-test")
-			cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
+			cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 			cfg.SetClientActivation(configuration.ClientCodex, true, "/usr/local/bin/codex", []string{target})
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -187,7 +187,7 @@ func TestSelectedAccountWorksWithoutInstalledClient(t *testing.T) {
 	app.HTTP = server.Client()
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "codex", "provider", "Provider", configuration.Endpoints{OpenAIResponses: server.URL + "/v1"}, configuration.ClientCodex, "gpt-test")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

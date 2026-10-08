@@ -2,10 +2,82 @@ package configuration
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
 )
+
+func TestClientForwardingPreservesUpstreamCredentialIdentity(t *testing.T) {
+	cfg := validConfig()
+	direct, err := cfg.ResolveRuntime(ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := cfg.Clients[ClientCodex]
+	binding.ForwardingEndpoint = "http://127.0.0.1:8792/backup/v1/"
+	cfg.Clients[ClientCodex] = binding
+	forwarded, err := cfg.ResolveRuntime(ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if forwarded.Endpoint != strings.TrimRight(binding.ForwardingEndpoint, "/") || forwarded.UpstreamEndpoint != direct.Endpoint {
+		t.Fatalf("forwarded endpoint identities = %#v", forwarded)
+	}
+	if forwarded.AccountID != direct.AccountID || forwarded.Model != direct.Model || forwarded.ModelProvider != direct.ModelProvider || forwarded.CredentialProjectionFingerprint(ClientCodex) != direct.CredentialProjectionFingerprint(ClientCodex) {
+		t.Fatalf("client forwarding changed the upstream credential or model identity: %#v", forwarded)
+	}
+	claude, err := cfg.ResolveRuntime(ClientClaude, "")
+	if err != nil || claude.Endpoint != cfg.Accounts["dmx"].Endpoints.Anthropic {
+		t.Fatalf("unrelated client changed: %#v, %v", claude, err)
+	}
+}
+
+func TestClientForwardingRequiresAValidSelectedEndpoint(t *testing.T) {
+	for _, endpoint := range []string{"http://remote.test/v1", "https://user:password@example.test/v1", "https://example.test/v1?api_key=secret"} {
+		t.Run(endpoint, func(t *testing.T) {
+			cfg := validConfig()
+			binding := cfg.Clients[ClientCodex]
+			binding.ForwardingEndpoint = endpoint
+			cfg.Clients[ClientCodex] = binding
+			if err := cfg.Validate(); err == nil {
+				t.Fatal("invalid forwarding endpoint was accepted")
+			}
+		})
+	}
+	cfg := validConfig()
+	cfg.Clients[ClientCodex] = ClientBinding{ForwardingEndpoint: "http://127.0.0.1:8792/v1"}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("forwarding without a selected Route was accepted")
+	}
+}
+
+func TestClientForwardingDoesNotRedirectAnExplicitOtherAccount(t *testing.T) {
+	cfg := validConfig()
+	binding := cfg.Clients[ClientCodex]
+	binding.ForwardingEndpoint = "http://127.0.0.1:8792/backup/v1"
+	cfg.Clients[ClientCodex] = binding
+	cfg.Routes["other"] = testRoute("Other", "dmx", "other-model", ProtocolOpenAIResponses)
+	qualified, err := cfg.ResolveRuntime(ClientCodex, "other")
+	if err != nil || qualified.Endpoint != cfg.Accounts["dmx"].Endpoints.OpenAIResponses || qualified.AccountID != "dmx" {
+		t.Fatalf("explicit other-Account qualification inherited the selected forwarding destination: %#v, %v", qualified, err)
+	}
+	cfg.SetSelectedRoute(ClientCodex, "other", "")
+	if cfg.Clients[ClientCodex].ForwardingEndpoint != "" {
+		t.Fatal("switching Account retained an unrelated forwarding destination")
+	}
+}
+
+func TestClientForwardingSurvivesEquivalentAutomaticProtocolSelection(t *testing.T) {
+	cfg := validConfig()
+	binding := cfg.Clients[ClientCodex]
+	binding.ForwardingEndpoint = "http://127.0.0.1:8792/backup/v1"
+	cfg.Clients[ClientCodex] = binding
+	cfg.SetSelectedRoute(ClientCodex, binding.Route, "")
+	if cfg.Clients[ClientCodex].ForwardingEndpoint != binding.ForwardingEndpoint {
+		t.Fatal("normalizing the same implicit protocol discarded client forwarding")
+	}
+}
 
 func TestCurrentSchemaRemovesLegacySelectionFields(t *testing.T) {
 	if ConfigVersion != 6 {
@@ -142,6 +214,7 @@ func TestClientBindingOwnsNativeAuthentication(t *testing.T) {
 		Authentication: AuthenticationClientNative,
 	}
 
+	cfg.SetSelectedRoute(ClientCodex, "model", ProtocolOpenAIResponses)
 	runtime, err := cfg.ResolveRuntime(ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)

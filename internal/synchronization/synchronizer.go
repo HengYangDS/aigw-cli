@@ -34,9 +34,9 @@ func (s Synchronizer) Inspect(ctx context.Context, cfg configuration.Config, cli
 // Verify runs one explicit live request through the admitted client adapter.
 func (s Synchronizer) Verify(ctx context.Context, cfg configuration.Config, clientID string, runtime configuration.Runtime, explicitRoute string) (client.Verification, error) {
 	selected := cfg.Clone()
-	selected.SetSelectedRoute(clientID, runtime.RouteID)
+	selected.SetSelectedRoute(clientID, runtime.RouteID, runtime.Protocol)
 	binding := selected.Clients[clientID]
-	binding.Protocol, binding.ModelProvider, binding.Authentication = runtime.Protocol, runtime.ModelProvider, runtime.Authentication
+	binding.ModelProvider, binding.Authentication = runtime.ModelProvider, runtime.Authentication
 	selected.Clients[clientID] = binding
 	dependencies, err := s.clientDependencies([]string{clientID}, cfg, selected)
 	if err != nil {
@@ -69,7 +69,7 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg configuration.Con
 	if err != nil {
 		return err
 	}
-	receipt, err := s.registry().Apply(ctx, dependencies, cfg, cfg, clientID)
+	receipt, _, err := s.registry().Apply(ctx, dependencies, cfg, cfg, clientID)
 	if err != nil {
 		if !errors.Is(err, client.ErrProjectionRollbackFailed) {
 			err = errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))

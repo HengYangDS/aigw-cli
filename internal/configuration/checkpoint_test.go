@@ -9,9 +9,72 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestForwardingChangedDuringVerificationRejectsCheckpoint(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	cfg := convergenceConfig("current")
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	changed := cfg.Clone()
+	binding := changed.Clients[ClientCodex]
+	binding.ForwardingEndpoint = "http://127.0.0.1:8792/v1"
+	changed.Clients[ClientCodex] = binding
+	data, err := encodeForwarding(changed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(store.forwardingPath(), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err == nil {
+		t.Fatal("verification certified a changed forwarding destination")
+	}
+	after, err := store.CaptureSnapshot()
+	if err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatalf("rejected verification mutated its exact state: %v", err)
+	}
+}
+
+func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	cfg := convergenceConfig("current")
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	changed := cfg.Clone()
+	binding := changed.Clients[ClientCodex]
+	binding.ForwardingEndpoint = "http://127.0.0.1:8792/v1"
+	changed.Clients[ClientCodex] = binding
+	newer, err := encodeForwarding(changed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalWrite := writeConfigurationFileIfUnchanged
+	t.Cleanup(func() { writeConfigurationFileIfUnchanged = originalWrite })
+	writeConfigurationFileIfUnchanged = func(path string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+		postimage, err := originalWrite(path, expected, data, mode)
+		if err == nil && path == store.Path()+".verified.json" {
+			err = os.WriteFile(store.forwardingPath(), newer, 0o600)
+		}
+		return postimage, err
+	}
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err == nil || !strings.Contains(err.Error(), "configuration changed during checkpoint commit") {
+		t.Fatalf("concurrent forwarding update was certified: %v", err)
+	}
+	after, err := store.CaptureSnapshot()
+	if err != nil || after.Verified.Exists || !bytes.Equal(after.Forwarding.Data, newer) {
+		t.Fatalf("checkpoint compensation lost newer forwarding or retained stale proof: %v", err)
+	}
+}
 
 func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")

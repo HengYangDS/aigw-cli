@@ -37,7 +37,7 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 		Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -218,8 +218,8 @@ func TestSyncActivatesLateTokenWithoutChangingIndependentRoute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	before.SetSelectedRoute(configuration.ClientClaude, "aihubmix-claude")
-	before.SetSelectedRoute(configuration.ClientCodex, "dmxapi-gpt")
+	before.SetSelectedRoute(configuration.ClientClaude, "aihubmix-claude", "")
+	before.SetSelectedRoute(configuration.ClientCodex, "dmxapi-gpt", "")
 	before.SetClientActivation(configuration.ClientCodex, true, "", nil)
 	if err := app.Config.Save(before); err != nil {
 		t.Fatal(err)
@@ -292,7 +292,7 @@ func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) 
 		Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

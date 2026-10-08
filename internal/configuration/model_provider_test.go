@@ -221,6 +221,6 @@ func modelProviderConfig() Config {
 			ProtocolAnthropic:       {},
 		},
 	}
-	cfg.SetSelectedRoute(ClientCodex, "default")
+	cfg.SetSelectedRoute(ClientCodex, "default", "")
 	return cfg
 }

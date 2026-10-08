@@ -202,7 +202,7 @@ func TestImportPreviewReportsAffectedClientsWithoutReadingTokensOrWriting(t *tes
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
 	cfg.Models["gpt-old"] = configuration.Model{Label: "Old"}
-	cfg.SetSelectedRoute(configuration.ClientHermes, "local")
+	cfg.SetSelectedRoute(configuration.ClientHermes, "local", "")
 	clientTarget := filepath.Join(t.TempDir(), "hermes.yaml")
 	cfg.SetClientActivation(configuration.ClientHermes, true, "/opt/hermes", []string{clientTarget})
 	runtime, path, out, renderOut := savedRuntime(t, cfg)
@@ -502,7 +502,7 @@ func localConfig() configuration.Config {
 		Label: "Local", Account: "local", Model: "gpt-local",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "local")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "local", "")
 	return cfg
 }
 

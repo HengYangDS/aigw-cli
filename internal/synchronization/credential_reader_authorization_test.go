@@ -123,7 +123,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 		Account: "blocked", Model: "claude-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	selected.SetSelectedRoute(configuration.ClientClaude, "blocked-claude")
+	selected.SetSelectedRoute(configuration.ClientClaude, "blocked-claude", "")
 	selected.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), selected, "codex", configuration.ClientCodex); err != nil {
 		t.Fatalf("unrelated Claude Token blocked a Codex-only projection: %v", err)
@@ -162,6 +162,11 @@ func TestSyncObservesNativeAvailabilityOncePerInvocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := testConfig(target)
+	configStore, ok := syncer.Config.(*configStoreStub)
+	if !ok {
+		t.Fatal("native reader fixture has no owned configuration store")
+	}
+	configStore.bindConfiguration(t, before)
 	for invocation := 1; invocation <= 2; invocation++ {
 		syncer.Secrets = secrets.ObserveAvailability(syncer.Secrets)
 		after, _, err := syncer.DesiredSyncConfiguration(before)

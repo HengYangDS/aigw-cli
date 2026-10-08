@@ -440,7 +440,7 @@ func TestAccountRenameNonCurrentCodexAccountDoesNotReauthenticate(t *testing.T) 
 	cfg := accountRenameConfig()
 	cfg.Accounts["active"] = configuration.Account{Label: "Active", Endpoints: configuration.Endpoints{OpenAIResponses: "https://active.test/v1"}}
 	cfg.Routes["active-route"] = qualifiedRoute("Active", "active", "active-model", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "active-route")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "active-route", "")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{filepath.Join(t.TempDir(), "codex", "configuration.toml")})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -525,7 +525,7 @@ func accountRenameConfig() configuration.Config {
 	claudeRoute := cfg.Routes["claude-route"]
 	claudeRoute.Purpose = "Claude purpose"
 	cfg.Routes["claude-route"] = claudeRoute
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex-route")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude-route")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex-route", "")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude-route", "")
 	return cfg
 }

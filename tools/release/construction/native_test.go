@@ -2,6 +2,7 @@ package construction
 
 import (
 	"aigw-cli/internal/upgrade/artifact"
+	"aigw-cli/tools/release/performance"
 	"archive/tar"
 	"archive/zip"
 	"bytes"
@@ -18,6 +19,48 @@ import (
 	"testing"
 )
 
+func TestNativeForwardingPerformanceFlagBindsOnlyItsOwnScope(t *testing.T) {
+	output := filepath.Join(t.TempDir(), "measurements")
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
+	input, err := ParseNativeAcceptance([]string{"--artifacts=/candidate", "--candidate", "--performance=" + output, "--performance-forwarding"})
+	if err != nil || !input.PerformanceForwarding {
+		t.Fatalf("forwarding selection was not admitted: %#v, %v", input, err)
+	}
+	for _, conflicting := range []string{"--clients", "--performance-attribution"} {
+		if _, err := ParseNativeAcceptance([]string{"--artifacts=/candidate", "--candidate", "--performance=" + output, "--performance-forwarding", conflicting}); err == nil {
+			t.Fatal("forwarding scope admitted a conflicting optional journey")
+		}
+	}
+	request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
+	calls := 0
+	err = acceptNative(request, "", "/published/aigw", input, func(call toolCall) error {
+		calls++
+		if !slices.Contains(call.Env, "AIGW_PERFORMANCE_FORWARDING=1") || !slices.Contains(call.Env, "AIGW_PERFORMANCE_ATTRIBUTION=0") {
+			t.Fatal("native child lost its forwarding scope")
+		}
+		if calls == 1 {
+			if !slices.Contains(call.Args, "^TestMeasureRetainsSeparateDiagnosticStreams$") {
+				t.Fatal("forwarding omitted native diagnostic preflight")
+			}
+			return nil
+		}
+		if calls != 2 || !slices.Contains(call.Args, "^TestNativePerformance$") {
+			t.Fatal("forwarding started an unrelated native suite")
+		}
+		if err := os.Mkdir(output, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		writeQualifiedPerformanceSummary(t, output)
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "exact requested scope") || calls != 2 {
+		t.Fatalf("the forwarding consumer accepted a full-direct receipt: calls=%d err=%v", calls, err)
+	}
+	if _, err := performance.ReadSummary(output, "full-performance"); err != nil {
+		t.Fatalf("the native consumer broke unchanged full-direct evidence: %v", err)
+	}
+}
+
 func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 	for _, fail := range []bool{false, true} {
 		t.Run(fmt.Sprint(fail), func(t *testing.T) {
@@ -29,7 +72,7 @@ func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 					t.Fatalf("source acceptance escaped its product test owner: %#v", call)
 				}
 				workspace = strings.TrimPrefix(call.Env[1], "TMPDIR=")
-				expected := append([]string{"AIGW_ACCEPTANCE_RELEASE=", "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace, "AIGW_PERFORMANCE_ATTRIBUTION=0"}, forgeCredentialOverrides()...)
+				expected := append([]string{"AIGW_ACCEPTANCE_RELEASE=", "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace, "AIGW_PERFORMANCE_ATTRIBUTION=0", "AIGW_PERFORMANCE_FORWARDING=0"}, forgeCredentialOverrides()...)
 				if !filepath.IsAbs(workspace) || !slices.Equal(call.Env, append(expected, "AIGW_ACCEPTANCE_BASELINE=")) {
 					t.Fatalf("source acceptance environment = %#v", call.Env)
 				}
@@ -73,7 +116,7 @@ func TestNativeAcceptanceRunsPublishedPredecessorSeparatelyFromCurrentSchemaJour
 		t.Fatalf("current-schema journey consumed the published predecessor: %#v", calls[0])
 	}
 	if !slices.Contains(calls[1].Env, "AIGW_ACCEPTANCE_BASELINE="+baseline) ||
-		!slices.Contains(calls[1].Args, "^TestNativePublishedPredecessorJourney$") {
+		!slices.Contains(calls[1].Args, "^TestNativePublishedPredecessor(Journey|ForwardingJourney)$") {
 		t.Fatalf("published predecessor was not selected for its exact lifecycle: %#v", calls[1])
 	}
 }
@@ -230,7 +273,7 @@ func TestNativeClientAcceptanceSharesStageAndPropagatesFailure(t *testing.T) {
 				t.Fatalf("executed %d commands with stage %q", len(calls), stage)
 			}
 			for _, call := range calls {
-				expected := append([]string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + stage, "TMP=" + stage, "TEMP=" + stage, "AIGW_PERFORMANCE_ATTRIBUTION=0"}, forgeCredentialOverrides()...)
+				expected := append([]string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + stage, "TMP=" + stage, "TEMP=" + stage, "AIGW_PERFORMANCE_ATTRIBUTION=0", "AIGW_PERFORMANCE_FORWARDING=0"}, forgeCredentialOverrides()...)
 				if call.Directory != request.Root || !slices.Equal(call.Env, append(expected, "AIGW_ACCEPTANCE_BASELINE=")) {
 					t.Fatalf("acceptance lost stage ownership: %#v", call)
 				}

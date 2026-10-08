@@ -92,7 +92,7 @@ func TestRegistryScopesProjectionToTheRequestedClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := configuration.NewConfig()
-	if _, err := registry.Apply(t.Context(), Dependencies{}, cfg, cfg, "first"); err != nil {
+	if _, _, err := registry.Apply(t.Context(), Dependencies{}, cfg, cfg, "first"); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(events, []string{"plan:first", "apply:first"}) {
@@ -169,7 +169,7 @@ func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 	if plans, err := registry.Plan(Dependencies{}, cfg, cfg); err != nil || len(plans) != 1 || plans[0].Client != "future" {
 		t.Fatalf("plans = %#v, %v", plans, err)
 	}
-	if _, err := registry.Apply(context.Background(), Dependencies{}, cfg, cfg); err != nil {
+	if _, _, err := registry.Apply(context.Background(), Dependencies{}, cfg, cfg); err != nil {
 		t.Fatal(err)
 	}
 	if changed := registry.ChangedClients(configuration.NewConfig(), cfg); !reflect.DeepEqual(changed, []string{"future"}) {
@@ -212,8 +212,8 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 	}
 	before.Routes["claude"] = qualifiedRoute("", "direct", "claude-test", configuration.ProtocolAnthropic)
 	before.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-	before.SetSelectedRoute(configuration.ClientClaude, "claude")
-	before.SetSelectedRoute(configuration.ClientCodex, "codex")
+	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	before.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 	before.SetClientActivation(configuration.ClientClaude, true, "/clients/claude", nil)
 	before.SetClientActivation(configuration.ClientCodex, true, "/clients/codex", []string{"/clients/codex.toml"})
 	wantUnchanged := before.Clone()
@@ -255,7 +255,7 @@ func TestRegistryCompensatesAppliedAdaptersInReverseOrder(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = registry.Apply(t.Context(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
+			_, _, err = registry.Apply(t.Context(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
 			if !errors.Is(err, failure) || !strings.Contains(err.Error(), "prior adapters were rolled back") {
 				t.Fatalf("Apply() error = %v", err)
 			}
@@ -284,9 +284,12 @@ func TestRegistryReturnsOneRollbackForSuccessfulProjection(t *testing.T) {
 			if state == "changed-config" {
 				after.Accounts["new"] = configuration.Account{Label: "New"}
 			}
-			receipt, err := registry.Apply(t.Context(), Dependencies{}, before, after)
+			receipt, changed, err := registry.Apply(t.Context(), Dependencies{}, before, after)
 			if err != nil || receipt == nil {
 				t.Fatalf("successful projection receipt = %v, %v", receipt, err)
+			}
+			if changed != (state == "changed-target") {
+				t.Fatalf("native projection changed=%t for %s", changed, state)
 			}
 			want := []string{"plan:first", "plan:second"}
 			if state != "converged" {
@@ -312,7 +315,7 @@ func TestRegistryReportsCompensationFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
+	_, _, err = registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
 	if !errors.Is(err, applyFailure) || !errors.Is(err, firstRollbackFailure) || !errors.Is(err, secondRollbackFailure) || !errors.Is(err, ErrProjectionRollbackFailed) {
 		t.Fatalf("Apply() error = %v", err)
 	}
@@ -355,7 +358,7 @@ func TestRegistryCancellationStopsNewWritesAndCompensatesPriorAdapters(t *testin
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = registry.Apply(ctx, Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
+			_, _, err = registry.Apply(ctx, Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
 			if !errors.Is(err, wantErr) || (conflict != nil && !errors.Is(err, conflict)) {
 				t.Errorf("Apply() error = %v; want %v and any compensation conflict", err, wantErr)
 			}
@@ -383,7 +386,7 @@ func TestRegistryRejectsUnknownClientOperations(t *testing.T) {
 	assertUnknown("converge", err)
 	_, err = registry.Plan(Dependencies{}, cfg, cfg, "unknown")
 	assertUnknown("plan", err)
-	_, err = registry.Apply(t.Context(), Dependencies{}, cfg, cfg, "unknown")
+	_, _, err = registry.Apply(t.Context(), Dependencies{}, cfg, cfg, "unknown")
 	assertUnknown("apply", err)
 	if status := registry.Inspect(context.Background(), Dependencies{}, cfg, "unknown", configuration.Runtime{}); status.Ready || !strings.Contains(status.Issue, "no admitted operational adapter") {
 		t.Fatalf("unknown inspection = %#v", status)
@@ -405,8 +408,8 @@ func TestDefaultRegistryConvergesConfiguredExecutablesConservatively(t *testing.
 	}}
 	cfg.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
 	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, missing, nil)
 
 	after, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, configuration.ClientClaude)
@@ -443,7 +446,7 @@ func TestDefaultRegistryIgnoresOnlyAnUnselectedRoute(t *testing.T) {
 
 		t.Run(clientID+" with a broken route", func(t *testing.T) {
 			cfg := configuration.NewConfig()
-			cfg.SetSelectedRoute(clientID, "missing-route")
+			cfg.SetSelectedRoute(clientID, "missing-route", "")
 			if _, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown route "missing-route"`) {
 				t.Fatalf("Converge(%q) broken route error = %v", clientID, err)
 			}
@@ -467,7 +470,7 @@ func TestDefaultRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 	for _, clientID := range []string{configuration.ClientClaudeDesktop, configuration.ClientHermes} {
 		t.Run(clientID, func(t *testing.T) {
 			deferred := cfg.Clone()
-			deferred.SetSelectedRoute(clientID, "claude")
+			deferred.SetSelectedRoute(clientID, "claude", "")
 			deferred.SetClientActivation(clientID, true, "", nil)
 			plans, err := DefaultRegistry().Plan(deps, configuration.NewConfig(), deferred, clientID)
 			if err != nil {
@@ -505,8 +508,8 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 	}}
 	before.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
 	before.Routes["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-	before.SetSelectedRoute(configuration.ClientClaude, "claude")
-	before.SetSelectedRoute(configuration.ClientCodex, "codex")
+	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	before.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 	after := before.Clone()
 	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	after.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{codexTarget})
@@ -518,7 +521,7 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 		AIGWExecutable:     "/opt/aigw",
 	}
 
-	_, err := DefaultRegistry().Apply(t.Context(), deps, before, after)
+	_, _, err := DefaultRegistry().Apply(t.Context(), deps, before, after)
 	if err == nil || !strings.Contains(err.Error(), "parse Claude settings") {
 		t.Fatalf("Apply() error = %v", err)
 	}

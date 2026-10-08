@@ -17,7 +17,7 @@ func TestConfigImportRefusesAccountConflictUntilExplicitReplacementAndPreservesT
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Personal Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://personal.example.test"}}
 	cfg.Routes["local"] = qualifiedRoute("Local", "team", "local-model", configuration.ProtocolAnthropic)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "local")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "local", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func TestConfigImportRefusesRouteConflictUntilExplicitReplacement(t *testing.T) 
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
 	cfg.Routes["shared"] = qualifiedRoute("Personal Model", "team", "personal-model", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "shared")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "shared", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

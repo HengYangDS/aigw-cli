@@ -47,7 +47,7 @@ func setupConfiguration() configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	return cfg
 }
 
@@ -123,7 +123,7 @@ func TestSetupRejectsInvalidConfigurationBeforeCredentialMutation(t *testing.T) 
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
 	credentials := setupTokenStore(t, "original")
 	after := setupConfiguration()
-	after.SetSelectedRoute(configuration.ClientClaude, "missing-route")
+	after.SetSelectedRoute(configuration.ClientClaude, "missing-route", "")
 	_, err := (Synchronizer{Config: store, Secrets: credentials}).Setup(t.Context(), configuration.NewConfig(), after, map[string]string{"team": "replacement"})
 	if err == nil {
 		t.Fatal("setup accepted an unresolved route")

@@ -149,7 +149,7 @@ func blockedRouteRuntime(t *testing.T) invocation.Context {
 			configuration.ProtocolOpenAIResponses: {},
 		},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "current")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "current", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

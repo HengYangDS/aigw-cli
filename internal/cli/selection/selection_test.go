@@ -3,20 +3,174 @@ package selection
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
+	"reflect"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secrets"
+	surfaceidentity "aigw-cli/internal/surface"
 )
+
+func TestUseForwardingPreviewIsCredentialFreeAndDoesNotWrite(t *testing.T) {
+	runtime, cfg, out := configuredRuntime(t)
+	before, err := runtime.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime.Secrets = secrets.NewMemoryStore()
+	runtime.HTTP = doerFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("selection preview contacted a service")
+		return nil, errors.New("unexpected request")
+	})
+	command := NewUseCommand(runtime)
+	command.SilenceErrors, command.SilenceUsage = true, true
+	command.SetArgs([]string{"--for", configuration.ClientCodex, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		DryRun           bool   `json:"dry_run"`
+		Endpoint         string `json:"endpoint"`
+		UpstreamEndpoint string `json:"upstream_endpoint"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil || !result.DryRun || result.Endpoint != "http://127.0.0.1:8792/v1" || result.UpstreamEndpoint != cfg.Accounts["gateway"].Endpoints.OpenAIResponses {
+		t.Fatalf("selection preview = %s, %v", out.Bytes(), err)
+	}
+	after, err := runtime.Config.CaptureSnapshot()
+	if err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatalf("selection preview wrote configuration: %v", err)
+	}
+}
+
+func TestUsePreservesForwardingChangedDuringDiscovery(t *testing.T) {
+	run, cfg, _ := configuredRuntime(t)
+	credentials := secrets.NewMemoryStore()
+	run.Secrets = credentials
+	if err := credentials.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	binding := cfg.Clients[configuration.ClientCodex]
+	binding.ForwardingEndpoint = "http://127.0.0.1:8792/original/v1"
+	cfg.Clients[configuration.ClientCodex] = binding
+	if err := run.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	newer := cfg.Clone()
+	binding.ForwardingEndpoint = "http://127.0.0.1:8792/operator/v1"
+	newer.Clients[configuration.ClientCodex] = binding
+	run.Discovery = staticDiscovery{onDiscover: func() {
+		if err := run.Config.Save(newer); err != nil {
+			t.Fatal(err)
+		}
+	}}
+	command := NewUseCommand(run)
+	command.SetArgs([]string{"codex", "--for", configuration.ClientCodex})
+	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "preimage changed") {
+		t.Fatalf("selection must reject a newer assembled configuration: %v", err)
+	}
+	got, err := run.Config.Load()
+	if err != nil || !reflect.DeepEqual(got, newer) {
+		t.Fatalf("selection overwrote the operator forwarding destination: %v", err)
+	}
+}
+
+func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
+	run, cfg, _ := configuredRuntime(t)
+	root := t.TempDir()
+	target := filepath.Join(root, "codex.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\nmodel = \"native-model\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	run.Executable = filepath.Join(root, "aigw")
+	run.Secrets = secrets.NewMemoryStore()
+	if err := run.Secrets.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
+	if err := run.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	selected, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected.CredentialCommand = run.Executable
+	if err := codex.SyncConfig(target, selected); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	drifted := bytes.Replace(projected, []byte(`model = "gpt-test" # managed by AIGW`), []byte(`model = "user-model"`), 1)
+	if bytes.Equal(drifted, projected) {
+		t.Fatal("fixture did not change the native root model selection")
+	}
+	if err := os.WriteFile(target, drifted, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	run.Discovery = staticDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
+		ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
+		ConfigPath: target, Present: true, AutoManaged: true,
+	}}}}
+	before, err := run.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := NewUseCommand(run)
+	command.SetArgs([]string{"codex", "--for", configuration.ClientCodex, "--dry-run", "--json"})
+	if err := command.Execute(); err != nil {
+		t.Fatalf("explicit selection preview rejected an authorized root selection: %v", err)
+	}
+	after, err := run.Config.CaptureSnapshot()
+	current, readErr := os.ReadFile(target)
+	if err != nil || readErr != nil || !reflect.DeepEqual(before, after) || !bytes.Equal(current, drifted) {
+		t.Fatal("selection preview changed owned configuration or native user selections")
+	}
+}
+
+func TestUseForwardingApplyNoOpAndDirectPreserveAccount(t *testing.T) {
+	runtime, cfg, out := configuredRuntime(t)
+	credentials := secrets.NewMemoryStore()
+	if err := credentials.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	runtime.Secrets = credentials
+	for index, extra := range [][]string{
+		{"--forwarding-endpoint", "http://127.0.0.1:8792/v1"},
+		{},
+		{"--direct"},
+	} {
+		out.Reset()
+		command := NewUseCommand(runtime)
+		command.SilenceErrors, command.SilenceUsage = true, true
+		command.SetArgs(append([]string{"--for", configuration.ClientCodex, "codex"}, extra...))
+		if err := command.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		current, err := runtime.Config.Load()
+		if err != nil || !reflect.DeepEqual(current.Accounts, cfg.Accounts) {
+			t.Fatalf("forwarding selection changed its Account: %v", err)
+		}
+		want := "http://127.0.0.1:8792/v1"
+		if index == 2 {
+			want = ""
+		}
+		if current.Clients[configuration.ClientCodex].ForwardingEndpoint != want {
+			t.Fatalf("selection %d destination = %q, want %q", index, current.Clients[configuration.ClientCodex].ForwardingEndpoint, want)
+		}
+	}
+}
 
 type staticDiscovery struct {
 	result     discovery.Result
@@ -76,7 +230,7 @@ func configuredRuntime(t *testing.T) (invocation.Context, configuration.Config, 
 			configuration.ProtocolOpenAIResponses: {},
 		},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -150,13 +304,21 @@ func TestUseRenderingDoesNotReinspectCredentialMetadata(t *testing.T) {
 
 func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 	for _, test := range []struct {
-		name      string
-		installed bool
-		want      []string
-		forbid    string
+		name        string
+		installed   bool
+		preselected bool
+		attempts    int
+		want        []string
+		forbid      string
 	}{
 		{name: "restart", installed: true, want: []string{"Route selected", "Restart required", "Restart Claude Desktop, then run `aigw check`"}},
 		{name: "deferred", want: []string{"Route selected", "Projection", "Deferred; native client projection is unavailable", "Install Claude Desktop if needed, then run `aigw sync`"}, forbid: "Restart required"},
+		{name: "restart-json", installed: true, want: []string{"\"projection_changed\": true", "restart_required", "Restart Claude Desktop, then run `aigw check`"}},
+		{name: "preselected-restart", installed: true, preselected: true, want: []string{"Route already selected", "Restart required", "Restart Claude Desktop, then run `aigw check`"}},
+		{name: "preselected-restart-json", installed: true, preselected: true, want: []string{"\"changed\": false", "\"projection_changed\": true", "restart_required", "Restart Claude Desktop, then run `aigw check`"}},
+		{name: "converged", installed: true, preselected: true, attempts: 2, want: []string{"Route already selected"}, forbid: "Restart required"},
+		{name: "converged-json", installed: true, preselected: true, attempts: 2, want: []string{"\"changed\": false", "\"projection_changed\": false"}, forbid: "restart_required"},
+		{name: "deferred-json", want: []string{"\"projection_changed\": false", "deferred", "Install Claude Desktop if needed, then run `aigw sync`"}, forbid: "restart_required"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, out := configuredRuntime(t)
@@ -170,33 +332,48 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 				Label: "Desktop", Account: "gateway", Model: "claude-test",
 				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 			}
-			if err := runtime.Config.Save(cfg); err != nil {
-				t.Fatal(err)
-			}
+			var executable, library string
 			if test.installed {
-				executable := filepath.Join(t.TempDir(), "Claude")
+				executable = filepath.Join(t.TempDir(), "Claude")
 				if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
 					t.Fatal(err)
 				}
-				library := filepath.Join(t.TempDir(), "Claude-3p", "configLibrary")
+				library = filepath.Join(t.TempDir(), "Claude-3p", "configLibrary")
 				runtime.Discovery = staticDiscovery{result: discovery.Result{
 					Executables: map[string]string{configuration.ClientClaudeDesktop: executable},
 					Surfaces:    []discovery.Surface{{ID: "claude-desktop-config-library", ConfigPath: library, Present: true, AutoManaged: true}},
 				}}
 			}
+			if test.preselected {
+				cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "desktop", "")
+				cfg.SetClientActivation(configuration.ClientClaudeDesktop, true, executable, []string{library})
+			}
+			if err := runtime.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
 			command := NewUseCommand(runtime)
 			command.SilenceErrors = true
 			command.SilenceUsage = true
-			command.SetArgs([]string{"--for", configuration.ClientClaudeDesktop, "desktop"})
-			if err := command.Execute(); err != nil {
-				t.Fatal(err)
+			args := []string{"--for", configuration.ClientClaudeDesktop, "desktop"}
+			if strings.HasSuffix(test.name, "-json") {
+				args = append(args, "--json")
+			}
+			command.SetArgs(args)
+			for range max(test.attempts, 1) {
+				out.Reset()
+				if err := command.Execute(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if entries, err := os.ReadDir(library); test.preselected && (err != nil || len(entries) == 0) {
+				t.Fatalf("selected Desktop did not receive its first native projection: %v", err)
 			}
 			for _, want := range test.want {
 				if !strings.Contains(out.String(), want) {
 					t.Fatalf("use output = %q, want %q", out.String(), want)
 				}
 			}
-			if test.forbid != "" && strings.Contains(out.String(), test.forbid) {
+			if strings.Contains(out.String(), test.forbid) && test.forbid != "" {
 				t.Fatalf("use output = %q, forbid %q", out.String(), test.forbid)
 			}
 		})
@@ -344,102 +521,5 @@ func TestUseRespectsCommandCancellation(t *testing.T) {
 				t.Fatal("cancelled selection retained its acquired token")
 			}
 		})
-	}
-}
-
-func TestUsePreservesCredentialsWhenCompensationCannotComplete(t *testing.T) {
-	deletionError := errors.New("credential store refused deletion")
-	for _, test := range []struct {
-		name      string
-		newer     string
-		deleteErr error
-		want      string
-		retained  string
-	}{
-		{name: "deletion failure", deleteErr: deletionError, want: deletionError.Error(), retained: "new-token"},
-		{name: "newer credential", newer: "newer-token", want: "credential postimage changed", retained: "newer-token"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			run, cfg, store, _ := tokenAcquisitionRuntime(t)
-			run.Secrets = failingSecretStore{Store: store, deleteErr: test.deleteErr}
-			run.Discovery = staticDiscovery{onDiscover: func() {
-				if test.newer != "" {
-					if err := store.Set("gateway", test.newer); err != nil {
-						t.Fatal(err)
-					}
-				}
-			}}
-			cfg.Routes["next"] = configuration.Route{
-				Label: "Next", Account: "gateway", Model: "gpt-next",
-				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
-			}
-			cfg.SetClientActivation(configuration.ClientCodex, true, "", []string{filepath.Join(t.TempDir(), "missing.toml")})
-			if err := run.Config.Save(cfg); err != nil {
-				t.Fatal(err)
-			}
-			command := NewUseCommand(run)
-			command.SilenceErrors = true
-			command.SilenceUsage = true
-			command.SetArgs([]string{"--for", configuration.ClientCodex, "next"})
-			err := command.ExecuteContext(t.Context())
-			for _, want := range []string{"synchronization preflight failed", "credential rollback also failed", test.want} {
-				if err == nil || !strings.Contains(err.Error(), want) {
-					t.Fatalf("selection error = %v, want %q", err, want)
-				}
-			}
-			if test.deleteErr != nil && !errors.Is(err, test.deleteErr) {
-				t.Fatalf("selection error lost credential store error: %v", err)
-			}
-			if token, err := store.Get("gateway"); err != nil || token != test.retained {
-				t.Fatalf("credential after failed compensation = %q, %v", token, err)
-			}
-			current, err := run.Config.Load()
-			if err != nil || current.SelectedRoute(configuration.ClientCodex) != "codex" {
-				t.Fatalf("failed selection changed binding: %#v, %v", current.Clients, err)
-			}
-		})
-	}
-}
-
-func TestUseRollsBackAutomaticBackendSelection(t *testing.T) {
-	run, _, _, _ := tokenAcquisitionRuntime(t)
-	root := filepath.Join(t.TempDir(), "secrets")
-	store, err := secrets.Select(secrets.Selection{
-		GOOS: runtime.GOOS, Root: root,
-		KeyringProbe: func(secrets.Store) error { return errors.New("isolated file backend") },
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	run.Secrets = store
-	run.Discovery = nil
-	command := NewUseCommand(run)
-	command.SilenceErrors = true
-	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", configuration.ClientCodex, "codex"})
-	if err := command.ExecuteContext(t.Context()); err == nil || !strings.Contains(err.Error(), "client discovery is unavailable") {
-		t.Fatalf("selection error = %v", err)
-	}
-	if secretExists(t, store, "gateway") {
-		t.Fatal("failed selection retained its acquired token")
-	}
-	if _, err := os.Stat(filepath.Join(root, "backend")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("failed selection retained automatic backend choice: %v", err)
-	}
-}
-
-func TestUseKeepsCommittedTokenWhenRenderingFails(t *testing.T) {
-	run, _, store, _ := tokenAcquisitionRuntime(t)
-	outputError := errors.New("output closed")
-	run.RenderOut = failingWriter{err: outputError}
-	command := NewUseCommand(run)
-	command.SilenceErrors = true
-	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", configuration.ClientCodex, "codex"})
-	if err := command.ExecuteContext(t.Context()); !errors.Is(err, outputError) {
-		t.Fatalf("output error = %v", err)
-	}
-	if token, err := store.Get("gateway"); err != nil || token != "new-token" {
-		t.Fatalf("committed token after output failure = %q, %v", token, err)
 	}
 }

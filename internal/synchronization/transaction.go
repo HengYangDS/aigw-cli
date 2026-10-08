@@ -13,62 +13,68 @@ import (
 // projections. Failures compensate owned writes without changing native credentials.
 func (s Synchronizer) Commit(ctx context.Context, before, after configuration.Config, subject string) error {
 	clients := s.registry().ChangedClients(before, after)
-	return s.commit(ctx, before, after, subject, len(clients) > 0, clients...)
+	_, err := s.commit(ctx, before, after, subject, len(clients) > 0, clients...)
+	return err
 }
 
 // CommitProjection persists configuration and reconciles every client projection,
 // including missing or out-of-date projections of unchanged configuration.
 func (s Synchronizer) CommitProjection(ctx context.Context, before, after configuration.Config, subject string, clientIDs ...string) error {
-	return s.commit(ctx, before, after, subject, true, clientIDs...)
+	_, err := s.commit(ctx, before, after, subject, true, clientIDs...)
+	return err
 }
 
-func (s Synchronizer) commit(ctx context.Context, before, after configuration.Config, subject string, reconcileProjection bool, clientIDs ...string) error {
+func (s Synchronizer) commit(ctx context.Context, before, after configuration.Config, subject string, reconcileProjection bool, clientIDs ...string) (bool, error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return false, err
 	}
 	configBefore, err := s.Config.CaptureSnapshot()
 	if err != nil {
-		return err
+		return false, err
+	}
+	matched, err := configBefore.MatchesConfiguration(before)
+	if err != nil || !matched {
+		return false, errors.Join(errors.New("configuration preimage changed; refusing to overwrite newer state"), err)
 	}
 	var projectable []string
 	if reconcileProjection {
 		projectable, err = s.credentialReadyClients(after, clientIDs...)
 		if err != nil {
-			return fmt.Errorf("%s synchronization preflight failed; configuration and client files were unchanged: %w", subject, err)
+			return false, fmt.Errorf("%s synchronization preflight failed; configuration and client files were unchanged: %w", subject, err)
 		}
 	}
 	if len(projectable) > 0 {
 		dependencies, err := s.clientDependencies(projectable, before, after)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if _, err := s.registry().Plan(dependencies, before, after, projectable...); err != nil {
-			return fmt.Errorf("%s synchronization preflight failed; configuration and client files were unchanged: %w", subject, err)
+			return false, fmt.Errorf("%s synchronization preflight failed; configuration and client files were unchanged: %w", subject, err)
 		}
 	}
 	if err := ctx.Err(); err != nil {
-		return err
+		return false, err
 	}
 	var undoEntrypoint func() error
 	if len(projectable) > 0 {
 		undoEntrypoint, err = s.prepareCredentialEntrypoint(after, projectable...)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 	if err := ctx.Err(); err != nil {
-		return errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
+		return false, errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
 	}
 	configAfter, err := s.Config.Commit(configBefore, after)
 	if err != nil {
-		return errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
+		return false, errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
 	}
 	if len(projectable) == 0 {
-		return nil
+		return false, nil
 	}
-	receipt, err := s.applyProjection(ctx, before, after, configBefore, configAfter, undoEntrypoint, projectable...)
+	receipt, projectionChanged, err := s.applyProjection(ctx, before, after, configBefore, configAfter, undoEntrypoint, projectable...)
 	if err != nil {
-		return fmt.Errorf("%s %w", subject, err)
+		return false, fmt.Errorf("%s %w", subject, err)
 	}
 	if err := s.finalizeCredentialEntrypoint(after, projectable...); err != nil {
 		projectionErr := receipt.Rollback()
@@ -81,17 +87,17 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 			entrypointErr = undoCreatedEntrypoint(undoEntrypoint)
 		}
 		if rollbackErr := errors.Join(projectionErr, configErr, entrypointErr); rollbackErr != nil {
-			return projectionError{
+			return false, projectionError{
 				cause:    fmt.Errorf("%s credential entrypoint finalization failed: %w; compensation incomplete: %w", subject, err, rollbackErr),
 				restored: configErr == nil,
 			}
 		}
-		return projectionError{
+		return false, projectionError{
 			cause:    fmt.Errorf("%s credential entrypoint finalization failed; configuration and client projections were rolled back: %w", subject, err),
 			restored: true,
 		}
 	}
-	return nil
+	return projectionChanged, nil
 }
 
 func (s Synchronizer) finalizeCredentialEntrypoint(cfg configuration.Config, clientIDs ...string) error {
@@ -115,22 +121,23 @@ func (s Synchronizer) applyProjection(
 	configBefore, configAfter configuration.Snapshot,
 	undoEntrypoint func() error,
 	clientIDs ...string,
-) (client.ProjectionReceipt, error) {
+) (client.ProjectionReceipt, bool, error) {
 	dependencies, err := s.clientDependencies(clientIDs, before, after)
 	var receipt client.ProjectionReceipt
+	var changed bool
 	if err == nil {
-		receipt, err = s.registry().Apply(ctx, dependencies, before, after, clientIDs...)
+		receipt, changed, err = s.registry().Apply(ctx, dependencies, before, after, clientIDs...)
 	}
 	if err != nil {
 		if rollbackErr := s.Config.RestoreSnapshot(configBefore, configAfter); rollbackErr != nil {
-			return nil, projectionError{cause: fmt.Errorf("synchronization failed: %w; rollback also failed: %w", err, rollbackErr)}
+			return nil, false, projectionError{cause: fmt.Errorf("synchronization failed: %w; rollback also failed: %w", err, rollbackErr)}
 		}
 		if !errors.Is(err, client.ErrProjectionRollbackFailed) {
 			err = errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
 		}
-		return nil, projectionError{cause: fmt.Errorf("synchronization failed; configuration was rolled back: %w", err), restored: true}
+		return nil, false, projectionError{cause: fmt.Errorf("synchronization failed; configuration was rolled back: %w", err), restored: true}
 	}
-	return receipt, nil
+	return receipt, changed, nil
 }
 
 // projectionError preserves the verified configuration outcome without

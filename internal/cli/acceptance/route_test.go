@@ -67,7 +67,7 @@ func TestRouteRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Routes["gpt-default"] = qualifiedRoute("GPT Default", "dmx", "gpt-default", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["gpt-unused"] = qualifiedRoute("GPT Unused", "dmx", "gpt-unused", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-default")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-default", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestRouteAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "gpt", "dmx", "GPT", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}, configuration.ClientCodex, "gpt-test")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestRouteAddDoesNotConflateRouteCreationWithClientCompatibility(t *testing.
 	app, _, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "gpt", "openai-only", "OpenAI Only", configuration.Endpoints{OpenAIResponses: "https://openai.test/v1"}, configuration.ClientCodex, "gpt-test")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +231,7 @@ func TestRouteListJSONIsStableAndClientIndependent(t *testing.T) {
 		Route: "alpha", ModelProvider: "amazon-bedrock",
 		Authentication: configuration.AuthenticationClientNative,
 	}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "zeta")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "zeta", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -275,7 +275,7 @@ func TestRouteShowRendersEverySecretFreeField(t *testing.T) {
 	route := cfg.Routes["codex"]
 	route.Purpose = "Daily work"
 	cfg.Routes["codex"] = route
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -377,8 +377,8 @@ func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 		cfg := configuration.NewConfig()
 		addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}, configuration.ClientClaude, "m1")
 		addAccountRoute(&cfg, "two", "one", "Two", configuration.Endpoints{}, configuration.ClientCodex, "m2")
-		cfg.SetSelectedRoute(configuration.ClientClaude, "one")
-		cfg.SetSelectedRoute(configuration.ClientCodex, "two")
+		cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
+		cfg.SetSelectedRoute(configuration.ClientCodex, "two", "")
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -397,7 +397,7 @@ func TestRouteEditSynchronizesActiveCodexProjection(t *testing.T) {
 	}
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "one")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -419,7 +419,7 @@ func TestRoutePurposeIsOptionalHumanGuidance(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "current", "team", "Team Gateway", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-current")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "current")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "current", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -499,7 +499,7 @@ func TestRouteListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T) 
 	route := cfg.Routes["gpt"]
 	route.Purpose = "native Codex picker-aligned daily default"
 	cfg.Routes["gpt"] = route
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -527,7 +527,7 @@ func TestRouteRemoveRefusesActiveRoute(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "team")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "team", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

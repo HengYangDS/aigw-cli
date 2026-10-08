@@ -78,13 +78,13 @@ func TestRollbackRestoresLastConfigurationChange(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	before := configuration.NewConfig()
 	addAccountRoute(&before, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
-	before.SetSelectedRoute(configuration.ClientClaude, "one")
+	before.SetSelectedRoute(configuration.ClientClaude, "one", "")
 	if err := app.Config.Save(before); err != nil {
 		t.Fatal(err)
 	}
 	after := before
 	after.Routes = map[string]configuration.Route{"two": qualifiedRoute("Two", "one", "claude-two", configuration.ProtocolAnthropic)}
-	after.SetSelectedRoute(configuration.ClientClaude, "two")
+	after.SetSelectedRoute(configuration.ClientClaude, "two", "")
 	if err := app.Config.Save(after); err != nil {
 		t.Fatal(err)
 	}
@@ -101,13 +101,13 @@ func TestRollbackUsesPreviousConfigurationWhenVerifiedRecoveryIsInvalid(t *testi
 	app, out, _, _, _ := testApp(t, "")
 	previous := configuration.NewConfig()
 	addAccountRoute(&previous, "stable", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-stable")
-	previous.SetSelectedRoute(configuration.ClientClaude, "stable")
+	previous.SetSelectedRoute(configuration.ClientClaude, "stable", "")
 	if err := app.Config.Save(previous); err != nil {
 		t.Fatal(err)
 	}
 	current := previous
 	current.Routes = map[string]configuration.Route{"current": qualifiedRoute("Current", "one", "claude-current", configuration.ProtocolAnthropic)}
-	current.SetSelectedRoute(configuration.ClientClaude, "current")
+	current.SetSelectedRoute(configuration.ClientClaude, "current", "")
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 	target := t.TempDir()
 	verified := configuration.NewConfig()
 	addAccountRoute(&verified, "stable", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-stable")
-	verified.SetSelectedRoute(configuration.ClientCodex, "stable")
+	verified.SetSelectedRoute(configuration.ClientCodex, "stable", "")
 	verified.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(verified); err != nil {
 		t.Fatal(err)
@@ -175,7 +175,7 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 	verified := configuration.NewConfig()
 	verified.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	verified.Routes["stable"] = qualifiedRoute("Stable", "dmx", "gpt-stable", configuration.ProtocolOpenAIResponses)
-	verified.SetSelectedRoute(configuration.ClientCodex, "stable")
+	verified.SetSelectedRoute(configuration.ClientCodex, "stable", "")
 	if err := app.Config.Save(verified); err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 	}
 	current := verified
 	current.Routes = map[string]configuration.Route{"experimental": qualifiedRoute("Experimental", "dmx", "gpt-experimental", configuration.ProtocolOpenAIResponses)}
-	current.SetSelectedRoute(configuration.ClientCodex, "experimental")
+	current.SetSelectedRoute(configuration.ClientCodex, "experimental", "")
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)
 	}

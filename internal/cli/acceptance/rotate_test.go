@@ -22,7 +22,7 @@ func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Routes["gpt-5.6-sol"] = qualifiedRoute("GPT Route", "dmx", "gpt-5.6-sol", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-5.6-sol")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-5.6-sol", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func TestRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "new-token\n")
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "one")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{t.TempDir()})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -182,7 +182,7 @@ func TestRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T) {
 			}
 			cfg := configuration.NewConfig()
 			addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
-			cfg.SetSelectedRoute(configuration.ClientCodex, "one")
+			cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
 			cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 			wantMessage := "clients control their refresh timing"
 			if !hasTarget {
@@ -229,8 +229,8 @@ func TestRotateClaudeOnlyAccountDoesNotTouchCodexTargets(t *testing.T) {
 	cfg.Accounts["claude-account"] = configuration.Account{Label: "Claude", Endpoints: configuration.Endpoints{Anthropic: "https://claude.test"}}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "codex-account", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "claude-account", "claude-test", configuration.ProtocolAnthropic)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/missing/codex", []string{filepath.Join(t.TempDir(), "unavailable-codex-configuration.toml")})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

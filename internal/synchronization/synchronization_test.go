@@ -57,6 +57,7 @@ func (run runnerFunc) RunCapture(ctx context.Context, plan process.Plan) ([]byte
 }
 
 type configStoreStub struct {
+	snapshot   configuration.Snapshot
 	captureErr error
 	commitErr  error
 	restoreErr error
@@ -66,7 +67,20 @@ type configStoreStub struct {
 }
 
 func (s *configStoreStub) CaptureSnapshot() (configuration.Snapshot, error) {
-	return configuration.Snapshot{}, s.captureErr
+	return s.snapshot, s.captureErr
+}
+
+func (s *configStoreStub) bindConfiguration(t *testing.T, cfg configuration.Config) {
+	t.Helper()
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.snapshot = snapshot
 }
 
 func (s *configStoreStub) Commit(configuration.Snapshot, configuration.Config) (configuration.Snapshot, error) {
@@ -86,7 +100,7 @@ func testConfig(target string) configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Routes["gpt"] = configuration.Route{Label: "GPT", Account: "gateway", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	return cfg
 }
@@ -387,7 +401,7 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 		Label: "Claude", Account: "gateway", Model: "claude-team",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	before.SetSelectedRoute(configuration.ClientClaude, "claude")
+	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	after := before.Clone()
 	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))
@@ -461,7 +475,7 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 		Label: "Claude", Account: "gateway", Model: "claude-team",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	before.SetSelectedRoute(configuration.ClientClaude, "claude")
+	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	after := before.Clone()
 	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))

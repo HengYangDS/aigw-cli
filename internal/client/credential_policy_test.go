@@ -68,14 +68,14 @@ func TestCredentialPolicyControlsProjectionAndSurvivesDiscovery(t *testing.T) {
 			if got := registry.ChangedClients(before, converged); !reflect.DeepEqual(got, []string{id}) {
 				t.Fatalf("command-only change selected %v", got)
 			}
-			if _, err := registry.Apply(context.Background(), deps, configuration.NewConfig(), before, id); err != nil {
+			if _, _, err := registry.Apply(context.Background(), deps, configuration.NewConfig(), before, id); err != nil {
 				t.Fatal(err)
 			}
 			plans, err := registry.Plan(deps, before, converged, id)
 			if err != nil || len(plans) != 1 {
 				t.Fatalf("projection plan = %v, %v", plans, err)
 			}
-			if _, err := registry.Apply(context.Background(), deps, before, converged, id); err != nil {
+			if _, _, err := registry.Apply(context.Background(), deps, before, converged, id); err != nil {
 				t.Fatal(err)
 			}
 			runtime, err := converged.ResolveRuntime(id, "")
@@ -175,7 +175,7 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 			adapter := cfg.Clients[id]
 			adapter.CredentialCommand = filepath.Join(t.TempDir(), "credential adapter")
 			cfg.Clients[id] = adapter
-			if _, err := registry.Apply(context.Background(), deps, configuration.NewConfig(), cfg, id); err != nil {
+			if _, _, err := registry.Apply(context.Background(), deps, configuration.NewConfig(), cfg, id); err != nil {
 				t.Fatal(err)
 			}
 			runtime, err := cfg.ResolveRuntime(id, "")

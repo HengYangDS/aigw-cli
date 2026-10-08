@@ -14,7 +14,7 @@ func TestMergeRouteRetirementRejectsDanglingRecommendationWithoutMutatingInput(t
 	cfg.Routes["old"] = testRoute("Old", "gateway", "gpt-old", ProtocolOpenAIResponses)
 	cfg.Routes["selected"] = testRoute("Selected", "gateway", "gpt-selected", ProtocolOpenAIResponses)
 	cfg.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{Route: "old"}}
-	cfg.SetSelectedRoute(ClientCodex, "selected")
+	cfg.SetSelectedRoute(ClientCodex, "selected", "")
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)

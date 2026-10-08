@@ -287,7 +287,7 @@ func TestNativeTaggedPeerInputsShareTheReleaseLifecycle(t *testing.T) {
 				case "go":
 					journeys++
 					scratch = strings.TrimPrefix(call.Env[0], "AIGW_ACCEPTANCE_RELEASE=")
-					if !slices.Contains(call.Args, "^TestNativePublishedPredecessorJourney$") {
+					if !slices.Contains(call.Args, "^TestNativePublishedPredecessor(Journey|ForwardingJourney)$") {
 						return nil
 					}
 					entry := slices.IndexFunc(call.Env, func(value string) bool { return strings.HasPrefix(value, "AIGW_ACCEPTANCE_BASELINE=") })

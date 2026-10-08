@@ -87,7 +87,7 @@ func configuredRepairStore(t *testing.T) (configuration.Store, configuration.Con
 		Label: "One", Account: "one", Model: "claude-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "one")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestRepairDesiredConfigPreservesExplicitCodexIntentWhenDiscoveryIsEmpty(t *
 		Label: "One", Account: "one", Model: "gpt",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
-	before.SetSelectedRoute(configuration.ClientCodex, "one")
+	before.SetSelectedRoute(configuration.ClientCodex, "one", "")
 	before.SetClientActivation(configuration.ClientCodex, true, "/old", nil)
 	runtime := invocation.Context{Discovery: staticDiscovery{result: discovery.Result{}}}
 	after, _, err := invocation.Synchronizer(runtime).DesiredClientConfiguration(before)
@@ -155,7 +155,7 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 				Label: "One", Account: "one", Model: "gpt-test",
 				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 			}
-			cfg.SetSelectedRoute(configuration.ClientCodex, "one")
+			cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
 			missingTarget := filepath.Join(t.TempDir(), "missing", "configuration.toml")
 			cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{missingTarget})
 			if err := store.Save(cfg); err != nil {
@@ -195,7 +195,7 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 		Label: "One", Account: "one", Model: "claude-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "one")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)

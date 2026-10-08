@@ -78,7 +78,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 
 	runtime.Interactive = true
 	runtime.Prompt = &promptStub{selected: string(configuration.ProtocolOpenAIResponses)}
-	interactive, err := resolveUseRuntime(runtime, cfg, configuration.ClientHermes, "shared", "")
+	interactive, err := resolveUseRuntime(runtime, cfg, configuration.ClientHermes, "shared", "", nil)
 	if err != nil || interactive.Protocol != configuration.ProtocolOpenAIResponses {
 		t.Fatalf("interactive Hermes protocol = %#v, %v", interactive, err)
 	}

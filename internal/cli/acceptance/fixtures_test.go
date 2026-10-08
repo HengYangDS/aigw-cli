@@ -287,7 +287,7 @@ func saveCommandRoute(t *testing.T, app *cli.App, endpoints configuration.Endpoi
 	t.Helper()
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "one", "one", "One", endpoints, client, model)
-	cfg.SetSelectedRoute(client, "one")
+	cfg.SetSelectedRoute(client, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -387,7 +387,7 @@ func saveProbeRoute(t *testing.T, appConfig configuration.Store) {
 		AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"},
 	}
 	cfg.Routes["gpt"] = configuration.Route{Label: "GPT", Account: "dmx", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
 	if err := appConfig.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -402,7 +402,7 @@ func twoRouteConfig() configuration.Config {
 		route.Interfaces[configuration.ProtocolAnthropic] = []configuration.Capability{}
 		cfg.Routes[routeID] = route
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "one")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
 	return cfg
 }
 
@@ -489,8 +489,8 @@ func readyVerificationApp(t *testing.T) (*cli.App, *fakeRunner) {
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", configuration.ProtocolAnthropic)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {

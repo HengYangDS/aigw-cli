@@ -11,6 +11,58 @@ import (
 	"testing"
 )
 
+func TestForwardingBackupConvergencePreservesCurrentGeneration(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	cfg := convergenceConfig("current")
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	binding := cfg.Clients[ClientCodex]
+	binding.ForwardingEndpoint = "http://127.0.0.1:8792/v1"
+	cfg.Clients[ClientCodex] = binding
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err != nil {
+		t.Fatal(err)
+	}
+	state, err := store.CaptureVerifiedBackupState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.ConvergeVerifiedBackup(state.Snapshot); err != nil {
+		t.Fatal(err)
+	}
+	backup, err := store.LoadBackup()
+	if err != nil || backup.Clients[ClientCodex].ForwardingEndpoint != binding.ForwardingEndpoint {
+		t.Fatalf("verified backup lost its destination generation: %#v, %v", backup.Clients, err)
+	}
+	state, err = store.CaptureVerifiedBackupState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding.ForwardingEndpoint = "http://127.0.0.1:8793/v1"
+	cfg.Clients[ClientCodex] = binding
+	data, err := encodeForwarding(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(store.forwardingPath(), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.ConvergeVerifiedBackup(state.Snapshot); err == nil {
+		t.Fatal("backup convergence ignored a changed forwarding preimage")
+	}
+	after, err := store.CaptureSnapshot()
+	if err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatalf("rejected backup convergence overwrote newer state: %v", err)
+	}
+}
+
 func TestCaptureVerifiedBackupStateRequiresExistingConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	_, err := NewStore(path).CaptureVerifiedBackupState()
@@ -323,6 +375,6 @@ func convergenceConfig(id string) Config {
 	cfg := NewConfig()
 	cfg.Accounts[id] = Account{Label: strings.ToUpper(id), Endpoints: Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
 	cfg.Routes[id] = testRoute(strings.ToUpper(id), id, id+"-model", ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(ClientCodex, id)
+	cfg.SetSelectedRoute(ClientCodex, id, "")
 	return cfg
 }

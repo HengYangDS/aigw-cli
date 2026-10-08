@@ -117,9 +117,9 @@ func TestExplicitCredentialCommandSurvivesHostConfigRoundTrip(t *testing.T) {
 	cfg := validConfig()
 	cfg.Normalize()
 	cfg.Routes[ClientClaudeDesktop] = testRoute("Claude Desktop", "dmx", "model", ProtocolAnthropic)
-	cfg.SetSelectedRoute(ClientClaudeDesktop, ClientClaudeDesktop)
+	cfg.SetSelectedRoute(ClientClaudeDesktop, ClientClaudeDesktop, "")
 	cfg.Routes[ClientHermes] = testRoute("Hermes", "backup", "model", ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(ClientHermes, ClientHermes)
+	cfg.SetSelectedRoute(ClientHermes, ClientHermes, "")
 	for _, client := range AdmittedClientIDs() {
 		command := filepath.Join(t.TempDir(), "credential adapter")
 		var adapter ClientBinding

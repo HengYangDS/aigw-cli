@@ -72,7 +72,7 @@ func (s Synchronizer) Setup(ctx context.Context, before, after configuration.Con
 			return configuration.Config{}, err
 		}
 	}
-	if err := s.commit(ctx, before, after, "setup", len(clients) > 0, clients...); err != nil {
+	if _, err := s.commit(ctx, before, after, "setup", len(clients) > 0, clients...); err != nil {
 		return configuration.Config{}, err
 	}
 	return after, nil

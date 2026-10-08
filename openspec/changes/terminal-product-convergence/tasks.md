@@ -218,10 +218,10 @@ in Git; original raw results stay with their source-bound verification owner.
 
 ## 9. Frozen Source and Pre-Archive Acceptance
 
-- [x] 9.1 Review each changed requirement against source, tests, CLI, team
+- [ ] 9.1 Review each changed requirement against source, tests, CLI, team
       manifest, quality/CI projection and docs; remove contradictory old text and
       unused compatibility paths before freezing inputs.
-- [x] 9.2 Run focused RED/GREEN suites, native static/behavior checks and strict
+- [ ] 9.2 Run focused RED/GREEN suites, native static/behavior checks and strict
       official OpenSpec validation with pristine output on the frozen source; no
       skipped required gate or warning counts as pass.
 - [ ] 9.3 Qualify one signed untagged macOS/Linux/Windows candidate with

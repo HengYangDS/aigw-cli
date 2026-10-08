@@ -1,6 +1,7 @@
 package construction
 
 import (
+	"aigw-cli/internal/configuration"
 	"aigw-cli/tools/release/performance"
 	"bytes"
 	"encoding/json"
@@ -13,6 +14,67 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestNativeForwardingPerformanceOwnsItsCandidateOnlyScope(t *testing.T) {
+	output := t.TempDir()
+	summary := writeQualifiedPerformanceSummary(t, output)
+	summary.Scope = "forwarding-performance"
+	summary.Blocks = slices.DeleteFunc(summary.Blocks, func(row performance.Measurement) bool {
+		return row.Variant != "candidate" || !slices.Contains([]string{"credential", "projection", "sync", "status", "export"}, row.Case)
+	})
+	binding := configuration.Runtime{Client: configuration.ClientClaude, RouteID: "selected-route", AccountID: "account",
+		Protocol: configuration.ProtocolAnthropic, UpstreamEndpoint: "https://upstream.example/v1", Endpoint: "http://127.0.0.1:18792/v1"}
+	for index := range summary.Blocks {
+		row := &summary.Blocks[index]
+		if row.Case == "projection" {
+			row.Command = append(row.Command, "--forwarding-endpoint", binding.Endpoint)
+			row.Samples.Command = performance.Argv(row.Command...)
+		}
+		row.Mode, row.Runtime = "forwarding", binding
+		writeHyperfineSamples(t, filepath.Join(output, row.Raw), row.Samples)
+	}
+	for index := range summary.Memory {
+		row := &summary.Memory[index]
+		row.Mode, row.Runtime = "direct", binding
+		if row.Variant == "candidate" {
+			row.Mode = "forwarding"
+		} else {
+			row.Runtime.Endpoint = binding.UpstreamEndpoint
+		}
+		selected := summary.Blocks[0].Executable
+		if row.Variant == "baseline" {
+			identity := *selected
+			identity.Path, identity.SHA256, identity.Bytes = summary.Programs[0].Path, summary.Programs[0].SHA256, summary.Programs[0].Bytes
+			selected = &identity
+		}
+		row.Executable = selected
+	}
+	var err error
+	summary.Pooled, err = performance.Pooled(summary.Blocks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := summary.Review(); err != nil {
+		t.Fatalf("candidate-only forwarding evidence was refused: %v", err)
+	}
+	data, err := json.Marshal(summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(output, "summary.json"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := performance.ReadSummary(output, "forwarding-performance"); err != nil {
+		t.Fatalf("exact forwarding raw evidence was refused: %v", err)
+	}
+	if _, err := performance.ReadSummary(output, "full-performance"); err == nil {
+		t.Fatal("forwarding raw evidence qualified the full direct scope")
+	}
+	summary.Scope = "full-performance"
+	if err := summary.Review(); err == nil {
+		t.Fatal("forwarding-only evidence qualified the full direct journey")
+	}
+}
 
 func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 	for _, test := range []struct {
@@ -177,7 +239,7 @@ func TestNativePerformanceSummaryBindsNativeEvidence(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(output, "summary.json"), data, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := performance.ReadSummary(output, false); err == nil || !strings.Contains(err.Error(), reason) {
+			if _, err := performance.ReadSummary(output, "full-performance"); err == nil || !strings.Contains(err.Error(), reason) {
 				t.Fatalf("%s acquired native qualification: %v", name, err)
 			}
 		})

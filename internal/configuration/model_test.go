@@ -15,7 +15,7 @@ func TestConfigQueriesOwnAccountAndRouteSelectionSemantics(t *testing.T) {
 	}
 	cfg.Routes["zeta"] = testRoute("Zeta", "gateway", "claude-zeta", ProtocolAnthropic)
 	cfg.Routes["alpha"] = testRoute("Alpha", "gateway", "claude-test", ProtocolAnthropic)
-	cfg.SetSelectedRoute(ClientClaude, "alpha")
+	cfg.SetSelectedRoute(ClientClaude, "alpha", "")
 
 	if got := cfg.RouteIDs(); !reflect.DeepEqual(got, []string{"alpha", "zeta"}) {
 		t.Fatalf("RouteIDs() = %#v", got)
@@ -145,7 +145,7 @@ func TestConfigCloneDoesNotShareMutableState(t *testing.T) {
 	}
 	clone.Accounts["dmx"] = Account{Label: "Changed"}
 	clone.Routes["default"] = Route{Label: "Changed"}
-	clone.SetSelectedRoute(ClientClaude, "changed")
+	clone.SetSelectedRoute(ClientClaude, "changed", "")
 	clone.SetRecommendedRoute(ClientClaude, "changed")
 	adapter := clone.Clients[ClientCodex]
 	adapter.Targets[0] = "changed"
@@ -170,7 +170,7 @@ func TestValidateRejectsUnsafeOrAmbiguousConfiguration(t *testing.T) {
 	}{
 		{"invalid route name", func(c *Config) { c.Routes["bad name"] = c.Routes["dmx"] }, "route name"},
 		{"uppercase account name", func(c *Config) { c.Accounts["DMX"] = c.Accounts["dmx"] }, "must be lowercase"},
-		{"unknown selected route", func(c *Config) { c.SetSelectedRoute(ClientClaude, "missing") }, "unknown route"},
+		{"unknown selected route", func(c *Config) { c.SetSelectedRoute(ClientClaude, "missing", "") }, "unknown route"},
 		{"unknown client", func(c *Config) { c.Clients["chat"] = ClientBinding{Route: "dmx"} }, "unknown client binding"},
 		{"unknown recommended route", func(c *Config) { c.SetRecommendedRoute(ClientClaude, "missing") }, "unknown route"},
 		{"unknown recommended client", func(c *Config) {
@@ -281,7 +281,7 @@ func TestValidateRejectsRuntimeRouteReferencingUnknownAccountOrInvalidClientOpti
 	cfg := NewConfig()
 	cfg.Accounts["dmx"] = Account{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
 	cfg.Routes["codex"] = testRoute("Codex", "missing", "gpt-5.6", ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(ClientCodex, "codex")
+	cfg.SetSelectedRoute(ClientCodex, "codex", "")
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "unknown account") {
 		t.Fatalf("error = %v", err)
 	}
@@ -364,7 +364,7 @@ func TestValidateTreatsRouteIDAsTransparentConfiguration(t *testing.T) {
 	delete(cfg.Routes, "dmx")
 	cfg.Routes[routeID] = route
 	delete(cfg.Clients, ClientClaude)
-	cfg.SetSelectedRoute(ClientCodex, routeID)
+	cfg.SetSelectedRoute(ClientCodex, routeID, "")
 
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("valid route ID must not be rejected by product-specific naming policy: %v", err)
@@ -379,7 +379,7 @@ func TestValidateTreatsUpstreamModelIDAsTransparentConfiguration(t *testing.T) {
 	route.Interfaces = map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}
 	cfg.Routes["dmx"] = route
 	delete(cfg.Clients, ClientClaude)
-	cfg.SetSelectedRoute(ClientCodex, "dmx")
+	cfg.SetSelectedRoute(ClientCodex, "dmx", "")
 
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("upstream model ID must not be rejected by product-specific naming policy: %v", err)
@@ -463,7 +463,7 @@ func TestValidateRejectsEmptyLabelsAndUnnamedOrUnendpointedAccounts(t *testing.T
 			c.Routes["dmx"] = p
 		}, "must reference an account"},
 		{"binding references unknown route", func(c *Config) {
-			c.SetSelectedRoute(ClientClaude, "missing")
+			c.SetSelectedRoute(ClientClaude, "missing", "")
 		}, "references unknown route"},
 		{"unknown client binding", func(c *Config) {
 			c.Clients = map[string]ClientBinding{"gemini": {Enabled: true}}

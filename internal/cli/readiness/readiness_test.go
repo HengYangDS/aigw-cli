@@ -121,8 +121,8 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, configuration
 		Label: "Codex", Account: "one", Model: "gpt-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

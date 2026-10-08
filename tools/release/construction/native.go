@@ -25,13 +25,13 @@ import (
 // NativeAcceptance selects artifact identities and optional peer transport.
 // Local paths never imply a network request; tags require an explicit peer to download.
 type NativeAcceptance struct {
-	Artifacts, Tag, BaselineArtifacts, BaselineTag string
-	InputPackage, InputArchive, InputSHA256        string
-	Peer, Repository                               string
-	CandidateSource                                string
-	Candidate, Clients, PerformanceAttribution     bool
-	Performance                                    string
-	DiagnosticClient                               string
+	Artifacts, Tag, BaselineArtifacts, BaselineTag                    string
+	InputPackage, InputArchive, InputSHA256                           string
+	Peer, Repository                                                  string
+	CandidateSource                                                   string
+	Candidate, Clients, PerformanceAttribution, PerformanceForwarding bool
+	Performance                                                       string
+	DiagnosticClient                                                  string
 }
 
 var nativeAcceptanceClients = []string{configuration.ClientClaude, configuration.ClientCodex, configuration.ClientHermes}
@@ -56,6 +56,7 @@ func ParseNativeAcceptance(arguments []string) (NativeAcceptance, error) {
 	flags.StringVar(&input.DiagnosticClient, "diagnostic-client", "", "Diagnose one native client; does not qualify complete product acceptance")
 	flags.StringVar(&input.Performance, "performance", "", "Retain Hyperfine samples in this absolute directory")
 	flags.BoolVar(&input.PerformanceAttribution, "performance-attribution", false, "Diagnose native components without qualifying performance budgets")
+	flags.BoolVar(&input.PerformanceForwarding, "performance-forwarding", false, "Qualify candidate forwarding workloads against direct predecessor memory")
 	if err := flags.Parse(arguments); err != nil {
 		return input, err
 	}
@@ -78,6 +79,7 @@ func NativeTestEnvironment(workspace, artifacts, baseline string) []string {
 		"AIGW_ACCEPTANCE_RELEASE=" + artifacts, "TMPDIR=" + workspace,
 		"TMP=" + workspace, "TEMP=" + workspace,
 		"AIGW_PERFORMANCE_ATTRIBUTION=0",
+		"AIGW_PERFORMANCE_FORWARDING=0",
 	}, forgeCredentialOverrides()...), "AIGW_ACCEPTANCE_BASELINE="+baseline)
 }
 
@@ -159,11 +161,8 @@ func (input *NativeAcceptance) validate() error {
 }
 
 func (input *NativeAcceptance) validateOptionalScopes() error {
-	if input.PerformanceAttribution && (input.Performance == "" || input.Clients || input.DiagnosticClient != "") {
-		return errors.New("performance attribution requires an explicit performance output and no client scope")
-	}
-	if input.DiagnosticClient != "" && (!slices.Contains(nativeAcceptanceClients, input.DiagnosticClient) || !input.UsesPrebuiltArtifacts() || input.Clients || input.Performance != "") {
-		return errors.New("native client diagnostics require one supported client, prebuilt artifacts, and no full-client or performance scope")
+	if err := input.validateDiagnosticScopes(); err != nil {
+		return err
 	}
 	for _, tag := range []string{input.Tag, input.BaselineTag} {
 		if tag == "" {
@@ -183,6 +182,19 @@ func (input *NativeAcceptance) validateOptionalScopes() error {
 		if !input.UsesPrebuiltArtifacts() || os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" && input.BaselineTag == "" {
 			return errors.New("performance acceptance requires an explicit candidate artifact and published baseline")
 		}
+	}
+	return nil
+}
+
+func (input *NativeAcceptance) validateDiagnosticScopes() error {
+	if input.PerformanceForwarding && (input.Performance == "" || input.PerformanceAttribution || input.Clients || input.DiagnosticClient != "") {
+		return errors.New("forwarding performance requires an explicit output and no other optional scope")
+	}
+	if input.PerformanceAttribution && (input.Performance == "" || input.Clients || input.DiagnosticClient != "") {
+		return errors.New("performance attribution requires an explicit performance output and no client scope")
+	}
+	if input.DiagnosticClient != "" && (!slices.Contains(nativeAcceptanceClients, input.DiagnosticClient) || !input.UsesPrebuiltArtifacts() || input.Clients || input.Performance != "") {
+		return errors.New("native client diagnostics require one supported client, prebuilt artifacts, and no full-client or performance scope")
 	}
 	return nil
 }
@@ -324,14 +336,15 @@ func acceptNative(request buildRequest, artifacts, baseline string, input Native
 	}
 	lifecycle := performanceDirectory == "" && input.DiagnosticClient == ""
 	performanceEnvironment := append(publishedEnvironment, "AIGW_PERFORMANCE_OUTPUT="+performanceDirectory,
-		"AIGW_PERFORMANCE_ATTRIBUTION="+map[bool]string{false: "0", true: "1"}[input.PerformanceAttribution])
+		"AIGW_PERFORMANCE_ATTRIBUTION="+map[bool]string{false: "0", true: "1"}[input.PerformanceAttribution],
+		"AIGW_PERFORMANCE_FORWARDING="+map[bool]string{false: "0", true: "1"}[input.PerformanceForwarding])
 	for _, suite := range []struct {
 		selected    bool
 		args        []string
 		environment []string
 	}{
 		{lifecycle, []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney|TestNativeVerificationResources)$", "-count=1", "-v"}, currentEnvironment},
-		{lifecycle && baseline != "", []string{"test", "./tools/release", "-run", "^TestNativePublishedPredecessorJourney$", "-count=1", "-v"}, publishedEnvironment},
+		{lifecycle && baseline != "", []string{"test", "./tools/release", "-run", "^TestNativePublishedPredecessor(Journey|ForwardingJourney)$", "-count=1", "-v"}, publishedEnvironment},
 		{clients, []string{"test", "-tags=client_acceptance", "./tools/release", "-run", clientPattern, "-count=1", "-v"}, publishedEnvironment},
 		{performanceDirectory != "", []string{"test", "./tools/release/performance", "-run", "^TestMeasureRetainsSeparateDiagnosticStreams$", "-count=1", "-timeout=60s"}, performanceEnvironment},
 		{performanceDirectory != "", []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}, performanceEnvironment},
@@ -344,7 +357,13 @@ func acceptNative(request buildRequest, artifacts, baseline string, input Native
 		}
 	}
 	if performanceDirectory != "" {
-		if _, err := performance.ReadSummary(performanceDirectory, input.PerformanceAttribution); err != nil {
+		scope := "full-performance"
+		if input.PerformanceAttribution {
+			scope = "component-attribution"
+		} else if input.PerformanceForwarding {
+			scope = "forwarding-performance"
+		}
+		if _, err := performance.ReadSummary(performanceDirectory, scope); err != nil {
 			return fmt.Errorf("performance acceptance result: %w", err)
 		}
 	}

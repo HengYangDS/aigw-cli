@@ -123,7 +123,7 @@ func TestUseWithoutRouteRequiresInteractiveTerminal(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "one")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func TestUseWithoutRoutePromptsInteractively(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 	addAccountRoute(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "one")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestUseSurfacesInteractiveSelectionFailure(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "one")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func TestUseWithMissingTokenRequiresInteractiveTerminal(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 	addAccountRoute(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "one")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,7 @@ func TestUseWithMissingTokenSurfacesPromptFailure(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 	addAccountRoute(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "one")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 	addAccountRoute(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "one")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +236,7 @@ func TestUseWithMissingTokenSurfacesSecretStoreFailure(t *testing.T) {
 	cfg := configuration.NewConfig()
 	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 	addAccountRoute(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "one")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -435,7 +435,7 @@ func TestSetupWithoutFlagsRefusesBeforePromptingWhenAlreadyConfigured(t *testing
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -3,6 +3,9 @@
 package main
 
 import (
+	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secrets/native"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -226,7 +229,7 @@ func requireProcessMeasurements(t *testing.T, records []processMeasurement, back
 
 func TestNativeAttributionKeepsTheProjectionWorkload(t *testing.T) {
 	journey := &journeyFixture{binary: "installed program"}
-	qualified := journey.performanceCases([]string{"projected helper"}, "env", "test preparer")[1]
+	qualified := journey.performanceCases([]string{"projected helper"}, "env", "test preparer", configuration.Runtime{})[1]
 	for _, test := range journey.attributionCases([]string{"projected helper"}, "selected shell", "copied reader", "exact-scope") {
 		if test.Name == "projection" {
 			if !reflect.DeepEqual(test, qualified) {
@@ -273,6 +276,28 @@ func TestNativeAttributionSummaryRetainsItsNonqualifyingScope(t *testing.T) {
 func (j *journeyFixture) measureMemory(variant string, block int) (performance.Memory, error) {
 	j.testing.Helper()
 	row := performance.Memory{Variant: variant, Case: "status", Block: block, Bytes: []uint64{}}
+	config, err := configuration.NewStore(j.config).Load()
+	if err != nil {
+		return row, err
+	}
+	row.Runtime, err = config.ResolveRuntime(configuration.ClientClaude, "")
+	if err != nil {
+		return row, err
+	}
+	row.Runtime.CredentialCommand, row.Mode = "", "direct"
+	if row.Runtime.Endpoint != row.Runtime.UpstreamEndpoint {
+		row.Mode = "forwarding"
+	}
+	identity, err := performance.Identify(j.binary)
+	if err != nil {
+		return row, err
+	}
+	row.Executable = &identity
+	if row.Mode == "forwarding" {
+		if err := j.reviewPerformanceBinding(row.Runtime); err != nil {
+			return row, err
+		}
+	}
 	for sample := range 45 {
 		command := exec.CommandContext(j.testing.Context(), j.binary, "status", "--json")
 		command.Env, command.Dir = j.environment, j.root
@@ -289,42 +314,61 @@ func (j *journeyFixture) measureMemory(variant string, block int) (performance.M
 			row.Bytes = append(row.Bytes, peak)
 		}
 	}
+	if row.Mode == "forwarding" {
+		return row, j.reviewPerformanceBinding(row.Runtime)
+	}
 	return row, nil
 }
 
-func TestNativePeakMemoryBudget(t *testing.T) {
-	const baseline = 16 << 20
-	for _, test := range []struct {
-		candidate uint64
-		review    bool
+func (j *journeyFixture) measureNativeCredentialOperations(output, variant, backend string, block int) ([]performance.Measurement, error) {
+	j.testing.Helper()
+	for key, value := range environmentValues(j.environment) {
+		if os.Getenv(key) != value {
+			j.testing.Setenv(key, value)
+		}
+	}
+	identity, err := performance.Identify(j.source)
+	if err != nil {
+		return nil, err
+	}
+	operations := []struct {
+		name string
+		run  func() error
 	}{
-		{baseline, false},
-		{baseline + 4<<20, false},
-		{baseline + 5<<20, true},
-	} {
-		var rows []performance.Memory
-		for block := 1; block <= 2; block++ {
-			for _, program := range []struct {
-				variant string
-				peak    uint64
-			}{{"baseline", baseline}, {"candidate", test.candidate}} {
-				peaks := make([]uint64, 40)
-				for index := range peaks {
-					peaks[index] = program.peak
-				}
-				rows = append(rows, performance.Memory{Variant: program.variant, Case: "status", Block: block, Bytes: peaks})
+		{"native-read-api", func() error {
+			value, err := native.Read(j.source, secrets.Service, "native-system-keyring-probe")
+			if err != nil {
+				return err
 			}
+			if value != "synthetic-performance-token" {
+				return errors.New("synthetic native credential read differs")
+			}
+			return nil
+		}},
+		{"native-exists-api", func() error {
+			exists, err := native.Exists(j.source, secrets.Service, "native-system-keyring-probe")
+			if err != nil {
+				return err
+			}
+			if !exists {
+				return errors.New("synthetic native credential is absent")
+			}
+			return nil
+		}},
+	}
+	var rows []performance.Measurement
+	for _, operation := range operations {
+		row := performance.Measurement{Variant: variant, Backend: backend, Case: operation.name, Block: block, Executable: &identity}
+		path := filepath.Join(output, fmt.Sprintf("%s-%s-%s-%d.json", variant, backend, operation.name, block))
+		ctx, cancel := context.WithTimeout(j.testing.Context(), time.Minute)
+		row, err := performance.MeasureOperation(ctx, path, row, operation.run)
+		cancel()
+		rows = append(rows, row)
+		if err != nil {
+			return rows, err
 		}
-		if err := performance.ReviewMemory(rows); (err != nil) != test.review {
-			t.Fatalf("candidate peak %d: review=%t error=%v", test.candidate, test.review, err)
-		}
 	}
-	if err := performance.ReviewMemory(nil); err == nil {
-		t.Fatal("empty evidence qualified as completed memory acceptance")
-	}
-	if err := performance.ReviewMemory([]performance.Memory{{Variant: "candidate", Case: "status", Block: 1, Bytes: []uint64{baseline}}}); err == nil {
-		t.Fatal("candidate memory was accepted without a matching predecessor observation")
-	}
+	return rows, nil
 }
 
 func TestNativePeakMemory(t *testing.T) {

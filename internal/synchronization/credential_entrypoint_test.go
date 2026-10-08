@@ -88,7 +88,7 @@ func TestClaudeInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, filepath.Join(root, "predecessor"), nil)
 	runtime, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
@@ -266,7 +266,7 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	account.Endpoints.Anthropic = "https://gateway.test"
 	otherActive.Accounts["gateway"] = account
 	otherActive.Routes["claude"] = configuration.Route{Account: "gateway", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	otherActive.SetSelectedRoute(configuration.ClientClaude, "claude")
+	otherActive.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	otherActive.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	if action, err := syncer.CredentialEntrypointPlan(otherActive); err != nil || action != CredentialEntrypointUnchanged {
 		t.Fatalf("another default Token client plan = %q, %v; want retained helper", action, err)
@@ -389,7 +389,7 @@ func TestDisablingOneTokenClientRetainsEntrypointForAnother(t *testing.T) {
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Accounts["gateway"] = account
 	before.Routes["claude"] = configuration.Route{Account: "gateway", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	before.SetSelectedRoute(configuration.ClientClaude, "claude")
+	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	before.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	store := configuration.NewStore(filepath.Join(root, "config.toml"))
 	if err := store.Save(before); err != nil {
@@ -425,7 +425,7 @@ func TestDisablingDefaultClientRetainsEntrypointForExplicitSelfReference(t *test
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Accounts["gateway"] = account
 	before.Routes["claude"] = configuration.Route{Account: "gateway", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	before.SetSelectedRoute(configuration.ClientClaude, "claude")
+	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	before.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	binding := before.Clients[configuration.ClientClaude]
 	binding.CredentialCommand = helper

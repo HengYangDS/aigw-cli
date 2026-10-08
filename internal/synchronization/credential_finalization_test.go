@@ -57,6 +57,7 @@ func TestUnresolvedReaderIdentityRefusesConsumersBeforeMutation(t *testing.T) {
 			root := t.TempDir()
 			cfg := testConfig(filepath.Join(root, "codex.toml"))
 			store := &configStoreStub{}
+			store.bindConfiguration(t, cfg)
 			problem := errors.New("identity source unavailable")
 			syncer := Synchronizer{Config: store, ResolveCredentialPath: func() (string, error) {
 				if empty {
@@ -199,6 +200,7 @@ func TestConvergedProjectionValidatesReaderWithoutApplying(t *testing.T) {
 			}
 			syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
 			cfg := testConfig(adapter.target)
+			store.bindConfiguration(t, cfg)
 			err = syncer.CommitProjection(t.Context(), cfg, cfg, "sync")
 			if wantError := tc.changedTarget != "" || tc.duringCommit; (err != nil) != wantError || store.commits != tc.commits || store.restores != tc.restores {
 				t.Fatalf("synchronization = %v, commits = %d, restores = %d; want error = %t, commits = %d, restores = %d", err, store.commits, store.restores, wantError, tc.commits, tc.restores)
@@ -225,6 +227,7 @@ func TestConvergedProjectionRechecksTargetsAfterConfigurationCommit(t *testing.T
 			store := &configStoreStub{}
 			syncer := Synchronizer{Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
 			cfg := testConfig(target)
+			store.bindConfiguration(t, cfg)
 			if err := syncer.CommitProjection(t.Context(), cfg, cfg, "initial sync"); err != nil {
 				t.Fatal(err)
 			}

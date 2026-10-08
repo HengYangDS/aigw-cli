@@ -20,6 +20,29 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
+func TestProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
+	for _, adapter := range []Adapter{codexAdapter{}, claudeAdapter{}} {
+		t.Run(adapter.Spec().ID, func(t *testing.T) {
+			client := adapter.Spec().ID
+			before := configuration.NewConfig()
+			before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
+			protocol := configuration.ProtocolOpenAIResponses
+			if client == configuration.ClientClaude {
+				protocol = configuration.ProtocolAnthropic
+			}
+			before.Routes["route"] = qualifiedRoute("Route", "gateway", "model", protocol)
+			before.Clients[client] = configuration.ClientBinding{Route: "route", Enabled: true, ForwardingEndpoint: "http://127.0.0.1:8792/v1"}
+			after := before.Clone()
+			account := after.Accounts["gateway"]
+			account.Endpoints = configuration.Endpoints{OpenAIResponses: "https://second.test/v1", Anthropic: "https://second.test"}
+			after.Accounts["gateway"] = account
+			if !adapter.ProjectionChanged(before, after) {
+				t.Fatal("unchanged forwarding hid a changed credential projection identity")
+			}
+		})
+	}
+}
+
 type fixedDiscoverer struct{ result discovery.Result }
 
 func (discoverer fixedDiscoverer) Discover() discovery.Result { return discoverer.result }
@@ -81,7 +104,7 @@ func TestBuiltInAdapterVerificationBoundsClientProcesses(t *testing.T) {
 	claudeConfig := configuration.NewConfig()
 	claudeConfig.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	claudeConfig.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
-	claudeConfig.SetSelectedRoute(configuration.ClientClaude, "claude")
+	claudeConfig.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	claudeConfig.SetClientActivation(configuration.ClientClaude, true, claudeExecutable, nil)
 	claudeRuntime, err := claudeConfig.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
@@ -308,7 +331,7 @@ func TestClaudeAdapterApplyValidatesIntentAndRestoresObservedPreimage(t *testing
 	configured := configuration.NewConfig()
 	configured.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	configured.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
-	configured.SetSelectedRoute(configuration.ClientClaude, "claude")
+	configured.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	configured.SetClientActivation(configuration.ClientClaude, true, "/usr/bin/claude", nil)
 	if _, err := (claudeAdapter{}).Apply(context.Background(), Dependencies{}, configuration.NewConfig(), configured); err == nil || !strings.Contains(err.Error(), "settings path is empty") {
 		t.Fatalf("Apply() error = %v", err)
@@ -417,7 +440,7 @@ func TestChangedClientsRetainsAdmissionOrderAndIndependentResults(t *testing.T) 
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Accounts["gateway"] = account
 	before.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
-	before.SetSelectedRoute(configuration.ClientClaude, "claude")
+	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	before.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	after := before.Clone()
 	account.Endpoints = configuration.Endpoints{OpenAIResponses: "https://replacement.test/v1", Anthropic: "https://replacement.test"}
@@ -458,7 +481,7 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 		before := configuration.NewConfig()
 		before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 		before.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
-		before.SetSelectedRoute(configuration.ClientClaude, "claude")
+		before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 		before.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 		after := before.Clone()
 		delete(before.Routes, "claude")

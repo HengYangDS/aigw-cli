@@ -189,22 +189,23 @@ func (registry Registry) Plan(deps Dependencies, before, after configuration.Con
 }
 
 // Apply rechecks current plans and skips converged, unchanged configurations.
-// On success it returns one receipt for the complete projection, so its caller
-// can compensate a later failure. Earlier adapters are compensated on failure.
-func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, after configuration.Config, clientIDs ...string) (resultReceipt ProjectionReceipt, resultErr error) {
+// On success it reports native state changes and returns one compensation
+// receipt. Earlier adapters are compensated on failure.
+func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, after configuration.Config, clientIDs ...string) (resultReceipt ProjectionReceipt, projectionChanged bool, resultErr error) {
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	adapters, err := registry.selectAdapters(clientIDs)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	plans, err := registry.Plan(deps, before, after, clientIDs...)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	if len(plans) > 0 && reflect.DeepEqual(before, after) && !slices.ContainsFunc(plans, func(plan ProjectionPlan) bool { return plan.ChangesState }) {
-		return projectionReceipts{}, ctx.Err()
+	changed := slices.ContainsFunc(plans, func(plan ProjectionPlan) bool { return plan.ChangesState })
+	if len(plans) > 0 && reflect.DeepEqual(before, after) && !changed {
+		return projectionReceipts{}, false, ctx.Err()
 	}
 	receipts := make([]ProjectionReceipt, 0, len(adapters))
 	defer func() {
@@ -219,15 +220,15 @@ func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, a
 	}()
 	for _, adapter := range adapters {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		receipt, err := adapter.Apply(ctx, deps, before, after)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		receipts = append(receipts, receipt)
 	}
-	return projectionReceipts(receipts), nil
+	return projectionReceipts(receipts), changed, nil
 }
 
 type projectionReceipts []ProjectionReceipt

@@ -31,7 +31,7 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 					protocol = configuration.ProtocolAnthropic
 				}
 				cfg.Routes[id] = qualifiedRoute(id, "old", "old-model", protocol)
-				cfg.SetSelectedRoute(id, id)
+				cfg.SetSelectedRoute(id, id, "")
 				cfg.SetClientActivation(id, true, executableFixture(t, id), nil)
 			}
 			adapter := cfg.Clients[configuration.ClientCodex]

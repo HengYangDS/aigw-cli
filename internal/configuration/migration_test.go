@@ -317,7 +317,7 @@ func TestCurrentConfigurationMigrationIsANoOp(t *testing.T) {
 		Label: "Codex", Account: "gateway", Model: "gpt-test",
 		Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(ClientCodex, "codex")
+	cfg.SetSelectedRoute(ClientCodex, "codex", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

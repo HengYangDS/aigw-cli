@@ -54,7 +54,13 @@ package_children."internal/client" = ["verification"]
 package_children."internal/hermes" = ["configuration"]
 allowed_import_edges."internal/hermes/configuration" = ["internal/transaction"]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
-package_children."tools/ci" = ["bootstrap", "evidence", "markdown", "projection", "test"]
+package_children."tools/ci" = [
+  "bootstrap",
+  "evidence",
+  "markdown",
+  "projection",
+  "test",
+]
 package_children."tools/codex" = ["catalog"]
 package_children."tools/release" = [
   "artifact",
@@ -233,8 +239,10 @@ allowed_import_edges."internal/cli/install" = [
 allowed_import_edges."internal/cli/selection" = [
   "internal/activation",
   "internal/cli/invocation",
+  "internal/client",
   "internal/configuration",
   "internal/credential",
+  "internal/presentation",
   "internal/prompt",
   "internal/secrets",
 ]
@@ -336,7 +344,10 @@ allowed_import_edges."internal/diagnostics" = [
   "internal/credential",
 ]
 allowed_import_edges."internal/providers/diagnostic" = []
-allowed_import_edges."internal/presentation" = ["internal/configuration", "internal/secrets"]
+allowed_import_edges."internal/presentation" = [
+  "internal/configuration",
+  "internal/secrets",
+]
 allowed_import_edges."internal/process" = []
 allowed_import_edges."tools/ci" = [
   "internal/process",
@@ -367,7 +378,11 @@ allowed_import_edges."tools/release/construction" = [
   "tools/release/readiness",
   "tools/release/performance",
 ]
-allowed_import_edges."tools/release/performance" = ["internal/process", "internal/redaction"]
+allowed_import_edges."tools/release/performance" = [
+  "internal/configuration",
+  "internal/process",
+  "internal/redaction",
+]
 allowed_import_edges."tools/release/publication" = ["tools/release/artifact"]
 allowed_import_edges."tools/release/readiness" = []
 allowed_import_edges."tools/architecture" = []

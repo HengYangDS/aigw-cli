@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -13,6 +14,38 @@ import (
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/synchronization"
 )
+
+func TestAccountFinalizationConvergesForwardingBackupBeforeRetirement(t *testing.T) {
+	store, _ := renameFinalizationState(t)
+	cfg, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := cfg.Clients[configuration.ClientCodex]
+	binding.ForwardingEndpoint = "http://127.0.0.1:8792/v1"
+	cfg.Clients[configuration.ClientCodex] = binding
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, configuration.AdmittedClientIDs()); err != nil {
+		t.Fatal(err)
+	}
+	state, err := store.CaptureVerifiedBackupState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.ConvergeVerifiedBackup(state.Snapshot); err != nil {
+		t.Fatal(err)
+	}
+	component := strings.TrimSuffix(store.Path(), filepath.Ext(store.Path())) + ".forwarding.toml.bak"
+	if err := os.Remove(component); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := planFinalize(Renamer{Config: store, Secrets: secrets.NewMemoryStore(), Accounts: &faultProbeStore{}}, "old", "new", FinalizeOptions{})
+	if err != nil || plan.Status == StatusAlreadyFinalized || plan.Actions.Backup != "converge-to-verified-current" {
+		t.Fatalf("finalization ignored missing forwarding recovery state: %#v, %v", plan, err)
+	}
+}
 
 type failingRenameConfigStore struct{ err error }
 
@@ -148,8 +181,8 @@ func migrationConfig() configuration.Config {
 	cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}}
 	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "old", Model: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "old", Model: "claude", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	return cfg
 }
 
@@ -185,65 +218,52 @@ func renameFinalizationState(t *testing.T) (configuration.Store, configuration.S
 	return store, state.Snapshot
 }
 
-func TestCanceledAccountRenamePreservesOwnedState(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-	if err := store.Save(migrationConfig()); err != nil {
-		t.Fatal(err)
-	}
-	before, err := store.CaptureSnapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	tokens := secrets.NewMemoryStore()
-	if err := tokens.Set("old", "source-token"); err != nil {
-		t.Fatal(err)
-	}
-	deps := Renamer{Config: store, Secrets: tokens, Accounts: &faultProbeStore{}, Synchronizer: synchronization.Synchronizer{Config: store}}
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	_, err = deps.RenameAccount(ctx, "old", "new", false)
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("canceled rename error = %v", err)
-	}
-	if value, err := tokens.Get("old"); err != nil || value != "source-token" {
-		t.Fatalf("source token = %q, error = %v", value, err)
-	}
-	if _, err := tokens.Get("new"); !errors.Is(err, secrets.ErrNotFound) {
-		t.Fatalf("canceled rename created a target credential: %v", err)
-	}
-	after, err := store.CaptureSnapshot()
-	if err != nil || !reflect.DeepEqual(before, after) {
-		t.Fatalf("canceled rename changed configuration: %v", err)
-	}
-}
-
-func TestCanceledAccountFinalizationPreservesOwnedState(t *testing.T) {
-	store, _ := renameFinalizationState(t)
-	before, err := store.CaptureSnapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	tokens := secrets.NewMemoryStore()
-	for _, id := range []string{"old", "new"} {
-		if err := tokens.Set(id, "shared-token"); err != nil {
-			t.Fatal(err)
-		}
-	}
-	deps := Renamer{Config: store, Secrets: tokens, Accounts: &faultProbeStore{}}
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	_, err = deps.FinalizeAccount(ctx, "old", "new", false, FinalizeOptions{})
-	if !errors.Is(err, context.Canceled) {
-		t.Errorf("canceled finalization error = %v", err)
-	}
-	for _, id := range []string{"old", "new"} {
-		if value, err := tokens.Get(id); err != nil || value != "shared-token" {
-			t.Errorf("credential %s = %q, error = %v", id, value, err)
-		}
-	}
-	after, err := store.CaptureSnapshot()
-	if err != nil || !reflect.DeepEqual(before, after) {
-		t.Fatalf("canceled finalization changed configuration: %v", err)
+func TestCanceledAccountOperationPreservesOwnedState(t *testing.T) {
+	for _, operation := range []string{"rename", "finalize"} {
+		t.Run(operation, func(t *testing.T) {
+			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+			if operation == "finalize" {
+				store, _ = renameFinalizationState(t)
+			} else if err := store.Save(migrationConfig()); err != nil {
+				t.Fatal(err)
+			}
+			before, err := store.CaptureSnapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			tokens := secrets.NewMemoryStore()
+			for _, id := range []string{"old", "new"} {
+				if id == "new" && operation == "rename" {
+					continue
+				}
+				if err := tokens.Set(id, "source-token"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			deps := Renamer{Config: store, Secrets: tokens, Accounts: &faultProbeStore{}, Synchronizer: synchronization.Synchronizer{Config: store}}
+			ctx, cancel := context.WithCancel(t.Context())
+			cancel()
+			if operation == "rename" {
+				_, err = deps.RenameAccount(ctx, "old", "new", false)
+			} else {
+				_, err = deps.FinalizeAccount(ctx, "old", "new", false, FinalizeOptions{})
+			}
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("canceled %s error = %v", operation, err)
+			}
+			if value, err := tokens.Get("old"); err != nil || value != "source-token" {
+				t.Fatalf("source token = %q, error = %v", value, err)
+			}
+			target, targetErr := tokens.Get("new")
+			if operation == "rename" && !errors.Is(targetErr, secrets.ErrNotFound) ||
+				operation == "finalize" && (targetErr != nil || target != "source-token") {
+				t.Fatalf("canceled %s changed target credential: %q, %v", operation, target, targetErr)
+			}
+			after, err := store.CaptureSnapshot()
+			if err != nil || !reflect.DeepEqual(before, after) {
+				t.Fatalf("canceled %s changed configuration: %v", operation, err)
+			}
+		})
 	}
 }
 
@@ -296,7 +316,7 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 	}
 
 	invalid := cfg.Clone()
-	invalid.SetSelectedRoute(configuration.ClientCodex, "missing")
+	invalid.SetSelectedRoute(configuration.ClientCodex, "missing", "")
 	if _, err := planAccount(invalid, "old", "new"); err == nil || !strings.Contains(err.Error(), "Validate") {
 		t.Fatalf("account error = %v", err)
 	}

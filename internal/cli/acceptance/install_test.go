@@ -344,8 +344,8 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "team", "claude-model", configuration.ProtocolAnthropic)
 	cfg.Routes["codex"] = qualifiedRoute("Codex", "team", "gpt-model", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, claudeExecutable, nil)
 	cfg.SetClientActivation(configuration.ClientCodex, true, codexExecutable, []string{codexTarget})
 	if err := app.Config.Save(cfg); err != nil {

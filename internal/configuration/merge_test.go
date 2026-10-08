@@ -45,7 +45,7 @@ interfaces = { openai_responses = [] }
 
 	got.Accounts["personal"] = Account{Label: "Personal", Endpoints: Endpoints{Anthropic: "https://personal.test"}}
 	got.Routes["personal-claude"] = testRoute("Personal Claude", "personal", "personal-model", ProtocolAnthropic)
-	got.SetSelectedRoute(ClientClaude, "personal-claude")
+	got.SetSelectedRoute(ClientClaude, "personal-claude", "")
 	merged, err := Merge(got, team)
 	if err != nil {
 		t.Fatal(err)
@@ -89,7 +89,7 @@ interfaces = { anthropic = [] }
 	}
 	cfg := NewConfig()
 	cfg.SetClientActivation(ClientClaude, true, "/personal/claude", nil)
-	cfg.SetSelectedRoute(ClientClaude, "personal")
+	cfg.SetSelectedRoute(ClientClaude, "personal", "")
 	cfg.Accounts["personal"] = Account{Label: "Personal", Endpoints: Endpoints{Anthropic: "https://personal.test"}}
 	cfg.Routes["personal"] = testRoute("Personal", "personal", "claude-personal", ProtocolAnthropic)
 	got, err := Merge(cfg, m)

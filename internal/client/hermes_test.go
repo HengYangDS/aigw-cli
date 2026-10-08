@@ -55,7 +55,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	if binding := after.Clients["hermes"]; !binding.Enabled || binding.Executable == "" || len(binding.Targets) != 1 {
 		t.Fatalf("installed Hermes intent was not materialized: %#v", binding)
 	}
-	receipt, err := registry.Apply(context.Background(), deps, cfg, after, "hermes")
+	receipt, _, err := registry.Apply(context.Background(), deps, cfg, after, "hermes")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 			t.Fatalf("Hermes rollback left %s: %v", target, err)
 		}
 	}
-	if _, err := registry.Apply(context.Background(), deps, cfg, after, "hermes"); err != nil {
+	if _, _, err := registry.Apply(context.Background(), deps, cfg, after, "hermes"); err != nil {
 		t.Fatal(err)
 	}
 	for _, target := range observed.AutoManagedCodexTargets() {
@@ -89,7 +89,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	}
 	disabled := after.Clone()
 	(hermesAdapter{}).Withdraw(&disabled)
-	if _, err := registry.Apply(context.Background(), deps, after, disabled, "hermes"); err != nil {
+	if _, _, err := registry.Apply(context.Background(), deps, after, disabled, "hermes"); err != nil {
 		t.Fatal(err)
 	}
 	for _, target := range []string{path, path + ".aigw-state.json"} {
@@ -104,7 +104,7 @@ func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	before.Routes["selected"] = qualifiedRoute("Selected", "gateway", "gpt-6-sol", configuration.ProtocolOpenAIResponses)
 	before.Routes["extra"] = qualifiedRoute("Extra", "gateway", "grok-4.6", configuration.ProtocolOpenAIResponses)
-	before.SetSelectedRoute(configuration.ClientHermes, "selected")
+	before.SetSelectedRoute(configuration.ClientHermes, "selected", "")
 	before.SetClientActivation(configuration.ClientHermes, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
 	before.Normalize()
 	after := before.Clone()
@@ -128,7 +128,7 @@ func TestHermesCatalogueUsesProviderWireModelIDs(t *testing.T) {
 			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 		}
 	}
-	cfg.SetSelectedRoute(configuration.ClientHermes, "variant")
+	cfg.SetSelectedRoute(configuration.ClientHermes, "variant", "")
 	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
 	if err != nil {
 		t.Fatal(err)
@@ -184,7 +184,7 @@ func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	before.Routes["selected"] = qualifiedRoute("Selected", "gateway", "gpt-6-sol", configuration.ProtocolOpenAIResponses)
 	before.Routes["extra"] = qualifiedRoute("Extra", "gateway", "grok-4.6", configuration.ProtocolOpenAIResponses)
-	before.SetSelectedRoute(configuration.ClientHermes, "selected")
+	before.SetSelectedRoute(configuration.ClientHermes, "selected", "")
 	before.SetClientActivation(configuration.ClientHermes, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
 	before.Normalize()
 	after := before.Clone()
@@ -356,7 +356,7 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIChatCompletions: "https://gateway.test/v1"}}
 	cfg.Routes["selected"] = qualifiedRoute("", "gateway", "mistral-large-3", configuration.ProtocolOpenAIChatCompletions)
-	cfg.SetSelectedRoute(configuration.ClientHermes, "selected")
+	cfg.SetSelectedRoute(configuration.ClientHermes, "selected", "")
 	cfg.SetClientActivation(configuration.ClientHermes, true, executable, []string{target})
 	runtime, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
 	if err != nil {

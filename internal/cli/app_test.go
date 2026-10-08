@@ -33,7 +33,7 @@ func configuredApp(t *testing.T) *App {
 		Label: "One", Purpose: "Primary", Account: "one", Model: "gpt",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "one")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

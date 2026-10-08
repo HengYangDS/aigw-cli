@@ -129,7 +129,7 @@ func TestTeamRecommendationsPermitSparseAccountsAndPreserveExplicitBindings(t *t
 	if err != nil || hub.SelectedRoute(ClientClaude) != "aihubmix-fable" || hub.SelectedRoute(ClientCodex) != "" {
 		t.Fatalf("sparse AIHubMix activation = %+v, %v", hub.Clients, err)
 	}
-	cfg.SetSelectedRoute(ClientCodex, "ucloud-sol")
+	cfg.SetSelectedRoute(ClientCodex, "ucloud-sol", "")
 	hub, err = cfg.SelectRoutesForConnectedAccounts([]string{"aihubmix"})
 	if err != nil || hub.SelectedRoute(ClientCodex) != "ucloud-sol" || hub.SelectedRoute(ClientClaude) != "aihubmix-fable" {
 		t.Fatalf("explicit Codex binding was replaced: %+v, %v", hub.Clients, err)
@@ -327,7 +327,7 @@ func TestTeamManifestRefreshPreservesExplicitSupersededRoutes(t *testing.T) {
 			cfg.Models[selected.model] = Model{Label: selected.label}
 			cfg.Routes[selected.route] = Route{Account: "aihubmix", Model: selected.model, UpstreamModel: selected.wire,
 				Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIChatCompletions: {}}}
-			cfg.SetSelectedRoute(ClientHermes, selected.route)
+			cfg.SetSelectedRoute(ClientHermes, selected.route, "")
 			merged, err := Merge(cfg, manifest)
 			if err != nil {
 				t.Fatal(err)
@@ -415,7 +415,7 @@ func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetSelectedRoute(ClientCodex, "ucloud-"+sol)
+	cfg.SetSelectedRoute(ClientCodex, "ucloud-"+sol, "")
 	selected, err := cfg.SelectRoutesForConnectedAccounts([]string{"dmxapi"})
 	if err != nil {
 		t.Fatal(err)

@@ -84,17 +84,21 @@ or a second OpenSpec/ETHOS command plane.
 This is dependency order, not a second progress ledger. The checklist owns
 state; the routing table owns acceptance; the Migration Plan owns delivery.
 
-| Order | Semantic closure                                                                                  | Existing task owners                            | Exit condition                                                                                                                             |
-| ----- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1     | Repair CI resource declarations; prove peer admission, runner containment and cold supply custody | 7.4, 7.5                                        | Declared caches/artifacts have real consumers; exact checks reject invalid admission; each selected peer remains independent.              |
-| 2     | Consume the accepted ETHOS identity/reference successor                                           | 8.3.2                                           | The installed adopter rejects wrong-repository references and qualifies the authorized history repair; no private checker.                 |
-| 3     | Freeze one candidate for retained-predecessor, native-client and performance acceptance           | 3.5, 4.5, 5.2, 6.6, 9.3                         | The same candidate passes required macOS/Linux/Windows, store, client-mode, upgrade, rollback, forward and cleanup journeys.               |
-| 4     | Deliver and retire AIGW through the Migration Plan                                                | Migration Plan                                  | Exact signed integration, archive, publication, package-manager cutover and installed acceptance pass; owned obsolete consumers retire.    |
-| 5     | Resume the existing provider-neutral Responses Proxy closure                                      | Existing Proxy Change and its authorized holder | Replay, transport, native lifecycle, repository quality, release and installed-product evidence satisfy that Change without AIGW coupling. |
+| Order | Semantic closure                                                                | Existing task owners                            | Exit condition                                                                                                                                                          |
+| ----- | ------------------------------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Close client-scoped forwarding and its original configuration/projection owners | 4.7, 6.3, 9.1, 9.2                              | Retained reader, generation-bound compensation, stale-selection refusal, credential-free preview, human/JSON continuation and native size limits pass on stable inputs. |
+| 2     | Prove effective peer admission, runner containment and cold supply custody      | 7.4                                             | Required checks, exact source-ref retirement policy and per-job isolation are enforced independently on each selected peer.                                             |
+| 3     | Consume the accepted ETHOS identity/reference successor                         | 8.3.2                                           | The installed adopter rejects wrong-repository references and qualifies authorized history repair without a private checker.                                            |
+| 4     | Freeze one signed candidate for native-client and affected-path acceptance      | 4.5, 4.7, 9.3                                   | Exact macOS/Linux/Windows bytes pass required retained-predecessor, store, client-mode, forwarding, rollback, forward and cleanup journeys.                             |
+| 5     | Deliver and retire AIGW through the Migration Plan                              | Migration Plan                                  | Signed integration, archive, publication, package-manager cutover and installed acceptance pass; owned obsolete consumers retire.                                       |
+| 6     | Resume the existing provider-neutral Responses Proxy closure                    | Existing Proxy Change and its authorized holder | Replay, transport, native lifecycle, repository quality, release and installed-product evidence pass without AIGW coupling.                                             |
 
 Only the accepted-ETHOS-dependent scope waits for its successor. Advance
 independent candidate preparation without competing host assays. A prose-only
 commit needs fresh exact-HEAD governance, not rebuilt unchanged product bytes.
+Tasks 9.1 and 9.2 qualify frozen inputs; product or verifier changes reopen that
+qualification. Reuse unchanged 3.5, 5.2 and 6.6 evidence only within its bound
+scope; new forwarding paths and final signed bytes require their own acceptance.
 
 ## Decisions
 

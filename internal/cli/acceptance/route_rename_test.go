@@ -16,7 +16,7 @@ func TestRouteRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Routes["gpt-old"] = qualifiedRoute("GPT Old", "dmx", "gpt-old", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-old")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-old", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestRouteRenameInteractiveZeroArgsSortsChoicesAndUpdatesRoutes(t *testing.T
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := routeRenameConfig()
 	cfg.Routes["alpha"] = qualifiedRoute("Alpha", "gateway", "alpha", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "zeta-old")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "zeta-old", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestRouteRenameNonInteractiveRequiresBothIDs(t *testing.T) {
 func TestRouteRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
 	cfg := routeRenameConfig()
-	cfg.SetSelectedRoute(configuration.ClientCodex, "zeta-old")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "zeta-old", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -239,6 +239,6 @@ func routeRenameConfig() configuration.Config {
 	route := qualifiedRoute("Zeta", "gateway", "zeta-model", configuration.ProtocolOpenAIResponses)
 	route.Purpose = "Keep this label and purpose"
 	cfg.Routes["zeta-old"] = route
-	cfg.SetSelectedRoute(configuration.ClientCodex, "zeta-old")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "zeta-old", "")
 	return cfg
 }

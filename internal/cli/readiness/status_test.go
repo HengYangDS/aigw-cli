@@ -398,7 +398,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 
 func TestStatusReportsSelectedUnknownRoute(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "missing")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "missing", "")
 	state := inspectStatusClients(runtime, cfg, nil, "")[configuration.ClientClaude]
 	if state.State != domainreadiness.Invalid || state.Route != "missing" || !strings.Contains(state.Detail, `unknown route "missing"`) {
 		t.Fatalf("Claude status = %#v", state)

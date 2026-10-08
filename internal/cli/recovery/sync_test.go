@@ -178,7 +178,7 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 				Label: "One", Account: "one", Model: "gpt-test",
 				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 			}
-			cfg.SetSelectedRoute(configuration.ClientCodex, "one")
+			cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
 			cfg.SetClientActivation(configuration.ClientCodex, true, "/portable/codex", []string{"/portable/config.toml"})
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -218,7 +218,7 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 			Label: "One", Account: "one", Model: "gpt-test",
 			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 		}
-		cfg.SetSelectedRoute(configuration.ClientCodex, "one")
+		cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
 		cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{""})
 		if err := store.Save(cfg); err != nil {
 			t.Fatal(err)
@@ -246,7 +246,7 @@ func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 		Label: "Two", Account: "two", Model: "gpt-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "one")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{t.TempDir()})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -280,7 +280,7 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 		Label: "One", Account: "one", Model: "gpt-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "one")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -340,7 +340,7 @@ func rollbackStore(t *testing.T) configuration.Store {
 		Label: "One", Account: "one", Model: "claude-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "one")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

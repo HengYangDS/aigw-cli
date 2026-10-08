@@ -12,6 +12,107 @@ import (
 	"testing"
 )
 
+func TestForwardingWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *testing.T) {
+	const oldEndpoint = "http://127.0.0.1:8792/old/v1"
+	const nextEndpoint = "http://127.0.0.1:8792/next/v1"
+	for _, test := range []struct {
+		name, component, oldEndpoint, nextEndpoint string
+		concurrent                                 bool
+	}{
+		{name: "create", component: "forwarding", nextEndpoint: nextEndpoint},
+		{name: "replace", component: "forwarding", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
+		{name: "withdraw", component: "forwarding", oldEndpoint: oldEndpoint},
+		{name: "backup", component: "forwarding-backup", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
+		{name: "canonical", component: "config", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
+		{name: "checkpoint", component: "checkpoint", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
+		{name: "direct checkpoint", component: "checkpoint", nextEndpoint: nextEndpoint},
+		{name: "concurrent", component: "forwarding", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint, concurrent: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+			cfg := convergenceConfig("current")
+			binding := cfg.Clients[ClientCodex]
+			binding.ForwardingEndpoint = test.oldEndpoint
+			cfg.Clients[ClientCodex] = binding
+			if err := store.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err != nil {
+				t.Fatal(err)
+			}
+			state, err := store.CaptureSnapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := store.ConvergeVerifiedBackup(state); err != nil {
+				t.Fatal(err)
+			}
+			before, err := store.CaptureSnapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			binding.ForwardingEndpoint = test.nextEndpoint
+			cfg.Clients[ClientCodex] = binding
+			account := cfg.Accounts["current"]
+			account.Label = "Updated Account"
+			cfg.Accounts["current"] = account
+			originalWrite := writeConfigurationFileIfUnchanged
+			originalRemove := removeConfigurationFileIfUnchanged
+			t.Cleanup(func() {
+				writeConfigurationFileIfUnchanged = originalWrite
+				removeConfigurationFileIfUnchanged = originalRemove
+			})
+			failure := errors.New("component mutation failed")
+			newer := []byte("# concurrent operator content\n")
+			failedPath := map[string]string{
+				"forwarding": store.forwardingPath(), "forwarding-backup": store.forwardingPath() + ".bak",
+				"config": store.Path(), "checkpoint": store.Path() + ".verified.json",
+			}[test.component]
+			beforeFailure := func() {}
+			if test.concurrent {
+				beforeFailure = func() { replaceConcurrentConfig(t, store.Path(), newer) }
+			}
+			writeConfigurationFileIfUnchanged = func(path string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+				if path != failedPath {
+					return originalWrite(path, expected, data, mode)
+				}
+				beforeFailure()
+				return transaction.FileSnapshot{}, failure
+			}
+			removeConfigurationFileIfUnchanged = func(path string, expected transaction.FileSnapshot) (transaction.FileSnapshot, error) {
+				if path == failedPath {
+					return transaction.FileSnapshot{}, failure
+				}
+				return originalRemove(path, expected)
+			}
+			_, err = store.Commit(before, cfg)
+			if !errors.Is(err, failure) || strings.Contains(err.Error(), "postimage changed") != test.concurrent {
+				t.Fatalf("failed mutation must report only genuine compensation conflicts: %v", err)
+			}
+			after, err := store.CaptureSnapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.concurrent {
+				if !bytes.Equal(after.Config.Data, newer) {
+					t.Fatal("compensation changed newer operator content")
+				}
+				after.Config = before.Config
+			}
+			if !before.equal(after) {
+				t.Fatal("failed forwarding write did not restore every owned snapshot")
+			}
+		})
+	}
+}
+
+func replaceConcurrentConfig(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestPathReturnsConfiguredPath(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	if got := NewStore(path).Path(); got != path {
@@ -285,39 +386,6 @@ func TestCommitPreservesNewerBackupWhenConfigurationWriteAndCompensationConflict
 	backup, readErr := os.ReadFile(path + ".bak")
 	if readErr != nil || !bytes.Equal(backup, newerBackup) {
 		t.Fatalf("newer backup after rejected compensation = %q, %v", backup, readErr)
-	}
-}
-
-func TestCommitRestoresConfigurationWhenVerifiedCheckpointInvalidationFails(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
-	beforeConfig := convergenceConfig("before")
-	if err := store.Save(beforeConfig); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), beforeConfig, []string{ClientClaude}); err != nil {
-		t.Fatal(err)
-	}
-	before, err := store.CaptureSnapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := errors.New("checkpoint removal failed")
-	originalRemove := removeConfigurationFileIfUnchanged
-	t.Cleanup(func() { removeConfigurationFileIfUnchanged = originalRemove })
-	removeConfigurationFileIfUnchanged = func(string, transaction.FileSnapshot) (transaction.FileSnapshot, error) {
-		return transaction.FileSnapshot{}, want
-	}
-
-	if _, err := store.Commit(before, convergenceConfig("after")); !errors.Is(err, want) || !strings.Contains(err.Error(), "invalidate verified checkpoint") {
-		t.Fatalf("Commit() error = %v", err)
-	}
-	after, err := store.CaptureSnapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(after, before) {
-		t.Fatalf("snapshot after failed checkpoint invalidation = %#v, want %#v", after, before)
 	}
 }
 

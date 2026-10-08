@@ -55,7 +55,7 @@ func configuredCatalog() configuration.Config {
 		Label: "Claude", Account: "gateway", Model: "gpt-claude",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 	return cfg
 }
 

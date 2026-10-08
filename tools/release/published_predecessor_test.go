@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -73,6 +75,135 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 			runNativeCredentialJourney(t, root, baseline, server.URL+"/v1", version)
 		})
 	}
+}
+
+func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
+	baseline := os.Getenv("AIGW_ACCEPTANCE_BASELINE")
+	if baseline == "" {
+		t.Skip("published predecessor was not selected")
+	}
+	if !filepath.IsAbs(baseline) {
+		t.Fatal("forwarding qualification requires an absolute published predecessor path")
+	}
+	baseline = requireNativeLifecycleBaseline(t, func() string {
+		t.Fatal("forwarding qualification cannot build a substitute predecessor")
+		return ""
+	})
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	version, err := readiness.ReadProductVersion(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
+	upstream := newNativeJourneyServer(t)
+	requests := make(chan string, 1)
+	forwarding := newNativeJourneyServer(t, func(request *http.Request) {
+		var body struct {
+			Model string `json:"model"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			t.Errorf("decode forwarded model: %v", err)
+			return
+		}
+		select {
+		case requests <- request.Method + " " + request.URL.Path + " " + body.Model:
+		default:
+			t.Error("forwarding probe sent more than one request")
+		}
+	})
+	journey := newNativeJourney(t, baseline, upstream.URL+"/v1", true)
+	state := publishedNativeJourney{journey: journey, baseline: baseline, candidate: candidate, archive: archive, checksums: checksums, version: version, clients: deferredJourneyClientIDs()}
+	state.prepare(t, nativeCurrentSchemaManifest(upstream.URL+"/v1"))
+	journey.run("update", "--candidate", archive, "--checksums", checksums)
+	store := configuration.NewStore(journey.config)
+	before := capturePublishedSnapshot(t, store)
+	endpoint := forwarding.URL + "/selected/v1"
+	args := []string{"use", "native-codex", "--for", configuration.ClientCodex, "--forwarding-endpoint", endpoint}
+	preview := journey.run(append(slices.Clone(args), "--dry-run", "--json")...)
+	if bytes.Contains(preview, []byte("native-journey-token")) || !bytes.Contains(preview, []byte(endpoint)) {
+		t.Fatal("forwarding preview lost its destination or exposed credentials")
+	}
+	unchanged, err := store.CaptureSnapshot()
+	if err != nil || !reflect.DeepEqual(before, unchanged) {
+		t.Fatalf("native preview changed configuration or recovery state: %v", err)
+	}
+	if len(requests) != 0 {
+		t.Fatal("forwarding preview sent an inference request")
+	}
+	journey.run(args...)
+	cfg, err := store.Load()
+	if err != nil || cfg.Clients[configuration.ClientCodex].ForwardingEndpoint != endpoint || cfg.Accounts["native-system-keyring-probe"].Endpoints.OpenAIResponses != upstream.URL+"/v1" {
+		t.Fatalf("forwarding did not preserve Account ownership: %v", err)
+	}
+	journey.run("check", "--for", configuration.ClientCodex)
+	var got string
+	select {
+	case got = <-requests:
+	default:
+	}
+	if got != "POST /selected/v1/responses gpt-test" {
+		t.Fatalf("forwarding request = %q, want POST /selected/v1/responses gpt-test", got)
+	}
+	for _, client := range state.clients {
+		resolved, err := cfg.ResolveRuntime(client, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		original := process.Plan{Executable: baseline, Args: []string{"credential", client, resolved.CredentialProjectionFingerprint(client)}, Env: slices.Clone(journey.environment)}
+		journey.requireCredential(original, "native-journey-token")
+		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
+	}
+	selected := capturePublishedSnapshot(t, store)
+	journey.run("sync")
+	converged, err := store.CaptureSnapshot()
+	if err != nil || !reflect.DeepEqual(selected, converged) {
+		t.Fatalf("converged native sync rewrote forwarding state: %v", err)
+	}
+	state.rollbackForwarding(t, endpoint, selected, baseline)
+	state.finish(t)
+}
+
+func capturePublishedSnapshot(t *testing.T, store configuration.Store) configuration.Snapshot {
+	t.Helper()
+	snapshot, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snapshot
+}
+
+func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint string, selected configuration.Snapshot, baseline string) {
+	journey := state.journey
+	store := configuration.NewStore(journey.config)
+	journey.run("rollback", "--last-change")
+	cfg, err := store.Load()
+	if err != nil || cfg.Clients[configuration.ClientCodex].ForwardingEndpoint != "" {
+		t.Fatalf("configuration rollback retained forwarding: %v", err)
+	}
+	journey.run("rollback", "--last-change")
+	restored, err := store.CaptureSnapshot()
+	if err != nil || !restored.Config.Equal(selected.Config) || !restored.Forwarding.Equal(selected.Forwarding) {
+		t.Fatalf("configuration forward restore lost exact binding bytes: %v", err)
+	}
+	journey.run("update", "--rollback")
+	journey.requireProgramBytes(baseline)
+	for _, client := range state.clients {
+		journey.requireCredential(state.retained[client], "native-journey-token")
+	}
+	journey.runWith(state.candidate, "sync")
+	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
+	journey.requireProgramBytes(state.candidate)
+	cfg, err = store.Load()
+	if err != nil || cfg.Clients[configuration.ClientCodex].ForwardingEndpoint != endpoint {
+		t.Fatalf("program rollback and forward restore lost forwarding: %v", err)
+	}
+	for _, client := range state.clients {
+		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
+	}
+	journey.run("use", "native-codex", "--for", configuration.ClientCodex, "--direct")
 }
 
 func nativeCurrentSchemaManifest(endpoint string) string {

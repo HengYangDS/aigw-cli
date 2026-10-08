@@ -582,8 +582,12 @@ recovery remains outside AIGW.
 ## External endpoints
 
 An Account endpoint may be direct HTTPS or an explicit loopback URL. The
-endpoint value is operator input. AIGW does not infer provider behavior from an
-Account name, manage the listener, or duplicate its retry and concurrency
-policy. Every external gateway therefore has the same AIGW relationship: it may
-be selected explicitly, is neither installed nor required by AIGW, and may be
-removed without changing AIGW's configuration model.
+endpoint identifies the upstream. An independent, explicit client forwarding
+destination overrides only that client's projected endpoint; it preserves the
+Account, provider identity and credential scope. Selection, sync and rollback
+share the same binding and guarded projection owners. Direct operation remains
+valid without a forwarding service.
+
+AIGW does not infer provider behavior from an Account name, manage listeners,
+or duplicate their retry and concurrency policy. External services are optional
+operator-owned dependencies, never installed or managed by AIGW.

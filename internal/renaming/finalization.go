@@ -1,7 +1,6 @@
 package renaming
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -40,9 +39,7 @@ func planFinalize(deps Renamer, oldID, newID string, options FinalizeOptions) (P
 		}
 	}
 
-	backupConverged := state.Snapshot.Backup.Exists &&
-		state.Snapshot.Backup.Mode == expectedPersistedMode() &&
-		bytes.Equal(state.Snapshot.Backup.Data, state.Snapshot.Config.Data)
+	backupConverged := state.Snapshot.BackupConverged(expectedPersistedMode())
 	plan := Plan{
 		Resource:           ResourceAccount,
 		OldID:              oldID,

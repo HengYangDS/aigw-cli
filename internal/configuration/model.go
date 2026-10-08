@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strings"
 )
 
 // Authentication identifies which boundary owns credentials for a Route.
@@ -138,6 +139,7 @@ type Runtime struct {
 	AccountLabel      string           `json:"account_label"`
 	Client            string           `json:"client"`
 	Endpoint          string           `json:"endpoint"`
+	UpstreamEndpoint  string           `json:"upstream_endpoint"`
 	Protocol          EndpointProtocol `json:"protocol"`
 	Model             string           `json:"model,omitempty"`
 	CanonicalModelID  string           `json:"canonical_model_id,omitempty"`
@@ -153,10 +155,21 @@ func (runtime Runtime) RequiresAccountToken() bool {
 	return runtime.Authentication == "" || runtime.Authentication == AuthenticationAccountToken
 }
 
-// CredentialProjectionFingerprint hashes the client, Account and endpoint identities.
+// CredentialProjectionFingerprint hashes the client, Account and upstream identities.
 // It detects stale credential projections; it is not a secret or caller authorization.
 func (runtime Runtime) CredentialProjectionFingerprint(client string) string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(client+"\x00"+runtime.AccountID+"\x00"+runtime.Endpoint)))
+	endpoint := runtime.UpstreamEndpoint
+	if endpoint == "" {
+		endpoint = runtime.Endpoint
+	}
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(client+"\x00"+runtime.AccountID+"\x00"+endpoint)))
+}
+
+// SameUpstream compares the Account, endpoint and protocol identity independently
+// of model choice, serialized defaults and a client's forwarding destination.
+func (runtime Runtime) SameUpstream(other Runtime) bool {
+	return runtime.Client == other.Client && runtime.Protocol == other.Protocol &&
+		runtime.CredentialProjectionFingerprint(runtime.Client) == other.CredentialProjectionFingerprint(other.Client)
 }
 
 // AccountProbe declares an optional provider-owned diagnostic API independently from inference traffic.
@@ -279,39 +292,6 @@ func (c *Config) RouteLabel(routeID string) string {
 		return routeID
 	}
 	return routeLabel(route, c.Accounts[route.Account], c.Models[route.Model])
-}
-
-// SetSelectedRoute changes one client's selected Route while preserving
-// enabled intent and native options.
-func (c *Config) SetSelectedRoute(client, routeID string) {
-	if c.Clients == nil {
-		c.Clients = map[string]ClientBinding{}
-	}
-	binding := c.Clients[client]
-	if binding.Route == "" {
-		binding = binding.withSelection(c.recommendedSelection(client))
-	}
-	binding.Route = routeID
-	if route, exists := c.Routes[routeID]; exists && !routeAdmitsProtocol(route, binding.Protocol) {
-		binding.Protocol = ""
-		if protocols := route.AdmittedProtocols(); len(protocols) == 1 {
-			binding.Protocol = protocols[0]
-		}
-	}
-	c.Clients[client] = binding
-}
-
-// SetClientActivation changes one client's enabled intent and native location
-// while preserving its selected Route and client-specific options.
-func (c *Config) SetClientActivation(client string, enabled bool, executable string, targets []string) {
-	if c.Clients == nil {
-		c.Clients = map[string]ClientBinding{}
-	}
-	binding := c.Clients[client]
-	binding.Enabled = enabled
-	binding.Executable = executable
-	binding.Targets = append([]string(nil), targets...)
-	c.Clients[client] = binding
 }
 
 // RecommendedRoute returns the team recommendation for one client.
@@ -550,6 +530,13 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 	if err != nil {
 		return Runtime{}, err
 	}
+	upstream := endpoint
+	if forwarding := c.forwardingFor(client, account.ID, upstream, protocol); forwarding != "" {
+		if err := validateEndpoint(forwarding); err != nil {
+			return Runtime{}, fmt.Errorf("client %q forwarding endpoint: %w", client, err)
+		}
+		endpoint = strings.TrimRight(forwarding, "/")
+	}
 	return Runtime{
 		RouteID:           name,
 		RouteLabel:        routeLabel(route, account, c.Models[route.Model]),
@@ -557,6 +544,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		AccountLabel:      account.Label,
 		Client:            client,
 		Endpoint:          endpoint,
+		UpstreamEndpoint:  upstream,
 		Protocol:          protocol,
 		Model:             route.UpstreamModelID(),
 		CanonicalModelID:  route.Model,
@@ -564,6 +552,20 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		Authentication:    selectedAuthentication(selection),
 		CredentialCommand: c.Clients[client].CredentialCommand,
 	}, nil
+}
+
+func (c *Config) forwardingFor(client, accountID, upstream string, protocol EndpointProtocol) string {
+	binding := c.Clients[client]
+	bound, exists := c.Routes[binding.Route]
+	if !exists || bound.Account != accountID || binding.ForwardingEndpoint == "" {
+		return ""
+	}
+	spec, _ := ClientSpecFor(client)
+	endpoint, boundProtocol, err := spec.ResolveRouteEndpoint(c.Accounts[accountID], bound, binding.Protocol)
+	if err != nil || endpoint != upstream || boundProtocol != protocol {
+		return ""
+	}
+	return binding.ForwardingEndpoint
 }
 
 func routeLabel(route Route, account Account, model Model) string {

@@ -120,8 +120,8 @@ func manifestSetupConfig() configuration.Config {
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "team", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	cfg.Recommendations[configuration.ClientCodex] = configuration.ClientRecommendation{Primary: configuration.ClientSelection{Route: "codex"}}
 	cfg.Recommendations[configuration.ClientClaude] = configuration.ClientRecommendation{Primary: configuration.ClientSelection{Route: "claude"}}
 	cfg.SetClientActivation(configuration.ClientCodex, true, "", nil)

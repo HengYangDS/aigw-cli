@@ -40,7 +40,7 @@ func TestSetSelectedRouteUsesTheNewRoutesOnlyAdmittedProtocol(t *testing.T) {
 		Protocol: ProtocolAnthropic,
 	}
 
-	cfg.SetSelectedRoute(ClientHermes, "backup")
+	cfg.SetSelectedRoute(ClientHermes, "backup", "")
 
 	binding := cfg.Clients[ClientHermes]
 	if binding.Route != "backup" {
@@ -73,8 +73,8 @@ func TestResolveRuntimeReturnsAccountEndpointAndModel(t *testing.T) {
 	cfg.Accounts["dmx"] = Account{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
 	cfg.Routes["gpt-5.6"] = testRoute("GPT-5.6", "dmx", "gpt-5.6", ProtocolOpenAIResponses)
 	cfg.Routes["claude-opus"] = testRoute("Claude Opus", "dmx", "claude-opus", ProtocolAnthropic)
-	cfg.SetSelectedRoute(ClientCodex, "gpt-5.6")
-	cfg.SetSelectedRoute(ClientClaude, "claude-opus")
+	cfg.SetSelectedRoute(ClientCodex, "gpt-5.6", "")
+	cfg.SetSelectedRoute(ClientClaude, "claude-opus", "")
 	got, err := cfg.ResolveRuntime(ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
@@ -119,7 +119,7 @@ func TestResolveRuntimeRejectsUnknownRouteAccountAndEndpoint(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["dmx"] = Account{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Routes["codex"] = testRoute("Codex", "dmx", "gpt-test", ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(ClientCodex, "codex")
+	cfg.SetSelectedRoute(ClientCodex, "codex", "")
 
 	if _, err := cfg.ResolveRuntime(ClientCodex, "missing-route"); err == nil || !strings.Contains(err.Error(), "unknown route") {
 		t.Fatalf("unknown route error = %v", err)
@@ -127,7 +127,7 @@ func TestResolveRuntimeRejectsUnknownRouteAccountAndEndpoint(t *testing.T) {
 
 	orphan := cfg
 	orphan.Routes = map[string]Route{"codex": testRoute("Codex", "missing-account", "gpt-test", ProtocolOpenAIResponses)}
-	orphan.SetSelectedRoute(ClientCodex, "codex")
+	orphan.SetSelectedRoute(ClientCodex, "codex", "")
 	_, err := orphan.ResolveRuntime(ClientCodex, "")
 	var accountErr *RuntimeRouteUnknownAccountError
 	if !errors.As(err, &accountErr) || accountErr.RouteID != "codex" || accountErr.AccountID != "missing-account" {
@@ -268,8 +268,8 @@ func TestSelectedAccountIDsReturnsUniqueStableActiveAccounts(t *testing.T) {
 	cfg.Routes["alpha-claude"] = testRoute("Alpha Claude", "alpha", "claude-test", ProtocolAnthropic)
 	cfg.Routes["alpha-codex"] = testRoute("Alpha Codex", "alpha", "gpt-test", ProtocolOpenAIResponses)
 	cfg.Routes["optional"] = testRoute("Optional", "optional", "gpt-optional", ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(ClientClaude, "alpha-claude")
-	cfg.SetSelectedRoute(ClientCodex, "alpha-codex")
+	cfg.SetSelectedRoute(ClientClaude, "alpha-claude", "")
+	cfg.SetSelectedRoute(ClientCodex, "alpha-codex", "")
 
 	if got := cfg.SelectedAccountIDs(); !reflect.DeepEqual(got, []string{"alpha"}) {
 		t.Fatalf("SelectedAccountIDs() = %#v", got)
@@ -282,7 +282,7 @@ func TestSelectRoutesForConnectedAccountsSelectsACompatibleRouteForAnUnselectedC
 	cfg.Accounts["codex"] = Account{Label: "Codex", Endpoints: Endpoints{OpenAIResponses: "https://codex.test/v1"}}
 	cfg.Routes["claude"] = testRoute("Claude", "claude-only", "claude-test", ProtocolAnthropic)
 	cfg.Routes["codex"] = testRoute("Codex", "codex", "gpt-test", ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(ClientCodex, "codex")
+	cfg.SetSelectedRoute(ClientCodex, "codex", "")
 	cfg.SetRecommendedRoute(ClientClaude, "claude")
 
 	got, err := cfg.SelectRoutesForConnectedAccounts([]string{"claude-only"}, ClientClaude)
@@ -365,7 +365,7 @@ func TestExplicitRouteSelectionUsesUnboundRecommendationOptions(t *testing.T) {
 	if runtime.RouteID != "selected" || runtime.Protocol != ProtocolAnthropic {
 		t.Fatalf("explicit Hermes runtime = %#v", runtime)
 	}
-	cfg.SetSelectedRoute(ClientHermes, "selected")
+	cfg.SetSelectedRoute(ClientHermes, "selected", "")
 	if binding := cfg.Clients[ClientHermes]; binding.Route != "selected" || binding.Protocol != ProtocolAnthropic {
 		t.Fatalf("stored Hermes binding = %#v", binding)
 	}

@@ -17,7 +17,7 @@ func TestClaudeDesktopLifecycleReportsRequiredRestart(t *testing.T) {
 		Label: "Desktop", Account: "gateway", Model: "claude-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "desktop")
+	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "desktop", "")
 	runtime, out, secretStore, _ := adapterRuntime(t, cfg)
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)

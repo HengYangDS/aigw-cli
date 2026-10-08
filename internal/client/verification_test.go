@@ -49,7 +49,7 @@ func TestHermesInspectionKeepsIntactRetainedVersionedReader(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["hermes"] = qualifiedRoute("Hermes", "team", "model-test", configuration.ProtocolAnthropic)
-	cfg.SetSelectedRoute(configuration.ClientHermes, "hermes")
+	cfg.SetSelectedRoute(configuration.ClientHermes, "hermes", "")
 	cfg.SetClientActivation(configuration.ClientHermes, true, executable, []string{target})
 	store := secrets.NewMemoryStore()
 	if err := store.Set("team", "fixture-token"); err != nil {
@@ -378,7 +378,7 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testi
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["selected"] = qualifiedRoute("", "gateway", "claude-selected", configuration.ProtocolAnthropic)
 	cfg.Routes["alternate"] = qualifiedRoute("", "gateway", "claude-alternate", configuration.ProtocolAnthropic)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "selected")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "selected", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
 	selected, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {

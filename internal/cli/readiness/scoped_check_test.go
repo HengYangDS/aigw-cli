@@ -56,7 +56,7 @@ func TestCheckForLimitsCredentialsAndInferenceToOneEnabledClient(t *testing.T) {
 	claude := cfg.Routes["claude"]
 	claude.Account = "other"
 	cfg.Routes["claude"] = claude
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, filepath.Join(t.TempDir(), "missing-claude"), nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)

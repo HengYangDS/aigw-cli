@@ -1,6 +1,9 @@
 package main
 
 import (
+	"aigw-cli/internal/upgrade/artifact"
+	"aigw-cli/tools/release/performance"
+	"aigw-cli/tools/release/readiness"
 	"archive/tar"
 	"archive/zip"
 	"bytes"
@@ -54,6 +57,35 @@ func nativeReleaseCandidate(t *testing.T, root, version string) (program, archiv
 	stage := cachedNativeSource(t, root, version)
 	base, name := nativeArchiveNames(version)
 	return filepath.Join(stage, base, executableName()), filepath.Join(stage, name), filepath.Join(stage, "checksums.txt")
+}
+
+func nativePerformancePrograms(t *testing.T) []performance.Program {
+	t.Helper()
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	version, err := readiness.ReadProductVersion(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
+	target := artifact.Target{OS: runtime.GOOS, Arch: runtime.GOARCH}
+	verified, err := target.ReadProgram(archive, checksums, version)
+	if err != nil || !bytes.Equal(verified, readFile(t, candidate)) {
+		t.Fatalf("candidate program differs from verified archive: %v", err)
+	}
+	baseline := requireNativeLifecycleBaseline(t, func() string { return "" })
+	programs := []performance.Program{{Variant: "baseline", Path: baseline}, {Variant: "candidate", Path: candidate}}
+	for index := range programs {
+		data := readFile(t, programs[index].Path)
+		programs[index].SHA256 = fmt.Sprintf("%x", sha256.Sum256(data))
+		programs[index].Bytes = len(data)
+	}
+	if programs[0].SHA256 == programs[1].SHA256 {
+		t.Fatal("candidate and predecessor must be distinct published programs")
+	}
+	return programs
 }
 
 func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoint string) {

@@ -231,14 +231,15 @@ func (recommendation ClientRecommendation) Selections() []ClientSelection {
 // ClientBinding records one client's explicit selection, enabled intent, and
 // owned native targets.
 type ClientBinding struct {
-	Route             string           `json:"route,omitempty"              toml:"route,omitempty"`
-	Enabled           bool             `json:"enabled"                      toml:"enabled"`
-	Protocol          EndpointProtocol `json:"protocol,omitempty"           toml:"protocol,omitempty"`
-	ModelProvider     string           `json:"model_provider,omitempty"     toml:"model_provider,omitempty"`
-	Authentication    Authentication   `json:"authentication,omitempty"     toml:"authentication,omitempty"`
-	Executable        string           `json:"executable,omitempty"         toml:"executable,omitempty"`
-	Targets           []string         `json:"targets,omitempty"            toml:"targets,omitempty"`
-	CredentialCommand string           `json:"credential_command,omitempty" toml:"credential_command,omitempty"`
+	ForwardingEndpoint string           `json:"forwarding_endpoint,omitempty" toml:"-"`
+	Route              string           `json:"route,omitempty"              toml:"route,omitempty"`
+	Enabled            bool             `json:"enabled"                      toml:"enabled"`
+	Protocol           EndpointProtocol `json:"protocol,omitempty"           toml:"protocol,omitempty"`
+	ModelProvider      string           `json:"model_provider,omitempty"     toml:"model_provider,omitempty"`
+	Authentication     Authentication   `json:"authentication,omitempty"     toml:"authentication,omitempty"`
+	Executable         string           `json:"executable,omitempty"         toml:"executable,omitempty"`
+	Targets            []string         `json:"targets,omitempty"            toml:"targets,omitempty"`
+	CredentialCommand  string           `json:"credential_command,omitempty" toml:"credential_command,omitempty"`
 }
 
 func (binding ClientBinding) selection() ClientSelection {
@@ -271,4 +272,46 @@ func (runtime Runtime) CredentialExecutable(native string) string {
 // configured client helper without changing the Provider authentication protocol.
 func (runtime Runtime) UsesAIGWCredentialStore() bool {
 	return runtime.RequiresAccountToken() && runtime.CredentialCommand == ""
+}
+
+// SetSelectedRoute changes one client's Route and endpoint protocol while
+// preserving enabled intent and native options. An empty protocol retains
+// compatible selection or infers the Route's only admitted protocol.
+func (c *Config) SetSelectedRoute(client, routeID string, protocol EndpointProtocol) {
+	if c.Clients == nil {
+		c.Clients = map[string]ClientBinding{}
+	}
+	binding := c.Clients[client]
+	previous, previousErr := c.ResolveRuntime(client, "")
+	if binding.Route == "" {
+		binding = binding.withSelection(c.recommendedSelection(client))
+	}
+	binding.Route = routeID
+	if protocol != "" {
+		binding.Protocol = protocol
+	} else if route, exists := c.Routes[routeID]; exists && !routeAdmitsProtocol(route, binding.Protocol) {
+		binding.Protocol = ""
+		if protocols := route.AdmittedProtocols(); len(protocols) == 1 {
+			binding.Protocol = protocols[0]
+		}
+	}
+	c.Clients[client] = binding
+	current, currentErr := c.ResolveRuntime(client, "")
+	if previousErr != nil || currentErr != nil || !previous.SameUpstream(current) {
+		binding.ForwardingEndpoint = ""
+	}
+	c.Clients[client] = binding
+}
+
+// SetClientActivation changes one client's enabled intent and native location
+// while preserving its selected Route and client-specific options.
+func (c *Config) SetClientActivation(client string, enabled bool, executable string, targets []string) {
+	if c.Clients == nil {
+		c.Clients = map[string]ClientBinding{}
+	}
+	binding := c.Clients[client]
+	binding.Enabled = enabled
+	binding.Executable = executable
+	binding.Targets = append([]string(nil), targets...)
+	c.Clients[client] = binding
 }

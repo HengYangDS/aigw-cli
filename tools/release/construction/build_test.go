@@ -295,11 +295,25 @@ func TestBuildCIResolvesTagVersionAndReproducibleEpoch(t *testing.T) {
 	}
 }
 
-func TestBuildCIRejectsMissingVersionCarrier(t *testing.T) {
-	missing := t.TempDir()
-	t.Setenv("CI_COMMIT_TAG", "v1.2.3")
-	if err := buildCI(missing, t.TempDir(), t.TempDir(), nil, nil, nil); err == nil || !strings.Contains(err.Error(), "read VERSION") {
-		t.Fatalf("missing CI VERSION error = %v", err)
+func TestBuildCIRejectsInvalidIdentity(t *testing.T) {
+	for _, test := range []struct{ name, tag, version, want string }{
+		{"missing carrier", "v1.2.3", "", "read VERSION"},
+		{"mismatched carrier", "v1.2.3", "1.2.4", "VERSION"},
+		{"unprefixed tag", "1.2.3", "1.2.3", "invalid CI"},
+		{"malformed tag", "vnot-semver", "1.2.3", "invalid CI"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			if test.version != "" {
+				if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte(test.version+"\n"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			t.Setenv("CI_COMMIT_TAG", test.tag)
+			if err := buildCI(root, t.TempDir(), t.TempDir(), nil, nil, nil); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("invalid CI identity error = %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 
@@ -328,34 +342,6 @@ func TestBuildIdentityUsesSemanticVersionGrammar(t *testing.T) {
 			}, nil)
 			if errors.Is(err, epochReached) != tc.valid || (!tc.valid && (err == nil || !strings.Contains(err.Error(), "invalid CI release version"))) {
 				t.Fatalf("CI identity error=%v, valid=%t", err, tc.valid)
-			}
-		})
-	}
-}
-
-func TestBuildCIRejectsTagThatDisagreesWithVersionCarrier(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.4\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("CI_COMMIT_TAG", "v1.2.3")
-
-	err := buildCI(root, filepath.Join(t.TempDir(), "build"), filepath.Join(t.TempDir(), "dist"), nil, nil, nil)
-	if err == nil || !strings.Contains(err.Error(), "VERSION") {
-		t.Fatalf("error = %v, want VERSION mismatch", err)
-	}
-}
-
-func TestBuildCIRejectsMalformedTagShapes(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	for _, tag := range []string{"1.2.3", "vnot-semver"} {
-		t.Run(tag, func(t *testing.T) {
-			t.Setenv("CI_COMMIT_TAG", tag)
-			if err := buildCI(root, t.TempDir(), t.TempDir(), nil, nil, nil); err == nil || !strings.Contains(err.Error(), "invalid CI") {
-				t.Fatalf("tag %q error = %v", tag, err)
 			}
 		})
 	}

@@ -114,7 +114,7 @@ func (c *Config) validateClientBindings() error {
 		}
 		binding := c.clientBinding(client)
 		if binding.Route == "" {
-			if binding.Enabled || binding.Protocol != "" || binding.ModelProvider != "" || binding.Authentication != "" {
+			if binding.Enabled || binding.Protocol != "" || binding.ModelProvider != "" || binding.Authentication != "" || binding.ForwardingEndpoint != "" {
 				return fmt.Errorf("client binding %q must select a route before it can be enabled or define runtime options", client)
 			}
 			if err := binding.validate(client); err != nil {
@@ -169,6 +169,11 @@ func (selection ClientSelection) validate(client string) error {
 }
 
 func (binding ClientBinding) validate(client string) error {
+	if binding.ForwardingEndpoint != "" {
+		if err := validateEndpoint(binding.ForwardingEndpoint); err != nil {
+			return fmt.Errorf("client binding %q forwarding endpoint: %w", client, err)
+		}
+	}
 	command := binding.CredentialCommand
 	if command != "" && (!filepath.IsAbs(command) || strings.TrimSpace(command) != command || strings.ContainsFunc(command, unicode.IsControl)) {
 		return fmt.Errorf("client binding %q credential_command must be one absolute executable path", client)

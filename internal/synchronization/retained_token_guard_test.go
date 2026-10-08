@@ -35,7 +35,7 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 	}
 
 	target := filepath.Join(root, "codex.toml")
-	if err := os.WriteFile(target, nil, 0o600); err != nil {
+	if err := os.WriteFile(target, []byte("# Existing native Codex home\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cfg := testConfig(target)
@@ -58,7 +58,7 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 	afterConfig := cfg.Clone()
 	afterConfig.Accounts["ready"] = configuration.Account{Label: "Ready", Endpoints: configuration.Endpoints{Anthropic: "https://ready.test"}}
 	afterConfig.Routes["claude"] = configuration.Route{Label: "Claude", Account: "ready", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	afterConfig.SetSelectedRoute(configuration.ClientClaude, "claude")
+	afterConfig.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	afterConfig.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 
 	workerSource := filepath.Join(root, "candidate.go")
@@ -90,16 +90,13 @@ func main() {
 		t.Fatal(err)
 	}
 	configurationStore := &configStoreStub{}
+	configurationStore.bindConfiguration(t, cfg)
 	syncer := Synchronizer{Config: configurationStore, Secrets: store, Discovery: targetDiscovery(target), ClaudeSettingsPath: claudeSettings, AIGWExecutable: candidate, CredentialPath: current}
 	if err := syncer.CommitProjection(t.Context(), cfg, afterConfig, "sync"); err != nil {
 		t.Fatalf("independent Claude projection failed: %v", err)
 	}
-	after, readErr := os.ReadFile(target)
-	if readErr != nil {
-		t.Fatal(readErr)
-	}
-	if !bytes.Equal(before, after) {
-		t.Fatal("missing candidate Token replaced the retained client projection")
+	if after, err := os.ReadFile(target); err != nil || !bytes.Equal(before, after) {
+		t.Fatalf("missing candidate Token changed the retained client projection: %v", err)
 	}
 	claudeBytes, err := os.ReadFile(claudeSettings)
 	if err != nil || !strings.Contains(string(claudeBytes), "https://ready.test") {
@@ -120,7 +117,7 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	cfg.Clients[configuration.ClientCodex] = codexBinding
 	cfg.Accounts["missing"] = configuration.Account{Label: "Missing", Endpoints: configuration.Endpoints{Anthropic: "https://missing.test"}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "missing", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
@@ -139,7 +136,9 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	if err := os.Mkdir(reader, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Config: &configStoreStub{}, Secrets: secrets.NewMemoryStore(), Discovery: targetDiscovery(target), AIGWExecutable: candidate, CredentialPath: reader, ClaudeSettingsPath: filepath.Join(root, "settings.json")}
+	configurationStore := &configStoreStub{}
+	configurationStore.bindConfiguration(t, cfg)
+	syncer := Synchronizer{Config: configurationStore, Secrets: secrets.NewMemoryStore(), Discovery: targetDiscovery(target), AIGWExecutable: candidate, CredentialPath: reader, ClaudeSettingsPath: filepath.Join(root, "settings.json")}
 	plans, err := syncer.Plan(cfg, cfg)
 	if err != nil || len(plans) == 0 {
 		t.Fatalf("ready native Codex has no projection plan: plans=%v error=%v", plans, err)

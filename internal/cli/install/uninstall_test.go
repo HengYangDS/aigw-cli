@@ -81,7 +81,7 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 			Label: "Claude", Account: "gateway", Model: "claude-test",
 			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 		}
-		cfg.SetSelectedRoute(configuration.ClientClaude, "claude")
+		cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 		cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 		if err := store.Save(cfg); err != nil {
 			t.Fatal(err)

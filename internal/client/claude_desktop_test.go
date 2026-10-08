@@ -44,7 +44,7 @@ func newClaudeDesktopFixture(t *testing.T) claudeDesktopFixture {
 	cfg.Routes["manual"] = configuration.Route{Label: "Manual", Account: "gateway", Model: "manual-model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.Routes["other-account"] = configuration.Route{Label: "Other", Account: "other", Model: "other-model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.Routes["selected"] = configuration.Route{Label: "Fable 5.1", Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "selected")
+	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "selected", "")
 	cfg.SetClientActivation(configuration.ClientClaudeDesktop, true, executable, []string{library})
 	store := secrets.NewMemoryStore()
 	if err := store.Set("gateway", "secret"); err != nil {
@@ -117,7 +117,7 @@ func TestClaudeDesktopShippedChannelDoesNotDuplicateItsLogicalModel(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "dmxapi-claude-sonnet-5-5-cc")
+	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "dmxapi-claude-sonnet-5-5-cc", "")
 	runtime, err := cfg.ResolveRuntime(configuration.ClientClaudeDesktop, "")
 	if err != nil {
 		t.Fatal(err)
@@ -252,7 +252,7 @@ func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *test
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test/v1"}}
 	cfg.Routes["selected"] = configuration.Route{Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "selected")
+	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "selected", "")
 	cfg.SetClientActivation(configuration.ClientClaudeDesktop, true, "", nil)
 	store := secrets.NewMemoryStore()
 	if err := store.Set("gateway", "secret"); err != nil {

@@ -1,16 +1,146 @@
 package configuration
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestForwardingStorePreservesStrictPublishedConfiguration(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	cfg := validConfig()
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	original, err := os.ReadFile(store.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := cfg.Clients[ClientCodex]
+	binding.ForwardingEndpoint = "http://127.0.0.1:8792/backup/v1"
+	cfg.Clients[ClientCodex] = binding
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	canonical, err := os.ReadFile(store.Path())
+	if err != nil || !bytes.Equal(original, canonical) {
+		t.Fatalf("forwarding rewrote predecessor-readable configuration: %v", err)
+	}
+	loaded, err := store.Load()
+	if err != nil || loaded.Clients[ClientCodex].ForwardingEndpoint != binding.ForwardingEndpoint {
+		t.Fatalf("forwarding did not survive Store round trip: %#v, %v", loaded.Clients, err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := store.Commit(before, loaded)
+	if err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatalf("unchanged forwarding commit rewrote its snapshot: %v", err)
+	}
+}
+
+func TestForwardingSnapshotRestoresPresenceAndPriorBinding(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	cfg := validConfig()
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := cfg.Clients[ClientCodex]
+	binding.ForwardingEndpoint = "http://127.0.0.1:8792/backup/v1"
+	cfg.Clients[ClientCodex] = binding
+	after, err := store.Commit(before, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.RestoreSnapshot(before, after); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := store.CaptureSnapshot()
+	if err != nil || !reflect.DeepEqual(before, restored) {
+		t.Fatalf("forwarding rollback did not restore exact prior presence: %v", err)
+	}
+	loaded, err := store.Load()
+	if err != nil || loaded.Clients[ClientCodex].ForwardingEndpoint != "" {
+		t.Fatalf("forwarding remained after rollback: %#v, %v", loaded.Clients, err)
+	}
+}
+
+func TestForwardingStoreRejectsMixedAccountGenerations(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	cfg := validConfig()
+	binding := cfg.Clients[ClientCodex]
+	binding.ForwardingEndpoint = "http://127.0.0.1:8792/backup/v1"
+	cfg.Clients[ClientCodex] = binding
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Routes["other"] = testRoute("Other", "dmx", "other-model", ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(ClientCodex, "other", "")
+	canonical, err := encodeConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(store.Path(), canonical, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Load(); err == nil {
+		t.Fatal("mixed canonical and forwarding generations were admitted")
+	}
+}
+
+func TestForwardingMigrationPreviewPreservesAssembledBinding(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	cfg := validConfig()
+	binding := cfg.Clients[ClientCodex]
+	binding.ForwardingEndpoint = "http://127.0.0.1:8792/v1"
+	cfg.Clients[ClientCodex] = binding
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := store.PrepareMigration(false)
+	if err != nil || plan.Required || plan.Clients[ClientCodex].ForwardingEndpoint != binding.ForwardingEndpoint {
+		t.Fatalf("current-schema migration preview lost a client destination: %#v, %v", plan.Clients, err)
+	}
+}
+
+func TestForwardingUnchangedCanonicalRejectsStalePreimage(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	cfg := validConfig()
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	newer := append([]byte("# operator edit\n"), before.Config.Data...)
+	if err := os.WriteFile(store.Path(), newer, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	binding := cfg.Clients[ClientCodex]
+	binding.ForwardingEndpoint = "http://127.0.0.1:8792/v1"
+	cfg.Clients[ClientCodex] = binding
+	if _, err := store.Commit(before, cfg); err == nil {
+		t.Fatal("forwarding committed despite a newer canonical preimage")
+	}
+	after, err := store.CaptureSnapshot()
+	if err != nil || !bytes.Equal(after.Config.Data, newer) || !after.Backup.Equal(before.Backup) || after.Forwarding.Exists {
+		t.Fatalf("rejected stale commit changed independent state: %v", err)
+	}
+}
 
 func TestLoadRejectsLegacyProfileOwnedEndpointResidue(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")

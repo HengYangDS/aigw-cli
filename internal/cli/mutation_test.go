@@ -6,11 +6,37 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/secrets"
 )
+
+func TestUseForwardingPreviewDoesNotAcquireConfigurationLock(t *testing.T) {
+	app := configuredApp(t)
+	var output bytes.Buffer
+	app.Out, app.Err, app.Secrets = &output, &output, secrets.NewMemoryStore()
+	app.Discovery = noClientDiscovery{}
+	before, err := app.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(app.Config.Path()+".lock", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := Execute(app, []string{"use", "one", "--for", "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	after, err := app.Config.CaptureSnapshot()
+	if err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatalf("read-only use changed configuration or recovery files: %v", err)
+	}
+	if !strings.Contains(output.String(), `"dry_run": true`) {
+		t.Fatalf("selection preview omitted its structured result: %s", output.String())
+	}
+}
 
 func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 	for _, test := range []struct {
@@ -189,7 +215,7 @@ func TestConfigurationLockForInteractiveOnboarding(t *testing.T) {
 		Label: "GPT", Account: "dmx", Model: "gpt-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

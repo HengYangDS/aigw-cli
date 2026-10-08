@@ -60,9 +60,10 @@ or a local proxy deployment to make a configuration test pass.
   separate third-party inference library rather than Claude Code settings; its
   release support remains gated by mode-specific native evidence.
 - External Responses compatibility services, when explicitly selected by an
-  operator, own their transport and lifecycle. AIGW treats them as ordinary
-  Account endpoints and must not install, start, stop, reload, or configure
-  them.
+  operator, own their transport and lifecycle. AIGW projects their explicit
+  client-scoped forwarding destination without replacing the Account upstream
+  or provider identity. It must not install, start, stop, reload, or configure
+  those services.
 
 ## Analyzer isolation
 

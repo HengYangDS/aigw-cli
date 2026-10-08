@@ -144,6 +144,7 @@ func (codexAdapter) ProjectionChanged(before, after configuration.Config) bool {
 		return true
 	}
 	return beforeRuntime.AccountID != afterRuntime.AccountID ||
+		!beforeRuntime.SameUpstream(afterRuntime) ||
 		beforeRuntime.RouteID != afterRuntime.RouteID ||
 		beforeRuntime.RouteLabel != afterRuntime.RouteLabel ||
 		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
@@ -275,7 +276,7 @@ func (claudeAdapter) ProjectionChanged(before, after configuration.Config) bool 
 	if beforeErr != nil || afterErr != nil {
 		return true
 	}
-	return beforeRuntime.AccountID != afterRuntime.AccountID || beforeRuntime.Endpoint != afterRuntime.Endpoint || beforeRuntime.Model != afterRuntime.Model
+	return !beforeRuntime.SameUpstream(afterRuntime) || beforeRuntime.Endpoint != afterRuntime.Endpoint || beforeRuntime.Model != afterRuntime.Model
 }
 
 func (claudeAdapter) Inspect(_ context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime) Status {

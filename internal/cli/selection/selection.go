@@ -9,8 +9,10 @@ import (
 
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secrets"
 
@@ -21,6 +23,8 @@ import (
 func NewUseCommand(runtime invocation.Context) *cobra.Command {
 	var client string
 	var protocol string
+	var forwardingEndpoint string
+	var direct, dryRun, jsonMode bool
 	cmd := &cobra.Command{
 		Use:   "use <route>",
 		Short: "Select a Route for one client",
@@ -40,6 +44,10 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if err := cmd.Context().Err(); err != nil {
 				return err
 			}
+			forwarding, err := forwardingChoice(forwardingEndpoint, cmd.Flags().Changed("forwarding-endpoint"), direct)
+			if err != nil {
+				return err
+			}
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
@@ -50,69 +58,151 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			selected, err := resolveUseRuntime(operation, cfg, client, name, configuration.EndpointProtocol(protocol))
+			selected, err := resolveUseRuntime(operation, cfg, client, name, configuration.EndpointProtocol(protocol), forwarding)
 			if err != nil {
 				return err
 			}
-			route, ok := cfg.Routes[name]
-			if !ok {
-				return fmt.Errorf("unknown route %q; run `aigw route list`", name)
+			if dryRun {
+				return previewUse(operation, cfg, selected, forwarding, jsonMode)
 			}
 			token, err := selectionToken(cmd.Context(), operation, cfg, selected)
 			if err != nil {
 				return err
 			}
 			synchronizer := invocation.Synchronizer(operation)
-			configurationChanged, binding, err := synchronizer.SelectRoute(cmd.Context(), cfg, client, name, selected.Protocol, token)
+			configurationChanged, projectionChanged, binding, err := synchronizer.SelectRoute(cmd.Context(), cfg, client, name, selected.Protocol, forwarding, token)
 			if err != nil {
 				return err
 			}
-			title, detail := "Route already selected", "Selected client configuration synchronized; binding unchanged"
-			switch {
-			case configurationChanged && token != "":
-				title, detail = "Route selected", "Account token stored; client configuration synchronized"
-			case configurationChanged:
-				title, detail = "Route selected", "Client configuration synchronized"
-			case token != "":
-				title, detail = "Token stored", "Account token stored; selected client configuration synchronized"
-			}
-			r := invocation.Renderer(runtime)
-			r.ProductTitle(title)
-			r.Section("Current selection")
-			r.Row("Route", cfg.RouteLabel(name))
-			if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
-				r.Row("Purpose", purpose)
-			}
-			spec, _ := configuration.ClientSpecFor(client)
-			r.Row("Client", spec.Label)
-			r.Row("Protocol", string(selected.Protocol))
 			updated := cfg.Clone()
 			updated.Clients[client] = binding
-			if action := clientactivation.ProjectionPrerequisites(updated)[client]; action != "" {
-				if token != "" {
-					r.Row("Account Token", "Validated and stored")
-				}
-				r.Row("Projection", "Deferred; native client projection is unavailable")
-				r.Next(action)
-				return r.Err()
-			}
-			r.Success(detail)
-			if spec.RestartAfterProjection && configurationChanged {
-				r.Row("Activation", "Restart required")
-				r.Next(fmt.Sprintf("Restart %s, then run `aigw check`", spec.Label))
-			} else {
-				r.Next("aigw check")
-			}
-			return r.Err()
+			return renderUse(runtime, updated, selected, configurationChanged, projectionChanged, token != "", jsonMode)
 		},
 	}
 	cmd.Flags().StringVar(&client, "for", "", "Client: "+configuration.AdmittedClientUsage())
 	cmd.Flags().StringVar(&protocol, "protocol", "", "Endpoint protocol for a multi-protocol Route")
+	cmd.Flags().StringVar(&forwardingEndpoint, "forwarding-endpoint", "", "Explicit client destination; the Account upstream remains unchanged")
+	cmd.Flags().BoolVar(&direct, "direct", false, "Connect this client directly to its Account upstream")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview the selection without reading credentials or writing files")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the selection preview or result as JSON")
 	return cmd
 }
 
-func resolveUseRuntime(runtime invocation.Context, cfg configuration.Config, client, routeID string, requested configuration.EndpointProtocol) (configuration.Runtime, error) {
-	_, selected, err := invocation.Synchronizer(runtime).PrepareSelection(cfg, client, routeID, requested)
+func forwardingChoice(endpoint string, specified, direct bool) (*string, error) {
+	if specified {
+		if endpoint == "" {
+			return nil, fmt.Errorf("--forwarding-endpoint requires an endpoint; use --direct to remove forwarding")
+		}
+		if direct {
+			return nil, fmt.Errorf("--direct and --forwarding-endpoint are mutually exclusive")
+		}
+		return &endpoint, nil
+	}
+	if direct {
+		return new(string), nil
+	}
+	return nil, nil
+}
+
+func renderUse(runtime invocation.Context, cfg configuration.Config, selected configuration.Runtime, changed, projectionChanged, tokenStored, jsonMode bool) error {
+	title, detail := "Route already selected", "Selected client configuration synchronized; binding unchanged"
+	switch {
+	case changed && tokenStored:
+		title, detail = "Route selected", "Account token stored; client configuration synchronized"
+	case changed:
+		title, detail = "Route selected", "Client configuration synchronized"
+	case tokenStored:
+		title, detail = "Token stored", "Account token stored; selected client configuration synchronized"
+	}
+	spec, _ := configuration.ClientSpecFor(selected.Client)
+	result := useResult{Changed: changed, ProjectionChanged: projectionChanged, Runtime: selected, NextAction: "aigw check"}
+	if action := clientactivation.ProjectionPrerequisites(cfg)[selected.Client]; action != "" {
+		result.ProjectionDeferred = true
+		result.NextAction = action
+	} else if spec.RestartAfterProjection && projectionChanged {
+		result.RestartRequired = true
+		result.NextAction = fmt.Sprintf("Restart %s, then run `aigw check`", spec.Label)
+	}
+	if jsonMode {
+		return presentation.WriteJSON(runtime.Out, result)
+	}
+	r := invocation.Renderer(runtime)
+	r.ProductTitle(title)
+	r.Section("Current selection")
+	r.Row("Route", selected.RouteLabel)
+	if purpose := strings.TrimSpace(cfg.Routes[selected.RouteID].Purpose); purpose != "" {
+		r.Row("Purpose", purpose)
+	}
+	r.Row("Client", spec.Label)
+	r.Row("Protocol", string(selected.Protocol))
+	r.Row("Endpoint", selected.Endpoint)
+	if selected.Endpoint != selected.UpstreamEndpoint {
+		r.Row("Account upstream", selected.UpstreamEndpoint)
+	}
+	if result.ProjectionDeferred {
+		if tokenStored {
+			r.Row("Account Token", "Validated and stored")
+		}
+		r.Row("Projection", "Deferred; native client projection is unavailable")
+		r.Next(result.NextAction)
+		return r.Err()
+	}
+	r.Success(detail)
+	if result.RestartRequired {
+		r.Row("Activation", "Restart required")
+	}
+	r.Next(result.NextAction)
+	return r.Err()
+}
+
+type useResult struct {
+	DryRun             bool   `json:"dry_run"`
+	Changed            bool   `json:"changed"`
+	ProjectionChanged  bool   `json:"projection_changed"`
+	ProjectionDeferred bool   `json:"projection_deferred,omitempty"`
+	RestartRequired    bool   `json:"restart_required,omitempty"`
+	NextAction         string `json:"next_action,omitempty"`
+	configuration.Runtime
+	Targets []client.ProjectionPlan `json:"targets,omitempty"`
+}
+
+func previewUse(runtime invocation.Context, cfg configuration.Config, selected configuration.Runtime, forwarding *string, jsonMode bool) error {
+	synchronizer := invocation.Synchronizer(runtime)
+	synchronizer.AuthorizeCodexRouteSelection = selected.Client == configuration.ClientCodex
+	proposed, _, err := synchronizer.PrepareSelection(cfg, selected.Client, selected.RouteID, selected.Protocol, forwarding)
+	if err != nil {
+		return err
+	}
+	binding := proposed.Clients[selected.Client]
+	binding.Enabled = true
+	proposed.Clients[selected.Client] = binding
+	proposed, _, err = synchronizer.DesiredClientConfiguration(proposed, selected.Client)
+	if err != nil {
+		return err
+	}
+	plans, err := synchronizer.Plan(cfg, proposed, selected.Client)
+	if err != nil {
+		return err
+	}
+	result := useResult{DryRun: true, Runtime: selected, Targets: plans}
+	if jsonMode {
+		return presentation.WriteJSON(runtime.Out, result)
+	}
+	r := invocation.Renderer(runtime)
+	r.ProductTitle("Selection preview")
+	r.Row("Client", selected.Client)
+	r.Row("Route", selected.RouteLabel)
+	r.Row("Endpoint", selected.Endpoint)
+	r.Row("Account upstream", selected.UpstreamEndpoint)
+	for _, plan := range plans {
+		r.Row(plan.Target, plan.Action)
+	}
+	r.Detail("Credentials, configuration and client files were unchanged")
+	return r.Err()
+}
+
+func resolveUseRuntime(runtime invocation.Context, cfg configuration.Config, client, routeID string, requested configuration.EndpointProtocol, forwarding *string) (configuration.Runtime, error) {
+	_, selected, err := invocation.Synchronizer(runtime).PrepareSelection(cfg, client, routeID, requested, forwarding)
 	if err == nil || requested != "" {
 		return selected, err
 	}
@@ -136,7 +226,7 @@ func resolveUseRuntime(runtime invocation.Context, cfg configuration.Config, cli
 	if err != nil {
 		return configuration.Runtime{}, err
 	}
-	_, selected, err = invocation.Synchronizer(runtime).PrepareSelection(cfg, client, routeID, configuration.EndpointProtocol(choice))
+	_, selected, err = invocation.Synchronizer(runtime).PrepareSelection(cfg, client, routeID, configuration.EndpointProtocol(choice), forwarding)
 	return selected, err
 }
 

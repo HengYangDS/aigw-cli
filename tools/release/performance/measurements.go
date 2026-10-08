@@ -1,6 +1,7 @@
 package performance
 
 import (
+	"aigw-cli/internal/configuration"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -288,11 +289,16 @@ type Workload struct {
 	Name             string
 	Command, Prepare []string
 	Budget           float64
+	Mode             string                `json:"mode,omitempty"`
+	Runtime          configuration.Runtime `json:"runtime,omitzero"`
 }
 
 // Review binds a qualifying case to its native operation and selected executable.
 // Dynamic paths and identifiers stay invocation inputs, not another workload list.
 func (c Workload) Review(selected *Identity) error {
+	if err := reviewRuntime(c.Mode, c.Runtime); err != nil {
+		return err
+	}
 	if err := selectsExecutable(Argv(c.Command...), selected); err != nil {
 		return err
 	}
@@ -300,7 +306,11 @@ func (c Workload) Review(selected *Identity) error {
 	valid := false
 	switch c.Name {
 	case "projection":
-		valid = len(args) == 4 && slices.Equal(args[:2], []string{"use", "--for"}) && args[2] != "" && args[3] != ""
+		if c.Mode == "forwarding" {
+			valid = slices.Equal(args, []string{"use", "--for", c.Runtime.Client, c.Runtime.RouteID, "--forwarding-endpoint", c.Runtime.Endpoint})
+		} else {
+			valid = len(args) == 4 && slices.Equal(args[:2], []string{"use", "--for"}) && args[2] != "" && args[3] != ""
+		}
 	case "setup":
 		valid = len(args) == 5 && slices.Equal(args[:2], []string{"setup", "--from"}) && args[2] != "" && args[3] == "--account" && args[4] != ""
 	case "sync":
@@ -318,6 +328,22 @@ func (c Workload) Review(selected *Identity) error {
 	}
 	if !valid {
 		return errors.New("performance command differs from its declared workload")
+	}
+	return nil
+}
+
+func reviewRuntime(mode string, binding configuration.Runtime) error {
+	if mode != "" && mode != "direct" && mode != "forwarding" {
+		return errors.New("performance mode is not direct or forwarding")
+	}
+	if mode == "" && binding == (configuration.Runtime{}) {
+		return nil
+	}
+	if binding.Client == "" || binding.RouteID == "" || binding.AccountID == "" || binding.Protocol == "" || binding.Endpoint == "" || binding.UpstreamEndpoint == "" {
+		return errors.New("performance mode lacks its resolved native binding")
+	}
+	if (binding.Endpoint != binding.UpstreamEndpoint) != (mode == "forwarding") {
+		return errors.New("performance mode differs from its resolved native destination")
 	}
 	return nil
 }
