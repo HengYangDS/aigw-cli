@@ -1,7 +1,6 @@
 ---
 default: false
-# Enables the adapter's native list-spacing extension with upstream boundaries.
-blank_lines: true
+# Native Prettier owns whitespace and container layout.
 MD001: true
 MD003: { style: atx }
 MD004: { style: dash }
@@ -24,7 +23,7 @@ MD027: true
 MD028: true
 MD029: { style: one_or_ordered }
 MD030: true
-MD031: true
+MD031: { list_items: false }
 MD032: true
 MD034: true
 MD035: { style: "---" }
@@ -47,6 +46,6 @@ MD053: true
 MD054: true
 MD055: true
 MD056: true
-MD058: true
+MD058: false
 MD059: true
 MD060: { style: aligned }

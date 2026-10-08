@@ -24,12 +24,11 @@ Headings, lists, tables, and fenced blocks also retain one blank line from
 adjacent prose. Formatter wrapping within one semantic paragraph does not create
 a new paragraph; Prettier owns that mechanical wrapping.
 
-Peer items in a list remain contiguous when every item contains only one
-paragraph, including wrapped tasks. A list with multiple paragraphs, a nested
-block, a table, or a fenced example may retain one blank separator between
-items. Do not remove blank lines that delimit those internal blocks or alter
-literal code. These constraints apply to current documents and active OpenSpec
-tasks, not immutable archives.
+Native formatter output defines canonical list and quote layout. Preserve tight
+items, loose containers and distinct paragraphs; do not collapse their separators
+with a postprocessor. Wrapped lines remain in their paragraph. Literal examples
+use native formatter ignores when their bytes matter. Current documents and
+active OpenSpec tasks follow this owner; immutable archives remain unchanged.
 
 ## Enforced byte invariants
 
@@ -79,7 +78,12 @@ availability or rendered browser behavior.
 The repository quality graph exposes one format check through the existing
 CI owner. That owner streams the exact checkout-bound Git inventory to the
 locked, checkout-local Prettier API declared by
-[the npm package manifest](../../package.json). Git ignores filter untracked
+[the npm package manifest](../../package.json), with preserved prose wrapping and
+native embedded-language formatting. `mise exec --locked -- go run ./tools/ci
+format .` writes that inventory; `check-format .` checks the same inputs without
+mutation. Neither resolves ambient formatter configuration. Use native
+`prettier-ignore` for byte-exact examples. Other lint rules must admit canonical
+formatter output; they do not rewrite list or quote containers. Git ignores filter untracked
 output, not tracked source; [formatter scope](../../.prettierignore) excludes
 only immutable OpenSpec history. A directory named `archive` elsewhere remains
 current source.

@@ -130,27 +130,33 @@ func TestFormattingCoversCurrentCarriersAndPreservesOwnedExclusions(t *testing.T
 		t.Fatalf("git add: %v\n%s", err, output)
 	}
 	t.Setenv("GIT_INDEX_FILE", filepath.Join(repository, ".git", "foreign-index"))
-	called := false
-	if err := run([]string{"check-format", root}, &bytes.Buffer{}, func(call command) error {
-		called = true
-		if call.Dir != root || call.Name != "node" || len(call.Args) != 1 || call.Args[0] != filepath.Join(root, "tools", "ci", "format.mjs") {
-			t.Fatalf("native formatting invocation: %#v", call)
-		}
-		var inventory []string
-		if err := json.Unmarshal([]byte(call.Input), &inventory); err != nil {
-			t.Fatal(err)
-		}
-		for _, path := range files {
-			if strings.Contains(call.Input, filepath.ToSlash(root)) {
-				t.Fatal("format inventory must resolve relative to the requested checkout")
+	for _, mode := range []string{"check-format", "format"} {
+		called := false
+		if err := run([]string{mode, root}, &bytes.Buffer{}, func(call command) error {
+			called = true
+			want := []string{filepath.Join(root, "tools", "ci", "format.mjs")}
+			if mode == "format" {
+				want = append(want, "--write")
 			}
-			if slices.Contains(inventory, filepath.FromSlash(path)) == (path == "build/generated.json") {
-				t.Fatalf("authored inventory membership for %s: %v", path, inventory)
+			if call.Dir != root || call.Name != "node" || !slices.Equal(call.Args, want) {
+				t.Fatalf("native formatting invocation: %#v", call)
 			}
+			var inventory []string
+			if err := json.Unmarshal([]byte(call.Input), &inventory); err != nil {
+				t.Fatal(err)
+			}
+			for _, path := range files {
+				if strings.Contains(call.Input, filepath.ToSlash(root)) {
+					t.Fatal("format inventory must resolve relative to the requested checkout")
+				}
+				if slices.Contains(inventory, filepath.FromSlash(path)) == (path == "build/generated.json") {
+					t.Fatalf("authored inventory membership for %s: %v", path, inventory)
+				}
+			}
+			return nil
+		}); err != nil || !called {
+			t.Fatalf("format inventory not executed: %v", err)
 		}
-		return nil
-	}); err != nil || !called {
-		t.Fatalf("format inventory not executed: %v", err)
 	}
 }
 

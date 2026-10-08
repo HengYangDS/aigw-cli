@@ -178,7 +178,7 @@ func requireTrackedLinkTargets(root string, files []string) error {
 	return nil
 }
 
-func checkFormat(root string, runner commandRunner) error {
+func formatSource(root string, runner commandRunner, write bool) error {
 	files, err := currentRepositoryFiles(root, "authored files")
 	if err != nil {
 		return err
@@ -194,7 +194,11 @@ func checkFormat(root string, runner commandRunner) error {
 		return err
 	}
 	checker := filepath.Join(root, "tools", "ci", "format.mjs")
-	return runner(command{Name: "node", Dir: root, Args: []string{checker}, Input: string(input)})
+	arguments := []string{checker}
+	if write {
+		arguments = append(arguments, "--write")
+	}
+	return runner(command{Name: "node", Dir: root, Args: arguments, Input: string(input)})
 }
 
 func checkMarkdown(root string, runner commandRunner) error {

@@ -1,9 +1,14 @@
-// Check locked Prettier layout and canonical Markdown spacing without writes.
+// Format or check the declared authored inventory with locked native Prettier.
 import { text } from "node:stream/consumers";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { relative, sep } from "node:path";
 import { format, getFileInfo } from "../../node_modules/prettier/index.mjs";
 
+const options = process.argv.slice(2);
+if (options.length > 1 || (options.length === 1 && options[0] !== "--write")) {
+  throw new Error("usage: format.mjs [--write]");
+}
+const write = options[0] === "--write";
 const files = JSON.parse(await text(process.stdin));
 const ignorePath = ".prettierignore";
 readFileSync(ignorePath);
@@ -20,16 +25,13 @@ for (const path of files) {
   }
   checked++;
   const original = readFileSync(path, "utf8");
-  const markdown = info.inferredParser === "markdown";
-  let formatted = await format(original, {
+  const formatted = await format(original, {
     filepath: path,
-    embeddedLanguageFormatting: markdown ? "off" : "auto",
+    proseWrap: "preserve",
   });
-  if (markdown) {
-    const { fixMarkdownSpacing } = await import("./markdown/lint.mjs");
-    formatted = await fixMarkdownSpacing(formatted);
-  }
-  if (original !== formatted) {
+  if (original !== formatted && write) {
+    writeFileSync(path, formatted);
+  } else if (original !== formatted) {
     console.error(
       `${relative(process.cwd(), path).split(sep).join("/")}: formatting differs`,
     );
@@ -39,5 +41,5 @@ for (const path of files) {
 if (checked === 0) {
   throw new Error("no authored files supported by Prettier");
 }
-console.log(`checked ${checked} formatted files`);
+console.log(`${write ? "formatted" : "checked"} ${checked} formatted files`);
 process.exitCode = failed ? 1 : 0;
