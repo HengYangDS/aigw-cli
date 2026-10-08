@@ -24,7 +24,8 @@ func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 		accept  bool
 	}{
 		{"success", 0, true, false, "valid", true},
-		{"performance failure", 1, false, false, "", false},
+		{"preflight failure", 1, false, false, "", false},
+		{"performance failure", 2, false, false, "", false},
 		{"missing results", 0, false, false, "", false},
 		{"explicit clients and performance", 0, true, true, "valid", true},
 		{"unqualified results", 0, true, false, `{"qualification":false,"scope":"full-performance"}`, false},
@@ -36,50 +37,66 @@ func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 			source := t.TempDir()
 			writeNativeArchive(t, source, "1.2.3")
 			output := filepath.Join(t.TempDir(), "measurements")
+			want := [][]string{
+				{"test", "./tools/release/performance", "-run", "^TestMeasureRetainsSeparateDiagnosticStreams$", "-count=1", "-timeout=60s"},
+				{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"},
+			}
+			if test.clients {
+				want = append([][]string{{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClientJourney$", "-count=1", "-v"}}, want...)
+			}
 			var stage string
 			calls := 0
 			err := acceptNative(request, source, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), NativeAcceptance{Clients: test.clients, Performance: output}, func(call toolCall) error {
-				calls++
 				stage = strings.TrimPrefix(call.Env[0], "AIGW_ACCEPTANCE_RELEASE=")
 				if call.Name != "go" || call.Directory != request.Root || stage == source {
 					t.Fatalf("performance escaped native stage: %#v", call)
 				}
+				if calls >= len(want) || !slices.Equal(call.Args, want[calls]) {
+					t.Fatalf("performance did not qualify its native preparation consumer first: %#v", call)
+				}
+				calls++
 				if calls == test.failAt {
 					return errors.New(test.name)
 				}
-				if slices.Contains(call.Args, "^TestNativeClientJourney$") && test.clients && calls == 1 {
+				if calls != len(want) {
 					return nil
 				}
-				want := []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}
-				if !slices.Equal(call.Args, want) || !slices.Contains(call.Env, "AIGW_PERFORMANCE_OUTPUT="+output) {
-					t.Fatalf("performance dispatch = %#v", call)
+				if !slices.Contains(call.Env, "AIGW_PERFORMANCE_OUTPUT="+output) {
+					t.Fatalf("performance output escaped its explicit owner: %#v", call)
 				}
-				if !test.emit {
-					return nil
-				}
-				if err := os.Mkdir(output, 0o700); err != nil {
-					return err
-				}
-				if test.summary == "valid" {
-					writeQualifiedPerformanceSummary(t, output)
-					return nil
-				}
-				return os.WriteFile(filepath.Join(output, "summary.json"), []byte(test.summary), 0o600)
+				return emitPerformanceSummary(t, output, test.emit, test.summary)
 			})
-			if (err == nil) != test.accept || calls != map[bool]int{false: 1, true: 2}[test.clients] {
+			wantCalls := len(want)
+			if test.failAt != 0 {
+				wantCalls = test.failAt
+			}
+			if (err == nil) != test.accept || calls != wantCalls {
 				t.Fatalf("%s: %v", test.name, err)
 			}
 			if _, err := os.Stat(stage); !os.IsNotExist(err) {
 				t.Fatalf("native scratch survived %s: %v", test.name, err)
 			}
-			if !test.emit {
-				return
-			}
-			if _, err := os.Stat(filepath.Join(output, "summary.json")); err != nil {
-				t.Fatalf("performance evidence not retained: %v", err)
+			if test.emit {
+				if _, err := os.Stat(filepath.Join(output, "summary.json")); err != nil {
+					t.Fatalf("performance evidence not retained: %v", err)
+				}
 			}
 		})
 	}
+}
+
+func emitPerformanceSummary(t *testing.T, output string, emit bool, summary string) error {
+	if !emit {
+		return nil
+	}
+	if err := os.Mkdir(output, 0o700); err != nil {
+		return err
+	}
+	if summary == "valid" {
+		writeQualifiedPerformanceSummary(t, output)
+		return nil
+	}
+	return os.WriteFile(filepath.Join(output, "summary.json"), []byte(summary), 0o600)
 }
 
 func TestNativePerformanceOutputAdmission(t *testing.T) {

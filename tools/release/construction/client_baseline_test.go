@@ -142,6 +142,9 @@ func TestNativePerformanceAttributionRetainsOnlyItsOwnMeasurements(t *testing.T)
 	calls := 0
 	if err := acceptNative(request, "", "/published/aigw", input, func(call toolCall) error {
 		calls++
+		if slices.Contains(call.Args, "^TestMeasureRetainsSeparateDiagnosticStreams$") && calls == 1 {
+			return nil
+		}
 		if !slices.Contains(call.Args, "^TestNativePerformance$") || !slices.Contains(call.Env, "AIGW_PERFORMANCE_ATTRIBUTION=1") {
 			t.Fatalf("attribution repeated or weakened another native gate: %#v", call)
 		}
@@ -155,7 +158,7 @@ func TestNativePerformanceAttributionRetainsOnlyItsOwnMeasurements(t *testing.T)
 			return err
 		}
 		return os.WriteFile(filepath.Join(output, "summary.json"), data, 0o600)
-	}); err != nil || calls != 1 {
+	}); err != nil || calls != 2 {
 		t.Fatalf("native attribution calls=%d error=%v", calls, err)
 	}
 }
@@ -173,6 +176,9 @@ func TestNativePerformanceScopeCannotInheritAttribution(t *testing.T) {
 			}
 			if !slices.Contains(call.Env, want) {
 				t.Fatalf("native performance inherited a different scope: %#v", call.Env)
+			}
+			if slices.Contains(call.Args, "^TestMeasureRetainsSeparateDiagnosticStreams$") {
+				return nil
 			}
 			if err := os.Mkdir(output, 0o700); err != nil {
 				return err

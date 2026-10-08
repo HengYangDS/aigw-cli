@@ -326,6 +326,9 @@ carrying old samples into the final release verdict.
 
 The output must be a new absolute directory. Locked Hyperfine supplies both
 source diagnostic regressions and explicitly selected artifact measurements.
+Selected measurements first qualify native preparation, exact arguments,
+diagnostic streams and schema 2 through the existing focused fixture. A failed
+preflight stops the operation before the full performance samples.
 An explicit performance output selects only the matching measurements after
 normal artifact, source and predecessor trust checks; it does not repeat core,
 rollback or resource lifecycle acceptance. `--clients` additionally runs the

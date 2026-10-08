@@ -333,6 +333,7 @@ func acceptNative(request buildRequest, artifacts, baseline string, input Native
 		{lifecycle, []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney|TestNativeVerificationResources)$", "-count=1", "-v"}, currentEnvironment},
 		{lifecycle && baseline != "", []string{"test", "./tools/release", "-run", "^TestNativePublishedPredecessorJourney$", "-count=1", "-v"}, publishedEnvironment},
 		{clients, []string{"test", "-tags=client_acceptance", "./tools/release", "-run", clientPattern, "-count=1", "-v"}, publishedEnvironment},
+		{performanceDirectory != "", []string{"test", "./tools/release/performance", "-run", "^TestMeasureRetainsSeparateDiagnosticStreams$", "-count=1", "-timeout=60s"}, performanceEnvironment},
 		{performanceDirectory != "", []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}, performanceEnvironment},
 	} {
 		if !suite.selected {

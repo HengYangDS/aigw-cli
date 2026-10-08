@@ -187,19 +187,22 @@ func TestMeasureRetainsSeparateDiagnosticStreams(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, marker := range []string{"Working: benchmark-child", "[WARN] benchmark-child"} {
-		t.Run(marker, func(t *testing.T) {
+	for _, test := range []struct{ marker, prepared string }{
+		{"Working: benchmark-child", "prepared space's.log"},
+		{"[WARN] benchmark-child", "prepared&native.log"},
+	} {
+		t.Run(test.marker, func(t *testing.T) {
 			raw := filepath.Join(t.TempDir(), "samples.json")
-			prepared := filepath.Join(filepath.Dir(raw), "prepared space's.log")
+			prepared := filepath.Join(filepath.Dir(raw), test.prepared)
 			benchmark := Workload{
 				Command: []string{program, "-test.run=^TestMeasureRetainsSeparateDiagnosticStreams$"},
-				Prepare: []string{program, "-test.run=^TestArgvPreservesNativeArguments$", prepared, "prepare"},
+				Prepare: []string{program, "-test.run=^TestArgvPreservesNativeArguments$", test.prepared, "prepare"},
 			}
 			// Only the synchronous fixture child omits the race runtime's exit delay.
-			environment := append(os.Environ(), "AIGW_TEST_PERFORMANCE_DIAGNOSTIC="+marker,
+			environment := append(os.Environ(), "AIGW_TEST_PERFORMANCE_DIAGNOSTIC="+test.marker,
 				"GORACE="+strings.TrimSpace(os.Getenv("GORACE")+" atexit_sleep_ms=0"))
 			row, err := Measure(t.Context(), Command{
-				Tool: hyperfine, Arguments: benchmark.Arguments(raw), Output: raw,
+				Tool: hyperfine, Arguments: benchmark.Arguments(raw), Output: raw, Directory: filepath.Dir(raw),
 				Environment: environment,
 				Sensitive:   []string{token + "\n"},
 				Measurement: Measurement{Variant: "candidate", Backend: "env", Case: "credential", Block: 1, Budget: 0.1},
@@ -213,13 +216,13 @@ func TestMeasureRetainsSeparateDiagnosticStreams(t *testing.T) {
 			}
 			stdout, stdoutErr := os.ReadFile(strings.TrimSuffix(raw, ".json") + ".stdout")
 			stderr, stderrErr := os.ReadFile(strings.TrimSuffix(raw, ".json") + ".stderr")
-			if stdoutErr != nil || stderrErr != nil || !bytes.Contains(stdout, []byte("Warning: stdout data")) || !bytes.Contains(stderr, []byte(marker)) {
+			if stdoutErr != nil || stderrErr != nil || !bytes.Contains(stdout, []byte("Warning: stdout data")) || !bytes.Contains(stderr, []byte(test.marker)) {
 				t.Fatal("native benchmark lost its separate child output streams")
 			}
 			if strings.Contains(string(stdout)+string(stderr), token) || !bytes.Contains(stdout, []byte("[REDACTED]")) || !bytes.Contains(stderr, []byte("[REDACTED]")) {
 				t.Fatal("native benchmark output leaked its bare Token")
 			}
-			if row.Diagnostics != process.DiagnosticFailure(stderr) || strings.HasPrefix(marker, "[WARN]") && !row.Diagnostics {
+			if row.Diagnostics != process.DiagnosticFailure(stderr) || strings.HasPrefix(test.marker, "[WARN]") && !row.Diagnostics {
 				t.Fatal("native benchmark did not preserve the complete stderr diagnostic decision")
 			}
 			if row.Raw != filepath.Base(raw) || row.P95 <= 0 || row.Variant != "candidate" || row.Budget != 0.1 || len(row.Samples.Times) != 40 {
