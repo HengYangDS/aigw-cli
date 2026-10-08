@@ -4,9 +4,12 @@ package performance
 
 import (
 	"aigw-cli/internal/process"
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -229,24 +232,105 @@ func TestWindowsExecutionPreflightDoesNotExecuteRejectedImage(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
+	var collectErr error
 	_, _, err = (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
 		Executable: tool, Args: []string{"--shell=none", "--runs", "1", "--output=inherit", "--style", "basic", Argv(program, "-test.run=^TestWindowsExecutionPreflightDoesNotExecuteRejectedImage$")},
 		Env: append(os.Environ(), "AIGW_TEST_NATIVE_REFUSAL_MARKER="+marker), DebugProcess: true,
 		OnStart: func(child *os.Process) error {
 			root = uint32(child.Pid) // #nosec G115 -- exec.Start returns the native DWORD PID.
-			return observer.collect(ctx, root)
+			collectErr = observer.collect(ctx, root)
+			return collectErr
 		},
 	})
-	if err == nil || !strings.Contains(err.Error(), "selected workload") {
-		t.Fatalf("native image refusal did not reach its owning validation: %v", err)
+	const rejection = "native preflight did not execute exactly its selected workload"
+	// collect joins reclaim's terminate, detach, wait and close errors for every retained handle.
+	if collectErr == nil || collectErr.Error() != rejection || len(observer.handles) != 2 {
+		t.Fatalf("native image rejection or retained-process cleanup differed: %v (%d handles)", collectErr, len(observer.handles))
 	}
+	if err == nil || err.Error() != fmt.Sprintf("observe started %s: %s", tool, rejection) || ctx.Err() != nil {
+		t.Fatalf("native image refusal or runner cleanup differed: %v", err)
+	}
+	assertWindowsExecutionsExited(t, observer.controllers)
+	t.Logf("owned native refusal processes exited: %d retained handles", len(observer.handles))
 	if continuedChildCreate {
 		t.Fatal("rejected native image was continued before validation")
 	}
 	if _, err := os.Stat(marker); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("rejected native image executed before cleanup: %v", err)
 	}
-	assertWindowsExecutionsExited(t, observer.controllers)
+}
+
+func TestWindowsExecutionPreflightRejectsOriginalCreateOrder(t *testing.T) {
+	source, err := filepath.Abs("process_windows.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	original, err := os.ReadFile(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const guard = "\t\tif event.Code == 3 && eventErr != nil {\n\t\t\treturn eventErr\n\t\t}\n"
+	if strings.Count(string(original), guard) != 1 {
+		t.Fatal("native refusal mutation requires exactly its CREATE guard")
+	}
+	scratch := filepath.Join(t.TempDir(), ".original-create-order")
+	if err := os.Mkdir(scratch, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	mutant, overlay := filepath.Join(scratch, "process_windows.go"), filepath.Join(scratch, "overlay.json")
+	if err := os.WriteFile(mutant, []byte(strings.Replace(string(original), guard, "", 1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mapping, err := json.Marshal(map[string]map[string]string{"Replace": {source: mutant}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(overlay, mapping, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+	defer cancel()
+	const selected = "TestWindowsExecutionPreflightDoesNotExecuteRejectedImage"
+	stdout, stderr, runErr := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
+		Executable: "go", Args: []string{"test", "-overlay=" + overlay, "-run=^" + selected + "$", "-count=1", "-timeout=15s", "-json", "."},
+	})
+	t.Logf("original CREATE order native output:\n%s\n%s", stdout, stderr)
+	if err := os.RemoveAll(scratch); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(scratch); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("native refusal mutation scratch survived cleanup: %v", err)
+	}
+	if runErr == nil || runErr.Error() != "run go: exit status 1" || ctx.Err() != nil || len(stderr) != 0 {
+		t.Fatalf("original CREATE order did not finish with only its native rejection: %v", runErr)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(stdout))
+	var output strings.Builder
+	var selectedFailed bool
+	var terminalAction string
+	for {
+		var event struct {
+			Action string `json:"Action"`
+			Test   string `json:"Test"`
+			Output string `json:"Output"`
+		}
+		if err := decoder.Decode(&event); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		if event.Test == selected {
+			output.WriteString(event.Output)
+			selectedFailed = selectedFailed || event.Action == "fail"
+		}
+		if event.Test == "" {
+			terminalAction = event.Action
+		}
+	}
+	// Native test and package failure events prove a completed assertion rather than an interrupted test.
+	if !selectedFailed || terminalAction != "fail" || !strings.Contains(output.String(), "rejected native image was continued before validation") || !strings.Contains(output.String(), "owned native refusal processes exited: 2 retained handles") {
+		t.Fatal("original CREATE order did not produce only its native causal RED")
+	}
 }
 
 func TestWindowsExecutionPreflightReclaimsInterruptedProcesses(t *testing.T) {
