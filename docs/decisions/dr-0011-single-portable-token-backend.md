@@ -62,6 +62,13 @@ migrate a Token, retry or select another backend. New native items pass
 write/read/update/delete in an isolated Keychain, but retained operator-item
 authorization and signed-successor acceptance remain unproved.
 
+Native Keychain failures retain a typed numeric OSStatus through the bounded
+worker's stderr and the credential command's safe evidence. Standard output
+remains Token-only on success and empty on failure. The worker sends no item
+name, path, raw backend text or secret data; its parent rejects extra diagnostic
+fields. This exposes the actual native failure without guessing that the store
+is locked, retrying a denied read or changing authorization.
+
 The successor uses the predecessor's exact physical Account name, including
 `diagnostic@<account>` for the separate optional provider-diagnostic credential.
 Changing the reader implementation must not change storage identity or require

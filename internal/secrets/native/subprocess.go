@@ -3,7 +3,9 @@ package native
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -31,6 +33,19 @@ var (
 	// ErrUnavailable means a native operation failed without returning credential data.
 	ErrUnavailable = errors.New("native credential operation unavailable")
 )
+
+// KeychainError preserves a native no-interaction failure without item data.
+type KeychainError struct {
+	Status int32 `json:"keychain_status"`
+}
+
+// Error describes the native status without credential or item metadata.
+func (failure *KeychainError) Error() string {
+	return fmt.Sprintf("noninteractive Keychain operation failed (OSStatus %d)", failure.Status)
+}
+
+// Unwrap preserves native-unavailability classification for callers.
+func (*KeychainError) Unwrap() error { return ErrUnavailable }
 
 // Read returns one exact native item through a bounded credential subprocess.
 // A native authorization failure never triggers a retry or backend fallback.
@@ -104,17 +119,24 @@ func execute(parent context.Context, runner process.CaptureRunner, plan process.
 		switch exit.ExitCode() {
 		case missingExit:
 			return "", ErrNotFound
+		case failureExit:
+			var failure KeychainError
+			decoder := json.NewDecoder(strings.NewReader(string(output)))
+			decoder.DisallowUnknownFields()
+			if decoder.Decode(&failure) == nil && failure.Status != 0 && decoder.Decode(&struct{}{}) == io.EOF {
+				return "", &failure
+			}
 		}
 	}
 	return "", ErrUnavailable
 }
 
 // RunCredentialSubprocess handles hidden native credential operations before CLI initialization.
-func RunCredentialSubprocess(args []string, input io.Reader, out io.Writer, service string) (bool, int) {
-	return dispatch(args, input, out, service, queryCredential)
+func RunCredentialSubprocess(args []string, input io.Reader, out, diagnostic io.Writer, service string) (bool, int) {
+	return dispatch(args, input, out, diagnostic, service, queryCredential)
 }
 
-func dispatch(args []string, input io.Reader, out io.Writer, service string, query func(string, string, string, []byte) ([]byte, error)) (bool, int) {
+func dispatch(args []string, input io.Reader, out, diagnostic io.Writer, service string, query func(string, string, string, []byte) ([]byte, error)) (bool, int) {
 	if len(args) == 0 {
 		return false, 0
 	}
@@ -141,6 +163,11 @@ func dispatch(args []string, input io.Reader, out io.Writer, service string, que
 	case errors.Is(err, ErrNotFound):
 		return true, missingExit
 	case err != nil:
+		if failure, ok := errors.AsType[*KeychainError](err); ok {
+			if err := json.NewEncoder(diagnostic).Encode(failure); err != nil {
+				return true, failureExit
+			}
+		}
 		return true, failureExit
 	}
 	if args[0] == readCommand || args[0] == existsCommand {

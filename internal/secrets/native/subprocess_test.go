@@ -3,6 +3,7 @@ package native
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -17,7 +18,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if handled, code := RunCredentialSubprocess(os.Args[1:], os.Stdin, os.Stdout, "AIGW_TOKEN"); handled {
+	if handled, code := RunCredentialSubprocess(os.Args[1:], os.Stdin, os.Stdout, os.Stderr, "AIGW_TOKEN"); handled {
 		os.Exit(code)
 	}
 	os.Exit(m.Run())
@@ -64,7 +65,10 @@ func TestInvokeRequiresTheOwningProductExecutable(t *testing.T) {
 	}
 }
 
-type fixtureReader struct{ code int }
+type fixtureReader struct {
+	code       int
+	diagnostic string
+}
 
 func (r fixtureReader) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
 	if _, ok := ctx.Deadline(); !ok {
@@ -79,7 +83,18 @@ func (r fixtureReader) RunCapture(ctx context.Context, plan process.Plan) ([]byt
 	command := exec.Command(os.Args[0], "-test.run=^TestCredentialExitFixture$")
 	command.Env = append(os.Environ(), "AIGW_TEST_CREDENTIAL_EXIT="+strconv.Itoa(r.code))
 	err := command.Run()
+	if r.diagnostic != "" {
+		return []byte(r.diagnostic), err
+	}
 	return []byte("private diagnostic must not escape"), err
+}
+
+func TestNativeCredentialStatusSurvivesBoundedSubprocess(t *testing.T) {
+	reader := fixtureReader{code: failureExit, diagnostic: "{\"keychain_status\":-25308}\n"}
+	value, err := execute(t.Context(), reader, process.Plan{Executable: "/owned/aigw", Args: []string{readCommand, "AIGW_TOKEN", "team"}})
+	if value != "" || !errors.Is(err, ErrUnavailable) || !strings.Contains(err.Error(), "-25308") {
+		t.Fatalf("native status was lost at the subprocess boundary: value=%q error=%v", value, err)
+	}
 }
 
 func TestCredentialExitFixture(t *testing.T) {
@@ -124,7 +139,7 @@ func TestCredentialSubprocessRestrictsIdentityAndKeepsFailuresOffStandardOutput(
 		{readCommand, "AIGW_TOKEN", "team", "extra"},
 	} {
 		var out bytes.Buffer
-		handled, code := dispatch(args, strings.NewReader(""), &out, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) {
+		handled, code := dispatch(args, strings.NewReader(""), &out, io.Discard, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) {
 			t.Fatal("invalid worker input reached the native credential service")
 			return nil, nil
 		})
@@ -147,7 +162,7 @@ func TestCredentialSubprocessResultOwnsExitStatusAndSecretOutput(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var out bytes.Buffer
 			value := []byte("synthetic-token")
-			handled, code := dispatch([]string{readCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), &out, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) { return value, test.err })
+			handled, code := dispatch([]string{readCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), &out, io.Discard, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) { return value, test.err })
 			if !handled || code != test.code || test.err != nil && out.Len() != 0 || test.err == nil && out.String() != "synthetic-token" {
 				t.Fatalf("worker output: handled=%v code=%d", handled, code)
 			}
@@ -158,11 +173,11 @@ func TestCredentialSubprocessResultOwnsExitStatusAndSecretOutput(t *testing.T) {
 			}
 		})
 	}
-	if handled, _ := RunCredentialSubprocess([]string{"--version"}, strings.NewReader(""), io.Discard, "AIGW_TOKEN"); handled {
+	if handled, _ := RunCredentialSubprocess([]string{"--version"}, strings.NewReader(""), io.Discard, io.Discard, "AIGW_TOKEN"); handled {
 		t.Fatal("ordinary command intercepted")
 	}
 	for _, out := range []io.Writer{shortWriter{}, failedWriter{}} {
-		_, code := dispatch([]string{readCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), out, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) { return []byte("value"), nil })
+		_, code := dispatch([]string{readCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), out, io.Discard, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) { return []byte("value"), nil })
 		if code != failureExit {
 			t.Fatal("failed stdout write returned success")
 		}
@@ -184,6 +199,7 @@ func TestCredentialSubprocessReturnsOnlyPresenceMetadata(t *testing.T) {
 				[]string{existsCommand, "AIGW_TOKEN", "team"},
 				strings.NewReader(""),
 				&out,
+				io.Discard,
 				"AIGW_TOKEN",
 				func(operation, service, account string, data []byte) ([]byte, error) {
 					if operation != existsCommand || service != "AIGW_TOKEN" || account != "team" || len(data) != 0 {
@@ -221,7 +237,7 @@ func TestCredentialSubprocessMutationAdmitsBoundedStdinAndErasesBuffers(t *testi
 		var input, output []byte
 		var out bytes.Buffer
 		called := false
-		handled, code := dispatch([]string{test.operation, "AIGW_TOKEN", "team"}, strings.NewReader(test.input), &out, "AIGW_TOKEN", func(operation, service, account string, data []byte) ([]byte, error) {
+		handled, code := dispatch([]string{test.operation, "AIGW_TOKEN", "team"}, strings.NewReader(test.input), &out, io.Discard, "AIGW_TOKEN", func(operation, service, account string, data []byte) ([]byte, error) {
 			called = true
 			if operation != test.operation || service != "AIGW_TOKEN" || account != "team" || string(data) != test.input {
 				t.Fatal("mutation target or stdin changed")
@@ -236,7 +252,7 @@ func TestCredentialSubprocessMutationAdmitsBoundedStdinAndErasesBuffers(t *testi
 			t.Fatal("worker retained credential buffers")
 		}
 	}
-	_, code := dispatch([]string{writeCommand, "AIGW_TOKEN", "team"}, failedReader{}, io.Discard, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) {
+	_, code := dispatch([]string{writeCommand, "AIGW_TOKEN", "team"}, failedReader{}, io.Discard, io.Discard, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) {
 		t.Fatal("failed input reached the native credential service")
 		return nil, nil
 	})
@@ -277,5 +293,48 @@ func TestReadFailsClosedWhenCredentialSubprocessCannotStart(t *testing.T) {
 	value, err := execute(t.Context(), process.Runner{}, process.Plan{Executable: filepath.Join(t.TempDir(), "absent"), Args: []string{readCommand, "AIGW_TOKEN", "team"}})
 	if value != "" || !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("startup failure: %v", err)
+	}
+}
+
+func TestNativeCredentialFailureTransportsOnlyTypedStatus(t *testing.T) {
+	for _, failure := range []error{&KeychainError{Status: -25308}, errors.New("private item diagnostic")} {
+		var output, diagnostic bytes.Buffer
+		calls := 0
+		value := []byte("synthetic-token")
+		handled, code := dispatch([]string{readCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), &output, &diagnostic, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) {
+			calls++
+			return value, failure
+		})
+		if !handled || code != failureExit || calls != 1 || output.Len() != 0 || !bytes.Equal(value, make([]byte, len(value))) {
+			t.Fatal("native failure returned data, retried, or retained a secret buffer")
+		}
+		if _, typed := errors.AsType[*KeychainError](failure); typed {
+			var status KeychainError
+			if err := json.Unmarshal(diagnostic.Bytes(), &status); err != nil || status.Status != -25308 {
+				t.Fatalf("safe native status = %q, %v", diagnostic.Bytes(), err)
+			}
+		} else if diagnostic.Len() != 0 {
+			t.Fatal("raw backend diagnostic escaped native worker")
+		}
+	}
+	_, code := dispatch([]string{readCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), io.Discard, failedWriter{}, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) { return nil, &KeychainError{Status: -25308} })
+	if code != failureExit {
+		t.Fatal("failed status delivery changed failure exit")
+	}
+}
+
+func TestNativeCredentialStatusRefusesUnownedDiagnosticFields(t *testing.T) {
+	for _, diagnostic := range []string{
+		`{"keychain_status":-25308,"private":"synthetic-token"}`,
+		`{"keychain_status":-25308} {"private":"synthetic-token"}`,
+		`{"keychain_status":0}`,
+		`{"keychain_status":2147483648}`,
+		`private backend detail`,
+	} {
+		reader := fixtureReader{code: failureExit, diagnostic: diagnostic}
+		value, err := execute(t.Context(), reader, process.Plan{Executable: "/owned/aigw", Args: []string{readCommand, "AIGW_TOKEN", "team"}})
+		if failure, typed := errors.AsType[*KeychainError](err); value != "" || !errors.Is(err, ErrUnavailable) || typed || failure != nil {
+			t.Fatalf("unowned diagnostic was admitted: %v", err)
+		}
 	}
 }

@@ -174,7 +174,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"strings"
 	"unsafe"
 )
@@ -194,7 +193,7 @@ func observeCredentialInKeychain(service, account, path string) (bool, error) {
 	case C.errSecItemNotFound:
 		return false, nil
 	default:
-		return false, fmt.Errorf("noninteractive Keychain metadata query failed (%d): %w", int(status), ErrUnavailable)
+		return false, &KeychainError{Status: int32(status)}
 	}
 }
 
@@ -222,7 +221,7 @@ func readCredentialFromKeychain(service, account, path string) ([]byte, error) {
 		}
 	}
 	if status != C.errSecSuccess {
-		return nil, fmt.Errorf("noninteractive Keychain read failed (%d): %w", int(status), ErrUnavailable)
+		return nil, &KeychainError{Status: int32(status)}
 	}
 	if data == 0 {
 		return nil, ErrUnavailable
@@ -313,7 +312,7 @@ func mutateCredentialInKeychain(service, account, path string, value []byte, rem
 		return ErrNotFound
 	}
 	if status != C.errSecSuccess {
-		return fmt.Errorf("noninteractive Keychain mutation failed (%d): %w", int(status), ErrUnavailable)
+		return &KeychainError{Status: int32(status)}
 	}
 	return nil
 }

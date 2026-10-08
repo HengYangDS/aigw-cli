@@ -3,11 +3,13 @@
 package native
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -70,6 +72,11 @@ func TestKeychainReadUsesPrivateFixtureWithoutAuthorizationUI(t *testing.T) {
 	}
 	if value, err := readPrivateKeychainFixture(t, service, "denied", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
 		t.Fatalf("unauthorized private item = %q, %v", value, err)
+	} else {
+		failure, ok := errors.AsType[*exec.ExitError](err)
+		if !ok || !bytes.Contains(failure.Stderr, []byte("keychain_status")) {
+			t.Fatal("native denied read lost its safe status diagnostic")
+		}
 	}
 }
 
@@ -283,6 +290,9 @@ func TestPrivateKeychainReadChild(t *testing.T) {
 	case errors.Is(err, ErrNotFound):
 		os.Exit(missingExit)
 	case err != nil:
+		if failure, ok := errors.AsType[*KeychainError](err); ok {
+			_, _ = fmt.Fprintf(os.Stderr, "{\"keychain_status\":%d}\n", failure.Status)
+		}
 		os.Exit(failureExit)
 	}
 	_, _ = os.Stdout.Write(value)

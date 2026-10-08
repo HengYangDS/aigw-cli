@@ -12,6 +12,7 @@ import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secrets/native"
 )
 
 func TestCredentialHelperPrintsOnlyTheProjectedAccountToken(t *testing.T) {
@@ -393,5 +394,23 @@ func TestCredentialHelperRejectsClientNativeBeforeSecretAccess(t *testing.T) {
 	}
 	if buffer.Len() != 0 {
 		t.Fatalf("credential helper wrote stdout: %q", buffer.String())
+	}
+}
+
+func TestCredentialHelperReportsSafeNativeStatusWithoutRetry(t *testing.T) {
+	runtime, output := helperRuntime(t, configuration.ClientCodex, true)
+	store := &refusingSecretStore{readError: &native.KeychainError{Status: -25308}}
+	runtime.Secrets = store
+	command := NewCommand(runtime)
+	err := command.RunE(command, helperArgs(t, runtime, configuration.ClientCodex))
+	var diagnostic bytes.Buffer
+	presentation.RenderCredentialError(presentation.New(&diagnostic, false), err)
+	if output.Len() != 0 || !strings.Contains(diagnostic.String(), "Keychain OSStatus -25308") ||
+		!strings.Contains(diagnostic.String(), "repeated helper calls cannot grant access") || store.getCalls != 1 || store.existsCalls != 0 {
+		t.Fatalf("native credential result = %q, calls=%d/%d", diagnostic.String(), store.getCalls, store.existsCalls)
+	}
+	failure, ok := errors.AsType[*native.KeychainError](err)
+	if !ok || failure.Status != -25308 {
+		t.Fatal("CLI wrapper lost typed native status")
 	}
 }

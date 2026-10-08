@@ -11,6 +11,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secrets/native"
 
 	"github.com/spf13/cobra"
 )
@@ -55,10 +56,16 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 						err,
 					)
 				}
+				evidence := ""
+				action := "Restore read access to the selected backend (unlock the native store if locked), then retry; AIGW will not switch backends."
+				if failure, ok := errors.AsType[*native.KeychainError](err); ok {
+					evidence = fmt.Sprintf("Keychain OSStatus %d; the native read did not permit user interaction.", failure.Status)
+					action = "Inspect the selected native store, item authorization and credential-reader identity; repeated helper calls cannot grant access."
+				}
 				return presentation.ProblemError(
-					fmt.Sprintf("%s Account Token could not be read", client), "",
+					fmt.Sprintf("%s Account Token could not be read", client), evidence,
 					"No Token was returned.",
-					"Restore read access to the selected backend (unlock the native store if locked), then retry; AIGW will not switch backends.",
+					action,
 					err,
 				)
 			}
