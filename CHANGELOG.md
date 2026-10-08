@@ -22,6 +22,8 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Changed
 
+- Update the locked development runtime to Node 26.11.1 and typo checks to
+  typos 1.51.1 without changing product runtime or credential ownership.
 - Upgrade native performance measurement to Hyperfine 2.0, retaining explicit
   shell-free execution, wall-clock seconds, exit codes and original sample budgets.
 - Observe native credential availability once per setup invocation, sharing it

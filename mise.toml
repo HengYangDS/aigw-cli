@@ -34,7 +34,7 @@ npm = "npm:npm"
 [tools]
 # Language runtimes
 go = "1.27.1"
-node = "26.10.0"
+node = "26.11.1"
 npm = "12.2.0"
 # Native client acceptance only; not an AIGW runtime dependency.
 uv = "0.12.23"
@@ -64,7 +64,7 @@ shellcheck = "0.11.0"
 "github:rhysd/actionlint" = "1.7.12"
 "github:sharkdp/hyperfine" = "2.0.0"
 "github:lycheeverse/lychee" = {version = "lychee-v0.24.2", platforms.windows-arm64.asset_pattern = "lychee-x86_64-pc-windows-msvc.zip"}
-typos = "1.51.0"
+typos = "1.51.1"
 
 # OSV Scanner's release bundle is signed by the reusable SLSA generator.
 [tools."github:google/osv-scanner"]
