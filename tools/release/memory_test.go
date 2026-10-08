@@ -422,7 +422,15 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		journey := &journeyFixture{testing: t, binary: program, root: output,
+		config := configuration.NewConfig()
+		config.Accounts["memory"] = configuration.Account{Label: "Memory", Endpoints: configuration.Endpoints{Anthropic: "https://unused.example.test"}}
+		config.Routes["memory"] = configuration.Route{Account: "memory", Model: "memory", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {configuration.CapabilityText}}}
+		config.SetSelectedRoute(configuration.ClientClaude, "memory", configuration.ProtocolAnthropic)
+		store := configuration.NewStore(filepath.Join(output, "config.toml"))
+		if err := store.Save(config); err != nil {
+			t.Fatal(err)
+		}
+		journey := &journeyFixture{testing: t, binary: program, root: output, config: store.Path(),
 			environment: append(os.Environ(), "AIGW_TEST_MEMORY_OBSERVATIONS="+filepath.Join(output, "observations"))}
 		row, err := journey.measureMemory("candidate", 1)
 		if err != nil {
@@ -463,6 +471,10 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 	row := summary.Memory[0]
 	if row.Variant != "candidate" || row.Case != "status" || row.Block != 1 || len(row.Bytes) != 2 || slices.Contains(row.Bytes, 0) {
 		t.Fatalf("interrupted block lost its two completed native observations: %#v", row)
+	}
+	identity := []string{row.Mode, row.Runtime.RouteID, row.Runtime.Client, string(readFile(t, filepath.Join(output, "observations")))}
+	if !slices.Equal(identity, []string{"direct", "memory", configuration.ClientClaude, "8"}) || row.Executable == nil {
+		t.Fatalf("interrupted memory observations lost their Runtime or native provenance: %q", identity)
 	}
 	if err := performance.ReviewMemory([]performance.Memory{row}); err == nil {
 		t.Fatal("partial memory observations satisfied qualification")

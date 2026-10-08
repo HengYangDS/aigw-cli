@@ -247,22 +247,18 @@ item without authorization. The bridge changes neither ACL nor backend
 selection; source tests and dual-architecture cgo builds do not replace
 retained-item or signed-artifact acceptance.
 
-The new macOS reader addresses `native@` plus each logical Account slot,
-including the separate optional provider-diagnostic slot. Native metadata
-observation now requests attributes through Security.framework under the
-same no-UI policy; the old `/usr/bin/security` observer is removed.
+The macOS reader, writer, deleter and metadata observer preserve the
+predecessor's exact Account slot and its separate optional `diagnostic@` slot.
+Metadata observation requests attributes through Security.framework under the
+same no-UI policy; the old `/usr/bin/security` observer is removed. Updating the
+reader must not require Token enrollment again or create a second physical item.
+A predecessor rotation after rollback is visible to the successor before any
+projection or package-link switch. Denied authorization blocks only the affected
+transition; no ACL mutation, backend fallback or Token copy is permitted.
 Native item service, Account and display names have one precise grammar in the
-existing secrets owner. Metadata and exact-path cleanup must preserve operator,
-predecessor and diagnostic consumers; naming similarity grants no ownership.
-Old `/usr/bin/security` items remain at their original addresses for cached
-predecessor commands and rollback. This is one backend with separate physical
-items across an explicit, one-time authorization transition; neither reader
-falls back to the other's item. The candidate must accept a Token supplied
-through the existing input path and prove native access before any projection
-or package link switches. An enabled diagnostic capability likewise needs
-its own credential explicitly staged and qualified before claiming continuity.
-Missing input or denied authorization stops the affected cutover without
-removing the predecessor item.
+existing secrets owner. Preserve exact shadow items made by unreleased candidates
+until their retained consumers and rollback owners release them; naming similarity
+never grants cleanup authority.
 
 Prepare and qualify the successor before changing a client projection. The
 one-time 0.3.1 Homebrew-link transition preprojects private paths, prefetches

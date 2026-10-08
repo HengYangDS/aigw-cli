@@ -41,13 +41,13 @@ func TestKeychainReadUsesPrivateFixtureWithoutAuthorizationUI(t *testing.T) {
 	if present, err := observeCredentialInKeychain(service, account, path); err != nil || !present {
 		t.Fatalf("authorized item metadata = %t, %v", present, err)
 	}
-	if value, err := readCredentialFromKeychain(service, nativeKeychainSlot(account), path); len(value) != 0 || !errors.Is(err, ErrNotFound) {
-		t.Fatalf("new native slot beside legacy item = %q, %v", value, err)
+	if value, err := readPrivateKeychainFixture(t, service, account, path); err != nil || string(value) != token {
+		t.Fatalf("native subprocess lost the retained Account identity: %v", err)
 	}
 	if present, err := observeCredentialInKeychain(service, "absent", path); err != nil || present {
 		t.Fatalf("missing item metadata = %t, %v", present, err)
 	}
-	assertNativeSlotPreservesLegacyItem(t, service, path, token)
+	assertKeychainMutationPreservesDeniedItem(t, service, path, token)
 
 	if value, err := readCredentialFromKeychain(service, "absent", path); len(value) != 0 || !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing private item = %q, %v", value, err)
@@ -88,15 +88,15 @@ func TestNewNativeKeychainItemsHaveReadablePurposeLabels(t *testing.T) {
 	}{
 		{"team", "AIGW Account Token: team"},
 		{"diagnostic@team", "AIGW Provider Diagnostic: team"},
+		{"native@team", "AIGW Account Token: native@team"},
 	} {
 		t.Run(item.account, func(t *testing.T) {
-			slot := nativeKeychainSlot(item.account)
-			if err := writeCredentialToKeychain(service, slot, path, []byte("synthetic")); err != nil {
+			if err := writeCredentialToKeychain(service, item.account, path, []byte("synthetic")); err != nil {
 				t.Fatal(err)
 			}
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
-			output, err := exec.CommandContext(ctx, "/usr/bin/security", "find-generic-password", "-s", service, "-a", slot, path).CombinedOutput()
+			output, err := exec.CommandContext(ctx, "/usr/bin/security", "find-generic-password", "-s", service, "-a", item.account, path).CombinedOutput()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -119,7 +119,7 @@ func TestPrivateKeychainCopiedReaderUsesExactExecutable(t *testing.T) {
 	runKeychainFixtureCommand(t, "create-keychain", "-p", "", path)
 	t.Cleanup(func() { runKeychainFixtureCommand(t, "delete-keychain", path) })
 	runKeychainFixtureCommand(t, "unlock-keychain", "-p", "", path)
-	const service, account, token = "aigw-private-test", "native@copied-reader", "synthetic-copied-reader-token"
+	const service, account, token = "aigw-private-test", "copied-reader", "synthetic-copied-reader-token"
 	if err := writeCredentialToKeychain(service, account, path, []byte(token)); err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +180,7 @@ func TestLockedKeychainMetadataDoesNotPrompt(t *testing.T) {
 	t.Fatalf("locked Keychain metadata was reported absent or stalled: %q, %v", value, err)
 }
 
-func assertNativeSlotPreservesLegacyItem(t *testing.T, service, path, token string) {
+func assertKeychainMutationPreservesDeniedItem(t *testing.T, service, path, token string) {
 	t.Helper()
 	runKeychainFixtureCommand(t, "add-generic-password", "-s", service, "-a", "security-writer", "-w", "go-keyring-base64:"+base64.StdEncoding.EncodeToString([]byte(token)), path)
 	if value, err := readPrivateKeychainFixture(t, service, "security-writer", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
@@ -189,7 +189,7 @@ func assertNativeSlotPreservesLegacyItem(t *testing.T, service, path, token stri
 	if err := writeCredentialToKeychain(service, "security-writer", path, []byte("replacement")); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("unauthorized legacy item accepted a replacement: %v", err)
 	}
-	nativeAccount := nativeKeychainSlot("security-writer")
+	const nativeAccount = "native-writer"
 	for _, value := range [][]byte{nil, make([]byte, maxStoredValue+1)} {
 		if err := writeCredentialToKeychain(service, nativeAccount, path, value); !errors.Is(err, ErrUnavailable) {
 			t.Fatalf("invalid native value was accepted: %v", err)
@@ -330,16 +330,5 @@ func TestNativeEnvironmentRetainsOnlyKeychainHome(t *testing.T) {
 	want := []string{"HOME=/Users/runner"}
 	if got := nativeEnvironment(func(name string) string { return values[name] }); !slices.Equal(got, want) {
 		t.Fatalf("native environment = %q, want %q", got, want)
-	}
-}
-
-func TestNativeKeychainSlotsSeparateCredentialPurposes(t *testing.T) {
-	for _, item := range []struct{ logical, want string }{
-		{"team", "native@team"},
-		{"diagnostic@team", "native@diagnostic@team"},
-	} {
-		if got := nativeKeychainSlot(item.logical); got != item.want {
-			t.Fatalf("native slot for %q = %q, want %q", item.logical, got, item.want)
-		}
 	}
 }

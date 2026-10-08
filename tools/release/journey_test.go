@@ -122,8 +122,8 @@ func TestNativeProductJourney(t *testing.T) {
 		})
 	}
 
-	// macOS requires the published predecessor's distinct legacy Keychain slot;
-	// an ad-hoc current-source fixture is not that authorization transition.
+	// macOS qualification uses the published predecessor and its retained item;
+	// an ad-hoc current-source fixture does not prove that authorization boundary.
 	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" && runtime.GOOS != "darwin" {
 		t.Run("system credential store", func(t *testing.T) {
 			retainedBaseline := requireNativeLifecycleBaseline(t, func() string { return sourceBaseline(t) })

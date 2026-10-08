@@ -61,7 +61,7 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 3.4 Exercise rollback, uninstall, and exact owned-byte cleanup for that
       strategy; preserve unknown, cached, explicit, or rollback consumers and
       reject prefix/age-based deletion.
-- [x] 3.5 Run published-predecessor-to-successor reader journeys on macOS,
+- [ ] 3.5 Run published-predecessor-to-successor reader journeys on macOS,
       Linux, and Windows with actual native stores or the explicit environment
       backend and isolated synthetic native items before archive. Verify stable
       native reader identity across signed successors without treating signing
@@ -114,7 +114,7 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 5.3 Run equivalent Windows native journeys, including ACL, executable
       replacement, path quoting, noninteractive environment Token and installed
       Codex/Claude consumers; report each unproved client mode explicitly.
-- [x] 5.4 Run equivalent macOS journeys with native Keychain authorization and
+- [ ] 5.4 Run equivalent macOS journeys with native Keychain authorization and
       environment backend separately in isolated acceptance; final operator-item
       authorization remains required before post-archive installed cutover.
       No password/biometric retry loop, service restart, or hidden native-store

@@ -62,17 +62,14 @@ migrate a Token, retry or select another backend. New native items pass
 write/read/update/delete in an isolated Keychain, but retained operator-item
 authorization and signed-successor acceptance remain unproved.
 
-The legacy `/usr/bin/security` item and the new native item have different
-physical Keychain account names. The latter uses `native@` before each
-logical slot, including `diagnostic@<account>` for optional provider
-diagnostics; service and envelope remain unchanged. This is a
-one-time authorization boundary, not a second Token backend or a dual-read
-fallback. An operator must supply the selected Token and any configured
-provider-diagnostic credential explicitly to the candidate before claiming
-those capabilities survive cutover. The predecessor keeps its old items and command;
-the candidate reads only its native item. Missing or denied native access
-blocks the switch, while rollback leaves the old item intact. Neither binary
-copies a Token from the other item's address.
+The successor uses the predecessor's exact physical Account name, including
+`diagnostic@<account>` for the separate optional provider-diagnostic credential.
+Changing the reader implementation must not change storage identity or require
+Token enrollment again. A retained-item authorization refusal blocks the affected
+cutover; it does not justify a shadow item, backend fallback or ACL change.
+Earlier unreleased candidates created `native@` shadow items. Preserve an exact
+item until its retained consumer and rollback owner release it; then retire it
+through its existing owner, never by prefix-based deletion.
 
 The independent host-local helper cutover was rejected and rolled back. It is
 not the product's credential reader or Token backend. This decision does not
@@ -225,14 +222,12 @@ journeys must establish all of these boundaries:
    replacement. Execute those snapshots before sync or client refresh after
    update, rollback and re-upgrade. Capturing a later command must not overwrite
    an earlier snapshot.
-3. Before switching a client, stage its selected Token and any configured
-   diagnostic credential in their native slots through explicit input. Prove
-   captured predecessor access and signed-successor access independently for
-   each claimed capability. Environment-backed fixtures and
-   new-client runs do not qualify a Keychain transition or establish recovery
-   of every existing session. A Token rotated in the legacy item after rollback
-   makes earlier candidate staging stale; restage and verify it before
-   re-upgrade rather than inferring freshness from a readable old command.
+3. Before switching a client, prove captured predecessor and signed-successor
+   access to the same selected Token and each configured diagnostic credential.
+   Update, rollback and re-upgrade preserve that identity. A predecessor Token
+   rotation after rollback must be immediately visible to the successor without
+   restaging. Environment-backed fixtures and new-client runs do not qualify a
+   Keychain transition or recovery of every existing session.
 4. Verify bounded failure, interrupted replacement, exact rollback and uninstall
    preservation. Test the native no-UI policy separately; process timeout alone
    cannot suppress an operating-system prompt.

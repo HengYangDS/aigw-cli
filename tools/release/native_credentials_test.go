@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"fmt"
 	"os"
@@ -10,12 +9,10 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
 
 	"github.com/pelletier/go-toml/v2"
@@ -52,12 +49,6 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtime.GOOS == "darwin" {
-		for _, account := range []string{sourceAccount, targetAccount} {
-			requireUnoccupiedLegacyKeychainSlot(t, account, "")
-			requireUnoccupiedLegacyKeychainSlot(t, "diagnostic@"+account, "")
-		}
-	}
 	backend := secrets.BackendSelection{
 		Kind:         "keyring",
 		Availability: "available",
@@ -67,18 +58,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", sourceAccount, "--token-stdin")
 	journey.requireCredentialBackend(token, backend)
 	journey.requireClaudeCredential(token)
-	// Upgrade retains the predecessor's readable Token; successor rotation is
-	// not conditional on an immutable predecessor's replacement implementation.
-	if runtime.GOOS == "darwin" {
-		if exists, err := store.Exists(sourceAccount); err != nil || exists {
-			t.Fatalf("published predecessor occupied the candidate native Token slot: exists=%t error=%v", exists, err)
-		}
-		configurationBeforeStaging := readFile(t, journey.config)
-		stageNativeCandidateToken(t, journey, candidate, sourceAccount, token)
-		if !bytes.Equal(configurationBeforeStaging, readFile(t, journey.config)) {
-			t.Fatal("candidate credential staging changed retained configuration")
-		}
-	}
+	// The successor reads the predecessor's exact item without staging another Token.
 	if value, err := store.Get(sourceAccount); err != nil || value != token {
 		t.Fatalf("candidate could not read the retained native Token slot: %v", err)
 	}
@@ -105,20 +85,18 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 		t.Fatal("successor Token rotation changed retained configuration")
 	}
 	journey.requireClaudeCredential(replacement)
-	activeToken := replacement
-	if runtime.GOOS == "darwin" && oldVersion == "0.3.1" {
-		bridge := publishedNativeJourney{journey: journey, candidate: candidate, archive: archive, checksums: checksums}
-		activeToken = bridge.requireLegacyRotationRestaging(t, sourceAccount, oldVersion, replacement, store, backend)
-	}
+	bridge := publishedNativeJourney{journey: journey, candidate: candidate, archive: archive, checksums: checksums}
+	activeToken := bridge.requireRetainedRotationAfterRollback(t, sourceAccount, oldVersion, store, backend, predecessorReaders...)
 	finishNativeCredentialJourney(journey, store, sourceAccount, targetAccount, activeToken, wantDiagnostic, backend)
 }
 
-func (state *publishedNativeJourney) requireLegacyRotationRestaging(
-	t *testing.T, account, predecessorVersion, oldToken string, store secrets.Store, backend secrets.BackendSelection,
+func (state *publishedNativeJourney) requireRetainedRotationAfterRollback(
+	t *testing.T, account, predecessorVersion string, store secrets.Store, backend secrets.BackendSelection, prior ...process.Plan,
 ) string {
 	t.Helper()
 	const rotated = "native-system-keyring-rotated-after-rollback"
 	journey := state.journey
+	retained := append(prior, journey.retainedCredentials()...)
 	journey.run("update", "--rollback")
 	journey.requireVersion(predecessorVersion)
 	configurationBefore := readFile(t, journey.config)
@@ -126,21 +104,20 @@ func (state *publishedNativeJourney) requireLegacyRotationRestaging(
 	if !bytes.Equal(configurationBefore, readFile(t, journey.config)) {
 		t.Fatal("legacy Token rotation changed retained configuration")
 	}
-	if value, err := store.Get(account); err != nil || value != oldToken {
-		t.Fatalf("legacy rotation silently changed the candidate Token slot: %v", err)
-	}
-	// The legacy and candidate Keychain slots are distinct. A rollback rotation
-	// cannot make the candidate slot fresh without explicit input.
-	journey.requireVersion(predecessorVersion)
-	stageNativeCandidateToken(t, journey, state.candidate, account, rotated)
 	if value, err := store.Get(account); err != nil || value != rotated {
-		t.Fatalf("explicitly restaged candidate Token is unavailable: %v", err)
+		t.Fatalf("candidate did not observe rotation of the retained Account item: %v", err)
+	}
+	for _, credential := range retained {
+		journey.requireCredential(credential, rotated)
 	}
 	journey.runWith(state.candidate, "sync")
 	if !bytes.Equal(configurationBefore, readFile(t, journey.config)) {
 		t.Fatal("candidate reader preprojection changed retained configuration")
 	}
 	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
+	for _, credential := range retained {
+		journey.requireCredential(credential, rotated)
+	}
 	journey.run("sync")
 	journey.requireCredentialBackend(rotated, backend)
 	return rotated
@@ -182,21 +159,6 @@ func configureNativeDiagnosticProbe(t *testing.T, journey *journeyFixture, accou
 	}
 	if err := os.WriteFile(journey.manifest, data, 0o600); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func stageNativeCandidateToken(t *testing.T, journey *journeyFixture, candidate, account, token string) {
-	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
-	defer cancel()
-	var stdout, stderr bytes.Buffer
-	err := (process.Runner{}).RunStream(ctx, process.Plan{
-		Executable: candidate, Args: []string{"rotate", account, "--token-stdin"},
-		Env: journey.environment, Stdin: token + "\n",
-	}, &stdout, &stderr)
-	if err != nil {
-		t.Fatalf("candidate Token staging failed: %v\nstdout:\n%s\nstderr:\n%s", err,
-			redaction.Text(stdout.String(), token), redaction.Text(stderr.String(), token))
 	}
 }
 

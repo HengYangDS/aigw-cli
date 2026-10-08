@@ -273,11 +273,10 @@ func deleteCredentialFromKeychain(service, account, path string) error {
 }
 
 func keychainItemLabel(account string) string {
-	logical := strings.TrimPrefix(account, "native@")
-	if provider, diagnostic := strings.CutPrefix(logical, "diagnostic@"); diagnostic {
+	if provider, diagnostic := strings.CutPrefix(account, "diagnostic@"); diagnostic {
 		return "AIGW Provider Diagnostic: " + provider
 	}
-	return "AIGW Account Token: " + logical
+	return "AIGW Account Token: " + account
 }
 
 func mutateCredentialInKeychain(service, account, path string, value []byte, remove bool) error {

@@ -32,17 +32,19 @@ disclosed rather than represented as uninterrupted service.
 - **AND** an accessible legacy item SHALL retain its logical Token value,
   while an absent item remains distinct from denied access.
 
-#### Scenario: A legacy macOS item cannot authorize the successor
+#### Scenario: A successor preserves the retained macOS credential identity
 
-- **GIVEN** a retained predecessor command can still use its existing item
-  but the successor identity cannot read that item without interaction
-- **WHEN** an operator explicitly supplies the selected Account Token and
-  any configured provider-diagnostic credential to the successor before cutover
-- **THEN** the successor SHALL stage and verify each native-authorized
-  item without overwriting or reading its predecessor item
-- **AND** either binary SHALL read only its selected item; absence or denial
-  SHALL block cutover rather than trigger a fallback or credential prompt
-- **AND** rollback SHALL retain the predecessor command and item unchanged.
+- **GIVEN** a retained predecessor command uses an existing Account Token or
+  configured provider-diagnostic item
+- **WHEN** a successor changes the native reader implementation
+- **THEN** read, metadata observation, write and delete SHALL use the same
+  physical service and Account identity without Token enrollment again
+- **AND** denied authorization SHALL block the affected cutover without a shadow
+  item, Token copy, ACL mutation, backend fallback or credential prompt
+- **AND** predecessor rotation after rollback SHALL be visible to captured
+  readers and the successor before projection synchronization or re-upgrade
+- **AND** exact shadow items from unreleased candidates SHALL remain owned until
+  their retained consumers and rollback owners release them.
 
 #### Scenario: A successor creates a macOS native credential item
 
