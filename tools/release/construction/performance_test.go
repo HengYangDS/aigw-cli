@@ -107,6 +107,7 @@ func TestNativePerformanceSummaryBindsNativeEvidence(t *testing.T) {
 		"program-growth":   "executable size growth requires review",
 		"native-platform":  "differs from its native consumer",
 		"native-arch":      "differs from its native consumer",
+		"raw-path":         "raw sample path is invalid",
 	} {
 		t.Run(name, func(t *testing.T) {
 			output := t.TempDir()
@@ -141,6 +142,8 @@ func TestNativePerformanceSummaryBindsNativeEvidence(t *testing.T) {
 				summary.OS = "other"
 			case "native-arch":
 				summary.Arch = "other"
+			case "raw-path":
+				summary.Blocks[0].Raw = "../foreign-status.json"
 			case "declared-case":
 				index := slices.IndexFunc(summary.Blocks, func(row performance.Measurement) bool { return row.Case == "setup" })
 				changePerformanceRawEvidence(t, output, &summary.Blocks[index], name)
@@ -193,6 +196,53 @@ func TestNativePerformanceSummaryOwnsWindowsMeasurements(t *testing.T) {
 			}
 			if err := summary.Review(); err == nil || !strings.Contains(err.Error(), "owned by its observed verifier") {
 				t.Fatalf("%s acquired native performance qualification: %v", name, err)
+			}
+		})
+	}
+}
+
+func TestNativePerformanceSummaryRetainsItsQualificationContract(t *testing.T) {
+	for _, name := range []string{"controller", "controller-image", "workload-image", "scope", "program", "predecessor", "diagnostic", "samples", "pooled", "workload", "memory", "memory-observation"} {
+		t.Run(name, func(t *testing.T) {
+			summary := writeQualifiedPerformanceSummary(t, t.TempDir())
+			if err := summary.Review(); err != nil {
+				t.Fatalf("complete native performance evidence was refused: %v", err)
+			}
+			switch name {
+			case "controller":
+				delete(summary.Controllers, "verifier")
+			case "controller-image":
+				selected := summary.Controllers["verifier"]
+				selected.SHA256 = ""
+				summary.Controllers["verifier"] = selected
+			case "workload-image":
+				summary.Blocks[0].Executable = nil
+			case "scope":
+				summary.ClientScope = ""
+			case "program":
+				summary.Programs[1].Variant = "unreleased"
+			case "predecessor":
+				summary.Programs[1].SHA256 = summary.Programs[0].SHA256
+			case "diagnostic":
+				summary.Blocks[0].Diagnostics = true
+			case "samples":
+				summary.Blocks[0].Samples.Times = nil
+			case "pooled":
+				summary.Pooled = nil
+			case "workload":
+				summary.Blocks = slices.DeleteFunc(summary.Blocks, func(row performance.Measurement) bool { return row.Case == "sync" })
+				var err error
+				summary.Pooled, err = performance.Pooled(summary.Blocks)
+				if err != nil {
+					t.Fatal(err)
+				}
+			case "memory":
+				summary.Memory = nil
+			case "memory-observation":
+				summary.Memory[0].Bytes[0] = 0
+			}
+			if err := summary.Review(); err == nil {
+				t.Fatalf("%s evidence loss retained native performance qualification", name)
 			}
 		})
 	}

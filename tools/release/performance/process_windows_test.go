@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/process"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,6 +35,10 @@ func TestWindowsExecutionPreflightOwnsImmediateDescendants(t *testing.T) {
 	reader, err := Identify(program)
 	if err != nil {
 		t.Fatal(err)
+	}
+	verifier, err := ObserveCurrent()
+	if err != nil || len(verifier) != 1 || verifier[0].PID != uint32(os.Getpid()) || !reader.sameFile(verifier[0].Image) { // #nosec G115 -- Windows returns a DWORD process ID.
+		t.Fatalf("native verifier did not preserve its own process identity: %#v, %v", verifier, err)
 	}
 	shell, err := Identify(os.Getenv("ComSpec"))
 	if err != nil {
@@ -65,6 +70,9 @@ func TestWindowsExecutionPreflightOwnsImmediateDescendants(t *testing.T) {
 	if len(controllers) != 1 || roles["workload"] != 1 || roles["reader"] != 1 || roles["credential-worker"] != 1 {
 		t.Fatalf("native short-lived process chain was not observed: %#v", roles)
 	}
+	if !verifier[0].owns(controllers[0]) {
+		t.Fatal("native preflight controller was not owned by its current verifier")
+	}
 	if _, err := os.Stat(input.Output); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("untimed preflight produced timed samples: %v", err)
 	}
@@ -76,6 +84,117 @@ func TestWindowsExecutionPreflightOwnsImmediateDescendants(t *testing.T) {
 	input.Output, input.Measurement.Executable = filepath.Join(directory, "refused.json"), &reader
 	if _, _, err := ObserveCommand(t.Context(), input, workload); err == nil || !strings.Contains(err.Error(), "selected workload") {
 		t.Fatalf("native preflight admitted a different process image: %v", err)
+	}
+}
+
+func TestWindowsExecutionObservationRequiresAProcessHandle(t *testing.T) {
+	if created, err := processCreation(0); err == nil || created != 0 {
+		t.Fatalf("an absent process handle acquired a creation time: %d, %v", created, err)
+	}
+	if row, err := observeWindowsProcess(0, "controller", nil); err == nil || row.PID != 0 {
+		t.Fatalf("an absent process handle acquired a native identity: %#v, %v", row, err)
+	}
+	event, err := windows.CreateEvent(nil, 0, 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := windows.CloseHandle(event); err != nil {
+			t.Error(err)
+		}
+	})
+	parents := map[uint32]windows.Handle{uint32(os.Getppid()): event} // #nosec G115 -- Windows returns a DWORD process ID.
+	if row, err := observeWindowsProcess(windows.CurrentProcess(), "controller", parents); err == nil || row.ParentCreated != 0 {
+		t.Fatalf("an invalid owned parent acquired a creation identity: %#v, %v", row, err)
+	}
+}
+
+func emitWindowsExecutionEvidence() {
+	secret := os.Getenv("AIGW_TEST_NATIVE_EVIDENCE_SECRET")
+	if secret == "" {
+		return
+	}
+	if os.Args[len(os.Args)-1] == "prepare" {
+		if _, err := fmt.Fprintln(os.Stderr, "preparation failed:", secret); err != nil {
+			os.Exit(1)
+		}
+		os.Exit(3)
+	}
+	if err := os.WriteFile(os.Getenv("AIGW_TEST_NATIVE_EVIDENCE_MARKER"), []byte("executed"), 0o600); err != nil {
+		os.Exit(1)
+	}
+	if _, err := fmt.Fprintln(os.Stdout, "captured:", secret); err != nil {
+		os.Exit(1)
+	}
+	if os.Args[len(os.Args)-1] == "diagnostic" {
+		if _, err := fmt.Fprintln(os.Stderr, "warning:", secret); err != nil {
+			os.Exit(1)
+		}
+	}
+	os.Exit(0)
+}
+
+func TestWindowsExecutionPreflightPreservesFailureEvidence(t *testing.T) {
+	emitWindowsExecutionEvidence()
+	program, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	image, err := Identify(program)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tool, err := exec.LookPath("hyperfine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"preparation", "absent-workload", "absent-controller", "diagnostic", "evidence-write"} {
+		t.Run(name, func(t *testing.T) {
+			directory := t.TempDir()
+			marker := filepath.Join(directory, "workload-executed")
+			secret := "synthetic-native-evidence-value"
+			args := []string{program, "-test.run=^TestWindowsExecutionPreflightPreservesFailureEvidence$"}
+			input := Command{Tool: tool, Output: filepath.Join(directory, "observed.json"), Directory: directory,
+				Environment: append(os.Environ(), "AIGW_TEST_NATIVE_EVIDENCE_SECRET="+secret, "AIGW_TEST_NATIVE_EVIDENCE_MARKER="+marker),
+				Sensitive:   []string{secret}, Measurement: Measurement{Case: "status", Backend: "env", Executable: &image}}
+			workload := Workload{Command: append(args, "workload")}
+			switch name {
+			case "preparation":
+				workload.Prepare = append(args, "prepare")
+			case "absent-workload":
+				workload.Command = nil
+			case "absent-controller":
+				input.Tool = filepath.Join(directory, "not-an-executable")
+			case "diagnostic":
+				workload.Command = append(args, "diagnostic")
+			case "evidence-write":
+				input.Output = filepath.Join(directory, "absent-parent", "observed.json")
+			}
+			rows, controllers, err := ObserveCommand(t.Context(), input, workload)
+			if err == nil || strings.Contains(err.Error(), secret) {
+				t.Fatalf("native preflight lost its refusal or disclosed sensitive evidence: %v", err)
+			}
+			started := name == "diagnostic" || name == "evidence-write"
+			_, markerErr := os.Stat(marker)
+			if !started {
+				if len(rows) != 0 || len(controllers) != 0 || !errors.Is(markerErr, os.ErrNotExist) {
+					t.Fatalf("failed prerequisite executed its workload: rows=%v controllers=%v marker=%v", rows, controllers, markerErr)
+				}
+				return
+			}
+			if markerErr != nil || len(rows) != 1 || len(controllers) != 1 {
+				t.Fatalf("executed failure lost its native evidence: rows=%v controllers=%v marker=%v", rows, controllers, markerErr)
+			}
+			assertWindowsExecutionsExited(t, append(controllers, rows...))
+			if name == "diagnostic" {
+				for _, stream := range []string{"stdout", "stderr"} {
+					data, readErr := os.ReadFile(strings.TrimSuffix(input.Output, ".json") + ".execution." + stream)
+					if readErr != nil || len(data) == 0 || strings.Contains(string(data), secret) {
+						t.Fatalf("failed native preflight did not retain redacted %s: %q, %v", stream, data, readErr)
+					}
+				}
+			}
+		})
 	}
 }
 
