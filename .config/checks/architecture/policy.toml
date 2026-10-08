@@ -236,6 +236,7 @@ allowed_import_edges."internal/cli/selection" = [
   "internal/configuration",
   "internal/credential",
   "internal/prompt",
+  "internal/secrets",
 ]
 allowed_import_edges."internal/cli/update" = [
   "internal/cli/invocation",
