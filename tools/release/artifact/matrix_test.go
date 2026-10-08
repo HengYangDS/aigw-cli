@@ -1,6 +1,7 @@
 package artifact
 
 import (
+	upgradeartifact "aigw-cli/internal/upgrade/artifact"
 	"context"
 	"os"
 	"os/exec"
@@ -18,12 +19,12 @@ func TestVerifyMatrixUsesExplicitNamespaceScopedAuthorization(t *testing.T) {
 		t.Fatal(err)
 	}
 	trust := SignatureTrust{AllowedSigners: filepath.Join(t.TempDir(), "allowed-signers"), Principal: "release@test.invalid"}
-	for _, namespace := range []string{"git", SignatureNamespace} {
+	for _, namespace := range []string{"git", upgradeartifact.SignatureNamespace} {
 		if err := os.WriteFile(trust.AllowedSigners, []byte(trust.Principal+` namespaces="`+namespace+`" `+string(publicKey)), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		err := VerifyMatrix(context.Background(), directory, "1.2.3", trust)
-		if (err == nil) != (namespace == SignatureNamespace) {
+		if (err == nil) != (namespace == upgradeartifact.SignatureNamespace) {
 			t.Fatalf("namespace %q: %v", namespace, err)
 		}
 	}
@@ -218,7 +219,7 @@ func signFixture(t *testing.T, manifest, key string) {
 	if err := os.Remove(manifest + ".sig"); err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
 	}
-	if output, err := exec.Command("ssh-keygen", "-Y", "sign", "-n", SignatureNamespace, "-f", key, manifest).CombinedOutput(); err != nil {
+	if output, err := exec.Command("ssh-keygen", "-Y", "sign", "-n", upgradeartifact.SignatureNamespace, "-f", key, manifest).CombinedOutput(); err != nil {
 		t.Fatalf("sign checksum manifest: %v: %s", err, output)
 	}
 }

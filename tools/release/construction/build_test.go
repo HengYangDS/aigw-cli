@@ -459,7 +459,7 @@ func TestReleaseBuildPropagatesToolFailureAndNeverPublishesPartialMatrix(t *test
 		t.Fatal(err)
 	}
 	want := errors.New("tool failed")
-	err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/aigw-cli", GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli", SigningKey: "key"}, func(call toolCall) error {
+	err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/aigw-cli", GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli", SigningKey: signingKey(t)}, func(call toolCall) error {
 		if call.Name == "goreleaser" {
 			return populatePortableStage(t, call, "1.2.3", "portable_darwin_arm64_v8.0/aigw")
 		}

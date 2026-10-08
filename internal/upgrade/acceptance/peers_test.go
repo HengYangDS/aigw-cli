@@ -117,12 +117,14 @@ func TestUpdateUsesReachablePeerWhenOtherPeerIsUnavailable(t *testing.T) {
 				switch request.URL.Path {
 				case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
 					w.Header().Set("Content-Type", "application/json")
-					_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
-						archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt")
+					_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q},{"name":"checksums.txt.sig","browser_download_url":%q}]}`,
+						archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt", githubURL+"/downloads/checksums.txt.sig")
 				case "/downloads/" + archiveName:
 					_, _ = w.Write(archive)
 				case "/downloads/checksums.txt":
 					_, _ = fmt.Fprintf(w, "%x  %s\n", sum, archiveName)
+				case "/downloads/checksums.txt.sig":
+					_, _ = w.Write(signedManifest(t, fmt.Sprintf("%x  %s\n", sum, archiveName)))
 				default:
 					http.NotFound(w, request)
 				}
@@ -177,12 +179,14 @@ func TestUpdateUsesGitHubPeerWhenGitLabIsUnavailable(t *testing.T) {
 		switch request.URL.Path {
 		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
-				archiveName, serverURL+"/downloads/"+archiveName, serverURL+"/downloads/checksums.txt")
+			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q},{"name":"checksums.txt.sig","browser_download_url":%q}]}`,
+				archiveName, serverURL+"/downloads/"+archiveName, serverURL+"/downloads/checksums.txt", serverURL+"/downloads/checksums.txt.sig")
 		case "/downloads/" + archiveName:
 			_, _ = w.Write(archive)
 		case "/downloads/checksums.txt":
 			_, _ = fmt.Fprintf(w, "%x  %s\n", sum, archiveName)
+		case "/downloads/checksums.txt.sig":
+			_, _ = w.Write(signedManifest(t, fmt.Sprintf("%x  %s\n", sum, archiveName)))
 		default:
 			http.NotFound(w, request)
 		}
@@ -212,7 +216,7 @@ func TestUpdateUsesGitHubPeerWhenGitLabIsUnavailable(t *testing.T) {
 	if string(got) != "github-binary" || !strings.Contains(message, "github") {
 		t.Fatalf("binary=%q message=%q", got, message)
 	}
-	if len(requests) != 4 || requests[0] != "/repos/example-owner/aigw-cli/releases/latest" || requests[1] != "/repos/example-owner/aigw-cli/releases/tags/v0.2.0" {
+	if len(requests) != 5 || requests[0] != "/repos/example-owner/aigw-cli/releases/latest" || requests[1] != "/repos/example-owner/aigw-cli/releases/tags/v0.2.0" {
 		t.Fatalf("GitHub peer requests = %v", requests)
 	}
 }
@@ -232,12 +236,14 @@ func TestUpdateVerifiesMatchingPeerReleasesBeforeInstalling(t *testing.T) {
 		switch request.URL.Path {
 		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
-				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt")
+			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q},{"name":"checksums.txt.sig","browser_download_url":%q}]}`,
+				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt", githubURL+"/downloads/checksums.txt.sig")
 		case "/downloads/" + archiveName:
 			_, _ = w.Write(archive)
 		case "/downloads/checksums.txt":
 			_, _ = fmt.Fprintf(w, "%x  %s\n", sum, archiveName)
+		case "/downloads/checksums.txt.sig":
+			_, _ = w.Write(signedManifest(t, fmt.Sprintf("%x  %s\n", sum, archiveName)))
 		default:
 			http.NotFound(w, request)
 		}
@@ -259,8 +265,8 @@ func TestUpdateVerifiesMatchingPeerReleasesBeforeInstalling(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if requests != 4 {
-		t.Fatalf("GitHub requests = %d, want metadata plus both assets", requests)
+	if requests != 5 {
+		t.Fatalf("GitHub requests = %d, want two metadata requests plus all three assets", requests)
 	}
 	if !strings.Contains(message, "gitlab and github") {
 		t.Fatalf("message = %q", message)
@@ -320,12 +326,14 @@ func TestUpdateRejectsPeerAssetDisagreementBeforeReplacingBinary(t *testing.T) {
 		switch request.URL.Path {
 		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
-				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt")
+			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q},{"name":"checksums.txt.sig","browser_download_url":%q}]}`,
+				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt", githubURL+"/downloads/checksums.txt.sig")
 		case "/downloads/" + archiveName:
 			_, _ = w.Write(githubArchive)
 		case "/downloads/checksums.txt":
 			_, _ = fmt.Fprintf(w, "%x  %s\n", sha256.Sum256(githubArchive), archiveName)
+		case "/downloads/checksums.txt.sig":
+			_, _ = w.Write(signedManifest(t, fmt.Sprintf("%x  %s\n", sha256.Sum256(githubArchive), archiveName)))
 		default:
 			http.NotFound(w, request)
 		}

@@ -3,6 +3,7 @@ package construction
 
 import (
 	"aigw-cli/internal/upgrade"
+	upgradeartifact "aigw-cli/internal/upgrade/artifact"
 	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
@@ -27,6 +28,7 @@ type buildRequest struct {
 	GitLabOrigin, GitLabRepository string
 	GitHubOrigin, GitHubRepository string
 	SigningKey                     string
+	ReleasePublicKey               string
 	TargetOS                       string
 	MacOSSigningIdentity           string
 }
@@ -36,11 +38,8 @@ type releaseEpochResolver func(root, version string) (string, error)
 type artifactComparator func(left, right, version string) error
 
 func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (result error) {
-	policy, err := admitReleaseInputs(request)
+	policy, err := admitReleaseInputs(&request, run)
 	if err != nil {
-		return err
-	}
-	if err := ensureCleanSource(request.Root, run); err != nil {
 		return err
 	}
 	instant, _ := readiness.ParseEpoch(request.Epoch)
@@ -118,12 +117,15 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 	manifest := filepath.Join(candidate, "checksums.txt")
 	if err := run(toolCall{
 		Name: "ssh-keygen", Directory: candidate,
-		Args: []string{"-Y", "sign", "-n", artifact.SignatureNamespace, "-f", request.SigningKey, manifest},
+		Args: []string{"-Y", "sign", "-n", upgradeartifact.SignatureNamespace, "-f", request.SigningKey, manifest},
 	}); err != nil {
 		return fmt.Errorf("sign release checksums: %w", err)
 	}
 	if err := artifact.ValidateMatrix(ctx, candidate, request.Version); err != nil {
 		return err
+	}
+	if err := upgradeartifact.VerifySignature(manifest, manifest+".sig", request.ReleasePublicKey); err != nil {
+		return fmt.Errorf("bind release signature to embedded signer: %w", err)
 	}
 	if err := os.CopyFS(filepath.Join(candidate, "homebrew"), os.DirFS(filepath.Join(stage, "homebrew"))); err != nil {
 		return fmt.Errorf("retain generated Homebrew projection: %w", err)
@@ -131,14 +133,22 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 	return replaceDirectory(candidate, output)
 }
 
-func admitReleaseInputs(request buildRequest) (dependencyPolicy, error) {
-	if err := validateRequest(request); err != nil {
+func admitReleaseInputs(request *buildRequest, run toolRunner) (dependencyPolicy, error) {
+	if err := validateRequest(*request); err != nil {
 		return dependencyPolicy{}, err
 	}
 	if strings.TrimSpace(request.SigningKey) == "" {
 		return dependencyPolicy{}, errors.New("release construction requires AIGW_RELEASE_SIGNING_KEY")
 	}
-	return readDependencyPolicy(request.Root)
+	policy, err := readDependencyPolicy(request.Root)
+	if err != nil {
+		return dependencyPolicy{}, err
+	}
+	if err := ensureCleanSource(request.Root, run); err != nil {
+		return dependencyPolicy{}, err
+	}
+	request.ReleasePublicKey, err = releasePublicKey(request.SigningKey)
+	return policy, err
 }
 
 func buildArchives(request buildRequest, workspace string, run toolRunner) (string, error) {
@@ -167,12 +177,35 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 	return stage, nil
 }
 
+func releasePublicKey(signingKey string) (string, error) {
+	if signingKey == "" {
+		return "", nil
+	}
+	path := signingKey
+	if !strings.HasSuffix(path, ".pub") {
+		path += ".pub"
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read release signing public key: %w", err)
+	}
+	return upgradeartifact.CanonicalPublicKey(string(data))
+}
+
 func goReleaserEnvironment(request buildRequest) ([]string, error) {
 	instant, err := readiness.ParseEpoch(request.Epoch)
 	if err != nil {
 		return nil, err
 	}
+	publicKey := request.ReleasePublicKey
+	if publicKey == "" {
+		publicKey, err = releasePublicKey(request.SigningKey)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return append(forgeCredentialOverrides(),
+		"AIGW_RELEASE_PUBLIC_KEY="+publicKey,
 		"AIGW_BUILD_OS="+request.TargetOS,
 		"AIGW_MACOS_SIGNING_IDENTITY="+request.MacOSSigningIdentity,
 		"AIGW_VERSION="+request.Version,

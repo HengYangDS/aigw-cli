@@ -16,6 +16,10 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Security
 
+- Authenticate online update checksum manifests against an independently
+  embedded SSH release key before extracting or executing downloaded programs;
+  reject missing, malformed or mismatched signatures without replacing the
+  current program or rollback file.
 - Upgrade the development math renderer to KaTeX 0.19.0, preventing inherited
   prototype properties from enabling trusted rendering; verify the Mermaid and
   Markdown math consumers without changing production credentials or runtime.

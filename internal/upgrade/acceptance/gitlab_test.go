@@ -50,7 +50,7 @@ func (r *glabAPIAssetRunner) RunCapture(_ context.Context, plan process.Plan) ([
 		if checksumLabel == "" {
 			checksumLabel = "checksums.txt"
 		}
-		return []byte(fmt.Sprintf(`{"assets":{"links":[{"name":%q,"url":%q},{"name":%q,"url":%q}]}}`, archiveLabel, r.archiveURL, checksumLabel, r.checksumURL)), nil
+		return []byte(fmt.Sprintf(`{"assets":{"links":[{"name":%q,"url":%q},{"name":%q,"url":%q},{"name":"checksums.txt.sig","url":%q}]}}`, archiveLabel, r.archiveURL, checksumLabel, r.checksumURL, r.checksumURL+".sig")), nil
 	}
 	return nil, fmt.Errorf("unexpected args: %v", args)
 }
@@ -66,6 +66,12 @@ func (r *glabAPIAssetRunner) RunToFile(_ context.Context, destination string, pl
 		return os.WriteFile(destination, r.archive, 0o600)
 	case r.checksumURL:
 		return os.WriteFile(destination, []byte(r.checksum), 0o600)
+	case r.checksumURL + ".sig":
+		signature, err := releaseSignature(r.checksum)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(destination, signature, 0o600)
 	default:
 		return fmt.Errorf("unexpected API asset URL: %s", args[1])
 	}
@@ -213,6 +219,8 @@ func TestUpdateDownloadsFromGitLabAPIWhenGlabIsUnavailable(t *testing.T) {
 			_, _ = w.Write(archive)
 		case "/example-group/example-project/-/releases/v0.2.0/downloads/checksums.txt":
 			_, _ = fmt.Fprintf(w, "%x  ./%s\n", sum, archiveName)
+		case "/example-group/example-project/-/releases/v0.2.0/downloads/checksums.txt.sig":
+			_, _ = w.Write(signedManifest(t, fmt.Sprintf("%x  ./%s\n", sum, archiveName)))
 		default:
 			http.NotFound(w, r)
 		}
@@ -266,6 +274,8 @@ func TestUpdateFallsBackToGitLabAPIWhenGlabLeavesNoArtifact(t *testing.T) {
 					_, _ = w.Write(archive)
 				case "/example-group/example-project/-/releases/v0.2.0/downloads/checksums.txt":
 					_, _ = fmt.Fprintf(w, "%x  ./%s\n", sum, archiveName)
+				case "/example-group/example-project/-/releases/v0.2.0/downloads/checksums.txt.sig":
+					_, _ = w.Write(signedManifest(t, fmt.Sprintf("%x  ./%s\n", sum, archiveName)))
 				default:
 					http.NotFound(w, r)
 				}
@@ -323,8 +333,8 @@ func TestUpdateUsesGlabAPIKeychainFallbackWhenReleaseDownloadLeavesNoFile(t *tes
 	if string(got) != "new-binary" {
 		t.Fatalf("binary = %q, want new-binary", got)
 	}
-	if len(runner.fileCalls) != 2 {
-		t.Fatalf("glab API asset downloads = %v, want two streamed assets", runner.fileCalls)
+	if len(runner.fileCalls) != 3 {
+		t.Fatalf("glab API asset downloads = %v, want three streamed assets", runner.fileCalls)
 	}
 	for _, call := range append(runner.calls, runner.fileCalls...) {
 		if slices.Contains(call, "GITLAB_TOKEN") || slices.Contains(call, "test-token") {
@@ -381,14 +391,19 @@ func TestUpdateStreamsGlabAssetsWithConfiguredHost(t *testing.T) {
 	if err := os.WriteFile(checksumSource, []byte(fmt.Sprintf("%x  ./%s\n", sum, archiveName)), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	signatureSource := filepath.Join(dir, "checksums.txt.sig")
+	if err := os.WriteFile(signatureSource, signedManifest(t, fmt.Sprintf("%x  ./%s\n", sum, archiveName)), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	script := `#!/bin/sh
 printf '%s\n' "$GITLAB_HOST" >> "$AIGW_TEST_CAPTURE"
 case "$1:$2" in
   release:list) printf 'v0.2.0\n' ;;
   release:download) exit 0 ;;
-  api:projects/example-group%2Fexample-project/releases/v0.2.0) printf '{"assets":{"links":[{"name":"aigw_0.2.0_darwin_arm64.tar.gz","url":"http://packages.example/aigw_0.2.0_darwin_arm64.tar.gz"},{"name":"checksums.txt","url":"http://packages.example/checksums.txt"}]}}' ;;
+  api:projects/example-group%2Fexample-project/releases/v0.2.0) printf '{"assets":{"links":[{"name":"aigw_0.2.0_darwin_arm64.tar.gz","url":"http://packages.example/aigw_0.2.0_darwin_arm64.tar.gz"},{"name":"checksums.txt","url":"http://packages.example/checksums.txt"},{"name":"checksums.txt.sig","url":"http://packages.example/checksums.txt.sig"}]}}' ;;
   api:http://packages.example/aigw_0.2.0_darwin_arm64.tar.gz) cat "$AIGW_TEST_ARCHIVE" ;;
   api:http://packages.example/checksums.txt) cat "$AIGW_TEST_CHECKSUMS" ;;
+  api:http://packages.example/checksums.txt.sig) cat "$AIGW_TEST_SIGNATURE" ;;
   *) echo "unexpected glab arguments: $*" >&2; exit 1 ;;
 esac
 `
@@ -399,6 +414,7 @@ esac
 	t.Setenv("AIGW_TEST_CAPTURE", capture)
 	t.Setenv("AIGW_TEST_ARCHIVE", archiveSource)
 	t.Setenv("AIGW_TEST_CHECKSUMS", checksumSource)
+	t.Setenv("AIGW_TEST_SIGNATURE", signatureSource)
 	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "https://gitlab.example.test")
 	binary := filepath.Join(dir, "aigw")
 	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
@@ -440,12 +456,14 @@ func TestUpdateIgnoresGlabConfigurationWarningAroundLatestTag(t *testing.T) {
 		switch request.URL.Path {
 		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
-				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt")
+			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q},{"name":"checksums.txt.sig","browser_download_url":%q}]}`,
+				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt", githubURL+"/downloads/checksums.txt.sig")
 		case "/downloads/" + archiveName:
 			_, _ = w.Write(archive)
 		case "/downloads/checksums.txt":
 			_, _ = w.Write([]byte(checksum))
+		case "/downloads/checksums.txt.sig":
+			_, _ = w.Write(signedManifest(t, checksum))
 		default:
 			http.NotFound(w, request)
 		}

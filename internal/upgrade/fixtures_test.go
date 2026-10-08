@@ -1,21 +1,48 @@
 package upgrade
 
 import (
+	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"os"
 	"testing"
 
 	"aigw-cli/internal/process"
+	"aigw-cli/internal/upgrade/artifact"
+
+	"github.com/hiddeco/sshsig"
+	"golang.org/x/crypto/ssh"
 )
+
+var releaseTestSigner ssh.Signer
 
 // Private transport tests must never inherit a developer's release credentials.
 func TestMain(m *testing.M) {
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	releaseTestSigner, err = ssh.NewSignerFromKey(privateKey)
+	if err != nil {
+		panic(err)
+	}
+	artifact.BuildReleasePublicKey = string(ssh.MarshalAuthorizedKey(releaseTestSigner.PublicKey()))
 	for _, name := range []string{"AIGW_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN"} {
 		if err := os.Unsetenv(name); err != nil {
 			panic(err)
 		}
 	}
 	os.Exit(m.Run())
+}
+
+func signReleaseForTest(t *testing.T, manifest string) []byte {
+	t.Helper()
+	signature, err := sshsig.Sign(bytes.NewBufferString(manifest), releaseTestSigner, sshsig.HashSHA512, artifact.SignatureNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sshsig.Armor(signature)
 }
 
 // recordingRunner exposes capture only; file-capability admission stays observable.

@@ -26,13 +26,14 @@ const releaseRedirectLimit = 10
 
 // Updater resolves, verifies, installs, and rolls back signed portable AIGW releases.
 type Updater struct {
-	GOOS       string
-	GOARCH     string
-	Executable string
-	Runner     process.CaptureRunner
-	HTTPClient *http.Client
-	GitLab     ReleaseSource
-	GitHub     ReleaseSource
+	GOOS             string
+	GOARCH           string
+	Executable       string
+	Runner           process.CaptureRunner
+	HTTPClient       *http.Client
+	GitLab           ReleaseSource
+	GitHub           ReleaseSource
+	ReleasePublicKey string
 }
 
 func (u Updater) releaseHTTPClient() *http.Client {
@@ -234,7 +235,7 @@ func (u Updater) downloadPeerAssets(ctx context.Context, releases []resolvedRele
 		if err != nil {
 			return nil, fmt.Errorf("create peer download directory: %w", err)
 		}
-		unavailable, err := u.downloadReleaseAssetsFromExactSource(ctx, release.Source, release.Tag, directory, asset, "checksums.txt")
+		unavailable, err := u.downloadReleaseAssetsFromExactSource(ctx, release.Source, release.Tag, directory, asset, "checksums.txt", "checksums.txt.sig")
 		if err != nil {
 			if unavailable {
 				unavailableSources = append(unavailableSources, fmt.Errorf("%s: %w", release.Source.Provider, err))
@@ -243,6 +244,13 @@ func (u Updater) downloadPeerAssets(ctx context.Context, releases []resolvedRele
 			return nil, fmt.Errorf("%s release assets failed: %w", release.Source.Provider, err)
 		}
 		path := filepath.Join(directory, asset)
+		key := u.ReleasePublicKey
+		if key == "" {
+			key = artifact.BuildReleasePublicKey
+		}
+		if err := artifact.VerifySignature(filepath.Join(directory, "checksums.txt"), filepath.Join(directory, "checksums.txt.sig"), key); err != nil {
+			return nil, fmt.Errorf("%s release authentication failed: %w", release.Source.Provider, err)
+		}
 		digest, err := artifact.VerifyChecksum(path, filepath.Join(directory, "checksums.txt"), asset)
 		if err != nil {
 			return nil, fmt.Errorf("%s release checksum failed: %w", release.Source.Provider, err)

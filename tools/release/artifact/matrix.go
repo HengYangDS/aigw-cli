@@ -2,6 +2,7 @@
 package artifact
 
 import (
+	upgradeartifact "aigw-cli/internal/upgrade/artifact"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -12,9 +13,6 @@ import (
 	"slices"
 	"strings"
 )
-
-// SignatureNamespace separates release-asset signatures from other SSH signatures.
-const SignatureNamespace = "aigw-release"
 
 // SignatureTrust identifies the independently supplied authorization for artifact signatures.
 type SignatureTrust struct {
@@ -78,7 +76,7 @@ func verifySignature(ctx context.Context, directory, operation string, arguments
 	}
 	defer func() { _ = file.Close() }()
 	args := append([]string{"-Y", operation,
-		"-n", SignatureNamespace,
+		"-n", upgradeartifact.SignatureNamespace,
 		"-s", filepath.Join(directory, "checksums.txt.sig"),
 	}, arguments...)
 	command := exec.CommandContext(ctx, "ssh-keygen", args...)

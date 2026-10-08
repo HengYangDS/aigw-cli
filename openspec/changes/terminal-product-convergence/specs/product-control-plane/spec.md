@@ -151,6 +151,28 @@ internal caller inspection, while public diagnostics SHALL expose only safe
 state and recovery guidance. Forge subprocesses SHALL disable native prompts
 explicitly rather than depend on the parent environment.
 
+The updater SHALL authenticate each complete peer's checksum manifest against
+the independently embedded release public key before checksum validation,
+extraction, or candidate execution. Downloaded metadata SHALL NOT supply trust.
+Release construction SHALL freeze that public key once and use the same value
+for executable embedding and verification of the actual checksum signature.
+
+#### Scenario: A checksum-consistent candidate lacks valid authentication
+
+- **WHEN** an online peer supplies an archive and matching checksum manifest
+- **AND** its signature is absent, malformed, signed by another key, or bound
+  to different manifest bytes
+- **THEN** the updater SHALL reject it before any candidate execution
+- **AND** the current program and retained rollback bytes SHALL stay unchanged
+- **AND** its exact owned download workspace SHALL be removed.
+
+#### Scenario: Signing inputs change after release admission
+
+- **WHEN** release construction froze the public key embedded in its programs
+- **AND** another key signs the actual checksum manifest
+- **THEN** construction SHALL reject the output before replacing accepted assets
+- **AND** the prior accepted output SHALL remain unchanged.
+
 #### Scenario: A release peer is temporarily unavailable
 
 - **WHEN** a configured peer fails during metadata or asset transport

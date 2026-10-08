@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/secrets"
+	upgradeartifact "aigw-cli/internal/upgrade/artifact"
 	"aigw-cli/tools/release/artifact"
 	"archive/zip"
 	"bytes"
@@ -473,7 +474,7 @@ func prepareSignedRelease(t *testing.T, version string) string {
 	if err := os.Remove(manifest + ".sig"); err != nil {
 		t.Fatal(err)
 	}
-	if output, err := exec.Command("ssh-keygen", "-Y", "sign", "-n", artifact.SignatureNamespace, "-f", key, manifest).CombinedOutput(); err != nil {
+	if output, err := exec.Command("ssh-keygen", "-Y", "sign", "-n", upgradeartifact.SignatureNamespace, "-f", key, manifest).CombinedOutput(); err != nil {
 		t.Fatalf("sign manifest: %v: %s", err, output)
 	}
 	t.Chdir(source)
@@ -506,7 +507,7 @@ func writeArtifactFixture(t *testing.T, version, key string) string {
 		t.Fatal(err)
 	}
 	manifest := filepath.Join(directory, "checksums.txt")
-	if output, err := exec.Command("ssh-keygen", "-Y", "sign", "-n", artifact.SignatureNamespace, "-f", key, manifest).CombinedOutput(); err != nil {
+	if output, err := exec.Command("ssh-keygen", "-Y", "sign", "-n", upgradeartifact.SignatureNamespace, "-f", key, manifest).CombinedOutput(); err != nil {
 		t.Fatalf("sign checksum manifest: %v: %s", err, output)
 	}
 	return directory

@@ -217,6 +217,8 @@ func TestUpdateDoesNotForwardGitLabTokenAcrossReleaseRedirect(t *testing.T) {
 			http.Redirect(w, r, downloadServer.URL+"/asset", http.StatusFound)
 		case "/example-group/example-project/-/releases/v0.2.0/downloads/checksums.txt":
 			_, _ = fmt.Fprintf(w, "%x  ./%s\n", sum, archiveName)
+		case "/example-group/example-project/-/releases/v0.2.0/downloads/checksums.txt.sig":
+			_, _ = w.Write(signedManifest(t, fmt.Sprintf("%x  ./%s\n", sum, archiveName)))
 		default:
 			http.NotFound(w, r)
 		}

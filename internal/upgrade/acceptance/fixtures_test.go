@@ -2,10 +2,13 @@ package acceptance_test
 
 import (
 	"aigw-cli/internal/process"
+	"aigw-cli/internal/upgrade/artifact"
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,11 +16,25 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+
+	"github.com/hiddeco/sshsig"
+	"golang.org/x/crypto/ssh"
 )
 
 const testReleaseProject = "example-group/example-project"
 
+var releaseTestSigner ssh.Signer
+
 func TestMain(m *testing.M) {
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	releaseTestSigner, err = ssh.NewSignerFromKey(privateKey)
+	if err != nil {
+		panic(err)
+	}
+	artifact.BuildReleasePublicKey = string(ssh.MarshalAuthorizedKey(releaseTestSigner.PublicKey()))
 	isolated, err := os.MkdirTemp("", "aigw-upgrade-test-")
 	if err != nil {
 		panic(err)
@@ -53,6 +70,23 @@ func TestMain(m *testing.M) {
 		code = 1
 	}
 	os.Exit(code)
+}
+
+func releaseSignature(manifest string) ([]byte, error) {
+	signature, err := sshsig.Sign(bytes.NewBufferString(manifest), releaseTestSigner, sshsig.HashSHA512, artifact.SignatureNamespace)
+	if err != nil {
+		return nil, err
+	}
+	return sshsig.Armor(signature), nil
+}
+
+func signedManifest(t *testing.T, manifest string) []byte {
+	t.Helper()
+	signature, err := releaseSignature(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return signature
 }
 
 type releaseRunner struct {
@@ -129,6 +163,13 @@ func (r *releaseRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte
 	}
 	if asset == "checksums.txt" {
 		return nil, os.WriteFile(filepath.Join(dir, asset), []byte(r.checksum), 0o600)
+	}
+	if asset == "checksums.txt.sig" {
+		signature, err := releaseSignature(r.checksum)
+		if err != nil {
+			return nil, err
+		}
+		return nil, os.WriteFile(filepath.Join(dir, asset), signature, 0o600)
 	}
 	return nil, os.WriteFile(filepath.Join(dir, asset), r.archive, 0o600)
 }

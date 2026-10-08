@@ -52,7 +52,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 		Root: releaseRoot(t), Output: filepath.Join(t.TempDir(), "dist"), Version: "1.2.3", Epoch: "1784246400",
 		GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/aigw-cli",
 		GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli",
-		SigningKey: "key",
+		SigningKey: signingKey(t),
 	}
 
 	t.Run("repository whitespace", func(t *testing.T) {
@@ -339,7 +339,7 @@ func TestValidateSourcesRejectsInvalidAuthoritiesAndRepositories(t *testing.T) {
 				t.Errorf("source check error = %v, want %q", err, tc.want)
 			}
 			request := buildRequest{
-				Version: "1.2.3", Epoch: "0", SigningKey: "key",
+				Version: "1.2.3", Epoch: "0", SigningKey: signingKey(t),
 				GitLabOrigin: tc.origin, GitLabRepository: tc.repository,
 			}
 			calls := 0
@@ -411,5 +411,55 @@ func releaseFixtureRunner(t *testing.T, root string, calls *[]toolCall, fault *s
 			return command.Run()
 		}
 		return nil
+	}
+}
+
+func TestReleaseBindsEmbeddedSignerToActualChecksumSignature(t *testing.T) {
+	root := releaseRoot(t)
+	for name, content := range map[string]string{
+		"go.mod": "module fixture\n", "go.sum": "fixture", "package-lock.json": "fixture", "mise.lock": "fixture",
+		"mise.toml": "[tools]\ngo = \"1.27.1\"\nosv-scanner = \"2.5.1\"\n",
+	} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	key, other := signingKey(t), signingKey(t)
+	public, err := os.ReadFile(other + ".pub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(root, "dist")
+	if err := os.Mkdir(output, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	accepted := filepath.Join(output, "accepted")
+	if err := os.WriteFile(accepted, []byte("previous release"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var calls []toolCall
+	fault := ""
+	runner := releaseFixtureRunner(t, root, &calls, &fault)
+	err = buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: key}, func(call toolCall) error {
+		if call.Name == "ssh-keygen" {
+			// Model signing-input drift after the producer freezes its public key.
+			private, err := os.ReadFile(other)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(key, private, 0o600); err != nil {
+				return err
+			}
+			if err := os.WriteFile(key+".pub", public, 0o600); err != nil {
+				return err
+			}
+		}
+		return runner(call)
+	})
+	if err == nil || !strings.Contains(err.Error(), "embedded signer") {
+		t.Fatalf("mismatched signer was admitted: %v", err)
+	}
+	if data, err := os.ReadFile(accepted); err != nil || string(data) != "previous release" {
+		t.Fatalf("mismatched signer changed accepted output: %q, %v", data, err)
 	}
 }

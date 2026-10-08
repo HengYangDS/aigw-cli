@@ -367,7 +367,7 @@ allowed_import_edges."tools/release" = [
   "tools/release/publication",
   "tools/release/readiness",
 ]
-allowed_import_edges."tools/release/artifact" = []
+allowed_import_edges."tools/release/artifact" = ["internal/upgrade/artifact"]
 # Construction reuses canonical client IDs, neutral execution and release contracts.
 allowed_import_edges."tools/release/construction" = [
   "internal/configuration",

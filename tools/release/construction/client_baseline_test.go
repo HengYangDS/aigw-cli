@@ -1,6 +1,7 @@
 package construction
 
 import (
+	upgradeartifact "aigw-cli/internal/upgrade/artifact"
 	releaseartifact "aigw-cli/tools/release/artifact"
 	"encoding/json"
 	"errors"
@@ -449,7 +450,7 @@ func signedNativeInputFixture(t *testing.T, root, version, key string) string {
 	if err := os.Remove(manifest + ".sig"); err != nil {
 		t.Fatal(err)
 	}
-	if output, err := exec.CommandContext(t.Context(), "ssh-keygen", "-Y", "sign", "-f", key, "-n", releaseartifact.SignatureNamespace, manifest).CombinedOutput(); err != nil {
+	if output, err := exec.CommandContext(t.Context(), "ssh-keygen", "-Y", "sign", "-f", key, "-n", upgradeartifact.SignatureNamespace, manifest).CombinedOutput(); err != nil {
 		t.Fatalf("fixture signing failed: %v, %s", err, output)
 	}
 	public, err := os.ReadFile(key + ".pub")

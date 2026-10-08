@@ -1,6 +1,7 @@
 package publication
 
 import (
+	upgradeartifact "aigw-cli/internal/upgrade/artifact"
 	"aigw-cli/tools/release/artifact"
 	"context"
 	"encoding/json"
@@ -446,7 +447,7 @@ func releaseFixture(t *testing.T, version string) string {
 		t.Fatal(err)
 	}
 	manifest := filepath.Join(directory, "checksums.txt")
-	if output, err := exec.Command("ssh-keygen", "-Y", "sign", "-n", artifact.SignatureNamespace, "-f", key, manifest).CombinedOutput(); err != nil {
+	if output, err := exec.Command("ssh-keygen", "-Y", "sign", "-n", upgradeartifact.SignatureNamespace, "-f", key, manifest).CombinedOutput(); err != nil {
 		t.Fatalf("sign checksum manifest: %v: %s", err, output)
 	}
 	return directory

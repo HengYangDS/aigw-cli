@@ -234,7 +234,7 @@ func TestReleaseBuildPreservesToolAndWorkspaceCleanupFailures(t *testing.T) {
 	}
 	want := errors.New("interrupted release tool")
 	var workspace string
-	err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: "fixture-key"}, func(call toolCall) error {
+	err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}, func(call toolCall) error {
 		if call.Name == "osv-scanner" {
 			return writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(root))
 		}

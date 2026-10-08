@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -16,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/ssh"
 )
 
 func TestReleaseHTTPClientStripsCredentialsAcrossOriginChain(t *testing.T) {
@@ -233,14 +236,20 @@ func TestUpdateOwnsDownloadWorkspace(t *testing.T) {
 				}
 			}
 			archive := tarGzForTest(t, "aigw_1.0.0_darwin_arm64/aigw", []byte("candidate"))
+			manifest := fmt.Sprintf("%x  aigw_1.0.0_darwin_arm64.tar.gz\n", sha256.Sum256(archive))
+			signature := signReleaseForTest(t, manifest)
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 				w.WriteHeader(status)
 				if strings.Contains(request.URL.Path, "/releases/tags/") {
-					_, _ = fmt.Fprintf(w, `{"tag_name":"v1.0.0","assets":[{"name":"aigw_1.0.0_darwin_arm64.tar.gz","browser_download_url":"http://%[1]s/archive"},{"name":"checksums.txt","browser_download_url":"http://%[1]s/checksums.txt"}]}`, request.Host)
+					_, _ = fmt.Fprintf(w, `{"tag_name":"v1.0.0","assets":[{"name":"aigw_1.0.0_darwin_arm64.tar.gz","browser_download_url":"http://%[1]s/archive"},{"name":"checksums.txt","browser_download_url":"http://%[1]s/checksums.txt"},{"name":"checksums.txt.sig","browser_download_url":"http://%[1]s/checksums.txt.sig"}]}`, request.Host)
 					return
 				}
 				if strings.HasSuffix(request.URL.Path, "/checksums.txt") {
-					_, _ = fmt.Fprintf(w, "%x  aigw_1.0.0_darwin_arm64.tar.gz\n", sha256.Sum256(archive))
+					_, _ = w.Write([]byte(manifest))
+					return
+				}
+				if strings.HasSuffix(request.URL.Path, "/checksums.txt.sig") {
+					_, _ = w.Write(signature)
 					return
 				}
 				_, _ = w.Write(archive)
@@ -332,4 +341,72 @@ func TestUnavailablePeersPreserveEveryCause(t *testing.T) {
 			t.Fatalf("peer asset error lost a cause: %v", err)
 		}
 	})
+}
+
+func TestUpdateRejectsUnauthenticatedReleaseBeforeExecution(t *testing.T) {
+	archive := tarGzForTest(t, "aigw_1.0.0_darwin_arm64/aigw", []byte("unauthenticated candidate"))
+	checksums := fmt.Sprintf("%x  aigw_1.0.0_darwin_arm64.tar.gz\n", sha256.Sum256(archive))
+	otherSigner, err := ssh.NewSignerFromKey(ed25519.NewKeyFromSeed(make([]byte, ed25519.SeedSize)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	public := string(ssh.MarshalAuthorizedKey(releaseTestSigner.PublicKey()))
+	for name, test := range map[string]struct {
+		signature []byte
+		publicKey string
+		wantError string
+	}{
+		"absent signature":    {nil, public, "checksums.txt.sig"},
+		"malformed signature": {[]byte("invalid signature"), public, "decode release signature"},
+		"wrong signer":        {signReleaseForTest(t, checksums), string(ssh.MarshalAuthorizedKey(otherSigner.PublicKey())), "authenticate release manifest"},
+		"changed manifest":    {signReleaseForTest(t, "different checksum manifest\n"), public, "authenticate release manifest"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			installation, temporary := t.TempDir(), t.TempDir()
+			for _, variable := range []string{"TMPDIR", "TMP", "TEMP"} {
+				t.Setenv(variable, temporary)
+			}
+			executable := filepath.Join(installation, "aigw")
+			for path, contents := range map[string]string{executable: "current", RollbackPath(executable): "previous"} {
+				if err := os.WriteFile(path, []byte(contents), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+				switch request.URL.Path {
+				case "/archive":
+					_, _ = w.Write(archive)
+				case "/checksums.txt":
+					_, _ = w.Write([]byte(checksums))
+				case "/checksums.txt.sig":
+					_, _ = w.Write(test.signature)
+				default:
+					signatureAsset := ""
+					if test.signature != nil {
+						signatureAsset = fmt.Sprintf(`,{"name":"checksums.txt.sig","browser_download_url":"http://%s/checksums.txt.sig"}`, request.Host)
+					}
+					_, _ = fmt.Fprintf(w, `{"tag_name":"v1.0.0","assets":[{"name":"aigw_1.0.0_darwin_arm64.tar.gz","browser_download_url":"http://%[1]s/archive"},{"name":"checksums.txt","browser_download_url":"http://%[1]s/checksums.txt"}%[2]s]}`, request.Host, signatureAsset)
+				}
+			}))
+			defer server.Close()
+			runner := &recordingRunner{output: []byte("aigw version 1.0.0\n")}
+			u := Updater{GOOS: "darwin", GOARCH: "arm64", Executable: executable, Runner: runner, HTTPClient: server.Client(), ReleasePublicKey: test.publicKey}
+			releases := []resolvedRelease{{Source: ReleaseSource{Provider: ReleaseProviderGitHub, Origin: server.URL, Repository: "team/product"}, Tag: "v1.0.0"}}
+			if result, err := u.updateFromResolvedPeers(t.Context(), releases, "0.1.0"); result != "" || err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Errorf("unauthenticated release result = %q, %v; want %q refusal", result, err, test.wantError)
+			}
+			if len(runner.plans) != 0 {
+				t.Errorf("unauthenticated release reached executable validation: %v", runner.plans)
+			}
+			for path, want := range map[string]string{executable: "current", RollbackPath(executable): "previous"} {
+				got, err := os.ReadFile(path)
+				if err != nil || string(got) != want {
+					t.Errorf("unauthenticated release changed %s: %q, %v; want %q", path, got, err, want)
+				}
+			}
+			if entries, err := os.ReadDir(temporary); err != nil || len(entries) != 0 {
+				t.Errorf("rejected release left update resources: %v, %v", entries, err)
+			}
+		})
+	}
 }

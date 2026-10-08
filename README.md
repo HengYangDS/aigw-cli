@@ -267,12 +267,11 @@ and configuration unchanged. Restore a compatible configuration explicitly with
 The first Homebrew upgrade from 0.3.1 is a managed cutover, not a bare
 `brew upgrade aigw`: existing sessions may still call Homebrew's public
 credential-command link. Before the switch, the release operator must stage
-the final successor's private reader, explicitly stage each selected Keychain
-Token and enabled diagnostic credential in its new slot, verify the exact
-commands without a prompt, preproject managed clients, and prefetch the
+the final successor's private reader, verify its exact commands against the
+existing Account items without a prompt, preproject managed clients, and prefetch the
 verified Cask. Measure the bounded link gap, then immediately test captured
 commands and real clients; restore the predecessor if acceptance fails. Do not
-switch if a required native item cannot be staged and read noninteractively.
+switch if a required existing native item cannot be read noninteractively.
 A session still caching the public link may fail once during the gap. Blanket
 client shutdown or restart does not eliminate that risk and is not an upgrade
 step. Later versioned-reader upgrades must keep old commands callable. See the
@@ -290,7 +289,11 @@ files.
 
 Updates resolve GitLab and GitHub as independent optional peers. A selected peer
 must provide one complete release; AIGW never combines a tag, checksum, or asset
-across peers. Maintainer publication belongs to
+across peers. Online portable updates authenticate `checksums.txt.sig` against
+the release key embedded in AIGW before checking hashes, extracting, or executing
+downloaded programs. Missing or invalid signatures stop the update and preserve
+the current program and rollback file; downloads never supply their own trust.
+Maintainer publication belongs to
 [Forge operations](docs/operations/forge-operations.md).
 
 ## Contribute

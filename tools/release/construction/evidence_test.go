@@ -252,7 +252,7 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 	var sbom []byte
 	var finalSBOM string
 	observed := errors.New("native SBOM observed before other release evidence")
-	err := buildRelease(t.Context(), buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: version, Epoch: "1784246400", SigningKey: "unused"}, func(call toolCall) error {
+	err := buildRelease(t.Context(), buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: version, Epoch: "1784246400", SigningKey: signingKey(t)}, func(call toolCall) error {
 		switch call.Name {
 		case "git":
 			if slices.Contains(call.Args, "HEAD^{commit}") {
@@ -347,7 +347,7 @@ func TestReleaseBuildPropagatesPostBuildValidationFailures(t *testing.T) {
 			if err := os.WriteFile(accepted, []byte("previous release"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			valid := buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: "unused"}
+			valid := buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}
 			err := buildRelease(t.Context(), valid, func(call toolCall) error {
 				switch call.Name {
 				case "git":
@@ -393,7 +393,7 @@ func TestReleaseBuildPropagatesPostBuildValidationFailures(t *testing.T) {
 }
 
 func TestReleaseSBOMRequiresPortableBinaries(t *testing.T) {
-	valid := buildRequest{Root: releaseRoot(t), Output: filepath.Join(t.TempDir(), "dist"), Version: "1.2.3", Epoch: "1784246400", SigningKey: "unused"}
+	valid := buildRequest{Root: releaseRoot(t), Output: filepath.Join(t.TempDir(), "dist"), Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}
 	err := buildRelease(t.Context(), valid, func(call toolCall) error {
 		if call.Name == "osv-scanner" {
 			return writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(valid.Root))

@@ -16,7 +16,7 @@ static-analysis = "go-static-analysis"
 [[proof.gates]]
 id = "go-behavior"
 kind = "test"
-command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/coverage", "--race"]
+command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/coverage", "--race", "--profile-output", "build/verification/coverage/profile.out"]
 verification_providers = ["ethos.adapters.gates.code_quality:behavior_report"]
 dimensions = ["behavior", "test", "coverage"]
 evidence_class = "proof"

@@ -28,6 +28,7 @@ builds:
         -X aigw-cli/internal/upgrade.BuildGitLabReleaseRepository={{ .Env.AIGW_GITLAB_RELEASE_REPOSITORY }}
         -X aigw-cli/internal/upgrade.BuildGitHubReleaseOrigin={{ .Env.AIGW_GITHUB_RELEASE_ORIGIN }}
         -X aigw-cli/internal/upgrade.BuildGitHubReleaseRepository={{ .Env.AIGW_GITHUB_RELEASE_REPOSITORY }}
+        -X 'aigw-cli/internal/upgrade/artifact.BuildReleasePublicKey={{ .Env.AIGW_RELEASE_PUBLIC_KEY }}'
   - <<: *portable
     id: windows
     goos: [windows]

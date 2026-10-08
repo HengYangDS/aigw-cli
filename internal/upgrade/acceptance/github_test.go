@@ -62,6 +62,13 @@ func (r *githubReleaseRunner) RunCapture(_ context.Context, plan process.Plan) (
 	if pattern == "checksums.txt" {
 		data = []byte(r.checksum)
 	}
+	if pattern == "checksums.txt.sig" {
+		var err error
+		data, err = releaseSignature(r.checksum)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return nil, os.WriteFile(filepath.Join(directory, pattern), data, 0o600)
 }
 
@@ -83,12 +90,14 @@ func TestUpdateUsesPublishedGitHubPrereleaseWhenNoStableReleaseExists(t *testing
 			_, _ = fmt.Fprintf(w, `[{"tag_name":"v0.2.0-rc.1","prerelease":true,"published_at":"2026-07-15T00:00:00Z"},{"tag_name":"v0.3.0-rc.1","prerelease":true,"draft":true,"published_at":"2026-07-15T00:00:00Z"}]`)
 		case "/repos/example-owner/aigw-cli/releases/tags/v0.2.0-rc.1":
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0-rc.1","prerelease":true,"published_at":"2026-07-15T00:00:00Z","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
-				archiveName, serverURL+"/downloads/"+archiveName, serverURL+"/downloads/checksums.txt")
+			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0-rc.1","prerelease":true,"published_at":"2026-07-15T00:00:00Z","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q},{"name":"checksums.txt.sig","browser_download_url":%q}]}`,
+				archiveName, serverURL+"/downloads/"+archiveName, serverURL+"/downloads/checksums.txt", serverURL+"/downloads/checksums.txt.sig")
 		case "/downloads/" + archiveName:
 			_, _ = w.Write(archive)
 		case "/downloads/checksums.txt":
 			_, _ = fmt.Fprintf(w, "%x  %s\n", sum, archiveName)
+		case "/downloads/checksums.txt.sig":
+			_, _ = w.Write(signedManifest(t, fmt.Sprintf("%x  %s\n", sum, archiveName)))
 		default:
 			http.NotFound(w, request)
 		}
