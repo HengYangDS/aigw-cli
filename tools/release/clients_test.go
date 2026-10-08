@@ -10,9 +10,12 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -163,6 +166,12 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	steps := p.clientLifecycle(journey, client)
 	hermesSessionItems := 0
 	hermesSessionTurns := 0
+	continueClient := func() {
+		if hermesSession != nil {
+			hermesSessionItems = journey.requireHermesContinuedTurn(executable, hermesSession, &completions, hermesSessionItems, hermesSessionTurns == 0)
+			hermesSessionTurns++
+		}
+	}
 	for _, step := range steps {
 		if !t.Run(step.name, func(t *testing.T) {
 			journey.testing = t
@@ -199,11 +208,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 				journey.requireCredential(projectedCredential, token)
 				journey.requireCredential(journey.retainedCredential(client), token)
 			}
-			if hermesSession != nil {
-				t.Log("observing the retained Hermes session before isolated verification")
-				hermesSessionItems = journey.requireHermesContinuedTurn(executable, hermesSession, &completions, hermesSessionItems, hermesSessionTurns == 0)
-				hermesSessionTurns++
-			}
+			continueClient()
 			count := completions.Load()
 			journey.run("verify", "--for", client)
 			journey.requireNativePreferences(client)
@@ -218,6 +223,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		}
 	}
 	journey.testing = t
+	journey.requireNativeForwarding(client, token, server, continueClient)
 	journey.verifyNativeConfigEditing(client, executable)
 	const renamedAccount = "renamed-client-account"
 	journey.setEnvironment(secrets.EnvironmentKey(renamedAccount), token)
@@ -244,6 +250,71 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	journey.requireNativePreferences(client)
 	if err := before(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func (j *journeyFixture) requireNativeForwarding(client, token string, upstream *httptest.Server, continueClient func()) {
+	j.testing.Helper()
+	store := configuration.NewStore(j.config)
+	cfg, err := store.Load()
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	direct, err := cfg.ResolveRuntime(client, "")
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	retained := j.retainedCredential(client)
+	var requests atomic.Int64
+	path, _ := streamRequest(direct.Protocol, "")
+	forwarding := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.Method == http.MethodPost && request.URL.Path == path {
+			requests.Add(1)
+		}
+		upstream.Config.Handler.ServeHTTP(response, request)
+	}))
+	defer forwarding.Close()
+	endpoint := forwarding.URL + strings.TrimPrefix(direct.Endpoint, upstream.URL)
+	args := []string{"use", "--for", client, direct.RouteID, "--protocol", string(direct.Protocol), "--forwarding-endpoint", endpoint}
+	before := capturePublishedSnapshot(j.testing, store)
+	preview := j.run(append(slices.Clone(args), "--dry-run", "--json")...)
+	if !bytes.Contains(preview, []byte(endpoint)) || bytes.Contains(preview, []byte(token)) || !reflect.DeepEqual(before, capturePublishedSnapshot(j.testing, store)) {
+		j.testing.Fatal("native forwarding preview leaked credentials or mutated state")
+	}
+	j.run(args...)
+	cfg, err = store.Load()
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	resolved, err := cfg.ResolveRuntime(client, "")
+	expected := direct
+	expected.Endpoint = endpoint
+	if err != nil || resolved != expected {
+		j.testing.Fatalf("native forwarding changed Account, model or protocol ownership: %v", err)
+	}
+	j.requireCredential(retained, token)
+	j.run("sync")
+	count := requests.Load()
+	j.run("verify", "--for", client)
+	if requests.Load() <= count {
+		j.testing.Fatal("native client did not load the selected forwarding endpoint")
+	}
+	count = requests.Load()
+	continueClient()
+	if client == configuration.ClientHermes && requests.Load() <= count {
+		j.testing.Fatal("retained Hermes session did not load the forwarding endpoint")
+	}
+	j.run("rollback", "--last-change")
+	restored := capturePublishedSnapshot(j.testing, store)
+	if !restored.Config.Equal(before.Config) || !restored.Forwarding.Equal(before.Forwarding) {
+		j.testing.Fatal("native forwarding rollback lost the original binding bytes")
+	}
+	j.requireCredential(retained, token)
+	count = requests.Load()
+	j.run("verify", "--for", client)
+	continueClient()
+	if requests.Load() != count {
+		j.testing.Fatal("native client retained the withdrawn forwarding endpoint")
 	}
 }
 
