@@ -171,17 +171,21 @@ type windowsObserver struct {
 	handles           map[uint32]windows.Handle
 	active            map[uint32]windows.Handle
 	continueEvent     func(debugEvent, uintptr) error
+	waitEvent         func(*debugEvent, uint32) (uintptr, error)
 }
 
 func (o *windowsObserver) collect(ctx context.Context, root uint32) (result error) {
 	defer func() { result = errors.Join(result, o.reclaim()) }()
+	wait := o.waitEvent
+	if wait == nil {
+		wait = waitWindowsDebugEvent
+	}
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		var event debugEvent
-		ready, _, err := debugWait.Call(uintptr(unsafe.Pointer(&event)), 50) // #nosec G103 -- The native DEBUG_EVENT buffer is correctly aligned and live through the synchronous call.
-		runtime.KeepAlive(&event)
+		ready, err := wait(&event, 50)
 		if ready == 0 {
 			if errors.Is(err, windows.ERROR_SEM_TIMEOUT) {
 				continue
@@ -228,6 +232,12 @@ func (o *windowsObserver) collect(ctx context.Context, root uint32) (result erro
 			return nil
 		}
 	}
+}
+
+func waitWindowsDebugEvent(event *debugEvent, timeout uint32) (uintptr, error) {
+	ready, _, err := debugWait.Call(uintptr(unsafe.Pointer(event)), uintptr(timeout)) // #nosec G103 -- The native DEBUG_EVENT buffer remains typed until this direct Win32 call.
+	runtime.KeepAlive(event)
+	return ready, err
 }
 
 func continueWindowsDebugEvent(event debugEvent, status uintptr) error {

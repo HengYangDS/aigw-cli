@@ -21,14 +21,23 @@ import (
 	"aigw-cli/internal/process"
 )
 
-func TestIdentityMeasuresTheSelectedNativeFile(t *testing.T) {
+func currentTestImage(t *testing.T) Identity {
+	t.Helper()
 	path, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
-	identity, err := Identify(path)
-	if err != nil || identity.Path != path || identity.Arch != runtime.GOARCH || identity.Format == "" || identity.Machine == 0 || len(identity.SHA256) != 64 || identity.Bytes <= 0 {
-		t.Fatalf("selected file identity is incomplete: %#v, %v", identity, err)
+	image, err := Identify(path)
+	if err != nil || image.Path != path {
+		t.Fatalf("selected test file identity differs from the executable: %#v, %v", image, err)
+	}
+	return image
+}
+
+func TestIdentityMeasuresTheSelectedNativeFile(t *testing.T) {
+	identity := currentTestImage(t)
+	if identity.Arch != runtime.GOARCH || identity.Format == "" || identity.Machine == 0 || len(identity.SHA256) != 64 || identity.Bytes <= 0 {
+		t.Fatalf("selected file identity is incomplete: %#v", identity)
 	}
 	invalid := filepath.Join(t.TempDir(), "not-executable")
 	if err := os.WriteFile(invalid, []byte("not a native executable"), 0o600); err != nil {

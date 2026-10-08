@@ -31,14 +31,8 @@ func TestWindowsExecutionPreflightOwnsImmediateDescendants(t *testing.T) {
 		}
 		os.Exit(0)
 	}
-	program, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	reader, err := Identify(program)
-	if err != nil {
-		t.Fatal(err)
-	}
+	reader := currentTestImage(t)
+	program := reader.Path
 	verifier, err := ObserveCurrent()
 	if err != nil || len(verifier) != 1 || verifier[0].PID != uint32(os.Getpid()) || !reader.sameFile(verifier[0].Image) { // #nosec G115 -- Windows returns a DWORD process ID.
 		t.Fatalf("native verifier did not preserve its own process identity: %#v, %v", verifier, err)
@@ -139,14 +133,8 @@ func emitWindowsExecutionEvidence() {
 
 func TestWindowsExecutionPreflightPreservesFailureEvidence(t *testing.T) {
 	emitWindowsExecutionEvidence()
-	program, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	image, err := Identify(program)
-	if err != nil {
-		t.Fatal(err)
-	}
+	image := currentTestImage(t)
+	program := image.Path
 	tool, err := exec.LookPath("hyperfine")
 	if err != nil {
 		t.Fatal(err)
@@ -338,14 +326,8 @@ func TestWindowsExecutionPreflightReclaimsInterruptedProcesses(t *testing.T) {
 		time.Sleep(time.Minute)
 		return
 	}
-	program, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	image, err := Identify(program)
-	if err != nil {
-		t.Fatal(err)
-	}
+	image := currentTestImage(t)
+	program := image.Path
 	tool, err := exec.LookPath("hyperfine")
 	if err != nil {
 		t.Fatal(err)
@@ -482,36 +464,52 @@ func TestWindowsExecutionPreflightRetainsUncontinuedExitOwnership(t *testing.T) 
 	if os.Getenv("AIGW_TEST_NATIVE_EXIT_EVENT") == "1" {
 		os.Exit(0)
 	}
-	program, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	image, err := Identify(program)
-	if err != nil {
-		t.Fatal(err)
-	}
+	image := currentTestImage(t)
+	program := image.Path
 	observer := windowsObserver{selected: Measurement{Executable: &image}, handles: make(map[uint32]windows.Handle), active: make(map[uint32]windows.Handle)}
+	timeoutSeen, nativeWaits := false, 0
+	observer.waitEvent = func(event *debugEvent, timeout uint32) (uintptr, error) {
+		if !timeoutSeen {
+			timeoutSeen = true
+			return 0, windows.ERROR_SEM_TIMEOUT
+		}
+		nativeWaits++
+		return waitWindowsDebugEvent(event, timeout)
+	}
 	exitSeen := false
+	var continuationErr error
 	observer.continueEvent = func(event debugEvent, status uintptr) error {
 		if event.Code == 5 {
 			exitSeen = true
 			event.TID++ // The native API rejects continuation for a thread that does not own this event.
 		}
-		return continueWindowsDebugEvent(event, status)
+		err := continueWindowsDebugEvent(event, status)
+		if event.Code == 5 {
+			continuationErr = err
+		}
+		return err
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
+	var rootPID uint32
 	started := time.Now()
-	_, _, err = (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
+	_, _, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
 		Executable: program, Args: []string{"-test.run=^TestWindowsExecutionPreflightRetainsUncontinuedExitOwnership$"},
 		Env: append(os.Environ(), "AIGW_TEST_NATIVE_EXIT_EVENT=1"), DebugProcess: true,
-		OnStart: func(child *os.Process) error { return observer.collect(ctx, uint32(child.Pid)) }, // #nosec G115 -- exec.Start returns the native DWORD PID.
+		OnStart: func(child *os.Process) error {
+			rootPID = uint32(child.Pid) // #nosec G115 -- exec.Start returns the native DWORD PID.
+			return observer.collect(ctx, rootPID)
+		},
 	})
-	if !exitSeen || err == nil || !strings.Contains(err.Error(), "continue owned native debug event") {
-		t.Fatalf("native failed-exit continuation was not exercised: exit_seen=%t error=%v", exitSeen, err)
+	if !timeoutSeen || nativeWaits == 0 || !exitSeen || continuationErr == nil || err == nil || err.Error() != fmt.Sprintf("observe started %s: %s", program, continuationErr) || ctx.Err() != nil {
+		t.Fatalf("native event timeout lost exact exit ownership: timeout=%t native_waits=%d exit_seen=%t error=%v continuation=%v", timeoutSeen, nativeWaits, exitSeen, err, continuationErr)
+	}
+	if len(observer.controllers) != 1 || observer.controllers[0].PID != rootPID {
+		t.Fatalf("native timeout changed root ownership: root=%d controllers=%v", rootPID, observer.controllers)
 	}
 	if elapsed := time.Since(started); elapsed > 3*time.Second {
 		t.Fatalf("failed-exit continuation exceeded the total cleanup bound: %s", elapsed)
 	}
 	assertWindowsExecutionsExited(t, observer.controllers)
+	t.Logf("native wait timeout continued: native_waits=%d exact_root_exited=true cleanup_error=none", nativeWaits)
 }
