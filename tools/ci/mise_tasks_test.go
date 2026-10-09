@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -152,11 +153,16 @@ func TestMiseGoEnvironmentIsBoundToThisRepository(t *testing.T) {
 
 type ethosProfile struct {
 	Proof struct {
-		Gates []struct {
-			ID            string   `toml:"id"`
-			Command       []string `toml:"command"`
-			NetworkPolicy string   `toml:"network_policy"`
-			WritesFiles   bool     `toml:"writes_files"`
+		CodeCorrectnessGates []string          `toml:"code_correctness_gates"`
+		CodeCorrectnessMap   map[string]string `toml:"code_correctness_map"`
+		Gates                []struct {
+			ID                    string   `toml:"id"`
+			Command               []string `toml:"command"`
+			Providers             []string `toml:"providers"`
+			VerificationProviders []string `toml:"verification_providers"`
+			DependsOn             []string `toml:"depends_on"`
+			NetworkPolicy         string   `toml:"network_policy"`
+			WritesFiles           bool     `toml:"writes_files"`
 		} `toml:"gates"`
 	} `toml:"proof"`
 }
@@ -416,6 +422,46 @@ func TestEthosProofDelegatesStaticAnalysisToQualityOwner(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("go-static-analysis proof gate is missing")
+	}
+}
+
+func TestEthosProofSeparatesNativeCoverageFromMixedLanguageEvidence(t *testing.T) {
+	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".ethos", "profile.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var profile ethosProfile
+	if err := toml.Unmarshal(content, &profile); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"go-behavior", "code-behavior"} {
+		if !slices.Contains(profile.Proof.CodeCorrectnessGates, id) {
+			t.Errorf("native proof omits required gate %q", id)
+		}
+	}
+	if profile.Proof.CodeCorrectnessMap["behavior"] != "code-behavior" {
+		t.Error("mixed-language behavior must be mapped to its native provider")
+	}
+	coverage, behavior := false, false
+	for _, gate := range profile.Proof.Gates {
+		switch gate.ID {
+		case "go-behavior":
+			coverage = true
+			want := []string{"mise", "exec", "--locked", "--", "go", "run", "./tools/coverage", "--race", "--profile-output", "build/verification/coverage/profile.out"}
+			if !reflect.DeepEqual(gate.Command, want) || len(gate.Providers) != 0 || len(gate.VerificationProviders) != 0 {
+				t.Errorf("Go race and coverage must retain their native owner, not provide JavaScript custody: %#v", gate)
+			}
+		case "code-behavior":
+			behavior = true
+			if len(gate.Command) != 0 || len(gate.VerificationProviders) != 0 ||
+				!reflect.DeepEqual(gate.Providers, []string{"ethos.adapters.gates.code_quality:behavior_report"}) ||
+				!reflect.DeepEqual(gate.DependsOn, []string{"go-behavior"}) || !gate.WritesFiles {
+				t.Errorf("mixed-language evidence must use its owned native attempt after the Go coverage gate: %#v", gate)
+			}
+		}
+	}
+	if !coverage || !behavior {
+		t.Fatal("native coverage and mixed-language evidence must both be declared")
 	}
 }
 
