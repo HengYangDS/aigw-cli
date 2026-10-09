@@ -40,15 +40,27 @@ func TestNativeReviewProtectedResourceRefusesUnprovedDenial(t *testing.T) {
 	}{
 		{"readable", readable, "protected resource is readable"},
 		{"missing", filepath.Join(root, "missing"), "protected resource identity is unproved"},
+		{"relative", "manager-config", "exact absolute protected resource"},
+		{"directory", root, "not a regular file"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var stdout bytes.Buffer
+			if err := qualifyProtectedResource(test.path, &stdout, func(command) ([]byte, error) {
+				t.Fatal("unproved resource reached privilege inquiry")
+				return nil, nil
+			}); err == nil || !strings.Contains(err.Error(), test.problem) {
+				t.Fatalf("native resource denial was unproved: %v", err)
+			}
+			problem := test.problem
+			if runtime.GOOS == "windows" {
+				problem = "protected-file qualification requires a Unix host"
+			}
 			ran := false
 			err := run([]string{"native", "--protected-file", test.path, "--", "--artifacts=/candidate", "--candidate"}, &stdout, func(command) error {
 				ran = true
 				return nil
 			})
-			if err == nil || !strings.Contains(err.Error(), test.problem) || ran {
+			if err == nil || !strings.Contains(err.Error(), problem) || ran {
 				t.Fatalf("native review admitted an unproved denial: ran=%t error=%v", ran, err)
 			}
 			if strings.Contains(stdout.String(), "fixture-only") {

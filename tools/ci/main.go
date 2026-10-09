@@ -168,6 +168,9 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) (result er
 		return fmt.Errorf("native acceptance requires %s host, running on %s", *platform, runtime.GOOS)
 	}
 	if *protectedFile != "" {
+		if *platform == "windows" {
+			return errors.New("protected-file qualification requires a Unix host; ordinary Windows native acceptance is unchanged")
+		}
 		if err := qualifyProtectedResource(*protectedFile, stdout, systemOutputRunner); err != nil {
 			return err
 		}

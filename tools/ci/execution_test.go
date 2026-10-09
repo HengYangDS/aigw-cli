@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGateSequenceStopsBeforeExecutionWhenProgressCannotBeWritten(t *testing.T) {
@@ -308,24 +310,31 @@ func TestSystemOutputRunnerPreservesNativeImmediateExitEvidence(t *testing.T) {
 	for _, test := range []struct {
 		name, stdout, stderr string
 		exit                 int
+		timeout              time.Duration
 	}{
-		{"successful warning", "", payload, 0},
-		{"successful result", payload, "", 0},
-		{"failed mixed output", "result\n", payload, 7},
+		{"successful warning", "", payload, 0, 0},
+		{"successful result", payload, "", 0, 0},
+		{"failed mixed output", "result\n", payload, 7, 0},
+		{"deadline", "", payload, 0, time.Second},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			output, err := systemOutputRunner(command{
 				Name: "node",
-				Args: []string{"-e", "process.stdout.write(process.env.AIGW_CI_TEST_STDOUT); process.stderr.write(process.env.AIGW_CI_TEST_STDERR); process.exit(Number(process.env.AIGW_CI_TEST_EXIT));"},
+				Args: []string{"-e", "process.stdout.write(process.env.AIGW_CI_TEST_STDOUT); process.stderr.write(process.env.AIGW_CI_TEST_STDERR); if (process.env.AIGW_CI_TEST_HOLD === 'true') { setInterval(() => {}, 1000); } else { process.exit(Number(process.env.AIGW_CI_TEST_EXIT)); }"},
 				Env: []string{
 					"AIGW_CI_TEST_STDOUT=" + test.stdout,
 					"AIGW_CI_TEST_STDERR=" + test.stderr,
 					"AIGW_CI_TEST_EXIT=" + strconv.Itoa(test.exit),
+					"AIGW_CI_TEST_HOLD=" + strconv.FormatBool(test.timeout != 0),
 				},
-				Dir: root,
+				Dir:     root,
+				Timeout: test.timeout,
 			})
-			if string(output) != test.stdout+test.stderr || (err != nil) != (test.exit != 0) {
+			if string(output) != test.stdout+test.stderr || (err != nil) != (test.exit != 0 || test.timeout != 0) {
 				t.Fatalf("native evidence: exit=%d error=%v bytes=%d want=%d", test.exit, err, len(output), len(test.stdout)+len(test.stderr))
+			}
+			if errors.Is(err, context.DeadlineExceeded) != (test.timeout != 0) {
+				t.Fatalf("native deadline lost its cause: %v", err)
 			}
 			entries, readErr := os.ReadDir(root)
 			if readErr != nil || len(entries) != 1 || entries[0].Name() != "foreign.txt" {
@@ -364,7 +373,7 @@ func TestCommandRunnersHonorExecutionContextWithoutCreatingArtifacts(t *testing.
 		t.Fatal(err)
 	}
 	helper := filepath.Join(root, "environment.go")
-	if err := os.WriteFile(helper, []byte("package main\nimport \"os\"\nfunc main(){ if os.Getenv(\"AIGW_CI_TEST\") != \"isolated\" { os.Exit(1) } }\n"), 0o600); err != nil {
+	if err := os.WriteFile(helper, []byte("package main\nimport (\"os\"; \"runtime\")\nfunc main(){ if os.Getenv(\"AIGW_CI_TEST\") != \"isolated\" { os.Exit(1) }; if runtime.GOOS != \"windows\" && os.Getenv(\"PWD\") != os.Getenv(\"AIGW_CI_TEST_ROOT\") { os.Exit(2) } }\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	for name, runner := range map[string]commandRunner{
@@ -375,7 +384,7 @@ func TestCommandRunnersHonorExecutionContextWithoutCreatingArtifacts(t *testing.
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if err := runner(command{Name: "go", Args: []string{"run", "environment.go"}, Env: []string{"AIGW_CI_TEST=isolated"}, Dir: root}); err != nil {
+			if err := runner(command{Name: "go", Args: []string{"run", "environment.go"}, Env: []string{"AIGW_CI_TEST=isolated", "AIGW_CI_TEST_ROOT=" + root}, Dir: root}); err != nil {
 				t.Fatalf("execution context: %v", err)
 			}
 			entries, err := os.ReadDir(root)

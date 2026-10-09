@@ -203,9 +203,10 @@ topology; broader arbitrary hostile-code sandboxing remains unproved unless
 separately qualified.
 
 The existing native entry accepts an explicit `--protected-file` for bounded
-job-context qualification: a present regular file must deny a direct open, and
+Unix job-context qualification: a present regular file must deny a direct open, and
 native noninteractive privilege inquiry must prove no sudo grant. Missing paths,
-readable resources, pending authorization and deadlines do not qualify. This
+readable resources, pending authorization and deadlines do not qualify. Windows
+rejects this optional input before execution; ordinary native acceptance is unchanged. This
 optional resource probe is not complete remote-manager or hostile-code containment;
 ordinary jobs without that declared input make no additional containment claim.
 

@@ -65,9 +65,10 @@ func systemOutputRunner(call command) (output []byte, err error) {
 		ctx, cancel = context.WithTimeout(ctx, call.Timeout)
 		defer cancel()
 	}
+	environment := exec.Cmd{Dir: call.Dir}
 	plan := nativeprocess.Plan{
 		Executable: call.Name, Args: call.Args, Directory: call.Dir,
-		Env: append(os.Environ(), call.Env...), Stdin: call.Input,
+		Env: append(environment.Environ(), call.Env...), Stdin: call.Input,
 	}
 	// Native file descriptors preserve diagnostics from tools that exit before
 	// their asynchronous pipe writes drain.
