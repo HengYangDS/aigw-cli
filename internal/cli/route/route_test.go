@@ -3,8 +3,10 @@ package route
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -105,30 +107,55 @@ type commandExecutor interface {
 }
 
 func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-	cfg := configuration.NewConfig()
-	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
-	cfg.Routes["claude"] = configuration.Route{
-		Label: "Claude", Account: "team", Model: "claude-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
-	}
-	cfg.Routes["codex"] = configuration.Route{
-		Label: "Codex", Account: "team", Model: "gpt-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
-	}
-	cfg.SetRecommendedRoute(configuration.ClientClaude, "claude")
-	cfg.SetRecommendedRoute(configuration.ClientCodex, "codex")
-	if err := store.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	command := newRemoveCommand(invocation.Context{Config: store, Secrets: secrets.NewMemoryStore(), Out: &bytes.Buffer{}, RenderOut: &bytes.Buffer{}})
-	command.SetArgs([]string{"claude"})
-	if err := command.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	after, err := store.Load()
-	if err != nil || after.RecommendedRoute(configuration.ClientClaude) != "" || after.RecommendedRoute(configuration.ClientCodex) != "codex" {
-		t.Fatalf("removal recommendation state = %#v, %v", after.Recommendations, err)
+	for _, alternatives := range [][]configuration.ClientSelection{nil, {
+		{Route: "backup", Protocol: configuration.ProtocolAnthropic},
+		{Route: "reserve", Protocol: configuration.ProtocolAnthropic},
+	}} {
+		t.Run(fmt.Sprint(len(alternatives)), func(t *testing.T) {
+			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+			cfg := configuration.NewConfig()
+			cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
+			cfg.Routes["claude"] = configuration.Route{
+				Label: "Claude", Account: "team", Model: "claude-test",
+				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+			}
+			cfg.Routes["codex"] = configuration.Route{
+				Label: "Codex", Account: "team", Model: "gpt-test",
+				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+			}
+			cfg.SetRecommendedRoute(configuration.ClientClaude, "claude")
+			cfg.SetRecommendedRoute(configuration.ClientCodex, "codex")
+			cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
+			for _, selection := range alternatives {
+				cfg.Routes[selection.Route] = cfg.Routes["claude"]
+			}
+			cfg.Recommendations[configuration.ClientClaude] = configuration.ClientRecommendation{
+				Primary: configuration.ClientSelection{Route: "claude", Protocol: configuration.ProtocolAnthropic}, Alternatives: alternatives,
+			}
+			if err := store.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			secretStore := secrets.NewMemoryStore()
+			if err := secretStore.Set("team", "retained-token"); err != nil {
+				t.Fatal(err)
+			}
+			command := newRemoveCommand(invocation.Context{Config: store, Secrets: secretStore, Out: &bytes.Buffer{}, RenderOut: &bytes.Buffer{}})
+			command.SetArgs([]string{"claude"})
+			if err := command.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			after, err := store.Load()
+			want := configuration.ClientRecommendation{}
+			if len(alternatives) != 0 {
+				want = configuration.ClientRecommendation{Primary: alternatives[0], Alternatives: alternatives[1:]}
+			}
+			if err != nil || !reflect.DeepEqual(after.Recommendations[configuration.ClientClaude], want) || after.RecommendedRoute(configuration.ClientCodex) != "codex" {
+				t.Fatalf("removal recommendation state = %#v, %v", after.Recommendations, err)
+			}
+			if token, err := secretStore.Get("team"); err != nil || token != "retained-token" || !reflect.DeepEqual(after.Accounts, cfg.Accounts) || !reflect.DeepEqual(after.Clients, cfg.Clients) {
+				t.Fatalf("removal changed unrelated account, credential or client state: %v", err)
+			}
+		})
 	}
 }
 

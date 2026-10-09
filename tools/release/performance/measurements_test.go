@@ -4,7 +4,9 @@ import (
 	"aigw-cli/internal/configuration"
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"debug/elf"
+	"debug/macho"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -440,6 +442,37 @@ func TestIdentityRecognizesPortableExecutableFormats(t *testing.T) {
 			identity, err := Identify(executable)
 			if err != nil || identity.Format != target.format || identity.Arch != target.arch || identity.Machine == 0 || identity.Bytes <= 0 || len(identity.SHA256) != 64 {
 				t.Fatalf("selected %s native file identity is incomplete: %#v, %v", target.format, identity, err)
+			}
+		})
+	}
+	for _, test := range []struct {
+		name      string
+		cpu       macho.Cpu
+		wantError string
+	}{{"universal", macho.CpuArm64, ""}, {"unsupported universal CPU", macho.Cpu(0x0100ffff), "unsupported universal Mach-O CPU"}} {
+		t.Run(test.name, func(t *testing.T) {
+			var data bytes.Buffer
+			if err := binary.Write(&data, binary.BigEndian, []uint32{macho.MagicFat, 2, uint32(macho.CpuAmd64), 0, 48, 32, 4, uint32(test.cpu), 0, 80, 32, 4}); err != nil {
+				t.Fatal(err)
+			}
+			for _, cpu := range []macho.Cpu{macho.CpuAmd64, test.cpu} {
+				if err := binary.Write(&data, binary.LittleEndian, []uint32{macho.Magic64, uint32(cpu), 0, uint32(macho.TypeExec), 0, 0, 0, 0}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			path := filepath.Join(t.TempDir(), "universal-executable")
+			if err := os.WriteFile(path, data.Bytes(), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			identity, err := Identify(path)
+			if test.wantError != "" {
+				if err == nil || !strings.Contains(err.Error(), test.wantError) {
+					t.Fatalf("universal identity admitted an unsupported CPU: %#v, %v", identity, err)
+				}
+				return
+			}
+			if err != nil || identity.Format != "Mach-O" || identity.Arch != "universal" || !slices.Equal(identity.Architectures, []string{"amd64", "arm64"}) || identity.Bytes != data.Len() || identity.SHA256 != fmt.Sprintf("%x", sha256.Sum256(data.Bytes())) {
+				t.Fatalf("universal native file identity is incomplete: %#v, %v", identity, err)
 			}
 		})
 	}

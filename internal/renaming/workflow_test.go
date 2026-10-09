@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -326,11 +327,24 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 
 	cfg.SetRecommendedRoute(configuration.ClientClaude, "claude")
 	cfg.SetRecommendedRoute(configuration.ClientCodex, "codex")
+	cfg.Routes["backup"] = cfg.Routes["codex"]
+	cfg.Recommendations[configuration.ClientHermes] = configuration.ClientRecommendation{
+		Primary: configuration.ClientSelection{Route: "claude", Protocol: configuration.ProtocolAnthropic},
+		Alternatives: []configuration.ClientSelection{
+			{Route: "backup", Protocol: configuration.ProtocolOpenAIResponses},
+			{Route: "codex", Protocol: configuration.ProtocolOpenAIResponses},
+		},
+	}
 	plan, err := planRoute(cfg, "codex", "new-codex")
 	if err != nil || plan.Config.SelectedRoute(configuration.ClientClaude) != "claude" ||
 		plan.Config.RecommendedRoute(configuration.ClientCodex) != "new-codex" ||
 		plan.Config.RecommendedRoute(configuration.ClientClaude) != "claude" {
 		t.Fatalf("plan=%#v error=%v", plan, err)
+	}
+	want := cfg.Clone().Recommendations[configuration.ClientHermes]
+	want.Alternatives[1].Route = "new-codex"
+	if !reflect.DeepEqual(plan.Config.Recommendations[configuration.ClientHermes], want) || cfg.Recommendations[configuration.ClientHermes].Alternatives[1].Route != "codex" || !slices.Contains(plan.AffectedReferences, "recommendations.hermes.alternatives.1.route") {
+		t.Fatalf("rename changed alternative order, protocol or input configuration: %#v", plan)
 	}
 }
 

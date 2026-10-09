@@ -27,7 +27,6 @@ func TestUseForwardingPreviewIsCredentialFreeAndDoesNotWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime.Secrets = secrets.NewMemoryStore()
 	runtime.HTTP = doerFunc(func(*http.Request) (*http.Response, error) {
 		t.Fatal("selection preview contacted a service")
 		return nil, errors.New("unexpected request")
@@ -38,13 +37,20 @@ func TestUseForwardingPreviewIsCredentialFreeAndDoesNotWrite(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	var result struct {
-		DryRun           bool   `json:"dry_run"`
-		Endpoint         string `json:"endpoint"`
-		UpstreamEndpoint string `json:"upstream_endpoint"`
-	}
+	var result useResult
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil || !result.DryRun || result.Endpoint != "http://127.0.0.1:8792/v1" || result.UpstreamEndpoint != cfg.Accounts["gateway"].Endpoints.OpenAIResponses {
 		t.Fatalf("selection preview = %s, %v", out.Bytes(), err)
+	}
+	out.Reset()
+	command = NewUseCommand(runtime)
+	command.SetArgs([]string{"--for", configuration.ClientCodex, "codex", "--forwarding-endpoint", result.Endpoint, "--dry-run"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []string{"Selection preview", "Client", "codex", "Route", result.RouteLabel, "Endpoint", result.Endpoint, "Account upstream", result.UpstreamEndpoint, "Credentials, configuration and client files were unchanged"} {
+		if !strings.Contains(out.String(), value) {
+			t.Fatalf("human preview omitted %q: %s", value, out.String())
+		}
 	}
 	after, err := runtime.Config.CaptureSnapshot()
 	if err != nil || !reflect.DeepEqual(before, after) {
@@ -85,7 +91,7 @@ func TestUsePreservesForwardingChangedDuringDiscovery(t *testing.T) {
 }
 
 func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
-	run, cfg, _ := configuredRuntime(t)
+	run, cfg, out := configuredRuntime(t)
 	root := t.TempDir()
 	target := filepath.Join(root, "codex.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\nmodel = \"native-model\"\n"), 0o600); err != nil {
@@ -128,13 +134,13 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	command := NewUseCommand(run)
-	command.SetArgs([]string{"codex", "--for", configuration.ClientCodex, "--dry-run", "--json"})
+	command.SetArgs([]string{"codex", "--for", configuration.ClientCodex, "--dry-run"})
 	if err := command.Execute(); err != nil {
 		t.Fatalf("explicit selection preview rejected an authorized root selection: %v", err)
 	}
 	after, err := run.Config.CaptureSnapshot()
 	current, readErr := os.ReadFile(target)
-	if err != nil || readErr != nil || !reflect.DeepEqual(before, after) || !bytes.Equal(current, drifted) {
+	if err != nil || readErr != nil || !reflect.DeepEqual(before, after) || !bytes.Equal(current, drifted) || !strings.Contains(out.String(), filepath.Base(target)) {
 		t.Fatal("selection preview changed owned configuration or native user selections")
 	}
 }

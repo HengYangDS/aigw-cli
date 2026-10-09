@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -38,6 +39,27 @@ func TestAccountListJSONIsStableAndSecretFree(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "never-print-this-token") {
 		t.Fatalf("account list exposed Token material: %s", out.String())
+	}
+	before, err := app.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	app.Secrets = nil
+	if err := cli.Execute(app, []string{"account", "list"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []string{"Accounts", "Configured endpoints", "Alpha", "Zeta", "aigw route list"} {
+		if !strings.Contains(out.String(), value) {
+			t.Fatalf("human account list omitted %q: %s", value, out.String())
+		}
+	}
+	if strings.Index(out.String(), "alpha") >= strings.Index(out.String(), "zeta") || strings.Contains(out.String(), "never-print-this-token") {
+		t.Fatalf("human account list lost secret-free stable order: %s", out.String())
+	}
+	after, err := app.Config.CaptureSnapshot()
+	if err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatalf("account list changed configuration: %v", err)
 	}
 }
 
