@@ -476,57 +476,50 @@ func TestVerifyClaude(t *testing.T) {
 	if _, err := claude.ReconcileSettings(settings, false, runtime, runtime.CredentialCommand, runtime.Model); err != nil {
 		t.Fatal(err)
 	}
-	want := errors.New("launch /Users/operator/private/claude: exit status 1")
-	if err := VerifyClaudeRuntime(context.Background(), nil, "claude", settings, configuration.Runtime{RouteID: "one"}, "token"); err == nil || !strings.Contains(err.Error(), "no Claude model") {
+	if err := VerifyClaudeRuntime(t.Context(), nil, "claude", settings, configuration.Runtime{RouteID: "one"}, "token"); err == nil || !strings.Contains(err.Error(), "no Claude model") {
 		t.Fatalf("model error = %v", err)
 	}
-	if err := VerifyClaudeRuntime(context.Background(), nil, "", settings, runtime, "token"); err == nil || !strings.Contains(err.Error(), "executable is not configured") {
+	if err := VerifyClaudeRuntime(t.Context(), nil, "", settings, runtime, "token"); err == nil || !strings.Contains(err.Error(), "executable is not configured") {
 		t.Fatalf("plan error = %v", err)
 	}
-	if err := VerifyClaudeRuntime(context.Background(), nil, "claude", settings, runtime, "token"); err == nil || !strings.Contains(err.Error(), "runner is unavailable") {
+	if err := VerifyClaudeRuntime(t.Context(), nil, "claude", settings, runtime, "token"); err == nil || !strings.Contains(err.Error(), "runner is unavailable") {
 		t.Fatalf("runner error = %v", err)
 	}
-	if err := VerifyClaudeRuntime(context.Background(), captureRunner{err: want}, "claude", settings, runtime, "token"); !errors.Is(err, want) {
-		t.Fatalf("capture error = %v", err)
-	} else if strings.Contains(err.Error(), "/Users/operator") {
-		t.Fatalf("capture error exposed a private path: %v", err)
-	}
-	unsafe := captureRunner{
-		output: []byte("/Users/operator/private [claude-code:unrecognized_model] model=claude-next request id=secret-request token=must-not-leak"),
-		err:    want,
-	}
-	if err := VerifyClaudeRuntime(context.Background(), unsafe, "claude", settings, runtime, "token"); err == nil || !strings.Contains(err.Error(), "selected model is unavailable through the client or endpoint") {
-		t.Fatalf("bounded model error = %v", err)
-	} else {
-		for _, forbidden := range []string{"must-not-leak", "/Users/operator", "secret-request", "claude-next"} {
-			if strings.Contains(err.Error(), forbidden) {
-				t.Fatalf("Claude request error exposed %q: %v", forbidden, err)
-			}
-		}
-	}
-	compatibility := captureRunner{
-		output: []byte(`{"type":"result","is_error":true,"result":"API Error: 400 context_management: Extra inputs are not permitted; token=must-not-leak; /Users/operator/private"}`),
-		err:    want,
-	}
-	if err := VerifyClaudeRuntime(t.Context(), compatibility, "claude", settings, runtime, "must-not-leak"); err == nil || !strings.Contains(err.Error(), "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1") {
-		t.Fatalf("native compatibility action = %v", err)
-	} else if strings.Contains(err.Error(), "must-not-leak") || strings.Contains(err.Error(), "/Users/operator") {
-		t.Fatalf("native compatibility action exposed private diagnostics: %v", err)
-	}
-	if err := verificationFailure("Codex", configuration.ClientCodex, compatibility.output, want); strings.Contains(err.Error(), "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS") {
+	cause := errors.New("launch /Users/operator/private/claude: exit status 1")
+	compatibility := `{"type":"result","is_error":true,"result":"API Error: 400 context_management: Extra inputs are not permitted; token=must-not-leak; /Users/operator/private"}`
+	if err := verificationFailure("Codex", configuration.ClientCodex, []byte(compatibility), cause); strings.Contains(err.Error(), "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS") {
 		t.Fatalf("Codex failure advised a Claude-specific setting: %v", err)
 	}
-	if err := VerifyClaudeRuntime(context.Background(), captureRunner{output: []byte("wrong")}, "claude", settings, runtime, "token"); err == nil || !strings.Contains(err.Error(), "expected AIGW_OK") {
-		t.Fatalf("sentinel error = %v", err)
-	}
-	executable := filepath.Join(t.TempDir(), "claude")
-	if goruntime.GOOS == "windows" {
-		executable += ".exe"
-	}
-	if err := os.WriteFile(executable, []byte("fixture"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := VerifyClaudeRuntime(context.Background(), captureRunner{output: []byte(" AIGW_OK \n")}, executable, settings, runtime, "token"); err != nil {
-		t.Fatal(err)
+	for _, test := range []struct {
+		name, output, diagnostic, want string
+		cause                          error
+	}{
+		{"native result", "{\"type\":\"system\",\"subtype\":\"init\"}\n{\"type\":\"result\",\"is_error\":false,\"result\":\" AIGW_OK \\n\"}", "", "", nil},
+		{"missing result", `{"type":"assistant","message":"AIGW_OK"}`, "", "expected AIGW_OK", nil},
+		{"wrong result", `{"type":"result","is_error":false,"result":"wrong"}`, "", "expected AIGW_OK", nil},
+		{"text is not a result", "AIGW_OK\n", "", "invalid native Claude result", nil},
+		{"failed result", `{"type":"result","is_error":true,"result":"AIGW_OK"}`, "", "minimal verification request failed", nil},
+		{"private stderr", "", "/Users/operator/private", "minimal verification request failed", cause},
+		{"model rejection", "[claude-code:unrecognized_model] claude-next token=must-not-leak request id=secret-request", "", "selected model is unavailable", cause},
+		{"context rejection", compatibility, "", "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1", cause},
+		{"authorization before timeout", `{"type":"system","subtype":"api_retry","error_status":403}`, "", "timed out after endpoint HTTP 403", context.DeadlineExceeded},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runner := captureRunner{output: []byte(test.output), stderr: []byte(test.diagnostic), err: test.cause}
+			err := VerifyClaudeRuntime(t.Context(), runner, "claude", settings, runtime, "must-not-leak")
+			if test.want == "" && err != nil || test.want != "" && (err == nil || !strings.Contains(err.Error(), test.want)) {
+				t.Fatalf("verification = %v, want %q", err, test.want)
+			}
+			if test.cause != nil && !errors.Is(err, test.cause) {
+				t.Fatalf("native process cause was lost: %v", err)
+			}
+			if err != nil {
+				for _, secret := range []string{"must-not-leak", "/Users/operator", "secret-request", "claude-next"} {
+					if strings.Contains(err.Error(), secret) {
+						t.Fatalf("private native output escaped: %v", err)
+					}
+				}
+			}
+		})
 	}
 }

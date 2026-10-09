@@ -72,6 +72,9 @@ func (r *fakeRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, e
 	outputPath := planArgumentValue(plan.Args, "--output-last-message")
 	if outputPath == "" {
 		if r.output == nil {
+			if planArgumentValue(plan.Args, "--output-format") == "stream-json" {
+				return []byte("{\"type\":\"result\",\"is_error\":false,\"result\":\"AIGW_OK\"}\n"), nil
+			}
 			return []byte("AIGW_OK\n"), nil
 		}
 		return append([]byte(nil), r.output...), nil

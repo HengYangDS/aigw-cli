@@ -24,7 +24,7 @@ func TestVerificationPlanConsumesTheSynchronizedSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantArgs := []string{"--bare", "--settings", settings, "--disable-slash-commands", "--no-session-persistence", "--tools", "", "--system-prompt", "You are a concise assistant.", "--print", "AIGW_OK"}
+	wantArgs := []string{"--bare", "--settings", settings, "--disable-slash-commands", "--no-session-persistence", "--tools", "", "--system-prompt", "You are a concise assistant.", "--print", "--output-format", "stream-json", "--verbose", "AIGW_OK"}
 	if plan.Executable != "claude" || !slices.Equal(plan.Args, wantArgs) || !slices.Equal(plan.Env, retained) {
 		t.Fatalf("plan = %#v", plan)
 	}

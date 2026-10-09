@@ -40,7 +40,7 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	if len(runner.plans) != 1 || runner.plans[0].Executable != claudeExecutable || !strings.Contains(strings.Join(runner.plans[0].Args, " "), "AIGW_OK") {
 		t.Fatalf("Claude verify plan = %#v", runner.plans)
 	}
-	wantArgs := []string{"--bare", "--settings", app.ClaudeSettingsPath, "--disable-slash-commands", "--no-session-persistence", "--tools", "", "--system-prompt", "You are a concise assistant.", "--print", "Reply with exactly: AIGW_OK"}
+	wantArgs := []string{"--bare", "--settings", app.ClaudeSettingsPath, "--disable-slash-commands", "--no-session-persistence", "--tools", "", "--system-prompt", "You are a concise assistant.", "--print", "--output-format", "stream-json", "--verbose", "Reply with exactly: AIGW_OK"}
 	if got := runner.plans[0].Args; !slices.Equal(got, wantArgs) {
 		t.Fatalf("Claude verification must consume the synchronized settings, got %#v", got)
 	}
@@ -492,7 +492,7 @@ func TestVerifyRejectsMissingResponseSentinel(t *testing.T) {
 			app, runner := readyVerificationApp(t)
 			runner.output = []byte("wrong\n")
 			err := cli.Execute(app, []string{"verify", "--for", client})
-			want := "did not return the expected AIGW_OK verification marker"
+			want := "invalid native Claude result"
 			if client == configuration.ClientCodex {
 				want = "private verification challenge"
 			}
