@@ -188,6 +188,9 @@ func (runner *routeVerificationRunner) RunCapture(_ context.Context, plan proces
 	}
 	outputPath := argumentValue(plan.Args, "--output-last-message")
 	if outputPath == "" {
+		if argumentValue(plan.Args, "--output-format") == "stream-json" {
+			return []byte(`{"type":"result","is_error":false,"result":"AIGW_OK"}` + "\n"), nil
+		}
 		return []byte("AIGW_OK\n"), nil
 	}
 	home := environmentValue(plan.Env, "CODEX_HOME")

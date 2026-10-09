@@ -40,6 +40,10 @@ func runInstalledClientFixture(executable string, args []string) (bool, int) {
 		return true, runVerificationResourceClient()
 	}
 	if client == configuration.ClientClaude {
+		if index := slices.Index(args, "--output-format"); index >= 0 && index+1 < len(args) && args[index+1] == "stream-json" {
+			_, _ = fmt.Fprintln(os.Stdout, `{"type":"result","is_error":false,"result":"AIGW_OK"}`)
+			return true, 0
+		}
 		_, _ = fmt.Fprintln(os.Stdout, "AIGW_OK")
 		return true, 0
 	}
