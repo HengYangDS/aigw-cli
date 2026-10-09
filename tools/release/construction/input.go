@@ -3,6 +3,7 @@ package construction
 import (
 	"aigw-cli/tools/release/artifact"
 	"archive/tar"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -16,7 +17,7 @@ import (
 )
 
 func (input *NativeAcceptance) hasPackage() bool {
-	return input.InputPackage != "" || input.InputArchive != ""
+	return input.InputPackage != "" || input.InputRelease != "" || input.InputArchive != ""
 }
 
 func (input *NativeAcceptance) validatePackage() error {
@@ -28,6 +29,9 @@ func (input *NativeAcceptance) validatePackage() error {
 	}
 	if input.InputPackage != "" && (input.InputArchive != "" || input.Peer != "gitlab" || input.Repository == "") {
 		return errors.New("native input package requires an explicit GitLab transport without a competing archive")
+	}
+	if input.InputRelease != "" && (input.InputPackage != "" || input.InputArchive != "" || input.Peer != "github" || input.Repository == "") {
+		return errors.New("native input release requires an explicit GitHub transport without a competing package or archive")
 	}
 	if input.InputArchive != "" && !filepath.IsAbs(input.InputArchive) {
 		return errors.New("native input archive requires an absolute caller-owned path")
@@ -44,12 +48,33 @@ func (input *NativeAcceptance) validatePackage() error {
 			return fmt.Errorf("native input package requires exact lowercase hexadecimal %s", value.name)
 		}
 	}
+	if input.InputRelease != "" && input.InputRelease != "native-inputs-"+input.CandidateSource {
+		return errors.New("native input release must name its exact candidate source")
+	}
 	return nil
 }
 
 func (input *NativeAcceptance) preparePackage(ctx context.Context, request buildRequest, workspace string, run toolRunner) (result error) {
 	if !input.hasPackage() {
 		return nil
+	}
+	if input.InputRelease != "" {
+		ref := "refs/tags/" + input.InputRelease
+		git := toolCall{
+			Name: "git", Directory: request.Root, Timeout: time.Minute,
+			Args: []string{"-c", "gpg.format=ssh", "-c", "gpg.ssh.program=ssh-keygen", "-c", "gpg.ssh.allowedSignersFile=" + os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE"), "verify-tag", ref},
+		}
+		if err := run(git); err != nil {
+			return fmt.Errorf("verify native input transport tag: %w", err)
+		}
+		var source bytes.Buffer
+		git.Args, git.Stdout = []string{"rev-parse", "--verify", ref + "^{commit}"}, &source
+		if err := run(git); err != nil {
+			return fmt.Errorf("resolve native input transport source: %w", err)
+		}
+		if strings.TrimSpace(source.String()) != input.CandidateSource {
+			return errors.New("native input transport tag does not select its candidate source")
+		}
 	}
 	archive := input.InputArchive
 	if archive == "" {
@@ -58,6 +83,11 @@ func (input *NativeAcceptance) preparePackage(ctx context.Context, request build
 			Name: "glab", Directory: request.Root, Timeout: 2 * time.Minute,
 			Args: []string{"packages", "download", "--repo", input.Repository, "--name", input.InputPackage, "--version", input.CandidateSource, "--filename", "public-inputs.tar", "--path", archive},
 			Env:  []string{"GLAB_NO_PROMPT=1", "GLAB_ENABLE_CI_AUTOLOGIN=true", "GLAB_CONFIG_DIR=" + filepath.Join(workspace, "glab")},
+		}
+		if input.InputRelease != "" {
+			call.Name = "gh"
+			call.Args = []string{"release", "download", input.InputRelease, "--repo", input.Repository, "--pattern", "public-inputs.tar", "--output", archive}
+			call.Env = []string{"GH_PROMPT_DISABLED=1"}
 		}
 		if err := run(call); err != nil {
 			return fmt.Errorf("download native input package: %w", err)

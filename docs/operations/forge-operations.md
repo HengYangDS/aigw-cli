@@ -319,7 +319,22 @@ predecessor matrix and extracts its native executable through the same owner.
 `--input-package` with `--input-sha256`, `--candidate-source`, `--candidate`,
 `--baseline-tag`, `--peer gitlab` and `--repository` admits the complete package
 without staging a host. An absolute `--input-archive` instead consumes the same
-signed input contract offline and is mutually exclusive with `--input-package`.
+signed input contract offline. `--input-release native-inputs-<candidate SHA>`
+with `--peer github` selects the same signed matrix from a GitHub transport
+release. These three input carriers are mutually exclusive; all require the
+original checksum, signed candidate source and published predecessor identity.
+The existing native owner verifies the locally signed annotated transport tag,
+its exact candidate commit and archive checksum before extraction; its private
+workspace reclaims downloads on success, failure and cancellation.
+
+Transport tags are distinct from product `v<semver>` tags. Create and verify a
+signed annotated transport tag once in local Git, publish that exact object,
+then create the GitHub Release with `--verify-tag --prerelease --latest=false`.
+Never let the Forge mint a lightweight tag or dispatch verification from the
+transport tag: select the proposal verifier branch and pass the candidate source
+explicitly. Product tag verification selects only its `v*` namespace; transport
+trust is checked by its native input consumer. Retire the transport Release and
+exact tag only after its native input jobs finish and their evidence is retained.
 For published remote inputs, `--tag`, `--baseline-tag`, `--peer` and
 `--repository` select that peer's native CLI with a bounded no-prompt download;
 neither Forge is a transport fallback for the other. See
@@ -346,7 +361,8 @@ and credentials. Construction and CI costs remain tied to their original build
 and job receipts, not these samples.
 
 The GitHub Verify workflow accepts `performance=true` together with
-`baseline_tag` and `candidate_tag`. GitLab's existing native jobs accept
+`baseline_tag` and either `candidate_tag` or the exact `input_release`,
+`input_sha256` and `candidate_source` binding. GitLab's existing native jobs accept
 `AIGW_NATIVE_PERFORMANCE=true` in a web or API pipeline with `AIGW_BASELINE_TAG`
 and either `AIGW_CANDIDATE_TAG` or the signed `AIGW_CANDIDATE_ARTIFACTS` input.
 Both peers reuse the same release acceptance and measurement owner, not a

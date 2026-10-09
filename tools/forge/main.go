@@ -93,7 +93,7 @@ func runTagSetVerification(arguments []string) error {
 	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *allowedSigners == "" {
 		return errors.New("usage: forge tags --allowed-signers <path> [--repository <path>]")
 	}
-	tags, err := gitOutput(*repository, "for-each-ref", "--format=%(refname:short)", "refs/tags")
+	tags, err := gitOutput(*repository, "for-each-ref", "--format=%(refname:short)", "refs/tags/v*", "refs/tags/*/v*")
 	if err != nil {
 		return err
 	}

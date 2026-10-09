@@ -26,7 +26,7 @@ import (
 // Local paths never imply a network request; tags require an explicit peer to download.
 type NativeAcceptance struct {
 	Artifacts, Tag, BaselineArtifacts, BaselineTag                    string
-	InputPackage, InputArchive, InputSHA256                           string
+	InputPackage, InputRelease, InputArchive, InputSHA256             string
 	Peer, Repository                                                  string
 	CandidateSource                                                   string
 	Candidate, Clients, PerformanceAttribution, PerformanceForwarding bool
@@ -50,6 +50,7 @@ func ParseNativeAcceptance(arguments []string) (NativeAcceptance, error) {
 	flags.BoolVar(&input.Candidate, "candidate", false, "Bind untagged artifacts to signed source")
 	flags.StringVar(&input.CandidateSource, "candidate-source", "", "Exact signed candidate commit; defaults to verifier HEAD")
 	flags.StringVar(&input.InputPackage, "input-package", "", "Acquire signed candidate and predecessor matrices from a GitLab package")
+	flags.StringVar(&input.InputRelease, "input-release", "", "Acquire the signed input matrix from its candidate-bound GitHub transport release")
 	flags.StringVar(&input.InputArchive, "input-archive", "", "Consume a caller-owned native input package without downloading")
 	flags.StringVar(&input.InputSHA256, "input-sha256", "", "Exact SHA256 of the selected native input package")
 	flags.BoolVar(&input.Clients, "clients", false, "Verify explicitly supplied native clients")

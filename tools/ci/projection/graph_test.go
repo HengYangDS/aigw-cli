@@ -184,7 +184,7 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 			switch step.Run {
 			case base:
 				ordinary++
-				if step.If != "github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '')" {
+				if step.If != "github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '' && inputs.input_release == '')" {
 					t.Fatalf("%s ordinary native selection = %q", platform, step.If)
 				}
 			case base + " --full-quality":

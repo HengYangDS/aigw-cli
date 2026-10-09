@@ -348,7 +348,7 @@ func TestReleaseTagUsesTheSharedSemanticVersionGrammar(t *testing.T) {
 				t.Fatalf("tag %q valid=%t: %v", test.tag, test.valid, err)
 			}
 			err = runTagSetVerification([]string{"--repository", fixture.repository, "--allowed-signers", fixture.allowedSigners})
-			if (err == nil) != test.valid {
+			if (err == nil) != (test.valid || !strings.HasPrefix(test.tag, "v")) {
 				t.Fatalf("tag set containing %q valid=%t: %v", test.tag, test.valid, err)
 			}
 		})
@@ -398,5 +398,13 @@ func TestEmptyTagSetAndUntrustedTagSet(t *testing.T) {
 	rogue := newSigningIdentity(t, fixture.email)
 	if err := run([]string{"tags", "--repository", fixture.repository, "--allowed-signers", rogue.allowedSigners}); err == nil || !strings.Contains(err.Error(), "trusted signature") {
 		t.Fatalf("untrusted tag set: %v", err)
+	}
+}
+
+func TestProductTagSetDoesNotClaimIndependentTransportTags(t *testing.T) {
+	fixture := newForgeFixture(t)
+	gitTest(t, fixture.repository, "tag", "-s", "-a", "native-inputs-"+strings.Repeat("a", 40), "-m", "transport input")
+	if err := run([]string{"tags", "--repository", fixture.repository, "--allowed-signers", fixture.allowedSigners}); err != nil {
+		t.Fatalf("product tag qualification incorrectly claimed transport tags: %v", err)
 	}
 }

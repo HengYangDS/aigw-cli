@@ -193,7 +193,7 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		if platform, native := strings.CutPrefix(name, "native-"); native {
 			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '" + platform + "')"
 		} else if name == "quality" || name == "linux-secret-service" {
-			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '')"
+			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || (inputs.candidate_tag == '' && inputs.input_release == ''))"
 		}
 		if job.If != want {
 			t.Fatalf("GitHub %s does not positively admit the full verification lifecycle: %q", name, job.If)
@@ -240,7 +240,7 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
 		t.Fatal(err)
 	}
-	const selection = "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)"
+	const selection = "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.windows_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)"
 	for _, platform := range []string{"darwin", "linux", "windows"} {
 		steps := workflow.Jobs["native-"+platform].Steps
 		index := slices.IndexFunc(steps, func(item step) bool { return item.Name == "Run historical release acceptance" })
@@ -307,7 +307,7 @@ func TestManualPrebuiltPerformanceUsesItsExactToolClosure(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
 		t.Fatal(err)
 	}
-	const source = "${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '') && '"
+	const source = "${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || (inputs.candidate_tag == '' && inputs.input_release == '')) && '"
 	for _, platform := range []string{"darwin", "linux", "windows"} {
 		artifactTools := "go,gh,glab,github:goreleaser/goreleaser"
 		if platform == "darwin" {
@@ -339,7 +339,7 @@ func TestPerformanceHostPreparesNativeMemoryTool(t *testing.T) {
 	}
 	prepared := false
 	for _, step := range workflow.Jobs["native-linux"].Steps {
-		if step.If == "github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || inputs.candidate_tag == '' || inputs.performance" &&
+		if step.If == "github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || (inputs.candidate_tag == '' && inputs.input_release == '') || inputs.performance" &&
 			strings.Contains(step.Run, "sudo -n timeout --verbose --kill-after=5s 240s") &&
 			strings.Contains(step.Run, "Acquire::http::Timeout=30") &&
 			strings.Contains(step.Run, "install --no-install-recommends -y time") {

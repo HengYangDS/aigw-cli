@@ -665,6 +665,12 @@ assets must pass before Homebrew update or user-host cutover can be claimed.
 Housekeeping completes at each operation boundary, not in a final catch-all
 sweep. Before archive, Task 8.5 inventories exact ownership, removes currently
 disposable residue and identifies retained consumers and retirement triggers.
+A candidate-only GitHub transport Release owns one `native-inputs-<source SHA>`
+signed annotated tag and the existing exact public input archive. Its consumers
+are the selected native input jobs, not product release discovery. After those
+jobs terminate and original acceptance evidence is retained, delete that exact
+Release and transport ref through their native owners; no product tag or
+unchanged candidate rebuild is needed to make these inputs available.
 After verified release and installed cutover, retire superseded tags, outputs
 and the completed lane through their native owners. Preserve failed receipts,
 required rollback material and foreign or unknown state. These final retirements

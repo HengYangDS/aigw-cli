@@ -177,3 +177,79 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 		t.Fatal("asset verification must follow explicit post-publication dispatch")
 	}
 }
+
+func TestGitHubNativeInputReleaseProjectsOneOwnedTransport(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		On struct {
+			Dispatch struct {
+				Inputs map[string]struct {
+					Type     string
+					Required bool
+				} `yaml:"inputs"`
+			} `yaml:"workflow_dispatch"`
+		} `yaml:"on"`
+		Jobs map[string]struct {
+			If    string
+			Steps []struct {
+				Name, Run, If string
+				Env           map[string]string
+			}
+		}
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"input_release", "input_sha256", "candidate_source"} {
+		input, exists := workflow.On.Dispatch.Inputs[key]
+		if !exists || input.Type != "string" || input.Required {
+			t.Fatalf("native input selector %s must be optional and typed", key)
+		}
+	}
+	for _, name := range []string{"quality", "linux-secret-service"} {
+		if !strings.Contains(workflow.Jobs[name].If, "inputs.input_release == ''") {
+			t.Fatalf("%s repeats source-only gates for prebuilt inputs", name)
+		}
+	}
+	for _, platform := range []string{"darwin", "linux", "windows"} {
+		steps := workflow.Jobs["native-"+platform].Steps
+		index := slices.IndexFunc(steps, func(step struct {
+			Name, Run, If string
+			Env           map[string]string
+		}) bool {
+			return step.Name == "Run historical release acceptance"
+		})
+		if index < 0 {
+			t.Fatalf("%s lacks the existing native release owner", platform)
+		}
+		step := steps[index]
+		for key, input := range map[string]string{"AIGW_NATIVE_INPUT_RELEASE": "input_release", "AIGW_NATIVE_INPUT_SHA256": "input_sha256", "AIGW_CANDIDATE_SOURCE": "candidate_source"} {
+			if step.Env[key] != "${{ inputs."+input+" }}" || strings.Contains(step.Run, "${{ inputs."+input+" }}") {
+				t.Fatalf("%s input %s must flow through environment, not shell source", platform, input)
+			}
+		}
+		for _, flag := range []string{"--input-release=", "--input-sha256=", "--candidate-source=", "--candidate=", "--baseline-tag="} {
+			if !strings.Contains(step.Run, flag) {
+				t.Fatalf("%s lost original native input flag %s", platform, flag)
+			}
+		}
+		ordinary := slices.IndexFunc(steps, func(step struct {
+			Name, Run, If string
+			Env           map[string]string
+		}) bool {
+			return step.Name == "Run native macOS acceptance" || step.Name == "Run native Linux acceptance" || step.Name == "Run native Windows acceptance"
+		})
+		if ordinary < 0 || !strings.Contains(steps[ordinary].If, "inputs.input_release == ''") {
+			t.Fatalf("%s repeats source acceptance for prebuilt native inputs", platform)
+		}
+		if platform == "darwin" && (step.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" || !strings.Contains(step.Env["AIGW_VERIFY_SYSTEM_KEYRING"], "inputs.macos_keychain")) {
+			t.Fatal("native macOS input selection lost its explicit disposable-host Keychain contract")
+		}
+		if !strings.Contains(step.If, "inputs.input_release") {
+			t.Fatalf("%s native inputs cannot select the existing acceptance job", platform)
+		}
+	}
+}
