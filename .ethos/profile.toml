@@ -6,18 +6,29 @@ material_paths = ["**"]
 [proof]
 code_correctness_gates = [
   "go-behavior",
+  "code-behavior",
   "go-static-analysis",
 ]
 
 [proof.code_correctness_map]
-behavior = "go-behavior"
+behavior = "code-behavior"
 static-analysis = "go-static-analysis"
 
 [[proof.gates]]
 id = "go-behavior"
 kind = "test"
 command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/coverage", "--race"]
-verification_providers = ["ethos.adapters.gates.code_quality:behavior_report"]
+dimensions = ["test", "coverage"]
+evidence_class = "proof"
+trust_bearing = true
+writes_files = true
+network_policy = "offline"
+
+[[proof.gates]]
+id = "code-behavior"
+kind = "test"
+providers = ["ethos.adapters.gates.code_quality:behavior_report"]
+depends_on = ["go-behavior"]
 dimensions = ["behavior", "test", "coverage"]
 evidence_class = "proof"
 trust_bearing = true
