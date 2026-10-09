@@ -81,7 +81,7 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 4.1 Audit Account, Model, Route, protocol, capability, and recommendation
       declarations for parallel inference or Provider-name branches; delete the
       duplicate owner and prove synthetic Provider admission.
-- [ ] 4.2 Review the shipped catalogue against current upstream IDs and bounded
+- [x] 4.2 Review the shipped catalogue against current upstream IDs and bounded
       live inference for DMXAPI, UCloud, and AIHubMix; retain only qualified
       models/variants and one consistent naming grammar, with source and date for
       each claim.

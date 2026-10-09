@@ -141,6 +141,14 @@ passes. This data refresh is not a binary upgrade or final release acceptance.
 
 ## Provider catalogue and route evidence
 
+The October 9, 2026 review matched all 57 shipped Routes to dated authenticated
+inference: 48 unchanged October 1 matrix entries, seven October 5–6 entries
+bound to post-acceptance source `de3982f3`, and the two isolated October 1
+additions below. Each retained the same Account endpoints, wire ID and protocol.
+This qualifies the frozen reviewed catalogue, not current service health,
+an independent strongest-model ranking, every native tool/resume mode or final
+signed artifacts.
+
 At an earlier September 30, 2026 read, AIGW observed 417 AIHubMix, 565 DMXAPI,
 and 276 UCloud IDs across eight Account/protocol catalogue surfaces. All 60
 Routes shipped at that time had wire IDs on their declared surfaces. The later
@@ -237,12 +245,15 @@ Linux/Windows, final-artifact and installed-host acceptance remain separate;
 the Hermes run conserved eleven original protected inputs and preserved one
 concurrent operator-config change whose writer is unproved.
 
-On October 4, 2026, the unchanged shipped team manifest and current `13e6525c`
-macOS candidate passed public setup/use/check/verify with Claude Code 2.1.288
+On October 4, 2026, the `13e6525c` macOS candidate completed public
+setup/use/check/verify with Claude Code 2.1.288
 for AIHubMix and UCloud Sonnet 5.5, DMXAPI Sonnet 5.5 CC, and UCloud Opus 5.5.
-Each selected Route completed an official Read tool and same-session recall;
-all 43 bounded calls completed without diagnostics. The isolated run preserved
-native effort and beta policy, host settings, credentials and installed products.
+The Sonnet Routes completed Read and same-session content recall. UCloud Opus
+reported 5.5 for the first Read, but default resume reported 4.8 while recalling
+the same note. Content recall therefore does not prove retained Opus 5.5
+selection or outgoing wire identity. All 43 bounded calls completed without
+reported diagnostics; that does not close the model-identity gap. The isolated
+run preserved effort and beta policy, host settings, credentials and installations.
 
 The current candidate and shipped team bytes also match retained Codex 0.160
 AIHubMix and UCloud ordinary Sol 6.1 file-tool/continuation evidence. Only the
@@ -438,6 +449,11 @@ Meituan's [LongCat 2.0](https://huggingface.co/meituan-longcat/LongCat-2.0),
 Tencent's [HY3](https://huggingface.co/tencent/Hy3),
 StepFun's [Step 3.7 Flash](https://huggingface.co/stepfun-ai/Step-3.7-Flash),
 and InclusionAI's [Ling 3.0 Flash](https://huggingface.co/inclusionAI/Ling-3.0-flash).
+
+On October 1, exact AIHubMix Mercury 2.5 completed official Hermes `f97608f`'s
+file tool and same-session recall in 18.939 and 10.406 seconds with medium effort.
+This supersedes its earlier bounded timeout as an unresolved compatibility
+limitation, not as a latency guarantee or current-client qualification.
 
 NVIDIA identifies [Nemotron 3 Ultra](https://research.nvidia.com/labs/nemotron/Nemotron-3-Ultra/)
 as the family's final and strongest model; [Super](https://research.nvidia.com/labs/nemotron/Nemotron-3-Super/)
