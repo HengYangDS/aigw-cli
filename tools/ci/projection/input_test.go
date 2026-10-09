@@ -51,6 +51,7 @@ func TestNativePackageProjectionUsesOnePortableReleaseInputOwner(t *testing.T) {
 
 func checkProjectedNativeReleaseArguments(t *testing.T, script, platform string) {
 	t.Helper()
+	t.Setenv("G_DEBUG", "gc-friendly")
 	root := t.TempDir()
 	checkout := filepath.Join(root, "native checkout")
 	if err := os.Mkdir(checkout, 0o700); err != nil {
@@ -64,7 +65,7 @@ func checkProjectedNativeReleaseArguments(t *testing.T, script, platform string)
 	for name, body := range map[string]string{
 		"dbus-run-session": "[ \"$1\" = -- ] || exit 91\nshift\nexec \"$@\"\n",
 		"gdbus":            "printf '%s\\n' /org/freedesktop/secrets/collection/session\n",
-		"mise":             "printf '%s\\000' \"${AIGW_VERIFY_SYSTEM_KEYRING:-0}\" \"$@\" > \"$AIGW_ARGUMENT_WITNESS\"\nexit \"$AIGW_NATIVE_COMMAND_EXIT\"\n",
+		"mise":             "printf '%s\\000' \"${AIGW_VERIFY_SYSTEM_KEYRING:-0}\" \"$G_DEBUG\" \"$@\" > \"$AIGW_ARGUMENT_WITNESS\"\nexit \"$AIGW_NATIVE_COMMAND_EXIT\"\n",
 	} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte("#!/bin/sh\n"+body), 0o700); err != nil {
 			t.Fatal(err)
@@ -100,7 +101,7 @@ func checkProjectedNativeReleaseArguments(t *testing.T, script, platform string)
 			if platform == "linux" {
 				keyring = "1"
 			}
-			want := []string{keyring, "exec", "--locked", "--", "go", "run", "./tools/ci", "native", "--platform", platform, "--full-quality=false", "--",
+			want := []string{keyring, "gc-friendly", "exec", "--locked", "--", "go", "run", "./tools/ci", "native", "--platform", platform, "--full-quality=false", "--",
 				"--peer", "gitlab", "--repository", test.repository, "--baseline-tag", "v1.2.3", "--artifacts", "candidate bytes", "--candidate",
 				"--candidate-source", "selected-source"}
 			if test.performance == "true" {

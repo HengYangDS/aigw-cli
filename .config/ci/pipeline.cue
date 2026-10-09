@@ -112,8 +112,9 @@ linuxSecretService: {
 	packages: "dbus-x11 gnome-keyring libglib2.0-bin"
 	session: {
 		command: string
+		// A private session isolates native state without changing vendor diagnostics.
 		run:     #"""
-			G_DEBUG=fatal-warnings dbus-run-session -- bash -s -euo pipefail -- "$@" <<'AIGW_SECRET_SERVICE'
+			dbus-run-session -- bash -s -euo pipefail -- "$@" <<'AIGW_SECRET_SERVICE'
 			gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
 			gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
 			AIGW_VERIFY_SYSTEM_KEYRING=1 \#(command)

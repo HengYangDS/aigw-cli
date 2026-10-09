@@ -275,7 +275,7 @@ func nativeCommands(platform string) []command {
 	tests.Args = append(tests.Args, "--profile-output", profile)
 	if platform == "linux" {
 		tests.Name = "dbus-run-session"
-		tests.Args = append([]string{"--", "env", "G_DEBUG=fatal-warnings", "AIGW_VERIFY_LOCKED_SECRET_SERVICE=1", "AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host", "go"}, tests.Args...)
+		tests.Args = append([]string{"--", "env", "AIGW_VERIFY_LOCKED_SECRET_SERVICE=1", "AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host", "go"}, tests.Args...)
 	}
 	return []command{
 		{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}},

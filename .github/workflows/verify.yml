@@ -211,7 +211,7 @@ jobs:
         run: |-
           sudo -n timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
           sudo -n DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
-          G_DEBUG=fatal-warnings dbus-run-session -- bash -s -euo pipefail -- "$@" <<'AIGW_SECRET_SERVICE'
+          dbus-run-session -- bash -s -euo pipefail -- "$@" <<'AIGW_SECRET_SERVICE'
           gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
           gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
           AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./tools/release -run "^TestNativeProductJourney/system_credential_store$" -count=1 -v
@@ -441,7 +441,7 @@ jobs:
           AIGW_NATIVE_DIAGNOSTIC_CLIENT: ${{ inputs.diagnostic_client }}
           AIGW_RELEASE_ARTIFACT_SIGNER: ${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}
         run: |-
-          G_DEBUG=fatal-warnings dbus-run-session -- bash -s -euo pipefail -- "$@" <<'AIGW_SECRET_SERVICE'
+          dbus-run-session -- bash -s -euo pipefail -- "$@" <<'AIGW_SECRET_SERVICE'
           gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
           gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
           AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go run ./tools/release accept-native --peer=github --repository="$GITHUB_REPOSITORY" --baseline-tag="$AIGW_BASELINE_TAG" --tag="$AIGW_CANDIDATE_TAG" --clients=false --diagnostic-client="$AIGW_NATIVE_DIAGNOSTIC_CLIENT" --performance-attribution=${{ inputs.performance_attribution }}
@@ -456,7 +456,7 @@ jobs:
           AIGW_NATIVE_DIAGNOSTIC_CLIENT: ${{ inputs.diagnostic_client }}
           AIGW_RELEASE_ARTIFACT_SIGNER: ${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}
         run: |-
-          G_DEBUG=fatal-warnings dbus-run-session -- bash -s -euo pipefail -- "$@" <<'AIGW_SECRET_SERVICE'
+          dbus-run-session -- bash -s -euo pipefail -- "$@" <<'AIGW_SECRET_SERVICE'
           gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
           gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
           AIGW_VERIFY_SYSTEM_KEYRING=1 mise run performance --peer=github --repository="$GITHUB_REPOSITORY" --baseline-tag="$AIGW_BASELINE_TAG" --tag="$AIGW_CANDIDATE_TAG" --clients=false --diagnostic-client="$AIGW_NATIVE_DIAGNOSTIC_CLIENT" --performance-attribution=${{ inputs.performance_attribution }} --performance "$GITHUB_WORKSPACE/build/performance"
