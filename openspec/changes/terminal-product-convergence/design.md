@@ -654,14 +654,16 @@ rollback proof. Pre-archive candidate acceptance uses explicit environment
 credentials or isolated synthetic native items. A Developer ID candidate may
 prove stable designated requirements without a tag, but signing does not move
 the predecessor's physical item or prove access to an operator's Token.
-After the final candidate checkbox is committed, obtain exact-HEAD ETHOS proof
-and independent peer review CI, resolve their gaps, then integrate the same
-signed object into `dev` through the guarded maintainer path on both peers.
-Verify the resulting dev checks and proposal-source-ref deletion before
-archiving through the official governed OpenSpec transition. Re-prove the
-archived SHA; only then promote that exact object to `main`, require its peer-local
-main checks, and create the signed release tag. The tag jobs and dual-peer
-assets must pass before Homebrew update or user-host cutover can be claimed.
+Source acceptance is distinct from final product delivery. Obtain exact-HEAD
+ETHOS proof and independent peer review CI for each source increment, then
+integrate its signed object through the guarded maintainer path. Keep future
+native acceptance and delivery tasks open; they cannot block the source or
+transport policy needed to execute them. Verify dev checks and exact proposal
+ref retirement for each effect. Once candidate acceptance is complete, archive
+through the official governed OpenSpec transition and re-prove the archived
+SHA. Only then promote that exact object to `main`, require its peer-local main
+checks, and create the signed release tag. Tag jobs and dual-peer assets must
+pass before Homebrew update or user-host cutover can be claimed.
 Housekeeping completes at each operation boundary, not in a final catch-all
 sweep. Before archive, Task 8.5 inventories exact ownership, removes currently
 disposable residue and identifies retained consumers and retirement triggers.
@@ -671,8 +673,13 @@ caller-owned archive. Both paths retain checksum, signed matrix, provenance and
 cleanup checks without a transport tag. Neither qualifies GitHub's disposable
 macOS Keychain consumer. That consumer still needs a same-peer input transport
 admitted by its prior accepted policy; draft Release visibility is not a
-supported contract for its read-only job token. Do not rebuild unchanged signed
-inputs or create transport entities merely to satisfy an obsolete plan. Retire
+supported contract for its read-only job token. An accepted signed transport
+carrier may descend from the package producer; its tag names and selects that
+carrier, while `CandidateSource` and matrix provenance continue to identify the
+original producer. Verify their ancestry and exact checksum without treating
+the carrier as a rebuilt product. Preserve the measured product-input
+equivalence; changed product inputs require new producer provenance. Do not
+rebuild unchanged signed inputs or create redundant transport entities. Retire
 exact temporary peer inputs only after their consumers terminate and required
 acceptance evidence is retained.
 After verified release and installed cutover, retire superseded tags, outputs

@@ -319,16 +319,20 @@ predecessor matrix and extracts its native executable through the same owner.
 `--input-package` with `--input-sha256`, `--candidate-source`, `--candidate`,
 `--baseline-tag`, `--peer gitlab` and `--repository` admits the complete package
 without staging a host. An absolute `--input-archive` instead consumes the same
-signed input contract offline. `--input-release native-inputs-<candidate SHA>`
+signed input contract offline. `--input-release native-inputs-<carrier SHA>`
 with `--peer github` selects the same signed matrix from a GitHub transport
 release. These three input carriers are mutually exclusive; all require the
 original checksum, signed candidate source and published predecessor identity.
-The existing native owner verifies the locally signed annotated transport tag,
-its exact candidate commit and archive checksum before extraction; its private
+The existing native owner verifies the signed annotated transport tag, its named
+carrier commit, producer ancestry and archive checksum before extraction. Matrix
+provenance still binds the original candidate producer, not the carrier or
+verifier. Reuse requires measured product-input equivalence; ancestry alone does
+not prove that old artifacts represent later source changes. Its private
 workspace reclaims downloads on success, failure and cancellation.
 
 Transport tags are distinct from product `v<semver>` tags. Create and verify a
-signed annotated transport tag once in local Git, publish that exact object,
+signed annotated transport tag once in local Git at an accepted carrier admitted
+by the peer's prior accepted publication policy, then publish that exact object,
 then create the GitHub Release with `--verify-tag --prerelease --latest=false`.
 Never let the Forge mint a lightweight tag or dispatch verification from the
 transport tag: select the proposal verifier branch and pass the candidate source

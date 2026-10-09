@@ -1,4 +1,5 @@
 [publication]
+transport_tags = ["native-inputs-*"]
 local_verification_command = "mise exec --locked -- go run ./tools/ci source"
 local_installation_command = "mise exec --locked -- go run ./cmd/aigw install"
 

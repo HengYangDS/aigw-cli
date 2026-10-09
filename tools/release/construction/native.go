@@ -50,7 +50,7 @@ func ParseNativeAcceptance(arguments []string) (NativeAcceptance, error) {
 	flags.BoolVar(&input.Candidate, "candidate", false, "Bind untagged artifacts to signed source")
 	flags.StringVar(&input.CandidateSource, "candidate-source", "", "Exact signed candidate commit; defaults to verifier HEAD")
 	flags.StringVar(&input.InputPackage, "input-package", "", "Acquire signed candidate and predecessor matrices from a GitLab package")
-	flags.StringVar(&input.InputRelease, "input-release", "", "Acquire the signed input matrix from its candidate-bound GitHub transport release")
+	flags.StringVar(&input.InputRelease, "input-release", "", "Acquire signed matrices from a GitHub release whose carrier descends from the candidate producer")
 	flags.StringVar(&input.InputArchive, "input-archive", "", "Consume a caller-owned native input package without downloading")
 	flags.StringVar(&input.InputSHA256, "input-sha256", "", "Exact SHA256 of the selected native input package")
 	flags.BoolVar(&input.Clients, "clients", false, "Verify explicitly supplied native clients")

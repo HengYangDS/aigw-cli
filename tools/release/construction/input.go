@@ -42,14 +42,28 @@ func (input *NativeAcceptance) validatePackage() error {
 	for _, value := range []struct {
 		name, text string
 		size       int
-	}{{"checksum", input.InputSHA256, sha256.Size}, {"source", input.CandidateSource, 20}} {
-		decoded, err := hex.DecodeString(value.text)
-		if err != nil || len(decoded) != value.size || value.text != strings.ToLower(value.text) {
-			return fmt.Errorf("native input package requires exact lowercase hexadecimal %s", value.name)
+	}{
+		{"checksum", input.InputSHA256, sha256.Size},
+		{"source", input.CandidateSource, 20},
+	} {
+		if err := validateInputIdentity(value.name, value.text, value.size); err != nil {
+			return err
 		}
 	}
-	if input.InputRelease != "" && input.InputRelease != "native-inputs-"+input.CandidateSource {
-		return errors.New("native input release must name its exact candidate source")
+	if input.InputRelease == "" {
+		return nil
+	}
+	carrier, ok := strings.CutPrefix(input.InputRelease, "native-inputs-")
+	if !ok {
+		return errors.New("native input release must name its exact lowercase carrier commit")
+	}
+	return validateInputIdentity("carrier commit", carrier, 20)
+}
+
+func validateInputIdentity(name, text string, size int) error {
+	decoded, err := hex.DecodeString(text)
+	if err != nil || len(decoded) != size || text != strings.ToLower(text) {
+		return fmt.Errorf("native input package requires exact lowercase hexadecimal %s", name)
 	}
 	return nil
 }
@@ -58,23 +72,8 @@ func (input *NativeAcceptance) preparePackage(ctx context.Context, request build
 	if !input.hasPackage() {
 		return nil
 	}
-	if input.InputRelease != "" {
-		ref := "refs/tags/" + input.InputRelease
-		git := toolCall{
-			Name: "git", Directory: request.Root, Timeout: time.Minute,
-			Args: []string{"-c", "gpg.format=ssh", "-c", "gpg.ssh.program=ssh-keygen", "-c", "gpg.ssh.allowedSignersFile=" + os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE"), "verify-tag", ref},
-		}
-		if err := run(git); err != nil {
-			return fmt.Errorf("verify native input transport tag: %w", err)
-		}
-		var source bytes.Buffer
-		git.Args, git.Stdout = []string{"rev-parse", "--verify", ref + "^{commit}"}, &source
-		if err := run(git); err != nil {
-			return fmt.Errorf("resolve native input transport source: %w", err)
-		}
-		if strings.TrimSpace(source.String()) != input.CandidateSource {
-			return errors.New("native input transport tag does not select its candidate source")
-		}
+	if err := input.verifyInputCarrier(request.Root, run); err != nil {
+		return err
 	}
 	archive := input.InputArchive
 	if archive == "" {
@@ -119,6 +118,34 @@ func (input *NativeAcceptance) preparePackage(ctx context.Context, request build
 		return err
 	}
 	input.Artifacts, input.BaselineArtifacts = filepath.Join(workspace, "candidate"), filepath.Join(workspace, "baseline")
+	return nil
+}
+
+func (input *NativeAcceptance) verifyInputCarrier(root string, run toolRunner) error {
+	if input.InputRelease == "" {
+		return nil
+	}
+	ref := "refs/tags/" + input.InputRelease
+	git := toolCall{
+		Name: "git", Directory: root, Timeout: time.Minute,
+		Args: []string{"-c", "gpg.format=ssh", "-c", "gpg.ssh.program=ssh-keygen", "-c", "gpg.ssh.allowedSignersFile=" + os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE"), "verify-tag", ref},
+	}
+	if err := run(git); err != nil {
+		return fmt.Errorf("verify native input transport tag: %w", err)
+	}
+	var source bytes.Buffer
+	git.Args, git.Stdout = []string{"rev-parse", "--verify", ref + "^{commit}"}, &source
+	if err := run(git); err != nil {
+		return fmt.Errorf("resolve native input transport source: %w", err)
+	}
+	carrier := strings.TrimPrefix(input.InputRelease, "native-inputs-")
+	if strings.TrimSpace(source.String()) != carrier {
+		return errors.New("native input transport tag does not select its named carrier commit")
+	}
+	git.Args, git.Stdout = []string{"merge-base", "--is-ancestor", input.CandidateSource, carrier}, nil
+	if err := run(git); err != nil {
+		return fmt.Errorf("native input producer is not an ancestor of its carrier: %w", err)
+	}
 	return nil
 }
 

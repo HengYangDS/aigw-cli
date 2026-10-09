@@ -1115,7 +1115,7 @@ githubVerify: {
 				type:        "string"
 			}
 			input_release: {
-				description: "Candidate-bound native-inputs-<SHA> transport release; requires baseline_tag, input_sha256 and candidate_source"
+				description: "Signed native-inputs-<carrier SHA> release; requires baseline_tag, input_sha256 and ancestor candidate_source"
 				required:    false
 				type:        "string"
 			}
