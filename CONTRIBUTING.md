@@ -341,7 +341,9 @@ Linux needs a real user bus/Secret Service; Windows uses Credential Manager.
 An occupied exact test slot fails before writes. The installed helper proves
 reads; fixture metadata/cleanup neither grants access nor replaces them.
 
-Set `G_DEBUG=fatal-warnings` before D-Bus activation. Published AIGW 0.3.1 uses
+Use the Secret Service's native warning policy during D-Bus activation;
+CI must preserve warnings without converting them into service termination.
+Published AIGW 0.3.1 uses
 go-keyring's `CreateItem(replace=true)` path, which emits a duplicate-registration
 warning on the qualified GNOME backend;
 [upstream retains that CreateItem path](https://github.com/GNOME/gnome-keyring/blob/50.0/daemon/dbus/gkd-secret-objects.c).

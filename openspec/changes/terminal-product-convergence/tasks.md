@@ -66,7 +66,9 @@ in Git; original raw results stay with their source-bound verification owner.
       backend and isolated synthetic native items before archive. Verify stable
       native reader identity across signed successors without treating signing
       as item authorization. Preserve original versioned commands and disclose
-      the cached 0.3.1 public-link risk. Final operator-item authorization and
+      the cached 0.3.1 public-link risk. macOS ENV succession, rollback and forward
+      passed with signed candidate `82145457`; the remaining native scopes stay open.
+      Final operator-item authorization and
       the real package-link transition belong to the post-archive
       [Migration Plan](design.md#migration-plan), not this pre-archive checkbox.
 - [x] 3.6 Keep an explicitly configured external credential command outside AIGW
