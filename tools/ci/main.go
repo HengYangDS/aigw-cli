@@ -160,11 +160,17 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) (result er
 	flags.SetOutput(io.Discard)
 	platform := flags.String("platform", runtime.GOOS, "darwin, linux, or windows")
 	fullQuality := flags.Bool("full-quality", false, "Qualify every repository quality tool on this host before native acceptance")
+	protectedFile := flags.String("protected-file", "", "Qualify denial and no elevation grant for an exact native review resource")
 	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || !supportedNativePlatform(*platform) {
 		return errors.New("usage: ci native [--platform <darwin|linux|windows>] [--full-quality] [-- <release accept-native arguments>]")
 	}
 	if *platform != runtime.GOOS {
 		return fmt.Errorf("native acceptance requires %s host, running on %s", *platform, runtime.GOOS)
+	}
+	if *protectedFile != "" {
+		if err := qualifyProtectedResource(*protectedFile, stdout, systemOutputRunner); err != nil {
+			return err
+		}
 	}
 	_, err := readiness.ReadProductVersion(".")
 	if err != nil {

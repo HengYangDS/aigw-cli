@@ -202,6 +202,13 @@ Per-job executor destruction is one possible implementation, not a required
 topology; broader arbitrary hostile-code sandboxing remains unproved unless
 separately qualified.
 
+The existing native entry accepts an explicit `--protected-file` for bounded
+job-context qualification: a present regular file must deny a direct open, and
+native noninteractive privilege inquiry must prove no sudo grant. Missing paths,
+readable resources, pending authorization and deadlines do not qualify. This
+optional resource probe is not complete remote-manager or hostile-code containment;
+ordinary jobs without that declared input make no additional containment claim.
+
 Transport SSH/PAT/OIDC keys can differ across peers without changing product bytes.
 Forge `Verified` is an account projection; its trusted signer principal is not the
 Git author/committer. Reject history rewriting/replay, peer-qualified tags, continuity

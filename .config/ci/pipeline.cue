@@ -796,7 +796,13 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 		_nativeCommand:     "\(commands.native[_platform]) --full-quality=\"${AIGW_FULL_NATIVE_QUALITY:-false}\" -- \"$@\""
 		_nativeExecution:   string
 		if _platform != "linux" {
-			_nativeExecution: _nativeCommand
+			_nativeExecution: #"""
+				if [ "${CI_COMMIT_REF_PROTECTED:-}" = false ] && [ -n "${AIGW_REVIEW_PROTECTED_FILE:-}" ]; then
+				  \#(commands.native[_platform]) --protected-file "$AIGW_REVIEW_PROTECTED_FILE" --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
+				else
+				  \#(_nativeCommand)
+				fi
+				"""#
 		}
 		if _platform == "linux" {
 			_nativeExecution: #"""

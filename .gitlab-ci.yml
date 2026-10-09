@@ -173,7 +173,11 @@ native-darwin:
       fi
       export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
       export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
-      mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
+      if [ "${CI_COMMIT_REF_PROTECTED:-}" = false ] && [ -n "${AIGW_REVIEW_PROTECTED_FILE:-}" ]; then
+        mise exec --locked -- go run ./tools/ci native --platform darwin --protected-file "$AIGW_REVIEW_PROTECTED_FILE" --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
+      else
+        mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
+      fi
     - |-
       set -eu
       if [ -n "${CI_JOB_ID:-}" ]; then
@@ -269,7 +273,11 @@ native-darwin-review:
       fi
       export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
       export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
-      mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
+      if [ "${CI_COMMIT_REF_PROTECTED:-}" = false ] && [ -n "${AIGW_REVIEW_PROTECTED_FILE:-}" ]; then
+        mise exec --locked -- go run ./tools/ci native --platform darwin --protected-file "$AIGW_REVIEW_PROTECTED_FILE" --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
+      else
+        mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
+      fi
     - |-
       set -eu
       if [ -n "${CI_JOB_ID:-}" ]; then

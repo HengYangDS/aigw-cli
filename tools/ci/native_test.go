@@ -28,6 +28,74 @@ func TestNativeSourceQualificationUsesCanonicalCoverage(t *testing.T) {
 	}
 }
 
+func TestNativeReviewProtectedResourceRefusesUnprovedDenial(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	root := t.TempDir()
+	readable := filepath.Join(root, "manager-config")
+	if err := os.WriteFile(readable, []byte("fixture-only"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name, path, problem string
+	}{
+		{"readable", readable, "protected resource is readable"},
+		{"missing", filepath.Join(root, "missing"), "protected resource identity is unproved"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			ran := false
+			err := run([]string{"native", "--protected-file", test.path, "--", "--artifacts=/candidate", "--candidate"}, &stdout, func(command) error {
+				ran = true
+				return nil
+			})
+			if err == nil || !strings.Contains(err.Error(), test.problem) || ran {
+				t.Fatalf("native review admitted an unproved denial: ran=%t error=%v", ran, err)
+			}
+			if strings.Contains(stdout.String(), "fixture-only") {
+				t.Fatal("native review read protected content")
+			}
+		})
+	}
+}
+
+func TestNativeReviewProtectedResourceRequiresNoElevationGrant(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return
+	}
+	path := filepath.Join(t.TempDir(), "manager-config")
+	if err := os.WriteFile(path, []byte("fixture-only"), 0o000); err != nil {
+		t.Fatal(err)
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("Root cannot represent a denied native review identity")
+	}
+	for _, test := range []struct {
+		name, output string
+		err          error
+		accepted     bool
+	}{
+		{"no grant", "User review is not allowed to run sudo on this host.", errors.New("exit 1"), true},
+		{"grant", "(ALL) ALL", nil, false},
+		{"authorization pending", "sudo: a password is required", errors.New("exit 1"), false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			err := qualifyProtectedResource(path, &stdout, func(call command) ([]byte, error) {
+				if call.Name != "sudo" || !slices.Equal(call.Args, []string{"-n", "-l"}) || call.Timeout == 0 || !slices.Contains(call.Env, "LC_ALL=C") {
+					t.Fatalf("review permission inquiry is not native, bounded and noninteractive: %#v", call)
+				}
+				return []byte(test.output), test.err
+			})
+			if (err == nil) != test.accepted {
+				t.Fatalf("review elevation qualification accepted=%t error=%v", test.accepted, err)
+			}
+			if test.accepted && !strings.Contains(stdout.String(), "direct_read=denied sudo_grant=none") {
+				t.Fatal("native review qualification omitted its exact effect")
+			}
+		})
+	}
+}
+
 func TestNativeSourceQualificationRunsLifecycleOnce(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
