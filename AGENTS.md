@@ -28,7 +28,7 @@ assets belong to their consuming package, not an unowned root `resources/`.
 - [Documentation root](docs/README.md)
 - [Authority and projection boundary](docs/architecture/authority-and-projection-boundary.md)
 - [Change and release policy](docs/governance/change-and-release-policy.md)
-- [Decision register](docs/decisions/decision-register.md)
+- [Decision Records](docs/decisions/README.md)
 - [DR-0001](docs/decisions/dr-0001-control-plane-data-plane-boundary.md)
 - [Release history](CHANGELOG.md)
 

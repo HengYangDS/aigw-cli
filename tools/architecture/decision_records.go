@@ -11,7 +11,7 @@ import (
 
 var decisionRecordName = regexp.MustCompile(`^dr-([0-9]{4})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$`)
 
-const decisionRegister = "decision-register.md"
+const decisionNavigationFile = "README.md"
 
 func checkDecisionRecords(root string, report *Report) error {
 	return checkDecisionRecordsWithReadDir(root, report, os.ReadDir)
@@ -23,14 +23,14 @@ func checkDecisionRecordsWithReadDir(
 	readDir func(string) ([]os.DirEntry, error),
 ) error {
 	directory := filepath.Join(root, "docs", "decisions")
-	registerPath := filepath.Join(directory, decisionRegister)
-	register, err := os.ReadFile(registerPath)
+	navigationPath := filepath.Join(directory, decisionNavigationFile)
+	navigation, err := os.ReadFile(navigationPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			report.addFinding(Finding{Rule: "decision_record_register_missing", Path: "docs/decisions/" + decisionRegister, Message: "Decision Records require one canonical register"})
+			report.addFinding(Finding{Rule: "decision_record_navigation_missing", Path: "docs/decisions/" + decisionNavigationFile, Message: "Decision Records require README navigation"})
 			return nil
 		}
-		return fmt.Errorf("read Decision Register: %w", err)
+		return fmt.Errorf("read Decision Record navigation: %w", err)
 	}
 	entries, err := readDir(directory)
 	if err != nil {
@@ -38,7 +38,7 @@ func checkDecisionRecordsWithReadDir(
 	}
 	sequences := map[int]bool{}
 	for _, entry := range entries {
-		if entry.IsDir() || entry.Name() == decisionRegister || filepath.Ext(entry.Name()) != ".md" {
+		if entry.IsDir() || entry.Name() == decisionNavigationFile || filepath.Ext(entry.Name()) != ".md" {
 			continue
 		}
 		relative := "docs/decisions/" + entry.Name()
@@ -57,11 +57,11 @@ func checkDecisionRecordsWithReadDir(
 			return fmt.Errorf("read %s: %w", relative, readErr)
 		}
 		checkDecisionRecordBody(relative, sequence, string(body), report)
-		registrations := strings.Count(string(register), "("+entry.Name()+")")
+		registrations := strings.Count(string(navigation), "("+entry.Name()+")")
 		if registrations == 0 {
-			report.addFinding(Finding{Rule: "decision_record_unregistered", Path: relative, Message: "Decision Record is absent from the canonical register"})
+			report.addFinding(Finding{Rule: "decision_record_unregistered", Path: relative, Message: "Decision Record is absent from README navigation"})
 		} else if registrations > 1 {
-			report.addFinding(Finding{Rule: "decision_record_registration_duplicate", Path: relative, Count: registrations, Message: "Decision Record must appear exactly once in the canonical register"})
+			report.addFinding(Finding{Rule: "decision_record_registration_duplicate", Path: relative, Count: registrations, Message: "Decision Record must appear exactly once in README navigation"})
 		}
 	}
 	return nil

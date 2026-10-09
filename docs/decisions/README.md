@@ -1,6 +1,6 @@
 <!--
 ---
-subject: aigw:decision-register
+subject: aigw:decision-record-navigation
 role: index
 state: canonical
 relations:

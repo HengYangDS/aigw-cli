@@ -46,7 +46,7 @@ benefit through actual consumers and remove superseded mechanics in the same
 Change. Security or portability can justify more code; neither line count nor
 feature breadth alone establishes value. Comparisons remain
 [research](../research/provider-tooling-assessment.md); irreducible adopted rationale
-belongs in the [decision register](../decisions/decision-register.md).
+belongs in the [Decision Record navigation](../decisions/README.md).
 
 ## Dependency Maintenance
 

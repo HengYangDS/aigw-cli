@@ -10,8 +10,8 @@ relations:
 
 # Documentation
 
-Choose the audience and follow one journey. This page is the only documentation
-directory index; each linked document owns one subject.
+Choose the audience and follow one journey. This page routes to topic groups;
+each group README owns its local navigation and each document owns one subject.
 
 Place a document by its responsibility, not the task that produced it:
 `research` records observations and comparisons; `decisions` records adopted
@@ -51,7 +51,7 @@ OpenSpec; generated verification output does not become current documentation.
 | Prepare a development Work Lane | [Contribution workflow](../CONTRIBUTING.md)                                          |
 | Add a Provider or model         | [Extension model](architecture/authority-and-projection-boundary.md#extension-model) |
 | Add a client                    | [Adapter admission](governance/adapter-admission.md)                                 |
-| Understand durable decisions    | [Decision register](decisions/decision-register.md)                                  |
+| Understand durable decisions    | [Decision Records](decisions/README.md)                                              |
 | Change or release the product   | [Change and release policy](governance/change-and-release-policy.md)                 |
 
 For verification, distinguish [source checks](../CONTRIBUTING.md#source-checks),
@@ -62,30 +62,22 @@ They answer different questions; none substitutes for all the others.
 
 ## Reference map
 
-- **Architecture:** [Authority and projection boundary](architecture/authority-and-projection-boundary.md)
-  explains the control plane and projection transactions; the
-  [Client Projection Edition Provider](../architecture/edition-provider/README.md)
-  binds that selected structure to exact source bytes without adding runtime
-  coupling; [Security
-  model](architecture/security-model.md) defines credentials, process boundaries
-  and real-request verification.
+- **Architecture:** [Architecture](architecture/README.md) explains current
+  authority, projections and security.
 - **Concepts:** [Product concepts](concepts/product-concepts.md) defines Accounts,
   Routes, Client Bindings, Adapters, endpoints and updates.
-- **Decisions:** [Decision register](decisions/decision-register.md) indexes
-  durable rulings and their rationale.
+- **Decisions:** [Decision Records](decisions/README.md) preserves durable
+  rulings and their rationale.
 - **Experience:** [Terminal experience](experience/terminal-experience.md)
   defines navigation, layout and recovery language.
-- **Governance:** [Text layout](governance/text-layout.md),
-  [Adapter admission](governance/adapter-admission.md), and
-  [Change and release policy](governance/change-and-release-policy.md) own
-  contributor contracts.
+- **Governance:** [Contributor contracts](governance/README.md) governs
+  layout, extension and release.
 - **Guides:** [Team rollout](guides/team-rollout.md) covers configuration
   distribution, member setup, release artifacts and updates.
 - **Operations:** [Forge operations](operations/forge-operations.md) explains
   independent GitLab and GitHub publication.
-- **Research:** [Provider tooling assessment](research/provider-tooling-assessment.md)
-  compares solution paradigms; [provider model qualification](research/provider-model-qualification.md)
-  records dated model and protocol evidence.
+- **Research:** [Research](research/README.md) separates comparisons and
+  dated provider evidence from adopted decisions.
 - **History and legal:** [Changelog](../CHANGELOG.md) records releases;
   [License](../LICENSE) supplies the MIT terms.
 

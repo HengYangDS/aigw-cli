@@ -317,7 +317,7 @@ to its source, test, gate, and evidence boundary.
 - [Team rollout](docs/guides/team-rollout.md)
 - [Terminal experience](docs/experience/terminal-experience.md)
 - [Change and release policy](docs/governance/change-and-release-policy.md)
-- [Decision register](docs/decisions/decision-register.md)
+- [Decision Records](docs/decisions/README.md)
 - [Competitive research](docs/research/provider-tooling-assessment.md)
 
 Licensed under the [MIT License](LICENSE).

@@ -11,7 +11,7 @@ import (
 func TestDecisionRecordReadFailureIsReported(t *testing.T) {
 	root := t.TempDir()
 	directory := filepath.Join(root, "docs", "decisions")
-	writeFile(t, filepath.Join(directory, decisionRegister), "# Decisions\n")
+	writeFile(t, filepath.Join(directory, decisionNavigationFile), "# Decisions\n")
 	if err := os.Symlink(filepath.Join(root, "missing-record"), filepath.Join(directory, "dr-0001-missing.md")); err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +24,7 @@ func TestDecisionRecordReadFailureIsReported(t *testing.T) {
 func TestDecisionRecordDirectoryReadFailureIsReported(t *testing.T) {
 	root := t.TempDir()
 	directory := filepath.Join(root, "docs", "decisions")
-	writeFile(t, filepath.Join(directory, decisionRegister), "# Decisions\n")
+	writeFile(t, filepath.Join(directory, decisionNavigationFile), "# Decisions\n")
 	want := errors.New("directory read failed")
 	report := newReport("policy", root)
 	err := checkDecisionRecordsWithReadDir(root, &report, func(string) ([]os.DirEntry, error) {
@@ -35,27 +35,27 @@ func TestDecisionRecordDirectoryReadFailureIsReported(t *testing.T) {
 	}
 }
 
-func TestDecisionRegisterReadFailureIsNotReportedAsMissing(t *testing.T) {
+func TestDecisionNavigationReadFailureIsNotReportedAsMissing(t *testing.T) {
 	root := t.TempDir()
-	registerPath := filepath.Join(root, "docs", "decisions", decisionRegister)
-	if err := os.MkdirAll(registerPath, 0o700); err != nil {
+	navigationPath := filepath.Join(root, "docs", "decisions", decisionNavigationFile)
+	if err := os.MkdirAll(navigationPath, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	report := newReport("policy", root)
 	err := checkDecisionRecords(root, &report)
-	if err == nil || !strings.Contains(err.Error(), "read Decision Register") {
-		t.Fatalf("Decision Register read error = %v", err)
+	if err == nil || !strings.Contains(err.Error(), "read Decision Record navigation") {
+		t.Fatalf("Decision Record navigation read error = %v", err)
 	}
-	if hasRule(report, "decision_record_register_missing") {
-		t.Fatalf("unreadable Decision Register was classified as missing: %+v", report.Findings)
+	if hasRule(report, "decision_record_navigation_missing") {
+		t.Fatalf("unreadable Decision Record navigation was classified as missing: %+v", report.Findings)
 	}
 }
 
-func TestDecisionRecordsAcceptSemanticContiguousRegister(t *testing.T) {
+func TestDecisionRecordsAcceptReadmeNavigation(t *testing.T) {
 	root := t.TempDir()
 	writeDecisionRecord(t, root, "dr-0001-product-boundary.md", 1)
 	writeDecisionRecord(t, root, "dr-0002-release-trust.md", 2)
-	writeFile(t, filepath.Join(root, "docs", "decisions", decisionRegister), "[DR-0001](dr-0001-product-boundary.md)\n[DR-0002](dr-0002-release-trust.md)\n")
+	writeFile(t, filepath.Join(root, "docs", "decisions", "README.md"), "[DR-0001](dr-0001-product-boundary.md)\n[DR-0002](dr-0002-release-trust.md)\n")
 	report := newReport("policy", root)
 	if err := checkDecisionRecords(root, &report); err != nil {
 		t.Fatal(err)
@@ -70,7 +70,7 @@ func TestDecisionRecordsRejectBareNumbersAndDuplicateRegistrationWithoutRequirin
 	writeDecisionRecord(t, root, "0001-product-boundary.md", 1)
 	writeDecisionRecord(t, root, "dr-0002-release-trust.md", 2)
 	writeDecisionRecord(t, root, "dr-0004-portability.md", 4)
-	writeFile(t, filepath.Join(root, "docs", "decisions", decisionRegister), "[DR-0002](dr-0002-release-trust.md)\n[again](dr-0002-release-trust.md)\n[DR-0004](dr-0004-portability.md)\n")
+	writeFile(t, filepath.Join(root, "docs", "decisions", decisionNavigationFile), "[DR-0002](dr-0002-release-trust.md)\n[again](dr-0002-release-trust.md)\n[DR-0004](dr-0004-portability.md)\n")
 	report := newReport("policy", root)
 	if err := checkDecisionRecords(root, &report); err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestDecisionRecordsRejectBareNumbersAndDuplicateRegistrationWithoutRequirin
 	}
 }
 
-func TestDecisionRecordsReportMissingRegisterAndIncompleteBody(t *testing.T) {
+func TestDecisionRecordsReportMissingNavigationAndIncompleteBody(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "docs", "decisions", "dr-0001-product-boundary.md")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -95,9 +95,9 @@ func TestDecisionRecordsReportMissingRegisterAndIncompleteBody(t *testing.T) {
 	if err := checkDecisionRecords(root, &report); err != nil {
 		t.Fatal(err)
 	}
-	assertFinding(t, report.Findings, "decision_record_register_missing", "docs/decisions/decision-register.md")
+	assertFinding(t, report.Findings, "decision_record_navigation_missing", "docs/decisions/README.md")
 
-	writeFile(t, filepath.Join(root, "docs", "decisions", decisionRegister), "# Decision Records\n")
+	writeFile(t, filepath.Join(root, "docs", "decisions", decisionNavigationFile), "# Decision Records\n")
 	report = newReport("policy", root)
 	if err := checkDecisionRecords(root, &report); err != nil {
 		t.Fatal(err)
