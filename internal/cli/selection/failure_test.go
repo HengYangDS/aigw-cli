@@ -233,6 +233,18 @@ func TestCodexForwardingPreviewPlansOwnedTargetBeforeCredentialReads(t *testing.
 		preview.Projections[0].Target != target || preview.Projections[0].Action != "initial-project" {
 		t.Fatalf("preview did not expose its exact target transition: %#v", preview)
 	}
+	out.Reset()
+	command = NewUseCommand(app)
+	command.SilenceErrors, command.SilenceUsage = true, true
+	command.SetArgs([]string{"--for", configuration.ClientCodex, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run"})
+	if err := command.Execute(); err != nil {
+		t.Fatalf("human preview inspected another client or read credentials: %v", err)
+	}
+	for _, want := range []string{"Selection preview", filepath.Base(target), "initial-project", "http://127.0.0.1:8792/v1", "https://gateway.example.test/v1"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("human preview omitted %q: %s", want, out.String())
+		}
+	}
 	after, err := app.Config.CaptureSnapshot()
 	if err != nil || !reflect.DeepEqual(before, after) {
 		t.Fatalf("preview changed configuration or recovery inputs: %v", err)
@@ -314,17 +326,29 @@ func TestCodexForwardingPreviewRejectsOwnedTargetConflict(t *testing.T) {
 	}
 }
 
-func TestCodexDirectAndExplicitEmptyForwardingConflict(t *testing.T) {
+func TestInvalidSelectionFlagsPreserveRecoveryInputs(t *testing.T) {
 	app, _, _ := configuredRuntime(t)
 	before, err := app.Config.CaptureSnapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	command := NewUseCommand(app)
-	command.SilenceErrors, command.SilenceUsage = true, true
-	command.SetArgs([]string{"--for", configuration.ClientCodex, "codex", "--direct", "--forwarding-endpoint="})
-	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
-		t.Fatalf("conflicting explicit flags were not rejected: %v", err)
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--for", "codex", "codex", "--direct", "--forwarding-endpoint="}, "mutually exclusive"},
+		{[]string{"--for", "codex", "codex", "--json"}, "--json requires --dry-run"},
+		{nil, "non-interactive use requires a Route"},
+		{[]string{"codex"}, "non-interactive use requires --for"},
+		{[]string{"--for", "unknown", "codex"}, "--for must be"},
+		{[]string{"--for", "codex", "codex", "--forwarding-endpoint="}, "use --direct to remove forwarding"},
+	} {
+		command := NewUseCommand(app)
+		command.SilenceErrors, command.SilenceUsage = true, true
+		command.SetArgs(test.args)
+		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), test.want) {
+			t.Fatalf("invalid selection %v: %v", test.args, err)
+		}
 	}
 	after, err := app.Config.CaptureSnapshot()
 	if err != nil || !reflect.DeepEqual(before, after) {

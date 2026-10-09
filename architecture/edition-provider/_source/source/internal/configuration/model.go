@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strings"
 )
 
 // Authentication identifies which boundary owns credentials for a Route.
@@ -138,6 +139,7 @@ type Runtime struct {
 	AccountLabel      string           `json:"account_label"`
 	Client            string           `json:"client"`
 	Endpoint          string           `json:"endpoint"`
+	UpstreamEndpoint  string           `json:"upstream_endpoint"`
 	Protocol          EndpointProtocol `json:"protocol"`
 	Model             string           `json:"model,omitempty"`
 	ModelProvider     string           `json:"model_provider"`
@@ -152,10 +154,21 @@ func (runtime Runtime) RequiresAccountToken() bool {
 	return runtime.Authentication == "" || runtime.Authentication == AuthenticationAccountToken
 }
 
-// CredentialProjectionFingerprint hashes the client, Account and endpoint identities.
+// CredentialProjectionFingerprint hashes the client, Account and upstream identities.
 // It detects stale credential projections; it is not a secret or caller authorization.
 func (runtime Runtime) CredentialProjectionFingerprint(client string) string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(client+"\x00"+runtime.AccountID+"\x00"+runtime.Endpoint)))
+	endpoint := runtime.UpstreamEndpoint
+	if endpoint == "" {
+		endpoint = runtime.Endpoint
+	}
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(client+"\x00"+runtime.AccountID+"\x00"+endpoint)))
+}
+
+// SameUpstream compares the client, Account, endpoint and protocol independently
+// of model choice and a client's forwarding destination.
+func (runtime Runtime) SameUpstream(other Runtime) bool {
+	return runtime.Client == other.Client && runtime.Protocol == other.Protocol &&
+		runtime.CredentialProjectionFingerprint(runtime.Client) == other.CredentialProjectionFingerprint(other.Client)
 }
 
 // AccountProbe declares an optional provider-owned diagnostic API independently from inference traffic.
@@ -287,6 +300,7 @@ func (c *Config) SetSelectedRoute(client, routeID string) {
 		c.Clients = map[string]ClientBinding{}
 	}
 	binding := c.Clients[client]
+	previous, previousErr := c.ResolveRuntime(client, "")
 	if binding.Route == "" {
 		binding = binding.withSelection(c.recommendedSelection(client))
 	}
@@ -296,6 +310,11 @@ func (c *Config) SetSelectedRoute(client, routeID string) {
 		if protocols := route.AdmittedProtocols(); len(protocols) == 1 {
 			binding.Protocol = protocols[0]
 		}
+	}
+	c.Clients[client] = binding
+	current, currentErr := c.resolveUpstreamSelection(client, binding.selection())
+	if previousErr != nil || currentErr != nil || !previous.SameUpstream(current) {
+		binding = binding.withoutForwarding()
 	}
 	c.Clients[client] = binding
 }
@@ -531,6 +550,21 @@ func (c *Config) clientBinding(client string) ClientBinding {
 }
 
 func (c *Config) resolveSelection(client string, selection ClientSelection) (Runtime, error) {
+	runtime, err := c.resolveUpstreamSelection(client, selection)
+	if err != nil {
+		return Runtime{}, err
+	}
+	forwarding, err := c.forwardingFor(client, runtime)
+	if err != nil {
+		return Runtime{}, err
+	}
+	if forwarding != "" {
+		runtime.Endpoint = strings.TrimRight(forwarding, "/")
+	}
+	return runtime, nil
+}
+
+func (c *Config) resolveUpstreamSelection(client string, selection ClientSelection) (Runtime, error) {
 	name := selection.Route
 	route, ok := c.Routes[name]
 	if !ok {
@@ -556,6 +590,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		AccountLabel:      account.Label,
 		Client:            client,
 		Endpoint:          endpoint,
+		UpstreamEndpoint:  endpoint,
 		Protocol:          protocol,
 		Model:             route.UpstreamModelID(),
 		ModelProvider:     selectedModelProvider(client, selection),

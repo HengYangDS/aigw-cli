@@ -368,7 +368,11 @@ func codexReconciliationInputs(deps Dependencies, before, after configuration.Co
 	if err != nil {
 		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
 	}
-	afterRefs, err := codexTargetRefs(discovered, afterAdapter.Targets, codexExecutable(discovered, afterAdapter))
+	afterTargets := afterAdapter.Targets
+	if deps.AuthorizeCodexRouteSelection && afterAdapter.Enabled {
+		afterTargets = codexTargets(discovered, afterTargets)
+	}
+	afterRefs, err := codexTargetRefs(discovered, afterTargets, codexExecutable(discovered, afterAdapter))
 	if err != nil {
 		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
 	}

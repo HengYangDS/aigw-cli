@@ -597,12 +597,12 @@
       },
       "sources": {
         "cli": {
-          "sha256": "299378dba50f98c1b4ec634634b397dc2c995e48df7879325e2cfdf11890424f",
+          "sha256": "7eb43b3084d2a73a120cb97d207eec05206d6b17e50d71e834fce3ec02acd1aa",
           "locator": "source/internal/cli/app.go",
           "authority": "AIGW command composition at the selected product revision"
         },
         "configuration": {
-          "sha256": "591495a93972c0e538f330cc595fe766bf23ede3daa1bbffc7ce8db119edb88d",
+          "sha256": "6095d56d57cd1cdfe691ea235b966fad5cc2dd4dbaadecd267e90158f4096c02",
           "locator": "source/internal/configuration/model.go",
           "authority": "AIGW Account, Model, Route, recommendation, and Client Binding authority"
         },
@@ -622,7 +622,7 @@
           "authority": "AIGW ordered client registry and Adapter contract"
         },
         "adapters": {
-          "sha256": "41bd0fb7f86b321907c87f386cd577d4ade9dd5053a1dc6f2af6d0546ba7c4c5",
+          "sha256": "2c5d58b7ae6cd92784ffa152ef781fae55d11f426ac9cca4f5e369b4ea3309cf",
           "locator": "source/internal/client/adapters.go",
           "authority": "AIGW built-in Adapter composition"
         },
@@ -632,7 +632,7 @@
           "authority": "AIGW client convergence coordinator"
         },
         "projection-transaction": {
-          "sha256": "2c75bc0a76506b036f88fa3b303f156b371fb7d0c26ff787a6096b08b52a688f",
+          "sha256": "56df19a4d41883d7a9c286c0a374345d60d4d4b521ebb8f471fc74569cd460f8",
           "locator": "source/internal/synchronization/transaction.go",
           "authority": "AIGW configuration and projection transaction"
         },
@@ -1017,7 +1017,7 @@
         }
       },
       "context": {
-        "revision": "b4a57abb2b544acc9267742cacc7cd6f3a23f62f848ffc8026dbf159875cc694",
+        "revision": "e8326d52e06e367ea56472b2203a34d85faf4db304cb6a9a0f39a50672c1612d",
         "scope": "Selected AIGW control-plane owners; not automatic inference or exhaustive implementation coverage"
       }
     },
@@ -1033,11 +1033,11 @@
           "version": "0.3.0-alpha.1"
         },
         "source": {
-          "manifestSha256": "4aec46faa19c4334a374134ad9afeca10d4d52c5fa900edebd5447dabc0509f0"
+          "manifestSha256": "c50338ad7113e2df68cd0105f729846fc2bc2b5bb5e52dce1fb5675ef2798dfb"
         },
         "claimModel": {
           "schema": "architecture.claim-model/v2",
-          "digest": "99457fb99830c6119da9881fa64ce880dad6d1746df974cfd3aac6d9d487d9e4"
+          "digest": "8c4a0d33348396c8139f6a63d7775cf69dd43aaf72a19b2371a85c5b7b80c7cc"
         },
         "title": "AIGW Client Projection",
         "audiences": { "maintainer": { "label": "AIGW maintainers" } },
@@ -1552,7 +1552,7 @@
           "recovery": [],
           "human": []
         },
-        "scope": "Selected AIGW control-plane owners at source revision b4a57abb2b544acc9267742cacc7cd6f3a23f62f848ffc8026dbf159875cc694; curated from exact source bytes without inferred implementation completeness."
+        "scope": "Selected AIGW control-plane owners at source revision e8326d52e06e367ea56472b2203a34d85faf4db304cb6a9a0f39a50672c1612d; curated from exact source bytes without inferred implementation completeness."
       }
     ]
   },
