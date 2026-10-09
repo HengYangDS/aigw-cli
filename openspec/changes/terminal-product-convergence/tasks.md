@@ -94,7 +94,7 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
-- [ ] 4.7 Qualify an explicit client-scoped forwarding endpoint independently
+- [x] 4.7 Qualify an explicit client-scoped forwarding endpoint independently
       of its Account upstream through the existing selection, resolver, credential,
       guarded projection, dry-run and rollback owners. Preserve the Account,
       provider identity, cached direct credential reader and unrelated clients;
