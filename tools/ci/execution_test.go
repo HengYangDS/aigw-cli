@@ -315,9 +315,10 @@ func TestSystemOutputRunnerPreservesNativeImmediateExitEvidence(t *testing.T) {
 		{"successful warning", "", payload, 0, 0},
 		{"successful result", payload, "", 0, 0},
 		{"failed mixed output", "result\n", payload, 7, 0},
-		{"deadline", "", payload, 0, time.Second},
+		{"deadline before startup", "", payload, 0, time.Nanosecond},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			started := time.Now()
 			output, err := systemOutputRunner(command{
 				Name: "node",
 				Args: []string{"-e", "process.stdout.write(process.env.AIGW_CI_TEST_STDOUT); process.stderr.write(process.env.AIGW_CI_TEST_STDERR); if (process.env.AIGW_CI_TEST_HOLD === 'true') { setInterval(() => {}, 1000); } else { process.exit(Number(process.env.AIGW_CI_TEST_EXIT)); }"},
@@ -330,7 +331,16 @@ func TestSystemOutputRunnerPreservesNativeImmediateExitEvidence(t *testing.T) {
 				Dir:     root,
 				Timeout: test.timeout,
 			})
-			if string(output) != test.stdout+test.stderr || (err != nil) != (test.exit != 0 || test.timeout != 0) {
+			expected := test.stdout + test.stderr
+			if test.timeout != 0 {
+				// A total deadline can expire before the tool writes any output.
+				if !strings.HasPrefix(expected, string(output)) || time.Since(started) > 5*time.Second {
+					t.Fatalf("deadline evidence: error=%v bytes=%d elapsed=%s", err, len(output), time.Since(started))
+				}
+			} else if string(output) != expected {
+				t.Fatalf("native evidence: bytes=%d want=%d", len(output), len(expected))
+			}
+			if (err != nil) != (test.exit != 0 || test.timeout != 0) {
 				t.Fatalf("native evidence: exit=%d error=%v bytes=%d want=%d", test.exit, err, len(output), len(test.stdout)+len(test.stderr))
 			}
 			if errors.Is(err, context.DeadlineExceeded) != (test.timeout != 0) {
