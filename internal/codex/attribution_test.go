@@ -250,6 +250,16 @@ func TestPreferredCodexStatePathUsesExistingCanonicalSidecar(t *testing.T) {
 	source := filepath.Join(root, "alias.toml")
 	canonical := filepath.Join(root, "configuration.toml")
 	want := codexStatePath(canonical)
+	if got := preferredCodexStatePath(source, canonical); got != want {
+		t.Fatalf("unowned alias state path = %q, want %q", got, want)
+	}
+	aliasState := codexStatePath(source)
+	if err := os.WriteFile(aliasState, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := preferredCodexStatePath(source, canonical); got != aliasState {
+		t.Fatalf("retained alias state path = %q, want %q", got, aliasState)
+	}
 	if err := os.WriteFile(want, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}

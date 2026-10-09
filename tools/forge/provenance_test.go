@@ -90,8 +90,15 @@ func TestCommitVerificationRejectsInvalidInputsAndHistory(t *testing.T) {
 		"revision":   {"commits", "--repository", fixture.repository, "--revision", "missing", "--email", fixture.email, "--allowed-signers", fixture.allowedSigners},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if err := run(arguments); err == nil {
+			if name == "repository" {
+				t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(arguments[2]))
+			}
+			err := run(arguments)
+			if err == nil {
 				t.Fatal("invalid commit verification accepted")
+			}
+			if name == "repository" && !strings.Contains(err.Error(), "not a Git repository") {
+				t.Fatalf("repository refusal has the wrong boundary: %v", err)
 			}
 		})
 	}
