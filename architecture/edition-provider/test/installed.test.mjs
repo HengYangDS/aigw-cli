@@ -174,8 +174,10 @@ test("the selected installed Publisher reproduces the AIGW provider", async (t) 
       selection.providerOutput.providerMaterializationSha256,
     );
   }
-  const stableResult = ({ manifestPath: _manifestPath, ...result }) => result;
-  assert.deepEqual(stableResult(results[0]), stableResult(results[1]));
+  assert.deepEqual(
+    { ...results[0], manifestPath: "" },
+    { ...results[1], manifestPath: "" },
+  );
 
   const output = path.join(temporary, "candidate-a");
   for (const [relative, field] of [

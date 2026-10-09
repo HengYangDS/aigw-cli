@@ -101,9 +101,8 @@ test("AIGW owns one closed declarative Edition Provider", async () => {
 });
 
 test("the checked-in Source Bundle closes exact AIGW provenance", async () => {
-  const [provider, selection, source, semantic] = await Promise.all([
+  const [provider, source, semantic] = await Promise.all([
     json("provider.json"),
-    json("selection.json"),
     json("_source/manifest.json"),
     json("_source/semantic.json"),
   ]);
