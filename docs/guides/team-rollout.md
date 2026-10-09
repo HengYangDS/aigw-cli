@@ -202,6 +202,16 @@ requires Claude Code **2.1.257 or later**. A passing Sonnet request on an older
 client does not qualify the Fable Route; verify the selected Route
 with the actual client version that team members will use.
 
+If a gateway rejects `context_management` with `Extra inputs are not permitted`,
+set `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` in Claude Code's native settings
+`env` and verify again. This [official compatibility
+control](https://code.claude.com/docs/en/llm-gateway-protocol#disable-pre-release-capabilities)
+removes pre-release request fields and beta tool-schema fields, including MCP
+tool search and structured-output formatting. Ordinary tools, effort, and
+supported extended-context headers remain. AIGW preserves this native preference;
+it does not silently disable capabilities or edit the client. The isolated
+`aigw verify` invocation supplies a nonempty system prompt in `--bare` mode.
+
 A successful short request proves only that client, Route and invocation.
 It does not establish Desktop behavior, other operating systems, full-window
 capacity, tool replay, or installation and update correctness. Verify those

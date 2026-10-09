@@ -255,7 +255,7 @@ func VerifyClaudeRuntime(ctx context.Context, runner process.VerificationRunner,
 	}
 	output, diagnostic, err := runner.RunCaptureStreams(ctx, plan)
 	if err != nil {
-		return verificationFailure("Claude", configuration.ClientClaude, diagnostic, err, token)
+		return verificationFailure("Claude", configuration.ClientClaude, bytes.Join([][]byte{diagnostic, output}, []byte("\n")), err, token)
 	}
 	if process.DiagnosticFailure(diagnostic) {
 		return verificationDiagnostic("Claude", diagnostic)
@@ -284,7 +284,7 @@ func (failure requestFailureError) Error() string { return failure.message }
 func (failure requestFailureError) Unwrap() error { return failure.cause }
 
 func verificationFailure(label, client string, diagnostic []byte, cause error, secrets ...string) error {
-	detail := verificationFailureSummary(diagnostic, cause, secrets...)
+	detail := verificationFailureSummary(client, diagnostic, cause, secrets...)
 	next := "aigw verify --for " + client
 	return requestFailureError{
 		message: fmt.Sprintf("%s minimal verification request failed: %s; run `%s`", label, detail, next),
@@ -292,11 +292,13 @@ func verificationFailure(label, client string, diagnostic []byte, cause error, s
 	}
 }
 
-func verificationFailureSummary(diagnostic []byte, cause error, secrets ...string) string {
+func verificationFailureSummary(client string, diagnostic []byte, cause error, secrets ...string) string {
 	text := strings.ToLower(redaction.Text(string(diagnostic), secrets...))
 	switch {
 	case errors.Is(cause, context.DeadlineExceeded), strings.Contains(text, "deadline exceeded"), strings.Contains(text, "timed out"):
 		return "client verification timed out"
+	case client == configuration.ClientClaude && strings.Contains(text, "context_management") && strings.Contains(text, "extra inputs are not permitted"):
+		return "endpoint rejects pre-release context management; set CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1 in native Claude settings env and verify again"
 	case strings.Contains(text, "unrecognized_model"),
 		strings.Contains(text, "not support for model"),
 		strings.Contains(text, "model id") && strings.Contains(text, "incorrect"),

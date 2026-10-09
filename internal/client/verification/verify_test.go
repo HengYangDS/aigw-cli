@@ -37,9 +37,6 @@ func (runner captureRunner) RunCapture(context.Context, process.Plan) ([]byte, e
 }
 
 func (runner captureRunner) RunCaptureStreams(context.Context, process.Plan) ([]byte, []byte, error) {
-	if runner.err != nil {
-		return nil, runner.output, runner.err
-	}
 	return runner.output, runner.stderr, runner.err
 }
 
@@ -506,6 +503,18 @@ func TestVerifyClaude(t *testing.T) {
 				t.Fatalf("Claude request error exposed %q: %v", forbidden, err)
 			}
 		}
+	}
+	compatibility := captureRunner{
+		output: []byte(`{"type":"result","is_error":true,"result":"API Error: 400 context_management: Extra inputs are not permitted; token=must-not-leak; /Users/operator/private"}`),
+		err:    want,
+	}
+	if err := VerifyClaudeRuntime(t.Context(), compatibility, "claude", settings, runtime, "must-not-leak"); err == nil || !strings.Contains(err.Error(), "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1") {
+		t.Fatalf("native compatibility action = %v", err)
+	} else if strings.Contains(err.Error(), "must-not-leak") || strings.Contains(err.Error(), "/Users/operator") {
+		t.Fatalf("native compatibility action exposed private diagnostics: %v", err)
+	}
+	if err := verificationFailure("Codex", configuration.ClientCodex, compatibility.output, want); strings.Contains(err.Error(), "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS") {
+		t.Fatalf("Codex failure advised a Claude-specific setting: %v", err)
 	}
 	if err := VerifyClaudeRuntime(context.Background(), captureRunner{output: []byte("wrong")}, "claude", settings, runtime, "token"); err == nil || !strings.Contains(err.Error(), "expected AIGW_OK") {
 		t.Fatalf("sentinel error = %v", err)

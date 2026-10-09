@@ -20,7 +20,7 @@ func VerificationPlan(executable, settingsPath, prompt string, currentEnv []stri
 	}
 	return process.Plan{
 		Executable: executable,
-		Args:       []string{"--bare", "--settings", settingsPath, "--disable-slash-commands", "--no-session-persistence", "--tools", "", "--print", prompt},
+		Args:       []string{"--bare", "--settings", settingsPath, "--disable-slash-commands", "--no-session-persistence", "--tools", "", "--system-prompt", "You are a concise assistant.", "--print", prompt},
 		Env:        removeEnvironment(currentEnv, managedEnvironmentKeys...),
 	}, nil
 }
