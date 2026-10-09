@@ -28,16 +28,27 @@ githubRelease: {name: "Release"}
 	if err := Reconcile(root, true); err != nil {
 		t.Fatalf("fresh projections: %v", err)
 	}
-	path := filepath.Join(root, ".gitlab-ci.yml")
-	edited := []byte("manual: edit\n")
-	if err := os.WriteFile(path, edited, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := Reconcile(root, true); err == nil || !strings.Contains(err.Error(), ".gitlab-ci.yml") {
-		t.Fatalf("drift observation: %v", err)
-	}
-	if data, err := os.ReadFile(path); err != nil || string(data) != string(edited) {
-		t.Fatalf("check changed the edited projection: %q, %v", data, err)
+	for _, item := range projectionExpressions {
+		t.Run(item.path, func(t *testing.T) {
+			path := filepath.Join(root, filepath.FromSlash(item.path))
+			original, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			edited := []byte("manual: edit\n")
+			if err := os.WriteFile(path, edited, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := Reconcile(root, true); err == nil || !strings.Contains(err.Error(), item.path) {
+				t.Fatalf("drift observation: %v", err)
+			}
+			if data, err := os.ReadFile(path); err != nil || string(data) != string(edited) {
+				t.Fatalf("check changed the edited projection: %q, %v", data, err)
+			}
+			if err := os.WriteFile(path, original, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 
