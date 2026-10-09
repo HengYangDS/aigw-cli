@@ -36,9 +36,14 @@ func checkGitLabNativeToolClosure(t *testing.T, content string) {
 	if err := yaml.Unmarshal([]byte(content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	for name, job := range map[string]gitLabJob{
-		"native-darwin": pipeline.NativeDarwin,
+	for name, job := range map[string]*gitLabJob{
+		"native-darwin": &pipeline.NativeDarwin,
+		"native-linux":  pipeline.NativeLinux, "native-windows": pipeline.NativeWindows,
 	} {
+		if job == nil {
+			t.Errorf("GitLab lacks %s", name)
+			continue
+		}
 		for _, tool := range []string{"go", "node", "npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "gh", "glab"} {
 			if !slices.Contains(strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ","), tool) {
 				t.Errorf("GitLab %s lacks native acceptance tool %s", name, tool)
@@ -52,9 +57,6 @@ func checkGitLabNativeToolClosure(t *testing.T, content string) {
 		if bootstrap < 0 || bootstrap >= len(job.Script)-1 {
 			t.Errorf("GitLab %s must prepare locked dependencies before native acceptance", name)
 		}
-	}
-	if pipeline.NativeLinux != nil || pipeline.NativeWindows != nil {
-		t.Fatal("GitLab projection advertises unqualified native capacity")
 	}
 }
 

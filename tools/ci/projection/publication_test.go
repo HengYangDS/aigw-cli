@@ -120,7 +120,7 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 	} {
 		protectedPushRuleSeen := false
 		for _, rule := range job.Rules {
-			if rule.If == `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
+			if rule.If == `$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")` {
 				protectedPushRuleSeen = true
 			}
 		}
@@ -157,7 +157,7 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		if name == "accepted-ref-parity" {
 			continue
 		}
-		want := "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev'"
+		want := "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))"
 		if platform, native := strings.CutPrefix(name, "native-"); native {
 			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '" + platform + "')"
 		}
@@ -440,7 +440,7 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 	for _, need := range pipeline.Assets.Needs {
 		needs = append(needs, need.Job)
 	}
-	if !slices.Equal(needs, []string{"quality", "native-darwin", "release-version"}) {
+	if !slices.Equal(needs, []string{"quality", "native-darwin", "native-linux", "native-windows", "release-version"}) {
 		t.Fatalf("release requirements = %q", needs)
 	}
 	if len(pipeline.Assets.Rules) != 2 || pipeline.Assets.Rules[0].If != `$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == "api" || $CI_PIPELINE_SOURCE == "web")` || pipeline.Assets.Rules[1].When != "never" {

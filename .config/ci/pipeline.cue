@@ -96,36 +96,42 @@ lifecycle: {
 	checkoutRemote: "origin"
 }
 
-// Product evidence is explicit and shared by both Forge projections.
+// Each selected Forge projects and proves this complete native matrix.
 productEvidence: native: ["darwin", "linux", "windows"]
 
-// Forge capacity is executor inventory, not product support. A Forge projects
-// only the native jobs backed by qualified runners; the aggregate product
-// evidence set remains unchanged.
-forgeCapabilities: {
-	gitlab: {
-		control: "darwin"
-		native: ["darwin"]
-	}
-	github: native: productEvidence.native
-}
+gitlabControlPlatform: #OperatingSystem & "darwin"
 
 // This map owns native execution evidence only. Product release targets remain
 // solely owned by .config/release/goreleaser.yaml.
 nativeEvidence: {
 	darwin: {
 		name: "macOS"
-		gitlab: tags: ["$AIGW_GITLAB_DARWIN_RUNNER_TAG"]
+		gitlab: {
+			selector:     "AIGW_CI_DARWIN_RUNNER_TAG"
+			protectedTag: "ci-macos-arm64-shell"
+			reviewTag:    "ci-macos-arm64-review"
+			tags: ["$\(selector)"]
+		}
 		github: runner: "macos-26-intel"
 	}
 	linux: {
 		name: "Linux"
-		gitlab: tags: ["$AIGW_GITLAB_LINUX_RUNNER_TAG"]
+		gitlab: {
+			selector:     "AIGW_CI_LINUX_RUNNER_TAG"
+			protectedTag: "ci-linux-arm64-container-protected"
+			reviewTag:    "ci-linux-arm64-container"
+			tags: ["$\(selector)"]
+		}
 		github: runner: "ubuntu-latest"
 	}
 	windows: {
 		name: "Windows"
-		gitlab: tags: ["$AIGW_GITLAB_WINDOWS_RUNNER_TAG"]
+		gitlab: {
+			selector:     "AIGW_CI_WINDOWS_RUNNER_TAG"
+			protectedTag: "ci-windows-arm64-shell"
+			reviewTag:    "ci-windows-arm64-review"
+			tags: ["$\(selector)"]
+		}
 		github: runner: "windows-latest"
 	}
 }
@@ -175,7 +181,7 @@ graph: {
 
 gitlabReleaseNeeds: list.Concat([
 	["quality"],
-	[for platform in forgeCapabilities.gitlab.native {"native-\(platform)"}],
+	[for platform in productEvidence.native {"native-\(platform)"}],
 	["release-version"],
 ])
 
@@ -183,11 +189,35 @@ gitlabVerificationCondition: {
 	tag:           "$CI_COMMIT_TAG"
 	review:        "$CI_PIPELINE_SOURCE == \"merge_request_event\" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.acceptedBranch)\" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.releaseBranch)\")"
 	protectedPush: "$CI_PIPELINE_SOURCE == \"push\" && ($CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\" || $CI_COMMIT_BRANCH == \"\(lifecycle.releaseBranch)\")"
-	acceptedPush:  "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\""
 	manual:        "$CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\""
 }
 
+#GitLabRunnerSelection: {
+	_review: bool
+	for platform in productEvidence.native {
+		if _review {
+			(nativeEvidence[platform].gitlab.selector): nativeEvidence[platform].gitlab.reviewTag
+		}
+		if !_review {
+			(nativeEvidence[platform].gitlab.selector): nativeEvidence[platform].gitlab.protectedTag
+		}
+	}
+}
+
 gitlabPipelineRules: [
+	{if: gitlabVerificationCondition.tag, variables: #GitLabRunnerSelection & {_review: false}},
+	{if: gitlabVerificationCondition.review, variables: #GitLabRunnerSelection & {_review: true}},
+	{if: gitlabVerificationCondition.protectedPush, variables: #GitLabRunnerSelection & {_review: false}},
+	for protected, review in {"true": false, "false": true} {
+		{
+			if: "(\(gitlabVerificationCondition.manual)) && $CI_COMMIT_REF_PROTECTED == \"\(protected)\""
+			variables: #GitLabRunnerSelection & {_review: review}
+		}
+	},
+	{when: "never"},
+]
+
+gitlabFullVerificationRules: [
 	{if: gitlabVerificationCondition.tag},
 	{if: gitlabVerificationCondition.review},
 	{if: gitlabVerificationCondition.protectedPush},
@@ -195,15 +225,7 @@ gitlabPipelineRules: [
 	{when: "never"},
 ]
 
-gitlabFullVerificationRules: [
-	{if: gitlabVerificationCondition.tag},
-	{if: gitlabVerificationCondition.review},
-	{if: gitlabVerificationCondition.acceptedPush},
-	{if: gitlabVerificationCondition.manual},
-	{when: "never"},
-]
-
-githubFullVerificationCondition: "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == '\(lifecycle.acceptedBranch)'"
+githubFullVerificationCondition: "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == '\(lifecycle.acceptedBranch)' || github.ref_name == '\(lifecycle.releaseBranch)'))"
 
 githubCommitBase: "${{ github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || inputs.commit_base }}"
 
@@ -548,12 +570,12 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 
 _gitlabControlJob: {
 	_commands: [...string]
-	tags: nativeEvidence[forgeCapabilities.gitlab.control].gitlab.tags
-	if forgeCapabilities.gitlab.control == "linux" {
+	tags: nativeEvidence[gitlabControlPlatform].gitlab.tags
+	if gitlabControlPlatform == "linux" {
 		extends: [".linux-toolchain"]
 		script: _commands
 	}
-	if forgeCapabilities.gitlab.control != "linux" {
+	if gitlabControlPlatform != "linux" {
 		script: list.Concat([[commands.install], _commands])
 	}
 }
@@ -599,7 +621,7 @@ gitlab: {
 				variables: AIGW_COMMIT_BASE: "$CI_MERGE_REQUEST_DIFF_BASE_SHA"
 			},
 			{
-				if: gitlabVerificationCondition.acceptedPush
+				if: gitlabVerificationCondition.protectedPush
 				variables: AIGW_COMMIT_BASE: "$CI_COMMIT_BEFORE_SHA"
 			},
 			{if: gitlabVerificationCondition.manual},
@@ -615,14 +637,8 @@ gitlab: {
 			{when: "never"},
 		]
 	}
-	if list.Contains(forgeCapabilities.gitlab.native, "darwin") {
-		"native-darwin": #NativeGitLabJob & {_platform: "darwin"}
-	}
-	if list.Contains(forgeCapabilities.gitlab.native, "linux") {
-		"native-linux": #NativeGitLabJob & {_platform: "linux"}
-	}
-	if list.Contains(forgeCapabilities.gitlab.native, "windows") {
-		"native-windows": #NativeGitLabJob & {_platform: "windows"}
+	for platform in productEvidence.native {
+		"native-\(platform)": #NativeGitLabJob & {_platform: platform}
 	}
 	"release-version": _gitlabControlJob & {
 		_commands: [commands.version]
@@ -767,7 +783,7 @@ githubVerify: {
 				},
 			]
 		}
-		for platform in forgeCapabilities.github.native {
+		for platform in productEvidence.native {
 			"native-\(platform)": #NativeGitHubJob & {_platform: platform}
 		}
 	}

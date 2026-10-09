@@ -40,7 +40,8 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		{If: "$CI_COMMIT_TAG"},
 		{If: `$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")`},
 		{If: `$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")`},
-		{If: `$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"`},
+		{If: `($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && $CI_COMMIT_REF_PROTECTED == "true"`},
+		{If: `($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && $CI_COMMIT_REF_PROTECTED == "false"`},
 		{When: "never"},
 	}
 	if len(gitlab.Workflow.Rules) != len(wantGitLabWorkflow) {
@@ -56,16 +57,16 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		"quality":       gitlab.Quality,
 		"native-darwin": gitlab.Darwin,
 	} {
-		if len(job.Rules) != len(wantGitLabWorkflow) || job.Rules[1].If != wantGitLabWorkflow[1].If {
+		if len(job.Rules) != 5 || job.Rules[1].If != wantGitLabWorkflow[1].If {
 			t.Errorf("GitLab %s must verify reviews into both integration and release: %#v", name, job.Rules)
 			continue
 		}
-		if got := job.Rules[2].If; got != `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
+		if got := job.Rules[2].If; got != wantGitLabWorkflow[2].If {
 			t.Errorf("GitLab %s accepted-push rule = %q", name, got)
 		}
 	}
-	if gitlab.Linux != nil || gitlab.Windows != nil {
-		t.Fatal("GitLab review graph includes unqualified native capacity")
+	if gitlab.Linux == nil || gitlab.Windows == nil {
+		t.Fatal("GitLab review graph lacks a required native platform")
 	}
 
 	var github struct {
@@ -293,7 +294,7 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 	for _, metadata := range []string{".linux-toolchain", "stages", "variables", "workflow"} {
 		delete(gitlab, metadata)
 	}
-	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "quality", "release-assets", "release-version"}
+	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "native-windows", "quality", "release-assets", "release-version"}
 	if got := slices.Sorted(maps.Keys(gitlab)); !slices.Equal(got, wantGitLabJobs) {
 		t.Fatalf("GitLab jobs = %q, want %q", got, wantGitLabJobs)
 	}

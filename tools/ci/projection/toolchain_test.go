@@ -165,7 +165,7 @@ func TestGitLabToolchainUsesOfficialRunnableMiseImage(t *testing.T) {
 	}
 }
 
-func TestGitLabLinuxToolchainRemainsDormantWithoutQualifiedCapacity(t *testing.T) {
+func TestGitLabLinuxNativeJourneyUsesItsDeclaredToolchain(t *testing.T) {
 	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {
 		t.Fatal(err)
@@ -185,13 +185,13 @@ func TestGitLabLinuxToolchainRemainsDormantWithoutQualifiedCapacity(t *testing.T
 	if got := pipeline.LinuxToolchain.BeforeScript; !slices.Equal(got, wantBootstrap) {
 		t.Fatalf("Linux bootstrap = %q, want %q", got, wantBootstrap)
 	}
-	if pipeline.NativeLinux != nil {
-		t.Fatal("GitLab projects Linux work without qualified executor capacity")
+	if pipeline.NativeLinux == nil || !slices.Equal(pipeline.NativeLinux.Extends, []string{".linux-toolchain"}) {
+		t.Fatal("GitLab Linux native acceptance lacks its declared toolchain")
 	}
 	if len(pipeline.Quality.Extends) != 0 || pipeline.Quality.Variables["CGO_ENABLED"] != "1" {
 		t.Fatalf("GitLab quality must use the selected control executor directly: %#v", pipeline.Quality)
 	}
-	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_GITLAB_DARWIN_RUNNER_TAG"}) {
+	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_CI_DARWIN_RUNNER_TAG"}) {
 		t.Fatalf("GitLab quality runner tags = %q", pipeline.Quality.Tags)
 	}
 	if len(pipeline.Quality.Script) < 2 || pipeline.Quality.Script[0] != "env GODEBUG=http2client=0 mise install --locked" || pipeline.Quality.Script[1] != "mise run bootstrap" {
@@ -410,7 +410,7 @@ func TestQualityJobsUseTheirExactToolClosure(t *testing.T) {
 	if qualityTools == "" {
 		t.Fatal("GitLab quality job must declare its native toolchain")
 	}
-	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_GITLAB_DARWIN_RUNNER_TAG"}) {
+	if !slices.Equal(pipeline.Quality.Tags, []string{"$AIGW_CI_DARWIN_RUNNER_TAG"}) {
 		t.Fatalf("GitLab quality runner tags = %q", pipeline.Quality.Tags)
 	}
 	if len(pipeline.Quality.Script) < 2 || pipeline.Quality.Script[0] != "env GODEBUG=http2client=0 mise install --locked" || pipeline.Quality.Script[1] != "mise run bootstrap" {

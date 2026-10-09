@@ -49,6 +49,11 @@ no job currently consumes and verifies another event's complete evidence. Never
 silently omit the `dev` route to simulate deduplication. Every job measures the
 exact Git object selected by its event; the event alone is not proof of success.
 
+Each selected optional peer runs the same declared three-platform matrix and
+reports its own evidence. Review events select admitted review runners; protected
+push and tag events select protected runners. An unavailable runner leaves that
+peer unverified, not passed by another peer's result or a reduced projection.
+
 Hosted release jobs verify rather than construct: one approved build host signs
 a single matrix and publishes the same files independently to selected peers.
 The GitHub Release workflow and GitLab tag API/UI pipeline are dispatched after
