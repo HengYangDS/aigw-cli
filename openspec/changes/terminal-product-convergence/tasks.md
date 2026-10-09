@@ -61,13 +61,14 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 3.4 Exercise rollback, uninstall, and exact owned-byte cleanup for that
       strategy; preserve unknown, cached, explicit, or rollback consumers and
       reject prefix/age-based deletion.
-- [ ] 3.5 Run published-predecessor-to-successor reader journeys on macOS,
+- [x] 3.5 Run published-predecessor-to-successor reader journeys on macOS,
       Linux, and Windows with actual native stores or the explicit environment
       backend and isolated synthetic native items before archive. Verify stable
       native reader identity across signed successors without treating signing
       as item authorization. Preserve original versioned commands and disclose
-      the cached 0.3.1 public-link risk. macOS ENV succession, rollback and forward
-      passed with signed candidate `82145457`; the remaining native scopes stay open.
+      the cached 0.3.1 public-link risk. Signed candidate `82145457` passed macOS
+      ENV, Linux Secret Service and Windows Credential Manager succession,
+      rollback, forward and cleanup; original source-bound receipts are retained.
       Final operator-item authorization and
       the real package-link transition belong to the post-archive
       [Migration Plan](design.md#migration-plan), not this pre-archive checkbox.
