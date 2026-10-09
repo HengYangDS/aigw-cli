@@ -2,6 +2,7 @@ package construction
 
 import (
 	"aigw-cli/tools/release/artifact"
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -508,5 +509,30 @@ func TestReleaseBuildPropagatesToolFailureAndNeverPublishesPartialMatrix(t *test
 	entries, readErr := os.ReadDir(output)
 	if readErr != nil || len(entries) != 1 || entries[0].Name() != "accepted" {
 		t.Fatalf("previous output was not preserved atomically: entries=%v error=%v", entries, readErr)
+	}
+}
+
+func TestDependencyScanAdmissionPreservesCallerParent(t *testing.T) {
+	parent := filepath.Join(t.TempDir(), "occupied")
+	if err := os.WriteFile(parent, []byte("owned"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if directory, err := ScanDependencies(t.Context(), ".", parent); err == nil || directory != "" {
+		t.Fatalf("occupied evidence parent admitted: directory=%q error=%v", directory, err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	directory, err := ScanDependencies(ctx, t.TempDir(), t.TempDir())
+	if err == nil || !filepath.IsAbs(directory) {
+		t.Fatalf("canceled scan lost its evidence: directory=%q error=%v", directory, err)
+	}
+	if _, err := os.Stat(filepath.Join(directory, "execution.json")); err != nil {
+		t.Fatal(err)
+	}
+	if err := scanDependencies(".", directory, true, executeTool(ctx)); err == nil || !strings.Contains(err.Error(), "open dependency stdout") {
+		t.Fatalf("scan overwrote retained output: %v", err)
+	}
+	if data, err := os.ReadFile(parent); err != nil || string(data) != "owned" {
+		t.Fatalf("caller evidence parent changed: %q, %v", data, err)
 	}
 }
