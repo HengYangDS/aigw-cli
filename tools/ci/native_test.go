@@ -45,15 +45,15 @@ func TestNativeReviewProtectedResourceRefusesUnprovedDenial(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var stdout bytes.Buffer
-			if err := qualifyProtectedResource(test.path, &stdout, func(command) ([]byte, error) {
-				t.Fatal("unproved resource reached privilege inquiry")
-				return nil, nil
-			}); err == nil || !strings.Contains(err.Error(), test.problem) {
-				t.Fatalf("native resource denial was unproved: %v", err)
-			}
 			problem := test.problem
 			if runtime.GOOS == "windows" {
 				problem = "protected-file qualification requires a Unix host"
+			}
+			if err := qualifyProtectedResource(test.path, &stdout, func(command) ([]byte, error) {
+				t.Fatal("unproved resource reached privilege inquiry")
+				return nil, nil
+			}); err == nil || !strings.Contains(err.Error(), problem) {
+				t.Fatalf("native resource denial was unproved: %v", err)
 			}
 			ran := false
 			err := run([]string{"native", "--protected-file", test.path, "--", "--artifacts=/candidate", "--candidate"}, &stdout, func(command) error {
