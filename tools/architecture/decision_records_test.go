@@ -65,6 +65,74 @@ func TestDecisionRecordsAcceptSemanticContiguousRegister(t *testing.T) {
 	}
 }
 
+func TestDecisionRecordsAcceptNativeMetadataAndDistinctNavigation(t *testing.T) {
+	for _, carrier := range []string{"yaml", "comment", "comment-crlf"} {
+		t.Run(carrier, func(t *testing.T) {
+			root := t.TempDir()
+			directory := filepath.Join(root, "docs", "decisions")
+			name := "dr-0001-product-boundary.md"
+			writeDecisionRecord(t, root, name, 1)
+			body, err := os.ReadFile(filepath.Join(directory, name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			metadata := "---\nsubject: example:decision:0001\nrole: decision\nstate: canonical\nrelations: {}\n---\n"
+			if carrier != "yaml" {
+				metadata = "<!--\n" + metadata + "-->\n"
+			}
+			record := metadata + "\n" + string(body)
+			if carrier == "comment-crlf" {
+				record = strings.ReplaceAll(record, "\n", "\r\n")
+			}
+			writeFile(t, filepath.Join(directory, name), record)
+			writeFile(t, filepath.Join(directory, decisionRegister), "[Decision]("+name+")\n")
+			writeFile(t, filepath.Join(directory, "README.md"), "---\nrole: index\n---\n\n# Decisions\n\n[Register](decision-register.md).\n")
+			writeFile(t, filepath.Join(directory, "rationale.md"), "---\nrole: explanation\n---\n\n# Rationale\n\nRead the register.\n")
+			report := newReport("policy", root)
+			if err := checkDecisionRecords(root, &report); err != nil {
+				t.Fatal(err)
+			}
+			if !report.OK {
+				t.Fatalf("native document carriers rejected: %+v", report.Findings)
+			}
+		})
+	}
+}
+
+func TestDecisionRecordsRequireRegisteredDecisionIdentityAfterMetadata(t *testing.T) {
+	root := t.TempDir()
+	directory := filepath.Join(root, "docs", "decisions")
+	writeFile(t, filepath.Join(directory, decisionRegister), "# Register\n")
+	writeFile(t, filepath.Join(directory, "boundary.md"), "---\nrole: decision\n---\n\n# DR-0001: Boundary\n")
+	writeFile(t, filepath.Join(directory, "dr-0002-wrong-title.md"), "<!--\n---\nrole: decision\n---\n-->\n\n# Wrong title\n\n# DR-0002: Hidden later\n")
+	report := newReport("policy", root)
+	if err := checkDecisionRecords(root, &report); err != nil {
+		t.Fatal(err)
+	}
+	assertFinding(t, report.Findings, "decision_record_name", "docs/decisions/boundary.md")
+	assertFinding(t, report.Findings, "decision_record_title", "docs/decisions/dr-0002-wrong-title.md")
+	assertFinding(t, report.Findings, "decision_record_unregistered", "docs/decisions/dr-0002-wrong-title.md")
+}
+
+func TestDecisionRecordMetadataFailureIsNotSilentlySkipped(t *testing.T) {
+	for _, body := range []string{
+		"---\nrole: decision\n",
+		"<!--\n---\nrole: decision\n---\n# Missing comment close\n",
+		"---\nrole: [\n---\n\n# DR-0001: Invalid YAML\n",
+	} {
+		t.Run(body, func(t *testing.T) {
+			root := t.TempDir()
+			directory := filepath.Join(root, "docs", "decisions")
+			writeFile(t, filepath.Join(directory, decisionRegister), "# Register\n")
+			writeFile(t, filepath.Join(directory, "dr-0001-invalid.md"), body)
+			report := newReport("policy", root)
+			if err := checkDecisionRecords(root, &report); err == nil || !strings.Contains(err.Error(), "read docs/decisions/dr-0001-invalid.md metadata") {
+				t.Fatalf("metadata error = %v", err)
+			}
+		})
+	}
+}
+
 func TestDecisionRecordsRejectBareNumbersAndDuplicateRegistrationWithoutRequiringContiguousHistory(t *testing.T) {
 	root := t.TempDir()
 	writeDecisionRecord(t, root, "0001-product-boundary.md", 1)

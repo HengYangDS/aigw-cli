@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:change-and-release-policy
+role: policy
+state: canonical
+relations:
+  canonical_for: change and release governance
+---
+-->
+
 # Change and Release Policy
 
 ## Authority Map
@@ -15,263 +25,79 @@
 - **Go source file budget:** [Source size policy](../../.config/checks/go/size.toml)
 - **Release assets:** [Release construction and publication](../../tools/release/)
 
-Generated workflows, installed binaries, host caches, IDE state, Forge pages,
-and remote refs are projections—not competing authorities.
+Generated workflows, installed binaries, host caches, IDE state, Forge pages, and remote refs are projections—not competing authorities.
 
 Repository placement follows the consumer, not a preference for hidden files:
 
-- Root discovery files retain their native names: Git attributes and ignores,
-  EditorConfig, npm metadata and registry selection, Go modules, mise tools and
-  locks, formatter ignores, and the GitLab entrypoint.
-  The [indexing exclusions](../../.cbmignore) control optional developer indexing, not product quality or
-  acceptance; it belongs with development-tool inputs.
-- [Check configuration](../../.config/checks/) contains policy data only. Go, Markdown, TOML and secret
-  scanning each have one native configuration; architecture and coverage each
-  have one product-policy input consumed by their existing repository tool.
-  Check implementation belongs in `tools`, not beside configuration data.
-- The [mise discovery policy](../../.config/miserc.toml) owns native early configuration discovery for local
-  and hosted commands. Parent, global and system policy isolation cannot live
-  in the [tool declaration](../../mise.toml), which is read afterward. Tool versions and tasks remain in
-  the existing mise declaration and lock; CUE must not duplicate this boundary.
-- The [CUE pipeline](../../.config/ci/pipeline.cue) owns the Forge projections;
-  [.config/release/goreleaser.yaml](../../.config/release/goreleaser.yaml) owns
-  archive construction; the dependency policy owns proposal grouping. Their
-  different consumers and lifecycles justify separate configuration owners.
-- [ETHOS adoption configuration](../../.ethos/) holds declarative adoption, ref roles and publication bindings.
-  ETHOS owns hooks and transient coordination; AIGW must not add a second hook
-  framework or copy the lifecycle engine to enforce the same policy.
-- OpenSpec owns current intent and canonical requirements; contributor and
-  product documents own explanation and navigation. Runtime state, tool caches
-  and verification output are not tracked policy inputs. Their locations and
-  cleanup follow [output ownership](../../CONTRIBUTING.md#output-ownership-and-cleanup).
+- Root discovery files retain their native names: Git attributes and ignores, EditorConfig, npm metadata and registry selection, Go modules, mise tools and locks, formatter ignores, and the GitLab entrypoint. The [indexing exclusions](../../.cbmignore) control optional developer indexing, not product quality or acceptance; it belongs with development-tool inputs.
+- [Check configuration](../../.config/checks/) contains policy data only. Go, Markdown, TOML and secret scanning each have one native configuration; architecture and coverage each have one product-policy input consumed by their existing repository tool. Check implementation belongs in `tools`, not beside configuration data.
+- The [mise discovery policy](../../.config/miserc.toml) owns native early configuration discovery for local and hosted commands. Parent, global and system policy isolation cannot live in the [tool declaration](../../mise.toml), which is read afterward. Tool versions and tasks remain in the existing mise declaration and lock; CUE must not duplicate this boundary.
+- The [CUE pipeline](../../.config/ci/pipeline.cue) owns the Forge projections; [.config/release/goreleaser.yaml](../../.config/release/goreleaser.yaml) owns archive construction; the dependency policy owns proposal grouping. Their different consumers and lifecycles justify separate configuration owners.
+- [ETHOS adoption configuration](../../.ethos/) holds declarative adoption, ref roles and publication bindings. ETHOS owns hooks and transient coordination; AIGW must not add a second hook framework or copy the lifecycle engine to enforce the same policy.
+- OpenSpec owns current intent and canonical requirements; contributor and product documents own explanation and navigation. Runtime state, tool caches and verification output are not tracked policy inputs. Their locations and cleanup follow [output ownership](../../CONTRIBUTING.md#output-ownership-and-cleanup).
 
-Optional configuration that merely repeats locked defaults should be removed
-with its command and documentation consumers. Native discovery files and locks
-are not optional wrappers. The shared CI executor streams its checkout-bound
-Git inventory to Prettier's native API, which applies locked defaults without
-configuration discovery. Tracked files remain in scope even when [Git exclusions](../../.gitignore)
-match them; [formatter scope](../../.prettierignore) excludes only official OpenSpec archive history.
-Missing inputs and a scope with no supported authored files fail the check.
-EditorConfig owns editor defaults and its independent native check, not
-Prettier options. No default-only or ambient parent formatter configuration is used.
-Taplo likewise declares only intentional deviations from locked defaults:
-preserve multiline arrays, use a 100-column layout target and compact inline
-tables. Native conformance preserves key and array order; neither formatter
-configuration nor dependency upgrades may silently reorder authored semantics.
+Optional configuration that merely repeats locked defaults should be removed with its command and documentation consumers. Native discovery files and locks are not optional wrappers. The shared CI executor streams its checkout-bound Git inventory to Prettier's native API, which applies locked defaults without configuration discovery. Tracked files remain in scope even when [Git exclusions](../../.gitignore) match them; [formatter scope](../../.prettierignore) excludes only official OpenSpec archive history. Missing inputs and a scope with no supported authored files fail the check. EditorConfig owns editor defaults and its independent native check, not Prettier options. No default-only or ambient parent formatter configuration is used. Taplo likewise declares only intentional deviations from locked defaults: preserve multiline arrays, use a 100-column layout target and compact inline tables. Native conformance preserves key and array order; neither formatter configuration nor dependency upgrades may silently reorder authored semantics.
 
 ## Dependency and Framework Admission
 
-Prefer maintained native tools and libraries when they reduce the total
-implementation, verification, security, or operating burden. Compare production
-code, tests, transitive dependencies, runtime state, platform behavior, and
-upgrade cost; neither fewer lines nor a larger feature list establishes value.
+Prefer maintained native tools and libraries when they reduce the total implementation, verification, security, or operating burden. Compare production code, tests, transitive dependencies, runtime state, platform behavior, and upgrade cost; neither fewer lines nor a larger feature list establishes value.
 
-A dependency Change must identify the responsibility being replaced, demonstrate
-the benefit against the existing implementation, and verify affected product
-contracts. Delete superseded mechanics in the same Change. A material security
-or portability improvement may justify additional code when its evidence and
-trade-offs are explicit.
+A dependency Change must identify the responsibility being replaced, demonstrate the benefit against the existing implementation, and verify affected product contracts. Delete superseded mechanics in the same Change. A material security or portability improvement may justify additional code when its evidence and trade-offs are explicit.
 
-Keep candidate comparisons and measurements in the proposing Change or
-[research](../research/provider-tooling-assessment.md); record adopted choices
-and rationale in the [decision register](../decisions/decision-register.md).
-This policy defines admission criteria, not a permanent list of rejected tools.
+Keep candidate comparisons and measurements in the proposing Change or [research](../research/provider-tooling-assessment.md); record adopted choices and rationale in the [decision register](../decisions/decision-register.md). This policy defines admission criteria, not a permanent list of rejected tools.
 
 ## Dependency Maintenance
 
-[Renovate policy](../../.config/dependencies/renovate.json5) is the single
-dependency-proposal policy. Its native Go, npm, and
-[mise manager](https://docs.renovatebot.com/modules/manager/mise/) read the
-existing manifests and locks. Native
-[`includePaths`](https://docs.renovatebot.com/configuration-options/#includepaths)
-limits discovery to authored dependency inputs and associated locks; disposable
-source copies cannot become another dependency authority. Declarative extractors
-cover Actions and pinned container images in their authored inputs; generated
-Forge files are never dependency inputs. The local `min_version` is a
-compatibility floor, changed only when a required capability raises that floor;
-the pinned CI image owns the executed mise version. Dependabot's
-[supported ecosystems](https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories)
-do not cover the declared mise closure; a second updater would create competing
-proposals.
+[Renovate policy](../../.config/dependencies/renovate.json5) is the single dependency-proposal policy. Its native Go, npm, and [mise manager](https://docs.renovatebot.com/modules/manager/mise/) read the existing manifests and locks. Native [`includePaths`](https://docs.renovatebot.com/configuration-options/#includepaths) limits discovery to authored dependency inputs and associated locks; disposable source copies cannot become another dependency authority. Declarative extractors cover Actions and pinned container images in their authored inputs; generated Forge files are never dependency inputs. The local `min_version` is a compatibility floor, changed only when a required capability raises that floor; the pinned CI image owns the executed mise version. Dependabot's [supported ecosystems](https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories) do not cover the declared mise closure; a second updater would create competing proposals.
 
-The mise tool key identifies the executable to install, not necessarily its
-versioned Go module. The OSV Scanner rule uses Renovate's native
-[`overridePackageName`](https://docs.renovatebot.com/configuration-options/#packagerulesoverridepackagename)
-to query `github.com/google/osv-scanner/v2` while preserving the
-`go:github.com/google/osv-scanner/v2/cmd/osv-scanner` installation key. Keep this
-translation in the dependency policy, not a second extractor or the tool lock.
+The mise tool key identifies the executable to install, not necessarily its versioned Go module. The OSV Scanner rule uses Renovate's native [`overridePackageName`](https://docs.renovatebot.com/configuration-options/#packagerulesoverridepackagename) to query `github.com/google/osv-scanner/v2` while preserving the `go:github.com/google/osv-scanner/v2/cmd/osv-scanner` installation key. Keep this translation in the dependency policy, not a second extractor or the tool lock.
 
-The pinned, disposable Renovate container is maintenance tooling, not an AIGW
-runtime or ordinary development prerequisite. On a host with a Linux-container
-engine, run:
+The pinned, disposable Renovate container is maintenance tooling, not an AIGW runtime or ordinary development prerequisite. On a host with a Linux-container engine, run:
 
 ```bash
 mise run dependencies:check
 mise run dependencies:inspect
 ```
 
-The first command runs Renovate's strict repository-config validator. The
-second extracts the managed inventory with networking disabled and a read-only
-checkout. Neither mounts credentials, Git signing material, the Docker socket,
-or a user home. The offline extractor disables only Renovate's lookup-token
-warning: it makes no lookup and provides no freshness or vulnerability claim.
-Both containers remove their writable temporary state on exit. This container
-workflow was exercised on macOS; Windows-host invocation is not yet evidenced.
+The first command runs Renovate's strict repository-config validator. The second extracts the managed inventory with networking disabled and a read-only checkout. Neither mounts credentials, Git signing material, the Docker socket, or a user home. The offline extractor disables only Renovate's lookup-token warning: it makes no lookup and provides no freshness or vulnerability claim. Both containers remove their writable temporary state on exit. This container workflow was exercised on macOS; Windows-host invocation is not yet evidenced.
 
-CI images must select an upstream variant whose published contract already
-matches the runner. A runnable GitLab base therefore uses mise's explicit
-`-debian` image and an immutable multi-platform digest. Do not select the
-unqualified scratch image and compensate with an entrypoint override. Keep the
-complete image reference as the CUE-owned dependency literal so Renovate can
-observe both its version and digest; derive any action-version projection from
-that same value rather than duplicating it.
+CI images must select an upstream variant whose published contract already matches the runner. A runnable GitLab base therefore uses mise's explicit `-debian` image and an immutable multi-platform digest. Do not select the unqualified scratch image and compensate with an entrypoint override. Keep the complete image reference as the CUE-owned dependency literal so Renovate can observe both its version and digest; derive any action-version projection from that same value rather than duplicating it.
 
-Normal releases wait three days before proposal creation, covering npm's
-initial unpublish window. Missing publication timestamps are not guessed.
-Go and repository-tool updates are grouped separately; only non-major updates
-of already-stable dependencies qualify for automatic merge. Toolchains, Actions,
-images, pre-1.0 dependencies, and major upgrades require deliberate admission.
-OSV security fixes bypass the age delay and ordinary proposal quota, not quality
-or signing requirements. The existing OSV gate still owns full-lock scanning;
-Renovate's OSV integration covers direct dependencies only.
+Normal releases wait three days before proposal creation, covering npm's initial unpublish window. Missing publication timestamps are not guessed. Go and repository-tool updates are grouped separately; only non-major updates of already-stable dependencies qualify for automatic merge. Toolchains, Actions, images, pre-1.0 dependencies, and major upgrades require deliberate admission. OSV security fixes bypass the age delay and ordinary proposal quota, not quality or signing requirements. The existing OSV gate still owns full-lock scanning; Renovate's OSV integration covers direct dependencies only.
 
-Mermaid validation uses the latest admitted development-only
-`@mermaid-lint/core` release and preserves its syntax diagnostics and semantic
-rules. Its declared jsdom 26 range still selects deprecated
-`whatwg-encoding@3.1.1`, while upstream has not released a replacement. A
-narrow override therefore selects the newest jsdom release whose complete
-resolved graph passes the repository's ordinary dependency admission. Clean
-installation, registry signatures and attestations, vulnerability scanning,
-valid and invalid fixtures, and every tracked Mermaid diagram must pass. The
-lock is also rejected whenever any selected npm package is marked deprecated.
-The same package boundary retains `whatwg-url` 17.1.0 because 17.1.1 advertises
-an npm attestation URL that returns 404; 17.1.0 has a retrievable signed
-attestation and otherwise satisfies jsdom's declared range. This is a bounded
-integrity fallback, not a second owner or a skipped verification. Remove both
-overrides when `@mermaid-lint/core` adopts an equivalent non-deprecated and
-fully attestable line.
+Mermaid validation uses the latest admitted development-only `@mermaid-lint/core` release and preserves its syntax diagnostics and semantic rules. Its declared jsdom 26 range still selects deprecated `whatwg-encoding@3.1.1`, while upstream has not released a replacement. A narrow override therefore selects the newest jsdom release whose complete resolved graph passes the repository's ordinary dependency admission. Clean installation, registry signatures and attestations, vulnerability scanning, valid and invalid fixtures, and every tracked Mermaid diagram must pass. The lock is also rejected whenever any selected npm package is marked deprecated. The same package boundary retains `whatwg-url` 17.1.0 because 17.1.1 advertises an npm attestation URL that returns 404; 17.1.0 has a retrievable signed attestation and otherwise satisfies jsdom's declared range. This is a bounded integrity fallback, not a second owner or a skipped verification. Remove both overrides when `@mermaid-lint/core` adopts an equivalent non-deprecated and fully attestable line.
 
-[Renovate's local platform](https://docs.renovatebot.com/modules/platform/local/)
-supports extraction and lookup only. It cannot generate an update branch.
-Candidate calculation uses the selected Forge platform with
-[`dryRun=full`](https://docs.renovatebot.com/self-hosted-configuration/#dryrun)
-and the existing repository policy. Its structured debug output includes the
-proposed file contents; it does not publish branches or reviews. Retain the
-observed accepted commit with that output and reject it if the base moves.
-Candidate contents still require native package-manager verification. In
-particular, a proposed manifest and lockfile may disagree even when the dry run
-exits successfully. Rebuild locks with the repository's selected tools, then
-require clean installation and package authentication before admitting them.
+[Renovate's local platform](https://docs.renovatebot.com/modules/platform/local/) supports extraction and lookup only. It cannot generate an update branch. Candidate calculation uses the selected Forge platform with [`dryRun=full`](https://docs.renovatebot.com/self-hosted-configuration/#dryrun) and the existing repository policy. Its structured debug output includes the proposed file contents; it does not publish branches or reviews. Retain the observed accepted commit with that output and reject it if the base moves. Candidate contents still require native package-manager verification. In particular, a proposed manifest and lockfile may disagree even when the dry run exits successfully. Rebuild locks with the repository's selected tools, then require clean installation and package authentication before admitting them.
 
-Renovate owns a disposable clone with independent Git metadata. Its checkout
-must not share an active Work Lane, writable object store or signing agent.
-The execution owner supplies bounded noninteractive Forge authentication in
-process memory, with secret output redacted and no credential files mounted.
-The existing lane owner admits the exact proposed paths, applies the candidate,
-refreshes native locks and CI projections, verifies package provenance, and
-signs the accepted content through the existing Git identity. Renovate's
-[`gitPrivateKey`](https://docs.renovatebot.com/self-hosted-configuration/#gitprivatekey)
-option is for PGP signing; it is not an SSH signing-key reference.
+Renovate owns a disposable clone with independent Git metadata. Its checkout must not share an active Work Lane, writable object store or signing agent. The execution owner supplies bounded noninteractive Forge authentication in process memory, with secret output redacted and no credential files mounted. The existing lane owner admits the exact proposed paths, applies the candidate, refreshes native locks and CI projections, verifies package provenance, and signs the accepted content through the existing Git identity. Renovate's [`gitPrivateKey`](https://docs.renovatebot.com/self-hosted-configuration/#gitprivatekey) option is for PGP signing; it is not an SSH signing-key reference.
 
-A runner claiming governed commit and push hooks must set
-[`gitNoVerify`](https://docs.renovatebot.com/self-hosted-configuration/#gitnoverify)
-to `[]` in operator-owned configuration and demonstrate hook rejection and
-success. Renovate defaults to bypassing both hooks; repository policy cannot
-override this global setting. Credentials and runner isolation
-belong to the execution owner, not a new AIGW updater.
+A runner claiming governed commit and push hooks must set [`gitNoVerify`](https://docs.renovatebot.com/self-hosted-configuration/#gitnoverify) to `[]` in operator-owned configuration and demonstrate hook rejection and success. Renovate defaults to bypassing both hooks; repository policy cannot override this global setting. Credentials and runner isolation belong to the execution owner, not a new AIGW updater.
 
-The repository owner explicitly invokes dependency maintenance. Each run first
-observes active work, leases and proposals, then resumes or starts one bounded
-update under current write authority. Proposals use one selected review peer;
-the existing publication path distributes the same signed object to the other
-selected peers after verification. Automatic integration preserves that object,
-and merged proposals are removed promptly. Successful candidate calculation and
-a completed signed update are separate observations; only the latter proves
-the complete maintenance path. Scheduling is optional and requires separate
-operator authorization.
+The repository owner explicitly invokes dependency maintenance. Each run first observes active work, leases and proposals, then resumes or starts one bounded update under current write authority. Proposals use one selected review peer; the existing publication path distributes the same signed object to the other selected peers after verification. Automatic integration preserves that object, and merged proposals are removed promptly. Successful candidate calculation and a completed signed update are separate observations; only the latter proves the complete maintenance path. Scheduling is optional and requires separate operator authorization.
 
 ## Change Lifecycle
 
-[Workspace branch roles](../../.ethos/workspace.toml) distinguish accepted
-integration (`dev`) from release (`main`). One owned work lane carries the
-active Change's intent, contract delta, design and progress; a `proposal/*` ref
-is its review projection, not another authoring lane. Accepted and release
-trees may retain that active Change while delivery is unfinished. Source
-acceptance, publication, installation and Change completion are distinct facts.
+[Workspace branch roles](../../.ethos/workspace.toml) distinguish accepted integration (`dev`) from release (`main`). One owned work lane carries the active Change's intent, contract delta, design and progress; a `proposal/*` ref is its review projection, not another authoring lane. Accepted and release trees may retain that active Change while delivery is unfinished. Source acceptance, publication, installation and Change completion are distinct facts.
 
-Follow [OpenSpec's merge-then-archive convention](https://github.com/Fission-AI/OpenSpec/blob/v1.13.1/docs/team-workflow.md#when-to-archive):
-validate and integrate source first, retain pending delivery in the same official
-task carrier, and archive after those obligations are settled. Archive is not
-permission to mark future work complete. A malformed Change still fails native
-validation; a valid active Change is not itself a source defect.
+Follow [OpenSpec's merge-then-archive convention](https://github.com/Fission-AI/OpenSpec/blob/v1.13.1/docs/team-workflow.md#when-to-archive): validate and integrate source first, retain pending delivery in the same official task carrier, and archive after those obligations are settled. Archive is not permission to mark future work complete. A malformed Change still fails native validation; a valid active Change is not itself a source defect.
 
-ETHOS owns write admission, proof, archive, integration and retirement. Start
-with its current `status --json` result in the exact checkout and follow the
-public continuation rather than treating this document as a second state
-machine. AIGW declares its [product gates](../../.ethos/profile.toml) and
-[publication surfaces](../../.ethos/release.toml); those declarations do not
-replace generic lifecycle authority. When the governor itself rejects this
-ordering, an explicitly authorized maintainer recovery is limited to the
-incorrect archive prerequisite: bind exact source/ref objects, preserve proof
-and signatures, record the effect, re-observe every selected target, and
-re-enter normal governance. Never install a permanent hook bypass or a second
-AIGW lifecycle checker.
+ETHOS owns write admission, proof, archive, integration and retirement. Start with its current `status --json` result in the exact checkout and follow the public continuation rather than treating this document as a second state machine. AIGW declares its [product gates](../../.ethos/profile.toml) and [publication surfaces](../../.ethos/release.toml); those declarations do not replace generic lifecycle authority. When the governor itself rejects this ordering, an explicitly authorized maintainer recovery is limited to the incorrect archive prerequisite: bind exact source/ref objects, preserve proof and signatures, record the effect, re-observe every selected target, and re-enter normal governance. Never install a permanent hook bypass or a second AIGW lifecycle checker.
 
-Product acceptance, release publication, installation and lane retirement are
-distinct claims. A local-only acceptance claims no hosted delivery. An installed
-product requires native artifact evidence, not merely an accepted source tree.
+Product acceptance, release publication, installation and lane retirement are distinct claims. A local-only acceptance claims no hosted delivery. An installed product requires native artifact evidence, not merely an accepted source tree.
 
-On disposable macOS runners, `AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host`
-admits the private Keychain bridge, locked-item, exact cleanup and reader-identity
-regressions. Ordinary CI leaves value access disabled. A manual GitHub run sets
-`macos_keychain=true` with `baseline_tag` to enable the retained-item journey
-through the same go-keyring provider used by the published predecessor. This
-credential proof remains independent of publisher signing and notarization.
-Windows keeps its native Credential Manager journey; Linux retains separate
-user-bus qualification.
+On disposable macOS runners, `AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host` admits the private Keychain bridge, locked-item, exact cleanup and reader-identity regressions. Ordinary CI leaves value access disabled. A manual GitHub run sets `macos_keychain=true` with `baseline_tag` to enable the retained-item journey through the same go-keyring provider used by the published predecessor. This credential proof remains independent of publisher signing and notarization. Windows keeps its native Credential Manager journey; Linux retains separate user-bus qualification.
 
-Candidate startup verification owns and removes its temporary executable before
-installation replacement. Cleanup uses
-[`robustio.RemoveAll`](https://github.com/rogpeppe/go-internal/tree/v1.16.0/robustio)
-for bounded handling of transient platform file locks after execution. Persistent
-cleanup failure still aborts the update and preserves the installed program;
-AIGW adds no retry loop, delayed cleanup service, or retained candidate directory.
+Candidate startup verification owns and removes its temporary executable before installation replacement. Cleanup uses [`robustio.RemoveAll`](https://github.com/rogpeppe/go-internal/tree/v1.16.0/robustio) for bounded handling of transient platform file locks after execution. Persistent cleanup failure still aborts the update and preserves the installed program; AIGW adds no retry loop, delayed cleanup service, or retained candidate directory.
 
-Program replacement stages durable bytes through the shared transaction owner,
-then uses the existing filesystem library's bounded rename operation. It never
-retries an entire update or deletes the previous program before the first rename
-succeeds. Activation failure restores the current program; restoration failure
-reports both causes and leaves that program at its rollback path. Update and
-rollback use this same operation. Two renames provide recoverable replacement,
-not uninterrupted atomic visibility or power-loss recovery.
+Program replacement stages durable bytes through the shared transaction owner, then uses the existing filesystem library's bounded rename operation. It never retries an entire update or deletes the previous program before the first rename succeeds. Activation failure restores the current program; restoration failure reports both causes and leaves that program at its rollback path. Update and rollback use this same operation. Two renames provide recoverable replacement, not uninterrupted atomic visibility or power-loss recovery.
 
-Rollback also verifies the exact retained program before replacement. Its
-startup and public configuration export run in a private temporary home with
-an explicit environment backend, no Tokens and no client search path. An
-existing configuration is copied byte-for-byte; no historical schema is
-reconstructed. The predecessor must return a nonempty TOML manifest with its
-declared version and Routes. This proves configuration readability, not
-Provider access or client compatibility. Failure preserves both program files
-and the original configuration; `aigw config migrate --rollback` can restore the
-exact retained predecessor state before retrying program rollback. The verifier
-uses the same bounded process and temporary-resource owners as candidate
-startup verification, without a second snapshot store or migration framework.
+Rollback also verifies the exact retained program before replacement. Its startup and public configuration export run in a private temporary home with an explicit environment backend, no Tokens and no client search path. An existing configuration is copied byte-for-byte; no historical schema is reconstructed. The predecessor must return a nonempty TOML manifest with its declared version and Routes. This proves configuration readability, not Provider access or client compatibility. Failure preserves both program files and the original configuration; `aigw config migrate --rollback` can restore the exact retained predecessor state before retrying program rollback. The verifier uses the same bounded process and temporary-resource owners as candidate startup verification, without a second snapshot store or migration framework.
 
-Native Windows conformance holds real file handles without delete sharing and
-first observes the failed replacement using the same source and destination as
-the product. It preserves that native error rather than assuming source locks
-and destination locks return the same error code. Update and rollback each cover
-current-program and predecessor locks, with both delayed release and persistent
-failure. A separate candidate-source lock covers activation retry and restoration
-of the current program after failed activation. Every case checks exact surviving
-bytes and directory membership; the native library owns retry timing. Compilation
-and cross-target lint do not establish Windows execution.
+Native Windows conformance holds real file handles without delete sharing and first observes the failed replacement using the same source and destination as the product. It preserves that native error rather than assuming source locks and destination locks return the same error code. Update and rollback each cover current-program and predecessor locks, with both delayed release and persistent failure. A separate candidate-source lock covers activation retry and restoration of the current program after failed activation. Every case checks exact surviving bytes and directory membership; the native library owns retry timing. Compilation and cross-target lint do not establish Windows execution.
 
 ## Commit and Tag Identity
 
-One product commit or annotated tag is constructed and signed once in local
-Git. GitLab and GitHub receive that exact object unchanged. Therefore every new
-publication must preserve:
+One product commit or annotated tag is constructed and signed once in local Git. GitLab and GitHub receive that exact object unchanged. Therefore every new publication must preserve:
 
 - commit OID;
 - annotated tag OID;
@@ -279,34 +105,11 @@ publication must preserve:
 - author and committer identity stored in the commit;
 - tag annotation and product signature.
 
-Commit subjects must match the complete `subject_pattern` from the selected
-revision's [workspace policy](../../.ethos/workspace.toml), not a matching
-substring. Forge verification applies that rule even when the configured
-expression omits anchors. Release tags use `v` followed by strict SemVer;
-individual-tag and tag-set checks share the existing SemVer library used by
-release construction, including prerelease and build-metadata syntax.
+Commit subjects must match the complete `subject_pattern` from the selected revision's [workspace policy](../../.ethos/workspace.toml), not a matching substring. Forge verification applies that rule even when the configured expression omits anchors. Release tags use `v` followed by strict SemVer; individual-tag and tag-set checks share the existing SemVer library used by release construction, including prerelease and build-metadata syntax.
 
-ETHOS installs the local `commit-msg` and publication hooks into Git-common
-storage. The installed runtime selects the current workspace policy; it does
-not embed another grammar in the launcher. Hosted quality checks read that same
-policy from the exact reviewed commit and verify the introduced range, including
-release-preparation commits. GitHub review, accepted-branch and tag events and
-GitLab merge-request, accepted-branch and tag events select that shared check
-through CUE. A release-branch push runs only accepted-ref parity because the
-publisher advances `main` and `dev` atomically to one object; running the same
-platform matrix again would observe no new product input. Review into `main`
-still receives full verification, and a direct maintainer update to `dev`
-retains the complete gate. No parallel pre-commit runner is needed to own these
-rules. An accepted-ref merge or proposal deletion is a separate delivery
-operation, not evidence implied by a valid commit message or a green review job.
+ETHOS installs the local `commit-msg` and publication hooks into Git-common storage. The installed runtime selects the current workspace policy; it does not embed another grammar in the launcher. Hosted quality checks read that same policy from the exact reviewed commit and verify the introduced range, including release-preparation commits. GitHub review, accepted-branch and tag events and GitLab merge-request, accepted-branch and tag events select that shared check through CUE. A release-branch push runs only accepted-ref parity because the publisher advances `main` and `dev` atomically to one object; running the same platform matrix again would observe no new product input. Review into `main` still receives full verification, and a direct maintainer update to `dev` retains the complete gate. No parallel pre-commit runner is needed to own these rules. An accepted-ref merge or proposal deletion is a separate delivery operation, not evidence implied by a valid commit message or a green review job.
 
-Product signing and peer transport authentication are independent. GitLab and
-GitHub may use different SSH keys, PATs, OIDC identities, or host credentials
-for transport without changing the product object. A host's `Verified` display
-is an account-level projection, not product identity authority.
-The principal reported by SSH signature verification identifies a trusted
-signer; it is not the commit's author or committer email. Read those fields from
-the Git object and verify them against the explicit product identity input.
+Product signing and peer transport authentication are independent. GitLab and GitHub may use different SSH keys, PATs, OIDC identities, or host credentials for transport without changing the product object. A host's `Verified` display is an account-level projection, not product identity authority. The principal reported by SSH signature verification identifies a trusted signer; it is not the commit's author or committer email. Read those fields from the Git object and verify them against the explicit product identity input.
 
 The following have no valid steady-state role:
 
@@ -319,25 +122,11 @@ The following have no valid steady-state role:
 
 ## Independent Forge Publication
 
-Local operation with zero peers remains complete. GitLab and GitHub are
-optional, equivalent, independent peers:
+Local operation with zero peers remains complete. GitLab and GitHub are optional, equivalent, independent peers:
 
-One peer never queries, downloads from, repairs, or authorizes the other. A
-failed peer is reported incomplete while local operation and the other peer
-continue independently. [Forge operations](../operations/forge-operations.md#authority)
-illustrates this authority boundary and owns the publication commands.
+One peer never queries, downloads from, repairs, or authorizes the other. A failed peer is reported incomplete while local operation and the other peer continue independently. [Forge operations](../operations/forge-operations.md#authority) illustrates this authority boundary and owns the publication commands.
 
-Release metadata and upload requests use the selected endpoint without following
-redirects. Artifact downloads retain native CDN redirects, the caller's stricter
-redirect policy and the native default request bound. A different scheme, host
-or effective port removes publication credentials for the remaining redirect
-chain; returning to the original host does not restore them. HTTPS never
-downgrades to HTTP. Direct asset links carry credentials only at the selected
-API authority. GitHub's returned upload URL remains its explicit upload target,
-including a distinct upload host, but must be an absolute HTTP(S) URL without
-user information and must preserve HTTPS. These rules are enforced within the
-existing publication owner, without changing shared HTTP clients or adding
-request retries.
+Release metadata and upload requests use the selected endpoint without following redirects. Artifact downloads retain native CDN redirects, the caller's stricter redirect policy and the native default request bound. A different scheme, host or effective port removes publication credentials for the remaining redirect chain; returning to the original host does not restore them. HTTPS never downgrades to HTTP. Direct asset links carry credentials only at the selected API authority. GitHub's returned upload URL remains its explicit upload target, including a distinct upload host, but must be an absolute HTTP(S) URL without user information and must preserve HTTPS. These rules are enforced within the existing publication owner, without changing shared HTTP clients or adding request retries.
 
 Branch publication accepts only `main` and `proposal/*`:
 
@@ -345,83 +134,29 @@ Branch publication accepts only `main` and `proposal/*`:
 - `proposal/*` updates only the matching peer ref;
 - `dev`, `candidate/*`, `work/*`, and arbitrary feature refs are rejected.
 
-Every ref update carries `--force-with-lease` with its exact observed peer tip;
-an empty expected value asserts that a new ref does not exist. Equal and
-fast-forward updates require no destructive authorization, but an explicit
-expected tip still has to match. A divergent one-time cutover additionally
-requires the fresh exact old OID for every selected ref. Protected-branch force
-push is enabled only for that bounded transaction and restored immediately
-afterward.
+Every ref update carries `--force-with-lease` with its exact observed peer tip; an empty expected value asserts that a new ref does not exist. Equal and fast-forward updates require no destructive authorization, but an explicit expected tip still has to match. A divergent one-time cutover additionally requires the fresh exact old OID for every selected ref. Protected-branch force push is enabled only for that bounded transaction and restored immediately afterward.
 
-Formal tags are immutable product evidence. Old released tags are retained
-unless a separate inventory proves they are failed intermediate artifacts and
-authorizes deletion. Every new formal tag is exact across local Git and all
-selected peers.
+Formal tags are immutable product evidence. Old released tags are retained unless a separate inventory proves they are failed intermediate artifacts and authorizes deletion. Every new formal tag is exact across local Git and all selected peers.
 
 ## Release Chronicle
 
-The [release chronology](../../CHANGELOG.md) starts with `## [Unreleased]`;
-that section contains only changes after the latest published version.
-Versioned headings are unique SemVer entries in descending order. The first may
-be the single pending release named by [canonical version](../../VERSION);
-every older heading identifies an existing signed `v<semver>` tag and its date.
-Every tag reachable from the current source requires a section. A maintenance
-branch preserves already recorded product chronology without importing newly
-unmerged releases from the shared Git store. All local product tags still
-participate in strict SemVer validation, version allocation and pending-version
-precedence; a maintenance release cannot reuse another branch's version.
-The tag, not the heading, establishes publication. Branch names and planned
-versions are not chronology.
+The [release chronology](../../CHANGELOG.md) starts with `## [Unreleased]`; that section contains only changes after the latest published version. Versioned headings are unique SemVer entries in descending order. The first may be the single pending release named by [canonical version](../../VERSION); every older heading identifies an existing signed `v<semver>` tag and its date. Every tag reachable from the current source requires a section. A maintenance branch preserves already recorded product chronology without importing newly unmerged releases from the shared Git store. All local product tags still participate in strict SemVer validation, version allocation and pending-version precedence; a maintenance release cannot reuse another branch's version. The tag, not the heading, establishes publication. Branch names and planned versions are not chronology.
 
-Changelog headings and selected tags use the existing strict SemVer library
-shared by release construction and update admission, not a second regex or
-integer-based comparator. Build metadata belongs to exact release identity but
-does not change precedence. A single entry may include metadata; two entries
-that differ only by metadata cannot satisfy strict descending order. Tag and
-release-epoch lookup preserve the complete version text. Unsupported numeric
-core values fail rather than silently overflowing a machine integer.
+Changelog headings and selected tags use the existing strict SemVer library shared by release construction and update admission, not a second regex or integer-based comparator. Build metadata belongs to exact release identity but does not change precedence. A single entry may include metadata; two entries that differ only by metadata cannot satisfy strict descending order. Tag and release-epoch lookup preserve the complete version text. Unsupported numeric core values fail rather than silently overflowing a machine integer.
 
-A tag proves source identity, not asset publication, native-platform
-acceptance, artifact signing, notarization, installation, or runtime health. Those
-claims require separate current evidence.
+A tag proves source identity, not asset publication, native-platform acceptance, artifact signing, notarization, installation, or runtime health. Those claims require separate current evidence.
 
 ## Reproducible Assets
 
-The formal release derives its exact compiler and Go closure from [Go module declaration](../../go.mod) and
-[Go dependency checksums](../../go.sum), language runtimes and standalone tools from [tool declaration](../../mise.toml) and
-[tool lock](../../mise.lock), npm dependency closure from [npm package declaration](../../package.json) and [npm dependency lock](../../package-lock.json),
-and `SOURCE_DATE_EPOCH` from the committed Changelog date. The build emits the
-complete portable archive matrix, checksums, and SPDX SBOM. Repeating the build
-with the same inputs must produce identical bytes.
+The formal release derives its exact compiler and Go closure from [Go module declaration](../../go.mod) and [Go dependency checksums](../../go.sum), language runtimes and standalone tools from [tool declaration](../../mise.toml) and [tool lock](../../mise.lock), npm dependency closure from [npm package declaration](../../package.json) and [npm dependency lock](../../package-lock.json), and `SOURCE_DATE_EPOCH` from the committed Changelog date. The build emits the complete portable archive matrix, checksums, and SPDX SBOM. Repeating the build with the same inputs must produce identical bytes.
 
-Mise records the provenance method used during lock generation, while checksums
-bind installation to the reviewed bytes. Regenerate the complete lock through
-the current repository-pinned Mise whenever its schema changes; do not preserve
-retired generator fields by editing around an older lock.
+Mise records the provenance method used during lock generation, while checksums bind installation to the reviewed bytes. Regenerate the complete lock through the current repository-pinned Mise whenever its schema changes; do not preserve retired generator fields by editing around an older lock.
 
-Credential-free construction uses the existing GoReleaser post-build hook to
-apply an ad-hoc Mach-O signature and Hardened Runtime before archiving. Native
-macOS qualification verifies extracted binaries with Apple codesign. These
-signatures establish local code-integrity metadata, not publisher identity or
-Gatekeeper approval. Ordinary native tests explicitly clear publisher identity
-instead of inheriting an operator's credential environment.
+Credential-free construction uses the existing GoReleaser post-build hook to apply an ad-hoc Mach-O signature and Hardened Runtime before archiving. Native macOS qualification verifies extracted binaries with Apple codesign. These signatures establish local code-integrity metadata, not publisher identity or Gatekeeper approval. Ordinary native tests explicitly clear publisher identity instead of inheriting an operator's credential environment.
 
-For operator-driven Developer ID construction on macOS, supply
-`AIGW_MACOS_SIGNING_IDENTITY` as the exact certificate SHA-1 fingerprint listed
-by `security find-identity -v -p codesigning`. This selects an existing identity;
-it is not an artifact checksum or a private key. The same GoReleaser hook uses
-Apple codesign with Hardened Runtime and a trusted timestamp before creating
-archives and Homebrew projections. Neither the fingerprint nor any personal
-identity is embedded in repository configuration. The release command does not
-export private keys or change their access policy.
+For operator-driven Developer ID construction on macOS, supply `AIGW_MACOS_SIGNING_IDENTITY` as the exact certificate SHA-1 fingerprint listed by `security find-identity -v -p codesigning`. This selects an existing identity; it is not an artifact checksum or a private key. The same GoReleaser hook uses Apple codesign with Hardened Runtime and a trusted timestamp before creating archives and Homebrew projections. Neither the fingerprint nor any personal identity is embedded in repository configuration. The release command does not export private keys or change their access policy.
 
-Reproducible CI construction remains credential-free. Its signature time comes
-from the selected release epoch; GoReleaser applies `builds_info.mtime` after the
-hook. Developer ID timestamped output is a distinct distribution artifact, not
-a byte-identical rebuild claim. Sign once, verify the final archives, and publish
-those same bytes to all selected peers. Public notarization is a separate required
-acceptance: a successful build or signature does not establish Apple approval.
-No system trust or quarantine policy is changed to simulate that approval.
+Reproducible CI construction remains credential-free. Its signature time comes from the selected release epoch; GoReleaser applies `builds_info.mtime` after the hook. Developer ID timestamped output is a distinct distribution artifact, not a byte-identical rebuild claim. Sign once, verify the final archives, and publish those same bytes to all selected peers. Public notarization is a separate required acceptance: a successful build or signature does not establish Apple approval. No system trust or quarantine policy is changed to simulate that approval.
 
 After Apple accepts the submission, verify both archived macOS executables:
 
@@ -433,110 +168,35 @@ mise exec --locked -- go run ./tools/release verify-macos-distribution \
   "$AIGW_MACOS_NOTARY_API_KEY_ID" "$AIGW_MACOS_NOTARY_API_ISSUER_ID"
 ```
 
-The verifier checks archive checksums and the exact Developer ID certificate,
-then retrieves Apple's log using exactly one native authentication mode. The
-example uses an existing protected Team API key file; omit the issuer argument
-for an Individual API key, or pass `keychain-profile "$AIGW_MACOS_NOTARY_PROFILE"`
-instead of the `api-key` arguments for a validated Keychain profile. Stable
-publication accepts the same explicit environment selection and rejects mixed
-or incomplete modes; it never copies private key contents into arguments or
-repository artifacts. The accepted Apple log must match the submission ID, the
-uploaded ZIP checksum, and both final executables inside that ZIP. An
-agent-written receipt or a signature
-check alone is not notarization acceptance. `spctl --type execute` is not the
-admission test for this standalone CLI: it can reject valid notarized code
-because it is not an App bundle. All three publication entrypoints require
-this verification for stable tags before contacting a Forge. Initial stable
-publication therefore runs on the authorized macOS host, with an explicit
-signing identity, archive, submission ID, and one authenticated Apple mode.
-Follow the [native notarization procedure](../operations/forge-operations.md#macos-signing-and-notarization). RC publication remains portable; downloading and validating
-published artifacts never requires macOS or the publisher's private key.
+The verifier checks archive checksums and the exact Developer ID certificate, then retrieves Apple's log using exactly one native authentication mode. The example uses an existing protected Team API key file; omit the issuer argument for an Individual API key, or pass `keychain-profile "$AIGW_MACOS_NOTARY_PROFILE"` instead of the `api-key` arguments for a validated Keychain profile. Stable publication accepts the same explicit environment selection and rejects mixed or incomplete modes; it never copies private key contents into arguments or repository artifacts. The accepted Apple log must match the submission ID, the uploaded ZIP checksum, and both final executables inside that ZIP. An agent-written receipt or a signature check alone is not notarization acceptance. `spctl --type execute` is not the admission test for this standalone CLI: it can reject valid notarized code because it is not an App bundle. All three publication entrypoints require this verification for stable tags before contacting a Forge. Initial stable publication therefore runs on the authorized macOS host, with an explicit signing identity, archive, submission ID, and one authenticated Apple mode. Follow the [native notarization procedure](../operations/forge-operations.md#macos-signing-and-notarization). RC publication remains portable; downloading and validating published artifacts never requires macOS or the publisher's private key.
 
-Detached SSH signatures authenticate the archive manifest independently of the
-local Mach-O signature. Checksums, provenance, SBOMs and immutable peer parity
-remain required. Native acceptance builds its current operating system; full
-release construction emits all six targets. Consumers need no signing key.
-Retained credential access remains a separate native acceptance obligation under
-[the credential decision](../decisions/dr-0011-single-portable-token-backend.md#release-identity-and-credential-authorization).
+Detached SSH signatures authenticate the archive manifest independently of the local Mach-O signature. Checksums, provenance, SBOMs and immutable peer parity remain required. Native acceptance builds its current operating system; full release construction emits all six targets. Consumers need no signing key. Retained credential access remains a separate native acceptance obligation under [the credential decision](../decisions/dr-0011-single-portable-token-backend.md#release-identity-and-credential-authorization).
 
-The SPDX SBOM catalogs every emitted native binary in the isolated GoReleaser
-stage, including platform-specific dependencies. Syft's Go-binary and file
-catalogers own discovery; scanning only the first binary or the
-compressed archive directory is insufficient. Native conformance compares every
-reported binary path and SHA-256 with the complete generated matrix. Missing
-or additional binary entries fail normalization before signing. This runtime
-inventory is distinct from the license and vulnerability evidence for the full
-Go and npm dependency locks.
+The SPDX SBOM catalogs every emitted native binary in the isolated GoReleaser stage, including platform-specific dependencies. Syft's Go-binary and file catalogers own discovery; scanning only the first binary or the compressed archive directory is insufficient. Native conformance compares every reported binary path and SHA-256 with the complete generated matrix. Missing or additional binary entries fail normalization before signing. This runtime inventory is distinct from the license and vulnerability evidence for the full Go and npm dependency locks.
 
-The release command selects the tracked [Syft policy](../../.config/release/syft.yaml)
-explicitly rather than discovering caller or user configuration. The policy
-limits Go cataloging to emitted artifacts: it does not enrich from host module
-caches, vendor directories, external Go tooling or remote license lookups.
-The separate OSV report owns full-lock license evidence. Native conformance
-proves that an unrelated caller configuration cannot exclude release inputs
-and remains unchanged. Explicit process-level overrides are not a sandbox.
+The release command selects the tracked [Syft policy](../../.config/release/syft.yaml) explicitly rather than discovering caller or user configuration. The policy limits Go cataloging to emitted artifacts: it does not enrich from host module caches, vendor directories, external Go tooling or remote license lookups. The separate OSV report owns full-lock license evidence. Native conformance proves that an unrelated caller configuration cannot exclude release inputs and remains unchanged. Explicit process-level overrides are not a sandbox.
 
-Normalization binds each unique relative SBOM path to actual bytes through a
-root-confined filesystem handle. It computes the SHA-256 integrity digest and
-the SHA-1 metadata required by [SPDX 2.3](https://spdx.github.io/spdx-spec/v2.3/file-information/#84-file-checksum-field).
-An existing SHA-256 must agree; missing digests never become invented integrity
-evidence. This also handles the [Syft directory-digest gap](https://github.com/anchore/syft/issues/4564)
-without patching the scanner, skipping Windows or weakening verification.
-The native test checks the normalized release document, not a scanner-only
-intermediate; dependency discovery and file integrity remain distinct owners.
-Scanner paths use their own root: either separator style and one leading root
-separator normalize to a relative path inside the selected build directory.
-Traversal, network paths and duplicate normalized entries remain invalid;
-host path interpretation must not redefine the scanner's namespace.
+Normalization binds each unique relative SBOM path to actual bytes through a root-confined filesystem handle. It computes the SHA-256 integrity digest and the SHA-1 metadata required by [SPDX 2.3](https://spdx.github.io/spdx-spec/v2.3/file-information/#84-file-checksum-field). An existing SHA-256 must agree; missing digests never become invented integrity evidence. This also handles the [Syft directory-digest gap](https://github.com/anchore/syft/issues/4564) without patching the scanner, skipping Windows or weakening verification. The native test checks the normalized release document, not a scanner-only intermediate; dependency discovery and file integrity remain distinct owners. Scanner paths use their own root: either separator style and one leading root separator normalize to a relative path inside the selected build directory. Traversal, network paths and duplicate normalized entries remain invalid; host path interpretation must not redefine the scanner's namespace.
 
-The OSV invocation and report admission share the same exact lockfile paths.
-Every selected lockfile must appear once as a lockfile source with observed
-packages before either report is written. An empty or partial report, another
-checkout's same-named file, or a directory scan is not clean dependency evidence.
-Only after this admission are host-specific path prefixes removed from the
-portable reports. Rejection occurs before signing or replacing accepted output.
+The OSV invocation and report admission share the same exact lockfile paths. Every selected lockfile must appear once as a lockfile source with observed packages before either report is written. An empty or partial report, another checkout's same-named file, or a directory scan is not clean dependency evidence. Only after this admission are host-specific path prefixes removed from the portable reports. Rejection occurs before signing or replacing accepted output.
 
-An untagged candidate uses the distinct version in [canonical version](../../VERSION). Until that
-version has a published Changelog entry, its reproducible timestamp comes from
-the exact source commit, not the wall clock or an invented release heading.
-Tagged release builds still require the matching release chronicle. Candidate
-construction does not create a tag, publish assets, or update an installation.
+An untagged candidate uses the distinct version in [canonical version](../../VERSION). Until that version has a published Changelog entry, its reproducible timestamp comes from the exact source commit, not the wall clock or an invented release heading. Tagged release builds still require the matching release chronicle. Candidate construction does not create a tag, publish assets, or update an installation.
 
-Each selected Forge creates its own Release record and publishes the same asset
-matrix. When both are reachable, compare every filename and digest. One peer's
-assets are never an input to the other peer's build.
+Each selected Forge creates its own Release record and publishes the same asset matrix. When both are reachable, compare every filename and digest. One peer's assets are never an input to the other peer's build.
 
 ### Homebrew packaging projection
 
-The [GoReleaser configuration](../../.config/release/goreleaser.yaml) owns Cask
-generation from the built archives. Full construction retains its output under
-`dist/homebrew/Casks/aigw.rb`, separate from the signed portable asset matrix.
-Windows-only construction skips Homebrew; Linux and macOS use the same native
-generator. Cask generation neither creates a tap nor publishes a release.
+The [GoReleaser configuration](../../.config/release/goreleaser.yaml) owns Cask generation from the built archives. Full construction retains its output under `dist/homebrew/Casks/aigw.rb`, separate from the signed portable asset matrix. Windows-only construction skips Homebrew; Linux and macOS use the same native generator. Cask generation neither creates a tap nor publishes a release.
 
-The generated checksum and archive-internal executable location must match the
-accepted distribution archives before copying the projection into the tap.
-Regenerate after any signing transformation; a Cask derived from ad-hoc fixture
-bytes does not qualify notarized distribution. Publishing the tap requires
-verified release downloads and an independently tested package installation.
+The generated checksum and archive-internal executable location must match the accepted distribution archives before copying the projection into the tap. Regenerate after any signing transformation; a Cask derived from ad-hoc fixture bytes does not qualify notarized distribution. Publishing the tap requires verified release downloads and an independently tested package installation.
 
 ## Quality and Platform Evidence
 
 ### Scope and authority
 
-The [CI routing decision](../decisions/dr-0010-lifecycle-scoped-ci-evidence.md)
-owns review, accepted-branch, release-branch and tag evidence. CUE reads the
-workspace's branch roles and projects the same required checks to both Forges.
-The [contribution workflow](../../CONTRIBUTING.md#development-and-verification)
-owns executable commands and environment preparation; this section owns
-acceptance criteria and the reasons for them. Measurements and remediation
-progress belong to the active OpenSpec Change, not this durable policy.
+The [CI routing decision](../decisions/dr-0010-lifecycle-scoped-ci-evidence.md) owns review, accepted-branch, release-branch and tag evidence. CUE reads the workspace's branch roles and projects the same required checks to both Forges. The [contribution workflow](../../CONTRIBUTING.md#development-and-verification) owns executable commands and environment preparation; this section owns acceptance criteria and the reasons for them. Measurements and remediation progress belong to the active OpenSpec Change, not this durable policy.
 
-Each gate must use the selected checkout and its declared inputs. Current tracked
-files remain in scope even when ignored by Git; nonignored untracked source is
-also checked. Inherited alternate indexes, parent configuration and sibling
-installations cannot redefine the selected scope. Missing inputs, empty required
-scopes, incomplete results and nonzero validator exits fail the gate.
+Each gate must use the selected checkout and its declared inputs. Current tracked files remain in scope even when ignored by Git; nonignored untracked source is also checked. Inherited alternate indexes, parent configuration and sibling installations cannot redefine the selected scope. Missing inputs, empty required scopes, incomplete results and nonzero validator exits fail the gate.
 
 - **Text, formatting, documentation and diagrams**
   - **Execution owner:** [Text layout policy](text-layout.md), [spelling policy](../../.config/checks/spelling/policy.toml), Prettier, Typos, markdownlint, Mermaid and lychee
@@ -566,86 +226,31 @@ scopes, incomplete results and nonzero validator exits fail the gate.
   - **Execution owner:** Release construction and native lifecycle acceptance
   - **Acceptance boundary:** Exact artifact identity, supported-platform execution and preserved user state
 
-Architecture classification proves ownership, not effective check coverage.
-A new carrier needs every applicable native check; it must not be accompanied
-by a parallel check registry or a copied generic parser. Native schemas remain
-with their locked package owners. External schema references are not fetched
-implicitly during local policy validation.
+Architecture classification proves ownership, not effective check coverage. A new carrier needs every applicable native check; it must not be accompanied by a parallel check registry or a copied generic parser. Native schemas remain with their locked package owners. External schema references are not fetched implicitly during local policy validation.
 
-Typos checks the exact current checkout inventory supplied through its native
-file-list interface, including hidden repository configuration. Its sole word
-allowance is `importas`, the official golangci-lint analyzer identifier.
-Immutable OpenSpec history remains excluded by the same narrow archival policy
-used by formatting and Markdown lint; no current source, configuration, or
-documentation subtree is exempt. ShellCheck is not invoked through another
-wrapper: actionlint discovers the locked executable and analyzes embedded
-GitHub workflow shell fragments as part of its existing workflow gate.
+Typos checks the exact current checkout inventory supplied through its native file-list interface, including hidden repository configuration. Its sole word allowance is `importas`, the official golangci-lint analyzer identifier. Immutable OpenSpec history remains excluded by the same narrow archival policy used by formatting and Markdown lint; no current source, configuration, or documentation subtree is exempt. ShellCheck is not invoked through another wrapper: actionlint discovers the locked executable and analyzes embedded GitHub workflow shell fragments as part of its existing workflow gate.
 
-Yamlfmt is not added because Prettier, OpenSpec's native validator, Go YAML
-decoding, GoReleaser schema checking, and actionlint already own every current
-YAML concern; another YAML formatter would create a competing style authority.
-Pants, Dagger, Nix, and CEL likewise remain outside the active graph until one
-can replace more present execution, environment, or policy responsibility than
-it introduces while retaining native macOS, Linux, and Windows evidence.
+Yamlfmt is not added because Prettier, OpenSpec's native validator, Go YAML decoding, GoReleaser schema checking, and actionlint already own every current YAML concern; another YAML formatter would create a competing style authority. Pants, Dagger, Nix, and CEL likewise remain outside the active graph until one can replace more present execution, environment, or policy responsibility than it introduces while retaining native macOS, Linux, and Windows evidence.
 
-OpenSpec's `INFO` findings are advisory and remain visible in successful output;
-they are not warnings. Its `WARNING` and `ERROR` findings, failed validation
-summary, unknown severity or malformed report block admission. A length advisory
-prompts semantic review, not automatic fragmentation of a cohesive requirement.
+OpenSpec's `INFO` findings are advisory and remain visible in successful output; they are not warnings. Its `WARNING` and `ERROR` findings, failed validation summary, unknown severity or malformed report block admission. A length advisory prompts semantic review, not automatic fragmentation of a cohesive requirement.
 
-The [ETHOS gate declarations](../../.ethos/profile.toml) describe execution
-requirements, not a sandbox. Gates may create disposable verification output.
-Behavior tests use prepared tools and local fixtures; the quality gate requires
-network evidence for npm signatures and OSV. A warm-cache success is not an
-offline or fresh-download proof. Output lifetime follows
-[operation ownership](../../CONTRIBUTING.md#output-ownership-and-cleanup).
+The [ETHOS gate declarations](../../.ethos/profile.toml) describe execution requirements, not a sandbox. Gates may create disposable verification output. Behavior tests use prepared tools and local fixtures; the quality gate requires network evidence for npm signatures and OSV. A warm-cache success is not an offline or fresh-download proof. Output lifetime follows [operation ownership](../../CONTRIBUTING.md#output-ownership-and-cleanup).
 
 ### Native platform evidence
 
-Product support requires native evidence for macOS, Linux and Windows across
-the admitted aggregate evidence set. A Forge without a qualified executor omits
-that job rather than substituting an indefinitely pending or allowed-to-fail
-job. Runner availability is not a product capability, and cross-compilation
-proves construction rather than native execution. Qualify the published portable
-executable through its user-scoped install, update, rollback and uninstall
-commands on each supported OS. Artifact signatures and checksums remain
-independent requirements. A detached release signature does not establish
-platform code-signing or notarization; any such distribution claim needs its
-own evidence for the shipped executable.
+Product support requires native evidence for macOS, Linux and Windows across the admitted aggregate evidence set. A Forge without a qualified executor omits that job rather than substituting an indefinitely pending or allowed-to-fail job. Runner availability is not a product capability, and cross-compilation proves construction rather than native execution. Qualify the published portable executable through its user-scoped install, update, rollback and uninstall commands on each supported OS. Artifact signatures and checksums remain independent requirements. A detached release signature does not establish platform code-signing or notarization; any such distribution claim needs its own evidence for the shipped executable.
 
-Every native job runs the shared Go static policy before behavioral tests and
-release acceptance. Another platform's result cannot substitute for the selected
-OS sources. Native vet already runs within that policy; a separate invocation
-must justify a distinct scope rather than repeat the same check.
+Every native job runs the shared Go static policy before behavioral tests and release acceptance. Another platform's result cannot substitute for the selected OS sources. Native vet already runs within that policy; a separate invocation must justify a distinct scope rather than repeat the same check.
 
-Windows FFI annotations are restricted to the operation that requires the native
-ABI. Job information stays pinned through the syscall, DPAPI buffers are copied
-before release, and credential observation reads metadata rather than Token
-blobs. A library that reads credential values cannot replace metadata-only
-observation merely to reduce custom code. No annotation exempts an entire
-package or unrelated call.
+Windows FFI annotations are restricted to the operation that requires the native ABI. Job information stays pinned through the syscall, DPAPI buffers are copied before release, and credential observation reads metadata rather than Token blobs. A library that reads credential values cannot replace metadata-only observation merely to reduce custom code. No annotation exempts an entire package or unrelated call.
 
 ### Behavioral and quantitative evidence
 
-The coverage policy owns the strict **greater-than 95-percent** aggregate
-statement floor. Every canonical production package remains visible and every
-package with measurable statements must execute owned statements. Counter-free
-packages require Go-selected source evidence of declarations without function
-bodies; native zero-statement counters report not applicable. Neither case is
-zero or 100-percent coverage. Package ratios are reported for review, not used
-as a second independent percentage veto.
+The coverage policy owns the strict **greater-than 95-percent** aggregate statement floor. Every canonical production package remains visible and every package with measurable statements must execute owned statements. Counter-free packages require Go-selected source evidence of declarations without function bodies; native zero-statement counters report not applicable. Neither case is zero or 100-percent coverage. Package ratios are reported for review, not used as a second independent percentage veto.
 
-Instrumentation and observation share the exact sorted Go package inventory.
-Undeclared counters fail admission rather than changing the denominator. A
-relative package pattern must not accidentally instrument a checkout-local
-compiler or dependency. Raw counts, package identity, revision, tree, toolchain
-and policy digest remain part of the evidence. Statement coverage cannot be
-relabeled as branch coverage; an unsupported analyzer or inferred metric is not
-an acceptable substitute.
+Instrumentation and observation share the exact sorted Go package inventory. Undeclared counters fail admission rather than changing the denominator. A relative package pattern must not accidentally instrument a checkout-local compiler or dependency. Raw counts, package identity, revision, tree, toolchain and policy digest remain part of the evidence. Statement coverage cannot be relabeled as branch coverage; an unsupported analyzer or inferred metric is not an acceptable substitute.
 
-The machine policies own blocking values. The following list explains their
-current meaning and review trade-offs; it is not a second executable policy.
-The same boundaries apply to product, tooling and tests.
+The machine policies own blocking values. The following list explains their current meaning and review trade-offs; it is not a second executable policy. The same boundaries apply to product, tooling and tests.
 
 - **SCC code lines — The [source-size policy](../../.config/checks/go/size.toml) owns the per-file ceiling.** Bounds traversal; includes inline-comment code but excludes blank and comment-only lines. It is not executable statement count.
 - **Cyclop — At most 25.** Bounds decision-path score, including boolean operators and switch cases. It does not count executable paths or prove test adequacy.
@@ -657,146 +262,60 @@ The same boundaries apply to product, tooling and tests.
 - **Maintidx — At least 25.** Combines span, vocabulary and cyclomatic complexity; large cohesive data can score poorly despite simple control flow.
 - **Dupl — 100-token threshold.** Detects serialized syntax-tree similarity, not repeated responsibility; names and literal values do not distinguish matching structure.
 
-These distinctions follow the locked analyzers, including
-[funlen traversal](https://github.com/ultraware/funlen/blob/v0.2.0/funlen.go),
-[Revive arguments](https://github.com/mgechev/revive/blob/v1.15.0/rule/argument_limit.go),
-[maintainability](https://github.com/yagipy/maintidx/blob/v1.0.0/visitor.go) and
-[clone detection](https://github.com/golangci/dupl). A passing result does not
-establish coverage outside their actual syntax or platform scope.
+These distinctions follow the locked analyzers, including [funlen traversal](https://github.com/ultraware/funlen/blob/v0.2.0/funlen.go), [Revive arguments](https://github.com/mgechev/revive/blob/v1.15.0/rule/argument_limit.go), [maintainability](https://github.com/yagipy/maintidx/blob/v1.0.0/visitor.go) and [clone detection](https://github.com/golangci/dupl). A passing result does not establish coverage outside their actual syntax or platform scope.
 
 Lower values require demonstrated semantic benefit, not only a successful run:
 
-- Complete artifact, projection and credential transactions retain their
-  ordered checks and compensation. Splitting one transaction into forwarding
-  helpers to meet a lower decision count hides rather than removes complexity.
-- Complete acceptance journeys retain intermediate states and exact preservation
-  assertions. Reducing their score by weakening assertions is not admissible.
-- A parameter object is justified by a reusable domain concept, not by grouping
-  unrelated values to evade an argument count.
-- A declarative table may legitimately occupy many lines with little control
-  flow. Span and maintainability must not reward compressed, unreadable data.
-- Similar DPAPI protection and unprotection adapters own distinct native
-  operations. Clone findings require same-owner analysis before consolidation;
-  a host-only trial cannot justify a cross-platform threshold.
+- Complete artifact, projection and credential transactions retain their ordered checks and compensation. Splitting one transaction into forwarding helpers to meet a lower decision count hides rather than removes complexity.
+- Complete acceptance journeys retain intermediate states and exact preservation assertions. Reducing their score by weakening assertions is not admissible.
+- A parameter object is justified by a reusable domain concept, not by grouping unrelated values to evade an argument count.
+- A declarative table may legitimately occupy many lines with little control flow. Span and maintainability must not reward compressed, unreadable data.
+- Similar DPAPI protection and unprotection adapters own distinct native operations. Clone findings require same-owner analysis before consolidation; a host-only trial cannot justify a cross-platform threshold.
 
-The Nestif ceiling is calibrated against real transaction boundaries. A score
-of four now fails: setup and release paths expose their terminal cases early,
-while credential retirement shares one complete delete-and-observe operation.
-The rule applies equally to product, tests and repository tools, with native
-positive and failing fixtures at scores three and four. It is not a limit of
-three indentation levels; loops and other constructs remain covered by the
-complementary analyzers.
+The Nestif ceiling is calibrated against real transaction boundaries. A score of four now fails: setup and release paths expose their terminal cases early, while credential retirement shares one complete delete-and-observe operation. The rule applies equally to product, tests and repository tools, with native positive and failing fixtures at scores three and four. It is not a limit of three indentation levels; loops and other constructs remain covered by the complementary analyzers.
 
-Reassess a limit when an escaped defect exposes an unprotected risk or repeated
-cohesion-preserving changes are blocked. Keep every other gate, source category
-and assertion intact during a trial. Prefer deletion, reduced state and clearer
-ownership to extra indirection, exclusions, suppressions or maximum-plus-one
-thresholds. No metric or trial establishes a universal optimum.
+Reassess a limit when an escaped defect exposes an unprotected risk or repeated cohesion-preserving changes are blocked. Keep every other gate, source category and assertion intact during a trial. Prefer deletion, reduced state and clearer ownership to extra indirection, exclusions, suppressions or maximum-plus-one thresholds. No metric or trial establishes a universal optimum.
 
-Maintainability diagnostics remain visible even when a different rule rejects
-the same function. Native conformance covers both product and test source;
-a stricter threshold is not proven merely by a clean repository scan.
+Maintainability diagnostics remain visible even when a different rule rejects the same function. Native conformance covers both product and test source; a stricter threshold is not proven merely by a clean repository scan.
 
 #### Calibration decision
 
-Calibration compares the locked analyzers across macOS arm64, Linux amd64 and
-Windows amd64 package selections, including product, tests and tools. Keep one
-policy for all source categories, with no exception list or softer test policy.
-Exact trial inputs, findings and remediation belong to the proposing OpenSpec
-Change. The durable trade-offs are:
+Calibration compares the locked analyzers across macOS arm64, Linux amd64 and Windows amd64 package selections, including product, tests and tools. Keep one policy for all source categories, with no exception list or softer test policy. Exact trial inputs, findings and remediation belong to the proposing OpenSpec Change. The durable trade-offs are:
 
 - **Cyclomatic 20, then 15**
-  - **Decision and semantic reason:** Do not adopt either trial; keep the
-    machine limit at 25. Signed publication, report admission and release
-    construction need ordered checks; complete acceptance journeys retain every
-    preservation assertion. Lower-score findings require owner-level review,
-    not automatic extraction into forwarding functions.
+  - **Decision and semantic reason:** Do not adopt either trial; keep the machine limit at 25. Signed publication, report admission and release construction need ordered checks; complete acceptance journeys retain every preservation assertion. Lower-score findings require owner-level review, not automatic extraction into forwarding functions.
 - **Cognitive 40**
-  - **Decision and semantic reason:** Do not adopt the trial; keep the machine
-    limit at 45. Bootstrap, recovery and native artifact tests jointly assert
-    ownership, failure propagation and cleanup. Splitting those observations
-    across helpers or weakening assertions does not reduce their product
-    obligation.
+  - **Decision and semantic reason:** Do not adopt the trial; keep the machine limit at 45. Bootstrap, recovery and native artifact tests jointly assert ownership, failure propagation and cleanup. Splitting those observations across helpers or weakening assertions does not reduce their product obligation.
 - **Span/statements 110/55**
-  - **Decision and semantic reason:** Do not adopt the trial; keep the machine
-    limits at 120 physical lines and 60 statements. Explicit native executable
-    declarations and complete source, build, and check journeys remain
-    inspectable without forwarding stages or compressed literals.
+  - **Decision and semantic reason:** Do not adopt the trial; keep the machine limits at 120 physical lines and 60 statements. Explicit native executable declarations and complete source, build, and check journeys remain inspectable without forwarding stages or compressed literals.
 - **Arguments six**
-  - **Decision and semantic reason:** Do not adopt the trial; keep the machine
-    limit at seven. A fixture declares an Account and Route; artifact ordering
-    consumes a target plus before/after configuration, state and catalogue.
-    Positional snapshot grouping alone would add a carrier rather than reduce
-    caller knowledge.
+  - **Decision and semantic reason:** Do not adopt the trial; keep the machine limit at seven. A fixture declares an Account and Route; artifact ordering consumes a target plus before/after configuration, state and catalogue. Positional snapshot grouping alone would add a carrier rather than reduce caller knowledge.
 - **Nestif below four**
   - **Decision and semantic reason:** Adopt the stricter bound. Early terminal paths remove nesting, and shared credential deletion verifies metadata instead of reading secret values. Product and test fixtures verify the boundary.
 - **Maintainability 30**
-  - **Decision and semantic reason:** Do not adopt the trial; keep the machine
-    floor at 25. The index penalizes explicit assertion and data vocabulary as
-    well as control flow; independent size, nesting and decision limits
-    constrain those owners.
+  - **Decision and semantic reason:** Do not adopt the trial; keep the machine floor at 25. The index penalizes explicit assertion and data vocabulary as well as control flow; independent size, nesting and decision limits constrain those owners.
 - **Clone threshold 80**
-  - **Decision and semantic reason:** Do not adopt the trial; keep the machine
-    threshold at 100 tokens. DPAPI protection and unprotection are distinct
-    operations, not automatically repeated responsibility. Findings inform
-    consumer review without forcing distinct assertions behind one configurable
-    fake.
+  - **Decision and semantic reason:** Do not adopt the trial; keep the machine threshold at 100 tokens. DPAPI protection and unprotection are distinct operations, not automatically repeated responsibility. Findings inform consumer review without forcing distinct assertions behind one configurable fake.
 
-Calibration does not complete consumer/clone review, native release or
-performance acceptance. Reopen a threshold when concrete escaped risk or
-repeated cohesive-change rejection changes the trade-off, not merely when
-another numerical target is proposed.
+Calibration does not complete consumer/clone review, native release or performance acceptance. Reopen a threshold when concrete escaped risk or repeated cohesive-change rejection changes the trade-off, not merely when another numerical target is proposed.
 
 ### Check effectiveness and failure semantics
 
-Cross-checkout conformance runs the native commands against boundary pairs,
-product and test sources, foreign platform selections and unchanged source
-bytes. Removing the intended rule must invalidate its own expected rejection.
-Analyzer diagnostics retain all applicable rules at a source line rather than
-hiding one behind another. Conformance proves the selected check; it does not
-by itself prove hosted routing or implementation completeness.
+Cross-checkout conformance runs the native commands against boundary pairs, product and test sources, foreign platform selections and unchanged source bytes. Removing the intended rule must invalidate its own expected rejection. Analyzer diagnostics retain all applicable rules at a source line rather than hiding one behind another. Conformance proves the selected check; it does not by itself prove hosted routing or implementation completeness.
 
-The native jobs execute the repository-tool tests as well as product tests.
-Windows runs the complete Go test set, including native-check subprocesses;
-macOS and Linux run it with race detection and package-observed coverage.
-Neither cross-compilation nor a green quality job substitutes for those native
-runs. Configuration schemas, exact file inventories, warning handling and
-failed output delivery are tested through their existing check owners, without
-another registry. Hook admission, external-link availability, visual rendering,
-live Provider responses and installed-artifact acceptance require their own
-observations; local conformance does not certify them.
+The native jobs execute the repository-tool tests as well as product tests. Windows runs the complete Go test set, including native-check subprocesses; macOS and Linux run it with race detection and package-observed coverage. Neither cross-compilation nor a green quality job substitutes for those native runs. Configuration schemas, exact file inventories, warning handling and failed output delivery are tested through their existing check owners, without another registry. Hook admission, external-link availability, visual rendering, live Provider responses and installed-artifact acceptance require their own observations; local conformance does not certify them.
 
-Correctness analysis includes native vet nilness and unused-write checks and
-checked dynamic type assertions. Fixtures should retain concrete dependencies
-rather than recover known types from broad interfaces. Additional analyzers
-need a correctness or performance rationale; enabling every advisory rule is
-not automatically a stronger policy.
+Correctness analysis includes native vet nilness and unused-write checks and checked dynamic type assertions. Fixtures should retain concrete dependencies rather than recover known types from broad interfaces. Additional analyzers need a correctness or performance rationale; enabling every advisory rule is not automatically a stronger policy.
 
-Every discarded error requires a reason at its owner. Gate progress must be
-writable before the gate executes, and a result-write failure must not report
-success. After a verified publication, the error identifies the completed
-external effect and failed report delivery; it does not roll back or repeat
-publication. Read-only close errors and infallible in-memory operations have
-different consequences from failed durable writes and must be reviewed as such.
+Every discarded error requires a reason at its owner. Gate progress must be writable before the gate executes, and a result-write failure must not report success. After a verified publication, the error identifies the completed external effect and failed report delivery; it does not roll back or repeat publication. Read-only close errors and infallible in-memory operations have different consequences from failed durable writes and must be reviewed as such.
 
-Security scanning covers current regular source files with path policy intact;
-symlink targets and ignored untracked output remain outside that source scope.
-A current-file scan does not prove history was scanned. Output is redacted,
-input bytes stay unchanged, and private projections are reclaimed on success
-and failure. Coverage, security, type, dependency, documentation and lifecycle
-checks remain independent obligations.
+Security scanning covers current regular source files with path policy intact; symlink targets and ignored untracked output remain outside that source scope. A current-file scan does not prove history was scanned. Output is redacted, input bytes stay unchanged, and private projections are reclaimed on success and failure. Coverage, security, type, dependency, documentation and lifecycle checks remain independent obligations.
 
 ### Performance and completion claims
 
-Compare startup, projection latency, credential access, memory and artifact size
-against the retained installed baseline on the supported platforms. Measurements
-identify their exact source and artifact, environment, method and uncertainty.
-A regression needs a product benefit and an explicit accepted trade-off, or
-remediation through less allocation, I/O, state or redundant implementation.
-Old host measurements are not current budgets or evidence of improvement.
+Compare startup, projection latency, credential access, memory and artifact size against the retained installed baseline on the supported platforms. Measurements identify their exact source and artifact, environment, method and uncertainty. A regression needs a product benefit and an explicit accepted trade-off, or remediation through less allocation, I/O, state or redundant implementation. Old host measurements are not current budgets or evidence of improvement.
 
-The release review uses these product budgets, declared before its acceptance
-run. They are engineering targets, not claims about every host:
+The release review uses these product budgets, declared before its acceptance run. They are engineering targets, not claims about every host:
 
 | Boundary                                                              | Budget                                                                      | Product reason                                                                                                                |
 | --------------------------------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -806,21 +325,9 @@ run. They are engineering targets, not claims about every host:
 | Peak resident memory for configured local observation                 | Review growth exceeding both 20% and 4 MiB against the retained predecessor | Require both a meaningful absolute cost and a relative change; allocator noise alone must not drive artificial restructuring. |
 | Uncompressed executable size for each matching target                 | Review growth exceeding both 10% and 1 MiB against the retained predecessor | Expose material distribution cost without demanding identical compiler output or removing useful product behavior.            |
 
-Exceeding a review threshold requires a measured explanation and an accepted
-product trade-off or repair; it is not silently waived. Timing budgets exclude
-network inference, client startup and human credential interaction. Record those
-as separate boundaries, never subtract them from an end-to-end result.
+Exceeding a review threshold requires a measured explanation and an accepted product trade-off or repair; it is not silently waived. Timing budgets exclude network inference, client startup and human credential interaction. Record those as separate boundaries, never subtract them from an end-to-end result.
 
-Use exact published candidate and predecessor bytes with equivalent inputs,
-five warmups and two opposite-order blocks of at least forty samples per
-timing case. Keep all samples, including outliers, and report per-block results
-as well as pooled p95. If ordering or host contention changes the decision,
-the result is inconclusive: repeat under a controlled condition rather than
-increase a limit. OS, architecture, credential backend, client discovery and
-shell overhead remain explicit. Environment credentials do not qualify a
-native vault, and one platform's timing does not qualify another. Revisit a
-budget when the actual user journey or supported environment changes, not to
-make a candidate pass.
+Use exact published candidate and predecessor bytes with equivalent inputs, five warmups and two opposite-order blocks of at least forty samples per timing case. Keep all samples, including outliers, and report per-block results as well as pooled p95. If ordering or host contention changes the decision, the result is inconclusive: repeat under a controlled condition rather than increase a limit. OS, architecture, credential backend, client discovery and shell overhead remain explicit. Environment credentials do not qualify a native vault, and one platform's timing does not qualify another. Revisit a budget when the actual user journey or supported environment changes, not to make a candidate pass.
 
 Every completion claim names its scope, verifier, current evidence and limit.
 
@@ -833,30 +340,14 @@ Every completion claim names its scope, verifier, current evidence and limit.
 | Release is published        | Successful tag pipeline and independent inspection of each selected peer's Release and assets                            | A local build directory or source tag                     |
 | GA is trusted               | Protected signing-policy verification and post-signature checksums for exact published assets                            | An unsigned prerelease or local identity inspection       |
 
-Projection evidence includes the dry-run, all-target transaction, byte-exact
-compensation and resulting diagnostics. The endpoint owner supplies transport
-and service evidence. A configured loopback URL proves neither listener health
-nor ownership. User-visible claims require observation in the named client
-context rather than inference from configuration or transport health.
+Projection evidence includes the dry-run, all-target transaction, byte-exact compensation and resulting diagnostics. The endpoint owner supplies transport and service evidence. A configured loopback URL proves neither listener health nor ownership. User-visible claims require observation in the named client context rather than inference from configuration or transport health.
 
 ## Branch and Worktree Closeout
 
-Proposal cleanup follows acceptance into `dev` and closure of its review; it
-does not wait for independent promotion to `main`, installation, or another
-peer's availability. Verify the exact source object is accepted before removing
-the selected remote review ref. Worktree and local-ref retirement use ETHOS's
-current exact-target decision, including content preservation and live ownership,
-rather than a separate AIGW retirement checklist.
+Proposal cleanup follows acceptance into `dev` and closure of its review; it does not wait for independent promotion to `main`, installation, or another peer's availability. Verify the exact source object is accepted before removing the selected remote review ref. Worktree and local-ref retirement use ETHOS's current exact-target decision, including content preservation and live ownership, rather than a separate AIGW retirement checklist.
 
-A peer that cannot be observed remains unverified: defer that peer's effect,
-not unrelated local product work. Published tags and rollback artifacts retain
-their consumers and require a separate deletion inventory. Object-database
-cleanup is storage maintenance, not evidence of release or product completion.
+A peer that cannot be observed remains unverified: defer that peer's effect, not unrelated local product work. Published tags and rollback artifacts retain their consumers and require a separate deletion inventory. Object-database cleanup is storage maintenance, not evidence of release or product completion.
 
 ## Product Boundary
 
-AIGW owns Accounts, credentials, Routes, Client Bindings, storage policy, and explicit
-client projections. It does not carry API traffic, manage an external proxy,
-control IDE state, or mutate Codex JSONL, SQLite, historical messages, or model
-metadata. Optional Responses services are ordinary configured endpoints and
-own their own deployment and runtime lifecycle.
+AIGW owns Accounts, credentials, Routes, Client Bindings, storage policy, and explicit client projections. It does not carry API traffic, manage an external proxy, control IDE state, or mutate Codex JSONL, SQLite, historical messages, or model metadata. Optional Responses services are ordinary configured endpoints and own their own deployment and runtime lifecycle.

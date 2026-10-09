@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:security-model
+role: explanation
+state: canonical
+relations:
+  canonical_for: credential, process, and trust boundaries
+---
+-->
+
 # Security Model
 
 AIGW keeps credentials local, mutations bounded, and client ownership explicit.

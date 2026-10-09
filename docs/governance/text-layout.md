@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:text-layout
+role: policy
+state: canonical
+relations:
+  canonical_for: repository text layout and formatting
+---
+-->
+
 # Text Layout Policy
 
 Repository-wide authoring and formatting policy for contributors. Product

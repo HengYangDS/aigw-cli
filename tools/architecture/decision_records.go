@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"go.yaml.in/yaml/v3"
 )
 
 var decisionRecordName = regexp.MustCompile(`^dr-([0-9]{4})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$`)
@@ -42,6 +44,17 @@ func checkDecisionRecordsWithReadDir(
 			continue
 		}
 		relative := "docs/decisions/" + entry.Name()
+		body, readErr := os.ReadFile(filepath.Join(directory, entry.Name()))
+		if readErr != nil {
+			return fmt.Errorf("read %s: %w", relative, readErr)
+		}
+		role, visible, parseErr := decisionDocument(string(body))
+		if parseErr != nil {
+			return fmt.Errorf("read %s metadata: %w", relative, parseErr)
+		}
+		if role != "decision" && !strings.HasPrefix(entry.Name(), "dr-") && !strings.HasPrefix(visible, "# DR-") {
+			continue
+		}
 		match := decisionRecordName.FindStringSubmatch(entry.Name())
 		if match == nil {
 			report.addFinding(Finding{Rule: "decision_record_name", Path: relative, Message: "Decision Record names must use dr-<four-digit-sequence>-<kebab-case-description>.md"})
@@ -52,11 +65,7 @@ func checkDecisionRecordsWithReadDir(
 			report.addFinding(Finding{Rule: "decision_record_sequence_duplicate", Path: relative, Count: sequence, Message: "Decision Record sequence is already used"})
 		}
 		sequences[sequence] = true
-		body, readErr := os.ReadFile(filepath.Join(directory, entry.Name()))
-		if readErr != nil {
-			return fmt.Errorf("read %s: %w", relative, readErr)
-		}
-		checkDecisionRecordBody(relative, sequence, string(body), report)
+		checkDecisionRecordBody(relative, sequence, visible, report)
 		registrations := strings.Count(string(register), "("+entry.Name()+")")
 		if registrations == 0 {
 			report.addFinding(Finding{Rule: "decision_record_unregistered", Path: relative, Message: "Decision Record is absent from the canonical register"})
@@ -65,6 +74,30 @@ func checkDecisionRecordsWithReadDir(
 		}
 	}
 	return nil
+}
+
+func decisionDocument(body string) (role, visible string, err error) {
+	body = strings.ReplaceAll(body, "\r\n", "\n")
+	var start, end string
+	switch {
+	case strings.HasPrefix(body, "<!--\n---\n"):
+		start, end = "<!--\n---\n", "\n---\n-->\n"
+	case strings.HasPrefix(body, "---\n"):
+		start, end = "---\n", "\n---\n"
+	default:
+		return "", body, nil
+	}
+	payload, visible, found := strings.Cut(strings.TrimPrefix(body, start), end)
+	if !found {
+		return "", "", fmt.Errorf("incomplete metadata carrier")
+	}
+	var metadata struct {
+		Role string `yaml:"role"`
+	}
+	if err := yaml.Unmarshal([]byte(payload), &metadata); err != nil {
+		return "", "", err
+	}
+	return metadata.Role, strings.TrimLeft(visible, "\n"), nil
 }
 
 func checkDecisionRecordBody(relative string, sequence int, body string, report *Report) {

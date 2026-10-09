@@ -1,7 +1,18 @@
+<!--
+---
+subject: aigw:docs
+role: index
+state: canonical
+relations:
+  canonical_for: AIGW documentation navigation
+---
+-->
+
 # Documentation
 
-Choose the audience and follow one journey. This page is the only documentation
-directory index; each linked document owns one subject.
+Choose the audience and follow one journey. This page is the global documentation
+entry point; local directory indexes provide narrower navigation, and each
+linked document owns one subject.
 
 Place a document by its responsibility, not the task that produced it:
 `research` records observations and comparisons; `decisions` records adopted
@@ -52,7 +63,8 @@ They answer different questions; none substitutes for all the others.
 
 ## Reference map
 
-- **Architecture:** [Authority and projection boundary](architecture/authority-and-projection-boundary.md)
+- **Architecture:** [Architecture navigation](architecture/README.md) and
+  [Authority and projection boundary](architecture/authority-and-projection-boundary.md)
   explains the control plane and projection transactions; the
   [Client Projection Edition Provider](../architecture/edition-provider/README.md)
   binds that selected structure to exact source bytes without adding runtime
@@ -61,11 +73,13 @@ They answer different questions; none substitutes for all the others.
   and real-request verification.
 - **Concepts:** [Product concepts](concepts/product-concepts.md) defines Accounts,
   Routes, Client Bindings, Adapters, endpoints and updates.
-- **Decisions:** [Decision register](decisions/decision-register.md) indexes
+- **Decisions:** [Decision navigation](decisions/README.md) leads to the
+  [Decision register](decisions/decision-register.md), which indexes
   durable rulings and their rationale.
 - **Experience:** [Terminal experience](experience/terminal-experience.md)
   defines navigation, layout and recovery language.
-- **Governance:** [Text layout](governance/text-layout.md),
+- **Governance:** [Governance navigation](governance/README.md),
+  [Text layout](governance/text-layout.md),
   [Adapter admission](governance/adapter-admission.md), and
   [Change and release policy](governance/change-and-release-policy.md) own
   contributor contracts.

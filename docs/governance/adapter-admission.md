@@ -1,3 +1,13 @@
+<!--
+---
+subject: aigw:adapter-admission
+role: policy
+state: canonical
+relations:
+  canonical_for: Client Adapter admission
+---
+-->
+
 # Adapter Admission
 
 ## Boundary
