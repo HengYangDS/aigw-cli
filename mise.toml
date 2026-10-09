@@ -22,7 +22,7 @@ NPM_CONFIG_REGISTRY = false
 npm_config_registry = false
 NPM_CONFIG_USERCONFIG = "{{ config_root }}/.npmrc"
 NPM_CONFIG_GLOBALCONFIG = "{% if os() == 'windows' %}NUL{% else %}/dev/null{% endif %}"
-NPM_CONFIG_CACHE = "{{ config_root }}/build/runtime/npm-cache{% if env.CI_JOB_ID | default(value='') != '' %}/{{ env.CI_JOB_ID }}{% endif %}"
+NPM_CONFIG_CACHE = "{{ config_root }}/build/runtime/tool-cache/npm{% if env.CI_JOB_ID | default(value='') != '' %}/{{ env.CI_JOB_ID }}{% endif %}"
 
 [vars]
 renovate_image = "ghcr.io/renovatebot/renovate:44.141.0@sha256:6165430f0c4d62efd109d2c25d239798232c78b3eb199ad9f68e18cefc8102bc"

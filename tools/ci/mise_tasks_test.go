@@ -222,7 +222,7 @@ func TestMiseNpmEnvironmentIsBoundToThisRepository(t *testing.T) {
 			t.Logf("repository npm completed in %s with pristine stderr", elapsed)
 			expected := map[string]string{
 				"registry": "https://registry.npmjs.org/", "userconfig": filepath.Join(root, ".npmrc"),
-				"globalconfig": nullConfig, "cache": filepath.Join(root, "build", "runtime", "npm-cache", job),
+				"globalconfig": nullConfig, "cache": filepath.Join(root, "build", "runtime", "tool-cache", "npm", job),
 			}
 			for line := range strings.SplitSeq(strings.TrimSpace(string(output)), "\n") {
 				name, got, _ := strings.Cut(strings.TrimSpace(line), "=")
