@@ -186,57 +186,14 @@ func TestNormalizeDependencyEvidenceRemovesHostAndVolatileMetadata(t *testing.T)
 	}
 }
 
-func TestDependencyEvidenceRequiresCompleteSelectedSources(t *testing.T) {
-	for _, scenario := range []string{
-		"complete", "missing results", "partial", "foreign checkout", "foreign lockfile", "duplicate source", "non-lockfile source", "empty packages",
-	} {
-		t.Run(scenario, func(t *testing.T) {
-			root := t.TempDir()
-			encoded, err := dependencyReportFixture(root)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var report osvFixtureReport
-			if err := json.Unmarshal(encoded, &report); err != nil {
-				t.Fatal(err)
-			}
-			switch scenario {
-			case "missing results":
-				report.Results = nil
-			case "partial":
-				report.Results = report.Results[:1]
-			case "foreign checkout":
-				report.Results[0].Source.Path = filepath.Join(root, "sibling", "go.mod")
-			case "foreign lockfile":
-				report.Results[0].Source.Path = filepath.Join(root, "other.lock")
-			case "duplicate source":
-				report.Results = append(report.Results, report.Results[0])
-			case "non-lockfile source":
-				report.Results[0].Source.Type = "directory"
-			case "empty packages":
-				report.Results[0].Packages = nil
-			}
-			source := filepath.Join(root, "osv.json")
-			if err := writeJSON(source, report); err != nil {
-				t.Fatal(err)
-			}
-			vulnerabilities, licenses := filepath.Join(root, "vulnerabilities.json"), filepath.Join(root, "licenses.json")
-			err = normalizeDependencyEvidence(source, vulnerabilities, licenses, []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")})
-			if scenario == "complete" {
-				if err != nil {
-					t.Fatal(err)
-				}
-				return
-			}
-			if err == nil {
-				t.Fatalf("%s dependency report was accepted", scenario)
-			}
-			for _, target := range []string{vulnerabilities, licenses} {
-				if _, err := os.Stat(target); !os.IsNotExist(err) {
-					t.Fatalf("incomplete scan wrote accepted evidence: %s, %v", target, err)
-				}
-			}
-		})
+func TestRenderGoReleaserConfigRejectsUnwritableDestination(t *testing.T) {
+	root := releaseRoot(t)
+	blocked := filepath.Join(t.TempDir(), "blocked")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := renderGoReleaserConfig(root, blocked, t.TempDir()); err == nil || !strings.Contains(err.Error(), "write GoReleaser config") {
+		t.Fatalf("unwritable config error = %v", err)
 	}
 }
 
@@ -415,6 +372,7 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 	version := "1.2.3"
 	expected := make(map[string]string)
 	var sbom []byte
+	var sbomPath string
 	observed := errors.New("native SBOM observed before other release evidence")
 	err := buildRelease(t.Context(), buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: version, Epoch: "1784246400", SigningKey: "unused"}, func(call toolCall) error {
 		switch call.Name {
@@ -447,6 +405,8 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 			}
 			return nil
 		case "syft":
+			stage := filepath.Dir(strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json="))
+			sbomPath = filepath.Join(filepath.Dir(stage), "artifacts", "aigw_"+version+".spdx.json")
 			command := exec.Command(call.Name, call.Args...)
 			command.Dir = call.Directory
 			if output, err := command.CombinedOutput(); err != nil || len(output) != 0 {
@@ -454,9 +414,8 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 			}
 			return nil
 		case "osv-scanner":
-			stage := filepath.Dir(call.Args[len(call.Args)-1])
 			var err error
-			sbom, err = os.ReadFile(filepath.Join(filepath.Dir(stage), "artifacts", "aigw_"+version+".spdx.json"))
+			sbom, err = os.ReadFile(sbomPath)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -496,5 +455,77 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 	}
 	if len(expected) != 0 {
 		t.Fatalf("SBOM omitted platform artifacts: %v", expected)
+	}
+}
+
+func TestReleaseBuildEnvironment(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## [Unreleased]\n\n## [1.2.3] - 2026-08-09\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(root)
+	for name, value := range map[string]string{
+		"AIGW_GITLAB_RELEASE_ORIGIN":     "https://gitlab.example",
+		"AIGW_GITLAB_RELEASE_REPOSITORY": "group/aigw-cli",
+		"AIGW_GITHUB_RELEASE_ORIGIN":     "https://github.example",
+		"AIGW_GITHUB_RELEASE_REPOSITORY": "org/aigw-cli",
+	} {
+		t.Setenv(name, value)
+	}
+	request, err := buildRequestFromEnvironment(t.Context(), "dist")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requestRoot, requestRootErr := os.Stat(request.Root)
+	wantRoot, wantRootErr := os.Stat(root)
+	if request.Version != "1.2.3" || request.Epoch != "1786233600" || request.Output != "dist" || requestRootErr != nil || wantRootErr != nil || !os.SameFile(requestRoot, wantRoot) {
+		t.Fatalf("request = %#v", request)
+	}
+	missingVersion := t.TempDir()
+	if err := os.Chdir(missingVersion); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := buildRequestFromEnvironment(t.Context(), "dist"); err == nil || !strings.Contains(err.Error(), "read VERSION") {
+		t.Fatalf("missing VERSION error = %v", err)
+	}
+	missingChronology := t.TempDir()
+	if err := os.WriteFile(filepath.Join(missingChronology, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(missingChronology); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := buildRequestFromEnvironment(t.Context(), "dist"); err == nil || !strings.Contains(err.Error(), "open CHANGELOG") {
+		t.Fatalf("missing release chronology error = %v", err)
+	}
+}
+
+func TestMacOSDistributionRequiresExplicitIdentity(t *testing.T) {
+	if err := VerifyMacOSDistribution(t.Context(), t.TempDir(), "1.2.3", "", Notarization{}); err == nil {
+		t.Fatal("distribution accepted without explicit publisher")
+	}
+	if err := VerifyMacOSDistribution(t.Context(), t.TempDir(), "invalid", strings.Repeat("a", 40), Notarization{Archive: "upload.zip", SubmissionID: "submission", KeychainProfile: "profile"}); err == nil {
+		t.Fatal("invalid version accepted")
+	}
+}
+
+func TestReleaseEpochRejectsInvalidDateAndOversizedChangelogLine(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("CI_COMMIT_TAG", "v1.2.3")
+	changelog := filepath.Join(root, "CHANGELOG.md")
+	if err := os.WriteFile(changelog, []byte("## [1.2.3] - 2026-99-99\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resolveReleaseEpoch(t.Context(), root, "1.2.3"); err == nil {
+		t.Fatal("invalid release date was accepted")
+	}
+	if err := os.WriteFile(changelog, []byte(strings.Repeat("x", 70*1024)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resolveReleaseEpoch(t.Context(), root, "1.2.3"); err == nil || !strings.Contains(err.Error(), "token too long") {
+		t.Fatalf("oversized changelog error = %v", err)
 	}
 }

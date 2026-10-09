@@ -77,7 +77,7 @@ func TestNativeJourneyOwnsWorkingDirectory(t *testing.T) {
 
 func TestRunBuildCIAndTagReadinessInputBoundaries(t *testing.T) {
 	var output bytes.Buffer
-	for _, args := range [][]string{{"build-ci"}, {"upload-gitlab"}, {"publish-github"}, {"publish-gitlab"}, {"verify-artifacts"}, {"validate-version-tag", "extra"}} {
+	for _, args := range [][]string{{"build-ci"}, {"scan-dependencies"}, {"scan-dependencies", "."}, {"scan-dependencies", ".", ".", "extra"}, {"upload-gitlab"}, {"publish-github"}, {"publish-gitlab"}, {"verify-artifacts"}, {"validate-version-tag", "extra"}} {
 		if err := run(args, &output); err == nil {
 			t.Fatalf("invalid invocation accepted: %v", args)
 		}

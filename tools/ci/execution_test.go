@@ -146,7 +146,7 @@ func TestSourceCommandsKeepSuccessfulOutputQuietWithoutSuppressingWarnings(t *te
 		t.Fatal(err)
 	}
 	want := []command{
-		{Name: "osv-scanner", Args: []string{"scan", "source", "--config", ".config/checks/dependencies/policy.toml", "--lockfile", "go.mod", "--lockfile", "package-lock.json", "--format", "table", "--verbosity", "warn", "."}},
+		{Name: "go", Args: []string{"run", "./tools/release", "scan-dependencies", ".", "build/verification"}},
 	}
 	for _, expected := range want {
 		if !slices.ContainsFunc(commands, func(call command) bool { return reflect.DeepEqual(call, expected) }) {
@@ -183,15 +183,16 @@ func TestDependencyScanUsesOwnedPolicyWithoutChangingCallerFilters(t *testing.T)
 			t.Fatal(err)
 		}
 	}
-	index := slices.IndexFunc(qualityCommands, func(call command) bool { return call.Name == "osv-scanner" })
+	index := slices.IndexFunc(qualityCommands, func(call command) bool { return call.Name == "go" && slices.Contains(call.Args, "scan-dependencies") })
 	if index < 0 {
 		t.Fatal("source gate has no dependency scan")
 	}
-	call := qualityCommands[index]
-	call.Dir = root
-	call.Env = []string{"OSV_SCALIBR_LOCAL_DB_CACHE_DIRECTORY=" + filepath.Join(root, "cache")}
-	// The private test checkout lives beneath the repository's ignored build tree.
-	call.Args = append(slices.Clone(call.Args), "--no-ignore", "--offline", "--no-call-analysis=go", "--format=json", "--all-packages")
+	// CI consumes the construction owner; this native fixture checks its selected
+	// lockfile policy independently of online advisory and license availability.
+	call := command{Name: "osv-scanner", Dir: root,
+		Args: []string{"scan", "source", "--config", policy, "--lockfile", "go.mod", "--lockfile", "package-lock.json", "--no-ignore", "--offline", "--no-call-analysis=go", "--format=json", "--all-packages", "--verbosity", "warn"},
+		Env:  []string{"OSV_SCALIBR_LOCAL_DB_CACHE_DIRECTORY=" + filepath.Join(root, "cache")},
+	}
 	output, err := systemOutputRunner(call)
 	if err != nil {
 		t.Fatalf("native dependency scan failed: %v\n%s", err, output)

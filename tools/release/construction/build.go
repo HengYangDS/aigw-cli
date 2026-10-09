@@ -36,7 +36,8 @@ type buildRequest struct {
 type toolCall struct {
 	Name, Directory string
 	Args, Env       []string
-	Stdout          io.Writer
+	Stdout, Stderr  io.Writer
+	Timeout         time.Duration
 }
 
 type toolRunner func(toolCall) error
@@ -97,27 +98,7 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 	if err := normalizeSPDX(rawSBOM, sbom, request.Version, instant); err != nil {
 		return err
 	}
-	rawDependencies := filepath.Join(stage, "aigw.dependencies.json")
-	lockfiles := []string{filepath.Join(request.Root, "go.mod"), filepath.Join(request.Root, "package-lock.json")}
-	if err := run(toolCall{
-		Name: "osv-scanner", Directory: request.Root,
-		Args: []string{
-			"scan", "source",
-			"--config", filepath.Join(request.Root, ".config", "checks", "dependencies", "policy.toml"),
-			"--lockfile", lockfiles[0],
-			"--lockfile", lockfiles[1],
-			"--no-call-analysis=go", "--format", "json", "--all-packages", "--licenses=",
-			"--output-file", rawDependencies,
-		},
-	}); err != nil {
-		return fmt.Errorf("scan release dependencies: %w", err)
-	}
-	if err := normalizeDependencyEvidence(
-		rawDependencies,
-		filepath.Join(candidate, "aigw_"+request.Version+".vulnerabilities.json"),
-		filepath.Join(candidate, "aigw_"+request.Version+".licenses.json"),
-		lockfiles,
-	); err != nil {
+	if err := scanReleaseDependencies(request.Root, filepath.Dir(output), candidate, request.Version, run); err != nil {
 		return err
 	}
 	commit, err := resolveGitObject(request.Root, "HEAD^{commit}", run)
@@ -312,14 +293,24 @@ func replaceDirectory(source, target string) (result error) {
 
 func executeTool(ctx context.Context) toolRunner {
 	return func(call toolCall) error {
+		ctx := ctx
+		if call.Timeout > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, call.Timeout)
+			defer cancel()
+		}
 		stdout := call.Stdout
 		if stdout == nil {
 			stdout = os.Stdout
 		}
+		stderr := call.Stderr
+		if stderr == nil {
+			stderr = os.Stderr
+		}
 		return (process.Runner{}).RunStream(ctx, process.Plan{
 			Executable: call.Name, Directory: call.Directory,
 			Args: call.Args, Env: append(os.Environ(), call.Env...),
-		}, stdout, os.Stderr)
+		}, stdout, stderr)
 	}
 }
 

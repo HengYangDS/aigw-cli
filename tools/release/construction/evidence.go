@@ -2,12 +2,14 @@ package construction
 
 import (
 	"aigw-cli/tools/release/artifact"
+	"context"
 	"crypto/sha1" //nolint:gosec // SPDX 2.3 requires SHA1 file metadata; signed SHA256 owns integrity.
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -87,6 +89,133 @@ type licenseSource struct {
 type licensedDependency struct {
 	dependencyIdentity
 	Licenses []string `json:"licenses"`
+}
+
+// ScanDependencies retains the native scan and normalized advisory evidence.
+func ScanDependencies(ctx context.Context, root, parent string) (string, error) {
+	directory, err := dependencyEvidenceDirectory(parent)
+	if err != nil {
+		return "", err
+	}
+	return directory, scanDependencies(root, directory, true, executeTool(ctx))
+}
+
+func scanReleaseDependencies(root, parent, candidate, version string, run toolRunner) error {
+	directory, err := dependencyEvidenceDirectory(parent)
+	if err != nil {
+		return err
+	}
+	if err := scanDependencies(root, directory, false, run); err != nil {
+		return err
+	}
+	for _, kind := range []string{"vulnerabilities", "licenses"} {
+		if err := copyFile(filepath.Join(directory, kind+".json"), filepath.Join(candidate, "aigw_"+version+"."+kind+".json")); err != nil {
+			return fmt.Errorf("retain release dependencies; evidence at %s: %w", directory, err)
+		}
+	}
+	return nil
+}
+
+func dependencyEvidenceDirectory(parent string) (string, error) {
+	if err := os.MkdirAll(parent, 0o700); err != nil {
+		return "", fmt.Errorf("prepare dependency evidence parent: %w", err)
+	}
+	directory, err := os.MkdirTemp(parent, ".aigw-dependencies-")
+	if err != nil {
+		return "", fmt.Errorf("create dependency evidence: %w", err)
+	}
+	return filepath.Abs(directory)
+}
+
+func scanDependencies(root, directory string, callAnalysis bool, run toolRunner) (result error) {
+	root, err := filepath.Abs(root)
+	if err != nil {
+		return err
+	}
+	lockfiles := []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")}
+	stdout, err := os.OpenFile(filepath.Join(directory, "stdout.txt"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return fmt.Errorf("open dependency stdout: %w", err)
+	}
+	stderr, err := os.OpenFile(filepath.Join(directory, "stderr.txt"), os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return errors.Join(fmt.Errorf("open dependency stderr: %w", err), stdout.Close())
+	}
+	analysis := "--no-call-analysis=go"
+	if callAnalysis {
+		analysis = "--call-analysis=go"
+	}
+	call := toolCall{Name: "osv-scanner", Directory: root, Timeout: 5 * time.Minute, Stdout: stdout, Stderr: stderr, Args: []string{
+		"scan", "source", "--config", filepath.Join(root, ".config", "checks", "dependencies", "policy.toml"),
+		"--lockfile", lockfiles[0], "--lockfile", lockfiles[1], analysis,
+		"--format", "json", "--all-packages", "--licenses=", "--verbosity", "warn",
+		"--output-file", filepath.Join(directory, "osv.json"),
+	}}
+	runErr := run(call)
+	exitCode, completed := dependencyScanExit(runErr)
+	if nativeExit, ok := errors.AsType[*exec.ExitError](runErr); ok {
+		exitCode = nativeExit.ExitCode()
+	}
+	stderrInfo, statErr := stderr.Stat()
+	result = errors.Join(stdout.Close(), stderr.Close(), statErr)
+	if !completed || (exitCode != 0 && exitCode != 1) {
+		result = errors.Join(result, fmt.Errorf("execute dependency scan: %w", runErr))
+	}
+	if statErr == nil && stderrInfo.Size() != 0 {
+		result = errors.Join(result, errors.New("dependency scan reported operational diagnostics on stderr"))
+	}
+	if result == nil {
+		result = normalizeDependencyEvidence(call.Args[len(call.Args)-1], filepath.Join(directory, "vulnerabilities.json"), filepath.Join(directory, "licenses.json"), lockfiles)
+	}
+	if result == nil && exitCode == 1 {
+		var report vulnerabilityEvidence
+		data, err := os.ReadFile(filepath.Join(directory, "vulnerabilities.json"))
+		if err == nil {
+			err = json.Unmarshal(data, &report)
+		}
+		findings := 0
+		for _, source := range report.Sources {
+			findings += len(source.Packages)
+		}
+		if err != nil || findings == 0 {
+			result = errors.Join(err, errors.New("dependency exit 1 has no complete advisory findings"))
+		}
+	}
+	verdict := "pass"
+	if result != nil {
+		verdict = "block"
+	}
+	result = errors.Join(result, writeJSON(filepath.Join(directory, "execution.json"), struct {
+		SchemaVersion int      `json:"schema_version"`
+		Command       []string `json:"command"`
+		ExitCode      int      `json:"native_exit_code"`
+		Completed     bool     `json:"completed"`
+		Verdict       string   `json:"verdict"`
+	}{1, append([]string{call.Name}, call.Args...), exitCode, completed, verdict}))
+	if result != nil {
+		return fmt.Errorf("dependency scan blocked; evidence retained at %s: %w", directory, result)
+	}
+	return nil
+}
+
+func dependencyScanExit(err error) (int, bool) {
+	if err == nil {
+		return 0, true
+	}
+	if failure, ok := err.(interface{ Unwrap() []error }); ok {
+		causes := failure.Unwrap()
+		if len(causes) == 1 {
+			return dependencyScanExit(causes[0])
+		}
+		return -1, false
+	}
+	if failure, ok := err.(interface{ Unwrap() error }); ok {
+		return dependencyScanExit(failure.Unwrap())
+	}
+	if failure, ok := errors.AsType[*exec.ExitError](err); ok {
+		return failure.ExitCode(), true
+	}
+	return -1, false
 }
 
 func normalizeDependencyEvidence(source, vulnerabilityTarget, licenseTarget string, lockfiles []string) error {

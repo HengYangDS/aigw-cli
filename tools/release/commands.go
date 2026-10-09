@@ -18,6 +18,17 @@ import (
 
 func buildCommands(ctx context.Context) commandSet {
 	return commandSet{
+		"scan-dependencies": func(args []string, stdout io.Writer) error {
+			if err := requireArguments(args, 2, "usage: release scan-dependencies <root> <evidence-parent>"); err != nil {
+				return err
+			}
+			directory, err := construction.ScanDependencies(ctx, args[0], args[1])
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(stdout, "Dependency advisories retained at %s\n", directory)
+			return err
+		},
 		"accept-native": func(args []string, _ io.Writer) error {
 			flags := flag.NewFlagSet("accept-native", flag.ContinueOnError)
 			clients := flags.Bool("clients", false, "Also verify real clients through the native lifecycle")

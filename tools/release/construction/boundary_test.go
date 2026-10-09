@@ -3,16 +3,27 @@ package construction
 import (
 	"aigw-cli/tools/release/artifact"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
 
 func TestReleaseToolOwnsOutputPipesAndExplicitContext(t *testing.T) {
+	if target := os.Getenv("AIGW_TEST_DEPENDENCY_TARGET"); target != "" {
+		data, err := dependencyReportFixture(os.Getenv("AIGW_TEST_DEPENDENCY_ROOT"))
+		if err != nil || os.WriteFile(target, data, 0o600) != nil {
+			os.Exit(27)
+		}
+		_, _ = fmt.Fprint(os.Stderr, os.Getenv("AIGW_TEST_DEPENDENCY_DIAGNOSTIC"))
+		code, _ := strconv.Atoi(os.Getenv("AIGW_TEST_DEPENDENCY_EXIT"))
+		os.Exit(code)
+	}
 	if os.Getenv("AIGW_TEST_RELEASE_TOOL") == "child" {
 		for _, output := range []*os.File{os.Stdout, os.Stderr} {
 			info, err := output.Stat()
@@ -53,36 +64,6 @@ func TestReleaseToolOwnsOutputPipesAndExplicitContext(t *testing.T) {
 	data, readErr := os.ReadFile(output.Name())
 	if err != nil || readErr != nil || string(data) != "owned:explicit" {
 		t.Fatalf("release tool output=%q, execution=%v, read=%v", data, err, readErr)
-	}
-}
-
-func TestReleaseToolCancellationStopsBeforeExecution(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	executable, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = executeTool(ctx)(toolCall{Name: executable, Args: []string{"-test.run=^TestReleaseToolCancellationStopsBeforeExecution$"}})
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("release tool lost cancellation: %v", err)
-	}
-}
-
-func TestRenderGoReleaserConfigRejectsMissingSource(t *testing.T) {
-	if _, err := renderGoReleaserConfig(t.TempDir(), t.TempDir(), t.TempDir()); err == nil || !strings.Contains(err.Error(), "read GoReleaser config") {
-		t.Fatalf("missing config error = %v", err)
-	}
-}
-
-func TestRenderGoReleaserConfigRejectsUnwritableDestination(t *testing.T) {
-	root := releaseRoot(t)
-	blocked := filepath.Join(t.TempDir(), "blocked")
-	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := renderGoReleaserConfig(root, blocked, t.TempDir()); err == nil || !strings.Contains(err.Error(), "write GoReleaser config") {
-		t.Fatalf("unwritable config error = %v", err)
 	}
 }
 
@@ -264,7 +245,7 @@ func TestReleaseBuildPropagatesChecksumAndMatrixFailures(t *testing.T) {
 }
 
 func TestReleaseBuildPropagatesPostBuildValidationFailures(t *testing.T) {
-	for _, boundary := range []string{"decode Syft", "selected lockfiles"} {
+	for _, boundary := range []string{"decode Syft", "selected lockfiles", "complete findings", "transport failure", "exit 2", "operational diagnostics", "cleanup failed"} {
 		t.Run(boundary, func(t *testing.T) {
 			root := releaseRoot(t)
 			output := filepath.Join(root, "dist")
@@ -289,12 +270,18 @@ func TestReleaseBuildPropagatesPostBuildValidationFailures(t *testing.T) {
 					}
 					return os.WriteFile(strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json="), data, 0o600)
 				case "osv-scanner":
+					if boundary != "selected lockfiles" {
+						return dependencyFixtureProcess(t, call, root, boundary)
+					}
 					return os.WriteFile(call.Args[len(call.Args)-1], []byte(`{"results":[]}`), 0o600)
 				default:
 					t.Fatalf("invalid evidence reached later release tool %s", call.Name)
 					return nil
 				}
 			})
+			if expected := (map[string]string{"complete findings": "resolve release source", "exit 2": "exit status 2"})[boundary]; expected != "" {
+				boundary = expected
+			}
 			if err == nil || !strings.Contains(err.Error(), boundary) {
 				t.Fatalf("release validation error = %v, want %s", err, boundary)
 			}
@@ -311,6 +298,27 @@ func TestReleaseBuildPropagatesPostBuildValidationFailures(t *testing.T) {
 			}
 		})
 	}
+}
+
+func dependencyFixtureProcess(t *testing.T, call toolCall, root, boundary string) error {
+	t.Helper()
+	if boundary == "transport failure" {
+		return errors.New(boundary)
+	}
+	call.Name, _ = os.Executable()
+	call.Env = []string{"AIGW_TEST_DEPENDENCY_ROOT=" + root, "AIGW_TEST_DEPENDENCY_EXIT=1", "AIGW_TEST_DEPENDENCY_TARGET=" + call.Args[len(call.Args)-1]}
+	if boundary == "exit 2" {
+		call.Env = append(call.Env, "AIGW_TEST_DEPENDENCY_EXIT=2")
+	}
+	if boundary == "operational diagnostics" {
+		call.Env = append(call.Env, "AIGW_TEST_DEPENDENCY_DIAGNOSTIC=transport failed")
+	}
+	call.Args = []string{"-test.run=^TestReleaseToolOwnsOutputPipesAndExplicitContext$"}
+	failure := executeTool(t.Context())(call)
+	if boundary == "cleanup failed" {
+		return errors.Join(failure, errors.New(boundary))
+	}
+	return failure
 }
 
 func TestReleaseBuildHelpersCoverAtomicReplacementAndCommands(t *testing.T) {
@@ -375,84 +383,6 @@ func TestReleaseBuildHelpersCoverAtomicReplacementAndCommands(t *testing.T) {
 	}
 }
 
-func TestReleaseBuildEnvironment(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## [Unreleased]\n\n## [1.2.3] - 2026-08-09\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Chdir(root)
-	for name, value := range map[string]string{
-		"AIGW_GITLAB_RELEASE_ORIGIN":     "https://gitlab.example",
-		"AIGW_GITLAB_RELEASE_REPOSITORY": "group/aigw-cli",
-		"AIGW_GITHUB_RELEASE_ORIGIN":     "https://github.example",
-		"AIGW_GITHUB_RELEASE_REPOSITORY": "org/aigw-cli",
-	} {
-		t.Setenv(name, value)
-	}
-	request, err := buildRequestFromEnvironment(t.Context(), "dist")
-	if err != nil {
-		t.Fatal(err)
-	}
-	requestRoot, requestRootErr := os.Stat(request.Root)
-	wantRoot, wantRootErr := os.Stat(root)
-	if request.Version != "1.2.3" || request.Epoch != "1786233600" || request.Output != "dist" || requestRootErr != nil || wantRootErr != nil || !os.SameFile(requestRoot, wantRoot) {
-		t.Fatalf("request = %#v", request)
-	}
-	missingVersion := t.TempDir()
-	if err := os.Chdir(missingVersion); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := buildRequestFromEnvironment(t.Context(), "dist"); err == nil || !strings.Contains(err.Error(), "read VERSION") {
-		t.Fatalf("missing VERSION error = %v", err)
-	}
-	missingChronology := t.TempDir()
-	if err := os.WriteFile(filepath.Join(missingChronology, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(missingChronology); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := buildRequestFromEnvironment(t.Context(), "dist"); err == nil || !strings.Contains(err.Error(), "open CHANGELOG") {
-		t.Fatalf("missing release chronology error = %v", err)
-	}
-}
-
-func TestBuildCIRejectsMalformedTagShapes(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	for _, tag := range []string{"1.2.3", "vnot-semver"} {
-		t.Run(tag, func(t *testing.T) {
-			t.Setenv("CI_COMMIT_TAG", tag)
-			if err := buildCI(root, t.TempDir(), t.TempDir(), nil, nil, nil); err == nil || !strings.Contains(err.Error(), "invalid CI") {
-				t.Fatalf("tag %q error = %v", tag, err)
-			}
-		})
-	}
-}
-
-func TestReleaseEpochRejectsInvalidDateAndOversizedChangelogLine(t *testing.T) {
-	root := t.TempDir()
-	t.Setenv("CI_COMMIT_TAG", "v1.2.3")
-	changelog := filepath.Join(root, "CHANGELOG.md")
-	if err := os.WriteFile(changelog, []byte("## [1.2.3] - 2026-99-99\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := resolveReleaseEpoch(t.Context(), root, "1.2.3"); err == nil {
-		t.Fatal("invalid release date was accepted")
-	}
-	if err := os.WriteFile(changelog, []byte(strings.Repeat("x", 70*1024)), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := resolveReleaseEpoch(t.Context(), root, "1.2.3"); err == nil || !strings.Contains(err.Error(), "token too long") {
-		t.Fatalf("oversized changelog error = %v", err)
-	}
-}
-
 func TestValidateSourcesRejectsInvalidAuthoritiesAndRepositories(t *testing.T) {
 	for _, name := range []string{"AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY", "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY"} {
 		t.Setenv(name, "")
@@ -508,11 +438,99 @@ func TestValidateSourcesRejectsInvalidAuthoritiesAndRepositories(t *testing.T) {
 	}
 }
 
-func TestMacOSDistributionRequiresExplicitIdentity(t *testing.T) {
-	if err := VerifyMacOSDistribution(t.Context(), t.TempDir(), "1.2.3", "", Notarization{}); err == nil {
-		t.Fatal("distribution accepted without explicit publisher")
+func TestDependencyEvidenceRequiresCompleteSelectedSources(t *testing.T) {
+	for _, scenario := range []string{
+		"complete", "missing results", "partial", "foreign checkout", "foreign lockfile", "duplicate source", "non-lockfile source", "empty packages", "missing identity", "missing license", "malformed JSON",
+	} {
+		t.Run(scenario, func(t *testing.T) {
+			root := t.TempDir()
+			encoded, err := dependencyReportFixture(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var report osvFixtureReport
+			if err := json.Unmarshal(encoded, &report); err != nil {
+				t.Fatal(err)
+			}
+			switch scenario {
+			case "missing results":
+				report.Results = nil
+			case "partial":
+				report.Results = report.Results[:1]
+			case "foreign checkout":
+				report.Results[0].Source.Path = filepath.Join(root, "sibling", "go.mod")
+			case "foreign lockfile":
+				report.Results[0].Source.Path = filepath.Join(root, "other.lock")
+			case "duplicate source":
+				report.Results = append(report.Results, report.Results[0])
+			case "non-lockfile source":
+				report.Results[0].Source.Type = "directory"
+			case "empty packages":
+				report.Results[0].Packages = nil
+			case "missing identity":
+				report.Results[0].Packages[0].Package.Version = ""
+			case "missing license":
+				report.Results[0].Packages[0].Licenses = nil
+			}
+			source := filepath.Join(root, "osv.json")
+			if err := writeJSON(source, report); err != nil {
+				t.Fatal(err)
+			}
+			if scenario == "malformed JSON" {
+				if err := os.WriteFile(source, []byte("{"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			vulnerabilities, licenses := filepath.Join(root, "vulnerabilities.json"), filepath.Join(root, "licenses.json")
+			err = normalizeDependencyEvidence(source, vulnerabilities, licenses, []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")})
+			if scenario == "complete" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("%s dependency report was accepted", scenario)
+			}
+			for _, target := range []string{vulnerabilities, licenses} {
+				if _, err := os.Stat(target); !os.IsNotExist(err) {
+					t.Fatalf("incomplete scan wrote accepted evidence: %s, %v", target, err)
+				}
+			}
+		})
 	}
-	if err := VerifyMacOSDistribution(t.Context(), t.TempDir(), "invalid", strings.Repeat("a", 40), Notarization{Archive: "upload.zip", SubmissionID: "submission", KeychainProfile: "profile"}); err == nil {
-		t.Fatal("invalid version accepted")
+}
+
+func TestBuildCIRejectsMalformedTagShapes(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tag := range []string{"1.2.3", "vnot-semver"} {
+		t.Run(tag, func(t *testing.T) {
+			t.Setenv("CI_COMMIT_TAG", tag)
+			if err := buildCI(root, t.TempDir(), t.TempDir(), nil, nil, nil); err == nil || !strings.Contains(err.Error(), "invalid CI") {
+				t.Fatalf("tag %q error = %v", tag, err)
+			}
+		})
+	}
+}
+
+func TestRenderGoReleaserConfigRejectsMissingSource(t *testing.T) {
+	if _, err := renderGoReleaserConfig(t.TempDir(), t.TempDir(), t.TempDir()); err == nil || !strings.Contains(err.Error(), "read GoReleaser config") {
+		t.Fatalf("missing config error = %v", err)
+	}
+}
+
+func TestReleaseToolCancellationStopsBeforeExecution(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = executeTool(ctx)(toolCall{Name: executable, Args: []string{"-test.run=^TestReleaseToolCancellationStopsBeforeExecution$"}})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("release tool lost cancellation: %v", err)
 	}
 }
