@@ -211,6 +211,22 @@ An Account may use a direct provider URL or an independently operated compatible
 endpoint, including an explicit loopback URL. AIGW stores and projects that
 choice; it never installs, starts, stops, or diagnoses the external service.
 
+For Codex, an explicit forwarding destination can remain separate from the
+selected Account upstream. Preview its exact native targets before applying:
+
+```bash
+aigw use --for codex <route> --forwarding-endpoint <url> --dry-run --json
+aigw use --for codex <route> --forwarding-endpoint <url>
+aigw use --for codex <route> --direct
+```
+
+Preview reads no credential value and makes no file or network changes.
+Forwarding preserves the Account, provider and credential reader; ordinary
+selection retains it only while the upstream identity is unchanged. Restore
+direct mode and complete `aigw verify --for all` before rolling back to a
+predecessor that cannot read forwarding checkpoints. Other clients and
+conversation settings remain outside this destination change.
+
 Adding a compatible endpoint or model is configuration. A new host surface is a
 Client Adapter. Incompatible wire behavior belongs in an independent data plane.
 See the [extension model](docs/architecture/authority-and-projection-boundary.md#extension-model).

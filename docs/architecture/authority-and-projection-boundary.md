@@ -395,7 +395,7 @@ runtime-only private HTTP admission does not weaken HTTPS build metadata.
 
 The shared commit path owns this sequence:
 
-1. Capture configuration, backup and checkpoint preimages.
+1. Capture configuration, forwarding component, backup and checkpoint preimages.
 2. Preflight every participating client before writing. A rejected preflight
    returns an error without changing configuration or client files.
 3. Persist configuration and invalidate stale verification.
@@ -422,6 +422,14 @@ selected Client Binding. A mismatch requires synchronization and client reload w
 credential access. Model and label changes preserve the fingerprint; it detects
 stale projections, not caller authorization. Client-native Codex authentication
 uses no AIGW Token helper.
+
+Codex may select a forwarding destination without replacing its Account
+upstream. The original Account and protocol define credential identity; the
+forwarding component records that upstream binding and participates in Store
+snapshots, backups, checkpoints and compensation. Same-upstream Route selection
+preserves it, an explicit changed-upstream selection withdraws it, and direct
+Account or protocol drift is rejected rather than silently rebound. AIGW owns
+only this destination choice, never the external service or its traffic.
 
 ### Codex
 

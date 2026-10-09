@@ -114,7 +114,7 @@ func (c *Config) validateClientBindings() error {
 		}
 		binding := c.clientBinding(client)
 		if binding.Route == "" {
-			if binding.Enabled || binding.Protocol != "" || binding.ModelProvider != "" || binding.Authentication != "" {
+			if binding.Enabled || binding.Protocol != "" || binding.ModelProvider != "" || binding.Authentication != "" || binding.ForwardingEndpoint != "" {
 				return fmt.Errorf("client binding %q must select a route before it can be enabled or define runtime options", client)
 			}
 			if err := binding.validate(client); err != nil {
@@ -127,6 +127,11 @@ func (c *Config) validateClientBindings() error {
 		}
 		if err := binding.validate(client); err != nil {
 			return err
+		}
+		if binding.ForwardingEndpoint != "" {
+			if _, err := c.ResolveRuntime(client, ""); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -169,9 +174,31 @@ func (selection ClientSelection) validate(client string) error {
 }
 
 func (binding ClientBinding) validate(client string) error {
+	if err := binding.validateForwarding(client); err != nil {
+		return err
+	}
 	command := binding.CredentialCommand
 	if command != "" && (!filepath.IsAbs(command) || strings.TrimSpace(command) != command || strings.ContainsFunc(command, unicode.IsControl)) {
 		return fmt.Errorf("client binding %q credential_command must be one absolute executable path", client)
+	}
+	return nil
+}
+
+func (binding ClientBinding) validateForwarding(client string) error {
+	if binding.ForwardingEndpoint == "" {
+		if binding.ForwardingUpstreamIdentity != "" || binding.ForwardingProtocol != "" {
+			return fmt.Errorf("client binding %q forwarding identity requires a destination", client)
+		}
+		return nil
+	}
+	if client != ClientCodex {
+		return fmt.Errorf("forwarding destinations are only supported for codex")
+	}
+	if binding.ForwardingUpstreamIdentity == "" || binding.ForwardingProtocol == "" {
+		return fmt.Errorf("client binding %q forwarding requires its recorded upstream identity and protocol", client)
+	}
+	if err := validateEndpoint(binding.ForwardingEndpoint); err != nil {
+		return fmt.Errorf("client binding %q forwarding endpoint: %w", client, err)
 	}
 	return nil
 }

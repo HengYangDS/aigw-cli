@@ -60,15 +60,17 @@ func TestNativeAcceptanceRunsPublishedPredecessorSeparatelyFromCurrentSchemaJour
 	}
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", baseline)
 	request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
+	artifacts := t.TempDir()
+	writeNativeArchive(t, artifacts)
 	var calls []toolCall
-	if err := acceptNative(request, "", false, "", func(call toolCall) error {
+	if err := acceptNative(request, artifacts, true, "", func(call toolCall) error {
 		calls = append(calls, call)
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if len(calls) != 2 {
-		t.Fatalf("published predecessor acceptance calls = %d, want current-schema and published journeys", len(calls))
+	if len(calls) != 3 {
+		t.Fatalf("published predecessor acceptance calls = %d, want current-schema, published and client journeys", len(calls))
 	}
 	if !slices.Contains(calls[0].Env, "AIGW_ACCEPTANCE_BASELINE=") ||
 		!slices.Contains(calls[0].Args, "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney)$") {
@@ -77,6 +79,10 @@ func TestNativeAcceptanceRunsPublishedPredecessorSeparatelyFromCurrentSchemaJour
 	if !slices.Contains(calls[1].Env, "AIGW_ACCEPTANCE_BASELINE="+baseline) ||
 		!slices.Contains(calls[1].Args, "^TestNativePublishedPredecessorJourney$") {
 		t.Fatalf("published predecessor was not selected for its exact lifecycle: %#v", calls[1])
+	}
+	if !slices.Contains(calls[2].Env, "AIGW_ACCEPTANCE_BASELINE="+baseline) ||
+		!slices.Contains(calls[2].Args, "^TestNativeClientJourney$") {
+		t.Fatalf("real-client acceptance lost the selected predecessor: %#v", calls[2])
 	}
 }
 

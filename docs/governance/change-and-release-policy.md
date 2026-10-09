@@ -365,6 +365,11 @@ that section contains only changes after the latest published version.
 Versioned headings are unique SemVer entries in descending order. The first may
 be the single pending release named by [canonical version](../../VERSION);
 every older heading identifies an existing signed `v<semver>` tag and its date.
+Every tag reachable from the current source requires a section. A maintenance
+branch preserves already recorded product chronology without importing newly
+unmerged releases from the shared Git store. All local product tags still
+participate in strict SemVer validation, version allocation and pending-version
+precedence; a maintenance release cannot reuse another branch's version.
 The tag, not the heading, establishes publication. Branch names and planned
 versions are not chronology.
 
@@ -642,7 +647,7 @@ The machine policies own blocking values. The following list explains their
 current meaning and review trade-offs; it is not a second executable policy.
 The same boundaries apply to product, tooling and tests.
 
-- **SCC code lines — At most 500 per Go file.** Bounds traversal; includes inline-comment code but excludes blank and comment-only lines. It is not executable statement count.
+- **SCC code lines — The [source-size policy](../../.config/checks/go/size.toml) owns the per-file ceiling.** Bounds traversal; includes inline-comment code but excludes blank and comment-only lines. It is not executable statement count.
 - **Cyclop — At most 25.** Bounds decision-path score, including boolean operators and switch cases. It does not count executable paths or prove test adequacy.
 - **Gocognit — At most 45.** Bounds nested control flow, including function literals. A low score does not establish a deep module.
 - **Funlen span — At most 120 physical lines.** Keeps an operation inspectable; blank lines and multiline data count. Dense formatting is not remediation.

@@ -231,14 +231,17 @@ func (recommendation ClientRecommendation) Selections() []ClientSelection {
 // ClientBinding records one client's explicit selection, enabled intent, and
 // owned native targets.
 type ClientBinding struct {
-	Route             string           `json:"route,omitempty"              toml:"route,omitempty"`
-	Enabled           bool             `json:"enabled"                      toml:"enabled"`
-	Protocol          EndpointProtocol `json:"protocol,omitempty"           toml:"protocol,omitempty"`
-	ModelProvider     string           `json:"model_provider,omitempty"     toml:"model_provider,omitempty"`
-	Authentication    Authentication   `json:"authentication,omitempty"     toml:"authentication,omitempty"`
-	Executable        string           `json:"executable,omitempty"         toml:"executable,omitempty"`
-	Targets           []string         `json:"targets,omitempty"            toml:"targets,omitempty"`
-	CredentialCommand string           `json:"credential_command,omitempty" toml:"credential_command,omitempty"`
+	ForwardingEndpoint         string           `json:"forwarding_endpoint,omitempty" toml:"-"`
+	ForwardingUpstreamIdentity string           `json:"forwarding_upstream_identity,omitempty" toml:"-"`
+	ForwardingProtocol         EndpointProtocol `json:"forwarding_protocol,omitempty" toml:"-"`
+	Route                      string           `json:"route,omitempty"              toml:"route,omitempty"`
+	Enabled                    bool             `json:"enabled"                      toml:"enabled"`
+	Protocol                   EndpointProtocol `json:"protocol,omitempty"           toml:"protocol,omitempty"`
+	ModelProvider              string           `json:"model_provider,omitempty"     toml:"model_provider,omitempty"`
+	Authentication             Authentication   `json:"authentication,omitempty"     toml:"authentication,omitempty"`
+	Executable                 string           `json:"executable,omitempty"         toml:"executable,omitempty"`
+	Targets                    []string         `json:"targets,omitempty"            toml:"targets,omitempty"`
+	CredentialCommand          string           `json:"credential_command,omitempty" toml:"credential_command,omitempty"`
 }
 
 func (binding ClientBinding) selection() ClientSelection {

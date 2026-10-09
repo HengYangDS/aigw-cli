@@ -28,6 +28,13 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 	if err != nil {
 		return err
 	}
+	matched, err := configBefore.MatchesConfiguration(before)
+	if err != nil {
+		return err
+	}
+	if !matched {
+		return fmt.Errorf("%s configuration preimage changed; refusing selection", subject)
+	}
 	if reconcileProjection {
 		if _, err := s.registry().Plan(s.clientDependencies(), before, after, clientIDs...); err != nil {
 			return fmt.Errorf("%s synchronization preflight failed; configuration and client files were unchanged: %w", subject, err)

@@ -1021,18 +1021,18 @@ HTTP response SHALL produce a failed catalogue observation, not partial success.
 
 ### Requirement: Control-plane convergence is client-scoped and monotonic
 
-AIGW SHALL derive operational state from Accounts, canonical Models, exact
-Routes, explicit Client Bindings, admitted native Adapters and the selected credential
-backend. A binding owns the client selection and enabled intent; there SHALL
-NOT be a second independently persisted selection. Setup, selection, synchronization, and readiness MUST NOT
-depend on a global Route, an aggregate selection flag, another client's
-binding, or the presence of an external compatibility product.
+AIGW SHALL derive state from Accounts, canonical Models, exact Routes, explicit
+Client Bindings, admitted native Adapters and the selected credential backend.
+Bindings alone own selection and enabled intent. Operations SHALL NOT depend
+on a global Route, aggregate flag, another binding or external compatibility
+product. Discovery SHALL report availability without mutation. Projections
+SHALL preserve unrelated fields and reject changed preimages.
 
-Discovery SHALL report client availability without creating native files,
-selecting a Route, or changing enabled intent. A client that has not created
-its native state SHALL remain untouched until the operator explicitly binds it.
-Every projection SHALL preserve unrelated native fields and reject a changed
-preimage rather than overwrite concurrent user or tool edits.
+#### Scenario: Discovery leaves selection and native state unchanged
+
+- **WHEN** discovery inspects an available client
+- **THEN** it SHALL NOT create native files, select a Route or change enabled intent
+- **AND** an uninitialized client SHALL remain untouched until explicitly bound.
 
 #### Scenario: A client is discovered but not configured
 
@@ -1806,19 +1806,22 @@ name the exact owned resource and SHALL NOT silently report success.
 
 ### Requirement: Models, Routes, and Client Bindings have distinct authority
 
-A Model SHALL identify one canonical vendor model independently of Account,
-wire protocol, channel alias, recommendation, and client state. A Route SHALL
-identify one Account, one canonical Model, the exact upstream model identifier,
-and the wire protocols admitted for that pairing. Each Client Binding SHALL
-select a Route and own its explicit enabled intent, native target, protocol,
-authentication, and genuinely client-specific options. The binding SHALL remain
-the only operational selection authority.
+A Model SHALL identify one vendor model independently of Account, protocol,
+channel alias, recommendation and client state. A Route SHALL bind one Account,
+one canonical Model, its exact upstream ID and admitted protocols. A Client
+Binding alone SHALL own selection, enabled intent, native target, protocol,
+authentication and client-specific options. Wire protocols and capabilities
+SHALL be qualified separately; endpoint or text success SHALL NOT imply support.
 
-Anthropic Messages, OpenAI Chat Completions, and OpenAI Responses SHALL remain
-distinct wire protocols. Reasoning, streaming, tool calls, structured output,
-continuation, compaction, and multimodal input SHALL remain separately qualified
-capabilities. Endpoint presence, model names, catalogue membership, and basic
-text success SHALL NOT imply either protocol or capability support.
+#### Scenario: Protocol and capability qualification remains independent
+
+- **WHEN** AIGW admits a Route or client capability
+- **THEN** Anthropic Messages, OpenAI Chat Completions and OpenAI Responses SHALL
+  remain distinct wire protocols
+- **AND** reasoning, streaming, tool calls, structured output, continuation,
+  compaction and multimodal input SHALL each require separate qualification
+- **AND** endpoint presence, model names, catalogue membership or basic text
+  success SHALL NOT imply protocol or capability support.
 
 #### Scenario: One Route is selected by two clients
 
@@ -1909,17 +1912,23 @@ authoritative stores, unrelated client settings and existing session metadata.
 
 ### Requirement: Provider catalogue evolution is observed before admission
 
-AIGW SHALL treat provider catalogues as volatile observations rather than
-configuration authority. A bounded refresh SHALL normalize exact upstream model
-identifiers and produce a deterministic difference against the admitted Model
-and Route set. Observation data and qualification evidence SHALL remain derived
-state outside the reviewed team manifest.
+Provider catalogues SHALL remain volatile observations, not configuration
+authority. A bounded refresh SHALL normalize exact upstream IDs and emit a
+deterministic difference against admitted Models and Routes. Observations and
+qualification evidence SHALL remain derived outside the reviewed manifest.
+Admission SHALL distinguish observed, candidate, qualified, admitted,
+deprecated and retired states; observations SHALL NOT silently change bindings.
 
-The admission lifecycle SHALL distinguish observed, candidate, qualified,
-admitted, deprecated, and retired states. A new catalogue entry SHALL NOT alter
-configuration, recommendations, Client Bindings, or native projections before
-reviewed admission. A missing entry SHALL NOT by itself prove withdrawal,
-rename, or incompatibility.
+#### Scenario: A newly observed entry has no configuration authority
+
+- **WHEN** a catalogue lists a new upstream model identifier
+- **THEN** that entry SHALL NOT alter configuration, recommendations, Client
+  Bindings or native projections before reviewed admission.
+
+#### Scenario: A missing entry does not prove withdrawal
+
+- **WHEN** a catalogue omits a previously observed identifier
+- **THEN** the omission alone SHALL NOT prove withdrawal, rename or incompatibility.
 
 #### Scenario: A provider publishes a new model
 

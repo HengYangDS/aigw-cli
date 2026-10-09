@@ -28,9 +28,17 @@ type Store struct{ path string }
 // pre-setup state is not a valid  Config and cannot be restored through
 // Save.
 type Snapshot struct {
-	Config   transaction.FileSnapshot
-	Backup   transaction.FileSnapshot
-	Verified transaction.FileSnapshot
+	Config           transaction.FileSnapshot
+	Backup           transaction.FileSnapshot
+	Forwarding       transaction.FileSnapshot
+	ForwardingBackup transaction.FileSnapshot
+	Verified         transaction.FileSnapshot
+}
+
+func (snapshot Snapshot) equal(other Snapshot) bool {
+	return snapshot.Config.Equal(other.Config) && snapshot.Backup.Equal(other.Backup) &&
+		snapshot.Forwarding.Equal(other.Forwarding) && snapshot.ForwardingBackup.Equal(other.ForwardingBackup) &&
+		snapshot.Verified.Equal(other.Verified)
 }
 
 // VerifiedBackupState pairs current backup bytes with client evidence when any client is enabled.
@@ -69,7 +77,15 @@ func (s Store) CaptureSnapshot() (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	return Snapshot{Config: configSnapshot, Backup: backupSnapshot, Verified: verifiedSnapshot}, nil
+	forwarding, err := transaction.CaptureFileSnapshot(s.forwardingPath())
+	if err != nil {
+		return Snapshot{}, err
+	}
+	forwardingBackup, err := transaction.CaptureFileSnapshot(s.forwardingPath() + ".bak")
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return Snapshot{Config: configSnapshot, Backup: backupSnapshot, Forwarding: forwarding, ForwardingBackup: forwardingBackup, Verified: verifiedSnapshot}, nil
 }
 
 // Commit saves one configuration and returns the exact postimage needed for a
@@ -80,51 +96,91 @@ func (s Store) Commit(before Snapshot, cfg Config) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	return s.commitData(before, data)
+	forwarding, err := encodeForwarding(cfg)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return s.commitComponents(before, data, forwarding)
 }
 
 func (s Store) commitData(before Snapshot, data []byte) (Snapshot, error) {
-	if before.Config.Exists && configurationDataEquivalent(before.Config.Data, data) {
+	return s.commitComponents(before, data, nil)
+}
+
+func (s Store) commitComponents(before Snapshot, data, forwarding []byte) (Snapshot, error) {
+	if before.Config.Exists && configurationDataEquivalent(before.Config.Data, data) && bytes.Equal(before.Forwarding.Data, forwarding) && before.Forwarding.Exists == (len(forwarding) != 0) {
 		current, err := s.CaptureSnapshot()
 		if err != nil {
 			return Snapshot{}, err
 		}
-		if !current.Config.Equal(before.Config) || !current.Backup.Equal(before.Backup) || !current.Verified.Equal(before.Verified) {
+		if !current.equal(before) {
 			return Snapshot{}, errors.New("configuration preimage changed; refusing unchanged commit")
 		}
 		return before, nil
 	}
-	backupAfter := before.Backup
+	after := before
 	if before.Config.Exists {
-		var err error
-		backupAfter, err = writeConfigurationFileIfUnchanged(s.path+".bak", before.Backup, before.Config.Data, 0o600)
+		backup, err := writeConfigurationFileIfUnchanged(s.path+".bak", before.Backup, before.Config.Data, 0o600)
 		if err != nil {
 			return Snapshot{}, fmt.Errorf("back up current config: %w", err)
 		}
+		after.Backup = backup
+		forwardingBackup, err := s.writeOptional(s.forwardingPath()+".bak", before.ForwardingBackup, before.Forwarding.Data)
+		if err != nil {
+			return Snapshot{}, errors.Join(fmt.Errorf("back up client forwarding: %w", err), s.RestoreSnapshot(before, after))
+		}
+		after.ForwardingBackup = forwardingBackup
 	}
-	configAfter, err := writeConfigurationFileIfUnchanged(s.path, before.Config, data, 0o600)
+	if !before.Config.Exists || !configurationDataEquivalent(before.Config.Data, data) {
+		config, err := writeConfigurationFileIfUnchanged(s.path, before.Config, data, 0o600)
+		if err != nil {
+			return Snapshot{}, errors.Join(fmt.Errorf("write config: %w", err), s.RestoreSnapshot(before, after))
+		}
+		after.Config = config
+	}
+	forwardingAfter, err := s.writeOptional(s.forwardingPath(), before.Forwarding, forwarding)
 	if err != nil {
-		if before.Config.Exists {
-			if restoreErr := transaction.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, backupAfter); restoreErr != nil {
-				return Snapshot{}, fmt.Errorf("write config: %w; restore config backup: %w", err, restoreErr)
-			}
+		return Snapshot{}, errors.Join(fmt.Errorf("write client forwarding: %w", err), s.RestoreSnapshot(before, after))
+	}
+	after.Forwarding = forwardingAfter
+	verified, err := removeConfigurationFileIfUnchanged(s.path+".verified.json", before.Verified)
+	if err != nil {
+		return Snapshot{}, errors.Join(fmt.Errorf("invalidate verified checkpoint: %w", err), s.RestoreSnapshot(before, after))
+	}
+	after.Verified = verified
+	current, err := s.CaptureSnapshot()
+	if err != nil || !current.equal(after) {
+		return Snapshot{}, errors.Join(errors.New("configuration changed during commit"), err, s.RestoreSnapshot(before, after))
+	}
+	return after, nil
+}
+
+// MatchesConfiguration binds an earlier assembled selection to these exact
+// canonical and forwarding preimages, including the empty pre-setup state.
+func (snapshot Snapshot) MatchesConfiguration(expected Config) (bool, error) {
+	if !snapshot.Config.Exists {
+		if snapshot.Forwarding.Exists {
+			return false, errors.New("client forwarding has no canonical configuration")
 		}
-		return Snapshot{}, fmt.Errorf("write config: %w", err)
+		expected = expected.Clone()
+		expected.Normalize()
+		return reflect.DeepEqual(expected, NewConfig()), nil
 	}
-	verifiedAfter, err := removeConfigurationFileIfUnchanged(s.path+".verified.json", before.Verified)
-	if err == nil {
-		return Snapshot{Config: configAfter, Backup: backupAfter, Verified: verifiedAfter}, nil
+	current, err := decodeStoreConfig(snapshot.Config.Data, snapshot.Forwarding)
+	if err != nil {
+		return false, err
 	}
-	failures := []error{fmt.Errorf("invalidate verified checkpoint: %w", err)}
-	if restoreErr := transaction.RestoreFileAtomicIfPostimage(s.path, before.Config, configAfter); restoreErr != nil {
-		failures = append(failures, fmt.Errorf("restore config: %w", restoreErr))
-	}
-	if before.Config.Exists {
-		if restoreErr := transaction.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, backupAfter); restoreErr != nil {
-			failures = append(failures, fmt.Errorf("restore config backup: %w", restoreErr))
+	return configurationsEqual(current, expected)
+}
+
+func (Store) writeOptional(path string, before transaction.FileSnapshot, data []byte) (transaction.FileSnapshot, error) {
+	if len(data) == 0 {
+		if !before.Exists {
+			return before, nil
 		}
+		return removeConfigurationFileIfUnchanged(path, before)
 	}
-	return Snapshot{}, errors.Join(failures...)
+	return writeConfigurationFileIfUnchanged(path, before, data, 0o600)
 }
 
 func configurationDataEquivalent(before, after []byte) bool {
@@ -145,7 +201,7 @@ func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
 	if !snapshot.Config.Exists {
 		return VerifiedBackupState{}, fmt.Errorf("current config is unavailable: %w", os.ErrNotExist)
 	}
-	current, err := decodeTOMLConfig(snapshot.Config.Data)
+	current, err := decodeStoreConfig(snapshot.Config.Data, snapshot.Forwarding)
 	if err != nil {
 		return VerifiedBackupState{}, fmt.Errorf("decode current config snapshot: %w", err)
 	}
@@ -159,12 +215,11 @@ func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
 	if err != nil {
 		return VerifiedBackupState{}, err
 	}
-	currentData, currentErr := encodeConfig(current)
-	verifiedData, verifiedErr := encodeConfig(checkpoint.Config)
-	if err := errors.Join(currentErr, verifiedErr); err != nil {
+	equal, err := configurationsEqual(current, checkpoint.Config)
+	if err != nil {
 		return VerifiedBackupState{}, err
 	}
-	if !bytes.Equal(currentData, verifiedData) {
+	if !equal {
 		return VerifiedBackupState{}, errors.New("verified checkpoint does not match current configuration")
 	}
 	return VerifiedBackupState{Snapshot: snapshot, Current: current, Checkpoint: checkpoint}, nil
@@ -172,18 +227,17 @@ func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
 
 // ConvergeVerifiedBackup makes the verified backup match an expected snapshot without altering unrelated files.
 func (s Store) ConvergeVerifiedBackup(expected Snapshot) error {
-	currentConfig, err := transaction.CaptureFileSnapshot(s.path)
+	current, err := s.CaptureSnapshot()
 	if err != nil {
 		return err
 	}
-	if !currentConfig.Equal(expected.Config) {
+	if !current.Config.Equal(expected.Config) {
 		return errors.New("config preimage changed; refusing to converge backup")
 	}
-	currentVerified, err := transaction.CaptureFileSnapshot(s.path + ".verified.json")
-	if err != nil {
-		return err
+	if !current.Forwarding.Equal(expected.Forwarding) || !current.ForwardingBackup.Equal(expected.ForwardingBackup) {
+		return errors.New("client forwarding preimage changed; refusing to converge backup")
 	}
-	if !currentVerified.Equal(expected.Verified) {
+	if !current.Verified.Equal(expected.Verified) {
 		return errors.New("verified checkpoint preimage changed; refusing to converge backup")
 	}
 	preserve, err := s.preserveMigrationRollbackInput(expected.Backup)
@@ -193,8 +247,19 @@ func (s Store) ConvergeVerifiedBackup(expected Snapshot) error {
 	if preserve {
 		return nil
 	}
-	if _, err := transaction.WriteFileAtomicExactModeIfUnchanged(s.path+".bak", expected.Backup, expected.Config.Data, 0o600); err != nil {
+	after := expected
+	after.Backup, err = writeConfigurationFileIfUnchanged(s.path+".bak", expected.Backup, expected.Config.Data, 0o600)
+	if err != nil {
 		return fmt.Errorf("converge verified config backup: %w", err)
+	}
+	forwardingBackup, err := s.writeOptional(s.forwardingPath()+".bak", expected.ForwardingBackup, expected.Forwarding.Data)
+	if err != nil {
+		return errors.Join(fmt.Errorf("converge verified forwarding backup: %w", err), s.RestoreSnapshot(expected, after))
+	}
+	after.ForwardingBackup = forwardingBackup
+	current, err = s.CaptureSnapshot()
+	if err != nil || !current.equal(after) {
+		return errors.Join(errors.New("configuration changed during backup convergence"), err, s.RestoreSnapshot(expected, after))
 	}
 	return nil
 }
@@ -234,6 +299,12 @@ func (s Store) RestoreSnapshot(before, after Snapshot) error {
 	if err := transaction.RestoreFileAtomicIfPostimage(s.path+".verified.json", before.Verified, after.Verified); err != nil {
 		failures = append(failures, fmt.Errorf("restore verified checkpoint snapshot: %w", err))
 	}
+	if err := transaction.RestoreFileAtomicIfPostimage(s.forwardingPath(), before.Forwarding, after.Forwarding); err != nil {
+		failures = append(failures, fmt.Errorf("restore client forwarding snapshot: %w", err))
+	}
+	if err := transaction.RestoreFileAtomicIfPostimage(s.forwardingPath()+".bak", before.ForwardingBackup, after.ForwardingBackup); err != nil {
+		failures = append(failures, fmt.Errorf("restore client forwarding backup snapshot: %w", err))
+	}
 	return errors.Join(failures...)
 }
 
@@ -259,12 +330,20 @@ func (s Store) Lock(ctx context.Context) (func() error, error) {
 func (s Store) Load() (Config, error) {
 	data, err := os.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) {
+		forwarding, forwardingErr := transaction.CaptureFileSnapshot(s.forwardingPath())
+		if forwardingErr != nil || forwarding.Exists {
+			return Config{}, newLoadError(LoadPhaseRead, errors.Join(errors.New("client forwarding has no canonical configuration"), forwardingErr))
+		}
 		return NewConfig(), nil
 	}
 	if err != nil {
 		return Config{}, newLoadError(LoadPhaseRead, err)
 	}
-	return decodeTOMLConfig(data)
+	forwarding, err := transaction.CaptureFileSnapshot(s.forwardingPath())
+	if err != nil {
+		return Config{}, newLoadError(LoadPhaseRead, err)
+	}
+	return decodeStoreConfig(data, forwarding)
 }
 
 // Save validates and atomically persists configuration while maintaining its recovery boundary.
@@ -318,7 +397,7 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg Config, clients [
 	if err := validateCheckpointClients(clients); err != nil {
 		return err
 	}
-	expected, err := encodeConfig(cfg)
+	_, err := encodeConfig(cfg)
 	if err != nil {
 		return err
 	}
@@ -338,15 +417,19 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg Config, clients [
 	if !configBefore.Exists {
 		return errors.New("configuration is unavailable; verification checkpoint was not saved")
 	}
-	current, err := decodeTOMLConfig(configBefore.Data)
+	forwardingBefore, err := transaction.CaptureFileSnapshot(s.forwardingPath())
 	if err != nil {
 		return err
 	}
-	currentData, err := encodeConfig(current)
+	current, err := decodeStoreConfig(configBefore.Data, forwardingBefore)
 	if err != nil {
 		return err
 	}
-	if !bytes.Equal(expected, currentData) {
+	equal, err := configurationsEqual(cfg, current)
+	if err != nil {
+		return err
+	}
+	if !equal {
 		return errors.New("configuration changed during verification; run `aigw verify --for all` again")
 	}
 	checkpointPath := s.path + ".verified.json"
@@ -371,7 +454,9 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg Config, clients [
 		return err
 	}
 	configAfter, err := transaction.CaptureFileSnapshot(s.path)
-	if err == nil && configBefore.Equal(configAfter) {
+	forwardingAfter, forwardingErr := transaction.CaptureFileSnapshot(s.forwardingPath())
+	err = errors.Join(err, forwardingErr)
+	if err == nil && configBefore.Equal(configAfter) && forwardingBefore.Equal(forwardingAfter) {
 		return nil
 	}
 	if err == nil {
@@ -434,7 +519,11 @@ func (s Store) LoadBackup() (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("read previous config backup: %w", err)
 	}
-	return decodeTOMLConfig(data)
+	forwarding, err := transaction.CaptureFileSnapshot(s.forwardingPath() + ".bak")
+	if err != nil {
+		return Config{}, newLoadError(LoadPhaseRead, err)
+	}
+	return decodeStoreConfig(data, forwarding)
 }
 
 func decodeTOMLConfig(data []byte) (Config, error) {

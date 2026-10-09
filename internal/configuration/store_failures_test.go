@@ -362,11 +362,17 @@ func TestRestoreSnapshotPreservesConflictsAndRestoresEveryOwnedFile(t *testing.T
 		{"backup", []int{1}},
 		{"checkpoint", []int{2}},
 		{"both-recovery-files", []int{1, 2}},
+		{"forwarding", []int{3}},
+		{"forwarding-backup", []int{4}},
+		{"forwarding-and-checkpoint", []int{2, 3, 4}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			store := NewStore(path)
 			cfg := convergenceConfig("before")
+			if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/before/v1"); err != nil {
+				t.Fatal(err)
+			}
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -377,7 +383,11 @@ func TestRestoreSnapshotPreservesConflictsAndRestoresEveryOwnedFile(t *testing.T
 			if err != nil {
 				t.Fatal(err)
 			}
-			after, err := store.Commit(before, convergenceConfig("after"))
+			next := convergenceConfig("after")
+			if err := next.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/after/v1"); err != nil {
+				t.Fatal(err)
+			}
+			after, err := store.Commit(before, next)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -389,6 +399,8 @@ func TestRestoreSnapshotPreservesConflictsAndRestoresEveryOwnedFile(t *testing.T
 				{"config", path, before.Config},
 				{"backup", path + ".bak", before.Backup},
 				{"checkpoint", path + ".verified.json", before.Verified},
+				{"forwarding", store.forwardingPath(), before.Forwarding},
+				{"forwarding-backup", store.forwardingPath() + ".bak", before.ForwardingBackup},
 			}
 			for _, index := range test.changed {
 				file := &files[index]
@@ -410,12 +422,17 @@ func TestRestoreSnapshotPreservesConflictsAndRestoresEveryOwnedFile(t *testing.T
 				}
 			}
 			for _, file := range files {
-				got, err := transaction.CaptureFileSnapshot(file.path)
-				if err != nil || !got.Equal(file.want) {
-					t.Errorf("%s after restore: exists=%t digest=%s mode=%o error=%v; want exists=%t digest=%s mode=%o", file.name, got.Exists, got.SHA256, got.Mode, err, file.want.Exists, file.want.SHA256, file.want.Mode)
-				}
+				requireRestoredFileSnapshot(t, file.path, file.want)
 			}
 		})
+	}
+}
+
+func requireRestoredFileSnapshot(t *testing.T, path string, want transaction.FileSnapshot) {
+	t.Helper()
+	got, err := transaction.CaptureFileSnapshot(path)
+	if err != nil || !got.Equal(want) {
+		t.Errorf("%s after restore: exists=%t digest=%s mode=%o error=%v; want exists=%t digest=%s mode=%o", path, got.Exists, got.SHA256, got.Mode, err, want.Exists, want.SHA256, want.Mode)
 	}
 }
 
@@ -466,5 +483,69 @@ func TestRestoreSnapshotSurfacesVerifiedCheckpointPostimageMismatch(t *testing.T
 	}
 	if err := store.RestoreSnapshot(before, after); err == nil || !strings.Contains(err.Error(), "restore verified checkpoint snapshot") {
 		t.Fatalf("verified checkpoint postimage mismatch error = %v", err)
+	}
+}
+
+func TestForwardingCommitCompensatesEveryOwnedPhase(t *testing.T) {
+	for _, phase := range []string{"backup", "config", "forwarding-backup", "forwarding", "checkpoint"} {
+		t.Run(phase, func(t *testing.T) {
+			store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+			cfg := convergenceConfig("current")
+			if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/first/v1"); err != nil {
+				t.Fatal(err)
+			}
+			if err := store.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/second/v1"); err != nil {
+				t.Fatal(err)
+			}
+			if err := store.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err != nil {
+				t.Fatal(err)
+			}
+			before, err := store.CaptureSnapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			next := cfg.Clone()
+			if err := next.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/next/v1"); err != nil {
+				t.Fatal(err)
+			}
+			account := next.Accounts["current"]
+			account.Label = "Renamed presentation"
+			next.Accounts["current"] = account
+			paths := map[string]string{
+				"backup": store.Path() + ".bak", "config": store.Path(),
+				"forwarding-backup": store.forwardingPath() + ".bak",
+				"forwarding":        store.forwardingPath(), "checkpoint": store.Path() + ".verified.json",
+			}
+			failure := errors.New("injected " + phase + " failure")
+			originalWrite, originalRemove := writeConfigurationFileIfUnchanged, removeConfigurationFileIfUnchanged
+			t.Cleanup(func() {
+				writeConfigurationFileIfUnchanged, removeConfigurationFileIfUnchanged = originalWrite, originalRemove
+			})
+			writeConfigurationFileIfUnchanged = func(path string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+				if path == paths[phase] {
+					return transaction.FileSnapshot{}, failure
+				}
+				return originalWrite(path, expected, data, mode)
+			}
+			removeConfigurationFileIfUnchanged = func(path string, expected transaction.FileSnapshot) (transaction.FileSnapshot, error) {
+				if path == paths[phase] {
+					return transaction.FileSnapshot{}, failure
+				}
+				return originalRemove(path, expected)
+			}
+			if _, err := store.Commit(before, next); !errors.Is(err, failure) {
+				t.Fatalf("commit did not reach its %s failure: %v", phase, err)
+			}
+			after, err := store.CaptureSnapshot()
+			if err != nil || !before.equal(after) {
+				t.Fatalf("failed %s write left owned changes: %v", phase, err)
+			}
+		})
 	}
 }

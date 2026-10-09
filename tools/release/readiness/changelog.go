@@ -238,7 +238,11 @@ func validateChangelogProvenance(root string, entries []changelogEntry, selected
 	if selectedVersion != "" && selectedVersion != currentVersion {
 		return fmt.Errorf("CHANGELOG.md: selected release version %s does not match VERSION %s", selectedVersion, currentVersion)
 	}
-	tags, err := localReleaseVersions(root)
+	allocated, err := localReleaseVersions(root)
+	if err != nil {
+		return err
+	}
+	tags, err := localReleaseVersions(root, "--merged", "HEAD")
 	if err != nil {
 		return err
 	}
@@ -254,7 +258,7 @@ func validateChangelogProvenance(root string, entries []changelogEntry, selected
 	pending := ""
 	for index, entry := range entries {
 		version := entry.version.Original()
-		if _, published := tags[version]; published {
+		if _, published := allocated[version]; published {
 			continue
 		}
 		if pending != "" || index != 0 || version != currentVersion {
@@ -263,7 +267,7 @@ func validateChangelogProvenance(root string, entries []changelogEntry, selected
 		pending = version
 	}
 	current, _ := semver.StrictNewVersion(currentVersion)
-	for version := range tags {
+	for version := range allocated {
 		published, _ := semver.StrictNewVersion(version)
 		if _, currentPublished := tags[currentVersion]; !currentPublished && !current.GreaterThan(published) {
 			return fmt.Errorf("VERSION %s must not precede latest release %s", currentVersion, version)
@@ -272,8 +276,8 @@ func validateChangelogProvenance(root string, entries []changelogEntry, selected
 	return nil
 }
 
-func localReleaseVersions(root string) (map[string]struct{}, error) {
-	output, err := gitOutput(root, "tag", "--list", "v*")
+func localReleaseVersions(root string, selection ...string) (map[string]struct{}, error) {
+	output, err := gitOutput(root, append([]string{"tag", "--list", "v*"}, selection...)...)
 	if err != nil {
 		return nil, fmt.Errorf("read local release tags: %w", err)
 	}

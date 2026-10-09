@@ -134,7 +134,11 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 	before.SetSelectedRoute(configuration.ClientClaude, "claude")
 	after := before.Clone()
 	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
-	syncer := Synchronizer{Config: configuration.NewStore(filepath.Join(dir, "aigw.toml")), Discovery: staticDiscovery{}, ClaudeSettingsPath: settingsPath, AIGWExecutable: filepath.Join(dir, "aigw")}
+	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))
+	syncer := Synchronizer{Config: store, Discovery: staticDiscovery{}, ClaudeSettingsPath: settingsPath, AIGWExecutable: filepath.Join(dir, "aigw")}
+	if err := store.Save(before); err != nil {
+		t.Fatal(err)
+	}
 
 	plans, err := syncer.Plan(before, after)
 	if err != nil || len(plans) != 1 || plans[0].Client != configuration.ClientClaude || plans[0].Target != settingsPath || plans[0].Action != "project" {
@@ -412,9 +416,13 @@ func TestClientNativeModelProviderChangesProjectionWithoutAIGWCredentialHelper(t
 	binding.Authentication = configuration.AuthenticationClientNative
 	after.Clients[configuration.ClientCodex] = binding
 
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
 	syncer := Synchronizer{
-		Config:    configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml")),
+		Config:    store,
 		Discovery: targetDiscovery(target), AIGWExecutable: credentialCommand,
+	}
+	if err := store.Save(before); err != nil {
+		t.Fatal(err)
 	}
 	if err := syncer.Commit(t.Context(), before, after, "native provider"); err != nil {
 		t.Fatal(err)

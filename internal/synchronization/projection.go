@@ -5,8 +5,8 @@ import (
 	configuration "aigw-cli/internal/configuration"
 )
 
-// Plan returns every side-effect-free client projection change for a
-// configuration transition, including target removals.
-func (s Synchronizer) Plan(before, after configuration.Config) ([]client.ProjectionPlan, error) {
-	return s.registry().Plan(s.clientDependencies(), before, after)
+// Plan returns side-effect-free changes for the selected clients, including
+// target removals. An empty client list selects every admitted adapter.
+func (s Synchronizer) Plan(before, after configuration.Config, clientIDs ...string) ([]client.ProjectionPlan, error) {
+	return s.registry().Plan(s.clientDependencies(), before, after, clientIDs...)
 }

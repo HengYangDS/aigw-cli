@@ -326,3 +326,74 @@ func convergenceConfig(id string) Config {
 	cfg.SetSelectedRoute(ClientCodex, id)
 	return cfg
 }
+
+func TestForwardingBackupAndVerifiedConvergenceRestoreDirectState(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	direct := convergenceConfig("current")
+	if err := store.Save(direct); err != nil {
+		t.Fatal(err)
+	}
+	forwarded := direct.Clone()
+	if err := forwarded.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Save(forwarded); err != nil {
+		t.Fatal(err)
+	}
+	requireBackupCodexEndpoint(t, store, "https://current.test/v1")
+	if err := store.Save(direct); err != nil {
+		t.Fatal(err)
+	}
+	requireBackupCodexEndpoint(t, store, "http://127.0.0.1:8792/v1")
+	if err := store.SaveVerifiedCheckpoint(t.Context(), direct, []string{ClientCodex}); err != nil {
+		t.Fatal(err)
+	}
+	verified, err := store.CaptureVerifiedBackupState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.ConvergeVerifiedBackup(verified.Snapshot); err != nil {
+		t.Fatal(err)
+	}
+	requireBackupCodexEndpoint(t, store, "https://current.test/v1")
+	for _, path := range []string{store.forwardingPath(), store.forwardingPath() + ".bak"} {
+		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("verified direct state retained %s: %v", path, err)
+		}
+	}
+	data, err := os.ReadFile(store.Path() + ".verified.json")
+	if err != nil || bytes.Contains(data, []byte("forwarding_")) {
+		t.Fatalf("direct checkpoint retained successor-only forwarding fields: %v", err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	drift := forwarded.Clone()
+	if err := store.Save(drift); err != nil {
+		t.Fatal(err)
+	}
+	changed, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.ConvergeVerifiedBackup(before); err == nil {
+		t.Fatal("backup convergence ignored a forwarding preimage race")
+	}
+	after, err := store.CaptureSnapshot()
+	if err != nil || !changed.equal(after) {
+		t.Fatalf("stale backup convergence changed owned inputs: %v", err)
+	}
+}
+
+func requireBackupCodexEndpoint(t *testing.T, store Store, endpoint string) {
+	t.Helper()
+	previous, err := store.LoadBackup()
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected, err := previous.ResolveRuntime(ClientCodex, "")
+	if err != nil || selected.Endpoint != endpoint {
+		t.Fatalf("backup Codex endpoint = %q, want %q: %v", selected.Endpoint, endpoint, err)
+	}
+}

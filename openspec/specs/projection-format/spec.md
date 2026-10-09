@@ -42,15 +42,18 @@ semantic or byte-level drift.
 
 ### Requirement: Codex selections respect TOML scope and literal identity
 
-AIGW SHALL locate its root-level model, provider, and catalogue selections through
-the locked native TOML parser. Quoted keys and multiline values SHALL retain their
-meaning. Projection and withdrawal SHALL preserve unrelated source bytes, including
-same-named keys inside named profiles, dotted keys, arrays of tables, and strings.
-Replacement values SHALL be literal data, never regular-expression substitution
-syntax. Invalid or ambiguous selections SHALL fail before applying file changes.
-Root provider and model ownership SHALL derive from the attributed sidecar and
-the recorded semantic values; decorative ownership comments SHALL NOT be the
-sole authorization boundary.
+AIGW SHALL locate root model, provider and catalogue selections through the
+locked native TOML parser. Projection and withdrawal SHALL preserve unrelated
+source bytes and literal identity, including quoted keys and multiline values.
+Replacements SHALL be literal data, not regex substitutions. Invalid or
+ambiguous selections SHALL fail before writes. Root ownership SHALL derive
+from the attributed sidecar and recorded semantic values, not comments alone.
+
+#### Scenario: Same-named nested values remain outside root ownership
+
+- **WHEN** projection or withdrawal updates a root selection
+- **THEN** it SHALL preserve same-named keys in named profiles, dotted keys,
+  arrays of tables and strings without changing their meaning.
 
 #### Scenario: Project and withdraw a literal model selection
 

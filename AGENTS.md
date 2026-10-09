@@ -46,8 +46,9 @@ or a local proxy deployment to make a configuration test pass.
   release support remains gated by mode-specific native evidence.
 - External Responses compatibility services, when explicitly selected by an
   operator, own their transport and lifecycle. AIGW treats them as ordinary
-  Account endpoints and must not install, start, stop, reload, or configure
-  them.
+  endpoints and must not install, start, stop, reload, or configure them. An
+  explicit Codex forwarding destination is separate from the Account upstream;
+  preserve its original credential identity and all other Client Bindings.
 
 ## Analyzer isolation
 

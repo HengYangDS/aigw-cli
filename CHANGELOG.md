@@ -10,6 +10,22 @@ separate evidence.
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-10-09
+
+### Added
+
+- Preview an explicit Codex forwarding destination and its exact native target
+  actions without reading credentials, sending requests or changing files.
+
+### Fixed
+
+- Keep Codex forwarding separate from Account endpoints, provider identity and
+  the original credential reader; preserve other enabled clients and user settings.
+- Restore forwarding, direct mode and last-change rollback through the existing
+  guarded configuration, backup and verification checkpoint owners.
+- Reject stale upstream bindings and target conflicts without overwriting newer
+  edits; compensate independent owned files after partial write failure.
+
 ## [0.3.1] - 2026-09-25
 
 ### Fixed

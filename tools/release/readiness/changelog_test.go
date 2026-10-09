@@ -160,6 +160,55 @@ func TestChangelogRequiresEveryReleaseTagAndCurrentVersion(t *testing.T) {
 	}
 }
 
+func TestChangelogSeparatesMaintenanceLineageFromAllocatedHistory(t *testing.T) {
+	root := t.TempDir()
+	git(t, root, "init", "-q", "-b", "main")
+	path := filepath.Join(root, "CHANGELOG.md")
+	history := "## [1.0.0] - 2026-08-06\n\n### Added\n\n- Initial release.\n"
+	writeRelease := func(version, changes string) {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(validChangelog("## [Unreleased]\n\n"+changes+history)), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte(version+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeRelease("1.0.0", "")
+	git(t, root, "add", "CHANGELOG.md", "VERSION")
+	git(t, root, "-c", "user.name=Release Test", "-c", "user.email=release@example.test", "commit", "-q", "-m", "initial")
+	git(t, root, "tag", "v1.0.0")
+	git(t, root, "checkout", "-q", "-b", "other-release")
+	writeRelease("1.0.1", "## [1.0.1] - 2026-08-07\n\n### Fixed\n\n- Unrelated fix.\n\n")
+	git(t, root, "add", "CHANGELOG.md", "VERSION")
+	git(t, root, "-c", "user.name=Release Test", "-c", "user.email=release@example.test", "commit", "-q", "-m", "other release")
+	git(t, root, "tag", "v1.0.1")
+	git(t, root, "checkout", "-q", "main")
+	writeRelease("1.0.2", "## [1.0.2] - 2026-08-08\n\n### Fixed\n\n- Maintenance fix.\n\n")
+	if err := ValidateChangelog(root, path, ""); err != nil {
+		t.Fatalf("maintenance inherited unrelated release history: %v", err)
+	}
+	git(t, root, "add", "CHANGELOG.md", "VERSION")
+	git(t, root, "-c", "user.name=Release Test", "-c", "user.email=release@example.test", "commit", "-q", "-m", "maintenance")
+	git(t, root, "tag", "v1.0.2")
+	if err := ValidateChangelog(root, path, "v1.0.2"); err != nil {
+		t.Fatalf("selected maintenance tag: %v", err)
+	}
+	writeRelease("1.0.2", "## [1.0.2] - 2026-08-08\n\n### Fixed\n\n- Maintenance fix.\n\n## [1.0.1] - 2026-08-07\n\n### Fixed\n\n- Unrelated fix.\n\n")
+	if err := ValidateChangelog(root, path, ""); err != nil {
+		t.Fatalf("maintenance rejected retained allocated release history: %v", err)
+	}
+	git(t, root, "tag", "-d", "v1.0.2")
+	writeRelease("1.0.1", "## [1.0.1] - 2026-08-08\n\n### Fixed\n\n- Maintenance fix.\n\n")
+	if err := ValidateChangelog(root, path, ""); err == nil {
+		t.Fatal("maintenance reused an unrelated allocated version")
+	}
+	writeRelease("1.0.1-rc.1", "## [1.0.1-rc.1] - 2026-08-08\n\n### Fixed\n\n- Maintenance fix.\n\n")
+	if err := ValidateChangelog(root, path, ""); err == nil || !strings.Contains(err.Error(), "must not precede") {
+		t.Fatalf("maintenance ignored newer unrelated version: %v", err)
+	}
+}
+
 func TestLookupReleaseEpochPreservesExactBuildIdentity(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "CHANGELOG.md")
 	if err := os.WriteFile(path, []byte(validChangelog("## [Unreleased]\n\n## [1.2.3+build.1] - 2026-08-07\n\n### Fixed\n\n- Fix.\n")), 0o600); err != nil {

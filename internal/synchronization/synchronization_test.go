@@ -45,6 +45,7 @@ func (run runnerFunc) RunCapture(ctx context.Context, plan process.Plan) ([]byte
 }
 
 type configStoreStub struct {
+	configuration.Store
 	captureErr error
 	commitErr  error
 	restoreErr error
@@ -54,6 +55,9 @@ type configStoreStub struct {
 }
 
 func (s *configStoreStub) CaptureSnapshot() (configuration.Snapshot, error) {
+	if s.Path() != "" {
+		return s.Store.CaptureSnapshot()
+	}
 	return configuration.Snapshot{}, s.captureErr
 }
 

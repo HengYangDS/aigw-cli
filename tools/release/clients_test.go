@@ -17,7 +17,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -139,7 +138,7 @@ func TestNativeClientJourney(t *testing.T) {
 		t.Fatal("team manifest must recommend one route for every admitted client")
 	}
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
-	baseline := buildNativeProgram(t, root, "0.0.0")
+	baseline := requireNativeLifecycleBaseline(t, func() string { return buildNativeProgram(t, root, "0.0.0") })
 	for _, path := range []string{candidate, archive, checksums} {
 		t.Logf("artifact %s sha256=%x", filepath.Base(path), sha256.Sum256(readFile(t, path)))
 	}
@@ -170,32 +169,17 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	route := p.manifest.Routes[selection.Route]
 	const token = "native-real-client-token"
 	var completions atomic.Int64
-	protocol := selection.Protocol
-	if protocol == "" {
+	if selection.Protocol == "" {
 		spec, _ := configuration.ClientSpecFor(client)
-		protocol = spec.EndpointProtocols[0]
+		selection.Protocol = spec.EndpointProtocols[0]
 	}
 	requiredEffort := "high"
 	if client == configuration.ClientHermes {
 		requiredEffort = ""
 	}
-	handler := clientResponseHandler(protocol, map[string]*atomic.Int64{route.UpstreamModel: &completions}, token, requiredEffort)
-	requests := map[string]int{}
-	var requestsMu sync.Mutex
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		requestsMu.Lock()
-		requests[request.Method+" "+request.URL.Path]++
-		requestsMu.Unlock()
-		handler.ServeHTTP(response, request)
-	}))
+	handler := clientResponseHandler(selection.Protocol, map[string]*atomic.Int64{route.UpstreamModel: &completions}, token, requiredEffort)
+	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
-	t.Cleanup(func() {
-		if t.Failed() {
-			requestsMu.Lock()
-			defer requestsMu.Unlock()
-			t.Logf("client request paths: %v", requests)
-		}
-	})
 	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
 	if client == configuration.ClientHermes {
 		journey.run("update", "--candidate", p.archive, "--checksums", p.checksums)
@@ -235,6 +219,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		}
 	}
 	journey.testing = t
+	p.verifyCodexForwardingRecovery(journey, client, steps[0].version, handler, completions.Load)
 	journey.verifyNativeConfigEditing(client, executable)
 	const renamedAccount = "renamed-client-account"
 	journey.setEnvironment(secrets.EnvironmentKey(renamedAccount), token)
@@ -262,6 +247,66 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	journey.requireNativePreferences(client)
 	if err := before(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func (p nativeClientJourneyPlan) verifyCodexForwardingRecovery(j *journeyFixture, client, baselineVersion string, handler http.Handler, completions func() int64) {
+	j.testing.Helper()
+	if client != configuration.ClientCodex || baselineVersion != "0.3.1" {
+		return
+	}
+	forwarding := httptest.NewServer(handler)
+	j.testing.Cleanup(forwarding.Close)
+	endpoint := forwarding.URL + "/v1"
+	route := p.manifest.Recommendations[client].Primary.Route
+	reader := j.retainedCredential(client)
+	before := readFile(j.testing, j.config)
+	runPreservingConfig := func(args ...string) {
+		j.testing.Helper()
+		j.run(args...)
+		if after := readFile(j.testing, j.config); !bytes.Equal(after, before) {
+			j.testing.Fatalf("forwarding recovery changed the retained configuration after %v:\nbefore:\n%s\nafter:\n%s", args, before, after)
+		}
+	}
+	runPreservingConfig("use", "--for", configuration.ClientCodex, route, "--forwarding-endpoint", endpoint)
+	j.verifyCodexCheckpoint(endpoint, completions)
+	j.requireCredential(reader, "native-real-client-token")
+	runPreservingConfig("use", "--for", configuration.ClientCodex, route, "--direct")
+	j.verifyCodexCheckpoint("", completions)
+	runPreservingConfig("update", "--rollback")
+	j.requireVersion("0.3.1")
+	j.requireProgramBytes(p.baseline)
+	runPreservingConfig("rollback")
+	runPreservingConfig("sync")
+	j.verifyCodexCheckpoint("", completions)
+	j.requireCredential(reader, "native-real-client-token")
+	runPreservingConfig("update", "--candidate", p.archive, "--checksums", p.checksums)
+	j.requireVersion(p.version)
+	j.requireProgramBytes(p.candidate)
+	runPreservingConfig("sync")
+	runPreservingConfig("use", "--for", configuration.ClientCodex, route, "--forwarding-endpoint", endpoint)
+	j.verifyCodexCheckpoint(endpoint, completions)
+	runPreservingConfig("use", "--for", configuration.ClientCodex, route, "--direct")
+	j.verifyCodexCheckpoint("", completions)
+	j.requireNativePreferences(configuration.ClientCodex)
+	if after := readFile(j.testing, j.config); !bytes.Equal(after, before) {
+		j.testing.Fatalf("forwarding recovery changed the retained upstream or client binding:\nbefore:\n%s\nafter:\n%s", before, after)
+	}
+}
+
+func (j *journeyFixture) verifyCodexCheckpoint(endpoint string, completions func() int64) {
+	j.testing.Helper()
+	before := completions()
+	j.run("verify", "--for", "all")
+	if completions() <= before {
+		j.testing.Fatal("checkpoint verification did not invoke the authenticated native client")
+	}
+	checkpoint, err := configuration.NewStore(j.config).LoadVerifiedCheckpoint()
+	if err != nil || len(checkpoint.Clients) != 1 || checkpoint.Clients[0] != configuration.ClientCodex || checkpoint.Config.Clients[configuration.ClientCodex].ForwardingEndpoint != endpoint {
+		j.testing.Fatalf("forwarding recovery checkpoint = %#v: %v", checkpoint, err)
+	}
+	if endpoint == "" && bytes.Contains(readFile(j.testing, j.config+".verified.json"), []byte("forwarding_")) {
+		j.testing.Fatal("direct checkpoint retains fields the immutable predecessor cannot read")
 	}
 }
 

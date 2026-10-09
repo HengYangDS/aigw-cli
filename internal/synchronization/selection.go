@@ -10,27 +10,48 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
+// PrepareSelection resolves one proposed binding without credentials, discovery,
+// network requests or writes. An omitted destination retains the binding; an
+// explicitly empty destination restores its Account endpoint.
+func (s Synchronizer) PrepareSelection(before configuration.Config, client, routeID string, destination ...string) (configuration.Config, configuration.Runtime, error) {
+	if len(destination) > 1 {
+		return configuration.Config{}, configuration.Runtime{}, errors.New("selection requires at most one forwarding destination")
+	}
+	if len(destination) != 0 && client != configuration.ClientCodex {
+		return configuration.Config{}, configuration.Runtime{}, errors.New("forwarding selection requires the Codex client")
+	}
+	if _, exists := before.Routes[routeID]; !exists {
+		return configuration.Config{}, configuration.Runtime{}, fmt.Errorf("unknown route %q", routeID)
+	}
+	after := before.Clone()
+	if after.SelectedRoute(client) != routeID {
+		after.SetSelectedRoute(client, routeID)
+	}
+	if len(destination) == 1 {
+		if err := after.SetForwardingEndpoint(client, destination[0]); err != nil {
+			return configuration.Config{}, configuration.Runtime{}, err
+		}
+	}
+	binding := after.Clients[client]
+	binding.Enabled = true
+	after.Clients[client] = binding
+	selected, err := after.ResolveRuntime(client, "")
+	return after, selected, err
+}
+
 // SelectRoute commits one client's Route selection and projection, optionally storing
 // its validated Account Token. Failure compensates owned credential writes;
 // success leaves no rollback obligation with the caller. The result reports
 // configuration change, not Token acquisition or live inference.
-func (s Synchronizer) SelectRoute(ctx context.Context, before configuration.Config, client, routeID, token string) (changed bool, binding configuration.ClientBinding, resultErr error) {
-	return s.selectRoute(ctx, before, before.Clone(), client, routeID, token)
+func (s Synchronizer) SelectRoute(ctx context.Context, before configuration.Config, client, routeID, token string, destination ...string) (changed bool, binding configuration.ClientBinding, resultErr error) {
+	return s.selectRoute(ctx, before, before.Clone(), client, routeID, token, destination...)
 }
 
-func (s Synchronizer) selectRoute(ctx context.Context, before, after configuration.Config, client, routeID, token string) (changed bool, binding configuration.ClientBinding, resultErr error) {
+func (s Synchronizer) selectRoute(ctx context.Context, before, after configuration.Config, client, routeID, token string, destination ...string) (changed bool, binding configuration.ClientBinding, resultErr error) {
 	if err := ctx.Err(); err != nil {
 		return false, configuration.ClientBinding{}, err
 	}
-	_, exists := after.Routes[routeID]
-	if !exists {
-		return false, configuration.ClientBinding{}, fmt.Errorf("unknown route %q", routeID)
-	}
-	after.SetSelectedRoute(client, routeID)
-	binding = after.Clients[client]
-	binding.Enabled = true
-	after.Clients[client] = binding
-	selected, err := after.ResolveRuntime(client, "")
+	after, selected, err := s.PrepareSelection(after, client, routeID, destination...)
 	if err != nil {
 		return false, configuration.ClientBinding{}, err
 	}

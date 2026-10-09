@@ -1,15 +1,71 @@
 package synchronization
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
+
+func TestSameRouteForwardingPreservesShippedImplicitBinding(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "manifests", "team.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := configuration.Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := configuration.Merge(configuration.NewConfig(), manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	route := manifest.Recommendations[configuration.ClientCodex].Primary.Route
+	cfg, err = cfg.SelectRoutesForConnectedAccounts([]string{cfg.Routes[route].Account}, configuration.ClientCodex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Clients[configuration.ClientCodex].Protocol != "" {
+		t.Fatal("shipped Codex recommendation no longer exercises an implicit protocol")
+	}
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := cfg.Clients[configuration.ClientCodex]
+	for _, destination := range []string{"http://127.0.0.1:8792/ucloud/v1", ""} {
+		after, runtime, err := (Synchronizer{}).PrepareSelection(cfg, configuration.ClientCodex, route, destination)
+		if err != nil {
+			t.Fatal(err)
+		}
+		binding := after.Clients[configuration.ClientCodex]
+		binding.ForwardingEndpoint, binding.ForwardingUpstreamIdentity, binding.ForwardingProtocol = "", "", ""
+		if !reflect.DeepEqual(binding, original) || runtime.UpstreamEndpoint != manifest.Accounts[cfg.Routes[route].Account].Endpoints.OpenAIResponses {
+			t.Fatalf("same-route selection changed implicit native options: %#v", binding)
+		}
+		if _, err := store.Commit(before, after); err != nil {
+			t.Fatal(err)
+		}
+		current, err := store.CaptureSnapshot()
+		if err != nil || !bytes.Equal(before.Config.Data, current.Config.Data) || before.Config.Mode != current.Config.Mode {
+			t.Fatalf("same-route forwarding changed canonical bytes or mode: %v", err)
+		}
+		cfg, before = after, current
+	}
+	if before.Forwarding.Exists {
+		t.Fatal("direct selection retained forwarding state")
+	}
+}
 
 func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	before := setupConfiguration()
@@ -51,7 +107,11 @@ func TestRouteSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			failure := errors.New("configuration write failed")
-			store := &configStoreStub{commitErr: failure}
+			persisted := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+			if err := persisted.Save(before); err != nil {
+				t.Fatal(err)
+			}
+			store := &configStoreStub{Store: persisted, commitErr: failure}
 			syncer := Synchronizer{Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
 			switch phase {
 			case "cancelled":

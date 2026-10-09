@@ -137,8 +137,12 @@ func TestRouteAddDoesNotConflateRouteCreationWithClientCompatibility(t *testing.
 	}
 
 	err = cli.Execute(app, []string{"use", "--for", "claude", "claude"})
-	if err == nil || !strings.Contains(err.Error(), `does not admit endpoint protocol "anthropic"`) {
+	if err == nil || !strings.Contains(err.Error(), `client "claude" does not support endpoint protocol "openai_responses"`) {
 		t.Fatalf("client selection error = %v", err)
+	}
+	after, loadErr := app.Config.Load()
+	if loadErr != nil || after.SelectedRoute(configuration.ClientClaude) != "" || after.Routes["claude"].Account != route.Account {
+		t.Fatalf("refused client selection changed the client or Route: %v", loadErr)
 	}
 }
 
