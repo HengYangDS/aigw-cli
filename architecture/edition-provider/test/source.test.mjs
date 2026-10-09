@@ -168,7 +168,6 @@ test("the provider has one source owner and no executable integration", async ()
     "README.md",
     "edition.json",
     "evolution.json",
-    "materialize.mjs",
     "provider.json",
     "provider-evolution.json",
     "selection.json",
