@@ -104,7 +104,7 @@ func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
 				{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"},
 			}
 			if test.clients {
-				want = append([][]string{{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClientJourney$", "-count=1", "-v"}}, want...)
+				want = append([][]string{{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClientJourney$", "-count=1", "-timeout=1h", "-v"}}, want...)
 			}
 			var stage string
 			calls := 0

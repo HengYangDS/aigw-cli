@@ -28,6 +28,9 @@ func TestNativeClientAcceptancePreservesExplicitPublishedPredecessor(t *testing.
 	err := acceptNative(request, artifacts, os.Getenv("AIGW_ACCEPTANCE_BASELINE"), NativeAcceptance{Clients: true}, func(call toolCall) error {
 		if slices.Contains(call.Args, "-tags=client_acceptance") {
 			observed = true
+			if !slices.Contains(call.Args, "-timeout=1h") {
+				t.Error("real-client acceptance inherited Go's ten-minute default for the complete lifecycle and catalog scope")
+			}
 			if !slices.Contains(call.Env, "AIGW_ACCEPTANCE_BASELINE="+baseline) {
 				t.Error("real-client acceptance discarded the explicit published predecessor")
 			}

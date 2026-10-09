@@ -278,7 +278,7 @@ func TestNativeClientAcceptanceSharesStageAndPropagatesFailure(t *testing.T) {
 					t.Fatalf("acceptance lost stage ownership: %#v", call)
 				}
 			}
-			if len(calls) == 2 && !slices.Equal(calls[1].Args, []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClientJourney$", "-count=1", "-v"}) {
+			if len(calls) == 2 && !slices.Equal(calls[1].Args, []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClientJourney$", "-count=1", "-timeout=1h", "-v"}) {
 				t.Fatalf("real-client command = %#v", calls[1])
 			}
 			if _, err := os.Stat(stage); !os.IsNotExist(err) {
