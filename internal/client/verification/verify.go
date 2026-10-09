@@ -286,6 +286,7 @@ func readClaudeResult(output []byte) (claudeResult, error) {
 	decoder := json.NewDecoder(bytes.NewReader(output))
 	result := claudeResult{}
 	completed := false
+	fallback := false
 	for {
 		var event struct {
 			Type        string `json:"type"`
@@ -300,6 +301,8 @@ func readClaudeResult(output []byte) (claudeResult, error) {
 			return result, errors.New("invalid native Claude result")
 		}
 		switch {
+		case event.Type == "system" && event.Subtype == "model_refusal_fallback":
+			fallback = true
 		case event.Type == "system" && event.Subtype == "api_retry":
 			if event.ErrorStatus >= 400 && event.ErrorStatus <= 599 {
 				result.status = event.ErrorStatus
@@ -314,6 +317,9 @@ func readClaudeResult(output []byte) (claudeResult, error) {
 	}
 	if !completed {
 		return result, errors.New("Claude model response did not return the expected AIGW_OK verification marker")
+	}
+	if fallback {
+		return result, errors.New("Claude selected model was not qualified: native client reported model refusal fallback")
 	}
 	return result, nil
 }

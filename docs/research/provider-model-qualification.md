@@ -249,11 +249,12 @@ On October 4, 2026, the `13e6525c` macOS candidate completed public
 setup/use/check/verify with Claude Code 2.1.288
 for AIHubMix and UCloud Sonnet 5.5, DMXAPI Sonnet 5.5 CC, and UCloud Opus 5.5.
 The Sonnet Routes completed Read and same-session content recall. UCloud Opus
-reported 5.5 for the first Read, but default resume reported 4.8 while recalling
-the same note. Content recall therefore does not prove retained Opus 5.5
-selection or outgoing wire identity. All 43 bounded calls completed without
-reported diagnostics; that does not close the model-identity gap. The isolated
-run preserved effort and beta policy, host settings, credentials and installations.
+started with 5.5, then emitted native `model_refusal_fallback`; all assistant
+messages, including Read and same-session recall, reported 4.8. Content recall
+therefore does not qualify selected Opus 5.5 or prove outgoing wire identity.
+All 43 bounded calls completed without process diagnostics; that does not close
+selected-model qualification. The isolated run preserved effort and beta policy,
+host settings, credentials and installations.
 
 The current candidate and shipped team bytes also match retained Codex 0.160
 AIHubMix and UCloud ordinary Sol 6.1 file-tool/continuation evidence. Only the

@@ -499,6 +499,7 @@ func TestVerifyClaude(t *testing.T) {
 		{"wrong result", `{"type":"result","is_error":false,"result":"wrong"}`, "", "expected AIGW_OK", nil},
 		{"text is not a result", "AIGW_OK\n", "", "invalid native Claude result", nil},
 		{"failed result", `{"type":"result","is_error":true,"result":"AIGW_OK"}`, "", "minimal verification request failed", nil},
+		{"refusal fallback", "{\"type\":\"system\",\"subtype\":\"model_refusal_fallback\",\"trigger\":\"refusal\",\"scope\":\"session\",\"original_model\":\"claude-test\",\"fallback_model\":\"private-fallback must-not-leak\"}\n{\"type\":\"result\",\"is_error\":false,\"result\":\"AIGW_OK\"}", "", "selected model was not qualified", nil},
 		{"private stderr", "", "/Users/operator/private", "minimal verification request failed", cause},
 		{"model rejection", "[claude-code:unrecognized_model] claude-next token=must-not-leak request id=secret-request", "", "selected model is unavailable", cause},
 		{"context rejection", compatibility, "", "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1", cause},
