@@ -39,6 +39,20 @@ linuxToolchain: {
 	prepare: "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \(strings.Join(runtimePackages, " "))"
 }
 
+linuxSecretService: {
+	packages: "dbus-x11 gnome-keyring libglib2.0-bin"
+	session: {
+		command: string
+		run:     #"""
+			dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
+			gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
+			gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
+			AIGW_VERIFY_SYSTEM_KEYRING=1 \#(command)
+			AIGW_SECRET_SERVICE
+			"""#
+	}
+}
+
 commands: {
 	install:      "env GODEBUG=\(installationEnvironment.GODEBUG) mise install --locked"
 	bootstrap:    "mise run bootstrap"
@@ -309,6 +323,10 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		#Toolchain,
 		{name: "Prepare locked dependencies", run: commands.bootstrap},
 		if _platform == "linux" {
+			name: "Prepare native Secret Service"
+			run:  "sudo -n apt-get update -qq && sudo -n DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \(linuxSecretService.packages)"
+		},
+		if _platform == "linux" {
 			name: "Prepare native memory measurement"
 			if:   "github.event_name == 'workflow_dispatch' && inputs.performance"
 			run:  "sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y time"
@@ -333,35 +351,20 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 			if !full {
 				name: "Run native \(nativeEvidence[_platform].name) acceptance"
 				if:   "github.event_name != 'workflow_dispatch' || !inputs.full_quality"
-				run:  commands.native[_platform]
+				if _platform == "linux" {run: (linuxSecretService.session & {command: commands.native[_platform]}).run}
+				if _platform != "linux" {run: commands.native[_platform]}
 			}
 			if full {
 				name: "Qualify all repository tools on \(nativeEvidence[_platform].name)"
 				if:   "github.event_name == 'workflow_dispatch' && inputs.full_quality"
-				run:  "\(commands.native[_platform]) --full-quality"
+				if _platform == "linux" {run: (linuxSecretService.session & {command: "\(commands.native[_platform]) --full-quality"}).run}
+				if _platform != "linux" {run: "\(commands.native[_platform]) --full-quality"}
 			}
 			if full || _platform != "linux" {
 				env: _credentialEnvironment & {
 					if full {CGO_ENABLED: "1"}
 				}
 			}
-		},
-		if _platform == "linux" {
-			name: "Qualify Linux Secret Service"
-			run: #"""
-				sudo apt-get update -qq
-				sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
-				dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
-				gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
-				gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-				result=$(AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go test ./tools/release -run "^TestNativeProductJourney/system_credential_store$" -count=1 -v 2>&1) || {
-				  printf '%s\n' "$result"
-				  exit 1
-				}
-				printf '%s\n' "$result"
-				grep -Fq -- "--- PASS: TestNativeProductJourney/system_credential_store" <<<"$result"
-				AIGW_SECRET_SERVICE
-				"""#
 		},
 		// Fetch the Git blob bytes; checkout can rewrite the installer's declared CRLF worktree form.
 		if _platform == "windows" {
@@ -572,7 +575,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	if _platform == "linux" {
 		extends: [".linux-toolchain"]
 		variables: CGO_ENABLED: "1"
-		script: [commands.bootstrap, _refreshLocks, _native]
+		script: ["DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \(linuxSecretService.packages)", commands.bootstrap, _refreshLocks, (linuxSecretService.session & {command: _native}).run]
 	}
 	if _platform != "linux" {
 		script: [_install, commands.bootstrap, _refreshLocks, _native]

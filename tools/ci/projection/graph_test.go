@@ -120,29 +120,29 @@ func TestGitHubLinuxNativeJourneyUsesTheLockedProductCommand(t *testing.T) {
 			githubCommands = append(githubCommands, step.Run)
 		}
 	}
-	want := []string{"mise run bootstrap", "mise exec --locked -- go run ./tools/ci native --platform linux"}
-	if !reflect.DeepEqual(githubCommands, want) {
+	if len(githubCommands) != 2 || githubCommands[0] != "mise run bootstrap" {
 		t.Fatalf("GitHub native Linux commands = %q, want locked dependencies then one product journey", githubCommands)
 	}
-	for _, step := range workflow.Jobs["native-linux"].Steps {
-		if step.Name != "Qualify Linux Secret Service" {
-			continue
+	for _, required := range []string{
+		"dbus-run-session", "SetAlias default /org/freedesktop/secrets/collection/session",
+		"AIGW_VERIFY_SYSTEM_KEYRING=1", "mise exec --locked -- go run ./tools/ci native --platform linux",
+	} {
+		if !strings.Contains(githubCommands[1], required) {
+			t.Fatalf("native Linux command lacks its isolated credential contract %q", required)
 		}
-		for _, required := range []string{
-			"dbus-x11 gnome-keyring",
-			"dbus-run-session",
-			"SetAlias default /org/freedesktop/secrets/collection/session",
-			"AIGW_VERIFY_SYSTEM_KEYRING=1",
-			"TestNativeProductJourney/system_credential_store",
-			"grep -Fq -- \"--- PASS: TestNativeProductJourney/system_credential_store\"",
-		} {
-			if !strings.Contains(step.Run, required) {
-				t.Fatalf("Linux Secret Service qualification omits %q", required)
-			}
-		}
-		return
 	}
-	t.Fatal("native Linux CI does not qualify real Secret Service")
+	var gitlab struct {
+		Linux gitLabJob `yaml:"native-linux"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(gitlab.Linux.Script, func(call string) bool {
+		return strings.Contains(call, "dbus-run-session") && strings.Contains(call, "AIGW_VERIFY_SYSTEM_KEYRING=1") &&
+			strings.Contains(call, "go run ./tools/ci native --platform linux")
+	}) {
+		t.Fatal("GitLab native Linux command lacks the same isolated credential contract")
+	}
 }
 
 func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
@@ -172,8 +172,8 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
 		t.Fatal(err)
 	}
-	input, present := github.On.Dispatch.Inputs["full_quality"]
-	if !present || input.Type != "boolean" || input.Default.Value != "false" || input.Required {
+	input := github.On.Dispatch.Inputs["full_quality"]
+	if input.Type != "boolean" || input.Default.Value != "false" || input.Required {
 		t.Fatal("full native quality must be an optional disabled-by-default input")
 	}
 	selection := github.On.Dispatch.Inputs["native_platform"]
@@ -184,7 +184,14 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 		ordinary, full := 0, 0
 		for _, step := range github.Jobs["native-"+platform].Steps {
 			base := "mise exec --locked -- go run ./tools/ci native --platform " + platform
-			switch step.Run {
+			run := step.Run
+			if platform == "linux" && strings.Contains(run, base) {
+				run = base
+				if strings.Contains(step.Run, "--full-quality") {
+					run += " --full-quality"
+				}
+			}
+			switch run {
 			case base:
 				ordinary++
 				if step.If != "github.event_name != 'workflow_dispatch' || !inputs.full_quality" {
@@ -192,7 +199,7 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 				}
 			case base + " --full-quality":
 				full++
-				if step.If != "github.event_name == 'workflow_dispatch' && inputs.full_quality" || step.Env["CGO_ENABLED"] != "1" {
+				if !slices.Equal([]string{step.If, step.Env["CGO_ENABLED"]}, []string{"github.event_name == 'workflow_dispatch' && inputs.full_quality", "1"}) {
 					t.Fatalf("%s full native selection or compiler capability is incomplete: %#v", platform, step)
 				}
 			}
@@ -207,15 +214,13 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	for platform, job := range map[string]gitLabJob{"darwin": gitlab.Darwin} {
-		wantRule := `($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "` + platform + `")`
-		if len(job.Rules) != 5 || job.Rules[3].If != wantRule {
-			t.Fatalf("GitLab %s lacks equivalent manual platform selection: %#v", platform, job.Rules)
-		}
-		want := "mise exec --locked -- go run ./tools/ci native --platform " + platform + ` --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"`
-		if !slices.Contains(job.Script, want) {
-			t.Fatalf("GitLab %s lacks the same explicit native-quality entrypoint", platform)
-		}
+	wantRule := `($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")`
+	if len(gitlab.Darwin.Rules) != 5 || gitlab.Darwin.Rules[3].If != wantRule {
+		t.Fatalf("GitLab Darwin lacks equivalent manual platform selection: %#v", gitlab.Darwin.Rules)
+	}
+	want := `mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"`
+	if !slices.Contains(gitlab.Darwin.Script, want) {
+		t.Fatal("GitLab Darwin lacks the same explicit native-quality entrypoint")
 	}
 }
 

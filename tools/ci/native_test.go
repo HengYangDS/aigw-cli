@@ -50,15 +50,8 @@ func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 		}); err != nil || len(calls) != 3 {
 			t.Fatalf("native host args=%v error=%v calls=%d", args, err, len(calls))
 		}
-		if runtime.GOOS == "windows" {
-			if got := calls[1]; got.Name != "go" || !slices.Equal(got.Args, []string{"test", "-json", "./..."}) {
-				t.Fatalf("native Windows test command = %#v", got)
-			}
-		} else {
-			wantProfile := filepath.Join("build", "acceptance", "coverage-"+runtime.GOOS+".out")
-			if got := calls[1]; got.Name != "go" || !slices.Equal(got.Args, []string{"run", "./tools/coverage", "--race", "--profile-output", wantProfile}) {
-				t.Fatalf("native coverage command = %#v", got)
-			}
+		if got := calls[1]; !reflect.DeepEqual(got, nativeCommands(runtime.GOOS)[1]) {
+			t.Fatalf("native coverage dispatch = %#v", got)
 		}
 	}
 	other := "linux"
@@ -92,14 +85,19 @@ func TestNativeAcceptanceRefusesARepositoryWithoutVersionTruth(t *testing.T) {
 }
 
 func TestNativeCommandsKeepSourceEvidenceDistinct(t *testing.T) {
-	windows := nativeCommands("windows")
-	if !slices.Equal(windows[1].Args, []string{"test", "-json", "./..."}) {
-		t.Fatalf("Windows source verification = %#v", windows[1])
-	}
-	linux := nativeCommands("linux")
-	want := []string{"run", "./tools/coverage", "--race", "--profile-output", filepath.Join("build", "acceptance", "coverage-linux.out")}
-	if !slices.Equal(linux[1].Args, want) {
-		t.Fatalf("Linux source verification = %#v", linux[1])
+	for _, platform := range []string{"darwin", "linux", "windows"} {
+		t.Run(platform, func(t *testing.T) {
+			want := []string{"run", "./tools/coverage"}
+			if platform != "windows" {
+				want = append(want, "--race")
+			}
+			profile := filepath.Join("build", "acceptance", "coverage-"+platform+".out")
+			want = append(want, "--profile-output", profile)
+			got := nativeCommands(platform)[1]
+			if got.Name != "go" || !slices.Equal(got.Args, want) {
+				t.Fatalf("%s source verification = %#v, want strict coverage with its native profile", platform, got)
+			}
+		})
 	}
 }
 
