@@ -3,15 +3,18 @@
 package main
 
 import (
+	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/upgrade/artifact"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"math"
 	"net/http"
@@ -23,6 +26,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/pelletier/go-toml/v2"
@@ -274,18 +278,10 @@ func (j *journeyFixture) preparePerformanceCredentials(backend, account, credent
 
 func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend string, block int) []performanceMeasurement {
 	j.testing.Helper()
-	var settings struct {
-		APIKeyHelper string `json:"apiKeyHelper"`
-	}
-	if err := json.Unmarshal(readFile(j.testing, j.settings), &settings); err != nil || settings.APIKeyHelper == "" {
-		j.testing.Fatalf("read projected helper: %v", err)
-	}
-	helper := performanceCommand("/bin/sh", "-c", settings.APIKeyHelper)
+	credential := j.retainedCredential(configuration.ClientClaude)
+	helper := append([]string{credential.Executable}, credential.Args...)
 	if runtime.GOOS == "windows" {
-		if err := os.WriteFile(filepath.Join(j.root, "credential.cmd"), []byte("@echo off\r\n"+settings.APIKeyHelper+"\r\n"), 0o600); err != nil {
-			j.testing.Fatal(err)
-		}
-		helper = performanceCommand(os.Getenv("ComSpec"), "/d", "/c", "credential.cmd")
+		helper = []string{os.Getenv("ComSpec"), "/d", "/c", credential.Executable}
 	}
 	selectArgs := []string{j.binary, "use", "performance-second"}
 	resetArgs := []string{j.binary, "use", "native-system-keyring-probe-claude"}
@@ -294,31 +290,47 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 		resetArgs = []string{j.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
 	}
 	cases := []struct {
-		name, command, prepare string
-		budget                 float64
+		name             string
+		command, prepare []string
+		budget           float64
 	}{
-		{"credential", helper, "", 0.1},
-		{"projection", performanceCommand(selectArgs...), performanceCommand(resetArgs...), 0.25},
+		{"credential", helper, nil, 0.1},
+		{"projection", selectArgs, resetArgs, 0.25},
 	}
 	if backend == "env" {
 		for _, args := range [][]string{{"version", "--version"}, {"help", "--help"}, {"status", "status", "--json"}, {"export", "config", "export"}} {
 			cases = append(cases, struct {
-				name, command, prepare string
-				budget                 float64
-			}{args[0], performanceCommand(append([]string{j.binary}, args[1:]...)...), "", 0.1})
+				name             string
+				command, prepare []string
+				budget           float64
+			}{args[0], append([]string{j.binary}, args[1:]...), nil, 0.1})
 		}
 	}
 	var measurements []performanceMeasurement
 	for _, test := range cases {
 		name := fmt.Sprintf("%s-%s-%s-%d", variant, backend, test.name, block)
+		for index, argv := range [][]string{test.prepare, test.command} {
+			if len(argv) == 0 {
+				continue
+			}
+			diagnostic, err := runPerformanceDiagnostic(j.testing.Context(), process.Plan{
+				Executable: argv[0], Args: argv[1:], Env: j.environment, Directory: j.root,
+			})
+			if writeErr := os.WriteFile(filepath.Join(output, fmt.Sprintf("%s.operation-%d.stderr.log", name, index)), diagnostic, 0o600); writeErr != nil {
+				j.testing.Fatal(writeErr)
+			}
+			if err != nil {
+				j.testing.Fatalf("performance operation %s/%d: %v\nstderr:\n%s", name, index, err, diagnostic)
+			}
+		}
 		raw := filepath.Join(output, name+".json")
 		args := []string{"--shell=none", "--warmup", "5", "--runs", "40", "--output=pipe", "--style", "basic", "--export-json", raw}
-		if test.prepare != "" {
-			args = append(args, "--prepare", test.prepare)
+		if len(test.prepare) != 0 {
+			args = append(args, "--prepare", performanceCommand(test.prepare...))
 		}
 		var stdout, stderr bytes.Buffer
 		runErr := (process.Runner{}).RunStream(j.testing.Context(), process.Plan{
-			Executable: hyperfine, Args: append(args, test.command),
+			Executable: hyperfine, Args: append(args, performanceCommand(test.command...)),
 			Env: j.environment, Directory: j.root,
 		}, &stdout, &stderr)
 		if err := os.WriteFile(filepath.Join(output, name+".stdout.log"), stdout.Bytes(), 0o600); err != nil {
@@ -459,9 +471,38 @@ func TestNativePerformanceSamples(t *testing.T) {
 	}
 }
 
+// runPerformanceDiagnostic checks an operation outside the timed samples.
+func runPerformanceDiagnostic(ctx context.Context, plan process.Plan) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	diagnostic, err := (process.Runner{}).RunDiagnostic(ctx, plan, io.Discard)
+	if diagnosticFailure(diagnostic) {
+		err = errors.Join(err, errors.New("performance operation emitted a warning or error"))
+	}
+	return diagnostic, err
+}
+
 func TestNativePerformanceCommand(t *testing.T) {
+	if diagnostic := os.Getenv("AIGW_TEST_PERFORMANCE_DIAGNOSTIC_CHILD"); diagnostic != "" {
+		_, _ = os.Stdout.WriteString("synthetic-credential-result")
+		_, _ = os.Stderr.WriteString(diagnostic)
+		os.Exit(0)
+	}
 	if got := performanceCommand(`C:\program files\aigw.exe`, "a'b", ""); got != `'C:\program files\aigw.exe' 'a'\''b' ''` {
 		t.Fatalf("Hyperfine argv quoting = %s", got)
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, text := range []string{"warning: synthetic child diagnostic\n", "INFO synthetic child progress\n"} {
+		diagnostic, err := runPerformanceDiagnostic(t.Context(), process.Plan{
+			Executable: executable, Args: []string{"-test.run=^TestNativePerformanceCommand$"},
+			Env: append(os.Environ(), "AIGW_TEST_PERFORMANCE_DIAGNOSTIC_CHILD="+text),
+		})
+		if (err != nil) != (index == 0) || string(diagnostic) != text {
+			t.Fatalf("child diagnostic %d refused=%t; stderr=%q", index, err != nil, diagnostic)
+		}
 	}
 }
 

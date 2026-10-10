@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -59,12 +60,16 @@ func TestRunnerStreamAllowsDiscardedOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := (Runner{}).RunStream(t.Context(), Plan{
+	plan := Plan{
 		Executable: executable,
 		Args:       []string{"-test.run=^TestRunnerStreamAllowsDiscardedOutput$"},
 		Env:        append(os.Environ(), "AIGW_TEST_DISCARDED_OUTPUT=child"),
-	}, nil, nil); err != nil {
+	}
+	if err := (Runner{}).RunStream(t.Context(), plan, nil, nil); err != nil {
 		t.Fatal(err)
+	}
+	if diagnostic, err := (Runner{}).RunDiagnostic(t.Context(), plan, io.Discard); err != nil || string(diagnostic) != "unused diagnostic" {
+		t.Fatalf("successful child diagnostic was lost or contains stdout: %q, %v", diagnostic, err)
 	}
 }
 

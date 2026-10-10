@@ -78,7 +78,7 @@ func (runner Runner) RunCapture(ctx context.Context, plan Plan) ([]byte, error) 
 		outputLimit = capturedProcessOutputLimit
 	}
 	stdout := &limitedBuffer{limit: outputLimit}
-	diagnostic, err := runCaptured(ctx, plan, stdout)
+	diagnostic, err := runner.RunDiagnostic(ctx, plan, stdout)
 	if stdout.overflow {
 		return nil, fmt.Errorf("captured stdout from %s exceeds %d bytes", plan.Executable, outputLimit)
 	}
@@ -95,7 +95,7 @@ func (Runner) RunToFile(ctx context.Context, destination string, plan Plan) erro
 	if err != nil {
 		return fmt.Errorf("open command output %s: %w", filepath.Base(destination), err)
 	}
-	diagnostic, runErr := runCaptured(ctx, plan, file)
+	diagnostic, runErr := (Runner{}).RunDiagnostic(ctx, plan, file)
 	closeErr := file.Close()
 	if runErr == nil && closeErr == nil {
 		return nil
@@ -110,16 +110,14 @@ func (Runner) RunToFile(ctx context.Context, destination string, plan Plan) erro
 	return errors.Join(runErr, closeErr, removeErr)
 }
 
-func runCaptured(ctx context.Context, plan Plan, stdout io.Writer) (diagnostic []byte, err error) {
+// RunDiagnostic streams stdout to its caller and returns bounded stderr.
+func (Runner) RunDiagnostic(ctx context.Context, plan Plan, stdout io.Writer) (diagnostic []byte, err error) {
 	stderr := &limitedBuffer{limit: capturedProcessOutputLimit}
 	err = (Runner{}).RunStream(ctx, plan, stdout, stderr)
 	if stderr.overflow {
 		return nil, fmt.Errorf("captured stderr from %s exceeds %d bytes", plan.Executable, capturedProcessOutputLimit)
 	}
-	if err != nil {
-		return append([]byte(nil), stderr.Bytes()...), err
-	}
-	return nil, nil
+	return append([]byte(nil), stderr.Bytes()...), err
 }
 
 // RunStream executes an owned non-interactive process with caller-owned output
