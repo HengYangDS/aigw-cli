@@ -181,7 +181,7 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 		t.Fatalf("native qualification must default to the complete platform set: %#v", selection)
 	}
 	for _, platform := range []string{"darwin", "linux", "windows"} {
-		sourceCondition := "(github.event_name != 'workflow_dispatch' || (inputs.candidate_tag == '' && inputs.input_release == ''))"
+		sourceCondition := "(github.event_name != 'workflow_dispatch' || (inputs.baseline_tag == '' && inputs.candidate_tag == '' && inputs.input_release == '' && !inputs.windows_clients && !inputs.macos_keychain && !inputs.performance))"
 		ordinary, full := 0, 0
 		for _, step := range github.Jobs["native-"+platform].Steps {
 			base := "mise exec --locked -- go run ./tools/ci native --platform " + platform

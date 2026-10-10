@@ -320,9 +320,10 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 }
 
 #NativeGitHubJob: {
-	_platform:          #OperatingSystem
-	_sourceCondition:   "github.event_name != 'workflow_dispatch' || (inputs.candidate_tag == '' && inputs.input_release == '')"
-	_artifactCondition: "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)"
+	_platform:           #OperatingSystem
+	_sourceCondition:    "github.event_name != 'workflow_dispatch' || (inputs.baseline_tag == '' && inputs.candidate_tag == '' && inputs.input_release == '' && !inputs.windows_clients && !inputs.macos_keychain && !inputs.performance)"
+	_bootstrapCondition: "github.event_name != 'workflow_dispatch' || (inputs.candidate_tag == '' && inputs.input_release == '')"
+	_artifactCondition:  "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)"
 	_clientCondition: {darwin: "false", linux: "false", windows: "inputs.windows_clients"}[_platform]
 	_credentialEnvironment: {
 		if _platform == "windows" {
@@ -342,7 +343,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	steps: [
 		#SourceCheckout,
 		#Toolchain,
-		{name: "Prepare locked dependencies", if: _sourceCondition, run: commands.bootstrap},
+		{name: "Prepare locked dependencies", if: _bootstrapCondition, run: commands.bootstrap},
 		if _platform == "linux" {
 			name: "Prepare native Secret Service"
 			run:  "sudo -n apt-get update -qq && sudo -n DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \(linuxSecretService.packages)"
@@ -562,8 +563,8 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		_refreshLocks: "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
 		_sourceNative: "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
 		_native:       #"""
-			if ($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_TAG) {
-			  $env:AIGW_NATIVE_CANDIDATE = ([string]::IsNullOrWhiteSpace($env:AIGW_CANDIDATE_TAG)).ToString().ToLowerInvariant()
+			if ($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_TAG -or $env:AIGW_BASELINE_TAG -or $env:AIGW_NATIVE_CLIENTS -eq 'true' -or $env:AIGW_PERFORMANCE_OUTPUT) {
+			  $env:AIGW_NATIVE_CANDIDATE = (-not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_INPUT_PACKAGE)).ToString().ToLowerInvariant()
 			  \#(nativeInputCommands.gitlab[_platform])
 			} else {
 			  \#(_sourceNative)
@@ -575,7 +576,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		_refreshLocks: "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
 		_sourceNative: "\(commands.native[_platform]) --full-quality=\"${AIGW_FULL_NATIVE_QUALITY:-false}\""
 		_native:       #"""
-			if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ] || [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then
+			if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ] || [ -n "${AIGW_CANDIDATE_TAG:-}" ] || [ -n "${AIGW_BASELINE_TAG:-}" ] || [ "${AIGW_NATIVE_CLIENTS:-false}" = true ] || [ -n "${AIGW_PERFORMANCE_OUTPUT:-}" ]; then
 			  if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ]; then export AIGW_NATIVE_CANDIDATE=true; fi
 			  \#(nativeInputCommands.gitlab[_platform])
 			else

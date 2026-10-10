@@ -108,7 +108,7 @@ func TestNativePerformanceRequiresExplicitPublishedInputs(t *testing.T) {
 		{"accept-native", "--performance", t.TempDir()},
 		{"accept-native", "--artifacts", t.TempDir(), "--performance", t.TempDir()},
 	} {
-		if err := run(args, io.Discard); err == nil || !strings.Contains(err.Error(), "published candidate and baseline") {
+		if err := run(args, io.Discard); err == nil || !strings.Contains(err.Error(), "explicit published baseline") {
 			t.Fatalf("performance input admission = %v", err)
 		}
 	}

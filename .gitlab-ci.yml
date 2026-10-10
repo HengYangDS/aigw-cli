@@ -4,7 +4,7 @@ native-darwin:
     - mise run bootstrap
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - |-
-      if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ] || [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then
+      if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ] || [ -n "${AIGW_CANDIDATE_TAG:-}" ] || [ -n "${AIGW_BASELINE_TAG:-}" ] || [ "${AIGW_NATIVE_CLIENTS:-false}" = true ] || [ -n "${AIGW_PERFORMANCE_OUTPUT:-}" ]; then
         if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ]; then export AIGW_NATIVE_CANDIDATE=true; fi
         mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="$AIGW_FULL_NATIVE_QUALITY" -- --candidate="$AIGW_NATIVE_CANDIDATE" --candidate-source="$AIGW_CANDIDATE_SOURCE" --input-package="$AIGW_NATIVE_INPUT_PACKAGE" --input-sha256="$AIGW_NATIVE_INPUT_SHA256" --baseline-tag="$AIGW_BASELINE_TAG" --tag="$AIGW_CANDIDATE_TAG" --peer=gitlab --repository="$CI_PROJECT_URL" --clients="$AIGW_NATIVE_CLIENTS" --performance="$AIGW_PERFORMANCE_OUTPUT"
       else
@@ -76,7 +76,7 @@ native-linux:
       dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
       gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
       gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-      AIGW_VERIFY_SYSTEM_KEYRING=1 if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ] || [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then
+      AIGW_VERIFY_SYSTEM_KEYRING=1 if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ] || [ -n "${AIGW_CANDIDATE_TAG:-}" ] || [ -n "${AIGW_BASELINE_TAG:-}" ] || [ "${AIGW_NATIVE_CLIENTS:-false}" = true ] || [ -n "${AIGW_PERFORMANCE_OUTPUT:-}" ]; then
         if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ]; then export AIGW_NATIVE_CANDIDATE=true; fi
         mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="$AIGW_FULL_NATIVE_QUALITY" -- --candidate="$AIGW_NATIVE_CANDIDATE" --candidate-source="$AIGW_CANDIDATE_SOURCE" --input-package="$AIGW_NATIVE_INPUT_PACKAGE" --input-sha256="$AIGW_NATIVE_INPUT_SHA256" --baseline-tag="$AIGW_BASELINE_TAG" --tag="$AIGW_CANDIDATE_TAG" --peer=gitlab --repository="$CI_PROJECT_URL" --clients="$AIGW_NATIVE_CLIENTS" --performance="$AIGW_PERFORMANCE_OUTPUT"
       else
@@ -89,8 +89,8 @@ native-windows:
     - mise run bootstrap
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
     - |-
-      if ($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_TAG) {
-        $env:AIGW_NATIVE_CANDIDATE = ([string]::IsNullOrWhiteSpace($env:AIGW_CANDIDATE_TAG)).ToString().ToLowerInvariant()
+      if ($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_TAG -or $env:AIGW_BASELINE_TAG -or $env:AIGW_NATIVE_CLIENTS -eq 'true' -or $env:AIGW_PERFORMANCE_OUTPUT) {
+        $env:AIGW_NATIVE_CANDIDATE = (-not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_INPUT_PACKAGE)).ToString().ToLowerInvariant()
         mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$env:AIGW_FULL_NATIVE_QUALITY" -- --candidate="$env:AIGW_NATIVE_CANDIDATE" --candidate-source="$env:AIGW_CANDIDATE_SOURCE" --input-package="$env:AIGW_NATIVE_INPUT_PACKAGE" --input-sha256="$env:AIGW_NATIVE_INPUT_SHA256" --baseline-tag="$env:AIGW_BASELINE_TAG" --tag="$env:AIGW_CANDIDATE_TAG" --peer=gitlab --repository="$env:CI_PROJECT_URL" --clients="$env:AIGW_NATIVE_CLIENTS" --performance="$env:AIGW_PERFORMANCE_OUTPUT"
       } else {
         mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"

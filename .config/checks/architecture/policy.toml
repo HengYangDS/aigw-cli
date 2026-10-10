@@ -333,6 +333,7 @@ allowed_import_edges."internal/process" = []
 allowed_import_edges."tools/ci" = [
   "tools/ci/markdown",
   "tools/ci/projection",
+  "tools/release/construction",
   "tools/release/readiness",
 ]
 allowed_import_edges."tools/ci/markdown" = []

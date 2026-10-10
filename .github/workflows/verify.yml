@@ -196,13 +196,13 @@ jobs:
       - env:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
         name: Run native macOS acceptance
-        if: (github.event_name != 'workflow_dispatch' || (inputs.candidate_tag == '' && inputs.input_release == '')) && (github.event_name != 'workflow_dispatch' || !inputs.full_quality)
+        if: (github.event_name != 'workflow_dispatch' || (inputs.baseline_tag == '' && inputs.candidate_tag == '' && inputs.input_release == '' && !inputs.windows_clients && !inputs.macos_keychain && !inputs.performance)) && (github.event_name != 'workflow_dispatch' || !inputs.full_quality)
         run: mise exec --locked -- go run ./tools/ci native --platform darwin
       - env:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
           CGO_ENABLED: "1"
         name: Qualify all repository tools on macOS
-        if: (github.event_name != 'workflow_dispatch' || (inputs.candidate_tag == '' && inputs.input_release == '')) && github.event_name == 'workflow_dispatch' && inputs.full_quality
+        if: (github.event_name != 'workflow_dispatch' || (inputs.baseline_tag == '' && inputs.candidate_tag == '' && inputs.input_release == '' && !inputs.windows_clients && !inputs.macos_keychain && !inputs.performance)) && github.event_name == 'workflow_dispatch' && inputs.full_quality
         run: mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)
@@ -290,7 +290,7 @@ jobs:
             .mise/locks
           include-hidden-files: true
       - name: Run native Linux acceptance
-        if: (github.event_name != 'workflow_dispatch' || (inputs.candidate_tag == '' && inputs.input_release == '')) && (github.event_name != 'workflow_dispatch' || !inputs.full_quality)
+        if: (github.event_name != 'workflow_dispatch' || (inputs.baseline_tag == '' && inputs.candidate_tag == '' && inputs.input_release == '' && !inputs.windows_clients && !inputs.macos_keychain && !inputs.performance)) && (github.event_name != 'workflow_dispatch' || !inputs.full_quality)
         run: |-
           dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
           gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
@@ -300,7 +300,7 @@ jobs:
       - env:
           CGO_ENABLED: "1"
         name: Qualify all repository tools on Linux
-        if: (github.event_name != 'workflow_dispatch' || (inputs.candidate_tag == '' && inputs.input_release == '')) && github.event_name == 'workflow_dispatch' && inputs.full_quality
+        if: (github.event_name != 'workflow_dispatch' || (inputs.baseline_tag == '' && inputs.candidate_tag == '' && inputs.input_release == '' && !inputs.windows_clients && !inputs.macos_keychain && !inputs.performance)) && github.event_name == 'workflow_dispatch' && inputs.full_quality
         run: |-
           dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
           gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
@@ -393,13 +393,13 @@ jobs:
       - env:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
         name: Run native Windows acceptance
-        if: (github.event_name != 'workflow_dispatch' || (inputs.candidate_tag == '' && inputs.input_release == '')) && (github.event_name != 'workflow_dispatch' || !inputs.full_quality)
+        if: (github.event_name != 'workflow_dispatch' || (inputs.baseline_tag == '' && inputs.candidate_tag == '' && inputs.input_release == '' && !inputs.windows_clients && !inputs.macos_keychain && !inputs.performance)) && (github.event_name != 'workflow_dispatch' || !inputs.full_quality)
         run: mise exec --locked -- go run ./tools/ci native --platform windows
       - env:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
           CGO_ENABLED: "1"
         name: Qualify all repository tools on Windows
-        if: (github.event_name != 'workflow_dispatch' || (inputs.candidate_tag == '' && inputs.input_release == '')) && github.event_name == 'workflow_dispatch' && inputs.full_quality
+        if: (github.event_name != 'workflow_dispatch' || (inputs.baseline_tag == '' && inputs.candidate_tag == '' && inputs.input_release == '' && !inputs.windows_clients && !inputs.macos_keychain && !inputs.performance)) && github.event_name == 'workflow_dispatch' && inputs.full_quality
         run: mise exec --locked -- go run ./tools/ci native --platform windows --full-quality
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)

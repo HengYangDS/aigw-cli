@@ -313,24 +313,31 @@ func TestNativeInputProjectionsInvokeTheOwnedCandidateOnce(t *testing.T) {
 	if output, err := exec.CommandContext(t.Context(), "go", "build", "-o", executable, source).CombinedOutput(); err != nil {
 		t.Fatalf("build native command-capture fixture: %v: %s", err, output)
 	}
-	command := exec.CommandContext(t.Context(), "bash", "-euo", "pipefail", "-c", invocation)
-	if platform == "windows" {
-		command = exec.CommandContext(t.Context(), "pwsh", "-NoProfile", "-Command", invocation)
-	}
-	command.Env = append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "AIGW_TEST_CALL="+result,
-		"AIGW_CANDIDATE_SOURCE="+strings.Repeat("a", 40), "AIGW_NATIVE_INPUT_RELEASE=native-inputs-"+strings.Repeat("b", 40),
-		"AIGW_NATIVE_INPUT_SHA256="+strings.Repeat("c", 64), "AIGW_BASELINE_TAG=v0.3.3", "GITHUB_REPOSITORY=group/product",
-		"AIGW_FULL_NATIVE_QUALITY=false", "AIGW_NATIVE_CANDIDATE=true", "AIGW_NATIVE_CLIENTS=false", "AIGW_CANDIDATE_TAG=", "AIGW_PERFORMANCE_OUTPUT=")
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("projected native candidate invocation failed: %v: %s", err, output)
-	}
-	data, err := os.ReadFile(result)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []string{"exec", "--locked", "--", "go", "run", "./tools/ci", "native", "--platform", platform, "--full-quality=false", "--", "--candidate=true", "--candidate-source=" + strings.Repeat("a", 40),
-		"--input-release=native-inputs-" + strings.Repeat("b", 40), "--input-sha256=" + strings.Repeat("c", 64), "--baseline-tag=v0.3.3", "--tag=", "--peer=github", "--repository=group/product", "--clients=false", "--performance="}
-	if !slices.Equal(strings.Split(string(data), "\n"), want) {
-		t.Fatalf("CUE projected a different candidate call: %s", data)
+	for _, selection := range []struct{ name, candidate, source, carrier, checksum string }{
+		{"candidate", "true", strings.Repeat("a", 40), "native-inputs-" + strings.Repeat("b", 40), strings.Repeat("c", 64)},
+		{"source with published baseline", "false", "", "", ""},
+	} {
+		t.Run(selection.name, func(t *testing.T) {
+			command := exec.CommandContext(t.Context(), "bash", "-euo", "pipefail", "-c", invocation)
+			if platform == "windows" {
+				command = exec.CommandContext(t.Context(), "pwsh", "-NoProfile", "-Command", invocation)
+			}
+			command.Env = append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "AIGW_TEST_CALL="+result,
+				"AIGW_CANDIDATE_SOURCE="+selection.source, "AIGW_NATIVE_INPUT_RELEASE="+selection.carrier,
+				"AIGW_NATIVE_INPUT_SHA256="+selection.checksum, "AIGW_BASELINE_TAG=v0.3.3", "GITHUB_REPOSITORY=group/product",
+				"AIGW_FULL_NATIVE_QUALITY=false", "AIGW_NATIVE_CANDIDATE="+selection.candidate, "AIGW_NATIVE_CLIENTS=false", "AIGW_CANDIDATE_TAG=", "AIGW_PERFORMANCE_OUTPUT=")
+			if output, err := command.CombinedOutput(); err != nil {
+				t.Fatalf("projected native selection failed: %v: %s", err, output)
+			}
+			data, err := os.ReadFile(result)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := []string{"exec", "--locked", "--", "go", "run", "./tools/ci", "native", "--platform", platform, "--full-quality=false", "--", "--candidate=" + selection.candidate, "--candidate-source=" + selection.source,
+				"--input-release=" + selection.carrier, "--input-sha256=" + selection.checksum, "--baseline-tag=v0.3.3", "--tag=", "--peer=github", "--repository=group/product", "--clients=false", "--performance="}
+			if !slices.Equal(strings.Split(string(data), "\n"), want) {
+				t.Fatalf("CUE projected a different native selection: %s", data)
+			}
+		})
 	}
 }

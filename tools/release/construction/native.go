@@ -87,8 +87,8 @@ func (input *NativeAcceptance) validatePublished() error {
 	if input.BaselineTag != "" && !input.hasPackage() && input.BaselineArtifacts == "" && input.Peer == "" {
 		return errors.New("native predecessor tag requires explicit artifact or peer inputs")
 	}
-	if input.Performance != "" && (input.Artifacts == "" && input.Tag == "" && !input.hasPackage() || strings.TrimSpace(os.Getenv("AIGW_ACCEPTANCE_BASELINE")) == "" && input.BaselineTag == "") {
-		return errors.New("performance acceptance requires an explicit published candidate and baseline")
+	if input.Performance != "" && strings.TrimSpace(os.Getenv("AIGW_ACCEPTANCE_BASELINE")) == "" && input.BaselineTag == "" {
+		return errors.New("performance acceptance requires an explicit published baseline")
 	}
 	return nil
 }
@@ -131,20 +131,8 @@ func acceptNativeInput(ctx context.Context, input NativeAcceptance, request buil
 		}
 	}
 	trust := releaseartifact.SignatureTrust{AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"), Principal: os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER")}
-	if err := releaseartifact.VerifyMatrix(ctx, input.Artifacts, request.Version, trust); err != nil {
-		return err
-	}
 	source := releaseartifact.SourceTrust{Repository: request.Root, AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE"), Commit: input.CandidateSource}
-	if input.Candidate {
-		err = releaseartifact.VerifyCandidateProvenance(ctx, input.Artifacts, source)
-	} else {
-		tag := input.Tag
-		if tag == "" {
-			tag = os.Getenv("CI_COMMIT_TAG")
-		}
-		err = releaseartifact.VerifyProvenance(ctx, input.Artifacts, tag, source)
-	}
-	if err != nil {
+	if err := input.verifyCandidateArtifacts(ctx, request.Version, trust, source); err != nil {
 		return err
 	}
 	baseline := os.Getenv("AIGW_ACCEPTANCE_BASELINE")
@@ -204,10 +192,10 @@ func BuildNative(ctx context.Context, root, workspace, version string) (string, 
 }
 
 func acceptNative(request buildRequest, artifacts, baseline string, clients bool, performance string, run toolRunner) (result error) {
-	if performance != "" && !filepath.IsAbs(performance) {
-		return errors.New("performance output must be an absolute directory")
-	}
 	if performance != "" {
+		if !filepath.IsAbs(performance) {
+			return errors.New("performance output must be an absolute directory")
+		}
 		if _, err := os.Stat(performance); !os.IsNotExist(err) {
 			return errors.New("performance output must be a new directory")
 		}
@@ -221,7 +209,7 @@ func acceptNative(request buildRequest, artifacts, baseline string, clients bool
 	}
 	defer func() { result = errors.Join(result, robustio.RemoveAll(workspace)) }()
 	stage := ""
-	if artifacts == "" && clients {
+	if artifacts == "" && (clients || baseline != "") {
 		request.TargetOS = runtime.GOOS
 		stage, err = buildArchives(request, workspace, run)
 		if err != nil {

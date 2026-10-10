@@ -31,16 +31,20 @@ func TestNativeAcceptanceUsesReleaseOwner(t *testing.T) {
 
 func TestNativeCandidateCIForwardsInputsWithoutRepeatingSourceQualification(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
-	arguments := []string{"native", "--platform", runtime.GOOS, "--", "--candidate", "--candidate-source", strings.Repeat("a", 40),
-		"--input-archive", filepath.Join(t.TempDir(), "public-inputs.tar"), "--input-sha256", strings.Repeat("b", 64), "--baseline-tag", "v0.3.3"}
-	var calls []command
-	err := run(arguments, &bytes.Buffer{}, func(call command) error {
-		calls = append(calls, call)
-		return nil
-	})
-	want := append([]string{"run", "./tools/release", "accept-native"}, arguments[4:]...)
-	if err != nil || len(calls) != 1 || calls[0].Name != "go" || !slices.Equal(calls[0].Args, want) {
-		t.Fatalf("explicit candidate input did not reach its native owner once: %v, %#v", err, calls)
+	for _, selection := range [][]string{
+		{"--candidate", "--candidate-source", strings.Repeat("a", 40), "--input-archive", filepath.Join(t.TempDir(), "public-inputs.tar"), "--input-sha256", strings.Repeat("b", 64), "--baseline-tag", "v0.3.3"},
+		{"--candidate=false", "--candidate-source=", "--input-release=", "--input-sha256=", "--tag=", "--baseline-tag=v0.3.3", "--peer=github", "--repository=group/product", "--clients=true"},
+	} {
+		arguments := append([]string{"native", "--platform", runtime.GOOS, "--"}, selection...)
+		var calls []command
+		err := run(arguments, &bytes.Buffer{}, func(call command) error {
+			calls = append(calls, call)
+			return nil
+		})
+		want := append([]string{"run", "./tools/release", "accept-native"}, selection...)
+		if err != nil || len(calls) != 1 || calls[0].Name != "go" || !slices.Equal(calls[0].Args, want) {
+			t.Fatalf("selected native input did not reach its owner once: %v, %#v", err, calls)
+		}
 	}
 }
 

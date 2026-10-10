@@ -20,6 +20,23 @@ func (input *NativeAcceptance) hasPackage() bool {
 	return input.InputArchive != "" || input.InputPackage != "" || input.InputRelease != ""
 }
 
+func (input *NativeAcceptance) verifyCandidateArtifacts(ctx context.Context, version string, trust artifact.SignatureTrust, source artifact.SourceTrust) error {
+	if input.Artifacts == "" {
+		return nil
+	}
+	if err := artifact.VerifyMatrix(ctx, input.Artifacts, version, trust); err != nil {
+		return err
+	}
+	if input.Candidate {
+		return artifact.VerifyCandidateProvenance(ctx, input.Artifacts, source)
+	}
+	tag := input.Tag
+	if tag == "" {
+		tag = os.Getenv("CI_COMMIT_TAG")
+	}
+	return artifact.VerifyProvenance(ctx, input.Artifacts, tag, source)
+}
+
 func (input *NativeAcceptance) validatePackage() error {
 	if !input.hasPackage() {
 		if input.InputSHA256 != "" {

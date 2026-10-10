@@ -116,12 +116,9 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 	}
 	commands := nativeCommands(*platform)
 	if flags.NArg() != 0 {
-		input, err := construction.ParseNativeAcceptance(flags.Args())
+		_, err := construction.ParseNativeAcceptance(flags.Args())
 		if err != nil {
 			return err
-		}
-		if input.Artifacts == "" && input.Tag == "" && input.InputPackage == "" && input.InputRelease == "" && input.InputArchive == "" {
-			return errors.New("forwarded native acceptance requires explicit artifact inputs")
 		}
 		commands = []command{{Name: "go", Args: append([]string{"run", "./tools/release", "accept-native"}, flags.Args()...)}}
 	}

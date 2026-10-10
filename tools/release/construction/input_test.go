@@ -197,6 +197,51 @@ func TestNativePublishedInputsUseTheSelectedPeerAndActualBaseline(t *testing.T) 
 	}
 }
 
+func TestNativeSourceSelectionRetainsPublishedBaselineClientsAndPerformance(t *testing.T) {
+	root, _, contents := nativeInputFixture(t)
+	t.Chdir(root)
+	matrices := t.TempDir()
+	if err := extractNativePackage(t.Context(), bytes.NewReader(contents), matrices, "1.2.4", "1.2.3"); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(t.TempDir(), "performance")
+	input, err := ParseNativeAcceptance([]string{"--baseline-tag", "v1.2.3", "--baseline-artifacts", filepath.Join(matrices, "baseline"), "--clients", "--performance", output})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var builds int
+	var stage string
+	var journeys []toolCall
+	err = acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.4", Epoch: "1784246400"}, func(call toolCall) error {
+		if call.Name == "goreleaser" {
+			builds++
+			if !slices.Contains(call.Env, "AIGW_BUILD_OS="+runtime.GOOS) {
+				t.Fatal("source selection did not build the actual host")
+			}
+			stage = goReleaserStage(t, call.Args)
+			writeNativeVersionArchive(t, stage, "1.2.4")
+			return nil
+		}
+		journeys = append(journeys, call)
+		if !slices.Contains(call.Env, "AIGW_ACCEPTANCE_RELEASE="+stage) {
+			t.Fatal("selected journey lost its built candidate")
+		}
+		if slices.Contains(call.Env, "AIGW_PERFORMANCE_OUTPUT="+output) {
+			if err := os.Mkdir(output, 0o700); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(output, "summary.json"), []byte(`{"blocks":[{}]}`), 0o600)
+		}
+		return nil
+	})
+	if err != nil || builds != 1 || len(journeys) != 4 {
+		t.Fatalf("source selection builds=%d journeys=%d: %v", builds, len(journeys), err)
+	}
+	if _, err := os.Stat(stage); !os.IsNotExist(err) {
+		t.Fatalf("owned source candidate survived acceptance: %v", err)
+	}
+}
+
 func nativeInputFixture(t *testing.T) (string, string, []byte) {
 	t.Helper()
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
