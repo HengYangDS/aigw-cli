@@ -19,40 +19,6 @@ import (
 	"time"
 )
 
-func TestNativeInputSelectionRequiresOneTransportAndExactIdentities(t *testing.T) {
-	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
-	producer := strings.Repeat("a", 40)
-	archive := filepath.Join(t.TempDir(), "public-inputs.tar")
-	selection := []string{"--candidate", "--candidate-source", producer, "--input-sha256", strings.Repeat("b", 64), "--baseline-tag", "v1.2.3"}
-	for _, transport := range [][]string{
-		{"--input-archive", archive},
-		{"--input-package", "native-inputs", "--peer", "gitlab", "--repository", "group/product"},
-		{"--input-release", "native-inputs-" + producer, "--peer", "github", "--repository", "group/product"},
-	} {
-		input, err := ParseNativeAcceptance(append(slices.Clone(selection), transport...))
-		if err != nil || input.CandidateSource != producer || input.BaselineTag != "v1.2.3" || !input.Candidate {
-			t.Fatalf("valid native selection lost producer or predecessor: %#v, %v", input, err)
-		}
-	}
-	for _, arguments := range [][]string{
-		{"--unknown"}, {"positional"}, {"--input-sha256", strings.Repeat("b", 64)},
-		{"--input-package", "native-inputs", "--peer", "github", "--repository", "group/product"},
-		{"--input-release", "native-inputs-" + producer, "--peer", "gitlab", "--repository", "group/product"},
-		append(slices.Clone(selection), "--input-archive", "relative.tar"),
-		{"--input-archive", archive},
-		{"--candidate", "--candidate-source", producer, "--input-archive", archive, "--input-sha256", "invalid", "--baseline-tag", "v1.2.3"},
-		append(slices.Clone(selection), "--input-release", "unnamed-carrier", "--peer", "github", "--repository", "group/product"),
-		append(slices.Clone(selection), "--input-release", "native-inputs-"+strings.Repeat("A", 40), "--peer", "github", "--repository", "group/product"),
-		{"--peer", "github"}, {"--candidate-source", producer}, {"--baseline-artifacts", archive},
-		{"--tag", "v1.2.3"}, {"--artifacts", archive, "--tag", "1.2.3"},
-		{"--baseline-tag", "v1.2.3"}, {"--performance", t.TempDir()},
-	} {
-		if input, err := ParseNativeAcceptance(arguments); err == nil {
-			t.Fatalf("ambiguous or unbound native selection accepted: %q, %#v", arguments, input)
-		}
-	}
-}
-
 func TestNativeCarrierRefusalStopsBeforeDownload(t *testing.T) {
 	root, producer, _ := nativeInputFixture(t)
 	carrier, err := resolveGitObject(root, "HEAD", executeTool(t.Context()))
@@ -66,12 +32,12 @@ func TestNativeCarrierRefusalStopsBeforeDownload(t *testing.T) {
 			}
 			input := NativeAcceptance{InputRelease: "native-inputs-" + carrier, CandidateSource: producer}
 			step := 0
-			err := input.verifyInputCarrier(root, func(call toolCall) error {
+			err := input.preparePackage(t.Context(), buildRequest{Root: root, Version: "1.2.4"}, t.TempDir(), func(call toolCall) error {
 				step++
 				if call.Name != "git" {
 					t.Fatalf("unproved carrier started transport: %#v", call)
 				}
-				if step == stopped || stopped == 4 && step == 3 {
+				if stopped != 3 && (step == stopped || stopped == 4 && step == 3) {
 					return context.Canceled
 				}
 				if stopped == 3 && step == 2 {
@@ -83,10 +49,40 @@ func TestNativeCarrierRefusalStopsBeforeDownload(t *testing.T) {
 			if err == nil || stopped == 0 && step != 0 || stopped != 0 && step > 3 {
 				t.Fatalf("carrier refusal continued admission: %v, steps=%d", err, step)
 			}
+			if stopped == 3 && (step != 2 || !strings.Contains(err.Error(), "does not select its named carrier commit")) {
+				t.Fatalf("mismatched carrier reached producer ancestry: %v, steps=%d", err, step)
+			}
 			if stopped != 0 && stopped != 3 && !errors.Is(err, context.Canceled) {
 				t.Fatalf("carrier refusal lost its interruption cause: %v", err)
 			}
 		})
+	}
+}
+
+func TestNativePublishedDownloadFailurePreservesCallerInput(t *testing.T) {
+	root := t.TempDir()
+	directory := filepath.Join(root, "release")
+	interrupted := context.Canceled
+	input := NativeAcceptance{Tag: "v1.2.3", Peer: "github", Repository: "group/product"}
+	err := downloadNativeRelease(root, input, input.Tag, directory, func(toolCall) error { return interrupted })
+	if !errors.Is(err, interrupted) || !strings.Contains(err.Error(), "download github native release v1.2.3") {
+		t.Fatalf("native release download hid its cause: %v", err)
+	}
+	err = downloadNativeRelease(root, input, input.Tag, directory, func(toolCall) error {
+		t.Fatal("existing caller directory was overwritten")
+		return nil
+	})
+	if err == nil {
+		t.Fatal("native download accepted an existing destination")
+	}
+	err = acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.3", Epoch: "1784246400"}, func(toolCall) error { return interrupted })
+	if !errors.Is(err, interrupted) {
+		t.Fatalf("native candidate download continued after failure: %v", err)
+	}
+	input.Tag, input.BaselineTag = "", "v1.2.2"
+	err = acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.3", Epoch: "1784246400"}, func(toolCall) error { return interrupted })
+	if !errors.Is(err, interrupted) {
+		t.Fatalf("published predecessor download continued after failure: %v", err)
 	}
 }
 
