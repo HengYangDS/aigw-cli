@@ -35,8 +35,9 @@ unfinished 0.4.0 product candidate.
 
 Start from signed `v0.3.1` source
 `d288eb5fcc68215fad125e825eae99296819e70c`. The maintenance product version is
-`0.3.3`; the existing local signed `v0.3.2` remains unchanged. Reuse the existing
-locked toolchain, native lifecycle, signing, notarization and distribution
+`0.3.4`; published `v0.3.3` and the existing local signed `v0.3.2` remain
+unchanged. Reuse the existing locked toolchain, native lifecycle, signing,
+notarization and distribution
 owners. Preserve the original credential backend and reader, Account records,
 Hermes and other clients, provider identity, models, effort, and conversations.
 Do not merge the general registry, catalogue, benchmark, credential-entrypoint,

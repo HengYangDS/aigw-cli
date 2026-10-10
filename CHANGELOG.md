@@ -10,6 +10,17 @@ separate evidence.
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-10-10
+
+### Fixed
+
+- Preserve benchmark command diagnostics outside timed samples, with bounded
+  stderr capture and discarded credential output.
+- Use canonical temporary paths in native fixtures and configure Windows long
+  paths before checkout.
+- Exercise native Linux coverage with the isolated Secret Service and retain
+  failed coverage evidence instead of masking incomplete acceptance.
+
 ## [0.3.3] - 2026-10-09
 
 ### Added

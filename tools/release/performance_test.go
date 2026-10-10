@@ -204,7 +204,7 @@ account = "native-system-keyring-probe"
 client = "claude"
 model = "claude-second"
 `)
-	case "aigw version 0.2.0", "aigw version 0.3.0", "aigw version 0.3.1", "aigw version 0.3.3":
+	case "aigw version 0.2.0", "aigw version 0.3.0", "aigw version 0.3.1", "aigw version 0.3.3", "aigw version 0.3.4":
 		manifest = []byte(publishedStablePredecessorManifest(server.URL) + `
 [models.claude-second]
 label = "Claude Second"

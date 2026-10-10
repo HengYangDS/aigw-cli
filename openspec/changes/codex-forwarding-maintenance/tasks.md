@@ -24,7 +24,7 @@ and post-archive migration. Existing native verification retains its raw results
 
 ## 3. Candidate Qualification
 
-- [x] 3.1 Set VERSION and Changelog to 0.3.3 and verify release metadata without
+- [x] 3.1 Set VERSION and Changelog to 0.3.4 and verify release metadata without
       changing existing signed history.
 - [ ] 3.2 Complete required source checks, strict intent review, native
       three-OS journeys, and exact-source proof on the maintenance candidate.
