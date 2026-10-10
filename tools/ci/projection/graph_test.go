@@ -2,6 +2,8 @@ package projection
 
 import (
 	"maps"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -379,15 +381,19 @@ func TestGitHubWorkflowsDeclareTheCanonicalInitialBranch(t *testing.T) {
 		if err := yaml.Unmarshal([]byte(projections[index].Content), &workflow); err != nil {
 			t.Fatal(err)
 		}
-		want := map[string]string{
-			"GIT_CONFIG_COUNT":   "1",
-			"GIT_CONFIG_KEY_0":   "init.defaultBranch",
-			"GIT_CONFIG_VALUE_0": "main",
+		command := exec.Command("git", "config", "--default=unselected", "--get", "init.defaultBranch")
+		command.Dir = t.TempDir()
+		command.Env = slices.DeleteFunc(os.Environ(), func(value string) bool {
+			name, _, _ := strings.Cut(value, "=")
+			return strings.HasPrefix(name, "GIT_CONFIG_") || name == "GIT_DIR" || name == "GIT_WORK_TREE"
+		})
+		command.Env = append(command.Env, "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_NOSYSTEM=1")
+		for name, value := range workflow.Env {
+			command.Env = append(command.Env, name+"="+value)
 		}
-		for name, value := range want {
-			if got := workflow.Env[name]; got != value {
-				t.Fatalf("GitHub projection %d %s = %q, want %q", index, name, got, value)
-			}
+		branch, err := command.Output()
+		if err != nil || strings.TrimSpace(string(branch)) != "main" {
+			t.Fatalf("GitHub projection %d initial branch = %q, error = %v", index, branch, err)
 		}
 	}
 }

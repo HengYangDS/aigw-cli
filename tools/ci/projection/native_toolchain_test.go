@@ -138,6 +138,40 @@ func TestGitHubWindowsUsesThePortableNativeToolClosure(t *testing.T) {
 	}
 }
 
+func TestWindowsCheckoutReceivesNativeLongPathConfiguration(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gitlab struct {
+		NativeWindows gitLabJob `yaml:"native-windows"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	var github struct {
+		Env map[string]string `yaml:"env"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
+		t.Fatal(err)
+	}
+	for peer, variables := range map[string]map[string]string{
+		"GitLab": gitlab.NativeWindows.Variables, "GitHub": github.Env,
+	} {
+		for _, field := range []struct{ name, value string }{
+			{"GIT_CONFIG_COUNT", "2"},
+			{"GIT_CONFIG_KEY_0", "init.defaultBranch"},
+			{"GIT_CONFIG_VALUE_0", "main"},
+			{"GIT_CONFIG_KEY_1", "core.longpaths"},
+			{"GIT_CONFIG_VALUE_1", "true"},
+		} {
+			if value := variables[field.name]; value != field.value {
+				t.Errorf("%s checkout environment %s = %q, want %q", peer, field.name, value, field.value)
+			}
+		}
+	}
+}
+
 func TestWindowsClientInstallerUsesPinnedContentAPI(t *testing.T) {
 	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {

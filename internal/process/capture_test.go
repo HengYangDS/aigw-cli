@@ -13,6 +13,31 @@ import (
 	"testing"
 )
 
+func TestDiagnosticFailureUsesNativeMarkers(t *testing.T) {
+	for _, test := range []struct {
+		text string
+		want bool
+	}{
+		{"warning: missing model metadata\n", true},
+		{"\x1b[33mwarning\x1b[0m: missing model metadata\n", true},
+		{"2026-10-03T05:00:00Z WARN client_core: degraded\n", true},
+		{"DeprecationWarning: obsolete client contract\n", true},
+		{"ERROR client_core: failed\n", true},
+		{"Traceback (most recent call last):\n", true},
+		{"fatal: failed startup\n", true},
+		{"2026-10-03T05:00:00Z INFO client initialized\n", false},
+		{"warning_count=0\n", false},
+		{"error_count=0\n", false},
+		{"OpenAI Codex\nmodel: gpt-test\n", false},
+	} {
+		t.Run(test.text, func(t *testing.T) {
+			if got := DiagnosticFailure([]byte(test.text)); got != test.want {
+				t.Fatalf("DiagnosticFailure(%q) = %t, want %t", test.text, got, test.want)
+			}
+		})
+	}
+}
+
 func TestRunnerStreamsBothOutputsAndPreservesCancellation(t *testing.T) {
 	if os.Getenv("AIGW_TEST_STREAM_EXECUTION") == "child" {
 		_, _ = os.Stdout.WriteString(strings.Repeat("o", 128<<10))

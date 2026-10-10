@@ -22,6 +22,16 @@ import (
 // Keep this transport choice in the installer process, not product execution.
 installationEnvironment: GODEBUG: "http2client=0"
 
+// Git must receive this before checkout, including cleanup of a previous npm
+// supply. Command-scoped native configuration changes no host-global settings.
+nativeGitEnvironment: {
+	GIT_CONFIG_COUNT:   "2"
+	GIT_CONFIG_KEY_0:   "init.defaultBranch"
+	GIT_CONFIG_VALUE_0: "main"
+	GIT_CONFIG_KEY_1:   "core.longpaths"
+	GIT_CONFIG_VALUE_1: "true"
+}
+
 linuxToolchain: {
 	// The runnable Mise image is intentionally small. Declare the complete
 	// repository execution closure here so every Linux job inherits one owner.
@@ -542,6 +552,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	tags:  nativeEvidence[_platform].gitlab.tags
 	variables: nativeToolchain[_platform].default & {
 		if _platform == "windows" {
+			nativeGitEnvironment
 			AIGW_VERIFY_SYSTEM_KEYRING: "1"
 		}
 	}
@@ -668,11 +679,7 @@ gitlab: {
 
 githubVerify: {
 	name: "Verify"
-	env: {
-		GIT_CONFIG_COUNT:   "1"
-		GIT_CONFIG_KEY_0:   "init.defaultBranch"
-		GIT_CONFIG_VALUE_0: "main"
-	}
+	env:  nativeGitEnvironment
 	"on": {
 		push: {branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch], tags: ["v*"]}
 		"pull_request": branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch]
@@ -791,11 +798,7 @@ githubVerify: {
 
 githubRelease: {
 	name: "Release"
-	env: {
-		GIT_CONFIG_COUNT:   "1"
-		GIT_CONFIG_KEY_0:   "init.defaultBranch"
-		GIT_CONFIG_VALUE_0: "main"
-	}
+	env:  nativeGitEnvironment
 	"on": {
 		"workflow_dispatch": inputs: {
 			tag: {

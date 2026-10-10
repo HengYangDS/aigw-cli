@@ -55,6 +55,11 @@ native-windows:
     - $AIGW_CI_WINDOWS_RUNNER_TAG
   variables:
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
+    GIT_CONFIG_COUNT: "2"
+    GIT_CONFIG_KEY_0: init.defaultBranch
+    GIT_CONFIG_VALUE_0: main
+    GIT_CONFIG_KEY_1: core.longpaths
+    GIT_CONFIG_VALUE_1: "true"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab
   rules:
     - if: $CI_COMMIT_TAG

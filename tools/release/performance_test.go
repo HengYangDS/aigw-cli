@@ -3,6 +3,7 @@
 package main
 
 import (
+	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/upgrade/artifact"
 	"aigw-cli/tools/release/readiness"
@@ -186,9 +187,10 @@ func nativePerformanceJourney(t *testing.T, program, credentialWorker, variant, 
 	}))
 	t.Cleanup(server.Close)
 	j := newNativeJourney(t, program, server.URL, true)
+	version := strings.TrimSpace(string(j.run("--version")))
 	var manifest []byte
-	switch variant {
-	case "baseline":
+	switch version {
+	case "aigw version 0.1.0":
 		manifest = []byte(publishedPredecessorManifest(server.URL) + `
 
 [profiles.performance-second]
@@ -197,30 +199,10 @@ account = "native-system-keyring-probe"
 client = "claude"
 model = "claude-second"
 `)
-	case "candidate":
-		manifest = []byte(fmt.Sprintf(`version = 7
-
-[recommendations.claude.primary]
-route = "native-system-keyring-probe-claude"
-
-[accounts.native-system-keyring-probe]
-label = "Native System Keyring Probe"
-
-[accounts.native-system-keyring-probe.endpoints]
-anthropic = %q
-
-[models.claude-test]
-label = "Claude Test"
-
+	case "aigw version 0.2.0", "aigw version 0.3.0", "aigw version 0.3.1", "aigw version 0.3.3":
+		manifest = []byte(publishedStablePredecessorManifest(server.URL) + `
 [models.claude-second]
 label = "Claude Second"
-
-[routes.native-system-keyring-probe-claude]
-label = "Native System Keyring Probe Claude"
-account = "native-system-keyring-probe"
-model = "claude-test"
-upstream_model = "claude-test"
-interfaces = { anthropic = ["text"] }
 
 [routes.performance-second]
 label = "Performance Second"
@@ -228,9 +210,9 @@ account = "native-system-keyring-probe"
 model = "claude-second"
 upstream_model = "claude-second"
 interfaces = { anthropic = ["text"] }
-`, server.URL))
+`)
 	default:
-		t.Fatalf("unknown performance variant %q", variant)
+		t.Fatalf("unsupported %s performance program %q", variant, version)
 	}
 	if err := os.WriteFile(j.manifest, manifest, 0o600); err != nil {
 		t.Fatal(err)
@@ -246,15 +228,15 @@ interfaces = { anthropic = ["text"] }
 	}
 	j.requireClaudeCredential(token)
 	var catalog struct {
-		Accounts map[string]any `toml:"accounts"`
-		Profiles map[string]any `toml:"profiles"`
-		Routes   map[string]any `toml:"routes"`
+		Accounts map[string]struct{} `toml:"accounts"`
+		Profiles map[string]struct{} `toml:"profiles"`
+		Routes   map[string]struct{} `toml:"routes"`
 	}
 	if err := toml.Unmarshal(readFile(t, j.config), &catalog); err != nil {
 		t.Fatal(err)
 	}
 	modelConfigurations := catalog.Profiles
-	if variant == "candidate" {
+	if version != "aigw version 0.1.0" {
 		modelConfigurations = catalog.Routes
 	}
 	if actual := slices.Sorted(maps.Keys(catalog.Accounts)); !slices.Equal(actual, []string{account}) {
@@ -306,7 +288,7 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 	}
 	selectArgs := []string{j.binary, "use", "performance-second"}
 	resetArgs := []string{j.binary, "use", "native-system-keyring-probe-claude"}
-	if variant == "candidate" {
+	if version := strings.TrimSpace(string(j.run("--version"))); version != "aigw version 0.1.0" {
 		selectArgs = []string{j.binary, "use", "--for", "claude", "performance-second"}
 		resetArgs = []string{j.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
 	}
@@ -333,14 +315,19 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 		if test.prepare != "" {
 			args = append(args, "--prepare", test.prepare)
 		}
-		command := exec.CommandContext(j.testing.Context(), hyperfine, append(args, test.command)...)
-		command.Env, command.Dir = j.environment, j.root
-		log, runErr := command.CombinedOutput()
-		if err := os.WriteFile(filepath.Join(output, name+".log"), log, 0o600); err != nil {
+		var stdout, stderr bytes.Buffer
+		runErr := (process.Runner{}).RunStream(j.testing.Context(), process.Plan{
+			Executable: hyperfine, Args: append(args, test.command),
+			Env: j.environment, Directory: j.root,
+		}, &stdout, &stderr)
+		if err := os.WriteFile(filepath.Join(output, name+".stdout.log"), stdout.Bytes(), 0o600); err != nil {
 			j.testing.Fatal(err)
 		}
-		if runErr != nil {
-			j.testing.Fatalf("Hyperfine %s: %v\n%s", name, runErr, log)
+		if err := os.WriteFile(filepath.Join(output, name+".stderr.log"), stderr.Bytes(), 0o600); err != nil {
+			j.testing.Fatal(err)
+		}
+		if runErr != nil || process.DiagnosticFailure(stderr.Bytes()) {
+			j.testing.Fatalf("Hyperfine %s exited or emitted a diagnostic: %v\nstdout:\n%s\nstderr:\n%s", name, runErr, &stdout, &stderr)
 		}
 		var report struct {
 			Results []performanceSamples `json:"results"`
@@ -435,6 +422,20 @@ func TestNativePerformanceSamples(t *testing.T) {
 func TestNativePerformanceCommand(t *testing.T) {
 	if got := performanceCommand(`C:\program files\aigw.exe`, "a'b", ""); got != `'C:\program files\aigw.exe' 'a'\''b' ''` {
 		t.Fatalf("Hyperfine argv quoting = %s", got)
+	}
+}
+
+func TestNativePerformancePublishedConfiguration(t *testing.T) {
+	if os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
+		t.Skip("published performance programs were not selected")
+	}
+	programs := nativePerformancePrograms(t)
+	for _, program := range programs {
+		t.Run(program.Variant, func(t *testing.T) {
+			journey := nativePerformanceJourney(t, program.Path, programs[1].Path, program.Variant, "env")
+			journey.run("use", "--for", "claude", "performance-second")
+			journey.requireClaudeCredential("synthetic-performance-token")
+		})
 	}
 }
 

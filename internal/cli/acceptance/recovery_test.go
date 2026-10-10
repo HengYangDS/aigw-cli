@@ -15,6 +15,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 func TestClaudeNativeModelPreferenceThroughPublicCommands(t *testing.T) {
@@ -400,8 +402,23 @@ func requireForwardedCodexProjection(t *testing.T, store configuration.Store, be
 		t.Fatalf("selected endpoint = %q, want %q: %v", selected.Endpoint, endpoint, err)
 	}
 	data := readFile(t, target)
-	if !bytes.Contains(data, []byte(endpoint)) || !bytes.Contains(data, []byte(reader)) ||
-		!bytes.Contains(data, []byte("# Native preference")) || !bytes.Contains(data, []byte("medium")) {
+	var projected struct {
+		Provider  string `toml:"model_provider"`
+		Effort    string `toml:"model_reasoning_effort"`
+		Providers map[string]struct {
+			Endpoint string `toml:"base_url"`
+			Auth     struct {
+				Command string `toml:"command"`
+			} `toml:"auth"`
+		} `toml:"model_providers"`
+	}
+	if err := toml.Unmarshal(data, &projected); err != nil {
+		t.Fatal(err)
+	}
+	provider := projected.Providers[projected.Provider]
+	if projected.Provider != configuration.ModelProviderAIGW || provider.Endpoint != endpoint ||
+		provider.Auth.Command != reader || projected.Effort != "medium" ||
+		!bytes.Contains(data, []byte("# Native preference")) {
 		t.Fatal("selection changed endpoint, reader or native preferences")
 	}
 	if !reflect.DeepEqual(current.Accounts, before.Accounts) ||

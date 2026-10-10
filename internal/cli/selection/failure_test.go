@@ -229,8 +229,12 @@ func TestCodexForwardingPreviewPlansOwnedTargetBeforeCredentialReads(t *testing.
 	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
 		t.Fatal(err)
 	}
+	canonicalTarget, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(preview.Projections) != 1 || preview.Projections[0].Client != configuration.ClientCodex ||
-		preview.Projections[0].Target != target || preview.Projections[0].Action != "initial-project" {
+		preview.Projections[0].Target != canonicalTarget || preview.Projections[0].Action != "initial-project" {
 		t.Fatalf("preview did not expose its exact target transition: %#v", preview)
 	}
 	out.Reset()

@@ -201,13 +201,20 @@ func TestRealMainRejectsResultOutputFailure(t *testing.T) {
 func TestRealMainRejectsExactAggregateFloor(t *testing.T) {
 	policyPath := writePolicy(t, validPolicy)
 	runner := &recordingRunner{profile: "mode: atomic\nexample/a.go:1.1,2.1 95 1\nexample/a.go:3.1,4.1 5 0\n"}
+	retained := filepath.Join(t.TempDir(), "failed-profile.out")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 1 {
+	if code := realMain([]string{"--policy", policyPath, "--profile-output", retained}, &stdout, &stderr, runner); code != 1 {
 		t.Fatalf("realMain code = %d, want 1", code)
 	}
 	if !strings.Contains(stderr.String(), "coverage 95.00% does not exceed 95.00%") {
 		t.Fatalf("stderr = %q", stderr.String())
+	}
+	if data, err := os.ReadFile(retained); err != nil || string(data) != runner.profile {
+		t.Fatalf("failed gate discarded its requested profile: %q, %v", data, err)
+	}
+	if _, err := os.Stat(runner.path); !os.IsNotExist(err) {
+		t.Fatalf("temporary profile remains after failed gate: %v", err)
 	}
 }
 
