@@ -24,6 +24,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -326,7 +327,7 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 		if err := os.WriteFile(filepath.Join(output, name+".stderr.log"), stderr.Bytes(), 0o600); err != nil {
 			j.testing.Fatal(err)
 		}
-		if runErr != nil || process.DiagnosticFailure(stderr.Bytes()) {
+		if runErr != nil || diagnosticFailure(stderr.Bytes()) {
 			j.testing.Fatalf("Hyperfine %s exited or emitted a diagnostic: %v\nstdout:\n%s\nstderr:\n%s", name, runErr, &stdout, &stderr)
 		}
 		var report struct {
@@ -348,6 +349,21 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 		j.testing.Fatal("performance journey changed a converged projection")
 	}
 	return measurements
+}
+
+// diagnosticFailure rejects native warning markers, not ordinary stderr progress.
+func diagnosticFailure(diagnostic []byte) bool {
+	for line := range strings.SplitSeq(strings.ToLower(ansi.Strip(string(diagnostic))), "\n") {
+		fields := strings.FieldsFunc(line, func(r rune) bool {
+			return r <= ' ' || strings.ContainsRune("[]():", r)
+		})
+		for _, field := range fields {
+			if field == "warn" || field == "error" || field == "fatal" || field == "traceback" || strings.HasSuffix(field, "warning") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Hyperfine shell=none uses shell_words on every OS, including Windows.
@@ -393,6 +409,30 @@ func pooledPerformance(t *testing.T, measurements []performanceMeasurement) []pe
 }
 
 func TestNativePerformanceSamples(t *testing.T) {
+	t.Run("native diagnostics", func(t *testing.T) {
+		for _, test := range []struct {
+			text string
+			want bool
+		}{
+			{"warning: missing model metadata\n", true},
+			{"\x1b[33mwarning\x1b[0m: missing model metadata\n", true},
+			{"2026-10-03T05:00:00Z WARN client_core: degraded\n", true},
+			{"DeprecationWarning: obsolete client contract\n", true},
+			{"ERROR client_core: failed\n", true},
+			{"Traceback (most recent call last):\n", true},
+			{"fatal: failed startup\n", true},
+			{"2026-10-03T05:00:00Z INFO client initialized\n", false},
+			{"warning_count=0\n", false},
+			{"error_count=0\n", false},
+			{"OpenAI Codex\nmodel: gpt-test\n", false},
+		} {
+			t.Run(test.text, func(t *testing.T) {
+				if got := diagnosticFailure([]byte(test.text)); got != test.want {
+					t.Fatalf("diagnosticFailure(%q) = %t, want %t", test.text, got, test.want)
+				}
+			})
+		}
+	})
 	times := make([]float64, 40)
 	for index := range times {
 		times[index] = float64(index+1) / 1000
