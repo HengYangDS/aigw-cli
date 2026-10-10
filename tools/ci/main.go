@@ -13,6 +13,7 @@ import (
 
 	"aigw-cli/tools/ci/markdown"
 	"aigw-cli/tools/ci/projection"
+	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
 )
 
@@ -103,8 +104,8 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 	flags.SetOutput(io.Discard)
 	platform := flags.String("platform", runtime.GOOS, "darwin, linux, or windows")
 	fullQuality := flags.Bool("full-quality", false, "Qualify every repository quality tool on this host before native acceptance")
-	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || !supportedNativePlatform(*platform) {
-		return errors.New("usage: ci native [--platform <darwin|linux|windows>] [--full-quality]")
+	if err := flags.Parse(args); err != nil || !supportedNativePlatform(*platform) {
+		return errors.New("usage: ci native [--platform <darwin|linux|windows>] [--full-quality] [-- <native acceptance arguments>]")
 	}
 	if *platform != runtime.GOOS {
 		return fmt.Errorf("native acceptance requires %s host, running on %s", *platform, runtime.GOOS)
@@ -114,11 +115,24 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 		return err
 	}
 	commands := nativeCommands(*platform)
+	if flags.NArg() != 0 {
+		input, err := construction.ParseNativeAcceptance(flags.Args())
+		if err != nil {
+			return err
+		}
+		if input.Artifacts == "" && input.Tag == "" && input.InputPackage == "" && input.InputRelease == "" && input.InputArchive == "" {
+			return errors.New("forwarded native acceptance requires explicit artifact inputs")
+		}
+		commands = []command{{Name: "go", Args: append([]string{"run", "./tools/release", "accept-native"}, flags.Args()...)}}
+	}
 	if *fullQuality {
 		if err := validateRepositoryQualityGraph("."); err != nil {
 			return err
 		}
-		commands = append(slices.Clone(qualityCommands), commands[1:]...)
+		if flags.NArg() == 0 {
+			commands = commands[1:]
+		}
+		commands = append(slices.Clone(qualityCommands), commands...)
 	}
 	return runCommands(commands, stdout, runner)
 }

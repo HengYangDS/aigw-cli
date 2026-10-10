@@ -3,6 +3,7 @@ package main
 import (
 	"aigw-cli/tools/release/construction"
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -97,6 +98,18 @@ func TestStablePublicationCommandsRequireExplicitMacOSIdentity(t *testing.T) {
 		var output bytes.Buffer
 		if err := run([]string{command, artifacts}, &output); err == nil || !strings.Contains(err.Error(), "explicit signing identity") {
 			t.Fatalf("%s bypassed native distribution admission: %v", command, err)
+		}
+	}
+}
+
+func TestNativePerformanceRequiresExplicitPublishedInputs(t *testing.T) {
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+	for _, args := range [][]string{
+		{"accept-native", "--performance", t.TempDir()},
+		{"accept-native", "--artifacts", t.TempDir(), "--performance", t.TempDir()},
+	} {
+		if err := run(args, io.Discard); err == nil || !strings.Contains(err.Error(), "published candidate and baseline") {
+			t.Fatalf("performance input admission = %v", err)
 		}
 	}
 }

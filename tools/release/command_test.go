@@ -353,15 +353,56 @@ func TestNativeArtifactAcceptanceSeparatesVerifierAndProductRevisions(t *testing
 	}
 }
 
-func TestNativePerformanceRequiresExplicitPublishedInputs(t *testing.T) {
-	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
-	for _, args := range [][]string{
-		{"accept-native", "--performance", t.TempDir()},
-		{"accept-native", "--artifacts", t.TempDir(), "--performance", t.TempDir()},
-	} {
-		if err := run(args, io.Discard); err == nil || !strings.Contains(err.Error(), "published candidate and baseline") {
-			t.Fatalf("performance input admission = %v", err)
-		}
+func TestNativeCandidateAcceptanceBindsExactUntaggedProducer(t *testing.T) {
+	artifacts := prepareSignedRelease(t, "0.1.0")
+	producer, err := exec.Command("git", "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if output, err := exec.Command("git", "tag", "-d", "v0.1.0").CombinedOutput(); err != nil {
+		t.Fatalf("remove product tag: %v: %s", err, output)
+	}
+	t.Setenv("CI_COMMIT_TAG", "")
+	command := exec.Command("git", "-c", "core.hooksPath=.git/hooks", "-c", "commit.gpgsign=false",
+		"-c", "user.name=Verifier Test", "-c", "user.email=verifier@test.invalid",
+		"commit", "--allow-empty", "-m", "test: independent candidate verifier")
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("advance verifier revision: %v: %s", err, output)
+	}
+	want := gzip.ErrHeader
+	if runtime.GOOS == "windows" {
+		want = zip.ErrFormat
+	}
+	err = run([]string{"accept-native", "--candidate", "--candidate-source", strings.TrimSpace(string(producer)), "--artifacts", artifacts}, io.Discard)
+	if !errors.Is(err, want) {
+		t.Fatalf("exact signed untagged producer did not reach archive decoding: %v", err)
+	}
+	alias := strings.Repeat("b", 64)
+	if output, err := exec.Command("git", "update-ref", "refs/heads/"+alias, strings.TrimSpace(string(producer))).CombinedOutput(); err != nil {
+		t.Fatalf("create hex-named ref: %v: %s", err, output)
+	}
+	err = artifact.VerifyCandidateProvenance(t.Context(), artifacts, artifact.SourceTrust{
+		Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE"), Commit: alias,
+	})
+	if err == nil || !strings.Contains(err.Error(), "exact commit") {
+		t.Fatalf("hex-named ref accepted as exact producer: %v", err)
+	}
+}
+
+func TestNativePackageRejectsChangedBytesBeforeExecution(t *testing.T) {
+	prepareSignedRelease(t, "0.1.0")
+	producer, err := exec.Command("git", "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(t.TempDir(), "public-inputs.tar")
+	if err := os.WriteFile(archive, []byte("changed package"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err = run([]string{"accept-native", "--candidate", "--candidate-source", strings.TrimSpace(string(producer)),
+		"--input-archive", archive, "--input-sha256", strings.Repeat("0", 64), "--baseline-tag", "v0.0.9"}, io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
+		t.Fatalf("changed native package did not fail before execution: %v", err)
 	}
 }
 

@@ -192,6 +192,12 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	type nativeStep struct {
+		Name string            `yaml:"name"`
+		If   string            `yaml:"if"`
+		Env  map[string]string `yaml:"env"`
+		Run  string            `yaml:"run"`
+	}
 	var workflow struct {
 		On struct {
 			Dispatch struct {
@@ -202,22 +208,16 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 			} `yaml:"workflow_dispatch"`
 		} `yaml:"on"`
 		Jobs map[string]struct {
-			Steps []struct {
-				Name  string            `yaml:"name"`
-				If    string            `yaml:"if"`
-				Shell string            `yaml:"shell"`
-				Env   map[string]string `yaml:"env"`
-				Run   string            `yaml:"run"`
-			} `yaml:"steps"`
+			Steps []nativeStep `yaml:"steps"`
 		} `yaml:"jobs"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"baseline_tag", "candidate_tag"} {
+	for _, name := range []string{"baseline_tag", "candidate_tag", "input_release", "input_sha256", "candidate_source"} {
 		input, ok := workflow.On.Dispatch.Inputs[name]
 		if !ok || input.Required || input.Type != "string" {
-			t.Fatalf("%s must be an optional explicit release tag: %#v", name, workflow.On.Dispatch.Inputs)
+			t.Fatalf("%s must be an optional explicit native input: %#v", name, input)
 		}
 	}
 	for _, name := range []string{"windows_clients", "performance"} {
@@ -226,53 +226,62 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 			t.Fatalf("%s qualification requires an explicit opt-in: %#v", name, input)
 		}
 	}
+	condition := "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)"
 	for _, platform := range []string{"darwin", "linux", "windows"} {
-		job := workflow.Jobs["native-"+platform]
-		index := slices.IndexFunc(job.Steps, func(step struct {
-			Name  string            `yaml:"name"`
-			If    string            `yaml:"if"`
-			Shell string            `yaml:"shell"`
-			Env   map[string]string `yaml:"env"`
-			Run   string            `yaml:"run"`
-		}) bool {
-			return step.Name == "Run historical release acceptance"
-		})
-		if index < 0 {
-			t.Fatalf("%s has no historical native acceptance", platform)
-		}
-		step := job.Steps[index]
-		for key, value := range map[string]string{
-			"AIGW_QUALIFY_WINDOWS_CLIENTS": "${{ inputs.windows_clients }}",
-			"AIGW_MEASURE_PERFORMANCE":     "${{ inputs.performance }}",
-			"AIGW_BASELINE_TAG":            "${{ inputs.baseline_tag }}",
-			"AIGW_CANDIDATE_TAG":           "${{ inputs.candidate_tag }}",
-		} {
-			if step.Env[key] != value {
-				t.Fatalf("%s lost selection %s", platform, key)
+		t.Run(platform, func(t *testing.T) {
+			steps := workflow.Jobs["native-"+platform].Steps
+			index := slices.IndexFunc(steps, func(step nativeStep) bool {
+				return step.Name == "Run selected native artifact acceptance"
+			})
+			if index < 0 {
+				t.Fatal("selected native artifact acceptance is missing")
 			}
-		}
-		if step.If != "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)" || step.Shell != "pwsh" {
-			t.Fatalf("%s historical acceptance selection = %#v", platform, step)
-		}
-		if !strings.Contains(step.Run, "$acceptance += @('--artifacts', $candidate)") {
-			t.Fatalf("%s cannot consume the published candidate", platform)
-		}
-		wantKeyring := map[string]string{
-			"darwin":  "${{ github.event_name == 'workflow_dispatch' && inputs.macos_keychain && '1' || '0' }}",
-			"windows": "1",
-		}[platform]
-		if step.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != wantKeyring {
-			t.Fatalf("%s historical acceptance does not match its credential qualification boundary", platform)
-		}
-		if platform == "darwin" && step.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" {
-			t.Fatal("historical macOS credentials require an ephemeral host")
-		}
-		if !strings.Contains(step.Run, "$acceptance = @('accept-native')") || !strings.Contains(step.Run, "mise exec --locked -- go run ./tools/release @acceptance") {
-			t.Fatalf("%s historical acceptance does not consume the existing package owner", platform)
-		}
-		if !strings.Contains(step.Run, "mise run performance @performance") {
-			t.Fatalf("%s performance must use the task-specific locked tool", platform)
-		}
+			step := steps[index]
+			for key, value := range map[string]string{
+				"AIGW_BASELINE_TAG":         "${{ inputs.baseline_tag }}",
+				"AIGW_CANDIDATE_TAG":        "${{ inputs.candidate_tag }}",
+				"AIGW_NATIVE_INPUT_RELEASE": "${{ inputs.input_release }}",
+				"AIGW_CANDIDATE_SOURCE":     "${{ inputs.candidate_source }}",
+				"AIGW_NATIVE_INPUT_SHA256":  "${{ inputs.input_sha256 }}",
+				"AIGW_NATIVE_CLIENTS":       "false",
+				"AIGW_PERFORMANCE_OUTPUT":   "${{ inputs.performance && format('{0}/build/performance', github.workspace) || '' }}",
+			} {
+				if step.Env[key] != value {
+					t.Fatalf("selected native input %s = %q, want %q", key, step.Env[key], value)
+				}
+			}
+			clientCondition := map[string]string{"darwin": "false", "linux": "false", "windows": "inputs.windows_clients"}[platform]
+			if step.If != condition+" && !("+clientCondition+")" {
+				t.Fatalf("selected artifact condition = %q", step.If)
+			}
+			wantKeyring := map[string]string{"darwin": "${{ inputs.macos_keychain && '1' || '0' }}", "windows": "1"}[platform]
+			if step.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != wantKeyring {
+				t.Fatal("selected native artifact exceeds its credential qualification")
+			}
+			prefix := map[string]string{"darwin": "$", "linux": "$", "windows": "$env:"}[platform]
+			for _, argument := range []string{"mise exec --locked -- go run ./tools/ci native --platform " + platform,
+				"--input-release=\"" + prefix + "AIGW_NATIVE_INPUT_RELEASE\"",
+				"--tag=\"" + prefix + "AIGW_CANDIDATE_TAG\"",
+				"--performance=\"" + prefix + "AIGW_PERFORMANCE_OUTPUT\""} {
+				if !strings.Contains(step.Run, argument) {
+					t.Fatalf("selected native artifact lost %q", argument)
+				}
+			}
+			clients := slices.IndexFunc(steps, func(step nativeStep) bool {
+				return step.Name == "Run historical release acceptance"
+			})
+			if platform != "windows" {
+				if clients >= 0 {
+					t.Fatal("Windows client provisioning escaped its platform")
+				}
+				return
+			}
+			if clients < 0 || steps[clients].If != condition+" && inputs.windows_clients" ||
+				steps[clients].Env["AIGW_NATIVE_CLIENTS"] != "${{ inputs.windows_clients }}" ||
+				!strings.Contains(steps[clients].Run, "--clients=\"$env:AIGW_NATIVE_CLIENTS\"") {
+				t.Fatal("Windows client qualification is not bound to the selected native artifact")
+			}
+		})
 	}
 }
 

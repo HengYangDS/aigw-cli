@@ -7,7 +7,6 @@ import (
 	"aigw-cli/tools/release/readiness"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,25 +29,11 @@ func buildCommands(ctx context.Context) commandSet {
 			return err
 		},
 		"accept-native": func(args []string, _ io.Writer) error {
-			flags := flag.NewFlagSet("accept-native", flag.ContinueOnError)
-			clients := flags.Bool("clients", false, "Also verify real clients through the native lifecycle")
-			artifacts := flags.String("artifacts", "", "Consume an existing signed release matrix instead of building")
-			performance := flags.String("performance", "", "Retain Hyperfine measurements in this absolute output directory")
-			if err := flags.Parse(args); err != nil {
+			input, err := construction.ParseNativeAcceptance(args)
+			if err != nil {
 				return err
 			}
-			if err := requireArguments(flags.Args(), 0, "usage: release accept-native [--artifacts <directory>] [--clients] [--performance <absolute-directory>]"); err != nil {
-				return err
-			}
-			if *performance != "" && (*artifacts == "" || strings.TrimSpace(os.Getenv("AIGW_ACCEPTANCE_BASELINE")) == "") {
-				return errors.New("performance acceptance requires an explicit published candidate and baseline")
-			}
-			if *artifacts != "" {
-				if err := verifyArtifacts(ctx, *artifacts); err != nil {
-					return err
-				}
-			}
-			return construction.AcceptNative(ctx, *artifacts, *clients, *performance)
+			return construction.AcceptNative(ctx, input)
 		},
 		"build": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release build <output-directory>"); err != nil {

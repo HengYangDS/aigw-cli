@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -64,6 +66,7 @@ type runDetails struct {
 type SourceTrust struct {
 	Repository     string
 	AllowedSigners string
+	Commit         string
 }
 
 // WriteProvenance records the source, locked inputs, toolchain and unsigned artifact subjects.
@@ -79,12 +82,24 @@ func WriteProvenance(root, candidate, target, version, commit, tree string) erro
 
 // VerifyProvenance binds canonical artifact provenance to the selected, trusted local tag and commit.
 func VerifyProvenance(ctx context.Context, directory, tag string, trust SourceTrust) error {
+	if _, err := semver.StrictNewVersion(strings.TrimPrefix(tag, "v")); err != nil || !strings.HasPrefix(tag, "v") {
+		return errors.New("release provenance requires v<semver> tag")
+	}
+	return verifyProvenance(ctx, directory, tag, trust)
+}
+
+// VerifyCandidateProvenance binds untagged artifacts to an exact signed producer.
+func VerifyCandidateProvenance(ctx context.Context, directory string, trust SourceTrust) error {
+	_, err := hex.DecodeString(trust.Commit)
+	if err != nil || len(trust.Commit) != 40 && len(trust.Commit) != 64 || trust.Commit != strings.ToLower(trust.Commit) {
+		return errors.New("candidate source requires an exact lowercase Git commit ID")
+	}
+	return verifyProvenance(ctx, directory, "", trust)
+}
+
+func verifyProvenance(ctx context.Context, directory, tag string, trust SourceTrust) error {
 	if trust.Repository == "" || trust.AllowedSigners == "" {
 		return errors.New("release source authorization requires repository and Git allowed-signers file")
-	}
-	version, err := semver.StrictNewVersion(strings.TrimPrefix(tag, "v"))
-	if err != nil || !strings.HasPrefix(tag, "v") {
-		return errors.New("release provenance requires v<semver> tag")
 	}
 	git := func(args ...string) ([]byte, error) {
 		command := exec.CommandContext(ctx, "git", append([]string{
@@ -97,19 +112,26 @@ func VerifyProvenance(ctx context.Context, directory, tag string, trust SourceTr
 		}
 		return output, nil
 	}
-	tagObject, err := git("rev-parse", "--verify", "refs/tags/"+tag)
-	if err != nil {
-		return err
+	commitRef := trust.Commit + "^{commit}"
+	if tag != "" {
+		tagObject, err := git("rev-parse", "--verify", "refs/tags/"+tag)
+		if err != nil {
+			return err
+		}
+		object := strings.TrimSpace(string(tagObject))
+		if _, err := git("verify-tag", object); err != nil {
+			return err
+		}
+		commitRef = object + "^{commit}"
 	}
-	object := strings.TrimSpace(string(tagObject))
-	if _, err := git("verify-tag", object); err != nil {
-		return err
-	}
-	commitBytes, err := git("rev-parse", "--verify", object+"^{commit}")
+	commitBytes, err := git("rev-parse", "--verify", commitRef)
 	if err != nil {
 		return err
 	}
 	commit := strings.TrimSpace(string(commitBytes))
+	if tag == "" && commit != trust.Commit {
+		return errors.New("candidate source does not resolve to its exact commit")
+	}
 	if _, err := git("verify-commit", commit); err != nil {
 		return err
 	}
@@ -122,14 +144,28 @@ func VerifyProvenance(ctx context.Context, directory, tag string, trust SourceTr
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(string(declared)) != version.String() {
+	version := strings.TrimSpace(string(declared))
+	if tag != "" && version != strings.TrimPrefix(tag, "v") {
 		return errors.New("release provenance tag and source VERSION differ")
 	}
-	expected, err := provenanceBytes(readSource, directory, version.String(), commit, strings.TrimSpace(string(treeBytes)))
+	if tag == "" {
+		if _, err := semver.StrictNewVersion(version); err != nil {
+			return err
+		}
+		ref := "refs/tags/v" + version
+		refs, err := git("for-each-ref", "--format=%(refname)", ref)
+		if err != nil {
+			return err
+		}
+		if slices.Contains(strings.Fields(string(refs)), ref) {
+			return errors.New("candidate provenance requires an untagged VERSION")
+		}
+	}
+	expected, err := provenanceBytes(readSource, directory, version, commit, strings.TrimSpace(string(treeBytes)))
 	if err != nil {
 		return err
 	}
-	actual, err := os.ReadFile(filepath.Join(directory, "aigw_"+version.String()+".provenance.json"))
+	actual, err := os.ReadFile(filepath.Join(directory, "aigw_"+version+".provenance.json"))
 	if err != nil {
 		return err
 	}

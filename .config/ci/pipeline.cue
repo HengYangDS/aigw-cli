@@ -72,6 +72,22 @@ commands: {
 	}
 }
 
+// Forge jobs pass inputs to the same native release owner; no job extracts or
+// substitutes a predecessor. Shell syntax belongs only to the native executor.
+nativeInputCommands: {
+	for peer in ["github", "gitlab"] {
+		(peer): {
+			for platform in productEvidence.native {
+				let prefix = {darwin: "$", linux: "$", windows: "$env:"}[platform]
+				let repository = {github: "GITHUB_REPOSITORY", gitlab: "CI_PROJECT_URL"}[peer]
+				let transport = {github: "--input-release", gitlab: "--input-package"}[peer]
+				let input = {github: "AIGW_NATIVE_INPUT_RELEASE", gitlab: "AIGW_NATIVE_INPUT_PACKAGE"}[peer]
+				(platform): "\(commands.native[platform]) --full-quality=\"\(prefix)AIGW_FULL_NATIVE_QUALITY\" -- --candidate=\"\(prefix)AIGW_NATIVE_CANDIDATE\" --candidate-source=\"\(prefix)AIGW_CANDIDATE_SOURCE\" \(transport)=\"\(prefix)\(input)\" --input-sha256=\"\(prefix)AIGW_NATIVE_INPUT_SHA256\" --baseline-tag=\"\(prefix)AIGW_BASELINE_TAG\" --tag=\"\(prefix)AIGW_CANDIDATE_TAG\" --peer=\(peer) --repository=\"\(prefix)\(repository)\" --clients=\"\(prefix)AIGW_NATIVE_CLIENTS\" --performance=\"\(prefix)AIGW_PERFORMANCE_OUTPUT\""
+			}
+		}
+	}
+}
+
 toolchainTools: {
 	bootstrap: ["go", "node", "npm"]
 	portableQuality: list.Concat([bootstrap, [
@@ -89,8 +105,8 @@ toolchainTools: {
 	]])
 	links: ["github:lycheeverse/lychee"]
 	quality: list.Concat([portableQuality, links])
-	native: list.Concat([portableQuality, ["github:anchore/syft", "gh", "glab"]])
-	fullNative: list.Concat([quality, ["github:anchore/syft", "gh", "glab"]])
+	native: list.Concat([portableQuality, ["github:anchore/syft", "github:sharkdp/hyperfine", "gh", "glab"]])
+	fullNative: list.Concat([native, links])
 	darwin: ["github:indygreg/apple-platform-rs"]
 }
 
@@ -304,7 +320,10 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 }
 
 #NativeGitHubJob: {
-	_platform: #OperatingSystem
+	_platform:          #OperatingSystem
+	_sourceCondition:   "github.event_name != 'workflow_dispatch' || (inputs.candidate_tag == '' && inputs.input_release == '')"
+	_artifactCondition: "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)"
+	_clientCondition: {darwin: "false", linux: "false", windows: "inputs.windows_clients"}[_platform]
 	_credentialEnvironment: {
 		if _platform == "windows" {
 			AIGW_VERIFY_SYSTEM_KEYRING: "1"
@@ -318,10 +337,12 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	"timeout-minutes": 25
 	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
 	env: MISE_ENABLE_TOOLS: "${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && '\(nativeToolchain[_platform].full.MISE_ENABLE_TOOLS)' || '\(nativeToolchain[_platform].default.MISE_ENABLE_TOOLS)' }}"
+	if _platform != "windows" {defaults: run: shell: "bash"}
+	if _platform == "windows" {defaults: run: shell: "pwsh"}
 	steps: [
 		#SourceCheckout,
 		#Toolchain,
-		{name: "Prepare locked dependencies", run: commands.bootstrap},
+		{name: "Prepare locked dependencies", if: _sourceCondition, run: commands.bootstrap},
 		if _platform == "linux" {
 			name: "Prepare native Secret Service"
 			run:  "sudo -n apt-get update -qq && sudo -n DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \(linuxSecretService.packages)"
@@ -350,13 +371,13 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 		for full in [false, true] {
 			if !full {
 				name: "Run native \(nativeEvidence[_platform].name) acceptance"
-				if:   "github.event_name != 'workflow_dispatch' || !inputs.full_quality"
+				if:   "(\(_sourceCondition)) && (github.event_name != 'workflow_dispatch' || !inputs.full_quality)"
 				if _platform == "linux" {run: (linuxSecretService.session & {command: commands.native[_platform]}).run}
 				if _platform != "linux" {run: commands.native[_platform]}
 			}
 			if full {
 				name: "Qualify all repository tools on \(nativeEvidence[_platform].name)"
-				if:   "github.event_name == 'workflow_dispatch' && inputs.full_quality"
+				if:   "(\(_sourceCondition)) && github.event_name == 'workflow_dispatch' && inputs.full_quality"
 				if _platform == "linux" {run: (linuxSecretService.session & {command: "\(commands.native[_platform]) --full-quality"}).run}
 				if _platform != "linux" {run: "\(commands.native[_platform]) --full-quality"}
 			}
@@ -365,6 +386,16 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 					if full {CGO_ENABLED: "1"}
 				}
 			}
+		},
+		for trust in [{kind: "source", flag: ""}, {kind: "artifact", flag: " --artifact"}] {
+			let prefix = {darwin: "$", linux: "$", windows: "$env:"}[_platform]
+			name: "Prepare native \(trust.kind) trust"
+			if:   _artifactCondition
+			env: {
+				AIGW_RELEASE_ALLOWED_SIGNERS:          "${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}"
+				AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }}"
+			}
+			run: "mise exec --locked -- go run ./tools/ci trust-input\(trust.flag) --output \"\(prefix)RUNNER_TEMP/aigw-\(trust.kind)-signers\" --github-env \"\(prefix)GITHUB_ENV\""
 		},
 		// Fetch the Git blob bytes; checkout can rewrite the installer's declared CRLF worktree form.
 		if _platform == "windows" {
@@ -391,17 +422,20 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 				}
 				"""#
 		},
-		{
+		if _platform == "windows" {
 			name:  "Run historical release acceptance"
-			if:    "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)"
+			if:    _artifactCondition + " && \(_clientCondition)"
 			shell: "pwsh"
 			env: _credentialEnvironment & {
-				if _platform == "darwin" {
-					AIGW_VERIFY_SYSTEM_KEYRING: "${{ github.event_name == 'workflow_dispatch' && inputs.macos_keychain && '1' || '0' }}"
-				}
 				GH_TOKEN:                              "${{ github.token }}"
 				AIGW_BASELINE_TAG:                     "${{ inputs.baseline_tag }}"
 				AIGW_CANDIDATE_TAG:                    "${{ inputs.candidate_tag }}"
+				AIGW_NATIVE_INPUT_RELEASE:             "${{ inputs.input_release }}"
+				AIGW_CANDIDATE_SOURCE:                 "${{ inputs.candidate_source }}"
+				AIGW_NATIVE_INPUT_SHA256:              "${{ inputs.input_sha256 }}"
+				AIGW_NATIVE_CANDIDATE:                 "${{ inputs.input_release != '' }}"
+				AIGW_NATIVE_CLIENTS:                   "${{ inputs.windows_clients }}"
+				AIGW_FULL_NATIVE_QUALITY:              "${{ inputs.full_quality }}"
 				AIGW_RELEASE_ALLOWED_SIGNERS:          "${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}"
 				AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }}"
 				AIGW_RELEASE_ARTIFACT_SIGNER:          "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}"
@@ -412,45 +446,11 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 				$ErrorActionPreference = 'Stop'
 				$PSNativeCommandUseErrorActionPreference = $true
 				if ([string]::IsNullOrWhiteSpace($env:AIGW_BASELINE_TAG)) { throw 'Client qualification requires baseline_tag' }
-				if ($env:AIGW_MEASURE_PERFORMANCE -eq 'true' -and [string]::IsNullOrWhiteSpace($env:AIGW_CANDIDATE_TAG)) { throw 'Performance qualification requires candidate_tag' }
 				$scope = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString())
 				$originalGitConfigGlobal = [Environment]::GetEnvironmentVariable('GIT_CONFIG_GLOBAL')
 				New-Item -ItemType Directory -Path $scope | Out-Null
 				try {
 				  $platform = mise exec --locked -- go env GOOS
-				  $architecture = mise exec --locked -- go env GOARCH
-				  $extension = if ($platform -eq 'windows') { 'zip' } else { 'tar.gz' }
-				  $pattern = "*_${platform}_${architecture}.${extension}"
-				  gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
-				  $archives = @(Get-ChildItem -Path $scope -Filter $pattern -File)
-				  if ($archives.Count -ne 1) { throw 'Expected exactly one native release archive' }
-				  $archive = $archives[0]
-				  $entries = @(Get-Content (Join-Path $scope 'checksums.txt') | ForEach-Object {
-				    $entry = $_ -split '\s+', 2
-				    if ($entry.Count -eq 2 -and $entry[1].TrimStart('*') -eq $archive.Name) { $entry[0] }
-				  })
-				  $actual = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash
-				  if ($entries.Count -ne 1 -or $entries[0] -notmatch '^[0-9a-fA-F]{64}$' -or $entries[0] -ne $actual) {
-				    throw 'Historical release archive checksum mismatch'
-				  }
-				  tar -xf $archive.FullName -C $scope
-				  $program = if ($platform -eq 'windows') { 'aigw.exe' } else { 'aigw' }
-				  $executables = @(Get-ChildItem -Path $scope -Recurse -Filter $program -File)
-				  if ($executables.Count -ne 1) { throw 'Expected exactly one historical executable' }
-				  $env:AIGW_ACCEPTANCE_BASELINE = $executables[0].FullName
-				  Write-Output "Historical release $env:AIGW_BASELINE_TAG archive SHA256=$actual"
-				  $acceptance = @('accept-native')
-				  if (-not [string]::IsNullOrWhiteSpace($env:AIGW_CANDIDATE_TAG)) {
-				    $candidate = Join-Path $scope 'candidate'
-				    New-Item -ItemType Directory -Path $candidate | Out-Null
-				    mise exec --locked -- gh release download $env:AIGW_CANDIDATE_TAG --repo $env:GITHUB_REPOSITORY --dir $candidate
-				    $env:CI_COMMIT_TAG = $env:AIGW_CANDIDATE_TAG
-				    $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = Join-Path $scope 'source-signers'
-				    $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = Join-Path $scope 'artifact-signers'
-				    [IO.File]::WriteAllText($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ALLOWED_SIGNERS)
-				    [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
-				    $acceptance += @('--artifacts', $candidate)
-				  }
 				  Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
 				  if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
 				    $clients = Join-Path $scope 'clients'
@@ -497,16 +497,10 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 				      if (-not (Test-Path -LiteralPath $client -PathType Leaf)) { throw "Missing native client: $client" }
 				      Get-FileHash -LiteralPath $client -Algorithm SHA256
 				    }
-				    $acceptance += '--clients'
 				  }
-				  if ($env:AIGW_MEASURE_PERFORMANCE -eq 'true') {
-				    $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine'
-				    $output = Join-Path $env:GITHUB_WORKSPACE 'build/performance'
-				    $performance = $acceptance[1..($acceptance.Count - 1)] + @('--performance', $output)
-				    mise run performance @performance
-				  } else {
-				    mise exec --locked -- go run ./tools/release @acceptance
-				  }
+				  $env:AIGW_PERFORMANCE_OUTPUT = if ($env:AIGW_MEASURE_PERFORMANCE -eq 'true') { Join-Path $env:GITHUB_WORKSPACE 'build/performance' } else { '' }
+				  $env:GH_TOKEN = '${{ github.token }}'
+				  \#(nativeInputCommands.github.windows)
 				} finally {
 				  if ($null -eq $originalGitConfigGlobal) {
 				    Remove-Item Env:GIT_CONFIG_GLOBAL -ErrorAction SilentlyContinue
@@ -522,6 +516,27 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 				  Remove-Item -LiteralPath $scope -Recurse -Force
 				}
 				"""#
+		},
+		{
+			name: "Run selected native artifact acceptance"
+			if:   _artifactCondition + " && !(\(_clientCondition))"
+			env: _credentialEnvironment & {
+				if _platform == "darwin" {AIGW_VERIFY_SYSTEM_KEYRING: "${{ inputs.macos_keychain && '1' || '0' }}"}
+				GH_TOKEN:                     "${{ github.token }}"
+				GH_PROMPT_DISABLED:           "1"
+				AIGW_NATIVE_INPUT_RELEASE:    "${{ inputs.input_release }}"
+				AIGW_CANDIDATE_SOURCE:        "${{ inputs.candidate_source }}"
+				AIGW_NATIVE_INPUT_SHA256:     "${{ inputs.input_sha256 }}"
+				AIGW_NATIVE_CANDIDATE:        "${{ inputs.input_release != '' }}"
+				AIGW_BASELINE_TAG:            "${{ inputs.baseline_tag }}"
+				AIGW_CANDIDATE_TAG:           "${{ inputs.candidate_tag }}"
+				AIGW_NATIVE_CLIENTS:          "false"
+				AIGW_FULL_NATIVE_QUALITY:     "${{ inputs.full_quality }}"
+				AIGW_PERFORMANCE_OUTPUT:      "${{ inputs.performance && format('{0}/build/performance', github.workspace) || '' }}"
+				AIGW_RELEASE_ARTIFACT_SIGNER: "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}"
+			}
+			if _platform == "linux" {run: (linuxSecretService.session & {command: nativeInputCommands.github[_platform]}).run}
+			if _platform != "linux" {run: nativeInputCommands.github[_platform]}
 		},
 		{
 			name: "Retain native performance samples"
@@ -540,20 +555,48 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	_platform:     #OperatingSystem
 	_install:      string
 	_refreshLocks: string
+	_sourceNative: string
 	_native:       string
 	if _platform == "windows" {
 		_install:      "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
 		_refreshLocks: "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
-		_native:       "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
+		_sourceNative: "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
+		_native:       #"""
+			if ($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_TAG) {
+			  $env:AIGW_NATIVE_CANDIDATE = ([string]::IsNullOrWhiteSpace($env:AIGW_CANDIDATE_TAG)).ToString().ToLowerInvariant()
+			  \#(nativeInputCommands.gitlab[_platform])
+			} else {
+			  \#(_sourceNative)
+			}
+			"""#
 	}
 	if _platform != "windows" {
 		_install:      commands.install
 		_refreshLocks: "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
-		_native:       "\(commands.native[_platform]) --full-quality=\"${AIGW_FULL_NATIVE_QUALITY:-false}\""
+		_sourceNative: "\(commands.native[_platform]) --full-quality=\"${AIGW_FULL_NATIVE_QUALITY:-false}\""
+		_native:       #"""
+			if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ] || [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then
+			  if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ]; then export AIGW_NATIVE_CANDIDATE=true; fi
+			  \#(nativeInputCommands.gitlab[_platform])
+			else
+			  \#(_sourceNative)
+			fi
+			"""#
 	}
 	stage: graph["native-\(_platform)"].stage
 	tags:  nativeEvidence[_platform].gitlab.tags
 	variables: nativeToolchain[_platform].default & {
+		AIGW_FULL_NATIVE_QUALITY:                   "false"
+		AIGW_NATIVE_CANDIDATE:                      "false"
+		AIGW_NATIVE_CLIENTS:                        "false"
+		AIGW_CANDIDATE_TAG:                         ""
+		AIGW_CANDIDATE_SOURCE:                      ""
+		AIGW_NATIVE_INPUT_PACKAGE:                  ""
+		AIGW_NATIVE_INPUT_SHA256:                   ""
+		AIGW_BASELINE_TAG:                          ""
+		AIGW_PERFORMANCE_OUTPUT:                    ""
+		AIGW_RELEASE_ALLOWED_SIGNERS_FILE:          "$AIGW_RELEASE_ALLOWED_SIGNERS"
+		AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE: "$AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS"
 		if _platform == "windows" {
 			nativeGitEnvironment
 			AIGW_VERIFY_SYSTEM_KEYRING: "1"
@@ -736,6 +779,21 @@ githubVerify: {
 			}
 			candidate_tag: {
 				description: "With baseline_tag, consume this published candidate without rebuilding"
+				required:    false
+				type:        "string"
+			}
+			input_release: {
+				description: "Signed native-inputs-<carrier commit> release containing exact candidate and predecessor matrices"
+				required:    false
+				type:        "string"
+			}
+			input_sha256: {
+				description: "Exact lowercase SHA256 of public-inputs.tar"
+				required:    false
+				type:        "string"
+			}
+			candidate_source: {
+				description: "Exact signed producer commit; distinct from the verifier checkout and transport carrier"
 				required:    false
 				type:        "string"
 			}

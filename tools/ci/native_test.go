@@ -29,6 +29,21 @@ func TestNativeAcceptanceUsesReleaseOwner(t *testing.T) {
 	}
 }
 
+func TestNativeCandidateCIForwardsInputsWithoutRepeatingSourceQualification(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	arguments := []string{"native", "--platform", runtime.GOOS, "--", "--candidate", "--candidate-source", strings.Repeat("a", 40),
+		"--input-archive", filepath.Join(t.TempDir(), "public-inputs.tar"), "--input-sha256", strings.Repeat("b", 64), "--baseline-tag", "v0.3.3"}
+	var calls []command
+	err := run(arguments, &bytes.Buffer{}, func(call command) error {
+		calls = append(calls, call)
+		return nil
+	})
+	want := append([]string{"run", "./tools/release", "accept-native"}, arguments[4:]...)
+	if err != nil || len(calls) != 1 || calls[0].Name != "go" || !slices.Equal(calls[0].Args, want) {
+		t.Fatalf("explicit candidate input did not reach its native owner once: %v, %#v", err, calls)
+	}
+}
+
 func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "0")
 	t.Setenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE", "")

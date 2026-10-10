@@ -3,12 +3,29 @@ native-darwin:
     - env GODEBUG=http2client=0 mise install --locked
     - mise run bootstrap
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
-    - mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
+    - |-
+      if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ] || [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then
+        if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ]; then export AIGW_NATIVE_CANDIDATE=true; fi
+        mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="$AIGW_FULL_NATIVE_QUALITY" -- --candidate="$AIGW_NATIVE_CANDIDATE" --candidate-source="$AIGW_CANDIDATE_SOURCE" --input-package="$AIGW_NATIVE_INPUT_PACKAGE" --input-sha256="$AIGW_NATIVE_INPUT_SHA256" --baseline-tag="$AIGW_BASELINE_TAG" --tag="$AIGW_CANDIDATE_TAG" --peer=gitlab --repository="$CI_PROJECT_URL" --clients="$AIGW_NATIVE_CLIENTS" --performance="$AIGW_PERFORMANCE_OUTPUT"
+      else
+        mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
+      fi
   stage: verify
   tags:
     - $AIGW_CI_DARWIN_RUNNER_TAG
   variables:
-    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee,github:indygreg/apple-platform-rs
+    AIGW_FULL_NATIVE_QUALITY: "false"
+    AIGW_NATIVE_CANDIDATE: "false"
+    AIGW_NATIVE_CLIENTS: "false"
+    AIGW_CANDIDATE_TAG: ""
+    AIGW_CANDIDATE_SOURCE: ""
+    AIGW_NATIVE_INPUT_PACKAGE: ""
+    AIGW_NATIVE_INPUT_SHA256: ""
+    AIGW_BASELINE_TAG: ""
+    AIGW_PERFORMANCE_OUTPUT: ""
+    AIGW_RELEASE_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ALLOWED_SIGNERS
+    AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS
+    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,github:sharkdp/hyperfine,gh,glab,github:lycheeverse/lychee,github:indygreg/apple-platform-rs
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")
@@ -27,8 +44,19 @@ native-linux:
   tags:
     - $AIGW_CI_LINUX_RUNNER_TAG
   variables:
+    AIGW_FULL_NATIVE_QUALITY: "false"
+    AIGW_NATIVE_CANDIDATE: "false"
+    AIGW_NATIVE_CLIENTS: "false"
+    AIGW_CANDIDATE_TAG: ""
+    AIGW_CANDIDATE_SOURCE: ""
+    AIGW_NATIVE_INPUT_PACKAGE: ""
+    AIGW_NATIVE_INPUT_SHA256: ""
+    AIGW_BASELINE_TAG: ""
+    AIGW_PERFORMANCE_OUTPUT: ""
+    AIGW_RELEASE_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ALLOWED_SIGNERS
+    AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS
     CGO_ENABLED: "1"
-    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab,github:lycheeverse/lychee
+    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,github:sharkdp/hyperfine,gh,glab,github:lycheeverse/lychee
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")
@@ -48,25 +76,47 @@ native-linux:
       dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
       gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
       gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-      AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
+      AIGW_VERIFY_SYSTEM_KEYRING=1 if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ] || [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then
+        if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ]; then export AIGW_NATIVE_CANDIDATE=true; fi
+        mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="$AIGW_FULL_NATIVE_QUALITY" -- --candidate="$AIGW_NATIVE_CANDIDATE" --candidate-source="$AIGW_CANDIDATE_SOURCE" --input-package="$AIGW_NATIVE_INPUT_PACKAGE" --input-sha256="$AIGW_NATIVE_INPUT_SHA256" --baseline-tag="$AIGW_BASELINE_TAG" --tag="$AIGW_CANDIDATE_TAG" --peer=gitlab --repository="$CI_PROJECT_URL" --clients="$AIGW_NATIVE_CLIENTS" --performance="$AIGW_PERFORMANCE_OUTPUT"
+      else
+        mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
+      fi
       AIGW_SECRET_SERVICE
 native-windows:
   script:
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - mise run bootstrap
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
-    - mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"
+    - |-
+      if ($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_TAG) {
+        $env:AIGW_NATIVE_CANDIDATE = ([string]::IsNullOrWhiteSpace($env:AIGW_CANDIDATE_TAG)).ToString().ToLowerInvariant()
+        mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$env:AIGW_FULL_NATIVE_QUALITY" -- --candidate="$env:AIGW_NATIVE_CANDIDATE" --candidate-source="$env:AIGW_CANDIDATE_SOURCE" --input-package="$env:AIGW_NATIVE_INPUT_PACKAGE" --input-sha256="$env:AIGW_NATIVE_INPUT_SHA256" --baseline-tag="$env:AIGW_BASELINE_TAG" --tag="$env:AIGW_CANDIDATE_TAG" --peer=gitlab --repository="$env:CI_PROJECT_URL" --clients="$env:AIGW_NATIVE_CLIENTS" --performance="$env:AIGW_PERFORMANCE_OUTPUT"
+      } else {
+        mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"
+      }
   stage: verify
   tags:
     - $AIGW_CI_WINDOWS_RUNNER_TAG
   variables:
+    AIGW_FULL_NATIVE_QUALITY: "false"
+    AIGW_NATIVE_CANDIDATE: "false"
+    AIGW_NATIVE_CLIENTS: "false"
+    AIGW_CANDIDATE_TAG: ""
+    AIGW_CANDIDATE_SOURCE: ""
+    AIGW_NATIVE_INPUT_PACKAGE: ""
+    AIGW_NATIVE_INPUT_SHA256: ""
+    AIGW_BASELINE_TAG: ""
+    AIGW_PERFORMANCE_OUTPUT: ""
+    AIGW_RELEASE_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ALLOWED_SIGNERS
+    AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
     GIT_CONFIG_COUNT: "2"
     GIT_CONFIG_KEY_0: init.defaultBranch
     GIT_CONFIG_VALUE_0: main
     GIT_CONFIG_KEY_1: core.longpaths
     GIT_CONFIG_VALUE_1: "true"
-    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,gh,glab
+    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:rhysd/actionlint,shellcheck,taplo,typos,github:anchore/syft,github:sharkdp/hyperfine,gh,glab
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")

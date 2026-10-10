@@ -1,7 +1,10 @@
 package projection
 
 import (
+	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -44,7 +47,7 @@ func checkGitLabNativeToolClosure(t *testing.T, content string) {
 			t.Errorf("GitLab lacks %s", name)
 			continue
 		}
-		for _, tool := range []string{"go", "node", "npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "gh", "glab"} {
+		for _, tool := range []string{"go", "node", "npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "github:sharkdp/hyperfine", "gh", "glab"} {
 			if !slices.Contains(strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ","), tool) {
 				t.Errorf("GitLab %s lacks native acceptance tool %s", name, tool)
 			}
@@ -76,7 +79,7 @@ func checkGitHubNativeToolClosure(t *testing.T, projection projection) {
 	for _, name := range []string{"native-darwin", "native-linux", "native-windows"} {
 		job := workflow.Jobs[name]
 		tools := job.Env["MISE_ENABLE_TOOLS"]
-		for _, required := range []string{"go,node,npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "gh", "inputs.full_quality"} {
+		for _, required := range []string{"go,node,npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "github:sharkdp/hyperfine", "gh", "inputs.full_quality"} {
 			if !strings.Contains(tools, required) {
 				t.Errorf("%s %s tool closure lacks %q: %q", projection.Path, name, required, tools)
 			}
@@ -245,8 +248,89 @@ func TestWindowsClientInstallerUsesPinnedContentAPI(t *testing.T) {
 			t.Fatalf("%s has a Windows-only Hermes installer fetch", platform)
 		}
 		historicalIndex := slices.IndexFunc(steps, func(item step) bool { return item.Name == historical.Name })
+		if platform != "windows" {
+			if historicalIndex >= 0 {
+				t.Fatalf("%s has Windows-only client provisioning", platform)
+			}
+			continue
+		}
 		if historicalIndex < 0 || strings.Contains(steps[historicalIndex].Run, "raw.githubusercontent.com/NousResearch/hermes-agent") {
 			t.Fatalf("%s historical acceptance lacks a safe installer source", platform)
 		}
+	}
+}
+
+func TestNativeInputProjectionsInvokeTheOwnedCandidateOnce(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var github struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				Name string            `yaml:"name"`
+				Run  string            `yaml:"run"`
+				Env  map[string]string `yaml:"env"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
+		t.Fatal(err)
+	}
+	platform := runtime.GOOS
+	steps := github.Jobs["native-"+platform].Steps
+	index := slices.IndexFunc(steps, func(step struct {
+		Name string            `yaml:"name"`
+		Run  string            `yaml:"run"`
+		Env  map[string]string `yaml:"env"`
+	}) bool {
+		return step.Name == "Run selected native artifact acceptance"
+	})
+	if index < 0 {
+		t.Fatal("CUE lacks a prebuilt native candidate entry")
+	}
+	step := steps[index]
+	if step.Env["AIGW_NATIVE_INPUT_RELEASE"] != "${{ inputs.input_release }}" || step.Env["AIGW_CANDIDATE_SOURCE"] != "${{ inputs.candidate_source }}" || step.Env["AIGW_NATIVE_INPUT_SHA256"] != "${{ inputs.input_sha256 }}" {
+		t.Fatal("prebuilt native candidate entry lost its exact source and byte identity")
+	}
+	output, err := projectionCommand(filepath.Clean(filepath.Join("..", "..", "..")), "nativeInputCommands.github."+platform).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var invocation string
+	if err := yaml.Unmarshal(output, &invocation); err != nil || !strings.Contains(step.Run, invocation) {
+		t.Fatalf("native artifact step is not bound to its owning command: %v", err)
+	}
+	result, bin := filepath.Join(t.TempDir(), "native-call"), t.TempDir()
+	source := filepath.Join(bin, "capture.go")
+	if err := os.WriteFile(source, []byte("package main\nimport (\"os\"; \"strings\")\nfunc main() { if err := os.WriteFile(os.Getenv(\"AIGW_TEST_CALL\"), []byte(strings.Join(os.Args[1:], \"\\n\")), 0600); err != nil { panic(err) } }\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(bin, "mise")
+	if platform == "windows" {
+		executable += ".exe"
+	}
+	if output, err := exec.CommandContext(t.Context(), "go", "build", "-o", executable, source).CombinedOutput(); err != nil {
+		t.Fatalf("build native command-capture fixture: %v: %s", err, output)
+	}
+	command := exec.CommandContext(t.Context(), "bash", "-euo", "pipefail", "-c", invocation)
+	if platform == "windows" {
+		command = exec.CommandContext(t.Context(), "pwsh", "-NoProfile", "-Command", invocation)
+	}
+	command.Env = append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "AIGW_TEST_CALL="+result,
+		"AIGW_CANDIDATE_SOURCE="+strings.Repeat("a", 40), "AIGW_NATIVE_INPUT_RELEASE=native-inputs-"+strings.Repeat("b", 40),
+		"AIGW_NATIVE_INPUT_SHA256="+strings.Repeat("c", 64), "AIGW_BASELINE_TAG=v0.3.3", "GITHUB_REPOSITORY=group/product",
+		"AIGW_FULL_NATIVE_QUALITY=false", "AIGW_NATIVE_CANDIDATE=true", "AIGW_NATIVE_CLIENTS=false", "AIGW_CANDIDATE_TAG=", "AIGW_PERFORMANCE_OUTPUT=")
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("projected native candidate invocation failed: %v: %s", err, output)
+	}
+	data, err := os.ReadFile(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"exec", "--locked", "--", "go", "run", "./tools/ci", "native", "--platform", platform, "--full-quality=false", "--", "--candidate=true", "--candidate-source=" + strings.Repeat("a", 40),
+		"--input-release=native-inputs-" + strings.Repeat("b", 40), "--input-sha256=" + strings.Repeat("c", 64), "--baseline-tag=v0.3.3", "--tag=", "--peer=github", "--repository=group/product", "--clients=false", "--performance="}
+	if !slices.Equal(strings.Split(string(data), "\n"), want) {
+		t.Fatalf("CUE projected a different candidate call: %s", data)
 	}
 }

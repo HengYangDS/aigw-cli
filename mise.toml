@@ -34,6 +34,7 @@ glab = "1.118.0"
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.18.2"
 "github:anchore/syft" = "1.52.0"
+"github:sharkdp/hyperfine" = "1.20.0"
 # Build with the repository Go compiler; upstream binaries may lag its language.
 "go:github.com/google/osv-scanner/v2/cmd/osv-scanner" = "2.6.0"
 # Cross-host ad-hoc macOS artifact signing.
@@ -76,7 +77,6 @@ timeout = "5m"
 
 [tasks.performance]
 description = "Measure explicit published native artifacts with retained Hyperfine samples."
-tools."github:sharkdp/hyperfine" = "1.20.0"
 run = "go run ./tools/release accept-native"
 
 [tasks."dependencies:resolve"]

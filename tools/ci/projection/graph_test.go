@@ -181,11 +181,12 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 		t.Fatalf("native qualification must default to the complete platform set: %#v", selection)
 	}
 	for _, platform := range []string{"darwin", "linux", "windows"} {
+		sourceCondition := "(github.event_name != 'workflow_dispatch' || (inputs.candidate_tag == '' && inputs.input_release == ''))"
 		ordinary, full := 0, 0
 		for _, step := range github.Jobs["native-"+platform].Steps {
 			base := "mise exec --locked -- go run ./tools/ci native --platform " + platform
 			run := step.Run
-			if platform == "linux" && strings.Contains(run, base) {
+			if strings.HasPrefix(run, "dbus-run-session") && !strings.Contains(run, "--candidate=") {
 				run = base
 				if strings.Contains(step.Run, "--full-quality") {
 					run += " --full-quality"
@@ -194,12 +195,12 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 			switch run {
 			case base:
 				ordinary++
-				if step.If != "github.event_name != 'workflow_dispatch' || !inputs.full_quality" {
+				if step.If != sourceCondition+" && (github.event_name != 'workflow_dispatch' || !inputs.full_quality)" {
 					t.Fatalf("%s ordinary native selection = %q", platform, step.If)
 				}
 			case base + " --full-quality":
 				full++
-				if !slices.Equal([]string{step.If, step.Env["CGO_ENABLED"]}, []string{"github.event_name == 'workflow_dispatch' && inputs.full_quality", "1"}) {
+				if !slices.Equal([]string{step.If, step.Env["CGO_ENABLED"]}, []string{sourceCondition + " && github.event_name == 'workflow_dispatch' && inputs.full_quality", "1"}) {
 					t.Fatalf("%s full native selection or compiler capability is incomplete: %#v", platform, step)
 				}
 			}
@@ -219,7 +220,7 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 		t.Fatalf("GitLab Darwin lacks equivalent manual platform selection: %#v", gitlab.Darwin.Rules)
 	}
 	want := `mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"`
-	if !slices.Contains(gitlab.Darwin.Script, want) {
+	if !strings.Contains(strings.Join(gitlab.Darwin.Script, "\n"), want) {
 		t.Fatal("GitLab Darwin lacks the same explicit native-quality entrypoint")
 	}
 }
@@ -274,15 +275,15 @@ func TestGitHubDarwinSystemCredentialJourneyRequiresAnEphemeralHost(t *testing.T
 		Name string            `yaml:"name"`
 		Env  map[string]string `yaml:"env"`
 	}) bool {
-		return step.Name == "Run historical release acceptance"
+		return step.Name == "Run selected native artifact acceptance"
 	})
 	if historical < 0 {
-		t.Fatal("GitHub historical macOS acceptance step is missing")
+		t.Fatal("GitHub selected native macOS artifact acceptance step is missing")
 	}
 	if got := steps[historical].Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"]; got != "ephemeral-host" {
 		t.Fatalf("historical GitHub macOS credential scope = %q, want ephemeral-host", got)
 	}
-	if got := steps[historical].Env["AIGW_VERIFY_SYSTEM_KEYRING"]; got != "${{ github.event_name == 'workflow_dispatch' && inputs.macos_keychain && '1' || '0' }}" {
+	if got := steps[historical].Env["AIGW_VERIFY_SYSTEM_KEYRING"]; got != "${{ inputs.macos_keychain && '1' || '0' }}" {
 		t.Fatalf("historical GitHub macOS credential selection = %q", got)
 	}
 }
