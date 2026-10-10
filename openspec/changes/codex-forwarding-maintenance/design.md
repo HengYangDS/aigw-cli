@@ -65,6 +65,13 @@ registry redesign, or independent helper is included.
 
 ## Implementation Ownership
 
+Performance diagnostics follow their origin. Product prepare and measured
+commands retain the existing warning/error preflight. Hyperfine's statistical
+advice remains in its raw output rather than terminating sample collection;
+tool exit status, complete successful samples, both order blocks, calibrated
+memory and unchanged budgets determine acceptance. Retain outliers and failed
+receipts. This does not certify a quiet host or Provider performance.
+
 Reuse `internal/configuration` for binding, resolution, Store snapshots and
 checkpoint semantics; `internal/cli/selection` and `internal/synchronization`
 for preview and guarded selection. Existing Codex rendering, credential,

@@ -339,8 +339,10 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 		if err := os.WriteFile(filepath.Join(output, name+".stderr.log"), stderr.Bytes(), 0o600); err != nil {
 			j.testing.Fatal(err)
 		}
-		if runErr != nil || diagnosticFailure(stderr.Bytes()) {
-			j.testing.Fatalf("Hyperfine %s exited or emitted a diagnostic: %v\nstdout:\n%s\nstderr:\n%s", name, runErr, &stdout, &stderr)
+		// Product diagnostics were checked before timing. Hyperfine's statistical
+		// advice stays in the raw log; complete samples and budgets own acceptance.
+		if runErr != nil {
+			j.testing.Fatalf("Hyperfine %s failed: %v\nstdout:\n%s\nstderr:\n%s", name, runErr, &stdout, &stderr)
 		}
 		var report struct {
 			Results []performanceSamples `json:"results"`
@@ -449,6 +451,7 @@ func TestNativePerformanceSamples(t *testing.T) {
 	for index := range times {
 		times[index] = float64(index+1) / 1000
 	}
+	times[len(times)-1] = 1 // Keep the statistical outlier in the original samples.
 	result := performanceSamples{Times: times, ExitCodes: make([]int, 40)}
 	before := slices.Clone(times)
 	p95, err := result.percentile()
