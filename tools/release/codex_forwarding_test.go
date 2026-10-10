@@ -29,6 +29,7 @@ const forwardingComment = "# Preserve the operator's existing preferences.\n"
 type publishedCodexForwardingJourney struct {
 	journey                                 *journeyFixture
 	baseline, candidate, archive, checksums string
+	baselineVersion                         string
 	version, codexPath, hermesPath, session string
 	forwarding                              string
 	original                                configuration.Config
@@ -49,6 +50,7 @@ func runPublishedCodexForwarding(t *testing.T, baseline, candidate, archive, che
 		baseline: baseline, candidate: candidate, archive: archive, checksums: checksums,
 		version: version, forwarding: server.URL + "/codex/v1",
 	}
+	state.baselineVersion = state.journey.predecessorVersion(version)
 	state.prepare(t)
 	state.capture(t)
 	state.requireState(t, state.journey.endpoint)
@@ -58,7 +60,7 @@ func runPublishedCodexForwarding(t *testing.T, baseline, candidate, archive, che
 func (state *publishedCodexForwardingJourney) prepare(t *testing.T) {
 	t.Helper()
 	j := state.journey
-	j.requireVersion("0.3.1")
+	j.requireVersion(state.baselineVersion)
 	mustWriteFile(t, j.manifest, []byte(publishedForwardingManifest(j.endpoint)), 0o600)
 	home := filepath.Join(j.root, "home")
 	codexHome, hermesHome := filepath.Join(home, ".codex"), filepath.Join(home, ".hermes")
@@ -324,7 +326,7 @@ func (state *publishedCodexForwardingJourney) runLifecycle(t *testing.T) {
 		t.Fatalf("direct selection retained an active forwarding component: %v", err)
 	}
 	j.run("update", "--rollback")
-	j.requireVersion("0.3.1")
+	j.requireVersion(state.baselineVersion)
 	j.requireProgramBytes(state.baseline)
 	j.run("sync")
 	state.requireState(t, j.endpoint)

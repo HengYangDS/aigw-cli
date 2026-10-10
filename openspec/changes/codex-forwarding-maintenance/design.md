@@ -25,6 +25,11 @@ No generic client-registry or protocol-selection redesign is included.
 ## Migration Plan
 
 Preserve the published predecessor and its original Homebrew stable entry.
+The source baseline remains 0.3.1; actual upgrade acceptance starts from
+published 0.3.3 with its persisted state. The existing native lifecycle admits
+the predecessor's produced schema rather than a catalogue of release labels,
+and records its actual version for rollback. Qualify the original 0.3.1 reader
+separately. Portable release acceptance does not replace the Homebrew transition.
 Complete implementation and pre-publication candidate acceptance before
 archive. After archive, qualify the exact final signed source and notarized
 bytes, publish those objects and assets to selected peers, and update the

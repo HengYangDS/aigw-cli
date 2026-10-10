@@ -28,8 +28,9 @@ and post-archive migration. Existing native verification retains its raw results
       changing existing signed history.
 - [ ] 3.2 Complete required source checks, strict intent review, native
       three-OS journeys, and exact-source proof on the maintenance candidate.
-- [ ] 3.3 Qualify signed and notarized candidate bytes against published 0.3.1,
-      including native credentials, update, direct rollback, and restored forwarding.
+- [ ] 3.3 Qualify signed and notarized candidate bytes against published 0.3.3
+      with retained state and the original 0.3.1 reader, including native credentials,
+      update, direct rollback, and restored forwarding.
 
 ## Workflow follow-up
 

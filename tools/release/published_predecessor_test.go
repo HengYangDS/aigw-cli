@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 type publishedNativeJourney struct {
@@ -48,17 +50,20 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 		journey.prepare(t, publishedPredecessorManifest(server.URL+"/v1"), configuration.PublishedConfigVersion)
 		journey.upgrade(t)
 		journey.rollbackAndRecover(t)
-	case "0.2.0", "0.3.0", "0.3.1":
+	default:
+		// The predecessor's persisted schema, not a version catalogue, admits this journey.
 		journey.prepare(t, publishedStablePredecessorManifest(server.URL+"/v1"), configuration.ConfigVersion)
 		journey.upgradeCurrentSchema(t)
 		journey.rollbackCurrentSchemaAndRecover(t, predecessorVersion)
-		if predecessorVersion == "0.3.1" {
+		predecessor, err := semver.StrictNewVersion(predecessorVersion)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if predecessor.GreaterThanEqual(semver.MustParse("0.3.1")) {
 			t.Run("Codex forwarding with retained reader and enabled Hermes", func(t *testing.T) {
 				runPublishedCodexForwarding(t, baseline, candidate, archive, checksums, version)
 			})
 		}
-	default:
-		t.Fatalf("unsupported published predecessor version %q", predecessorVersion)
 	}
 }
 
