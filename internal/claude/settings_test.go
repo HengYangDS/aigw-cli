@@ -89,7 +89,7 @@ func TestSettingsReconcilePreservesForeignContentAndKeepsCredentialsOutOfJSON(t 
 		RouteID: "team-claude", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team",
 	}
 
-	executable := filepath.Join(t.TempDir(), "AIGW CLI", "aigw")
+	executable := filepath.Join(t.TempDir(), "AIGW CLI", "secret-token-path", "aigw")
 	receipt, err := ReconcileSettings(path, false, runtime, executable, runtime.Model)
 	if err != nil {
 		t.Fatal(err)
@@ -102,8 +102,8 @@ func TestSettingsReconcilePreservesForeignContentAndKeepsCredentialsOutOfJSON(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(data), "secret") {
-		t.Fatalf("settings contain credential material: %s", data)
+	if err := ValidateSettings(path, runtime, executable); err != nil {
+		t.Fatalf("owned settings are invalid: %v", err)
 	}
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatal(err)
@@ -117,7 +117,7 @@ func TestSettingsReconcilePreservesForeignContentAndKeepsCredentialsOutOfJSON(t 
 	}) {
 		t.Fatalf("env = %#v", got["env"])
 	}
-	if got["model"] != "claude-team" || got["apiKeyHelper"] != credentialHelper(executable, runtime.CredentialProjectionFingerprint(configuration.ClientClaude)) {
+	if len(got) != 4 || got["model"] != "claude-team" || got["apiKeyHelper"] != credentialHelper(executable, runtime.CredentialProjectionFingerprint(configuration.ClientClaude)) {
 		t.Fatalf("managed settings = %#v", got)
 	}
 

@@ -19,6 +19,7 @@ import (
 )
 
 func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
 	for _, fail := range []bool{false, true} {
 		t.Run(fmt.Sprint(fail), func(t *testing.T) {
 			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
@@ -87,6 +88,7 @@ func TestNativeAcceptanceRunsPublishedPredecessorSeparatelyFromCurrentSchemaJour
 }
 
 func TestNativeClientSourceAcceptanceSelectsOneHostBuild(t *testing.T) {
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
 	request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "0"}
 	var stage string
 	calls := 0
@@ -297,6 +299,7 @@ func TestNativeAcceptanceConsumesExistingArchives(t *testing.T) {
 }
 
 func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
 	for _, test := range []struct {
 		name   string
 		failAt int

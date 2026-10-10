@@ -1,6 +1,7 @@
 package synchronization
 
 import (
+	"aigw-cli/internal/claude"
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -12,6 +13,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -363,7 +365,7 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	aigwExecutable := filepath.Join(t.TempDir(), "aigw")
+	aigwExecutable := filepath.Join(t.TempDir(), "secret-token-path", "aigw")
 	syncer := Synchronizer{Config: store, ClaudeSettingsPath: settingsPath, AIGWExecutable: aigwExecutable}
 	if err := syncer.Commit(context.Background(), before, after, "enable Claude"); err != nil {
 		t.Fatal(err)
@@ -384,8 +386,11 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	if !ok || !strings.Contains(helper, aigwExecutable) || !strings.HasSuffix(helper, " credential claude "+projection.CredentialProjectionFingerprint(configuration.ClientClaude)) {
 		t.Fatalf("apiKeyHelper = %#v", document["apiKeyHelper"])
 	}
-	if strings.Contains(string(projected), "token") || strings.Contains(string(projected), "secret") {
-		t.Fatalf("projected settings leaked credential material: %s", projected)
+	if len(document) != 4 || !reflect.DeepEqual(document["env"], map[string]any{"ANTHROPIC_BASE_URL": "https://gateway.test"}) {
+		t.Fatalf("projected settings contain unexpected fields: %#v", document)
+	}
+	if err := claude.ValidateSettings(settingsPath, projection, aigwExecutable); err != nil {
+		t.Fatalf("owned Claude projection is invalid: %v", err)
 	}
 	if err := syncer.Commit(context.Background(), after, before, "disable Claude"); err != nil {
 		t.Fatal(err)
