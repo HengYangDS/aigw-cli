@@ -44,7 +44,7 @@ type miseTask struct {
 	Run  []string `json:"run"`
 }
 
-func TestMisePerformanceToolIsTaskScoped(t *testing.T) {
+func TestMisePerformanceUsesTheLockedNativeToolClosure(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), "mise.toml"))
 	if err != nil {
 		t.Fatal(err)
@@ -62,11 +62,11 @@ func TestMisePerformanceToolIsTaskScoped(t *testing.T) {
 		t.Fatal(err)
 	}
 	task := configuration.Tasks.Performance
-	if task.Tools["github:sharkdp/hyperfine"] == "" || task.Run != "go run ./tools/release accept-native" {
+	if configuration.Tools["github:sharkdp/hyperfine"] == "" || task.Run != "go run ./tools/release accept-native" {
 		t.Fatalf("performance must bind Hyperfine to the existing native acceptance owner: %#v", task)
 	}
-	if configuration.Tools["github:sharkdp/hyperfine"] != "" {
-		t.Fatal("a task-specific measurement tool became a mandatory general tool")
+	if task.Tools["github:sharkdp/hyperfine"] != "" {
+		t.Fatal("performance duplicates its native toolchain version authority")
 	}
 }
 

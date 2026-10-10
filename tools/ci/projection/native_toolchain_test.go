@@ -70,6 +70,7 @@ func checkGitHubNativeToolClosure(t *testing.T, projection projection) {
 			Env   map[string]string `yaml:"env"`
 			Steps []struct {
 				Run string `yaml:"run"`
+				If  string `yaml:"if"`
 			} `yaml:"steps"`
 		} `yaml:"jobs"`
 	}
@@ -93,6 +94,9 @@ func checkGitHubNativeToolClosure(t *testing.T, projection projection) {
 		}
 		bootstrap := false
 		for _, step := range job.Steps {
+			if step.Run == "mise run bootstrap" && !strings.Contains(step.If, "inputs.full_quality") {
+				t.Errorf("%s %s full quality cannot prepare its locked repository dependencies", projection.Path, name)
+			}
 			if strings.Contains(step.Run, "./tools/ci native") && !bootstrap {
 				t.Errorf("%s %s runs native acceptance before locked dependency preparation", projection.Path, name)
 			}
@@ -313,9 +317,10 @@ func TestNativeInputProjectionsInvokeTheOwnedCandidateOnce(t *testing.T) {
 	if output, err := exec.CommandContext(t.Context(), "go", "build", "-o", executable, source).CombinedOutput(); err != nil {
 		t.Fatalf("build native command-capture fixture: %v: %s", err, output)
 	}
-	for _, selection := range []struct{ name, candidate, source, carrier, checksum string }{
-		{"candidate", "true", strings.Repeat("a", 40), "native-inputs-" + strings.Repeat("b", 40), strings.Repeat("c", 64)},
-		{"source with published baseline", "false", "", "", ""},
+	for _, selection := range []struct{ name, quality, candidate, source, carrier, checksum string }{
+		{"candidate", "false", "true", strings.Repeat("a", 40), "native-inputs-" + strings.Repeat("b", 40), strings.Repeat("c", 64)},
+		{"full-quality candidate", "true", "true", strings.Repeat("a", 40), "native-inputs-" + strings.Repeat("b", 40), strings.Repeat("c", 64)},
+		{"source with published baseline", "false", "false", "", "", ""},
 	} {
 		t.Run(selection.name, func(t *testing.T) {
 			command := exec.CommandContext(t.Context(), "bash", "-euo", "pipefail", "-c", invocation)
@@ -325,7 +330,7 @@ func TestNativeInputProjectionsInvokeTheOwnedCandidateOnce(t *testing.T) {
 			command.Env = append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "AIGW_TEST_CALL="+result,
 				"AIGW_CANDIDATE_SOURCE="+selection.source, "AIGW_NATIVE_INPUT_RELEASE="+selection.carrier,
 				"AIGW_NATIVE_INPUT_SHA256="+selection.checksum, "AIGW_BASELINE_TAG=v0.3.3", "GITHUB_REPOSITORY=group/product",
-				"AIGW_FULL_NATIVE_QUALITY=false", "AIGW_NATIVE_CANDIDATE="+selection.candidate, "AIGW_NATIVE_CLIENTS=false", "AIGW_CANDIDATE_TAG=", "AIGW_PERFORMANCE_OUTPUT=")
+				"AIGW_FULL_NATIVE_QUALITY="+selection.quality, "AIGW_NATIVE_CANDIDATE="+selection.candidate, "AIGW_NATIVE_CLIENTS=false", "AIGW_CANDIDATE_TAG=", "AIGW_PERFORMANCE_OUTPUT=")
 			if output, err := command.CombinedOutput(); err != nil {
 				t.Fatalf("projected native selection failed: %v: %s", err, output)
 			}
@@ -333,7 +338,7 @@ func TestNativeInputProjectionsInvokeTheOwnedCandidateOnce(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			want := []string{"exec", "--locked", "--", "go", "run", "./tools/ci", "native", "--platform", platform, "--full-quality=false", "--", "--candidate=" + selection.candidate, "--candidate-source=" + selection.source,
+			want := []string{"exec", "--locked", "--", "go", "run", "./tools/ci", "native", "--platform", platform, "--full-quality=" + selection.quality, "--", "--candidate=" + selection.candidate, "--candidate-source=" + selection.source,
 				"--input-release=" + selection.carrier, "--input-sha256=" + selection.checksum, "--baseline-tag=v0.3.3", "--tag=", "--peer=github", "--repository=group/product", "--clients=false", "--performance="}
 			if !slices.Equal(strings.Split(string(data), "\n"), want) {
 				t.Fatalf("CUE projected a different native selection: %s", data)

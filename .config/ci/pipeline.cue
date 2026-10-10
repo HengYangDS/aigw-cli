@@ -322,7 +322,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 #NativeGitHubJob: {
 	_platform:           #OperatingSystem
 	_sourceCondition:    "github.event_name != 'workflow_dispatch' || (inputs.baseline_tag == '' && inputs.candidate_tag == '' && inputs.input_release == '' && !inputs.windows_clients && !inputs.macos_keychain && !inputs.performance)"
-	_bootstrapCondition: "github.event_name != 'workflow_dispatch' || (inputs.candidate_tag == '' && inputs.input_release == '')"
+	_bootstrapCondition: "github.event_name != 'workflow_dispatch' || inputs.full_quality || (inputs.candidate_tag == '' && inputs.input_release == '')"
 	_artifactCondition:  "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)"
 	_clientCondition: {darwin: "false", linux: "false", windows: "inputs.windows_clients"}[_platform]
 	_credentialEnvironment: {
