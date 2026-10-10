@@ -19,6 +19,196 @@ import (
 	"time"
 )
 
+func TestNativeInputSelectionRequiresOneTransportAndExactIdentities(t *testing.T) {
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+	producer := strings.Repeat("a", 40)
+	archive := filepath.Join(t.TempDir(), "public-inputs.tar")
+	selection := []string{"--candidate", "--candidate-source", producer, "--input-sha256", strings.Repeat("b", 64), "--baseline-tag", "v1.2.3"}
+	for _, transport := range [][]string{
+		{"--input-archive", archive},
+		{"--input-package", "native-inputs", "--peer", "gitlab", "--repository", "group/product"},
+		{"--input-release", "native-inputs-" + producer, "--peer", "github", "--repository", "group/product"},
+	} {
+		input, err := ParseNativeAcceptance(append(slices.Clone(selection), transport...))
+		if err != nil || input.CandidateSource != producer || input.BaselineTag != "v1.2.3" || !input.Candidate {
+			t.Fatalf("valid native selection lost producer or predecessor: %#v, %v", input, err)
+		}
+	}
+	for _, arguments := range [][]string{
+		{"--unknown"}, {"positional"}, {"--input-sha256", strings.Repeat("b", 64)},
+		{"--input-package", "native-inputs", "--peer", "github", "--repository", "group/product"},
+		{"--input-release", "native-inputs-" + producer, "--peer", "gitlab", "--repository", "group/product"},
+		append(slices.Clone(selection), "--input-archive", "relative.tar"),
+		{"--input-archive", archive},
+		{"--candidate", "--candidate-source", producer, "--input-archive", archive, "--input-sha256", "invalid", "--baseline-tag", "v1.2.3"},
+		append(slices.Clone(selection), "--input-release", "unnamed-carrier", "--peer", "github", "--repository", "group/product"),
+		append(slices.Clone(selection), "--input-release", "native-inputs-"+strings.Repeat("A", 40), "--peer", "github", "--repository", "group/product"),
+		{"--peer", "github"}, {"--candidate-source", producer}, {"--baseline-artifacts", archive},
+		{"--tag", "v1.2.3"}, {"--artifacts", archive, "--tag", "1.2.3"},
+		{"--baseline-tag", "v1.2.3"}, {"--performance", t.TempDir()},
+	} {
+		if input, err := ParseNativeAcceptance(arguments); err == nil {
+			t.Fatalf("ambiguous or unbound native selection accepted: %q, %#v", arguments, input)
+		}
+	}
+}
+
+func TestNativeCarrierRefusalStopsBeforeDownload(t *testing.T) {
+	root, producer, _ := nativeInputFixture(t)
+	carrier, err := resolveGitObject(root, "HEAD", executeTool(t.Context()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, stopped := range []int{0, 1, 2, 3, 4} {
+		t.Run(fmt.Sprintf("admission=%d", stopped), func(t *testing.T) {
+			if stopped == 0 {
+				t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
+			}
+			input := NativeAcceptance{InputRelease: "native-inputs-" + carrier, CandidateSource: producer}
+			step := 0
+			err := input.verifyInputCarrier(root, func(call toolCall) error {
+				step++
+				if call.Name != "git" {
+					t.Fatalf("unproved carrier started transport: %#v", call)
+				}
+				if step == stopped || stopped == 4 && step == 3 {
+					return context.Canceled
+				}
+				if stopped == 3 && step == 2 {
+					_, err := io.WriteString(call.Stdout, producer+"\n")
+					return err
+				}
+				return executeTool(t.Context())(call)
+			})
+			if err == nil || stopped == 0 && step != 0 || stopped != 0 && step > 3 {
+				t.Fatalf("carrier refusal continued admission: %v, steps=%d", err, step)
+			}
+			if stopped != 0 && stopped != 3 && !errors.Is(err, context.Canceled) {
+				t.Fatalf("carrier refusal lost its interruption cause: %v", err)
+			}
+		})
+	}
+}
+
+func TestNativePartialInputNeverRunsAJourney(t *testing.T) {
+	root, producer, contents := nativeInputFixture(t)
+	for _, state := range []string{"missing", "directory", "empty", "header", "truncated"} {
+		t.Run(state, func(t *testing.T) {
+			archive := filepath.Join(t.TempDir(), "public-inputs.tar")
+			data := []byte(nil)
+			switch state {
+			case "header":
+				data = bytes.Repeat([]byte("invalid"), 100)
+			case "truncated":
+				data = contents[:513]
+			}
+			if state == "directory" {
+				if err := os.Mkdir(archive, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			} else if state != "missing" {
+				if err := os.WriteFile(archive, data, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			input := NativeAcceptance{InputArchive: archive, InputSHA256: fmt.Sprintf("%x", sha256.Sum256(data)), Candidate: true, CandidateSource: producer, BaselineTag: "v1.2.3"}
+			err := acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.4", Epoch: "1784246400"}, func(call toolCall) error {
+				t.Fatalf("partial native input executed a dependent operation: %#v", call)
+				return nil
+			})
+			if err == nil {
+				t.Fatal("incomplete native matrix was accepted")
+			}
+		})
+	}
+}
+
+func TestNativeInputCancellationAndJourneyFailurePreserveCallerBytes(t *testing.T) {
+	root, producer, contents := nativeInputFixture(t)
+	t.Chdir(root)
+	archive := filepath.Join(t.TempDir(), "public-inputs.tar")
+	if err := os.WriteFile(archive, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	input, err := ParseNativeAcceptance([]string{"--candidate", "--candidate-source", producer,
+		"--input-archive", archive, "--input-sha256", fmt.Sprintf("%x", sha256.Sum256(contents)), "--baseline-tag", "v1.2.3", "--clients"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	interrupted := errors.New("native journey interrupted")
+	for _, canceled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("canceled=%t", canceled), func(t *testing.T) {
+			scratch := t.TempDir()
+			for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+				t.Setenv(name, scratch)
+			}
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			want, calls := interrupted, 1
+			if canceled {
+				cancel()
+				want, calls = context.Canceled, 0
+			}
+			journeys := 0
+			err := acceptNativeInput(ctx, input, buildRequest{Root: root, Version: "1.2.4", Epoch: "1784246400"}, func(call toolCall) error {
+				if call.Name != "go" {
+					t.Fatalf("caller-owned input requested transport or rebuild: %#v", call)
+				}
+				journeys++
+				return interrupted
+			})
+			if !errors.Is(err, want) || journeys != calls {
+				t.Fatalf("native interruption continued dependent journeys: %v, calls=%d", err, journeys)
+			}
+			if entries, err := os.ReadDir(scratch); err != nil || len(entries) != 0 {
+				t.Fatalf("interrupted native input retained owned resources: %v, %v", entries, err)
+			}
+			if data, err := os.ReadFile(archive); err != nil || !bytes.Equal(data, contents) {
+				t.Fatalf("interrupted native input changed caller bytes: %v", err)
+			}
+		})
+	}
+}
+
+func TestNativeAcceptancePublicEntryRejectsVerifierAsArtifactProducer(t *testing.T) {
+	root, _, contents := nativeInputFixture(t)
+	t.Chdir(root)
+	verifier, err := resolveGitObject(root, "HEAD", executeTool(t.Context()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(t.TempDir(), "public-inputs.tar")
+	if err := os.WriteFile(archive, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	input, err := ParseNativeAcceptance([]string{"--candidate", "--candidate-source", verifier,
+		"--input-archive", archive, "--input-sha256", fmt.Sprintf("%x", sha256.Sum256(contents)), "--baseline-tag", "v1.2.3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := AcceptNative(t.Context(), input); err == nil || !strings.Contains(err.Error(), "provenance") {
+		t.Fatalf("public acceptance relabeled producer bytes as the verifier: %v", err)
+	}
+	if data, err := os.ReadFile(archive); err != nil || !bytes.Equal(data, contents) {
+		t.Fatalf("rejected public acceptance changed caller input: %v", err)
+	}
+	for _, path := range []string{"VERSION", "CHANGELOG.md"} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Remove(path); err != nil {
+			t.Fatal(err)
+		}
+		if err := AcceptNative(t.Context(), input); err == nil {
+			t.Fatalf("public acceptance proceeded without %s", path)
+		}
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestNativeRetainedPackageOwnsExtractionAndPublishedBaseline(t *testing.T) {
 	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "1")
 	root, producer, contents := nativeInputFixture(t)
@@ -261,7 +451,7 @@ func nativeInputFixture(t *testing.T) (string, string, []byte) {
 	var contents bytes.Buffer
 	writer := tar.NewWriter(&contents)
 	for _, entry := range []struct{ directory, version string }{{"baseline", "1.2.3"}, {"candidate", "1.2.4"}} {
-		for name, body := range map[string]string{"VERSION": entry.version + "\n", "go.mod": "module example.invalid/native\n", "go.sum": "sum\n",
+		for name, body := range map[string]string{"VERSION": entry.version + "\n", "CHANGELOG.md": "# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## [Unreleased]\n\n## [" + entry.version + "] - 2026-07-17\n\n### Fixed\n\n- Preserve native inputs.\n", "go.mod": "module example.invalid/native\n", "go.sum": "sum\n",
 			"package-lock.json": "{}\n", "mise.lock": "lockfile_version = 2\n", "mise.toml": "[tools]\ngo = \"1.27.1\"\n"} {
 			if err := os.WriteFile(filepath.Join(root, name), []byte(body), 0o600); err != nil {
 				t.Fatal(err)
