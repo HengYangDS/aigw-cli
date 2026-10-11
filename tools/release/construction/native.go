@@ -6,6 +6,7 @@ import (
 	releaseartifact "aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/performance"
 	"aigw-cli/tools/release/readiness"
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -109,6 +110,17 @@ func acceptNativeInput(ctx context.Context, input NativeAcceptance, request buil
 	}
 	if err := ensureCleanSource(request.Root, run); err != nil {
 		return err
+	}
+	if input.CandidateSource != "" {
+		var version bytes.Buffer
+		if err := run(toolCall{Name: "git", Directory: request.Root, Timeout: time.Minute,
+			Args: []string{"show", input.CandidateSource + ":VERSION"}, Stdout: &version}); err != nil {
+			return fmt.Errorf("read candidate VERSION: %w", err)
+		}
+		request.Version = strings.TrimSpace(version.String())
+		if err := readiness.ValidateVersion(request.Version); err != nil {
+			return err
+		}
 	}
 	workspace, err := os.MkdirTemp("", "aigw-native-inputs-*")
 	if err != nil {

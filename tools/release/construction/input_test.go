@@ -32,7 +32,7 @@ func TestNativePackagedInputsShareSignedMatrixAndOwnedLifecycle(t *testing.T) {
 	err = acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.4", Epoch: "1784246400"}, func(call toolCall) error {
 		switch call.Name {
 		case "git":
-			return nil
+			return executeTool(t.Context())(call)
 		case "glab":
 			downloads++
 			index := slices.Index(call.Args, "--path")
@@ -105,7 +105,7 @@ func TestNativeGitHubInputReleasePreservesSignedIdentityAndOwnedCleanup(t *testi
 		switch call.Name {
 		case "git":
 			switch call.Args[0] {
-			case "-c", "rev-parse", "merge-base":
+			case "-c", "rev-parse", "merge-base", "show":
 				return executeTool(t.Context())(call)
 			}
 		case "gh":
@@ -270,9 +270,9 @@ func TestNativeRetainedPackagePreservesCallerArchiveWithoutTransport(t *testing.
 		t.Fatalf("retained native input was refused: %v", err)
 	}
 	journeys := 0
-	err = acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.4", Epoch: "1784246400"}, func(call toolCall) error {
+	err = acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.3.0", Epoch: "1784246400"}, func(call toolCall) error {
 		if call.Name == "git" {
-			return nil
+			return executeTool(t.Context())(call)
 		}
 		if call.Name != "go" {
 			t.Fatalf("retained native input caused another download: %#v", call)
@@ -292,7 +292,7 @@ func TestNativeRetainedPackagePreservesCallerArchiveWithoutTransport(t *testing.
 		if call.Name != "git" {
 			t.Fatalf("nonregular caller input reached execution: %#v", call)
 		}
-		return nil
+		return executeTool(t.Context())(call)
 	})
 	if err == nil || !strings.Contains(err.Error(), "regular file") {
 		t.Fatalf("native retained input accepted a directory: %v", err)
@@ -337,7 +337,7 @@ func TestNativePackageFailuresNeverExecuteAndReclaimOwnedScratch(t *testing.T) {
 			defer cancel()
 			err = acceptNativeInput(ctx, input, buildRequest{Root: root, Version: "1.2.4", Epoch: "1784246400"}, func(call toolCall) error {
 				if call.Name == "git" {
-					return nil
+					return executeTool(t.Context())(call)
 				}
 				if call.Name != "glab" {
 					t.Fatalf("invalid native package reached execution: %#v", call)
