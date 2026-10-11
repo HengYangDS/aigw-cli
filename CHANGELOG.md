@@ -126,6 +126,9 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Fixed
 
+- Keep disposable Hermes verification profiles under the configured native
+  root, reusing installed dependencies and tools without profile-local links,
+  lazy installation, synchronization, or republication.
 - Prevent disposable Hermes verification from contacting its unrelated
   software-update service before the selected model request.
 - Classify Hermes version-probe timeout, interruption, and execution failure

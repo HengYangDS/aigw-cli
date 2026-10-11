@@ -2,6 +2,33 @@
 
 ## MODIFIED Requirements
 
+### Requirement: Hermes verification reuses installed dependency state
+
+When the configured Hermes home's data root holds the installation's committed
+dependency environment and managed tools, AIGW's disposable Hermes verification
+environment SHALL reuse that installation state through Hermes' native profile
+root resolution. Verification SHALL NOT create profile-local installation
+stores, install, synchronize, rebuild, or republish that state.
+
+#### Scenario: Hermes keeps installation state under its data root
+
+- **WHEN** the installed Hermes resolves its committed dependency environment
+  and managed tools from the data root of the configured Hermes home
+- **THEN** AIGW observes the native client version and completes one bounded
+  request from a disposable profile under the same native data root
+- **AND** verification refuses on-demand installation, so the installed
+  dependencies, tools, and launchers are not synchronized or republished
+- **AND** removing the disposable home leaves the operator's Hermes
+  configuration, installation state, and launchers unchanged.
+
+#### Scenario: Required installation state is unavailable
+
+- **WHEN** the installed Hermes cannot resolve required dependency state from
+  the configured native root
+- **THEN** verification reports the native failure without claiming readiness
+- **AND** it does not provision another dependency environment, retry, or
+  disclose private paths.
+
 ### Requirement: Independently admitted native clients
 
 Codex and Claude Code SHALL be independent Adapters owning discovery,

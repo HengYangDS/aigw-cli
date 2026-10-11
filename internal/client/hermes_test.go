@@ -249,6 +249,7 @@ func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
 }
 
 func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
+	t.Setenv("HERMES_DISABLE_LAZY_INSTALLS", "0")
 	executable := filepath.Join(t.TempDir(), "hermes")
 	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
@@ -272,36 +273,19 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	profiles := filepath.Join(filepath.Dir(binding.Targets[0]), "profiles")
+	for _, name := range []string{"installs", "tools"} {
+		path := filepath.Join(filepath.Dir(binding.Targets[0]), name)
+		if err := os.Mkdir(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(path, "state"), []byte(name), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
 	originalHome := os.Getenv("HOME")
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
 	runner.observe = func(plan process.Plan) {
-		if filepath.Dir(plan.Directory) != profiles {
-			t.Fatalf("verification profile %q lost the native installation root %q", plan.Directory, profiles)
-		}
-		if !slices.Contains(plan.Env, "HERMES_HOME="+plan.Directory) || !slices.Contains(plan.Env, "HOME="+originalHome) {
-			t.Fatal("verification must isolate Hermes settings without changing the OS installation home")
-		}
-		data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		var projected struct {
-			Security struct {
-				AllowLazyInstalls *bool `yaml:"allow_lazy_installs"`
-			} `yaml:"security"`
-			Updates struct {
-				Check *bool `yaml:"check"`
-			} `yaml:"updates"`
-		}
-		if err := yaml.Unmarshal(data, &projected); err != nil {
-			t.Fatal(err)
-		}
-		if projected.Security.AllowLazyInstalls == nil || *projected.Security.AllowLazyInstalls {
-			t.Fatal("isolated Hermes verification permits runtime dependency installation")
-		}
-		if projected.Updates.Check == nil || *projected.Updates.Check {
-			t.Fatal("isolated Hermes verification permits passive software update checks")
-		}
+		requireHermesVerificationProfile(t, plan, profiles, originalHome)
 	}
 	if _, err := (hermesAdapter{}).Verify(context.Background(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, clientRuntime, ""); err != nil {
 		t.Fatal(err)
@@ -309,6 +293,15 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	want := []string{"chat", "--quiet", "--query-file", "-", "--oneshot", "--max-turns", "1", "--run-budget", "45", "--ignore-rules", "--source", "tool"}
 	if len(runner.plans) != 2 || !slices.Equal(runner.plans[1].Args, want) {
 		t.Fatalf("Hermes verification plans = %#v", runner.plans)
+	}
+	if _, err := os.Lstat(runner.plans[0].Directory); !os.IsNotExist(err) {
+		t.Fatalf("isolated Hermes profile survived verification: %v", err)
+	}
+	for _, name := range []string{"installs", "tools"} {
+		data, err := os.ReadFile(filepath.Join(filepath.Dir(binding.Targets[0]), name, "state"))
+		if err != nil || string(data) != name {
+			t.Fatalf("verification changed the installed %s state: %q %v", name, data, err)
+		}
 	}
 	for _, test := range []struct {
 		name, want string
@@ -341,6 +334,43 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 				t.Fatalf("Hermes diagnostic result = %v", err)
 			}
 		})
+	}
+}
+
+func requireHermesVerificationProfile(t *testing.T, plan process.Plan, profiles, originalHome string) {
+	t.Helper()
+	if filepath.Dir(plan.Directory) != profiles {
+		t.Fatalf("verification profile %q lost the native installation root %q", plan.Directory, profiles)
+	}
+	if !slices.Contains(plan.Env, "HERMES_HOME="+plan.Directory) || !slices.Contains(plan.Env, "HOME="+originalHome) ||
+		!slices.Contains(plan.Env, "HERMES_DISABLE_LAZY_INSTALLS=1") || slices.Contains(plan.Env, "HERMES_DISABLE_LAZY_INSTALLS=0") {
+		t.Fatal("verification must isolate Hermes settings without changing the OS installation home")
+	}
+	for _, name := range []string{"installs", "tools"} {
+		if _, err := os.Lstat(filepath.Join(plan.Directory, name)); !os.IsNotExist(err) {
+			t.Fatalf("verification materialized redundant native %s state: %v", name, err)
+		}
+	}
+	data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var projected struct {
+		Security struct {
+			AllowLazyInstalls *bool `yaml:"allow_lazy_installs"`
+		} `yaml:"security"`
+		Updates struct {
+			Check *bool `yaml:"check"`
+		} `yaml:"updates"`
+	}
+	if err := yaml.Unmarshal(data, &projected); err != nil {
+		t.Fatal(err)
+	}
+	if projected.Security.AllowLazyInstalls == nil || *projected.Security.AllowLazyInstalls {
+		t.Fatal("isolated Hermes verification permits runtime dependency installation")
+	}
+	if projected.Updates.Check == nil || *projected.Updates.Check {
+		t.Fatal("isolated Hermes verification permits passive software update checks")
 	}
 }
 

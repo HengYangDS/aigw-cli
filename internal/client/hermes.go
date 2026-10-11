@@ -384,11 +384,11 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 	}
 	environment := []string{}
 	for _, entry := range os.Environ() {
-		if !strings.HasPrefix(entry, "HERMES_HOME=") {
+		if !strings.HasPrefix(entry, "HERMES_HOME=") && !strings.HasPrefix(entry, "HERMES_DISABLE_LAZY_INSTALLS=") {
 			environment = append(environment, entry)
 		}
 	}
-	environment = append(environment, "HERMES_HOME="+home)
+	environment = append(environment, "HERMES_HOME="+home, "HERMES_DISABLE_LAZY_INSTALLS=1")
 	probeCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
 	defer cancel()
 	probe := process.Plan{Executable: configured.Executable, Directory: home, Env: environment, Args: []string{"--version"}}

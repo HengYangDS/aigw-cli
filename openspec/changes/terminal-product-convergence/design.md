@@ -205,6 +205,14 @@ clients are assessed against the same admission checklist. Unsupported or
 non-extensible modes are reported as such, not approximated by writing a
 plausible config file.
 
+Hermes verification uses its native profile boundary: ordinary and named-profile
+targets create one disposable `profiles/aigw-verify-*` beneath the same data
+root. Hermes resolves installed dependencies and tools from that root; AIGW
+creates no profile-local store links and requires no symlink permission. Preserve
+the OS home, refuse lazy installation and passive updates, and remove only the
+owned profile. This supersedes the installation-link design in the archived
+Hermes Change without rewriting its historical evidence.
+
 An Account endpoint declares upstream service identity. An explicitly selected
 Client Binding may declare a forwarding endpoint without changing that Account,
 Route, provider identity or another client. The existing resolver derives the
