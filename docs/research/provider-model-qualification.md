@@ -9,7 +9,7 @@ relations: {}
 
 # Provider Model Qualification Evidence
 
-These dated observations inform the reviewed October 5, 2026 team
+These dated observations inform the reviewed October 10, 2026 team
 manifest. They do not maintain a live catalogue or override the
 [current Route inventory](../../manifests/team.toml). For member setup and
 model selection, use the [team rollout guide](../guides/team-rollout.md#reviewed-model-defaults).
@@ -48,28 +48,20 @@ The October 1, 2026 primary-source review closes four missing rationales:
   transfer the vendor's one-million-token or built-in-tool claims to an
   aggregator without separate evidence.
 
-The October 4, 2026 primary-source review does not admit speculative replacements:
+The October 4, 2026 review did not admit speculative replacements. Anthropic's
+[Fable page](https://www.anthropic.com/claude/fable) still identified Fable 5.1,
+without a verified Fable 5.5 API identity. Google's
+[Gemini 4 Argon announcement](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/)
+was a trusted-tester rollout, not general provider API access. MiniMax's
+[language models](https://platform.minimax.io/docs/guides/models-intro) identified
+M3 for coding; [H3](https://www.minimax.io/blog/minimax-h3) generates video and
+sound, not text-agent inference. Step 5 Preview was discovery-only at the
+September 25 read; its later [admission](#october-56-model-refresh) supersedes that observation.
 
-- Anthropic's [Fable page](https://www.anthropic.com/claude/fable) still identifies
-  Fable 5.1 and `claude-fable-5-1`. Fable 5.5 has no verified official release or
-  API identity in this review; do not construct a Route from its name.
-- Google's [Gemini 4 Argon announcement](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/)
-  describes an initial trusted-tester rollout, not generally available provider
-  API access. Neither current public AIHubMix nor UCloud catalogue supplies a
-  verified Gemini 4 channel. Keep the qualified Gemini option until its exact
-  successor completes provider inference and native tool use.
-- MiniMax's [current language models](https://platform.minimax.io/docs/guides/models-intro)
-  identify M3 for frontier coding. Its [H3 release](https://www.minimax.io/blog/minimax-h3)
-  generates video and sound; H3 catalogue entries do not replace a text-agent
-  Model. At this September 25 read, Step 5 Preview was discovery-only; the
-  [October 5–6 successor qualification](#october-56-model-refresh)
-  below records the later admitted Routes.
-
-The public catalogues returned 417 AIHubMix and 128 UCloud IDs. UCloud's anonymous
-listing omits GPT and Claude, which does not establish their absence from an
-authenticated Account. DMXAPI requires authenticated discovery; anonymous 401 and
-disabled-pricing 403 responses are not model lists. No explicit local binding,
-credential or conversation model was changed by this review.
+Public catalogues returned 417 AIHubMix and 128 UCloud IDs. UCloud's anonymous
+listing omitted GPT and Claude; DMXAPI required authentication. Neither that
+omission nor anonymous 401/disabled-pricing 403 proves model absence. This
+review changed no binding, credential or conversation model.
 
 Stable-only supply-chain admission does not make every inference model GA.
 A Preview may remain a non-default, explicitly named Route when its general
@@ -77,26 +69,37 @@ agent role and exact provider/client behavior are qualified. An unqualified
 Preview remains discovery-only; do not conceal that distinction or silently
 replace an explicit local selection.
 
+## October 10 Haiku 5.5 admission
+
+Eight authenticated observations list `claude-haiku-5-5` at AIHubMix/UCloud and
+`claude-haiku-5-5-cc` at DMXAPI, with 420/277/528 IDs respectively. This supersedes
+only the dated Haiku absence, not the Fable 5.5 or Gemini 4 limits. The October 10
+catalogue withdraws Fable 5.1 and Astra/Luna 6 under the Claude 5.5+/GPT 6.1+
+floors. No qualified Fable, Astra, Terra, or Luna successor was observed.
+
+Claude Code 2.1.296 at `xhigh` passed exact text, `Read` and same-process recall
+for all three Routes; the second input omitted the marker. Probes used original
+readers, private scratch and no session persistence; user state stayed unchanged.
+Opus 5.5/Sol 6.1 recommendations remain; raw results bind `cc4ddf9ac8c264fc29795ae885964143a7959c3c` under the existing verification owner.
+
+AIHubMix rejected `context_management` with HTTP 400; UCloud passed text but
+rejected tool continuation with a duplicate-`tool_result` Bedrock error of
+unproved origin. Both then passed in isolated [compatibility mode](../guides/team-rollout.md#client-compatibility)
+with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1`. Retain failures and this condition;
+default betas, other clients/platforms, full-window and release bytes remain unqualified.
+
 ## October 5–6 model refresh
 
-Authenticated discovery completed eight Account/protocol reads: 417 AIHubMix,
-523 DMXAPI and 275 UCloud IDs. All three Accounts list GPT-6.1 Sol, GPT-6
-Astra, GPT-6 Luna, Claude Opus 5.5, Sonnet 5.5 and Fable 5.1. Anthropic's
-[current model overview](https://platform.claude.com/docs/en/models/overview)
-and these catalogues did not establish Fable 5.5 or Haiku 5.5. Haiku 4.5 is
-listed but is not substituted for the requested unverified generation.
-Gemini 4 remains a trusted-tester announcement, not an admitted aggregator Route.
-
-The October 6 recheck found no ID changes across these eight authenticated
-surfaces. The current [Claude release notes](https://platform.claude.com/docs/en/release-notes/overview)
-do not establish the requested Fable 5.5 or Haiku 5.5 successors.
-[MiniMax M3.1 Flash Preview](https://platform.minimax.io/docs/guides/models-intro)
-is newer, but available only through M Plan and MiniMax Code; none of these
-Accounts lists it. Retain the qualified M3 Routes rather than inventing an ID.
-Installed AIGW 0.3.1 completed native Claude and Codex verifications of the
-selected UCloud Opus 5.5 and Sol 6.1 Routes. The team and secret-free local
-configuration remained byte-identical; no import, sync or restart occurred.
-This recheck does not requalify every Route or rank models independently.
+Eight sources returned 417/523/275 AIHubMix/DMXAPI/UCloud IDs; October 6 found
+no changes. All listed Sol 6.1, Astra/Luna 6, Opus/Sonnet 5.5 and Fable 5.1. Dated
+[model overview](https://platform.claude.com/docs/en/models/overview) and
+[release notes](https://platform.claude.com/docs/en/release-notes/overview)
+reads did not establish Fable or Haiku 5.5; Haiku 4.5 was not substituted.
+Gemini 4 remained trusted-tester-only. [MiniMax M3.1 Flash Preview](https://platform.minimax.io/docs/guides/models-intro)
+required M Plan/MiniMax Code and appeared in none of these Accounts; M3 stayed.
+Installed AIGW 0.3.1 passed native Claude/Codex checks for UCloud Opus 5.5/Sol 6.1;
+configuration stayed byte-identical, without import, sync, restart, full Route
+requalification or independent ranking.
 
 The following direct channels completed text inference, an actual Hermes
 `read_file` call, a final marker and same-session recall with medium effort:
@@ -165,7 +168,8 @@ The DMXAPI `claude-fable-5-1-cc` wire ID remained listed, but two bounded
 Claude Code verifications each reached the 60-second client deadline and one
 independent direct Messages request reached a 28-second transport deadline
 without an HTTP response on September 30. The curated manifest therefore
-withdraws this channel while retaining the base Fable 5.1 Route. These failures
+withdrew this channel while retaining the then-qualified base Fable 5.1 Route,
+now withdrawn under the October 10 version floor. These failures
 do not establish permanent provider unavailability; a new real-client inference
 result is required before readmission.
 
@@ -372,7 +376,7 @@ substitutes for the native model selected in an existing Codex conversation.
 The September 27 [DMXAPI public catalogue](https://rmb.dmxapi.cn/) listed ordinary
 and CC Fable 5.1, ordinary/CC/SSVIP Sonnet 5, and ordinary/CDX/SSVIP GPT-6
 Astra. The Sonnet channels were superseded by the September 29 qualification
-above; the other previously qualified channels remain. Opus 5
+above; Fable 5.1 and Astra 6 channels were withdrawn on October 10. Opus 5
 channels are outside the requested logical set. The ordinary DMXAPI Opus 5.5
 Route was admitted after authenticated inference; no Opus 5.5 CC, SSVIP, or
 CDX variant was admitted. An unauthenticated DMXAPI model request returning

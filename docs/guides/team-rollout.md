@@ -66,9 +66,9 @@ Use product capitalization, dotted display versions, uppercase channel names,
 and spaces around `·`. Labels contain identity, not performance promises,
 review status, or instructions. The catalogue assigns no workflow roles, so
 every Route consistently omits `purpose`; do not invent use cases to fill it.
-The lower-case key `dmxapi-claude-fable-5-1` selects the exact
-`upstream_model = 'claude-fable-5-1'`; its derived display label is
-`DMXAPI · Claude Fable 5.1`. Another provider may require a differently cased
+The lower-case key `dmxapi-claude-opus-5-5` selects the exact
+`upstream_model = 'claude-opus-5-5'`; its derived display label is
+`DMXAPI · Claude Opus 5.5`. Another provider may require a differently cased
 wire ID without changing the canonical Model or stable Route ID.
 The `-cc` Route is a separate channel whose `model` remains the base logical
 Model and whose `upstream_model` carries `-cc`.
@@ -78,6 +78,17 @@ Models, then Routes. Map keys follow stable lexical order and fields follow
 schema order. Export omits a stored Route label when it equals the derived
 Account and Model label. Manifest tests check the display behavior and
 byte-identical native export without another formatter or model-name registry.
+
+Optional nonnegative Account and Model `order` values govern presentation, not
+routing. The team view groups DMXAPI, UCloud, then AIHubMix; within each Account,
+Anthropic Messages precedes OpenAI Responses and Chat Completions. Claude series
+order is Fable, Opus, Sonnet, Haiku; GPT order is Astra, Sol, Terra, Luna. Only
+qualified Claude 5.5+ and GPT 6.1+ identities appear. Missing successors are not
+invented. Local presentation lives in `config.catalog.toml`, separate from the
+canonical routing file so published credential readers remain compatible.
+Hermes loads the declared names and model order, but its native picker still
+ranks the current provider first and other providers by model count. AIGW does
+not modify that client behavior.
 
 Verify exact provider identifiers before admitting Routes. `aigw catalog`
 observes every configured catalogue surface separately and records its Account,
@@ -110,8 +121,10 @@ Catalogue refresh performs none of those transitions.
 ### Reviewed model defaults
 
 The tracked [team manifest](../../manifests/team.toml) is the current Route
-inventory. It selects Astra, Luna, and GPT-6.1 Sol, three Claude models, and one reviewed
-general Model per other admitted vendor; the [dated qualification
+inventory. It currently contains qualified GPT-6.1 Sol and Claude Opus, Sonnet,
+and Haiku 5.5, plus one reviewed general Model per other admitted vendor. Fable,
+Astra, Terra, and Luna await qualified identities meeting the version floors.
+The [dated qualification
 evidence](../research/provider-model-qualification.md) explains the observed
 IDs, protocol tests, exclusions, and limits. A catalogue listing is not a live
 Route or native-client availability guarantee.
@@ -124,8 +137,7 @@ The Codex and Hermes DMXAPI Routes bind to the same canonical Model, but are
 distinct Routes. A shared model name does not make every Account/client pair
 interchangeable. A sole DMXAPI or UCloud Account is enough for the declared
 recommendation; select an AIHubMix Route explicitly with `aigw use --for`.
-Luna remains separately selectable, not an automatic recovery Route when the
-selected provider later fails.
+Display order never creates automatic recovery when the selected provider fails.
 A local Account endpoint override is not silently replaced by the team's
 direct endpoint. Re-importing the team manifest
 against that differing Account fails closed; inspect it with
@@ -158,11 +170,10 @@ Model or identifier. No provider Token is mandatory, and import preserves
 existing personal Client Bindings.
 
 Reasoning effort remains a native client preference, outside manifest schema
-version 7. The team preference is `medium`: set `model_reasoning_effort = "medium"`
-in the active Codex Home's `config.toml`, and `"effortLevel": "medium"` in the
-active Claude configuration directory's `settings.json`. Merge those fields
-into existing settings; do not replace either document. Importing the team
-manifest does not set these preferences.
+version 7. Choose a level supported by the selected model through Codex's
+`model_reasoning_effort` or Claude Code's `effortLevel` in their active settings.
+Merge those fields; do not replace either document. Importing the team manifest
+does not set these preferences.
 
 Context capacity and compaction are also client settings. Retain the installed
 client's model metadata unless the selected provider's larger limit has been
@@ -197,10 +208,8 @@ request works. Update through the existing installation owner rather than
 adding a second executable. Claude Code's
 [`stable` and `latest` channels](https://code.claude.com/docs/en/setup#update-claude-code)
 are distinct; choose deliberately when compatibility requires a channel change.
-The selectable [Fable 5.1](https://code.claude.com/docs/en/model-config#work-with-fable)
-requires Claude Code **2.1.257 or later**. A passing Sonnet request on an older
-client does not qualify the Fable Route; verify the selected Route
-with the actual client version that team members will use.
+A passing request for one model does not qualify another Route; verify the
+selected Route with the actual client version that team members will use.
 
 If a gateway rejects `context_management` with `Extra inputs are not permitted`,
 set `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` in Claude Code's native settings
@@ -281,7 +290,7 @@ explicitly:
 
 ```bash
 aigw rotate dmxapi
-aigw use --for codex dmxapi-gpt-6-astra
+aigw use --for codex dmxapi-gpt-6.1-sol-cdx
 aigw check
 ```
 

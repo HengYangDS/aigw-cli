@@ -34,6 +34,7 @@ protocol = 'openai_responses'
 [accounts]
 [accounts.aihubmix]
 label = 'AIHubMix'
+order = 30
 
 [accounts.aihubmix.endpoints]
 openai_chat_completions = 'https://api.inferera.com/v1'
@@ -42,6 +43,7 @@ anthropic = 'https://api.inferera.com'
 
 [accounts.dmxapi]
 label = 'DMXAPI'
+order = 10
 
 [accounts.dmxapi.endpoints]
 openai_responses = 'https://www.dmxapi.cn/v1'
@@ -53,6 +55,7 @@ base_url = 'https://www.dmxapi.cn'
 
 [accounts.ucloud]
 label = 'UCloud'
+order = 20
 
 [accounts.ucloud.endpoints]
 openai_chat_completions = 'https://api.modelverse.cn/v1'
@@ -60,85 +63,111 @@ openai_responses = 'https://api.modelverse.cn/v1'
 anthropic = 'https://api.modelverse.cn'
 
 [models]
-[models.claude-fable-5-1]
-label = 'Claude Fable 5.1'
+[models.claude-haiku-5-5]
+label = 'Claude Haiku 5.5'
+order = 40
 
 [models.claude-opus-5-5]
 label = 'Claude Opus 5.5'
+order = 20
 
 [models.claude-sonnet-5-5]
 label = 'Claude Sonnet 5.5'
+order = 30
 
 [models.cohere-command-a]
 label = 'Cohere Command A'
+order = 200
 
 [models.'deepseek-v4.1-flash']
 label = 'DeepSeek V4.1 Flash'
+order = 210
 
 [models.doubao-seed-2-1-pro-260628]
 label = 'Doubao Seed 2.1 Pro 260628'
+order = 220
 
 [models.'ernie-5.1']
 label = 'ERNIE 5.1'
+order = 230
 
 [models.'gemini-3.8-flash']
 label = 'Gemini 3.8 Flash'
+order = 240
 
 [models.'glm-5.3']
 label = 'GLM 5.3'
-
-[models.gpt-6-astra]
-label = 'GPT-6 Astra'
-
-[models.gpt-6-luna]
-label = 'GPT-6 Luna'
+order = 250
 
 [models.'gpt-6.1-sol']
 label = 'GPT-6.1 Sol'
+order = 120
 
 [models.'grok-4.7']
 label = 'Grok 4.7'
+order = 260
 
 [models.hy4-preview]
 label = 'HY4 Preview'
+order = 270
 
 [models.kimi-k3]
 label = 'Kimi K3'
+order = 280
 
 [models.'laguna-s-2.1']
 label = 'Poolside Laguna S 2.1'
+order = 290
 
 [models.'ling-3.0-flash']
 label = 'Ling 3.0 Flash'
+order = 300
 
 [models.'longcat-2.5-preview']
 label = 'LongCat 2.5 Preview'
+order = 310
 
 [models.'mercury-2.5']
 label = 'Mercury 2.5'
+order = 320
 
 [models.'mimo-v2.6-pro']
 label = 'MiMo V2.6 Pro'
+order = 330
 
 [models.minimax-m3]
 label = 'MiniMax M3'
+order = 340
 
 [models.mistral-large-3]
 label = 'Mistral Large 3'
+order = 350
 
 [models.'muse-spark-1.3']
 label = 'Muse Spark 1.3'
+order = 360
 
 [models.nemotron-3-ultra-550b-a55b]
 label = 'NVIDIA Nemotron 3 Ultra'
+order = 370
 
 [models.'qwen3.8-max']
 label = 'Qwen 3.8 Max'
+order = 380
 
 [models.step-5-preview]
 label = 'Step 5 Preview'
+order = 390
 
 [routes]
+[routes.aihubmix-claude-haiku-5-5]
+account = 'aihubmix'
+model = 'claude-haiku-5-5'
+upstream_model = 'claude-haiku-5-5'
+
+[routes.aihubmix-claude-haiku-5-5.interfaces]
+anthropic = []
+
 [routes.aihubmix-claude-opus-5-5]
 account = 'aihubmix'
 model = 'claude-opus-5-5'
@@ -201,22 +230,6 @@ model = 'glm-5.3'
 upstream_model = 'glm-5.3'
 
 [routes.'aihubmix-glm-5.3'.interfaces]
-openai_responses = []
-
-[routes.aihubmix-gpt-6-astra]
-account = 'aihubmix'
-model = 'gpt-6-astra'
-upstream_model = 'gpt-6-astra'
-
-[routes.aihubmix-gpt-6-astra.interfaces]
-openai_responses = []
-
-[routes.aihubmix-gpt-6-luna]
-account = 'aihubmix'
-model = 'gpt-6-luna'
-upstream_model = 'gpt-6-luna'
-
-[routes.aihubmix-gpt-6-luna.interfaces]
 openai_responses = []
 
 [routes.'aihubmix-gpt-6.1-sol']
@@ -317,12 +330,12 @@ upstream_model = 'step-5-preview'
 [routes.aihubmix-step-5-preview.interfaces]
 openai_chat_completions = []
 
-[routes.dmxapi-claude-fable-5-1]
+[routes.dmxapi-claude-haiku-5-5-cc]
 account = 'dmxapi'
-model = 'claude-fable-5-1'
-upstream_model = 'claude-fable-5-1'
+model = 'claude-haiku-5-5'
+upstream_model = 'claude-haiku-5-5-cc'
 
-[routes.dmxapi-claude-fable-5-1.interfaces]
+[routes.dmxapi-claude-haiku-5-5-cc.interfaces]
 anthropic = []
 
 [routes.dmxapi-claude-opus-5-5]
@@ -381,40 +394,6 @@ model = 'glm-5.3'
 upstream_model = 'glm-5.3'
 
 [routes.'dmxapi-glm-5.3'.interfaces]
-openai_responses = []
-
-[routes.dmxapi-gpt-6-astra]
-account = 'dmxapi'
-model = 'gpt-6-astra'
-upstream_model = 'gpt-6-astra'
-
-[routes.dmxapi-gpt-6-astra.interfaces]
-openai_responses = []
-
-[routes.dmxapi-gpt-6-astra-cdx]
-label = 'DMXAPI · GPT-6 Astra · CDX'
-account = 'dmxapi'
-model = 'gpt-6-astra'
-upstream_model = 'gpt-6-astra-cdx'
-
-[routes.dmxapi-gpt-6-astra-cdx.interfaces]
-openai_responses = []
-
-[routes.dmxapi-gpt-6-astra-ssvip]
-label = 'DMXAPI · GPT-6 Astra · SSVIP'
-account = 'dmxapi'
-model = 'gpt-6-astra'
-upstream_model = 'gpt-6-astra-ssvip'
-
-[routes.dmxapi-gpt-6-astra-ssvip.interfaces]
-openai_responses = []
-
-[routes.dmxapi-gpt-6-luna]
-account = 'dmxapi'
-model = 'gpt-6-luna'
-upstream_model = 'gpt-6-luna'
-
-[routes.dmxapi-gpt-6-luna.interfaces]
 openai_responses = []
 
 [routes.'dmxapi-gpt-6.1-sol']
@@ -482,12 +461,12 @@ upstream_model = 'step-5-preview'
 [routes.dmxapi-step-5-preview.interfaces]
 openai_responses = []
 
-[routes.ucloud-claude-fable-5-1]
+[routes.ucloud-claude-haiku-5-5]
 account = 'ucloud'
-model = 'claude-fable-5-1'
-upstream_model = 'claude-fable-5-1'
+model = 'claude-haiku-5-5'
+upstream_model = 'claude-haiku-5-5'
 
-[routes.ucloud-claude-fable-5-1.interfaces]
+[routes.ucloud-claude-haiku-5-5.interfaces]
 anthropic = []
 
 [routes.ucloud-claude-opus-5-5]
@@ -537,22 +516,6 @@ upstream_model = 'glm-5.3'
 
 [routes.'ucloud-glm-5.3'.interfaces]
 openai_chat_completions = []
-
-[routes.ucloud-gpt-6-astra]
-account = 'ucloud'
-model = 'gpt-6-astra'
-upstream_model = 'gpt-6-astra'
-
-[routes.ucloud-gpt-6-astra.interfaces]
-openai_responses = []
-
-[routes.ucloud-gpt-6-luna]
-account = 'ucloud'
-model = 'gpt-6-luna'
-upstream_model = 'gpt-6-luna'
-
-[routes.ucloud-gpt-6-luna.interfaces]
-openai_responses = []
 
 [routes.'ucloud-gpt-6.1-sol']
 account = 'ucloud'

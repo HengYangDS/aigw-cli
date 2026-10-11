@@ -39,9 +39,9 @@ func TestTeamConfigurationManifestIsReviewedVersionSeven(t *testing.T) {
 	if parsedManifest.Version != 7 || len(parsedManifest.Accounts) != 3 || len(parsedManifest.Models) == 0 || len(parsedManifest.Routes) == 0 {
 		t.Fatalf("team manifest = version %d, %d Accounts, %d Models, %d Routes", parsedManifest.Version, len(parsedManifest.Accounts), len(parsedManifest.Models), len(parsedManifest.Routes))
 	}
-	for _, accountID := range []string{"aihubmix", "dmxapi", "ucloud"} {
-		if _, ok := parsedManifest.Accounts[accountID]; !ok {
-			t.Fatalf("team manifest missing account %q", accountID)
+	for accountID, order := range map[string]int{"dmxapi": 10, "ucloud": 20, "aihubmix": 30} {
+		if account, ok := parsedManifest.Accounts[accountID]; !ok || account.Order != order {
+			t.Fatalf("team account %q order = %d, want %d", accountID, account.Order, order)
 		}
 	}
 	recommendations := map[string]struct {
@@ -139,16 +139,23 @@ func TestTeamRecommendationsPermitSparseAccountsAndPreserveExplicitBindings(t *t
 func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	want := []string{
-		"claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5",
+		"claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5",
 		"cohere-command-a",
 		"deepseek-v4.1-flash", "doubao-seed-2-1-pro-260628", "ernie-5.1", "gemini-3.8-flash", "glm-5.3",
-		"gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol", "grok-4.7",
+		"gpt-6.1-sol", "grok-4.7",
 		"hy4-preview", "kimi-k3", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.5-preview", "mercury-2.5", "mimo-v2.6-pro",
 		"minimax-m3", "mistral-large-3", "muse-spark-1.3", "nemotron-3-ultra-550b-a55b",
 		"qwen3.8-max", "step-5-preview",
 	}
 	if got := slices.Sorted(maps.Keys(manifest.Models)); !slices.Equal(got, want) {
 		t.Fatalf("team logical Models = %v, want %v", got, want)
+	}
+	for model, order := range map[string]int{
+		"claude-opus-5-5": 20, "claude-sonnet-5-5": 30, "claude-haiku-5-5": 40, "gpt-6.1-sol": 120,
+	} {
+		if got := manifest.Models[model].Order; got != order {
+			t.Errorf("team Model %q order = %d, want %d", model, got, order)
+		}
 	}
 	if manifest.Models["claude-opus-5-5"].Label != "Claude Opus 5.5" {
 		t.Errorf("Opus 5.5 identity = %#v", manifest.Models["claude-opus-5-5"])
@@ -177,8 +184,6 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 func TestTeamManifestGPTAccountRoutesFollowInferenceEvidence(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	want := map[string][]string{
-		"gpt-6-astra": {"aihubmix", "dmxapi", "ucloud"},
-		"gpt-6-luna":  {"aihubmix", "dmxapi", "ucloud"},
 		"gpt-6.1-sol": {"aihubmix", "dmxapi", "ucloud"},
 	}
 	for model, accounts := range want {
@@ -361,15 +366,16 @@ func TestTeamManifestRoutesUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 			t.Errorf("Route %q has no exact wire ID or compatible client/protocol: %v", routeID, compatibilityErr)
 		}
 	}
-	variants := map[string]struct{ model, wire string }{
+	wireIdentities := map[string]struct{ model, wire string }{
+		"aihubmix-claude-haiku-5-5":      {"claude-haiku-5-5", "claude-haiku-5-5"},
+		"dmxapi-claude-haiku-5-5-cc":     {"claude-haiku-5-5", "claude-haiku-5-5-cc"},
+		"ucloud-claude-haiku-5-5":        {"claude-haiku-5-5", "claude-haiku-5-5"},
 		"dmxapi-claude-sonnet-5-5-cc":    {"claude-sonnet-5-5", "claude-sonnet-5-5-cc"},
 		"dmxapi-claude-sonnet-5-5-ssvip": {"claude-sonnet-5-5", "claude-sonnet-5-5-ssvip"},
-		"dmxapi-gpt-6-astra-cdx":         {"gpt-6-astra", "gpt-6-astra-cdx"},
-		"dmxapi-gpt-6-astra-ssvip":       {"gpt-6-astra", "gpt-6-astra-ssvip"},
 		"dmxapi-gpt-6.1-sol-cdx":         {"gpt-6.1-sol", "gpt-6.1-sol-cdx"},
 		"aihubmix-minimax-m3-cc":         {"minimax-m3", "cc-minimax-m3"},
 	}
-	for routeID, want := range variants {
+	for routeID, want := range wireIdentities {
 		route, ok := manifest.Routes[routeID]
 		if !ok || route.Model != want.model || route.UpstreamModelID() != want.wire {
 			t.Errorf("channel Route %q = %+v, want canonical Model %q and wire %q", routeID, route, want.model, want.wire)
