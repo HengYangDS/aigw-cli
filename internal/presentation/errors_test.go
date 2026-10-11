@@ -225,7 +225,7 @@ func TestTypedErrorLocalizationDoesNotDependOnErrorText(t *testing.T) {
 	}{
 		{name: "route client mismatch", err: &configuration.RuntimeRouteClientMismatchError{RouteID: "one", ExpectedClient: configuration.ClientCodex, ActualClient: configuration.ClientClaude}, want: `route "one" is for codex, not claude`},
 		{name: "route unknown account", err: &configuration.RuntimeRouteUnknownAccountError{RouteID: "one", AccountID: "missing"}, want: `route "one" references unknown account "missing"`},
-		{name: "Anthropic endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolAnthropic}, want: `account "one" has no Anthropic endpoint`},
+		{name: "Anthropic endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolAnthropic}, want: `account "one" has no Anthropic Messages endpoint`},
 		{name: "OpenAI Responses endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolOpenAIResponses}, want: `account "one" has no OpenAI Responses endpoint`},
 		{name: "OpenAI Chat Completions endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolOpenAIChatCompletions}, want: `account "one" has no OpenAI Chat Completions endpoint`},
 		{name: "unsupported version", err: &configuration.UnsupportedConfigVersionError{Version: 3, ExpectedVersion: 2}, want: "unsupported configuration version: found 3, expected 2. AIGW does not reinterpret configuration schemas"},
@@ -251,7 +251,7 @@ func TestTypedErrorLocalizationRejectsTextualLookalikes(t *testing.T) {
 	for _, message := range []string{
 		`route "one" is for codex, not claude`,
 		`route "one" references unknown account "missing"`,
-		`account "one" has no Anthropic endpoint`,
+		`account "one" has no Anthropic Messages endpoint`,
 		`account "one" has no OpenAI Responses endpoint`,
 		"validate config: unsupported config version 3; expected 2",
 		"read config: details changed",

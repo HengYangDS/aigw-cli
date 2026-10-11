@@ -137,7 +137,7 @@ func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 		want    string
 	}{
 		{name: "unknown client", account: account, client: "unknown", want: `unsupported credential validation client "unknown"`},
-		{name: "missing endpoint", account: account, client: configuration.ClientClaude, want: "no Anthropic endpoint"},
+		{name: "missing endpoint", account: account, client: configuration.ClientClaude, want: "no Anthropic Messages endpoint"},
 		{name: "invalid URL", account: configuration.Account{ID: "team", Endpoints: configuration.Endpoints{OpenAIResponses: "://bad"}}, client: configuration.ClientCodex, want: "missing protocol scheme"},
 		{name: "unreachable", account: account, client: configuration.ClientCodex, doer: doerFunc(func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") }), want: "Codex endpoint is unreachable: offline"},
 		{name: "read body", account: account, client: configuration.ClientCodex, doer: staticResponse(http.StatusOK, responseBody{Reader: failingReader{err: errors.New("broken body")}}), want: "read Codex endpoint response: broken body"},
