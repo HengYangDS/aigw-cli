@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -156,6 +157,9 @@ func TestGitHubLinuxNativeJourneyUsesTheLockedProductCommand(t *testing.T) {
 			body, found = strings.CutSuffix(strings.TrimSpace(body), "AIGW_SECRET_SERVICE")
 			if !found {
 				t.Fatal("native Linux Secret Service session is not terminated")
+			}
+			if runtime.GOOS == "windows" {
+				t.Skip("Linux Secret Service Bash syntax is qualified on Unix hosts")
 			}
 			command := exec.CommandContext(t.Context(), "bash", "-n")
 			command.Stdin = strings.NewReader(body)
