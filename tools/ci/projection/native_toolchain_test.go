@@ -30,10 +30,7 @@ func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 }
 
 func TestLinuxSecretServiceUsesOnlyItsLockedExecutableClosure(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	const tools = "go,github:goreleaser/goreleaser"
 	var gitlab struct {
 		SecretService gitLabJob `yaml:"linux-secret-service"`
@@ -69,10 +66,7 @@ func TestLinuxSecretServiceUsesOnlyItsLockedExecutableClosure(t *testing.T) {
 }
 
 func TestNativePrebuiltAcceptanceKeepsBootstrapConditional(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var gitlab struct {
 		Linux   gitLabJob `yaml:"native-linux"`
 		Darwin  gitLabJob `yaml:"native-darwin-review"`
@@ -127,10 +121,7 @@ func TestNativeArtifactBootstrapExecutesTheDeclaredScope(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		return // POSIX projection execution is qualified on Unix hosts.
 	}
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var pipeline struct {
 		Linux gitLabJob `yaml:"native-linux"`
 	}
@@ -260,10 +251,7 @@ func TestLinuxSecretServiceHasItsOwnRequiredJob(t *testing.T) {
 }
 
 func TestLinuxCompilerPrerequisitesBelongOnlyToNativeRaceExecution(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var pipeline struct {
 		Toolchain     gitLabJob `yaml:".linux-toolchain"`
 		Quality       gitLabJob `yaml:"quality"`
@@ -387,10 +375,7 @@ func checkGitHubNativeToolClosure(t *testing.T, projection projection) {
 }
 
 func TestGitHubWindowsUsesThePortableNativeToolClosure(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var workflow struct {
 		Jobs map[string]struct {
 			RunsOn yaml.Node         `yaml:"runs-on"`
@@ -418,10 +403,7 @@ func TestGitHubWindowsUsesThePortableNativeToolClosure(t *testing.T) {
 }
 
 func TestWindowsClientInstallerUsesPinnedContentAPI(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	type step struct {
 		Name           string            `yaml:"name"`
 		If             string            `yaml:"if"`
@@ -483,10 +465,7 @@ func TestWindowsClientInstallerUsesPinnedContentAPI(t *testing.T) {
 }
 
 func TestGitLabNativeAcceptanceForwardsPeerLocalArtifactAndClientInputs(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var jobs struct {
 		Linux   gitLabJob `yaml:"native-linux"`
 		Darwin  gitLabJob `yaml:"native-darwin-review"`

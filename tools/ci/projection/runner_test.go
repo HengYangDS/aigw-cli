@@ -42,10 +42,7 @@ func TestGitLabQualityAndControlRunnerSelectors(t *testing.T) {
 }
 
 func TestGitLabDarwinReviewQualifiesDeclaredProtectedResource(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var pipeline struct {
 		Darwin       gitLabJob `yaml:"native-darwin"`
 		DarwinReview gitLabJob `yaml:"native-darwin-review"`
@@ -71,10 +68,7 @@ func TestGitLabDarwinReviewQualifiesDeclaredProtectedResource(t *testing.T) {
 }
 
 func TestGitLabLinuxJobsSelectRunnerByRefTrust(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var pipeline map[string]yaml.Node
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)

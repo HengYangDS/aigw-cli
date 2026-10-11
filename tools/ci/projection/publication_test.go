@@ -202,10 +202,7 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 }
 
 func TestVerificationConcurrencyPreservesIndependentManualRuns(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var workflow struct {
 		Concurrency struct {
 			Group            string `yaml:"group"`
@@ -222,10 +219,7 @@ func TestVerificationConcurrencyPreservesIndependentManualRuns(t *testing.T) {
 }
 
 func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	type step struct {
 		Name string            `yaml:"name"`
 		If   string            `yaml:"if"`
@@ -295,10 +289,7 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 }
 
 func TestManualPrebuiltPerformanceUsesItsExactToolClosure(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var workflow struct {
 		Jobs map[string]struct {
 			Env map[string]string `yaml:"env"`
@@ -322,10 +313,7 @@ func TestManualPrebuiltPerformanceUsesItsExactToolClosure(t *testing.T) {
 }
 
 func TestPerformanceHostPreparesNativeMemoryTool(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var workflow struct {
 		Jobs map[string]struct {
 			Steps []struct {
@@ -373,10 +361,7 @@ func TestPerformanceHostPreparesNativeMemoryTool(t *testing.T) {
 }
 
 func TestGitLabPerformanceUsesItsSelectedNativeClosure(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var pipeline map[string]yaml.Node
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)

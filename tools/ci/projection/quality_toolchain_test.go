@@ -61,10 +61,7 @@ func TestQualityJobsUseTheirExactToolClosure(t *testing.T) {
 }
 
 func TestEverySourceConsumerRetainsDependencyEvidenceOnFailure(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var gitlab map[string]yaml.Node
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)

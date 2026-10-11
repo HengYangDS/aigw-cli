@@ -204,10 +204,7 @@ func TestGitLabToolchainUsesOfficialRunnableMiseImage(t *testing.T) {
 }
 
 func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var pipeline struct {
 		LinuxToolchain gitLabJob  `yaml:".linux-toolchain"`
 		NativeLinux    *gitLabJob `yaml:"native-linux"`
@@ -253,10 +250,7 @@ func TestGitLabLinuxNativeJobUsesTheSharedLockedToolchain(t *testing.T) {
 }
 
 func TestGitLabLinuxPreparationStopsBeforeToolInstallation(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var pipeline struct {
 		LinuxToolchain gitLabJob `yaml:".linux-toolchain"`
 	}
@@ -425,10 +419,7 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 }
 
 func TestLockRefreshIsExplicitAndUsesOneNativeTask(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var workflow struct {
 		On struct {
 			Dispatch struct {

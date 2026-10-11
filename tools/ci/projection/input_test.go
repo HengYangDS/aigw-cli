@@ -115,10 +115,7 @@ func checkProjectedNativeReleaseArguments(t *testing.T, script, platform string)
 }
 
 func TestLinuxNativeReleaseUsesPrivateSecretServiceOnBothPeers(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var gitlab struct {
 		Linux gitLabJob `yaml:"native-linux"`
 	}

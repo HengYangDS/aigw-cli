@@ -3,11 +3,39 @@ package projection
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"go.yaml.in/yaml/v3"
 )
+
+var canonicalProjectionFixture = sync.OnceValues(func() ([]projection, error) {
+	return renderProjections(filepath.Join("..", "..", ".."))
+})
+
+func canonicalProjections(t *testing.T) []projection {
+	t.Helper()
+	items, err := canonicalProjectionFixture()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return slices.Clone(items)
+}
+
+func TestCanonicalProjectionFixtureRendersOnceAndIsolatesReaders(t *testing.T) {
+	want := canonicalProjections(t)
+	t.Setenv("PATH", t.TempDir())
+	got := canonicalProjections(t)
+	if !slices.Equal(got, want) {
+		t.Fatal("canonical projection fixture changed between reads")
+	}
+	got[0] = projection{}
+	if !slices.Equal(canonicalProjections(t), want) {
+		t.Fatal("one reader changed the shared projection fixture")
+	}
+}
 
 func TestReconcileOwnsRenderingAndReadOnlyVerification(t *testing.T) {
 	content := `package ci

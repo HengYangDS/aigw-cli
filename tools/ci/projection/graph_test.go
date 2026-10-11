@@ -90,10 +90,7 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 }
 
 func TestGitLabSupersededReviewCancellationPreservesNativeShellJobs(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var gitlab struct {
 		Quality            gitLabJob `yaml:"quality"`
 		Darwin             gitLabJob `yaml:"native-darwin"`
@@ -143,10 +140,7 @@ func TestGitLabSupersededReviewCancellationPreservesNativeShellJobs(t *testing.T
 }
 
 func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var github struct {
 		On struct {
 			Dispatch struct {
@@ -201,10 +195,7 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 }
 
 func TestGitLabFullNativeQualityUsesTheExistingEntryPoint(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var jobs map[string]yaml.Node
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &jobs); err != nil {
 		t.Fatal(err)
@@ -426,10 +417,7 @@ func TestGitHubVerificationChecksOutTheExactProductCommit(t *testing.T) {
 }
 
 func TestHostedGitCommandsPreserveBranchesPathsAndJobTokenScope(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	for index, carrier := range projections {
 		var workflow struct {
 			Env       map[string]string `yaml:"env"`

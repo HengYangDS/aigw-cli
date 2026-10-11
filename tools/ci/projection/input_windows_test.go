@@ -251,10 +251,7 @@ func TestNativePowerShellAcceptancePreservesDeclaredEmptyTag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Windows native acceptance requires PowerShell: %v", err)
 	}
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var workflow struct {
 		Jobs map[string]struct {
 			Steps []struct {

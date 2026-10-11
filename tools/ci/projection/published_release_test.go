@@ -1,7 +1,6 @@
 package projection
 
 import (
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -10,10 +9,7 @@ import (
 )
 
 func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var workflow struct {
 		On map[string]struct {
 			Inputs map[string]struct{ Required bool }
@@ -86,10 +82,7 @@ func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
 }
 
 func TestPublishedNativeLifecycleUsesSelectedIsolatedRunner(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var workflow struct {
 		On map[string]struct {
 			Inputs map[string]struct {
@@ -134,10 +127,7 @@ func TestPublishedNativeLifecycleUsesSelectedIsolatedRunner(t *testing.T) {
 }
 
 func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var pipeline struct {
 		Version   gitLabJob `yaml:"release-version"`
 		Assets    gitLabJob `yaml:"release-assets"`
@@ -179,10 +169,7 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 }
 
 func TestGitHubNativeInputReleaseProjectsOneOwnedTransport(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var workflow struct {
 		On struct {
 			Dispatch struct {

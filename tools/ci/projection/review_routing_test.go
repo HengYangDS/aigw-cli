@@ -2,7 +2,6 @@ package projection
 
 import (
 	"maps"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -11,10 +10,7 @@ import (
 )
 
 func TestGitLabNativeRunnerTrustSplit(t *testing.T) {
-	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	projections := canonicalProjections(t)
 	var pipeline struct {
 		Quality       gitLabJob `yaml:"quality"`
 		Darwin        gitLabJob `yaml:"native-darwin"`
