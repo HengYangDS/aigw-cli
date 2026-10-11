@@ -362,6 +362,10 @@ func (p nativeClientJourneyPlan) clientLifecycle(journey *journeyFixture, client
 
 func (j *journeyFixture) verifyNativeConfigEditing(client, executable string) {
 	j.testing.Helper()
+	if client == configuration.ClientHermes {
+		j.verifyNativeHermesSelection(executable)
+		return
+	}
 	if client != configuration.ClientCodex {
 		return
 	}

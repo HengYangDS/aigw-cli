@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,13 +13,18 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 
+	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/process"
+
+	"go.yaml.in/yaml/v3"
 )
 
 type hermesSessionRecorder struct {
@@ -29,6 +35,75 @@ type hermesSessionRecorder struct {
 	readFilePath, readFileMarker, readFileSessionMarker string
 	readFileCallIssued, readFileOutputAccepted          bool
 	toolHistoryRequired                                 bool
+}
+
+func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
+	j.testing.Helper()
+	store := configuration.NewStore(j.config)
+	before, err := store.Load()
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	selected, err := before.ResolveRuntime(configuration.ClientHermes, "")
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	var alternative configuration.Runtime
+	for _, id := range before.RouteIDs() {
+		candidate, err := before.ResolveRuntime(configuration.ClientHermes, id)
+		if err == nil && candidate.AccountID == selected.AccountID && candidate.Protocol == selected.Protocol && candidate.Model != selected.Model {
+			alternative = candidate
+			break
+		}
+	}
+	if alternative.RouteID == "" {
+		j.testing.Fatal("native Hermes selection requires another owned model on the same protocol")
+	}
+	target := j.clientProjectionPaths(configuration.ClientHermes)[0]
+	j.runWith(executable, "config", "set", "model.default", alternative.Model)
+	nativeBefore, stateBefore := readFile(j.testing, target), readFile(j.testing, target+".aigw-state.json")
+	ctx, cancel := context.WithTimeout(j.testing.Context(), clientverification.ProtocolTimeout)
+	defer cancel()
+	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: j.binary, Args: []string{"sync", "--dry-run", "--json"}, Env: j.environment})
+	if err == nil || !strings.Contains(string(append(stdout, stderr...)), "managed Hermes settings changed outside AIGW") {
+		j.testing.Fatal("ordinary synchronization did not refuse the native selection change")
+	}
+	args := []string{"use", "--for", configuration.ClientHermes, "--protocol", string(alternative.Protocol), alternative.RouteID}
+	j.run(append(slices.Clone(args), "--dry-run", "--json")...)
+	if !bytes.Equal(readFile(j.testing, target), nativeBefore) || !bytes.Equal(readFile(j.testing, target+".aigw-state.json"), stateBefore) {
+		j.testing.Fatal("selection preview changed the native preimages")
+	}
+	j.run(args...)
+	after, err := store.Load()
+	if err != nil || after.SelectedRoute(configuration.ClientHermes) != alternative.RouteID {
+		j.testing.Fatalf("native selection adoption: %v", err)
+	}
+	var original, adopted map[string]any
+	if err := yaml.Unmarshal(nativeBefore, &original); err != nil {
+		j.testing.Fatal(err)
+	}
+	if err := yaml.Unmarshal(readFile(j.testing, target), &adopted); err != nil {
+		j.testing.Fatal(err)
+	}
+	if !reflect.DeepEqual(original, adopted) || !reflect.DeepEqual(before.Accounts, after.Accounts) {
+		j.testing.Fatal("selection adoption changed native settings or Account metadata")
+	}
+	var preview struct {
+		Targets []struct {
+			Action string `json:"action"`
+		} `json:"targets"`
+	}
+	if err := json.Unmarshal(j.run("sync", "--dry-run", "--json"), &preview); err != nil {
+		j.testing.Fatal(err)
+	}
+	for _, target := range preview.Targets {
+		if target.Action != "unchanged" && target.Action != "already-converged" {
+			j.testing.Fatalf("native selection did not converge: %s", target.Action)
+		}
+	}
+	j.run("use", "--for", configuration.ClientHermes, "--protocol", string(selected.Protocol), selected.RouteID)
+	j.run("check")
+	j.requireNativePreferences(configuration.ClientHermes)
 }
 
 type hermesSessionSnapshot struct {

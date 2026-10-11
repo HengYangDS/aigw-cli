@@ -117,6 +117,19 @@ const stateSuffix = ".aigw-state.json"
 
 // Prepare validates and prepares one projection or its withdrawal.
 func Prepare(path string, desired *Desired) (Plan, error) {
+	return prepare(path, desired, nil)
+}
+
+// PrepareAuthorizedSelection admits an explicit selection only when replacing
+// the selected tuple with the prior tuple proves all other managed state.
+func PrepareAuthorizedSelection(path string, desired, previous Desired) (Plan, error) {
+	if err := previous.Validate(); err != nil {
+		return Plan{}, err
+	}
+	return prepare(path, &desired, &previous)
+}
+
+func prepare(path string, desired, previous *Desired) (Plan, error) {
 	plan := Plan{path: path, Action: "unchanged"}
 	var err error
 	plan.configBefore, err = transaction.CaptureFileSnapshot(path)
@@ -134,7 +147,7 @@ func Prepare(path string, desired *Desired) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	state, before, err := plan.readOwnership(root, desired)
+	state, before, err := plan.readOwnership(root, desired, previous)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -190,10 +203,11 @@ func (plan *Plan) prepareDesired(root *yaml.Node, desired Desired, state ownersh
 	if err != nil {
 		return err
 	}
-	if plan.stateBefore.Exists && bytes.Equal(before, after) && !orderChanged {
+	afterDigest := digest(after)
+	if plan.stateBefore.Exists && bytes.Equal(before, after) && !orderChanged && state.ManagedDigest == afterDigest {
 		return nil
 	}
-	state.ManagedDigest = digest(after)
+	state.ManagedDigest = afterDigest
 	plan.stateAfter, err = json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return err
@@ -203,7 +217,7 @@ func (plan *Plan) prepareDesired(root *yaml.Node, desired Desired, state ownersh
 	return nil
 }
 
-func (plan *Plan) readOwnership(root *yaml.Node, desired *Desired) (ownership, []byte, error) {
+func (plan *Plan) readOwnership(root *yaml.Node, desired, previous *Desired) (ownership, []byte, error) {
 	if !plan.stateBefore.Exists {
 		return initialOwnership(root, desired, plan.configBefore.Exists)
 	}
@@ -220,7 +234,7 @@ func (plan *Plan) readOwnership(root *yaml.Node, desired *Desired) (ownership, [
 	if err != nil {
 		return state, nil, err
 	}
-	if digest(current) != state.ManagedDigest {
+	if digest(current) != state.ManagedDigest && !selectionOnlyDrift(root, state, previous) {
 		return state, nil, errors.New("managed Hermes settings changed outside AIGW; preserve the edit before synchronization")
 	}
 	return state, current, nil

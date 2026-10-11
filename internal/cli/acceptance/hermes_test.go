@@ -102,7 +102,7 @@ func TestHermesUseProjectsShippedChannelWireID(t *testing.T) {
 		t.Fatalf("shipped setup: %v\n%s", err, output.String())
 	}
 	output.Reset()
-	if err := cli.Execute(app, []string{"use", "--for", "hermes", "--protocol", "openai_responses", "dmxapi-gpt-6-astra-ssvip"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "--for", "hermes", "--protocol", "openai_responses", "dmxapi-gpt-6.1-sol-cdx"}); err != nil {
 		t.Fatalf("select shipped channel: %v\n%s", err, output.String())
 	}
 	var projected struct {
@@ -117,10 +117,87 @@ func TestHermesUseProjectsShippedChannelWireID(t *testing.T) {
 	if err := yaml.Unmarshal(readFile(t, target), &projected); err != nil {
 		t.Fatal(err)
 	}
-	if projected.Model.Default != "gpt-6-astra-ssvip" || !slices.Contains(projected.Providers[projected.Model.Provider].Models, projected.Model.Default) {
+	if projected.Model.Default != "gpt-6.1-sol-cdx" || !slices.Contains(projected.Providers[projected.Model.Provider].Models, projected.Model.Default) {
 		t.Fatalf("shipped Hermes projection = %#v", projected)
 	}
 	if httpClient.calls != 0 || strings.Contains(string(readFile(t, target)), "fixture-token") {
 		t.Fatal("Hermes selection sent a provider request or disclosed the Account Token")
+	}
+}
+
+func TestHermesExplicitSelectionAdoptsNativeSwitchThenSyncs(t *testing.T) {
+	app, output, credentials, _, httpClient := testApp(t, "")
+	for _, account := range []string{"dmxapi", "ucloud"} {
+		if err := credentials.Set(account, "fixture-token"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	target := filepath.Join(t.TempDir(), "hermes", "config.yaml")
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{configuration.ClientHermes: executableFixture(t, "hermes")},
+		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", Product: "Hermes", Authority: "aigw", ConfigPath: target}},
+	}}
+	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
+	for _, args := range [][]string{{"setup", "--from", manifest}, {"use", "--for", "hermes", "--protocol", "openai_responses", "ucloud-gpt-6.1-sol"}} {
+		if err := cli.Execute(app, args); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	observed := readFile(t, target)
+	var native map[string]any
+	if err := yaml.Unmarshal(observed, &native); err != nil {
+		t.Fatal(err)
+	}
+	model, ok := native["model"].(map[string]any)
+	if !ok {
+		t.Fatal("native Hermes model is not a mapping")
+	}
+	providerID := "aigw-dmxapi-openai-responses"
+	providers, ok := native["providers"].(map[string]any)
+	if !ok {
+		t.Fatal("native Hermes providers are not a mapping")
+	}
+	provider, ok := providers[providerID].(map[string]any)
+	if !ok {
+		t.Fatal("native Hermes selected provider is not a mapping")
+	}
+	model["provider"], model["base_url"] = providerID, provider["base_url"]
+	drifted, err := yaml.Marshal(native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, target, drifted, 0o600)
+	stateBefore := readFile(t, target+".aigw-state.json")
+	configBefore, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"sync"}); err == nil {
+		t.Fatal("ordinary sync accepted native drift without explicit selection")
+	}
+	args := []string{"use", "--for", "hermes", "--protocol", "openai_responses", "dmxapi-gpt-6.1-sol"}
+	if err := cli.Execute(app, append(slices.Clone(args), "--dry-run", "--json")); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(readFile(t, target), drifted) || !bytes.Equal(readFile(t, target+".aigw-state.json"), stateBefore) {
+		t.Fatal("selection preview mutated native state")
+	}
+	if err := cli.Execute(app, args); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatalf("sync after explicit adoption: %v", err)
+	}
+	cfg, err := app.Config.Load()
+	if err != nil || cfg.SelectedRoute(configuration.ClientHermes) != "dmxapi-gpt-6.1-sol" {
+		t.Fatalf("Hermes binding after adoption: %#v, %v", cfg.Clients, err)
+	}
+	for _, client := range []string{configuration.ClientCodex, configuration.ClientClaude, configuration.ClientClaudeDesktop} {
+		if cfg.SelectedRoute(client) != configBefore.SelectedRoute(client) {
+			t.Fatalf("Hermes adoption changed %s", client)
+		}
+	}
+	if httpClient.calls != 0 || strings.Contains(output.String(), "fixture-token") {
+		t.Fatal("selection recovery sent requests or disclosed credentials")
 	}
 }

@@ -97,6 +97,11 @@ An admitted client adapter produces and withdraws only its AIGW-owned native
 projection; it does not own provider behavior. Missing and unbound clients
 remain untouched.
 
+Explicit `use` can adopt a native Hermes selection change only after proving
+that its owned providers and credential commands are intact. Ordinary `sync`
+refuses unproved edits; selection is not permission to overwrite a changed
+provider definition.
+
 ## Endpoint
 
 - Claude Code consumes the Account's Anthropic endpoint.

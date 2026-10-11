@@ -116,16 +116,16 @@ type ConfigStore interface {
 // Synchronizer carries the explicit dependencies required for one convergence
 // transaction. Client behavior is selected only through Registry.
 type Synchronizer struct {
-	Config                       ConfigStore
-	Secrets                      secrets.Store
-	Runner                       process.VerificationRunner
-	Discovery                    discovery.Discoverer
-	Registry                     client.Registry
-	ClaudeSettingsPath           string
-	AIGWExecutable               string
-	CredentialPath               string
-	ResolveCredentialPath        func() (string, error)
-	AuthorizeCodexRouteSelection bool
+	Config                    ConfigStore
+	Secrets                   secrets.Store
+	Runner                    process.VerificationRunner
+	Discovery                 discovery.Discoverer
+	Registry                  client.Registry
+	ClaudeSettingsPath        string
+	AIGWExecutable            string
+	CredentialPath            string
+	ResolveCredentialPath     func() (string, error)
+	AuthorizedSelectionClient string
 }
 
 // DesiredClientConfiguration discovers the requested clients and derives the
@@ -227,12 +227,12 @@ func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...c
 		break
 	}
 	return client.Dependencies{
-		Secrets:                      s.Secrets,
-		Runner:                       s.Runner,
-		Discovery:                    s.Discovery,
-		ClaudeSettingsPath:           s.ClaudeSettingsPath,
-		AIGWExecutable:               executable,
-		AuthorizeCodexRouteSelection: s.AuthorizeCodexRouteSelection,
+		Secrets:                   s.Secrets,
+		Runner:                    s.Runner,
+		Discovery:                 s.Discovery,
+		ClaudeSettingsPath:        s.ClaudeSettingsPath,
+		AIGWExecutable:            executable,
+		AuthorizedSelectionClient: s.AuthorizedSelectionClient,
 	}, nil
 }
 

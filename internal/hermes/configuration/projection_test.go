@@ -153,6 +153,73 @@ func TestProjectionReconcilesOrderOnlyChangesAndPreservesNativeExtras(t *testing
 	}
 }
 
+func TestExplicitSelectionReconcilesOnlyProvedSelectionDrift(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	previous := testDesired()
+	other := previous.Providers[0]
+	other.ID, other.Endpoint = "other", "https://other.test/v1"
+	previous.Providers = append(previous.Providers, other)
+	plan, err := Prepare(path, &previous)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plan.Apply(); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	root, err := parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	desired := previous
+	desired.SelectedProvider = other.ID
+	setString(field(root, "model"), "provider", other.ID)
+	setString(field(root, "model"), "base_url", other.Endpoint)
+	drifted, err := encode(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, drifted, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Prepare(path, &desired); err == nil {
+		t.Fatal("ordinary synchronization authorized native selection drift")
+	}
+	stateBefore, err := os.ReadFile(path + stateSuffix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err = PrepareAuthorizedSelection(path, desired, previous)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := plan.Apply()
+	if err != nil {
+		t.Fatal(err)
+	}
+	synchronized, err := Prepare(path, &desired)
+	if err != nil || synchronized.Action != "unchanged" {
+		t.Fatalf("authorized selection was not adopted: action=%s error=%v", synchronized.Action, err)
+	}
+	if err := receipt.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if restored, _ := os.ReadFile(path); !bytes.Equal(restored, drifted) {
+		t.Fatal("authorized selection rollback changed the observed native preimage")
+	}
+	if restored, _ := os.ReadFile(path + stateSuffix); !bytes.Equal(restored, stateBefore) {
+		t.Fatal("authorized selection rollback changed the observed ownership preimage")
+	}
+	setString(field(field(root, "providers"), other.ID), "key_cmd", "foreign-reader")
+	tampered, _ := encode(root)
+	if err := os.WriteFile(path, tampered, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PrepareAuthorizedSelection(path, desired, previous); err == nil {
+		t.Fatal("explicit selection authorized an unproved provider change")
+	}
+}
+
 func TestProjectionPublishesTheCuratedModelsForEachOwnedProvider(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	desired := Desired{

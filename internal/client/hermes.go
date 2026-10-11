@@ -197,6 +197,17 @@ func hermesPlans(deps Dependencies, before, after configuration.Config) ([]herme
 			projection = &desired
 		}
 		plan, err := hermesconfig.Prepare(target, projection)
+		if err != nil && projection != nil && deps.AuthorizedSelectionClient == configuration.ClientHermes {
+			selected, resolveErr := before.ResolveRuntime(configuration.ClientHermes, "")
+			if resolveErr != nil {
+				return nil, nil, resolveErr
+			}
+			previous, desiredErr := hermesDesired(deps, before, selected)
+			if desiredErr != nil {
+				return nil, nil, desiredErr
+			}
+			plan, err = hermesconfig.PrepareAuthorizedSelection(target, *projection, previous)
+		}
 		if err != nil {
 			return nil, nil, err
 		}

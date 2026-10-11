@@ -100,7 +100,7 @@ func (codexAdapter) Plan(deps Dependencies, before, after configuration.Config) 
 		return nil, err
 	}
 	var plans []codex.ProjectionPlan
-	if deps.AuthorizeCodexRouteSelection {
+	if deps.AuthorizedSelectionClient == configuration.ClientCodex {
 		plans, err = codex.PlanReconciliationAuthorizedTransition(beforeRefs, afterRefs, previous, runtime)
 	} else {
 		plans, err = codex.PlanReconciliationTransition(beforeRefs, afterRefs, previous, runtime)
@@ -120,7 +120,7 @@ func (codexAdapter) Apply(_ context.Context, deps Dependencies, before, after co
 	if err != nil {
 		return nil, err
 	}
-	if deps.AuthorizeCodexRouteSelection {
+	if deps.AuthorizedSelectionClient == configuration.ClientCodex {
 		return codex.ReconcileConfigsAuthorizedTransition(beforeRefs, afterRefs, previous, runtime)
 	}
 	return codex.ReconcileConfigsTransition(beforeRefs, afterRefs, previous, runtime)

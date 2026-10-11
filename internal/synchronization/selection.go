@@ -87,7 +87,7 @@ func (s Synchronizer) selectRoute(ctx context.Context, before, after configurati
 	}
 	binding = after.Clients[client]
 	selector := s
-	selector.AuthorizeCodexRouteSelection = client == configuration.ClientCodex
+	selector.AuthorizedSelectionClient = client
 	projectionChanged, err = selector.commit(ctx, before, after, "client selection", true, client)
 	if err != nil {
 		return false, false, configuration.ClientBinding{}, err

@@ -171,8 +171,11 @@ Account and Model ranks are optional presentation metadata, not a second
 recommendation or failover policy. The Store owns `config.catalog.toml` alongside
 its guarded backups; canonical routing and credential readers never depend on
 it. Verified checkpoints restore historical routing with current presentation
-for surviving identities. Native picker policy remains the client's authority;
-configured order alone is not rendered-order evidence.
+for surviving identities. Ordinary synchronization rejects managed Hermes
+drift; explicit Hermes selection may adopt only a proved native selection
+change, then must update ownership even if the native file already matches.
+Rollback restores both observed preimages. Native picker policy remains the
+client's authority; configured order alone is not rendered-order evidence.
 
 Low-level manifest import retains local-only Routes by default. An operator may
 name obsolete local Routes for retirement in the same guarded configuration and

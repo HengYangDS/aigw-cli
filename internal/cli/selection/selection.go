@@ -168,7 +168,7 @@ type useResult struct {
 
 func previewUse(runtime invocation.Context, cfg configuration.Config, selected configuration.Runtime, forwarding *string, jsonMode bool) error {
 	synchronizer := invocation.Synchronizer(runtime)
-	synchronizer.AuthorizeCodexRouteSelection = selected.Client == configuration.ClientCodex
+	synchronizer.AuthorizedSelectionClient = selected.Client
 	proposed, _, err := synchronizer.PrepareSelection(cfg, selected.Client, selected.RouteID, selected.Protocol, forwarding)
 	if err != nil {
 		return err
