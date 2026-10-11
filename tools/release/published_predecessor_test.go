@@ -20,20 +20,19 @@ import (
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/upgrade"
 	"aigw-cli/tools/release/readiness"
 
 	"github.com/pelletier/go-toml/v2"
 )
 
 type publishedNativeJourney struct {
-	journey                     *journeyFixture
-	baseline, candidate         string
-	archive, checksums, version string
-	predecessor, sessionBytes   []byte
-	session                     string
-	clients                     []string
-	retained                    map[string]process.Plan
+	journey                            *journeyFixture
+	baseline, candidate                string
+	archive, checksums, version        string
+	predecessor, sessionBytes, catalog []byte
+	session                            string
+	clients                            []string
+	retained                           map[string]process.Plan
 }
 
 func TestNativePublishedPredecessorJourney(t *testing.T) {
@@ -358,14 +357,47 @@ func (state *publishedNativeJourney) upgrade(t *testing.T) {
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
 		t.Fatal("current-schema migration preview changed published configuration")
 	}
+	state.catalog = journey.importCatalogOrder()
 	journey.run("sync")
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
 		t.Fatal("unchanged synchronization rewrote published configuration")
 	}
 	journey.run("check")
 	for _, client := range state.clients {
+		journey.requireCredential(state.retained[client], "native-journey-token")
 		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
 	}
+}
+
+func (j *journeyFixture) importCatalogOrder() []byte {
+	j.testing.Helper()
+	before := readFile(j.testing, j.config)
+	ranked, err := configuration.Parse(readFile(j.testing, j.manifest))
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	account, model := ranked.Accounts["native-system-keyring-probe"], ranked.Models["claude-test"]
+	account.Order, model.Order = 10, 20
+	ranked.Accounts["native-system-keyring-probe"], ranked.Models["claude-test"] = account, model
+	data, err := toml.Marshal(ranked)
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	if err := os.WriteFile(j.manifest, data, 0o600); err != nil {
+		j.testing.Fatal(err)
+	}
+	j.run("config", "import", j.manifest, "--replace-account", "native-system-keyring-probe", "--replace-model", "claude-test")
+	store := configuration.NewStore(j.config)
+	updated := capturePublishedSnapshot(j.testing, store)
+	selected, err := store.Load()
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	if selected.Accounts["native-system-keyring-probe"].Order != 10 || selected.Models["claude-test"].Order != 20 ||
+		!updated.Catalog.Exists || !bytes.Equal(updated.Config.Data, before) {
+		j.testing.Fatal("catalogue ranks were not isolated from published routing")
+	}
+	return updated.Catalog.Data
 }
 
 func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecessorVersion string) {
@@ -383,7 +415,6 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 		t.Logf("Original public rollback stderr:\n%s", redaction.Text(string(stderr), journey.sensitiveInputs...))
 	}
 	if rollbackErr != nil {
-		state.diagnoseRollbackFailure(t)
 		t.Fatalf("Original public rollback failed: %s\nstdout:\n%s\nstderr:\n%s",
 			redaction.Text(rollbackErr.Error(), journey.sensitiveInputs...),
 			redaction.Text(string(stdout), journey.sensitiveInputs...), redaction.Text(string(stderr), journey.sensitiveInputs...))
@@ -394,11 +425,15 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 		journey.requireCredential(state.retained[client], "native-journey-token")
 		journey.requireCredential(successor[client], "native-journey-token")
 	}
-	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
-		t.Fatal("current-schema rollback changed published configuration")
+	if !bytes.Equal(readFile(t, journey.config), state.predecessor) ||
+		!bytes.Equal(capturePublishedSnapshot(t, configuration.NewStore(journey.config)).Catalog.Data, state.catalog) {
+		t.Fatal("current-schema rollback changed published routing or catalogue presentation")
 	}
 	journey.run("sync")
 	journey.run("check")
+	if !bytes.Equal(capturePublishedSnapshot(t, configuration.NewStore(journey.config)).Catalog.Data, state.catalog) {
+		t.Fatal("published predecessor synchronization changed catalogue presentation")
+	}
 	for _, client := range state.clients {
 		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
 	}
@@ -412,8 +447,9 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 	journey.run("check")
 	journey.requireVersion(state.version)
 	journey.requireProgramBytes(state.candidate)
-	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
-		t.Fatal("current-schema recovery rewrote published configuration")
+	if !bytes.Equal(readFile(t, journey.config), state.predecessor) ||
+		!bytes.Equal(capturePublishedSnapshot(t, configuration.NewStore(journey.config)).Catalog.Data, state.catalog) {
+		t.Fatal("current-schema recovery rewrote published routing or catalogue presentation")
 	}
 	state.finish(t)
 }
@@ -435,84 +471,4 @@ func (state *publishedNativeJourney) finish(t *testing.T) {
 	if !bytes.Equal(readFile(t, session), sessionBytes) {
 		t.Fatal("published predecessor uninstall changed user session history")
 	}
-}
-
-// diagnoseRollbackFailure observes only the isolated synthetic journey after a
-// failed public rollback. A successful diagnostic retry cannot pass the test.
-func (state *publishedNativeJourney) diagnoseRollbackFailure(t *testing.T) {
-	t.Helper()
-	journey := state.journey
-	if !bytes.Equal(readFile(t, journey.binary), readFile(t, state.candidate)) ||
-		!bytes.Equal(readFile(t, upgrade.RollbackPath(journey.binary)), readFile(t, state.baseline)) ||
-		!bytes.Equal(readFile(t, journey.config), state.predecessor) ||
-		!bytes.Equal(readFile(t, state.session), state.sessionBytes) {
-		t.Log("Rollback failure changed a protected fixture input; no diagnostic retry was attempted")
-		return
-	}
-	ctx, cancel := context.WithTimeout(t.Context(), 35*time.Second)
-	defer cancel()
-	observer := &publishedRollbackObserver{secrets: journey.sensitiveInputs}
-	_, directErr := observer.RunCapture(ctx, process.Plan{
-		Executable: state.baseline, Args: []string{"config", "export"}, Env: journey.environment,
-	})
-	if directErr != nil {
-		t.Logf("Published predecessor could not export its original configuration: %s",
-			redaction.Text(directErr.Error(), observer.secrets...))
-	} else {
-		updater := upgrade.Current(journey.binary)
-		updater.Runner = observer
-		_, diagnosticErr := updater.Rollback(ctx, state.predecessor)
-		if diagnosticErr != nil {
-			t.Logf("Original rollback verifier diagnostic error: %s",
-				redaction.Text(diagnosticErr.Error(), observer.secrets...))
-		}
-	}
-	data, err := json.Marshal(observer.commands)
-	if err != nil {
-		t.Logf("Rollback observation encoding failed: %v", err)
-		return
-	}
-	t.Logf("published_rollback_commands=%s", data)
-}
-
-type publishedRollbackCommand struct {
-	Arguments     string `json:"arguments"`
-	Milliseconds  int64  `json:"milliseconds"`
-	RunError      string `json:"run_error,omitempty"`
-	StandardError string `json:"standard_error,omitempty"`
-	OutputBytes   int    `json:"output_bytes"`
-	ParseError    string `json:"parse_error,omitempty"`
-	ExportVersion int    `json:"export_version,omitempty"`
-}
-
-type publishedRollbackObserver struct {
-	commands []publishedRollbackCommand
-	secrets  []string
-}
-
-func (observer *publishedRollbackObserver) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
-	started := time.Now()
-	output, diagnostic, err := (process.Runner{}).RunCaptureStreams(ctx, plan)
-	command := publishedRollbackCommand{
-		Arguments:    redaction.Text(strings.Join(plan.Args, " "), observer.secrets...),
-		Milliseconds: time.Since(started).Milliseconds(),
-		OutputBytes:  len(output), StandardError: redaction.Text(string(diagnostic), observer.secrets...),
-	}
-	if err != nil {
-		command.RunError = redaction.Text(err.Error(), observer.secrets...)
-	}
-	if slices.Equal(plan.Args, []string{"config", "export"}) {
-		var header struct {
-			Version int `toml:"version"`
-		}
-		if parseErr := toml.Unmarshal(output, &header); parseErr != nil {
-			command.ParseError = redaction.Text(parseErr.Error(), observer.secrets...)
-		}
-		command.ExportVersion = header.Version
-	}
-	observer.commands = append(observer.commands, command)
-	if err != nil {
-		return diagnostic, err
-	}
-	return output, nil
 }

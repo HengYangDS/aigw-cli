@@ -61,6 +61,7 @@ func TestNativeClientInputs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		manifest.Recommendations = map[string]configuration.ClientRecommendation{configuration.ClientCodex: manifest.Recommendations[configuration.ClientCodex]}
 		journey.prepareNativeClient(configuration.ClientCodex, file, team)
 		environment := environmentValues(journey.environment)
 		temporary := environment["TMPDIR"]
@@ -157,7 +158,6 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		journey.requireProgramBytes(p.candidate)
 	}
 	journey.prepareNativeClient(client, executable, p.team)
-	journey.isolateNativeClientManifest(client)
 	journey.setEnvironment(secrets.EnvironmentKey(route.Account), token)
 	journey.run("setup", "--from", journey.manifest, "--account", route.Account)
 	journey.enableNativeClient(client, executable)
@@ -318,26 +318,6 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	}
 }
 
-func (j *journeyFixture) isolateNativeClientManifest(client string) {
-	j.testing.Helper()
-	manifest, err := configuration.Parse(readFile(j.testing, j.manifest))
-	if err != nil {
-		j.testing.Fatal(err)
-	}
-	for recommendedClient := range manifest.Recommendations {
-		if recommendedClient != client {
-			delete(manifest.Recommendations, recommendedClient)
-		}
-	}
-	team, err := toml.Marshal(manifest)
-	if err != nil {
-		j.testing.Fatal(err)
-	}
-	if err := os.WriteFile(j.manifest, team, 0o600); err != nil {
-		j.testing.Fatal(err)
-	}
-}
-
 func (p nativeClientJourneyPlan) clientLifecycle(journey *journeyFixture, client string) []struct {
 	name, version, program string
 	args                   []string
@@ -438,13 +418,20 @@ updates:
 	if err != nil {
 		j.testing.Fatal(err)
 	}
+	manifest.Recommendations = map[string]configuration.ClientRecommendation{client: manifest.Recommendations[client]}
+	// The retained reader predates presentation order; this journey owns connections.
 	for name, account := range manifest.Accounts {
+		account.Order = 0
 		account.Endpoints.OpenAIResponses = j.endpoint
 		account.Endpoints.Anthropic = strings.TrimSuffix(j.endpoint, "/v1")
 		if account.AccountProbe != nil {
 			account.AccountProbe.BaseURL = j.endpoint
 		}
 		manifest.Accounts[name] = account
+	}
+	for id, model := range manifest.Models {
+		model.Order = 0
+		manifest.Models[id] = model
 	}
 	data, err := toml.Marshal(manifest)
 	if err != nil {

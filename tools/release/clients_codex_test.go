@@ -57,10 +57,9 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 	}
 	journey := newNativeJourney(t, p.candidate, server.URL+"/v1", false)
 	journey.prepareNativeClient(configuration.ClientCodex, executable, p.team)
-	journey.isolateNativeClientManifest(configuration.ClientCodex)
 	journey.setEnvironment(secrets.EnvironmentKey(account), token)
 	journey.run("setup", "--from", journey.manifest)
-	journey.run("use", "--for", configuration.ClientCodex, account+"-gpt-6-astra")
+	journey.run("use", "--for", configuration.ClientCodex, routeIDs[0])
 	journey.enableNativeClient(configuration.ClientCodex, executable)
 	selected := readFile(t, journey.config)
 	for _, routeID := range routeIDs {
@@ -150,7 +149,6 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, p.candidate, server.URL+"/v1", false)
 	journey.prepareNativeClient(configuration.ClientCodex, executable, p.team)
-	journey.isolateNativeClientManifest(configuration.ClientCodex)
 	journey.setEnvironment(secrets.EnvironmentKey(account), token)
 	journey.run("setup", "--from", journey.manifest)
 	journey.run("use", "--for", configuration.ClientCodex, routeID)

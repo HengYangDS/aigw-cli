@@ -402,6 +402,7 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 	oldVersion := j.predecessorVersion(newVersion)
 	j.testing.Logf("credential baseline version=%s sha256=%x; candidate version=%s sha256=%x", oldVersion, sha256.Sum256(readFile(j.testing, j.source)), newVersion, sha256.Sum256(readFile(j.testing, candidate)))
 	retained := append(prior, j.retainedCredentials()...)
+	var catalog []byte
 	for _, step := range []struct {
 		version string
 		program string
@@ -416,10 +417,16 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 		if !bytes.Equal(readFile(j.testing, j.config), configurationBefore) {
 			j.testing.Fatal("credential lifecycle changed the retained client configuration")
 		}
+		if catalog == nil {
+			catalog = j.importCatalogOrder()
+		}
 		for _, credential := range retained {
 			j.requireCredential(credential, token)
 		}
 		j.run("sync")
+		if !bytes.Equal(capturePublishedSnapshot(j.testing, configuration.NewStore(j.config)).Catalog.Data, catalog) {
+			j.testing.Fatal("credential lifecycle changed catalogue presentation")
+		}
 		current := j.retainedCredentials()
 		if step.version == newVersion {
 			j.requireCurrentVersionedReaders(current, step.version)
