@@ -9,11 +9,15 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 
 	"aigw-cli/internal/transaction"
 )
 
 const entrypointDirectory = "credential"
+
+// Reuse read buffers, never executable identities; each call still hashes every byte.
+var executableReadBuffers = sync.Pool{New: func() any { return new([256 << 10]byte) }}
 
 // VersionedEntrypointPath binds a private executable path to the exact source
 // bytes without creating files or relying on an installer-owned public link.
@@ -48,8 +52,13 @@ func executableDigest(source string) (sum [sha256.Size]byte, err error) {
 		return sum, errors.New("AIGW credential source is empty")
 	}
 	hash := sha256.New()
-	// Hide File.WriteTo so CopyBuffer uses the bounded buffer for every read.
-	if _, err := io.CopyBuffer(hash, struct{ io.Reader }{executable}, make([]byte, 256<<10)); err != nil {
+	buffer, ok := executableReadBuffers.Get().(*[256 << 10]byte)
+	if !ok || buffer == nil {
+		return sum, errors.New("AIGW executable read buffer is unavailable")
+	}
+	defer executableReadBuffers.Put(buffer)
+	// Hide File.WriteTo so CopyBuffer preserves the selected read size on every OS.
+	if _, err := io.CopyBuffer(hash, struct{ io.Reader }{executable}, buffer[:]); err != nil {
 		return sum, fmt.Errorf("hash AIGW executable for credential identity: %w", err)
 	}
 	return [sha256.Size]byte(hash.Sum(nil)), nil

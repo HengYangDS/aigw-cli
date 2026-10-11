@@ -320,8 +320,8 @@ func TestEntrypointVerificationKeepsMemoryBounded(t *testing.T) {
 				}
 			})
 			t.Logf("native reader %s: %s; %s", operation.name, measurement.String(), measurement.MemString())
-			if allocated := measurement.AllocedBytesPerOp(); allocated >= 1<<20 {
-				t.Fatalf("reader %s allocated %d bytes per operation for a %d-byte executable; require less than 1 MiB", operation.name, allocated, executableSize)
+			if allocated := measurement.AllocedBytesPerOp(); allocated >= 256<<10 {
+				t.Fatalf("reader %s allocated %d bytes per operation for a %d-byte executable; require less than 256 KiB", operation.name, allocated, executableSize)
 			}
 		})
 	}
@@ -470,5 +470,25 @@ func TestRetainedEntrypointRequiresExistingPrivateNamespaceIdentity(t *testing.T
 	other = filepath.Join(blocked, "credential", filepath.Base(filepath.Dir(current)), "aigw")
 	if err := ValidateRetainedEntrypoint(other, retained); err == nil {
 		t.Fatal("an unavailable namespace was accepted")
+	}
+}
+
+func TestExecutableDigestRechecksConcurrentSources(t *testing.T) {
+	for _, name := range []string{"source", "reader"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			path := filepath.Join(t.TempDir(), name)
+			data := []byte(strings.Repeat(name, 128<<10))
+			for iteration := range 4 {
+				data[0] = byte(iteration)
+				if err := os.WriteFile(path, data, 0o700); err != nil {
+					t.Fatal(err)
+				}
+				actual, err := executableDigest(path)
+				if err != nil || actual != sha256.Sum256(data) {
+					t.Fatalf("fresh %s identity at iteration %d = %x, %v", name, iteration, actual, err)
+				}
+			}
+		})
 	}
 }
