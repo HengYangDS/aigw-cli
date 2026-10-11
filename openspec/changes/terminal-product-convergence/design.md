@@ -167,6 +167,13 @@ IDs; it removes retired entries and preserves explicit local choices. GPT,
 Claude, and other Provider families follow the same grammar, with supplier
 variants only when their upstream contract truly differs.
 
+Team curation follows the [reviewed defaults](../../../docs/guides/team-rollout.md#reviewed-model-defaults)
+and [dated qualification](../../../docs/research/provider-model-qualification.md#october-10-haiku-55-admission).
+The October 10 GPT 6.1+/Claude 5.5+ floors supersede older catalogue inclusions;
+requested successors without qualified wire IDs and inference remain unadmitted,
+not permanently unsupported. These authored team constraints do not alter native
+conversation model choices or become Provider-specific runtime admission rules.
+
 Account and Model ranks are optional presentation metadata, not a second
 recommendation or failover policy. The Store owns `config.catalog.toml` alongside
 its guarded backups; canonical routing and credential readers never depend on
@@ -376,16 +383,15 @@ when no active source ref or job consumes them; never store archives in Git hist
 
 #### Reuse only qualified scopes
 
-The `dadc9cb7` product/`4218a9d3` verifier qualified ordinary-user Linux native-store
-and predecessor lifecycle with exact resource retirement. Reviewed three-OS performance
-retains 144 blocks, 5,760 samples and 72 pooled results under existing 100/250 ms
-budgets and size/memory thresholds. Unmatched build/source timing is not optimization
-or regression evidence. Later forwarding or catalogue inputs require affected evidence.
-The `2e9c2007` macOS forwarding measurement retains ten reversed blocks, 400 samples,
-five pooled cases and 160 paired memory observations under its source-bound
-`build/verification/2e9c20074583c1c213932241c5f1035c19bb746a/forwarding-native-20261009`.
-It proves controlled native projection/credential cost, not Provider inference,
-Linux/Windows forwarding, final-byte clients or publication.
+Retain immutable native lifecycle and performance receipts under their exact
+source-bound verification owner. Reuse requires matching product inputs,
+artifact digest, verifier/controller, commands, OS, backend and retained state;
+another tree's checkbox cannot supply that binding. Changed forwarding or
+catalogue inputs require affected acceptance, not a wholesale historical rerun.
+Controlled native measurements qualify their declared budgets and cleanup,
+not Provider latency, another platform, a quiet host or optimization benefit.
+Build and CI costs remain with their actual construction and job receipts;
+unmatched timing is neither optimization nor regression evidence.
 
 ### 6. Delete by consumer and authority
 

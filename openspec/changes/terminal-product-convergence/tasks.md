@@ -153,6 +153,9 @@ in Git; original raw results stay with their source-bound verification owner.
       [native measurement contract](../../../docs/governance/change-and-release-policy.md#behavioral-and-quantitative-evidence).
       Preserve raw samples and host/order evidence; budget qualification does not
       prove a quiet host or optimization benefit. Optimize only diagnosed owners.
+      Reuse requires matching source, artifact, controller, OS, backend and command
+      identities; another tree's checkbox or one platform's measurements cannot
+      qualify the remaining boundaries.
 - [x] 6.7 Assert warnings and malformed public errors fail at their origin;
       human and JSON output must expose precise state and safe action without
       private paths, Token fragments, internal modules or tracebacks.
