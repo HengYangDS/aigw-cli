@@ -417,8 +417,8 @@ func releaseFixtureRunner(t *testing.T, root string, calls *[]toolCall, fault *s
 func TestReleaseBindsEmbeddedSignerToActualChecksumSignature(t *testing.T) {
 	root := releaseRoot(t)
 	for name, content := range map[string]string{
-		"go.mod": "module fixture\n", "go.sum": "fixture", "package-lock.json": "fixture", "mise.lock": "fixture",
-		"mise.toml": "[tools]\ngo = \"1.27.1\"\nosv-scanner = \"2.5.1\"\n",
+		"go.mod": "module fixture\n", "go.sum": "fixture", "package-lock.json": "fixture", ".config/mise/mise.lock": "fixture",
+		".config/mise/config.toml": "[tools]\ngo = \"1.27.1\"\nosv-scanner = \"2.5.1\"\n",
 	} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)

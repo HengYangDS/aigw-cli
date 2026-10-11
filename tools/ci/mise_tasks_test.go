@@ -19,7 +19,7 @@ import (
 
 func TestMiseOSVScannerUsesOfficialRelease(t *testing.T) {
 	root := repositoryRoot(t)
-	content, err := os.ReadFile(filepath.Join(root, "mise.toml"))
+	content, err := os.ReadFile(filepath.Join(root, ".config", "mise", "config.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ type miseTask struct {
 }
 
 func TestMisePerformanceDiagnosticsHaveDeclaredSupply(t *testing.T) {
-	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), "mise.toml"))
+	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".config", "mise", "config.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func configuredMiseToolVersion(t *testing.T, tools map[string]any, name string) 
 
 func TestMiseGoEnvironmentIsBoundToThisRepository(t *testing.T) {
 	root := repositoryRoot(t)
-	content, err := os.ReadFile(filepath.Join(root, "mise.toml"))
+	content, err := os.ReadFile(filepath.Join(root, ".config", "mise", "config.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +227,7 @@ func TestMiseNpmEnvironmentIsBoundToThisRepository(t *testing.T) {
 			}
 			t.Logf("repository npm completed in %s with pristine stderr", elapsed)
 			expected := map[string]string{
-				"registry": "https://registry.npmjs.org/", "userconfig": filepath.Join(root, ".npmrc"),
+				"registry": "https://registry.npmjs.org/", "userconfig": filepath.Join(root, ".config", "npm", "npmrc"),
 				"globalconfig": nullConfig, "cache": filepath.Join(root, "build", "runtime", "tool-cache", "npm", job),
 			}
 			for line := range strings.SplitSeq(strings.TrimSpace(string(output)), "\n") {
@@ -261,7 +261,7 @@ func TestMiseNpmEnvironmentIsBoundToThisRepository(t *testing.T) {
 
 func TestMiseConfigurationKeepsToolResolutionRepositoryBound(t *testing.T) {
 	root := repositoryRoot(t)
-	content, err := os.ReadFile(filepath.Join(root, "mise.toml"))
+	content, err := os.ReadFile(filepath.Join(root, ".config", "mise", "config.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,11 +305,11 @@ func TestMiseTasksDelegateToCanonicalOwners(t *testing.T) {
 		"native":  {"go run ./tools/ci native"},
 		"release": {"go run ./tools/release build dist"},
 		"dependencies:resolve": {
-			"git diff --exit-code HEAD -- mise.toml mise.lock .mise/locks",
+			"git diff --exit-code HEAD -- .config/mise/config.toml .config/mise/mise.lock .config/mise/locks",
 			"mise lock --platform {{ os() }}-{{ arch() }}",
-			"git diff --exit-code HEAD -- mise.toml mise.lock .mise/locks",
+			"git diff --exit-code HEAD -- .config/mise/config.toml .config/mise/mise.lock .config/mise/locks",
 			"mise lock --platform {{ os() }}-{{ arch() }}",
-			"git diff --exit-code HEAD -- mise.toml mise.lock .mise/locks",
+			"git diff --exit-code HEAD -- .config/mise/config.toml .config/mise/mise.lock .config/mise/locks",
 		},
 	}
 	for name, commands := range want {
@@ -363,7 +363,7 @@ func TestBootstrapRejectsAmbientGoWithEmptyToolCache(t *testing.T) {
 }
 
 func TestOfflineDependencyTasksNeverPullAnImage(t *testing.T) {
-	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), "mise.toml"))
+	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".config", "mise", "config.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -466,7 +466,7 @@ func TestEthosProofSeparatesNativeCoverageFromMixedLanguageEvidence(t *testing.T
 }
 
 func TestNotarizationUsesBoundedNativeTask(t *testing.T) {
-	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), "mise.toml"))
+	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".config", "mise", "config.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}

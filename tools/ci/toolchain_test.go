@@ -85,7 +85,7 @@ func TestMiseToolExecutablesMatchDeclaredVersions(t *testing.T) {
 	t.Setenv("GH_CONFIG_DIR", t.TempDir())
 	t.Setenv("GLAB_CONFIG_DIR", t.TempDir())
 	root := repositoryRoot(t)
-	content, err := os.ReadFile(filepath.Join(root, "mise.toml"))
+	content, err := os.ReadFile(filepath.Join(root, ".config", "mise", "config.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}

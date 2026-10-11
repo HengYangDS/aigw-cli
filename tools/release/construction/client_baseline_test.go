@@ -411,9 +411,12 @@ func TestNativeInputAdmissionFailurePrecedesArtifactsAndCleansScratch(t *testing
 
 func signedNativeInputFixture(t *testing.T, root, version, key string) string {
 	t.Helper()
+	if err := os.MkdirAll(filepath.Join(root, ".config", "mise"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	for name, body := range map[string]string{
 		"VERSION": version + "\n", "go.mod": "module example.invalid/native\n", "go.sum": "sum\n",
-		"package-lock.json": "{}\n", "mise.lock": "lockfile_version = 2\n", "mise.toml": "[tools]\ngo = \"1.27.1\"\n",
+		"package-lock.json": "{}\n", ".config/mise/mise.lock": "lockfile_version = 2\n", ".config/mise/config.toml": "[tools]\ngo = \"1.27.1\"\n",
 	} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(body), 0o600); err != nil {
 			t.Fatal(err)

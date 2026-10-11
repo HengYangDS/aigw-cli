@@ -10,7 +10,7 @@ if (options.length > 1 || (options.length === 1 && options[0] !== "--write")) {
 }
 const write = options[0] === "--write";
 const files = JSON.parse(await text(process.stdin));
-const ignorePath = ".prettierignore";
+const ignorePath = ".config/checks/markdown/prettierignore";
 readFileSync(ignorePath);
 let checked = 0;
 let failed = false;

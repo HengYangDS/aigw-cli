@@ -612,7 +612,7 @@ url = "https://nodejs.org/dist/v26.11.1/node-v26.11.1-win-x64.zip"
 
 [[tools.npm]]
 version = "12.2.0"
-aube = { path = ".mise/locks/npm/12.2.0", digest = "sha256:ce704ee0a99dacc7181715a5d854470a968908ad4eed463cf838cfba38b1f027" }
+aube = { path = "locks/npm/12.2.0", digest = "sha256:ce704ee0a99dacc7181715a5d854470a968908ad4eed463cf838cfba38b1f027" }
 backend = "npm:npm"
 specifiers = ["12.2.0"]
 

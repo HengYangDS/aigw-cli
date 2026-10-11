@@ -66,7 +66,7 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 		if !strings.Contains(prelude, "AIGW_TOOL_SOURCE") {
 			t.Errorf("GitLab %s has no explicit mirror selection", name)
 		}
-		for _, required := range []string{"CI_API_V4_URL", "CI_PROJECT_ID", "CI_SERVER_HOST", "CI_JOB_TOKEN", "MISE_NETRC_FILE", "$mirror_dir/mise-data", "$MISE_DATA_DIR/cache", "github.com/", "api.github.com/", "packages/generic/mise-github/", "mise.lock", "lock_digest", "CI_JOB_ID"} {
+		for _, required := range []string{"CI_API_V4_URL", "CI_PROJECT_ID", "CI_SERVER_HOST", "CI_JOB_TOKEN", "MISE_NETRC_FILE", "$mirror_dir/mise-data", "$MISE_DATA_DIR/cache", "github.com/", "api.github.com/", "packages/generic/mise-github/", ".config/mise/mise.lock", "lock_digest", "CI_JOB_ID"} {
 			if !strings.Contains(prelude, required) {
 				t.Errorf("GitLab %s mirror prelude omits %q", name, required)
 			}
@@ -205,7 +205,7 @@ func TestGitHubMirrorRewritesEveryLockedGlabEndpoint(t *testing.T) {
 	if err := json.Unmarshal([]byte(template), &replacements); err != nil {
 		t.Fatal(err)
 	}
-	content, err := os.ReadFile(filepath.Join(root, "mise.lock"))
+	content, err := os.ReadFile(filepath.Join(root, ".config", "mise", "mise.lock"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -466,17 +466,20 @@ func nativeMiseMirrorInputs(t *testing.T, repository string) (string, misePlatfo
 	t.Helper()
 	project := t.TempDir()
 	var lock miseLock
-	for _, name := range []string{"mise.toml", "mise.lock"} {
+	for _, name := range []string{".config/mise/config.toml", ".config/mise/mise.lock"} {
 		content, err := os.ReadFile(filepath.Join(repository, name))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if name == "mise.lock" {
+		if name == ".config/mise/mise.lock" {
 			if err := toml.Unmarshal(content, &lock); err != nil {
 				t.Fatal(err)
 			}
 		}
 		target := filepath.Join(project, name)
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			t.Fatal(err)
+		}
 		if err := os.WriteFile(target, content, 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -491,7 +494,7 @@ func nativeMiseMirrorInputs(t *testing.T, repository string) (string, misePlatfo
 
 func lockedMiseMirrorPath(t *testing.T, repository string) string {
 	t.Helper()
-	content, err := os.ReadFile(filepath.Join(repository, "mise.lock"))
+	content, err := os.ReadFile(filepath.Join(repository, ".config", "mise", "mise.lock"))
 	if err != nil {
 		t.Fatal(err)
 	}

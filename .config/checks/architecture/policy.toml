@@ -457,7 +457,6 @@ prefixes = [".github"]
 
 [tracked_carrier_classes.quality-policy]
 responsibility = "native quality-tool policy"
-exact_paths = [".prettierignore"]
 prefixes = [".config/checks"]
 
 [tracked_carrier_classes.release-policy]
@@ -474,15 +473,12 @@ prefixes = ["manifests"]
 
 [tracked_carrier_classes.toolchain]
 responsibility = "development tooling and locked dependency closure"
-prefixes = [".mise/locks"]
+prefixes = [".config/mise", ".config/npm"]
 exact_paths = [
   ".cbmignore",
   ".config/miserc.toml",
-  ".npmrc",
   "go.mod",
   "go.sum",
-  "mise.lock",
-  "mise.toml",
   "package-lock.json",
   "package.json",
 ]

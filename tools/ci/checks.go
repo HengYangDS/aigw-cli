@@ -251,7 +251,7 @@ func checkSpelling(root string, runner commandRunner) error {
 }
 
 func checkTOML(root string, runner commandRunner) error {
-	files, err := currentRepositoryFiles(root, "TOML", "*.toml", "mise.lock")
+	files, err := currentRepositoryFiles(root, "TOML", "*.toml", ".config/mise/mise.lock")
 	if err != nil {
 		return err
 	}

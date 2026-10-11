@@ -8,11 +8,11 @@
   includePaths: [
     "go.mod",
     "go.sum",
-    "mise.toml",
-    "mise.lock",
+    ".config/mise/config.toml",
+    ".config/mise/mise.lock",
     "package.json",
     "package-lock.json",
-    ".npmrc",
+    ".config/npm/npmrc",
     ".config/ci/pipeline.cue",
   ],
   baseBranchPatterns: ["dev"],
@@ -106,7 +106,7 @@
       description: "Pinned container images in their declared authorities",
       managerFilePatterns: [
         "/^\\.config/ci/pipeline\\.cue$/",
-        "/^mise\\.toml$/",
+        "/^\\.config/mise/config\\.toml$/",
       ],
       matchStrings: [
         '"(?<depName>(?:ghcr|docker)\\.io/[\\w./-]+)(?::(?<currentValue>[\\w.-]+))?@(?<currentDigest>sha256:[a-f0-9]{64})"',

@@ -154,7 +154,7 @@ mise run check
 mise run native
 ```
 
-[Tool declaration](mise.toml) and [lock](mise.lock) own runtimes and standalone
+[Tool declaration](.config/mise/config.toml) and [lock](.config/mise/mise.lock) own runtimes and standalone
 tools; [npm metadata](package.json) and [lock](package-lock.json) own OpenSpec and
 text-quality dependencies. Mise tasks delegate to existing Go owners, not another
 command plane. Bootstrap installs locked tools, checks `go mod tidy -diff`, and
@@ -185,12 +185,12 @@ uses `MISE_OFFLINE=1`; normal bootstrap remains online. The repository disables
 Mise's optional versions host so locked installs need no extra version index.
 
 Node and npm have independent pins. The native `npm:npm` alias takes precedence
-over Node's bundled npm. Commit Mise-generated `.mise/locks/` sidecars with their
+over Node's bundled npm. Commit Mise-generated `.config/mise/locks/` sidecars with their
 lock digest, without reformatting or manually translating fields. These are the
 tool producer's dependency inputs, not another application manifest.
 
 The native [mise discovery policy](.config/miserc.toml) excludes parent/global
-configuration before `mise.toml` is read. Do not duplicate that boundary in tasks
+configuration before `.config/mise/config.toml` is read. Do not duplicate that boundary in tasks
 or CUE. Run a deliberate tool upgrade through its native resolver, then restore
 locked operation; the [dependency policy](docs/governance/change-and-release-policy.md#dependency-maintenance)
 owns freshness, age admission and reproducibility.
@@ -199,6 +199,15 @@ Repository-wide ETHOS proof includes the installed Client Projection compiler
 test. Follow the [selected Publisher input contract](architecture/edition-provider/README.md#reproduce)
 and provide both exact archive paths in that proof process; `mise run check`
 executes source tests without qualifying the external package.
+
+Root placement follows native discovery, not a file-count target. Git, editor
+and analyzer entrypoints, package manifests and paired locks, Forge projections,
+and project entry documents keep their native homes. Tool policy uses semantic
+`.config/` owners: [Mise](.config/mise/config.toml), [npm](.config/npm/npmrc), and
+[format scope](.config/checks/markdown/prettierignore). Native Mise discovery
+preserves the repository task directory; its lock and dependency graphs stay
+together. Source and runtime resources remain with their consuming packages;
+`build/` owns generated output. No root alias or compatibility symlink is added.
 
 ### Environment reconstruction
 

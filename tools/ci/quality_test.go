@@ -197,7 +197,7 @@ func TestWorkflowLintUsesShellCheck(t *testing.T) {
 }
 
 func TestPortableQualityToolsHaveCompletePlatformLocks(t *testing.T) {
-	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), "mise.lock"))
+	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".config", "mise", "mise.lock"))
 	if err != nil {
 		t.Fatal(err)
 	}

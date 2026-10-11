@@ -261,7 +261,7 @@ func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T)
 	hashReads := 0
 	for line := range strings.SplitSeq(commands[0], "\n") {
 		if strings.Contains(line, "Get-FileHash -LiteralPath") {
-			if !strings.Contains(line, "'mise.lock'") {
+			if !strings.Contains(line, "'.config/mise/mise.lock'") {
 				hashReads++
 			}
 			if !strings.Contains(line, "-ErrorAction Stop") {
@@ -338,7 +338,7 @@ func TestGitLabWindowsLockedToolsUseJobScopedMirror(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, "tools", "ci", "bootstrap", "mise-windows.ps1")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("obsolete Windows bootstrap remains: %v", err)
 	}
-	for _, required := range []string{"MISE_URL_REPLACEMENTS", "MISE_NETRC_FILE", "CI_SERVER_HOST", "CI_JOB_TOKEN", "packages/generic/mise-github/", "mise.lock", "Get-FileHash", "$lockDigest/", "release-$1-$2-$3.json", "https://github.com/", "https://api.github.com/", "icacls"} {
+	for _, required := range []string{"MISE_URL_REPLACEMENTS", "MISE_NETRC_FILE", "CI_SERVER_HOST", "CI_JOB_TOKEN", "packages/generic/mise-github/", ".config/mise/mise.lock", "Get-FileHash", "$lockDigest/", "release-$1-$2-$3.json", "https://github.com/", "https://api.github.com/", "icacls"} {
 		if !strings.Contains(windows.Script[0], required) {
 			t.Errorf("Windows job omits scoped mirror control %q", required)
 		}

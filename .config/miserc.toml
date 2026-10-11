@@ -1,4 +1,4 @@
-# Configuration discovery precedes mise.toml; only this checkout supplies policy.
+# Configuration discovery precedes the project tool declaration; only this checkout supplies policy.
 ceiling_paths = ['{{ config_root | dirname | dirname }}']
 ignored_config_paths = [
   '{{ env.MISE_CONFIG_DIR | default(value=xdg_config_home ~ "/mise") }}',

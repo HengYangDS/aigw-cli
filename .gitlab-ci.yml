@@ -30,7 +30,7 @@ native-linux:
   artifacts:
     when: always
     paths:
-      - ./{mise.lock,.mise/locks,build/verification}
+      - ./{.config/mise/mise.lock,.config/mise/locks,build/verification}
   before_script:
     - |-
       set -eu
@@ -53,9 +53,9 @@ native-linux:
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
       if command -v sha256sum >/dev/null 2>&1; then
-        lock_digest="$(sha256sum mise.lock)"
+        lock_digest="$(sha256sum .config/mise/mise.lock)"
       else
-        lock_digest="$(shasum -a 256 mise.lock)"
+        lock_digest="$(shasum -a 256 .config/mise/mise.lock)"
       fi
       lock_digest="${lock_digest%% *}"
       export MISE_DATA_DIR="$mirror_dir/mise-data"
@@ -131,9 +131,9 @@ native-darwin:
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
       if command -v sha256sum >/dev/null 2>&1; then
-        lock_digest="$(sha256sum mise.lock)"
+        lock_digest="$(sha256sum .config/mise/mise.lock)"
       else
-        lock_digest="$(shasum -a 256 mise.lock)"
+        lock_digest="$(shasum -a 256 .config/mise/mise.lock)"
       fi
       lock_digest="${lock_digest%% *}"
       export MISE_DATA_DIR="$mirror_dir/mise-data"
@@ -215,7 +215,7 @@ native-darwin:
   artifacts:
     when: always
     paths:
-      - ./{mise.lock,.mise/locks,build/verification}
+      - ./{.config/mise/mise.lock,.config/mise/locks,build/verification}
 native-darwin-review:
   script:
     - |-
@@ -231,9 +231,9 @@ native-darwin-review:
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
       if command -v sha256sum >/dev/null 2>&1; then
-        lock_digest="$(sha256sum mise.lock)"
+        lock_digest="$(sha256sum .config/mise/mise.lock)"
       else
-        lock_digest="$(shasum -a 256 mise.lock)"
+        lock_digest="$(shasum -a 256 .config/mise/mise.lock)"
       fi
       lock_digest="${lock_digest%% *}"
       export MISE_DATA_DIR="$mirror_dir/mise-data"
@@ -314,7 +314,7 @@ native-darwin-review:
   artifacts:
     when: always
     paths:
-      - ./{mise.lock,.mise/locks,build/verification}
+      - ./{.config/mise/mise.lock,.config/mise/locks,build/verification}
 native-windows:
   script:
     - |-
@@ -354,7 +354,7 @@ native-windows:
       [IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
       & icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
       if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise mirror credential ACL.' }
-      $lockDigest = (Get-FileHash -LiteralPath (Join-Path $env:CI_PROJECT_DIR 'mise.lock') -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+      $lockDigest = (Get-FileHash -LiteralPath (Join-Path $env:CI_PROJECT_DIR '.config/mise/mise.lock') -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
       $mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/packages/generic/mise-github/$lockDigest/"
       $replacements = [ordered]@{}
       $replacements['regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$'] = "${mirrorBase}" + 'release-$1-$2-$3.json'
@@ -505,7 +505,7 @@ native-windows:
   artifacts:
     when: always
     paths:
-      - ./{mise.lock,.mise/locks,build/verification}
+      - ./{.config/mise/mise.lock,.config/mise/locks,build/verification}
 native-windows-review:
   script:
     - |-
@@ -545,7 +545,7 @@ native-windows-review:
       [IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
       & icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
       if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise mirror credential ACL.' }
-      $lockDigest = (Get-FileHash -LiteralPath (Join-Path $env:CI_PROJECT_DIR 'mise.lock') -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+      $lockDigest = (Get-FileHash -LiteralPath (Join-Path $env:CI_PROJECT_DIR '.config/mise/mise.lock') -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
       $mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/packages/generic/mise-github/$lockDigest/"
       $replacements = [ordered]@{}
       $replacements['regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$'] = "${mirrorBase}" + 'release-$1-$2-$3.json'
@@ -695,7 +695,7 @@ native-windows-review:
   artifacts:
     when: always
     paths:
-      - ./{mise.lock,.mise/locks,build/verification}
+      - ./{.config/mise/mise.lock,.config/mise/locks,build/verification}
 variables:
   GIT_CONFIG_COUNT: "2"
   GIT_CONFIG_KEY_0: init.defaultBranch
@@ -746,8 +746,8 @@ stages:
   cache:
     key:
       files:
-        - mise.toml
-        - mise.lock
+        - .config/mise/config.toml
+        - .config/mise/mise.lock
       prefix: mise-linux-58c4c847f5518a9a87a9a582886a485443dbca5eb024426577f58d586a0990c6-build-runtime-tool-cache-.mise-$AIGW_TOOL_SOURCE-installs-cache-$CI_RUNNER_ID-$CI_JOB_NAME
     paths:
       - build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE/installs/
@@ -772,9 +772,9 @@ stages:
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
       if command -v sha256sum >/dev/null 2>&1; then
-        lock_digest="$(sha256sum mise.lock)"
+        lock_digest="$(sha256sum .config/mise/mise.lock)"
       else
-        lock_digest="$(shasum -a 256 mise.lock)"
+        lock_digest="$(shasum -a 256 .config/mise/mise.lock)"
       fi
       lock_digest="${lock_digest%% *}"
       export MISE_DATA_DIR="$mirror_dir/mise-data"
@@ -860,9 +860,9 @@ accepted-ref-parity:
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
       if command -v sha256sum >/dev/null 2>&1; then
-        lock_digest="$(sha256sum mise.lock)"
+        lock_digest="$(sha256sum .config/mise/mise.lock)"
       else
-        lock_digest="$(shasum -a 256 mise.lock)"
+        lock_digest="$(shasum -a 256 .config/mise/mise.lock)"
       fi
       lock_digest="${lock_digest%% *}"
       export MISE_DATA_DIR="$mirror_dir/mise-data"
@@ -966,9 +966,9 @@ release-version:
       mirror_dir="$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
       mkdir -p -m 700 "$mirror_dir"
       if command -v sha256sum >/dev/null 2>&1; then
-        lock_digest="$(sha256sum mise.lock)"
+        lock_digest="$(sha256sum .config/mise/mise.lock)"
       else
-        lock_digest="$(shasum -a 256 mise.lock)"
+        lock_digest="$(shasum -a 256 .config/mise/mise.lock)"
       fi
       lock_digest="${lock_digest%% *}"
       export MISE_DATA_DIR="$mirror_dir/mise-data"

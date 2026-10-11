@@ -9,12 +9,15 @@ import (
 
 func TestWriteProvenanceBindsSourceLocksToolsAndUnsignedArtifacts(t *testing.T) {
 	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".config", "mise"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	for name, content := range map[string]string{
-		"go.mod":            "module example.invalid/aigw\n",
-		"go.sum":            "sum\n",
-		"package-lock.json": "{}\n",
-		"mise.lock":         "lockfile_version = 1\n",
-		"mise.toml":         "[tools]\ngo = \"1.27.1\"\nnode = \"26.8.1\"\n[tools.\"github:google/osv-scanner\"]\nversion = \"2.6.0\"\nslsa_signer_identity = \"https://example.invalid/workflow\"\n",
+		"go.mod":                   "module example.invalid/aigw\n",
+		"go.sum":                   "sum\n",
+		"package-lock.json":        "{}\n",
+		".config/mise/mise.lock":   "lockfile_version = 1\n",
+		".config/mise/config.toml": "[tools]\ngo = \"1.27.1\"\nnode = \"26.8.1\"\n[tools.\"github:google/osv-scanner\"]\nversion = \"2.6.0\"\nslsa_signer_identity = \"https://example.invalid/workflow\"\n",
 	} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)
@@ -61,7 +64,7 @@ func TestCurrentMiseToolchainIsRepresentableInProvenance(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
 	if _, err := readToolVersions(func(name string) ([]byte, error) {
 		return os.ReadFile(filepath.Join(root, name))
-	}); err != nil {
+	}, ".config/mise/config.toml"); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -121,7 +121,7 @@ func TestToolchainCachesPreserveLockAndExecutionBoundaries(t *testing.T) {
 	if !slices.Equal(cacheRoots, []string{cacheRoot, cacheRoot}) {
 		t.Fatalf("the selected acquisition source must own the same cache and native Mise root: %q, want %q", cacheRoots, cacheRoot)
 	}
-	if !slices.Equal(linux.Cache.Key.Files, []string{"mise.toml", "mise.lock"}) || linux.Cache.Policy != "pull-push" {
+	if !slices.Equal(linux.Cache.Key.Files, []string{".config/mise/config.toml", ".config/mise/mise.lock"}) || linux.Cache.Policy != "pull-push" {
 		t.Fatalf("tool cache must be bound to native manifests and locks: %#v", linux.Cache)
 	}
 	if linux.Cache.When != "always" {
@@ -342,13 +342,13 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 	workspace := t.TempDir()
 	root := filepath.Join(workspace, "checkout with spaces")
 	inputs := map[string]string{
-		filepath.Join(workspace, "mise.toml"):             "[env]\nAIGW_PARENT_PROBE = 'foreign'\n",
-		filepath.Join(workspace, "global", "config.toml"): "[env]\nAIGW_GLOBAL_PROBE = 'foreign'\n",
-		filepath.Join(workspace, "system", "config.toml"): "[env]\nAIGW_SYSTEM_PROBE = 'foreign'\n",
-		filepath.Join(root, "mise.toml"):                  "[env]\nAIGW_PROJECT_PROBE = 'owned'\n",
-		filepath.Join(root, ".config", "miserc.toml"):     string(earlyConfig),
-		filepath.Join(root, ".config", "ci", ".keep"):     "",
-		filepath.Join(root, "nested", ".keep"):            "",
+		filepath.Join(workspace, "mise.toml"):                 "[env]\nAIGW_PARENT_PROBE = 'foreign'\n",
+		filepath.Join(workspace, "global", "config.toml"):     "[env]\nAIGW_GLOBAL_PROBE = 'foreign'\n",
+		filepath.Join(workspace, "system", "config.toml"):     "[env]\nAIGW_SYSTEM_PROBE = 'foreign'\n",
+		filepath.Join(root, ".config", "mise", "config.toml"): "[env]\nAIGW_PROJECT_PROBE = 'owned'\n",
+		filepath.Join(root, ".config", "miserc.toml"):         string(earlyConfig),
+		filepath.Join(root, ".config", "ci", ".keep"):         "",
+		filepath.Join(root, "nested", ".keep"):                "",
 	}
 	for path, content := range inputs {
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {

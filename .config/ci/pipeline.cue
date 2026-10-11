@@ -41,7 +41,7 @@ toolSourceInput: {
 	options: ["upstream", "peer"]
 }
 
-// Peer-local copies transport only the upstream bytes selected by mise.lock.
+// Peer-local copies transport only the upstream bytes selected by .config/mise/mise.lock.
 // They do not own dependencies or checksums; missing copies fail locally.
 miseMirror: {
 	package:          "mise-github"
@@ -62,9 +62,9 @@ miseMirror: {
 		mirror_dir="\#(unixDirectory)"
 		mkdir -p -m 700 "$mirror_dir"
 		if command -v sha256sum >/dev/null 2>&1; then
-		  lock_digest="$(sha256sum mise.lock)"
+		  lock_digest="$(sha256sum .config/mise/mise.lock)"
 		else
-		  lock_digest="$(shasum -a 256 mise.lock)"
+		  lock_digest="$(shasum -a 256 .config/mise/mise.lock)"
 		fi
 		lock_digest="${lock_digest%% *}"
 		export MISE_DATA_DIR="$mirror_dir/mise-data"
@@ -499,7 +499,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			uses: actions.upload
 			with: {
 				name:                   "mise-lock-\(_platform)"
-				path:                   "mise.lock\n.mise/locks\n"
+				path:                   ".config/mise/mise.lock\n.config/mise/locks\n"
 				"include-hidden-files": true
 			}
 		},
@@ -715,7 +715,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 			[IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
 			& icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
 			if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise mirror credential ACL.' }
-			$lockDigest = (Get-FileHash -LiteralPath (Join-Path $env:CI_PROJECT_DIR 'mise.lock') -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+			$lockDigest = (Get-FileHash -LiteralPath (Join-Path $env:CI_PROJECT_DIR '.config/mise/mise.lock') -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
 			$mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/\#(miseMirror.resource)$lockDigest/"
 			$replacements = [ordered]@{}
 			$replacements['\#(miseMirror.metadataPattern)'] = "${mirrorBase}" + '\#(miseMirror.metadataResource)'
@@ -849,7 +849,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 	}
 	artifacts: {
 		when: "always"
-		paths: ["./{mise.lock,.mise/locks,build/verification}"]
+		paths: ["./{.config/mise/mise.lock,.config/mise/locks,build/verification}"]
 	}
 	if _platform == "linux" {
 		interruptible: true
@@ -915,7 +915,7 @@ gitlab: {
 		}
 		cache: {
 			key: {
-				files: ["mise.toml", "mise.lock"]
+				files: [".config/mise/config.toml", ".config/mise/mise.lock"]
 				prefix: "mise-linux-\(strings.Split(miseImage, "@sha256:")[1])-\(strings.Join(strings.Split(_dataDirectory, "/"), "-"))-\(strings.Join(_cacheDirectories, "-"))-$CI_RUNNER_ID-$CI_JOB_NAME"
 			}
 			paths: [for directory in _cacheDirectories {"\(_dataDirectory)/\(directory)/"}]

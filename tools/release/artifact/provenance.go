@@ -73,7 +73,7 @@ type SourceTrust struct {
 func WriteProvenance(root, candidate, target, version, commit, tree string) error {
 	data, err := provenanceBytes(func(name string) ([]byte, error) {
 		return os.ReadFile(filepath.Join(root, name))
-	}, candidate, version, commit, tree)
+	}, ".config/mise/config.toml", candidate, version, commit, tree)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,15 @@ func verifyProvenance(ctx context.Context, directory, tag string, trust SourceTr
 	} else if declaredVersion != version {
 		return errors.New("release provenance tag and source VERSION differ")
 	}
-	expected, err := provenanceBytes(readSource, directory, version, commit, strings.TrimSpace(string(treeBytes)))
+	configPaths, err := git("ls-tree", "--name-only", commit, "--", ".config/mise/config.toml", "mise.toml")
+	if err != nil {
+		return err
+	}
+	configs := strings.Fields(string(configPaths))
+	if len(configs) != 1 {
+		return errors.New("release source requires one native mise configuration owner")
+	}
+	expected, err := provenanceBytes(readSource, configs[0], directory, version, commit, strings.TrimSpace(string(treeBytes)))
 	if err != nil {
 		return err
 	}
@@ -199,13 +207,13 @@ func admitCandidateVersion(git func(...string) ([]byte, error), declared string)
 	return version, nil
 }
 
-func provenanceBytes(readSource func(string) ([]byte, error), candidate, version, commit, tree string) ([]byte, error) {
-	tools, err := readToolVersions(readSource)
+func provenanceBytes(readSource func(string) ([]byte, error), toolchain, candidate, version, commit, tree string) ([]byte, error) {
+	tools, err := readToolVersions(readSource, toolchain)
 	if err != nil {
 		return nil, err
 	}
 	dependencies := []resourceDescriptor{{URI: "urn:aigw:source", Digest: map[string]string{"gitCommit": commit, "gitTree": tree}}}
-	for _, name := range []string{"go.mod", "go.sum", "package-lock.json", "mise.lock"} {
+	for _, name := range []string{"go.mod", "go.sum", "package-lock.json", filepath.ToSlash(filepath.Join(filepath.Dir(toolchain), "mise.lock"))} {
 		data, digestErr := readSource(name)
 		if digestErr != nil {
 			return nil, fmt.Errorf("digest release input %s: %w", name, digestErr)
@@ -234,8 +242,8 @@ func provenanceBytes(readSource func(string) ([]byte, error), candidate, version
 	return append(data, '\n'), err
 }
 
-func readToolVersions(readSource func(string) ([]byte, error)) (map[string]string, error) {
-	data, err := readSource("mise.toml")
+func readToolVersions(readSource func(string) ([]byte, error), toolchain string) (map[string]string, error) {
+	data, err := readSource(toolchain)
 	if err != nil {
 		return nil, fmt.Errorf("read mise toolchain: %w", err)
 	}

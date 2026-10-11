@@ -420,13 +420,13 @@ func releaseFixture(t *testing.T, version string) string {
 		t.Fatal(err)
 	}
 	source := fixtureSource(directory)
-	if err := os.Mkdir(source.Repository, 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(source.Repository, ".config", "mise"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	for name, content := range map[string]string{
 		"VERSION": version + "\n", "go.mod": "module example.invalid/aigw\n",
-		"go.sum": "sum\n", "package-lock.json": "{}\n", "mise.lock": "lockfile_version = 1\n",
-		"mise.toml": "[tools]\ngo = \"1.27.1\"\n",
+		"go.sum": "sum\n", "package-lock.json": "{}\n", ".config/mise/mise.lock": "lockfile_version = 1\n",
+		".config/mise/config.toml": "[tools]\ngo = \"1.27.1\"\n",
 	} {
 		if err := os.WriteFile(filepath.Join(source.Repository, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)

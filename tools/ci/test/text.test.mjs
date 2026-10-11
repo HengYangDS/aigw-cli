@@ -13,7 +13,7 @@ async function fixture(t) {
   );
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   for (const relative of [
-    ".prettierignore",
+    ".config/checks/markdown/prettierignore",
     ".config/checks/markdown/policy.yaml",
   ]) {
     const destination = path.join(root, relative);
@@ -53,6 +53,7 @@ test("formatting checks current carriers without editing or inherited defaults",
     ".config/archive/metadata.json": '{\n  "version": 1\n}\n',
     ".config/fixture.yaml": "name: fixture\n",
     "openspec/changes/archive/old/spec.md": "#   Historic source\n",
+    ".config/mise/locks/npm/12.2.0/aube-lock.yaml": "generator:    exact\n",
     "build/tracked.json": '{\n  "version": 1\n}\n',
     "literal[1].json": '{\n  "version": 1\n}\n',
     "unsupported.txt": "not a prettier file",
@@ -171,7 +172,7 @@ test("formatting requires declared inputs, policy and dependencies", async (t) =
       const content = "unsupported authored source\n";
       await fs.writeFile(path.join(root, "source.txt"), content);
       if (name === "missing ignore")
-        await fs.rm(path.join(root, ".prettierignore"));
+        await fs.rm(path.join(root, ".config/checks/markdown/prettierignore"));
       let module = "format.mjs";
       if (name === "missing dependency") {
         module = path.join(root, "tools/ci/format.mjs");

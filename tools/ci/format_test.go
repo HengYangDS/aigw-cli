@@ -36,7 +36,7 @@ record = {z = 2, a = 1}
 `
 	lockValid := strings.ReplaceAll(valid, "{z = 2, a = 1}", "{ z = 2, a = 1 }")
 	files := map[string]string{
-		"mise.lock":                 lockValid,
+		".config/mise/mise.lock":    lockValid,
 		"tools/domain/config.toml":  valid,
 		"internal/domain/test.toml": valid,
 		"build/generated.toml":      "value = [\n",
@@ -58,13 +58,13 @@ record = {z = 2, a = 1}
 		name, root, path, content string
 		valid                     bool
 	}{
-		{"absolute root", root, "mise.lock", lockValid, true},
-		{"relative root", filepath.Base(root), "mise.lock", lockValid, true},
-		{"native lock spacing", root, "mise.lock", valid, false},
+		{"absolute root", root, ".config/mise/mise.lock", lockValid, true},
+		{"relative root", filepath.Base(root), ".config/mise/mise.lock", lockValid, true},
+		{"native lock spacing", root, ".config/mise/mise.lock", valid, false},
 		{"authored table spacing", root, "tools/domain/config.toml", lockValid, false},
 		{"source fixture syntax", root, "internal/domain/test.toml", "value = [\n", false},
 		{"tool policy format", root, "tools/domain/config.toml", "value=1\n", false},
-		{"lock syntax", root, "mise.lock", "value = [\n", false},
+		{"lock syntax", root, ".config/mise/mise.lock", "value = [\n", false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			destination := filepath.Join(root, filepath.FromSlash(test.path))
@@ -111,7 +111,10 @@ record = {z = 2, a = 1}
 func TestFormattingCoversCurrentCarriersAndPreservesOwnedExclusions(t *testing.T) {
 	repository := repositoryRoot(t)
 	root := newGitRepository(t)
-	for _, path := range []string{"package.json", ".gitignore", ".editorconfig", ".prettierignore"} {
+	for _, path := range []string{"package.json", ".gitignore", ".editorconfig", ".config/checks/markdown/prettierignore"} {
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(root, path)), 0o700); err != nil {
+			t.Fatal(err)
+		}
 		if err := os.WriteFile(filepath.Join(root, path), readFile(t, filepath.Join(repository, path)), 0o600); err != nil {
 			t.Fatal(err)
 		}

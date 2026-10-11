@@ -34,8 +34,8 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 	root := releaseRoot(t)
 	for name, content := range map[string]string{
 		"go.mod": "fixture", "go.sum": "fixture", "package-lock.json": "fixture",
-		"mise.lock": "fixture", "LICENSE": "fixture", "README.md": "fixture",
-		"mise.toml": "[tools]\ngo = \"1.27.1\"\nosv-scanner = \"2.5.1\"\n",
+		".config/mise/mise.lock": "fixture", "LICENSE": "fixture", "README.md": "fixture",
+		".config/mise/config.toml": "[tools]\ngo = \"1.27.1\"\nosv-scanner = \"2.5.1\"\n",
 	} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)
@@ -170,6 +170,9 @@ func goReleaserStage(t *testing.T, args []string) string {
 func releaseRoot(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".config", "mise"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	config := filepath.Join(root, ".config", "release")
 	if err := os.MkdirAll(config, 0o700); err != nil {
 		t.Fatal(err)
@@ -476,12 +479,12 @@ func TestReleaseBuildPropagatesToolFailureAndNeverPublishesPartialMatrix(t *test
 
 func TestReleaseBuildPropagatesChecksumAndMatrixFailures(t *testing.T) {
 	root := releaseRoot(t)
-	for _, name := range []string{"go.mod", "go.sum", "package-lock.json", "mise.lock"} {
+	for _, name := range []string{"go.mod", "go.sum", "package-lock.json", ".config/mise/mise.lock"} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte("fixture"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(root, "mise.toml"), []byte("[tools]\ngo = \"1.27.1\"\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ".config", "mise", "config.toml"), []byte("[tools]\ngo = \"1.27.1\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	var calls []toolCall

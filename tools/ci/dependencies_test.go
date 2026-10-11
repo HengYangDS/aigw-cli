@@ -14,6 +14,32 @@ import (
 	"time"
 )
 
+func TestRenovateInputsResolveToRepositoryOwners(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	code := `
+import assert from "node:assert/strict";
+import { readFile, stat } from "node:fs/promises";
+import { parsers } from "prettier/plugins/babel";
+const policy = await parsers.json5.parse(
+  await readFile(".config/dependencies/renovate.json5", "utf8"), {},
+);
+const inputs = policy.node.properties.find(
+  ({ key }) => (key.name ?? key.value) === "includePaths",
+).value.elements;
+assert.ok(inputs.length > 0, "Renovate must declare dependency owners");
+for (const input of inputs) {
+  assert.equal(input.type, "StringLiteral");
+  assert.ok((await stat(input.value)).isFile(), input.value);
+}
+`
+	call := exec.CommandContext(ctx, "node", "--input-type=module", "-e", code)
+	call.Dir = repositoryRoot(t)
+	if output, err := call.CombinedOutput(); err != nil {
+		t.Fatalf("Renovate dependency ownership: %v\n%s", err, output)
+	}
+}
+
 func TestNativeMathConsumersRejectInheritedTrust(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()

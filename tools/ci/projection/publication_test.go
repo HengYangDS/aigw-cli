@@ -404,7 +404,7 @@ func TestGitLabPerformanceUsesItsSelectedNativeClosure(t *testing.T) {
 				}
 				checkProjectedNativeReleaseArguments(t, job.Script[native], platform)
 			}
-			if job.Artifacts.When != "always" || !slices.Contains(job.Artifacts.Paths, "./{mise.lock,.mise/locks,build/verification}") {
+			if job.Artifacts.When != "always" || !slices.Contains(job.Artifacts.Paths, "./{.config/mise/mise.lock,.config/mise/locks,build/verification}") {
 				t.Fatal("performance samples must remain in the existing verification artifact on success and failure")
 			}
 		})
@@ -453,7 +453,7 @@ func TestLinuxArm64GitHubArtifactsDeclareProvenance(t *testing.T) {
 	}
 	enabled := strings.Split(pipeline.Quality.Variables["MISE_ENABLE_TOOLS"], ",")
 
-	content, err := os.ReadFile(filepath.Join(root, "mise.lock"))
+	content, err := os.ReadFile(filepath.Join(root, ".config", "mise", "mise.lock"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -474,6 +474,6 @@ func TestLinuxArm64GitHubArtifactsDeclareProvenance(t *testing.T) {
 		}
 	}
 	if verified == 0 {
-		t.Fatal("mise.lock contains no Linux arm64 GitHub provenance declarations")
+		t.Fatal(".config/mise/mise.lock contains no Linux arm64 GitHub provenance declarations")
 	}
 }

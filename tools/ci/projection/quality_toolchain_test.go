@@ -90,14 +90,14 @@ func TestEverySourceConsumerRetainsDependencyEvidenceOnFailure(t *testing.T) {
 			t.Fatal(err)
 		}
 		if job != "quality" {
-			if !slices.Equal(declared.Artifacts.Paths, []string{"./{mise.lock,.mise/locks,build/verification}"}) {
+			if !slices.Equal(declared.Artifacts.Paths, []string{"./{.config/mise/mise.lock,.config/mise/locks,build/verification}"}) {
 				t.Errorf("GitLab %s must archive mandatory lock and optional outputs in one native alternative pattern: %v", job, declared.Artifacts.Paths)
 			}
 		}
 		for _, evidence := range []string{"build/verification/dependencies", "build/verification/workflows", "build/verification/coverage"} {
 			retained := slices.Contains(declared.Artifacts.Paths, evidence)
 			if job != "quality" {
-				retained = slices.Contains(declared.Artifacts.Paths, "./{mise.lock,.mise/locks,build/verification}")
+				retained = slices.Contains(declared.Artifacts.Paths, "./{.config/mise/mise.lock,.config/mise/locks,build/verification}")
 				if slices.Contains(declared.Artifacts.Paths, evidence) {
 					t.Errorf("GitLab %s declares optional child evidence %s as an unconditional artifact", job, evidence)
 				}

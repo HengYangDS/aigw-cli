@@ -1,4 +1,4 @@
-# The repository gate supplies exact Git-owned TOML paths, including mise.lock.
+# The repository gate supplies exact Git-owned TOML paths, including .config/mise/mise.lock.
 include = ["**/*"]
 
 [formatting]
@@ -8,7 +8,7 @@ compact_inline_tables = true
 
 # Keep the generator's inline-table spelling without relaxing authored TOML.
 [[rule]]
-include = ["mise.lock"]
+include = [".config/mise/mise.lock"]
 
 [rule.formatting]
 compact_inline_tables = false
