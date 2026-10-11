@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -408,6 +409,77 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 	after, err := os.ReadFile(target)
 	if err != nil || !bytes.Equal(after, original) {
 		t.Fatal("verification changed the original native configuration")
+	}
+}
+
+func TestHermesVerificationSharesTheInstalledDependencyState(t *testing.T) {
+	root := t.TempDir()
+	hermesHome := filepath.Join(root, "hermes")
+	// Hermes resolves its committed dependency environment and managed tools beside HERMES_HOME.
+	stores := map[string]string{"installs": filepath.Join("install-key", "facts.json"), "tools": "facts.json"}
+	for name, marker := range stores {
+		path := filepath.Join(hermesHome, name, marker)
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(name+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	target := filepath.Join(hermesHome, "config.yaml")
+	executable := filepath.Join(root, "hermes-launcher")
+	for path, data := range map[string]string{target: "{}\n", executable: "fixture"} {
+		if err := os.WriteFile(path, []byte(data), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Routes["selected"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(configuration.ClientHermes, "selected", "")
+	cfg.SetClientActivation(configuration.ClientHermes, true, executable, []string{target})
+	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := secrets.NewMemoryStore()
+	if err := store.Set("gateway", "fixture-token"); err != nil {
+		t.Fatal(err)
+	}
+	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
+	runner.observe = func(plan process.Plan) {
+		environment := map[string]string{}
+		for _, entry := range plan.Env {
+			key, value, _ := strings.Cut(entry, "=")
+			environment[key] = value
+		}
+		if environment["HERMES_HOME"] != plan.Directory || plan.Directory == hermesHome {
+			t.Fatalf("Hermes probe home = %q in %q, want an isolated home", environment["HERMES_HOME"], plan.Directory)
+		}
+		if environment["HERMES_DISABLE_LAZY_INSTALLS"] != "1" {
+			t.Fatal("isolated Hermes verification may sync or republish the installed dependency state")
+		}
+		for name := range stores {
+			shared, sharedErr := os.Stat(filepath.Join(plan.Directory, name))
+			installed, installedErr := os.Stat(filepath.Join(hermesHome, name))
+			if sharedErr != nil || installedErr != nil || !os.SameFile(shared, installed) {
+				t.Fatalf("isolated Hermes home does not reuse the installed %s state: %v %v", name, sharedErr, installedErr)
+			}
+		}
+	}
+	if _, err := (hermesAdapter{}).Verify(t.Context(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(root, "aigw")}, cfg, selected, ""); err != nil {
+		t.Fatal(err)
+	}
+	if len(runner.plans) != 2 {
+		t.Fatalf("Hermes verification plans = %#v", runner.plans)
+	}
+	if _, err := os.Lstat(runner.plans[0].Directory); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("isolated Hermes home survived verification: %v", err)
+	}
+	for name, marker := range stores {
+		if data, err := os.ReadFile(filepath.Join(hermesHome, name, marker)); err != nil || string(data) != name+"\n" {
+			t.Fatalf("verification cleanup changed the installed %s state: %q %v", name, data, err)
+		}
 	}
 }
 

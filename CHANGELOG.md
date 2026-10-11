@@ -126,6 +126,10 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Fixed
 
+- Let Hermes verification reuse the configured installation's dependency
+  environment and managed tools, so `aigw verify --for hermes` works with
+  Hermes 0.21.6 without installing, synchronizing, or republishing Hermes
+  state.
 - Prevent disposable Hermes verification from contacting its unrelated
   software-update service before the selected model request.
 - Classify Hermes version-probe timeout, interruption, and execution failure

@@ -338,6 +338,30 @@ func (hermesAdapter) Withdraw(cfg *configuration.Config) {
 	delete(cfg.Clients, configuration.ClientHermes)
 }
 
+// hermesInstallStores are the data-root stores Hermes resolves beside
+// HERMES_HOME: its committed dependency environment and managed tools.
+var hermesInstallStores = []string{"installs", "tools"}
+
+// shareHermesInstallState links the configured home's installed stores into an
+// isolated verification home, so Hermes runs its committed environment instead
+// of provisioning another one. The probe's HERMES_DISABLE_LAZY_INSTALLS keeps
+// that shared state from being synchronized or republished.
+func shareHermesInstallState(home, configuredHome string) error {
+	for _, store := range hermesInstallStores {
+		installed, err := filepath.Abs(filepath.Join(configuredHome, store))
+		if err != nil {
+			return err
+		}
+		if info, err := os.Stat(installed); err != nil || !info.IsDir() {
+			continue // Hermes without a managed data root keeps no such store.
+		}
+		if err := os.Symlink(installed, filepath.Join(home, store)); err != nil {
+			return fmt.Errorf("share installed Hermes %s state with isolated verification: %w", store, errors.Unwrap(err))
+		}
+	}
+	return nil
+}
+
 func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, selected configuration.Runtime, _ string) (_ Verification, result error) {
 	if deps.Runner == nil {
 		return Verification{}, errors.New("hermes verification requires a process runner")
@@ -366,13 +390,16 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 	if err := os.WriteFile(verificationConfig, data, 0o600); err != nil {
 		return Verification{}, fmt.Errorf("prepare isolated Hermes verification policy: %w", err)
 	}
+	if err := shareHermesInstallState(home, filepath.Dir(configured.Targets[0])); err != nil {
+		return Verification{}, err
+	}
 	environment := []string{}
 	for _, entry := range os.Environ() {
-		if !strings.HasPrefix(entry, "HERMES_HOME=") {
+		if !strings.HasPrefix(entry, "HERMES_HOME=") && !strings.HasPrefix(entry, "HERMES_DISABLE_LAZY_INSTALLS=") {
 			environment = append(environment, entry)
 		}
 	}
-	environment = append(environment, "HERMES_HOME="+home)
+	environment = append(environment, "HERMES_HOME="+home, "HERMES_DISABLE_LAZY_INSTALLS=1")
 	probeCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
 	defer cancel()
 	probe := process.Plan{Executable: configured.Executable, Directory: home, Env: environment, Args: []string{"--version"}}
