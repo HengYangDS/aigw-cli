@@ -36,6 +36,7 @@ type publishedCodexForwardingJourney struct {
 	main                                    []byte
 	reader                                  [32]byte
 	credentials                             map[string]process.Plan
+	credentialIdentities                    map[string]credentialIdentity
 	preserved                               map[string]transaction.FileSnapshot
 	modes                                   map[string]os.FileMode
 }
@@ -150,7 +151,9 @@ func (state *publishedCodexForwardingJourney) capture(t *testing.T) {
 	state.original, state.main = cfg.Clone(), readFile(t, j.config)
 	state.reader = sha256.Sum256(readFile(t, state.baseline))
 	state.credentials = map[string]process.Plan{}
+	state.credentialIdentities = map[string]credentialIdentity{}
 	for _, client := range []string{configuration.ClientCodex, configuration.ClientHermes} {
+		state.credentialIdentities[client] = j.readCredentialIdentity(client)
 		state.credentials[client] = j.retainedCredential(client)
 	}
 	if state.credentials[configuration.ClientCodex].Executable != state.baseline {
@@ -234,8 +237,8 @@ func (state *publishedCodexForwardingJourney) requireReaders(t *testing.T) {
 		t.Fatal("forwarding changed the immutable credential reader")
 	}
 	for client, retained := range state.credentials {
-		current := state.journey.retainedCredential(client)
-		if current.Executable != retained.Executable || !reflect.DeepEqual(current.Args, retained.Args) {
+		current := state.journey.readCredentialIdentity(client)
+		if !reflect.DeepEqual(current, state.credentialIdentities[client]) {
 			t.Fatalf("forwarding changed %s credential command or arguments", client)
 		}
 		state.journey.requireCredential(retained, forwardingToken)
@@ -267,7 +270,15 @@ func (state *publishedCodexForwardingJourney) requirePreview(t *testing.T) {
 		t.Fatal("native preview did not identify exactly one Codex transition")
 	}
 	projection := preview.Projections[0]
-	if projection.Client != configuration.ClientCodex || projection.Target != state.codexPath || projection.Action != string(codex.ProjectionActionUpdate) {
+	target, err := os.Stat(projection.Target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, err := os.Stat(state.codexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if projection.Client != configuration.ClientCodex || !os.SameFile(target, expected) || projection.Action != string(codex.ProjectionActionUpdate) {
 		t.Fatalf("native preview projection = %#v", projection)
 	}
 	if !reflect.DeepEqual(state.snapshotTree(t), before) {

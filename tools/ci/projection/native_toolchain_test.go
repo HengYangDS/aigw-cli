@@ -273,6 +273,7 @@ func TestNativeInputProjectionsInvokeTheOwnedCandidateOnce(t *testing.T) {
 		Jobs map[string]struct {
 			Steps []struct {
 				Name string            `yaml:"name"`
+				If   string            `yaml:"if"`
 				Run  string            `yaml:"run"`
 				Env  map[string]string `yaml:"env"`
 			} `yaml:"steps"`
@@ -281,10 +282,20 @@ func TestNativeInputProjectionsInvokeTheOwnedCandidateOnce(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
 		t.Fatal(err)
 	}
+	releaseTagGuard := ""
+	for _, step := range github.Jobs["quality"].Steps {
+		if step.Name == "Verify pushed release tag provenance" {
+			releaseTagGuard = step.If
+		}
+	}
+	if releaseTagGuard != "github.ref_type == 'tag' && startsWith(github.ref_name, 'v')" {
+		t.Fatal("input transport tags must retain native carrier verification without release-version classification")
+	}
 	platform := runtime.GOOS
 	steps := github.Jobs["native-"+platform].Steps
 	index := slices.IndexFunc(steps, func(step struct {
 		Name string            `yaml:"name"`
+		If   string            `yaml:"if"`
 		Run  string            `yaml:"run"`
 		Env  map[string]string `yaml:"env"`
 	}) bool {

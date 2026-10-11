@@ -138,7 +138,7 @@ jobs:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
         run: mise exec --locked -- go run ./tools/ci trust-input --output "$RUNNER_TEMP/aigw-allowed-signers" --github-env "$GITHUB_ENV"
       - name: Verify pushed release tag provenance
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
         env:
           SELECTED_TAG: ${{ github.ref_name }}
         run: mise exec --locked -- go run ./tools/forge tag --tag "$SELECTED_TAG" --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"

@@ -47,13 +47,18 @@ type changelogParser struct {
 // SelectedReleaseTag resolves the current Forge release tag without treating a
 // branch name as a tag.
 func SelectedReleaseTag() string {
-	if tag := os.Getenv("AIGW_CHANGELOG_RELEASE_TAG"); tag != "" {
-		return tag
+	tag := os.Getenv("AIGW_CHANGELOG_RELEASE_TAG")
+	if tag == "" {
+		if os.Getenv("GITHUB_REF_TYPE") == "tag" {
+			tag = os.Getenv("GITHUB_REF_NAME")
+		} else {
+			tag = os.Getenv("CI_COMMIT_TAG")
+		}
 	}
-	if os.Getenv("GITHUB_REF_TYPE") == "tag" {
-		return os.Getenv("GITHUB_REF_NAME")
+	if !strings.HasPrefix(tag, "v") {
+		return ""
 	}
-	return os.Getenv("CI_COMMIT_TAG")
+	return tag
 }
 
 // ValidateChangelog verifies the Keep a Changelog structure, local release

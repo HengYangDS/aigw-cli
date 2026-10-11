@@ -14,9 +14,14 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-func (j *journeyFixture) retainedCredential(client string) process.Plan {
+type credentialIdentity struct {
+	Executable   string
+	Args         []string
+	ShellCommand string
+}
+
+func (j *journeyFixture) readCredentialIdentity(client string) credentialIdentity {
 	j.testing.Helper()
-	plan := process.Plan{Env: slices.Clone(j.environment)}
 	if client == configuration.ClientCodex {
 		var config struct {
 			ModelProvider  string `toml:"model_provider"`
@@ -35,8 +40,7 @@ func (j *journeyFixture) retainedCredential(client string) process.Plan {
 		if auth.Command == "" || len(auth.Args) == 0 {
 			j.testing.Fatal("Codex projection lacks a credential command")
 		}
-		plan.Executable, plan.Args = auth.Command, auth.Args
-		return plan
+		return credentialIdentity{Executable: auth.Command, Args: auth.Args}
 	}
 	if client == configuration.ClientHermes {
 		var config struct {
@@ -58,7 +62,7 @@ func (j *journeyFixture) retainedCredential(client string) process.Plan {
 		if command == "" {
 			j.testing.Fatal("Hermes projection lacks a credential command")
 		}
-		return j.shellCredential(command)
+		return credentialIdentity{ShellCommand: command}
 	}
 	if client != configuration.ClientClaude {
 		j.testing.Fatalf("unsupported credential client %q", client)
@@ -72,7 +76,15 @@ func (j *journeyFixture) retainedCredential(client string) process.Plan {
 	if settings.APIKeyHelper == "" {
 		j.testing.Fatal("Claude projection lacks a credential helper")
 	}
-	return j.shellCredential(settings.APIKeyHelper)
+	return credentialIdentity{ShellCommand: settings.APIKeyHelper}
+}
+
+func (j *journeyFixture) retainedCredential(client string) process.Plan {
+	identity := j.readCredentialIdentity(client)
+	if identity.ShellCommand != "" {
+		return j.shellCredential(identity.ShellCommand)
+	}
+	return process.Plan{Executable: identity.Executable, Args: identity.Args, Env: slices.Clone(j.environment)}
 }
 
 func (j *journeyFixture) shellCredential(command string) process.Plan {

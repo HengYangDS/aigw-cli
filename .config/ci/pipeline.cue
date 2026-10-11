@@ -836,7 +836,7 @@ githubVerify: {
 				},
 				{
 					name: "Verify pushed release tag provenance"
-					if:   "github.ref_type == 'tag'"
+					if:   "github.ref_type == 'tag' && startsWith(github.ref_name, 'v')"
 					env: SELECTED_TAG: "${{ github.ref_name }}"
 					run: "mise exec --locked -- go run ./tools/forge tag --tag \"$SELECTED_TAG\" --allowed-signers \"$AIGW_RELEASE_ALLOWED_SIGNERS_FILE\""
 				},
