@@ -311,7 +311,7 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg configu
 
 func chooseRoute(runtime invocation.Context, cfg configuration.Config, client, label string) (string, error) {
 	choices := make([]prompt.Choice, 0, len(cfg.Routes))
-	for _, id := range cfg.RouteIDs() {
+	for _, id := range cfg.CatalogRouteIDs() {
 		compatible, err := cfg.ProtocolClientIDs(id)
 		if err != nil || !slices.Contains(compatible, client) {
 			continue

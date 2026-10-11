@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
-	"sort"
 	"strings"
 
 	clientverification "aigw-cli/internal/client/verification"
@@ -106,7 +105,7 @@ func hermesDesired(deps Dependencies, cfg configuration.Config, selected configu
 			return hermesconfig.Desired{}, err
 		}
 		desired.Providers = append(desired.Providers, hermesconfig.Provider{
-			ID: item.ID, Endpoint: item.Endpoint, Protocol: string(item.Protocol), CredentialCommand: command, Models: item.Models,
+			ID: item.ID, Name: item.Name, Endpoint: item.Endpoint, Protocol: string(item.Protocol), CredentialCommand: command, Models: item.Models,
 		})
 	}
 	if err := desired.Validate(); err != nil {
@@ -117,6 +116,7 @@ func hermesDesired(deps Dependencies, cfg configuration.Config, selected configu
 
 type hermesCatalogueProvider struct {
 	ID       string
+	Name     string
 	Account  string
 	Protocol configuration.EndpointProtocol
 	Endpoint string
@@ -127,30 +127,37 @@ type hermesCatalogueProvider struct {
 func hermesCatalogue(cfg configuration.Config) ([]hermesCatalogueProvider, error) {
 	spec := mustClientSpec(configuration.ClientHermes)
 	providers := make(map[string]hermesCatalogueProvider)
-	for _, routeID := range cfg.RouteIDs() {
+	var ids []string
+	for _, routeID := range cfg.CatalogRouteIDs() {
 		route := cfg.Routes[routeID]
 		account := cfg.Accounts[route.Account]
 		for _, protocol := range spec.CompatibleRouteProtocols(account, route) {
 			id := hermesProviderID(route.Account, protocol)
 			item, present := providers[id]
 			if !present {
+				ids = append(ids, id)
 				selected, err := cfg.ResolveRouteProtocol(configuration.ClientHermes, routeID, protocol)
 				if err != nil {
 					return nil, err
 				}
-				item = hermesCatalogueProvider{ID: id, Account: route.Account, Protocol: protocol, Endpoint: selected.Endpoint, Runtime: selected}
+				item = hermesCatalogueProvider{ID: id, Name: account.Label + " · " + configuration.ProtocolLabel(protocol), Account: route.Account, Protocol: protocol, Endpoint: selected.Endpoint, Runtime: selected}
 			}
-			item.Models = append(item.Models, route.UpstreamModelID())
+			if !slices.Contains(item.Models, route.UpstreamModelID()) {
+				item.Models = append(item.Models, route.UpstreamModelID())
+			}
 			providers[id] = item
 		}
 	}
 	result := make([]hermesCatalogueProvider, 0, len(providers))
-	for _, item := range providers {
-		slices.Sort(item.Models)
-		item.Models = slices.Compact(item.Models)
-		result = append(result, item)
+	for _, id := range ids {
+		result = append(result, providers[id])
 	}
-	sort.Slice(result, func(left, right int) bool { return result[left].ID < result[right].ID })
+	slices.SortFunc(result, func(left, right hermesCatalogueProvider) int {
+		if order := cfg.CompareAccounts(left.Account, right.Account); order != 0 {
+			return order
+		}
+		return configuration.CompareProtocols(left.Protocol, right.Protocol)
+	})
 	return result, nil
 }
 
@@ -258,7 +265,7 @@ func (hermesAdapter) ProjectionChanged(before, after configuration.Config) bool 
 		return true
 	}
 	return !slices.EqualFunc(oldCatalogue, newCatalogue, func(left, right hermesCatalogueProvider) bool {
-		return left.ID == right.ID && left.Account == right.Account && left.Protocol == right.Protocol && left.Endpoint == right.Endpoint && slices.Equal(left.Models, right.Models)
+		return left.ID == right.ID && left.Name == right.Name && left.Account == right.Account && left.Protocol == right.Protocol && left.Endpoint == right.Endpoint && slices.Equal(left.Models, right.Models)
 	})
 }
 

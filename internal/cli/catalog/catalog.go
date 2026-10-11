@@ -78,7 +78,7 @@ func modelRows(cfg configuration.Config, catalog catalogOutput) []modelRow {
 		observations[observationKey(observation.Account, observation.Source.Protocol)] = observation
 	}
 	rows := []modelRow{}
-	for _, routeID := range cfg.RouteIDs() {
+	for _, routeID := range cfg.CatalogRouteIDs() {
 		route := cfg.Routes[routeID]
 		protocols := route.AdmittedProtocols()
 		if len(protocols) == 0 {
@@ -99,6 +99,15 @@ func modelRows(cfg configuration.Config, catalog catalogOutput) []modelRow {
 			rows = append(rows, modelRow{Route: routeID, Account: route.Account, Protocol: protocol, Model: route.UpstreamModelID(), Catalog: membership})
 		}
 	}
+	slices.SortStableFunc(rows, func(left, right modelRow) int {
+		if result := cfg.CompareAccounts(left.Account, right.Account); result != 0 {
+			return result
+		}
+		if result := configuration.CompareProtocols(left.Protocol, right.Protocol); result != 0 {
+			return result
+		}
+		return cfg.CompareModels(cfg.Routes[left.Route].Model, cfg.Routes[right.Route].Model)
+	})
 	return rows
 }
 
@@ -238,14 +247,5 @@ func modelTitle(value string) string {
 }
 
 func protocolTitle(protocol configuration.EndpointProtocol) string {
-	switch protocol {
-	case configuration.ProtocolAnthropic:
-		return "Anthropic Messages"
-	case configuration.ProtocolOpenAIChatCompletions:
-		return "OpenAI Chat Completions"
-	case configuration.ProtocolOpenAIResponses:
-		return "OpenAI Responses"
-	default:
-		return string(protocol)
-	}
+	return configuration.ProtocolLabel(protocol)
 }

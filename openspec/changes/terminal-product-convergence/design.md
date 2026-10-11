@@ -167,6 +167,13 @@ IDs; it removes retired entries and preserves explicit local choices. GPT,
 Claude, and other Provider families follow the same grammar, with supplier
 variants only when their upstream contract truly differs.
 
+Account and Model ranks are optional presentation metadata, not a second
+recommendation or failover policy. The Store owns `config.catalog.toml` alongside
+its guarded backups; canonical routing and credential readers never depend on
+it. Verified checkpoints restore historical routing with current presentation
+for surviving identities. Native picker policy remains the client's authority;
+configured order alone is not rendered-order evidence.
+
 Low-level manifest import retains local-only Routes by default. An operator may
 name obsolete local Routes for retirement in the same guarded configuration and
 client-projection transaction as the import. Retirement rejects a Route still

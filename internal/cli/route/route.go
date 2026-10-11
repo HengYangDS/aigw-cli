@@ -107,7 +107,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			result := routeListOutput{Routes: make([]routeListItem, 0, len(cfg.Routes))}
-			for _, name := range cfg.RouteIDs() {
+			for _, name := range cfg.CatalogRouteIDs() {
 				item, collectErr := collectRouteListItem(runtime, cfg, name)
 				if collectErr != nil {
 					return collectErr

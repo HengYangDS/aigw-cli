@@ -202,6 +202,9 @@ func project(root *yaml.Node, desired Desired) {
 	}
 	for _, desiredProvider := range desired.Providers {
 		provider := mapping()
+		if desiredProvider.Name != "" {
+			setString(provider, "name", desiredProvider.Name)
+		}
 		setString(provider, "base_url", desiredProvider.Endpoint)
 		protocol, _ := nativeProtocol(desiredProvider.Protocol)
 		setString(provider, "transport", protocol)
@@ -217,4 +220,18 @@ func project(root *yaml.Node, desired Desired) {
 		setField(provider, "discover_models", discovery)
 		setField(providers, desiredProvider.ID, provider)
 	}
+}
+
+func ownedProviderOrder(root *yaml.Node, ids []string) []string {
+	providers := field(root, "providers")
+	var order []string
+	if providers != nil {
+		for index := 0; index < len(providers.Content); index += 2 {
+			id := providers.Content[index].Value
+			if slices.Contains(ids, id) {
+				order = append(order, id)
+			}
+		}
+	}
+	return order
 }

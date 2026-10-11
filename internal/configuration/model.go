@@ -81,6 +81,7 @@ type Config struct {
 type Account struct {
 	ID           string        `json:"id,omitempty"            toml:"-"`
 	Label        string        `json:"label"                   toml:"label"`
+	Order        int           `json:"order,omitempty"         toml:"order,omitempty"`
 	Endpoints    Endpoints     `json:"endpoints"               toml:"endpoints"`
 	AccountProbe *AccountProbe `json:"account_probe,omitempty" toml:"account_probe,omitempty"`
 }
@@ -90,6 +91,7 @@ type Account struct {
 type Model struct {
 	ID    string `json:"id,omitempty" toml:"-"`
 	Label string `json:"label"        toml:"label"`
+	Order int    `json:"order,omitempty" toml:"order,omitempty"`
 }
 
 // Route identifies how one Account exposes one canonical Model independently

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -58,6 +59,32 @@ func TestCredentialHelperPrintsOnlyTheProjectedAccountToken(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestCredentialHelperIgnoresMalformedPresentation(t *testing.T) {
+	for _, client := range configuration.AdmittedClientIDs() {
+		t.Run(client, func(t *testing.T) {
+			runtime, buffer := helperRuntime(t, client, true)
+			args := helperArgs(t, runtime, client)
+			if err := runtime.Secrets.Set("gateway", "original-token"); err != nil {
+				t.Fatal(err)
+			}
+			path := strings.TrimSuffix(runtime.Config.Path(), filepath.Ext(runtime.Config.Path())) + ".catalog.toml"
+			if err := os.WriteFile(path, []byte("[invalid presentation"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := runtime.Config.Load(); err == nil {
+				t.Fatal("invalid presentation was accepted by the catalogue reader")
+			}
+			command := NewCommand(runtime)
+			if err := command.RunE(command, args); err != nil {
+				t.Fatal(err)
+			}
+			if got := buffer.String(); got != "original-token\n" {
+				t.Fatalf("credential output = %q, want the projected Account Token", got)
+			}
+		})
 	}
 }
 

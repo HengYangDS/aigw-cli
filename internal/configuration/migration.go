@@ -124,7 +124,7 @@ func (s Store) PrepareMigration(rollback bool) (MigrationPlan, error) {
 		return MigrationPlan{}, err
 	}
 	if version == ConfigVersion {
-		cfg, err := decodeStoreConfig(before.Config.Data, before.Forwarding)
+		cfg, err := s.loadSnapshot(before)
 		if err != nil {
 			return MigrationPlan{}, err
 		}
@@ -145,7 +145,7 @@ func (s Store) PrepareMigration(rollback bool) (MigrationPlan, error) {
 }
 
 func (s Store) prepareMigrationRollback(before Snapshot) (MigrationPlan, error) {
-	if _, err := decodeStoreConfig(before.Config.Data, before.Forwarding); err != nil {
+	if _, err := s.loadSnapshot(before); err != nil {
 		return MigrationPlan{}, fmt.Errorf("configuration migration rollback requires a valid current configuration: %w", err)
 	}
 	if !before.Backup.Exists {

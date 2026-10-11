@@ -123,13 +123,24 @@ func TestClaudeDesktopShippedChannelDoesNotDuplicateItsLogicalModel(t *testing.T
 		t.Fatal(err)
 	}
 	models := claudeDesktopModels(cfg, runtime)
-	if len(models) != 3 || models[0].Name != "claude-sonnet-5-5-cc" {
+	spec, _ := configuration.ClientSpecFor(configuration.ClientClaudeDesktop)
+	wires := map[string]string{}
+	want := map[string]bool{}
+	for _, route := range cfg.Routes {
+		if route.Account == runtime.AccountID && slices.Contains(spec.CompatibleRouteProtocols(cfg.Accounts[route.Account], route), runtime.Protocol) {
+			wires[route.UpstreamModelID()] = route.Model
+			want[route.Model] = true
+		}
+	}
+	if len(models) != len(want) || models[0].Name != runtime.Model {
 		t.Fatalf("shipped Claude Desktop model projection = %#v", models)
 	}
 	for _, model := range models {
-		if model.Name == "claude-sonnet-5-5" || model.Name == "claude-sonnet-5-5-ssvip" {
-			t.Fatalf("shipped Claude Desktop duplicated the selected logical Model: %#v", models)
+		canonical, admitted := wires[model.Name]
+		if !admitted || !want[canonical] {
+			t.Fatalf("shipped Claude Desktop projected an ineligible or duplicate logical Model: %#v", models)
 		}
+		delete(want, canonical)
 	}
 }
 

@@ -20,6 +20,7 @@ import (
 // Provider is one AIGW-owned Hermes provider projection.
 type Provider struct {
 	ID                string
+	Name              string
 	Models            []string
 	Endpoint          string
 	Protocol          string
@@ -170,6 +171,7 @@ func (plan *Plan) prepareDesired(root *yaml.Node, desired Desired, state ownersh
 	if err := desired.Validate(); err != nil {
 		return err
 	}
+	orderChanged := !slices.Equal(ownedProviderOrder(root, state.ProviderIDs), desired.providerIDs())
 	providers := field(root, "providers")
 	if providers != nil {
 		setField(providers, legacyProviderID, nil)
@@ -188,7 +190,7 @@ func (plan *Plan) prepareDesired(root *yaml.Node, desired Desired, state ownersh
 	if err != nil {
 		return err
 	}
-	if plan.stateBefore.Exists && bytes.Equal(before, after) {
+	if plan.stateBefore.Exists && bytes.Equal(before, after) && !orderChanged {
 		return nil
 	}
 	state.ManagedDigest = digest(after)
@@ -277,7 +279,6 @@ func (desired Desired) providerIDs() []string {
 	for _, provider := range desired.Providers {
 		ids = append(ids, provider.ID)
 	}
-	slices.Sort(ids)
 	return ids
 }
 

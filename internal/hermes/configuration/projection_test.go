@@ -103,15 +103,65 @@ func TestProjectionPreservesUnownedConfigurationAndWithdraws(t *testing.T) {
 	}
 }
 
+func TestProjectionReconcilesOrderOnlyChangesAndPreservesNativeExtras(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	original := []byte("# Native preferences\nproviders:\n  personal:\n    # Native endpoint\n    base_url: https://personal.test\nterminal:\n  backend: local\n")
+	if err := os.WriteFile(path, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	desired := testDesired()
+	second := desired.Providers[0]
+	second.ID = "other"
+	desired.Providers = append(desired.Providers, second)
+	plan, err := Prepare(path, &desired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plan.Apply(); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(path)
+	desired.Providers[0], desired.Providers[1] = desired.Providers[1], desired.Providers[0]
+	plan, err = Prepare(path, &desired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.ChangesState() {
+		t.Fatal("order-only provider change was discarded as a no-op")
+	}
+	receipt, err := plan.Apply()
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, _ := os.ReadFile(path)
+	if bytes.Index(after, []byte("  other:")) > bytes.Index(after, []byte("  aigw:")) || !bytes.Contains(after, []byte("# Native endpoint")) {
+		t.Fatalf("owned order or native comment was lost: %s", after)
+	}
+	if configMap(t, readConfig(t, path), "terminal")["backend"] != "local" {
+		t.Fatal("native settings changed")
+	}
+	plan, err = Prepare(path, &desired)
+	if err != nil || plan.ChangesState() {
+		t.Fatalf("second pass = %s, %v", plan.Action, err)
+	}
+	if err := receipt.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	restored, _ := os.ReadFile(path)
+	if !bytes.Equal(restored, before) {
+		t.Fatal("order-only rollback did not preserve exact bytes")
+	}
+}
+
 func TestProjectionPublishesTheCuratedModelsForEachOwnedProvider(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	desired := Desired{
 		SelectedProvider: "aigw-ucloud-anthropic",
 		SelectedModel:    "claude-fable-5-1",
 		Providers: []Provider{
-			{ID: "aigw-ucloud-anthropic", Endpoint: "https://messages.test", Protocol: "anthropic", CredentialCommand: "aigw credential hermes messages", Models: []string{"claude-fable-5-1", "claude-opus-5"}},
-			{ID: "aigw-ucloud-responses", Endpoint: "https://responses.test/v1", Protocol: "openai_responses", CredentialCommand: "aigw credential hermes responses", Models: []string{"gpt-6-astra", "grok-4.6"}},
-			{ID: "aigw-ucloud-chat", Endpoint: "https://chat.test/v1", Protocol: "openai_chat_completions", CredentialCommand: "aigw credential hermes chat", Models: []string{"gemini-3.8-flash"}},
+			{ID: "aigw-ucloud-anthropic", Name: "UCloud · Anthropic Messages", Endpoint: "https://messages.test", Protocol: "anthropic", CredentialCommand: "aigw credential hermes messages", Models: []string{"claude-fable-5-1", "claude-opus-5"}},
+			{ID: "aigw-ucloud-responses", Name: "UCloud · OpenAI Responses", Endpoint: "https://responses.test/v1", Protocol: "openai_responses", CredentialCommand: "aigw credential hermes responses", Models: []string{"gpt-6-astra", "grok-4.6"}},
+			{ID: "aigw-ucloud-chat", Name: "UCloud · OpenAI Chat Completions", Endpoint: "https://chat.test/v1", Protocol: "openai_chat_completions", CredentialCommand: "aigw credential hermes chat", Models: []string{"gemini-3.8-flash"}},
 		},
 	}
 	plan, err := Prepare(path, &desired)
@@ -130,7 +180,7 @@ func TestProjectionPublishesTheCuratedModelsForEachOwnedProvider(t *testing.T) {
 	for _, provider := range desired.Providers {
 		projected := configMap(t, providers, provider.ID)
 		models, ok := projected["models"].([]any)
-		if projected["key_cmd"] != provider.CredentialCommand || projected["discover_models"] != false || !ok || len(models) != len(provider.Models) {
+		if projected["name"] != provider.Name || projected["key_cmd"] != provider.CredentialCommand || projected["discover_models"] != false || !ok || len(models) != len(provider.Models) {
 			t.Fatalf("provider %s projection = %#v", provider.ID, projected)
 		}
 	}

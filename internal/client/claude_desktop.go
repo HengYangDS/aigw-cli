@@ -233,7 +233,7 @@ func claudeDesktopModels(cfg configuration.Config, selected configuration.Runtim
 	models := []claudedesktop.Model{{Name: selected.Model, Label: selected.RouteLabel}}
 	seen := map[string]bool{cfg.Routes[selected.RouteID].Model: true}
 	spec := mustClientSpec(configuration.ClientClaudeDesktop)
-	for _, routeID := range cfg.RouteIDs() {
+	for _, routeID := range cfg.CatalogRouteIDs() {
 		if routeID == selected.RouteID {
 			continue
 		}

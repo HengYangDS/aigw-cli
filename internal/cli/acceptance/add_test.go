@@ -196,7 +196,7 @@ func TestAddRejectsConfigThatFailsValidation(t *testing.T) {
 	// Omitting both endpoint flags cannot satisfy the selected client's
 	// endpoint contract.
 	err := cli.Execute(app, []string{"add", "dmx", "--for", "claude", "--model", "claude-test", "--token-stdin"})
-	if err == nil || !strings.Contains(err.Error(), "has no Anthropic endpoint") {
+	if err == nil || !strings.Contains(err.Error(), "has no Anthropic Messages endpoint") {
 		t.Fatalf("error = %v", err)
 	}
 }

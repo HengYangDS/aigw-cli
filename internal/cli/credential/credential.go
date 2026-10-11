@@ -28,7 +28,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if !configuration.IsAdmittedClient(client) {
 				return fmt.Errorf("credential helper requires an admitted client: %s", configuration.AdmittedClientUsage())
 			}
-			cfg, err := runtime.Config.Load()
+			cfg, err := runtime.Config.LoadCredentialConfig()
 			if err != nil {
 				return presentation.ProblemError("Cannot read AIGW configuration", "", "Credential lookup did not start.", "Run `aigw doctor` to inspect the configuration.", err)
 			}

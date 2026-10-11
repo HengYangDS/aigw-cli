@@ -88,6 +88,16 @@ func decodeStoreConfig(data []byte, forwarding transaction.FileSnapshot) (Config
 }
 
 func configurationsEqual(left, right Config) (bool, error) {
+	equal, err := runtimeConfigurationsEqual(left, right)
+	if err != nil || !equal {
+		return equal, err
+	}
+	leftCatalog, leftErr := encodeCatalogOrder(left)
+	rightCatalog, rightErr := encodeCatalogOrder(right)
+	return bytes.Equal(leftCatalog, rightCatalog), errors.Join(leftErr, rightErr)
+}
+
+func runtimeConfigurationsEqual(left, right Config) (bool, error) {
 	leftData, leftErr := encodeConfig(left)
 	rightData, rightErr := encodeConfig(right)
 	if err := errors.Join(leftErr, rightErr); err != nil {

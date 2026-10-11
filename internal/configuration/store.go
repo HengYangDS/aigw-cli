@@ -3,14 +3,11 @@ package configuration
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"reflect"
-	"slices"
 	"strings"
 	"time"
 
@@ -32,12 +29,15 @@ type Snapshot struct {
 	Backup           transaction.FileSnapshot
 	Forwarding       transaction.FileSnapshot
 	ForwardingBackup transaction.FileSnapshot
+	Catalog          transaction.FileSnapshot
+	CatalogBackup    transaction.FileSnapshot
 	Verified         transaction.FileSnapshot
 }
 
 func (snapshot Snapshot) equal(other Snapshot) bool {
 	return snapshot.Config.Equal(other.Config) && snapshot.Backup.Equal(other.Backup) &&
 		snapshot.Forwarding.Equal(other.Forwarding) && snapshot.ForwardingBackup.Equal(other.ForwardingBackup) &&
+		snapshot.Catalog.Equal(other.Catalog) && snapshot.CatalogBackup.Equal(other.CatalogBackup) &&
 		snapshot.Verified.Equal(other.Verified)
 }
 
@@ -48,7 +48,9 @@ func (snapshot Snapshot) BackupConverged(mode os.FileMode) bool {
 		bytes.Equal(snapshot.Backup.Data, snapshot.Config.Data) &&
 		snapshot.ForwardingBackup.Exists == snapshot.Forwarding.Exists &&
 		bytes.Equal(snapshot.ForwardingBackup.Data, snapshot.Forwarding.Data) &&
-		(!snapshot.Forwarding.Exists || snapshot.ForwardingBackup.Mode == mode)
+		(!snapshot.Forwarding.Exists || snapshot.ForwardingBackup.Mode == mode) &&
+		snapshot.CatalogBackup.Exists == snapshot.Catalog.Exists && bytes.Equal(snapshot.CatalogBackup.Data, snapshot.Catalog.Data) &&
+		(!snapshot.Catalog.Exists || snapshot.CatalogBackup.Mode == mode)
 }
 
 // VerifiedBackupState pairs current backup bytes with client evidence when any client is enabled.
@@ -56,15 +58,6 @@ type VerifiedBackupState struct {
 	Snapshot   Snapshot
 	Current    Config
 	Checkpoint VerifiedCheckpoint
-}
-
-// VerifiedCheckpoint is a secret-free record written only after all requested
-// client protocol verifications succeed. It is suitable for rollback, not for
-// credential recovery.
-type VerifiedCheckpoint struct {
-	Config     Config    `json:"config"`
-	Clients    []string  `json:"clients"`
-	VerifiedAt time.Time `json:"verified_at"`
 }
 
 // NewStore binds configuration persistence to one canonical path.
@@ -95,7 +88,15 @@ func (s Store) CaptureSnapshot() (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	return Snapshot{Config: configSnapshot, Backup: backupSnapshot, Forwarding: forwarding, ForwardingBackup: forwardingBackup, Verified: verifiedSnapshot}, nil
+	catalog, err := transaction.CaptureFileSnapshot(s.catalogPath())
+	if err != nil {
+		return Snapshot{}, err
+	}
+	catalogBackup, err := transaction.CaptureFileSnapshot(s.catalogPath() + ".bak")
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return Snapshot{Config: configSnapshot, Backup: backupSnapshot, Forwarding: forwarding, ForwardingBackup: forwardingBackup, Catalog: catalog, CatalogBackup: catalogBackup, Verified: verifiedSnapshot}, nil
 }
 
 // Commit saves one configuration and returns the exact postimage needed for a
@@ -110,15 +111,19 @@ func (s Store) Commit(before Snapshot, cfg Config) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	return s.commitComponents(before, data, forwarding)
+	catalog, err := encodeCatalogOrder(cfg)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return s.commitComponents(before, data, forwarding, catalog)
 }
 
 func (s Store) commitData(before Snapshot, data []byte) (Snapshot, error) {
-	return s.commitComponents(before, data, nil)
+	return s.commitComponents(before, data, nil, nil)
 }
 
-func (s Store) commitComponents(before Snapshot, data, forwarding []byte) (Snapshot, error) {
-	if before.Config.Exists && configurationDataEquivalent(before.Config.Data, data) && bytes.Equal(before.Forwarding.Data, forwarding) && before.Forwarding.Exists == (len(forwarding) != 0) {
+func (s Store) commitComponents(before Snapshot, data, forwarding, catalog []byte) (Snapshot, error) {
+	if before.Config.Exists && configurationDataEquivalent(before.Config.Data, data) && bytes.Equal(before.Forwarding.Data, forwarding) && before.Forwarding.Exists == (len(forwarding) != 0) && bytes.Equal(before.Catalog.Data, catalog) && before.Catalog.Exists == (len(catalog) != 0) {
 		current, err := s.CaptureSnapshot()
 		if err != nil {
 			return Snapshot{}, err
@@ -140,6 +145,11 @@ func (s Store) commitComponents(before Snapshot, data, forwarding []byte) (Snaps
 			return Snapshot{}, errors.Join(fmt.Errorf("back up client forwarding: %w", err), s.RestoreSnapshot(before, after))
 		}
 		after.ForwardingBackup = forwardingBackup
+		catalogBackup, err := s.writeOptional(s.catalogPath()+".bak", before.CatalogBackup, before.Catalog.Data)
+		if err != nil {
+			return Snapshot{}, errors.Join(fmt.Errorf("back up catalogue presentation: %w", err), s.RestoreSnapshot(before, after))
+		}
+		after.CatalogBackup = catalogBackup
 	}
 	if !before.Config.Exists || !configurationDataEquivalent(before.Config.Data, data) {
 		config, err := writeConfigurationFileIfUnchanged(s.path, before.Config, data, 0o600)
@@ -153,6 +163,11 @@ func (s Store) commitComponents(before Snapshot, data, forwarding []byte) (Snaps
 		return Snapshot{}, errors.Join(fmt.Errorf("write client forwarding: %w", err), s.RestoreSnapshot(before, after))
 	}
 	after.Forwarding = forwardingAfter
+	catalogAfter, err := s.writeOptional(s.catalogPath(), before.Catalog, catalog)
+	if err != nil {
+		return Snapshot{}, errors.Join(fmt.Errorf("write catalogue presentation: %w", err), s.RestoreSnapshot(before, after))
+	}
+	after.Catalog = catalogAfter
 	verified, err := removeConfigurationFileIfUnchanged(s.path+".verified.json", before.Verified)
 	if err != nil {
 		return Snapshot{}, errors.Join(fmt.Errorf("invalidate verified checkpoint: %w", err), s.RestoreSnapshot(before, after))
@@ -169,14 +184,14 @@ func (s Store) commitComponents(before Snapshot, data, forwarding []byte) (Snaps
 // canonical and forwarding preimages, including the empty pre-setup state.
 func (snapshot Snapshot) MatchesConfiguration(expected Config) (bool, error) {
 	if !snapshot.Config.Exists {
-		if snapshot.Forwarding.Exists {
+		if snapshot.Forwarding.Exists || snapshot.Catalog.Exists {
 			return false, errors.New("client forwarding has no canonical configuration")
 		}
 		expected = expected.Clone()
 		expected.Normalize()
 		return reflect.DeepEqual(expected, NewConfig()), nil
 	}
-	current, err := decodeStoreConfig(snapshot.Config.Data, snapshot.Forwarding)
+	current, err := (Store{}).loadSnapshot(snapshot)
 	if err != nil {
 		return false, err
 	}
@@ -211,7 +226,7 @@ func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
 	if !snapshot.Config.Exists {
 		return VerifiedBackupState{}, fmt.Errorf("current config is unavailable: %w", os.ErrNotExist)
 	}
-	current, err := decodeStoreConfig(snapshot.Config.Data, snapshot.Forwarding)
+	current, err := s.loadSnapshot(snapshot)
 	if err != nil {
 		return VerifiedBackupState{}, fmt.Errorf("decode current config snapshot: %w", err)
 	}
@@ -222,6 +237,10 @@ func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
 		return VerifiedBackupState{}, fmt.Errorf("verified checkpoint is unavailable: %w", os.ErrNotExist)
 	}
 	checkpoint, err := decodeVerifiedCheckpoint(snapshot.Verified.Data)
+	if err != nil {
+		return VerifiedBackupState{}, err
+	}
+	checkpoint.Config, err = decodeCatalogOrder(checkpoint.Config, snapshot.Catalog)
 	if err != nil {
 		return VerifiedBackupState{}, err
 	}
@@ -247,6 +266,9 @@ func (s Store) ConvergeVerifiedBackup(expected Snapshot) error {
 	if !current.Forwarding.Equal(expected.Forwarding) || !current.ForwardingBackup.Equal(expected.ForwardingBackup) {
 		return errors.New("client forwarding preimage changed; refusing to converge backup")
 	}
+	if !current.Catalog.Equal(expected.Catalog) || !current.CatalogBackup.Equal(expected.CatalogBackup) {
+		return errors.New("catalogue presentation preimage changed; refusing to converge backup")
+	}
 	if !current.Verified.Equal(expected.Verified) {
 		return errors.New("verified checkpoint preimage changed; refusing to converge backup")
 	}
@@ -267,6 +289,11 @@ func (s Store) ConvergeVerifiedBackup(expected Snapshot) error {
 		return errors.Join(fmt.Errorf("converge verified forwarding backup: %w", err), s.RestoreSnapshot(expected, after))
 	}
 	after.ForwardingBackup = forwardingBackup
+	catalogBackup, err := s.writeOptional(s.catalogPath()+".bak", expected.CatalogBackup, expected.Catalog.Data)
+	if err != nil {
+		return errors.Join(fmt.Errorf("converge verified catalogue backup: %w", err), s.RestoreSnapshot(expected, after))
+	}
+	after.CatalogBackup = catalogBackup
 	current, err = s.CaptureSnapshot()
 	if err != nil || !current.equal(after) {
 		return errors.Join(errors.New("configuration changed during backup convergence"), err, s.RestoreSnapshot(expected, after))
@@ -315,6 +342,12 @@ func (s Store) RestoreSnapshot(before, after Snapshot) error {
 	if err := transaction.RestoreFileAtomicIfPostimage(s.forwardingPath()+".bak", before.ForwardingBackup, after.ForwardingBackup); err != nil {
 		failures = append(failures, fmt.Errorf("restore client forwarding backup snapshot: %w", err))
 	}
+	if err := transaction.RestoreFileAtomicIfPostimage(s.catalogPath(), before.Catalog, after.Catalog); err != nil {
+		failures = append(failures, fmt.Errorf("restore catalogue presentation snapshot: %w", err))
+	}
+	if err := transaction.RestoreFileAtomicIfPostimage(s.catalogPath()+".bak", before.CatalogBackup, after.CatalogBackup); err != nil {
+		failures = append(failures, fmt.Errorf("restore catalogue presentation backup: %w", err))
+	}
 	return errors.Join(failures...)
 }
 
@@ -338,6 +371,20 @@ func (s Store) Lock(ctx context.Context) (func() error, error) {
 
 // Load reads, parses, normalizes, and validates the current configuration.
 func (s Store) Load() (Config, error) {
+	cfg, err := s.LoadCredentialConfig()
+	if err != nil {
+		return Config{}, err
+	}
+	catalog, err := transaction.CaptureFileSnapshot(s.catalogPath())
+	if err != nil {
+		return Config{}, newLoadError(LoadPhaseRead, err)
+	}
+	return decodeCatalogOrder(cfg, catalog)
+}
+
+// LoadCredentialConfig reads only the routing and credential authority. Display
+// metadata cannot interrupt a cached native credential reader.
+func (s Store) LoadCredentialConfig() (Config, error) {
 	data, err := os.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) {
 		forwarding, forwardingErr := transaction.CaptureFileSnapshot(s.forwardingPath())
@@ -371,8 +418,17 @@ var removeConfigurationFileIfUnchanged = transaction.RemoveFileIfUnchanged
 
 func encodeConfig(cfg Config) ([]byte, error) {
 	cfg.Normalize()
+	cfg = cfg.Clone()
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("refuse invalid config: %w", err)
+	}
+	for id, account := range cfg.Accounts {
+		account.Order = 0
+		cfg.Accounts[id] = account
+	}
+	for id, model := range cfg.Models {
+		model.Order = 0
+		cfg.Models[id] = model
 	}
 	data, err := toml.Marshal(cfg)
 	if err != nil {
@@ -400,129 +456,6 @@ func separateTOMLTableBlocks(data []byte) []byte {
 	return []byte(strings.Join(formatted, "\n"))
 }
 
-// SaveVerifiedCheckpoint records a completed verification only while its
-// configuration remains current. It serializes with AIGW mutations, preserves
-// newer checkpoints, and compensates observed external configuration changes.
-func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg Config, clients []string) (resultErr error) {
-	if err := validateCheckpointClients(clients); err != nil {
-		return err
-	}
-	_, err := encodeConfig(cfg)
-	if err != nil {
-		return err
-	}
-	unlock, err := s.Lock(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := unlock(); err != nil {
-			resultErr = errors.Join(resultErr, fmt.Errorf("release checkpoint lock: %w", err))
-		}
-	}()
-	configBefore, err := transaction.CaptureFileSnapshot(s.path)
-	if err != nil {
-		return err
-	}
-	if !configBefore.Exists {
-		return errors.New("configuration is unavailable; verification checkpoint was not saved")
-	}
-	forwardingBefore, err := transaction.CaptureFileSnapshot(s.forwardingPath())
-	if err != nil {
-		return err
-	}
-	current, err := decodeStoreConfig(configBefore.Data, forwardingBefore)
-	if err != nil {
-		return err
-	}
-	equal, err := configurationsEqual(cfg, current)
-	if err != nil {
-		return err
-	}
-	if !equal {
-		return errors.New("configuration changed during verification; run `aigw verify --for all` again")
-	}
-	checkpointPath := s.path + ".verified.json"
-	checkpointBefore, err := transaction.CaptureFileSnapshot(checkpointPath)
-	if err != nil {
-		return err
-	}
-	checkpoint := VerifiedCheckpoint{
-		Config:     current,
-		Clients:    append([]string(nil), clients...),
-		VerifiedAt: time.Now().UTC(),
-	}
-	data, err := json.MarshalIndent(checkpoint, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode verified checkpoint: %w", err)
-	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	checkpointAfter, err := writeConfigurationFileIfUnchanged(checkpointPath, checkpointBefore, append(data, '\n'), 0o600)
-	if err != nil {
-		return err
-	}
-	configAfter, err := transaction.CaptureFileSnapshot(s.path)
-	forwardingAfter, forwardingErr := transaction.CaptureFileSnapshot(s.forwardingPath())
-	err = errors.Join(err, forwardingErr)
-	if err == nil && configBefore.Equal(configAfter) && forwardingBefore.Equal(forwardingAfter) {
-		return nil
-	}
-	if err == nil {
-		err = errors.New("configuration changed during checkpoint commit; run `aigw verify --for all` again")
-	}
-	rollbackErr := transaction.RestoreFileAtomicIfPostimage(checkpointPath, checkpointBefore, checkpointAfter)
-	return errors.Join(err, rollbackErr)
-}
-
-// LoadVerifiedCheckpoint returns the last complete verified configuration checkpoint.
-func (s Store) LoadVerifiedCheckpoint() (VerifiedCheckpoint, error) {
-	data, err := os.ReadFile(s.path + ".verified.json")
-	if err != nil {
-		return VerifiedCheckpoint{}, fmt.Errorf("read verified checkpoint: %w", err)
-	}
-	return decodeVerifiedCheckpoint(data)
-}
-
-func decodeVerifiedCheckpoint(data []byte) (VerifiedCheckpoint, error) {
-	var checkpoint VerifiedCheckpoint
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&checkpoint); err != nil {
-		return VerifiedCheckpoint{}, fmt.Errorf("parse verified checkpoint: %w", err)
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return VerifiedCheckpoint{}, errors.New("parse verified checkpoint: expected one complete JSON document")
-	}
-	if checkpoint.VerifiedAt.IsZero() {
-		return VerifiedCheckpoint{}, errors.New("verified checkpoint is incomplete")
-	}
-	if err := validateCheckpointClients(checkpoint.Clients); err != nil {
-		return VerifiedCheckpoint{}, err
-	}
-	checkpoint.Config.Normalize()
-	if err := checkpoint.Config.Validate(); err != nil {
-		return VerifiedCheckpoint{}, fmt.Errorf("validate verified checkpoint: %w", err)
-	}
-	return checkpoint, nil
-}
-
-func validateCheckpointClients(clients []string) error {
-	if len(clients) == 0 {
-		return errors.New("verified checkpoint is incomplete: no clients")
-	}
-	for index, client := range clients {
-		if !IsAdmittedClient(client) {
-			return fmt.Errorf("verified checkpoint contains unknown client %q", client)
-		}
-		if slices.Contains(clients[:index], client) {
-			return fmt.Errorf("verified checkpoint repeats client %q", client)
-		}
-	}
-	return nil
-}
-
 // LoadBackup returns the validated rollback configuration retained by the Store.
 func (s Store) LoadBackup() (Config, error) {
 	data, err := os.ReadFile(s.path + ".bak")
@@ -533,7 +466,15 @@ func (s Store) LoadBackup() (Config, error) {
 	if err != nil {
 		return Config{}, newLoadError(LoadPhaseRead, err)
 	}
-	return decodeStoreConfig(data, forwarding)
+	cfg, err := decodeStoreConfig(data, forwarding)
+	if err != nil {
+		return Config{}, err
+	}
+	catalog, err := transaction.CaptureFileSnapshot(s.catalogPath() + ".bak")
+	if err != nil {
+		return Config{}, newLoadError(LoadPhaseRead, err)
+	}
+	return decodeCatalogOrder(cfg, catalog)
 }
 
 func decodeTOMLConfig(data []byte) (Config, error) {

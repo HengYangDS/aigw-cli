@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -74,7 +73,7 @@ type catalogOutput struct {
 
 func discoverCatalog(ctx context.Context, deps Dependencies, cfg configuration.Config) catalogOutput {
 	result := catalogOutput{Observations: []catalogObservation{}}
-	for _, accountName := range slices.Sorted(maps.Keys(cfg.Accounts)) {
+	for _, accountName := range cfg.CatalogAccountIDs() {
 		account := cfg.Accounts[accountName]
 		sources := catalogSources(account)
 		if len(sources) == 0 {
@@ -122,6 +121,7 @@ func catalogSources(account configuration.Account) []catalogSource {
 		configuration.ProtocolOpenAIChatCompletions,
 		configuration.ProtocolOpenAIResponses,
 	}
+	slices.SortFunc(protocols, configuration.CompareProtocols)
 	sources := make([]catalogSource, 0, len(protocols))
 	for _, protocol := range protocols {
 		if endpoint := strings.TrimRight(account.Endpoints.For(protocol), "/"); endpoint != "" {
@@ -141,7 +141,7 @@ func catalogDifference(cfg configuration.Config, account string, protocol config
 
 	routesByModel := make(map[string][]catalogRoute)
 	missing := []catalogRoute{}
-	for _, routeID := range cfg.RouteIDs() {
+	for _, routeID := range cfg.CatalogRouteIDs() {
 		route := cfg.Routes[routeID]
 		capabilities, admitted := route.Interfaces[protocol]
 		if route.Account != account || !admitted {
@@ -173,6 +173,20 @@ func catalogDifference(cfg configuration.Config, account string, protocol config
 		}
 		models = append(models, catalogModel{ID: id, State: state, Routes: routes})
 	}
+	slices.SortStableFunc(models, func(left, right catalogModel) int {
+		if len(left.Routes) == 0 && len(right.Routes) > 0 {
+			return 1
+		}
+		if len(right.Routes) == 0 && len(left.Routes) > 0 {
+			return -1
+		}
+		if len(left.Routes) > 0 && len(right.Routes) > 0 {
+			if rank := cfg.CompareModels(left.Routes[0].Model, right.Routes[0].Model); rank != 0 {
+				return rank
+			}
+		}
+		return strings.Compare(left.ID, right.ID)
+	})
 	return models, missing
 }
 

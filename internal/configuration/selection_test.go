@@ -409,10 +409,10 @@ func TestResolveAccountRejectsRouteWithUnknownAccount(t *testing.T) {
 }
 
 func TestDomainErrorTextAndRouteSelectionBranches(t *testing.T) {
-	if got := endpointProtocolName(ProtocolAnthropic); got != "Anthropic" {
+	if got := ProtocolLabel(ProtocolAnthropic); got != "Anthropic Messages" {
 		t.Fatalf("Anthropic protocol name = %q", got)
 	}
-	if got := endpointProtocolName(ProtocolOpenAIResponses); got != "OpenAI Responses" {
+	if got := ProtocolLabel(ProtocolOpenAIResponses); got != "OpenAI Responses" {
 		t.Fatalf("Responses protocol name = %q", got)
 	}
 	if got := (&RuntimeRouteClientMismatchError{RouteID: "one", ExpectedClient: "codex", ActualClient: "claude"}).Error(); !strings.Contains(got, "for codex") {

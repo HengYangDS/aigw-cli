@@ -267,7 +267,7 @@ func validateMergeSelectors(cfg Config, incoming Manifest, options MergeOptions)
 }
 
 func equivalentAccount(left, right Account) bool {
-	return left.Label == right.Label &&
+	return left.Label == right.Label && left.Order == right.Order &&
 		normalizeEndpoint(left.Endpoints.OpenAIResponses) == normalizeEndpoint(right.Endpoints.OpenAIResponses) &&
 		normalizeEndpoint(left.Endpoints.OpenAIChatCompletions) == normalizeEndpoint(right.Endpoints.OpenAIChatCompletions) &&
 		normalizeEndpoint(left.Endpoints.Anthropic) == normalizeEndpoint(right.Endpoints.Anthropic) &&

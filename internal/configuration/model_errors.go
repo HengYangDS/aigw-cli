@@ -63,13 +63,14 @@ type RuntimeMissingEndpointError struct {
 
 // Error formats the account and missing endpoint protocol.
 func (e *RuntimeMissingEndpointError) Error() string {
-	return fmt.Sprintf("account %q has no %s endpoint", e.AccountID, endpointProtocolName(e.Protocol))
+	return fmt.Sprintf("account %q has no %s endpoint", e.AccountID, ProtocolLabel(e.Protocol))
 }
 
-func endpointProtocolName(protocol EndpointProtocol) string {
+// ProtocolLabel returns the native display name of an endpoint protocol.
+func ProtocolLabel(protocol EndpointProtocol) string {
 	switch protocol {
 	case ProtocolAnthropic:
-		return "Anthropic"
+		return "Anthropic Messages"
 	case ProtocolOpenAIResponses:
 		return "OpenAI Responses"
 	case ProtocolOpenAIChatCompletions:

@@ -146,6 +146,36 @@ func TestHermesCatalogueUsesProviderWireModelIDs(t *testing.T) {
 	}
 }
 
+func TestHermesCatalogueFollowsDeclaredAccountAndModelOrder(t *testing.T) {
+	cfg := configuration.NewConfig()
+	for id, order := range map[string]int{"alpha": 20, "zulu": 10} {
+		cfg.Accounts[id] = configuration.Account{Label: id, Order: order, Endpoints: configuration.Endpoints{
+			Anthropic: "https://messages.test", OpenAIResponses: "https://responses.test/v1",
+		}}
+		for model, rank := range map[string]int{"first": 10, "second": 20} {
+			cfg.Models[model] = configuration.Model{Label: model, Order: rank}
+			cfg.Routes[id+"-"+model] = configuration.Route{Account: id, Model: model, UpstreamModel: map[string]string{"first": "wire-z", "second": "wire-a"}[model], Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
+				configuration.ProtocolAnthropic: {}, configuration.ProtocolOpenAIResponses: {},
+			}}
+		}
+	}
+	catalogue, err := hermesCatalogue(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, provider := range catalogue {
+		got = append(got, provider.ID)
+		if !slices.Equal(provider.Models, []string{"wire-z", "wire-a"}) {
+			t.Fatalf("provider %s reordered exact wires lexically: %v", provider.ID, provider.Models)
+		}
+	}
+	want := []string{"aigw-zulu-anthropic", "aigw-zulu-openai-responses", "aigw-alpha-anthropic", "aigw-alpha-openai-responses"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("provider Account/protocol order = %v, want %v", got, want)
+	}
+}
+
 func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
 	team, err := os.ReadFile(filepath.Join("..", "..", "manifests", "team.toml"))
 	if err != nil {

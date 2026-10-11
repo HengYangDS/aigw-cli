@@ -96,6 +96,29 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 	}
 }
 
+func TestModelRowsGroupAccountsThenProtocolsThenDeclaredModels(t *testing.T) {
+	cfg := configuredCatalog()
+	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Order: 10, Endpoints: cfg.Accounts["gateway"].Endpoints}
+	cfg.Models["first"] = configuration.Model{Label: "First", Order: 10}
+	cfg.Models["second"] = configuration.Model{Label: "Second", Order: 20}
+	cfg.Routes = map[string]configuration.Route{}
+	for _, model := range []string{"second", "first"} {
+		cfg.Routes[model] = configuration.Route{Account: "gateway", Model: model, Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
+			configuration.ProtocolAnthropic: {}, configuration.ProtocolOpenAIResponses: {}, configuration.ProtocolOpenAIChatCompletions: {},
+		}}
+	}
+	rows := modelRows(cfg, catalogOutput{})
+	index := 0
+	for _, protocol := range []configuration.EndpointProtocol{configuration.ProtocolAnthropic, configuration.ProtocolOpenAIResponses, configuration.ProtocolOpenAIChatCompletions} {
+		for _, model := range []string{"first", "second"} {
+			if rows[index].Protocol != protocol || rows[index].Model != model {
+				t.Fatalf("catalog row %d = %#v; want protocol=%s model=%s", index, rows[index], protocol, model)
+			}
+			index++
+		}
+	}
+}
+
 func TestModelsCommandExplainsCredentialAndCatalogFailures(t *testing.T) {
 	cfg := configuredCatalog()
 	secretStore := &faultingSecrets{values: map[string]string{"gateway": "token"}, getErr: errors.New("credential unavailable")}

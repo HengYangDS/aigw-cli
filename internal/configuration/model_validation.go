@@ -191,6 +191,9 @@ func (account Account) validate(name string) error {
 	if strings.TrimSpace(account.Label) == "" {
 		return fmt.Errorf("account %q has an empty label", name)
 	}
+	if account.Order < 0 {
+		return fmt.Errorf("account %q order must not be negative", name)
+	}
 	if account.Endpoints.OpenAIResponses == "" && account.Endpoints.Anthropic == "" && account.Endpoints.OpenAIChatCompletions == "" {
 		return fmt.Errorf("account %q must define at least one endpoint", name)
 	}
@@ -227,6 +230,9 @@ func (model Model) validate(name string) error {
 	}
 	if strings.TrimSpace(model.Label) == "" {
 		return fmt.Errorf("model %q has an empty label", name)
+	}
+	if model.Order < 0 {
+		return fmt.Errorf("model %q order must not be negative", name)
 	}
 	return nil
 }

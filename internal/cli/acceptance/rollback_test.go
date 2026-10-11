@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -182,11 +183,25 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), verified, []string{configuration.ClientCodex}); err != nil {
 		t.Fatal(err)
 	}
-	current := verified
+	current := verified.Clone()
+	account := current.Accounts["dmx"]
+	account.Order = 10
+	current.Accounts["dmx"] = account
 	current.Routes = map[string]configuration.Route{"experimental": qualifiedRoute("Experimental", "dmx", "gpt-experimental", configuration.ProtocolOpenAIResponses)}
 	current.SetSelectedRoute(configuration.ClientCodex, "experimental", "")
-	if err := app.Config.Save(current); err != nil {
+	// External edits leave the historical checkpoint available for recovery.
+	canonical := current.Clone()
+	account.Order = 0
+	canonical.Accounts["dmx"] = account
+	isolated := configuration.NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	if err := isolated.Save(canonical); err != nil {
 		t.Fatal(err)
+	}
+	writeFile(t, app.Config.Path(), readFile(t, isolated.Path()), 0o600)
+	writeFile(t, strings.TrimSuffix(app.Config.Path(), filepath.Ext(app.Config.Path()))+".catalog.toml", []byte("[accounts]\ndmx = 10\n"), 0o600)
+	checkpoint, err := app.Config.LoadVerifiedCheckpoint()
+	if err != nil || checkpoint.Config.Accounts["dmx"].Order != 10 {
+		t.Fatalf("checkpoint did not restore current presentation: error=%v", err)
 	}
 	if err := secretStore.Set("dmx", "token"); err != nil {
 		t.Fatal(err)
@@ -201,5 +216,8 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 	}
 	if restored.SelectedRoute(configuration.ClientCodex) != "stable" {
 		t.Fatalf("rollback selection = %q, want stable", restored.SelectedRoute(configuration.ClientCodex))
+	}
+	if restored.Accounts["dmx"].Order != 10 {
+		t.Fatal("verified rollback discarded current Account presentation")
 	}
 }
