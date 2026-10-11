@@ -607,17 +607,11 @@ Use focused Conventional Commits and validate [chronology](CHANGELOG.md):
 headings require their exact signed tag/date. GitLab display name `AIGW CLI`
 does not authorize changing the stable clone path `aigw-cli`.
 
-One signed product object goes unchanged to optional equivalent peers. Source
-trust uses `AIGW_RELEASE_AUTHOR_EMAIL` / `AIGW_RELEASE_ALLOWED_SIGNERS_FILE`;
-Forge transport remains independently authorized. From clean canonical source,
-`tools/forge project` admits only `main` (atomic peer main/dev) or matching
-`proposal/*`. Exact observed leases guard every write; divergence additionally
-needs bounded destructive authorization and immediate force-push restoration.
-No peer-specific re-signing, history map, actor or tree-only equivalence is valid.
-
-Protected CI's author/signer, API/project/tag and job-token inputs belong to its
-execution context, not product defaults. Current remote OIDs prove synchronization;
-Release records, file hashes and installed behavior need independent checks.
+[Branch publication](docs/operations/forge-operations.md#publish-a-branch) owns
+exact-object admission, remote leases and authorized divergent cutover.
+Source trust uses `AIGW_RELEASE_AUTHOR_EMAIL` / `AIGW_RELEASE_ALLOWED_SIGNERS_FILE`;
+Forge transport remains independently authorized. History maps, peer-specific
+actors and tree-only equivalence do not establish object identity.
 
 ## Merge closeout
 
