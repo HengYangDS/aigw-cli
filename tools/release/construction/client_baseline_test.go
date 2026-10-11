@@ -1,6 +1,7 @@
 package construction
 
 import (
+	"aigw-cli/internal/configuration"
 	upgradeartifact "aigw-cli/internal/upgrade/artifact"
 	releaseartifact "aigw-cli/tools/release/artifact"
 	"encoding/json"
@@ -74,6 +75,7 @@ func TestNativeClientSuccessionRequiresPublishedPredecessor(t *testing.T) {
 
 func TestNativeDiagnosticClientAdmission(t *testing.T) {
 	root := t.TempDir()
+	t.Setenv("AIGW_ACCEPTANCE_HERMES_HOME", root)
 	artifacts := "--artifacts=" + filepath.Join(root, "candidate")
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", filepath.Join(root, "published-aigw"))
 	t.Setenv("AIGW_RELEASE_TAG", "")
@@ -97,6 +99,11 @@ func TestNativeDiagnosticClientAdmission(t *testing.T) {
 		if err := requireNativeClients(client); err == nil {
 			t.Errorf("%s diagnostic admitted a missing executable", client)
 		}
+	}
+	t.Setenv("AIGW_ACCEPTANCE_HERMES", executable)
+	t.Setenv("AIGW_ACCEPTANCE_HERMES_HOME", "")
+	if err := requireNativeClients(configuration.ClientHermes); err == nil || !strings.Contains(err.Error(), "AIGW_ACCEPTANCE_HERMES_HOME") {
+		t.Fatalf("Hermes acceptance admitted an unbound native installation: %v", err)
 	}
 	for _, arguments := range [][]string{
 		{"--diagnostic-client=hermes"},

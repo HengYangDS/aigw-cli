@@ -397,6 +397,7 @@ AIGW_ACCEPTANCE_RELEASE=/absolute/path/to/verified/native-directory \
 AIGW_ACCEPTANCE_CODEX=/absolute/path/to/codex \
 AIGW_ACCEPTANCE_CLAUDE=/absolute/path/to/claude \
 AIGW_ACCEPTANCE_HERMES=/absolute/path/to/hermes \
+AIGW_ACCEPTANCE_HERMES_HOME=/absolute/path/to/native/hermes-home \
 AIGW_ACCEPTANCE_CLIENT_PATH=/usr/bin:/bin \
   mise exec --locked -- go test -tags=client_acceptance ./tools/release \
   -run '^TestNativeClientJourney$' -count=1 -v
@@ -404,6 +405,9 @@ AIGW_ACCEPTANCE_CLIENT_PATH=/usr/bin:/bin \
 
 Windows uses native executable paths and a semicolon-separated companion PATH.
 Supply complete client distributions; a missing path is not a stub/download license.
+Hermes uses a temporary named profile under the explicit native home to retain its
+installation binding. OS HOME and AIGW state remain isolated; cleanup removes the
+owned profile without changing native settings or other profiles.
 
 The isolated Codex fixture explicitly enables the official Windows `unelevated`
 sandbox, which uses a restricted token without administrator setup. The client

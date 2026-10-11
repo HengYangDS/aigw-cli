@@ -211,6 +211,14 @@ func requireNativeClients(selected string) error {
 		if err != nil || !filepath.IsAbs(path) || !info.Mode().IsRegular() {
 			return fmt.Errorf("real-client acceptance requires an explicit executable in %s", key)
 		}
+		if client == configuration.ClientHermes {
+			key := "AIGW_ACCEPTANCE_HERMES_HOME"
+			home := os.Getenv(key)
+			info, err := os.Stat(home)
+			if err != nil || !filepath.IsAbs(home) || !info.IsDir() {
+				return fmt.Errorf("real-client acceptance requires an explicit native installation directory in %s", key)
+			}
+		}
 	}
 	return nil
 }

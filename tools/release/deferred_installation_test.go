@@ -256,7 +256,7 @@ func (j *journeyFixture) clientProjectionPaths(clientID string) []string {
 		path := filepath.Join(home, ".codex", "config.toml")
 		return []string{path, path + ".aigw-state.json"}
 	case configuration.ClientHermes:
-		path := filepath.Join(home, ".hermes", "config.yaml")
+		path := filepath.Join(environmentValues(j.environment)["HERMES_HOME"], "config.yaml")
 		return []string{path, path + ".aigw-state.json"}
 	case configuration.ClientClaudeDesktop:
 		paths, err := platform.PathsFor(runtime.GOOS, environmentValues(j.environment))

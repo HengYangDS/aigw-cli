@@ -492,3 +492,24 @@ func (j *journeyFixture) requireHermesContinuedTurn(executable string, recorder 
 	}
 	return inputs[finalInput]
 }
+
+func testHermesNativeClientInputs(t *testing.T) {
+	root := t.TempDir()
+	file := filepath.Join(root, "program")
+	if err := os.WriteFile(file, []byte("program"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	installation := t.TempDir()
+	t.Setenv("AIGW_ACCEPTANCE_HERMES_HOME", installation)
+	journey := &journeyFixture{
+		testing: t, root: root, manifest: filepath.Join(root, "team.toml"),
+		endpoint: "http://127.0.0.1:1/v1",
+	}
+	journey.prepareNativeClient(configuration.ClientHermes, file, readFile(t, filepath.Join("..", "..", "manifests", "team.toml")))
+	home := environmentValues(journey.environment)["HERMES_HOME"]
+	if filepath.Dir(home) != filepath.Join(installation, "profiles") {
+		t.Fatalf("Hermes profile %q lost its explicit native installation root", home)
+	}
+	requireFileContains(t, filepath.Join(home, "config.yaml"), "updates:\n  check: false")
+	requireFileContains(t, filepath.Join(home, "config.yaml"), "security:\n  allow_lazy_installs: false")
+}

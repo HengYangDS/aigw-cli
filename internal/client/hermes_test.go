@@ -250,10 +250,15 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	if err := store.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
+	profiles := filepath.Join(filepath.Dir(binding.Targets[0]), "profiles")
+	originalHome := os.Getenv("HOME")
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
 	runner.observe = func(plan process.Plan) {
-		if len(plan.Args) == 0 {
-			return
+		if filepath.Dir(plan.Directory) != profiles {
+			t.Fatalf("verification profile %q lost the native installation root %q", plan.Directory, profiles)
+		}
+		if !slices.Contains(plan.Env, "HERMES_HOME="+plan.Directory) || !slices.Contains(plan.Env, "HOME="+originalHome) {
+			t.Fatal("verification must isolate Hermes settings without changing the OS installation home")
 		}
 		data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
 		if err != nil {
@@ -396,6 +401,14 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 	if err := store.Set("gateway", "fixture-only-token"); err != nil {
 		t.Fatal(err)
 	}
+	profiles := filepath.Join(root, "profiles")
+	if err := os.Mkdir(profiles, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	foreign := filepath.Join(profiles, "user-profile")
+	if err := os.WriteFile(foreign, []byte("user-owned"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes fixture"), []byte("AIGW_OK")}}
 	deps := Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(root, "aigw")}
 	if _, err := (hermesAdapter{}).Apply(t.Context(), deps, configuration.NewConfig(), cfg); err != nil {
@@ -438,6 +451,14 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 	after, err := os.ReadFile(target)
 	if err != nil || !bytes.Equal(after, original) {
 		t.Fatal("verification changed the original native configuration")
+	}
+	runner.err = context.DeadlineExceeded
+	if _, err := (hermesAdapter{}).Verify(t.Context(), deps, cfg, runtime, ""); err == nil {
+		t.Fatal("failed native version probe was accepted")
+	}
+	entries, err := os.ReadDir(profiles)
+	if err != nil || len(entries) != 1 || entries[0].Name() != filepath.Base(foreign) {
+		t.Fatalf("verification leaked a profile or removed foreign state: %v, %v", entries, err)
 	}
 }
 

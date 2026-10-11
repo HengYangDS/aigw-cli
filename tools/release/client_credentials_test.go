@@ -30,6 +30,22 @@ import (
 )
 
 func TestNativeClientFilePreservation(t *testing.T) {
+	t.Run("effective Hermes home", func(t *testing.T) {
+		journey := journeyFixture{testing: t, root: t.TempDir()}
+		home := t.TempDir()
+		journey.setEnvironment("HERMES_HOME", home)
+		check := journey.preserveClientFiles(configuration.ClientHermes)
+		path := filepath.Join(home, "sessions", "user.jsonl")
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("preservation did not inspect the effective Hermes session path: %v", err)
+		}
+		if err := os.WriteFile(path, []byte("changed"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := check(); err == nil {
+			t.Fatal("effective Hermes session edits were not detected")
+		}
+	})
 	for _, test := range []struct {
 		name string
 		auth []byte
@@ -477,7 +493,7 @@ func (j *journeyFixture) preserveClientFiles(client string) func() error {
 	case configuration.ClientCodex:
 		path, content = filepath.Join(home, ".codex", "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
 	case configuration.ClientHermes:
-		path, content = filepath.Join(home, ".hermes", "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
+		path, content = filepath.Join(environmentValues(j.environment)["HERMES_HOME"], "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		j.testing.Fatal(err)

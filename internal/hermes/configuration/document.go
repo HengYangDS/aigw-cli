@@ -6,8 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"slices"
 
+	"github.com/rogpeppe/go-internal/robustio"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -139,6 +142,24 @@ func PrepareVerification(path string, desired Desired) ([]byte, error) {
 		setField(section, policy.setting, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "false"})
 	}
 	return encode(root)
+}
+
+// CreateVerificationHome isolates profile data while retaining native install
+// state. Cleanup removes only the owned profile; Hermes owns the shared container.
+func CreateVerificationHome(target string) (string, func() error, error) {
+	root := filepath.Dir(target)
+	if filepath.Base(filepath.Dir(root)) == "profiles" {
+		root = filepath.Dir(filepath.Dir(root))
+	}
+	profiles := filepath.Join(root, "profiles")
+	if err := os.MkdirAll(profiles, 0o700); err != nil {
+		return "", nil, fmt.Errorf("prepare Hermes verification profiles: %w", err)
+	}
+	home, err := os.MkdirTemp(profiles, "aigw-verify-")
+	if err != nil {
+		return "", nil, fmt.Errorf("create Hermes verification profile: %w", err)
+	}
+	return home, func() error { return robustio.RemoveAll(home) }, nil
 }
 
 func selectedModel(root *yaml.Node) *yaml.Node {

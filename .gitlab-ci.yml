@@ -412,6 +412,7 @@ native-windows:
         $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codex 'bin/codex.exe'
         $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $fixture 'clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
         $env:AIGW_ACCEPTANCE_HERMES = Join-Path $hermes '.venv/Scripts/hermes.exe'
+        $env:AIGW_ACCEPTANCE_HERMES_HOME = $hermes
         $node = mise which node
         $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), (Join-Path $hermes '.venv/Scripts'), (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
         $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
@@ -603,6 +604,7 @@ native-windows-review:
         $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codex 'bin/codex.exe'
         $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $fixture 'clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
         $env:AIGW_ACCEPTANCE_HERMES = Join-Path $hermes '.venv/Scripts/hermes.exe'
+        $env:AIGW_ACCEPTANCE_HERMES_HOME = $hermes
         $node = mise which node
         $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), (Join-Path $hermes '.venv/Scripts'), (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
         $env:CLAUDE_CODE_GIT_BASH_PATH = $bash

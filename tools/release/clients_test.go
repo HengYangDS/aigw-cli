@@ -4,6 +4,7 @@ package main
 
 import (
 	"aigw-cli/internal/configuration"
+	hermesconfig "aigw-cli/internal/hermes/configuration"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
@@ -85,14 +86,7 @@ func TestNativeClientInputs(t *testing.T) {
 			t.Fatal("native preparation substituted its own route or model for the supplied recommendation")
 		}
 	})
-	t.Run("hermes-offline-version-preflight", func(t *testing.T) {
-		journey := &journeyFixture{
-			testing: t, root: root, manifest: filepath.Join(root, "team.toml"),
-			endpoint: "http://127.0.0.1:1/v1",
-		}
-		journey.prepareNativeClient(configuration.ClientHermes, file, readFile(t, filepath.Join("..", "..", "manifests", "team.toml")))
-		requireFileContains(t, filepath.Join(root, "home", ".hermes", "config.yaml"), "updates:\n  check: false")
-	})
+	t.Run("hermes-offline-version-preflight", testHermesNativeClientInputs)
 }
 
 func TestNativeClientJourney(t *testing.T) {
@@ -374,7 +368,22 @@ func (j *journeyFixture) prepareNativeClient(client, executable string, team []b
 	j.environment = environmentWithout(j.environment, "CODEX_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL")
 	j.setEnvironment("CODEX_HOME", filepath.Join(home, ".codex"))
 	j.setEnvironment("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
-	j.setEnvironment("HERMES_HOME", filepath.Join(home, ".hermes"))
+	if client == configuration.ClientHermes {
+		installation, err := requiredClientInput("AIGW_ACCEPTANCE_HERMES_HOME", true)
+		if err != nil {
+			j.testing.Fatal(err)
+		}
+		profile, cleanup, err := hermesconfig.CreateVerificationHome(filepath.Join(installation, "config.yaml"))
+		if err != nil {
+			j.testing.Fatal(err)
+		}
+		j.testing.Cleanup(func() {
+			if err := cleanup(); err != nil {
+				j.testing.Errorf("remove native Hermes acceptance profile: %v", err)
+			}
+		})
+		j.setEnvironment("HERMES_HOME", profile)
+	}
 	preferences := map[string]string{
 		// This journey owns client inference and projection, not marketplace synchronization.
 		configuration.ClientCodex: `model_reasoning_effort = 'high'
@@ -396,6 +405,8 @@ providers:
     base_url: https://personal.test
 terminal:
   backend: local
+security:
+  allow_lazy_installs: false
 updates:
   check: false
 `,
@@ -403,7 +414,7 @@ updates:
 	path := map[string]string{
 		configuration.ClientClaude: j.settings,
 		configuration.ClientCodex:  filepath.Join(home, ".codex", "config.toml"),
-		configuration.ClientHermes: filepath.Join(home, ".hermes", "config.yaml"),
+		configuration.ClientHermes: filepath.Join(environmentValues(j.environment)["HERMES_HOME"], "config.yaml"),
 	}[client]
 	if path == "" {
 		j.testing.Fatalf("unsupported native client %q", client)

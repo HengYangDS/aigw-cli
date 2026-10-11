@@ -17,8 +17,6 @@ import (
 	"aigw-cli/internal/discovery"
 	hermesconfig "aigw-cli/internal/hermes/configuration"
 	"aigw-cli/internal/process"
-
-	"github.com/rogpeppe/go-internal/robustio"
 )
 
 type hermesAdapter struct{}
@@ -367,12 +365,6 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 	if len(configured.Targets) != 1 {
 		return Verification{}, errors.New("hermes verification requires one configured home; run aigw sync")
 	}
-	home, err := os.MkdirTemp("", "aigw-hermes-verification-")
-	if err != nil {
-		return Verification{}, err
-	}
-	defer func() { result = errors.Join(result, robustio.RemoveAll(home)) }()
-	verificationConfig := filepath.Join(home, "config.yaml")
 	desired, err := hermesDesired(deps, cfg, selected)
 	if err != nil {
 		return Verification{}, err
@@ -381,6 +373,12 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 	if err != nil {
 		return Verification{}, err
 	}
+	home, cleanup, err := hermesconfig.CreateVerificationHome(configured.Targets[0])
+	if err != nil {
+		return Verification{}, err
+	}
+	defer func() { result = errors.Join(result, cleanup()) }()
+	verificationConfig := filepath.Join(home, "config.yaml")
 	if err := os.WriteFile(verificationConfig, data, 0o600); err != nil {
 		return Verification{}, fmt.Errorf("prepare isolated Hermes verification policy: %w", err)
 	}
