@@ -295,7 +295,8 @@ jobs:
           dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
           gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
           gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-          AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go run ./tools/ci native --platform linux
+          export AIGW_VERIFY_SYSTEM_KEYRING=1
+          mise exec --locked -- go run ./tools/ci native --platform linux
           AIGW_SECRET_SERVICE
       - env:
           CGO_ENABLED: "1"
@@ -305,7 +306,8 @@ jobs:
           dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
           gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
           gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-          AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go run ./tools/ci native --platform linux --full-quality
+          export AIGW_VERIFY_SYSTEM_KEYRING=1
+          mise exec --locked -- go run ./tools/ci native --platform linux --full-quality
           AIGW_SECRET_SERVICE
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)
@@ -338,7 +340,8 @@ jobs:
           dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
           gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
           gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-          AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="$AIGW_FULL_NATIVE_QUALITY" -- --candidate="$AIGW_NATIVE_CANDIDATE" --candidate-source="$AIGW_CANDIDATE_SOURCE" --input-release="$AIGW_NATIVE_INPUT_RELEASE" --input-sha256="$AIGW_NATIVE_INPUT_SHA256" --baseline-tag="$AIGW_BASELINE_TAG" --tag="$AIGW_CANDIDATE_TAG" --peer=github --repository="$GITHUB_REPOSITORY" --clients="$AIGW_NATIVE_CLIENTS" --performance="$AIGW_PERFORMANCE_OUTPUT"
+          export AIGW_VERIFY_SYSTEM_KEYRING=1
+          mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="$AIGW_FULL_NATIVE_QUALITY" -- --candidate="$AIGW_NATIVE_CANDIDATE" --candidate-source="$AIGW_CANDIDATE_SOURCE" --input-release="$AIGW_NATIVE_INPUT_RELEASE" --input-sha256="$AIGW_NATIVE_INPUT_SHA256" --baseline-tag="$AIGW_BASELINE_TAG" --tag="$AIGW_CANDIDATE_TAG" --peer=github --repository="$GITHUB_REPOSITORY" --clients="$AIGW_NATIVE_CLIENTS" --performance="$AIGW_PERFORMANCE_OUTPUT"
           AIGW_SECRET_SERVICE
       - name: Retain native performance samples
         if: always() && github.event_name == 'workflow_dispatch' && inputs.performance

@@ -47,7 +47,8 @@ linuxSecretService: {
 			dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
 			gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
 			gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-			AIGW_VERIFY_SYSTEM_KEYRING=1 \#(command)
+			export AIGW_VERIFY_SYSTEM_KEYRING=1
+			\#(command)
 			AIGW_SECRET_SERVICE
 			"""#
 	}

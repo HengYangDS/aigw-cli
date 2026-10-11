@@ -137,11 +137,32 @@ func TestGitHubLinuxNativeJourneyUsesTheLockedProductCommand(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.ContainsFunc(gitlab.Linux.Script, func(call string) bool {
+	index := slices.IndexFunc(gitlab.Linux.Script, func(call string) bool {
 		return strings.Contains(call, "dbus-run-session") && strings.Contains(call, "AIGW_VERIFY_SYSTEM_KEYRING=1") &&
 			strings.Contains(call, "go run ./tools/ci native --platform linux")
-	}) {
+	})
+	if index < 0 {
 		t.Fatal("GitLab native Linux command lacks the same isolated credential contract")
+	}
+	for _, peer := range []struct{ name, command string }{
+		{"GitHub", githubCommands[1]},
+		{"GitLab", gitlab.Linux.Script[index]},
+	} {
+		t.Run(peer.name, func(t *testing.T) {
+			_, body, found := strings.Cut(peer.command, "<<'AIGW_SECRET_SERVICE'\n")
+			if !found {
+				t.Fatal("native Linux command lacks its Secret Service session body")
+			}
+			body, found = strings.CutSuffix(strings.TrimSpace(body), "AIGW_SECRET_SERVICE")
+			if !found {
+				t.Fatal("native Linux Secret Service session is not terminated")
+			}
+			command := exec.CommandContext(t.Context(), "bash", "-n")
+			command.Stdin = strings.NewReader(body)
+			if output, err := command.CombinedOutput(); err != nil {
+				t.Fatalf("invalid native Linux Secret Service body: %v: %s", err, output)
+			}
+		})
 	}
 }
 

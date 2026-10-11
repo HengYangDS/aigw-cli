@@ -76,7 +76,8 @@ native-linux:
       dbus-run-session -- bash -euo pipefail <<'AIGW_SECRET_SERVICE'
       gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
       gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-      AIGW_VERIFY_SYSTEM_KEYRING=1 if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ] || [ -n "${AIGW_CANDIDATE_TAG:-}" ] || [ -n "${AIGW_BASELINE_TAG:-}" ] || [ "${AIGW_NATIVE_CLIENTS:-false}" = true ] || [ -n "${AIGW_PERFORMANCE_OUTPUT:-}" ]; then
+      export AIGW_VERIFY_SYSTEM_KEYRING=1
+      if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ] || [ -n "${AIGW_CANDIDATE_TAG:-}" ] || [ -n "${AIGW_BASELINE_TAG:-}" ] || [ "${AIGW_NATIVE_CLIENTS:-false}" = true ] || [ -n "${AIGW_PERFORMANCE_OUTPUT:-}" ]; then
         if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ]; then export AIGW_NATIVE_CANDIDATE=true; fi
         mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="$AIGW_FULL_NATIVE_QUALITY" -- --candidate="$AIGW_NATIVE_CANDIDATE" --candidate-source="$AIGW_CANDIDATE_SOURCE" --input-package="$AIGW_NATIVE_INPUT_PACKAGE" --input-sha256="$AIGW_NATIVE_INPUT_SHA256" --baseline-tag="$AIGW_BASELINE_TAG" --tag="$AIGW_CANDIDATE_TAG" --peer=gitlab --repository="$CI_PROJECT_URL" --clients="$AIGW_NATIVE_CLIENTS" --performance="$AIGW_PERFORMANCE_OUTPUT"
       else
