@@ -69,8 +69,8 @@ combination; verify the actual invocation.
 ### Client Binding
 
 ```bash
-aigw use --for codex dmxapi-gpt-6-astra
-aigw use --for claude dmxapi-claude-fable-5-1
+aigw use --for codex dmxapi-gpt-6.1-sol-cdx
+aigw use --for claude dmxapi-claude-opus-5-5
 ```
 
 Each binding owns one client's Route selection, enabled intent, native target,
@@ -92,6 +92,9 @@ deliberate selection changes.
   or explicit client-native authentication.
 - **Claude Code:** official user-settings endpoint/model projection and
   credential helper.
+- **Claude Desktop:** its separate third-party inference library.
+- **Hermes:** its native provider catalogue, explicit protocol/model selection,
+  and credential commands.
 
 An admitted client adapter produces and withdraws only its AIGW-owned native
 projection; it does not own provider behavior. Missing and unbound clients

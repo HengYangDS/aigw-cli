@@ -140,6 +140,24 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 - Let `aigw catalog --all --json` return the complete JSON catalogue instead
   of rejecting two compatible output flags.
 
+## 0.3.3 - 2026-10-09
+
+History: [GitLab][0.3.3-gitlab] · [GitHub][0.3.3-github]
+
+### Added
+
+- Preview an explicit Codex forwarding destination and its exact native target
+  actions without reading credentials, sending requests or changing files.
+
+### Fixed
+
+- Keep Codex forwarding separate from Account endpoints, provider identity and
+  the original credential reader; preserve other enabled clients and user settings.
+- Restore forwarding, direct mode and last-change rollback through the existing
+  guarded configuration, backup and verification checkpoint owners.
+- Reject stale upstream bindings and target conflicts without overwriting newer
+  edits; compensate independent owned files after partial write failure.
+
 ## 0.3.1 - 2026-09-25
 
 History: [GitLab][0.3.1-gitlab] · [GitHub][0.3.1-github]
@@ -1284,8 +1302,10 @@ History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 
 - Require every tag pipeline to verify that its exact annotated release tag carries an SSH signature trusted by the repository-owned signer anchor before packaging, publication, or GitLab Release creation. An unsigned or untrusted tag now fails closed.
 
-[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.1...main
-[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.1...main
+[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.3...main
+[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.3...main
+[0.3.3-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.1...v0.3.3
+[0.3.3-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.1...v0.3.3
 [0.3.1-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.0...v0.3.1
 [0.3.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.0...v0.3.1
 [0.3.0-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.2.0...v0.3.0

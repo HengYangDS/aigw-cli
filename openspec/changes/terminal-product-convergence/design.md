@@ -287,266 +287,105 @@ model choice and history; report unsupported modes rather than rewrite metadata.
 
 ### 5. One native qualification graph and one publication identity
 
-The repository lockfiles and `mise run bootstrap` reconstruct each Work Lane's
-mutable `node_modules` and build state. Shared content-addressed caches are
-not mutable cross-lane environments. Task 5.1 tests the environment boundary
-in a fresh current-HEAD Git worktree, not ETHOS lease creation. At `1015e56c`,
-empty HOME, Mise, Go, and npm caches installed all 19 locked tools and 283 npm
-packages; selected Go, Node, npm, and OSV binaries came from the private Mise
-root. Authored-input hashes and tracked files were unchanged; the focused
-ambient-fallback tests passed. The exact checkout and test state were removed,
-including read-only Go module-cache files. This does not prove a formal new
-ETHOS Work Lane or any other operating system.
+#### Environment and supply ownership
 
-Windows public-fixture preparation belongs to the original native CI job, not a
-host transport or drain controller. Exact package/source/checksum inputs select
-its private job directory; independently configured trust remains outside the
-download. Native glab and tar prepare the selected candidate and predecessor
-matrices. Only explicit client or diagnostic selection extracts client companions
-and prepares official Hermes with managed Python 3.12, locked uv and its frozen
-dependencies; performance-only acceptance does not install clients. The original release
-parser is the sole candidate/lifecycle admission owner. Full-quality and
-lock-refresh requests retain source qualification. After actual native consumer
-acceptance, remove superseded installer stages; preparation and archive inspection
-cannot qualify the Windows service token or client tools.
+Lockfiles and `mise run bootstrap` reconstruct each checkout's mutable environment;
+shared content-addressed caches are not shared mutable Work Lane state. The
+`1015e56c` empty-HOME/cache bootstrap qualified one fresh Git worktree, its
+unchanged authored inputs and exact cleanup, not ETHOS lease creation or another OS.
+Native npm commands select the tracked registry, reject ambient operator settings,
+and use checkout/job-owned caches. Isolation under one OS identity is not containment.
 
-Repository npm commands select the tracked registry configuration and disable
-operator-global configuration through native npm settings. Their mutable cache
-belongs to this checkout, with a distinct GitLab job identity when supplied;
-no command borrows the operator's global npm cache. Native configuration probes
-must preserve synthetic foreign settings and refuse their cache, not merely
-assert the authored spelling. Proxy selection and operator credentials remain
-outside this change; filesystem separation is not mutual protection against
-another process running as the same OS identity.
+Use the latest compatible stable pins. The npm three-day publication delay protects
+its unpublish window; Go modules, Mise tools and OCI images instead require exact
+upstream identity, lock/checksum or digest, compatible behavior and native evidence.
+The resolved jsdom 30.1.1 graph passed clean installation, signatures and Mermaid
+rendering; its 9.2.2 selector's publication delay ended 2026-09-29T21:06Z.
+The npm 12.2.0 report retains twelve advisory occurrences in five bundled components;
+reviewed command use is not universal tool safety. Findings are nonblocking;
+malformed evidence, scanner failures, integrity and authenticity remain required.
 
-Official npm 12.2.0 retains twelve advisory occurrences in five bundled
-components. Keep the complete source-bound report and selected-use review:
-registry caching is reachable; pattern expansion includes signed TUF delegation
-metadata; script disabling does not prevent local/Git packing globs. Reviewed
-repository commands do not qualify arbitrary inputs, new affected-supplier
-installation, or universal tool security. These components are absent from the
-portable Go product's runtime SBOM. Supply-chain security findings are retained
-and disclosed, not delivery blockers. One complete scan replaces the obsolete
-development-only exception and second disposition scan. Scanner/evidence errors
-remain distinct from advisory findings, as do artifact integrity and authenticity.
+#### Quality and evidence ownership
 
-GitLab source jobs retain the selected acquisition source's locked tool cache;
-job-private mirror credentials are removed independently. Isolated fixtures
-must not inherit that retained root. Ordinary native source runs retain their
-actual verification outputs rather than declare optional child reports as
-unconditional artifacts. Prebuilt-only acceptance and failures before an output
-is produced may have no verification directory; artifact declarations do not
-prove mode-specific evidence or justify empty placeholders.
+Existing Go, OpenSpec, CUE, format, structure, security, link and rendering tools
+own distinct properties; replace a duplicate only after equivalent failure evidence.
+Retain risk-justified complexity, size and performance bounds and fail native warnings.
+The captured-command runner retains both streams and exit status in an owned file,
+then removes it before return; capture or cleanup failure remains a failed command.
+Source jobs retain acquisition tool caches, remove job-private mirror credentials,
+and publish only reports actually produced. Optional artifacts need no empty placeholder.
 
-Existing Go, OpenSpec, CUE, formatting, lint, type/structure, security,
-document, link, and supply-chain tools retain
-one property owner each; replace hand-written duplicates only after the mature
-tool proves the same failure boundary. Complexity and ELOC bounds are blocking
-where measured risk warrants them, not lower numbers chosen for appearance.
-Warnings fail at their producing owner. Formatting, links, diagrams, examples,
-and docs-code correspondence are tested from tracked content.
+Source and online documentation checks are distinct: `b4edd0a9` qualified tracked
+Markdown, Mermaid, anchors, tracked targets and structured/embedded formats; its
+bounded HTTPS check covered 166 successful links, two redirects and no errors in
+29 documents, excluding 197 non-HTTPS references. Availability remains time-bound.
 
-The existing captured-command runner gives native tools one owned temporary
-output file rather than pipe descriptors. A tool that exits immediately may
-otherwise lose buffered result or diagnostic bytes. The runner returns both
-streams without discarding warnings, preserves the command exit status, and
-fails on capture or cleanup errors. The file is removed before return; caller
-files and foreign content remain untouched. Native immediate-exit controls and
-the unchanged missing-local-OpenSpec test qualify this evidence boundary.
+#### Peer admission and native candidates
 
-Task 6.4's source gate passed on `b4edd0a9`: tracked Markdown, Mermaid,
-local anchors and Git-tracked link targets, structured formats, embedded shell,
-and generated projections were checked with their existing negative fixtures.
-A separate bounded HTTPS check over 29 current authored documents found 166
-successful links, no errors and two redirects; 197 non-HTTPS references were
-excluded from that online observation, not counted as online successes. External
-availability is time-bound, while the local source gate remains repeatable.
+The [CUE graph](../../../.config/ci/pipeline.cue) is the sole CI intent for equal optional
+GitHub/GitLab peers. Each owns exact signed objects, transport authentication,
+three-OS jobs, required checks and proposal/update/maintainer/dev/main/tag events.
+Approvals alone do not trigger duplicate content CI; reuse binds unchanged inputs,
+merge base and still-valid results, not SHA equality alone. Manual GitHub check names
+cannot replace canonical review/push/tag checks; GitLab MR admission remains peer-local.
 
-The npm override can advance to jsdom 30.1.1, published 2026-09-22. Its
-resolved graph selects `@asamuzakjp/dom-selector` 9.2.2, published
-2026-09-26T21:06Z; clean install, `npm audit signatures` (283 signed packages,
-51 attestations), vulnerability audit and Mermaid rendering pass. The ordinary
-three-day release-age rule held proposal publication until
-2026-09-29T21:06Z. Do not add a second override just to evade that bound.
-That age rule protects npm's unpublish window; applying it to checksummed Go
-modules, locked Mise tools and digest-pinned CI artifacts adds delay without
-the same integrity benefit. Those sources instead need exact upstream identity,
-compatible behavior and native gate evidence. Select Renovate and Mise images
-by upstream release and OCI digest; preserve the Windows Mise ZIP's upstream
-SHA-256 through mirroring. Task 6.1 owns complete locked supply-chain
-qualification; its current progress belongs only in `tasks.md`.
+The release parser owns `ci native` candidate/predecessor matrices, signatures,
+provenance, native extraction and scratch cleanup. Prebuilt acceptance selects its
+artifact tool closure; ordinary source/full-quality/lock-refresh retains full bootstrap
+and scans. `--candidate-source` may select an exact signed untagged product with a
+same-version verifier; mutable refs, unsigned sources and failed quality remain refused.
+Declare real-client inputs before construction/download; gh/glab are deadline-bounded
+and no-prompt. [Delivery](#migration-plan), not a policy readback, proves integration,
+proposal retirement, archive, main/tag events, assets and installed cutover.
 
-The CUE graph remains the sole CI intent. GitHub and GitLab are equal optional
-peers receiving the same signed Git objects, with separate transport credentials,
-native macOS/Linux/Windows jobs, required-status enforcement, and event coverage
-for proposal create/update, maintainer integration, dev, main, and tag. Source
-proof, review CI, accepted-ref CI, signed/tagged assets, installation, and
-real-client operation are distinct evidence. Freeze exact source and lock
-inputs before the expensive final matrix; do not rerun identical heavy gates
-because an observation timed out or a progress-only record changed.
-Review approval or a comment alone does not require another content pipeline.
-Reuse requires unchanged verification inputs, including the merge base, and
-still-valid required results; matching only the source SHA is insufficient.
-Approval remains an independent merge requirement.
+Unprotected proposals must not gain protected credentials by using protected runners.
+The [native review boundary](../../../docs/governance/change-and-release-policy.md#commit-and-tag-identity)
+requires OS-enforced separation from Runner-manager/protected-job state, actual denial
+and per-job cleanup; cleared environments, separate IDs or another peer's pass are
+insufficient. Protected dev/main/tag pools require event-specific routing evidence.
 
-Prebuilt native journeys and source qualification have different prerequisites.
-The existing release parser owns artifact selection for `ci native` too.
-Explicit candidate/tag inputs without full quality or lock refresh select only
-the native artifact tool closure and release journey, while ordinary review,
-source, and full qualification retain complete bootstrap, tests and scans. No
-artifact success replaces failed quality. A newer same-version verifier may
-select an exact signed untagged product commit through `--candidate-source`;
-default HEAD, matrix signatures, source/provenance checks and clean-source
-admission remain unchanged. Mutable refs and unsigned sources fail before
-execution. The CUE projection forwards that input without rewriting artifacts.
-The existing graph owns canonical check names. Every GitHub dispatch projects
-distinct `Manual` identities, so skipped or partial diagnostics cannot replace
-required review/push checks. The tag evidence consumer still requires an exact
-tag push and the graph's canonical names. GitLab retains complete MR jobs and
-MR-pipeline admission; a manual native result is not MR acceptance.
+Windows supply stays in the original native CI owner: exact source/packages/checksums,
+verified Mise executable/shim and native locked installation; explicit client selection
+alone prepares companions and official Hermes/Python 3.12/uv dependencies. Its official
+six-stage installer uses exclusive owned paths, blank Forge-token state, private Git
+newline policy and exact pinned clean HEAD. Native token/client/interruption/cleanup
+acceptance is distinct from source projection; no host transport/drain controller.
+Linux native-store refusal and unlocked lifecycle use separate private D-Bus sessions,
+HOME and synthetic collections. Native monitoring proves no unlock/prompt/value read
+on denial, pending-prompt dismissal and preserved data after controlled unlock.
+Metadata-only existence/absent deletion remain available without unlocking.
 
-Pre-archive CI evidence qualifies the event-to-check mapping and the exact
-candidate review path; it does not claim that a release event has already run.
-The guarded maintainer merge to `dev` must preserve the signed object and remove
-the proposal source ref on both peers. After OpenSpec archive and proof of the
-archived SHA, promote that object to `main` and create its signed release tag;
-require the actual peer-local `main` and tag jobs and release assets before
-claiming publication. Projection tests and manual runs cannot substitute for
-those final event results.
+#### Independent cold supply
 
-Native CI forwards declarations after `ci native --`; the existing release
-construction owner admits candidate and published-predecessor matrices,
-verifies their signed source identity, extracts only native bytes and owns
-scratch cleanup. Explicit peer and repository inputs select native gh/glab
-downloads with prompts disabled and a per-call deadline. Neither CI projection
-downloads nor a second platform-specific verifier owns that decision. Real
-client paths must be declared before construction or download begins.
+A peer outage must not disable the sibling's cold install. GitLab's digest-pinned
+Debian Mise image avoids GitHub bootstrap; its Generic Package mirror uses the exact
+SHA-256 of `.config/mise/mise.lock` as version, CUE-owned URL mappings and private Mise caches.
+Verify archive hashes and every declared upstream attestation/SLSA proof before upload;
+refuse conflicting existing bytes. The accepted intranet HTTP risk covers only an
+ephemeral same-project CI Job Token via private `0600` netrc, never persistent keys,
+URLs/logs or inherited GitHub authorization. HTTPS may change transport, not authority.
 
-Historical GitHub acceptance now invokes the original release command once;
-source and artifact trust use `ci trust-input`, and performance uses its native
-task. Equal-sign arguments retain intentionally empty optional tags through
-PowerShell. Selected client or macOS native-store succession requires a
-published predecessor; ordinary isolated lifecycle verification does not.
-The scoped official Windows installer retains its pinned six-stage protocol,
-locked dependencies and blank Forge-token environment. Its installer file and
-client root are created exclusively, registered after creation and removed by
-exact owned paths on success or failure. Other platforms do not inherit that
-Windows supply block. Native Windows installation, interruption and cleanup
-remain distinct from source projection and the local PowerShell argv witness.
-The official installer owns its `GIT_CONFIG_COUNT` overrides; caller newline
-policy lives in a private Git config inside the same exact supply root instead.
-Original Git verifies the pinned HEAD and clean source before client exposure.
-That configuration is neither the host's global config nor persistent state.
+Cover direct-download/API/metadata fallback paths; missing objects must fail locally.
+Mise URL replacement alone proves neither provenance nor redirect containment:
+2026.9.15 accepted a loopback OSV 2.6.0 asset without its corrupted SLSA file;
+2026.10.2 allows cross-host same-scheme redirects with no native allowlist. Qualification
+needs anchored provenance and direct `200` cold downloads with sibling endpoints
+unavailable, or an existing executor network boundary. Task 7.5 owns native isolation;
+synthetic tests and registry metadata cannot substitute. Retire mirror versions only
+when no active source ref or job consumes them; never store archives in Git history.
 
-Linux Secret Service CI uses separate private D-Bus sessions for locked-store
-refusal and the unlocked native lifecycle. The locked fixture owns its temporary
-HOME, synthetic login collection and controlled native-daemon unlock. A native
-method monitor proves that denied operations never request an unlock, display a
-prompt or access credential bytes; the fixture also proves pending-prompt
-dismissal and retained value and metadata after controlled unlock. The selected
-native Go journeys own success and failure; CI forwards their output and exit
-directly. Metadata-only existence and already-absent deletion remain available
-without unlocking a collection. Unavailable or ambiguous stores fail at the
-original credential owner.
+#### Reuse only qualified scopes
 
-Unprotected `proposal/*` reviews must not be protected merely to reach a
-protected runner: eligible protected GitLab merge requests receive protected
-variables and runners together, while a persistent Shell account retains its
-runner credential across jobs. The fork-parent denial and same-project CUE
-guard close only the fork path. Complete GitLab review admission requires
-the [native review boundary](../../../docs/governance/change-and-release-policy.md#commit-and-tag-identity):
-OS-enforced separation from Runner-manager credentials and protected-job state,
-denied access from the actual job context, and per-job cleanup before reuse.
-An existing native executor may implement that boundary without destruction
-after every job; separate IDs, cleared environments or passing jobs alone do
-not qualify it. Protected `dev`/`main`/`v*` jobs may use a distinct protected
-runner pool only after event-specific routing is proved. GitHub-hosted checks
-cannot substitute for GitLab's required peer-local native evidence. Keep the
-review path unadmitted until those boundaries are proved.
-Windows pre-tool admission verifies the supplied Mise executable and shim;
-native `mise install --locked` owns actual shim staging and its failures.
-The historical copy/hash/delete experiment is removed without a replacement
-controller. Per-job state, mirror authentication and exact cleanup remain
-separate from the still-unproved Runner credential-containment boundary.
-Cold-cache CI must remain executable when the sibling Forge platform and its
-tool-distribution endpoints are unavailable. Warm caches are not evidence of
-that property. GitLab consumes Mise's official Debian Docker Hub image pinned
-by its multi-platform OCI digest, so image bootstrap does not require GitHub
-transport. Locked GitHub Release assets still need an
-integrity-preserving independent route. Reuse the selected GitLab project's
-Generic Package registry as a lock-digest-addressed mirror. This is the
-smallest current route, not a claim that assets may use only HTTP: a separate
-HTTPS asset endpoint would improve transport confidentiality but has no
-verified deployment, while a public anonymous mirror avoids download secrets
-but adds a project, publishing authority and storage retention. Do not put
-the tool archives into permanent Git history.
-
-Each native consumer derives the mirror version from the SHA-256 of its exact
-`mise.lock` bytes. Unix uses the available native SHA-256 command; Windows uses
-`Get-FileHash`. CUE owns the shared package path, not a second digest manifest.
-Peer selection uses job-private Mise data and cache directories even when an
-upstream cache was restored; a warm upstream cache cannot satisfy this scope.
-
-An isolated Mise 2026.9.15 install accepted a checksum-identical OSV Scanner
-2.6.0 asset from a loopback mirror without requesting its deliberately corrupted
-SLSA file, although both GitHub attestation settings were enabled. URL rewriting
-alone therefore does not prove consumer-side provenance verification; a mirror
-must retain an independently verified, signed upstream-to-mirror chain or prove
-an equivalent native check before it can satisfy the cold-cache requirement.
-
-Mise's [URL replacement](https://mise.jdx.dev/url-replacements.html) must cover
-the locked direct-download and API fallback URLs, plus release metadata. A missing
-mirror object fails within the selected peer; it must not reintroduce the sibling
-Forge through fallback or redirects. The existing CUE mapping owns these rules,
-and native consumer tests derive expected paths from the platform lock. A separate
-preflight inventory or second mapping authority is unnecessary. Synthetic tests,
-registry metadata and actual peer jobs retain their own acceptance scopes.
-
-The selected GitLab origin currently uses HTTP, and the owner accepts that
-intranet risk without excluding a future HTTPS asset endpoint. TLS is not a
-prerequisite for this deployment; a later HTTPS cutover should change only
-transport configuration and trust. [GitLab's package contract](https://docs.gitlab.com/user/packages/generic_packages/)
-supports a short-lived same-project CI Job Token for upload and download.
-Seed only accepted lock bytes: verify each SHA-256 and every declared upstream
-attestation or SLSA proof before upload; reject conflicting bytes at an
-existing mirror path. A consumer uses an anchored Mise URL replacement and
-job-private `0600` netrc, with no Token in URLs or logs, no cross-host
-redirect, and no inherited GitHub authorization. The accepted HTTP risk is
-limited to this ephemeral job credential, not a persistent PAT or runner key.
-Retire a mirrored lock version only after no active source ref or job consumes
-it. CUE configures the mirror before locked installation. Task 7.5 owns the current
-inventory and platform evidence; metadata and projection tests alone cannot prove
-Job Token downloads, cold-cache peer-outage isolation or provenance checks.
-
-Mise 2026.10.2 follows same-scheme cross-host redirects and exposes no native
-redirect allowlist. URL replacement does not enforce that boundary. Qualify
-direct `200` downloads from the admitted mirror with sibling endpoints
-unavailable, or use an existing executor network boundary where arbitrary
-redirect rejection is required. Do not claim CUE supplies an unsupported Mise
-setting; retain unproved redirect containment as a separate admission gap.
-
-The signed `dadc9cb7` product with `4218a9d3` verifier passed the ordinary-user
-Linux native-store and retained-predecessor journey. Its exact unit, cgroup,
-cache, private temporary state and staging were retired; original Runner controls
-and VM isolation were restored. Independent review of the original macOS,
-Windows and Linux performance samples accepted 144 blocks, 5,760 measurements
-and 72 pooled results under the existing 100/250 ms budgets and size/memory
-review thresholds. Retain those thresholds and the current graph. The observed
-12.669-second matrix build and 450/858-second source pipelines have unmatched
-source, cache and load conditions; they prove neither optimization benefit nor
-regression. Later forwarding changes require affected-path measurement and
-final signed-byte qualification, not a claim that these results cover new bytes.
-
-The signed `2e9c2007` candidate passed the original macOS forwarding performance
-owner: ten reversed blocks, 400 raw timing samples, five pooled cases and 160
-paired memory observations. Each p95 stayed within its original 100/250 ms
-budget; the predecessor remained direct because it cannot forward. Runtime,
-credential-reader and timed-status bindings passed independent review. The exact
-empty caller scratch and native parent were retired; summary, raw results and
-cleanup remain under `build/verification/2e9c20074583c1c213932241c5f1035c19bb746a/forwarding-native-20261009`.
-This is controlled client discovery and native projection/credential performance,
-not Provider inference, Linux/Windows forwarding, final installed-client or
-publication acceptance. Tasks 4.5, 4.7 and 9.3 retain those distinct obligations.
+The `dadc9cb7` product/`4218a9d3` verifier qualified ordinary-user Linux native-store
+and predecessor lifecycle with exact resource retirement. Reviewed three-OS performance
+retains 144 blocks, 5,760 samples and 72 pooled results under existing 100/250 ms
+budgets and size/memory thresholds. Unmatched build/source timing is not optimization
+or regression evidence. Later forwarding or catalogue inputs require affected evidence.
+The `2e9c2007` macOS forwarding measurement retains ten reversed blocks, 400 samples,
+five pooled cases and 160 paired memory observations under its source-bound
+`build/verification/2e9c20074583c1c213932241c5f1035c19bb746a/forwarding-native-20261009`.
+It proves controlled native projection/credential cost, not Provider inference,
+Linux/Windows forwarding, final-byte clients or publication.
 
 ### 6. Delete by consumer and authority
 
@@ -583,11 +422,11 @@ system, not a macOS result reused for Linux or Windows.
 | 4.5     | [client-delta] · Independently admitted native clients                       | `internal/client/verification`                         | `mise run native`; real-client `aigw verify`                                |
 | 4.6     | [client-delta] · Independently admitted native clients                       | `internal/client` Adapter registry                     | Source-backed admission; `mise run native` if admitted                      |
 | 4.7     | [control] · Independent product composition                                  | `internal/configuration`, `internal/client`            | `mise run native` without Proxy or Forge                                    |
-| 5.1     | [organization] · Each Work Lane reconstructs its own mutable environment     | `mise.toml`, committed locks                           | `mise install --locked`; `mise run bootstrap`                               |
+| 5.1     | [organization] · Each Work Lane reconstructs its own mutable environment     | `.config/mise/config.toml`, committed locks            | `mise install --locked`; `mise run bootstrap`                               |
 | 5.2–5.4 | [control] · Native released-artifact lifecycle acceptance                    | `tools/release`, `internal/secrets/native`             | `mise run native` on macOS, Linux, Windows                                  |
 | 5.5     | [onboarding] · Activation follows present capabilities                       | `internal/discovery`, `internal/synchronization`       | `mise run native`                                                           |
 | 5.6     | [control] · Failure recovery retains owned-resource cleanup outcomes         | `internal/transaction`, `tools/release`                | `mise run native` with failure injection                                    |
-| 6.1     | [control] · Latest stable repository-owned supply chain                      | `mise.toml`, locks, dependency policy                  | `mise run dependencies:check`; `mise run check`                             |
+| 6.1     | [control] · Latest stable repository-owned supply chain                      | `.config/mise/config.toml`, locks, dependency policy   | `mise run dependencies:check`; `mise run check`                             |
 | 6.2–6.3 | [quality] · Quality constraints are comprehensive and proportionate          | `.config/checks`, `tools/ci`                           | `mise run check`                                                            |
 | 6.4     | [quality] · Repository text quality has one mature owner per concern         | `.config/checks`, `tools/ci/markdown`                  | `mise run check`; online link proof remains separate                        |
 | 6.5     | [quality] · Dependency evidence binds the selected lockfiles                 | `tools/ci`, `tools/release`                            | `mise run check`; build-only `mise run release`                             |

@@ -148,7 +148,7 @@ in Git; original raw results stay with their source-bound verification owner.
       licenses, checksums, signatures and provenance from the exact locked
       candidate; retain and disclose nonblocking supply-chain security findings,
       preserve artifact validity, and delete unconsumed parallel scans or reports.
-- [x] 6.6 Measure startup, setup, sync, credential read, native projection,
+- [ ] 6.6 Measure startup, setup, sync, credential read, native projection,
       build and CI costs against retained predecessor budgets through the
       [native measurement contract](../../../docs/governance/change-and-release-policy.md#behavioral-and-quantitative-evidence).
       Preserve raw samples and host/order evidence; budget qualification does not
@@ -193,7 +193,9 @@ in Git; original raw results stay with their source-bound verification owner.
 
 - [x] 8.1 Audit `src`-equivalent Go packages, `internal/`, `cmd/`, `tools/`,
       tests, root and `.config` by semantic responsibility; replace suffix-flat or
-      mixed owners with cohesive packages and remove forwarding facades.
+      mixed owners with cohesive packages and remove forwarding facades. Native
+      tool configuration and sidecars use `.config/`; prove discovery, isolated
+      bootstrap, symmetric CI, tagged predecessors, and exact root retirement.
 - [x] 8.2 Reconcile tracked README, architecture, decision, operations,
       contributing and release documentation with current product behavior; all
       canonical pages must be linked, English, navigable and free of references to

@@ -18,7 +18,7 @@ relations:
 | Product commits and annotated tags     | Exact signed local Git objects                                                                                                                                 |
 | Change intent and accepted behavior    | [OpenSpec Changes](../../openspec/changes/) and [canonical specs](../../openspec/specs/)                                                                       |
 | Go dependency graph                    | [go.mod](../../go.mod) and [go.sum](../../go.sum)                                                                                                              |
-| Runtimes and standalone tools          | [mise.toml](../../mise.toml), [mise.lock](../../mise.lock) and native sidecars                                                                                 |
+| Runtimes and standalone tools          | [.config/mise/config.toml](../../.config/mise/config.toml), [.config/mise/mise.lock](../../.config/mise/mise.lock) and native sidecars                         |
 | npm graph                              | [package.json](../../package.json) and [package-lock.json](../../package-lock.json)                                                                            |
 | CI topology                            | [CUE](../../.config/ci/pipeline.cue), projected to both peers                                                                                                  |
 | Quality and source size                | [Coverage policy](../../.config/checks/coverage/policy.toml), [Go policy](../../.config/checks/go/policy.yml), [SCC budget](../../.config/checks/go/size.toml) |
