@@ -337,7 +337,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	name:              "Native \(nativeEvidence[_platform].name) acceptance"
 	"runs-on":         nativeEvidence[_platform].github.runner
 	"timeout-minutes": 25
-	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
+	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
 	env: MISE_ENABLE_TOOLS: "${{ github.event_name == 'workflow_dispatch' && inputs.full_quality && '\(nativeToolchain[_platform].full.MISE_ENABLE_TOOLS)' || '\(nativeToolchain[_platform].default.MISE_ENABLE_TOOLS)' }}"
 	if _platform != "windows" {defaults: run: shell: "bash"}
 	if _platform == "windows" {defaults: run: shell: "pwsh"}

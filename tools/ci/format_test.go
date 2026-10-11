@@ -17,7 +17,7 @@ func TestOpenSpecCheckRequiresTheRepositoryLocalDependency(t *testing.T) {
 	t.Chdir(root)
 	checker := filepath.Join(root, "node_modules", "@fission-ai", "openspec", "bin", "openspec.js")
 	output, err := systemOutputRunner(command{Name: "node", Args: []string{checker, "validate", "--all", "--strict"}})
-	if err == nil || !bytes.Contains(output, []byte("MODULE_NOT_FOUND")) || !bytes.Contains(output, []byte("node_modules")) {
+	if err == nil || !bytes.Contains(output, []byte("Cannot find module")) || !bytes.Contains(output, []byte(checker)) {
 		t.Fatalf("missing local dependency: error=%v output=%s", err, output)
 	}
 }

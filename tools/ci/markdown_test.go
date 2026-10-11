@@ -132,7 +132,7 @@ func TestMermaidChecksExecuteAgainstRequestedSources(t *testing.T) {
 	if err := os.Remove(local); err != nil {
 		t.Fatal(err)
 	}
-	if err := run([]string{"check-mermaid", root}, &bytes.Buffer{}, systemRunner); err == nil || !strings.Contains(err.Error(), "MODULE_NOT_FOUND") {
+	if err := run([]string{"check-mermaid", root}, &bytes.Buffer{}, systemRunner); err == nil || !strings.Contains(err.Error(), "Cannot find module") || !strings.Contains(err.Error(), local) {
 		t.Fatalf("missing native checker error = %v", err)
 	}
 }

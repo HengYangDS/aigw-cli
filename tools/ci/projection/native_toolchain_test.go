@@ -271,6 +271,7 @@ func TestNativeInputProjectionsInvokeTheOwnedCandidateOnce(t *testing.T) {
 	}
 	var github struct {
 		Jobs map[string]struct {
+			If    string `yaml:"if"`
 			Steps []struct {
 				Name string            `yaml:"name"`
 				If   string            `yaml:"if"`
@@ -290,6 +291,13 @@ func TestNativeInputProjectionsInvokeTheOwnedCandidateOnce(t *testing.T) {
 	}
 	if releaseTagGuard != "github.ref_type == 'tag' && startsWith(github.ref_name, 'v')" {
 		t.Fatal("input transport tags must retain native carrier verification without release-version classification")
+	}
+	for _, platform := range []string{"darwin", "linux", "windows"} {
+		condition := github.Jobs["native-"+platform].If
+		selection := " && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '" + platform + "')"
+		if !strings.HasSuffix(condition, selection) {
+			t.Fatalf("manual native acceptance ignores the selected %s platform: %s", platform, condition)
+		}
 	}
 	platform := runtime.GOOS
 	steps := github.Jobs["native-"+platform].Steps
