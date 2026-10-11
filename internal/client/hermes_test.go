@@ -282,10 +282,10 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	originalHome := os.Getenv("HOME")
+	originalEnvironment := os.Environ()
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
 	runner.observe = func(plan process.Plan) {
-		requireHermesVerificationProfile(t, plan, profiles, originalHome)
+		requireHermesVerificationProfile(t, plan, profiles, originalEnvironment)
 	}
 	if _, err := (hermesAdapter{}).Verify(context.Background(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, clientRuntime, ""); err != nil {
 		t.Fatal(err)
@@ -337,12 +337,19 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	}
 }
 
-func requireHermesVerificationProfile(t *testing.T, plan process.Plan, profiles, originalHome string) {
+func requireHermesVerificationProfile(t *testing.T, plan process.Plan, profiles string, originalEnvironment []string) {
 	t.Helper()
 	if filepath.Dir(plan.Directory) != profiles {
 		t.Fatalf("verification profile %q lost the native installation root %q", plan.Directory, profiles)
 	}
-	if !slices.Contains(plan.Env, "HERMES_HOME="+plan.Directory) || !slices.Contains(plan.Env, "HOME="+originalHome) ||
+	for _, name := range []string{"HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH"} {
+		matches := func(entry string) bool { return strings.HasPrefix(entry, name+"=") }
+		before, after := slices.IndexFunc(originalEnvironment, matches), slices.IndexFunc(plan.Env, matches)
+		if (before < 0 && after >= 0) || (before >= 0 && (after < 0 || originalEnvironment[before] != plan.Env[after])) {
+			t.Fatalf("verification changed native home variable %s", name)
+		}
+	}
+	if !slices.Contains(plan.Env, "HERMES_HOME="+plan.Directory) ||
 		!slices.Contains(plan.Env, "HERMES_DISABLE_LAZY_INSTALLS=1") || slices.Contains(plan.Env, "HERMES_DISABLE_LAZY_INSTALLS=0") {
 		t.Fatal("verification must isolate Hermes settings without changing the OS installation home")
 	}
@@ -356,20 +363,16 @@ func requireHermesVerificationProfile(t *testing.T, plan process.Plan, profiles,
 		t.Fatal(err)
 	}
 	var projected struct {
-		Security struct {
-			AllowLazyInstalls *bool `yaml:"allow_lazy_installs"`
-		} `yaml:"security"`
-		Updates struct {
-			Check *bool `yaml:"check"`
-		} `yaml:"updates"`
+		Security map[string]*bool `yaml:"security"`
+		Updates  map[string]*bool `yaml:"updates"`
 	}
 	if err := yaml.Unmarshal(data, &projected); err != nil {
 		t.Fatal(err)
 	}
-	if projected.Security.AllowLazyInstalls == nil || *projected.Security.AllowLazyInstalls {
+	if value := projected.Security["allow_lazy_installs"]; value == nil || *value {
 		t.Fatal("isolated Hermes verification permits runtime dependency installation")
 	}
-	if projected.Updates.Check == nil || *projected.Updates.Check {
+	if value := projected.Updates["check"]; value == nil || *value {
 		t.Fatal("isolated Hermes verification permits passive software update checks")
 	}
 }

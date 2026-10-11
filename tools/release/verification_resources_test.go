@@ -37,7 +37,11 @@ func TestNativeVerificationResources(t *testing.T) {
 			journey := newNativeJourney(t, program, "https://unused.example.test", false)
 			t.Cleanup(journey.uninstallAndRequireInstallationRemoved)
 			journey.installClientFixture(configuration.ClientHermes)
-			journey.setEnvironment("HERMES_HOME", filepath.Join(journey.root, "home", ".hermes"))
+			hermesHome := filepath.Join(journey.root, "home", ".hermes")
+			journey.setEnvironment("HERMES_HOME", hermesHome)
+			if err := os.MkdirAll(filepath.Join(hermesHome, "profiles"), 0o700); err != nil {
+				t.Fatal(err)
+			}
 			temporary := filepath.Join(journey.root, "temporary")
 			if err := os.Mkdir(temporary, 0o700); err != nil {
 				t.Fatal(err)
