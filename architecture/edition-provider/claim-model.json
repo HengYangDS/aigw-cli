@@ -74,7 +74,7 @@
       "authority": "AIGW command composition at the selected product revision"
     },
     "configuration": {
-      "sha256": "f86594841f333e028b61b3e723b1d9bbcc4f3505b602a5d99e92acae8f88bcbb",
+      "sha256": "907209095b0fc68e22563f815493980f6a682c630e3d146d438cbee5a7ff9489",
       "locator": "source/internal/configuration/model.go",
       "authority": "AIGW Account, Model, Route, recommendation, and Client Binding authority"
     },
@@ -89,17 +89,17 @@
       "authority": "AIGW read-only native client discovery contract"
     },
     "registry": {
-      "sha256": "966ae78636efa45dfa95220c1c3ad4df4d6545b72f96edcb195a18e101e24b1f",
+      "sha256": "7a3c806930ee5bcf94567557ccdf84e8412eea958d50d557fed0f901234629c7",
       "locator": "source/internal/client/registry.go",
       "authority": "AIGW ordered client registry and Adapter contract"
     },
     "adapters": {
-      "sha256": "023e74cf816ac00bf507d7abdebe6bcf3ea8555552dc3e560ffdf1a5e23f94b5",
+      "sha256": "04e2dc6449ebc1aa8e14eb786fc93e2ab4149e368ce853480328e769a8fe0a82",
       "locator": "source/internal/client/adapters.go",
       "authority": "AIGW built-in Adapter composition"
     },
     "synchronizer": {
-      "sha256": "6d23fa5f3e1752626ca2c3fad1c2617271aa43200c8f08ba8226bb3cf162e282",
+      "sha256": "d9b2d9957c737aed661a12a520ec5cd12cb2c82bcf67d64f29a11915e04a02fa",
       "locator": "source/internal/synchronization/synchronizer.go",
       "authority": "AIGW client convergence coordinator"
     },
@@ -129,7 +129,7 @@
       "authority": "AIGW Claude Desktop third-party inference projection"
     },
     "hermes": {
-      "sha256": "d019741c93dda838548d9043bdd60295f9abd9c5f031c449e9c6524d1e8ebf62",
+      "sha256": "fc70e14a5a8b76f4e980b0fe6a2e38d7b04835f9f959722d85f7f9f08bb9678e",
       "locator": "source/internal/hermes/configuration/projection.go",
       "authority": "AIGW native Hermes provider projection"
     },
