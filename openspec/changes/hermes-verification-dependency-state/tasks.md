@@ -15,11 +15,8 @@
 
 - [x] 3.1 Report the Hermes per-task home launcher republication defect to the official Hermes repository with its reproduction, and record the verified report URL and state in `design.md`.
 
-## 4. Governed Integration
-
-- [ ] 4.1 Create the signed commit, obtain exact-HEAD ETHOS proof, and land it on local `candidate/dev`; verify the candidate head and keep hosted CI, publication, installation, and lane retirement as separate obligations.
-
 ## Workflow follow-up
 
+- Obtain exact-HEAD ETHOS proof, land the signed source on local `candidate/dev`, and archive through `ethos lane archive-change`; proof and ref-update Attestations own those results.
 - After a signed candidate is installed through the release workflow, run `aigw verify --for hermes` against the operator's Hermes and record the reported version and digest.
 - Publish only with operator approval, then observe each peer's CI and retire the Work Lane through ETHOS.

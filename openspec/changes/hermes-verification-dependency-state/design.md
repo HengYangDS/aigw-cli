@@ -83,6 +83,12 @@ the operator's real home (writes sessions and cannot apply the probe policy).
 No data migration or client configuration change. Rollback is reverting the
 adapter change; the operator's Hermes state is not modified either way.
 
+Exact-HEAD proof, local candidate integration, and archive are governed
+effects whose results live in their ETHOS Attestations, so they are not Change
+tasks. Accepted-branch closeout, each peer's CI, publication, installed
+`aigw verify --for hermes` with the release's signed reader, and Work Lane
+retirement remain post-archive obligations that require operator approval.
+
 ## Local Qualification
 
 The focused regression `TestHermesVerificationSharesTheInstalledDependencyState`
