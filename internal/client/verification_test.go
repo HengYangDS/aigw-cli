@@ -15,6 +15,8 @@ import (
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+
+	"go.yaml.in/yaml/v3"
 )
 
 func versionedReaders(t *testing.T) (string, string) {
@@ -81,6 +83,7 @@ func TestHermesInspectionKeepsIntactRetainedVersionedReader(t *testing.T) {
 	if err != nil || !slices.Equal(before, after) {
 		t.Fatalf("inspection changed Hermes configuration: %v", err)
 	}
+	requireHermesVerificationReader(t, deps, cfg, selected, retained, before)
 	if err := os.Remove(target); err != nil {
 		t.Fatal(err)
 	}
@@ -112,6 +115,41 @@ func TestHermesInspectionKeepsIntactRetainedVersionedReader(t *testing.T) {
 	}
 	if status := adapter.Inspect(t.Context(), deps, cfg, selected); status.Ready {
 		t.Fatal("missing retained Hermes reader was accepted")
+	}
+}
+
+func requireHermesVerificationReader(t *testing.T, deps Dependencies, cfg configuration.Config, selected configuration.Runtime, retained string, before []byte) {
+	t.Helper()
+	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes fixture"), []byte("AIGW_OK")}}
+	runner.observe = func(plan process.Plan) {
+		data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var observed struct {
+			Providers map[string]struct {
+				KeyCommand string `yaml:"key_cmd"`
+			} `yaml:"providers"`
+		}
+		if err := yaml.Unmarshal(data, &observed); err != nil {
+			t.Fatal(err)
+		}
+		if len(observed.Providers) != 1 {
+			t.Fatal("verification omitted the managed Hermes provider")
+		}
+		for _, provider := range observed.Providers {
+			if !strings.Contains(provider.KeyCommand, retained) || strings.Contains(provider.KeyCommand, deps.AIGWExecutable) {
+				t.Fatal("verification replaced the retained credential reader before projection")
+			}
+		}
+	}
+	deps.Runner = runner
+	if _, err := (hermesAdapter{}).Verify(t.Context(), deps, cfg, selected, ""); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(cfg.Clients[configuration.ClientHermes].Targets[0])
+	if err != nil || !slices.Equal(before, after) {
+		t.Fatal("verification changed the retained Hermes configuration")
 	}
 }
 

@@ -365,11 +365,11 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 	if len(configured.Targets) != 1 {
 		return Verification{}, errors.New("hermes verification requires one configured home; run aigw sync")
 	}
-	desired, err := hermesDesired(deps, cfg, selected)
+	plan, err := hermesInspectionPlan(deps, cfg, selected, configured.Targets[0])
 	if err != nil {
 		return Verification{}, err
 	}
-	data, err := hermesconfig.PrepareVerification(configured.Targets[0], desired)
+	data, err := plan.PrepareVerification()
 	if err != nil {
 		return Verification{}, err
 	}
