@@ -418,6 +418,7 @@ remains a failure even when Codex returns the final marker.
 
 This explicit build-tagged journey requires all three declared executable paths:
 `AIGW_ACCEPTANCE_CODEX`, `AIGW_ACCEPTANCE_CLAUDE` and `AIGW_ACCEPTANCE_HERMES`.
+Hermes also requires `AIGW_ACCEPTANCE_HERMES_HOME` for its native installation.
 Missing clients fail, not skip. See [Adapter admission](docs/governance/adapter-admission.md)
 for independent Desktop qualification; CLI evidence cannot replace it.
 
@@ -429,8 +430,13 @@ Claude use current-schema fixtures and Hermes proves first adoption only.
 
 Before replacement the candidate stages its versioned helper; captured old/new
 commands must remain callable. Verify retained authenticated inference before
-active-program sync/check/verify. Published 0.3.1 cannot check the successor's
-projection until sync; that checker limitation is distinct from inference failure.
+active-program sync/check. The exact current candidate's per-client `verify`
+observes every lifecycle state; it owns an isolated probe, not the retained
+client or its settings. Original programs, byte checks, cached credential
+commands, and independent native tool/session requests still qualify succession.
+This does not prove the historical verifier works with a newer client:
+0.3.3's Hermes verifier loses the installation binding in an arbitrary home.
+Published 0.3.1 also cannot check the successor's projection until sync.
 Uninstall preserves unowned settings and removes only the test installation.
 No-token and actual Provider tests remain different observations.
 

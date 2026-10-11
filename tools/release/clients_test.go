@@ -204,7 +204,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 			}
 			continueClient()
 			count := completions.Load()
-			journey.run("verify", "--for", client)
+			journey.runWith(p.candidate, "verify", "--for", client)
 			journey.requireNativePreferences(client)
 			if completions.Load() <= count {
 				t.Fatal("client returned without an authenticated streaming request")
