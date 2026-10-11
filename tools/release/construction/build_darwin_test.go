@@ -156,6 +156,11 @@ func TestNativeReleaseArchivesHaveDeterministicLocalSignatures(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			if platform == "darwin" {
+				t.Run("Homebrew projection uses exact archive bytes", func(t *testing.T) {
+					requireHomebrewProjection(t, stage, request.Version)
+				})
+			}
 		})
 	}
 }
@@ -299,19 +304,14 @@ func TestReleaseOutputReportsPublicationBeforeCleanupFailure(t *testing.T) {
 	}
 }
 
-func TestHomebrewProjectionUsesExactArchiveBytes(t *testing.T) {
-	request := privateInternalRelease(t)
-	request.TargetOS = "darwin"
-	stage, err := buildArchives(request, t.TempDir(), executeTool(t.Context()))
-	if err != nil {
-		t.Fatal(err)
-	}
+func requireHomebrewProjection(t *testing.T, stage, version string) {
+	t.Helper()
 	cask, err := os.ReadFile(filepath.Join(stage, "homebrew", "Casks", "aigw.rb"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, arch := range []string{"amd64", "arm64"} {
-		name := (artifact.Target{OS: "darwin", Arch: arch}).ArchiveName(request.Version)
+		name := (artifact.Target{OS: "darwin", Arch: arch}).ArchiveName(version)
 		archive, err := os.ReadFile(filepath.Join(stage, name))
 		if err != nil {
 			t.Fatal(err)
@@ -325,7 +325,7 @@ func TestHomebrewProjectionUsesExactArchiveBytes(t *testing.T) {
 			t.Fatalf("wrapped program location missing for %s", name)
 		}
 	}
-	for _, expected := range []string{`cask "aigw"`, `version "` + request.Version + `"`, `binary "aigw"`, "/releases/download/v#{version}/", "aigw client disable"} {
+	for _, expected := range []string{`cask "aigw"`, `version "` + version + `"`, `binary "aigw"`, "/releases/download/v#{version}/", "aigw client disable"} {
 		if !strings.Contains(string(cask), expected) {
 			t.Fatalf("Homebrew projection missing %q", expected)
 		}
