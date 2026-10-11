@@ -19,6 +19,27 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
+func publicHermesReader(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(path, []byte("published predecessor"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestHermesInspectionKeepsIntactRetainedReader(t *testing.T) {
+	for _, name := range []string{"versioned", "public"} {
+		t.Run(name, func(t *testing.T) {
+			retained, current := versionedReaders(t)
+			if name == "public" {
+				retained = publicHermesReader(t)
+			}
+			testHermesRetainedReader(t, retained, current)
+		})
+	}
+}
+
 func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	home := t.TempDir()
 	source := discovery.System{GOOS: runtime.GOOS, Home: home, Path: home}

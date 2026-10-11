@@ -54,8 +54,15 @@ func retainedDefaultReader(current string, external bool, observe func() (string
 	if err != nil || projected == current {
 		return current, err
 	}
-	if err := credential.ValidateRetainedEntrypoint(current, projected); err != nil {
-		return current, err
+	if credential.IsVersionedEntrypointPath(projected) {
+		if err := credential.ValidateRetainedEntrypoint(current, projected); err != nil {
+			return current, err
+		}
+	} else {
+		available, err := discovery.ExecutableAvailable(projected)
+		if err != nil || !available {
+			return current, errors.New("retained public credential executable is unavailable")
+		}
 	}
 	return projected, nil
 }

@@ -40,8 +40,8 @@ func versionedReaders(t *testing.T) (string, string) {
 	return paths[0], paths[1]
 }
 
-func TestHermesInspectionKeepsIntactRetainedVersionedReader(t *testing.T) {
-	retained, current := versionedReaders(t)
+func testHermesRetainedReader(t *testing.T, retained, current string) {
+	t.Helper()
 	root := t.TempDir()
 	executable := filepath.Join(root, "hermes")
 	target := filepath.Join(root, "config.yaml")
@@ -110,7 +110,7 @@ func TestHermesInspectionKeepsIntactRetainedVersionedReader(t *testing.T) {
 	if status := adapter.Inspect(t.Context(), deps, changed, changedRuntime); status.Ready {
 		t.Fatal("an endpoint change was mistaken for a retained-reader transition")
 	}
-	if err := credential.RemoveEntrypoint(retained); err != nil {
+	if err := os.Remove(retained); err != nil {
 		t.Fatal(err)
 	}
 	if status := adapter.Inspect(t.Context(), deps, cfg, selected); status.Ready {
