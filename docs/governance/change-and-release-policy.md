@@ -388,6 +388,11 @@ separate native identity, storage and execution containment.
 [Coverage policy](../../.config/checks/coverage/policy.toml) owns strictly greater-than
 95% native Go statement coverage across every product/tool/tested platform package.
 All three native platforms invoke that same gate and retain its raw profile.
+The coverage command's optional `--json` passes native Go test events unchanged
+to stdout and sends package and aggregate summaries to stderr. It runs tests once;
+`--profile-output` retains that attempt's counters, including diagnostic counters
+after failure. Event output alone does not qualify receiver custody or per-file
+execution. Human output and the selected inventory, flags and thresholds remain unchanged.
 Windows omits the race detector because the native graph includes ARM64 with
 CGO disabled; that limit does not remove coverage or package observation.
 If tests fail, any emitted profile remains diagnostic evidence only; retention

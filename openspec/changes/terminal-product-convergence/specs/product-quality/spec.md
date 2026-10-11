@@ -116,6 +116,27 @@ SHALL remain unchanged.
 
 ## ADDED Requirements
 
+### Requirement: Native Go events retain one coverage attempt
+
+The existing coverage command SHALL optionally emit original Go test JSON on
+stdout and coverage summaries on stderr. Tests and retained coverage counters
+SHALL originate from one native invocation with the selected package inventory,
+tags, race option, atomic instrumentation and threshold policy unchanged.
+
+#### Scenario: Machine-readable coverage succeeds
+
+- **WHEN** coverage selects `--json` and an explicit profile destination
+- **THEN** stdout SHALL contain only the native test event bytes
+- **AND** package and aggregate summaries SHALL remain separately observable
+- **AND** the retained profile SHALL contain the same attempt's counters.
+
+#### Scenario: The native test attempt fails
+
+- **WHEN** the selected native tests fail after emitting events and a profile
+- **THEN** their event bytes and retained diagnostic counters SHALL remain observable
+- **AND** the command SHALL fail without qualifying partial coverage
+- **AND** temporary profile cleanup SHALL remain required.
+
 ### Requirement: Native release targets are independent of the build host
 
 macOS AMD64 and ARM64 artifacts SHALL retain the declared macOS 13 deployment

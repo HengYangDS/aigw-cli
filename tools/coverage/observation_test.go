@@ -15,6 +15,52 @@ import (
 	"testing"
 )
 
+func TestRealMainJSONPreservesTheSingleNativeAttempt(t *testing.T) {
+	events := "{\"Action\":\"start\",\"Package\":\"example\"}\n" +
+		"{\"Action\":\"run\",\"Package\":\"example\",\"Test\":\"TestValue\"}\n" +
+		"{\"Action\":\"pass\",\"Package\":\"example\",\"Test\":\"TestValue\"}\n"
+	for _, test := range []struct {
+		name, profile, diagnostic string
+		failure                   error
+		code                      int
+	}{
+		{"success", "mode: atomic\nexample/a.go:1.1,2.1 100 1\n", "statement coverage: 100.00%", nil, 0},
+		{"native failure", "mode: atomic\nexample/a.go:1.1,2.1 100 1\n", "native test refused", errors.New("native test refused"), 1},
+		{"coverage failure", "mode: atomic\nexample/a.go:1.1,2.1 95 1\nexample/a.go:3.1,4.1 5 0\n", "does not exceed 95.00%", nil, 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runner := &recordingRunner{profile: test.profile, output: events, err: test.failure}
+			retained := filepath.Join(t.TempDir(), "coverage.out")
+			var stdout, stderr bytes.Buffer
+			arguments := []string{"--policy", writePolicy(t, validPolicy), "--json", "--race", "--tags=native_resource_acceptance", "--profile-output", retained}
+			if code := realMain(arguments, &stdout, &stderr, runner); code != test.code {
+				t.Fatalf("JSON attempt code=%d, want %d: %s", code, test.code, &stderr)
+			}
+			if stdout.String() != events {
+				t.Fatalf("native JSON bytes changed: %q", &stdout)
+			}
+			if !strings.Contains(stderr.String(), test.diagnostic) {
+				t.Fatalf("coverage diagnostic missing from stderr: %s", &stderr)
+			}
+			if len(runner.calls) != 2 || runner.calls[1][0] != "test" {
+				t.Fatalf("want one inventory and one native test attempt: %q", runner.calls)
+			}
+			for _, argument := range []string{"-json", "-count=1", "-race", "-tags=native_resource_acceptance", "-covermode=atomic", "-coverpkg=example", "./..."} {
+				if !slices.Contains(runner.args, argument) {
+					t.Fatalf("native attempt lost selected argument %s: %q", argument, runner.args)
+				}
+			}
+			profile, err := os.ReadFile(retained)
+			if err != nil || string(profile) != test.profile {
+				t.Fatalf("same-attempt counters were not retained: %q, %v", profile, err)
+			}
+			if _, err := os.Stat(runner.path); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("temporary native profile remains: %v", err)
+			}
+		})
+	}
+}
+
 func TestReadCoverageMergesRepeatedCrossPackageRanges(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "coverage.out")
 	body := "mode: atomic\nexample/a.go:1.1,2.1 96 0\nexample/a.go:3.1,4.1 4 0\nexample/a.go:1.1,2.1 96 1\nexample/a.go:3.1,4.1 4 0\n"
@@ -73,7 +119,7 @@ func TestPackageObservationPreservesEveryMissingPackageAndSourceFailure(t *testi
 	failure := errors.New("package metadata unavailable")
 	runner := &recordingRunner{metadataErr: failure}
 	expected := []string{"example/first", "example/second"}
-	err := (coverageResult{}).requirePackages(expected, runner, &bytes.Buffer{})
+	err := (coverageResult{}).requireCoverage(expected, 95, runner, &bytes.Buffer{})
 	if !errors.Is(err, failure) {
 		t.Fatalf("source inspection cause was lost: %v", err)
 	}
@@ -90,7 +136,7 @@ func TestPackageObservationRejectsLostDeclarationEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := &recordingRunner{metadata: fmt.Sprintf(`{"ImportPath":"example/data","Dir":%q,"GoFiles":["data.go"]}`, root)}
-	err := (coverageResult{}).requirePackages([]string{"example/data"}, runner, rejectingWriter{})
+	err := (coverageResult{}).requireCoverage([]string{"example/data"}, 95, runner, rejectingWriter{})
 	if err == nil || !strings.Contains(err.Error(), "write package observation") {
 		t.Fatalf("lost declaration-only observation was accepted: %v", err)
 	}
@@ -120,20 +166,34 @@ func TestCoverageObservesDeclarationOnlyPackagesWithNativeGo(t *testing.T) {
 	policy := writePolicy(t, validPolicy)
 	t.Chdir(root)
 	var stdout, stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policy}, &stdout, &stderr, systemRunner{}); code != 0 {
+	if code := realMain([]string{"--policy", policy, "--json"}, &stdout, &stderr, systemRunner{}); code != 0 {
 		t.Fatalf("native declaration-only observation: code=%d\n%s\n%s", code, &stdout, &stderr)
 	}
-	if !strings.Contains(stdout.String(), "package coverage-fixture/data statement coverage: not applicable (declarations only)") {
-		t.Fatalf("declaration-only package disappeared: %s", &stdout)
+	decoder, passed := json.NewDecoder(&stdout), false
+	for decoder.More() {
+		var event struct {
+			Action string `json:"Action"`
+			Test   string `json:"Test"`
+		}
+		if err := decoder.Decode(&event); err != nil {
+			t.Fatalf("native event stream contains non-JSON output: %v", err)
+		}
+		passed = passed || event.Action == "pass" && event.Test == "TestValue"
 	}
-	if !strings.Contains(stdout.String(), "package coverage-fixture/live statement coverage: 100.00% (1/1 statements)") {
-		t.Fatalf("executable package evidence changed: %s", &stdout)
+	if !passed {
+		t.Fatal("native event stream lost the executed test")
 	}
-	if !strings.Contains(stdout.String(), "package coverage-fixture/empty statement coverage: not applicable (0 measured statements)") {
-		t.Fatalf("native zero denominator was not reported: %s", &stdout)
+	for _, report := range []string{
+		"package coverage-fixture/data statement coverage: not applicable (declarations only)",
+		"package coverage-fixture/live statement coverage: 100.00% (1/1 statements)",
+		"package coverage-fixture/empty statement coverage: not applicable (0 measured statements)",
+	} {
+		if !strings.Contains(stderr.String(), report) {
+			t.Fatalf("native package coverage disappeared from stderr: %s", &stderr)
+		}
 	}
-	if strings.Contains(stdout.String(), "package tool.fixture statement coverage:") {
-		t.Fatalf("dependency counters entered product evidence: %s", &stdout)
+	if strings.Contains(stderr.String(), "package tool.fixture statement coverage:") {
+		t.Fatalf("dependency counters entered product evidence: %s", &stderr)
 	}
 	if output, err := exec.Command("go", "test", "-cover", "./data").CombinedOutput(); err != nil || !bytes.Contains(output, []byte("[no test files]")) {
 		t.Fatalf("native denominator premise: %v\n%s", err, output)

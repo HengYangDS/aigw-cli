@@ -15,6 +15,7 @@ import (
 
 type recordingRunner struct {
 	profile        string
+	output         string
 	err            error
 	name           string
 	args           []string
@@ -70,6 +71,9 @@ func (r *recordingRunner) Run(name string, args []string, stdout, stderr io.Writ
 				}
 			}
 		}
+	}
+	if _, err := io.WriteString(stdout, r.output); err != nil {
+		return err
 	}
 	return r.err
 }

@@ -94,6 +94,7 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 	flags.SetOutput(stderr)
 	policyPath := flags.String("policy", defaultPolicyPath, "coverage policy TOML")
 	race := flags.Bool("race", false, "enable Go's race detector")
+	jsonOutput := flags.Bool("json", false, "preserve native Go test JSON on stdout; coverage reports use stderr")
 	tags := flags.String("tags", "", "Go build tags for package observation and tests")
 	profileOutput := flags.String("profile-output", "", "retain the Go coverage profile at this path")
 	if err := flags.Parse(args); err != nil {
@@ -148,6 +149,11 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 	if *race {
 		goArgs = append(goArgs, "-race")
 	}
+	reportOutput := stdout
+	if *jsonOutput {
+		goArgs = append(goArgs, "-json")
+		reportOutput = stderr
+	}
 	goArgs = append(goArgs, policy.Packages...)
 	testErr := runner.Run("go", goArgs, stdout, stderr)
 	retainErr := retainCoverageProfile(profilePath, *profileOutput)
@@ -161,23 +167,14 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 		_, _ = fmt.Fprintf(stderr, "read coverage profile: %v\n", err)
 		return 1
 	}
-	if err := result.requirePackages(expectedPackages, runner, stdout, "-tags="+*tags); err != nil {
+	if err := result.requireCoverage(expectedPackages, policy.MinimumStatementPercent, runner, reportOutput, "-tags="+*tags); err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
-		return 1
-	}
-	percent := result.Percent()
-	if percent <= policy.MinimumStatementPercent {
-		_, _ = fmt.Fprintf(stderr, "coverage %.2f%% does not exceed %.2f%% (%d/%d statements)\n", percent, policy.MinimumStatementPercent, result.Covered, result.Total)
-		return 1
-	}
-	if _, err := fmt.Fprintf(stdout, "statement coverage: %.2f%% (%d/%d statements), required > %.2f%%\n", percent, result.Covered, result.Total, policy.MinimumStatementPercent); err != nil {
-		_, _ = fmt.Fprintf(stderr, "write coverage result: %v\n", err)
 		return 1
 	}
 	return 0
 }
 
-func (result coverageResult) requirePackages(expected []string, runner commandRunner, stdout io.Writer, selection ...string) error {
+func (result coverageResult) requireCoverage(expected []string, minimum float64, runner commandRunner, stdout io.Writer, selection ...string) error {
 	var missing error
 	selected := make(map[string]bool, len(expected))
 	for _, name := range expected {
@@ -217,6 +214,13 @@ func (result coverageResult) requirePackages(expected []string, runner commandRu
 		if _, err := fmt.Fprintf(stdout, "package %s statement coverage: %.2f%% (%d/%d statements)\n", name, count.Percent(), count.Covered, count.Total); err != nil {
 			return fmt.Errorf("write package observation: %w", err)
 		}
+	}
+	percent := result.Percent()
+	if percent <= minimum {
+		return fmt.Errorf("coverage %.2f%% does not exceed %.2f%% (%d/%d statements)", percent, minimum, result.Covered, result.Total)
+	}
+	if _, err := fmt.Fprintf(stdout, "statement coverage: %.2f%% (%d/%d statements), required > %.2f%%\n", percent, result.Covered, result.Total, minimum); err != nil {
+		return fmt.Errorf("write coverage result: %w", err)
 	}
 	return nil
 }
