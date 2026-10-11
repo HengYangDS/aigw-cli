@@ -430,3 +430,53 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testi
 		t.Fatalf("isolated Claude projection survived verification: %s: %v", verificationSettings, err)
 	}
 }
+
+func TestClientVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing.T) {
+	for _, client := range []string{configuration.ClientCodex, configuration.ClientClaude} {
+		for _, failure := range []string{"selected route", "retained reader"} {
+			t.Run(client+"/"+failure, func(t *testing.T) {
+				cfg, _ := codexVerificationFixture(t)
+				binding := cfg.Clients[configuration.ClientCodex]
+				cfg.Clients[client] = binding
+				if client == configuration.ClientClaude {
+					cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+					cfg.Routes["codex"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
+				}
+				selected, err := cfg.ResolveRuntime(client, "")
+				if err != nil {
+					t.Fatal(err)
+				}
+				store := secrets.NewMemoryStore()
+				if err := store.Set("gateway", "fixture-token"); err != nil {
+					t.Fatal(err)
+				}
+				runner := &routeVerificationRunner{}
+				deps := Dependencies{Runner: runner, Secrets: store, ClaudeSettingsPath: binding.Targets[0]}
+				var adapter Adapter = codexAdapter{}
+				if client == configuration.ClientClaude {
+					adapter = claudeAdapter{}
+				}
+				want := "unknown route"
+				if failure == "selected route" {
+					binding.Route = "missing"
+					cfg.Clients[client] = binding
+				} else {
+					_, deps.AIGWExecutable = versionedReaders(t)
+					if err := os.Remove(binding.Targets[0]); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Mkdir(binding.Targets[0], 0o700); err != nil {
+						t.Fatal(err)
+					}
+					want = "retained"
+				}
+				if _, err := adapter.Verify(t.Context(), deps, cfg, selected, ""); err == nil || !strings.Contains(err.Error(), want) {
+					t.Fatalf("verification refusal = %v, want %q", err, want)
+				}
+				if len(runner.plans) != 0 {
+					t.Fatalf("verification invoked a client before resolving its selection: %#v", runner.plans)
+				}
+			})
+		}
+	}
+}
