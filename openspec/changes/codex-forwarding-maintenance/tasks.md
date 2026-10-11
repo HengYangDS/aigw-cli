@@ -28,9 +28,22 @@ and post-archive migration. Existing native verification retains its raw results
       changing existing signed history.
 - [ ] 3.2 Complete required source checks, strict intent review, native
       three-OS journeys, and exact-source proof on the maintenance candidate.
-- [ ] 3.3 Qualify signed and notarized candidate bytes against published 0.3.3
+      Signed source `d441b132` passes the complete native source gate, race tests,
+      package-observed coverage (95.01%), and strict Change validation. Its
+      current-lease full proof remains open: the common configuration gate
+      conflicts with native generated and preserved input ownership, so its
+      dependent behavior proof did not execute. Preserve that original failure.
+- [x] 3.3 Qualify signed and notarized candidate bytes against published 0.3.3
       with retained state and the original 0.3.1 reader, including native credentials,
       update, direct rollback, and restored forwarding.
+      Candidate source `95abc6d6` remains byte-identical in both public input
+      archives. GitHub runs `38183182018` (0.3.1) and `38183188140` (0.3.3)
+      complete all three native platform journeys with verifier `5857535a`;
+      their full-quality input is false. Existing exact-byte Apple acceptance,
+      Linux Secret Service, macOS and Windows credential, and real-client
+      receipts retain their separate scope. This closes candidate qualification;
+      final source provenance, publication, and Homebrew installation remain
+      required below.
 
 ## Workflow follow-up
 
