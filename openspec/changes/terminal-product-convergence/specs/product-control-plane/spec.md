@@ -6,20 +6,30 @@
 
 When the configured Hermes home's data root holds the installation's committed
 dependency environment and managed tools, AIGW's disposable Hermes verification
-environment SHALL reuse that installation state through Hermes' native profile
-root resolution. Verification SHALL NOT create profile-local installation
-stores, install, synchronize, rebuild, or republish that state.
+environment SHALL reuse the committed dependencies without borrowing mutable
+home-maintenance records. Its boot records SHALL remain disposable; native
+dependency selection SHALL retain its original physical lock and generation
+leases. Verification SHALL NOT install, synchronize, rebuild, or republish the
+operator's dependencies, tools, launchers, or boot records.
 
 #### Scenario: Hermes keeps installation state under its data root
 
 - **WHEN** the installed Hermes resolves its committed dependency environment
   and managed tools from the data root of the configured Hermes home
 - **THEN** AIGW observes the native client version and completes one bounded
-  request from a disposable profile under the same native data root
+  request from a disposable home outside the operator's native data roots
 - **AND** verification refuses on-demand installation, so the installed
   dependencies, tools, and launchers are not synchronized or republished
 - **AND** removing the disposable home leaves the operator's Hermes
   configuration, installation state, and launchers unchanged.
+
+#### Scenario: Native launch effects cannot be isolated
+
+- **WHEN** the installed platform's boot path cannot preserve the operator's
+  launchers or safely borrow its committed dependency selection
+- **THEN** AIGW refuses verification before starting the client
+- **AND** it does not invent a private selection lock, provision dependencies,
+  modify client configuration, or claim readiness.
 
 #### Scenario: Required installation state is unavailable
 

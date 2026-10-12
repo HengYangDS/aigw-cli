@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -12,7 +13,7 @@ import (
 
 func TestVerificationProjectsAnotherModelWithoutChangingOwnedFiles(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	original := []byte("model:\n  temperature: 0.3\nagent:\n  reasoning_overrides:\n    another-model: none\nsecurity:\n  allow_lazy_installs: true\n  policy: strict\nupdates:\n  check: true\n")
+	original := []byte("model:\n  temperature: 0.3\nagent:\n  reasoning_overrides:\n    another-model: none\nsecurity:\n  allow_lazy_installs: true\n  policy: strict\nupdates:\n  check: true\ncli:\n  expose_on_path: true\n")
 	if err := os.WriteFile(path, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +49,7 @@ func TestVerificationProjectsAnotherModelWithoutChangingOwnedFiles(t *testing.T)
 	}
 	model := configMap(t, result, "model")
 	security := configMap(t, result, "security")
-	if model["default"] != "another-model" || model["temperature"] != 0.3 || security["allow_lazy_installs"] != false || security["policy"] != "strict" || configMap(t, result, "updates")["check"] != false {
+	if model["default"] != "another-model" || model["temperature"] != 0.3 || security["allow_lazy_installs"] != false || security["policy"] != "strict" || configMap(t, result, "updates")["check"] != false || configMap(t, result, "cli")["expose_on_path"] != false {
 		t.Fatalf("isolated native configuration = %#v", result)
 	}
 	for source, expected := range map[string][]byte{path: before, path + stateSuffix: state} {
@@ -100,6 +101,12 @@ func TestVerificationRequiresExistingNativeConfiguration(t *testing.T) {
 }
 
 func TestVerificationHomePreservesTheNativeRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		if _, _, err := CreateVerificationHome(filepath.Join(t.TempDir(), "config.yaml")); err == nil {
+			t.Fatal("unisolated Windows verification was permitted")
+		}
+		return
+	}
 	for _, name := range []string{"ordinary-home", "named-profile"} {
 		t.Run(name, func(t *testing.T) {
 			named := name == "named-profile"
@@ -123,8 +130,8 @@ func TestVerificationHomePreservesTheNativeRoot(t *testing.T) {
 					t.Error(err)
 				}
 			})
-			if filepath.Dir(home) != filepath.Join(root, "profiles") {
-				t.Fatalf("verification profile %q lost the native root %q", home, root)
+			if relative, err := filepath.Rel(root, home); err != nil || !strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+				t.Fatalf("verification home %q shares the native root %q", home, root)
 			}
 			if err := os.WriteFile(filepath.Join(home, "owned"), []byte("temporary"), 0o600); err != nil {
 				t.Fatal(err)
@@ -139,18 +146,20 @@ func TestVerificationHomePreservesTheNativeRoot(t *testing.T) {
 				if data, err := os.ReadFile(target); err != nil || string(data) != "user-owned" {
 					t.Fatalf("native profile changed: %v", err)
 				}
-			} else if entries, err := os.ReadDir(filepath.Dir(home)); err != nil || len(entries) != 0 {
-				t.Fatalf("native profile container was removed or holds residue: %v, %v", entries, err)
+			} else if entries, err := os.ReadDir(root); err != nil || len(entries) != 0 {
+				t.Fatalf("native root holds verification residue: %v, %v", entries, err)
 			}
 		})
 	}
 }
 
-func TestVerificationHomesShareTheNativeProfileContainer(t *testing.T) {
+func TestVerificationHomesHaveIndependentCleanup(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return // Windows refusal is covered by TestVerificationHomePreservesTheNativeRoot.
+	}
 	for first, name := range []string{"creator-first", "borrower-first"} {
 		t.Run(name, func(t *testing.T) {
 			root := t.TempDir()
-			profiles := filepath.Join(root, "profiles")
 			var homes [2]string
 			var cleanup [2]func() error
 			for i := range homes {
@@ -169,14 +178,18 @@ func TestVerificationHomesShareTheNativeProfileContainer(t *testing.T) {
 			if err := cleanup[1-first](); err != nil {
 				t.Fatal(err)
 			}
-			if entries, err := os.ReadDir(profiles); err != nil || len(entries) != 0 {
-				t.Fatalf("native container was removed or holds verification residue: %v, %v", entries, err)
+			if entries, err := os.ReadDir(root); err != nil || len(entries) != 0 {
+				t.Fatalf("native root holds verification residue: %v, %v", entries, err)
 			}
 		})
 	}
 }
 
 func TestVerificationHomeCleanupAcceptsAWithdrawnParent(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return // Windows refusal is covered by TestVerificationHomePreservesTheNativeRoot.
+	}
+	t.Setenv("TMPDIR", t.TempDir())
 	home, cleanup, err := CreateVerificationHome(filepath.Join(t.TempDir(), "config.yaml"))
 	if err != nil {
 		t.Fatal(err)
@@ -189,5 +202,78 @@ func TestVerificationHomeCleanupAcceptsAWithdrawnParent(t *testing.T) {
 	}
 	if err := cleanup(); err != nil {
 		t.Fatalf("another operation already removed the empty profile parent: %v", err)
+	}
+}
+
+func TestVerificationHomeBorrowsTheOriginalSelectionLock(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return // Windows verification refuses before any dependency borrowing.
+	}
+	root := t.TempDir()
+	installed := filepath.Join(root, "installs", "selection")
+	if err := os.MkdirAll(installed, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	lock := filepath.Join(installed, ".install.lock")
+	if err := os.WriteFile(lock, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	home, cleanup, err := CreateVerificationHome(filepath.Join(root, "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = cleanup() })
+	before, err := os.Stat(lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	borrowed, err := os.Stat(filepath.Join(home, "installs", "selection", ".install.lock"))
+	if err != nil || !os.SameFile(before, borrowed) {
+		t.Fatalf("shared dependency selection has a different lock: %v", err)
+	}
+}
+
+func TestVerificationHomeRefusesUnprotectedDependencySelection(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return // Windows verification refuses before any dependency borrowing.
+	}
+	root := t.TempDir()
+	installed := filepath.Join(root, "installs", "selection")
+	if err := os.MkdirAll(installed, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(installed, "facts.json"), []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	home, cleanup, err := CreateVerificationHome(filepath.Join(root, "config.yaml"))
+	if cleanup != nil {
+		_ = cleanup()
+	}
+	if err == nil || home != "" || !strings.Contains(err.Error(), "selection lock") {
+		t.Fatalf("unprotected shared selection was borrowed: %q, %v", home, err)
+	}
+}
+
+func TestVerificationHomeRejectsPhysicalNativeRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return // Windows verification refuses before creating a home.
+	}
+	root := t.TempDir()
+	alias := filepath.Join(t.TempDir(), "temporary")
+	if err := os.Symlink(root, alias); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TMPDIR", alias)
+	home, cleanup, err := CreateVerificationHome(filepath.Join(root, "config.yaml"))
+	if cleanup != nil {
+		if cleanupErr := cleanup(); cleanupErr != nil {
+			t.Fatal(cleanupErr)
+		}
+	}
+	if err == nil || home != "" || !strings.Contains(err.Error(), "outside") {
+		t.Fatalf("verification accepted temporary storage inside its physical native root: %q, %v", home, err)
+	}
+	if entries, err := os.ReadDir(root); err != nil || len(entries) != 0 {
+		t.Fatalf("rejected verification left native residue: %v, %v", entries, err)
 	}
 }

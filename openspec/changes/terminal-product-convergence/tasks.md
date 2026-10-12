@@ -94,6 +94,10 @@ in Git; original raw results stay with their source-bound verification owner.
 - [ ] 4.5 Requalify Claude Code, Claude Desktop, Codex, and Hermes independently
       for native protocol, model selection, credential and rollback behavior; do not
       infer Desktop from CLI or endpoint reachability from real-client success.
+      Hermes boot-record isolation, original-lock custody, missing-lock refusal,
+      and the macOS public-Token text/stream journey are qualified in the
+      [native-client design](design.md#3-qualify-a-client-adapter-do-not-infer-support-from-a-file). External
+      credentials, tool/continuation behavior, and other platforms remain open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
