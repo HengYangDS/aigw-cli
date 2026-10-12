@@ -107,7 +107,8 @@ func encode(root *yaml.Node) ([]byte, error) {
 }
 
 // PrepareVerification preserves native settings in an isolated projection and
-// disables dependency installation and passive software-update checks.
+// disables dependency installation, passive software-update checks and launcher
+// publication.
 func (plan *Plan) PrepareVerification() ([]byte, error) {
 	if !plan.configBefore.Exists {
 		return nil, errors.New("Hermes native configuration is missing; run aigw sync")

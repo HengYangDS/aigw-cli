@@ -126,9 +126,12 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Fixed
 
-- Keep disposable Hermes verification profiles under the configured native
-  root, reusing installed dependencies and tools without profile-local links,
-  lazy installation, synchronization, or republication.
+- Let Hermes verification borrow the configured installation's committed
+  dependencies and managed tools while keeping its boot-maintenance records
+  private, so `aigw verify --for hermes` works with Hermes 0.21.6 without
+  installing, synchronizing, republishing, or recording anything in Hermes
+  state. Verification refuses on Windows, where Hermes would republish the
+  operator's launchers.
 - Prevent disposable Hermes verification from contacting its unrelated
   software-update service before the selected model request.
 - Classify Hermes version-probe timeout, interruption, and execution failure

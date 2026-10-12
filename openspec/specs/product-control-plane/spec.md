@@ -995,6 +995,14 @@ client path.
 - **AND** SHALL NOT write client configuration, operator sessions, conversation
   history, model metadata, or external gateway state
 
+#### Scenario: Codex verification reclaims its owned resources
+
+- **WHEN** the Codex client succeeds, fails, exits while its descendants run, is
+  interrupted, or reaches its turn deadline
+- **THEN** AIGW SHALL stop the client process tree it started and remove its
+  verification workspace before returning
+- **AND** SHALL leave unrelated processes and protected files unchanged
+
 ### Requirement: Windows path derivation preserves the selected namespace
 
 Derived configuration, data, credential, client-settings and installation paths
@@ -2124,25 +2132,34 @@ artifact bytes SHALL not be rebuilt or replaced.
 
 When the configured Hermes home's data root holds the installation's committed
 dependency environment and managed tools, AIGW's disposable Hermes verification
-environment SHALL reuse that installation state through Hermes' native profile
-root resolution. Verification SHALL NOT create profile-local installation
-stores, install, synchronize, rebuild, or republish that state.
+environment SHALL reuse that installation state. Verification SHALL NOT install,
+synchronize, rebuild, or republish that state, and SHALL fail before starting
+Hermes when the state cannot be shared.
 
 #### Scenario: Hermes keeps installation state under its data root
 
 - **WHEN** the installed Hermes resolves its committed dependency environment
   and managed tools from the data root of the configured Hermes home
 - **THEN** AIGW observes the native client version and completes one bounded
-  request from a disposable profile under the same native data root
+  request from a disposable home outside the operator's native data roots
 - **AND** verification refuses on-demand installation, so the installed
   dependencies, tools, and launchers are not synchronized or republished
 - **AND** removing the disposable home leaves the operator's Hermes
   configuration, installation state, and launchers unchanged.
 
-#### Scenario: Required installation state is unavailable
+#### Scenario: Installation state cannot be shared
 
-- **WHEN** the installed Hermes cannot resolve required dependency state from
-  the configured native root
-- **THEN** verification reports the native failure without claiming readiness
+- **WHEN** the host refuses to expose the configured home's installation state
+  to the disposable home
+- **THEN** verification fails before starting Hermes
 - **AND** it does not provision another dependency environment, retry, or
   disclose private paths.
+
+#### Scenario: Native launch effects cannot be isolated
+
+- **WHEN** the installed platform's boot path cannot preserve the operator's
+  launchers or safely borrow its committed dependency selection
+- **THEN** AIGW refuses verification before starting the client
+- **AND** it does not invent a private selection lock, provision dependencies,
+  modify client configuration, or claim readiness
+- **AND** the refusal discloses no credential diagnostics.

@@ -32,11 +32,11 @@ choices = [
   "z",
   "a",
 ]
-record = {z = 2, a = 1}
+record = { z = 2, a = 1 }
 `
-	lockValid := strings.ReplaceAll(valid, "{z = 2, a = 1}", "{ z = 2, a = 1 }")
+	compact := strings.ReplaceAll(valid, "{ z = 2, a = 1 }", "{z = 2, a = 1}")
 	files := map[string]string{
-		".config/mise/mise.lock":    lockValid,
+		".config/mise/mise.lock":    valid,
 		"tools/domain/config.toml":  valid,
 		"internal/domain/test.toml": valid,
 		"build/generated.toml":      "value = [\n",
@@ -58,10 +58,10 @@ record = {z = 2, a = 1}
 		name, root, path, content string
 		valid                     bool
 	}{
-		{"absolute root", root, ".config/mise/mise.lock", lockValid, true},
-		{"relative root", filepath.Base(root), ".config/mise/mise.lock", lockValid, true},
-		{"native lock spacing", root, ".config/mise/mise.lock", valid, false},
-		{"authored table spacing", root, "tools/domain/config.toml", lockValid, false},
+		{"absolute root", root, ".config/mise/mise.lock", valid, true},
+		{"relative root", filepath.Base(root), ".config/mise/mise.lock", valid, true},
+		{"native lock spacing", root, ".config/mise/mise.lock", compact, false},
+		{"authored table spacing", root, "tools/domain/config.toml", compact, false},
 		{"source fixture syntax", root, "internal/domain/test.toml", "value = [\n", false},
 		{"tool policy format", root, "tools/domain/config.toml", "value=1\n", false},
 		{"lock syntax", root, ".config/mise/mise.lock", "value = [\n", false},

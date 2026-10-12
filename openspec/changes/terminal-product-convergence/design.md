@@ -2,77 +2,39 @@
 
 ## Context
 
-See [the proposal](proposal.md). Current accepted source, Work Lane authority,
-and foreign ownership are resolved through ETHOS at execution time, not copied
-into this design. Any working installed predecessor remains protected. Current source
-already has one Account/Route/Client Binding model, an environment backend,
-native client adapters, a CUE CI projection, and an AIGW-owned credential copy.
-The terminal work is to make those owners sufficient, not add another routing
-service, configuration hierarchy, or status ledger.
+The [proposal](proposal.md) and [task checklist](tasks.md) own accepted intent and
+progress. ETHOS resolves current source, lease and foreign ownership. AIGW already
+has Account/Route/Client Bindings, native adapters, environment credentials, CUE
+CI and a private credential-reader copy. Complete these owners, not another
+routing service, hierarchy or ledger; preserve the working installed predecessor.
 
 ## Goals / Non-Goals
 
-**Goal:** deliver and retire the existing AIGW convergence before the existing
-provider-neutral Responses Proxy convergence. Acceptance covers these semantic
-outcomes through the existing task owners, not another checklist:
+**Goal:** deliver and retire AIGW first, then the existing provider-neutral
+Responses Proxy convergence. The [acceptance routing](#requirement-and-acceptance-routing)
+assigns the complete checklist to semantic owners: optional onboarding/readiness,
+credential continuity, provider/client admission, portable lifecycle, strict
+quality/supply, measured performance, symmetric Forge admission, repository
+meaning and delivery.
 
-- **Onboarding and readiness (2):** optional Accounts and clients, independent
-  explicit bindings, late sync, ownership-preserving merge and compensation,
-  and consistent setup, use, status, check, verify and doctor decisions.
-- **Credential continuity (3):** one native or explicitly selected environment
-  backend; precise Account and diagnostic item ownership; authentic retained
-  predecessor reads, signed successor qualification, original-command survival,
-  bounded package replacement and rollback without prompt loops.
-- **Routes and clients (4):** current qualified provider wire IDs, protocols,
-  capabilities and consistent catalogue grammar; ordered usable recommendations
-  preserve explicit/manual choices. Each Codex, Claude and Hermes mode proves
-  native model selection, authentication, tool use and continuation separately.
-  Other adapters require a complete ownership and withdrawal contract.
-- **Portable lifecycle (5):** actual macOS, Linux and Windows setup, upgrade,
-  rollback, forward, uninstall and failure-cleanup journeys with exact candidate
-  bytes, retained state and independently reconstructed locked environments.
-- **Quality and performance (6):** strict proportionate all-format gates,
-  narrow public types and errors, supply trust and measured predecessor budgets;
-  modern syntax or tools serve meaning rather than add superficial machinery.
-- **Forge admission (7):** one CUE graph generates symmetric optional peers;
-  proposal/review, maintainer, dev/main and tag paths bind exact signed objects,
-  required checks, runner containment and complete cold supply custody.
-- **Repository meaning (8):** deep cohesive modules and tests, one authority per
-  concern, lean English navigable docs/configs and rendered diagrams, qualified
-  references, bounded decision-support research and consumer-based deletion.
-- **Delivery (9 and Migration Plan):** one frozen accepted candidate, governed
-  integration and official archive, SemVer/Changelog, signed immutable assets,
-  native package-manager installation and exact retirement of owned residue.
+**Completion:** accept the [checklist](tasks.md), then the
+[Migration Plan](#migration-plan): guarded integration, official archive,
+publication, installed upgrade/rollback and exact retirement. Each client mode
+needs its own protocol, wire ID, artifact and retained-state evidence. Newer
+acceptance supersedes failures only within measured scope; a reproduced
+contradiction reopens its owner. Native limits stay explicit, not invented success.
 
-**Completion:** accept the [task checklist](tasks.md) through its
-[requirement and acceptance routing](#requirement-and-acceptance-routing), then
-finish the [Migration Plan](#migration-plan): guarded integration, official
-archive, publication, installed upgrade and rollback, and exact retirement.
-Source checks, signed candidates, pipeline success, and task counts are distinct
-intermediate evidence, not installed-product completion. A requested client mode
-remains unqualified until its own native contract passes.
-
-Finish AIGW before extending the existing Responses Proxy convergence; a live
-service incident permits only bounded restoration before returning to that
-order. Close one semantic acceptance gap at a time and reuse unchanged qualified
-inputs. This work retains its current Goal, Change, lane, and sole task ledger.
-
-Qualify a capability with its exact client mode, protocol, provider wire ID,
-artifact and retained state. A previous failure is not a permanent exclusion;
-newer acceptance supersedes it only within the measured scope. A reproducible
-contradiction reopens the owning task before dependent delivery. Unsupported
-native behavior remains an explicit limit, not an invented adapter or success.
-Refresh repository-owned pins to the latest compatible stable releases before
-the final input freeze; host upgrades do not alter locked project inputs.
-
-Each closure uses its existing owner: focused RED/GREEN where behavior changes,
-sibling-consumer reconciliation, exact staging, affected gates, evidence and
-owned cleanup. Evidence references retain failed results and rollback consumers.
-Two unsuccessful repairs trigger a new hypothesis before another expensive run.
-Every active-hour checkpoint reports facts, evidence, unproved scope and next
-action in the existing task context. Guidance is not enforced Agent behavior.
-Bound each Agent/tool input, output and execution to its owning operation;
-context pressure is not evidence of a new credential or transport defect.
+Keep the existing Goal, Change, lane and ledger; only a live incident permits
+bounded restoration before AIGW-first ordering. Close each semantic gap with
+focused RED/GREEN for changed behavior, sibling reconciliation, exact staging,
+affected gates, evidence and cleanup. Reuse unchanged qualified inputs; refresh
+owned pins to latest compatible stable before freezing. Host upgrades do not
+change project locks. Preserve failed receipts and rollback consumers.
+Two unsuccessful repairs change the hypothesis; missing native capability holds
+only its dependent scope.
+Bound tool inputs, outputs and execution to their operation; context pressure
+is not proof of an auth defect. Every added entity must survive three necessity
+questions: native-owner replacement, required consumer and deletion-based solution.
 
 **Non-goals:** request transport, transparent mid-request retries, external
 Proxy lifecycle, Codex conversation or model-choice mutation, automatic browser
@@ -231,74 +193,45 @@ private. This is an upstream-layout-dependent adapter, not an isolation API.
 `PrepareVerification` disables lazy installs, update checks and PATH exposure.
 Hermes 0.21.6 ignores the last on Windows; AIGW refuses before launch.
 
-The [boot regression](../../../internal/client/hermes_native_test.go) exercises
-Hermes' native record resolver with boot steps stubbed. The
-[Unix custody regressions](../../../internal/hermes/configuration/verification_home_unix_test.go)
-check physical-lock identity, refusal and containment; the
-[Windows regression](../../../internal/hermes/configuration/verification_home_windows_test.go)
-proves refusal before effects. Native Go source selection keeps Unix-only
-borrowing out of Windows; it is not a coverage exemption. A real journey
-separately qualifies launch effects.
+The [Unix native regressions](../../../internal/client/hermes_native_unix_test.go)
+exercise Hermes' boot resolver with stubbed steps and the native dependency-member
+union. [Configuration custody](../../../internal/hermes/configuration/verification_home_unix_test.go)
+owns physical-lock identity, refusal and private placement. The
+[Windows home factory](../../../internal/hermes/configuration/verification_home_windows.go)
+refuses before launch; [credential diagnostics](../../../internal/client/credential_policy_test.go)
+assert zero client calls and no canary disclosure. Windows compiles neither Unix
+borrowing nor Unix probes. A real journey separately qualifies launch effects.
 
-Signed `2b746c9610424f0071bdcf4e5a2900fc08f5af3d` produced a six-target candidate.
-Installed macOS Codex, Claude Code and Hermes independently passed packaged
-0.3.3 upgrade/rollback/re-upgrade, forwarding and retained credentials with public
-Tokens/local servers. Codex tools and Hermes continuation/model adoption passed;
-ten general Routes remained metadata-unqualified. All 85,992 Hermes dependency/tool
-nodes and operator state stayed intact except a lease-directory mtime; no residues.
+#### Native qualification and remaining limits
 
-Earlier signed `8254c1f5` produced a refreshed six-target matrix. Its source tree
-`66591638` matches all 1,248 accepted inputs: Go 1.27.2 measures 95.01% statement
-coverage, above the unchanged strict 95% floor. Artifact checksum signing is
-distinct from Developer ID signing and notarization; this candidate uses ad-hoc
-macOS signatures.
+| Signed source                                                                               | Qualified scope                                                                                                                                                                                                     | Explicit limit                                                                                             |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `2b746c96`                                                                                  | Six-target candidate; packaged macOS Codex, Claude Code and Hermes and Linux retained-state lifecycle against published 0.3.3; forwarding, rollback/re-upgrade, Codex tools and Hermes model adoption/continuation. | Public Tokens and local servers, not live Provider authorization; ten Routes remained metadata-incomplete. |
+| `8254c1f5`, tree `66591638`                                                                 | Refreshed six-target matrix, full-source gate and packaged macOS Hermes boot/custody journey.                                                                                                                       | Ad-hoc macOS signatures and dependency-currency warnings; not warning-free or final-byte acceptance.       |
+| `fbeeb89aee48fa18ae6410608d6f0b9224a1b07e`, tree `98566ac4091670762518b3d08c281ef05dc351da` | Full-source gate, native boot/member regressions, static checks, Windows cross-compilation and warning-free packaged macOS Hermes journey.                                                                          | Not native Windows, Desktop, live Provider, native-store, notarization or publication acceptance.          |
 
-Its native boot regression and packaged macOS Hermes journey passed,
-including `verify --for hermes`, streaming tools, continuation, native model
-adoption, forwarding and the four retained-predecessor lifecycle stages. All eight
-operator files and the default boot record stayed byte/mode/inode intact; all
-86,077 dependency/tool nodes remained, with only native lease-directory mtime
-changed. The authorized 36 residue records remain absent. That borrowed-home
-journey emitted dependency-currency warnings; it does not prove an out-of-sync
-operator installation or warning-free acceptance. Windows verification still
-refuses before launch.
+The passive October 12 comparison found that the old borrowed home omitted the
+operator's dependency member. Selector-only profiles preserve resolved identities
+without credentials. The `fbeeb89a` journey against Hermes 0.21.6 passed verification,
+streaming tools, continuation, model adoption, forwarding and predecessor
+upgrade/rollback/re-upgrade. Eleven protected files kept their bytes, mode, inode
+and mtime; shared installation state gained or lost no file. Only the native
+lease-directory mtime changed; no lease, profile or boot record remained. All 36
+authorized historical records remained absent. Unknown concurrent work was preserved.
+A postlude variable-shadow error followed scratch removal; independent process/group
+and path readback proved cleanup without replay. These receipts do not qualify a
+later Hermes revision. Artifact checksum signing is distinct from Developer ID
+signing and notarization.
 
-The October 12 passive native comparison identifies the warning: the operator
-home has one dependency member and is current, while the old borrowed home has
-none and fails the same native stamp against the same installed environment.
-Selector-only profiles restore resolved member identities without copying
-credentials. Signed `fbeeb89aee48fa18ae6410608d6f0b9224a1b07e`, tree
-`98566ac4091670762518b3d08c281ef05dc351da`, closes this correction. Its 1,252
-source inputs match the complete 157.836-second gate: 15,054/15,840 statements
-(95.04%) exceed the unchanged strict 95% floor. The native boot/member regression,
-static checks and Windows cross-compilation pass; Windows native execution is
-not proved.
+Original source-bound custody remains under `build/verification/`:
 
-The checksum-signed six-target matrix from that exact source passed one real
-macOS Hermes journey against published 0.3.3 in 59.201 seconds, without warnings
-or skips. Verification, streaming tools, continuation, native model adoption,
-forwarding and upgrade/rollback/re-upgrade passed. Eleven protected config,
-facts, boot-record and launcher files retained their bytes, mode, inode and
-mtime. Shared installation state gained or lost no file; only the native
-lease-directory mtime changed, with no retained lease, profile or boot record.
-All 36 authorized historical records remain absent. Concurrent unknown source
-and temporary-checkout additions were preserved, not attributed to AIGW or
-claimed unchanged. A postlude variable-shadow error occurred after scratch
-removal; independent process/group and exact-path readback proves cleanup
-without repeating the client journey.
-
-Source receipts remain under
-`build/verification/67a9e947fe191d8d5e10633d816447d566287bf1/hermes-dependency-diagnosis-20261012`;
-signed-object, artifact and real-journey receipts are under
-`build/verification/fbeeb89aee48fa18ae6410608d6f0b9224a1b07e/hermes-isolation-closure-20261012`.
-These qualify the named source and artifacts, not later source, external
-Providers, native stores, Desktop, Windows, notarization or publication.
-
-Evidence: `build/verification/<source>/native-{candidate,hermes-boot,hermes-artifact}-20261012`
-for `8254c1f5`; the original `2b746c96` Codex, Claude and Linux scopes retain their
-own receipts. Full source evidence remains under
-`build/verification/5c64433d1a9f081d0c0ec3b530c56f6b906cbc54/supplier-refresh-preflight-20261012`; final-byte,
-native-store, Desktop, Windows and clean-supply obligations remain open.
+- `2b746c96` retains its Codex, Claude and Linux journeys.
+- `8254c1f5` retains `native-{candidate,hermes-boot,hermes-artifact}-20261012`;
+  its source gate is in `5c64433d1a9f081d0c0ec3b530c56f6b906cbc54/supplier-refresh-preflight-20261012`.
+- `67a9e947fe191d8d5e10633d816447d566287bf1/hermes-dependency-diagnosis-20261012`
+  owns the native warning attribution.
+- `fbeeb89aee48fa18ae6410608d6f0b9224a1b07e/hermes-isolation-closure-20261012`
+  owns signed objects, artifacts and the real journey.
 
 Windows supplier regression now selects the official Codex 0.162.1 platform
 package, not its three-file bootstrap package. One CUE declaration owns the
@@ -488,31 +421,32 @@ not Provider latency, another platform, a quiet host or optimization benefit.
 Build and CI costs remain with their actual construction and job receipts;
 unmatched timing is neither optimization nor regression evidence.
 
-The `2b746c96` candidate passed macOS and Linux ARM64 ENV workloads in
-`macos-env-performance-20261012` and `linux-native-store-performance-20261012`
-under that source's verification root. Its file/Secret Service samples cover only
-credential, projection, setup and sync, not the complete eight-workload contract.
-Raw samples, controllers and memory remain; those optional-backend results cannot
-qualify complete native performance.
-These bound overhead, not speedup: macOS setup/sync/projection/status are slower
-in both blocks, with observed contention. Linux locked-store/refusal/lifecycle passed;
-supplier registration warnings remain disclosed, not a pristine aggregate gate.
-`native-lifecycle-20261012` has one Desktop skip; Linux has none. Windows, macOS
-Keychain, final Developer ID bytes and package-link cutover remain open.
+#### Qualified performance and missing boundaries
 
-Signed `2470765fa335c0f7b0f2b989e53ba86d98753b43`, tree
-`20326e0ff6b63e422869a7001e70a01e353a7b3c`, closes this admission defect:
-the existing Summary records the producer's selected backends, and one ordered
-workload contract drives production and review (full eight; forwarding five).
-Review requires every selected variant/backend/workload exactly once, including
-an entirely missing optional backend; unselected backends remain optional.
-Original budgets, two 40-sample blocks and process/reader identities are unchanged.
-Focused RED/GREEN, static analysis and the 512 size gate pass. The complete
-190.55-second source gate retained all 1,252 inputs unchanged and covered
-15,071/15,858 statements, above the strict 95% floor. Receipts remain under
-`build/verification/b537a974eb9414e2cd24fcca0646775bb9383b4b/native-performance-workload-closure-20261012`.
-This proves workload admission, not measured native-store budgets or later bytes;
-Task 6.6 remains open.
+The original `2b746c96` receipts qualified macOS/Linux ARM64 ENV, while its
+file/Secret Service measurements covered only four of eight workloads. Those
+receipts retain observed contention and supplier warnings; they establish
+neither a quiet host nor speedup. Its macOS lifecycle had one Desktop skip.
+
+Signed `2470765f`, tree `20326e0ff6b63e422869a7001e70a01e353a7b3c`, closes
+workload admission: one ordered contract drives producer and review (full eight;
+forwarding five), and Summary records selected backends. Every selected
+variant/backend/workload must appear once; unselected backends stay optional.
+The original budgets, two 40-sample blocks and process/reader identities remain.
+Focused RED/GREEN and the full-source gate are retained in
+`build/verification/b537a974eb9414e2cd24fcca0646775bb9383b4b/native-performance-workload-closure-20261012`;
+this proves admission, not measured budgets.
+
+The preserved `9058b37d916cf69d9fad5485bf284db6b4a95397` readback qualifies all
+eight workloads for macOS ARM64 ENV and Linux ARM64 ENV/file/private Secret
+Service: respectively 32/96 blocks and 1,280/3,840 samples. Candidate maximum
+pooled p95 is 21.537/86.159ms on macOS and 11.727/36.755ms on Linux for the
+100/250ms budgets. All 1,252 source-input hashes and 13 artifact entries match
+signed Git inputs and original inventory; raw p95, budget and memory checks pass.
+`build/verification/9058b37d916cf69d9fad5485bf284db6b4a95397/native-performance-closure-20261012/receipt-readback-20261012.json`
+owns this independent readback, not a replay or later-source qualification.
+Windows, isolated macOS Keychain, final Developer ID/notarized bytes and any
+changed producer/verifier inputs remain open. Task 6.6 stays unchecked.
 
 ### 6. Delete by consumer and authority
 
@@ -601,86 +535,61 @@ reconciliation, and publication remain independently qualified.
 
 ## Risks / Trade-offs
 
-- Original credential commands may outlive the configuration that created
-  them. Premature byte removal breaks sessions; indefinite retention is not a
-  terminal state. Exact ownership and a proved transition govern cleanup.
-- Client and Provider capabilities differ. A common adapter contract reduces
-  core edits but cannot make unsupported native protocols work by declaration.
-- Provider catalogues drift faster than releases. Live probes qualify selected
-  claims; a model name alone cannot establish inference, tool use, or a 1M
-  context window.
-- A broad Change can hide partial completion. Each task therefore closes one
-  independently testable semantic behavior and names its native evidence;
-  task count is not a readiness percentage.
-- Locally accepted Hermes source `2aa58eea` has exact-HEAD ETHOS proof
-  Attestation `731c06ac` and a [GitHub proposal Verify run](https://github.com/HengYangDS/aigw-cli/actions/runs/36234147864)
-  at the same SHA. Its OpenSpec record is archived in this terminal Change;
-  equivalent later gate wiring belongs here, not in a second Hermes landing.
-  Reconcile foreign work at its owning requirement and rerun only evidence
-  invalidated by changed inputs.
+Cached credential-command and platform/protocol limits remain with their
+[continuity](#4-decide-credential-command-continuity-before-cutover) and
+[client-admission](#3-qualify-a-client-adapter-do-not-infer-support-from-a-file)
+owners. Archived Hermes source `2aa58eea` retains proof Attestation `731c06ac` and its
+[exact-SHA Verify run](https://github.com/HengYangDS/aigw-cli/actions/runs/36234147864).
+Later wiring belongs here; foreign contributions must reconcile by requirement.
 
 ## Migration Plan
 
-Resolve accepted source and lane authority from current ETHOS state. This Change
-closes the user journey and reader
-succession before changing live client projections, and applies the broader
-adapter, quality, topology, and documentation cleanup in dependency order.
-Use a published predecessor with retained state for each platform's update and
-rollback proof. Pre-archive candidate acceptance uses explicit environment
-credentials or isolated synthetic native items. A Developer ID candidate may
-prove stable designated requirements without a tag, but signing does not move
-the predecessor's physical item or prove access to an operator's Token.
-Source acceptance is distinct from final product delivery. Obtain exact-HEAD
-ETHOS proof and independent peer review CI for each source increment, then
-integrate its signed object through the guarded maintainer path. Keep future
-native acceptance and delivery tasks open; they cannot block the source or
-transport policy needed to execute them. Verify dev checks and exact proposal
-ref retirement for each effect. Once candidate acceptance is complete, archive
-through the official governed OpenSpec transition and re-prove the archived
-SHA. Only then promote that exact object to `main`, require its peer-local main
-checks, and create the signed release tag. Tag jobs and dual-peer assets must
-pass before Homebrew update or user-host cutover can be claimed.
-Housekeeping completes at each operation boundary, not in a final catch-all
-sweep. Before archive, Task 8.5 inventories exact ownership, removes currently
-disposable residue and identifies retained consumers and retirement triggers.
-Native input acquisition belongs to the existing release owner. GitLab jobs
-consume the exact source-bound package; local jobs may consume its absolute
-caller-owned archive. Both paths retain checksum, signed matrix, provenance and
-cleanup checks without a transport tag. Neither qualifies GitHub's disposable
-macOS Keychain consumer. That consumer still needs a same-peer input transport
-admitted by its prior accepted policy; draft Release visibility is not a
-supported contract for its read-only job token. An accepted signed transport
-carrier may descend from the package producer; its tag names and selects that
-carrier, while `CandidateSource` and matrix provenance continue to identify the
-original producer. Verify their ancestry and exact checksum without treating
-the carrier as a rebuilt product. Preserve the measured product-input
-equivalence; changed product inputs require new producer provenance. Do not
-rebuild unchanged signed inputs or create redundant transport entities. Retire
-exact temporary peer inputs only after their consumers terminate and required
-acceptance evidence is retained.
-After verified release and installed cutover, retire superseded tags, outputs
-and the completed lane through their native owners. Preserve failed receipts,
-required rollback material and foreign or unknown state. These final retirements
-remain delivery requirements but cannot be prerequisites for their own release.
-Proof and archive cannot be checkboxes in the Change they finalize, because
-checking either box changes the HEAD it would claim to have proved.
-Before that host cutover, the exact final production reader must authorize each
-selected Account and diagnostic item, preserve captured original commands and
-rollback, and qualify the measured package-link transition. Ad-hoc candidate
-success, an unchanged signer or an item label cannot substitute for that read.
-The one-time 0.3.1 Homebrew transition must preproject versioned commands,
-prefetch the final package, measure the bounded unlink/relink gap, verify the
-captured original commands immediately, and restore the predecessor on failure.
-Brief interruption is acceptable only when the native consumer recovers
-automatically, the same thread and turn finish, context and all outputs survive,
-and each tool effect executes once. Measure the cutover window and verify that
-continuation immediately; a restarted task, lost output or duplicate effect
-fails acceptance and requires bounded rollback. Controlled outage evidence
-does not replace the final-byte package-manager transition.
+Use a published predecessor with retained state on each platform. Pre-archive
+acceptance uses explicit environment credentials or isolated synthetic native
+items. A Developer ID candidate may prove a stable designated requirement;
+signing cannot prove operator-Token authorization.
 
-Retain old items and readers for cached and rollback callers; disclose residual
-cached-public-link risk. Later versioned commands remain callable throughout
-replacement. These are post-archive acceptance conditions, not prerequisites
-for the pre-archive candidate tasks.
-No credential prompt, service restart, client history rewrite, or unverified
-automatic backend fallback is a migration step.
+1. Finish the declared source and candidate acceptance, preserving each
+   [task's evidence](tasks.md). Independent source or transport prerequisites
+   may integrate while later native obligations remain open.
+2. Obtain exact-HEAD ETHOS proof and independent review CI, integrate the same
+   signed object through guarded `dev`, verify its checks and retire its exact
+   proposal ref. Do not fabricate contribution or incoming-Change completion.
+3. Archive through governed official OpenSpec, re-prove that SHA, promote the
+   exact object to `main`, pass selected-peer main checks and create the signed
+   release tag. Tag checks and assets precede installed-product claims.
+4. Qualify production bytes and native package-manager upgrade, rollback and
+   forward; then retire superseded tags, outputs and the completed lane through
+   their owners. Final retirement cannot be its own release prerequisite.
+
+GitHub is the currently selected delivery peer. Preserve GitLab remotes and
+later reconciliation in this existing owner; do not probe or await the unavailable
+intranet. One selected peer never proves sibling parity.
+
+Native input acquisition stays in the release owner. Local execution consumes
+an exact caller-owned archive; the GitLab owner retains its source-bound package
+path. GitHub's disposable Keychain consumer needs same-peer transport admitted
+by its prior accepted policy, not draft visibility assumed for a read-only token.
+A signed carrier may descend from the producer: its tag selects transport while
+`CandidateSource`, matrix provenance, ancestry and checksum identify the original
+product. Do not rebuild unchanged signed inputs or add redundant transport entities.
+Retire temporary inputs only after their consumers end and evidence is retained.
+
+Before operator cutover, the final reader must authorize each selected Account
+and diagnostic item, preserve original commands and rollback, and qualify the
+measured package-link transition. Ad-hoc success, unchanged signer or labels
+cannot substitute. The one-time 0.3.1 public-link transition preprojects private
+versioned commands, prefetches the package, measures unlink/relink and immediately
+checks original commands; failure restores the predecessor. Brief interruption
+is acceptable only if native recovery completes the same thread and turn with
+all context/outputs preserved and every tool effect executed once. A restarted
+task, lost output or duplicate effect fails acceptance. Controlled outage tests
+do not replace the final-byte package-manager transition.
+
+Later versioned commands remain callable throughout replacement. Retain old
+items/readers only for exact cached or rollback consumers and disclose residual
+cached-public-link risk. Each operation preserves failed receipts, recovery and
+foreign/unknown state, then removes proved-disposable residue. Task 8.5 owns
+pre-archive inventory; post-archive delivery owns final retirement. Proof and
+archive cannot be checkboxes that change the very HEAD they certify. No prompt,
+service restart, history rewrite or automatic backend fallback is a migration step.

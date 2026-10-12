@@ -25,6 +25,14 @@ operator's dependencies, tools, launchers, or boot records.
 - **AND** removing the disposable home leaves the operator's Hermes
   configuration, installation state, and launchers unchanged.
 
+#### Scenario: Installation state cannot be shared
+
+- **WHEN** the host refuses to expose the configured home's installation state
+  to the disposable home
+- **THEN** verification fails before starting Hermes
+- **AND** it does not provision another dependency environment, retry, or
+  disclose private paths.
+
 #### Scenario: Installed dependencies include native plugin members
 
 - **WHEN** default or live named profiles contribute plugin or memory-provider
@@ -42,7 +50,8 @@ operator's dependencies, tools, launchers, or boot records.
   launchers or safely borrow its committed dependency selection
 - **THEN** AIGW refuses verification before starting the client
 - **AND** it does not invent a private selection lock, provision dependencies,
-  modify client configuration, or claim readiness.
+  modify client configuration, or claim readiness
+- **AND** the refusal discloses no credential diagnostics.
 
 #### Scenario: Required installation state is unavailable
 
