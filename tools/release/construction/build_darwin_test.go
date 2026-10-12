@@ -176,8 +176,19 @@ func requireNativeReleaseSignature(t *testing.T, program []byte) {
 	if !strings.Contains(string(signature), "(adhoc,runtime)") || !strings.Contains(string(signature), "Signature=adhoc") {
 		t.Fatalf("macOS internal archive must have an ad-hoc signature and Hardened Runtime: %s", signature)
 	}
-	header := privateReleaseCommand(t, "", "/usr/bin/otool", "-l", path)
-	if !bytes.Contains(header, []byte("\n    minos 13.0\n")) {
+	header, err := macho.NewFile(bytes.NewReader(program))
+	if err != nil {
+		t.Fatal(err)
+	}
+	supportedTarget := false
+	for _, load := range header.Loads {
+		raw := load.Raw()
+		if len(raw) >= 24 && header.ByteOrder.Uint32(raw[:4]) == 0x32 {
+			supportedTarget = header.ByteOrder.Uint32(raw[8:12]) == 1 &&
+				header.ByteOrder.Uint32(raw[12:16]) == 13<<16
+		}
+	}
+	if !supportedTarget {
 		t.Fatal("native macOS archive must retain the supported 13.0 deployment floor")
 	}
 }

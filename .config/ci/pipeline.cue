@@ -219,7 +219,7 @@ nativeEvidence: {
 			tags: [protectedTag]
 			reviewTag: "ci-macos-arm64-review"
 		}
-		github: runner: "macos-26-intel"
+		github: runner: "macos-26"
 	}
 	linux: {
 		name: "Linux"
@@ -1262,7 +1262,7 @@ githubRelease: {
 					nativeEvidence.linux.github.runner,
 					"ubuntu-24.04-arm",
 					nativeEvidence.darwin.github.runner,
-					"macos-15-intel",
+					"macos-26-intel",
 					nativeEvidence.windows.github.runner,
 					"windows-11-arm",
 				]

@@ -108,7 +108,7 @@ func TestPublishedNativeLifecycleUsesSelectedIsolatedRunner(t *testing.T) {
 	inputs := workflow.On["workflow_dispatch"].Inputs
 	runner := inputs["runner"]
 	if runner.Type != "choice" || runner.Default != "ubuntu-24.04" ||
-		!slices.Equal(runner.Options, []string{"ubuntu-24.04", "ubuntu-24.04-arm", "macos-26-intel", "macos-15-intel", "windows-2025", "windows-11-arm"}) {
+		!slices.Equal(runner.Options, []string{"ubuntu-24.04", "ubuntu-24.04-arm", "macos-26", "macos-26-intel", "windows-2025", "windows-11-arm"}) {
 		t.Fatalf("release verification runner choices = %#v", runner)
 	}
 	if inputs["native_lifecycle"].Type != "boolean" || inputs["native_lifecycle"].Default != "false" {

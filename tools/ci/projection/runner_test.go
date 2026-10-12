@@ -151,7 +151,7 @@ func TestGitHubNativeJobsUseHostedRunners(t *testing.T) {
 		"accepted-ref-parity":  "ubuntu-24.04",
 		"linux-secret-service": "ubuntu-24.04",
 		"quality":              "ubuntu-24.04",
-		"native-darwin":        "macos-26-intel",
+		"native-darwin":        "macos-26",
 		"native-linux":         "ubuntu-24.04",
 		"native-windows":       "windows-2025",
 	} {
