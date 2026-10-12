@@ -223,32 +223,16 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	}
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
 	runner.observe = func(plan process.Plan) {
-		if len(plan.Args) == 0 {
-			return
-		}
-		data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		var projected struct {
-			Security struct {
-				AllowLazyInstalls *bool `yaml:"allow_lazy_installs"`
-			} `yaml:"security"`
-			Updates struct {
-				Check *bool `yaml:"check"`
-			} `yaml:"updates"`
-		}
-		if err := yaml.Unmarshal(data, &projected); err != nil {
-			t.Fatal(err)
-		}
-		if projected.Security.AllowLazyInstalls == nil || *projected.Security.AllowLazyInstalls {
-			t.Fatal("isolated Hermes verification permits runtime dependency installation")
-		}
-		if projected.Updates.Check == nil || *projected.Updates.Check {
-			t.Fatal("isolated Hermes verification permits passive software update checks")
+		if len(plan.Args) != 0 {
+			requireHermesVerificationSettings(t, plan)
 		}
 	}
-	if _, err := (hermesAdapter{}).Verify(context.Background(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, clientRuntime, ""); err != nil {
+	_, err = (hermesAdapter{}).Verify(context.Background(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, clientRuntime, "")
+	if runtime.GOOS == "windows" {
+		requireHermesVerificationRefusal(t, err, runner.calls)
+		return
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
 	want := []string{"chat", "--quiet", "--query-file", "-", "--oneshot", "--max-turns", "1", "--run-budget", "45", "--ignore-rules", "--source", "tool"}
@@ -359,7 +343,7 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 	cfg.Routes["selected"] = qualifiedRoute("", "gateway", "mistral-large-3", configuration.ProtocolOpenAIChatCompletions)
 	cfg.SetSelectedRoute(configuration.ClientHermes, "selected", "")
 	cfg.SetClientActivation(configuration.ClientHermes, true, executable, []string{target})
-	runtime, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -377,32 +361,15 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner.observe = func(plan process.Plan) {
-		data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		var observed struct {
-			Agent struct {
-				ReasoningOverrides map[string]string `yaml:"reasoning_overrides"`
-			} `yaml:"agent"`
-			Security struct {
-				AllowLazyInstalls bool `yaml:"allow_lazy_installs"`
-			} `yaml:"security"`
-			Updates struct {
-				Check bool `yaml:"check"`
-			} `yaml:"updates"`
-		}
-		if err := yaml.Unmarshal(data, &observed); err != nil {
-			t.Fatal(err)
-		}
-		if got := observed.Agent.ReasoningOverrides["mistral-large-3"]; got != "none" {
+		if got := requireHermesVerificationSettings(t, plan)["mistral-large-3"]; got != "none" {
 			t.Fatalf("native per-model reasoning setting was lost: got %q, want none", got)
 		}
-		if observed.Security.AllowLazyInstalls || observed.Updates.Check {
-			t.Fatal("isolated verification enables dependency or update activity")
-		}
 	}
-	_, err = (hermesAdapter{}).Verify(t.Context(), deps, cfg, runtime, "")
+	_, err = (hermesAdapter{}).Verify(t.Context(), deps, cfg, clientRuntime, "")
+	if runtime.GOOS == "windows" {
+		requireHermesVerificationRefusal(t, err, runner.calls)
+		return
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,23 +379,49 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 	}
 }
 
-func TestHermesVerificationSharesTheInstalledDependencyState(t *testing.T) {
+func requireHermesVerificationSettings(t *testing.T, plan process.Plan) map[string]string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var projected struct {
+		Agent struct {
+			ReasoningOverrides map[string]string `yaml:"reasoning_overrides"`
+		} `yaml:"agent"`
+		Security map[string]*bool `yaml:"security"`
+		Updates  map[string]*bool `yaml:"updates"`
+		CLI      map[string]*bool `yaml:"cli"`
+	}
+	if err := yaml.Unmarshal(data, &projected); err != nil {
+		t.Fatal(err)
+	}
+	if value := projected.Security["allow_lazy_installs"]; value == nil || *value {
+		t.Fatal("isolated Hermes verification permits runtime dependency installation")
+	}
+	if value := projected.Updates["check"]; value == nil || *value {
+		t.Fatal("isolated Hermes verification permits passive software update checks")
+	}
+	if value := projected.CLI["expose_on_path"]; value == nil || *value {
+		t.Fatal("isolated Hermes verification permits native launcher publication")
+	}
+	return projected.Agent.ReasoningOverrides
+}
+
+func TestHermesVerificationKeepsBootRecordsPrivate(t *testing.T) {
 	root := t.TempDir()
 	hermesHome := filepath.Join(root, "hermes")
-	// Hermes resolves its committed dependency environment and managed tools beside HERMES_HOME.
-	stores := map[string]string{"installs": filepath.Join("install-key", "facts.json"), "tools": "facts.json"}
-	for name, marker := range stores {
-		path := filepath.Join(hermesHome, name, marker)
+	installed := filepath.Join(hermesHome, "installs", "install-key")
+	record := filepath.Join(installed, "bootstrap", "default.json")
+	target, executable := filepath.Join(hermesHome, "config.yaml"), filepath.Join(root, "hermes-launcher")
+	for path, data := range map[string]string{
+		filepath.Join(installed, "facts.json"): "{}\n", filepath.Join(installed, ".install.lock"): "",
+		record: `{"identity":"operator"}`, filepath.Join(hermesHome, "tools", "facts.json"): "{}\n",
+		target: "{}\n", executable: "fixture",
+	} {
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(path, []byte(name+"\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	target := filepath.Join(hermesHome, "config.yaml")
-	executable := filepath.Join(root, "hermes-launcher")
-	for path, data := range map[string]string{target: "{}\n", executable: "fixture"} {
 		if err := os.WriteFile(path, []byte(data), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -448,38 +441,34 @@ func TestHermesVerificationSharesTheInstalledDependencyState(t *testing.T) {
 	}
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
 	runner.observe = func(plan process.Plan) {
-		environment := map[string]string{}
-		for _, entry := range plan.Env {
-			key, value, _ := strings.Cut(entry, "=")
-			environment[key] = value
+		if relative, err := filepath.Rel(hermesHome, plan.Directory); err != nil || !strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+			t.Fatalf("Hermes probe home %q shares the native root %q", plan.Directory, hermesHome)
 		}
-		if environment["HERMES_HOME"] != plan.Directory || plan.Directory == hermesHome {
-			t.Fatalf("Hermes probe home = %q in %q, want an isolated home", environment["HERMES_HOME"], plan.Directory)
+		if !slices.Contains(plan.Env, "HERMES_HOME="+plan.Directory) || !slices.Contains(plan.Env, "HERMES_DISABLE_LAZY_INSTALLS=1") {
+			t.Fatal("Hermes probe does not use its isolated home with on-demand installation refused")
 		}
-		if environment["HERMES_DISABLE_LAZY_INSTALLS"] != "1" {
-			t.Fatal("isolated Hermes verification may sync or republish the installed dependency state")
+		// Hermes records boot maintenance for the active home before it dispatches any command.
+		private := filepath.Join(plan.Directory, "installs", "install-key", "bootstrap", "default.json")
+		if err := os.MkdirAll(filepath.Dir(private), 0o700); err != nil {
+			t.Fatal(err)
 		}
-		for name := range stores {
-			shared, sharedErr := os.Stat(filepath.Join(plan.Directory, name))
-			installed, installedErr := os.Stat(filepath.Join(hermesHome, name))
-			if sharedErr != nil || installedErr != nil || !os.SameFile(shared, installed) {
-				t.Fatalf("isolated Hermes home does not reuse the installed %s state: %v %v", name, sharedErr, installedErr)
-			}
+		if err := os.WriteFile(private, []byte(`{"identity":"verification"}`), 0o600); err != nil {
+			t.Fatal(err)
 		}
 	}
-	if _, err := (hermesAdapter{}).Verify(t.Context(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(root, "aigw")}, cfg, selected, ""); err != nil {
-		t.Fatal(err)
+	_, err = (hermesAdapter{}).Verify(t.Context(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(root, "aigw")}, cfg, selected, "")
+	if runtime.GOOS == "windows" {
+		requireHermesVerificationRefusal(t, err, runner.calls)
+		return
 	}
-	if len(runner.plans) != 2 {
-		t.Fatalf("Hermes verification plans = %#v", runner.plans)
+	if err != nil || len(runner.plans) != 2 {
+		t.Fatalf("Hermes verification = %v with plans %#v", err, runner.plans)
+	}
+	if data, err := os.ReadFile(record); err != nil || string(data) != `{"identity":"operator"}` {
+		t.Fatalf("verification changed the operator's boot record: %q %v", data, err)
 	}
 	if _, err := os.Lstat(runner.plans[0].Directory); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("isolated Hermes home survived verification: %v", err)
-	}
-	for name, marker := range stores {
-		if data, err := os.ReadFile(filepath.Join(hermesHome, name, marker)); err != nil || string(data) != name+"\n" {
-			t.Fatalf("verification cleanup changed the installed %s state: %q %v", name, data, err)
-		}
 	}
 }
 

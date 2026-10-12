@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -57,15 +58,25 @@ interfaces = { anthropic = ["text", "streaming", "tools"] }
 	}}
 	for _, args := range [][]string{{"sync"}, {"status", "--json"}, {"check"}, {"test", "--for", "hermes"}, {"verify", "--for", "hermes"}} {
 		output.Reset()
-		if err := cli.Execute(app, args); err != nil {
+		err := cli.Execute(app, args)
+		if args[0] == "verify" && runtime.GOOS == "windows" {
+			// Installed Windows Hermes ignores the verification-only launcher opt-out.
+			if err == nil || !strings.Contains(err.Error()+output.String(), "cannot isolate") {
+				t.Fatalf("%v: Windows verification was not refused: %v\n%s", args, err, output.String())
+			}
+		} else if err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, output.String())
 		}
 		if strings.Contains(output.String(), "public-fixture-token") {
 			t.Fatal("public command exposed its fixture credential")
 		}
 	}
-	if len(runner.plans) != 2 {
-		t.Fatalf("native verification invocation count = %d", len(runner.plans))
+	wantPlans := 2
+	if runtime.GOOS == "windows" {
+		wantPlans = 0
+	}
+	if len(runner.plans) != wantPlans {
+		t.Fatalf("native verification invocation count = %d, want %d", len(runner.plans), wantPlans)
 	}
 	if httpClient.headers.Get("X-Api-Key") != "public-fixture-token" || httpClient.headers.Get("Authorization") != "" {
 		t.Fatalf("wrong selected protocol headers: %v", httpClient.headers)

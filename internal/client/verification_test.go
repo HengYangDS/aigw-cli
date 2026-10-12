@@ -17,6 +17,13 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
+func requireHermesVerificationRefusal(t *testing.T, err error, calls int) {
+	t.Helper()
+	if err == nil || !strings.Contains(err.Error(), "cannot isolate") || calls != 0 {
+		t.Fatalf("Windows verification did not refuse before launching: %v, calls=%d", err, calls)
+	}
+}
+
 func versionedReaders(t *testing.T) (string, string) {
 	t.Helper()
 	root := t.TempDir()

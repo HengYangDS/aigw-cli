@@ -107,7 +107,8 @@ func encode(root *yaml.Node) ([]byte, error) {
 }
 
 // PrepareVerification preserves native settings in an isolated projection and
-// disables dependency installation and passive software-update checks.
+// disables dependency installation, passive software-update checks and launcher
+// publication.
 func PrepareVerification(path string, desired Desired) ([]byte, error) {
 	plan, err := Prepare(path, &desired)
 	if err != nil {
@@ -127,6 +128,7 @@ func PrepareVerification(path string, desired Desired) ([]byte, error) {
 	for _, policy := range []struct{ section, setting string }{
 		{"security", "allow_lazy_installs"},
 		{"updates", "check"},
+		{"cli", "expose_on_path"},
 	} {
 		section := field(root, policy.section)
 		if section == nil {

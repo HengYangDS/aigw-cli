@@ -2,24 +2,18 @@ package client
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"sort"
 	"strings"
 
-	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	hermesconfig "aigw-cli/internal/hermes/configuration"
-	"aigw-cli/internal/process"
-
-	"github.com/rogpeppe/go-internal/robustio"
 )
 
 type hermesAdapter struct{}
@@ -338,31 +332,7 @@ func (hermesAdapter) Withdraw(cfg *configuration.Config) {
 	delete(cfg.Clients, configuration.ClientHermes)
 }
 
-// hermesInstallStores are the data-root stores Hermes resolves beside
-// HERMES_HOME: its committed dependency environment and managed tools.
-var hermesInstallStores = []string{"installs", "tools"}
-
-// shareHermesInstallState links the configured home's installed stores into an
-// isolated verification home, so Hermes runs its committed environment instead
-// of provisioning another one. The probe's HERMES_DISABLE_LAZY_INSTALLS keeps
-// that shared state from being synchronized or republished.
-func shareHermesInstallState(home, configuredHome string) error {
-	for _, store := range hermesInstallStores {
-		installed, err := filepath.Abs(filepath.Join(configuredHome, store))
-		if err != nil {
-			return err
-		}
-		if info, err := os.Stat(installed); err != nil || !info.IsDir() {
-			continue // Hermes without a managed data root keeps no such store.
-		}
-		if err := os.Symlink(installed, filepath.Join(home, store)); err != nil {
-			return fmt.Errorf("share installed Hermes %s state with isolated verification: %w", store, errors.Unwrap(err))
-		}
-	}
-	return nil
-}
-
-func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, selected configuration.Runtime, _ string) (_ Verification, result error) {
+func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, selected configuration.Runtime, _ string) (Verification, error) {
 	if deps.Runner == nil {
 		return Verification{}, errors.New("hermes verification requires a process runner")
 	}
@@ -373,12 +343,6 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 	if len(configured.Targets) != 1 {
 		return Verification{}, errors.New("hermes verification requires one configured home; run aigw sync")
 	}
-	home, err := os.MkdirTemp("", "aigw-hermes-verification-")
-	if err != nil {
-		return Verification{}, err
-	}
-	defer func() { result = errors.Join(result, robustio.RemoveAll(home)) }()
-	verificationConfig := filepath.Join(home, "config.yaml")
 	desired, err := hermesDesired(deps, cfg, selected)
 	if err != nil {
 		return Verification{}, err
@@ -387,51 +351,5 @@ func (adapter hermesAdapter) Verify(ctx context.Context, deps Dependencies, cfg 
 	if err != nil {
 		return Verification{}, err
 	}
-	if err := os.WriteFile(verificationConfig, data, 0o600); err != nil {
-		return Verification{}, fmt.Errorf("prepare isolated Hermes verification policy: %w", err)
-	}
-	if err := shareHermesInstallState(home, filepath.Dir(configured.Targets[0])); err != nil {
-		return Verification{}, err
-	}
-	environment := []string{}
-	for _, entry := range os.Environ() {
-		if !strings.HasPrefix(entry, "HERMES_HOME=") && !strings.HasPrefix(entry, "HERMES_DISABLE_LAZY_INSTALLS=") {
-			environment = append(environment, entry)
-		}
-	}
-	environment = append(environment, "HERMES_HOME="+home, "HERMES_DISABLE_LAZY_INSTALLS=1")
-	probeCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
-	defer cancel()
-	probe := process.Plan{Executable: configured.Executable, Directory: home, Env: environment, Args: []string{"--version"}}
-	version, diagnostic, err := deps.Runner.RunCaptureStreams(probeCtx, probe)
-	if err != nil {
-		switch {
-		case errors.Is(err, context.DeadlineExceeded):
-			return Verification{}, errors.New("hermes version probe timed out")
-		case errors.Is(err, context.Canceled):
-			return Verification{}, errors.New("hermes version probe interrupted")
-		default:
-			return Verification{}, errors.New("hermes version probe failed")
-		}
-	}
-	if process.DiagnosticFailure(diagnostic) {
-		return Verification{}, errors.New("hermes emitted a native-client warning or error; verification is incomplete; diagnostics suppressed")
-	}
-	probe.Args = []string{"chat", "--quiet", "--query-file", "-", "--oneshot", "--max-turns", "1", "--run-budget", "45", "--ignore-rules", "--source", "tool"}
-	probe.Stdin = "Reply with exactly AIGW_OK."
-	response, diagnostic, err := deps.Runner.RunCaptureStreams(probeCtx, probe)
-	if err != nil {
-		return Verification{}, errors.Join(errors.New("hermes inference failed; external credential diagnostics suppressed"), probeCtx.Err())
-	}
-	if process.DiagnosticFailure(diagnostic) {
-		return Verification{}, errors.New("hermes emitted a native-client warning or error; verification is incomplete; diagnostics suppressed")
-	}
-	if !strings.Contains(string(response), "AIGW_OK") {
-		return Verification{}, errors.New("hermes model response did not return the expected AIGW_OK verification marker")
-	}
-	executable, err := os.ReadFile(configured.Executable)
-	if err != nil {
-		return Verification{}, err
-	}
-	return Verification{Version: strings.TrimSpace(string(version)), SHA256: fmt.Sprintf("%x", sha256.Sum256(executable)), Scope: "Native text response; tools and continuation are not probed"}, nil
+	return verifyIsolated(ctx, deps, configured, data)
 }

@@ -325,7 +325,7 @@ func configMap(t *testing.T, document map[string]any, key string) map[string]any
 
 func TestVerificationProjectsAnotherModelWithoutChangingOwnedFiles(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	original := []byte("model:\n  temperature: 0.3\nagent:\n  reasoning_overrides:\n    another-model: none\nsecurity:\n  allow_lazy_installs: true\n  policy: strict\nupdates:\n  check: true\n")
+	original := []byte("model:\n  temperature: 0.3\nagent:\n  reasoning_overrides:\n    another-model: none\nsecurity:\n  allow_lazy_installs: true\n  policy: strict\nupdates:\n  check: true\ncli:\n  expose_on_path: true\n")
 	if err := os.WriteFile(path, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -357,7 +357,7 @@ func TestVerificationProjectsAnotherModelWithoutChangingOwnedFiles(t *testing.T)
 	}
 	model := configMap(t, result, "model")
 	security := configMap(t, result, "security")
-	if model["default"] != "another-model" || model["temperature"] != 0.3 || security["allow_lazy_installs"] != false || security["policy"] != "strict" || configMap(t, result, "updates")["check"] != false {
+	if model["default"] != "another-model" || model["temperature"] != 0.3 || security["allow_lazy_installs"] != false || security["policy"] != "strict" || configMap(t, result, "updates")["check"] != false || configMap(t, result, "cli")["expose_on_path"] != false {
 		t.Fatalf("isolated native configuration = %#v", result)
 	}
 	for source, expected := range map[string][]byte{path: before, path + stateSuffix: state} {
