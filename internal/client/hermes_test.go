@@ -147,40 +147,7 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 		if len(plan.Args) == 0 || plan.Args[0] != "chat" {
 			return
 		}
-		if !slices.Contains(plan.Env, "HERMES_DISABLE_LAZY_INSTALLS=1") {
-			t.Fatal("isolated Hermes verification omitted the official bootstrap no-install guard")
-		}
-		data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		var projected struct {
-			Security struct {
-				AllowLazyInstalls *bool `yaml:"allow_lazy_installs"`
-			} `yaml:"security"`
-			Updates struct {
-				Check *bool `yaml:"check"`
-			} `yaml:"updates"`
-			CLI struct {
-				ExposeOnPath *bool `yaml:"expose_on_path"`
-			} `yaml:"cli"`
-			Plugins struct {
-				Enabled []string `yaml:"enabled"`
-			} `yaml:"plugins"`
-			Memory struct {
-				Enabled  *bool  `yaml:"enabled"`
-				Provider string `yaml:"provider"`
-			} `yaml:"memory"`
-		}
-		if err := yaml.Unmarshal(data, &projected); err != nil {
-			t.Fatal(err)
-		}
-		if projected.Security.AllowLazyInstalls == nil || *projected.Security.AllowLazyInstalls {
-			t.Fatal("isolated Hermes verification permits runtime dependency installation")
-		}
-		if projected.Updates.Check == nil || *projected.Updates.Check || projected.CLI.ExposeOnPath == nil || *projected.CLI.ExposeOnPath || len(projected.Plugins.Enabled) != 0 || projected.Memory.Enabled == nil || *projected.Memory.Enabled || projected.Memory.Provider != "" {
-			t.Fatal("isolated Hermes verification permits operator activity or publication")
-		}
+		assertHermesVerificationPolicy(t, plan)
 	}
 	_, err = (hermesAdapter{}).Verify(context.Background(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, clientRuntime, "")
 	if runtime.GOOS == "windows" {
@@ -195,6 +162,44 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	want := []string{"chat", "--quiet", "--query-file", "-", "--oneshot", "--max-turns", "1", "--run-budget", "45", "--ignore-rules", "--source", "tool"}
 	if len(runner.plans) != 2 || !slices.Equal(runner.plans[1].Args, want) {
 		t.Fatalf("Hermes verification plans = %#v", runner.plans)
+	}
+}
+
+func assertHermesVerificationPolicy(t *testing.T, plan process.Plan) {
+	t.Helper()
+	if !slices.Contains(plan.Env, "HERMES_DISABLE_LAZY_INSTALLS=1") {
+		t.Fatal("isolated Hermes verification omitted the official bootstrap no-install guard")
+	}
+	data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var projected struct {
+		Security struct {
+			AllowLazyInstalls *bool `yaml:"allow_lazy_installs"`
+		} `yaml:"security"`
+		Updates struct {
+			Check *bool `yaml:"check"`
+		} `yaml:"updates"`
+		CLI struct {
+			ExposeOnPath *bool `yaml:"expose_on_path"`
+		} `yaml:"cli"`
+		Plugins struct {
+			Enabled []string `yaml:"enabled"`
+		} `yaml:"plugins"`
+		Memory struct {
+			Enabled  *bool  `yaml:"enabled"`
+			Provider string `yaml:"provider"`
+		} `yaml:"memory"`
+	}
+	if err := yaml.Unmarshal(data, &projected); err != nil {
+		t.Fatal(err)
+	}
+	if projected.Security.AllowLazyInstalls == nil || *projected.Security.AllowLazyInstalls {
+		t.Fatal("isolated Hermes verification permits runtime dependency installation")
+	}
+	if projected.Updates.Check == nil || *projected.Updates.Check || projected.CLI.ExposeOnPath == nil || *projected.CLI.ExposeOnPath || len(projected.Plugins.Enabled) != 0 || projected.Memory.Enabled == nil || *projected.Memory.Enabled || projected.Memory.Provider != "" {
+		t.Fatal("isolated Hermes verification permits operator activity or publication")
 	}
 }
 
