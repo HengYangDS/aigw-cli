@@ -94,12 +94,12 @@ in Git; original raw results stay with their source-bound verification owner.
 - [ ] 4.5 Requalify Claude Code, Claude Desktop, Codex, and Hermes independently
       for native protocol, model selection, credential and rollback behavior; do not
       infer Desktop from CLI or endpoint reachability from real-client success.
-      Hermes boot-record isolation, dependency custody, and the macOS public-Token
-      release journey with tools, continuation, model adoption, forwarding,
-      external credential commands, upgrade and rollback are qualified in the
+      Packaged macOS Codex, Claude Code and Hermes public-Token journeys passed
+      independently, including retained readers, upgrade/rollback/re-upgrade,
+      forwarding, Codex tools and Hermes continuation/model adoption. Hermes
+      boot-record isolation and dependency custody are qualified in the
       [native-client design](design.md#3-qualify-a-client-adapter-do-not-infer-support-from-a-file).
-      Real Provider credentials, other platforms and independent client modes
-      remain open.
+      Real Provider credentials, Desktop and other platforms remain open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
       projection, ownership, withdrawal and real tool loop can all be proved.
@@ -162,6 +162,9 @@ in Git; original raw results stay with their source-bound verification owner.
       Reuse requires matching source, artifact, controller, OS, backend and command
       identities; another tree's checkbox or one platform's measurements cannot
       qualify the remaining boundaries.
+      Exact `2b746c96` macOS ENV and Linux ENV/file/Secret Service budgets passed;
+      Windows, macOS native-store and final-byte scopes remain open. Results and
+      measured costs are bound in the [reuse contract](design.md#reuse-only-qualified-scopes).
 - [x] 6.7 Assert warnings and malformed public errors fail at their origin;
       human and JSON output must expose precise state and safe action without
       private paths, Token fragments, internal modules or tracebacks.
@@ -242,6 +245,8 @@ in Git; original raw results stay with their source-bound verification owner.
       exact-byte install, predecessor upgrade/rollback, credentials and real-client
       journeys; retain the source and artifact hashes and disclose missing platform
       evidence.
+      The signed `2b746c96` matrix passed macOS/Linux retained-state lifecycle and
+      macOS native CLI clients; supplier warnings and Desktop/Windows gaps remain.
       Production publication and installed Homebrew cutover follow the
       [Migration Plan](design.md#migration-plan). Equal product inputs do not
       rebind signatures, source epoch or provenance.

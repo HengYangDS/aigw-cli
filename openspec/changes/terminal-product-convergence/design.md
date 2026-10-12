@@ -216,15 +216,15 @@ The [boot regression](../../../internal/client/hermes_native_test.go) and
 [custody regressions](../../../internal/hermes/configuration/verification_test.go)
 prove private records, physical-lock identity, refusal and containment.
 
-`55b7be64beccd37f524542e2d3cf95f148670fd1` passed installed macOS Hermes with
-public-Token/local Responses: 0.3.3 upgrade/rollback/re-upgrade, `read_file`
-continuation, model adoption, forwarding and credential commands. All 85,994
-dependency/tool nodes, operator config/stamp/launchers, boot records, leases and
-processes stayed intact except a lease-directory mtime; residues/profiles are absent.
+Signed `2b746c9610424f0071bdcf4e5a2900fc08f5af3d` produced a six-target candidate.
+Installed macOS Codex, Claude Code and Hermes independently passed packaged
+0.3.3 upgrade/rollback/re-upgrade, forwarding and retained credentials with public
+Tokens/local servers. Codex tools and Hermes continuation/model adoption passed;
+ten general Routes remained metadata-unqualified. All 85,992 Hermes dependency/tool
+nodes and operator state stayed intact except a lease-directory mtime; no residues.
 
-Evidence: `build/verification/<source>/hermes-release-native-20261012` and
-`source-freeze-gate-20261012` (source PASS; coverage 95.06%). Task 4.5 stays open:
-Provider inference, Homebrew cutover, signing and Linux/Windows are unqualified.
+Evidence: `build/verification/<source>/native-{codex-modes,claude-mode,hermes-artifact}-20261012`.
+Complete source remains bound to `55b7be64` (95.06%), not this candidate.
 
 An Account endpoint declares upstream service identity. An explicitly selected
 Client Binding may declare a forwarding endpoint without changing that Account,
@@ -248,15 +248,6 @@ An AIGW-owned JSONC-preserving merge, exact withdrawal, effective-config check,
 and credential-mode contract remain unproved. Do not add the Adapter merely
 because a local endpoint responded. Pi, WorkBuddy, and Qoder likewise remain
 unadmitted without an executable and real tool-loop evidence.
-
-At signed source `e458271e`, the tracked macOS `TestNativeClientJourney` passed
-with installed Claude Code, Codex, and Hermes executables, isolated client homes,
-synthetic environment Tokens, and a local streaming Responses server. It
-exercised Claude/Codex replacement and rollback, Codex general Routes and tool
-loop, and Hermes's retained two-turn session. This is real-client configuration
-and protocol evidence, not live Provider inference, Claude Desktop acceptance,
-another operating system, or published-artifact qualification; task 4.5 remains
-open.
 
 ### 4. Decide credential-command continuity before cutover
 
@@ -413,6 +404,15 @@ Controlled native measurements qualify their declared budgets and cleanup,
 not Provider latency, another platform, a quiet host or optimization benefit.
 Build and CI costs remain with their actual construction and job receipts;
 unmatched timing is neither optimization nor regression evidence.
+
+The `2b746c96` candidate passed macOS ENV and Linux ARM64 ENV/file/Secret Service
+budgets in `macos-env-performance-20261012` and `linux-native-store-performance-20261012`
+under that source's verification root. Raw samples, controllers and memory remain.
+These bound overhead, not speedup: macOS setup/sync/projection/status are slower
+in both blocks, with observed contention. Linux locked-store/refusal/lifecycle passed;
+supplier registration warnings remain disclosed, not a pristine aggregate gate.
+`native-lifecycle-20261012` has one Desktop skip; Linux has none. Windows, macOS
+Keychain, final Developer ID bytes and package-link cutover remain open.
 
 ### 6. Delete by consumer and authority
 
