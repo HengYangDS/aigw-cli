@@ -205,31 +205,26 @@ clients are assessed against the same admission checklist. Unsupported or
 non-extensible modes are reported as such, not approximated by writing a
 plausible config file.
 
-Hermes verification separates disposable home maintenance from committed
-dependency selection. Ordinary and named-profile targets use one temporary home
-outside both the configured and platform-default data roots. Its private install
-directories borrow only `facts.json`, dependency environments, the PM runtime,
-and the original physical selection lock; `bootstrap/` remains private. Tools
-are borrowed without installation. Hermes still owns dependency leases and
-their cleanup. An absent selection lock refuses verification rather than
-protecting a shared selection with a different lock.
+Private Hermes verification homes stay outside both native data roots, borrowing
+`facts.json`, environments, PM runtime, physical `.install.lock` and tools.
+Missing locks refuse launch; Hermes owns leases. No upstream isolation API.
 
-The verification-only configuration disables lazy installation, update checks,
-and PATH exposure. The OS home, operator settings, installation stamp, default
-boot record, and native launchers are preserved. Hermes 0.21.6's Windows PATH
-exposure ignores that setting; AIGW refuses before launching on that platform
-until native isolation is supported. This corrects the earlier shared-profile
-and whole-store-link designs without rewriting historical evidence. Read-only
-dependency borrowing couples to the installed PM layout, not to manually edited
-facts or generation selection; native consumer acceptance remains required.
+`PrepareVerification` disables lazy installs, update checks and PATH exposure.
+Hermes 0.21.6 ignores the last on Windows; AIGW refuses before launch.
 
-The tracked [native boot-record regression](../../../internal/client/hermes_native_test.go)
-exercises the installed resolver and bootstrap with synthetic maintenance steps.
-[Dependency custody regressions](../../../internal/hermes/configuration/verification_test.go)
-cover physical-lock identity, missing-lock refusal, and physical-root isolation.
-Native text/stream qualification does not establish tool execution, continuation,
-external Provider readiness, or other-platform qualification; task 4.5 remains
-open until its full declared acceptance is proved.
+The [boot regression](../../../internal/client/hermes_native_test.go) and
+[custody regressions](../../../internal/hermes/configuration/verification_test.go)
+prove private records, physical-lock identity, refusal and containment.
+
+`55b7be64beccd37f524542e2d3cf95f148670fd1` passed installed macOS Hermes with
+public-Token/local Responses: 0.3.3 upgrade/rollback/re-upgrade, `read_file`
+continuation, model adoption, forwarding and credential commands. All 85,994
+dependency/tool nodes, operator config/stamp/launchers, boot records, leases and
+processes stayed intact except a lease-directory mtime; residues/profiles are absent.
+
+Evidence: `build/verification/<source>/hermes-release-native-20261012` and
+`source-freeze-gate-20261012` (source PASS; coverage 95.06%). Task 4.5 stays open:
+Provider inference, Homebrew cutover, signing and Linux/Windows are unqualified.
 
 An Account endpoint declares upstream service identity. An explicitly selected
 Client Binding may declare a forwarding endpoint without changing that Account,
