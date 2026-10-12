@@ -221,9 +221,12 @@ Hermes 0.21.6 ignores the last on Windows; AIGW refuses before launch.
 
 The [boot regression](../../../internal/client/hermes_native_test.go) exercises
 Hermes' native record resolver with boot steps stubbed. The
-[custody regressions](../../../internal/hermes/configuration/verification_test.go)
-check physical-lock identity, refusal and containment; a real journey separately
-qualifies launch effects.
+[Unix custody regressions](../../../internal/hermes/configuration/verification_home_unix_test.go)
+check physical-lock identity, refusal and containment; the
+[Windows regression](../../../internal/hermes/configuration/verification_home_windows_test.go)
+proves refusal before effects. Native Go source selection keeps Unix-only
+borrowing out of Windows; it is not a coverage exemption. A real journey
+separately qualifies launch effects.
 
 Signed `2b746c9610424f0071bdcf4e5a2900fc08f5af3d` produced a six-target candidate.
 Installed macOS Codex, Claude Code and Hermes independently passed packaged
@@ -232,13 +235,13 @@ Tokens/local servers. Codex tools and Hermes continuation/model adoption passed;
 ten general Routes remained metadata-unqualified. All 85,992 Hermes dependency/tool
 nodes and operator state stayed intact except a lease-directory mtime; no residues.
 
-Current signed `8254c1f5` produced a refreshed six-target matrix. Its source tree
+Earlier signed `8254c1f5` produced a refreshed six-target matrix. Its source tree
 `66591638` matches all 1,248 accepted inputs: Go 1.27.2 measures 95.01% statement
 coverage, above the unchanged strict 95% floor. Artifact checksum signing is
 distinct from Developer ID signing and notarization; this candidate uses ad-hoc
 macOS signatures.
 
-The current native boot regression and packaged macOS Hermes journey passed,
+Its native boot regression and packaged macOS Hermes journey passed,
 including `verify --for hermes`, streaming tools, continuation, native model
 adoption, forwarding and the four retained-predecessor lifecycle stages. All eight
 operator files and the default boot record stayed byte/mode/inode intact; all
@@ -252,9 +255,32 @@ The October 12 passive native comparison identifies the warning: the operator
 home has one dependency member and is current, while the old borrowed home has
 none and fails the same native stamp against the same installed environment.
 Selector-only profiles restore resolved member identities without copying
-credentials. Focused config/client tests and the original native boot/member
-regressions pass; packaged inference with this repair remains to be qualified.
-Receipts: `build/verification/67a9e947fe191d8d5e10633d816447d566287bf1/hermes-dependency-diagnosis-20261012`.
+credentials. Signed `fbeeb89aee48fa18ae6410608d6f0b9224a1b07e`, tree
+`98566ac4091670762518b3d08c281ef05dc351da`, closes this correction. Its 1,252
+source inputs match the complete 157.836-second gate: 15,054/15,840 statements
+(95.04%) exceed the unchanged strict 95% floor. The native boot/member regression,
+static checks and Windows cross-compilation pass; Windows native execution is
+not proved.
+
+The checksum-signed six-target matrix from that exact source passed one real
+macOS Hermes journey against published 0.3.3 in 59.201 seconds, without warnings
+or skips. Verification, streaming tools, continuation, native model adoption,
+forwarding and upgrade/rollback/re-upgrade passed. Eleven protected config,
+facts, boot-record and launcher files retained their bytes, mode, inode and
+mtime. Shared installation state gained or lost no file; only the native
+lease-directory mtime changed, with no retained lease, profile or boot record.
+All 36 authorized historical records remain absent. Concurrent unknown source
+and temporary-checkout additions were preserved, not attributed to AIGW or
+claimed unchanged. A postlude variable-shadow error occurred after scratch
+removal; independent process/group and exact-path readback proves cleanup
+without repeating the client journey.
+
+Source receipts remain under
+`build/verification/67a9e947fe191d8d5e10633d816447d566287bf1/hermes-dependency-diagnosis-20261012`;
+signed-object, artifact and real-journey receipts are under
+`build/verification/fbeeb89aee48fa18ae6410608d6f0b9224a1b07e/hermes-isolation-closure-20261012`.
+These qualify the named source and artifacts, not later source, external
+Providers, native stores, Desktop, Windows, notarization or publication.
 
 Evidence: `build/verification/<source>/native-{candidate,hermes-boot,hermes-artifact}-20261012`
 for `8254c1f5`; the original `2b746c96` Codex, Claude and Linux scopes retain their

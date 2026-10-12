@@ -102,11 +102,11 @@ in Git; original raw results stay with their source-bound verification owner.
       forwarding, Codex tools and Hermes continuation/model adoption. Hermes
       boot-record isolation and dependency custody are qualified in the
       [native-client design](design.md#3-qualify-a-client-adapter-do-not-infer-support-from-a-file).
-      Current `8254c1f5` independently requalifies the packaged macOS Hermes
-      journey and native boot regression, with no operator-state mutation or new
-      residue. Its warnings were traced to omitted dependency members in the
-      borrowed home, not operator-install drift; the corrected native union and
-      boot regressions pass. Packaged inference requalification remains open.
+      Signed `fbeeb89a` closes the omitted native dependency-member union and
+      boot-record ownership defects. Its exact-source gate and real packaged
+      macOS Hermes journey pass without warnings/skips; operator config, facts,
+      boot records and launchers are unchanged, with no shared-install file
+      growth or verification residue. All 36 authorized old records remain absent.
       Real Provider credentials, Desktop and other platforms remain open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
@@ -265,9 +265,10 @@ in Git; original raw results stay with their source-bound verification owner.
       journeys; retain the source and artifact hashes and disclose missing platform
       evidence.
       The signed `2b746c96` matrix passed macOS/Linux retained-state lifecycle and
-      macOS native CLI clients. Refreshed `8254c1f5` passes the native boot
-      regression and real macOS Hermes journey; source inputs match the full gate.
-      Supplier warnings, native stores, final bytes and Desktop/Windows remain open.
+      macOS native CLI clients. Corrected `fbeeb89a` passes the complete
+      exact-source gate and warning-free packaged macOS Hermes journey with
+      native boot/member custody. Native stores, final bytes, supplier/platform
+      matrices and Desktop/Windows remain open.
       Production publication and installed Homebrew cutover follow the
       [Migration Plan](design.md#migration-plan). Equal product inputs do not
       rebind signatures, source epoch or provenance.
