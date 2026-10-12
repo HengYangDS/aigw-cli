@@ -330,7 +330,9 @@ allowed_import_edges."internal/diagnostics" = [
 allowed_import_edges."internal/providers/diagnostic" = []
 allowed_import_edges."internal/presentation" = ["internal/configuration"]
 allowed_import_edges."internal/process" = []
+# Native workflow checks reuse bounded execution of standalone validators.
 allowed_import_edges."tools/ci" = [
+  "internal/process",
   "tools/ci/markdown",
   "tools/ci/projection",
   "tools/release/construction",
