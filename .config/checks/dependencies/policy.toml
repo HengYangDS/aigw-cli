@@ -27,3 +27,10 @@ version = "1.2.2"
 ecosystem = "npm"
 license.override = ["BSD-3-Clause"]
 reason = "BSD-3-Clause LICENSE in the integrity-locked npm archive; native license metadata is UNKNOWN"
+
+[[PackageOverrides]]
+name = "zod"
+version = "4.6.7"
+ecosystem = "npm"
+license.override = ["MIT"]
+reason = "MIT LICENSE in the integrity-locked npm archive; native license metadata is UNKNOWN"

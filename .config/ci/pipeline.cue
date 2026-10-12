@@ -316,6 +316,30 @@ windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT
 nativeWindowsClientSelection:     "$env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)"
 windowsCodexVendorRoot:           "node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc"
 
+// Both transports use the original installer and publisher against one owned home.
+hermesWindowsInstall: #"""
+	if ((Get-FileHash -LiteralPath $hermesInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne '\#(hermesInstallerDigest)') { throw 'Pinned Hermes installer checksum mismatch.' }
+	$env:HERMES_HOME = $hermesHome
+	$env:HERMES_RUNTIME_DIR = Join-Path $hermesHome 'tools'
+	$env:UV_PYTHON_INSTALL_DIR = Join-Path $hermesHome 'python'
+	$env:UV_PYTHON_INSTALL_REGISTRY = '0'
+	$env:UV_PYTHON_INSTALL_BIN = '0'
+	$env:UV_NO_CONFIG = '1'
+	foreach ($stage in $hermesStages) {
+	  $frames = @(& pwsh -NoProfile -File $hermesInstaller -Commit $hermesCommit -HermesHome $hermesHome -InstallDir $hermesInstall -NonInteractive -SkipBrowser -SkipComputerUse -Json -Stage $stage)
+	  if ($LASTEXITCODE -ne 0 -or $frames.Count -eq 0) { throw "Hermes install stage failed: $stage" }
+	  $frame = $frames[-1] | ConvertFrom-Json
+	  if ($frame.stage -ne $stage -or -not $frame.ok -or $frame.skipped) { throw "Hermes install stage was not admitted: $stage" }
+	  if ($stage -eq 'python-deps' -and -not ($frames -match 'hash-verified via uv.lock')) { throw 'Hermes dependencies lack locked hash verification.' }
+	}
+	$launcherDirectory = Join-Path $hermesInstall ".hermes/bin"
+	$runtimeCommand = @(mise exec --locked -- uv run --no-project --python 3.12 --managed-python (Join-Path $hermesInstall 'hermes_cli/_launchers.py') --print-runtime-command --module hermes_cli._launchers -- $launcherDirectory | ConvertFrom-Json)
+	if ($LASTEXITCODE -ne 0 -or $runtimeCommand.Count -lt 2) { throw 'Hermes store runtime command is unavailable.' }
+	$runtimeArguments = @($runtimeCommand | Select-Object -Skip 1)
+	& $runtimeCommand[0] @runtimeArguments
+	if ($LASTEXITCODE -ne 0) { throw 'Hermes installation-local launcher publication failed.' }
+	"""#
+
 // Windows owns official client supply only; the portable release owner acquires
 // and admits the candidate and predecessor matrices on every native platform.
 nativeWindowsClientSupply: #"""
@@ -342,33 +366,32 @@ nativeWindowsClientSupply: #"""
 	  [void](New-Item -ItemType Directory -Path $fixture -ErrorAction Stop)
 	  tar -xf $archive -C $fixture suppliers/
 	  tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz') -C $fixture
-	  $hermes = Join-Path $fixture 'clients/hermes'
-	  [void](New-Item -ItemType Directory -Path $hermes -ErrorAction Stop)
-	  tar -xf (Join-Path $fixture 'suppliers/official-hermes-f97608f1-source.tar') -C $hermes
+	  $hermesHome = Join-Path $fixture 'clients/hermes'
+	  $hermesInstall = Join-Path $hermesHome 'hermes-agent'
+	  [void](New-Item -ItemType Directory -Path $hermesInstall -ErrorAction Stop)
+	  tar -xf (Join-Path $fixture 'suppliers/official-hermes-71d34bad-source.tar') -C $hermesInstall
+	  $hermesInstaller = Join-Path $hermesInstall 'scripts/install.ps1'
+	  $hermesCommit = '\#(hermesSourceCommit)'
+	  $hermesStages = @('prerequisites', 'venv', 'python-deps')
 	  $env:UV_CACHE_DIR = Join-Path $jobDirectory 'uv-cache'
-	  $env:UV_PYTHON_INSTALL_DIR = Join-Path $jobDirectory 'python'
-	  $env:UV_PROJECT_ENVIRONMENT = Join-Path $hermes '.venv'
-	  $env:UV_PYTHON_INSTALL_REGISTRY = '0'
-	  $env:UV_PYTHON_INSTALL_BIN = '0'
-	  $env:UV_NO_CONFIG = '1'
-	  mise exec --locked -- uv sync --project $hermes --python 3.12 --managed-python --frozen --no-dev --no-default-groups --extra edge-tts --extra bedrock
+	  \#(hermesWindowsInstall)
 	  $codex = Join-Path $fixture 'clients/\#(windowsCodexVendorRoot)'
 	  $gitBin = Split-Path (Get-Command git.exe -ErrorAction Stop).Source
 	  $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
 	  if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Native Claude requires Git Bash.' }
 	  $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codex 'bin/codex.exe'
 	  $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $fixture 'clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-	  $env:AIGW_ACCEPTANCE_HERMES = Join-Path $hermes '.venv/Scripts/hermes.exe'
-	  $env:AIGW_ACCEPTANCE_HERMES_HOME = $hermes
+	  $env:AIGW_ACCEPTANCE_HERMES = Join-Path $launcherDirectory 'hermes.exe'
+	  $env:AIGW_ACCEPTANCE_HERMES_HOME = $hermesHome
 	  $node = mise which node
-	  $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), (Join-Path $hermes '.venv/Scripts'), (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+	  $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), $launcherDirectory, (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
 	  $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
 	}
 	"""#
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
-	mise:     "jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca"         // v5.1.1
+	mise:     "jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8"         // v5.1.2
 	upload:   "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" // v7.0.2
 }
 
@@ -387,8 +410,8 @@ workflowEvidencePath:   "build/verification/workflows"
 	}
 }
 
-hermesSourceCommit:    "f97608f178d1ffeca59860195ab7da295f7c8e5f"
-hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2"
+hermesSourceCommit:    "71d34bad1045610252eda02ee79549436896e784"
+hermesInstallerDigest: "61824d6b47be29ab793d0e72872cf56cd7a3e99cbe40abeb177a6c9eef52f485"
 
 #ReleaseTrustFiles: {
 	AIGW_RELEASE_ALLOWED_SIGNERS_FILE:          "$AIGW_RELEASE_ALLOWED_SIGNERS"
@@ -571,20 +594,14 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				  Add-Content -LiteralPath $env:GITHUB_ENV -Value "AIGW_NATIVE_CLIENT_SUPPLY=$clients"
 				  $env:GIT_CONFIG_GLOBAL = Join-Path $clients 'gitconfig'
 				  git config --file $env:GIT_CONFIG_GLOBAL core.autocrlf false
-				  if ((Get-FileHash -LiteralPath $hermesInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne '\#(hermesInstallerDigest)') { throw 'Pinned Hermes installer checksum mismatch.' }
 				  $env:UV_CACHE_DIR = Join-Path $clients 'uv-cache'
 				  Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
 				  mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.162.1' '@anthropic-ai/claude-code-win32-x64@2.1.296'
 				  mise exec --locked -- npm audit signatures --prefix $clients
 				  $hermesHome = Join-Path $clients 'hermes'
 				  $hermesInstall = Join-Path $hermesHome 'hermes-agent'
-				  foreach ($stage in @('uv', 'git', 'repository', 'python', 'venv', 'dependencies')) {
-				    $frames = @(& pwsh -NoProfile -File $hermesInstaller -Commit $hermesCommit -HermesHome $hermesHome -InstallDir $hermesInstall -NonInteractive -Json -Stage $stage)
-				    if ($LASTEXITCODE -ne 0 -or $frames.Count -eq 0) { throw "Hermes install stage failed: $stage" }
-				    $frame = $frames[-1] | ConvertFrom-Json
-				    if ($frame.stage -ne $stage -or -not $frame.ok -or $frame.skipped) { throw "Hermes install stage was not admitted: $stage" }
-				    if ($stage -eq 'dependencies' -and -not ($frames -match 'hash-verified via uv.lock')) { throw 'Hermes dependencies lack locked hash verification.' }
-				  }
+				  $hermesStages = @('prerequisites', 'repository', 'venv', 'python-deps')
+				  \#(hermesWindowsInstall)
 				  $observed = git -C $hermesInstall rev-parse HEAD
 				  if ($LASTEXITCODE -ne 0 -or $observed.Trim() -ne $hermesCommit) { throw 'Hermes installed source differs from the pin.' }
 				  $changes = git -C $hermesInstall status --porcelain=v1 --untracked-files=no
@@ -596,12 +613,12 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				  $outputs = [ordered]@{
 				    AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
 				    AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-				    AIGW_ACCEPTANCE_HERMES = Join-Path $hermesInstall 'venv/Scripts/hermes.exe'
+				    AIGW_ACCEPTANCE_HERMES = Join-Path $hermesInstall ".hermes/bin/hermes.exe"
 				  }
 				  foreach ($executable in $outputs.Values) { Get-FileHash -LiteralPath $executable -Algorithm SHA256 }
 				  $outputs.AIGW_ACCEPTANCE_HERMES_HOME = $hermesHome
 				  $outputs.CLAUDE_CODE_GIT_BASH_PATH = $bash
-				  $outputs.AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), (Join-Path $hermesHome 'bin'), (Join-Path $hermesInstall 'venv/Scripts'), (Split-Path (Get-Command node.exe).Source), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+				  $outputs.AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), (Join-Path $hermesHome 'bin'), $launcherDirectory, (Split-Path (Get-Command node.exe).Source), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
 				  foreach ($entry in $outputs.GetEnumerator()) { Add-Content -LiteralPath $env:GITHUB_ENV -Value "$($entry.Key)=$($entry.Value)" }
 				} catch {
 				  Remove-Item -LiteralPath $clients -Recurse -Force -ErrorAction Stop

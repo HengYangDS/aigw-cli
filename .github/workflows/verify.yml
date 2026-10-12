@@ -118,7 +118,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca
+        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
@@ -144,7 +144,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca
+        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
@@ -209,7 +209,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca
+        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
@@ -242,7 +242,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca
+        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
@@ -271,7 +271,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca
+        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
@@ -391,7 +391,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca
+        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
@@ -525,7 +525,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca
+        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-$1/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/mise-glab-v$1/$2"}}', github.server_url, github.repository) || '' }}
@@ -573,8 +573,8 @@ jobs:
         run: |-
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          $hermesCommit = 'f97608f178d1ffeca59860195ab7da295f7c8e5f'
-          $hermesInstallerDigest = '0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2'
+          $hermesCommit = '71d34bad1045610252eda02ee79549436896e784'
+          $hermesInstallerDigest = '61824d6b47be29ab793d0e72872cf56cd7a3e99cbe40abeb177a6c9eef52f485'
           $metadata = mise exec --locked -- gh api "repos/NousResearch/hermes-agent/contents/scripts/install.ps1?ref=$hermesCommit" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $metadata.type -ne 'file' -or $metadata.encoding -ne 'base64') { throw 'Pinned Hermes installer metadata is unavailable' }
           $installer = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString() + '.ps1')
@@ -599,26 +599,39 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           $clients = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString())
           New-Item -ItemType Directory -Path $clients | Out-Null
-          $hermesCommit = 'f97608f178d1ffeca59860195ab7da295f7c8e5f'
+          $hermesCommit = '71d34bad1045610252eda02ee79549436896e784'
           $hermesInstaller = $env:AIGW_HERMES_INSTALLER
           try {
             Add-Content -LiteralPath $env:GITHUB_ENV -Value "AIGW_NATIVE_CLIENT_SUPPLY=$clients"
             $env:GIT_CONFIG_GLOBAL = Join-Path $clients 'gitconfig'
             git config --file $env:GIT_CONFIG_GLOBAL core.autocrlf false
-            if ((Get-FileHash -LiteralPath $hermesInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne '0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2') { throw 'Pinned Hermes installer checksum mismatch.' }
             $env:UV_CACHE_DIR = Join-Path $clients 'uv-cache'
             Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
             mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.162.1' '@anthropic-ai/claude-code-win32-x64@2.1.296'
             mise exec --locked -- npm audit signatures --prefix $clients
             $hermesHome = Join-Path $clients 'hermes'
             $hermesInstall = Join-Path $hermesHome 'hermes-agent'
-            foreach ($stage in @('uv', 'git', 'repository', 'python', 'venv', 'dependencies')) {
-              $frames = @(& pwsh -NoProfile -File $hermesInstaller -Commit $hermesCommit -HermesHome $hermesHome -InstallDir $hermesInstall -NonInteractive -Json -Stage $stage)
-              if ($LASTEXITCODE -ne 0 -or $frames.Count -eq 0) { throw "Hermes install stage failed: $stage" }
-              $frame = $frames[-1] | ConvertFrom-Json
-              if ($frame.stage -ne $stage -or -not $frame.ok -or $frame.skipped) { throw "Hermes install stage was not admitted: $stage" }
-              if ($stage -eq 'dependencies' -and -not ($frames -match 'hash-verified via uv.lock')) { throw 'Hermes dependencies lack locked hash verification.' }
-            }
+            $hermesStages = @('prerequisites', 'repository', 'venv', 'python-deps')
+            if ((Get-FileHash -LiteralPath $hermesInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne '61824d6b47be29ab793d0e72872cf56cd7a3e99cbe40abeb177a6c9eef52f485') { throw 'Pinned Hermes installer checksum mismatch.' }
+          $env:HERMES_HOME = $hermesHome
+          $env:HERMES_RUNTIME_DIR = Join-Path $hermesHome 'tools'
+          $env:UV_PYTHON_INSTALL_DIR = Join-Path $hermesHome 'python'
+          $env:UV_PYTHON_INSTALL_REGISTRY = '0'
+          $env:UV_PYTHON_INSTALL_BIN = '0'
+          $env:UV_NO_CONFIG = '1'
+          foreach ($stage in $hermesStages) {
+            $frames = @(& pwsh -NoProfile -File $hermesInstaller -Commit $hermesCommit -HermesHome $hermesHome -InstallDir $hermesInstall -NonInteractive -SkipBrowser -SkipComputerUse -Json -Stage $stage)
+            if ($LASTEXITCODE -ne 0 -or $frames.Count -eq 0) { throw "Hermes install stage failed: $stage" }
+            $frame = $frames[-1] | ConvertFrom-Json
+            if ($frame.stage -ne $stage -or -not $frame.ok -or $frame.skipped) { throw "Hermes install stage was not admitted: $stage" }
+            if ($stage -eq 'python-deps' -and -not ($frames -match 'hash-verified via uv.lock')) { throw 'Hermes dependencies lack locked hash verification.' }
+          }
+          $launcherDirectory = Join-Path $hermesInstall ".hermes/bin"
+          $runtimeCommand = @(mise exec --locked -- uv run --no-project --python 3.12 --managed-python (Join-Path $hermesInstall 'hermes_cli/_launchers.py') --print-runtime-command --module hermes_cli._launchers -- $launcherDirectory | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0 -or $runtimeCommand.Count -lt 2) { throw 'Hermes store runtime command is unavailable.' }
+          $runtimeArguments = @($runtimeCommand | Select-Object -Skip 1)
+          & $runtimeCommand[0] @runtimeArguments
+          if ($LASTEXITCODE -ne 0) { throw 'Hermes installation-local launcher publication failed.' }
             $observed = git -C $hermesInstall rev-parse HEAD
             if ($LASTEXITCODE -ne 0 -or $observed.Trim() -ne $hermesCommit) { throw 'Hermes installed source differs from the pin.' }
             $changes = git -C $hermesInstall status --porcelain=v1 --untracked-files=no
@@ -630,12 +643,12 @@ jobs:
             $outputs = [ordered]@{
               AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
               AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-              AIGW_ACCEPTANCE_HERMES = Join-Path $hermesInstall 'venv/Scripts/hermes.exe'
+              AIGW_ACCEPTANCE_HERMES = Join-Path $hermesInstall ".hermes/bin/hermes.exe"
             }
             foreach ($executable in $outputs.Values) { Get-FileHash -LiteralPath $executable -Algorithm SHA256 }
             $outputs.AIGW_ACCEPTANCE_HERMES_HOME = $hermesHome
             $outputs.CLAUDE_CODE_GIT_BASH_PATH = $bash
-            $outputs.AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), (Join-Path $hermesHome 'bin'), (Join-Path $hermesInstall 'venv/Scripts'), (Split-Path (Get-Command node.exe).Source), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+            $outputs.AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), (Join-Path $hermesHome 'bin'), $launcherDirectory, (Split-Path (Get-Command node.exe).Source), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
             foreach ($entry in $outputs.GetEnumerator()) { Add-Content -LiteralPath $env:GITHUB_ENV -Value "$($entry.Key)=$($entry.Value)" }
           } catch {
             Remove-Item -LiteralPath $clients -Recurse -Force -ErrorAction Stop

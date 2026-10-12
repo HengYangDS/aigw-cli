@@ -456,8 +456,8 @@ func TestWindowsClientInstallerUsesPinnedContentAPI(t *testing.T) {
 	if fetch.TimeoutMinutes != 2 || supply.TimeoutMinutes != 12 {
 		t.Fatal("Windows official supply lost its caller deadlines")
 	}
-	const commit = "f97608f178d1ffeca59860195ab7da295f7c8e5f"
-	const digest = "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9abc87cddf2"
+	const commit = "71d34bad1045610252eda02ee79549436896e784"
+	const digest = "61824d6b47be29ab793d0e72872cf56cd7a3e99cbe40abeb177a6c9eef52f485"
 	if !strings.Contains(fetch.Run, commit) || !strings.Contains(fetch.Run, digest) || !strings.Contains(fetch.Run, "gh api") || !strings.Contains(fetch.Run, "[Convert]::FromBase64String") {
 		t.Fatal("Hermes installer must preserve original pinned Git blob bytes")
 	}
@@ -466,7 +466,7 @@ func TestWindowsClientInstallerUsesPinnedContentAPI(t *testing.T) {
 			t.Fatalf("Windows official installation inherits %s", key)
 		}
 	}
-	for _, required := range []string{commit, digest, "npm install", "npm audit signatures", "pwsh -NoProfile -File $hermesInstaller", "hash-verified via uv.lock", "AIGW_ACCEPTANCE_CODEX", "AIGW_ACCEPTANCE_CLAUDE", "AIGW_ACCEPTANCE_HERMES", "AIGW_ACCEPTANCE_CLIENT_PATH", "CLAUDE_CODE_GIT_BASH_PATH", "GITHUB_ENV", "$env:GIT_CONFIG_GLOBAL = Join-Path $clients 'gitconfig'", "git config --file $env:GIT_CONFIG_GLOBAL core.autocrlf false", "git -C $hermesInstall status --porcelain=v1 --untracked-files=no"} {
+	for _, required := range []string{commit, digest, "npm install", "npm audit signatures", "pwsh -NoProfile -File $hermesInstaller", "hash-verified via uv.lock", "@('prerequisites', 'repository', 'venv', 'python-deps')", "uv run --no-project --python 3.12 --managed-python", "hermes_cli/_launchers.py", "SkipBrowser -SkipComputerUse", "\".hermes/bin/hermes.exe\"", "AIGW_ACCEPTANCE_CODEX", "AIGW_ACCEPTANCE_CLAUDE", "AIGW_ACCEPTANCE_HERMES", "AIGW_ACCEPTANCE_CLIENT_PATH", "CLAUDE_CODE_GIT_BASH_PATH", "GITHUB_ENV", "$env:GIT_CONFIG_GLOBAL = Join-Path $clients 'gitconfig'", "git config --file $env:GIT_CONFIG_GLOBAL core.autocrlf false", "git -C $hermesInstall status --porcelain=v1 --untracked-files=no"} {
 		if !strings.Contains(supply.Run, required) {
 			t.Fatalf("Windows native supply lost %q", required)
 		}
