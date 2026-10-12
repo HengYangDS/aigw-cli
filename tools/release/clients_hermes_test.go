@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -500,16 +501,42 @@ func testHermesNativeClientInputs(t *testing.T) {
 		t.Fatal(err)
 	}
 	installation := t.TempDir()
+	lock := filepath.Join(installation, "installs", "native", ".install.lock")
+	if err := os.MkdirAll(filepath.Dir(lock), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(lock, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("AIGW_ACCEPTANCE_HERMES_HOME", installation)
 	journey := &journeyFixture{
 		testing: t, root: root, manifest: filepath.Join(root, "team.toml"),
 		endpoint: "http://127.0.0.1:1/v1",
 	}
-	journey.prepareNativeClient(configuration.ClientHermes, file, readFile(t, filepath.Join("..", "..", "manifests", "team.toml")))
+	err := journey.prepareNativeClient(configuration.ClientHermes, file, readFile(t, filepath.Join("..", "..", "manifests", "team.toml")))
 	home := environmentValues(journey.environment)["HERMES_HOME"]
-	if filepath.Dir(home) != filepath.Join(installation, "profiles") {
-		t.Fatalf("Hermes profile %q lost its explicit native installation root", home)
+	if runtime.GOOS == "windows" {
+		if err == nil || home != "" || !strings.Contains(err.Error(), "no client process was started") {
+			t.Fatalf("unsupported Windows launcher isolation was not refused before client setup: %v", err)
+		}
+		return
 	}
-	requireFileContains(t, filepath.Join(home, "config.yaml"), "updates:\n  check: false")
-	requireFileContains(t, filepath.Join(home, "config.yaml"), "security:\n  allow_lazy_installs: false")
+	if err != nil {
+		t.Fatal(err)
+	}
+	physicalRoot, err := filepath.EvalSymlinks(installation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	physicalHome, err := filepath.EvalSymlinks(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if relative, err := filepath.Rel(physicalRoot, physicalHome); err != nil || relative != ".." && !strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+		t.Fatalf("Hermes acceptance home %q is not physically isolated from %q", home, installation)
+	}
+	if borrowed, err := os.Readlink(filepath.Join(home, "installs", "native", ".install.lock")); err != nil || borrowed != lock {
+		t.Fatalf("Hermes acceptance did not retain its native dependency lock: %q, %v", borrowed, err)
+	}
+	requireFileContains(t, filepath.Join(home, "config.yaml"), "updates:", "security:", "cli:", "expose_on_path: false", "allow_lazy_installs: false", "check: false")
 }

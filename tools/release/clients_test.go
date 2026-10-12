@@ -63,7 +63,9 @@ func TestNativeClientInputs(t *testing.T) {
 			t.Fatal(err)
 		}
 		manifest.Recommendations = map[string]configuration.ClientRecommendation{configuration.ClientCodex: manifest.Recommendations[configuration.ClientCodex]}
-		journey.prepareNativeClient(configuration.ClientCodex, file, team)
+		if err := journey.prepareNativeClient(configuration.ClientCodex, file, team); err != nil {
+			t.Fatal(err)
+		}
 		environment := environmentValues(journey.environment)
 		temporary := environment["TMPDIR"]
 		if filepath.Dir(temporary) != root || temporary == filepath.Join(root, "home") {
@@ -151,7 +153,9 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		journey.requireVersion(p.version)
 		journey.requireProgramBytes(p.candidate)
 	}
-	journey.prepareNativeClient(client, executable, p.team)
+	if err := journey.prepareNativeClient(client, executable, p.team); err != nil {
+		t.Fatal(err)
+	}
 	journey.setEnvironment(secrets.EnvironmentKey(route.Account), token)
 	journey.run("setup", "--from", journey.manifest, "--account", route.Account)
 	journey.enableNativeClient(client, executable)
@@ -355,12 +359,12 @@ func (j *journeyFixture) verifyNativeConfigEditing(client, executable string) {
 	j.run("check")
 }
 
-func (j *journeyFixture) prepareNativeClient(client, executable string, team []byte) {
+func (j *journeyFixture) prepareNativeClient(client, executable string, team []byte) error {
 	j.testing.Helper()
 	home := filepath.Join(j.root, "home")
 	temporary := filepath.Join(j.root, "native-tmp")
 	if err := os.MkdirAll(temporary, 0o700); err != nil {
-		j.testing.Fatal(err)
+		return err
 	}
 	for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
 		j.setEnvironment(key, temporary)
@@ -371,11 +375,11 @@ func (j *journeyFixture) prepareNativeClient(client, executable string, team []b
 	if client == configuration.ClientHermes {
 		installation, err := requiredClientInput("AIGW_ACCEPTANCE_HERMES_HOME", true)
 		if err != nil {
-			j.testing.Fatal(err)
+			return err
 		}
 		profile, cleanup, err := hermesconfig.CreateVerificationHome(filepath.Join(installation, "config.yaml"))
 		if err != nil {
-			j.testing.Fatal(err)
+			return err
 		}
 		j.testing.Cleanup(func() {
 			if err := cleanup(); err != nil {
@@ -405,10 +409,6 @@ providers:
     base_url: https://personal.test
 terminal:
   backend: local
-security:
-  allow_lazy_installs: false
-updates:
-  check: false
 `,
 	}
 	path := map[string]string{
@@ -417,17 +417,30 @@ updates:
 		configuration.ClientHermes: filepath.Join(environmentValues(j.environment)["HERMES_HOME"], "config.yaml"),
 	}[client]
 	if path == "" {
-		j.testing.Fatalf("unsupported native client %q", client)
+		return errors.New("unsupported native client " + client)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		j.testing.Fatal(err)
+		return err
 	}
 	if err := os.WriteFile(path, []byte(preferences[client]), 0o600); err != nil {
-		j.testing.Fatal(err)
+		return err
+	}
+	if client == configuration.ClientHermes {
+		plan, err := hermesconfig.Prepare(path, nil)
+		if err != nil {
+			return err
+		}
+		data, err := plan.PrepareVerification()
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			return err
+		}
 	}
 	manifest, err := configuration.Parse(team)
 	if err != nil {
-		j.testing.Fatal(err)
+		return err
 	}
 	manifest.Recommendations = map[string]configuration.ClientRecommendation{client: manifest.Recommendations[client]}
 	// The retained reader predates presentation order; this journey owns connections.
@@ -446,12 +459,13 @@ updates:
 	}
 	data, err := toml.Marshal(manifest)
 	if err != nil {
-		j.testing.Fatal(err)
+		return err
 	}
 	if err := os.WriteFile(j.manifest, data, 0o600); err != nil {
-		j.testing.Fatal(err)
+		return err
 	}
 	j.testing.Logf("client=%s executable=%s sha256=%x", client, executable, sha256.Sum256(readFile(j.testing, executable)))
+	return nil
 }
 
 func (j *journeyFixture) enableNativeClient(client, executable string) {
@@ -480,28 +494,7 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 	j.testing.Helper()
 	switch client {
 	case configuration.ClientCodex:
-		var preferences struct {
-			Effort   string `toml:"model_reasoning_effort"`
-			Window   int    `toml:"model_context_window"`
-			Compact  int    `toml:"model_auto_compact_token_limit"`
-			Scope    string `toml:"model_auto_compact_token_limit_scope"`
-			Features struct {
-				Plugins *bool `toml:"plugins"`
-			} `toml:"features"`
-			Windows struct {
-				Sandbox string `toml:"sandbox"`
-			} `toml:"windows"`
-		}
-		path := filepath.Join(j.root, "home", ".codex", "config.toml")
-		if err := toml.Unmarshal(readFile(j.testing, path), &preferences); err != nil {
-			j.testing.Fatal(err)
-		}
-		if preferences.Effort != "high" || preferences.Window != 500000 || preferences.Compact != 450000 || preferences.Scope != "body_after_prefix" || preferences.Features.Plugins == nil || *preferences.Features.Plugins {
-			j.testing.Fatalf("Codex preferences changed: %+v", preferences)
-		}
-		if preferences.Windows.Sandbox != "unelevated" {
-			j.testing.Fatal("isolated Codex requires its native restricted-token sandbox")
-		}
+		j.requireNativeCodexPreferences()
 	case configuration.ClientClaude:
 		var preferences struct {
 			Effort  string `json:"effortLevel"`

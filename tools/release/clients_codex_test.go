@@ -25,7 +25,35 @@ import (
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
+
+	"github.com/pelletier/go-toml/v2"
 )
+
+func (j *journeyFixture) requireNativeCodexPreferences() {
+	j.testing.Helper()
+	var preferences struct {
+		Effort   string `toml:"model_reasoning_effort"`
+		Window   int    `toml:"model_context_window"`
+		Compact  int    `toml:"model_auto_compact_token_limit"`
+		Scope    string `toml:"model_auto_compact_token_limit_scope"`
+		Features struct {
+			Plugins *bool `toml:"plugins"`
+		} `toml:"features"`
+		Windows struct {
+			Sandbox string `toml:"sandbox"`
+		} `toml:"windows"`
+	}
+	path := filepath.Join(j.root, "home", ".codex", "config.toml")
+	if err := toml.Unmarshal(readFile(j.testing, path), &preferences); err != nil {
+		j.testing.Fatal(err)
+	}
+	if preferences.Effort != "high" || preferences.Window != 500000 || preferences.Compact != 450000 || preferences.Scope != "body_after_prefix" || preferences.Features.Plugins == nil || *preferences.Features.Plugins {
+		j.testing.Fatalf("Codex preferences changed: %+v", preferences)
+	}
+	if preferences.Windows.Sandbox != "unelevated" {
+		j.testing.Fatal("isolated Codex requires its native restricted-token sandbox")
+	}
+}
 
 func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 	t.Helper()
@@ -56,7 +84,9 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 		t.Fatal(err)
 	}
 	journey := newNativeJourney(t, p.candidate, server.URL+"/v1", false)
-	journey.prepareNativeClient(configuration.ClientCodex, executable, p.team)
+	if err := journey.prepareNativeClient(configuration.ClientCodex, executable, p.team); err != nil {
+		t.Fatal(err)
+	}
 	journey.setEnvironment(secrets.EnvironmentKey(account), token)
 	journey.run("setup", "--from", journey.manifest)
 	journey.run("use", "--for", configuration.ClientCodex, routeIDs[0])
@@ -148,7 +178,9 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	})
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, p.candidate, server.URL+"/v1", false)
-	journey.prepareNativeClient(configuration.ClientCodex, executable, p.team)
+	if err := journey.prepareNativeClient(configuration.ClientCodex, executable, p.team); err != nil {
+		t.Fatal(err)
+	}
 	journey.setEnvironment(secrets.EnvironmentKey(account), token)
 	journey.run("setup", "--from", journey.manifest)
 	journey.run("use", "--for", configuration.ClientCodex, routeID)
