@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -78,11 +79,11 @@ func TestCredentialPolicyControlsProjectionAndSurvivesDiscovery(t *testing.T) {
 			if _, _, err := registry.Apply(context.Background(), deps, before, converged, id); err != nil {
 				t.Fatal(err)
 			}
-			runtime, err := converged.ResolveRuntime(id, "")
+			clientRuntime, err := converged.ResolveRuntime(id, "")
 			if err != nil {
 				t.Fatal(err)
 			}
-			if status := registry.Inspect(context.Background(), deps, converged, id, runtime); !status.Ready {
+			if status := registry.Inspect(context.Background(), deps, converged, id, clientRuntime); !status.Ready {
 				t.Fatalf("projected credential command is not ready: %#v", status)
 			}
 		})
@@ -178,16 +179,22 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 			if _, _, err := registry.Apply(context.Background(), deps, configuration.NewConfig(), cfg, id); err != nil {
 				t.Fatal(err)
 			}
-			runtime, err := cfg.ResolveRuntime(id, "")
+			clientRuntime, err := cfg.ResolveRuntime(id, "")
 			if err != nil {
 				t.Fatal(err)
 			}
 			runner := &rejectingClient{}
 			deps.Runner = runner
-			_, err = registry.Verify(context.Background(), deps, cfg, id, runtime, "")
+			_, err = registry.Verify(context.Background(), deps, cfg, id, clientRuntime, "")
 			if id == configuration.ClientClaudeDesktop {
 				if err == nil || !strings.Contains(err.Error(), "explicit native Chat, Cowork, or Code acceptance") || runner.calls != 0 {
 					t.Fatalf("Claude Desktop verification = %v, calls = %d", err, runner.calls)
+				}
+				return
+			}
+			if id == configuration.ClientHermes && runtime.GOOS == "windows" {
+				if err == nil || strings.Contains(err.Error(), "public-secret-canary") || !strings.Contains(err.Error(), "cannot isolate") || runner.calls != 0 {
+					t.Fatalf("Windows Hermes verification = %v, calls = %d", err, runner.calls)
 				}
 				return
 			}
