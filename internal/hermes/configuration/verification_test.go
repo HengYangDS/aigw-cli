@@ -277,3 +277,94 @@ func TestVerificationHomeRejectsPhysicalNativeRoot(t *testing.T) {
 		t.Fatalf("rejected verification left native residue: %v, %v", entries, err)
 	}
 }
+
+func TestVerificationHomeRefusesUnusableNativeDependencies(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return // Windows verification refuses before borrowing dependencies.
+	}
+	for _, test := range []struct {
+		name, path, want string
+		file             bool
+	}{
+		{name: "tools", path: "tools", want: "dependency state"},
+		{name: "install-index", path: "installs", want: "dependency selections", file: true},
+		{name: "install-selection", path: "installs/selection", want: "dependency selection"},
+		{name: "committed-environment", path: "installs/selection/environments", want: "committed Hermes dependency"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root, temporary := t.TempDir(), t.TempDir()
+			t.Setenv("TMPDIR", temporary)
+			t.Setenv("HOME", t.TempDir())
+			unusable := filepath.Join(root, filepath.FromSlash(test.path))
+			if err := os.MkdirAll(filepath.Dir(unusable), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			var err error
+			if test.file {
+				err = os.WriteFile(unusable, []byte("native-state"), 0o600)
+			} else {
+				err = os.Symlink(unusable, unusable)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			before, err := os.Lstat(unusable)
+			if err != nil {
+				t.Fatal(err)
+			}
+			home, cleanup, err := CreateVerificationHome(filepath.Join(root, "config.yaml"))
+			if err == nil || !strings.Contains(err.Error(), test.want) || home != "" || cleanup != nil {
+				t.Fatalf("unusable native state was borrowed: %q, %v", home, err)
+			}
+			if entries, err := os.ReadDir(temporary); err != nil || len(entries) != 0 {
+				t.Fatalf("failed preparation left a verification home: %v, %v", entries, err)
+			}
+			after, err := os.Lstat(unusable)
+			if err != nil || !os.SameFile(before, after) {
+				t.Fatalf("refusal replaced native dependency state: %v", err)
+			}
+			if test.file {
+				if data, err := os.ReadFile(unusable); err != nil || string(data) != "native-state" {
+					t.Fatalf("refusal changed native dependency state: %v", err)
+				}
+			} else if target, err := os.Readlink(unusable); err != nil || target != unusable {
+				t.Fatalf("refusal changed native dependency ownership: %v", err)
+			}
+		})
+	}
+}
+
+func TestVerificationHomeRefusesUnresolvablePlacement(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return // Windows verification refuses before creating a home.
+	}
+	for _, name := range []string{"temporary-storage", "user-home", "native-root"} {
+		t.Run(name, func(t *testing.T) {
+			root, temporary := t.TempDir(), t.TempDir()
+			t.Setenv("TMPDIR", temporary)
+			t.Setenv("HOME", t.TempDir())
+			want := ""
+			switch name {
+			case "temporary-storage":
+				t.Setenv("TMPDIR", filepath.Join(temporary, "absent"))
+				want = "cannot create"
+			case "user-home":
+				t.Setenv("HOME", "")
+				want = "native Hermes home"
+			case "native-root":
+				root = filepath.Join(root, "unresolvable")
+				if err := os.Symlink(root, root); err != nil {
+					t.Fatal(err)
+				}
+				want = "native Hermes data root"
+			}
+			home, cleanup, err := CreateVerificationHome(filepath.Join(root, "config.yaml"))
+			if err == nil || !strings.Contains(err.Error(), want) || home != "" || cleanup != nil {
+				t.Fatalf("unresolvable placement was accepted: %q, %v", home, err)
+			}
+			if entries, err := os.ReadDir(temporary); err != nil || len(entries) != 0 {
+				t.Fatalf("failed preparation left temporary state: %v, %v", entries, err)
+			}
+		})
+	}
+}

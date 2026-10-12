@@ -308,10 +308,10 @@ _graphOrder: {
 	}
 }
 
-miseImage:                        "docker.io/jdxcode/mise:2026.10.3-debian@sha256:58c4c847f5518a9a87a9a582886a485443dbca5eb024426577f58d586a0990c6"
+miseImage:                        "docker.io/jdxcode/mise:2026.10.8-debian@sha256:8cc0b83dd86465df9ae4a813cce9ce24cb0b4f749617c419d3e4beb838b365b1"
 miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
-miseWindowsArm64ExecutableSHA256: "f307609491da1cb78ee3fd2de8949e7cce1a7e3032e1c1671dbfdfdf304ba2e1"
-miseWindowsArm64ShimSHA256:       "b9dff021fa072a116cb56940728a391dccd337a15e70100690c2bf58f85bbdab"
+miseWindowsArm64ExecutableSHA256: "37fb631c501e8bb6a96e72914a5066f3c8d87a0c5e3aa0b42acffad714752db3"
+miseWindowsArm64ShimSHA256:       "88e6ea20e780ed03861d33be06319c80b0508e51eb6a48190153922a14309498"
 windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
 nativeWindowsClientSelection:     "$env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)"
 
@@ -340,7 +340,7 @@ nativeWindowsClientSupply: #"""
 	  if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:AIGW_NATIVE_INPUT_SHA256) { throw 'Native public input checksum mismatch' }
 	  [void](New-Item -ItemType Directory -Path $fixture -ErrorAction Stop)
 	  tar -xf $archive -C $fixture suppliers/
-	  tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.160.1-claude-2.1.292-native-packages.tar.gz') -C $fixture
+	  tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz') -C $fixture
 	  $hermes = Join-Path $fixture 'clients/hermes'
 	  [void](New-Item -ItemType Directory -Path $hermes -ErrorAction Stop)
 	  tar -xf (Join-Path $fixture 'suppliers/official-hermes-f97608f1-source.tar') -C $hermes
@@ -368,7 +368,7 @@ nativeWindowsClientSupply: #"""
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
 	mise:     "jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca"         // v5.1.1
-	upload:   "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" // v7.0.1
+	upload:   "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" // v7.0.2
 }
 
 dependencyEvidencePath: "build/verification/dependencies"
@@ -573,7 +573,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				  if ((Get-FileHash -LiteralPath $hermesInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne '\#(hermesInstallerDigest)') { throw 'Pinned Hermes installer checksum mismatch.' }
 				  $env:UV_CACHE_DIR = Join-Path $clients 'uv-cache'
 				  Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-				  mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.160.1' '@anthropic-ai/claude-code-win32-x64@2.1.292'
+				  mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.162.1' '@anthropic-ai/claude-code-win32-x64@2.1.296'
 				  mise exec --locked -- npm audit signatures --prefix $clients
 				  $hermesHome = Join-Path $clients 'hermes'
 				  $hermesInstall = Join-Path $hermesHome 'hermes-agent'

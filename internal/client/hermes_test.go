@@ -1,9 +1,7 @@
 package client
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -248,7 +246,8 @@ func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
 	}
 }
 
-func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
+func hermesVerificationFixture(t *testing.T) (configuration.Config, configuration.Runtime, Dependencies) {
+	t.Helper()
 	t.Setenv("HERMES_DISABLE_LAZY_INSTALLS", "0")
 	executable := filepath.Join(t.TempDir(), "hermes")
 	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
@@ -263,7 +262,7 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	if err := os.WriteFile(target, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,9 +270,8 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	if err := store.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	root := filepath.Dir(target)
 	for _, name := range []string{"installs", "tools"} {
-		path := filepath.Join(root, name)
+		path := filepath.Join(filepath.Dir(target), name)
 		if err := os.Mkdir(path, 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -281,12 +279,19 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	originalEnvironment := os.Environ()
+	return cfg, selected, Dependencies{Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
+}
+
+func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
+	cfg, selected, deps := hermesVerificationFixture(t)
+	root := filepath.Dir(cfg.Clients[configuration.ClientHermes].Targets[0])
+	environment := os.Environ()
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
 	runner.observe = func(plan process.Plan) {
-		requireHermesVerificationHome(t, plan, root, originalEnvironment)
+		requireHermesVerificationHome(t, plan, root, environment)
 	}
-	_, err = (hermesAdapter{}).Verify(context.Background(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, clientRuntime, "")
+	deps.Runner = runner
+	_, err := (hermesAdapter{}).Verify(t.Context(), deps, cfg, selected, "")
 	if runtime.GOOS == "windows" {
 		requireHermesVerificationRefusal(t, err, runner.calls)
 		return
@@ -298,46 +303,61 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	if len(runner.plans) != 2 || !slices.Equal(runner.plans[1].Args, want) {
 		t.Fatalf("Hermes verification plans = %#v", runner.plans)
 	}
-	if _, err := os.Lstat(runner.plans[0].Directory); !os.IsNotExist(err) {
-		t.Fatalf("isolated Hermes profile survived verification: %v", err)
-	}
-	for _, name := range []string{"installs", "tools"} {
-		data, err := os.ReadFile(filepath.Join(root, name, "state"))
-		if err != nil || string(data) != name {
-			t.Fatalf("verification changed the installed %s state: %q %v", name, data, err)
-		}
-	}
+	requireHermesVerificationCleanup(t, runner.plans[0].Directory, root)
+}
+
+func TestHermesVerificationFailuresPreserveNativeState(t *testing.T) {
 	for _, test := range []struct {
-		name, want string
-		cause      error
+		name, want, diagnostic, response string
+		stage                            int
+		cause                            error
 	}{
-		{"deadline", "hermes version probe timed out", context.DeadlineExceeded},
-		{"cancellation", "hermes version probe interrupted", context.Canceled},
-		{"execution", "hermes version probe failed", os.ErrPermission},
+		{name: "deadline", stage: 1, cause: context.DeadlineExceeded, want: "version probe timed out"},
+		{name: "cancellation", stage: 1, cause: context.Canceled, want: "version probe interrupted"},
+		{name: "execution", stage: 1, cause: os.ErrPermission, want: "version probe failed"},
+		{name: "version-warning", stage: 1, diagnostic: "warning: secret=must-not-leak", want: "diagnostics suppressed"},
+		{name: "inference-warning", stage: 2, diagnostic: "warning: secret=must-not-leak", want: "diagnostics suppressed"},
+		{name: "inference-failure", stage: 2, cause: os.ErrPermission, want: "inference failed"},
+		{name: "missing-marker", stage: 2, response: "unexpected response", want: "expected AIGW_OK"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			failed := &captureAdapterRunner{err: test.cause}
-			_, err := (hermesAdapter{}).Verify(context.Background(), Dependencies{
-				Runner: failed, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
-			}, cfg, clientRuntime, "")
-			if err == nil || err.Error() != test.want {
-				t.Fatalf("Hermes version probe error = %v, want %q", err, test.want)
+			cfg, selected, deps := hermesVerificationFixture(t)
+			root := filepath.Dir(cfg.Clients[configuration.ClientHermes].Targets[0])
+			environment := os.Environ()
+			runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
+			if test.response != "" {
+				runner.outputs[1] = []byte(test.response)
 			}
-		})
-	}
-	for _, stage := range []int{1, 2} {
-		t.Run(fmt.Sprintf("diagnostic stage=%d", stage), func(t *testing.T) {
-			probe := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
-			probe.observe = func(process.Plan) {
-				if probe.calls+1 == stage {
-					probe.stderr = []byte("warning: secret=must-not-leak native capability incomplete\n")
+			runner.observe = func(plan process.Plan) {
+				requireHermesVerificationHome(t, plan, root, environment)
+				if runner.calls+1 == test.stage {
+					runner.err, runner.stderr = test.cause, []byte(test.diagnostic)
 				}
 			}
-			_, err := (hermesAdapter{}).Verify(t.Context(), Dependencies{Runner: probe, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, clientRuntime, "")
-			if err == nil || !strings.Contains(err.Error(), "warning") || strings.Contains(err.Error(), "must-not-leak") {
-				t.Fatalf("Hermes diagnostic result = %v", err)
+			deps.Runner = runner
+			_, err := (hermesAdapter{}).Verify(t.Context(), deps, cfg, selected, "")
+			if runtime.GOOS == "windows" {
+				requireHermesVerificationRefusal(t, err, runner.calls)
+				return
 			}
+			if err == nil || !strings.Contains(err.Error(), test.want) || strings.Contains(err.Error(), "must-not-leak") || runner.calls != test.stage {
+				t.Fatalf("Hermes refusal = %v after %d calls, want %q at stage %d", err, runner.calls, test.want, test.stage)
+			}
+			requireHermesVerificationCleanup(t, runner.plans[0].Directory, root)
 		})
+	}
+}
+
+func requireHermesVerificationCleanup(t *testing.T, home, root string) {
+	t.Helper()
+	if _, err := os.Lstat(home); !os.IsNotExist(err) {
+		t.Fatalf("verification home survived cleanup: %v", err)
+	}
+	for name, expected := range map[string]string{"config.yaml": "{}\n", "installs/state": "installs", "tools/state": "tools"} {
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(name)))
+		if err != nil || string(data) != expected {
+			t.Fatalf("verification changed native %s state: %q %v", name, data, err)
+		}
 	}
 }
 
@@ -448,30 +468,20 @@ func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *
 }
 
 func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
-	root := t.TempDir()
-	executable := filepath.Join(root, "hermes")
-	target := filepath.Join(root, "config.yaml")
+	cfg, _, deps := hermesVerificationFixture(t)
+	target := cfg.Clients[configuration.ClientHermes].Targets[0]
 	original := []byte("agent:\n  reasoning_overrides:\n    mistral-large-3: none\nsecurity:\n  allow_lazy_installs: true\nupdates:\n  check: true\n")
-	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.WriteFile(target, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIChatCompletions: "https://gateway.test/v1"}}
 	cfg.Routes["selected"] = qualifiedRoute("", "gateway", "mistral-large-3", configuration.ProtocolOpenAIChatCompletions)
 	cfg.SetSelectedRoute(configuration.ClientHermes, "selected", "")
-	cfg.SetClientActivation(configuration.ClientHermes, true, executable, []string{target})
-	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := secrets.NewMemoryStore()
-	if err := store.Set("gateway", "fixture-only-token"); err != nil {
-		t.Fatal(err)
-	}
-	profiles := filepath.Join(root, "profiles")
+	profiles := filepath.Join(filepath.Dir(target), "profiles")
 	if err := os.Mkdir(profiles, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -480,7 +490,7 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes fixture"), []byte("AIGW_OK")}}
-	deps := Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(root, "aigw")}
+	deps.Runner = runner
 	if _, err := (hermesAdapter{}).Apply(t.Context(), deps, configuration.NewConfig(), cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -493,7 +503,7 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 			t.Fatalf("native per-model reasoning setting was lost: got %q, want none", got)
 		}
 	}
-	_, err = (hermesAdapter{}).Verify(t.Context(), deps, cfg, clientRuntime, "")
+	_, err = (hermesAdapter{}).Verify(t.Context(), deps, cfg, selected, "")
 	if runtime.GOOS == "windows" {
 		requireHermesVerificationRefusal(t, err, runner.calls)
 		return
@@ -501,13 +511,8 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	after, err := os.ReadFile(target)
-	if err != nil || !bytes.Equal(after, original) {
+	if after, err := os.ReadFile(target); err != nil || string(after) != string(original) {
 		t.Fatal("verification changed the original native configuration")
-	}
-	runner.err = context.DeadlineExceeded
-	if _, err := (hermesAdapter{}).Verify(t.Context(), deps, cfg, clientRuntime, ""); err == nil {
-		t.Fatal("failed native version probe was accepted")
 	}
 	entries, err := os.ReadDir(profiles)
 	if err != nil || len(entries) != 1 || entries[0].Name() != filepath.Base(foreign) {
