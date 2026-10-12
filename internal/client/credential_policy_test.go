@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -180,6 +181,12 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 			if id == configuration.ClientClaudeDesktop {
 				if err == nil || !strings.Contains(err.Error(), "explicit native Chat, Cowork, or Code acceptance") || runner.calls != 0 {
 					t.Fatalf("Claude Desktop verification = %v, calls = %d", err, runner.calls)
+				}
+				return
+			}
+			if id == configuration.ClientHermes && goruntime.GOOS == "windows" {
+				if err == nil || !strings.Contains(err.Error(), "cannot isolate native launcher publication on Windows") || runner.calls != 0 {
+					t.Fatalf("Hermes verification = %v, calls = %d", err, runner.calls)
 				}
 				return
 			}

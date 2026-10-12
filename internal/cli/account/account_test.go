@@ -2,8 +2,10 @@ package account
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -78,6 +80,54 @@ func TestEditReturnsTransactionPreparationFailure(t *testing.T) {
 
 	if err := command.Execute(); err == nil {
 		t.Fatal("transaction preparation failure was accepted")
+	}
+}
+
+func TestAccountInventoryOrdersEndpointMetadataWithoutChangingConfiguration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "configuration.toml")
+	store := configuration.NewStore(path)
+	cfg := configuration.NewConfig()
+	cfg.Accounts["zeta"] = configuration.Account{Label: "Second", Endpoints: configuration.Endpoints{OpenAIResponses: "https://zeta.test/v1"}}
+	cfg.Accounts["alpha"] = configuration.Account{Label: "First", Endpoints: configuration.Endpoints{OpenAIResponses: "https://alpha.test/v1"}}
+	cfg.Routes["alpha"] = configuration.Route{
+		Label: "Alpha", Account: "alpha", Model: "gpt-alpha",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+	}
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := &bytes.Buffer{}
+	runtime := invocation.Context{Config: store, Secrets: secrets.NewMemoryStore(), Out: out, RenderOut: out}
+	command := newListCommand(runtime)
+	command.SetArgs([]string{"--json"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var listed accountListOutput
+	if err := json.Unmarshal(out.Bytes(), &listed); err != nil {
+		t.Fatal(err)
+	}
+	want := []configuration.Account{
+		{ID: "alpha", Label: "First", Endpoints: configuration.Endpoints{OpenAIResponses: "https://alpha.test/v1"}},
+		{ID: "zeta", Label: "Second", Endpoints: configuration.Endpoints{OpenAIResponses: "https://zeta.test/v1"}},
+	}
+	if !reflect.DeepEqual(listed.Accounts, want) {
+		t.Fatalf("account inventory = %+v, want %+v", listed.Accounts, want)
+	}
+	out.Reset()
+	if err := newListCommand(runtime).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if first, second := strings.Index(out.String(), "alpha"), strings.Index(out.String(), "zeta"); first < 0 || second <= first {
+		t.Fatalf("human inventory lost stable account order: %s", out)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatalf("account inventory changed configuration: %v", err)
 	}
 }
 

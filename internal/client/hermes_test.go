@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	hermesconfig "aigw-cli/internal/hermes/configuration"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 
@@ -131,7 +133,7 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["hermes"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
-	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: configuration.ProtocolAnthropic, Executable: executable}
+	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: configuration.ProtocolAnthropic, Executable: executable, Targets: []string{filepath.Join(t.TempDir(), "config.yaml")}}
 	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
 	if err != nil {
 		t.Fatal(err)
@@ -145,6 +147,9 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 		if len(plan.Args) == 0 || plan.Args[0] != "chat" {
 			return
 		}
+		if !slices.Contains(plan.Env, "HERMES_DISABLE_LAZY_INSTALLS=1") {
+			t.Fatal("isolated Hermes verification omitted the official bootstrap no-install guard")
+		}
 		data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
 		if err != nil {
 			t.Fatal(err)
@@ -153,6 +158,19 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 			Security struct {
 				AllowLazyInstalls *bool `yaml:"allow_lazy_installs"`
 			} `yaml:"security"`
+			Updates struct {
+				Check *bool `yaml:"check"`
+			} `yaml:"updates"`
+			CLI struct {
+				ExposeOnPath *bool `yaml:"expose_on_path"`
+			} `yaml:"cli"`
+			Plugins struct {
+				Enabled []string `yaml:"enabled"`
+			} `yaml:"plugins"`
+			Memory struct {
+				Enabled  *bool  `yaml:"enabled"`
+				Provider string `yaml:"provider"`
+			} `yaml:"memory"`
 		}
 		if err := yaml.Unmarshal(data, &projected); err != nil {
 			t.Fatal(err)
@@ -160,13 +178,131 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 		if projected.Security.AllowLazyInstalls == nil || *projected.Security.AllowLazyInstalls {
 			t.Fatal("isolated Hermes verification permits runtime dependency installation")
 		}
+		if projected.Updates.Check == nil || *projected.Updates.Check || projected.CLI.ExposeOnPath == nil || *projected.CLI.ExposeOnPath || len(projected.Plugins.Enabled) != 0 || projected.Memory.Enabled == nil || *projected.Memory.Enabled || projected.Memory.Provider != "" {
+			t.Fatal("isolated Hermes verification permits operator activity or publication")
+		}
 	}
-	if _, err := (hermesAdapter{}).Verify(context.Background(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, clientRuntime, ""); err != nil {
+	_, err = (hermesAdapter{}).Verify(context.Background(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, clientRuntime, "")
+	if runtime.GOOS == "windows" {
+		if err == nil || !strings.Contains(err.Error(), "cannot isolate native launcher publication on Windows") || len(runner.plans) != 0 {
+			t.Fatalf("unqualified Windows verification = %v, plans = %d", err, len(runner.plans))
+		}
+		return
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
 	want := []string{"chat", "--quiet", "--query-file", "-", "--oneshot", "--max-turns", "1", "--run-budget", "45", "--ignore-rules", "--source", "tool"}
 	if len(runner.plans) != 2 || !slices.Equal(runner.plans[1].Args, want) {
 		t.Fatalf("Hermes verification plans = %#v", runner.plans)
+	}
+}
+
+func prepareHermesVerificationDependencyFixture(t *testing.T) (string, map[string][]byte) {
+	t.Helper()
+	root := t.TempDir()
+	target := filepath.Join(root, "config.yaml")
+	installed := filepath.Join(root, "installs", "fixture-install")
+	for _, name := range []string{"environments", "pm-runtime"} {
+		if err := os.MkdirAll(filepath.Join(installed, name), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	original := map[string][]byte{
+		target:                                 []byte("plugins: {enabled: [member]}\nprivate_operator_setting: preserved\n"),
+		filepath.Join(installed, "facts.json"): []byte("{\"generation\":\"native\"}\n"),
+		filepath.Join(installed, ".install.lock"):               []byte(""),
+		filepath.Join(installed, "boot-record.json"):            []byte("{\"operator\":true}\n"),
+		filepath.Join(root, "plugins", "member", "plugin.yaml"): []byte("name: member\n"),
+	}
+	for path, data := range original {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return root, original
+}
+
+func assertHermesVerificationFileIdentity(t *testing.T, source, borrowed string) {
+	t.Helper()
+	operator, err := os.Stat(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observed, err := os.Stat(borrowed)
+	if err != nil || !os.SameFile(operator, observed) {
+		t.Fatalf("verification changed native file identity %s: %v", source, err)
+	}
+}
+
+func TestHermesVerificationBorrowsInstalledDependenciesAndIsolatesBootState(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		home, cleanup, err := hermesconfig.CreateVerificationHome(filepath.Join(t.TempDir(), "config.yaml"))
+		if err == nil || home != "" || cleanup != nil || !strings.Contains(err.Error(), "no client process was started") {
+			t.Fatalf("unqualified Windows verification home = %s, %v", home, err)
+		}
+		return
+	}
+	root, original := prepareHermesVerificationDependencyFixture(t)
+	target := filepath.Join(root, "config.yaml")
+	installed := filepath.Join(root, "installs", "fixture-install")
+	executable := filepath.Join(root, "hermes")
+	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Routes["hermes"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
+	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{
+		Route: "hermes", Enabled: true, Protocol: configuration.ProtocolAnthropic, Executable: executable, Targets: []string{target},
+	}
+	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := secrets.NewMemoryStore()
+	if err := store.Set("gateway", "public-fixture-token"); err != nil {
+		t.Fatal(err)
+	}
+	var verificationHome string
+	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
+	runner.observe = func(plan process.Plan) {
+		verificationHome = plan.Directory
+		borrowed := filepath.Join(plan.Directory, "installs", "fixture-install")
+		assertHermesVerificationFileIdentity(t, filepath.Join(installed, "facts.json"), filepath.Join(borrowed, "facts.json"))
+		assertHermesVerificationFileIdentity(t, filepath.Join(installed, ".install.lock"), filepath.Join(borrowed, ".install.lock"))
+		profiles, err := os.ReadDir(filepath.Join(plan.Directory, "profiles"))
+		if err != nil || len(profiles) != 1 {
+			t.Fatalf("verification lost dependency-only member profiles: %v, %v", profiles, err)
+		}
+		profile := filepath.Join(plan.Directory, "profiles", profiles[0].Name())
+		selector, err := os.ReadFile(filepath.Join(profile, "config.yaml"))
+		if err != nil || !bytes.Contains(selector, []byte("member")) || bytes.Contains(selector, []byte("private_operator_setting")) {
+			t.Fatalf("dependency profile copied private configuration or lost membership: %v", err)
+		}
+		assertHermesVerificationFileIdentity(t, filepath.Join(root, "plugins", "member", "plugin.yaml"), filepath.Join(profile, "plugins", "member", "plugin.yaml"))
+		if err := os.WriteFile(filepath.Join(borrowed, "boot-record.json"), []byte("private boot"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
+		if err != nil || bytes.Contains(data, []byte("private_operator_setting")) || bytes.Contains(data, []byte("member")) || !bytes.Contains(data, []byte("expose_on_path: false")) || !bytes.Contains(data, []byte("check: false")) {
+			t.Fatalf("inference home retained operator activity or enabled publication: %v", err)
+		}
+	}
+	if _, err := (hermesAdapter{}).Verify(context.Background(), Dependencies{Runner: runner, Secrets: store, AIGWExecutable: filepath.Join(root, "aigw")}, cfg, selected, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(verificationHome); !os.IsNotExist(err) {
+		t.Fatalf("verification home survived completion: %v", err)
+	}
+	for path, want := range original {
+		got, err := os.ReadFile(path)
+		if err != nil || !bytes.Equal(got, want) {
+			t.Fatalf("verification changed operator state %s: %v", path, err)
+		}
 	}
 }
 

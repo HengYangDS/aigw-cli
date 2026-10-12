@@ -10,6 +10,19 @@ separate evidence.
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-10-12
+
+### Fixed
+
+- Reuse the official Hermes launcher's committed dependencies and physical
+  selection lock during verification, preserving effective plugin dependency
+  profiles while keeping boot records and inference state isolated.
+- Disable automatic dependency installation, update checks, plugin activation,
+  and PATH publication during Hermes verification. Refuse native verification
+  on Windows before starting a client when launcher isolation is unqualified.
+- Exercise Account inventory ordering and reviewed Route recommendation
+  replacement without changing unrelated selections or configuration.
+
 ## [0.3.4] - 2026-10-10
 
 ### Fixed

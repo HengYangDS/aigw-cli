@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
@@ -122,6 +123,50 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 	after, err := store.Load()
 	if err != nil || after.RecommendedRoute(configuration.ClientClaude) != "" || after.RecommendedRoute(configuration.ClientCodex) != "codex" {
 		t.Fatalf("removal recommendation state = %#v, %v", after.Recommendations, err)
+	}
+}
+
+func TestRemoveRoutePromotesTheReviewedAlternativeWithoutSelectingIt(t *testing.T) {
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	cfg := configuration.NewConfig()
+	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
+	for _, name := range []string{"retired", "fallback", "reserve", "codex"} {
+		cfg.Routes[name] = configuration.Route{
+			Label: name, Account: "team", Model: name,
+			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
+				configuration.ProtocolAnthropic: {}, configuration.ProtocolOpenAIResponses: {},
+			},
+		}
+	}
+	fallback := configuration.ClientSelection{Route: "fallback", Protocol: configuration.ProtocolAnthropic}
+	reserve := configuration.ClientSelection{Route: "reserve", Protocol: configuration.ProtocolAnthropic}
+	cfg.Recommendations[configuration.ClientClaude] = configuration.ClientRecommendation{
+		Primary:      configuration.ClientSelection{Route: "retired", Protocol: configuration.ProtocolAnthropic},
+		Alternatives: []configuration.ClientSelection{fallback, reserve},
+	}
+	cfg.SetRecommendedRoute(configuration.ClientCodex, "codex")
+	cfg.SetSelectedRoute(configuration.ClientCodex, "codex")
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	command := newRemoveCommand(invocation.Context{Config: store, Secrets: secrets.NewMemoryStore(), Out: &bytes.Buffer{}, RenderOut: &bytes.Buffer{}})
+	command.SetArgs([]string{"retired"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	after, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := configuration.ClientRecommendation{Primary: fallback, Alternatives: []configuration.ClientSelection{reserve}}
+	if !reflect.DeepEqual(after.Recommendations[configuration.ClientClaude], want) || after.SelectedRoute(configuration.ClientClaude) != "" {
+		t.Fatalf("recommendation promotion changed reviewed choices or active selection: %+v", after)
+	}
+	if _, present := after.Routes["retired"]; present {
+		t.Fatal("removed route remains configured")
+	}
+	if after.SelectedRoute(configuration.ClientCodex) != "codex" || !reflect.DeepEqual(after.Recommendations[configuration.ClientCodex], cfg.Recommendations[configuration.ClientCodex]) || !reflect.DeepEqual(after.Accounts, cfg.Accounts) {
+		t.Fatalf("route removal changed unrelated bindings or accounts: %+v", after)
 	}
 }
 
