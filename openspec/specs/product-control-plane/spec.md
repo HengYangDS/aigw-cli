@@ -995,6 +995,14 @@ client path.
 - **AND** SHALL NOT write client configuration, operator sessions, conversation
   history, model metadata, or external gateway state
 
+#### Scenario: Codex verification reclaims its owned resources
+
+- **WHEN** the Codex client succeeds, fails, exits while its descendants run, is
+  interrupted, or reaches its turn deadline
+- **THEN** AIGW SHALL stop the client process tree it started and remove its
+  verification workspace before returning
+- **AND** SHALL leave unrelated processes and protected files unchanged
+
 ### Requirement: Windows path derivation preserves the selected namespace
 
 Derived configuration, data, credential, client-settings and installation paths
