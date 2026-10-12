@@ -30,3 +30,10 @@ func TestProviderPreservesLogicalValueAcrossLifecycle(t *testing.T) {
 		t.Fatalf("missing read = %v", err)
 	}
 }
+
+func TestProviderRejectsUnknownCredentialOperation(t *testing.T) {
+	value, err := queryCredential("unknown", "AIGW_TOKEN", "provider-test", nil)
+	if value != nil || !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("unknown credential operation returned output: %q, %v", value, err)
+	}
+}
