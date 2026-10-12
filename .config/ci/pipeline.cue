@@ -292,6 +292,15 @@ actions: {
 
 hermesSourceCommit:    "345cd2b057a452236de401d3534b8502a7465e8d"
 hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791de2d56f5"
+workflowEvidencePath:  "build/verification/workflows"
+
+#WorkflowEvidenceGitHubStep: {
+	_name: string
+	name:  "Retain native workflow evidence"
+	if:    "always()"
+	uses:  actions.upload
+	with: {name: _name, path: workflowEvidencePath, "if-no-files-found": "ignore"}
+}
 
 #ReleaseTrustFiles: {
 	AIGW_RELEASE_ALLOWED_SIGNERS_FILE:          "$AIGW_RELEASE_ALLOWED_SIGNERS"
@@ -563,6 +572,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 				"if-no-files-found": "warn"
 			}
 		},
+		#WorkflowEvidenceGitHubStep & {_name: "workflow-evidence-\(_platform)"},
 	]
 }
 
@@ -628,7 +638,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	}]
 	artifacts: {
 		when: "always"
-		paths: ["mise.lock", ".mise/locks", nativeEvidence[_platform].coverage]
+		paths: ["mise.lock", ".mise/locks", nativeEvidence[_platform].coverage, workflowEvidencePath]
 	}
 	if _platform == "linux" {
 		extends: [".linux-toolchain"]
@@ -740,7 +750,8 @@ gitlab: {
 
 githubVerify: {
 	name: "Verify"
-	env:  nativeGitEnvironment
+	defaults: run: shell: "bash"
+	env: nativeGitEnvironment
 	"on": {
 		push: {branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch], tags: ["v*"]}
 		"pull_request": branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch]
@@ -864,6 +875,7 @@ githubVerify: {
 					}
 					run: commands.quality
 				},
+				#WorkflowEvidenceGitHubStep & {_name: "workflow-evidence-quality"},
 			]
 		}
 		for platform in productEvidence.native {

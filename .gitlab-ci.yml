@@ -38,6 +38,7 @@ native-darwin:
       - mise.lock
       - .mise/locks
       - build/acceptance/coverage-darwin.out
+      - build/verification/workflows
 native-linux:
   extends:
     - .linux-toolchain
@@ -70,6 +71,7 @@ native-linux:
       - mise.lock
       - .mise/locks
       - build/acceptance/coverage-linux.out
+      - build/verification/workflows
   script:
     - DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
     - mise run bootstrap
@@ -132,6 +134,7 @@ native-windows:
       - mise.lock
       - .mise/locks
       - build/acceptance/coverage-windows.out
+      - build/verification/workflows
 variables:
   GIT_DEPTH: "0"
   GOPROXY: https://goproxy.cn|https://proxy.golang.org|direct

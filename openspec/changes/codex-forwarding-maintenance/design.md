@@ -65,6 +65,14 @@ registry redesign, or independent helper is included.
 
 ## Implementation Ownership
 
+The existing CI owner checks workflow structure with stable Actionlint and
+validates each selected Bash or sh input through standalone stable ShellCheck.
+Both checks retain their original rules. This reuses the development line's
+native workflow check to avoid Actionlint's pre-start pipe deadlock on macOS;
+the maintenance line retains its existing process Runner, tool locks and
+credential boundary. Preserve script identities and validator diagnostics,
+bound each child execution, and refuse incomplete shell selection or results.
+
 Performance diagnostics follow their origin. Product prepare and measured
 commands retain the existing warning/error preflight. Hyperfine's statistical
 advice remains in its raw output rather than terminating sample collection;

@@ -1,4 +1,7 @@
 name: Verify
+defaults:
+  run:
+    shell: bash
 env:
   GIT_CONFIG_COUNT: "2"
   GIT_CONFIG_KEY_0: init.defaultBranch
@@ -150,6 +153,13 @@ jobs:
           AIGW_RELEASE_ALLOWED_SIGNERS_FILE: ${{ env.AIGW_RELEASE_ALLOWED_SIGNERS_FILE }}
           AIGW_CHANGELOG_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: mise exec --locked -- go run ./tools/ci quality
+      - name: Retain native workflow evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: workflow-evidence-quality
+          path: build/verification/workflows
+          if-no-files-found: ignore
   native-darwin:
     defaults:
       run:
@@ -248,6 +258,13 @@ jobs:
           name: native-coverage-darwin
           path: build/acceptance/coverage-darwin.out
           if-no-files-found: warn
+      - name: Retain native workflow evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: workflow-evidence-darwin
+          path: build/verification/workflows
+          if-no-files-found: ignore
   native-linux:
     defaults:
       run:
@@ -364,6 +381,13 @@ jobs:
           name: native-coverage-linux
           path: build/acceptance/coverage-linux.out
           if-no-files-found: warn
+      - name: Retain native workflow evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: workflow-evidence-linux
+          path: build/verification/workflows
+          if-no-files-found: ignore
   native-windows:
     defaults:
       run:
@@ -573,3 +597,10 @@ jobs:
           name: native-coverage-windows
           path: build/acceptance/coverage-windows.out
           if-no-files-found: warn
+      - name: Retain native workflow evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: workflow-evidence-windows
+          path: build/verification/workflows
+          if-no-files-found: ignore
