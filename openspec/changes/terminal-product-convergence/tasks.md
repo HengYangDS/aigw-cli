@@ -88,9 +88,12 @@ in Git; original raw results stay with their source-bound verification owner.
 - [x] 4.3 Prove that ordered existing recommendations select only usable
       unselected Routes, preserve explicit choices, and exclude manual-only
       Providers; no control-plane command claims request-time failover.
-- [x] 4.4 Qualify Codex with selected non-OpenAI-family Responses-compatible
+- [ ] 4.4 Qualify Codex with selected non-OpenAI-family Responses-compatible
       models using its actual model chooser, authentication and tool loop; state
       native limitations instead of forging a model list.
+      Recorded Grok tool execution does not qualify native chooser or metadata
+      support. Candidate `2b746c96` still has ten metadata-incomplete Routes;
+      public verification refuses success and preserves their checkpoints.
 - [ ] 4.5 Requalify Claude Code, Claude Desktop, Codex, and Hermes independently
       for native protocol, model selection, credential and rollback behavior; do not
       infer Desktop from CLI or endpoint reachability from real-client success.
@@ -165,6 +168,10 @@ in Git; original raw results stay with their source-bound verification owner.
       Exact `2b746c96` macOS ENV and Linux ENV/file/Secret Service budgets passed;
       Windows, macOS native-store and final-byte scopes remain open. Results and
       measured costs are bound in the [reuse contract](design.md#reuse-only-qualified-scopes).
+      October 12 component attribution isolated executable-read costs. A larger
+      pooled buffer showed no demonstrated benefit and was rejected; complete
+      identity and post-write checks remain. Original diagnostic and rejected
+      prototype results stay with their source-bound verification owners.
 - [x] 6.7 Assert warnings and malformed public errors fail at their origin;
       human and JSON output must expose precise state and safe action without
       private paths, Token fragments, internal modules or tracebacks.
