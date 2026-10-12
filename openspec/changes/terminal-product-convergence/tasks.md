@@ -177,9 +177,13 @@ in Git; original raw results stay with their source-bound verification owner.
       Reuse requires matching source, artifact, controller, OS, backend and command
       identities; another tree's checkbox or one platform's measurements cannot
       qualify the remaining boundaries.
-      Exact `2b746c96` macOS ENV and Linux ENV/file/Secret Service budgets passed;
-      Windows, macOS native-store and final-byte scopes remain open. Results and
-      measured costs are bound in the [reuse contract](design.md#reuse-only-qualified-scopes).
+      Exact `2b746c96` macOS/Linux ENV workloads passed; file/Secret Service
+      samples cover four workloads, not complete native performance. Signed
+      `2470765f` closes selected-backend workload admission with focused and full
+      source gates, without claiming measured platform budgets. Windows, macOS
+      native-store, complete optional-backend and final-byte scopes remain open.
+      Results and measured costs are bound in the
+      [reuse contract](design.md#reuse-only-qualified-scopes).
       October 12 component attribution isolated executable-read costs. A larger
       pooled buffer showed no demonstrated benefit and was rejected; complete
       identity and post-write checks remain. Original diagnostic and rejected

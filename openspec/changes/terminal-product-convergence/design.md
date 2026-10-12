@@ -488,14 +488,31 @@ not Provider latency, another platform, a quiet host or optimization benefit.
 Build and CI costs remain with their actual construction and job receipts;
 unmatched timing is neither optimization nor regression evidence.
 
-The `2b746c96` candidate passed macOS ENV and Linux ARM64 ENV/file/Secret Service
-budgets in `macos-env-performance-20261012` and `linux-native-store-performance-20261012`
-under that source's verification root. Raw samples, controllers and memory remain.
+The `2b746c96` candidate passed macOS and Linux ARM64 ENV workloads in
+`macos-env-performance-20261012` and `linux-native-store-performance-20261012`
+under that source's verification root. Its file/Secret Service samples cover only
+credential, projection, setup and sync, not the complete eight-workload contract.
+Raw samples, controllers and memory remain; those optional-backend results cannot
+qualify complete native performance.
 These bound overhead, not speedup: macOS setup/sync/projection/status are slower
 in both blocks, with observed contention. Linux locked-store/refusal/lifecycle passed;
 supplier registration warnings remain disclosed, not a pristine aggregate gate.
 `native-lifecycle-20261012` has one Desktop skip; Linux has none. Windows, macOS
 Keychain, final Developer ID bytes and package-link cutover remain open.
+
+Signed `2470765fa335c0f7b0f2b989e53ba86d98753b43`, tree
+`20326e0ff6b63e422869a7001e70a01e353a7b3c`, closes this admission defect:
+the existing Summary records the producer's selected backends, and one ordered
+workload contract drives production and review (full eight; forwarding five).
+Review requires every selected variant/backend/workload exactly once, including
+an entirely missing optional backend; unselected backends remain optional.
+Original budgets, two 40-sample blocks and process/reader identities are unchanged.
+Focused RED/GREEN, static analysis and the 512 size gate pass. The complete
+190.55-second source gate retained all 1,252 inputs unchanged and covered
+15,071/15,858 statements, above the strict 95% floor. Receipts remain under
+`build/verification/b537a974eb9414e2cd24fcca0646775bb9383b4b/native-performance-workload-closure-20261012`.
+This proves workload admission, not measured native-store budgets or later bytes;
+Task 6.6 remains open.
 
 ### 6. Delete by consumer and authority
 

@@ -353,6 +353,14 @@ source diagnostic regressions and explicitly selected artifact measurements.
 Selected measurements first qualify native preparation, exact arguments,
 diagnostic streams and schema 2 through the existing focused fixture. A failed
 preflight stops the operation before the full performance samples.
+The existing Summary records `selected_backends` from the execution input, not
+from successful samples: ENV is always selected, file is selected on Linux, and
+system keyring requires `AIGW_VERIFY_SYSTEM_KEYRING=1`. Each selected backend must
+provide all eight full-scope workloads or five candidate-only forwarding workloads
+through the common measurement contract. Missing selection, a missing workload or
+an entirely missing selected backend refuses qualification; unselected optional
+backends remain optional. Historical partial-backend receipts remain evidence for
+their measured workloads, not complete native performance.
 An explicit performance output selects only the matching measurements after
 normal artifact, source and predecessor trust checks; it does not repeat core,
 rollback or resource lifecycle acceptance. `--clients` additionally runs the
