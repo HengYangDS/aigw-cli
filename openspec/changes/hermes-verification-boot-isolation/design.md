@@ -49,6 +49,12 @@ work.
    only the refusal scenario. The terminal lane's 525-character text would fail
    strict validation.
 5. Remove the replaced whole-directory `shareHermesInstallState`.
+6. Spell the `mise.toml` lychee entry as a standard table, like its OSV Scanner
+   entry. The bound ETHOS runtime checks TOML against its shipped baseline
+   (`compact_inline_tables = false`) as well as this repository's policy
+   (`true`), so the single-line inline table could satisfy only one of them and
+   blocked every proof. The parsed configuration is unchanged; reconciling the
+   two policies stays with their owners.
 
 ## Risks / Trade-offs
 

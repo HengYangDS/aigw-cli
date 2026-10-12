@@ -10,6 +10,7 @@
 
 - [x] 2.1 Run `mise run check` and `mise run native` once on the stable tree without warnings, failed subtests, or test-owned residue.
 - [x] 2.2 Run one source-built `aigw verify --for hermes` against the installed Hermes, then repeat its layout, policy and arguments with the operator's signed credential reader; verify the version probe, the `AIGW_OK` response, unchanged boot records, dependency selection, launchers and AIGW data, and that no disposable home remains.
+- [x] 2.3 Spell the `mise.toml` lychee entry as a standard table so it passes both the repository TOML policy and the bound ETHOS runtime's shipped baseline; verify that the parsed configuration is unchanged and that the locked tool still resolves.
 
 ## Workflow follow-up
 
