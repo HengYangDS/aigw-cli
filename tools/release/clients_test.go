@@ -4,6 +4,7 @@ package main
 
 import (
 	"aigw-cli/internal/configuration"
+	hermesconfig "aigw-cli/internal/hermes/configuration"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
@@ -376,6 +377,23 @@ func (j *journeyFixture) prepareNativeClient(client, executable string, team []b
 	j.setEnvironment("CODEX_HOME", filepath.Join(home, ".codex"))
 	j.setEnvironment("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
 	j.setEnvironment("HERMES_HOME", filepath.Join(home, ".hermes"))
+	if client == configuration.ClientHermes {
+		nativeHome, err := requiredClientInput("AIGW_ACCEPTANCE_HERMES_HOME", true)
+		if err != nil {
+			j.testing.Fatal(err)
+		}
+		verificationHome, cleanup, err := hermesconfig.CreateVerificationHome(filepath.Join(nativeHome, "config.yaml"))
+		if err != nil {
+			j.testing.Fatal(err)
+		}
+		j.testing.Cleanup(func() {
+			if err := cleanup(); err != nil {
+				j.testing.Error(err)
+			}
+		})
+		j.setEnvironment("HERMES_HOME", verificationHome)
+		j.setEnvironment("HERMES_DISABLE_LAZY_INSTALLS", "1")
+	}
 	preferences := map[string]string{
 		// This journey owns client inference and projection, not marketplace synchronization.
 		configuration.ClientCodex: `model_reasoning_effort = 'high'
@@ -388,12 +406,12 @@ plugins = false
 max_concurrent_threads_per_session = 16
 `,
 		configuration.ClientClaude: `{"effortLevel":"high","autoCompactWindow":180000}`,
-		configuration.ClientHermes: "model:\n  temperature: 0.3\nproviders:\n  personal:\n    base_url: https://personal.test\nterminal:\n  backend: local\n",
+		configuration.ClientHermes: "model:\n  temperature: 0.3\nproviders:\n  personal:\n    base_url: https://personal.test\nterminal:\n  backend: local\nmemory:\n  enabled: false\nplugins:\n  enabled: []\nsecurity:\n  allow_lazy_installs: false\nupdates:\n  check: false\ncli:\n  expose_on_path: false\n",
 	}
 	path := map[string]string{
 		configuration.ClientClaude: j.settings,
 		configuration.ClientCodex:  filepath.Join(home, ".codex", "config.toml"),
-		configuration.ClientHermes: filepath.Join(home, ".hermes", "config.yaml"),
+		configuration.ClientHermes: filepath.Join(environmentValues(j.environment)["HERMES_HOME"], "config.yaml"),
 	}[client]
 	if path == "" {
 		j.testing.Fatalf("unsupported native client %q", client)
@@ -491,7 +509,7 @@ func (j *journeyFixture) preserveClientFiles(client string) func() error {
 	case configuration.ClientCodex:
 		path, content = filepath.Join(home, ".codex", "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
 	case configuration.ClientHermes:
-		path, content = filepath.Join(home, ".hermes", "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
+		path, content = filepath.Join(environmentValues(j.environment)["HERMES_HOME"], "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		j.testing.Fatal(err)
