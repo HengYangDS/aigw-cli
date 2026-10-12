@@ -212,9 +212,11 @@ Missing locks refuse launch; Hermes owns leases. No upstream isolation API.
 `PrepareVerification` disables lazy installs, update checks and PATH exposure.
 Hermes 0.21.6 ignores the last on Windows; AIGW refuses before launch.
 
-The [boot regression](../../../internal/client/hermes_native_test.go) and
+The [boot regression](../../../internal/client/hermes_native_test.go) exercises
+Hermes' native record resolver with boot steps stubbed. The
 [custody regressions](../../../internal/hermes/configuration/verification_test.go)
-prove private records, physical-lock identity, refusal and containment.
+check physical-lock identity, refusal and containment; a real journey separately
+qualifies launch effects.
 
 Signed `2b746c9610424f0071bdcf4e5a2900fc08f5af3d` produced a six-target candidate.
 Installed macOS Codex, Claude Code and Hermes independently passed packaged
@@ -223,8 +225,26 @@ Tokens/local servers. Codex tools and Hermes continuation/model adoption passed;
 ten general Routes remained metadata-unqualified. All 85,992 Hermes dependency/tool
 nodes and operator state stayed intact except a lease-directory mtime; no residues.
 
-Evidence: `build/verification/<source>/native-{codex-modes,claude-mode,hermes-artifact}-20261012`.
-Complete source remains bound to `55b7be64` (95.06%), not this candidate.
+Current signed `8254c1f5` produced a refreshed six-target matrix. Its source tree
+`66591638` matches all 1,248 accepted inputs: Go 1.27.2 measures 95.01% statement
+coverage, above the unchanged strict 95% floor. Artifact checksum signing is
+distinct from Developer ID signing and notarization; this candidate uses ad-hoc
+macOS signatures.
+
+The current native boot regression and packaged macOS Hermes journey passed,
+including `verify --for hermes`, streaming tools, continuation, native model
+adoption, forwarding and the four retained-predecessor lifecycle stages. All eight
+operator files and the default boot record stayed byte/mode/inode intact; all
+86,077 dependency/tool nodes remained, with only native lease-directory mtime
+changed. The authorized 36 residue records remain absent. Hermes' existing
+dependency-lock warning persists; this is not warning-free installation or
+full product acceptance. Windows verification still refuses before launch.
+
+Evidence: `build/verification/<source>/native-{candidate,hermes-boot,hermes-artifact}-20261012`
+for `8254c1f5`; the original `2b746c96` Codex, Claude and Linux scopes retain their
+own receipts. Full source evidence remains under
+`build/verification/5c64433d1a9f081d0c0ec3b530c56f6b906cbc54/supplier-refresh-preflight-20261012`; final-byte,
+native-store, Desktop, Windows and clean-supply obligations remain open.
 
 An Account endpoint declares upstream service identity. An explicitly selected
 Client Binding may declare a forwarding endpoint without changing that Account,

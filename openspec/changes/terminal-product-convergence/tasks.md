@@ -102,6 +102,9 @@ in Git; original raw results stay with their source-bound verification owner.
       forwarding, Codex tools and Hermes continuation/model adoption. Hermes
       boot-record isolation and dependency custody are qualified in the
       [native-client design](design.md#3-qualify-a-client-adapter-do-not-infer-support-from-a-file).
+      Current `8254c1f5` independently requalifies the packaged macOS Hermes
+      journey and native boot regression, with no operator-state mutation or new
+      residue; the existing dependency-lock warning remains disclosed.
       Real Provider credentials, Desktop and other platforms remain open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,
@@ -144,6 +147,9 @@ in Git; original raw results stay with their source-bound verification owner.
       against the latest stable compatible upstream; update authored pins and locks
       once, then prove clean-context reproducibility and license/security
       admissibility.
+      October 12 supplier pins and locks are refreshed; the signed `8254c1f5`
+      six-target candidate and matching full-source gate pass. Independent cold
+      supply, the missing mirror object and native Windows supply remain open.
 - [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
@@ -253,7 +259,9 @@ in Git; original raw results stay with their source-bound verification owner.
       journeys; retain the source and artifact hashes and disclose missing platform
       evidence.
       The signed `2b746c96` matrix passed macOS/Linux retained-state lifecycle and
-      macOS native CLI clients; supplier warnings and Desktop/Windows gaps remain.
+      macOS native CLI clients. Refreshed `8254c1f5` passes the native boot
+      regression and real macOS Hermes journey; source inputs match the full gate.
+      Supplier warnings, native stores, final bytes and Desktop/Windows remain open.
       Production publication and installed Homebrew cutover follow the
       [Migration Plan](design.md#migration-plan). Equal product inputs do not
       rebind signatures, source epoch or provenance.
