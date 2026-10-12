@@ -17,9 +17,25 @@ import (
 )
 
 func TestDoctorReportsOneCredentialCheckForSharedAccount(t *testing.T) {
-	app, _ := readyVerificationApp(t)
+	app, runner := readyVerificationApp(t)
+	observations := 0
+	present := true
+	app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
+		if key != secrets.EnvironmentKey("dmx") {
+			t.Fatalf("doctor observed an unrelated credential purpose: %q", key)
+		}
+		observations++
+		if present {
+			return "verification-token"
+		}
+		return ""
+	})
 	out := new(bytes.Buffer)
 	app.Out = out
+	before, err := app.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := cli.Execute(app, []string{"doctor", "--json"}); err != nil {
 		t.Fatal(err)
 	}
@@ -43,6 +59,27 @@ func TestDoctorReportsOneCredentialCheckForSharedAccount(t *testing.T) {
 	}
 	if credentials != 1 {
 		t.Fatalf("credential checks = %d, want one shared Account", credentials)
+	}
+	if observations != 1 {
+		t.Errorf("doctor observed the shared Account %d times, want once per invocation", observations)
+	}
+	present = false
+	out.Reset()
+	if err := cli.Execute(app, []string{"doctor", "--json"}); err == nil {
+		t.Fatal("new doctor invocation reused stale credential availability")
+	}
+	if observations != 2 {
+		t.Errorf("two doctor invocations observed the shared Account %d times, want two", observations)
+	}
+	if !strings.Contains(out.String(), `"detail": "missing"`) || !strings.Contains(out.String(), "set environment variable AIGW_TOKEN_DMX") {
+		t.Fatalf("new doctor invocation did not report the missing Token: %s", out)
+	}
+	after, err := app.Config.CaptureSnapshot()
+	if err != nil || !before.Config.Equal(after.Config) || !before.Backup.Equal(after.Backup) || !before.Verified.Equal(after.Verified) {
+		t.Fatalf("doctor mutated configuration: %v", err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatal("doctor executed a client or credential helper")
 	}
 }
 

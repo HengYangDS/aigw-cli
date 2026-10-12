@@ -69,12 +69,12 @@
   },
   "sources": {
     "cli": {
-      "sha256": "e33079fb48bc78e56ea783a103e27e808806e302c3f59e381e8a73dc1f25ec7f",
+      "sha256": "4a504c01b5f947c579f059b3729781b219bf7c12e648b69dc77694b230cc586f",
       "locator": "source/internal/cli/app.go",
       "authority": "AIGW command composition at the selected product revision"
     },
     "configuration": {
-      "sha256": "907209095b0fc68e22563f815493980f6a682c630e3d146d438cbee5a7ff9489",
+      "sha256": "6b0031b0f649d613c7660d45a6a3fafe7b1a6974406ad6edfa34d2400013ed3d",
       "locator": "source/internal/configuration/model.go",
       "authority": "AIGW Account, Model, Route, recommendation, and Client Binding authority"
     },

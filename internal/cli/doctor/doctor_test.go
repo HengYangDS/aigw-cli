@@ -281,7 +281,7 @@ func TestClaudeExecutableReadFailuresAreDiagnostic(t *testing.T) {
 func TestCommandHumanAndJSONPaths(t *testing.T) {
 	cfg := validDoctorConfig()
 	deps, out, secretStore := doctorDependencies(t, cfg)
-	deps.Inspect = func(configuration.Config) map[string]domainreadiness.Client {
+	deps.Inspect = func(configuration.Config, secrets.Store) map[string]domainreadiness.Client {
 		return map[string]domainreadiness.Client{
 			configuration.ClientClaude: {State: domainreadiness.Configured, Route: "claude", Account: "team"},
 			configuration.ClientCodex:  {State: domainreadiness.Deferred, NextAction: "aigw sync"},
@@ -398,7 +398,7 @@ func TestCommandPreservesCanonicalClientsWhenInspectionFails(t *testing.T) {
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
-	deps.Inspect = func(configuration.Config) map[string]domainreadiness.Client {
+	deps.Inspect = func(configuration.Config, secrets.Store) map[string]domainreadiness.Client {
 		return map[string]domainreadiness.Client{
 			configuration.ClientClaude: {
 				State:      domainreadiness.Unavailable,

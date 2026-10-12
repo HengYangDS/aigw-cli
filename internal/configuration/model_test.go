@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"errors"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -68,6 +69,30 @@ func TestRequiredAccountTokensFollowEnabledRoutesAndAuthentication(t *testing.T)
 	if got := cfg.RequiredAccountTokenIDs(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("enabled Token scope = %v, want %v", got, want)
 	}
+	binding.CredentialCommand = filepath.Join(t.TempDir(), "external-reader")
+	cfg.Clients[ClientCodex] = binding
+	if got := cfg.RequiredAccountTokenIDs(); len(got) != 0 {
+		t.Fatalf("external credential ownership requires a duplicate Token: %v", got)
+	}
+	runtime, err := cfg.ResolveRuntime(ClientCodex, "")
+	if err != nil || !runtime.RequiresAccountToken() || runtime.UsesAIGWCredentialStore() {
+		t.Fatalf("external credential ownership changed wire authentication: %+v, %v", runtime, err)
+	}
+	cfg.Accounts[want[0]] = cfg.Accounts["dmx"]
+	cfg.Routes["dmx"] = testRoute("Shared", want[0], "claude-test", ProtocolAnthropic)
+	claude := cfg.Clients[ClientClaude]
+	claude.Enabled = true
+	cfg.Clients[ClientClaude] = claude
+	if got := cfg.RequiredAccountTokenIDs(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("shared Account lost its AIGW-owned credential consumer: %v", got)
+	}
+	claude.CredentialCommand = binding.CredentialCommand
+	cfg.Clients[ClientClaude] = claude
+	if got := cfg.RequiredAccountTokenIDs(); len(got) != 0 {
+		t.Fatalf("shared external credential consumers require a duplicate Token: %v", got)
+	}
+	delete(cfg.Clients, ClientClaude)
+	binding.CredentialCommand = ""
 	binding.Authentication = AuthenticationClientNative
 	binding.ModelProvider = "native"
 	cfg.Clients[ClientCodex] = binding

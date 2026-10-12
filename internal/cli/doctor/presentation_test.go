@@ -3,6 +3,7 @@ package doctor
 import (
 	configuration "aigw-cli/internal/configuration"
 	domainreadiness "aigw-cli/internal/readiness"
+	"aigw-cli/internal/secrets"
 	"strings"
 	"testing"
 )
@@ -129,7 +130,7 @@ func TestResultClassifiesObservedClientStates(t *testing.T) {
 			if err := secretStore.Set("team", "token"); err != nil {
 				t.Fatal(err)
 			}
-			deps.Inspect = func(configuration.Config) map[string]domainreadiness.Client {
+			deps.Inspect = func(configuration.Config, secrets.Store) map[string]domainreadiness.Client {
 				return map[string]domainreadiness.Client{configuration.ClientClaude: {State: test.state}}
 			}
 			result := executeJSON(t, deps, out)

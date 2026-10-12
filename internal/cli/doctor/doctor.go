@@ -25,7 +25,7 @@ type Dependencies struct {
 	Secrets   secrets.Store
 	Clients   synchronization.Synchronizer
 	Env       []string
-	Inspect   func(configuration.Config) map[string]domainreadiness.Client
+	Inspect   func(configuration.Config, secrets.Store) map[string]domainreadiness.Client
 	Out       io.Writer
 	Color     bool
 	Width     int
@@ -67,7 +67,10 @@ func NewCommand(deps Dependencies) *cobra.Command {
 		Short: "Show detailed diagnostics for configuration, secrets, and adapters",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			result := collectResult(cmd.Context(), deps)
+			operation := deps
+			operation.Secrets = secrets.ObserveAvailability(deps.Secrets)
+			operation.Clients.Secrets = operation.Secrets
+			result := collectResult(cmd.Context(), operation)
 			if jsonMode {
 				if err := presentation.WriteJSON(deps.Out, result); err != nil {
 					return err
@@ -196,7 +199,7 @@ func inspectClients(deps Dependencies) map[string]domainreadiness.Client {
 	if err != nil {
 		return map[string]domainreadiness.Client{}
 	}
-	clients := deps.Inspect(cfg)
+	clients := deps.Inspect(cfg, deps.Secrets)
 	return clients
 }
 

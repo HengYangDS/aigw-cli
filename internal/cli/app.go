@@ -264,8 +264,10 @@ func environmentMap(values []string) map[string]string {
 func (a *App) doctorCommand() *cobra.Command {
 	return doctor.NewCommand(doctor.Dependencies{
 		Config: a.Config, Secrets: a.Secrets, Clients: invocation.Synchronizer(a.invocationContext()), Env: a.Env, Out: a.outputWriter(),
-		Inspect: func(cfg configuration.Config) map[string]domainreadiness.Client {
-			return readiness.InspectClients(a.invocationContext(), cfg)
+		Inspect: func(cfg configuration.Config, store secrets.Store) map[string]domainreadiness.Client {
+			operation := a.invocationContext()
+			operation.Secrets = store
+			return readiness.InspectClients(operation, cfg)
 		},
 		RenderOut: a.outputWriter(),
 		Color:     a.Color, Width: presentation.PresentationWidth(a.Out, environmentMap(a.Env)),

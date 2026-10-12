@@ -393,13 +393,13 @@ func (c *Config) SelectedAccountIDs() []string {
 }
 
 // RequiredAccountTokenIDs returns the stable set of Accounts whose Tokens are
-// required by enabled Client Bindings. Client-native Routes remain client
-// credential concerns and therefore never create an AIGW Token requirement.
+// retrieved by AIGW for enabled Client Bindings. Client-native authentication
+// and external readers retain their credential ownership.
 func (c *Config) RequiredAccountTokenIDs() []string {
 	required := map[string]bool{}
 	for _, client := range c.EnabledClientIDs() {
 		runtime, err := c.ResolveRuntime(client, "")
-		if err == nil && runtime.AccountID != "" && runtime.RequiresAccountToken() {
+		if err == nil && runtime.AccountID != "" && runtime.UsesAIGWCredentialStore() {
 			required[runtime.AccountID] = true
 		}
 	}

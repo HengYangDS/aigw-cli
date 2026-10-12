@@ -65,13 +65,18 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatal(err)
 	}
-	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: errors.New("native metadata must not select external credentials")}
-	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"route", "list"}, {"route", "show", "claude"}, {"use", "--for", "claude", "claude"}, {"client", "disable", "claude"}, {"client", "enable", "claude", "--executable", cfg.Clients[configuration.ClientClaude].Executable}} {
+	before, err := app.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: errors.New("native metadata must not select external credentials")}
+	app.Secrets = store
+	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"doctor", "--json"}, {"doctor"}, {"route", "list"}, {"route", "show", "claude"}, {"use", "--for", "claude", "claude"}, {"client", "disable", "claude"}, {"client", "enable", "claude", "--executable", cfg.Clients[configuration.ClientClaude].Executable}} {
 		out.Reset()
 		if err := cli.Execute(app, args); err != nil {
 			t.Fatalf("%v required a native Token: %v", args, err)
 		}
-		if args[0] == "check" || args[0] == "status" {
+		if args[0] == "check" || args[0] == "status" || (args[0] == "doctor" && len(args) > 1) {
 			var result canonicalReadinessDocument
 			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 				t.Fatal(err)
@@ -81,6 +86,18 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 				t.Fatalf("external credential readiness = %#v", state)
 			}
 		}
+		if args[0] == "doctor" {
+			after, err := app.Config.CaptureSnapshot()
+			if err != nil || !before.Config.Equal(after.Config) || !before.Backup.Equal(after.Backup) || !before.Verified.Equal(after.Verified) {
+				t.Fatalf("diagnosis changed external credential policy: %v", err)
+			}
+			if !strings.Contains(out.String(), "aigw verify --for claude") || strings.Contains(out.String(), "rotate") || strings.Contains(out.String(), "secret:gateway") {
+				t.Fatalf("diagnosis confused credential retrieval with wire authentication: %s", out)
+			}
+		}
+	}
+	if len(store.existsCalls)+len(store.getCalls)+len(store.setCalls)+len(store.deleteCalls) != 0 {
+		t.Fatal("local admission observed or mutated external credentials")
 	}
 	if len(runner.plans) != 0 {
 		t.Fatal("local admission executed a client or credential helper")
