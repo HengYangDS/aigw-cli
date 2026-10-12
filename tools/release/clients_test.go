@@ -4,7 +4,6 @@ package main
 
 import (
 	"aigw-cli/internal/configuration"
-	hermesconfig "aigw-cli/internal/hermes/configuration"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
@@ -378,21 +377,7 @@ func (j *journeyFixture) prepareNativeClient(client, executable string, team []b
 	j.setEnvironment("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
 	j.setEnvironment("HERMES_HOME", filepath.Join(home, ".hermes"))
 	if client == configuration.ClientHermes {
-		nativeHome, err := requiredClientInput("AIGW_ACCEPTANCE_HERMES_HOME", true)
-		if err != nil {
-			j.testing.Fatal(err)
-		}
-		verificationHome, cleanup, err := hermesconfig.CreateVerificationHome(filepath.Join(nativeHome, "config.yaml"))
-		if err != nil {
-			j.testing.Fatal(err)
-		}
-		j.testing.Cleanup(func() {
-			if err := cleanup(); err != nil {
-				j.testing.Error(err)
-			}
-		})
-		j.setEnvironment("HERMES_HOME", verificationHome)
-		j.setEnvironment("HERMES_DISABLE_LAZY_INSTALLS", "1")
+		j.prepareHermesHome()
 	}
 	preferences := map[string]string{
 		// This journey owns client inference and projection, not marketplace synchronization.
@@ -406,7 +391,7 @@ plugins = false
 max_concurrent_threads_per_session = 16
 `,
 		configuration.ClientClaude: `{"effortLevel":"high","autoCompactWindow":180000}`,
-		configuration.ClientHermes: "model:\n  temperature: 0.3\nproviders:\n  personal:\n    base_url: https://personal.test\nterminal:\n  backend: local\nmemory:\n  enabled: false\nplugins:\n  enabled: []\nsecurity:\n  allow_lazy_installs: false\nupdates:\n  check: false\ncli:\n  expose_on_path: false\n",
+		configuration.ClientHermes: nativeHermesPreferences,
 	}
 	path := map[string]string{
 		configuration.ClientClaude: j.settings,
