@@ -37,7 +37,10 @@ func runInstalledClientFixture(executable string, args []string) (bool, int) {
 			_, _ = fmt.Fprintln(os.Stdout, "hermes 0.0.0-resource-fixture")
 			return true, 0
 		}
-		return true, runVerificationResourceClient()
+		return true, runVerificationResourceClient(os.Getenv("HERMES_HOME"), func() int {
+			_, _ = fmt.Fprintln(os.Stdout, "AIGW_OK")
+			return 0
+		})
 	}
 	if client == configuration.ClientClaude {
 		if index := slices.Index(args, "--output-format"); index >= 0 && index+1 < len(args) && args[index+1] == "stream-json" {
@@ -57,7 +60,7 @@ func runInstalledClientFixture(executable string, args []string) (bool, int) {
 	for index, argument := range args {
 		if argument == "--output-last-message" && index+1 < len(args) {
 			if slices.Contains(args, "--json") {
-				return true, runCodexVerificationFixture(args, args[index+1])
+				return true, runCodexVerificationTurn(args, args[index+1])
 			}
 			if err := os.WriteFile(args[index+1], []byte("AIGW_OK\n"), 0o600); err != nil {
 				return true, 3
@@ -66,6 +69,16 @@ func runInstalledClientFixture(executable string, args []string) (bool, int) {
 		}
 	}
 	return true, 2
+}
+
+// runCodexVerificationTurn answers one Codex turn. A resource case carries the
+// owned process tree in the first turn; recall keeps its normal answer.
+func runCodexVerificationTurn(args []string, outputPath string) int {
+	answer := func() int { return runCodexVerificationFixture(args, outputPath) }
+	if os.Getenv("AIGW_TEST_RESOURCE_CASE") == "" || slices.Contains(args, "resume") {
+		return answer()
+	}
+	return runVerificationResourceClient(os.Getenv("CODEX_HOME"), answer)
 }
 
 func runCodexVerificationFixture(args []string, outputPath string) int {
@@ -146,8 +159,13 @@ func runVerificationResourceRole(role string, args []string) int {
 	return holdVerificationProcess(role, 3*time.Minute)
 }
 
-func runVerificationResourceClient() int {
+// runVerificationResourceClient publishes an owned parent and child under the
+// client's disposable home, then ends as the selected resource case requires.
+func runVerificationResourceClient(home string, answer func() int) int {
 	control := os.Getenv("AIGW_TEST_RESOURCE_CONTROL")
+	if err := os.Setenv("AIGW_TEST_RESOURCE_HOME", home); err != nil {
+		return 2
+	}
 	child := exec.Command(os.Args[0])
 	prepareVerificationInterrupt(child)
 	child.Env = environmentWith(os.Environ(), map[string]string{"AIGW_TEST_RESOURCE_ROLE": "child"})
@@ -167,8 +185,7 @@ func runVerificationResourceClient() int {
 	}
 	switch os.Getenv("AIGW_TEST_RESOURCE_CASE") {
 	case "success":
-		_, _ = fmt.Fprintln(os.Stdout, "AIGW_OK")
-		return 0
+		return answer()
 	case "failure":
 		return 17
 	case "parent-exit":
@@ -186,7 +203,7 @@ func writeVerificationProcess(path string) error {
 		role = "parent"
 	}
 	data, err := json.Marshal(verificationResourceProcess{
-		PID: os.Getpid(), Home: os.Getenv("HERMES_HOME"),
+		PID: os.Getpid(), Home: os.Getenv("AIGW_TEST_RESOURCE_HOME"),
 		Control: os.Getenv("AIGW_TEST_RESOURCE_CONTROL"), Role: role,
 	})
 	if err != nil {

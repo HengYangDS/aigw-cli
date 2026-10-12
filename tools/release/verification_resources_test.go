@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 
@@ -32,48 +33,70 @@ func TestNativeVerificationResources(t *testing.T) {
 		t.Fatal(err)
 	}
 	program, _, _ := nativeReleaseCandidate(t, root, version)
-	for _, mode := range []string{"success", "failure", "parent-exit", "interrupt", "deadline"} {
-		t.Run(mode, func(t *testing.T) {
-			journey := newNativeJourney(t, program, "https://unused.example.test", false)
-			t.Cleanup(journey.uninstallAndRequireInstallationRemoved)
-			journey.installClientFixture(configuration.ClientHermes)
-			journey.setEnvironment("HERMES_HOME", filepath.Join(journey.root, "home", ".hermes"))
-			temporary := filepath.Join(journey.root, "temporary")
-			if err := os.Mkdir(temporary, 0o700); err != nil {
-				t.Fatal(err)
+	// Hermes verification refuses on Windows before starting a client, so Codex
+	// carries the owned process tree there; other hosts exercise both clients.
+	clients := []string{configuration.ClientCodex}
+	if runtime.GOOS != "windows" {
+		clients = append([]string{configuration.ClientHermes}, clients...)
+	}
+	for _, client := range clients {
+		t.Run(client, func(t *testing.T) {
+			for _, mode := range []string{"success", "failure", "parent-exit", "interrupt", "deadline"} {
+				t.Run(mode, func(t *testing.T) { runNativeResourceCase(t, program, client, mode) })
 			}
-			for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
-				journey.setEnvironment(key, temporary)
-			}
-			journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-resource-token")
-			manifest := `version = 7
+		})
+	}
+}
 
-[recommendations.hermes.primary]
-route = "native-resource-hermes"
+func runNativeResourceCase(t *testing.T, program, client, mode string) {
+	t.Helper()
+	journey := newNativeJourney(t, program, "https://unused.example.test", false)
+	t.Cleanup(journey.uninstallAndRequireInstallationRemoved)
+	journey.installClientFixture(client)
+	if client == configuration.ClientHermes {
+		journey.setEnvironment("HERMES_HOME", filepath.Join(journey.root, "home", ".hermes"))
+	}
+	temporary := filepath.Join(journey.root, "temporary")
+	if err := os.Mkdir(temporary, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
+		journey.setEnvironment(key, temporary)
+	}
+	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-resource-token")
+	if err := os.WriteFile(journey.manifest, []byte(nativeResourceManifest(client)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+	verifyNativeResourceCase(t, journey, temporary, client, mode)
+}
+
+func nativeResourceManifest(client string) string {
+	protocol, capabilities := "openai_chat_completions", `["text"]`
+	if client == configuration.ClientCodex {
+		protocol, capabilities = "openai_responses", "[]"
+	}
+	return fmt.Sprintf(`version = 7
+
+[recommendations.%[1]s.primary]
+route = "native-resource-%[1]s"
 
 [accounts.native-system-keyring-probe]
 label = "Native Resource Probe"
 
 [accounts.native-system-keyring-probe.endpoints]
-openai_chat_completions = "https://unused.example.test/v1"
+%[2]s = "https://unused.example.test/v1"
 
 [models.native-resource-model]
 label = "Native Resource Model"
 
-[routes.native-resource-hermes]
-label = "Native Resource Hermes"
+[routes.native-resource-%[1]s]
+label = "Native Resource Route"
 account = "native-system-keyring-probe"
 model = "native-resource-model"
 upstream_model = "native-resource-model"
-interfaces = { openai_chat_completions = ["text"] }
-`
-			if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
-			verifyNativeResourceCase(t, journey, temporary, mode)
-		})
-	}
+interfaces = { %[2]s = %[3]s }
+`, client, protocol, capabilities)
 }
 
 func TestVerificationResourceCleanupStopsOwnedFixture(t *testing.T) {
@@ -150,7 +173,7 @@ func verificationInventory(t *testing.T, root string) map[string]verificationRes
 	return files
 }
 
-func verifyNativeResourceCase(t *testing.T, journey *journeyFixture, temporary, mode string) {
+func verifyNativeResourceCase(t *testing.T, journey *journeyFixture, temporary, client, mode string) {
 	t.Helper()
 	control := filepath.Join(journey.root, "control")
 	if err := os.Mkdir(control, 0o700); err != nil {
@@ -165,7 +188,7 @@ func verifyNativeResourceCase(t *testing.T, journey *journeyFixture, temporary, 
 	beforeTemporary := verificationInventory(t, temporary)
 	beforeProgram := sha256.Sum256(readFile(t, journey.binary))
 	ctx, cancel := context.WithTimeout(t.Context(), 70*time.Second)
-	command := exec.CommandContext(ctx, journey.binary, "verify", "--for", "hermes")
+	command := exec.CommandContext(ctx, journey.binary, "verify", "--for", client)
 	command.Env, command.Dir = environment, journey.root
 	prepareVerificationInterrupt(command)
 	var stdout, stderr bytes.Buffer
