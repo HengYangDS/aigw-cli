@@ -241,6 +241,13 @@ jobs:
           name: performance-darwin
           path: build/performance
           if-no-files-found: error
+      - name: Retain native coverage profile
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: native-coverage-darwin
+          path: build/acceptance/coverage-darwin.out
+          if-no-files-found: warn
   native-linux:
     defaults:
       run:
@@ -350,6 +357,13 @@ jobs:
           name: performance-linux
           path: build/performance
           if-no-files-found: error
+      - name: Retain native coverage profile
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: native-coverage-linux
+          path: build/acceptance/coverage-linux.out
+          if-no-files-found: warn
   native-windows:
     defaults:
       run:
@@ -552,3 +566,10 @@ jobs:
           name: performance-windows
           path: build/performance
           if-no-files-found: error
+      - name: Retain native coverage profile
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: native-coverage-windows
+          path: build/acceptance/coverage-windows.out
+          if-no-files-found: warn

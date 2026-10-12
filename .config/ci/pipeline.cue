@@ -145,6 +145,9 @@ gitlabControlPlatform: #OperatingSystem & "darwin"
 // This map owns native execution evidence only. Product release targets remain
 // solely owned by .config/release/goreleaser.yaml.
 nativeEvidence: {
+	for platform in productEvidence.native {
+		(platform): coverage: "build/acceptance/coverage-\(platform).out"
+	}
 	darwin: {
 		name: "macOS"
 		gitlab: {
@@ -550,6 +553,16 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 				"if-no-files-found": "error"
 			}
 		},
+		{
+			name: "Retain native coverage profile"
+			if:   "always()"
+			uses: actions.upload
+			with: {
+				name:                "native-coverage-\(_platform)"
+				path:                nativeEvidence[_platform].coverage
+				"if-no-files-found": "warn"
+			}
+		},
 	]
 }
 
@@ -615,7 +628,7 @@ hermesInstallerDigest: "226c70a90ad47e8a4d34cb11aca4ecbeb649e2f9b67fbd009ea49791
 	}]
 	artifacts: {
 		when: "always"
-		paths: ["mise.lock", ".mise/locks"]
+		paths: ["mise.lock", ".mise/locks", nativeEvidence[_platform].coverage]
 	}
 	if _platform == "linux" {
 		extends: [".linux-toolchain"]
