@@ -9,44 +9,35 @@ relations: {}
 
 # Provider Model Qualification Evidence
 
-These dated observations inform the reviewed October 10, 2026 team
-manifest. They do not maintain a live catalogue or override the
-[current Route inventory](../../manifests/team.toml). For member setup and
-model selection, use the [team rollout guide](../guides/team-rollout.md#reviewed-model-defaults).
-A public listing, bounded inference call, and native-client tool loop prove
-different claims.
+These observations inform the October 10, 2026 team manifest; they neither
+maintain a live catalogue nor override the [Route inventory](../../manifests/team.toml).
+For setup/selection, use the [team rollout guide](../guides/team-rollout.md#reviewed-model-defaults).
+Listings, bounded inference and native-client tool loops prove distinct claims.
 
 ## Curated model choices
 
-Select one general-model option per vendor from exact Account/protocol Routes
-with completed inference and compatible native-client evidence. Vendor
-positioning informs this choice; a version suffix, catalogue listing or
-vendor benchmark does not establish an independent quality ranking.
+Select one general model per vendor from exact Account/protocol Routes qualified
+by inference and native-client evidence; positioning, suffixes, listings and vendor
+benchmarks inform selection but do not prove independent quality rankings.
 
 The October 1, 2026 primary-source review closes four missing rationales:
 
 - Google's [Gemini 3.1 Pro Preview](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-pro-preview)
-  improves the Gemini 3 Pro series for thinking, software engineering and
-  precise multi-step tool use. Retain this explicitly labelled Preview as the
-  qualified Pro-class option, not a stable-release claim. Google's newer
+  improves Gemini 3 Pro thinking, engineering and multi-step tools. Retain the
+  qualified, explicitly labelled Preview, not a stable-release claim. Google's
   [Gemini 3.8 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash)
-  targets long-horizon agents. The October 5 qualification below replaces the
-  Pro Preview Route with this GA agent option after exact provider inference,
-  file-tool execution and same-session recall. This is a role and availability
-  choice, not a claim that its newer number wins every reasoning benchmark.
+  targets long-horizon agents. October 5 qualification selects this GA option over
+  Pro Preview after exact inference, file-tool execution and same-session recall:
+  role/availability evidence, not universal reasoning-benchmark superiority.
 - Z.ai's [GLM 5.3 model card](https://huggingface.co/zai-org/GLM-5.3)
-  identifies post-training improvements over GLM 5.2 for complex coding and
-  long-horizon tasks. This supports GLM 5.3 as the reviewed general coding
-  option; its vendor-reported cross-model scores are not AIGW benchmarks.
+  reports coding/long-horizon post-training improvements over GLM 5.2, supporting
+  general coding use. Vendor-reported cross-model scores are not AIGW benchmarks.
 - Moonshot's [Kimi K3 source](https://github.com/MoonshotAI/Kimi-K3)
-  calls K3 its most capable model to date for long-horizon coding, knowledge
-  work and reasoning. Keep the exact `kimi-k3` Routes rather than retaining
-  another older general Kimi slot.
+  calls K3 its most capable model for long-horizon coding, knowledge and reasoning;
+  retain exact `kimi-k3` Routes, not a second older general Kimi slot.
 - Qwen's [3.8 model card](https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B)
-  calls 3.8 its most capable open generation and explicitly identifies
-  Qwen3.8-Max as its managed version. This supports `qwen3.8-max`; it does not
-  transfer the vendor's one-million-token or built-in-tool claims to an
-  aggregator without separate evidence.
+  calls 3.8 its most capable open generation and Qwen3.8-Max its managed version,
+  supporting `qwen3.8-max`. Million-token/built-in-tool claims need aggregator evidence.
 
 The October 4, 2026 review did not admit speculative replacements. Anthropic's
 [Fable page](https://www.anthropic.com/claude/fable) still identified Fable 5.1,
@@ -58,16 +49,13 @@ M3 for coding; [H3](https://www.minimax.io/blog/minimax-h3) generates video and
 sound, not text-agent inference. Step 5 Preview was discovery-only at the
 September 25 read; its later [admission](#october-56-model-refresh) supersedes that observation.
 
-Public catalogues returned 417 AIHubMix and 128 UCloud IDs. UCloud's anonymous
-listing omitted GPT and Claude; DMXAPI required authentication. Neither that
-omission nor anonymous 401/disabled-pricing 403 proves model absence. This
-review changed no binding, credential or conversation model.
+Public catalogues returned 417 AIHubMix and 128 UCloud IDs; anonymous UCloud omitted
+GPT/Claude, while DMXAPI required authentication. Neither omission nor anonymous
+401/disabled-pricing 403 proves model absence. Bindings, credentials and models were unchanged.
 
-Stable-only supply-chain admission does not make every inference model GA.
-A Preview may remain a non-default, explicitly named Route when its general
-agent role and exact provider/client behavior are qualified. An unqualified
-Preview remains discovery-only; do not conceal that distinction or silently
-replace an explicit local selection.
+Stable tool admission does not make inference models GA. Qualified general-agent
+Previews may remain explicitly named, non-default Routes; unqualified ones remain
+discovery-only. Preserve this distinction and explicit local selections.
 
 ## October 10 Haiku 5.5 admission
 

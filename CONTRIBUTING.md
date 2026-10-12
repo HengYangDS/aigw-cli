@@ -2,10 +2,9 @@
 
 ## Scope
 
-AIGW is a local control plane for Accounts, credentials, Models, Routes, Client
-Bindings and guarded native projections. It does not own client conversations,
-API traffic or external services. Start with the [architecture boundary](docs/architecture/authority-and-projection-boundary.md)
-and the current [OpenSpec](openspec/) requirement, not a filename or old implementation.
+AIGW controls Accounts, credentials, Models, Routes, Client Bindings and guarded native
+projections, not conversations, API traffic or external services. Start from the
+[architecture boundary](docs/architecture/authority-and-projection-boundary.md) and current [OpenSpec](openspec/) requirement, not files or old code.
 
 ## License
 
@@ -15,60 +14,49 @@ Contributions use the repository's [MIT License](LICENSE).
 
 ### Closing a repair
 
-Identify the violated contract and its existing owner. Separate necessary product
-prerequisites from assumptions introduced by the implementation. Reproduce the
-failure, keep its smallest distinguishing regression, repair the owner and delete
-superseded mechanics. Review sibling source, tests, schemas and guidance together.
+Identify the contract and owner; separate product prerequisites from implementation
+assumptions. Reproduce the failure, retain a distinguishing regression and repair
+the owner. Retire superseded mechanics; review source, tests, schemas and guidance.
 
-Use the current Lease holder's `ETHOS_ACTOR` and the selected existing Change's
-logical identifier in `ETHOS_CHANGE` for admission and hooked Git operations.
-Before executing a native fixture, derive its expected behavior from the actual
-consumer and locked inputs, and isolate its configuration discovery. Complete the
-changed package's format, static and size checks before the broader native matrix.
+For admission and hooked Git, set `ETHOS_ACTOR` to the current Lease holder and
+`ETHOS_CHANGE` to the selected Change's logical ID. Derive fixture expectations
+from actual consumers/locks; isolate configuration discovery. Run the changed
+package's format, static and size checks before the native matrix.
 
-Run focused checks before one complete gate on stable inputs. Shipped manifests
-must also pass through the actual delivery command; fixtures alone do not qualify
-the catalogue. Native authorization tests must retain the deployed security format
-and effective boundary, not merely imitate an API in temporary storage.
-Before a full gate or benchmark, execute every changed command against its actual
-candidate and retained predecessor in the declared starting state. A successful
-case-table test does not prove a first-time command accepts a configured state.
+On stable inputs, run focused checks before one complete gate. Qualify shipped
+manifests through actual delivery, not fixtures. Native authorization tests retain
+the deployed security format and effective boundary, not an API imitation in
+temporary storage. Before full gates/benchmarks, execute each changed command on
+its actual candidate and retained predecessor in the declared starting state;
+case-table success does not prove first-time acceptance of configured state.
 
-Set permission-sensitive fixture modes explicitly after creation: the caller's
-umask filters creation modes. Test ordinary and restrictive masks in separate
-processes; do not change a concurrent test process's global umask. Restrict an
-exact evidence directory rather than exporting that restriction into tests.
+Because umask filters creation modes, set permission-sensitive modes afterward.
+Test ordinary/restrictive masks in separate processes, not by changing a concurrent
+test's global umask. Evidence restrictions apply only to the exact directory.
 
-Every selected native journey consumes its explicit candidate and reports its
-binary digest. Missing input is a failure, never permission to build substitute
-bytes. Retain published-predecessor configuration and enabled Adapters through
-upgrade and rollback; disabling them first tests a different transition.
-Resolve source fixtures only inside their selected subtest, using that subtest's
-`testing.T` for failures and cleanup. Precompiled artifact and native-store cases
-must not build fixtures belonging to unselected cases.
+Native journeys report explicit candidate digests and reject substitute builds for
+missing inputs. Preserve published-predecessor configuration and enabled Adapters
+through upgrade/rollback. Use selected subtests' `testing.T` for source fixture
+resolution, failures and cleanup; precompiled/native-store cases build no unselected fixtures.
 
-Publish process-readiness records through the existing atomic file writer.
-Readers may treat the final path as ready only after complete bytes are visible;
-retrying JSON parsing must not compensate for a producer's partial publication.
+Publish readiness atomically: only complete bytes make the final path ready; parsing retries cannot excuse partial publication.
 
-Capture each client's original credential invocation before replacement and run
-it before synchronization or reload. Native-store proof identifies both reader
-implementations and retains the original credential item. Require complete
-program/configuration rollback and original-caller acceptance before live cutover.
-A locally authored workaround is not an approved dependency.
+Capture credential invocations before replacement; run them before sync/reload.
+Native-store proof identifies both readers and preserves the original item. Live
+cutover requires complete program/configuration rollback and original-caller
+acceptance; local workarounds are not approved dependencies.
 
-Record results in the existing OpenSpec task, remove contradicted guidance and
-keep source, packaged, installed, hosted and published acceptance separate.
-A note, rule or green formatter does not establish that a defect cannot recur.
+Record results in the existing OpenSpec task; remove contradicted guidance. Keep
+source, packaged, installed, hosted and published acceptance distinct: notes,
+rules and formatter success do not prove prevention.
 
 ### Bounded TDD journey
 
-1. Select the [requirement](openspec/) and its semantic implementation owner.
-2. Add and run a distinguishing regression; confirm the intended RED.
-3. Make the smallest complete repair and remove the replaced path.
+1. Select the [requirement](openspec/) and semantic owner.
+2. Confirm a distinguishing regression's intended RED.
+3. Make the smallest complete repair; retire the replaced path.
 4. Run focused GREEN and affected consumers, then `mise run check` once stable.
-5. Verify the [introduced signed commit range](docs/operations/forge-operations.md#verify-local-objects)
-   and preserve the separate native and delivery obligations.
+5. Verify the [introduced signed commit range](docs/operations/forge-operations.md#verify-local-objects); preserve native and delivery obligations.
 
 Formatter-only work uses native format/structure checks, not invented behavioral
 failures. Codebase-memory is optional navigation: select the exact root, inspect

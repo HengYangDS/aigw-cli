@@ -15,9 +15,8 @@ native-client projections; it is not a model traffic gateway.
 
 ## Product position
 
-AIGW minimizes the distance between an operator's intent and each client's
-official configuration surface. It deliberately avoids becoming a mandatory
-traffic hop, a client launcher, or an agent-state manager.
+AIGW maps operator intent to official client configuration, without becoming
+a mandatory traffic hop, client launcher or agent-state manager.
 
 - **Provider endpoint capability**
   - **AIGW role:** Declare Account protocol endpoints
