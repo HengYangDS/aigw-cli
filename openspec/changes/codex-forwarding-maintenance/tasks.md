@@ -26,21 +26,22 @@ and post-archive migration. Existing native verification retains its raw results
 
 - [x] 3.1 Set VERSION and Changelog to 0.3.4 and verify release metadata without
       changing existing signed history.
-- [ ] 3.2 Complete required source checks, strict intent review, native
+- [x] 3.2 Complete required source checks, strict intent review, native
       three-OS journeys, and exact-source proof on the maintenance candidate.
       Signed source `fdae584b` passes Quality and all three full native platform
       jobs in GitHub run [38190562840](https://github.com/HengYangDS/aigw-cli/actions/runs/38190562840):
       Windows 95.04% (12814/13483), Linux 95.16% (12755/13404), and macOS
-      95.11% (12746/13401). The original logs and native coverage profiles retain
-      their exact source; failed Windows coverage and its distinguishing repair
-      remain in native Attestation `e4dc2b0d`. Earlier exact-source gate, race,
-      and strict Change evidence keeps its original scope. Runtime `098464cc`
-      repairs the common configuration gate, which passes on `870ef09d`.
-      The preserved full-proof failure `bdebd1b7` instead identifies stable
-      Actionlint's macOS pipe deadlock [#650](https://github.com/rhysd/actionlint/issues/650).
-      Backport the existing native workflow check, retaining standalone
-      ShellCheck, and qualify its exact successor before closing full proof.
-      Native fixture acceptance does not replace final signed artifacts or installation.
+      95.11% (12746/13401). Those logs and native profiles retain their exact
+      source; failed Windows coverage and its repair remain in Attestation
+      `e4dc2b0d`. Signed successor `f4f1c6f2`, tree `0eae3cbf`, passes all ten
+      executed repository gates in full proof `2654d0b2` with runtime
+      `098464cc` on 2026-10-12. This includes native workflow structure and
+      every selected Bash/sh script, race coverage, and installed Publisher
+      behavior with its three hash-verified declared inputs. Original failed
+      receipts remain preserved, including the stable Actionlint pipe deadlock
+      [#650](https://github.com/rhysd/actionlint/issues/650) and the invocation
+      missing its selected Publisher archive. Candidate proof does not replace
+      final source, signed artifacts, publication, or installed acceptance.
 - [x] 3.3 Qualify signed and notarized candidate bytes against published 0.3.3
       with retained state and the original 0.3.1 reader, including native credentials,
       update, direct rollback, and restored forwarding.
