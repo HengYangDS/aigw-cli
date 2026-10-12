@@ -4,11 +4,3 @@ include = ["**/*"]
 [formatting]
 array_auto_collapse = false
 column_width = 100
-compact_inline_tables = true
-
-# Keep the generator's inline-table spelling without relaxing authored TOML.
-[[rule]]
-include = [".config/mise/mise.lock"]
-
-[rule.formatting]
-compact_inline_tables = false
