@@ -130,11 +130,23 @@ recorded executable or target that fails native inspection is a repairable
 failure instead. When every enabled projection is deferred, observational
 commands must not probe a provider or suggest `aigw check` as activation.
 Client-specific verification remains a separate, later claim.
-Selected Account availability is observed through metadata only and cached in
-the activation decision. When both its Token and projection are absent, the
+Selected AIGW-owned credentials use one Account/Kind presence observation per
+command across collection, native inspection and activation. Each invocation
+starts fresh; Token reads and reader authorization remain live. External
+credential executables and client-native authentication require no duplicate
+AIGW Token and retain their explicit real-client verification boundary.
+When both an AIGW Token and projection are absent, the
 decision retains both facts and offers Token recovery first; after recovery,
 installation if needed and synchronization become the continuation. A ready
 alternative Client Binding may proceed without waiting for an unrelated Token.
+
+Signed `b298b4b4` qualifies this diagnostic contract through public doctor
+RED/GREEN, shared-Account refresh and external-helper custody. Its complete
+source gate passed in 197.324 seconds with 1,252 inputs unchanged and strict
+`>95%` coverage (15,059/15,845 statements); introduced-object verification
+and exact cleanup passed. Original failures and signed input binding remain
+under `build/verification/a3a584743374967b02e742b424af143a6cfd82ab/doctor-credential-semantics-20261012`.
+This proves diagnosis, not native-store latency or installed successor behavior.
 
 The existing manifest remains token-free team policy. Each Account Token is
 optional until a selected operation requires it. Native keyring, guarded file,
