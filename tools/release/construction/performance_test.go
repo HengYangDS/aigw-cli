@@ -175,18 +175,19 @@ func TestNativePerformanceOutputAdmission(t *testing.T) {
 
 func TestNativePerformanceSummaryBindsNativeEvidence(t *testing.T) {
 	for name, reason := range map[string]string{
-		"null-exit":        "explicit integer exit codes",
-		"wrong-command":    "differs from its requested command",
-		"declared-command": "does not select its declared executable",
-		"declared-case":    "differs from its declared workload",
-		"released-program": "differs from its released program",
-		"workload-budget":  "changed its qualifying budget",
-		"memory-growth":    "peak memory requires review",
-		"block-budget":     "measurements are not qualified",
-		"program-growth":   "executable size growth requires review",
-		"native-platform":  "differs from its native consumer",
-		"native-arch":      "differs from its native consumer",
-		"raw-path":         "raw sample path is invalid",
+		"null-exit":         "explicit integer exit codes",
+		"wrong-command":     "differs from its requested command",
+		"declared-command":  "does not select its declared executable",
+		"declared-case":     "differs from its declared workload",
+		"released-program":  "differs from its released program",
+		"workload-budget":   "changed its qualifying budget",
+		"memory-growth":     "peak memory requires review",
+		"block-budget":      "measurements are not qualified",
+		"program-growth":    "executable size growth requires review",
+		"native-platform":   "differs from its native consumer",
+		"native-arch":       "differs from its native consumer",
+		"raw-path":          "raw sample path is invalid",
+		"backend-selection": "lacks its native workload selection",
 	} {
 		t.Run(name, func(t *testing.T) {
 			output := t.TempDir()
@@ -223,6 +224,8 @@ func TestNativePerformanceSummaryBindsNativeEvidence(t *testing.T) {
 				summary.Arch = "other"
 			case "raw-path":
 				summary.Blocks[0].Raw = "../foreign-status.json"
+			case "backend-selection":
+				summary.Backends = nil
 			case "declared-case":
 				index := slices.IndexFunc(summary.Blocks, func(row performance.Measurement) bool { return row.Case == "setup" })
 				changePerformanceRawEvidence(t, output, &summary.Blocks[index], name)
@@ -400,7 +403,7 @@ func writeQualifiedPerformanceSummary(t *testing.T, output string) performance.S
 	verifier := []performance.Execution{{PID: 1, ParentPID: 9, Created: 10, ParentCreated: 1, Role: "controller", Image: image,
 		Machine: 0x8664, Arch: "amd64", WOW64Machine: 0x8664, NativeMachine: 0xaa64, Attributes: 1}}
 	summary := performance.Summary{Qualification: true, Scope: "full-performance", OS: runtime.GOOS, Arch: runtime.GOARCH, Tool: "Hyperfine fixture",
-		IdentityScope: "fixture", MemoryScope: "fixture", ClientScope: "fixture",
+		IdentityScope: "fixture", MemoryScope: "fixture", ClientScope: "fixture", Backends: []string{"env"},
 		Controllers:         map[string]performance.Identity{"hyperfine": image, "verifier": image},
 		ControllerExecution: map[string][]performance.Execution{"hyperfine": observed, "verifier": verifier},
 		Programs:            []performance.Program{{Variant: "baseline", Path: image.Path, SHA256: image.SHA256, Bytes: 1}, {Variant: "candidate", Path: image.Path, SHA256: strings.Repeat("b", 64), Bytes: 2}}}
@@ -412,11 +415,8 @@ func writeQualifiedPerformanceSummary(t *testing.T, output string) performance.S
 		observed := []performance.Execution{{PID: 3, ParentPID: 2, Created: 30, ParentCreated: 20, Role: "workload", Image: selected,
 			Machine: 0x8664, Arch: "amd64", WOW64Machine: 0x8664, NativeMachine: 0xaa64, Attributes: 1}}
 		for block := range 2 {
-			for _, name := range []string{"credential", "projection", "setup", "sync", "version", "help", "status", "export"} {
-				budget := 0.1
-				if name == "projection" || name == "setup" || name == "sync" {
-					budget = 0.25
-				}
+			for _, name := range performance.WorkloadNames(summary.Scope) {
+				budget := performance.Budget(name)
 				row := performance.Measurement{Variant: variant, Backend: "env", Case: name, Block: block + 1, Budget: budget, P95: 0.01,
 					Raw: fmt.Sprintf("%s-%s-%d.json", variant, name, block), Executable: &selected, Execution: slices.Clone(observed), ControllerExecution: summary.ControllerExecution["hyperfine"],
 					Samples: performance.Samples{Command: performance.Argv(selected.Path, name), Times: make([]float64, 40), ExitCodes: make([]int, 40)}}

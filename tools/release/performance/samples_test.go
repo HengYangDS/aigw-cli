@@ -186,14 +186,59 @@ func TestForwardingWorkloadsMatchTheirDeclaredScope(t *testing.T) {
 	for _, name := range []string{"credential", "projection", "sync", "status", "export"} {
 		rows = append(rows, Measurement{Variant: "candidate", Backend: "env", Case: name, Mode: "forwarding", Budget: Budget(name)})
 	}
-	if err := reviewWorkloads(rows, programs, "forwarding-performance"); err != nil {
+	if err := reviewWorkloads(rows, programs, "forwarding-performance", []string{"env"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"setup", "version", "help", "unowned"} {
 		row := Measurement{Variant: "candidate", Backend: "env", Case: name, Mode: "forwarding", Budget: 0.1}
-		if err := reviewWorkloads(append(slices.Clone(rows), row), programs, "forwarding-performance"); err == nil {
+		if err := reviewWorkloads(append(slices.Clone(rows), row), programs, "forwarding-performance", []string{"env"}); err == nil {
 			t.Fatalf("forwarding admission included an undeclared workload: %s", name)
 		}
+	}
+}
+
+func TestWorkloadReviewRequiresEverySelectedNativeBackend(t *testing.T) {
+	programs := map[string]Program{"baseline": {Variant: "baseline"}, "candidate": {Variant: "candidate"}}
+	backends := []string{"env", "file", "keyring"}
+	for _, scope := range []string{"full-performance", "forwarding-performance"} {
+		t.Run(scope, func(t *testing.T) {
+			variants := []string{"baseline", "candidate"}
+			names := []string{"credential", "projection", "setup", "sync", "version", "help", "status", "export"}
+			mode := "direct"
+			if scope == "forwarding-performance" {
+				variants, names, mode = []string{"candidate"}, []string{"credential", "projection", "sync", "status", "export"}, "forwarding"
+			}
+			var rows []Measurement
+			for _, variant := range variants {
+				for _, backend := range backends {
+					for _, name := range names {
+						rows = append(rows, Measurement{Variant: variant, Backend: backend, Case: name, Mode: mode, Budget: Budget(name)})
+					}
+				}
+			}
+			if err := reviewWorkloads(rows, programs, scope, backends); err != nil {
+				t.Fatalf("complete native workload selection was refused: %v", err)
+			}
+			for _, backend := range []string{"file", "keyring"} {
+				for _, name := range []string{"status", "export", ""} {
+					partial := slices.DeleteFunc(slices.Clone(rows), func(row Measurement) bool {
+						return row.Variant == "candidate" && row.Backend == backend && (name == "" || row.Case == name)
+					})
+					if err := reviewWorkloads(partial, programs, scope, backends); err == nil {
+						t.Errorf("summary admitted omitted %s/%s native work", backend, name)
+					}
+				}
+			}
+			envRows := slices.DeleteFunc(slices.Clone(rows), func(row Measurement) bool { return row.Backend != "env" })
+			if err := reviewWorkloads(envRows, programs, scope, []string{"env"}); err != nil {
+				t.Fatalf("unselected optional backends became mandatory: %v", err)
+			}
+			for _, selection := range [][]string{nil, {"file"}, {"env", "env"}, {"env", "unknown"}, {"env"}} {
+				if err := reviewWorkloads(rows, programs, scope, selection); err == nil {
+					t.Errorf("summary admitted invalid or incomplete selection: %v", selection)
+				}
+			}
+		})
 	}
 }
 

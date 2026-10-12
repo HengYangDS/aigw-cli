@@ -72,7 +72,9 @@ func TestNativePerformance(t *testing.T) {
 	var measurements []performance.Measurement
 	var memory []performance.Memory
 	defer func() {
-		writeNativePerformanceSummary(t, output, hyperfine, programs, measurements, memory, attribution)
+		writeNativePerformanceSummary(t, output, hyperfine, performance.Summary{
+			Programs: programs, Backends: slices.Clone(backends), Blocks: measurements, Memory: memory,
+		}, attribution)
 	}()
 	for block, order := range [][]int{{0, 1}, {1, 0}} {
 		for _, index := range order {
@@ -123,29 +125,26 @@ func (j *journeyFixture) measurePerformanceBlock(hyperfine, output, variant, bac
 	return measurements, []performance.Memory{observation}
 }
 
-func writeNativePerformanceSummary(t *testing.T, output, hyperfine string, programs []performance.Program, measurements []performance.Measurement, memory []performance.Memory, attribution bool) []performance.Measurement {
+func writeNativePerformanceSummary(t *testing.T, output, hyperfine string, summary performance.Summary, attribution bool) []performance.Measurement {
 	t.Helper()
 	identity, err := exec.CommandContext(t.Context(), hyperfine, "--version").Output()
 	if err != nil {
 		t.Error(err)
 	}
 	tool := strings.TrimSpace(string(identity))
-	pooled, err := performance.Pooled(measurements)
+	pooled, err := performance.Pooled(summary.Blocks)
 	if err != nil {
 		t.Error(err)
 		pooled = []performance.Measurement{}
 	}
-	for _, row := range append(slices.Clone(measurements), pooled...) {
+	for _, row := range append(slices.Clone(summary.Blocks), pooled...) {
 		t.Logf("%s/%s/%s block=%d p95=%.3fms budget=%.0fms", row.Variant, row.Backend, row.Case, row.Block, row.P95*1000, row.Budget*1000)
 	}
-	summary := performance.Summary{
-		Scope: "full-performance", Controllers: make(map[string]performance.Identity), ControllerExecution: make(map[string][]performance.Execution),
-		OS: runtime.GOOS, Arch: runtime.GOARCH, Tool: tool,
-		IdentityScope: "Immutable selected files; Windows controller and descendant image, machine, creation time and parent ownership observed through untimed native create events and retained handles",
-		MemoryScope:   "Configured status: per-child wait4 on macOS, GNU time on Linux, retained-handle peak working set on Windows; bytes, no periodic sampling; calibrated against a large parent",
-		ClientScope:   "controlled client discovery; native projected helper; no Provider inference",
-		Programs:      programs, Blocks: measurements, Pooled: pooled, Memory: memory,
-	}
+	summary.Scope, summary.OS, summary.Arch, summary.Tool = "full-performance", runtime.GOOS, runtime.GOARCH, tool
+	summary.Controllers, summary.ControllerExecution = make(map[string]performance.Identity), make(map[string][]performance.Execution)
+	summary.IdentityScope = "Immutable selected files; Windows controller and descendant image, machine, creation time and parent ownership observed through untimed native create events and retained handles"
+	summary.MemoryScope = "Configured status: per-child wait4 on macOS, GNU time on Linux, retained-handle peak working set on Windows; bytes, no periodic sampling; calibrated against a large parent"
+	summary.ClientScope, summary.Pooled = "controlled client discovery; native projected helper; no Provider inference", pooled
 	if os.Getenv("AIGW_PERFORMANCE_FORWARDING") == "1" {
 		summary.Scope = "forwarding-performance"
 	}
@@ -154,7 +153,7 @@ func writeNativePerformanceSummary(t *testing.T, output, hyperfine string, progr
 		t.Error(err)
 	}
 	summary.ControllerExecution["verifier"] = current
-	for _, row := range measurements {
+	for _, row := range summary.Blocks {
 		if len(row.ControllerExecution) != 0 {
 			summary.ControllerExecution["hyperfine"] = row.ControllerExecution
 			break
@@ -312,7 +311,7 @@ func (j *journeyFixture) measureSelectedPerformance(hyperfine, output, variant, 
 		helper = []string{shell, "/d", "/c", "credential.cmd"}
 	}
 	attribution := os.Getenv("AIGW_PERFORMANCE_ATTRIBUTION") == "1"
-	cases := j.performanceCases(helper, backend, preparer, resolved)
+	cases := j.performanceCases(helper, preparer, resolved)
 	selected := map[string]string{"credential": shell}
 	if attribution {
 		cases = j.attributionCases(helper, shell, reader, scope)
@@ -361,43 +360,42 @@ func (j *journeyFixture) measureSelectedPerformance(hyperfine, output, variant, 
 	return measurements, nil
 }
 
-func (j *journeyFixture) performanceCases(helper []string, backend, preparer string, binding configuration.Runtime) []performance.Workload {
+func (j *journeyFixture) performanceCases(helper []string, preparer string, binding configuration.Runtime) []performance.Workload {
 	selectArgs := []string{j.binary, "use", "--for", "claude", "performance-second"}
 	resetArgs := []string{j.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
-	cases := []performance.Workload{
-		{Name: "credential", Command: helper, Budget: performance.Budget("credential")},
-		{Name: "projection", Command: selectArgs, Prepare: resetArgs, Budget: performance.Budget("projection")},
-		{Name: "setup", Command: []string{j.binary, "setup", "--from", j.manifest, "--account", "native-system-keyring-probe"}, Prepare: []string{preparer, "prepare-performance-setup", filepath.Dir(j.config), filepath.Dir(j.settings), j.config, j.settings}, Budget: performance.Budget("setup")},
-		{Name: "sync", Command: []string{j.binary, "sync"}, Prepare: resetArgs, Budget: performance.Budget("sync")},
+	commands := map[string]performance.Workload{
+		"credential": {Command: helper},
+		"projection": {Command: selectArgs, Prepare: resetArgs},
+		"setup":      {Command: []string{j.binary, "setup", "--from", j.manifest, "--account", "native-system-keyring-probe"}, Prepare: []string{preparer, "prepare-performance-setup", filepath.Dir(j.config), filepath.Dir(j.settings), j.config, j.settings}},
+		"sync":       {Command: []string{j.binary, "sync"}, Prepare: resetArgs},
+		"version":    {Command: []string{j.binary, "--version"}},
+		"help":       {Command: []string{j.binary, "--help"}},
+		"status":     {Command: []string{j.binary, "status", "--json"}},
+		"export":     {Command: []string{j.binary, "config", "export"}},
 	}
-	if backend == "env" {
-		for _, args := range [][]string{{"version", "--version"}, {"help", "--help"}, {"status", "status", "--json"}, {"export", "config", "export"}} {
-			cases = append(cases, performance.Workload{Name: args[0], Command: append([]string{j.binary}, args[1:]...), Budget: performance.Budget(args[0])})
-		}
+	scope := "full-performance"
+	if binding.Endpoint != binding.UpstreamEndpoint {
+		scope = "forwarding-performance"
 	}
-	for index := range cases {
-		workload := &cases[index]
-		workload.Runtime = binding
-		if binding == (configuration.Runtime{}) {
-			continue
+	var cases []performance.Workload
+	for _, name := range performance.WorkloadNames(scope) {
+		workload := commands[name]
+		workload.Name, workload.Budget, workload.Runtime = name, performance.Budget(name), binding
+		if binding != (configuration.Runtime{}) {
+			workload.Mode = "direct"
 		}
-		workload.Mode = "direct"
-		if binding.Endpoint != binding.UpstreamEndpoint {
+		if scope == "forwarding-performance" {
 			workload.Mode = "forwarding"
 			if workload.Name == "projection" {
 				workload.Command = append(slices.Clone(workload.Command), "--forwarding-endpoint", binding.Endpoint)
 			}
 			workload.Prepare = append(slices.Clone(resetArgs), "--forwarding-endpoint", binding.Endpoint)
 		}
-		if workload.Name == "projection" {
+		if workload.Name == "projection" && binding != (configuration.Runtime{}) {
 			workload.Runtime.RouteID, workload.Runtime.RouteLabel = "performance-second", "Performance Second"
 			workload.Runtime.Model, workload.Runtime.CanonicalModelID = "claude-second", "claude-second"
 		}
-	}
-	if binding.Endpoint != binding.UpstreamEndpoint {
-		cases = slices.DeleteFunc(cases, func(workload performance.Workload) bool {
-			return slices.Contains([]string{"setup", "version", "help"}, workload.Name)
-		})
+		cases = append(cases, workload)
 	}
 	return cases
 }
@@ -465,8 +463,8 @@ func (j *journeyFixture) attributionCases(helper []string, shell, reader, scope 
 		{Name: "source-startup", Command: []string{j.source, "--version"}},
 		{Name: "reader-startup", Command: []string{reader, "--version"}},
 		{Name: "credential-direct", Command: []string{reader, "credential", configuration.ClientClaude, scope}},
-		j.performanceCases(helper, "env", "", configuration.Runtime{})[1],
-		j.performanceCases(helper, "env", "", configuration.Runtime{})[3],
+		j.performanceCases(helper, "", configuration.Runtime{})[1],
+		j.performanceCases(helper, "", configuration.Runtime{})[3],
 	}
 }
 
@@ -474,24 +472,18 @@ func (j *journeyFixture) attributionCases(helper []string, shell, reader, scope 
 func TestNativePerformanceCases(t *testing.T) {
 	journey := &journeyFixture{root: "owned root", binary: "installed program", config: filepath.Join("owned config directory", "config.toml"), settings: filepath.Join("owned settings directory", "settings.json"), manifest: "team manifest"}
 	reset := []string{journey.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
-	for _, backend := range []string{"env", "file", "keyring"} {
-		t.Run(backend, func(t *testing.T) {
-			cases := journey.performanceCases([]string{"projected helper"}, backend, "test preparer", configuration.Runtime{})
-			want := []performance.Workload{
-				{Name: "credential", Command: []string{"projected helper"}, Budget: 0.1},
-				{Name: "projection", Command: []string{journey.binary, "use", "--for", "claude", "performance-second"}, Prepare: reset, Budget: 0.25},
-				{Name: "setup", Command: []string{journey.binary, "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe"}, Prepare: []string{"test preparer", "prepare-performance-setup", "owned config directory", "owned settings directory", journey.config, journey.settings}, Budget: 0.25},
-				{Name: "sync", Command: []string{journey.binary, "sync"}, Prepare: reset, Budget: 0.25},
-			}
-			if backend == "env" {
-				for _, args := range [][]string{{"version", "--version"}, {"help", "--help"}, {"status", "status", "--json"}, {"export", "config", "export"}} {
-					want = append(want, performance.Workload{Name: args[0], Command: append([]string{journey.binary}, args[1:]...), Budget: 0.1})
-				}
-			}
-			if !reflect.DeepEqual(cases, want) {
-				t.Fatalf("performance cases omit or change a measured boundary: got=%#v want=%#v", cases, want)
-			}
-		})
+	cases := journey.performanceCases([]string{"projected helper"}, "test preparer", configuration.Runtime{})
+	want := []performance.Workload{
+		{Name: "credential", Command: []string{"projected helper"}, Budget: 0.1},
+		{Name: "projection", Command: []string{journey.binary, "use", "--for", "claude", "performance-second"}, Prepare: reset, Budget: 0.25},
+		{Name: "setup", Command: []string{journey.binary, "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe"}, Prepare: []string{"test preparer", "prepare-performance-setup", "owned config directory", "owned settings directory", journey.config, journey.settings}, Budget: 0.25},
+		{Name: "sync", Command: []string{journey.binary, "sync"}, Prepare: reset, Budget: 0.25},
+	}
+	for _, args := range [][]string{{"version", "--version"}, {"help", "--help"}, {"status", "status", "--json"}, {"export", "config", "export"}} {
+		want = append(want, performance.Workload{Name: args[0], Command: append([]string{journey.binary}, args[1:]...), Budget: 0.1})
+	}
+	if !reflect.DeepEqual(cases, want) {
+		t.Fatalf("backend-independent performance cases omit or change a measured boundary: got=%#v want=%#v", cases, want)
 	}
 }
 
@@ -504,8 +496,8 @@ func TestNativeAttributionKeepsTheProjectedReaderBoundary(t *testing.T) {
 		{Name: "source-startup", Command: []string{journey.source, "--version"}},
 		{Name: "reader-startup", Command: []string{"copied reader", "--version"}},
 		{Name: "credential-direct", Command: []string{"copied reader", "credential", configuration.ClientClaude, "exact-scope"}},
-		journey.performanceCases([]string{"original shell helper"}, "env", "", configuration.Runtime{})[1],
-		journey.performanceCases([]string{"original shell helper"}, "env", "", configuration.Runtime{})[3],
+		journey.performanceCases([]string{"original shell helper"}, "", configuration.Runtime{})[1],
+		journey.performanceCases([]string{"original shell helper"}, "", configuration.Runtime{})[3],
 	}
 	if runtime.GOOS != "windows" {
 		want[1].Command = []string{"selected shell", "-c", "exit 0"}

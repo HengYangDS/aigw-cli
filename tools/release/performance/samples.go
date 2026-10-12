@@ -198,6 +198,7 @@ type Summary struct {
 	MemoryScope         string                 `json:"memory_scope"`
 	ClientScope         string                 `json:"client_scope"`
 	Programs            []Program              `json:"programs"`
+	Backends            []string               `json:"selected_backends"`
 	Blocks              []Measurement          `json:"blocks"`
 	Pooled              []Measurement          `json:"pooled"`
 	Memory              []Memory               `json:"memory"`
@@ -243,30 +244,43 @@ func (s Summary) Review() error {
 	if !bytes.Equal(encoded, declared) {
 		return errors.New("performance summary differs from its retained samples")
 	}
-	return errors.Join(reviewWorkloads(pooled, programs, s.Scope), s.reviewMemoryBindings(programs), ReviewMemory(s.Memory))
+	return errors.Join(reviewWorkloads(pooled, programs, s.Scope, s.Backends), s.reviewMemoryBindings(programs), ReviewMemory(s.Memory))
 }
 
-func reviewWorkloads(pooled []Measurement, programs map[string]Program, scope string) error {
-	variants, cases := []string{"baseline", "candidate"}, []string{"credential", "projection", "setup", "sync", "version", "help", "status", "export"}
+func reviewWorkloads(pooled []Measurement, programs map[string]Program, scope string, backends []string) error {
+	cases := WorkloadNames(scope)
+	if len(cases) == 0 || !slices.Contains(backends, "env") {
+		return errors.New("performance summary lacks its native workload selection")
+	}
+	for index, backend := range backends {
+		if !slices.Contains([]string{"env", "file", "keyring"}, backend) || slices.Contains(backends[:index], backend) {
+			return errors.New("performance summary has an invalid native backend selection")
+		}
+	}
+	variants := []string{"baseline", "candidate"}
 	if scope == "forwarding-performance" {
-		variants, cases = []string{"candidate"}, []string{"credential", "projection", "sync", "status", "export"}
+		variants = []string{"candidate"}
 	}
 	groups := make(map[string]bool)
+	for _, variant := range variants {
+		for _, backend := range backends {
+			for _, name := range cases {
+				groups[variant+"/"+backend+"/"+name] = true
+			}
+		}
+	}
 	for _, row := range pooled {
 		if row.Diagnostics || row.Budget <= 0 || row.Variant == "candidate" && row.P95 > row.Budget || programs[row.Variant].Variant == "" {
 			return errors.New("performance measurements are not qualified")
 		}
-		if !slices.Contains(cases, row.Case) || scope == "forwarding-performance" && (row.Variant != "candidate" || row.Mode != "forwarding") || scope == "full-performance" && row.Mode == "forwarding" {
+		key := row.Variant + "/" + row.Backend + "/" + row.Case
+		if !groups[key] || scope == "forwarding-performance" && row.Mode != "forwarding" || scope == "full-performance" && row.Mode == "forwarding" {
 			return errors.New("performance measurements differ from their declared scope")
 		}
-		groups[row.Variant+"/"+row.Backend+"/"+row.Case] = true
+		delete(groups, key)
 	}
-	for _, variant := range variants {
-		for _, name := range cases {
-			if !groups[variant+"/env/"+name] {
-				return errors.New("performance summary omits a native workload")
-			}
-		}
+	if len(groups) != 0 {
+		return errors.New("performance summary omits a selected native workload")
 	}
 	return nil
 }

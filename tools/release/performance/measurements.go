@@ -357,6 +357,18 @@ func (c Workload) Arguments(raw string) []string {
 	return append(args, Argv(c.Command...))
 }
 
+// WorkloadNames declares the ordered workloads for a qualifying native scope.
+func WorkloadNames(scope string) []string {
+	switch scope {
+	case "full-performance":
+		return []string{"credential", "projection", "setup", "sync", "version", "help", "status", "export"}
+	case "forwarding-performance":
+		return []string{"credential", "projection", "sync", "status", "export"}
+	default:
+		return nil
+	}
+}
+
 // Budget is the original native workload ceiling; other cases are diagnostic.
 func Budget(name string) float64 {
 	switch name {

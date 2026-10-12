@@ -229,7 +229,7 @@ func requireProcessMeasurements(t *testing.T, records []processMeasurement, back
 
 func TestNativeAttributionKeepsTheProjectionWorkload(t *testing.T) {
 	journey := &journeyFixture{binary: "installed program"}
-	qualified := journey.performanceCases([]string{"projected helper"}, "env", "test preparer", configuration.Runtime{})[1]
+	qualified := journey.performanceCases([]string{"projected helper"}, "test preparer", configuration.Runtime{})[1]
 	for _, test := range journey.attributionCases([]string{"projected helper"}, "selected shell", "copied reader", "exact-scope") {
 		if test.Name == "projection" {
 			if !reflect.DeepEqual(test, qualified) {
@@ -257,7 +257,7 @@ func TestNativeAttributionSummaryRetainsItsNonqualifyingScope(t *testing.T) {
 			Samples: performance.Samples{Command: "observed helper", Times: times, ExitCodes: make([]int, 40)}})
 	}
 	output := t.TempDir()
-	writeNativePerformanceSummary(t, output, tool, nil, rows, nil, true)
+	writeNativePerformanceSummary(t, output, tool, performance.Summary{Blocks: rows, Backends: []string{"env"}}, true)
 	var summary struct {
 		Qualification bool                      `json:"qualification"`
 		Scope         string                    `json:"scope"`
@@ -437,7 +437,7 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 			t.Error(err)
 		}
 		rows := []performance.Measurement{{Variant: "candidate", Backend: "env", Case: "status", Block: 1, Raw: "partial.json"}}
-		writeNativePerformanceSummary(t, output, os.Getenv("AIGW_TEST_HYPERFINE"), nil, rows, []performance.Memory{row}, false)
+		writeNativePerformanceSummary(t, output, os.Getenv("AIGW_TEST_HYPERFINE"), performance.Summary{Blocks: rows, Memory: []performance.Memory{row}, Backends: []string{"env"}}, false)
 		return
 	}
 	program, err := os.Executable()
@@ -493,7 +493,7 @@ func TestNativePerformanceSummaryRejectsUnprovedExecution(t *testing.T) {
 				Block: block + 1, Budget: 0.1, P95: 0.01, Raw: fmt.Sprintf("credential-%d.json", block+1),
 				Samples: performance.Samples{Command: "unobserved helper", Times: times, ExitCodes: make([]int, 40)}})
 		}
-		writeNativePerformanceSummary(t, os.Getenv("AIGW_TEST_PERFORMANCE_OUTPUT"), os.Getenv("AIGW_TEST_HYPERFINE"), nil, rows, nil, false)
+		writeNativePerformanceSummary(t, os.Getenv("AIGW_TEST_PERFORMANCE_OUTPUT"), os.Getenv("AIGW_TEST_HYPERFINE"), performance.Summary{Blocks: rows, Backends: []string{"env"}}, false)
 		return
 	}
 	tool, err := exec.LookPath("hyperfine")
