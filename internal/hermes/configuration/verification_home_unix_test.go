@@ -132,11 +132,21 @@ func TestVerificationDependencyProfileContainsOnlySelectors(t *testing.T) {
 			t.Fatal("dependency profile copied unrelated configuration or credentials")
 		}
 	}
-	if source, err := filepath.EvalSymlinks(filepath.Join(filepath.Dir(profiles[0]), "plugins")); err != nil || source != plugins {
-		t.Fatalf("dependency member identity changed: %q %v", source, err)
-	}
-	if source, err := filepath.EvalSymlinks(filepath.Join(home, "tools")); err != nil || source != filepath.Join(root, "tools") {
-		t.Fatalf("installed tool identity changed: %q %v", source, err)
+	for borrowed, source := range map[string]string{
+		filepath.Join(filepath.Dir(profiles[0]), "plugins"): plugins,
+		filepath.Join(home, "tools"):                        filepath.Join(root, "tools"),
+	} {
+		actual, err := os.Stat(borrowed)
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected, err := os.Stat(source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !os.SameFile(actual, expected) {
+			t.Fatalf("borrowed dependency identity changed: %s does not resolve to %s", borrowed, source)
+		}
 	}
 	if err := cleanup(); err != nil {
 		t.Fatal(err)

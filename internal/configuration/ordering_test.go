@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -48,7 +49,11 @@ anthropic = []
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"zulu-z", "zulu-a", "alpha"}
+	cfg.Accounts["unranked"] = Account{Label: "Unranked", Endpoints: Endpoints{Anthropic: "https://unranked.test"}}
+	cfg.Models["unranked"] = Model{Label: "Unranked"}
+	cfg.Routes["zulu-unranked"] = testRoute("Unranked", "zulu", "unranked", ProtocolAnthropic)
+	cfg.Routes["unranked"] = testRoute("Unranked", "unranked", "first", ProtocolAnthropic)
+	want := []string{"zulu-z", "zulu-a", "zulu-unranked", "alpha", "unranked"}
 	if got := cfg.CatalogRouteIDs(); !slices.Equal(got, want) {
 		t.Fatalf("declared Account/Model order = %v, want %v", got, want)
 	}
@@ -80,6 +85,44 @@ anthropic = []
 	}
 	if got := reloaded.CatalogRouteIDs(); !slices.Equal(got, want) {
 		t.Fatalf("stored catalogue order = %v, want %v", got, want)
+	}
+}
+
+func TestCatalogOrderRejectsNegativeRanksWithoutChangingStoredBytes(t *testing.T) {
+	for _, subject := range []string{"accounts", "models"} {
+		t.Run(subject, func(t *testing.T) {
+			store := NewStore(t.TempDir() + "/config.toml")
+			cfg := convergenceConfig("current")
+			if err := store.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			before, err := os.ReadFile(store.Path())
+			if err != nil {
+				t.Fatal(err)
+			}
+			identifier := "current"
+			if subject == "models" {
+				identifier = "current-model"
+			}
+			catalog := []byte("[" + subject + "]\n" + identifier + " = -1\n")
+			if err := os.WriteFile(store.catalogPath(), catalog, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := store.Load(); err == nil || !strings.Contains(err.Error(), "order must not be negative") {
+				t.Fatalf("invalid catalogue rank was admitted: %v", err)
+			}
+			after, err := os.ReadFile(store.Path())
+			if err != nil {
+				t.Fatal(err)
+			}
+			afterCatalog, err := os.ReadFile(store.catalogPath())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(after, before) || !bytes.Equal(afterCatalog, catalog) {
+				t.Fatal("refused catalogue read changed stored bytes")
+			}
+		})
 	}
 }
 

@@ -3,6 +3,7 @@ package configuration
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -200,6 +201,43 @@ func TestSelectRoutesForConnectedAccountsHonorsRecommendationAuthentication(t *t
 	}
 	if got := withToken.SelectedRoute(ClientCodex); got != "token" {
 		t.Fatalf("selection with connected Token = %q, want account-token route", got)
+	}
+}
+
+func TestValidateKeepsUnselectedBindingsWithinTheDeclarationContract(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		edit func(*Config)
+		want string
+	}{
+		{"unselected client", func(c *Config) { c.Clients[ClientCodex] = ClientBinding{} }, ""},
+		{"relative reader without route", func(c *Config) { c.Clients[ClientCodex] = ClientBinding{CredentialCommand: "reader"} }, "one absolute executable path"},
+		{"empty recommendation", func(c *Config) { c.Recommendations[ClientCodex] = ClientRecommendation{} }, "has no primary route"},
+		{"invalid canonical model", func(c *Config) { c.Models["bad model"] = Model{Label: "Invalid"} }, "invalid model name"},
+		{"unknown canonical model", func(c *Config) {
+			route := c.Routes["default"]
+			route.Model = "unknown"
+			c.Routes["default"] = route
+		}, "references unknown model"},
+		{"blank wire model", func(c *Config) {
+			route := c.Routes["default"]
+			route.UpstreamModel = " "
+			c.Routes["default"] = route
+		}, "empty upstream model"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := modelProviderConfig()
+			cfg.Normalize()
+			test.edit(&cfg)
+			before := cfg.Clone()
+			err := cfg.Validate()
+			if test.want == "" && err != nil || test.want != "" && (err == nil || !strings.Contains(err.Error(), test.want)) {
+				t.Fatalf("declaration error = %v; want %q", err, test.want)
+			}
+			if !reflect.DeepEqual(cfg, before) {
+				t.Fatal("declaration validation changed the input")
+			}
+		})
 	}
 }
 

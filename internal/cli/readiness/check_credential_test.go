@@ -2,12 +2,15 @@ package readiness
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/diagnostics"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
@@ -51,5 +54,59 @@ func TestCheckJSONClassifiesCredentialReadFailures(t *testing.T) {
 				t.Fatalf("JSON check = %+v", result)
 			}
 		})
+	}
+}
+
+func TestCheckReportsUnresolvedBindingsBeforeCredentialOrNetworkAccess(t *testing.T) {
+	runtime, cfg, _ := configuredReadinessRuntime(t)
+	var problem, action string
+	runtime.Problem = func(title, _, _, fix string, cause error) error {
+		problem, action = title, fix
+		return cause
+	}
+	store := &observingSecretStore{value: "fixture-token"}
+	runtime.Secrets = store
+	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("an unresolved binding contacted an endpoint")
+		return nil, nil
+	})
+	cfg.SetSelectedRoute(configuration.ClientCodex, "missing", "")
+	result := evaluateClient(NewCheckCommand(runtime), runtime, cfg, configuration.ClientCodex)
+	command, unchecked, err := renderCheckedClient(runtime, invocation.Renderer(runtime), result, "")
+	if err == nil || !errors.Is(err, result.resolveErr) || command != "" || unchecked {
+		t.Fatalf("unresolved binding was reported as checked: %q, %t, %v", command, unchecked, err)
+	}
+	if problem != "Codex binding cannot be resolved" || action != "aigw use --for codex <route>" {
+		t.Fatalf("binding failure omitted its actionable scope: %q, %q", problem, action)
+	}
+	if store.getCalls != 0 || store.existsCalls != 0 {
+		t.Fatal("an unresolved binding observed credentials")
+	}
+}
+
+func TestCheckReportsAnUnsentInferenceRequestWithoutClaimingEndpointFailure(t *testing.T) {
+	runtime, cfg, _ := configuredReadinessRuntime(t)
+	var problem, evidence string
+	runtime.Problem = func(title, detail, _, _ string, cause error) error {
+		problem, evidence = title, detail
+		return cause
+	}
+	selected, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected.Model = ""
+	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("a missing wire model sent a request")
+		return nil, nil
+	})
+	diagnostic := diagnostics.Probe(t.Context(), runtime.HTTP, selected, "fixture-token", diagnostics.ScopeInference)
+	result := evaluatedClient{client: configuration.ClientCodex, runtime: selected, adapter: true, diagnostic: diagnostic}
+	command, unchecked, err := renderCheckedClient(runtime, invocation.Renderer(runtime), result, "")
+	if err == nil || command != "" || unchecked || diagnostic.Kind != diagnostics.ModelUnresolved {
+		t.Fatalf("unsent inference was reported as checked: %q, %t, %v", command, unchecked, err)
+	}
+	if evidence != "No request was sent" || !strings.Contains(problem, "Route has no upstream model") {
+		t.Fatalf("unsent request lost its precise diagnostic: %q, %q", problem, evidence)
 	}
 }
