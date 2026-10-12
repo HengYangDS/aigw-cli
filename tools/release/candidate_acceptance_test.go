@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"aigw-cli/tools/release/artifact"
+	"aigw-cli/tools/release/construction"
 )
 
 func TestUntaggedCandidateArtifactAcceptanceBindsSignedHead(t *testing.T) {
@@ -152,6 +153,22 @@ func TestCandidateAcceptanceRequiresExplicitArtifactAndNoTag(t *testing.T) {
 	t.Setenv("GITHUB_REF_NAME", "v0.1.0")
 	if err := run([]string{"accept-native", "--artifacts", t.TempDir(), "--candidate"}, io.Discard); err == nil || !strings.Contains(err.Error(), "candidate acceptance cannot select a release tag") {
 		t.Fatalf("candidate mode with GitHub release tag: %v", err)
+	}
+}
+
+func TestCandidateSourceIdentityIsAdmittedBeforeExecution(t *testing.T) {
+	t.Setenv("CI_COMMIT_TAG", "")
+	t.Setenv("GITHUB_REF_TYPE", "")
+	artifacts := t.TempDir()
+	for _, selected := range []string{"", strings.Repeat("a", 40), strings.Repeat("a", 64)} {
+		if _, err := construction.ParseNativeAcceptance([]string{"--artifacts", artifacts, "--candidate", "--candidate-source", selected}); err != nil {
+			t.Fatalf("exact source identity was not admitted: %v", err)
+		}
+	}
+	for _, selected := range []string{"HEAD", strings.Repeat("a", 12), strings.Repeat("A", 40), strings.Repeat("z", 40), strings.Repeat("a", 41)} {
+		if _, err := construction.ParseNativeAcceptance([]string{"--artifacts", artifacts, "--candidate", "--candidate-source", selected}); err == nil || !strings.Contains(err.Error(), "exact lowercase Git commit ID") {
+			t.Fatalf("invalid source %q escaped argument admission: %v", selected, err)
+		}
 	}
 }
 

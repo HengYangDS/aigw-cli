@@ -167,10 +167,7 @@ func (input *NativeAcceptance) validate() error {
 	if (input.BaselineTag != "" || input.BaselineArtifacts != "") && os.Getenv("AIGW_ACCEPTANCE_BASELINE") != "" {
 		return errors.New("published baseline inputs and an explicit baseline executable are mutually exclusive")
 	}
-	if err := input.validateOptionalScopes(); err != nil {
-		return err
-	}
-	return nil
+	return errors.Join(releaseartifact.ValidateCandidateSource(input.CandidateSource), input.validateOptionalScopes())
 }
 
 func (input *NativeAcceptance) validateOptionalScopes() error {

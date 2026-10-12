@@ -153,12 +153,23 @@ func verifyProvenance(ctx context.Context, directory, tag string, trust SourceTr
 	return nil
 }
 
+// ValidateCandidateSource admits an optional complete lowercase Git object ID before execution.
+func ValidateCandidateSource(selected string) error {
+	if selected == "" {
+		return nil
+	}
+	_, err := hex.DecodeString(selected)
+	if err != nil || (len(selected) != 40 && len(selected) != 64) || selected != strings.ToLower(selected) {
+		return errors.New("candidate source requires an exact lowercase Git commit ID")
+	}
+	return nil
+}
+
 func verifySourceCommit(git func(...string) ([]byte, error), tag, selected string) (string, error) {
 	commitRef := "HEAD^{commit}"
 	if tag == "" && selected != "" {
-		_, err := hex.DecodeString(selected)
-		if err != nil || (len(selected) != 40 && len(selected) != 64) || selected != strings.ToLower(selected) {
-			return "", errors.New("candidate source requires an exact lowercase Git commit ID")
+		if err := ValidateCandidateSource(selected); err != nil {
+			return "", err
 		}
 		commitRef = selected + "^{commit}"
 	}
