@@ -2153,4 +2153,5 @@ Hermes when the state cannot be shared.
   launchers or safely borrow its committed dependency selection
 - **THEN** AIGW refuses verification before starting the client
 - **AND** it does not invent a private selection lock, provision dependencies,
-  modify client configuration, or claim readiness.
+  modify client configuration, or claim readiness
+- **AND** the refusal discloses no credential diagnostics.
