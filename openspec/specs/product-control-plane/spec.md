@@ -2133,8 +2133,8 @@ Hermes when the state cannot be shared.
 - **WHEN** the installed Hermes resolves its committed dependency environment
   and managed tools from the data root of the configured Hermes home
 - **THEN** AIGW observes the native client version and completes one bounded
-  request from a disposable home that reuses that installation state
-- **AND** verification refuses on-demand installation, so the shared
+  request from a disposable home outside the operator's native data roots
+- **AND** verification refuses on-demand installation, so the installed
   dependencies, tools, and launchers are not synchronized or republished
 - **AND** removing the disposable home leaves the operator's Hermes
   configuration, installation state, and launchers unchanged.
@@ -2146,3 +2146,11 @@ Hermes when the state cannot be shared.
 - **THEN** verification fails before starting Hermes
 - **AND** it does not provision another dependency environment, retry, or
   disclose private paths.
+
+#### Scenario: Native launch effects cannot be isolated
+
+- **WHEN** the installed platform's boot path cannot preserve the operator's
+  launchers or safely borrow its committed dependency selection
+- **THEN** AIGW refuses verification before starting the client
+- **AND** it does not invent a private selection lock, provision dependencies,
+  modify client configuration, or claim readiness.
