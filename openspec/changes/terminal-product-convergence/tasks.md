@@ -148,8 +148,12 @@ in Git; original raw results stay with their source-bound verification owner.
       once, then prove clean-context reproducibility and license/security
       admissibility.
       October 12 supplier pins and locks are refreshed; the signed `8254c1f5`
-      six-target candidate and matching full-source gate pass. Independent cold
-      supply, the missing mirror object and native Windows supply remain open.
+      six-target candidate and matching full-source gate pass. The Windows
+      Codex platform-package correction passes focused RED/GREEN, both peer
+      projections and native source checks; its evidence is bound in the
+      [native-client design](design.md#3-qualify-a-client-adapter-do-not-infer-support-from-a-file).
+      Independent cold supply, the missing mirror object, refreshed offline
+      archive and actual native Windows supply remain open.
 - [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.

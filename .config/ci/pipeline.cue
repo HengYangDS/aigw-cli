@@ -314,6 +314,7 @@ miseWindowsArm64ExecutableSHA256: "37fb631c501e8bb6a96e72914a5066f3c8d87a0c5e3aa
 miseWindowsArm64ShimSHA256:       "88e6ea20e780ed03861d33be06319c80b0508e51eb6a48190153922a14309498"
 windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
 nativeWindowsClientSelection:     "$env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)"
+windowsCodexVendorRoot:           "node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc"
 
 // Windows owns official client supply only; the portable release owner acquires
 // and admits the candidate and predecessor matrices on every native platform.
@@ -351,7 +352,7 @@ nativeWindowsClientSupply: #"""
 	  $env:UV_PYTHON_INSTALL_BIN = '0'
 	  $env:UV_NO_CONFIG = '1'
 	  mise exec --locked -- uv sync --project $hermes --python 3.12 --managed-python --frozen --no-dev --no-default-groups --extra edge-tts --extra bedrock
-	  $codex = Join-Path $fixture 'clients/node_modules/@openai/codex/vendor/x86_64-pc-windows-msvc'
+	  $codex = Join-Path $fixture 'clients/\#(windowsCodexVendorRoot)'
 	  $gitBin = Split-Path (Get-Command git.exe -ErrorAction Stop).Source
 	  $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
 	  if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Native Claude requires Git Bash.' }
@@ -588,7 +589,7 @@ hermesInstallerDigest: "0a80dfeb7434229933bac32e73140d10086dff81bd84b156e71be9ab
 				  if ($LASTEXITCODE -ne 0 -or $observed.Trim() -ne $hermesCommit) { throw 'Hermes installed source differs from the pin.' }
 				  $changes = git -C $hermesInstall status --porcelain=v1 --untracked-files=no
 				  if ($LASTEXITCODE -ne 0 -or $changes) { throw 'Pinned Hermes source is not clean after official installation.' }
-				  $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
+				  $codexRoot = Join-Path $clients '\#(windowsCodexVendorRoot)'
 				  $gitBin = Split-Path (Get-Command git.exe).Source
 				  $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
 				  if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Claude requires native Git Bash.' }

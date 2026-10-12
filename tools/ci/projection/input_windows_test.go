@@ -68,9 +68,9 @@ func TestWindowsClientSupplyPreservesPortableProductInputOwner(t *testing.T) {
 		"candidate/checksums.txt": []byte("test"),
 		"baseline/checksums.txt":  []byte("test"),
 		"suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz": pack(map[string][]byte{
-			"clients/node_modules/@openai/codex/vendor/x86_64-pc-windows-msvc/bin/codex.exe":     []byte("codex fixture"),
-			"clients/node_modules/@openai/codex/vendor/x86_64-pc-windows-msvc/codex-path/rg.exe": []byte("resource fixture"),
-			"clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe":                []byte("claude fixture"),
+			"clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe":     []byte("codex fixture"),
+			"clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/codex-path/rg.exe": []byte("resource fixture"),
+			"clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe":                          []byte("claude fixture"),
 		}, true),
 		"suppliers/official-hermes-f97608f1-source.tar": pack(map[string][]byte{
 			".venv/Scripts/hermes.exe": []byte("hermes fixture"),

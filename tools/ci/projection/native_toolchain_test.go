@@ -402,6 +402,22 @@ func TestGitHubWindowsUsesThePortableNativeToolClosure(t *testing.T) {
 	}
 }
 
+func TestWindowsClientSupplyUsesOfficialPlatformPackage(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	output, err := projectionCommand(root, "nativeWindowsClientSupply").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var script string
+	if err := yaml.Unmarshal(output, &script); err != nil {
+		t.Fatal(err)
+	}
+	const platformRoot = "clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc"
+	if !strings.Contains(script, platformRoot) {
+		t.Fatalf("offline native supply does not select the official platform package: %s", platformRoot)
+	}
+}
+
 func TestWindowsClientInstallerUsesPinnedContentAPI(t *testing.T) {
 	projections := canonicalProjections(t)
 	type step struct {

@@ -246,6 +246,15 @@ own receipts. Full source evidence remains under
 `build/verification/5c64433d1a9f081d0c0ec3b530c56f6b906cbc54/supplier-refresh-preflight-20261012`; final-byte,
 native-store, Desktop, Windows and clean-supply obligations remain open.
 
+Windows supplier regression now selects the official Codex 0.162.1 platform
+package, not its three-file bootstrap package. One CUE declaration owns the
+vendor root for GitHub installation and both GitLab native Windows jobs.
+Focused RED/GREEN, the complete projection suite, generated-output reconciliation,
+Go checks, source-size, formatter and strict OpenSpec checks pass under
+`build/verification/610f8b7729b30df0186def5ebdedfa06504033e6/native-supplier-preflight-20261012`.
+GitHub's rendered installer remains unchanged. These source checks do not qualify
+the refreshed offline archive, actual Windows execution or either peer's hosted CI.
+
 An Account endpoint declares upstream service identity. An explicitly selected
 Client Binding may declare a forwarding endpoint without changing that Account,
 Route, provider identity or another client. The existing resolver derives the
