@@ -70,9 +70,9 @@ authorization SHALL remain separate claims.
 
 #### Scenario: Release history and Git disagree
 
-- **WHEN** a reachable product tag lacks a released section, a historical released section
-  lacks its tag, or the selected tag differs from `VERSION`, the first released
-  section, or `HEAD`
+- **WHEN** a reachable product tag lacks a released section, a historical released
+  section lacks its tag, or the selected tag differs from `VERSION`, the first
+  released section, or `HEAD`
 - **THEN** the release gate SHALL fail before construction or publication.
 
 #### Scenario: A user consumes the publisher's signed release
