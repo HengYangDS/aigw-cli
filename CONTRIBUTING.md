@@ -405,9 +405,11 @@ AIGW_ACCEPTANCE_CLIENT_PATH=/usr/bin:/bin \
 
 Windows uses native executable paths and a semicolon-separated companion PATH.
 Supply complete client distributions; a missing path is not a stub/download license.
-Hermes uses a temporary named profile under the explicit native home to retain its
-installation binding. OS HOME and AIGW state remain isolated; cleanup removes the
-owned profile without changing native settings or other profiles.
+On macOS and Linux, Hermes uses a disposable home outside its native data root.
+It borrows committed dependencies without provisioning; boot records stay private.
+Cleanup leaves native configuration, installation facts, boot records and launchers
+unchanged. Windows verification refuses to start Hermes until native launcher
+publication can be isolated.
 
 The isolated Codex fixture explicitly enables the official Windows `unelevated`
 sandbox, which uses a restricted token without administrator setup. The client
