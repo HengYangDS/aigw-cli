@@ -28,11 +28,17 @@ and post-archive migration. Existing native verification retains its raw results
       changing existing signed history.
 - [ ] 3.2 Complete required source checks, strict intent review, native
       three-OS journeys, and exact-source proof on the maintenance candidate.
-      Signed source `d441b132` passes the complete native source gate, race tests,
-      package-observed coverage (95.01%), and strict Change validation. Its
-      current-lease full proof remains open: the common configuration gate
-      conflicts with native generated and preserved input ownership, so its
-      dependent behavior proof did not execute. Preserve that original failure.
+      Signed source `fdae584b` passes Quality and all three full native platform
+      jobs in GitHub run [38190562840](https://github.com/HengYangDS/aigw-cli/actions/runs/38190562840):
+      Windows 95.04% (12814/13483), Linux 95.16% (12755/13404), and macOS
+      95.11% (12746/13401). The original logs and native coverage profiles retain
+      their exact source; failed Windows coverage and its distinguishing repair
+      remain in native Attestation `e4dc2b0d`. Earlier exact-source gate, race,
+      and strict Change evidence keeps its original scope. Current-lease full
+      proof remains open: the common configuration gate conflicts with native
+      formatters, locks, and preserved captured/history ownership, so dependent
+      behavior proof did not execute. Preserve that original failure; native
+      fixture acceptance does not replace final signed artifacts or installation.
 - [x] 3.3 Qualify signed and notarized candidate bytes against published 0.3.3
       with retained state and the original 0.3.1 reader, including native credentials,
       update, direct rollback, and restored forwarding.
