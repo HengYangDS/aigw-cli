@@ -30,7 +30,8 @@ The immutable baseline is signed published commit
 `internal/cli/account/account_test.go`, `internal/cli/route/route_test.go`,
 `internal/client/hermes.go`, its native verification variants, existing Hermes,
 native-Hermes, and credential-policy tests,
-`internal/hermes/configuration`, `tools/release/clients_test.go`, and its
+`internal/hermes/configuration`, `internal/cli/acceptance/hermes_test.go`,
+`tools/release/clients_test.go`, and its
 Hermes-specific fixture file.
 Release metadata is limited to `VERSION` and
 `CHANGELOG.md`. Existing Store, native process, original Hermes launcher,

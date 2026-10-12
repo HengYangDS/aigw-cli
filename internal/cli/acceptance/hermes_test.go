@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -52,7 +53,7 @@ interfaces = { anthropic = ["text", "streaming", "tools"] }
 		Executables: map[string]string{configuration.ClientHermes: executable},
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", Product: "Hermes", Authority: "aigw", ConfigPath: target}},
 	}}
-	for _, args := range [][]string{{"sync"}, {"status", "--json"}, {"check"}, {"test", "--for", "hermes"}, {"verify", "--for", "hermes"}} {
+	for _, args := range [][]string{{"sync"}, {"status", "--json"}, {"check"}, {"test", "--for", "hermes"}} {
 		output.Reset()
 		if err := cli.Execute(app, args); err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, output.String())
@@ -61,8 +62,23 @@ interfaces = { anthropic = ["text", "streaming", "tools"] }
 			t.Fatal("public command exposed its fixture credential")
 		}
 	}
-	if len(runner.plans) != 2 {
+	beforeVerification := readFile(t, target)
+	output.Reset()
+	verificationErr := cli.Execute(app, []string{"verify", "--for", "hermes"})
+	wantInvocations := 2
+	if runtime.GOOS == "windows" {
+		wantInvocations = 0
+		if verificationErr == nil || !strings.Contains(verificationErr.Error(), "cannot isolate native launcher publication on Windows") {
+			t.Fatalf("unqualified Windows verification = %v", verificationErr)
+		}
+	} else if verificationErr != nil {
+		t.Fatalf("native verification: %v\n%s", verificationErr, output.String())
+	}
+	if len(runner.plans) != wantInvocations {
 		t.Fatalf("native verification invocation count = %d", len(runner.plans))
+	}
+	if !bytes.Equal(beforeVerification, readFile(t, target)) || strings.Contains(output.String(), "public-fixture-token") {
+		t.Fatal("verification changed the Hermes projection or exposed its fixture credential")
 	}
 	if httpClient.headers.Get("X-Api-Key") != "public-fixture-token" || httpClient.headers.Get("Authorization") != "" {
 		t.Fatalf("wrong selected protocol headers: %v", httpClient.headers)
