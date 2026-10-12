@@ -275,3 +275,8 @@ in Git; original raw results stay with their source-bound verification owner.
       Production publication and installed Homebrew cutover follow the
       [Migration Plan](design.md#migration-plan). Equal product inputs do not
       rebind signatures, source epoch or provenance.
+      The independent 0.3.5 maintenance release is delivered and
+      [officially archived](../archive/2026-10-12-maintenance-client-qualification/tasks.md),
+      with signed source `f3c7f87f`, GitHub release `410414008` and native archive
+      receipt `861e7482`. It is not the final 0.4.0 candidate and does not close
+      this task.
