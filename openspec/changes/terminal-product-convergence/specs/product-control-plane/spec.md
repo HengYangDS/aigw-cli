@@ -9,7 +9,9 @@ dependency environment and managed tools, AIGW's disposable Hermes verification
 environment SHALL reuse the committed dependencies without borrowing mutable
 home-maintenance records. Its boot records SHALL remain disposable; native
 dependency selection SHALL retain its original physical lock and generation
-leases. Verification SHALL NOT install, synchronize, rebuild, or republish the
+leases, and the complete native live-profile dependency-member union with its
+original resolved identities. The probe SHALL NOT activate operator plugins or
+credential-backed memory providers. Verification SHALL NOT install, synchronize, rebuild, or republish the
 operator's dependencies, tools, launchers, or boot records.
 
 #### Scenario: Hermes keeps installation state under its data root
@@ -22,6 +24,17 @@ operator's dependencies, tools, launchers, or boot records.
   dependencies, tools, and launchers are not synchronized or republished
 - **AND** removing the disposable home leaves the operator's Hermes
   configuration, installation state, and launchers unchanged.
+
+#### Scenario: Installed dependencies include native plugin members
+
+- **WHEN** default or live named profiles contribute plugin or memory-provider
+  members to the committed dependency environment
+- **THEN** disposable selector-only profiles retain their native names,
+  disabled selections and resolved source identities without copying credentials
+- **AND** retired profiles, invalid profile names and the default alias do not
+  change the dependency union
+- **AND** the inference probe disables plugin and memory-provider activation
+  while native dependency and boot-record checks remain effective.
 
 #### Scenario: Native launch effects cannot be isolated
 

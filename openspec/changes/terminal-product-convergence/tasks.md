@@ -104,7 +104,9 @@ in Git; original raw results stay with their source-bound verification owner.
       [native-client design](design.md#3-qualify-a-client-adapter-do-not-infer-support-from-a-file).
       Current `8254c1f5` independently requalifies the packaged macOS Hermes
       journey and native boot regression, with no operator-state mutation or new
-      residue; the existing dependency-lock warning remains disclosed.
+      residue. Its warnings were traced to omitted dependency members in the
+      borrowed home, not operator-install drift; the corrected native union and
+      boot regressions pass. Packaged inference requalification remains open.
       Real Provider credentials, Desktop and other platforms remain open.
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder, and other proposed agents
       against the same adapter contract; implement only adapters whose executable,

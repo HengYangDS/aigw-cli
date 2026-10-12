@@ -97,6 +97,89 @@ print(json.dumps({"record": str(record), "identity": json.loads(record.read_text
 	}
 }
 
+func TestHermesNativeVerificationRetainsDependencyMembers(t *testing.T) {
+	_, python := nativeHermesExecutables(t)
+	osHome := t.TempDir()
+	owner := filepath.Join(osHome, ".hermes")
+	plugin := filepath.Join(owner, "plugins", "native-member")
+	if err := os.MkdirAll(plugin, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(plugin, "pyproject.toml"), []byte("[project]\nname = 'native-member'\nversion = '1.0.0'\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(owner, "config.yaml")
+	original := []byte("plugins: {enabled: [native-member]}\nproviders: {personal: {api_key: private-selection}}\n")
+	if err := os.WriteFile(target, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profiles := filepath.Join(owner, "profiles")
+	for _, name := range []string{"work", "retired", ".work.staging-hidden", "Bad Name"} {
+		path := filepath.Join(profiles, name)
+		if err := os.MkdirAll(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		data := []byte("plugins: [invalid]\n")
+		if name == "work" {
+			data = []byte("plugins: {enabled: [native-member, disabled], disabled: [disabled]}\nmemory: {provider: memory-member}\n")
+			for _, member := range []string{"native-member", "memory-member"} {
+				memberRoot := filepath.Join(path, "plugins", member)
+				if err := os.MkdirAll(memberRoot, 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(memberRoot, "pyproject.toml"), []byte("[project]\nname = '"+member+"'\nversion = '1.0.0'\n"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		if err := os.WriteFile(filepath.Join(path, "config.yaml"), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(profiles, ".deleted", "retired"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(owner, filepath.Join(profiles, "default")); err != nil {
+		t.Fatal(err)
+	}
+	env := map[string]string{"HOME": osHome, "USERPROFILE": osHome, "LOCALAPPDATA": osHome, "HERMES_HOME": owner}
+	probe := `
+import json
+from pm.workspace import enabled_member_dirs, members_stamp
+members = enabled_member_dirs()
+print(json.dumps({"members": [str(p.resolve()) for p in members], "stamp": members_stamp(members)}))
+`
+	var before, after struct {
+		Members []string `json:"members"`
+		Stamp   string   `json:"stamp"`
+	}
+	if err := json.Unmarshal(runHermesNativeScript(t, python, osHome, env, probe), &before); err != nil {
+		t.Fatal(err)
+	}
+	if len(before.Members) != 3 {
+		t.Fatal("native dependency fixture did not select its complete live-profile union")
+	}
+	home, cleanup, err := hermesconfig.CreateVerificationHome(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := cleanup(); err != nil {
+			t.Error(err)
+		}
+	})
+	env["HERMES_HOME"] = home
+	if err := json.Unmarshal(runHermesNativeScript(t, python, osHome, env, probe), &after); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(before.Members, after.Members) || before.Stamp != after.Stamp {
+		t.Fatalf("isolated verification changed native dependency identity: before=%+v after=%+v", before, after)
+	}
+	if actual, err := os.ReadFile(target); err != nil || !bytes.Equal(actual, original) {
+		t.Fatal("dependency borrowing changed the operator configuration")
+	}
+}
+
 // TestHermesNativeProjection consumes an explicit candidate and an installed
 // Hermes Python runtime. Missing prerequisites fail rather than silently skip.
 // It resolves real native configuration and executes the projected credential

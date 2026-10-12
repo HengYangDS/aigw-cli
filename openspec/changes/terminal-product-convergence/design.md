@@ -208,6 +208,13 @@ plausible config file.
 Private Hermes verification homes stay outside both native data roots, borrowing
 `facts.json`, environments, PM runtime, physical `.install.lock` and tools.
 Missing locks refuse launch; Hermes owns leases. No upstream isolation API.
+Native dependency currency also hashes the complete live-profile plugin/member
+union by resolved source identity. Disposable selector-only profiles retain that
+union using original plugin-source links; only `plugins.enabled`,
+`plugins.disabled` and `memory.provider` metadata is copied. Invalid names,
+tombstones and the default alias remain excluded. The probe has an explicit
+empty plugin allow-list and no memory provider; boot/config/runtime state remains
+private. This is an upstream-layout-dependent adapter, not an isolation API.
 
 `PrepareVerification` disables lazy installs, update checks and PATH exposure.
 Hermes 0.21.6 ignores the last on Windows; AIGW refuses before launch.
@@ -236,9 +243,18 @@ including `verify --for hermes`, streaming tools, continuation, native model
 adoption, forwarding and the four retained-predecessor lifecycle stages. All eight
 operator files and the default boot record stayed byte/mode/inode intact; all
 86,077 dependency/tool nodes remained, with only native lease-directory mtime
-changed. The authorized 36 residue records remain absent. Hermes' existing
-dependency-lock warning persists; this is not warning-free installation or
-full product acceptance. Windows verification still refuses before launch.
+changed. The authorized 36 residue records remain absent. That borrowed-home
+journey emitted dependency-currency warnings; it does not prove an out-of-sync
+operator installation or warning-free acceptance. Windows verification still
+refuses before launch.
+
+The October 12 passive native comparison identifies the warning: the operator
+home has one dependency member and is current, while the old borrowed home has
+none and fails the same native stamp against the same installed environment.
+Selector-only profiles restore resolved member identities without copying
+credentials. Focused config/client tests and the original native boot/member
+regressions pass; packaged inference with this repair remains to be qualified.
+Receipts: `build/verification/67a9e947fe191d8d5e10633d816447d566287bf1/hermes-dependency-diagnosis-20261012`.
 
 Evidence: `build/verification/<source>/native-{candidate,hermes-boot,hermes-artifact}-20261012`
 for `8254c1f5`; the original `2b746c96` Codex, Claude and Linux scopes retain their
