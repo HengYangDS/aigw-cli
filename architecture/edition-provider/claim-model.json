@@ -74,7 +74,7 @@
       "authority": "AIGW command composition at the selected product revision"
     },
     "configuration": {
-      "sha256": "6b0031b0f649d613c7660d45a6a3fafe7b1a6974406ad6edfa34d2400013ed3d",
+      "sha256": "16556b9fa8ee8bd75b0e4dba8fb18a7f06d5ef290d35cdf05186d23d2d73de5d",
       "locator": "source/internal/configuration/model.go",
       "authority": "AIGW Account, Model, Route, recommendation, and Client Binding authority"
     },
