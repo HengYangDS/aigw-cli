@@ -30,9 +30,6 @@ func TestRenderGoReleaserConfigRejectsUnwritableDestination(t *testing.T) {
 
 func TestInternalReleaseNeedsNoPublisherCredentials(t *testing.T) {
 	root := releaseRoot(t)
-	for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
-		t.Setenv(name, "")
-	}
 	want := errors.New("source inspection reached")
 	calls := 0
 	err := buildRelease(t.Context(), buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: "1.2.3", Epoch: "0", SigningKey: "synthetic"}, func(call toolCall) error {

@@ -16,8 +16,8 @@ the complete design.
 | Connect the first Account     | `aigw setup`                      | Follow **Next**                    |
 | Import reviewed team settings | `aigw setup --from team.toml`     | Connect any one Account when ready |
 | Inspect current state         | `aigw`                            | Follow **Next**                    |
-| Bind a Route to a client      | `aigw use --for <client> <route>` | `aigw check`                       |
-| Replace one Account Token     | `aigw rotate <account>`           | `aigw check`                       |
+| Bind a Route to a client      | `aigw use --for <client> <route>` | Follow **Next**                    |
+| Replace one Account Token     | `aigw rotate <account>`           | Follow **Next**                    |
 | Diagnose a problem            | `aigw doctor`                     | Run its recommended action         |
 | Migrate retained local state  | `aigw config migrate --dry-run`   | Review, then apply                 |
 

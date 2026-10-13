@@ -88,11 +88,13 @@ output, not tracked source; [formatter scope](../../.config/checks/markdown/pret
 only immutable OpenSpec history. A directory named `archive` elsewhere remains
 current source.
 
-The adapter applies locked Prettier defaults without discovering local or parent
+The adapter applies locked Prettier with only its declared options, a 100-column
+print width and preserved prose wrapping, without discovering local or parent
 configuration. EditorConfig owns editor defaults and its independent byte checks,
 not Prettier options. Missing local dependencies, a scope with no
 supported files or differing format fail without writing source or falling
-back to another installation.
+back to another installation. Prettier also chooses list and emphasis markers,
+so markdownlint does not check them.
 
 Markdown lint validates its one rule file against schemas shipped with the
 locked package before checking source. It does not discover nested or parent

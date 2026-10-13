@@ -79,7 +79,8 @@ no global default, inheritance, or cross-client fallback. AIGW selects before
 the request; it does not retry traffic through another endpoint or model.
 
 Team recommendations are not local bindings. Import retains them separately.
-Setup may bind recommendations for explicitly connected Accounts. Later `sync`
+Setup may bind recommendations for Accounts it connects or whose Token already
+exists. Later `sync`
 may select an unbound reviewed recommendation when its Account Token appears in
 the read-only environment backend; it does not search unselected native
 credentials. An existing binding survives a missing Token or a newly connected

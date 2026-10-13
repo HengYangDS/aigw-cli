@@ -139,9 +139,6 @@ func TestNativeReleaseArchivesHaveDeterministicLocalSignatures(t *testing.T) {
 	for _, platform := range []string{"darwin", "linux", "windows"} {
 		t.Run(platform+" without macOS credentials", func(t *testing.T) {
 			request.TargetOS = platform
-			for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
-				t.Setenv(name, "")
-			}
 			stage, err := buildArchives(request, t.TempDir(), executeTool(t.Context()))
 			if err != nil {
 				t.Fatal(err)
@@ -214,9 +211,6 @@ func privateInternalRelease(t *testing.T) buildRequest {
 		if err := os.WriteFile(path, content, 0o600); err != nil {
 			t.Fatal(err)
 		}
-	}
-	for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
-		t.Setenv(name, "")
 	}
 	privateReleaseCommand(t, root, "git", "init", "--quiet")
 	privateReleaseCommand(t, root, "git", "remote", "add", "origin", "https://github.com/HengYangDS/aigw-cli.git")

@@ -238,15 +238,15 @@ Separate runner selections can execute independently.
 
 Before downloading assets, the workflow resolves the selected tag to its
 product commit and requires this peer's latest successful tag-push `Verify`
-attempt at that SHA. Quality, macOS, Linux, Windows and version jobs must all
-have passed in that same attempt. Branch or manual runs, an earlier attempt,
+attempt at that SHA. Quality, macOS, Linux, Windows, Linux Secret Service and
+version jobs must all have passed in that same attempt. Branch or manual runs, an earlier attempt,
 another peer, or incomplete GitHub Actions evidence do not qualify. The
 workflow has read-only Actions access for this check; GitLab instead uses
-same-pipeline `needs` for the same five obligations.
+same-pipeline `needs` for the same six obligations.
 
 The bounded choices cover the six published OS/architecture pairs. Alongside
 the ordinary Linux, macOS and Windows hosts, `ubuntu-24.04-arm`,
-`macos-15-intel` and `windows-11-arm` execute the additional architectures.
+`macos-26-intel` and `windows-11-arm` execute the additional architectures.
 Runner labels follow the [official image matrix](https://github.com/actions/runner-images#available-images);
 the job must still demonstrate the actual host and candidate identity.
 

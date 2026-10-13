@@ -187,9 +187,6 @@ func TestNativeBuildNeedsNoPublisherCredentials(t *testing.T) {
 		t.Run(platform, func(t *testing.T) {
 			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "0", TargetOS: platform}
 			t.Setenv("AIGW_MACOS_SIGNING_IDENTITY", strings.Repeat("a", 40))
-			for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
-				t.Setenv(name, "")
-			}
 			calls := 0
 			_, err := buildArchives(request, t.TempDir(), func(call toolCall) error {
 				calls++

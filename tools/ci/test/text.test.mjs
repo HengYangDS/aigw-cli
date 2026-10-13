@@ -98,6 +98,9 @@ test("native formatting preserves Markdown containers and canonical admission", 
     "width.md":
       '# Width\n\nKeep this deliberately long authored paragraph unchanged rather than rewrapping it to the configured presentation target width of one hundred columns.\n\n```js\nconst providers = ["primary-provider-one", "secondary-provider-two", "manual-provider-three"];\n```\n',
     "frontmatter.md": "---\nsubject: aigw:test\nrole: test\n---\n# Document\n\nText.\n",
+    // Prettier alternates the marker of an adjacent list and chooses emphasis markers.
+    "adjacent.md": "# Document\n\n- First list.\n\n* Second list.\n",
+    "emphasis.md": "# Document\n\nAn *emphasized* word and intra*word*emphasis.\n",
   };
   const { format } = await import("../../../node_modules/prettier/index.mjs");
   const expected = {};

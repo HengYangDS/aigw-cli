@@ -3,7 +3,8 @@ default: false
 # Native Prettier owns whitespace and container layout.
 MD001: true
 MD003: { style: atx }
-MD004: { style: dash }
+# Prettier alternates the marker of an adjacent list to keep the lists distinct.
+MD004: false
 MD005: true
 MD009: true
 MD010: true
@@ -38,7 +39,8 @@ MD045: true
 MD046: { style: fenced }
 MD047: true
 MD048: { style: backtick }
-MD049: { style: asterisk }
+# Prettier writes underscore emphasis, but asterisks inside a word.
+MD049: false
 MD050: { style: asterisk }
 MD051: true
 MD052: true

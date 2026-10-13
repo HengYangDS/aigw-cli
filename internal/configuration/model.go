@@ -249,19 +249,6 @@ func (c *Config) RouteIDs() []string {
 	return ids
 }
 
-// ClientForRoute returns the sole admitted client compatible with a Route.
-// Callers must ask for an explicit client when more than one is compatible.
-func (c *Config) ClientForRoute(name string) (string, error) {
-	compatible, err := c.ProtocolClientIDs(name)
-	if err != nil {
-		return "", err
-	}
-	if len(compatible) != 1 {
-		return "", fmt.Errorf("route %q is compatible with %d clients; select one explicitly", name, len(compatible))
-	}
-	return compatible[0], nil
-}
-
 // ProtocolClientIDs returns clients whose declared protocol overlaps one Route.
 // Protocol overlap permits selection; it does not qualify native client behavior.
 func (c *Config) ProtocolClientIDs(name string) ([]string, error) {
@@ -342,17 +329,6 @@ func (c *Config) ResolveAccount(reference string) (string, Account, error) {
 	}
 	account.ID = route.Account
 	return route.Account, account, nil
-}
-
-// FirstRouteForClient returns the first stable Route that can resolve the
-// requested client's model or endpoint without changing its binding.
-func (c *Config) FirstRouteForClient(client string) string {
-	for _, id := range c.RouteIDs() {
-		if _, err := c.ResolveRuntime(client, id); err == nil {
-			return id
-		}
-	}
-	return ""
 }
 
 // EnabledClientIDs returns the stable client scope explicitly enabled by this configuration.

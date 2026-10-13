@@ -10,7 +10,7 @@ import (
 )
 
 // ErrHomebrewManaged means a valid Homebrew receipt owns the executable.
-var ErrHomebrewManaged = errors.New("Homebrew manages this executable; use Homebrew for upgrade, rollback, or removal instead of portable installation commands")
+var ErrHomebrewManaged = errors.New("Homebrew manages this executable; use Homebrew for upgrade, rollback, or removal instead of portable installation commands, and run `aigw update --rollback` before Homebrew installs an earlier release")
 
 // RequirePortableOwnership stops product-managed writes to a Homebrew installation.
 // Native receipts, rather than a host prefix or environment hint, establish ownership.

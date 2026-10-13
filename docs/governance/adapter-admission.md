@@ -56,7 +56,7 @@ registration alone is not a release support claim.
 
 | Client                      | Configuration and authentication boundary                                                                                                                              | Required account capability            |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| Claude Code                 | Official per-user settings projection; Token is read on demand through `aigw credential claude <projection-fingerprint>`                                               | Verified Anthropic-compatible endpoint |
+| Claude Code                 | Official per-user settings projection; Token is read on demand through the absolute versioned AIGW reader's `credential claude` command                                | Verified Anthropic-compatible endpoint |
 | Claude Desktop              | Official per-user third-party inference library; Token is read on demand through an executable helper and argument array                                               | Verified Anthropic-compatible endpoint |
 | Codex CLI and Codex Desktop | AIGW-owned `config.toml` projection in the shared Codex Home; projection-matching command helper for Account Tokens; client-native authentication remains client-owned | Verified OpenAI Responses endpoint     |
 | Hermes Agent                | Native provider and model configuration with an Account-scoped credential command                                                                                      | Verified declared endpoint protocol    |

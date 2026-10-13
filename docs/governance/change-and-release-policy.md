@@ -31,8 +31,9 @@ excludes ambient configuration before tool declarations load. CUE, GoReleaser,
 Renovate and [ETHOS adoption](../../.ethos/) have distinct consumers: do not add a
 second command, hook, lifecycle or dependency authority.
 
-Remove default-only configuration with its consumers. Prettier's locked defaults
-and exact Git inventory own formatting; EditorConfig owns editor/byte defaults.
+Remove default-only configuration with its consumers. Locked Prettier with its
+declared 100-column width and preserved prose wrapping, and exact Git inventory,
+own formatting; EditorConfig owns editor/byte defaults.
 Taplo's intentional deviations preserve array/key order, multiline arrays,
 100-column layout and compact inline tables. Neither tools nor upgrades may
 silently reorder meaning. [Text policy](text-layout.md) and
@@ -139,7 +140,7 @@ A scheduler is not required for this owner-driven path.
 [Workspace roles](../../.ethos/workspace.toml) distinguish accepted `dev`, release
 `main` and the one authoring Work Lane; `proposal/*` is a review projection, not
 another lane. Active intent may remain on accepted/release branches while delivery
-is unfinished. Follow [OpenSpec merge then archive](https://github.com/Fission-AI/OpenSpec/blob/v1.13.2/docs/team-workflow.md#when-to-archive):
+is unfinished. Follow [OpenSpec merge then archive](https://github.com/Fission-AI/OpenSpec/blob/v1.14.1/docs/team-workflow.md#when-to-archive):
 finish implementation/candidate tasks, archive before stable tagging, then rebuild/
 qualify the final signed source. Publication/install/retirement remain post-archive
 obligations, not self-referential archive checkboxes. [ETHOS gate](../../.ethos/profile.toml)
@@ -355,7 +356,9 @@ artifact/runtime checks each have one owner. Architecture classification is not 
 effectiveness; add every applicable concern without another registry or generic parser.
 
 [Text policy](text-layout.md) owns exact inventory, Prettier, markdownlint, Mermaid,
-Taplo and typos. Actionlint invokes locked ShellCheck for embedded workflow fragments;
+Taplo and typos. Actionlint checks workflow structure with its ShellCheck integration
+disabled; the workflow owner extracts each embedded Bash or sh fragment and runs
+locked ShellCheck on it with recorded exclusions and retained JSON evidence.
 GitLab relies on CUE projection and actual native execution. No separate YAML formatter,
 Pants/Dagger/Nix/CEL plane is admitted without demonstrated replaced responsibility and
 native three-platform benefit. OpenSpec findings remain visible and block admission
@@ -497,7 +500,7 @@ or call successful transport complete qualification.
 Codex catalogue and verification probes own their temporary environment. The
 selected `CODEX_HOME` must not lie below the child's temporary root: catalogue
 probes keep native temporary files below their owned home, while verification
-uses its owned output workspace. All three native temporary variables select
+uses the `tmp` directory of its disposable `CODEX_HOME`. All three native temporary variables select
 that exact root without changing the parent process or user configuration.
 
 Correctness includes vet nilness/unused-write and checked dynamic assertions; concrete

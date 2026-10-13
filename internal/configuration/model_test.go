@@ -29,9 +29,6 @@ func TestConfigQueriesOwnAccountAndRouteSelectionSemantics(t *testing.T) {
 	if err != nil || accountID != "gateway" {
 		t.Fatalf("ResolveAccount(account) = %q, %v", accountID, err)
 	}
-	if got := cfg.FirstRouteForClient(ClientClaude); got != "alpha" {
-		t.Fatalf("FirstRouteForClient() = %q", got)
-	}
 	if !cfg.ClientUsesAccount(ClientClaude, "gateway") || cfg.ClientUsesAccount(ClientClaude, "other") {
 		t.Fatal("ClientUsesAccount() did not follow the selected binding")
 	}

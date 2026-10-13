@@ -75,7 +75,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&request.From, "from", "", "Set up all routes from a token-free configuration manifest")
-	cmd.Flags().StringVar(&request.Account, "account", "", "Account ID; uses the first Route ID when omitted")
+	cmd.Flags().StringVar(&request.Account, "account", "", "Account ID; guided setup uses the first Route ID when omitted, --from connects only this Account")
 	cmd.Flags().StringVar(&request.Route, "route", "", "First route ID")
 	cmd.Flags().StringVar(&request.Label, "label", "", "Provider display name")
 	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses base URL")

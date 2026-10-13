@@ -255,7 +255,7 @@ the import-only command above. The rest remain optional:
 
 ```bash
 aigw setup --from team.toml --account dmxapi
-aigw check
+aigw status
 ```
 
 The interactive command prompts only for the selected Account with a writable
@@ -291,7 +291,7 @@ explicitly:
 ```bash
 aigw rotate dmxapi
 aigw use --for codex dmxapi-gpt-6.1-sol-cdx
-aigw check
+aigw status
 ```
 
 One connected Account is enough to begin. Accounts without Tokens remain

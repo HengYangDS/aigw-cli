@@ -244,7 +244,7 @@ postimage, then separately attempts to restore its backend choice. This does not
 make selection and a native credential service one cross-process transaction.
 
 Credential rotation validates and replaces only the selected Account Token.
-It does not invoke clients or change configuration. Both admitted clients read
+It does not invoke clients or change configuration. Every admitted client reads
 Account Tokens through a command helper; same-Account rotation becomes visible
 on its next invocation, subject to the client's refresh policy. Client-native
 authentication is outside AIGW's credential ownership.

@@ -91,30 +91,6 @@ func TestResolveRuntimeReturnsAccountEndpointAndModel(t *testing.T) {
 	}
 }
 
-func TestClientForRouteRequiresCanonicalScope(t *testing.T) {
-	cfg := NewConfig()
-	cfg.Accounts["codex"] = Account{Label: "Codex", Endpoints: Endpoints{OpenAIResponses: "https://codex.test/v1"}}
-	cfg.Accounts["shared"] = Account{Label: "Shared", Endpoints: Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
-	cfg.Accounts["hermes"] = Account{Label: "Hermes", Endpoints: Endpoints{OpenAIChatCompletions: "https://hermes.test/v1"}}
-	cfg.Routes["codex"] = testRoute("Codex", "codex", "gpt-5.6", ProtocolOpenAIResponses)
-	cfg.Routes["shared"] = testRoute("Shared", "shared", "gpt-5.6", ProtocolAnthropic, ProtocolOpenAIResponses)
-	cfg.Routes["hermes"] = testRoute("Hermes", "hermes", "model", ProtocolOpenAIChatCompletions)
-
-	client, err := cfg.ClientForRoute("hermes")
-	if err != nil || client != ClientHermes {
-		t.Fatalf("ClientForRoute(hermes) = %q, %v", client, err)
-	}
-	if _, err := cfg.ClientForRoute("codex"); err == nil || !strings.Contains(err.Error(), "compatible with 2 clients") {
-		t.Fatalf("multi-client route error = %v", err)
-	}
-	if _, err := cfg.ClientForRoute("shared"); err == nil || !strings.Contains(err.Error(), "compatible with 4 clients") {
-		t.Fatalf("unscoped route error = %v", err)
-	}
-	if _, err := cfg.ClientForRoute("missing"); err == nil || !strings.Contains(err.Error(), "unknown route") {
-		t.Fatalf("unknown route error = %v", err)
-	}
-}
-
 func TestResolveRuntimeRejectsUnknownRouteAccountAndEndpoint(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["dmx"] = Account{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
@@ -429,10 +405,12 @@ func TestDomainErrorTextAndRouteSelectionBranches(t *testing.T) {
 	cfg.Accounts["generic"] = Account{Label: "Generic", Endpoints: Endpoints{Anthropic: "https://one.test"}}
 	cfg.Routes["a-skip"] = testRoute("Skip", "generic", "", ProtocolAnthropic)
 	cfg.Routes["b-endpoint"] = testRoute("Endpoint", "generic", "claude-endpoint", ProtocolAnthropic)
-	if got := cfg.FirstRouteForClient(ClientCodex); got != "" {
-		t.Fatalf("Codex route = %q", got)
+	for _, route := range []string{"a-skip", "b-endpoint"} {
+		if _, err := cfg.ResolveRuntime(ClientCodex, route); err == nil {
+			t.Fatalf("Codex resolved the Anthropic-only Route %q", route)
+		}
 	}
-	if got := cfg.FirstRouteForClient(ClientClaude); got != "a-skip" {
-		t.Fatalf("Claude route = %q", got)
+	if _, err := cfg.ResolveRuntime(ClientClaude, "a-skip"); err != nil {
+		t.Fatalf("Claude Route without a Model: %v", err)
 	}
 }
