@@ -113,9 +113,11 @@ func TestNativeDependencyEvidenceRetainsFindings(t *testing.T) {
 	if err := os.WriteFile(policy, []byte("[[PackageOverrides]]\nname='example.invalid/dependency'\nversion='1.0.0'\necosystem='Go'\nlicense.override=['MIT']\n[[PackageOverrides]]\nname='braces'\nversion='3.0.3'\necosystem='npm'\nlicense.override=['MIT']\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	// npm records a registry package's resolved URL; OSV Scanner 2.7 treats an
+	// entry without one as a local package and queries no advisory for it.
 	for path, value := range map[string]string{
 		"go.mod":            "module example.invalid/fixture\ngo 1.27.1\nrequire example.invalid/dependency v1.0.0\n",
-		"package-lock.json": `{"name":"fixture","lockfileVersion":3,"packages":{"node_modules/braces":{"version":"3.0.3","dev":true}}}`,
+		"package-lock.json": `{"name":"fixture","lockfileVersion":3,"packages":{"node_modules/braces":{"version":"3.0.3","resolved":"https://registry.npmjs.org/braces/-/braces-3.0.3.tgz","dev":true}}}`,
 	} {
 		if err := os.WriteFile(filepath.Join(root, path), []byte(value), 0o600); err != nil {
 			t.Fatal(err)
