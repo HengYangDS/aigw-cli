@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+// ErrHomebrewManaged means a valid Homebrew receipt owns the executable.
+var ErrHomebrewManaged = errors.New("Homebrew manages this executable; use Homebrew for upgrade, rollback, or removal instead of portable installation commands")
+
 // RequirePortableOwnership stops product-managed writes to a Homebrew installation.
 // Native receipts, rather than a host prefix or environment hint, establish ownership.
 func RequirePortableOwnership(executable string) error {
@@ -91,5 +94,5 @@ func checkHomebrewReceipt(path string) error {
 	if receipt.Version == "" || receipt.Source.Tap == "" {
 		return errors.New("incomplete Homebrew installation receipt; repair the installation through Homebrew")
 	}
-	return errors.New("Homebrew manages this executable; use Homebrew for upgrade, rollback, or removal instead of portable installation commands")
+	return ErrHomebrewManaged
 }

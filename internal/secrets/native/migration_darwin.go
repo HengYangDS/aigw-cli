@@ -32,22 +32,25 @@ const (
 	securityCommandLimit = 4096
 )
 
-// readCredentialWithMigration returns the exact slot's Token. A denial that a
-// retained predecessor item explains, or an interrupted migration, migrates the
-// slot once to AIGW ownership.
-func readCredentialWithMigration(service, account, path string) ([]byte, error) {
+// readCredentialWithMigration returns the exact slot's Token. For the installed
+// program, a denial that a retained predecessor item explains, or an
+// interrupted migration, migrates the slot once to AIGW ownership. A versioned
+// reader reads the same slot without changing its owner.
+func readCredentialWithMigration(service, account, path string, role Role) ([]byte, error) {
 	value, err := readCredentialFromKeychain(service, account, path)
-	if err == nil {
+	switch {
+	case err == nil && role == VersionedReader:
+		return value, nil
+	case err == nil:
 		staged, stageErr := observeCredentialInKeychain(service, stagedAccount(account), path)
-		if stageErr != nil {
-			clear(value)
-			return nil, stageErr
-		}
-		if !staged {
+		if stageErr == nil && !staged {
 			return value, nil
 		}
 		clear(value)
-	} else if !migrationEligible(service, account, path, err) {
+		if stageErr != nil {
+			return nil, stageErr
+		}
+	case !migrationEligible(service, account, path, err):
 		// A concurrent worker may have completed a migration between lookups.
 		return readCredentialFromKeychain(service, account, path)
 	}
@@ -56,19 +59,41 @@ func readCredentialWithMigration(service, account, path string) ([]byte, error) 
 		return nil, err
 	}
 	defer release()
+	if role == VersionedReader {
+		return readWithoutCustody(service, account, path)
+	}
 	return migrateRetainedCredential(service, account, path)
 }
 
-// writeCredentialWithMigration replaces the exact slot. A retained predecessor
-// item migrates first, so an interrupted rotation keeps a readable Token.
-func writeCredentialWithMigration(service, account, path string, value []byte) error {
+// readWithoutCustody serves a versioned reader under the migration lock. It reads
+// a retained item through the predecessor's tool, or the staged Token of a
+// migration the installed program began, and leaves both items unchanged.
+func readWithoutCustody(service, account, path string) ([]byte, error) {
+	value, err := readCredentialFromKeychain(service, account, path)
+	if err == nil {
+		return value, nil
+	}
+	if predecessorItem(service, account, path) {
+		return readRetainedCredential(service, account, path)
+	}
+	staged, stagedErr := readCredentialFromKeychain(service, stagedAccount(account), path)
+	if errors.Is(stagedErr, ErrNotFound) {
+		return nil, err
+	}
+	return staged, stagedErr
+}
+
+// writeCredentialWithMigration replaces the exact slot. For the installed
+// program, a retained predecessor item migrates first, so an interrupted
+// rotation keeps a readable Token; a versioned reader leaves it denied.
+func writeCredentialWithMigration(service, account, path string, value []byte, role Role) error {
 	release, err := acquireMigrationLock(path)
 	if err != nil {
 		return err
 	}
 	defer release()
 	err = writeCredentialToKeychain(service, account, path, value)
-	if err != nil && migrationEligible(service, account, path, err) {
+	if err != nil && role == InstalledProgram && migrationEligible(service, account, path, err) {
 		var previous []byte
 		previous, err = migrateRetainedCredential(service, account, path)
 		clear(previous)
@@ -214,6 +239,18 @@ func restoreCredentialForPredecessor(service, account, path string) error {
 	}
 	if err == nil {
 		err = removeStagedCredential(service, account, path)
+	}
+	return err
+}
+
+// reclaimCredentialFromPredecessor returns a slot that a rollback gave to the
+// predecessor's reader to AIGW ownership when that rollback is not activated. An
+// absent or AIGW-owned slot needs no change.
+func reclaimCredentialFromPredecessor(service, account, path string) error {
+	value, err := readCredentialWithMigration(service, account, path, InstalledProgram)
+	clear(value)
+	if errors.Is(err, ErrNotFound) {
+		return nil
 	}
 	return err
 }

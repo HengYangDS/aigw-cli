@@ -3,7 +3,6 @@
 package update
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -15,13 +14,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// rollbackProgram returns macOS Keychain items to the retained program's own
-// reader before activating that program.
-func rollbackProgram(ctx context.Context, runtime invocation.Context, config []byte) (result string, err error) {
-	if err = invocation.RestorePredecessorCredentials(runtime); err == nil {
-		result, err = runtime.Updater.Rollback(ctx, config)
+// prepareHomebrewRollback returns macOS Keychain items to the reader of an
+// earlier release before Homebrew installs it; Homebrew keeps its program files.
+// If the operator keeps this release, its next Token use takes the items back.
+func prepareHomebrewRollback(runtime invocation.Context) error {
+	custody := invocation.CredentialCustody(runtime)
+	if err := custody.Release(""); err != nil {
+		return invocation.Problem(runtime,
+			"Credentials are not ready for a Homebrew rollback",
+			"AIGW could not return every Keychain item to the reader of earlier releases.",
+			"The installed program is unchanged and can still read every credential.",
+			"Run `aigw check`, then retry `aigw update --rollback` before Homebrew installs the earlier release.",
+			errors.Join(err, custody.Reclaim()))
 	}
-	return result, err
+	r := invocation.Renderer(runtime)
+	r.ProductTitle("Homebrew rollback")
+	r.Success("Credentials are ready for an earlier AIGW release.")
+	r.Text("Install the earlier release with Homebrew, then run its sync and check commands. If you keep this release, its next Token use takes the credentials back.")
+	r.Next("aigw sync")
+	return nil
 }
 
 // NewCommand constructs the signed portable release update command.
@@ -33,10 +44,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Use:   "update",
 		Short: "Update or roll back the portable AIGW program",
 		Long: "Replace only a portable AIGW program; Homebrew-managed copies must be\n" +
-			"upgraded with Homebrew. Client settings and credentials do not change.\n" +
+			"upgraded with Homebrew. Client settings and Tokens do not change.\n" +
 			"Run aigw sync, then aigw check before resuming clients. --rollback\n" +
 			"restores the retained program, not configuration. An incompatible\n" +
-			"current configuration blocks program rollback without changing files.",
+			"current configuration blocks program rollback without changing files.\n" +
+			"Before Homebrew installs an earlier release, --rollback returns macOS\n" +
+			"Keychain items to that release's reader.",
 		Args: cobra.MatchAll(cobra.NoArgs, func(cmd *cobra.Command, _ []string) error {
 			for _, name := range []string{"candidate", "checksums"} {
 				flag := cmd.Flags().Lookup(name)
@@ -48,6 +61,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		}),
 		RunE: func(ctx *cobra.Command, _ []string) error {
 			if err := upgrade.RequirePortableOwnership(runtime.Executable); err != nil {
+				if rollback && errors.Is(err, upgrade.ErrHomebrewManaged) {
+					return prepareHomebrewRollback(runtime)
+				}
 				return err
 			}
 			if runtime.Updater == nil {
@@ -62,7 +78,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
 					return fmt.Errorf("read configuration before program rollback: %w", readErr)
 				}
-				result, err = rollbackProgram(ctx.Context(), runtime, config)
+				result, err = runtime.Updater.Rollback(ctx.Context(), config, invocation.CredentialCustody(runtime))
 			} else if candidateArchive != "" {
 				result, err = runtime.Updater.UpdateCandidate(ctx.Context(), runtime.Version, upgrade.CandidateArchive{
 					ArchivePath:   candidateArchive,

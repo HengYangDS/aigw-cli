@@ -264,11 +264,16 @@ cannot read an isolated copy of current configuration, AIGW leaves both program
 and configuration unchanged. Restore a compatible configuration explicitly with
 `aigw config migrate --rollback`, then retry `aigw update --rollback`.
 
-On macOS, AIGW moves Keychain Tokens saved by 0.3.5 and earlier to its own
-reader the first time it uses them; nothing needs to be entered again.
-`aigw update --rollback` returns them to the retained program's reader before
-activating it. A Homebrew downgrade bypasses that step, so the older program
-asks macOS to allow access to each Token.
+On macOS, the installed AIGW program moves Keychain Tokens saved by 0.3.5 and
+earlier to its own reader the first time it uses them; nothing needs to be
+entered again. The versioned credential readers that clients call never move a
+Token, so a predecessor that is still installed keeps reading it.
+`aigw update --rollback` returns the Tokens to the retained program's reader
+after admitting the rollback and before activating that program. Before a
+Homebrew downgrade, run `aigw update --rollback` on the Homebrew installation:
+it returns the Tokens without touching Homebrew's files, and the next Token use
+by a kept release takes them back. Without that step, the older program asks
+macOS to allow access to each Token.
 
 The first Homebrew upgrade from 0.3.1 is a managed cutover, not a bare
 `brew upgrade aigw`: existing sessions may still call Homebrew's public

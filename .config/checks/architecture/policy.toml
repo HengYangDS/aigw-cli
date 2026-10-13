@@ -82,9 +82,11 @@ peer_package_roots."internal/cli" = ["invocation"]
 
 # Repository tools are independent composition roots. Only declared product
 # contracts needed by native and real-client acceptance cross into runtime packages.
-# Bootstrap failures and command failures share the safe diagnostic owner.
+# Bootstrap failures and command failures share the safe diagnostic owner. The
+# versioned reader grammar decides the native credential worker's role.
 allowed_import_edges."cmd/aigw" = [
   "internal/cli",
+  "internal/credential",
   "internal/presentation",
   "internal/secrets",
   "internal/secrets/native",

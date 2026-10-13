@@ -72,10 +72,14 @@ func nativeEnvironment(getenv func(string) string) []string {
 	return retainedEnvironment(getenv, "USERPROFILE", "APPDATA", "LOCALAPPDATA", "SystemRoot", "HOMEDRIVE", "HOMEPATH")
 }
 
-func writeCredential(service, account string, value []byte) error {
+// Credential Manager authorizes the user rather than the reading executable, so
+// every program role reads and writes the same item.
+func writeCredential(service, account string, value []byte, _ Role) error {
 	return keyring.Set(service, account, string(value))
 }
 
-// restoreCredential has no Windows meaning: Credential Manager authorizes the
-// user rather than the reading executable, so a rollback needs no conversion.
+// restoreCredential and reclaimCredential have no Windows meaning: a rollback
+// needs no conversion where the user, not the executable, is authorized.
 func restoreCredential(string, string) error { return ErrUnavailable }
+
+func reclaimCredential(string, string) error { return ErrUnavailable }

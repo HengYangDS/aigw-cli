@@ -23,7 +23,7 @@ func TestInstallationObservationFollowsReplacementAndRollback(t *testing.T) {
 	updater := Updater{Executable: program, Runner: &recordingRunner{output: []byte("aigw version 1.2.3\n")}}
 	for phase, expected := range []struct{ current, previous string }{{"current", "previous"}, {"previous", "current"}} {
 		if phase == 1 {
-			if _, err := updater.Rollback(context.Background(), nil); err != nil {
+			if _, err := updater.Rollback(context.Background(), nil, nil); err != nil {
 				t.Fatal(err)
 			}
 		}

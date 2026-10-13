@@ -22,11 +22,25 @@ const (
 	existsCommand = "__aigw-native-credential-exists"
 	// restoreCommand returns a macOS item to the predecessor's reader before rollback.
 	restoreCommand = "__aigw-native-credential-restore"
+	// reclaimCommand returns such an item to AIGW when the rollback is not activated.
+	reclaimCommand = "__aigw-native-credential-reclaim"
 	missingExit    = 2
 	failureExit    = 3
 	// The shared runner separately bounds pipe teardown and captures at most 64 KiB.
 	operationTimeout = 5 * time.Second
 	maxStoredValue   = 64 * 1024
+)
+
+// Role identifies the program that runs a native credential operation.
+type Role uint8
+
+const (
+	// InstalledProgram may migrate a retained macOS item to AIGW ownership and
+	// return it to the predecessor's reader before a rollback.
+	InstalledProgram Role = iota
+	// VersionedReader serves cached client commands. It cannot tell whether its
+	// installation still runs the predecessor, so it never changes an item's owner.
+	VersionedReader
 )
 
 var (
@@ -133,9 +147,12 @@ func execute(parent context.Context, runner process.CaptureRunner, plan process.
 	return "", ErrUnavailable
 }
 
-// RunCredentialSubprocess handles hidden native credential operations before CLI initialization.
-func RunCredentialSubprocess(args []string, input io.Reader, out, diagnostic io.Writer, service string) (bool, int) {
-	return dispatch(args, input, out, diagnostic, service, queryCredential)
+// RunCredentialSubprocess handles hidden native credential operations before CLI
+// initialization, for the program role that runs them.
+func RunCredentialSubprocess(args []string, input io.Reader, out, diagnostic io.Writer, service string, role Role) (bool, int) {
+	return dispatch(args, input, out, diagnostic, service, func(operation, service, account string, data []byte) ([]byte, error) {
+		return queryCredential(operation, service, account, data, role)
+	})
 }
 
 func dispatch(args []string, input io.Reader, out, diagnostic io.Writer, service string, query func(string, string, string, []byte) ([]byte, error)) (bool, int) {
@@ -143,7 +160,7 @@ func dispatch(args []string, input io.Reader, out, diagnostic io.Writer, service
 		return false, 0
 	}
 	switch args[0] {
-	case readCommand, writeCommand, deleteCommand, existsCommand, restoreCommand:
+	case readCommand, writeCommand, deleteCommand, existsCommand, restoreCommand, reclaimCommand:
 	default:
 		return false, 0
 	}

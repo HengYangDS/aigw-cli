@@ -168,44 +168,100 @@ func TestUpdateRollbackStopsBeforeUpdaterWhenConfigurationCannotBeRead(t *testin
 	}
 }
 
-func TestUpdateRollbackReturnsKeychainItemsBeforeActivation(t *testing.T) {
+// keychainRecorder installs an executable that records native credential
+// requests, with a native keyring store that invokes it.
+func keychainRecorder(t *testing.T, app *cli.App, code string) string {
+	t.Helper()
+	cfg := configuration.NewConfig()
+	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	record := filepath.Join(t.TempDir(), "requests")
+	script := "#!/bin/sh\nprintf '%s %s\\n' \"$1\" \"$3\" >> '" + record + "'\nexit " + code + "\n"
+	if err := os.MkdirAll(filepath.Dir(app.Executable), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(app.Executable, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	store, err := secrets.Select(secrets.Selection{Backend: "keyring", GOOS: "darwin", Root: t.TempDir(), Executable: app.Executable})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.Secrets = store
+	return record
+}
+
+func TestUpdateRollbackGivesTheUpdaterCredentialCustody(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("only macOS Keychain items authorize the reading executable")
+	}
+	app, _, _, _, _ := testApp(t, "")
+	record := keychainRecorder(t, app, "0")
+	updater := &fakeUpdater{rollbackResult: "restored the previous program version."}
+	app.Updater = updater
+	if err := cli.Execute(app, []string{"update", "--rollback"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(record); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("the command converted credentials before the Updater admitted the rollback: %v", err)
+	}
+	if updater.rollbackCustody == nil {
+		t.Fatal("rollback received no credential custody")
+	}
+	if err := updater.rollbackCustody.Release("0.3.5"); err != nil {
+		t.Fatal(err)
+	}
+	if err := updater.rollbackCustody.Reclaim(); err != nil {
+		t.Fatal(err)
+	}
+	requests, err := os.ReadFile(record)
+	want := "__aigw-native-credential-restore team\n__aigw-native-credential-restore diagnostic@team\n" +
+		"__aigw-native-credential-reclaim team\n__aigw-native-credential-reclaim diagnostic@team\n"
+	if err != nil || string(requests) != want {
+		t.Fatalf("custody requests = %q, %v", requests, err)
+	}
+}
+
+func TestUpdateRollbackPreparesAHomebrewDowngrade(t *testing.T) {
 	if runtime.GOOS != "darwin" {
 		t.Skip("only macOS Keychain items authorize the reading executable")
 	}
 	for _, test := range []struct {
-		name  string
-		code  string
-		calls int
-	}{{name: "restored", code: "0", calls: 1}, {name: "refused", code: "3"}} {
+		name string
+		code string
+		want string
+	}{
+		{name: "prepared", code: "0", want: "__aigw-native-credential-restore team\n__aigw-native-credential-restore diagnostic@team\n"},
+		{name: "refused", code: "3", want: "__aigw-native-credential-restore team\n__aigw-native-credential-reclaim team\n"},
+	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
-			cfg := configuration.NewConfig()
-			addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
-			if err := app.Config.Save(cfg); err != nil {
+			cask := filepath.Join(t.TempDir(), "Caskroom", "aigw")
+			app.Executable = filepath.Join(cask, "0.4.0", "aigw")
+			receipt := filepath.Join(cask, ".metadata", "INSTALL_RECEIPT.json")
+			if err := os.MkdirAll(filepath.Dir(receipt), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			record := filepath.Join(t.TempDir(), "requests")
-			script := "#!/bin/sh\nprintf '%s %s\\n' \"$1\" \"$3\" >> '" + record + "'\nexit " + test.code + "\n"
-			if err := os.WriteFile(app.Executable, []byte(script), 0o700); err != nil {
+			if err := os.WriteFile(receipt, []byte(`{"homebrew_version":"5.1.0","source":{"tap":"hengyangds/tap"}}`), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			store, err := secrets.Select(secrets.Selection{Backend: "keyring", GOOS: "darwin", Root: t.TempDir(), Executable: app.Executable})
-			if err != nil {
-				t.Fatal(err)
-			}
-			app.Secrets = store
-			updater := &fakeUpdater{rollbackResult: "restored the previous program version."}
+			record := keychainRecorder(t, app, test.code)
+			updater := &fakeUpdater{}
 			app.Updater = updater
-			err = cli.Execute(app, []string{"update", "--rollback"})
-			if test.calls == 1 && err != nil || test.calls == 0 && (err == nil || !strings.Contains(out.String(), "No previous program version was confirmed active")) {
-				t.Fatalf("rollback = %v\n%s", err, out.String())
+			err := cli.Execute(app, []string{"update", "--rollback"})
+			if test.code == "0" && (err != nil || !strings.Contains(out.String(), "Install the earlier release with Homebrew")) {
+				t.Fatalf("Homebrew rollback = %v\n%s", err, out.String())
 			}
-			if updater.rollbackCalls != test.calls {
-				t.Fatalf("rollback activation calls = %d, want %d", updater.rollbackCalls, test.calls)
+			if test.code != "0" && (err == nil || !strings.Contains(out.String(), "can still read every credential")) {
+				t.Fatalf("refused Homebrew rollback = %v\n%s", err, out.String())
 			}
-			requests, err := os.ReadFile(record)
-			if err != nil || !strings.HasPrefix(string(requests), "__aigw-native-credential-restore team\n") {
-				t.Fatalf("rollback did not convert the Account's Keychain items first: %q, %v", requests, err)
+			if updater.rollbackCalls != 0 {
+				t.Fatal("Homebrew rollback replaced a Homebrew-owned program")
+			}
+			if requests, err := os.ReadFile(record); err != nil || string(requests) != test.want {
+				t.Fatalf("custody requests = %q, %v", requests, err)
 			}
 		})
 	}
@@ -222,10 +278,11 @@ func TestUpdateHelpDescribesOfflineProgramRollback(t *testing.T) {
 	help := strings.Join(strings.Fields(out.String()), " ")
 	for _, want := range []string{
 		"Homebrew-managed copies must be upgraded with Homebrew",
-		"Client settings and credentials do not change",
+		"Client settings and Tokens do not change",
 		"Run aigw sync, then aigw check before resuming clients",
 		"--rollback restores the retained program, not configuration",
 		"An incompatible current configuration blocks program rollback",
+		"Before Homebrew installs an earlier release, --rollback returns macOS Keychain items to that release's reader",
 	} {
 		if !strings.Contains(help, want) {
 			t.Fatalf("help omitted %q: %s", want, out.String())
@@ -326,6 +383,7 @@ type fakeUpdater struct {
 	candidateResult   string
 	rollbackResult    string
 	rollbackConfig    []byte
+	rollbackCustody   upgrade.CredentialCustody
 	updateErr         error
 	candidateErr      error
 	rollbackErr       error
@@ -343,8 +401,9 @@ func (u *fakeUpdater) UpdateCandidate(_ context.Context, _ string, candidate upg
 	return u.candidateResult, u.candidateErr
 }
 
-func (u *fakeUpdater) Rollback(_ context.Context, config []byte) (string, error) {
+func (u *fakeUpdater) Rollback(_ context.Context, config []byte, custody upgrade.CredentialCustody) (string, error) {
 	u.rollbackConfig = append([]byte(nil), config...)
+	u.rollbackCustody = custody
 	u.rollbackCalls++
 	return u.rollbackResult, u.rollbackErr
 }

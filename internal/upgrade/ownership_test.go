@@ -31,7 +31,7 @@ func TestHomebrewOwnershipPrecedesPortableMutation(t *testing.T) {
 			operations := map[string]func() error{
 				"update":      func() error { _, err := updater.Update(t.Context(), "0.1.0"); return err },
 				"candidate":   func() error { _, err := updater.UpdateCandidate(t.Context(), "0.1.0", CandidateArchive{}); return err },
-				"rollback":    func() error { _, err := updater.Rollback(t.Context(), nil); return err },
+				"rollback":    func() error { _, err := updater.Rollback(t.Context(), nil, nil); return err },
 				"replacement": func() error { _, err := updater.replacePortableBinary(t.Context(), []byte("replacement")); return err },
 			}
 			for name, operation := range operations {

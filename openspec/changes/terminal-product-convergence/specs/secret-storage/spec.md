@@ -164,3 +164,100 @@ disclosed rather than represented as uninterrupted service.
   evidence
 - **AND** SHALL preserve unknown or foreign content rather than deleting by
   name prefix or age.
+
+### Requirement: Upgrade recovery preserves credential ownership
+
+Candidate, rollback, and re-upgrade SHALL preserve configuration and credential
+ownership without ACL change, backend migration, fallback, or helper
+substitution. On macOS the installed successor SHALL migrate retained
+`/usr/bin/security` items once. A rollback SHALL convert them back only after the
+retained program and configuration are admitted and before that program is
+activated, and SHALL return them to the active program if activation fails.
+Complete rollback SHALL restore a compatible program, configuration, and
+credential owner.
+
+#### Scenario: Rollback follows a failed candidate
+
+- **WHEN** a candidate fails after replacing the installed program
+- **THEN** rollback SHALL restore a compatible reader for the retained item,
+  converting a migrated macOS item back before activation
+- **AND** the original client invocation SHALL work without fallback, ACL change,
+  or a new helper.
+
+### Requirement: Retained macOS Keychain items migrate to AIGW ownership
+
+On macOS, a credential operation of the installed program that is denied an
+exact retained item trusting `/usr/bin/security` SHALL migrate that item once to
+an AIGW-owned item at the same service and Account, without Token entry,
+access-list change, or authorization UI. The retained item, a staging item, or
+both SHALL hold the Token at every step. A versioned reader cannot tell whether
+its installation still runs the predecessor, so it SHALL NOT change an item's
+owner. Linux and Windows stores authorize the user or session, not the
+executable, and SHALL NOT migrate.
+
+#### Scenario: A predecessor item is used after upgrade
+
+- **WHEN** the installed program's worker reads, writes, or deletes a slot whose
+  item was written by the predecessor's `/usr/bin/security` writer
+- **THEN** it SHALL migrate the item and complete the operation without
+  interaction
+- **AND** a later build with the same signing identifier and team SHALL use the
+  item without migration.
+
+#### Scenario: A versioned reader meets a retained item
+
+- **WHEN** a versioned reader reads a slot whose item still trusts
+  `/usr/bin/security`, or whose migration the installed program left staged
+- **THEN** it SHALL return the Token through that tool or from the staging item
+  without migrating the item or completing the migration
+- **AND** SHALL NOT replace the retained item or convert any item for a rollback
+- **AND** the predecessor and every cached successor command SHALL keep reading
+  the same item without a prompt.
+
+#### Scenario: A migration is interrupted
+
+- **WHEN** a worker stops after staging the Token but before the owned item is
+  verified
+- **THEN** the installed program's next read of that slot SHALL complete the
+  migration from the staged Token or repeat it
+- **AND** the Token SHALL NOT be lost.
+
+#### Scenario: Several workers meet the same retained item
+
+- **WHEN** concurrent workers are denied the same retained item
+- **THEN** exactly one SHALL migrate it while the others wait for the owned item
+- **AND** none SHALL invoke `/usr/bin/security` on an item that no longer trusts
+  it.
+
+#### Scenario: Migration would require interaction
+
+- **WHEN** the item's keychain is locked or the denied item does not trust
+  `/usr/bin/security`
+- **THEN** the worker SHALL return the denial without invoking
+  `/usr/bin/security`, changing an item, or showing UI.
+
+#### Scenario: A portable rollback restores the predecessor reader
+
+- **WHEN** `aigw update --rollback` has admitted the retained program and the
+  current configuration, and that program predates AIGW-owned items
+- **THEN** AIGW SHALL convert each configured Account's items back to
+  `/usr/bin/security` ownership with the same storage envelope before activating
+  that program
+- **AND** a refused admission SHALL change no item
+- **AND** if a conversion or the activation fails, AIGW SHALL return the
+  converted items to the active program and leave that program in place
+- **AND** a retained program that reads AIGW-owned items SHALL need no
+  conversion.
+
+#### Scenario: A package manager downgrades AIGW
+
+- **WHEN** `aigw update --rollback` runs on a Homebrew installation
+- **THEN** AIGW SHALL convert each configured Account's items back without
+  changing Homebrew-owned files and direct the operator to Homebrew for the
+  earlier release
+- **AND** if a conversion fails, AIGW SHALL return the converted items and report
+  that the installed program is unchanged
+- **AND** if the operator keeps the release, its next Token use SHALL migrate the
+  items again
+- **AND** without that preparation AIGW SHALL NOT claim credential continuity,
+  and the predecessor's reader MAY ask macOS to authorize each migrated item.

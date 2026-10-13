@@ -31,24 +31,26 @@ func (u Updater) installPortableArchive(ctx context.Context, archivePath, checks
 	if err != nil {
 		return false, err
 	}
-	if err := u.verifyProgram(ctx, binary, version, nil); err != nil {
+	if _, err := u.verifyProgram(ctx, binary, version, nil); err != nil {
 		return false, err
 	}
 	return u.replacePortableBinary(ctx, binary)
 }
 
-func (u Updater) verifyProgram(ctx context.Context, binary []byte, version string, config []byte) (result error) {
+// verifyProgram runs a staged program's version check and, with config, its
+// configuration export. It returns the version the program reports.
+func (u Updater) verifyProgram(ctx context.Context, binary []byte, version string, config []byte) (reported string, result error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return "", err
 	}
 	directory, err := os.MkdirTemp(filepath.Dir(u.Executable), ".aigw-verify-")
 	if err != nil {
-		return fmt.Errorf("prepare candidate verification: %w", err)
+		return "", fmt.Errorf("prepare candidate verification: %w", err)
 	}
 	defer func() { result = errors.Join(result, robustio.RemoveAll(directory)) }()
 	program := filepath.Join(directory, filepath.Base(u.Executable))
 	if err := os.WriteFile(program, binary, 0o700); err != nil {
-		return fmt.Errorf("stage candidate verification: %w", err)
+		return "", fmt.Errorf("stage candidate verification: %w", err)
 	}
 	if u.Runner == nil {
 		u.Runner = process.Runner{}
@@ -73,39 +75,39 @@ func (u Updater) verifyProgram(ctx context.Context, binary []byte, version strin
 	defer cancel()
 	output, err := u.captureReleaseCommand(verificationContext, plan)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrProgramStartupVerification, err)
+		return "", fmt.Errorf("%w: %w", ErrProgramStartupVerification, err)
 	}
-	reported := strings.TrimSpace(string(output))
-	parsed, parseErr := parseVersion(strings.TrimPrefix(reported, "aigw version "))
-	if !strings.HasPrefix(reported, "aigw version ") || parseErr != nil || parsed == nil {
-		return errors.New("program did not report a valid version; installed program is unchanged")
+	reported, found := strings.CutPrefix(strings.TrimSpace(string(output)), "aigw version ")
+	parsed, parseErr := parseVersion(reported)
+	if !found || parseErr != nil || parsed == nil {
+		return "", errors.New("program did not report a valid version; installed program is unchanged")
 	}
-	if version != "" && reported != "aigw version "+version {
-		return fmt.Errorf("candidate program did not report expected version %s; installed program is unchanged", version)
+	if version != "" && reported != version {
+		return "", fmt.Errorf("candidate program did not report expected version %s; installed program is unchanged", version)
 	}
 	if config == nil {
-		return ctx.Err()
+		return reported, ctx.Err()
 	}
 	path, err := platform.ConfigPathFor(runtime.GOOS, environment)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := transaction.WriteFileAtomicExactMode(path, config, 0o600); err != nil {
-		return fmt.Errorf("stage configuration verification: %w", err)
+		return "", fmt.Errorf("stage configuration verification: %w", err)
 	}
 	plan.Args = []string{"config", "export"}
 	output, runErr := u.Runner.RunCapture(verificationContext, plan)
 	if runErr != nil {
-		return fmt.Errorf("verify configuration export with program: %w", runErr)
+		return "", fmt.Errorf("verify configuration export with program: %w", runErr)
 	}
 	var manifest struct {
 		Version int `toml:"version"`
 	}
 	parseErr = toml.Unmarshal(output, &manifest)
 	if parseErr != nil || manifest.Version <= 0 {
-		return ErrRollbackConfiguration
+		return "", ErrRollbackConfiguration
 	}
-	return ctx.Err()
+	return reported, ctx.Err()
 }
 
 func (u Updater) replacePortableBinary(ctx context.Context, binary []byte) (activated bool, resultErr error) {
@@ -153,10 +155,23 @@ func commitProgramReplacement(candidate, current, previous string, rename func(s
 	return nil
 }
 
+// CredentialCustody moves native credential items between the active program
+// and the retained program that a rollback activates.
+type CredentialCustody interface {
+	// Release gives the items to the reader of the retained program, which
+	// reports version, before that program is activated.
+	Release(version string) error
+	// Reclaim returns released items to the active program when the retained
+	// program is not activated.
+	Reclaim() error
+}
+
 // Rollback restores the immediately preceding portable AIGW executable without
 // accessing the network. It swaps the current and previous binaries so the
 // action itself remains reversible and never creates an unbounded chain.
-func (u Updater) Rollback(ctx context.Context, config []byte) (string, error) {
+// Credential custody moves only after the retained program and configuration
+// are admitted, and returns to the active program if activation fails.
+func (u Updater) Rollback(ctx context.Context, config []byte, custody CredentialCustody) (string, error) {
 	if err := RequirePortableOwnership(u.Executable); err != nil {
 		return "", err
 	}
@@ -177,12 +192,22 @@ func (u Updater) Rollback(ctx context.Context, config []byte) (string, error) {
 	if _, err := os.Stat(u.Executable); err != nil {
 		return "", fmt.Errorf("inspect current AIGW executable: %w", err)
 	}
-	if err := u.verifyProgram(ctx, previous, "", config); err != nil {
+	version, err := u.verifyProgram(ctx, previous, "", config)
+	if err != nil {
 		return "", err
+	}
+	if custody != nil {
+		if err := custody.Release(version); err != nil {
+			return "", errors.Join(fmt.Errorf("return credentials to the previous program: %w", err), custody.Reclaim())
+		}
 	}
 	activated, err := u.replacePortableBinary(ctx, previous)
 	if !activated {
-		return "", fmt.Errorf("restore previous AIGW executable: %w", err)
+		err = fmt.Errorf("restore previous AIGW executable: %w", err)
+		if custody != nil {
+			err = errors.Join(err, custody.Reclaim())
+		}
+		return "", err
 	}
 	return "restored the previous program version. If that older program does not support `aigw update --rollback`, download the current portable package and run its installer; it replaces only AIGW and retains one predecessor.", err
 }

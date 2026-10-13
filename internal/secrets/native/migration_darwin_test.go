@@ -106,7 +106,7 @@ func TestMigrationCustodySerializesMutations(t *testing.T) {
 			t.Cleanup(func() { _ = guard.Unlock() })
 			mutate := func() error {
 				if operation == "write" {
-					return writeCredentialWithMigration(service, account, path, []byte("synthetic-rotated-token"))
+					return writeCredentialWithMigration(service, account, path, []byte("synthetic-rotated-token"), InstalledProgram)
 				}
 				return deleteCredentialWithMigration(service, account, path)
 			}
@@ -159,7 +159,7 @@ func TestWriteMigratesAPredecessorItemBeforeReplacingIt(t *testing.T) {
 	path := newPrivateKeychain(t)
 	const service, account = "aigw-private-test", "rotated"
 	addPredecessorItem(t, path, service, account, "synthetic-previous-token")
-	if err := writeCredentialWithMigration(service, account, path, []byte("synthetic-rotated-token")); err != nil {
+	if err := writeCredentialWithMigration(service, account, path, []byte("synthetic-rotated-token"), InstalledProgram); err != nil {
 		t.Fatalf("replace predecessor item: %v", err)
 	}
 	if value, err := readPrivateKeychainFixture(t, service, account, path); err != nil || string(value) != "synthetic-rotated-token" {
@@ -176,7 +176,7 @@ func TestMutationRemovesStaleStagedTokens(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := writeCredentialWithMigration(service, "owned", path, []byte("synthetic-rotated-token")); err != nil {
+	if err := writeCredentialWithMigration(service, "owned", path, []byte("synthetic-rotated-token"), InstalledProgram); err != nil {
 		t.Fatal(err)
 	}
 	requireWorkerOwnedItem(t, path, service, "owned")
@@ -204,7 +204,7 @@ func TestUnusablePredecessorTokenStaysRetained(t *testing.T) {
 	path := newPrivateKeychain(t)
 	const service, account = "aigw-private-test", "undecodable"
 	runKeychainFixtureCommand(t, "add-generic-password", "-s", service, "-a", account, "-w", "go-keyring-base64:***", path)
-	if value, err := readCredentialWithMigration(service, account, path); len(value) != 0 || !errors.Is(err, ErrUnavailable) {
+	if value, err := readCredentialWithMigration(service, account, path, InstalledProgram); len(value) != 0 || !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("undecodable predecessor read = %q, %v", value, err)
 	}
 	if owners := keychainDecryptOwners(t, path, account); !slices.Equal(owners, []string{"/usr/bin/security"}) {
@@ -217,7 +217,7 @@ func TestUnusablePredecessorTokenStaysRetained(t *testing.T) {
 		t.Fatal(err)
 	}
 	runKeychainFixtureCommand(t, "add-generic-password", "-U", "-s", service, "-a", "invalid", "-w", "go-keyring-base64:***", path)
-	if value, err := readCredentialWithMigration(service, "invalid", path); len(value) != 0 || !errors.Is(err, ErrUnavailable) {
+	if value, err := readCredentialWithMigration(service, "invalid", path, InstalledProgram); len(value) != 0 || !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("invalid owned item read = %q, %v", value, err)
 	}
 }

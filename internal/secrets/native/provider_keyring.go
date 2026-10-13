@@ -8,7 +8,7 @@ import (
 	keyring "github.com/zalando/go-keyring"
 )
 
-func readCredential(service, account string) (string, error) {
+func readCredential(service, account string, _ Role) (string, error) {
 	value, err := keyring.Get(service, account)
 	if errors.Is(err, keyring.ErrNotFound) {
 		return "", ErrNotFound

@@ -1,14 +1,37 @@
 package main
 
 import (
+	"aigw-cli/internal/secrets/native"
 	"bytes"
+	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 const mainHelperEnvironment = "AIGW_TEST_MAIN_HELPER"
+
+func TestCredentialRoleKeepsVersionedReadersFromChangingOwners(t *testing.T) {
+	data := t.TempDir()
+	for _, test := range []struct {
+		name       string
+		executable string
+		err        error
+		want       native.Role
+	}{
+		{name: "installed program", executable: filepath.Join(data, "bin", "aigw"), want: native.InstalledProgram},
+		{name: "versioned reader", executable: filepath.Join(data, "credential", strings.Repeat("ab", 32), "aigw"), want: native.VersionedReader},
+		{name: "unknown executable", err: errors.New("executable unavailable"), want: native.VersionedReader},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := credentialRole(test.executable, test.err); got != test.want {
+				t.Fatalf("credential role = %d, want %d", got, test.want)
+			}
+		})
+	}
+}
 
 func TestMainProcess(t *testing.T) {
 	if os.Getenv(mainHelperEnvironment) == "1" {

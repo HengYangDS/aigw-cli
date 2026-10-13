@@ -6,11 +6,11 @@ func observeCredentialInKeychain(string, string, string) (bool, error) {
 	return false, ErrUnavailable
 }
 
-func readCredentialWithMigration(string, string, string) ([]byte, error) {
+func readCredentialWithMigration(string, string, string, Role) ([]byte, error) {
 	return nil, ErrUnavailable
 }
 
-func writeCredentialWithMigration(string, string, string, []byte) error {
+func writeCredentialWithMigration(string, string, string, []byte, Role) error {
 	return ErrUnavailable
 }
 
@@ -19,5 +19,9 @@ func deleteCredentialWithMigration(string, string, string) error {
 }
 
 func restoreCredentialForPredecessor(string, string, string) error {
+	return ErrUnavailable
+}
+
+func reclaimCredentialFromPredecessor(string, string, string) error {
 	return ErrUnavailable
 }

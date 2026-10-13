@@ -69,6 +69,15 @@ migrations, and an interrupted one resumes from its staging item. Items that
 trust no application, or another one, keep their denial; the worker never
 changes an ACL, prompts or selects another backend.
 
+Only the installed program migrates. A versioned reader copy cannot tell
+whether its installation still runs the predecessor: the one-time Homebrew
+cutover stages and verifies the successor's reader while 0.3.5 still owns the
+public link, and a rollback leaves cached successor commands in client
+settings. Such a copy therefore reads a retained item through
+`/usr/bin/security`, or the staged Token of an interrupted migration, and never
+migrates, overwrites or converts it. The worker learns its role from its own
+executable path, not from a flag or marker its caller could omit.
+
 Native Keychain failures retain a typed numeric OSStatus through the bounded
 worker's stderr and the credential command's safe evidence. Standard output
 remains Token-only on success and empty on failure. The worker sends no item
@@ -81,11 +90,15 @@ The successor uses the predecessor's exact physical Account name, including
 Changing the reader implementation must not change storage identity or require
 Token enrollment again. A migrated item's access list names the AIGW signing
 identifier and team rather than one executable's bytes, so later signed
-releases read it without migration, while ad-hoc builds are denied. Before a
-portable rollback activates the retained program, AIGW converts each configured
-Account's items back to `/usr/bin/security` ownership with the same envelope.
-A Homebrew downgrade bypasses that step, so the older reader then asks macOS
-for authorization. Earlier unreleased candidates created `native@` shadow items.
+releases read it without migration, while ad-hoc builds are denied. A portable
+rollback first admits the retained program and current configuration; if that
+program predates AIGW-owned items, AIGW then converts each configured Account's
+items back to `/usr/bin/security` ownership with the same envelope before
+activating it, and takes them back if activation fails. On a Homebrew
+installation, `aigw update --rollback` performs only that conversion and leaves
+the program files to Homebrew. A Homebrew downgrade without it leaves the older
+reader asking macOS for authorization. Earlier unreleased candidates created
+`native@` shadow items.
 Preserve an exact item until its retained consumer and rollback owner release
 it; then retire it through its existing owner, never by prefix-based deletion.
 

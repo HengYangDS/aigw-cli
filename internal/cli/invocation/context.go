@@ -37,7 +37,7 @@ type Prompter interface {
 type Updater interface {
 	Update(ctx context.Context, currentVersion string) (string, error)
 	UpdateCandidate(ctx context.Context, currentVersion string, candidate upgrade.CandidateArchive) (string, error)
-	Rollback(ctx context.Context, config []byte) (string, error)
+	Rollback(ctx context.Context, config []byte, custody upgrade.CredentialCustody) (string, error)
 }
 
 // Context carries capabilities for one command execution without product-global state.
@@ -161,14 +161,28 @@ func Synchronizer(runtime Context) synchronization.Synchronizer {
 	}
 }
 
-// RestorePredecessorCredentials returns the configured Accounts' native items to
-// the retained program's reader before a portable rollback activates it. A
-// configuration this program cannot load names no credential; the retained
-// program's own compatibility check then decides.
-func RestorePredecessorCredentials(runtime Context) error {
-	cfg, err := runtime.Config.LoadCredentialConfig()
-	if err != nil {
-		return nil
+// CredentialCustody moves the configured Accounts' native items between the
+// active program and a program that a rollback activates. A configuration this
+// program cannot load names no credential; the retained program's own
+// compatibility check then decides.
+func CredentialCustody(runtime Context) upgrade.CredentialCustody {
+	custody := credentialCustody{store: runtime.Secrets, executable: runtime.Executable}
+	if cfg, err := runtime.Config.LoadCredentialConfig(); err == nil {
+		custody.accounts = slices.Sorted(maps.Keys(cfg.Accounts))
 	}
-	return secrets.RestorePredecessorCredentials(runtime.Secrets, runtime.Executable, slices.Sorted(maps.Keys(cfg.Accounts)))
+	return custody
+}
+
+type credentialCustody struct {
+	store      secrets.Store
+	executable string
+	accounts   []string
+}
+
+func (custody credentialCustody) Release(version string) error {
+	return secrets.RestorePredecessorCredentials(custody.store, custody.executable, custody.accounts, version)
+}
+
+func (custody credentialCustody) Reclaim() error {
+	return secrets.ReclaimPredecessorCredentials(custody.store, custody.executable, custody.accounts)
 }

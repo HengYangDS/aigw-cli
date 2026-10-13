@@ -20,7 +20,7 @@ func TestCandidateVerificationWaitsForReleasedWindowsFile(t *testing.T) {
 	root := t.TempDir()
 	runner := &lockedCandidateRunner{testing: t}
 	updater := Updater{Executable: filepath.Join(root, "aigw.exe"), Runner: runner}
-	err := updater.verifyProgram(t.Context(), []byte("candidate"), "1.2.3", nil)
+	_, err := updater.verifyProgram(t.Context(), []byte("candidate"), "1.2.3", nil)
 	if runner.released != nil {
 		<-runner.released
 	}
@@ -104,7 +104,7 @@ func TestReplacementHandlesWindowsExecutableLocks(t *testing.T) {
 			updater := Updater{Executable: executable, Runner: &recordingRunner{output: []byte("aigw version 1.2.3\n")}}
 			var err error
 			if test.rollback {
-				_, err = updater.Rollback(t.Context(), nil)
+				_, err = updater.Rollback(t.Context(), nil, nil)
 			} else {
 				_, err = updater.replacePortableBinary(t.Context(), []byte("next"))
 			}
@@ -185,7 +185,7 @@ func TestWindowsPortableUpdateDoesNotCreateCommandScripts(t *testing.T) {
 	if got, err := os.ReadFile(RollbackPath(executable)); err != nil || string(got) != "current" {
 		t.Fatalf("rollback executable = %q, %v", got, err)
 	}
-	if _, err := updater.Rollback(context.Background(), nil); err != nil {
+	if _, err := updater.Rollback(context.Background(), nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	for _, suffix := range []string{".update.cmd", ".rollback.cmd"} {

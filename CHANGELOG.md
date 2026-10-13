@@ -127,10 +127,14 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 ### Fixed
 
 - Keep macOS clients signed in across the upgrade from 0.3.5 or earlier. On first
-  use, AIGW moves each Keychain Token saved by the earlier `/usr/bin/security`
-  reader to its own reader, without asking to enter or authorize it again.
-  Interrupted moves resume safely, and `aigw update --rollback` returns the
-  Tokens to the retained program's reader before activating it.
+  use, the installed AIGW program moves each Keychain Token saved by the earlier
+  `/usr/bin/security` reader to its own reader, without asking to enter or
+  authorize it again. Versioned credential readers that clients call never move
+  a Token, so an installed predecessor keeps reading it. Interrupted moves
+  resume safely. `aigw update --rollback` returns the Tokens to the retained
+  program's reader only after admitting the rollback, and takes them back if
+  activation fails; on a Homebrew installation it returns them before Homebrew
+  installs the earlier release.
 - Let Hermes verification borrow the configured installation's committed
   dependencies and managed tools while keeping its boot-maintenance records
   private, so `aigw verify --for hermes` works with Hermes 0.21.6 without

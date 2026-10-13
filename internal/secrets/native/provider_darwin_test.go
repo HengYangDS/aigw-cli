@@ -300,9 +300,13 @@ func TestPrivateKeychainReadChild(t *testing.T) {
 	if path == "" {
 		return
 	}
+	role := InstalledProgram
+	if os.Getenv("AIGW_TEST_KEYCHAIN_ROLE") == "reader" {
+		role = VersionedReader
+	}
 	value, err := readCredentialWithMigration(
 		os.Getenv("AIGW_TEST_KEYCHAIN_SERVICE"),
-		os.Getenv("AIGW_TEST_KEYCHAIN_ACCOUNT"), path,
+		os.Getenv("AIGW_TEST_KEYCHAIN_ACCOUNT"), path, role,
 	)
 	switch {
 	case errors.Is(err, ErrNotFound):
@@ -318,7 +322,7 @@ func TestPrivateKeychainReadChild(t *testing.T) {
 }
 
 func TestNativePresenceCommandClassifiesExactOutput(t *testing.T) {
-	if _, err := queryCredential("unknown", "aigw-private-test", "synthetic", nil); !errors.Is(err, ErrUnavailable) {
+	if _, err := queryCredential("unknown", "aigw-private-test", "synthetic", nil, InstalledProgram); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("unknown credential operation = %v", err)
 	}
 	for _, test := range []struct {

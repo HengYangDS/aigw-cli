@@ -145,7 +145,7 @@ func TestProgramTransitionsReportActivationWhenReplacementCleanupFails(t *testin
 			want := "candidate"
 			if mode == "rollback" {
 				want = "previous"
-				result, err = u.Rollback(t.Context(), nil)
+				result, err = u.Rollback(t.Context(), nil, nil)
 			} else {
 				result, err = u.UpdateCandidate(t.Context(), "0.1.0", CandidateArchive{ArchivePath: archive, ChecksumsPath: filepath.Join(filepath.Dir(archive), "checksums.txt")})
 			}
@@ -170,7 +170,7 @@ func TestRollbackPropagatesRestoreWriteFailure(t *testing.T) {
 	}
 	makeImmutable(t, executable)
 	u := Updater{Executable: executable, Runner: &recordingRunner{output: []byte("aigw version 1.2.3\n")}}
-	if _, err := u.Rollback(context.Background(), nil); err == nil || !strings.Contains(err.Error(), "restore previous AIGW executable") {
+	if _, err := u.Rollback(context.Background(), nil, nil); err == nil || !strings.Contains(err.Error(), "restore previous AIGW executable") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -187,7 +187,7 @@ func TestRollbackPropagatesBackupReplacementFailure(t *testing.T) {
 	}
 	makeImmutable(t, backup)
 	u := Updater{Executable: executable, Runner: &recordingRunner{output: []byte("aigw version 1.2.3\n")}}
-	_, err := u.Rollback(context.Background(), nil)
+	_, err := u.Rollback(context.Background(), nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "restore previous AIGW executable") {
 		t.Fatalf("error = %v", err)
 	}

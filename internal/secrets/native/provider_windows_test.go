@@ -59,7 +59,7 @@ func TestWindowsMetadataObservationTracksOnlyItsExactSessionSlot(t *testing.T) {
 		{account: "missing", want: "0"},
 		{account: "*", want: "0"},
 	} {
-		if value, err := queryCredential(existsCommand, service, test.account, nil); err != nil || string(value) != test.want {
+		if value, err := queryCredential(existsCommand, service, test.account, nil, InstalledProgram); err != nil || string(value) != test.want {
 			t.Fatalf("exact metadata observation = %q, %v; want %q", value, err, test.want)
 		}
 	}
@@ -69,7 +69,7 @@ func TestWindowsMetadataObservationTracksOnlyItsExactSessionSlot(t *testing.T) {
 }
 
 func TestWindowsRollbackHasNoCredentialConversion(t *testing.T) {
-	if value, err := queryCredential(restoreCommand, "AIGW_TEST_RESTORE", "synthetic", nil); len(value) != 0 || !errors.Is(err, ErrUnavailable) {
+	if value, err := queryCredential(restoreCommand, "AIGW_TEST_RESTORE", "synthetic", nil, InstalledProgram); len(value) != 0 || !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("Windows restore = %q, %v", value, err)
 	}
 }

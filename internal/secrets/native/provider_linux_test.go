@@ -21,7 +21,7 @@ import (
 func TestProviderExistsRejectsSecretServiceConnectionFailure(t *testing.T) {
 	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path="+filepath.Join(t.TempDir(), "missing-session-bus.sock"))
 
-	output, err := queryCredential(existsCommand, "aigw-test", "missing", nil)
+	output, err := queryCredential(existsCommand, "aigw-test", "missing", nil, InstalledProgram)
 	if len(output) != 0 || err == nil || !strings.Contains(err.Error(), "connect to Secret Service") {
 		t.Fatalf("credential presence output length = %d, error = %v", len(output), err)
 	}
@@ -142,7 +142,7 @@ func TestLockedSecretServiceRefusesInteractiveOperations(t *testing.T) {
 
 func prepareLockedSecretServiceItem(t *testing.T, credentialService *ss.SecretService, executable, service, account string) (dbus.ObjectPath, dbus.Variant, dbus.Variant) {
 	t.Helper()
-	if _, err := queryCredential(writeCommand, service, account, []byte("synthetic-initial")); err != nil {
+	if _, err := queryCredential(writeCommand, service, account, []byte("synthetic-initial"), InstalledProgram); err != nil {
 		t.Fatal(err)
 	}
 	if err := Write(executable, service, account, "synthetic-before-update"); err != nil {
@@ -163,7 +163,7 @@ func prepareLockedSecretServiceItem(t *testing.T, credentialService *ss.SecretSe
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := queryCredential(writeCommand, service, account, []byte("synthetic-retained")); err != nil {
+	if _, err := queryCredential(writeCommand, service, account, []byte("synthetic-retained"), InstalledProgram); err != nil {
 		t.Fatal(err)
 	}
 	itemAttributes, err := item.GetProperty(secretItemInterface + ".Attributes")
@@ -184,16 +184,16 @@ func requireLockedSecretServiceRefusal(t *testing.T, executable, service, accoun
 	if present, err := Exists(executable, service, account); err != nil || !present {
 		t.Fatalf("locked native item metadata was not observable: %v", err)
 	}
-	if present, err := queryCredential(existsCommand, service, account, nil); err != nil || string(present) != "1" {
+	if present, err := queryCredential(existsCommand, service, account, nil, InstalledProgram); err != nil || string(present) != "1" {
 		t.Fatalf("locked native provider metadata was not observable: %v", err)
 	}
-	if absent, err := queryCredential(existsCommand, service, account+"-absent", nil); err != nil || string(absent) != "0" {
+	if absent, err := queryCredential(existsCommand, service, account+"-absent", nil, InstalledProgram); err != nil || string(absent) != "0" {
 		t.Fatalf("absent native provider item was not observable: %v", err)
 	}
 	if _, err := Read(executable, service, account+"-absent"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("absent native item read must remain not found while locked: %v", err)
 	}
-	if _, err := queryCredential(readCommand, service, account+"-absent", nil); !errors.Is(err, ErrNotFound) {
+	if _, err := queryCredential(readCommand, service, account+"-absent", nil, InstalledProgram); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("absent native provider read must remain not found while locked: %v", err)
 	}
 	if err := Delete(executable, service, account+"-absent"); err != nil {
@@ -212,7 +212,7 @@ func requireLockedSecretServiceRefusal(t *testing.T, executable, service, accoun
 			if err := operation.run(); !errors.Is(err, ErrUnavailable) {
 				t.Errorf("locked operation must refuse without waiting for interaction: %v", err)
 			}
-			if _, err := queryCredential(operation.command, service, account, []byte("synthetic-replacement")); !errors.Is(err, ErrUnavailable) {
+			if _, err := queryCredential(operation.command, service, account, []byte("synthetic-replacement"), InstalledProgram); !errors.Is(err, ErrUnavailable) {
 				t.Errorf("locked provider operation must refuse without interaction: %v", err)
 			}
 		})
@@ -235,11 +235,11 @@ func requireRetainedSecretServiceItem(t *testing.T, credentialService *ss.Secret
 	if value, err := Read(executable, service, account); err != nil || value != "synthetic-retained" {
 		t.Fatalf("locked operations changed retained credential bytes: %v", err)
 	}
-	if value, err := queryCredential(readCommand, service, account, nil); err != nil || string(value) != "synthetic-retained" {
+	if value, err := queryCredential(readCommand, service, account, nil, InstalledProgram); err != nil || string(value) != "synthetic-retained" {
 		t.Fatalf("native provider changed retained credential bytes: %v", err)
 	}
 	for range 2 {
-		if _, err := queryCredential(deleteCommand, service, account, nil); err != nil {
+		if _, err := queryCredential(deleteCommand, service, account, nil, InstalledProgram); err != nil {
 			t.Fatalf("native provider removal was not idempotent: %v", err)
 		}
 	}
