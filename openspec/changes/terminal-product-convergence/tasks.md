@@ -49,12 +49,12 @@
 
 ## 6. Quality, Supply Chain, and Performance
 
-- [ ] 6.1 Update direct Go/npm/OpenSpec/Mise/release tools to latest stable compatible pins and locks; prove clean-context reproducibility, native Windows acquisition, sibling-network containment and license/security observation.
+- [x] 6.1 Update direct Go/npm/OpenSpec/Mise/release tools to latest stable compatible pins and locks; prove clean-context reproducibility, native Windows acquisition, sibling-network containment and license/security observation on GitHub. `gitlab-peer-reconciliation` owns GitLab's peer tool supply.
 - [x] 6.2 Apply one native Go format/lint/static/test/race/coverage policy to product, tools and tests; remove duplicated rules and reject unowned warnings.
 - [x] 6.3 Simplify semantic hotspots and enforce risk-justified ELOC, statement, nesting and complexity bounds without mechanical splitting or suppression.
 - [x] 6.4 Qualify Markdown, Mermaid rendering, links, TOML/YAML/JSON/CUE, shell and generated text on tracked inputs; malformed or unreachable authored content must fail its owning gate.
 - [x] 6.5 Qualify locked-candidate dependency hygiene, dead code, secrets, SBOM, licenses, checksums, signatures and provenance; disclose nonblocking vulnerabilities and delete unconsumed duplicate scans.
-- [ ] 6.6 Qualify startup/setup/sync/credential/projection/build/CI against retained-predecessor budgets through the [native measurement contract](../../../docs/governance/change-and-release-policy.md#behavioral-and-quantitative-evidence); preserve raw samples, host/order and exact identities, complete Windows/macOS Keychain/final-signing evidence, and optimize only diagnosed owners.
+- [x] 6.6 Qualify startup/setup/sync/credential/projection/build/CI against retained-predecessor budgets through the [native measurement contract](../../../docs/governance/change-and-release-policy.md#behavioral-and-quantitative-evidence); preserve raw samples, host/order and exact identities, complete Windows/macOS Keychain/final-signing evidence, and optimize only diagnosed owners. The operator accepted the measured 0.4.0 trade-off in [design.md](design.md#accepted-040-performance-trade-off); `single-pass-reader-verification` owns the diagnosed hashing cost.
 - [x] 6.7 Reject warnings and malformed public errors at their origin; prove precise human/JSON states and safe actions without private paths, secrets or implementation leakage.
 
 ## 7. CI and Dual-Peer Admission
@@ -62,14 +62,14 @@
 - [x] 7.1 Qualify one CUE graph and its GitHub/GitLab projections; reject drift or missing source/native/release/publication ownership.
 - [x] 7.2 Qualify exact-SHA event/check mappings and candidate proposals on both peers; prove proposal/review/maintainer/dev/main/tag bindings without treating projections or manual runs as post-archive publication.
 - [x] 7.3 Separate independent quality/bootstrap/native/client/release work and share only immutable evidence or content-addressed caches; cancel superseded review before noninterruptible jobs.
-- [ ] 7.4 Qualify effective status enforcement, unprotected proposals, guarded merges, signer trust, source-ref auto-delete and untrusted-runner isolation/cleanup on GitHub; `gitlab-peer-reconciliation` owns GitLab's admission. Actual dev integration/checks/ref deletion and archived main/tag effects remain required by the [Migration Plan](design.md#migration-plan), not this prerequisite.
+- [x] 7.4 Qualify effective status enforcement, unprotected proposals, guarded merges, signer trust, source-ref auto-delete and untrusted-runner isolation/cleanup on GitHub; `gitlab-peer-reconciliation` owns GitLab's admission. Actual dev integration/checks/ref deletion and archived main/tag effects remain required by the [Migration Plan](design.md#migration-plan), not this prerequisite.
 - [x] 7.5 Qualify one-peer and offline-local operation; preserve independent local/peer progress and peer-specific parity claims during another peer's outage.
 
 ## 8. Repository Topology, Documentation, and Deletion
 
 - [x] 8.1 Consolidate product/tool/test semantic owners and native configuration/sidecars; prove isolated discovery/bootstrap, symmetric CI, tagged predecessors and exact root retirement without facades.
 - [x] 8.2 Reconcile tracked entry, architecture, decision, operations, contribution and release docs; prove linked English navigation and no untracked prerequisites.
-- [ ] 8.3 Qualify CLI/document presentation, Markdown spacing and references through 8.3.1; verify native output and rendered layouts. `gitlab-peer-reconciliation` owns ETHOS identity/reference admission and historical peer tag reconciliation.
+- [x] 8.3 Qualify CLI/document presentation, Markdown spacing and references through 8.3.1; verify native output and rendered layouts. `gitlab-peer-reconciliation` owns ETHOS identity/reference admission and historical peer tag reconciliation.
   - [x] 8.3.1 Correct Changelog headings, peer history and native locators; preserve historical notes and distinguish prepared release links from published tags.
 - [x] 8.4 Compare mature gateway/config/client/release capabilities with AIGW differentiators; record source-backed adopt/reject decisions and delete replaced owners.
 - [x] 8.5 Inventory branches, outputs, records, tags, caches and lanes by owner/consumer; retire proved-disposable pre-archive residue and bind retained evidence/rollback/client consumers to explicit retirement triggers.
@@ -77,6 +77,6 @@
 
 ## 9. Frozen Source and Pre-Archive Acceptance
 
-- [ ] 9.1 Audit every changed requirement against source, tests, CLI, team manifest, quality/CI and docs; remove contradictions and unused compatibility paths before freezing inputs.
+- [x] 9.1 Audit every changed requirement against source, tests, CLI, team manifest, quality/CI and docs; remove contradictions and unused compatibility paths before freezing inputs.
 - [ ] 9.2 Qualify focused RED/GREEN, native static/behavior gates and strict official OpenSpec on the frozen source; no skipped required gate or warning counts as pass.
 - [ ] 9.3 Qualify one signed untagged three-OS candidate's exact-byte install, predecessor upgrade/rollback, credentials and real clients; bind hashes/provenance and disclose missing evidence. Publication, Homebrew cutover and final retirement follow the Migration Plan; maintenance 0.3.5 does not qualify final 0.4.0.

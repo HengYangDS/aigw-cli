@@ -474,6 +474,28 @@ owns this independent readback, not a replay or later-source qualification.
 Windows, isolated macOS Keychain, final Developer ID/notarized bytes and any
 changed producer/verifier inputs remain open. Task 6.6 stays unchecked.
 
+#### Accepted 0.4.0 performance trade-off
+
+GitHub-hosted runs `38390626528` at `582879bb`, `38397873779` and
+`38400077164` at `b55d33a6`, and `38434824834` at `fcfa40d4` measured all
+eight workloads for both variants with Developer ID-signed candidates on macOS,
+Linux and Windows, including Windows Credential Manager, Linux Secret Service
+and, in the last two runs, the disposable macOS Keychain. No run qualified every
+platform. Each failed block either carried Hyperfine's first-run warning, which
+also struck the 0.3.5 baseline, or exceeded a p95 budget with three to eight
+samples above twice its median; the baseline shows the same spikes, and every
+candidate median stays within its budget. The candidate does spend 35 to 70 ms
+more CPU than 0.3.5 on setup, sync and projection, and about 10 ms more on
+status, because each command hashes the roughly 13 MB program and its versioned
+reader three or four times to verify reader integrity.
+
+On 2026-10-14 the operator accepted this measured trade-off for 0.4.0 instead of
+a repair or a measurement-policy change. The acceptance covers these
+measurements only, not a quiet host, notarized bytes or an optimization claim;
+the installed release is measured under the Migration Plan.
+`single-pass-reader-verification` owns verifying each executable once per
+command.
+
 ### 6. Delete by consumer and authority
 
 Review source, tests, tools, root and `.config` files, OpenSpec, docs, generated
