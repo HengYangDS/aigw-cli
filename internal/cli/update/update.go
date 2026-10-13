@@ -3,6 +3,7 @@
 package update
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -13,6 +14,15 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+// rollbackProgram returns macOS Keychain items to the retained program's own
+// reader before activating that program.
+func rollbackProgram(ctx context.Context, runtime invocation.Context, config []byte) (result string, err error) {
+	if err = invocation.RestorePredecessorCredentials(runtime); err == nil {
+		result, err = runtime.Updater.Rollback(ctx, config)
+	}
+	return result, err
+}
 
 // NewCommand constructs the signed portable release update command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
@@ -52,7 +62,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
 					return fmt.Errorf("read configuration before program rollback: %w", readErr)
 				}
-				result, err = runtime.Updater.Rollback(ctx.Context(), config)
+				result, err = rollbackProgram(ctx.Context(), runtime, config)
 			} else if candidateArchive != "" {
 				result, err = runtime.Updater.UpdateCandidate(ctx.Context(), runtime.Version, upgrade.CandidateArchive{
 					ArchivePath:   candidateArchive,

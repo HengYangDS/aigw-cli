@@ -67,3 +67,9 @@ func TestWindowsMetadataObservationTracksOnlyItsExactSessionSlot(t *testing.T) {
 		t.Fatal("invalid native credential identity was accepted")
 	}
 }
+
+func TestWindowsRollbackHasNoCredentialConversion(t *testing.T) {
+	if value, err := queryCredential(restoreCommand, "AIGW_TEST_RESTORE", "synthetic", nil); len(value) != 0 || !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("Windows restore = %q, %v", value, err)
+	}
+}

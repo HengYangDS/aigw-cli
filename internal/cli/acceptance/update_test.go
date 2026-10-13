@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/upgrade"
 )
 
@@ -163,6 +165,49 @@ func TestUpdateRollbackStopsBeforeUpdaterWhenConfigurationCannotBeRead(t *testin
 	app.Updater = updater
 	if err := cli.Execute(app, []string{"update", "--rollback"}); err == nil || updater.rollbackCalls != 0 {
 		t.Fatalf("rollback ignored unreadable configuration: %v, calls=%d", err, updater.rollbackCalls)
+	}
+}
+
+func TestUpdateRollbackReturnsKeychainItemsBeforeActivation(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("only macOS Keychain items authorize the reading executable")
+	}
+	for _, test := range []struct {
+		name  string
+		code  string
+		calls int
+	}{{name: "restored", code: "0", calls: 1}, {name: "refused", code: "3"}} {
+		t.Run(test.name, func(t *testing.T) {
+			app, out, _, _, _ := testApp(t, "")
+			cfg := configuration.NewConfig()
+			addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
+			if err := app.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			record := filepath.Join(t.TempDir(), "requests")
+			script := "#!/bin/sh\nprintf '%s %s\\n' \"$1\" \"$3\" >> '" + record + "'\nexit " + test.code + "\n"
+			if err := os.WriteFile(app.Executable, []byte(script), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			store, err := secrets.Select(secrets.Selection{Backend: "keyring", GOOS: "darwin", Root: t.TempDir(), Executable: app.Executable})
+			if err != nil {
+				t.Fatal(err)
+			}
+			app.Secrets = store
+			updater := &fakeUpdater{rollbackResult: "restored the previous program version."}
+			app.Updater = updater
+			err = cli.Execute(app, []string{"update", "--rollback"})
+			if test.calls == 1 && err != nil || test.calls == 0 && (err == nil || !strings.Contains(out.String(), "No previous program version was confirmed active")) {
+				t.Fatalf("rollback = %v\n%s", err, out.String())
+			}
+			if updater.rollbackCalls != test.calls {
+				t.Fatalf("rollback activation calls = %d, want %d", updater.rollbackCalls, test.calls)
+			}
+			requests, err := os.ReadFile(record)
+			if err != nil || !strings.HasPrefix(string(requests), "__aigw-native-credential-restore team\n") {
+				t.Fatalf("rollback did not convert the Account's Keychain items first: %q, %v", requests, err)
+			}
+		})
 	}
 }
 

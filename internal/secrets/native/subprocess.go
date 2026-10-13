@@ -20,8 +20,10 @@ const (
 	writeCommand  = "__aigw-native-credential-write"
 	deleteCommand = "__aigw-native-credential-delete"
 	existsCommand = "__aigw-native-credential-exists"
-	missingExit   = 2
-	failureExit   = 3
+	// restoreCommand returns a macOS item to the predecessor's reader before rollback.
+	restoreCommand = "__aigw-native-credential-restore"
+	missingExit    = 2
+	failureExit    = 3
 	// The shared runner separately bounds pipe teardown and captures at most 64 KiB.
 	operationTimeout = 5 * time.Second
 	maxStoredValue   = 64 * 1024
@@ -141,7 +143,7 @@ func dispatch(args []string, input io.Reader, out, diagnostic io.Writer, service
 		return false, 0
 	}
 	switch args[0] {
-	case readCommand, writeCommand, deleteCommand, existsCommand:
+	case readCommand, writeCommand, deleteCommand, existsCommand, restoreCommand:
 	default:
 		return false, 0
 	}

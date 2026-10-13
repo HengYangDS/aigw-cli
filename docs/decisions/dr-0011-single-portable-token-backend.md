@@ -55,12 +55,19 @@ targets.
 Writes carry the logical Token through standard input, never argv or the
 environment; the native writer applies the same base64 envelope exactly once.
 Native metadata observation requests attributes only, under the same no-UI
-policy, without asking for password data. A private item created by the old
-`/usr/bin/security` writer can deny the new AIGW identity. The new writer
-refuses to replace an item it cannot first read; it does not change an ACL,
-migrate a Token, retry or select another backend. New native items pass
-write/read/update/delete in an isolated Keychain, but retained operator-item
-authorization and signed-successor acceptance remain unproved.
+policy, without asking for password data. An item created by the old
+`/usr/bin/security` writer denies the new AIGW identity. On 2026-10-13 a
+Developer ID-signed successor was denied every retained operator item
+(OSStatus -25293), and the operator rejected re-entering or hand-authorizing
+each Token as upgrade experience. Such an item is therefore migrated once:
+when its keychain is unlocked and its access list trusts `/usr/bin/security`,
+the worker reads it through that tool and stages the Token in an AIGW-owned
+`migration@<slot>` item. It then deletes the retained item through the tool,
+recreates the exact slot as an AIGW-owned item and removes the staging item.
+Every intermediate state keeps the Token. A per-user lock serializes
+migrations, and an interrupted one resumes from its staging item. Items that
+trust no application, or another one, keep their denial; the worker never
+changes an ACL, prompts or selects another backend.
 
 Native Keychain failures retain a typed numeric OSStatus through the bounded
 worker's stderr and the credential command's safe evidence. Standard output
@@ -72,11 +79,15 @@ is locked, retrying a denied read or changing authorization.
 The successor uses the predecessor's exact physical Account name, including
 `diagnostic@<account>` for the separate optional provider-diagnostic credential.
 Changing the reader implementation must not change storage identity or require
-Token enrollment again. A retained-item authorization refusal blocks the affected
-cutover; it does not justify a shadow item, backend fallback or ACL change.
-Earlier unreleased candidates created `native@` shadow items. Preserve an exact
-item until its retained consumer and rollback owner release it; then retire it
-through its existing owner, never by prefix-based deletion.
+Token enrollment again. A migrated item's access list names the AIGW signing
+identifier and team rather than one executable's bytes, so later signed
+releases read it without migration, while ad-hoc builds are denied. Before a
+portable rollback activates the retained program, AIGW converts each configured
+Account's items back to `/usr/bin/security` ownership with the same envelope.
+A Homebrew downgrade bypasses that step, so the older reader then asks macOS
+for authorization. Earlier unreleased candidates created `native@` shadow items.
+Preserve an exact item until its retained consumer and rollback owner release
+it; then retire it through its existing owner, never by prefix-based deletion.
 
 The independent host-local helper cutover was rejected and rolled back. It is
 not the product's credential reader or Token backend. This decision does not
@@ -142,13 +153,14 @@ backend; preservation of native item authorization still requires the retained-
 item journey. No independent helper reader, host script, service, or second
 Token backend is admitted.
 
-| Path                                          | Disposition                      | Reason                                                                                                       |
-| --------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Bounded AIGW credential worker                | Selected                         | Keeps one command, item grammar and backend; native macOS reads fail without authorization UI.               |
-| Independent host-local credential helper      | Rejected                         | Adds another reader and caller boundary.                                                                     |
-| Content-addressed AIGW executable copies      | Selected design; cutover pending | Keeps each projected command's executable bytes available across package replacement.                        |
-| Security.framework same-executable operations | Selected for macOS               | Keeps new writes readable by AIGW and suppresses legacy-item prompts; retained-item access remains unproved. |
-| Silent backend migration                      | Rejected                         | Changes credential authority without the operator's decision.                                                |
+| Path                                          | Disposition                      | Reason                                                                                         |
+| --------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Bounded AIGW credential worker                | Selected                         | Keeps one command, item grammar and backend; native macOS reads fail without authorization UI. |
+| Independent host-local credential helper      | Rejected                         | Adds another reader and caller boundary.                                                       |
+| Content-addressed AIGW executable copies      | Selected design; cutover pending | Keeps each projected command's executable bytes available across package replacement.          |
+| Security.framework same-executable operations | Selected for macOS               | Keeps new writes readable by AIGW and suppresses legacy-item prompts.                          |
+| One-time retained-item migration              | Selected for macOS               | Upgrades from `/usr/bin/security` items need neither Token entry nor manual authorization.     |
+| Silent backend migration                      | Rejected                         | Changes credential authority without the operator's decision.                                  |
 
 The existing optional `credential_command` configuration is an explicit
 external-integration contract, not permission to install an independent helper

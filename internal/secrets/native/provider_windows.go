@@ -75,3 +75,7 @@ func nativeEnvironment(getenv func(string) string) []string {
 func writeCredential(service, account string, value []byte) error {
 	return keyring.Set(service, account, string(value))
 }
+
+// restoreCredential has no Windows meaning: Credential Manager authorizes the
+// user rather than the reading executable, so a rollback needs no conversion.
+func restoreCredential(string, string) error { return ErrUnavailable }

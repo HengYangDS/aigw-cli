@@ -60,21 +60,9 @@ func newKeyringStore(executable string) keyringStore {
 // preflight-confirmed Account Token from the selected native store before client
 // files point at it. Other backends have no per-executable native authorization.
 func VerifyNativeReaderAccess(store Store, executable string, accounts []string) error {
-	if store == nil {
-		return errors.New("credential backend is unavailable")
-	}
-	backend := backendStore(store)
-	if automatic, ok := backend.(*automaticStore); ok {
-		automatic.mutex.Lock()
-		selected, _, err := automatic.observeSelectionLocked()
-		automatic.mutex.Unlock()
-		if err != nil {
-			return err
-		}
-		backend = selected
-	}
-	if backendKind(backend) != "keyring" {
-		return nil
+	keyring, err := selectedKeyring(store)
+	if err != nil || !keyring {
+		return err
 	}
 	for _, account := range accounts {
 		if err := validate(account, "", false); err != nil {
@@ -89,6 +77,25 @@ func VerifyNativeReaderAccess(store Store, executable string, accounts []string)
 		}
 	}
 	return nil
+}
+
+// selectedKeyring reports whether the store currently selects the native
+// keyring, rechecking an automatic selection.
+func selectedKeyring(store Store) (bool, error) {
+	if store == nil {
+		return false, errors.New("credential backend is unavailable")
+	}
+	backend := backendStore(store)
+	if automatic, ok := backend.(*automaticStore); ok {
+		automatic.mutex.Lock()
+		selected, _, err := automatic.observeSelectionLocked()
+		automatic.mutex.Unlock()
+		if err != nil {
+			return false, err
+		}
+		backend = selected
+	}
+	return backendKind(backend) == "keyring", nil
 }
 
 func (store keyringStore) get(kind Kind, account string) (string, error) {
