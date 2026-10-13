@@ -293,18 +293,24 @@ per-query UI-fail flag did not prevent an authorization prompt. The
 single-operation worker temporarily disables its own optional Keychain UI and
 restores that process setting. An item created by the old `/usr/bin/security`
 writer may deny direct AIGW access: a successor refuses to overwrite such an
-item without authorization. The bridge changes neither ACL nor backend
-selection; source tests and dual-architecture cgo builds do not replace
+item unless it qualifies under "Retained macOS Keychain items migrate to AIGW
+ownership". That requirement owns the one-time migration and its recovery;
+ordinary denial still forbids interaction, ACL mutation and backend fallback.
+Source tests and dual-architecture cgo builds do not replace
 retained-item or signed-artifact acceptance.
 
 The macOS reader, writer, deleter and metadata observer preserve the
 predecessor's exact Account slot and its separate optional `diagnostic@` slot.
 Metadata observation requests attributes through Security.framework under the
 same no-UI policy; the old `/usr/bin/security` observer is removed. Updating the
-reader must not require Token enrollment again or create a second physical item.
-A predecessor rotation after rollback is visible to the successor before any
-projection or package-link switch. Denied authorization blocks only the affected
-transition; no ACL mutation, backend fallback or Token copy is permitted.
+reader must not require Token enrollment again or establish a second credential
+authority. Migration staging is bounded recovery state, not an alternate store.
+A qualified rollback restores a compatible credential owner before predecessor
+activation; its subsequent rotation remains visible to captured readers and the
+successor before synchronization or re-upgrade. Outside the admitted migration,
+denied authorization blocks the affected transition without ACL mutation,
+backend fallback or Token copy. Task 5.4 remains open until the approved migration
+passes the signed retained-operator-item and original-caller journey.
 Native item service, Account and display names have one precise grammar in the
 existing secrets owner. Preserve exact shadow items made by unreleased candidates
 until their retained consumers and rollback owners release them; naming similarity

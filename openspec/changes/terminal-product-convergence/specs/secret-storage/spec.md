@@ -25,6 +25,8 @@ disclosed rather than represented as uninterrupted service.
 
 - **WHEN** an exact selected Keychain item cannot be read without presenting
   authorization UI
+- **AND** it does not qualify under "Retained macOS Keychain items migrate to
+  AIGW ownership"
 - **THEN** the bounded AIGW credential worker SHALL return no Token and SHALL
   NOT open that UI, retry, change the item's ACL, or select another backend
 - **AND** a replacement SHALL NOT overwrite an existing item that the selected
@@ -39,8 +41,12 @@ disclosed rather than represented as uninterrupted service.
 - **WHEN** a successor changes the native reader implementation
 - **THEN** read, metadata observation, write and delete SHALL use the same
   physical service and Account identity without Token enrollment again
-- **AND** denied authorization SHALL block the affected cutover without a shadow
-  item, Token copy, ACL mutation, backend fallback or credential prompt
+- **AND** only an exact retained item admitted by "Retained macOS Keychain items
+  migrate to AIGW ownership" MAY change credential ownership through that
+  one-time migration
+- **AND** all other authorization denials SHALL block the affected cutover
+  without a shadow item, Token copy, ACL mutation, backend fallback or credential
+  prompt
 - **AND** predecessor rotation after rollback SHALL be visible to captured
   readers and the successor before projection synchronization or re-upgrade
 - **AND** exact shadow items from unreleased candidates SHALL remain owned until
@@ -71,8 +77,9 @@ disclosed rather than represented as uninterrupted service.
 - **AND** each later captured versioned command SHALL remain callable through
   subsequent rollback and re-upgrade until explicitly retired after proving
   that no consumer can invoke it
-- **AND** native credential denial SHALL block production acceptance rather than
-  trigger an alternate reader, ACL change or repeated authorization attempt.
+- **AND** native credential denial outside the admitted macOS retained-item
+  migration SHALL block production acceptance rather than trigger an alternate
+  reader, ACL change or repeated authorization attempt.
 
 #### Scenario: A Windows credential reader exceeds the native shell path limit
 
