@@ -248,12 +248,10 @@ in Git; original raw results stay with their source-bound verification owner.
       Preserve immutable evidence, failed receipts, rollback and running clients.
       Post-archive release and final-lane retirement are required by the
       [Migration Plan](design.md#migration-plan), not prerequisites for this task.
-- [x] 8.6 Migrate the Client Projection Edition Provider to the published
-      Publisher v2 contract. Preserve the authored Claim Model, four reader
-      questions, independent media and AIGW acceptance authority; prove exact
-      package inputs, direct/declarative equivalence, relocated offline replay,
-      invalid-input refusal and Git-bound rollback before deleting the v1
-      materializer, captured source copies and duplicate generated identities.
+- [ ] 8.6 Retire drawing-specific integrations and their active obligations;
+      verify that external consumers add no files, code, configuration,
+      dependencies, tests or delivery prerequisites to AIGW. Preserve product
+      obligations and original evidence; source removal is retained in `99cc846d`.
 
 ## 9. Frozen Source and Pre-Archive Acceptance
 
