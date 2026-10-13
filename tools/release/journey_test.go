@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -324,6 +325,24 @@ func TestJourneyEnvironmentUpdatesPreserveOwnedCredentials(t *testing.T) {
 	}
 }
 
+func TestJourneyEnvironmentValuesAreAssignable(t *testing.T) {
+	environment := []string{"=C:=C:\\native work", "=D:=D:\\", "AIGW_TEST_VALUE=a=b", "AIGW_TEST_EMPTY=", "unassigned"}
+	values := environmentValues(environment)
+	want := map[string]string{"AIGW_TEST_VALUE": "a=b", "AIGW_TEST_EMPTY": ""}
+	if !maps.Equal(values, want) {
+		t.Fatalf("assignable environment includes native process metadata: got=%v want=%v", values, want)
+	}
+	for key, value := range values {
+		t.Setenv(key, value)
+		if actual, present := os.LookupEnv(key); !present || actual != value {
+			t.Fatalf("native environment replay changed %q", key)
+		}
+	}
+	if got := environmentWith(environment, map[string]string{"AIGW_TEST_VALUE": "replacement"}); !slices.Contains(got, environment[0]) || !slices.Contains(got, environment[1]) {
+		t.Fatalf("child environment lost native drive metadata: %v", got)
+	}
+}
+
 func (j *journeyFixture) run(args ...string) []byte {
 	j.testing.Helper()
 	return j.runWithInput(j.binary, "", args...)
@@ -437,7 +456,7 @@ func environmentValues(environment []string) map[string]string {
 	values := make(map[string]string, len(environment))
 	for _, entry := range environment {
 		key, value, present := strings.Cut(entry, "=")
-		if present {
+		if present && key != "" {
 			values[key] = value
 		}
 	}

@@ -319,9 +319,6 @@ func (j *journeyFixture) measureSelectedPerformance(hyperfine, output, variant, 
 	}
 	var measurements []performance.Measurement
 	for _, test := range cases {
-		if attribution && test.Name == "projection" && backend != "env" {
-			continue
-		}
 		name := fmt.Sprintf("%s-%s-%s-%d", variant, backend, test.Name, block)
 		row := performance.Measurement{Variant: variant, Backend: backend, Case: test.Name, Block: block, Budget: test.Budget, Mode: mode, Runtime: test.Runtime}
 		path := selected[test.Name]
@@ -465,6 +462,33 @@ func (j *journeyFixture) attributionCases(helper []string, shell, reader, scope 
 		{Name: "credential-direct", Command: []string{reader, "credential", configuration.ClientClaude, scope}},
 		j.performanceCases(helper, "", configuration.Runtime{})[1],
 		j.performanceCases(helper, "", configuration.Runtime{})[3],
+	}
+}
+
+func TestNativeAttributionKeepsTheProjectionWorkload(t *testing.T) {
+	tool, err := exec.LookPath("hyperfine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	program := buildNativeProgram(t, root, "0.0.0")
+	server := newNativeJourneyServer(t)
+	t.Setenv("AIGW_PERFORMANCE_ATTRIBUTION", "1")
+	for _, backend := range []string{"env", "keyring"} {
+		t.Run(backend, func(t *testing.T) {
+			// Use synthetic ENV credentials and stop before native store operations.
+			journey := nativePerformanceJourney(t, program, program, "env", server.URL+"/v1")
+			installed := journey.binary
+			journey.binary = filepath.Join(journey.root, "missing-program")
+			rows, err := journey.measurePerformance(tool, t.TempDir(), "candidate", backend, 1)
+			journey.binary = installed
+			if err == nil || len(rows) == 0 || rows[len(rows)-1].Case != "projection" || rows[len(rows)-1].Backend != backend {
+				t.Fatalf("attribution omitted selected %s projection (rows=%d): %v", backend, len(rows), err)
+			}
+		})
 	}
 }
 

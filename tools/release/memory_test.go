@@ -227,20 +227,6 @@ func requireProcessMeasurements(t *testing.T, records []processMeasurement, back
 	}
 }
 
-func TestNativeAttributionKeepsTheProjectionWorkload(t *testing.T) {
-	journey := &journeyFixture{binary: "installed program"}
-	qualified := journey.performanceCases([]string{"projected helper"}, "test preparer", configuration.Runtime{})[1]
-	for _, test := range journey.attributionCases([]string{"projected helper"}, "selected shell", "copied reader", "exact-scope") {
-		if test.Name == "projection" {
-			if !reflect.DeepEqual(test, qualified) {
-				t.Fatalf("projection diagnosis changed its qualified workload: got=%#v want=%#v", test, qualified)
-			}
-			return
-		}
-	}
-	t.Fatal("component attribution omits the measured projection workload")
-}
-
 func TestNativeAttributionSummaryRetainsItsNonqualifyingScope(t *testing.T) {
 	tool, err := exec.LookPath("hyperfine")
 	if err != nil {
