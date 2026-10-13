@@ -72,7 +72,7 @@ platforms.windows-arm64.asset_pattern = "lychee-x86_64-pc-windows-msvc.zip"
 
 # OSV Scanner's release bundle is signed by the reusable SLSA generator.
 [tools."github:google/osv-scanner"]
-version = "2.6.0"
+version = "2.7.0"
 slsa_signer_identity = "https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@refs/tags/v2.1.0"
 slsa_signer_issuer = "https://token.actions.githubusercontent.com"
 
