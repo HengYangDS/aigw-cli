@@ -86,3 +86,40 @@ unmanaged content. AIGW SHALL NOT manage the external service or carry requests.
 - **AND** rollback SHALL restore the exact prior client semantics and usable
   credential reference
 - **AND** acceptance SHALL verify cleanup of the exact owned test resources.
+
+## MODIFIED Requirements
+
+### Requirement: Connectivity and verification use explicit Route semantics
+
+`aigw test` SHALL test selected client endpoints without changing bindings.
+`aigw verify` SHALL perform a real bounded client request. An explicit `--route`
+override SHALL require exactly one explicit client and SHALL NOT mutate its
+stored binding.
+
+#### Scenario: Test an explicit Route
+
+- **WHEN** the operator runs `aigw test --for <client> --route <route>`
+- **THEN** only that Route's resolved endpoint and credential boundary are tested
+- **AND** no client configuration or selection changes.
+
+#### Scenario: Verify an explicit Route
+
+- **WHEN** the operator runs `aigw verify --for <client> --route <route>`
+- **THEN** AIGW SHALL invoke that client through an isolated projection
+- **AND** SHALL require successful completion from the real client
+- **AND** an HTTP probe alone SHALL NOT establish the client result.
+
+#### Scenario: Verify all enabled clients
+
+- **WHEN** the operator runs `aigw verify --for all`
+- **THEN** every enabled Client Binding SHALL be verified independently
+- **AND** `--route` SHALL be rejected because no single Route can override several clients.
+
+#### Scenario: Verification leaves operator extensions out
+
+- **WHEN** `aigw verify` runs a real client for one Route
+- **THEN** the client SHALL run in a private home or its native isolation mode
+  without starting the operator's MCP servers, plugins, hooks, notifications or
+  memory providers
+- **AND** an operator extension that cannot start or authorize there SHALL NOT
+  decide the verification result.
