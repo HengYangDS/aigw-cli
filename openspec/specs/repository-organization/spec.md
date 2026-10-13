@@ -58,7 +58,9 @@ archived.
 Repository configuration, tools, source, tests, documentation, and release
 assets SHALL be organized by semantic owner. Root-level sprawl, forwarding
 scripts, concatenated package names, cross-package private calls, and duplicated
-policy SHALL not create parallel authority.
+policy SHALL not create parallel authority. Unrelated external consumers SHALL
+own their adaptation and qualification outside this product's implementation
+and quality dependency graph.
 
 #### Scenario: A contributor follows one behavior
 
@@ -71,6 +73,12 @@ policy SHALL not create parallel authority.
 - **WHEN** the repository is verified on macOS, Linux, or Windows
 - **THEN** repository-owned Go commands and declarative configuration provide the same contract
 - **AND** shell-specific behavior is not required for product or CI correctness.
+
+#### Scenario: An unrelated consumer reads product material
+
+- **WHEN** an external product consumes selected repository material
+- **THEN** its adaptation and output remain outside this repository
+- **AND** AIGW qualification does not require that external product or its tests.
 
 ### Requirement: Semantic documentation architecture
 

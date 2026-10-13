@@ -183,11 +183,6 @@ or CUE. Run a deliberate tool upgrade through its native resolver, then restore
 locked operation; the [dependency policy](docs/governance/change-and-release-policy.md#dependency-maintenance)
 owns freshness, age admission and reproducibility.
 
-Repository-wide ETHOS proof includes the installed Client Projection compiler
-test. Follow the [selected Publisher input contract](architecture/edition-provider/README.md#reproduce)
-and provide both exact archive paths in that proof process; `mise run check`
-executes source tests without qualifying the external package.
-
 Root placement follows native discovery, not a file-count target. Git, editor
 and analyzer entrypoints, package manifests and paired locks, Forge projections,
 and project entry documents keep their native homes. Tool policy uses semantic

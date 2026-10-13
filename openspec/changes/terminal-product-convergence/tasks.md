@@ -73,7 +73,7 @@
   - [x] 8.3.1 Correct Changelog headings, peer history and native locators; preserve historical notes and distinguish prepared release links from published tags.
 - [x] 8.4 Compare mature gateway/config/client/release capabilities with AIGW differentiators; record source-backed adopt/reject decisions and delete replaced owners.
 - [x] 8.5 Inventory branches, outputs, records, tags, caches and lanes by owner/consumer; retire proved-disposable pre-archive residue and bind retained evidence/rollback/client consumers to explicit retirement triggers.
-- [x] 8.6 Migrate the Client Projection Edition Provider to Publisher v2; prove exact packages, preserved authored meaning/media, direct/declarative parity, offline relocation, refusal and Git rollback before deleting superseded v1 owners.
+- [ ] 8.6 Retire drawing-specific integrations and their active obligations; verify that external consumers add no files, code, configuration, dependencies, tests or delivery prerequisites to AIGW. Preserve product obligations and original evidence; source removal is retained in `99cc846d`.
 
 ## 9. Frozen Source and Pre-Archive Acceptance
 

@@ -119,29 +119,19 @@ func TestRepositoryQualityGraphIncludesNativePerformanceCases(t *testing.T) {
 	}
 }
 
-func TestRepositoryQualityGraphOwnsTheArchitectureEditionProvider(t *testing.T) {
-	gateIndex := slices.IndexFunc(repositoryQualityGraph.Gates, func(gate qualityGate) bool {
+func TestRepositoryQualityGraphRunsNativeTextChecks(t *testing.T) {
+	index := slices.IndexFunc(repositoryQualityGraph.Gates, func(gate qualityGate) bool {
 		return gate.ID == "node-source"
 	})
-	if gateIndex < 0 {
-		t.Fatal("quality graph lacks the source-owned Architecture Edition Provider gate")
+	if index < 0 {
+		t.Fatal("native text behavior is not checked")
 	}
-	gate := repositoryQualityGraph.Gates[gateIndex]
+	gate := repositoryQualityGraph.Gates[index]
 	if gate.Command.Name != "node" || !slices.Equal(gate.Command.Args, []string{
 		"--test",
-		"architecture/edition-provider/test/source.test.mjs",
 		"tools/ci/test/text.test.mjs",
 	}) {
-		t.Fatalf("architecture Edition Provider gate = %#v", gate.Command)
-	}
-	carrierIndex := slices.IndexFunc(repositoryQualityGraph.Carriers, func(carrier carrierQuality) bool {
-		return carrier.Class == "architecture-edition-provider"
-	})
-	if carrierIndex < 0 || !slices.Contains(
-		repositoryQualityGraph.Carriers[carrierIndex].Gates,
-		"node-source",
-	) {
-		t.Fatal("architecture Edition Provider carrier is not bound to its source gate")
+		t.Fatalf("native text command = %#v", gate.Command)
 	}
 }
 
