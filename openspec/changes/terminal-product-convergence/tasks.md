@@ -34,7 +34,7 @@
 - [x] 4.2 Qualify the shipped DMXAPI/UCloud/AIHubMix catalogue against current IDs and bounded live inference; retain consistent names and dated evidence for each model/variant.
 - [x] 4.3 Prove recommendations select only usable unselected Routes, preserve explicit choices and exclude manual-only Providers without claiming request-time failover.
 - [ ] 4.4 Qualify selected non-OpenAI-family Responses models in Codex's actual chooser, authentication and tool loop; resolve metadata admission or report native limitations without forged model lists.
-- [ ] 4.5 Requalify Claude Code, Claude Desktop, Codex and Hermes independently for native protocol, selection, credentials, retained continuation and rollback; prove verification isolation through the [native-client contract](design.md#3-qualify-a-client-adapter-do-not-infer-support-from-a-file), including real Provider credentials and each claimed platform/mode.
+- [ ] 4.5 Requalify Claude Code, Codex and Hermes independently for native protocol, selection, credentials, retained continuation and rollback with real Provider credentials; prove verification isolation through the [native-client contract](design.md#3-qualify-a-client-adapter-do-not-infer-support-from-a-file). Claude Desktop reads Tokens only through its installed projection, so its Chat, Cowork and Code requalification with the 0.4.0 reader follows the installed cutover under the [Migration Plan](design.md#migration-plan).
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder and other proposed clients; admit an Adapter only with executable, projection, ownership, withdrawal and real tool-loop evidence.
 - [x] 4.7 Qualify optional client-scoped forwarding through selection, resolution, credentials, dry-run, projection and rollback; preserve upstream/provider identity and direct operation, prove retained-child tools and exact cleanup, and leave Proxy transport/lifecycle outside AIGW.
 
@@ -43,7 +43,7 @@
 - [x] 5.1 Reconstruct a fresh current-HEAD lane's locked Go/Node/npm/tool environment; prove empty-cache bootstrap, independent mutable state, ambient-fallback rejection and exact cleanup.
 - [x] 5.2 Qualify Linux container/native setup, selection, projection, update, rollback, uninstall and cleanup with exact release bytes and retained predecessor state.
 - [x] 5.3 Qualify Windows native lifecycle, ACLs, executable replacement, quoted paths, noninteractive ENV and installed Codex/Claude; identify each unproved client mode.
-- [ ] 5.4 Qualify isolated macOS Keychain and ENV lifecycle plus signed retained-item authorization under the approved `macos-keychain-item-migration`; preserve prompt-free original-caller continuity and prove package-manager upgrade/rollback before installed cutover under the [Migration Plan](design.md#migration-plan).
+- [ ] 5.4 Qualify isolated macOS Keychain and ENV lifecycle plus signed retained-item authorization under the approved `macos-keychain-item-migration`; preserve prompt-free original-caller continuity. The installed package-manager upgrade, rollback and forward follow under the [Migration Plan](design.md#migration-plan).
 - [x] 5.5 Qualify missing-client setup and late Codex/Claude installation on each OS; sync only admitted installed clients and preserve user files.
 - [x] 5.6 Prove exact owned-resource cleanup after success, failure, timeout and interruption; preserve installations, client state, rollback and evidence.
 
@@ -62,16 +62,15 @@
 - [x] 7.1 Qualify one CUE graph and its GitHub/GitLab projections; reject drift or missing source/native/release/publication ownership.
 - [x] 7.2 Qualify exact-SHA event/check mappings and candidate proposals on both peers; prove proposal/review/maintainer/dev/main/tag bindings without treating projections or manual runs as post-archive publication.
 - [x] 7.3 Separate independent quality/bootstrap/native/client/release work and share only immutable evidence or content-addressed caches; cancel superseded review before noninterruptible jobs.
-- [ ] 7.4 Qualify effective status enforcement, unprotected proposals, guarded merges, signer trust, source-ref auto-delete and untrusted-runner isolation/cleanup per selected peer; actual dev integration/checks/ref deletion and archived main/tag effects remain required by the [Migration Plan](design.md#migration-plan), not this prerequisite.
+- [ ] 7.4 Qualify effective status enforcement, unprotected proposals, guarded merges, signer trust, source-ref auto-delete and untrusted-runner isolation/cleanup on GitHub; `gitlab-peer-reconciliation` owns GitLab's admission. Actual dev integration/checks/ref deletion and archived main/tag effects remain required by the [Migration Plan](design.md#migration-plan), not this prerequisite.
 - [x] 7.5 Qualify one-peer and offline-local operation; preserve independent local/peer progress and peer-specific parity claims during another peer's outage.
 
 ## 8. Repository Topology, Documentation, and Deletion
 
 - [x] 8.1 Consolidate product/tool/test semantic owners and native configuration/sidecars; prove isolated discovery/bootstrap, symmetric CI, tagged predecessors and exact root retirement without facades.
 - [x] 8.2 Reconcile tracked entry, architecture, decision, operations, contribution and release docs; prove linked English navigation and no untracked prerequisites.
-- [ ] 8.3 Qualify CLI/document presentation, Markdown spacing and references through 8.3.1/8.3.2; verify native output and rendered layouts.
+- [ ] 8.3 Qualify CLI/document presentation, Markdown spacing and references through 8.3.1; verify native output and rendered layouts. `gitlab-peer-reconciliation` owns ETHOS identity/reference admission and historical peer tag reconciliation.
   - [x] 8.3.1 Correct Changelog headings, peer history and native locators; preserve historical notes and distinguish prepared release links from published tags.
-  - [ ] 8.3.2 Qualify installed ETHOS identity/reference admission and reject reachable wrong-repository links; reconcile historical peer tag identities through authorized native repair without copied maps/checkers.
 - [x] 8.4 Compare mature gateway/config/client/release capabilities with AIGW differentiators; record source-backed adopt/reject decisions and delete replaced owners.
 - [x] 8.5 Inventory branches, outputs, records, tags, caches and lanes by owner/consumer; retire proved-disposable pre-archive residue and bind retained evidence/rollback/client consumers to explicit retirement triggers.
 - [x] 8.6 Migrate the Client Projection Edition Provider to Publisher v2; prove exact packages, preserved authored meaning/media, direct/declarative parity, offline relocation, refusal and Git rollback before deleting superseded v1 owners.
