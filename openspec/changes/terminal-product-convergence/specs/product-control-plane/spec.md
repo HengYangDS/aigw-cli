@@ -6,13 +6,19 @@
 
 When the configured Hermes home's data root holds the installation's committed
 dependency environment and managed tools, AIGW's disposable Hermes verification
-environment SHALL reuse the committed dependencies without borrowing mutable
-home-maintenance records. Its boot records SHALL remain disposable; native
-dependency selection SHALL retain its original physical lock and generation
-leases, and the complete native live-profile dependency-member union with its
-original resolved identities. The probe SHALL NOT activate operator plugins or
-credential-backed memory providers. Verification SHALL NOT install, synchronize, rebuild, or republish the
-operator's dependencies, tools, launchers, or boot records.
+environment SHALL reuse them without borrowing mutable home-maintenance records,
+and its own boot records SHALL remain disposable. The probe SHALL NOT activate
+operator plugins or credential-backed memory providers, or install, synchronize,
+rebuild, or republish the operator's dependencies, tools, launchers, or boot
+records.
+
+#### Scenario: Verification keeps the native dependency selection
+
+- **WHEN** the disposable environment reuses the committed dependencies
+- **THEN** native dependency selection SHALL retain its original physical lock
+  and generation leases
+- **AND** SHALL include the complete native live-profile dependency-member
+  union with its original resolved identities.
 
 #### Scenario: Hermes keeps installation state under its data root
 
@@ -66,11 +72,15 @@ operator's dependencies, tools, launchers, or boot records.
 Codex and Claude Code SHALL be independent Adapters owning discovery,
 projection, authentication, rollback, verification, status, and withdrawal of
 AIGW state. Account-Token credential commands MUST use an absolute qualified
-reader and Route without storing Tokens in client files. A package-manager
-CLI link MUST NOT be assumed continuously available during replacement. Client-native
-authentication and preferences SHALL remain client-owned. Verification SHALL
-use synchronized settings without wrappers. New clients MUST add an Adapter
-without changing provider policy or existing Adapters.
+reader and Route, never store Tokens in client files, and never assume a
+package-manager CLI link stays available. Client-native authentication and
+preferences SHALL remain client-owned. A new client MUST add an Adapter without
+changing provider policy or other Adapters.
+
+#### Scenario: Verification uses synchronized settings
+
+- **WHEN** AIGW verifies an admitted client
+- **THEN** it SHALL use the client's synchronized settings without a wrapper.
 
 #### Scenario: One admitted client is absent
 
@@ -152,10 +162,16 @@ The repository SHALL publish one token-free reviewed manifest directly
 consumable by `aigw setup --from` without credentials or installed clients.
 Setup and sync SHALL preserve existing Client Bindings and fill only unselected
 bindings from declared primary Routes and ordered alternatives with usable
-authentication. A Route outside that recommendation SHALL require explicit
-selection, even if its Account is connected or its Model matches. They SHALL
-project only AIGW-owned state and never expose or rebind Tokens. Fictitious
-providers, workstation paths, and parallel example manifests SHALL NOT remain.
+authentication; any other Route SHALL require explicit selection. They SHALL
+project only AIGW-owned state and never expose or rebind Tokens.
+
+#### Scenario: The shipped manifest stays reviewed
+
+- **WHEN** the repository ships its team manifest
+- **THEN** fictitious providers, workstation paths, and parallel example
+  manifests SHALL NOT remain
+- **AND** a Route outside the recommendations SHALL require explicit selection
+  even if its Account is connected or its Model matches.
 
 #### Scenario: Team member imports reviewed settings
 
@@ -203,18 +219,20 @@ providers, workstation paths, and parallel example manifests SHALL NOT remain.
 ### Requirement: Online update owns its temporary resources and preserves failure causes
 
 An online update SHALL own all peer download directories within one operation
-workspace and attempt to remove that workspace on every return. Cleanup SHALL
-preserve unrelated files and SHALL NOT alter the completed installation outcome.
-Reported failures SHALL retain their original causes and exact owned paths for
-internal caller inspection, while public diagnostics SHALL expose only safe
-state and recovery guidance. Forge subprocesses SHALL disable native prompts
-explicitly rather than depend on the parent environment.
+workspace and attempt to remove it on every return, preserving unrelated files
+and the installation outcome. Failures SHALL keep their original causes, while
+public diagnostics expose only safe state and recovery guidance. Forge
+subprocesses SHALL disable native prompts explicitly. Each peer's checksum
+manifest SHALL be authenticated against the embedded release public key before
+checksums, extraction, or execution.
 
-The updater SHALL authenticate each complete peer's checksum manifest against
-the independently embedded release public key before checksum validation,
-extraction, or candidate execution. Downloaded metadata SHALL NOT supply trust.
-Release construction SHALL freeze that public key once and use the same value
-for executable embedding and verification of the actual checksum signature.
+#### Scenario: Release construction binds one public key
+
+- **WHEN** release construction embeds the release public key
+- **THEN** it SHALL freeze that key once and use the same value to verify the
+  actual checksum signature
+- **AND** downloaded metadata SHALL NOT supply trust
+- **AND** reported failures SHALL keep exact owned paths for internal callers.
 
 #### Scenario: A checksum-consistent candidate lacks valid authentication
 

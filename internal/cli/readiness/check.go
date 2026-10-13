@@ -477,7 +477,12 @@ func renderCheckedClient(runtime invocation.Context, renderer *presentation.Rend
 		} else if diagnostic.Attempts == 0 {
 			evidence = "No request was sent"
 		}
-		return "", false, invocation.Problem(runtime, diagnostic.Summary, evidence, invocation.Title(client)+" is unavailable.", recommendedAction(diagnostic.Fix), fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
+		impact := invocation.Title(client) + " is unavailable."
+		if diagnostic.Kind == diagnostics.NetworkFailure {
+			// AIGW selects the endpoint; it neither runs nor restarts it.
+			impact += " AIGW owns this configuration, not the endpoint's lifecycle."
+		}
+		return "", false, invocation.Problem(runtime, diagnostic.Summary, evidence, impact, recommendedAction(diagnostic.Fix), fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
 	}
 	label := "Endpoint checked"
 	inferenceUnverified := true

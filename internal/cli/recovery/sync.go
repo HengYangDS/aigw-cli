@@ -163,6 +163,15 @@ func renderSyncPreview(r *presentation.Renderer, after configuration.Config, res
 	r.Success("Preview did not write configuration, state files, authentication, or conversations")
 }
 
+// rollbackFailureImpact reports the configuration outcome that a failed
+// rollback commit verified, or the conservative state when it verified none.
+func rollbackFailureImpact(err error) string {
+	if impact, ok := presentation.ConfigurationRecoveryImpact(err); ok {
+		return impact
+	}
+	return "Configuration or client projections may have changed; inspect current state before retrying."
+}
+
 // NewRollbackCommand constructs the command that restores the last verified AIGW configuration checkpoint.
 func NewRollbackCommand(runtime invocation.Context) *cobra.Command {
 	var lastChange bool
@@ -214,7 +223,7 @@ func NewRollbackCommand(runtime invocation.Context) *cobra.Command {
 					runtime,
 					"Configuration rollback did not complete",
 					"One rollback step failed; the cause identifies the affected boundary.",
-					"Configuration or client projections may have changed; inspect current state before retrying.",
+					rollbackFailureImpact(err),
 					"aigw doctor",
 					err,
 				)

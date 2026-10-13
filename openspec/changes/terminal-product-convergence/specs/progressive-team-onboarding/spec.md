@@ -2,16 +2,50 @@
 
 ## MODIFIED Requirements
 
+### Requirement: Team setup imports capability before activation
+
+`aigw setup --from` SHALL import a credential-free Account and Route
+catalogue independently from Account connection, Route activation, client
+installation, and external endpoint availability. No particular Account,
+client, or external Responses service SHALL be mandatory for import. Setup
+SHALL connect only the explicitly selected Account or Accounts whose Tokens are
+already available through the selected credential backend.
+
+#### Scenario: No Token or client is present
+
+- **WHEN** a user imports a valid team manifest on a host with no admitted
+  client and no Account Token
+- **THEN** setup SHALL save the catalogue without prompting for every Account
+- **AND** SHALL report that zero Accounts are connected
+- **AND** SHALL show the smallest account-scoped connection command
+
+#### Scenario: One Account is connected
+
+- **WHEN** exactly one manifest Account is explicitly selected or has a locally
+  available Token
+- **THEN** setup SHALL select that Account's Routes that the manifest declares
+  as client recommendations, in declared order
+- **AND** a Route of that Account that no recommendation declares SHALL remain
+  manual-only
+- **AND** other manifest Accounts SHALL remain available but unconnected
+- **AND** their missing Tokens SHALL NOT block setup
+
+#### Scenario: Admitted clients are absent
+
+- **WHEN** setup connects an Account before Claude Code or Codex is installed
+- **THEN** setup SHALL preserve the connected Account and selected Routes
+- **AND** SHALL identify `aigw sync` as the activation action after a client is
+  installed
+
 ### Requirement: Activation follows present capabilities
 
 Manifest setup SHALL import the reviewed catalogue and project only discovered
-clients whose selected Routes have locally available declared authentication.
-It SHALL NOT contact a provider or run a native client to decide whether the
-declaration can be imported. A connected Token and a native projection are not
-claims of accepted authentication, reachable endpoints, or working inference;
-`aigw check` owns those live observations. A later synchronization SHALL
-rediscover and adopt a newly installed admitted client without requiring
-manifest re-import.
+clients whose selected Routes have locally available declared authentication,
+without contacting a provider or running a native client. A connected Token
+and a native projection are not claims of accepted authentication, reachable
+endpoints, or working inference; `aigw check` owns those observations. A later
+synchronization SHALL adopt a newly installed admitted client without manifest
+re-import.
 
 #### Scenario: Only Claude Code is installed
 
@@ -66,13 +100,10 @@ manifest re-import.
 Setup results SHALL distinguish imported capability, connected Accounts,
 selected Routes, configured clients, and deferred work, and expose the smallest
 safe next action. With environment credentials, setup SHALL list every
-compatible variable as an equal choice and state that one is sufficient. An
-environment Token MAY activate an unselected reviewed recommendation through
-`aigw sync`. With a writable backend, Token rotation SHALL preserve Route and
-Client Binding selection and name the required explicit `aigw use --for`
-continuation. A newly installed selected client is activated with `aigw sync`;
-`aigw check` only verifies enabled Routes. Manifest setup MUST support `--json`,
-share one semantic result, and never expose credentials.
+compatible variable as an equal choice. With a writable backend, rotation
+SHALL preserve Route and Client Binding selection and name the explicit
+`aigw use --for` continuation. Manifest setup MUST support `--json`, share one
+semantic result, and never expose credentials.
 
 #### Scenario: Guided setup completes before client installation
 
@@ -188,11 +219,10 @@ share one semantic result, and never expose credentials.
 Importing a reviewed team manifest SHALL establish available capability without
 requiring every Token or client. `aigw sync` SHALL later converge newly
 available declared authentication and clients without repeated setup or hidden
-bulk selection. Recommendations SHALL remain distinct from selected Routes.
-Setup and sync SHALL fill only unselected Client Bindings using the declared
-primary Route and ordered alternatives. An undeclared Route SHALL remain
-manual-only, regardless of its Model or identifier order. Existing selections
-SHALL remain unchanged.
+bulk selection. Recommendations SHALL remain distinct from selected Routes:
+setup and sync SHALL fill only unselected Client Bindings from the declared
+primary Route and ordered alternatives, and an undeclared Route SHALL stay
+manual-only.
 
 #### Scenario: Any one Account is available
 

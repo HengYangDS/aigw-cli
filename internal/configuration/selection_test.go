@@ -414,3 +414,26 @@ func TestDomainErrorTextAndRouteSelectionBranches(t *testing.T) {
 		t.Fatalf("Claude Route without a Model: %v", err)
 	}
 }
+
+func TestSelectedRouteCopiesRecommendedOptionsOnlyForItsAccount(t *testing.T) {
+	cfg := NewConfig()
+	cfg.Accounts["native"] = Account{Label: "Native", Endpoints: Endpoints{OpenAIResponses: "https://native.test/v1"}}
+	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{OpenAIResponses: "https://team.test/v1"}}
+	cfg.Routes["native-gpt"] = testRoute("Native", "native", "gpt-native", ProtocolOpenAIResponses)
+	cfg.Routes["team-gpt"] = testRoute("Team", "team", "gpt-team", ProtocolOpenAIResponses)
+	cfg.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{
+		Route: "native-gpt", ModelProvider: "native-provider", Authentication: AuthenticationClientNative,
+	}}
+
+	other := cfg.Clone()
+	other.SetSelectedRoute(ClientCodex, "team-gpt", "")
+	runtime, err := other.ResolveRuntime(ClientCodex, "")
+	if err != nil || !runtime.RequiresAccountToken() || other.Clients[ClientCodex].ModelProvider != "" {
+		t.Fatalf("another Account's Route inherited the recommendation's native options: %#v, %v", other.Clients[ClientCodex], err)
+	}
+	recommended := cfg.Clone()
+	recommended.SetSelectedRoute(ClientCodex, "native-gpt", "")
+	if binding := recommended.Clients[ClientCodex]; binding.Authentication != AuthenticationClientNative || binding.ModelProvider != "native-provider" {
+		t.Fatalf("the recommended Route lost its native options: %#v", binding)
+	}
+}

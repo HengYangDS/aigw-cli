@@ -6,13 +6,17 @@
 
 Every hosted Git-aware job SHALL verify its checkout, revision, platform, and
 complete repository-locked executable closure. CUE SHALL select one mise
-bootstrap release for both Forges; GitLab Linux SHALL use its digest-pinned
-image and shared install step. npm SHALL consume `package-lock.json` with
-scripts disabled. Tool authentication SHALL remain independent of product Git
-peers. Each selected peer SHALL be able to obtain its locked tool closure from
+bootstrap release for both Forges, and npm SHALL consume `package-lock.json`
+with scripts disabled. Tool authentication SHALL remain independent of product
+Git peers. Each selected peer SHALL obtain its locked tool closure from
 independent upstreams or peer-controlled immutable assets while the sibling
-Forge platform is unavailable. No particular mirror or unrelated peer SHALL
-be mandatory.
+Forge platform is unavailable.
+
+#### Scenario: A peer installs its locked tool closure
+
+- **WHEN** a GitLab Linux job installs the locked tool closure
+- **THEN** it SHALL use its digest-pinned image and the shared install step
+- **AND** no particular mirror or unrelated peer SHALL be mandatory.
 
 #### Scenario: A hosted action initializes a repository
 

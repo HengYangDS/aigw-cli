@@ -87,6 +87,15 @@ func ProbeBounded(ctx context.Context, client HTTPDoer, runtime configuration.Ru
 	return Probe(attemptCtx, client, runtime, token, scope)
 }
 
+// unreachableEndpointFix names the checks AIGW can suggest for an endpoint it
+// configures but does not run: the endpoint itself, or another compatible Route.
+func unreachableEndpointFix(client string) string {
+	if client == "" {
+		return "Check the configured endpoint and network, then try again"
+	}
+	return "Check the configured endpoint and network, or select another compatible Route with `aigw use --for " + client + " <route>`"
+}
+
 // Probe performs one authenticated diagnostic request using the caller's context.
 func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, scope Scope) Result {
 	if scope != ScopeEndpoint && scope != ScopeInference {
@@ -110,7 +119,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 	}
 	resp, err := credential.DoProbe(client, req)
 	if err != nil {
-		return Result{Kind: NetworkFailure, Scope: scope, Summary: "Cannot reach the endpoint", Fix: "Check the configured endpoint and network, then try again", Retryable: true, Attempts: 1}
+		return Result{Kind: NetworkFailure, Scope: scope, Summary: "Cannot reach the endpoint", Fix: unreachableEndpointFix(runtime.Client), Retryable: true, Attempts: 1}
 	}
 	defer func() { _ = resp.Body.Close() }()
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 64<<10))

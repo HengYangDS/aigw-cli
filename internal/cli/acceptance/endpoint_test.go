@@ -399,6 +399,7 @@ func TestCheckUsesOneBoundedAuthenticationProbeWithoutMutation(t *testing.T) {
 	tests := []struct {
 		name       string
 		statuses   []int
+		networkErr error
 		wantError  bool
 		wantText   []string
 		rejectText []string
@@ -414,6 +415,14 @@ func TestCheckUsesOneBoundedAuthenticationProbeWithoutMutation(t *testing.T) {
 			statuses:  []int{http.StatusUnauthorized},
 			wantError: true,
 			wantText:  []string{"Account Token is invalid or does not belong to the configured endpoint", "aigw rotate dmx"},
+		},
+		{
+			name:       "unreachable endpoint",
+			statuses:   []int{0},
+			networkErr: errors.New("dial tcp: connection refused"),
+			wantError:  true,
+			wantText:   []string{"Cannot reach the endpoint", "AIGW owns this configuration, not the endpoint", "aigw use --for claude <route>"},
+			rejectText: []string{"aigw rotate"},
 		},
 	}
 
@@ -442,6 +451,9 @@ func TestCheckUsesOneBoundedAuthenticationProbeWithoutMutation(t *testing.T) {
 				}
 				status := tt.statuses[calls]
 				calls++
+				if tt.networkErr != nil {
+					return nil, tt.networkErr
+				}
 				return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(`{"message":"bounded observation"}`)), Request: req}, nil
 			}
 

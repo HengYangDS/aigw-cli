@@ -441,6 +441,24 @@ func (c *Config) recommendedSelection(client string) ClientSelection {
 	return c.Recommendations[client].Primary
 }
 
+// recommendedSelectionFor applies the client's recommended native options to
+// routeID when it is the recommended Route, or when the recommended Route
+// shares its Account and routeID admits the recommended protocol. Another
+// Account's Route keeps default options.
+func (c *Config) recommendedSelectionFor(client, routeID string) ClientSelection {
+	recommended := c.recommendedSelection(client)
+	if recommended.Route == routeID {
+		return recommended
+	}
+	route, exists := c.Routes[routeID]
+	recommendedRoute, recommendedExists := c.Routes[recommended.Route]
+	if !exists || !recommendedExists || recommendedRoute.Account != route.Account || !routeAdmitsProtocol(route, recommended.Protocol) {
+		return ClientSelection{Route: routeID}
+	}
+	recommended.Route = routeID
+	return recommended
+}
+
 // ResolveRuntime resolves one Client Binding to its validated Account and Route runtime.
 func (c *Config) ResolveRuntime(client, explicitRoute string) (Runtime, error) {
 	binding := c.clientBinding(client)
@@ -462,12 +480,8 @@ func (c *Config) ResolveRuntime(client, explicitRoute string) (Runtime, error) {
 			selection.Protocol = binding.Protocol
 		}
 	} else {
-		recommended := c.recommendedSelection(client)
-		if recommendedRoute, exists := c.Routes[recommended.Route]; exists && recommendedRoute.Account == route.Account && routeAdmitsProtocol(route, recommended.Protocol) {
-			selection = recommended
-		}
+		selection = c.recommendedSelectionFor(client, explicitRoute)
 	}
-	selection.Route = explicitRoute
 	return c.resolveSelection(client, selection)
 }
 

@@ -37,6 +37,16 @@ func configurationRecoveryImpact(restored bool) string {
 	return "Configuration restoration was incomplete; client and credential state may also have changed."
 }
 
+// ConfigurationRecoveryImpact describes the configuration recovery outcome that
+// err verified, when it carries one.
+func ConfigurationRecoveryImpact(err error) (string, bool) {
+	recovery, ok := errors.AsType[configurationRecovery](err)
+	if !ok {
+		return "", false
+	}
+	return configurationRecoveryImpact(recovery.ConfigurationRestored()), true
+}
+
 // ProblemError creates a structured user-facing problem while preserving its underlying cause.
 func ProblemError(title, evidence, impact, fix string, cause error) error {
 	return &userError{problem: Problem{Title: title, Evidence: evidence, Impact: impact, Fix: fix}, cause: cause}
@@ -72,10 +82,10 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 			Impact:   "No new client projection was applied; no Account Token was returned.",
 			Fix:      "Run `aigw doctor` to inspect the selected backend; explicitly restage or authorize the Account Token for this AIGW version, then run `aigw sync`.",
 		}
-	} else if recovery, ok := errors.AsType[configurationRecovery](err); ok {
+	} else if impact, ok := ConfigurationRecoveryImpact(err); ok {
 		problem = Problem{
 			Title:  "Client projection failed",
-			Impact: configurationRecoveryImpact(recovery.ConfigurationRestored()),
+			Impact: impact,
 			Fix:    "Run `aigw doctor` before retrying.",
 		}
 	} else {

@@ -79,14 +79,16 @@ establish warning-free acceptance.
 The release scanner invocation and report admission SHALL share one exact
 lockfile-path selection. Normalization SHALL admit every selected lockfile
 exactly once with nonempty package observations and established license
-identities before writing either report. An exact version-bound OSV license
+identities before writing either report; an exact version-bound OSV license
 override MAY correct a verified upstream metadata gap without suppressing
-vulnerability observations.
+vulnerability observations. Scanning and admission SHALL precede artifact
+construction.
 
-Dependency scanning and report admission SHALL precede artifact construction.
-Scanner failure, malformed output or incomplete scope SHALL NOT launch
-GoReleaser, SBOM generation or signing; accepted output and cleanup obligations
-SHALL remain unchanged.
+#### Scenario: Dependency admission fails before construction
+
+- **WHEN** the scanner fails, its output is malformed, or its scope is incomplete
+- **THEN** GoReleaser, SBOM generation and signing SHALL NOT start
+- **AND** accepted output and cleanup obligations SHALL remain unchanged.
 
 #### Scenario: Scanner output does not establish the selected scope
 

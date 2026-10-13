@@ -284,7 +284,7 @@ func (c *Config) SetSelectedRoute(client, routeID string, protocol EndpointProto
 	binding := c.Clients[client]
 	previous, previousErr := c.ResolveRuntime(client, "")
 	if binding.Route == "" {
-		binding = binding.withSelection(c.recommendedSelection(client))
+		binding = binding.withSelection(c.recommendedSelectionFor(client, routeID))
 	}
 	binding.Route = routeID
 	if protocol != "" {
