@@ -1,4 +1,4 @@
-//go:build darwin
+//go:build darwin && cgo
 
 package native
 
@@ -189,12 +189,17 @@ func TestLockedKeychainMetadataDoesNotPrompt(t *testing.T) {
 
 func assertKeychainMutationPreservesDeniedItem(t *testing.T, service, path, token string) {
 	t.Helper()
-	runKeychainFixtureCommand(t, "add-generic-password", "-s", service, "-a", "security-writer", "-w", "go-keyring-base64:"+base64.StdEncoding.EncodeToString([]byte(token)), path)
-	if value, err := readPrivateKeychainFixture(t, service, "security-writer", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
-		t.Fatalf("old writer's item unexpectedly bypassed authorization: %q, %v", value, err)
+	// An item that trusts only another application is not a predecessor item:
+	// the worker neither reads, replaces nor migrates it.
+	runKeychainFixtureCommand(t, "add-generic-password", "-s", service, "-a", "foreign-writer", "-w", "go-keyring-base64:"+base64.StdEncoding.EncodeToString([]byte(token)), "-T", "/usr/bin/true", path)
+	if owners := keychainDecryptOwners(t, path, "foreign-writer"); !slices.Equal(owners, []string{"/usr/bin/true"}) {
+		t.Fatalf("foreign fixture decrypt owners = %q", owners)
 	}
-	if err := writeCredentialToKeychain(service, "security-writer", path, []byte("replacement")); !errors.Is(err, ErrUnavailable) {
-		t.Fatalf("unauthorized legacy item accepted a replacement: %v", err)
+	if value, err := readPrivateKeychainFixture(t, service, "foreign-writer", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
+		t.Fatalf("foreign item unexpectedly bypassed authorization: %q, %v", value, err)
+	}
+	if err := writeCredentialToKeychain(service, "foreign-writer", path, []byte("replacement")); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("unauthorized foreign item accepted a replacement: %v", err)
 	}
 	const nativeAccount = "native-writer"
 	for _, value := range [][]byte{nil, make([]byte, maxStoredValue+1)} {
@@ -220,8 +225,11 @@ func assertKeychainMutationPreservesDeniedItem(t *testing.T, service, path, toke
 	if value, err := readCredentialFromKeychain(service, nativeAccount, path); len(value) != 0 || !errors.Is(err, ErrNotFound) {
 		t.Fatalf("deleted native item = %q, %v", value, err)
 	}
-	if value, err := readPrivateKeychainFixture(t, service, "security-writer", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
-		t.Fatalf("legacy item changed during native-slot lifecycle: %q, %v", value, err)
+	if value, err := readPrivateKeychainFixture(t, service, "foreign-writer", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
+		t.Fatalf("foreign item changed during native-slot lifecycle: %q, %v", value, err)
+	}
+	if owners := keychainDecryptOwners(t, path, "foreign-writer"); !slices.Equal(owners, []string{"/usr/bin/true"}) {
+		t.Fatalf("foreign item access changed: %q", owners)
 	}
 }
 
@@ -235,7 +243,17 @@ func observePrivateKeychainFixture(t *testing.T, service, account, path string) 
 
 func runPrivateKeychainChild(t *testing.T, executable, service, account, path, testName string) ([]byte, error) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	output, err := privateKeychainChildOutput(t.Context(), executable, service, account, path, testName)
+	if errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("private Keychain read did not return without UI: %v", err)
+	}
+	return output, err
+}
+
+// privateKeychainChildOutput runs one bounded child operation without failing
+// the test, so concurrent callers can report from the test goroutine.
+func privateKeychainChildOutput(parent context.Context, executable, service, account, path, testName string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, executable, "-test.run=^"+testName+"$")
 	command.Env = append(os.Environ(),
@@ -245,7 +263,7 @@ func runPrivateKeychainChild(t *testing.T, executable, service, account, path, t
 	)
 	output, err := command.Output()
 	if ctx.Err() != nil {
-		t.Fatalf("private Keychain read did not return without UI: %v", ctx.Err())
+		return nil, ctx.Err()
 	}
 	return output, err
 }
@@ -282,7 +300,7 @@ func TestPrivateKeychainReadChild(t *testing.T) {
 	if path == "" {
 		return
 	}
-	value, err := readCredentialFromKeychain(
+	value, err := readCredentialWithMigration(
 		os.Getenv("AIGW_TEST_KEYCHAIN_SERVICE"),
 		os.Getenv("AIGW_TEST_KEYCHAIN_ACCOUNT"), path,
 	)

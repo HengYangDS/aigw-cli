@@ -19,6 +19,8 @@ func queryCredential(operation, service, account string, input []byte) ([]byte, 
 			return nil, nil
 		}
 		return nil, err
+	case restoreCommand:
+		return nil, restoreCredential(service, account)
 	case existsCommand:
 		present, err := observeCredential(service, account)
 		if err != nil {

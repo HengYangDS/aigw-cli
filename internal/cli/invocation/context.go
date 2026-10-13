@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -157,4 +159,16 @@ func Synchronizer(runtime Context) synchronization.Synchronizer {
 		CredentialPath:        runtime.CredentialPath,
 		ResolveCredentialPath: runtime.ResolveCredentialPath,
 	}
+}
+
+// RestorePredecessorCredentials returns the configured Accounts' native items to
+// the retained program's reader before a portable rollback activates it. A
+// configuration this program cannot load names no credential; the retained
+// program's own compatibility check then decides.
+func RestorePredecessorCredentials(runtime Context) error {
+	cfg, err := runtime.Config.LoadCredentialConfig()
+	if err != nil {
+		return nil
+	}
+	return secrets.RestorePredecessorCredentials(runtime.Secrets, runtime.Executable, slices.Sorted(maps.Keys(cfg.Accounts)))
 }
