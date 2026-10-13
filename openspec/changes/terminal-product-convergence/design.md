@@ -206,11 +206,12 @@ borrowing nor Unix probes. A real journey separately qualifies launch effects.
 
 #### Native qualification and remaining limits
 
-| Signed source                                                                               | Qualified scope                                                                                                                                                                                                     | Explicit limit                                                                                             |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `2b746c96`                                                                                  | Six-target candidate; packaged macOS Codex, Claude Code and Hermes and Linux retained-state lifecycle against published 0.3.3; forwarding, rollback/re-upgrade, Codex tools and Hermes model adoption/continuation. | Public Tokens and local servers, not live Provider authorization; ten Routes remained metadata-incomplete. |
-| `8254c1f5`, tree `66591638`                                                                 | Refreshed six-target matrix, full-source gate and packaged macOS Hermes boot/custody journey.                                                                                                                       | Ad-hoc macOS signatures and dependency-currency warnings; not warning-free or final-byte acceptance.       |
-| `fbeeb89aee48fa18ae6410608d6f0b9224a1b07e`, tree `98566ac4091670762518b3d08c281ef05dc351da` | Full-source gate, native boot/member regressions, static checks, Windows cross-compilation and warning-free packaged macOS Hermes journey.                                                                          | Not native Windows, Desktop, live Provider, native-store, notarization or publication acceptance.          |
+| Signed source                                                                               | Qualified scope                                                                                                                                                                                                                                                                                                                                    | Explicit limit                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `2b746c96`                                                                                  | Six-target candidate; packaged macOS Codex, Claude Code and Hermes and Linux retained-state lifecycle against published 0.3.3; forwarding, rollback/re-upgrade, Codex tools and Hermes model adoption/continuation.                                                                                                                                | Public Tokens and local servers, not live Provider authorization; ten Routes remained metadata-incomplete.                                                                |
+| `8254c1f5`, tree `66591638`                                                                 | Refreshed six-target matrix, full-source gate and packaged macOS Hermes boot/custody journey.                                                                                                                                                                                                                                                      | Ad-hoc macOS signatures and dependency-currency warnings; not warning-free or final-byte acceptance.                                                                      |
+| `fbeeb89aee48fa18ae6410608d6f0b9224a1b07e`, tree `98566ac4091670762518b3d08c281ef05dc351da` | Full-source gate, native boot/member regressions, static checks, Windows cross-compilation and warning-free packaged macOS Hermes journey.                                                                                                                                                                                                         | Not native Windows, Desktop, live Provider, native-store, notarization or publication acceptance.                                                                         |
+| `b3663e89d27b7497f29d6c960b7211b88dad091c`                                                  | Developer ID-signed six-target candidate against published 0.3.5: three-OS lifecycle, disposable macOS Keychain, Linux Secret Service and native Windows Codex and Claude Code; packaged macOS Codex, Claude Code and Hermes journeys, then live-Provider `aigw verify` for each with operator configuration, readers and item metadata unchanged. | Linux uses fixture clients; DeepSeek V4.1 Flash lacks Codex metadata; Claude Desktop, notarization and the Homebrew cutover follow the [Migration Plan](#migration-plan). |
 
 The passive October 12 comparison found that the old borrowed home omitted the
 operator's dependency member. Selector-only profiles preserve resolved identities
@@ -234,6 +235,9 @@ Original source-bound custody remains under `build/verification/`:
   owns the native warning attribution.
 - `fbeeb89aee48fa18ae6410608d6f0b9224a1b07e/hermes-isolation-closure-20261012`
   owns signed objects, artifacts and the real journey.
+- `b3663e89d27b7497f29d6c960b7211b88dad091c` retains its native inputs, signed
+  candidate, macOS acceptance, client journeys and live-Provider results; GitHub
+  runs `38478948110`, `38478968121` and `38478987650` retain its CI.
 
 Windows supplier regression now selects the official Codex 0.162.1 platform
 package, not its three-file bootstrap package. One CUE declaration owns the
@@ -471,8 +475,8 @@ pooled p95 is 21.537/86.159ms on macOS and 11.727/36.755ms on Linux for the
 signed Git inputs and original inventory; raw p95, budget and memory checks pass.
 `build/verification/9058b37d916cf69d9fad5485bf284db6b4a95397/native-performance-closure-20261012/receipt-readback-20261012.json`
 owns this independent readback, not a replay or later-source qualification.
-Windows, isolated macOS Keychain, final Developer ID/notarized bytes and any
-changed producer/verifier inputs remain open. Task 6.6 stays unchecked.
+The runs below measure Windows, the isolated macOS Keychain and Developer
+ID-signed bytes; notarized bytes remain with the installed release.
 
 #### Accepted 0.4.0 performance trade-off
 

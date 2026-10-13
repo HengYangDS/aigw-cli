@@ -536,6 +536,15 @@ inference or authorize replacing the user's catalogue. The earlier fourteen-Rout
 observation described a provider's complete test scope, not the current missing
 metadata count.
 
+On 2026-10-14, the installed official Codex 0.162.1 (SHA-256 `74c6a6d2…`)
+completed real-Provider `aigw verify --for codex` through the signed 0.4.0
+candidate on the selected UCloud GPT-6.1 Sol Route, with native file-tool
+execution and same-session recall. Through the same candidate, the UCloud
+DeepSeek V4.1 Flash Route, which the bundled catalogue does not describe,
+emitted Codex's model-metadata warning, so verification reported native
+metadata as unqualified. AIGW invented no catalogue entry; the non-OpenAI
+limitation stands for Codex 0.162.1.
+
 Every Claude Route in the [shipped team manifest](../../manifests/team.toml)
 currently declares only an Anthropic interface, whereas Codex's
 [custom-provider contract](https://learn.chatgpt.com/docs/config-file/config-reference#configtoml)

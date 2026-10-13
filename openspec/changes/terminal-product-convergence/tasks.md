@@ -33,8 +33,8 @@
 - [x] 4.1 Remove parallel inference and Provider-name branching from Account/Model/Route/protocol/capability/recommendation owners; prove synthetic Provider admission.
 - [x] 4.2 Qualify the shipped DMXAPI/UCloud/AIHubMix catalogue against current IDs and bounded live inference; retain consistent names and dated evidence for each model/variant.
 - [x] 4.3 Prove recommendations select only usable unselected Routes, preserve explicit choices and exclude manual-only Providers without claiming request-time failover.
-- [ ] 4.4 Qualify selected non-OpenAI-family Responses models in Codex's actual chooser, authentication and tool loop; resolve metadata admission or report native limitations without forged model lists.
-- [ ] 4.5 Requalify Claude Code, Codex and Hermes independently for native protocol, selection, credentials, retained continuation and rollback with real Provider credentials; prove verification isolation through the [native-client contract](design.md#3-qualify-a-client-adapter-do-not-infer-support-from-a-file). Claude Desktop reads Tokens only through its installed projection, so its Chat, Cowork and Code requalification with the 0.4.0 reader follows the installed cutover under the [Migration Plan](design.md#migration-plan).
+- [x] 4.4 Qualify selected non-OpenAI-family Responses models in Codex's actual chooser, authentication and tool loop; resolve metadata admission or report native limitations without forged model lists. The [Codex native chooser](../../../docs/research/provider-model-qualification.md#codex-native-chooser) records the 0.162.1 limitation.
+- [x] 4.5 Requalify Claude Code, Codex and Hermes independently for native protocol, selection, credentials, retained continuation and rollback with real Provider credentials; prove verification isolation through the [native-client contract](design.md#3-qualify-a-client-adapter-do-not-infer-support-from-a-file). Claude Desktop reads Tokens only through its installed projection, so its Chat, Cowork and Code requalification with the 0.4.0 reader follows the installed cutover under the [Migration Plan](design.md#migration-plan).
 - [x] 4.6 Evaluate pi, OpenCode, WorkBuddy, Qoder and other proposed clients; admit an Adapter only with executable, projection, ownership, withdrawal and real tool-loop evidence.
 - [x] 4.7 Qualify optional client-scoped forwarding through selection, resolution, credentials, dry-run, projection and rollback; preserve upstream/provider identity and direct operation, prove retained-child tools and exact cleanup, and leave Proxy transport/lifecycle outside AIGW.
 
@@ -43,7 +43,7 @@
 - [x] 5.1 Reconstruct a fresh current-HEAD lane's locked Go/Node/npm/tool environment; prove empty-cache bootstrap, independent mutable state, ambient-fallback rejection and exact cleanup.
 - [x] 5.2 Qualify Linux container/native setup, selection, projection, update, rollback, uninstall and cleanup with exact release bytes and retained predecessor state.
 - [x] 5.3 Qualify Windows native lifecycle, ACLs, executable replacement, quoted paths, noninteractive ENV and installed Codex/Claude; identify each unproved client mode.
-- [ ] 5.4 Qualify isolated macOS Keychain and ENV lifecycle plus signed retained-item authorization under the approved `macos-keychain-item-migration`; preserve prompt-free original-caller continuity. The installed package-manager upgrade, rollback and forward follow under the [Migration Plan](design.md#migration-plan).
+- [x] 5.4 Qualify isolated macOS Keychain and ENV lifecycle plus signed retained-item authorization under the approved `macos-keychain-item-migration`; preserve prompt-free original-caller continuity. The installed package-manager upgrade, rollback and forward follow under the [Migration Plan](design.md#migration-plan).
 - [x] 5.5 Qualify missing-client setup and late Codex/Claude installation on each OS; sync only admitted installed clients and preserve user files.
 - [x] 5.6 Prove exact owned-resource cleanup after success, failure, timeout and interruption; preserve installations, client state, rollback and evidence.
 
@@ -78,5 +78,5 @@
 ## 9. Frozen Source and Pre-Archive Acceptance
 
 - [x] 9.1 Audit every changed requirement against source, tests, CLI, team manifest, quality/CI and docs; remove contradictions and unused compatibility paths before freezing inputs.
-- [ ] 9.2 Qualify focused RED/GREEN, native static/behavior gates and strict official OpenSpec on the frozen source; no skipped required gate or warning counts as pass.
-- [ ] 9.3 Qualify one signed untagged three-OS candidate's exact-byte install, predecessor upgrade/rollback, credentials and real clients; bind hashes/provenance and disclose missing evidence. Publication, Homebrew cutover and final retirement follow the Migration Plan; maintenance 0.3.5 does not qualify final 0.4.0.
+- [x] 9.2 Qualify focused RED/GREEN, native static/behavior gates and strict official OpenSpec on the frozen source; no skipped required gate or warning counts as pass.
+- [x] 9.3 Qualify one signed untagged three-OS candidate's exact-byte install, predecessor upgrade/rollback, credentials and real clients; bind hashes/provenance and disclose missing evidence in the [`b3663e89` row](design.md#native-qualification-and-remaining-limits). Publication, Homebrew cutover and final retirement follow the Migration Plan; maintenance 0.3.5 does not qualify final 0.4.0.
