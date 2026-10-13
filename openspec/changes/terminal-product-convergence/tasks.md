@@ -154,8 +154,11 @@ in Git; original raw results stay with their source-bound verification owner.
       Codex platform-package correction passes focused RED/GREEN, both peer
       projections and native source checks; its evidence is bound in the
       [native-client design](design.md#3-qualify-a-client-adapter-do-not-infer-support-from-a-file).
-      Independent cold supply, the missing mirror object, refreshed offline
-      archive and actual native Windows supply remain open.
+      Signed `5276330c` closes the missing glab mirror with exact upstream/lock
+      hashes and three-OS selected-peer cold installations. Its complete 24-member
+      candidate/published-0.3.5 offline packet passes native macOS lifecycle and
+      exact cleanup. Actual Windows client supply and enforced sibling-network
+      isolation remain open; successful acquisition does not prove containment.
 - [x] 6.2 Make Go format, lint, static analysis, test, race and coverage rules
       cover product, tools and tests with zero unowned warnings; remove duplicate
       custom rules when a mature native tool proves the same property.
@@ -181,8 +184,11 @@ in Git; original raw results stay with their source-bound verification owner.
       ENV and Linux ARM64 ENV/file/private Secret Service. Raw sample, p95,
       memory, source and artifact readback passes under the
       [reuse contract](design.md#reuse-only-qualified-scopes); these are original
-      candidate results, not current-source or final-byte acceptance. Windows,
-      isolated macOS Keychain and final production signing remain open.
+      candidate results, not current-source or final-byte acceptance. Signed
+      `5276330c` separately passes the same eight macOS ARM64 ENV workloads
+      against published 0.3.5, with raw samples, memory and exact scratch cleanup;
+      pooled p95 is at most 40.859 ms under the original 100/250 ms budgets.
+      Windows, isolated macOS Keychain and final production signing remain open.
       October 12 component attribution isolated executable-read costs. A larger
       pooled buffer showed no demonstrated benefit and was rejected; complete
       identity and post-write checks remain. Original diagnostic and rejected

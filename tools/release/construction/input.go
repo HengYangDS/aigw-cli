@@ -85,7 +85,7 @@ func (input *NativeAcceptance) preparePackage(ctx context.Context, request build
 		}
 		if input.InputRelease != "" {
 			call.Name = "gh"
-			call.Args = []string{"release", "download", input.InputRelease, "--repo", input.Repository, "--pattern", "public-inputs.tar", "--output", archive}
+			call.Args = []string{"release", "download", input.InputRelease, "--repo", input.Repository, "--pattern", "public-inputs-" + input.InputSHA256 + ".tar", "--output", archive}
 			call.Env = []string{"GH_PROMPT_DISABLED=1"}
 		}
 		if err := run(call); err != nil {
@@ -141,10 +141,6 @@ func (input *NativeAcceptance) verifyInputCarrier(root string, run toolRunner) e
 	carrier := strings.TrimPrefix(input.InputRelease, "native-inputs-")
 	if strings.TrimSpace(source.String()) != carrier {
 		return errors.New("native input transport tag does not select its named carrier commit")
-	}
-	git.Args, git.Stdout = []string{"merge-base", "--is-ancestor", input.CandidateSource, carrier}, nil
-	if err := run(git); err != nil {
-		return fmt.Errorf("native input producer is not an ancestor of its carrier: %w", err)
 	}
 	return nil
 }

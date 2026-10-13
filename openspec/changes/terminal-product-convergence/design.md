@@ -239,8 +239,13 @@ vendor root for GitHub installation and both GitLab native Windows jobs.
 Focused RED/GREEN, the complete projection suite, generated-output reconciliation,
 Go checks, source-size, formatter and strict OpenSpec checks pass under
 `build/verification/610f8b7729b30df0186def5ebdedfa06504033e6/native-supplier-preflight-20261012`.
-GitHub's rendered installer remains unchanged. These source checks do not qualify
-the refreshed offline archive, actual Windows execution or either peer's hosted CI.
+GitHub's rendered installer remains unchanged. At signed `5276330c`, both ordinary
+review and selected-peer cold-supply runs pass quality, macOS, Linux, Windows and
+Secret Service. Their logs prove fresh glab 1.122.0 installation under the selected
+GitHub mirror configuration, not enforced sibling-network denial or Windows client
+installation. The exact 24-member candidate/published-0.3.5 offline packet passes
+native macOS lifecycle, forwarding, rollback and cleanup; other OS execution remains
+distinct.
 
 An Account endpoint declares upstream service identity. An explicitly selected
 Client Binding may declare a forwarding endpoint without changing that Account,
@@ -369,6 +374,12 @@ provenance, native extraction and scratch cleanup. Prebuilt acceptance selects i
 artifact tool closure; ordinary source/full-quality/lock-refresh retains full bootstrap
 and scans. `--candidate-source` may select an exact signed untagged product with a
 same-version verifier; mutable refs, unsigned sources and failed quality remain refused.
+An existing signed transport Release is only a byte locator. Native acquisition
+selects `public-inputs-<input-sha256>.tar`, then verifies the outer checksum,
+complete trusted matrix signatures, exact-source provenance and published predecessor.
+The carrier's signed named target remains verified; ancestry is not product trust.
+Preserve its original assets and reuse the existing owner instead of creating another
+transport tag, Release, downloader or extraction/cleanup path.
 Declare real-client inputs before construction/download; gh/glab are deadline-bounded
 and no-prompt. [Delivery](#migration-plan), not a policy readback, proves integration,
 proposal retirement, archive, main/tag events, assets and installed cutover.

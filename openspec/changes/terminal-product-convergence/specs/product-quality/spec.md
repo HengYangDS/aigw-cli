@@ -180,6 +180,18 @@ qualification.
 - **AND** mutable refs, unsigned objects and mismatched provenance SHALL fail
   before product execution.
 
+#### Scenario: An existing transport release supplies a later candidate
+
+- **WHEN** an existing signed transport Release holds an exact-source packet
+- **THEN** native acquisition SHALL select `public-inputs-<input-sha256>.tar`
+  without replacing the carrier's original assets or creating a new Release
+- **AND** the outer checksum, complete matrix signatures, exact candidate
+  provenance and published predecessor SHALL determine product admission
+- **AND** the signed carrier's named target SHALL remain verified, but its
+  history SHALL NOT substitute for or restrict candidate provenance
+- **AND** one bounded acquisition SHALL reclaim its private workspace on success,
+  failure and cancellation.
+
 #### Scenario: Source qualification remains required
 
 - **WHEN** full quality, lock refresh or a source-only native journey is selected

@@ -320,24 +320,24 @@ predecessor matrix and extracts its native executable through the same owner.
 `--baseline-tag`, `--peer gitlab` and `--repository` admits the complete package
 without staging a host. An absolute `--input-archive` instead consumes the same
 signed input contract offline. `--input-release native-inputs-<carrier SHA>`
-with `--peer github` selects the same signed matrix from a GitHub transport
-release. These three input carriers are mutually exclusive; all require the
+with `--peer github` downloads `public-inputs-<input-sha256>.tar` from an
+existing GitHub transport release. These three input carriers are mutually exclusive; all require the
 original checksum, signed candidate source and published predecessor identity.
 The existing native owner verifies the signed annotated transport tag, its named
-carrier commit, producer ancestry and archive checksum before extraction. Matrix
-provenance still binds the original candidate producer, not the carrier or
-verifier. Reuse requires measured product-input equivalence; ancestry alone does
-not prove that old artifacts represent later source changes. Its private
+carrier commit and archive checksum before extraction. The carrier is only a
+byte locator; its history neither admits nor rejects a later candidate. Complete
+matrix signatures and provenance bind the exact candidate producer and published
+predecessor, independently of the carrier or verifier. Reuse requires measured
+product-input equivalence, not ancestry. Its private
 workspace reclaims downloads on success, failure and cancellation.
 
-Transport tags are distinct from product `v<semver>` tags. Create and verify a
-signed annotated transport tag once in local Git at an accepted carrier admitted
-by the peer's prior accepted publication policy, then publish that exact object,
-then create the GitHub Release with `--verify-tag --prerelease --latest=false`.
-Never let the Forge mint a lightweight tag or dispatch verification from the
-transport tag: select the proposal verifier branch and pass the candidate source
-explicitly. Product tag verification selects only its `v*` namespace; transport
-trust is checked by its native input consumer. Retire the transport Release and
+Transport tags are distinct from product `v<semver>` tags. Reuse an existing
+signed transport Release as a byte locator; upload each uniquely named packet
+without replacing its original assets, tag, description or source identity.
+Do not create a tag or Release for each candidate. Dispatch verification from
+the admitted verifier branch and pass the exact candidate source explicitly.
+Product tag verification selects only its `v*` namespace; transport trust is
+checked by its native input consumer. Retire the transport Release and
 exact tag only after its native input jobs finish, their evidence is retained,
 and any independent [tool-source consumer](../governance/change-and-release-policy.md#dependency-maintenance)
 has released that carrier.

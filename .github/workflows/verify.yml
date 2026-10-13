@@ -87,11 +87,11 @@ env:
         required: false
         type: string
       input_release:
-        description: Signed native-inputs-<carrier SHA> release; requires baseline_tag, input_sha256 and ancestor candidate_source
+        description: Existing signed native-inputs-<carrier SHA> byte locator; requires baseline_tag, input_sha256 and exact candidate_source
         required: false
         type: string
       input_sha256:
-        description: Exact SHA256 of the selected public-inputs.tar; verified before extraction
+        description: Exact SHA256 of public-inputs-<input_sha256>.tar; verified before extraction
         required: false
         type: string
       candidate_source:
