@@ -406,8 +406,10 @@ retained-item, existing-caller, real-client, or distribution continuity.
 #### Scenario: A retained macOS item keeps its reader identity
 
 - **WHEN** a candidate replaces a predecessor that reads an existing Keychain item
-- **THEN** predecessor, candidate, and rollback SHALL use the published go-keyring
-  `/usr/bin/security` provider
+- **THEN** predecessor, candidate, and rollback SHALL keep the item's physical
+  service and Account identity
+- **AND** a candidate SHALL reach a `/usr/bin/security` item only through its
+  one-time migration to AIGW ownership
 - **AND** a fresh or replacement helper SHALL NOT establish retained-item access.
 
 ### Requirement: Explicit host credential policy survives client projection
@@ -434,8 +436,9 @@ AIGW SHALL run each native credential operation in a private subprocess with a
 five-second deadline and bounded cleanup. It SHALL pass only platform identity
 required by Keychain, Secret Service, or Credential Manager. A timeout or
 authorization failure SHALL terminate the exact operation without retry,
-fallback, access-policy change, or backend migration. Creation or timing SHALL
-NOT prove later authorization.
+fallback, access-policy change, or backend migration, apart from the one-time
+macOS retained-item migration. Creation or timing SHALL NOT prove later
+authorization.
 
 #### Scenario: The installed executable creates and rotates a credential
 
@@ -457,6 +460,7 @@ NOT prove later authorization.
 #### Scenario: A credential operation fails or requires authorization
 
 - **WHEN** the exact native item cannot be accessed within the admitted operation
+  and is not a retained item eligible for migration
 - **THEN** the subprocess fails without retrying or returning a Token
 - **AND** no credential or access-control state changes
 - **AND** any operating-system authorization UI remains an explicit platform
@@ -552,13 +556,68 @@ client or helper SHALL NOT substitute for existing-caller continuity.
 
 Candidate, rollback, and re-upgrade SHALL preserve configuration and credential
 ownership without ACL change, backend migration, fallback, or helper
-substitution. On macOS each version SHALL retain the published go-keyring
-`/usr/bin/security` provider. Complete rollback SHALL restore a compatible
-program, configuration, and credential owner.
+substitution. On macOS a successor SHALL migrate retained `/usr/bin/security`
+items once, and a portable rollback SHALL convert them back before activating
+the predecessor. Complete rollback SHALL restore a compatible program,
+configuration, and credential owner.
 
 #### Scenario: Rollback follows a failed candidate
 
 - **WHEN** a candidate fails after replacing the installed program
-- **THEN** rollback SHALL restore a compatible reader for the retained item
-- **AND** the original client invocation SHALL work without migration, fallback,
-  ACL change, or a new helper.
+- **THEN** rollback SHALL restore a compatible reader for the retained item,
+  converting a migrated macOS item back before activation
+- **AND** the original client invocation SHALL work without fallback, ACL change,
+  or a new helper.
+
+### Requirement: Retained macOS Keychain items migrate to AIGW ownership
+
+On macOS, a credential operation denied an exact retained item that trusts
+`/usr/bin/security` SHALL migrate that item once to an AIGW-owned item at the same
+service and Account, without Token entry, access-list change, or authorization UI.
+The retained item, a staging item, or both SHALL hold the Token at every step.
+Linux and Windows stores authorize the user or session, not the executable, and
+SHALL NOT migrate.
+
+#### Scenario: A predecessor item is used after upgrade
+
+- **WHEN** the worker reads, writes, or deletes a slot whose item was written by
+  the predecessor's `/usr/bin/security` writer
+- **THEN** it SHALL migrate the item and complete the operation without
+  interaction
+- **AND** a later build with the same signing identifier and team SHALL use the
+  item without migration.
+
+#### Scenario: A migration is interrupted
+
+- **WHEN** a worker stops after staging the Token but before the owned item is
+  verified
+- **THEN** the next read of that slot SHALL complete the migration from the staged
+  Token or repeat it
+- **AND** the Token SHALL NOT be lost.
+
+#### Scenario: Several workers meet the same retained item
+
+- **WHEN** concurrent workers are denied the same retained item
+- **THEN** exactly one SHALL migrate it while the others wait for the owned item
+- **AND** none SHALL invoke `/usr/bin/security` on an item that no longer trusts
+  it.
+
+#### Scenario: Migration would require interaction
+
+- **WHEN** the item's keychain is locked or the denied item does not trust
+  `/usr/bin/security`
+- **THEN** the worker SHALL return the denial without invoking
+  `/usr/bin/security`, changing an item, or showing UI.
+
+#### Scenario: A portable rollback restores the predecessor reader
+
+- **WHEN** `aigw update --rollback` is about to activate the retained program
+- **THEN** AIGW SHALL first convert each configured Account's items back to
+  `/usr/bin/security` ownership with the same storage envelope
+- **AND** SHALL leave the active program in place if any conversion fails.
+
+#### Scenario: A package manager downgrades AIGW
+
+- **WHEN** Homebrew replaces AIGW with a release earlier than this migration
+- **THEN** AIGW SHALL NOT claim credential continuity for that downgrade
+- **AND** the predecessor's reader MAY ask macOS to authorize each migrated item.
