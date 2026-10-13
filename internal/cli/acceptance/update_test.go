@@ -193,10 +193,25 @@ func keychainRecorder(t *testing.T, app *cli.App, code string) string {
 	return record
 }
 
-func TestUpdateRollbackGivesTheUpdaterCredentialCustody(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("only macOS Keychain items authorize the reading executable")
+// requireCustodyRequests compares the native requests a keychain recorder
+// received. Only macOS Keychain items authorize the reading executable, so other
+// platforms convert nothing.
+func requireCustodyRequests(t *testing.T, record, darwin string) {
+	t.Helper()
+	want := ""
+	if runtime.GOOS == "darwin" {
+		want = darwin
 	}
+	requests, err := os.ReadFile(record)
+	if errors.Is(err, os.ErrNotExist) {
+		err = nil
+	}
+	if err != nil || string(requests) != want {
+		t.Fatalf("custody requests = %q, %v; want %q", requests, err, want)
+	}
+}
+
+func TestUpdateRollbackGivesTheUpdaterCredentialCustody(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	record := keychainRecorder(t, app, "0")
 	updater := &fakeUpdater{rollbackResult: "restored the previous program version."}
@@ -204,9 +219,7 @@ func TestUpdateRollbackGivesTheUpdaterCredentialCustody(t *testing.T) {
 	if err := cli.Execute(app, []string{"update", "--rollback"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(record); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("the command converted credentials before the Updater admitted the rollback: %v", err)
-	}
+	requireCustodyRequests(t, record, "")
 	if updater.rollbackCustody == nil {
 		t.Fatal("rollback received no credential custody")
 	}
@@ -216,18 +229,11 @@ func TestUpdateRollbackGivesTheUpdaterCredentialCustody(t *testing.T) {
 	if err := updater.rollbackCustody.Reclaim(); err != nil {
 		t.Fatal(err)
 	}
-	requests, err := os.ReadFile(record)
-	want := "__aigw-native-credential-restore team\n__aigw-native-credential-restore diagnostic@team\n" +
-		"__aigw-native-credential-reclaim team\n__aigw-native-credential-reclaim diagnostic@team\n"
-	if err != nil || string(requests) != want {
-		t.Fatalf("custody requests = %q, %v", requests, err)
-	}
+	requireCustodyRequests(t, record, "__aigw-native-credential-restore team\n__aigw-native-credential-restore diagnostic@team\n"+
+		"__aigw-native-credential-reclaim team\n__aigw-native-credential-reclaim diagnostic@team\n")
 }
 
 func TestUpdateRollbackPreparesAHomebrewDowngrade(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("only macOS Keychain items authorize the reading executable")
-	}
 	for _, test := range []struct {
 		name string
 		code string
@@ -237,6 +243,9 @@ func TestUpdateRollbackPreparesAHomebrewDowngrade(t *testing.T) {
 		{name: "refused", code: "3", want: "__aigw-native-credential-restore team\n__aigw-native-credential-reclaim team\n"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			if test.code != "0" && runtime.GOOS != "darwin" {
+				t.Skip("only a macOS Keychain conversion can be refused")
+			}
 			app, out, _, _, _ := testApp(t, "")
 			cask := filepath.Join(t.TempDir(), "Caskroom", "aigw")
 			app.Executable = filepath.Join(cask, "0.4.0", "aigw")
@@ -260,9 +269,7 @@ func TestUpdateRollbackPreparesAHomebrewDowngrade(t *testing.T) {
 			if updater.rollbackCalls != 0 {
 				t.Fatal("Homebrew rollback replaced a Homebrew-owned program")
 			}
-			if requests, err := os.ReadFile(record); err != nil || string(requests) != test.want {
-				t.Fatalf("custody requests = %q, %v", requests, err)
-			}
+			requireCustodyRequests(t, record, test.want)
 		})
 	}
 }
