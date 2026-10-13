@@ -77,6 +77,68 @@ func TestInterruptedMigrationResumesFromItsStagedToken(t *testing.T) {
 		}
 		requireWorkerOwnedItem(t, path, service, "repeated")
 	})
+	t.Run("final item recreated", func(t *testing.T) {
+		path := newPrivateKeychain(t)
+		for _, account := range []string{"completed", "migration@completed"} {
+			if err := writeCredentialToKeychain(service, account, path, []byte(token)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if value, err := readPrivateKeychainFixture(t, service, "completed", path); err != nil || string(value) != token {
+			t.Fatalf("completed migration read = %q, %v", value, err)
+		}
+		requireWorkerOwnedItem(t, path, service, "completed")
+	})
+}
+
+func TestMigrationCustodySerializesMutations(t *testing.T) {
+	const service, account, token = "aigw-private-test", "custody", "synthetic-custody-token"
+	for _, operation := range []string{"write", "delete"} {
+		t.Run(operation, func(t *testing.T) {
+			path := newPrivateKeychain(t)
+			if err := writeCredentialToKeychain(service, "migration@"+account, path, []byte(token)); err != nil {
+				t.Fatal(err)
+			}
+			guard := flock.New(path + ".aigw-migration.lock")
+			if err := guard.Lock(); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = guard.Unlock() })
+			mutate := func() error {
+				if operation == "write" {
+					return writeCredentialWithMigration(service, account, path, []byte("synthetic-rotated-token"))
+				}
+				return deleteCredentialWithMigration(service, account, path)
+			}
+			if err := mutate(); !errors.Is(err, ErrUnavailable) {
+				t.Fatalf("mutation during migration = %v", err)
+			}
+			if value, err := readCredentialFromKeychain(service, "migration@"+account, path); err != nil || string(value) != token {
+				t.Fatalf("mutation changed the staged Token: %v", err)
+			}
+			if present, err := observeCredentialInKeychain(service, account, path); err != nil || present {
+				t.Fatalf("mutation recreated the migrating item: %t, %v", present, err)
+			}
+			if err := guard.Unlock(); err != nil {
+				t.Fatal(err)
+			}
+			if value, err := readPrivateKeychainFixture(t, service, account, path); err != nil || string(value) != token {
+				t.Fatalf("migration resume: %v", err)
+			}
+			if err := mutate(); err != nil {
+				t.Fatalf("mutation after migration: %v", err)
+			}
+			value, err := readPrivateKeychainFixture(t, service, account, path)
+			if operation == "write" {
+				if err != nil || string(value) != "synthetic-rotated-token" {
+					t.Fatalf("rotation was overwritten: %v", err)
+				}
+				requireWorkerOwnedItem(t, path, service, account)
+			} else if len(value) != 0 || fixtureExitCode(err) != missingExit {
+				t.Fatalf("deleted Token was resurrected: %v", err)
+			}
+		})
+	}
 }
 
 func TestLockedKeychainKeepsAPredecessorItemDenied(t *testing.T) {

@@ -38,19 +38,36 @@ const (
 func readCredentialWithMigration(service, account, path string) ([]byte, error) {
 	value, err := readCredentialFromKeychain(service, account, path)
 	if err == nil {
-		return value, nil
+		staged, stageErr := observeCredentialInKeychain(service, stagedAccount(account), path)
+		if stageErr != nil {
+			clear(value)
+			return nil, stageErr
+		}
+		if !staged {
+			return value, nil
+		}
+		clear(value)
+	} else if !migrationEligible(service, account, path, err) {
+		// A concurrent worker may have completed a migration between lookups.
+		return readCredentialFromKeychain(service, account, path)
 	}
-	if migrationEligible(service, account, path, err) {
-		return migrateRetainedCredential(service, account, path)
+	release, err := acquireMigrationLock(path)
+	if err != nil {
+		return nil, err
 	}
-	// A concurrent worker may have completed a migration between the lookups.
-	return readCredentialFromKeychain(service, account, path)
+	defer release()
+	return migrateRetainedCredential(service, account, path)
 }
 
 // writeCredentialWithMigration replaces the exact slot. A retained predecessor
 // item migrates first, so an interrupted rotation keeps a readable Token.
 func writeCredentialWithMigration(service, account, path string, value []byte) error {
-	err := writeCredentialToKeychain(service, account, path, value)
+	release, err := acquireMigrationLock(path)
+	if err != nil {
+		return err
+	}
+	defer release()
+	err = writeCredentialToKeychain(service, account, path, value)
 	if err != nil && migrationEligible(service, account, path, err) {
 		var previous []byte
 		previous, err = migrateRetainedCredential(service, account, path)
@@ -69,7 +86,12 @@ func writeCredentialWithMigration(service, account, path string, value []byte) e
 // predecessor's tool when only that tool may delete it, and any staged Token
 // left by an interrupted migration.
 func deleteCredentialWithMigration(service, account, path string) error {
-	err := deleteCredentialFromKeychain(service, account, path)
+	release, err := acquireMigrationLock(path)
+	if err != nil {
+		return err
+	}
+	defer release()
+	err = deleteCredentialFromKeychain(service, account, path)
 	var failure *KeychainError
 	if errors.As(err, &failure) && predecessorItem(service, account, path) {
 		err = deleteRetainedCredential(service, account, path)
@@ -106,15 +128,15 @@ func predecessorItem(service, account, path string) bool {
 
 // migrateRetainedCredential stages the slot's Token, removes the predecessor's
 // item and recreates the slot as an AIGW-owned item. Every intermediate state
-// keeps the Token in the retained item, the staging item, or both.
+// keeps the Token in the retained item, the staging item, or both. The caller
+// holds the migration lock across this operation and any following mutation.
 func migrateRetainedCredential(service, account, path string) ([]byte, error) {
-	release, err := acquireMigrationLock(path)
-	if err != nil {
-		return nil, err
-	}
-	defer release()
 	// Another worker may have completed the migration while this one waited.
 	if value, err := readCredentialFromKeychain(service, account, path); err == nil {
+		if err := removeStagedCredential(service, account, path); err != nil {
+			clear(value)
+			return nil, err
+		}
 		return value, nil
 	}
 	value, retained, err := migrationSource(service, account, path)
