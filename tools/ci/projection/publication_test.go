@@ -305,6 +305,9 @@ func TestManualPrebuiltPerformanceUsesItsExactToolClosure(t *testing.T) {
 			artifactTools += ",github:indygreg/apple-platform-rs"
 		}
 		selected := "' || inputs.performance && '" + artifactTools + ",github:sharkdp/hyperfine' || '" + artifactTools + "' }}"
+		if platform == "windows" {
+			selected += "${{ inputs.windows_clients && ',node,uv' || '' }}"
+		}
 		tools := workflow.Jobs["native-"+platform].Env["MISE_ENABLE_TOOLS"]
 		if !strings.HasPrefix(tools, source) || !strings.HasSuffix(tools, selected) {
 			t.Errorf("%s must prepare selected performance tools without widening ordinary artifact acceptance: %s", platform, tools)
