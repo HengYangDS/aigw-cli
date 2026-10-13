@@ -105,7 +105,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   accepted-ref-parity:
-    name: Accepted ref parity
+    name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Accepted ref parity' || 'Accepted ref parity' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     if: github.event_name == 'push' && github.ref_name == 'main'
@@ -173,7 +173,7 @@ jobs:
       - name: Run quality and governance
         env:
           CGO_ENABLED: "0"
-          AIGW_COMMIT_BASE: ${{ github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || inputs.commit_base || format('{0}^', github.sha) }}
+          AIGW_COMMIT_BASE: ${{ inputs.commit_base || github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || format('{0}^', github.sha) }}
           AIGW_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
           AIGW_RELEASE_ALLOWED_SIGNERS_FILE: ${{ env.AIGW_RELEASE_ALLOWED_SIGNERS_FILE }}
           AIGW_CHANGELOG_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}

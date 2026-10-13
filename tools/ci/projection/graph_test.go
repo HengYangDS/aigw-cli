@@ -358,7 +358,7 @@ func TestManualGitHubChecksCannotSatisfyRequiredVerification(t *testing.T) {
 	for job, required := range map[string]string{
 		"quality": "Quality and governance", "native-darwin": "Native macOS acceptance",
 		"native-linux": "Native Linux acceptance", "native-windows": "Native Windows acceptance",
-		"linux-secret-service": "Linux Secret Service",
+		"linux-secret-service": "Linux Secret Service", "accepted-ref-parity": "Accepted ref parity",
 	} {
 		want := "${{ github.event_name == 'workflow_dispatch' && 'Manual " + required + "' || '" + required + "' }}"
 		if got := workflow.Jobs[job].Name; got != want {

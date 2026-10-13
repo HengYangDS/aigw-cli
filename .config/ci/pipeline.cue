@@ -300,7 +300,7 @@ gitlabPipelineRules: [
 githubFullVerificationCondition:   "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == '\(lifecycle.acceptedBranch)' || github.ref_name == '\(lifecycle.releaseBranch)'))"
 githubSourceVerificationCondition: "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || (inputs.candidate_tag == '' && inputs.input_release == ''))"
 
-githubCommitBase: "${{ github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || inputs.commit_base || format('{0}^', github.sha) }}"
+githubCommitBase: "${{ inputs.commit_base || github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || format('{0}^', github.sha) }}"
 
 _graphOrder: {
 	for id, job in graph {
@@ -1163,7 +1163,7 @@ githubVerify: {
 	}
 	jobs: {
 		"accepted-ref-parity": {
-			name:              graph["accepted-ref-parity"].name
+			name:              "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph["accepted-ref-parity"].name)' || '\(graph["accepted-ref-parity"].name)' }}"
 			"runs-on":         nativeEvidence.linux.github.runner
 			"timeout-minutes": 5
 			if:                "github.event_name == 'push' && github.ref_name == '\(lifecycle.releaseBranch)'"

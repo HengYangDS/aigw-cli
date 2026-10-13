@@ -70,6 +70,10 @@ func TestQualityJobsProjectEventCommitBases(t *testing.T) {
 			t.Fatalf("GitHub commit base lacks %s: %q", source, githubBase)
 		}
 	}
+	// Only a manual run sets the input, so an explicit base must win even on a tag.
+	if !strings.HasPrefix(githubBase, "${{ inputs.commit_base || ") {
+		t.Fatalf("GitHub manual commit base does not take precedence over event defaults: %q", githubBase)
+	}
 	if strings.Count(githubBase, "format('{0}^', github.sha)") != 2 {
 		t.Fatalf("GitHub manual run does not default to the selected commit's parent: %q", githubBase)
 	}
