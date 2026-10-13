@@ -25,7 +25,7 @@ NPM_CONFIG_GLOBALCONFIG = "{% if os() == 'windows' %}NUL{% else %}/dev/null{% en
 NPM_CONFIG_CACHE = "{{ config_root }}/build/runtime/tool-cache/npm{% if env.CI_JOB_ID | default(value='') != '' %}/{{ env.CI_JOB_ID }}{% endif %}"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.155.0@sha256:da8b7c264a6813ec19210c4855c6d1b6006fa415aa548b9435ae24fceb05573f"
+renovate_image = "ghcr.io/renovatebot/renovate:44.155.2@sha256:93e8dc64410276bb44854b4f6fce2306f8fe24c87301d558a920381130b30851"
 
 [tool_alias]
 # Keep npm's native precedence over Node's bundled npm on every platform.
