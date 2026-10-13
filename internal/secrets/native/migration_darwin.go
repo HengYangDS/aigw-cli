@@ -34,12 +34,12 @@ const (
 
 // readCredentialWithMigration returns the exact slot's Token. For the installed
 // program, a denial that a retained predecessor item explains, or an
-// interrupted migration, migrates the slot once to AIGW ownership. A versioned
-// reader reads the same slot without changing its owner.
+// interrupted migration, migrates the slot once to AIGW ownership. Any other
+// program reads the same slot without changing its owner.
 func readCredentialWithMigration(service, account, path string, role Role) ([]byte, error) {
 	value, err := readCredentialFromKeychain(service, account, path)
 	switch {
-	case err == nil && role == VersionedReader:
+	case err == nil && role == OtherProgram:
 		return value, nil
 	case err == nil:
 		staged, stageErr := observeCredentialInKeychain(service, stagedAccount(account), path)
@@ -59,13 +59,13 @@ func readCredentialWithMigration(service, account, path string, role Role) ([]by
 		return nil, err
 	}
 	defer release()
-	if role == VersionedReader {
+	if role == OtherProgram {
 		return readWithoutCustody(service, account, path)
 	}
 	return migrateRetainedCredential(service, account, path)
 }
 
-// readWithoutCustody serves a versioned reader under the migration lock. It reads
+// readWithoutCustody serves any other program under the migration lock. It reads
 // a retained item through the predecessor's tool, or the staged Token of a
 // migration the installed program began, and leaves both items unchanged.
 func readWithoutCustody(service, account, path string) ([]byte, error) {
@@ -85,7 +85,7 @@ func readWithoutCustody(service, account, path string) ([]byte, error) {
 
 // writeCredentialWithMigration replaces the exact slot. For the installed
 // program, a retained predecessor item migrates first, so an interrupted
-// rotation keeps a readable Token; a versioned reader leaves it denied.
+// rotation keeps a readable Token; any other program leaves it denied.
 func writeCredentialWithMigration(service, account, path string, value []byte, role Role) error {
 	release, err := acquireMigrationLock(path)
 	if err != nil {

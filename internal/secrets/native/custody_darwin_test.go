@@ -7,14 +7,14 @@ import (
 	"testing"
 )
 
-func TestVersionedReaderReadsAPredecessorItemWithoutMigrating(t *testing.T) {
+func TestAnotherProgramReadsAPredecessorItemWithoutMigrating(t *testing.T) {
 	path := newPrivateKeychain(t)
 	const service, account, token = "aigw-private-test", "shared", "synthetic-shared-token"
 	addPredecessorItem(t, path, service, account, token)
-	t.Setenv("AIGW_TEST_KEYCHAIN_ROLE", "reader")
+	t.Setenv("AIGW_TEST_KEYCHAIN_ROLE", "other")
 	for range 2 {
 		if value, err := readPrivateKeychainFixture(t, service, account, path); err != nil || string(value) != token {
-			t.Fatalf("versioned reader read = %q, %v", value, err)
+			t.Fatalf("other program read = %q, %v", value, err)
 		}
 		requirePredecessorItem(t, path, service, account, token)
 	}
@@ -25,35 +25,35 @@ func TestVersionedReaderReadsAPredecessorItemWithoutMigrating(t *testing.T) {
 	requireWorkerOwnedItem(t, path, service, account)
 }
 
-func TestVersionedReaderLeavesAnInterruptedMigration(t *testing.T) {
+func TestAnotherProgramLeavesAnInterruptedMigration(t *testing.T) {
 	path := newPrivateKeychain(t)
 	const service, account, token = "aigw-private-test", "interrupted", "synthetic-staged-token"
 	if err := writeCredentialToKeychain(service, stagedAccount(account), path, []byte(token)); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("AIGW_TEST_KEYCHAIN_ROLE", "reader")
+	t.Setenv("AIGW_TEST_KEYCHAIN_ROLE", "other")
 	if value, err := readPrivateKeychainFixture(t, service, account, path); err != nil || string(value) != token {
-		t.Fatalf("versioned reader read = %q, %v", value, err)
+		t.Fatalf("other program read = %q, %v", value, err)
 	}
 	if present, err := observeCredentialInKeychain(service, account, path); err != nil || present {
-		t.Fatalf("versioned reader completed the migration: %t, %v", present, err)
+		t.Fatalf("other program completed the migration: %t, %v", present, err)
 	}
 	if present, err := observeCredentialInKeychain(service, stagedAccount(account), path); err != nil || !present {
-		t.Fatalf("versioned reader removed the staged Token: %t, %v", present, err)
+		t.Fatalf("other program removed the staged Token: %t, %v", present, err)
 	}
 }
 
-func TestVersionedReaderNeverConvertsOwnership(t *testing.T) {
+func TestAnotherProgramNeverConvertsOwnership(t *testing.T) {
 	path := newPrivateKeychain(t)
 	const service, account, token = "aigw-private-test", "retained", "synthetic-retained-token"
 	addPredecessorItem(t, path, service, account, token)
-	if err := writeCredentialWithMigration(service, account, path, []byte("synthetic-rotated-token"), VersionedReader); err == nil {
-		t.Fatal("versioned reader replaced a predecessor item")
+	if err := writeCredentialWithMigration(service, account, path, []byte("synthetic-rotated-token"), OtherProgram); err == nil {
+		t.Fatal("other program replaced a predecessor item")
 	}
 	requirePredecessorItem(t, path, service, account, token)
 	for _, operation := range []string{restoreCommand, reclaimCommand} {
-		if _, err := queryCredential(operation, service, account, nil, VersionedReader); !errors.Is(err, ErrUnavailable) {
-			t.Fatalf("versioned reader %s = %v", operation, err)
+		if _, err := queryCredential(operation, service, account, nil, OtherProgram); !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("other program %s = %v", operation, err)
 		}
 	}
 }

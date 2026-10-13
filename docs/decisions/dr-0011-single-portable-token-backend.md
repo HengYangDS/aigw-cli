@@ -69,14 +69,17 @@ migrations, and an interrupted one resumes from its staging item. Items that
 trust no application, or another one, keep their denial; the worker never
 changes an ACL, prompts or selects another backend.
 
-Only the installed program migrates. A versioned reader copy cannot tell
-whether its installation still runs the predecessor: the one-time Homebrew
-cutover stages and verifies the successor's reader while 0.3.5 still owns the
-public link, and a rollback leaves cached successor commands in client
-settings. Such a copy therefore reads a retained item through
-`/usr/bin/security`, or the staged Token of an interrupted migration, and never
-migrates, overwrites or converts it. The worker learns its role from its own
-executable path, not from a flag or marker its caller could omit.
+Only the installed program migrates: an executable that Homebrew's receipt
+owns, or a portable one beside the predecessor AIGW retained for its rollback.
+Any other AIGW executable cannot tell whether its installation still runs the
+predecessor: the one-time Homebrew cutover stages and verifies the successor's
+reader, and preprojects clients through the extracted successor, while 0.3.5
+still owns the public link; a rollback leaves cached successor commands in
+client settings; and a development build belongs to no installation. Such a
+program therefore reads a retained item through `/usr/bin/security`, or the
+staged Token of an interrupted migration, and never migrates, overwrites or
+converts it. The worker learns its role from its own executable's installation
+evidence, not from a flag or marker its caller could omit.
 
 Native Keychain failures retain a typed numeric OSStatus through the bounded
 worker's stderr and the credential command's safe evidence. Standard output

@@ -70,7 +70,7 @@ func TestWindowsMetadataObservationTracksOnlyItsExactSessionSlot(t *testing.T) {
 
 func TestWindowsRollbackHasNoCredentialConversion(t *testing.T) {
 	for _, operation := range []string{restoreCommand, reclaimCommand} {
-		for _, role := range []Role{InstalledProgram, VersionedReader} {
+		for _, role := range []Role{InstalledProgram, OtherProgram} {
 			if value, err := queryCredential(operation, "AIGW_TEST_RESTORE", "synthetic", nil, role); len(value) != 0 || !errors.Is(err, ErrUnavailable) {
 				t.Fatalf("Windows %s as role %d = %q, %v", operation, role, value, err)
 			}

@@ -18,7 +18,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if handled, code := RunCredentialSubprocess(os.Args[1:], os.Stdin, os.Stdout, os.Stderr, "AIGW_TOKEN", InstalledProgram); handled {
+	installed := func() Role { return InstalledProgram }
+	if handled, code := RunCredentialSubprocess(os.Args[1:], os.Stdin, os.Stdout, os.Stderr, "AIGW_TOKEN", installed); handled {
 		os.Exit(code)
 	}
 	os.Exit(m.Run())
@@ -173,7 +174,11 @@ func TestCredentialSubprocessResultOwnsExitStatusAndSecretOutput(t *testing.T) {
 			}
 		})
 	}
-	if handled, _ := RunCredentialSubprocess([]string{"--version"}, strings.NewReader(""), io.Discard, io.Discard, "AIGW_TOKEN", InstalledProgram); handled {
+	unresolved := func() Role {
+		t.Fatal("an ordinary command resolved the credential role")
+		return OtherProgram
+	}
+	if handled, _ := RunCredentialSubprocess([]string{"--version"}, strings.NewReader(""), io.Discard, io.Discard, "AIGW_TOKEN", unresolved); handled {
 		t.Fatal("ordinary command intercepted")
 	}
 	for _, out := range []io.Writer{shortWriter{}, failedWriter{}} {

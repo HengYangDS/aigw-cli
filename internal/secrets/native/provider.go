@@ -20,7 +20,7 @@ func queryCredential(operation, service, account string, input []byte, role Role
 		}
 		return nil, err
 	case restoreCommand, reclaimCommand:
-		if role == VersionedReader {
+		if role == OtherProgram {
 			return nil, ErrUnavailable
 		}
 		if operation == restoreCommand {

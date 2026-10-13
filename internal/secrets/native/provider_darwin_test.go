@@ -301,8 +301,8 @@ func TestPrivateKeychainReadChild(t *testing.T) {
 		return
 	}
 	role := InstalledProgram
-	if os.Getenv("AIGW_TEST_KEYCHAIN_ROLE") == "reader" {
-		role = VersionedReader
+	if os.Getenv("AIGW_TEST_KEYCHAIN_ROLE") == "other" {
+		role = OtherProgram
 	}
 	value, err := readCredentialWithMigration(
 		os.Getenv("AIGW_TEST_KEYCHAIN_SERVICE"),

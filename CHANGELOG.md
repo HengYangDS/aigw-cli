@@ -152,12 +152,14 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 - Keep macOS clients signed in across the upgrade from 0.3.5 or earlier. On first
   use, the installed AIGW program moves each Keychain Token saved by the earlier
   `/usr/bin/security` reader to its own reader, without asking to enter or
-  authorize it again. Versioned credential readers that clients call never move
-  a Token, so an installed predecessor keeps reading it. Interrupted moves
-  resume safely. `aigw update --rollback` returns the Tokens to the retained
-  program's reader only after admitting the rollback, and takes them back if
-  activation fails; on a Homebrew installation it returns them before Homebrew
-  installs the earlier release.
+  authorize it again. Only that program moves a Token: versioned credential
+  readers that clients call, an extracted release that prepares clients before
+  the switch, and development builds read it in place, so an installed
+  predecessor keeps reading it. Interrupted moves resume safely.
+  `aigw update --rollback` returns the Tokens to the retained program's reader
+  only after admitting the rollback, and takes them back if activation fails;
+  on a Homebrew installation it returns them before Homebrew installs the
+  earlier release.
 - Keep a team recommendation's protocol, model provider and client-native
   authentication with its own Account: selecting another Account's Route for an
   unbound client no longer inherits them and skips its Token.

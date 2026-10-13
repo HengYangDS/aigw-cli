@@ -12,6 +12,22 @@ import (
 // ErrHomebrewManaged means a valid Homebrew receipt owns the executable.
 var ErrHomebrewManaged = errors.New("Homebrew manages this executable; use Homebrew for upgrade, rollback, or removal instead of portable installation commands, and run `aigw update --rollback` before Homebrew installs an earlier release")
 
+// InstalledProgram reports whether an installation rolls back through
+// executable: Homebrew's receipt owns it, or AIGW retained the portable
+// predecessor beside it. A versioned reader copy, an extracted release and a
+// development build have neither, so they cannot tell which program their
+// installation runs.
+func InstalledProgram(executable string) bool {
+	if strings.TrimSpace(executable) == "" {
+		return false
+	}
+	if errors.Is(RequirePortableOwnership(executable), ErrHomebrewManaged) {
+		return true
+	}
+	predecessor, err := os.Lstat(RollbackPath(executable))
+	return err == nil && predecessor.Mode().IsRegular()
+}
+
 // RequirePortableOwnership stops product-managed writes to a Homebrew installation.
 // Native receipts, rather than a host prefix or environment hint, establish ownership.
 func RequirePortableOwnership(executable string) error {

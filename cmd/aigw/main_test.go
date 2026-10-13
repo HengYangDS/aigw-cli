@@ -2,6 +2,7 @@ package main
 
 import (
 	"aigw-cli/internal/secrets/native"
+	"aigw-cli/internal/upgrade"
 	"bytes"
 	"errors"
 	"os"
@@ -13,17 +14,31 @@ import (
 
 const mainHelperEnvironment = "AIGW_TEST_MAIN_HELPER"
 
-func TestCredentialRoleKeepsVersionedReadersFromChangingOwners(t *testing.T) {
-	data := t.TempDir()
+// An extracted successor that preprojects clients while its predecessor is
+// still installed must not migrate the predecessor's Keychain items.
+func TestCredentialRoleRequiresTheInstalledProgram(t *testing.T) {
+	root := t.TempDir()
+	installed := filepath.Join(root, "bin", "aigw")
+	extracted := filepath.Join(root, "release", "aigw")
+	reader := filepath.Join(root, "credential", strings.Repeat("ab", 32), "aigw")
+	for _, path := range []string{installed, upgrade.RollbackPath(installed), extracted, reader} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("program"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for _, test := range []struct {
 		name       string
 		executable string
 		err        error
 		want       native.Role
 	}{
-		{name: "installed program", executable: filepath.Join(data, "bin", "aigw"), want: native.InstalledProgram},
-		{name: "versioned reader", executable: filepath.Join(data, "credential", strings.Repeat("ab", 32), "aigw"), want: native.VersionedReader},
-		{name: "unknown executable", err: errors.New("executable unavailable"), want: native.VersionedReader},
+		{name: "installed program", executable: installed, want: native.InstalledProgram},
+		{name: "extracted release", executable: extracted, want: native.OtherProgram},
+		{name: "versioned reader", executable: reader, want: native.OtherProgram},
+		{name: "unknown executable", err: errors.New("executable unavailable"), want: native.OtherProgram},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if got := credentialRole(test.executable, test.err); got != test.want {

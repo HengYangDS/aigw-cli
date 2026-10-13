@@ -305,13 +305,15 @@ Metadata observation requests attributes through Security.framework under the
 same no-UI policy; the old `/usr/bin/security` observer is removed. Updating the
 reader must not require Token enrollment again or establish a second credential
 authority. Migration staging is bounded recovery state, not an alternate store.
-Only the installed program migrates: a versioned reader cannot tell whether its
-installation still runs the predecessor, so preprojected and cached successor
-commands read retained items without changing their owner. A qualified rollback
-restores a compatible credential owner after admission and before predecessor
-activation, and reclaims it if activation fails; on Homebrew the same command
-restores it before Homebrew installs the earlier release. Its subsequent
-rotation remains visible to captured readers and the successor before
+Only the installed program migrates: an executable that Homebrew's receipt owns,
+or a portable one beside the predecessor AIGW retained for its rollback. A
+versioned reader copy, an extracted successor that preprojects clients, or a
+development build cannot tell whether its installation still runs the
+predecessor, so it reads retained items without changing their owner. A
+qualified rollback restores a compatible credential owner after admission and
+before predecessor activation, and reclaims it if activation fails; on Homebrew
+the same command restores it before Homebrew installs the earlier release. Its
+subsequent rotation remains visible to captured readers and the successor before
 synchronization or re-upgrade. Outside the admitted migration,
 denied authorization blocks the affected transition without ACL mutation,
 backend fallback or Token copy. Task 5.4 remains open until the approved migration

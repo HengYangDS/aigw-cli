@@ -3,10 +3,10 @@ package main
 
 import (
 	"aigw-cli/internal/cli"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
+	"aigw-cli/internal/upgrade"
 	"io"
 	"os"
 )
@@ -15,17 +15,19 @@ func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
-// credentialRole keeps a versioned reader copy from changing a native item's
-// owner: it cannot tell which program its installation currently runs.
+// credentialRole lets only the installed program change a native item's owner.
+// A versioned reader copy, an extracted release or a development build cannot
+// tell which program its installation currently runs.
 func credentialRole(executable string, err error) native.Role {
-	if err != nil || credential.IsVersionedEntrypointPath(executable) {
-		return native.VersionedReader
+	if err == nil && upgrade.InstalledProgram(executable) {
+		return native.InstalledProgram
 	}
-	return native.InstalledProgram
+	return native.OtherProgram
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
-	if handled, code := native.RunCredentialSubprocess(args, os.Stdin, stdout, stderr, secrets.Service, credentialRole(os.Executable())); handled {
+	role := func() native.Role { return credentialRole(os.Executable()) }
+	if handled, code := native.RunCredentialSubprocess(args, os.Stdin, stdout, stderr, secrets.Service, role); handled {
 		return code
 	}
 	app, err := cli.NewDefault()

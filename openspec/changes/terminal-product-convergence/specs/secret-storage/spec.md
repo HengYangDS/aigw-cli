@@ -187,7 +187,7 @@ On macOS, when the installed program's credential operation is denied an exact
 retained item that trusts `/usr/bin/security`, it SHALL migrate that item once to
 an AIGW-owned item at the same service and Account, without Token entry,
 access-list change, or authorization UI, keeping the Token in the retained item,
-a staging item, or both at every step. A versioned reader SHALL NOT change an
+a staging item, or both at every step. No other AIGW program SHALL change an
 item's owner. Linux and Windows stores authorize the user or session and SHALL
 NOT migrate.
 
@@ -200,17 +200,21 @@ NOT migrate.
 - **AND** a later build with the same signing identifier and team SHALL use the
   item without migration.
 
-#### Scenario: A versioned reader meets a retained item
+#### Scenario: Another AIGW program meets a retained item
 
-- **GIVEN** a versioned reader cannot tell whether its installation still runs
-  the predecessor
-- **WHEN** it reads a slot whose item still trusts `/usr/bin/security`, or whose
-  migration the installed program left staged
+- **GIVEN** the installed program is an executable that Homebrew's receipt owns,
+  or a portable one beside the predecessor AIGW retained for its rollback
+- **WHEN** a versioned reader copy, an extracted release or a development build
+  reads a slot whose item still trusts `/usr/bin/security`, or whose migration
+  the installed program left staged
 - **THEN** it SHALL return the Token through that tool or from the staging item
-  without migrating the item or completing the migration
+  without migrating the item or completing the migration, because it cannot
+  tell whether its installation still runs the predecessor
 - **AND** SHALL NOT replace the retained item or convert any item for a rollback
 - **AND** the predecessor and every cached successor command SHALL keep reading
-  the same item without a prompt.
+  the same item without a prompt
+- **AND** the worker SHALL learn its role from its own executable's installation
+  evidence, not from a flag or marker its caller could omit.
 
 #### Scenario: A migration is interrupted
 
@@ -340,7 +344,7 @@ authorization.
 
 - **WHEN** the exact native item cannot be accessed within the admitted operation
   and is neither a retained item that the installed program migrates nor one
-  that a versioned reader reads through `/usr/bin/security`
+  that another AIGW program reads through `/usr/bin/security`
 - **THEN** the subprocess fails without retrying or returning a Token
 - **AND** no credential or access-control state changes
 - **AND** any operating-system authorization UI remains an explicit platform

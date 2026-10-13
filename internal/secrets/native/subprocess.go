@@ -38,9 +38,11 @@ const (
 	// InstalledProgram may migrate a retained macOS item to AIGW ownership and
 	// return it to the predecessor's reader before a rollback.
 	InstalledProgram Role = iota
-	// VersionedReader serves cached client commands. It cannot tell whether its
-	// installation still runs the predecessor, so it never changes an item's owner.
-	VersionedReader
+	// OtherProgram is any other AIGW executable: a versioned reader copy that
+	// serves cached client commands, an extracted release or a development
+	// build. It cannot tell whether its installation still runs the predecessor,
+	// so it never changes an item's owner.
+	OtherProgram
 )
 
 var (
@@ -148,10 +150,10 @@ func execute(parent context.Context, runner process.CaptureRunner, plan process.
 }
 
 // RunCredentialSubprocess handles hidden native credential operations before CLI
-// initialization, for the program role that runs them.
-func RunCredentialSubprocess(args []string, input io.Reader, out, diagnostic io.Writer, service string, role Role) (bool, int) {
+// initialization. It learns the program's role only for such an operation.
+func RunCredentialSubprocess(args []string, input io.Reader, out, diagnostic io.Writer, service string, role func() Role) (bool, int) {
 	return dispatch(args, input, out, diagnostic, service, func(operation, service, account string, data []byte) ([]byte, error) {
-		return queryCredential(operation, service, account, data, role)
+		return queryCredential(operation, service, account, data, role())
 	})
 }
 

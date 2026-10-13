@@ -101,9 +101,11 @@ call remains available during unlink/relink. Later versioned paths remain
 retained for their original callers.
 
 macOS Keychain items written by 0.3.5 and earlier trust only `/usr/bin/security`.
-The installed AIGW program migrates such an item once to AIGW ownership on first
-use, staging its Token so that no step can lose it, without a prompt or an
-access-list change. A versioned reader cannot tell whether its installation
+The installed AIGW program, which Homebrew's receipt owns or which sits beside
+its retained portable predecessor, migrates such an item once to AIGW ownership
+on first use, staging its Token so that no step can lose it, without a prompt or
+an access-list change. Any other AIGW executable, such as a versioned reader, an
+extracted release or a development build, cannot tell whether its installation
 still runs the predecessor, so it reads such an item through `/usr/bin/security`
 and never changes an item's owner. `aigw update --rollback` returns the items to
 the predecessor's reader after admitting a portable rollback, or before a
