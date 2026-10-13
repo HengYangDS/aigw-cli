@@ -12,7 +12,7 @@ import (
 )
 
 // DecodeKeyringBase64 decodes one explicitly selected macOS go-keyring storage envelope.
-// Ordinary Store reads remain owned by go-keyring; raw input never calls this decoder.
+// Ordinary Store reads decode that envelope in the native worker; raw input never calls this decoder.
 func DecodeKeyringBase64(value string) (string, error) {
 	const prefix = "go-keyring-base64:"
 	encoded, present := strings.CutPrefix(value, prefix)

@@ -148,27 +148,6 @@ func TestEntrypointRejectsMultiplyLinkedExecutable(t *testing.T) {
 	}
 }
 
-func TestEntrypointRemovalRejectsChangedBytes(t *testing.T) {
-	root := t.TempDir()
-	source := filepath.Join(root, "source")
-	target := filepath.Join(root, "data", "credential", "aigw")
-	if err := os.WriteFile(source, []byte("verified-source"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := EnsureEntrypoint(source, target); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(target, []byte("later-user-edit"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := RemoveEntrypoint(target); err == nil {
-		t.Fatal("changed credential entrypoint was removed")
-	}
-	if got, err := os.ReadFile(target); err != nil || !bytes.Equal(got, []byte("later-user-edit")) {
-		t.Fatalf("changed credential entrypoint was not preserved: %q, %v", got, err)
-	}
-}
-
 func TestReceiptWriteFailureRemovesOnlyNewCredentialEntrypoint(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "source")
@@ -334,15 +313,6 @@ func TestEntrypointPlansCreationBelowExistingDataDirectory(t *testing.T) {
 	}
 }
 
-func TestEntrypointRemovalIsNoOpWhenAbsent(t *testing.T) {
-	if err := RemoveEntrypoint(""); err != nil {
-		t.Fatal(err)
-	}
-	if err := RemoveEntrypoint(filepath.Join(t.TempDir(), "data", "credential", "aigw")); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestEntrypointCompensationPreservesChangedReceipt(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "source")
@@ -471,32 +441,5 @@ func TestEntrypointRejectsPermissiveFileModes(t *testing.T) {
 				t.Fatalf("permissive %s mode was accepted", subject)
 			}
 		})
-	}
-}
-
-func TestEntrypointRemovalPreservesUnrelatedDirectoryContent(t *testing.T) {
-	root := t.TempDir()
-	source := filepath.Join(root, "source")
-	target := filepath.Join(root, "data", "credential", "aigw")
-	if err := os.WriteFile(source, []byte("verified-source"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := EnsureEntrypoint(source, target); err != nil {
-		t.Fatal(err)
-	}
-	foreign := filepath.Join(filepath.Dir(target), "user-note")
-	if err := os.WriteFile(foreign, []byte("preserve me"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := RemoveEntrypoint(target); err != nil {
-		t.Fatalf("removing owned files should preserve foreign content: %v", err)
-	}
-	for _, path := range []string{target, target + ".sha256"} {
-		if _, err := os.Lstat(path); !os.IsNotExist(err) {
-			t.Fatalf("uninstall retained owned file %s: %v", path, err)
-		}
-	}
-	if got, err := os.ReadFile(foreign); err != nil || !bytes.Equal(got, []byte("preserve me")) {
-		t.Fatalf("uninstall changed unrelated content: %q, %v", got, err)
 	}
 }

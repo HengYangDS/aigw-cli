@@ -372,36 +372,3 @@ func removeEntrypointPair(target string, binary, receipt transaction.FileSnapsho
 	}
 	return nil
 }
-
-// RemoveEntrypoint withdraws only an intact AIGW-owned executable and receipt.
-// A changed file is preserved for explicit recovery rather than overwritten.
-func RemoveEntrypoint(target string) error {
-	if target == "" {
-		return nil
-	}
-	needed, err := EntrypointNeeded(target)
-	if err != nil || needed {
-		return err
-	}
-	binary, err := transaction.CaptureFileSnapshot(target)
-	if err != nil {
-		return err
-	}
-	receiptPath := target + ".sha256"
-	receipt, err := transaction.CaptureFileSnapshot(receiptPath)
-	if err != nil {
-		return err
-	}
-	if err := removeEntrypointPair(target, binary, receipt); err != nil {
-		return err
-	}
-	parent := filepath.Dir(target)
-	if err := os.Remove(parent); err != nil && !errors.Is(err, os.ErrNotExist) {
-		entries, readErr := os.ReadDir(parent)
-		if readErr == nil && len(entries) > 0 {
-			return nil // The directory contains content this entrypoint does not own.
-		}
-		return errors.Join(fmt.Errorf("remove credential directory: %w", err), readErr)
-	}
-	return nil
-}

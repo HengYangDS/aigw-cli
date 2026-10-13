@@ -126,7 +126,7 @@ func (adapter removedEntrypointAdapter) Apply(context.Context, client.Dependenci
 	if err := os.WriteFile(adapter.target, []byte("reader="+adapter.reader), 0o600); err != nil {
 		return nil, err
 	}
-	if err := credential.RemoveEntrypoint(adapter.reader); err != nil {
+	if err := errors.Join(os.Remove(adapter.reader), os.Remove(adapter.reader+".sha256")); err != nil {
 		return nil, err
 	}
 	return projectionUndo(func() error {
@@ -193,7 +193,7 @@ func TestConvergedProjectionValidatesReaderWithoutApplying(t *testing.T) {
 			store := &configStoreStub{}
 			if tc.duringCommit {
 				store.onCommit = func() {
-					if err := credential.RemoveEntrypoint(reader); err != nil {
+					if err := errors.Join(os.Remove(reader), os.Remove(reader+".sha256")); err != nil {
 						t.Fatal(err)
 					}
 				}

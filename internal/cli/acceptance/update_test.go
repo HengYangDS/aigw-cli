@@ -361,14 +361,40 @@ func TestUpdatePreservesReleaseFailureAsItsCause(t *testing.T) {
 }
 
 func TestUpdateReportsCompletedReplacementWithIncompleteCleanup(t *testing.T) {
-	app, out, _, _, _ := testApp(t, "")
-	cause := &os.PathError{Op: "remove", Path: "/private/update-only-canary", Err: os.ErrPermission}
-	app.Updater = &fakeUpdater{updateResult: "updated to v1.0.0 verified from GitHub", updateErr: cause}
-	if err := cli.Execute(app, []string{"update"}); !errors.Is(err, cause) {
-		t.Fatalf("completed update lost cleanup failure: %v", err)
-	}
-	if !strings.Contains(out.String(), "Program updated") || !strings.Contains(out.String(), "cleanup is incomplete") || strings.Contains(out.String(), cause.Path) {
-		t.Fatalf("completed update has an incorrect or unsafe state: %s", out.String())
+	for _, test := range []struct {
+		args            []string
+		updater         *fakeUpdater
+		title, impact   string
+		forbiddenImpact string
+	}{
+		{
+			args:    []string{"update"},
+			updater: &fakeUpdater{updateResult: "updated to v1.0.0 verified from GitHub"},
+			title:   "Program updated", impact: "client settings and credentials were not changed",
+		},
+		{
+			args:    []string{"update", "--rollback"},
+			updater: &fakeUpdater{rollbackResult: "restored the previous program version."},
+			title:   "Program restored", impact: "The previous program is active and reads its credentials",
+			forbiddenImpact: "credentials were not changed",
+		},
+	} {
+		t.Run(test.title, func(t *testing.T) {
+			app, out, _, _, _ := testApp(t, "")
+			cause := &os.PathError{Op: "remove", Path: "/private/update-only-canary", Err: os.ErrPermission}
+			test.updater.updateErr, test.updater.rollbackErr = cause, cause
+			app.Updater = test.updater
+			if err := cli.Execute(app, test.args); !errors.Is(err, cause) {
+				t.Fatalf("completed transition lost cleanup failure: %v", err)
+			}
+			text := strings.Join(strings.Fields(out.String()), " ")
+			if !strings.Contains(text, test.title) || !strings.Contains(text, "cleanup is incomplete") || !strings.Contains(text, test.impact) || strings.Contains(text, cause.Path) {
+				t.Fatalf("completed transition has an incorrect or unsafe state: %s", out.String())
+			}
+			if test.forbiddenImpact != "" && strings.Contains(text, test.forbiddenImpact) {
+				t.Fatalf("rollback claimed unchanged credentials: %s", out.String())
+			}
+		})
 	}
 }
 

@@ -322,9 +322,9 @@ until their retained consumers and rollback owners release them; naming similari
 never grants cleanup authority.
 
 Prepare and qualify the successor before changing a client projection. The
-one-time 0.3.1 Homebrew-link transition preprojects private paths, prefetches
-the package, bounds and measures the unlink/relink window, then verifies old
-commands and real clients with immediate rollback on failure. Its cached
+one-time Homebrew-link transition from 0.3.5 or earlier preprojects private
+paths, prefetches the package, bounds and measures the unlink/relink window, then
+verifies old commands and real clients with immediate rollback on failure. Its cached
 public-link risk is disclosed, not called zero interruption. Thereafter keep
 every versioned original command callable through replacement. Retain exact
 owned bytes for configured, cached, explicit and rollback callers; unknown
@@ -600,9 +600,10 @@ Retire temporary inputs only after their consumers end and evidence is retained.
 Before operator cutover, the final reader must authorize each selected Account
 and diagnostic item, preserve original commands and rollback, and qualify the
 measured package-link transition. Ad-hoc success, unchanged signer or labels
-cannot substitute. The one-time 0.3.1 public-link transition preprojects private
-versioned commands, prefetches the package, measures unlink/relink and immediately
-checks original commands; failure restores the predecessor. Brief interruption
+cannot substitute. The one-time public-link transition from 0.3.5 or earlier
+preprojects private versioned commands, prefetches the package, measures
+unlink/relink and immediately checks original commands; failure restores the
+predecessor. Brief interruption
 is acceptable only if native recovery completes the same thread and turn with
 all context/outputs preserved and every tool effect executed once. A restarted
 task, lost output or duplicate effect fails acceptance. Controlled outage tests

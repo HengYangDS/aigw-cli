@@ -60,17 +60,22 @@ client will be supported.
   credential command whose original callers remain valid during an update.
 - `ci-diagnostics`: A selected Forge must reconstruct complete locked CI from
   a cold cache while the sibling Forge platform is unavailable.
+- `cli-readiness`: A check scoped to one client observes only that client, and
+  the installed program's first Token read may migrate a retained macOS item.
+- `product-quality`: Warnings, dependency evidence, coverage events,
+  host-independent release targets, native artifact acceptance and
+  formatter-owned Markdown containers each have one owning gate.
 
-The existing `cli-readiness`, `projection-format`, `release-distribution`,
-`product-quality`, and `repository-organization` specifications already state
-the remaining required behavior. Their implementation, evidence, and obsolete
-carriers will be converged without creating a second specification authority.
+The existing `projection-format`, `release-distribution`, and
+`repository-organization` specifications already state the remaining required
+behavior. Their implementation, evidence, and obsolete carriers will be
+converged without creating a second specification authority.
 
 ## Impact
 
 The Change may alter `internal/`, `cmd/`, `tools/`, `manifests/`, `.config/`,
 locked dependencies, both generated Forge workflows, tests, and canonical
-documentation. Current 0.3.1 users, explicit route choices, native credentials,
+documentation. Current 0.3.5 and earlier users, explicit route choices, native credentials,
 running clients, and external Proxy installations remain protected during
 development. An active P0 incident may be repaired first, but a source-green
 or partially published candidate is not terminal acceptance.

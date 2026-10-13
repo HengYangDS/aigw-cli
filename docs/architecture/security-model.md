@@ -36,8 +36,9 @@ mechanism, set `AIGW_SECRET_BACKEND` to
 `keyring`, `file`, or `env` before running AIGW:
 
 - **`keyring`** uses macOS Keychain, Linux Secret Service or Windows Credential
-  Manager. Every value or metadata operation runs through the installed AIGW
-  executable as a bounded credential subprocess with a five-second deadline and
+  Manager. Every value or metadata operation runs through the invoking AIGW
+  executable, the installed program or a versioned reader, as a bounded
+  credential subprocess with a five-second deadline and
   bounded process cleanup. The subprocess receives only the platform identity environment it needs;
   writes carry the logical Token only through standard input. Metadata queries
   never request credential bytes. Explicit selection fails closed if the native
@@ -90,14 +91,24 @@ cached caller. It does not reauthorize a withdrawn Client Binding; a cached
 command using the withdrawn configuration must fail closed. Exact reader
 cleanup requires proof that no configured, cached, explicit, rollback, or
 other-installation caller remains; neither uninstall nor a prefix or age match
-supplies that proof.
+supplies that proof. AIGW therefore never removes a versioned reader itself.
 
 An already-running client that cached the old package-manager path is not
-migrated by rewriting settings. The one-time 0.3.1 transition preprojects the
-private path and uses a bounded, measured Homebrew cutover with immediate
-acceptance and rollback. It cannot claim that every cached public-link call
-remains available during unlink/relink. Later versioned paths remain retained
-for their original callers.
+migrated by rewriting settings. The one-time transition from 0.3.5 or earlier
+preprojects the private path and uses a bounded, measured Homebrew cutover with
+immediate acceptance and rollback. It cannot claim that every cached public-link
+call remains available during unlink/relink. Later versioned paths remain
+retained for their original callers.
+
+macOS Keychain items written by 0.3.5 and earlier trust only `/usr/bin/security`.
+The installed AIGW program migrates such an item once to AIGW ownership on first
+use, staging its Token so that no step can lose it, without a prompt or an
+access-list change. A versioned reader cannot tell whether its installation
+still runs the predecessor, so it reads such an item through `/usr/bin/security`
+and never changes an item's owner. `aigw update --rollback` returns the items to
+the predecessor's reader after admitting a portable rollback, or before a
+Homebrew downgrade. The [credential decision](../decisions/dr-0011-single-portable-token-backend.md)
+records the migration and its custody rules.
 The [current credential-continuity design](../../openspec/changes/terminal-product-convergence/design.md#4-decide-credential-command-continuity-before-cutover)
 defines native qualification. The [frozen-source and delivery tasks](../../openspec/changes/terminal-product-convergence/tasks.md#9-frozen-source-and-pre-archive-acceptance)
 must also pass before this path is a released guarantee.

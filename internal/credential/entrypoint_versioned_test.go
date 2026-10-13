@@ -348,7 +348,7 @@ func TestVersionedEntrypointsKeepPredecessorBytesThroughSuccessorRemoval(t *test
 		}
 		if version == "first-version" {
 			predecessor = path
-		} else if err := RemoveEntrypoint(path); err != nil {
+		} else if err := errors.Join(os.Remove(path), os.Remove(path+".sha256")); err != nil {
 			t.Fatal(err)
 		}
 	}

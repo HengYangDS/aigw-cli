@@ -5,14 +5,11 @@
 ### Requirement: Upgrade evidence preserves credential continuity
 
 Upgrade acceptance SHALL capture each enabled client's command, arguments,
-environment, native item, reader, and authorization identity. A successor
-reader SHALL be qualified before any client projection selects it. Original
-invocations using AIGW-owned versioned readers SHALL return the same Token
-before, during, and after package replacement without reload; a fresh client
-or helper SHALL NOT substitute for existing-caller continuity. The one-time
-published predecessor may retain a package-manager-owned CLI link: its
-uncontrolled unlink interval SHALL be bounded, measured, minimized, and
-disclosed rather than represented as uninterrupted service.
+environment, native item, reader, and authorization identity, and SHALL qualify
+a successor reader before any client projection selects it. Original
+invocations of AIGW-owned versioned readers SHALL return the same Token before,
+during, and after package replacement without reload; a fresh client or helper
+SHALL NOT substitute for existing-caller continuity.
 
 #### Scenario: A proposed adapter survives only CLI-only updates
 
@@ -114,10 +111,11 @@ disclosed rather than represented as uninterrupted service.
 - **THEN** AIGW SHALL NOT claim the cached caller was migrated by rewriting a
   configuration file or testing a fresh client
 - **AND** the one-time cutover SHALL preproject and qualify private readers,
-  prefetch the successor, bound and measure the link gap, test captured commands
-  immediately, and restore the predecessor on failure
+  prefetch the successor, bound, measure and minimize the link gap, test
+  captured commands immediately, and restore the predecessor on failure
 - **AND** a possible cached-link call during that gap SHALL remain an explicit
-  residual risk; if that bounded cutover cannot be qualified, it SHALL stop.
+  residual risk, never represented as uninterrupted service; if that bounded
+  cutover cannot be qualified, it SHALL stop.
 
 #### Scenario: The last default Token consumer is withdrawn
 
@@ -160,21 +158,20 @@ disclosed rather than represented as uninterrupted service.
 
 - **WHEN** no configured client, retained caller, rollback target or explicit
   external binding can invoke an owned older executable
-- **THEN** AIGW SHALL remove only that exact executable and its owned identity
-  evidence
-- **AND** SHALL preserve unknown or foreign content rather than deleting by
-  name prefix or age.
+- **THEN** only the operator who proves that absence MAY remove that exact
+  executable and its owned identity evidence, because AIGW cannot observe cached
+  callers
+- **AND** AIGW SHALL NOT remove a versioned reader itself, and SHALL preserve
+  unknown or foreign content rather than deleting by name prefix or age.
 
 ### Requirement: Upgrade recovery preserves credential ownership
 
 Candidate, rollback, and re-upgrade SHALL preserve configuration and credential
 ownership without ACL change, backend migration, fallback, or helper
 substitution. On macOS the installed successor SHALL migrate retained
-`/usr/bin/security` items once. A rollback SHALL convert them back only after the
-retained program and configuration are admitted and before that program is
-activated, and SHALL return them to the active program if activation fails.
-Complete rollback SHALL restore a compatible program, configuration, and
-credential owner.
+`/usr/bin/security` items once, and a rollback SHALL return them to the retained
+program's reader. Complete rollback SHALL restore a compatible program,
+configuration, and credential owner.
 
 #### Scenario: Rollback follows a failed candidate
 
@@ -186,14 +183,13 @@ credential owner.
 
 ### Requirement: Retained macOS Keychain items migrate to AIGW ownership
 
-On macOS, a credential operation of the installed program that is denied an
-exact retained item trusting `/usr/bin/security` SHALL migrate that item once to
+On macOS, when the installed program's credential operation is denied an exact
+retained item that trusts `/usr/bin/security`, it SHALL migrate that item once to
 an AIGW-owned item at the same service and Account, without Token entry,
-access-list change, or authorization UI. The retained item, a staging item, or
-both SHALL hold the Token at every step. A versioned reader cannot tell whether
-its installation still runs the predecessor, so it SHALL NOT change an item's
-owner. Linux and Windows stores authorize the user or session, not the
-executable, and SHALL NOT migrate.
+access-list change, or authorization UI, keeping the Token in the retained item,
+a staging item, or both at every step. A versioned reader SHALL NOT change an
+item's owner. Linux and Windows stores authorize the user or session and SHALL
+NOT migrate.
 
 #### Scenario: A predecessor item is used after upgrade
 
@@ -206,8 +202,10 @@ executable, and SHALL NOT migrate.
 
 #### Scenario: A versioned reader meets a retained item
 
-- **WHEN** a versioned reader reads a slot whose item still trusts
-  `/usr/bin/security`, or whose migration the installed program left staged
+- **GIVEN** a versioned reader cannot tell whether its installation still runs
+  the predecessor
+- **WHEN** it reads a slot whose item still trusts `/usr/bin/security`, or whose
+  migration the installed program left staged
 - **THEN** it SHALL return the Token through that tool or from the staging item
   without migrating the item or completing the migration
 - **AND** SHALL NOT replace the retained item or convert any item for a rollback
@@ -261,3 +259,103 @@ executable, and SHALL NOT migrate.
   items again
 - **AND** without that preparation AIGW SHALL NOT claim credential continuity,
   and the predecessor's reader MAY ask macOS to authorize each migrated item.
+
+### Requirement: Native credential qualification owns real store access
+
+Ordinary source tests SHALL use provider doubles and avoid host credential
+stores. A retained-item journey SHALL run only on an explicitly admitted
+disposable host, preserve the original item and reader identity, and remain
+independent of publisher signing. The scope statement SHALL NOT claim the host
+is isolated or disposable. Source coverage or a fresh helper SHALL NOT qualify
+retained-item, existing-caller, real-client, or distribution continuity.
+
+#### Scenario: A review runner has no publisher signing identity
+
+- **GIVEN** an explicitly admitted disposable macOS runner
+- **WHEN** ordinary native acceptance executes
+- **THEN** source tests use provider doubles and do not touch the host Keychain
+- **AND** the explicit system-store journey may run without publisher signing
+  inputs
+- **AND** distribution trust remains a separate release claim.
+
+#### Scenario: Ordinary source verification isolates native credentials
+
+- **WHEN** source verification exercises a native credential worker
+- **THEN** it SHALL use the injected provider boundary without accessing the
+  operator credential store
+- **AND** this result SHALL NOT qualify retained system credentials.
+
+#### Scenario: Explicit Keychain qualification has no disposable-host scope
+
+- **WHEN** macOS native qualification enables system credentials without
+  `AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host`
+- **THEN** it SHALL fail before executing any quality, test, or release command
+- **AND** directly selected integration tests SHALL reject that scope before
+  native credential access.
+
+#### Scenario: Explicit Keychain qualification uses a disposable host
+
+- **WHEN** macOS native qualification selects both system credentials and the
+  disposable-host scope
+- **THEN** the existing coverage invocation SHALL include integration tests once
+- **AND** selecting full quality SHALL preserve that same inclusion and scope.
+
+#### Scenario: A retained macOS item keeps its reader identity
+
+- **WHEN** a candidate replaces a predecessor that reads an existing Keychain item
+- **THEN** predecessor, candidate, and rollback SHALL keep the item's physical
+  service and Account identity
+- **AND** a candidate SHALL reach a `/usr/bin/security` item only through the
+  installed program's one-time migration to AIGW ownership or a versioned
+  reader's read through that tool
+- **AND** a fresh or replacement helper SHALL NOT establish retained-item access.
+
+### Requirement: Native credential operations are bounded
+
+AIGW SHALL run each native credential operation in a private subprocess with a
+five-second deadline and bounded cleanup, passing only the platform identity its
+store requires. A timeout or authorization failure SHALL end the exact operation
+without retry, fallback, access-policy change, or backend migration, apart from
+the macOS retained-item handling below. Creation or timing SHALL NOT prove later
+authorization.
+
+#### Scenario: The installed executable creates and rotates a credential
+
+- **WHEN** its native writer creates or updates an authorized exact slot
+- **THEN** its native reader returns the written value without interaction
+- **AND** mutation emits no Token, including unexpected backend output.
+
+#### Scenario: Exact deletion is repeated
+
+- **WHEN** an authorized deletion removes an item and deletion is requested again
+- **THEN** both operations succeed and the exact item remains absent.
+
+#### Scenario: Credential presence is observed
+
+- **WHEN** AIGW checks an exact native credential slot
+- **THEN** the subprocess returns only present or absent metadata
+- **AND** no credential value enters the parent process.
+
+#### Scenario: A credential operation fails or requires authorization
+
+- **WHEN** the exact native item cannot be accessed within the admitted operation
+  and is neither a retained item that the installed program migrates nor one
+  that a versioned reader reads through `/usr/bin/security`
+- **THEN** the subprocess fails without retrying or returning a Token
+- **AND** no credential or access-control state changes
+- **AND** any operating-system authorization UI remains an explicit platform
+  behavior rather than a suppressed or disproved event.
+
+#### Scenario: A concurrent migration completes between lookups
+
+- **WHEN** a macOS worker is denied or misses the exact slot and then finds
+  neither a retained nor a staged item for it
+- **THEN** it SHALL read the slot once more without UI, because another worker
+  may have just recreated it as an AIGW-owned item
+- **AND** SHALL return that read's result without a further attempt.
+
+#### Scenario: The native service does not answer
+
+- **WHEN** the operation reaches its deadline
+- **THEN** the parent terminates and reaps its subprocess through bounded cleanup
+- **AND** the helper reports the deadline rather than suggesting configuration sync.

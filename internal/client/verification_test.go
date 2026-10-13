@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -211,7 +212,7 @@ func TestClaudeDesktopInspectionKeepsIntactRetainedVersionedReader(t *testing.T)
 	if status := fixture.adapter.Inspect(t.Context(), fixture.deps, changed, changedRuntime); status.Ready {
 		t.Fatal("an endpoint change was mistaken for a retained-reader transition")
 	}
-	if err := credential.RemoveEntrypoint(retained); err != nil {
+	if err := errors.Join(os.Remove(retained), os.Remove(retained+".sha256")); err != nil {
 		t.Fatal(err)
 	}
 	if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); status.Ready {

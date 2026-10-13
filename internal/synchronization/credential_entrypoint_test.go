@@ -54,7 +54,7 @@ func TestCodexInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientCodex, runtime); !status.Ready {
 		t.Fatalf("unchanged Route with an intact retained reader was rejected: %s", status.Issue)
 	}
-	if err := credential.RemoveEntrypoint(retained); err != nil {
+	if err := errors.Join(os.Remove(retained), os.Remove(retained+".sha256")); err != nil {
 		t.Fatal(err)
 	}
 	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientCodex, runtime); status.Ready {
@@ -101,7 +101,7 @@ func TestClaudeInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientClaude, runtime); !status.Ready {
 		t.Fatalf("unchanged Claude Route with an intact retained reader was rejected: %s", status.Issue)
 	}
-	if err := credential.RemoveEntrypoint(retained); err != nil {
+	if err := errors.Join(os.Remove(retained), os.Remove(retained+".sha256")); err != nil {
 		t.Fatal(err)
 	}
 	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientClaude, runtime); status.Ready {

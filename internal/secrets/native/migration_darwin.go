@@ -295,12 +295,13 @@ func deleteRetainedCredential(service, account, path string) error {
 }
 
 // retainedCredentialCommand builds the tool's interactive command that writes
-// the slot with go-keyring's storage envelope. The Token reaches the tool on
-// standard input, never in argv, exactly as the predecessor's writer did.
+// the slot with go-keyring's storage envelope and AIGW's purpose label. The Token
+// reaches the tool on standard input, never in argv, exactly as the
+// predecessor's writer did.
 func retainedCredentialCommand(service, account, path string, value []byte) (string, error) {
 	stored := storedCredential(value)
 	defer clear(stored)
-	command := "add-generic-password -U -s '" + service + "' -a '" + account + "' -w '" + string(stored) + "'"
+	command := "add-generic-password -U -s '" + service + "' -a '" + account + "' -l '" + keychainItemLabel(account) + "' -w '" + string(stored) + "'"
 	if path != "" {
 		command += " '" + path + "'"
 	}

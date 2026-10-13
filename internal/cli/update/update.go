@@ -88,13 +88,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				result, err = runtime.Updater.Update(ctx.Context(), runtime.Version)
 			}
 			if err != nil && result != "" {
-				title := "Program updated; cleanup is incomplete"
+				title, impact := "Program updated; cleanup is incomplete", "The replacement is active; client settings and credentials were not changed."
 				if rollback {
-					title = "Program restored; cleanup is incomplete"
+					title, impact = "Program restored; cleanup is incomplete", "The previous program is active and reads its credentials; client settings were not changed."
 				}
 				return invocation.Problem(runtime, title,
 					"Program replacement completed, but an owned temporary resource could not be removed.",
-					"The replacement is active; client settings and credentials were not changed.",
+					impact,
 					"Run `aigw installation` and `aigw doctor` before retrying cleanup or another program transition.", err)
 			}
 			if !rollback && errors.Is(err, upgrade.ErrCandidateIdentity) {

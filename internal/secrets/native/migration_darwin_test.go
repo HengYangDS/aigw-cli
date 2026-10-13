@@ -264,6 +264,9 @@ func TestRollbackRestoresThePredecessorReader(t *testing.T) {
 			t.Fatalf("restore migrated item: %v", err)
 		}
 		requirePredecessorItem(t, path, service, "migrated", token)
+		if label := keychainItemLabelAttribute(t, path, service, "migrated"); label != keychainItemLabel("migrated") {
+			t.Fatalf("restored item label = %q, want %q", label, keychainItemLabel("migrated"))
+		}
 		if value, err := readPrivateKeychainFixture(t, service, "migrated", path); err != nil || string(value) != token {
 			t.Fatalf("re-upgrade read = %q, %v", value, err)
 		}
@@ -345,6 +348,25 @@ func requirePredecessorItem(t *testing.T, path, service, account, token string) 
 	if present, err := observeCredentialInKeychain(service, "migration@"+account, path); err != nil || present {
 		t.Fatalf("restore of %q left a staging item: %t, %v", account, present, err)
 	}
+}
+
+// keychainItemLabelAttribute reads a private fixture item's label through the
+// item attributes, without its secret data.
+func keychainItemLabelAttribute(t *testing.T, path, service, account string) string {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, "/usr/bin/security", "find-generic-password", "-s", service, "-a", account, path).Output()
+	if err != nil {
+		t.Fatalf("read private Keychain item attributes: %v", err)
+	}
+	// The tool prints the label as attribute 7, kSecLabelItemAttr.
+	for line := range strings.SplitSeq(string(output), "\n") {
+		if label, found := strings.CutPrefix(strings.TrimSpace(line), `0x00000007 <blob>=`); found {
+			return strings.Trim(label, `"`)
+		}
+	}
+	return ""
 }
 
 func newPrivateKeychain(t *testing.T) string {

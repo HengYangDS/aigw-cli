@@ -275,7 +275,7 @@ it returns the Tokens without touching Homebrew's files, and the next Token use
 by a kept release takes them back. Without that step, the older program asks
 macOS to allow access to each Token.
 
-The first Homebrew upgrade from 0.3.1 is a managed cutover, not a bare
+The first Homebrew upgrade from 0.3.5 or earlier is a managed cutover, not a bare
 `brew upgrade aigw`: existing sessions may still call Homebrew's public
 credential-command link. Before the switch, the release operator must stage
 the final successor's private reader, verify its exact commands against the

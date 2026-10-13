@@ -73,7 +73,7 @@ func activationCheckIssue(activation clientactivation.Activation) (problem, evid
 			fmt.Errorf("credential metadata unavailable")
 	case activation.EnabledClients != 0:
 		evidence = "A Client Binding is selected, but its native projection is not available."
-		jsonError = "No enabled client has a native projection; no endpoint or model was checked"
+		jsonError = "No checked client has a native projection; no endpoint or model was checked"
 		if len(activation.ClientCredentialPrerequisites) != 0 {
 			evidence = "The selected Account Token is unavailable and its native projection is deferred."
 			jsonError = "The selected Account Token and native projection are unavailable; no endpoint or model was checked"

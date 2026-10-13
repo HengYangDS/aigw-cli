@@ -12,7 +12,7 @@ relations:
 
 - Status: accepted
 - Date: 2026-08-23
-- Last amended: 2026-09-28
+- Last amended: 2026-10-13
 
 ## Context
 
@@ -126,12 +126,12 @@ separate role, not a prerequisite imposed on every workstation user.
 Distribution and credential authorization retain separate acceptance
 boundaries:
 
-| Boundary                     | Required outcome                                                                                      |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Reproducible construction    | Verify deterministic archives, checksums, provenance, and ad-hoc native signatures where required.    |
-| Public macOS distribution    | Verify Developer ID signing and accepted Apple notarization before publishing final bytes.            |
-| Routine credential access    | Use the selected backend and exact slots without fallback, migration, or access-control modification. |
-| Installed release transition | Prove retained-item access through update, rollback, and re-upgrade using original client commands.   |
+| Boundary                     | Required outcome                                                                                                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Reproducible construction    | Verify deterministic archives, checksums, provenance, and ad-hoc native signatures where required.                                                                 |
+| Public macOS distribution    | Verify Developer ID signing and accepted Apple notarization before publishing final bytes.                                                                         |
+| Routine credential access    | Use the selected backend and exact slots without fallback or access-control modification; only the macOS retained-item custody rules below change an item's owner. |
+| Installed release transition | Prove retained-item access through update, rollback, and re-upgrade using original client commands.                                                                |
 
 The release owner applies the signature required by the selected distribution
 mode before final inventory and checksums. Reproducible construction, publisher
@@ -182,11 +182,12 @@ approved deployment consumer. Product defaults continue to use AIGW itself.
 
 ### Credential command continuity
 
-The 0.3.1 predecessor and original source created one fixed-path AIGW copy.
-The current Change derives a SHA-256-addressed path from executable bytes, but
-that source behavior is not yet an installed-product guarantee. Installed
-0.3.1 clients still invoke Homebrew's public binary link, whose lifetime is
-owned by Homebrew, not AIGW.
+Releases up to 0.3.5 project the CLI executable itself; an unreleased early
+form of this Change created one fixed-path AIGW copy. The current Change derives
+a SHA-256-addressed path from executable bytes, but that source behavior is not
+yet an installed-product guarantee. Installed clients of 0.3.5 and earlier still
+invoke Homebrew's public binary link, whose lifetime is owned by Homebrew, not
+AIGW.
 
 - **Package-manager path: rejected.** The installer owns its public link and
   may withdraw it before the successor is installed. AIGW cannot promise that
@@ -228,7 +229,7 @@ readers are not created. Exact reader retirement requires separate
 evidence that no cached, rollback, explicit, or other-installation consumer
 remains; uninstall alone cannot establish that fact.
 
-This choice does not retroactively protect cached 0.3.1 commands that name the
+This choice does not retroactively protect cached commands of 0.3.5 and earlier that name the
 Homebrew link. Reprojecting client files cannot prove that an existing session
 reloads its command. For that one-time bridge, prepare and verify the private
 successor, project managed clients before package replacement, and prefetch the
