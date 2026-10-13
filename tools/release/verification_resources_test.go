@@ -15,10 +15,12 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
 )
@@ -38,6 +40,10 @@ func TestNativeVerificationResources(t *testing.T) {
 	clients := []string{configuration.ClientCodex}
 	if runtime.GOOS != "windows" {
 		clients = append([]string{configuration.ClientHermes}, clients...)
+	} else {
+		t.Run("hermes-refusal", func(t *testing.T) {
+			runNativeResourceCase(t, program, configuration.ClientHermes, "refusal")
+		})
 	}
 	for _, client := range clients {
 		t.Run(client, func(t *testing.T) {
@@ -72,7 +78,37 @@ func runNativeResourceCase(t *testing.T, program, client, mode string) {
 		t.Fatal(err)
 	}
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+	if mode == "refusal" {
+		verifyNativeClientRefusal(t, journey, client)
+		return
+	}
 	verifyNativeResourceCase(t, journey, temporary, client, mode)
+}
+
+func verifyNativeClientRefusal(t *testing.T, journey *journeyFixture, client string) {
+	t.Helper()
+	control := filepath.Join(journey.root, "control")
+	if err := os.Mkdir(control, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	before := verificationInventory(t, journey.root)
+	environment := append(environmentWithout(journey.environment,
+		"AIGW_TEST_RESOURCE_CONTROL", "AIGW_TEST_RESOURCE_ROLE"),
+		"AIGW_TEST_RESOURCE_CONTROL="+control, "AIGW_TEST_RESOURCE_ROLE=child")
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
+		Executable: journey.binary, Args: []string{"verify", "--for", client}, Env: environment,
+	})
+	var exit *exec.ExitError
+	if ctx.Err() != nil || !errors.As(err, &exit) || exit.ExitCode() != 1 || len(stderr) != 0 ||
+		!strings.Contains(string(stdout), "cannot isolate native launcher publication on Windows; no client process was started") {
+		t.Fatalf("native unsupported client refusal: %v\n%s\n%s", err, stdout, stderr)
+	}
+	entries, err := os.ReadDir(control)
+	if err != nil || len(entries) != 0 || !reflect.DeepEqual(before, verificationInventory(t, journey.root)) {
+		t.Fatalf("unsupported verification started a client or changed protected resources: %v", err)
+	}
 }
 
 func nativeResourceManifest(client string) string {

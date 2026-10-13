@@ -170,6 +170,7 @@ toolchainTools: {
 	// Native Go suites execute real glab against disposable GitLab origins.
 	native: list.Concat([quality, ["github:anchore/syft", "gh", "glab"]])
 	nativeArtifact: ["go", "gh", "glab", "github:goreleaser/goreleaser"]
+	nativeClientSupply: ["node", "uv"]
 	secretService: ["go", "github:goreleaser/goreleaser"]
 	darwin: ["github:indygreg/apple-platform-rs"]
 }
@@ -460,13 +461,16 @@ hermesInstallerDigest: "61824d6b47be29ab793d0e72872cf56cd7a3e99cbe40abeb177a6c9e
 	_historicalCondition: "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.windows_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)"
 	_environmentPrefix:   string
 	_clients:             string
+	_clientTools:         string
 	if _platform == "windows" {
 		_environmentPrefix: "$env:"
 		_clients:           "${{ inputs.windows_clients && inputs.diagnostic_client == '' }}"
+		_clientTools:       "${{ inputs.windows_clients && ',\(strings.Join(toolchainTools.nativeClientSupply, ","))' || '' }}"
 	}
 	if _platform != "windows" {
 		_environmentPrefix: "$"
 		_clients:           "false"
+		_clientTools:       ""
 	}
 	_historicalArguments: "--peer=github --repository=\"\(_environmentPrefix)GITHUB_REPOSITORY\" --baseline-tag=\"\(_environmentPrefix)AIGW_BASELINE_TAG\" --tag=\"\(_environmentPrefix)AIGW_CANDIDATE_TAG\" --clients=\(_clients) --diagnostic-client=\"\(_environmentPrefix)AIGW_NATIVE_DIAGNOSTIC_CLIENT\" --performance-attribution=${{ inputs.performance_attribution }} --input-release=\"\(_environmentPrefix)AIGW_NATIVE_INPUT_RELEASE\" --input-sha256=\"\(_environmentPrefix)AIGW_NATIVE_INPUT_SHA256\" --candidate-source=\"\(_environmentPrefix)AIGW_CANDIDATE_SOURCE\" --candidate=${{ inputs.input_release != '' }}"
 	_performanceCommand:  "mise run performance \(_historicalArguments) --performance \"\(_environmentPrefix)GITHUB_WORKSPACE/build/performance\""
@@ -498,7 +502,7 @@ hermesInstallerDigest: "61824d6b47be29ab793d0e72872cf56cd7a3e99cbe40abeb177a6c9e
 	if _platform == "windows" {defaults: run: shell: "pwsh"}
 	"timeout-minutes": 25
 	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
-	env: MISE_ENABLE_TOOLS: "${{ (\(_sourceCondition)) && '\(nativeToolchain[_platform].MISE_ENABLE_TOOLS)' || inputs.performance && '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS),\(strings.Join(toolchainTools.performance, ","))' || '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' }}"
+	env: MISE_ENABLE_TOOLS: "${{ (\(_sourceCondition)) && '\(nativeToolchain[_platform].MISE_ENABLE_TOOLS)' || inputs.performance && '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS),\(strings.Join(toolchainTools.performance, ","))' || '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' }}\(_clientTools)"
 	steps: [
 		#SourceCheckout,
 		#Toolchain,
@@ -697,7 +701,7 @@ hermesInstallerDigest: "61824d6b47be29ab793d0e72872cf56cd7a3e99cbe40abeb177a6c9e
 	rules: [...{...}]
 	if _platform == "windows" {
 		_prebuiltCondition: "($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true'"
-		_selectTools:       "if (\(_prebuiltCondition)) { $env:MISE_ENABLE_TOOLS = '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',\(strings.Join(toolchainTools.performance, ","))' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE -and (\(nativeWindowsClientSelection))) { $env:MISE_ENABLE_TOOLS += ',node,uv' }"
+		_selectTools:       "if (\(_prebuiltCondition)) { $env:MISE_ENABLE_TOOLS = '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',\(strings.Join(toolchainTools.performance, ","))' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE -and (\(nativeWindowsClientSelection))) { $env:MISE_ENABLE_TOOLS += ',\(strings.Join(toolchainTools.nativeClientSupply, ","))' }"
 		_bootstrap:         "if (-not (\(_prebuiltCondition))) { \(commands.bootstrap) }"
 		_prepareMise:       #"""
 			$ErrorActionPreference = 'Stop'

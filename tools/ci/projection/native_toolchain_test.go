@@ -364,6 +364,10 @@ func checkGitHubNativeToolClosure(t *testing.T, projection projection) {
 		if hasDarwinSigner != (name == "native-darwin") {
 			t.Errorf("%s %s Darwin signer presence = %t", projection.Path, name, hasDarwinSigner)
 		}
+		clientTools := strings.Contains(tools, "inputs.windows_clients && ',node,uv'")
+		if clientTools != (name == "native-windows") {
+			t.Errorf("%s %s selected Windows client tool closure = %t", projection.Path, name, clientTools)
+		}
 		bootstrap := false
 		for _, step := range job.Steps {
 			if strings.Contains(step.Run, "./tools/ci native") && !bootstrap {

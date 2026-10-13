@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -117,7 +118,11 @@ func TestNativeClientJourney(t *testing.T) {
 		version: version, team: team, manifest: manifest,
 		baseline: baseline, candidate: candidate, archive: archive, checksums: checksums,
 	}
-	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex, configuration.ClientHermes} {
+	clients := []string{configuration.ClientClaude, configuration.ClientCodex}
+	if runtime.GOOS != "windows" {
+		clients = append(clients, configuration.ClientHermes)
+	}
+	for _, client := range clients {
 		t.Run(client, func(t *testing.T) { plan.run(t, client) })
 	}
 	t.Run("codex-general-routes", plan.runCodexGeneralRoutes)
