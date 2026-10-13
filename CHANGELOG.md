@@ -24,7 +24,30 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   prototype properties from enabling trusted rendering; verify the Mermaid and
   Markdown math consumers without changing production credentials or runtime.
 
+### Added
+
+- Project each Account-Token client command to a content-addressed private
+  reader, `<data>/credential/<sha256>/aigw`, that keeps answering while a
+  package manager replaces the CLI; synchronization and uninstall retain readers
+  that cached or rollback callers may still invoke.
+- Choose a client's endpoint protocol with `aigw use --protocol` when a Route
+  admits several, and forward any admitted client, not only Codex, through
+  `--forwarding-endpoint` while its Account upstream stays unchanged.
+- Retain local Account metadata with `aigw config import --keep-account`, retire
+  absent unselected Routes with `--retire-route`, and preview the merge with
+  `--dry-run --json`.
+
 ### Changed
+
+- Import a reviewed team manifest without contacting a provider; `aigw check`
+  owns endpoint and inference observations.
+- Name only continuations that the next command can complete: an environment
+  Token needs `aigw sync`, a disabled selection resumes with `aigw use --for`,
+  and an unreachable endpoint offers checking it or selecting another compatible
+  Route.
+- Distinguish a provider's hard quota from throttling in endpoint diagnostics.
+- Report whether configuration was restored when a client projection fails
+  after a configuration commit, including during `aigw rollback`.
 
 - Qualify Hyperfine's native preparation and raw evidence before measuring a
   signed candidate; failed preflight stops before full performance sampling.
@@ -135,14 +158,9 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   program's reader only after admitting the rollback, and takes them back if
   activation fails; on a Homebrew installation it returns them before Homebrew
   installs the earlier release.
-- Let Hermes verification borrow the configured installation's committed
-  dependencies and managed tools while keeping its boot-maintenance records
-  private, so `aigw verify --for hermes` works with Hermes 0.21.6 without
-  installing, synchronizing, republishing, or recording anything in Hermes
-  state. Verification refuses on Windows, where Hermes would republish the
-  operator's launchers.
-- Prevent disposable Hermes verification from contacting its unrelated
-  software-update service before the selected model request.
+- Keep a team recommendation's protocol, model provider and client-native
+  authentication with its own Account: selecting another Account's Route for an
+  unbound client no longer inherits them and skips its Token.
 - Classify Hermes version-probe timeout, interruption, and execution failure
   without exposing raw vendor output or private paths.
 - Stop after one bounded endpoint diagnostic when a provider rejects the
@@ -154,6 +172,34 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   each enabled client's precise state and next action.
 - Let `aigw catalog --all --json` return the complete JSON catalogue instead
   of rejecting two compatible output flags.
+
+## 0.3.5 - 2026-10-12
+
+History: [GitHub][0.3.5-github]
+
+### Fixed
+
+- Reuse the official Hermes launcher's committed dependencies and physical
+  selection lock during verification, preserving effective plugin dependency
+  profiles while keeping boot records and inference state isolated.
+- Disable automatic dependency installation, update checks, plugin activation,
+  and PATH publication during Hermes verification. Refuse native verification
+  on Windows before starting a client when launcher isolation is unqualified.
+- Exercise Account inventory ordering and reviewed Route recommendation
+  replacement without changing unrelated selections or configuration.
+
+## 0.3.4 - 2026-10-10
+
+History: [GitHub][0.3.4-github]
+
+### Fixed
+
+- Preserve benchmark command diagnostics outside timed samples, with bounded
+  stderr capture and discarded credential output.
+- Use canonical temporary paths in native fixtures and configure Windows long
+  paths before checkout.
+- Exercise native Linux coverage with the isolated Secret Service and retain
+  failed coverage evidence instead of masking incomplete acceptance.
 
 ## 0.3.3 - 2026-10-09
 
@@ -1318,7 +1364,9 @@ History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 - Require every tag pipeline to verify that its exact annotated release tag carries an SSH signature trusted by the repository-owned signer anchor before packaging, publication, or GitLab Release creation. An unsigned or untrusted tag now fails closed.
 
 [Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.3...main
-[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.3...main
+[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.5...main
+[0.3.5-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.4...v0.3.5
+[0.3.4-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.3...v0.3.4
 [0.3.3-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.1...v0.3.3
 [0.3.3-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.1...v0.3.3
 [0.3.1-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.0...v0.3.1
