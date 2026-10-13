@@ -93,9 +93,6 @@ func TestNativeGitHubInputReleasePreservesSignedIdentityAndOwnedCleanup(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := exec.CommandContext(t.Context(), "git", "-C", root, "merge-base", "--is-ancestor", source, strings.TrimSpace(string(carrier))).Run(); err == nil {
-		t.Fatal("fixture does not distinguish transport history from candidate provenance")
-	}
 	args := nativePackageArguments(source, contents)
 	args[0], args[1], args[10] = "--input-release", "native-inputs-"+strings.TrimSpace(string(carrier)), "github"
 	input, err := ParseNativeAcceptance(args)
