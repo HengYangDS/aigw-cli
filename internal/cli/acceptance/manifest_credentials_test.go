@@ -32,12 +32,13 @@ func TestSetupFromConfigurationManifestNamesEnvironmentTokensInsteadOfRotate(t *
 		secrets.EnvironmentKey("aihubmix"),
 		secrets.EnvironmentKey("dmxapi"),
 		"one compatible Account variable",
+		", then run `aigw sync`",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("output missing %q:\n%s", want, text)
 		}
 	}
-	for _, forbidden := range []string{"listed environment variables", "aigw check", "aigw rotate", "aigw sync"} {
+	for _, forbidden := range []string{"listed environment variables", "aigw check", "aigw rotate"} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("read-only environment backend received misleading guidance %q:\n%s", forbidden, text)
 		}
@@ -64,7 +65,7 @@ func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice
 		t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
 	}
 	wantDeferred := []string{
-		"Set one compatible Account variable: " + secrets.EnvironmentKey("aihubmix") + " or " + secrets.EnvironmentKey("dmxapi"),
+		"Set one compatible Account variable: " + secrets.EnvironmentKey("aihubmix") + " or " + secrets.EnvironmentKey("dmxapi") + ", then run `aigw sync`",
 	}
 	if !slices.Equal(result.DeferredActions, wantDeferred) || result.NextAction != wantDeferred[0] {
 		t.Fatalf("setup JSON continuation = %#v", result)

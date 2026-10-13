@@ -132,6 +132,10 @@ func projectionAction(spec configuration.ClientSpec) string {
 	return "Install " + spec.Label + " if needed, then run `aigw sync`"
 }
 
+// enableAction resumes a disabled Client Binding that keeps its selected Route;
+// synchronization skips it, while selecting that Route again enables it.
+func enableAction(client, route string) string { return "aigw use --for " + client + " " + route }
+
 // ProjectionPrerequisites derives pending native-client work from selected
 // bindings without reading credential metadata or claiming projection health.
 func ProjectionPrerequisites(cfg configuration.Config) map[string]string {
@@ -202,6 +206,10 @@ func (assessment *inactiveClientAssessment) consider(client, route string, selec
 	}
 	spec, _ := configuration.ClientSpecFor(client)
 	assessment.result.ProjectionPrerequisites[client] = projectionAction(spec)
+	if selected {
+		// Every binding is disabled here; synchronization skips a disabled selection.
+		assessment.result.ProjectionPrerequisites[client] = enableAction(client, route)
+	}
 	if !candidate.UsesAIGWCredentialStore() {
 		delete(assessment.result.ClientCredentialPrerequisites, client)
 		return true
@@ -246,11 +254,12 @@ func (assessment *inactiveClientAssessment) finish() Activation {
 		assessment.result.CredentialPrerequisite = assessment.firstMissing
 	case len(assessment.alternatives) > 0:
 		slices.Sort(assessment.alternatives)
-		prefix := "Choose one compatible Account: "
+		prefix, continuation := "Choose one compatible Account: ", ""
 		if assessment.readOnly {
-			prefix = "Set one compatible Account variable: "
+			// Only synchronization adopts an environment Token that appears later.
+			prefix, continuation = "Set one compatible Account variable: ", ", then run `aigw sync`"
 		}
-		assessment.result.CredentialPrerequisite = prefix + strings.Join(assessment.alternatives, " or ")
+		assessment.result.CredentialPrerequisite = prefix + strings.Join(assessment.alternatives, " or ") + continuation
 	case assessment.backendMissing:
 		assessment.result.State = domainreadiness.Unavailable
 		assessment.result.CredentialPrerequisite = "aigw doctor"
@@ -299,7 +308,10 @@ func NextActionAfterAccountConnection(cfg configuration.Config, accountID string
 			continue
 		}
 		binding := cfg.Clients[spec.ID]
-		if !binding.Enabled || binding.Executable == "" {
+		switch {
+		case !binding.Enabled:
+			return enableAction(spec.ID, runtime.RouteID)
+		case binding.Executable == "":
 			return projectionAction(spec)
 		}
 		return "aigw check"

@@ -87,8 +87,9 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				r.ProductTitle("Synchronization completed")
 			}
 			if result.EnabledClients == 0 {
+				// The activation decision names the continuation for the current backend.
 				r.Status(presentation.Info, "Client activation", "No client is enabled")
-				r.Detail("Authentication was unchanged; connect one compatible Account, then synchronize")
+				r.Detail("Authentication was unchanged")
 			} else if activation.State == domainreadiness.Deferred {
 				r.Status(presentation.Info, "Client activation", "Selected client projection is deferred")
 			} else if !dryRun {

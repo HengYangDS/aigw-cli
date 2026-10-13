@@ -444,8 +444,8 @@ func TestDoctorFormatsPreserveTheDiagnosticOutcome(t *testing.T) {
 	}{
 		{name: "unconfigured text", nextAction: "aigw setup", continuations: 1},
 		{name: "unconfigured JSON", jsonMode: true, nextAction: "aigw setup"},
-		{name: "configured text", configured: true, nextAction: "Install Claude if needed, then run `aigw sync`", continuations: 1},
-		{name: "configured JSON", configured: true, jsonMode: true, nextAction: "Install Claude if needed, then run `aigw sync`"},
+		{name: "configured text", configured: true, nextAction: "aigw use --for claude one", continuations: 1},
+		{name: "configured JSON", configured: true, jsonMode: true, nextAction: "aigw use --for claude one"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")

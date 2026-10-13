@@ -111,7 +111,7 @@ func TestStatusPrioritizesSelectedActivationWhileRetainingRouteGuidance(t *testi
 	if strings.Contains(text, "Claude             ·") || strings.Contains(text, "aigw repair") {
 		t.Fatalf("status should not show blank Claude route or misleading repair:\n%s", text)
 	}
-	for _, want := range []string{"Claude", "No Claude route selected", "Install Codex if needed, then run `aigw sync`"} {
+	for _, want := range []string{"Claude", "No Claude route selected", "aigw use --for codex gpt-5.6-sol"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("status lacks %q:\n%s", want, text)
 		}
@@ -126,7 +126,7 @@ func TestStatusPrioritizesSelectedActivationWhileRetainingRouteGuidance(t *testi
 			NextAction string `json:"next_action"`
 		} `json:"clients"`
 	}
-	if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.NextAction != "Install Codex if needed, then run `aigw sync`" || result.Clients[configuration.ClientClaude].NextAction != "aigw use --for claude claude-fable-5" {
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.NextAction != "aigw use --for codex gpt-5.6-sol" || result.Clients[configuration.ClientClaude].NextAction != "aigw use --for claude claude-fable-5" {
 		t.Fatalf("JSON status action = %+v, error = %v", result, err)
 	}
 }
@@ -231,7 +231,7 @@ func TestStatusReportsRouteTransport(t *testing.T) {
 				"route":               json.RawMessage(`"team"`),
 				"account":             json.RawMessage(`"team"`),
 				"detail":              json.RawMessage(`"The client is not installed or enabled"`),
-				"next_action":         json.RawMessage("\"Install Codex if needed, then run `aigw sync`\""),
+				"next_action":         json.RawMessage(`"aigw use --for codex team"`),
 				"authentication":      json.RawMessage(`"account-token"`),
 				"endpoint_configured": json.RawMessage(`true`),
 				"projection_ready":    json.RawMessage(`false`),

@@ -117,7 +117,7 @@ func TestShippedTeamManifestWithoutAccountOrClientIsDeferred(t *testing.T) {
 	if len(setup.SelectedBindings) != 0 || len(setup.DeferredActions) != 1 {
 		t.Fatalf("setup activation = %+v", setup)
 	}
-	wantAction := "Set one compatible Account variable: " + secrets.EnvironmentKey("dmxapi") + " or " + secrets.EnvironmentKey("ucloud")
+	wantAction := "Set one compatible Account variable: " + secrets.EnvironmentKey("dmxapi") + " or " + secrets.EnvironmentKey("ucloud") + ", then run `aigw sync`"
 	if setup.DeferredActions[0] != wantAction {
 		t.Fatalf("setup deferred action = %q, want %q", setup.DeferredActions[0], wantAction)
 	}
@@ -249,6 +249,13 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneAccountChoice(t *testing
 	current, err := app.Config.Load()
 	if err != nil || len(current.EnabledClientIDs()) != 0 {
 		t.Fatalf("rotation silently activated clients: %#v, %v", current.Clients, err)
+	}
+	out.Reset()
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatalf("sync after rotation: %v\n%s", err, out)
+	}
+	if strings.Contains(out.String(), "then synchronize") {
+		t.Fatalf("sync after rotation claimed that synchronization activates a writable Account: %s", out)
 	}
 	out.Reset()
 	if err := cli.Execute(app, []string{"use", "--for", "claude", "dmxapi-claude-opus-5-5"}); err != nil {

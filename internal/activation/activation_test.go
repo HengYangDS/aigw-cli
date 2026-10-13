@@ -58,7 +58,7 @@ func TestAssessActivationChoosesOneCompatibleEnvironmentAccount(t *testing.T) {
 		return ""
 	})
 	got = AssessActivation(cfg, store)
-	if got.NextActionFor(nil) != "Install Claude if needed, then run `aigw sync`" {
+	if got.NextActionFor(nil) != "aigw use --for claude dmx-claude" {
 		t.Fatalf("connected Account activation = %+v", got)
 	}
 
@@ -113,7 +113,7 @@ func TestAssessActivationDoesNotRequireTokenBackendBeforeItsUse(t *testing.T) {
 		cfg.Clients[configuration.ClientCodex] = binding
 		for _, store := range []secrets.Store{nil, unobservedWritableStore{}} {
 			decision := AssessActivation(cfg, store)
-			if decision.State != domainreadiness.Deferred || decision.NextActionFor(nil) != "Install Codex if needed, then run `aigw sync`" || len(decision.ClientCredentialPrerequisites) != 0 {
+			if decision.State != domainreadiness.Deferred || decision.NextActionFor(nil) != "aigw use --for codex codex" || len(decision.ClientCredentialPrerequisites) != 0 {
 				t.Fatalf("independent credential selection required an unused AIGW Token backend: %+v", decision)
 			}
 		}
@@ -132,7 +132,7 @@ func TestNextActionAfterAccountConnectionPreservesExplicitSelection(t *testing.T
 	}
 
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	if got := NextActionAfterAccountConnection(cfg, "team"); got != "Install Claude if needed, then run `aigw sync`" {
+	if got := NextActionAfterAccountConnection(cfg, "team"); got != "aigw use --for claude claude" {
 		t.Fatalf("unprojected selected client action = %q", got)
 	}
 	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
@@ -175,7 +175,7 @@ func TestAssessActivationListsUnselectedCompatibleEnvironmentAccounts(t *testing
 	cfg.Recommendations[configuration.ClientClaude] = recommendation
 
 	got := AssessActivation(cfg, secrets.NewEnvironmentStore(func(string) string { return "" }))
-	want := "Set one compatible Account variable: " + secrets.EnvironmentKey("dmx") + " or " + secrets.EnvironmentKey("ucloud")
+	want := "Set one compatible Account variable: " + secrets.EnvironmentKey("dmx") + " or " + secrets.EnvironmentKey("ucloud") + ", then run `aigw sync`"
 	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != want {
 		t.Fatalf("unselected alternatives = %+v, want %q", got, want)
 	}
@@ -214,7 +214,7 @@ func TestAssessActivationSelectedWritableAccountRequiresItsToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	got = AssessActivation(cfg, store)
-	if got.NextActionFor(nil) != "Install Claude if needed, then run `aigw sync`" || got.CredentialPrerequisite != "" {
+	if got.NextActionFor(nil) != "aigw use --for claude claude" || got.CredentialPrerequisite != "" {
 		t.Fatalf("selected Account with Token = %+v", got)
 	}
 }
@@ -231,7 +231,7 @@ func TestAssessActivationDoesNotRecommendNoOpSyncBeforeClientActivation(t *testi
 
 	decision := AssessActivation(cfg, store)
 	got := decision.NextActionFor(nil)
-	want := "Install Claude if needed, then run `aigw sync`"
+	want := "aigw use --for claude claude"
 	if got != want {
 		t.Fatalf("next action before client activation = %q, want %q", got, want)
 	}

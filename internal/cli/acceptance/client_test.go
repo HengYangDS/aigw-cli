@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -198,6 +199,26 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	}
 	if _, err := os.Stat(claudeExecutable); err != nil {
 		t.Fatalf("adapter disable changed the foreign Claude executable: %v", err)
+	}
+	// Synchronization skips a disabled binding; selecting its Route again enables it.
+	out := &bytes.Buffer{}
+	app.Out = out
+	if err := cli.Execute(app, []string{"status", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	var status struct {
+		NextAction string `json:"next_action"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &status); err != nil || status.NextAction != "aigw use --for claude team" {
+		t.Fatalf("disabled binding continuation = %q, %v\n%s", status.NextAction, err, out)
+	}
+	out.Reset()
+	app.In = strings.NewReader("rotated-secret\n")
+	if err := cli.Execute(app, []string{"rotate", "team", "--token-stdin"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "aigw use --for claude team") || strings.Contains(out.String(), "Install Claude") {
+		t.Fatalf("rotation named the wrong continuation for a disabled binding:\n%s", out)
 	}
 }
 

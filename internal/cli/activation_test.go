@@ -39,7 +39,8 @@ func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing
 		want  string
 	}{
 		{name: "missing Token", want: "run `aigw rotate team`"},
-		{name: "connected Account without client", token: "token", want: "Install Claude if needed, then run `aigw sync`"},
+		// The fixture selects Claude without enabling it; sync skips that binding.
+		{name: "connected Account with a disabled selection", token: "token", want: "aigw use --for claude claude"},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			if scenario.token != "" {

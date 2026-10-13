@@ -128,9 +128,10 @@ func checkConfigurationFor(cfg configuration.Config, client string) (configurati
 		return cfg, "", nil
 	}
 	if !cfg.Clients[client].Enabled {
+		// Selecting a Route enables its binding; enablement alone needs an executable.
 		action := "aigw use --for " + client + " <route>"
-		if cfg.SelectedRoute(client) != "" {
-			action = "aigw client enable " + client
+		if route := cfg.SelectedRoute(client); route != "" {
+			action = "aigw use --for " + client + " " + route
 		}
 		return cfg, action, fmt.Errorf("%s is not enabled", invocation.Title(client))
 	}
