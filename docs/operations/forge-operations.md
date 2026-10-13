@@ -338,7 +338,9 @@ Never let the Forge mint a lightweight tag or dispatch verification from the
 transport tag: select the proposal verifier branch and pass the candidate source
 explicitly. Product tag verification selects only its `v*` namespace; transport
 trust is checked by its native input consumer. Retire the transport Release and
-exact tag only after its native input jobs finish and their evidence is retained.
+exact tag only after its native input jobs finish, their evidence is retained,
+and any independent [tool-source consumer](../governance/change-and-release-policy.md#dependency-maintenance)
+has released that carrier.
 For published remote inputs, `--tag`, `--baseline-tag`, `--peer` and
 `--repository` select that peer's native CLI with a bounded no-prompt download;
 neither Forge is a transport fallback for the other. See

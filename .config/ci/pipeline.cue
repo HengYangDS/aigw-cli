@@ -90,7 +90,8 @@ miseMirror: {
 		  printf '%s\n' 'Mise job-owned supply state retired.'
 		fi
 		"""#
-	githubEnvironment: MISE_URL_REPLACEMENTS: "{{\"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$\":\"{0}/{1}/releases/download/mise-glab-$1/$2\",\"regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$\":\"{0}/{1}/releases/download/mise-glab-v$1/$2\"}}"
+	githubRelease:    "native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6"
+	githubEnvironment: MISE_URL_REPLACEMENTS: "{{\"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$\":\"{0}/{1}/releases/download/\(githubRelease)/$2\",\"regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$\":\"{0}/{1}/releases/download/\(githubRelease)/$2\"}}"
 }
 
 linuxApt: {

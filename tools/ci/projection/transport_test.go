@@ -198,7 +198,16 @@ func TestGitHubMirrorRewritesEveryLockedGlabEndpoint(t *testing.T) {
 	if err := yaml.Unmarshal(output, &environment); err != nil {
 		t.Fatal(err)
 	}
+	carrierOutput, err := projectionCommand(root, "miseMirror.githubRelease").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var carrier string
+	if err := yaml.Unmarshal(carrierOutput, &carrier); err != nil {
+		t.Fatal(err)
+	}
 	serverURL, repository := "https://github.example", "owner/project"
+	assetPrefix := serverURL + "/" + repository + "/releases/download/" + carrier + "/"
 	template := strings.NewReplacer("{{", "{", "}}", "}", "{0}", serverURL, "{1}", repository).
 		Replace(environment["MISE_URL_REPLACEMENTS"])
 	var replacements map[string]string
@@ -232,7 +241,7 @@ func TestGitHubMirrorRewritesEveryLockedGlabEndpoint(t *testing.T) {
 					matched++
 					resolved, err := url.PathUnescape(expression.ReplaceAllString(source, target))
 					filename, filenameErr := url.PathUnescape(path.Base(source))
-					if err != nil || filenameErr != nil || !strings.HasPrefix(resolved, serverURL+"/"+repository+"/releases/download/") || strings.Contains(resolved, "gitlab") || !strings.HasSuffix(resolved, "/"+filename) {
+					if err != nil || filenameErr != nil || resolved != assetPrefix+filename {
 						t.Errorf("locked asset rewritten outside the selected peer or renamed: %q, %v, %v", resolved, err, filenameErr)
 					}
 				}
