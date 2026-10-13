@@ -150,13 +150,7 @@
       "type": "authority",
       "label": "Configuration",
       "qualifiers": {
-        "owns": [
-          "accounts",
-          "models",
-          "routes",
-          "recommendations",
-          "client bindings"
-        ]
+        "owns": ["accounts", "models", "routes", "recommendations", "client bindings"]
       },
       "provenance": ["configuration"]
     },
@@ -188,15 +182,7 @@
       "type": "contract",
       "label": "Adapter contract",
       "qualifiers": {
-        "operations": [
-          "discover",
-          "converge",
-          "plan",
-          "apply",
-          "inspect",
-          "verify",
-          "withdraw"
-        ]
+        "operations": ["discover", "converge", "plan", "apply", "inspect", "verify", "withdraw"]
       },
       "provenance": ["registry"]
     },
@@ -335,9 +321,7 @@
       "scope": { "state": "desired client bindings" },
       "maturity": "implemented",
       "validity": "affirmed",
-      "dependsOn": [
-        { "section": "relations", "id": "configuration-synchronizer" }
-      ],
+      "dependsOn": [{ "section": "relations", "id": "configuration-synchronizer" }],
       "coverage": "complete",
       "provenance": ["configuration", "synchronizer"]
     },
@@ -449,9 +433,7 @@
       "scope": {},
       "maturity": "implemented",
       "validity": "affirmed",
-      "dependsOn": [
-        { "section": "relations", "id": "contract-claude-desktop" }
-      ],
+      "dependsOn": [{ "section": "relations", "id": "contract-claude-desktop" }],
       "coverage": "complete",
       "provenance": ["adapters", "claude-desktop"]
     },

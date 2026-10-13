@@ -47,6 +47,21 @@ func TestMain(m *testing.M) {
 	if handled, code := runInstalledClientFixture(os.Args[0], os.Args[1:]); handled {
 		os.Exit(code)
 	}
+	if source := os.Getenv("AIGW_TEST_PERFORMANCE_SOURCE"); source != "" && len(os.Args) > 1 {
+		command := exec.Command(source, os.Args[1:]...)
+		command.Stdout, command.Stderr = os.Stdout, os.Stderr
+		if os.Args[1] == "use" {
+			_, _ = fmt.Fprintln(os.Stderr, "Warning: synthetic measured workload diagnostic")
+		}
+		err := command.Run()
+		if err == nil {
+			os.Exit(0)
+		}
+		if exit, ok := errors.AsType[*exec.ExitError](err); ok {
+			os.Exit(exit.ExitCode())
+		}
+		os.Exit(1)
+	}
 	if len(os.Args) == 4 && os.Args[1] == "credential" && os.Getenv("AIGW_TEST_EXTERNAL_CREDENTIAL") == "1" {
 		if os.Args[2] != os.Getenv("AIGW_TEST_EXTERNAL_CLIENT") || os.Args[3] != os.Getenv("AIGW_TEST_EXTERNAL_FINGERPRINT") {
 			os.Exit(2)

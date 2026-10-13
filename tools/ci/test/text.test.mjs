@@ -8,9 +8,7 @@ import test from "node:test";
 const repository = path.resolve(import.meta.dirname, "../../..");
 
 async function fixture(t) {
-  const root = await fs.realpath(
-    await fs.mkdtemp(path.join(os.tmpdir(), "aigw-text-checks-")),
-  );
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "aigw-text-checks-")));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   for (const relative of [
     ".config/checks/markdown/prettierignore",
@@ -33,12 +31,7 @@ function run(
 ) {
   const result = spawnSync(
     process.execPath,
-    [
-      path.isAbsolute(module)
-        ? module
-        : path.join(repository, "tools/ci", module),
-      ...arguments_,
-    ],
+    [path.isAbsolute(module) ? module : path.join(repository, "tools/ci", module), ...arguments_],
     { cwd: root, input, encoding: "utf8", timeout },
   );
   assert.equal(result.error, undefined);
@@ -52,6 +45,8 @@ test("formatting checks current carriers without editing or inherited defaults",
     "docs/archive/current.md": "# Current archive operation\n",
     ".config/archive/metadata.json": '{\n  "version": 1\n}\n',
     ".config/fixture.yaml": "name: fixture\n",
+    "tools/source.mjs":
+      'const providers = ["primary-provider-one", "secondary-provider-two", "manual-provider-three"];\n',
     "openspec/changes/archive/old/spec.md": "#   Historic source\n",
     ".config/mise/locks/npm/12.2.0/aube-lock.yaml": "generator:    exact\n",
     "build/tracked.json": '{\n  "version": 1\n}\n',
@@ -70,6 +65,7 @@ test("formatting checks current carriers without editing or inherited defaults",
     ["docs/archive/current.md", "#   Current archive operation\n", false],
     [".config/archive/metadata.json", '{"version":1}\n', false],
     [".config/fixture.yaml", "name:    fixture\n", false],
+    ["tools/source.mjs", files["tools/source.mjs"], true],
     ["build/tracked.json", '{"version":1}\n', false],
     ["literal[1].json", '{"version":1}\n', false],
   ]) {
@@ -91,25 +87,24 @@ test("native formatting preserves Markdown containers and canonical admission", 
     "tasks.md": "# Tasks\n\n- [ ] First.\n\n- [ ] Second.\n",
     "wrapped.md":
       "# Tasks\n\n- [ ] First action\n      and its evidence.\n\n- [ ] Second action.\n",
-    "nested.md":
-      "# Document\n\n- Parent.\n  - First.\n\n  - Second.\n- Next.\n",
+    "nested.md": "# Document\n\n- Parent.\n  - First.\n\n  - Second.\n- Next.\n",
     "quoted.md": "# Document\n\n> - First.\n>\n> - Second.\n",
-    "paragraphs.md":
-      "# Document\n\n- First paragraph.\n\n  Second paragraph.\n\n- Next item.\n",
+    "paragraphs.md": "# Document\n\n- First paragraph.\n\n  Second paragraph.\n\n- Next item.\n",
     "literal.md":
       "# Document\n\n<!-- prettier-ignore -->\n```markdown\n- First.\n\n\n- Second.\n```\n",
     "blocks.md":
       "\n#   Document\nText.\n\n\n## Details\n\nRead the declaration\nand its evidence.\n\n- Command.\n  ```sh\n  aigw status\n  ```\n- Next.\n",
-    "table.md":
-      "# Document\n\n- Properties:\n  | Field |\n  | ----- |\n  | Value |\n- Next.\n",
-    "frontmatter.md":
-      "---\nsubject: aigw:test\nrole: test\n---\n# Document\n\nText.\n",
+    "table.md": "# Document\n\n- Properties:\n  | Field |\n  | ----- |\n  | Value |\n- Next.\n",
+    "width.md":
+      '# Width\n\nKeep this deliberately long authored paragraph unchanged rather than rewrapping it to the configured presentation target width of one hundred columns.\n\n```js\nconst providers = ["primary-provider-one", "secondary-provider-two", "manual-provider-three"];\n```\n',
+    "frontmatter.md": "---\nsubject: aigw:test\nrole: test\n---\n# Document\n\nText.\n",
   };
   const { format } = await import("../../../node_modules/prettier/index.mjs");
   const expected = {};
   for (const [name, content] of Object.entries(cases)) {
     expected[name] = await format(content, {
       filepath: name,
+      printWidth: 100,
       proseWrap: "preserve",
     });
     await fs.writeFile(path.join(root, name), content);
@@ -127,15 +122,11 @@ test("native formatting preserves Markdown containers and canonical admission", 
   assert.notEqual(refused.status, 0, refused.output);
   for (const [name, content] of Object.entries(cases))
     assert.equal(await fs.readFile(path.join(root, name), "utf8"), content);
-  const fixed = run(root, "format.mjs", files, JSON.stringify(files), 15_000, [
-    "--write",
-  ]);
+  const fixed = run(root, "format.mjs", files, JSON.stringify(files), 15_000, ["--write"]);
   assert.equal(fixed.status, 0, fixed.output);
   for (const [name, content] of Object.entries(expected))
     assert.equal(await fs.readFile(path.join(root, name), "utf8"), content);
-  const again = run(root, "format.mjs", files, JSON.stringify(files), 15_000, [
-    "--write",
-  ]);
+  const again = run(root, "format.mjs", files, JSON.stringify(files), 15_000, ["--write"]);
   assert.equal(again.status, 0, again.output);
   for (const module of ["format.mjs", "markdown/lint.mjs"]) {
     const checked = run(root, module, files);
@@ -159,11 +150,7 @@ test("non-Markdown formatting does not require Markdown policy", async (t) => {
 test("formatting requires declared inputs, policy and dependencies", async (t) => {
   for (const [name, files, diagnostic] of [
     ["empty inventory", [], "no authored files supported by Prettier"],
-    [
-      "unsupported source",
-      ["source.txt"],
-      "no authored files supported by Prettier",
-    ],
+    ["unsupported source", ["source.txt"], "no authored files supported by Prettier"],
     ["missing ignore", ["source.txt"], "ENOENT"],
     ["missing dependency", ["source.txt"], "ERR_MODULE_NOT_FOUND"],
   ]) {
@@ -182,10 +169,7 @@ test("formatting requires declared inputs, policy and dependencies", async (t) =
       const result = run(root, module, files);
       assert.notEqual(result.status, 0, result.output);
       assert.ok(result.output.includes(diagnostic), result.output);
-      assert.equal(
-        await fs.readFile(path.join(root, "source.txt"), "utf8"),
-        content,
-      );
+      assert.equal(await fs.readFile(path.join(root, "source.txt"), "utf8"), content);
     });
   }
 });
@@ -196,10 +180,7 @@ test("Markdown uses declared engine packages without the CLI or parent fallback"
   const document = path.join(root, "document.md");
   const content = "# Document\n\n## Details\n";
   await fs.mkdir(path.dirname(module), { recursive: true });
-  await fs.copyFile(
-    path.join(repository, "tools/ci/markdown/lint.mjs"),
-    module,
-  );
+  await fs.copyFile(path.join(repository, "tools/ci/markdown/lint.mjs"), module);
   await fs.writeFile(document, content);
   const dependencies = path.join(root, "node_modules");
   await fs.mkdir(dependencies);
@@ -235,20 +216,12 @@ test("Markdown enforces native document structure without inline suppression", a
       "<!-- markdownlint-disable MD001 -->\n# Document\n\n### Details\n",
       "MD001",
     ],
-    [
-      "sibling uniqueness",
-      "# Document\n\n## Details\n\nText.\n\n## Details\n",
-      "MD024",
-    ],
+    ["sibling uniqueness", "# Document\n\n## Details\n\nText.\n\n## Details\n", "MD024"],
     ["single title", "# First\n\nText.\n\n# Second\n", "MD025"],
     ["heading punctuation", "# Document\n\n## Details:\n", "MD026"],
     ["question heading", "# Document\n\n## Which backend should I use?\n", ""],
     ["semantic heading", "# Document\n\n**Details**\n\nText.\n", "MD036"],
-    [
-      "emphasized sentence",
-      "# Document\n\n**Keep the original configuration.**\n",
-      "",
-    ],
+    ["emphasized sentence", "# Document\n\n**Keep the original configuration.**\n", ""],
     [
       "OpenSpec labels",
       "## Goals / Non-Goals\n\n**Goals:**\n\n- Preserve ownership.\n\n**Non-Goals:**\n\n- Change client state.\n",
@@ -262,37 +235,21 @@ test("Markdown enforces native document structure without inline suppression", a
       "---\nsubject: aigw:test\nrole: test\n---\n# Document\n\nText.\n",
       "MD022",
     ],
-    [
-      "missing fence separator",
-      "# Document\n\nText.\n```sh\naigw status\n```\n",
-      "MD031",
-    ],
+    ["missing fence separator", "# Document\n\nText.\n```sh\naigw status\n```\n", "MD031"],
     ["missing list separator", "# Document\n\nText.\n- Item.\n", "MD032"],
     [
       "tight wrapped tasks",
       "# Tasks\n\n- [ ] First action\n      and its verification.\n- [ ] Second action.\n",
       "",
     ],
-    [
-      "isolated task separator",
-      "# Tasks\n\n- [ ] First.\n- [ ] Second.\n\n- [ ] Third.\n",
-      "",
-    ],
-    [
-      "loose single-paragraph list",
-      "# Document\n\n1. First.\n\n2. Second.\n",
-      "",
-    ],
+    ["isolated task separator", "# Tasks\n\n- [ ] First.\n- [ ] Second.\n\n- [ ] Third.\n", ""],
+    ["loose single-paragraph list", "# Document\n\n1. First.\n\n2. Second.\n", ""],
     [
       "nested single-paragraph list",
       "# Document\n\n- Parent.\n  - First.\n\n  - Second.\n- Next parent.\n",
       "",
     ],
-    [
-      "quoted single-paragraph list",
-      "# Document\n\n> - First.\n>\n> - Second.\n",
-      "",
-    ],
+    ["quoted single-paragraph list", "# Document\n\n> - First.\n>\n> - Second.\n", ""],
     [
       "multi-paragraph list",
       "# Document\n\n- First paragraph.\n\n  Second paragraph.\n\n- Next item.\n",
@@ -303,32 +260,16 @@ test("Markdown enforces native document structure without inline suppression", a
       "# Document\n\n- Command.\n\n  ```sh\n  aigw status\n\n\n  aigw check\n  ```\n\n- Next item.\n",
       "",
     ],
-    [
-      "list-looking code",
-      "# Document\n\n```markdown\n- First.\n\n- Second.\n```\n",
-      "",
-    ],
-    [
-      "independent lists",
-      "# Document\n\n- First.\n\nParagraph.\n\n- Second.\n",
-      "",
-    ],
+    ["list-looking code", "# Document\n\n```markdown\n- First.\n\n- Second.\n```\n", ""],
+    ["independent lists", "# Document\n\n- First.\n\nParagraph.\n\n- Second.\n", ""],
     [
       "structural rule cannot be disabled inline",
       "# Document\n\n<!-- markdownlint-disable MD040 -->\n```\naigw status\n```\n",
       "MD040",
     ],
-    [
-      "missing table separator",
-      "# Document\n\nText.\n| Field |\n| ----- |\n| Value |\n",
-      "",
-    ],
+    ["missing table separator", "# Document\n\nText.\n| Field |\n| ----- |\n| Value |\n", ""],
     ["separator style", "# Document\n\nText.\n\n***\n\nText.\n", "MD035"],
-    [
-      "table columns",
-      "# Document\n\n| First | Second |\n| ----- | ------ |\n| Value |\n",
-      "MD056",
-    ],
+    ["table columns", "# Document\n\n| First | Second |\n| ----- | ------ |\n| Value |\n", "MD056"],
     [
       "table alignment",
       "# Document\n\n| First | Second |\n| ----- | ------ |\n| Value  | Result |\n",
@@ -340,10 +281,7 @@ test("Markdown enforces native document structure without inline suppression", a
       await fs.writeFile(file, content);
       const result = run(root, "markdown/lint.mjs", [file]);
       assert.equal(result.status === 0, rule === "", result.output);
-      assert.ok(
-        result.output.includes(rule || "checked 1 Markdown files"),
-        result.output,
-      );
+      assert.ok(result.output.includes(rule || "checked 1 Markdown files"), result.output);
       assert.equal(await fs.readFile(file, "utf8"), content);
     });
   }
@@ -367,10 +305,7 @@ test("Markdown rejects warnings and missing native inputs", async (t) => {
       if (name === "missing dependency") {
         module = path.join(root, "tools/ci/markdown/lint.mjs");
         await fs.mkdir(path.dirname(module), { recursive: true });
-        await fs.copyFile(
-          path.join(repository, "tools/ci/markdown/lint.mjs"),
-          module,
-        );
+        await fs.copyFile(path.join(repository, "tools/ci/markdown/lint.mjs"), module);
       }
       const result = run(root, module, [file]);
       assert.notEqual(result.status, 0, result.output);
@@ -389,11 +324,7 @@ test("Mermaid validates requested diagrams without unrelated config overrides", 
   const diagrams = [
     ["flowchart", "flowchart LR\n  A[Source] --> B[Target]\n", true],
     ["sequence", "sequenceDiagram\n  A->>B: Failure, no writes\n", true],
-    [
-      "semicolon message",
-      "sequenceDiagram\n  A->>B: Failure; no writes\n",
-      false,
-    ],
+    ["semicolon message", "sequenceDiagram\n  A->>B: Failure; no writes\n", false],
     ["syntax", "flowchart LR\n  A[Unclosed\n", false],
   ];
   const files = [];
@@ -404,10 +335,7 @@ test("Mermaid validates requested diagrams without unrelated config overrides", 
   }
   const accepted = run(root, "markdown/diagrams.mjs", files.slice(0, 2));
   assert.equal(accepted.status, 0, accepted.output);
-  assert.ok(
-    accepted.output.includes("checked 2 diagrams in 2 files"),
-    accepted.output,
-  );
+  assert.ok(accepted.output.includes("checked 2 diagrams in 2 files"), accepted.output);
   // Batch invalid input loads the authoritative fallback parser only once.
   const rejected = run(
     root,
@@ -417,18 +345,11 @@ test("Mermaid validates requested diagrams without unrelated config overrides", 
     60_000,
   );
   assert.equal(rejected.status, 1, rejected.output);
-  assert.ok(
-    rejected.output.includes("checked 2 diagrams in 2 files"),
-    rejected.output,
-  );
+  assert.ok(rejected.output.includes("checked 2 diagrams in 2 files"), rejected.output);
   for (const [index, [name, diagram, valid]] of diagrams.entries()) {
     await t.test(name, async () => {
       const result = valid ? accepted : rejected;
-      assert.equal(
-        result.output.includes(`${files[index]}:`),
-        !valid,
-        result.output,
-      );
+      assert.equal(result.output.includes(`${files[index]}:`), !valid, result.output);
       assert.equal(
         await fs.readFile(files[index], "utf8"),
         `# Diagram\n\n\`\`\`mermaid\n${diagram}\`\`\`\n`,
@@ -447,11 +368,7 @@ test("native text checkers consume the complete pipe without changing source", a
   await fs.writeFile(file, content);
   const encoded = JSON.stringify([file]);
   const input = encoded.slice(0, 1) + " \n".repeat(1 << 19) + encoded.slice(1);
-  for (const module of [
-    "format.mjs",
-    "markdown/lint.mjs",
-    "markdown/diagrams.mjs",
-  ]) {
+  for (const module of ["format.mjs", "markdown/lint.mjs", "markdown/diagrams.mjs"]) {
     await t.test(module, async () => {
       const result = run(root, module, [file], input);
       assert.equal(result.status, 0, result.output);

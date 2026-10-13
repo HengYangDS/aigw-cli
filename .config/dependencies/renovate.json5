@@ -104,10 +104,7 @@
     {
       customType: "regex",
       description: "Pinned container images in their declared authorities",
-      managerFilePatterns: [
-        "/^\\.config/ci/pipeline\\.cue$/",
-        "/^\\.config/mise/config\\.toml$/",
-      ],
+      managerFilePatterns: ["/^\\.config/ci/pipeline\\.cue$/", "/^\\.config/mise/config\\.toml$/"],
       matchStrings: [
         '"(?<depName>(?:ghcr|docker)\\.io/[\\w./-]+)(?::(?<currentValue>[\\w.-]+))?@(?<currentDigest>sha256:[a-f0-9]{64})"',
       ],

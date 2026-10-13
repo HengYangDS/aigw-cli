@@ -403,8 +403,8 @@ shell helper, shell startup, source and copied-reader startup, direct invocation
 of that exact projected reader, and keyring `Read`/`Exists` through each variant's
 native source worker. Worker calls retain the product's restricted environment;
 these API timings include the native subprocess but exclude Hyperfine and the
-shell. Projection is environment-only; synchronization covers each selected
-backend. Both cases retain the full measurement's declared prepare and command
+shell. Projection and synchronization cover each selected backend.
+Both cases retain the full measurement's declared prepare and command
 argv, with five warmups and forty samples in each reversed-order block.
 They record both completed prepare and sample processes:
 exact PID, native exit, start/end, monotonic elapsed time, native CPU accounting

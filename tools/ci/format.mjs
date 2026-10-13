@@ -27,14 +27,13 @@ for (const path of files) {
   const original = readFileSync(path, "utf8");
   const formatted = await format(original, {
     filepath: path,
+    printWidth: 100,
     proseWrap: "preserve",
   });
   if (original !== formatted && write) {
     writeFileSync(path, formatted);
   } else if (original !== formatted) {
-    console.error(
-      `${relative(process.cwd(), path).split(sep).join("/")}: formatting differs`,
-    );
+    console.error(`${relative(process.cwd(), path).split(sep).join("/")}: formatting differs`);
     failed = true;
   }
 }

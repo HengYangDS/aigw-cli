@@ -94,6 +94,28 @@ func TestPooledPreservesBlocksAndDiagnostics(t *testing.T) {
 	}
 }
 
+func TestMeasurementRejectsWarningsAfterValidatingItsWorkload(t *testing.T) {
+	program, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := Identify(program)
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := []string{program, "status", "--json"}
+	row := Measurement{Variant: "candidate", Case: "status", Budget: Budget("status"), P95: 0.01,
+		Command: command, Executable: &identity, Samples: Samples{Command: Argv(command...)}}
+	selected := Program{SHA256: identity.SHA256, Bytes: identity.Bytes}
+	if err := row.review(selected); err != nil {
+		t.Fatalf("valid native workload did not reach diagnostic admission: %v", err)
+	}
+	row.Diagnostics = true
+	if err := row.review(selected); err == nil || err.Error() != "performance measurements are not qualified" {
+		t.Fatalf("native warning escaped final workload qualification: %v", err)
+	}
+}
+
 func TestPooledKeepsDirectAndForwardingBindingsSeparate(t *testing.T) {
 	var rows []Measurement
 	for _, mode := range []string{"direct", "forwarding"} {

@@ -4,9 +4,7 @@ import { accessSync } from "node:fs";
 
 // Bare package resolution must not substitute a parent checkout's installation.
 for (const name of ["markdownlint", "js-yaml"]) {
-  accessSync(
-    new URL(`../../../node_modules/${name}/package.json`, import.meta.url),
-  );
+  accessSync(new URL(`../../../node_modules/${name}/package.json`, import.meta.url));
 }
 const { default: helpers } = await import("markdownlint/helpers");
 const { lint, readConfig } = await import("markdownlint/promise");

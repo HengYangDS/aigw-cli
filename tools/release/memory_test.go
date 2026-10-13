@@ -232,30 +232,40 @@ func TestNativeAttributionSummaryRetainsItsNonqualifyingScope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := buildNativeProgram(t, root, "0.0.0")
+	server := newNativeJourneyServer(t)
+	journey := nativePerformanceJourney(t, source, source, "env", server.URL+"/v1")
+	program, err := os.Executable()
+	if err != nil || os.WriteFile(journey.binary, readFile(t, program), 0o700) != nil {
+		t.Fatal("prepare measured diagnostic fixture")
+	}
+	journey.setEnvironment("AIGW_TEST_PERFORMANCE_SOURCE", source)
+	t.Setenv("AIGW_PERFORMANCE_ATTRIBUTION", "0")
 	var rows []performance.Measurement
-	for block := range 2 {
-		times := make([]float64, 40)
-		for index := range times {
-			times[index] = 0.2
-		}
-		rows = append(rows, performance.Measurement{Variant: "candidate", Backend: "env", Case: "credential",
-			Block: block + 1, Budget: 0.1, P95: 0.2, Raw: fmt.Sprintf("credential-%d.json", block+1), Diagnostics: true,
-			Samples: performance.Samples{Command: "observed helper", Times: times, ExitCodes: make([]int, 40)}})
-	}
 	output := t.TempDir()
-	writeNativePerformanceSummary(t, output, tool, performance.Summary{Blocks: rows, Backends: []string{"env"}}, true)
-	var summary struct {
-		Qualification bool                      `json:"qualification"`
-		Scope         string                    `json:"scope"`
-		Blocks        []performance.Measurement `json:"blocks"`
-		Pooled        []performance.Measurement `json:"pooled"`
+	for block := range 2 {
+		observed, err := journey.measurePerformance(tool, output, "candidate", "env", block+1)
+		if err != nil || t.Failed() || len(observed) != 8 || !observed[1].Diagnostics || observed[7].Case != "export" {
+			t.Fatalf("a measured warning stopped independent workloads or lost its verdict: rows=%d error=%v", len(observed), err)
+		}
+		rows = append(rows, observed...)
 	}
+	writeNativePerformanceSummary(t, output, tool, performance.Summary{Blocks: rows, Backends: []string{"env"}}, true)
+	var summary performance.Summary
 	if err := json.Unmarshal(readFile(t, filepath.Join(output, "summary.json")), &summary); err != nil {
 		t.Fatal(err)
 	}
-	if summary.Qualification || summary.Scope != "component-attribution" || len(summary.Blocks) != 2 || len(summary.Pooled) != 1 ||
-		!summary.Pooled[0].Diagnostics || summary.Pooled[0].Budget != 0.1 || summary.Pooled[0].P95 != 0.2 || summary.Blocks[0].Raw != rows[0].Raw {
+	projection := slices.IndexFunc(summary.Pooled, func(row performance.Measurement) bool { return row.Case == "projection" })
+	if summary.Qualification || summary.Scope != "component-attribution" || len(summary.Blocks) != 16 || len(summary.Pooled) != 8 ||
+		projection < 0 || !summary.Pooled[projection].Diagnostics || summary.Pooled[projection].Budget != 0.25 || summary.Blocks[1].Raw != rows[1].Raw {
 		t.Fatalf("diagnosis claimed qualification or discarded its evidence: %#v", summary)
+	}
+	if _, err := performance.ReadSummary(output, "full-performance"); err == nil {
+		t.Fatal("component attribution was admitted as complete performance qualification")
 	}
 }
 

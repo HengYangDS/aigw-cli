@@ -77,10 +77,7 @@ test("the public Build Request pins one declared Provider and no extra inputs", 
   });
   assert.equal(selection.schema, "aigw.architecture-publisher-selection/v2");
   assert.equal(selection.publisher.name, "architecture-publisher");
-  assert.equal(
-    selection.publisher.release.tag,
-    `v${selection.publisher.version}`,
-  );
+  assert.equal(selection.publisher.release.tag, `v${selection.publisher.version}`);
   for (const digest of [
     selection.publisher.archiveSha256,
     selection.publisher.release.manifestSha256,
@@ -101,18 +98,11 @@ test("authored claims and their live provenance retain one source owner", async 
     assert.equal(paths.has(relative), false, id);
     paths.add(relative);
     git("ls-files", "--error-unmatch", "--", relative);
-    assert.equal(
-      sha256(await fs.readFile(path.join(repositoryRoot, relative))),
-      source.sha256,
-      id,
-    );
+    assert.equal(sha256(await fs.readFile(path.join(repositoryRoot, relative))), source.sha256, id);
   }
   const { rollback } = await json("selection.json");
   const baseline = JSON.parse(
-    git(
-      "show",
-      `${rollback.commit}:architecture/edition-provider/edition.json`,
-    ),
+    git("show", `${rollback.commit}:architecture/edition-provider/edition.json`),
   );
   const edition = await json("edition.json");
   assert.equal(edition.schema, "architecture.edition-project/v1");
@@ -130,9 +120,7 @@ test("authored claims and their live provenance retain one source owner", async 
   for (const claim of baseline.requiredClaims)
     for (const kind of ["claim", "relation"])
       assert.equal(
-        edition.scope.selections.some(
-          ({ reference }) => reference === `${kind}:${claim}`,
-        ),
+        edition.scope.selections.some(({ reference }) => reference === `${kind}:${claim}`),
         true,
         `${kind}:${claim}`,
       );
@@ -142,9 +130,7 @@ test("the complete predecessor is recoverable without retained mutable copies", 
   const { rollback } = await json("selection.json");
   git("merge-base", "--is-ancestor", rollback.commit, "HEAD");
   assert.equal(
-    git("rev-parse", `${rollback.commit}:architecture/edition-provider`)
-      .toString()
-      .trim(),
+    git("rev-parse", `${rollback.commit}:architecture/edition-provider`).toString().trim(),
     rollback.tree,
   );
   const predecessorModel = JSON.parse(

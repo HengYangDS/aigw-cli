@@ -346,9 +346,6 @@ func (j *journeyFixture) measureSelectedPerformance(hyperfine, output, variant, 
 		if err != nil {
 			return measurements, err
 		}
-		if row.Diagnostics && !attribution {
-			j.testing.Errorf("Hyperfine %s: native diagnostics prevent qualification; raw samples and redacted streams retained", name)
-		}
 	}
 	if attribution && backend == "keyring" {
 		rows, err := j.measureNativeCredentialOperations(output, variant, backend, block)
