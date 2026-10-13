@@ -27,6 +27,10 @@ unchanged. Recovery is an exact Git restoration, not a compatibility shim.
 
 ## Acceptance and Closeout
 
-Product checks do not invoke or require Publisher. External public builds
-preserve source Git state. Local verification and native source-owner landing
-are separate; a work-Lane deletion does not prove accepted-root convergence.
+Product checks do not invoke or require Publisher. Source-byte preservation,
+unchanged source Git state during external execution and accepted delivery
+retention qualify removal independently of artwork generation. Successful
+public-build qualification belongs to the external publication Change; a failed
+render does not become an AIGW prerequisite. Local verification and native
+source-owner landing are separate; a work-Lane deletion does not prove
+accepted-root convergence.
