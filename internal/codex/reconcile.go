@@ -47,9 +47,9 @@ type ReconciliationReceipt struct {
 
 // CopyProjection copies one complete AIGW-owned Codex projection to a private
 // target, rebasing only the owned catalog reference that is tied to its path.
-// The copy keeps AIGW's selections, provider block and scheduler policy and
-// leaves out the operator's MCP servers, plugins, hooks and other settings, so
-// a verification home never starts extensions it cannot authorize.
+// The copy keeps the operator's settings and leaves out its MCP servers,
+// plugins, hooks, memories and notifications, so a verification home never
+// starts extensions it cannot authorize.
 func CopyProjection(source, target string) error {
 	suffixes := [...]string{"", ".aigw-state.json", ".aigw-model-catalog.json"}
 	var snapshots [len(suffixes)]transaction.FileSnapshot
@@ -60,11 +60,14 @@ func CopyProjection(source, target string) error {
 		}
 		snapshots[index] = snapshot
 	}
-	var err error
-	snapshots[0], err = codexProjectionOnly(snapshots[0], snapshots[1])
-	if err != nil {
-		return err
+	if snapshots[0].Exists {
+		settings, err := withoutCodexExtensions(string(snapshots[0].Data))
+		if err != nil {
+			return err
+		}
+		snapshots[0].Data = []byte(settings)
 	}
+	var err error
 	snapshots[0], err = rebaseCopiedCodexCatalog(source, target, snapshots[0], snapshots[1])
 	if err != nil {
 		return err
@@ -79,41 +82,6 @@ func CopyProjection(source, target string) error {
 		}
 	}
 	return nil
-}
-
-// codexProjectionOnly reduces a configuration to what its sidecar attributes to
-// AIGW. A configuration without that sidecar holds no AIGW projection.
-func codexProjectionOnly(config, attribution transaction.FileSnapshot) (transaction.FileSnapshot, error) {
-	if !config.Exists || !attribution.Exists {
-		config.Data = nil
-		return config, nil
-	}
-	state, err := codexStateForTarget(attribution)
-	if err != nil {
-		return config, err
-	}
-	text := string(config.Data)
-	block, err := codexManagedBlockForProviderIn(text, codexStateProvider(state))
-	if err != nil {
-		return config, err
-	}
-	var projection strings.Builder
-	for _, key := range []string{"model_provider", "model", "model_catalog_json"} {
-		line, err := codexSelectionLine(text, key)
-		if err != nil {
-			return config, err
-		}
-		if line != "" {
-			projection.WriteString(line + "\n")
-		}
-	}
-	projection.WriteString("\n" + block)
-	reduced, err := copyCodexScheduler(text, projection.String())
-	if err != nil {
-		return config, err
-	}
-	config.Data = []byte(reduced)
-	return config, nil
 }
 
 // Rollback restores the exact preimages captured by this reconciliation while

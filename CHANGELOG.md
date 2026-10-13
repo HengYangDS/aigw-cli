@@ -163,10 +163,10 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 - Keep a team recommendation's protocol, model provider and client-native
   authentication with its own Account: selecting another Account's Route for an
   unbound client no longer inherits them and skips its Token.
-- Run `aigw verify --for codex` without the operator's MCP servers, plugins and
-  hooks. Its private Codex home now holds only AIGW's provider, model, catalog
-  and scheduler projection, so a stopped local MCP server or an unauthorized
-  connector no longer fails verification.
+- Run `aigw verify --for codex` without the operator's MCP servers, plugins,
+  hooks, memories and notifications. Its private Codex home keeps every other
+  setting, such as reasoning effort, so a stopped local MCP server or an
+  unauthorized connector no longer fails verification.
 - Classify Hermes version-probe timeout, interruption, and execution failure
   without exposing raw vendor output or private paths.
 - Stop after one bounded endpoint diagnostic when a provider rejects the

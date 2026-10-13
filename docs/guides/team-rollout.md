@@ -202,12 +202,12 @@ provider's maximum context capacity or prove that compaction has executed.
 
 Check `codex --version`, `claude --version`, or `hermes --version` for the
 installed CLI, then run `aigw verify --for <client>` for each enabled client
-before rollout. Verification runs Codex in a private home that holds only
-AIGW's projection, so your MCP servers, plugins and hooks neither start nor
-decide the result. Claude Desktop needs separate application-version and native
-verification evidence. A provider may require a newer client even when an API
-request works. Update through the existing installation owner rather than
-adding a second executable. Claude Code's
+before rollout. Verification runs Codex in a private home with your settings
+but without your MCP servers, plugins, hooks, memories and notifications, so
+those extensions neither start nor decide the result. Claude Desktop needs
+separate application-version and native verification evidence. A provider may
+require a newer client even when an API request works. Update through the
+existing installation owner rather than adding a second executable. Claude Code's
 [`stable` and `latest` channels](https://code.claude.com/docs/en/setup#update-claude-code)
 are distinct; choose deliberately when compatibility requires a channel change.
 A passing request for one model does not qualify another Route; verify the

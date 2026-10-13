@@ -114,7 +114,7 @@
       "authority": "AIGW guarded filesystem mutation boundary"
     },
     "codex": {
-      "sha256": "353e084b8d3614976292c7aa08380d0675a20009397c67f43fd70630afef4849",
+      "sha256": "8d522aeb2f0a905bd0ed416073ce16c60b6c43f8bad53d94f096a7c8c346a7dd",
       "locator": "source/internal/codex/reconcile.go",
       "authority": "AIGW native Codex projection"
     },

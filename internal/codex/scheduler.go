@@ -117,29 +117,6 @@ func projectCodexScheduler(text string) (string, error) {
 	return result, validateCodexTOML(result)
 }
 
-// copyCodexScheduler carries the projected scheduler keys from one
-// configuration text into another at their exact values, so a copied projection
-// keeps the scheduler identity that its sidecar records.
-func copyCodexScheduler(source, target string) (string, error) {
-	result := target
-	for _, table := range slices.Sorted(maps.Keys(codexSchedulerKeys)) {
-		for _, key := range slices.Sorted(maps.Keys(codexSchedulerKeys[table])) {
-			value, present, err := codexIntegerKey(source, table, key)
-			if err != nil {
-				return "", err
-			}
-			if !present {
-				continue
-			}
-			result, err = setCodexTableAssignment(result, table, key, fmt.Sprintf("%s = %d # managed by AIGW", key, value))
-			if err != nil {
-				return "", err
-			}
-		}
-	}
-	return result, validateCodexTOML(result)
-}
-
 func restoreCodexScheduler(text string, original map[string]*int) (string, error) {
 	result := text
 	for _, target := range codexSchedulerTargets() {
