@@ -247,6 +247,9 @@ the scan dropped the Go standard library; release construction now requires
 each program in the SBOM to carry exactly one package of the main module that
 `go.mod` declares, named by that module path and package URL, and exactly one
 standard library at the scanned version as a dependency of that package.
+The first GitHub tag run, for `v0.4.0`, then exposed that `validate-version-tag`
+read only GitLab's tag variable and that candidate-mode tests inherited the
+runner's tag; both are fixed and qualify on the `v0.4.1` tag run.
 Exact-SHA review, push and tag CI and the installed Homebrew upgrade, rollback
 and forward qualify the final source; `b3663e89`'s receipts do not cover these
 paths.
@@ -506,9 +509,10 @@ status, because each command hashes the roughly 13 MB program and its versioned
 reader three or four times to verify reader integrity.
 
 On 2026-10-14 the operator accepted this measured trade-off for 0.4.0 instead of
-a repair or a measurement-policy change. The acceptance covers these
-measurements only, not a quiet host, notarized bytes or an optimization claim;
-the installed release is measured under the Migration Plan.
+a repair or a measurement-policy change; 0.4.1 ships the same product code. The
+acceptance covers these measurements only, not a quiet host, notarized bytes or
+an optimization claim; the installed release is measured under the Migration
+Plan.
 `single-pass-reader-verification` owns verifying each executable once per
 command.
 
@@ -624,8 +628,10 @@ signing cannot prove operator-Token authorization.
 3. Archive through governed official OpenSpec, re-prove that SHA, promote the
    exact object to `main`, pass selected-peer main checks and create the signed
    release tag. Tag checks and assets precede installed-product claims. On
-   2026-10-14 the operator released 0.4.0 while task 4.5.2 remained open, so
-   the tag binds the unarchived source and the archive follows that task.
+   2026-10-14 the operator released 0.4.1 while task 4.5.2 remained open, so
+   the tag binds the unarchived source and the archive follows that task. The
+   earlier `v0.4.0` tag failed its GitHub release checks; it stays immutable and
+   has no release assets.
 4. Qualify production bytes and native package-manager upgrade, rollback and
    forward; then retire superseded tags, outputs and the completed lane through
    their owners. Final retirement cannot be its own release prerequisite.

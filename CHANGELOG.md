@@ -14,9 +14,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
-## 0.4.0 - 2026-10-14
+## 0.4.1 - 2026-10-14
 
-History: [GitHub][0.4.0-github]
+History: [GitHub][0.4.1-github]
+
+The first published 0.4 release. The `v0.4.0` tag failed its GitHub release
+checks and has no release assets; its changes ship here.
 
 ### Security
 
@@ -67,7 +70,7 @@ History: [GitHub][0.4.0-github]
   and copied-reader authorization live.
 - Prefer DMXAPI, then UCloud, for unselected team Clients; preserve explicit
   bindings and local endpoint overrides.
-- Prepare the next pre-1.0 minor edition as 0.4.0. Route list/show JSON replaces
+- Prepare the next pre-1.0 minor edition as 0.4.1. Route list/show JSON replaces
   `compatible_clients` with `protocol_clients`: protocol overlap permits selection,
   not native qualification. Update JSON consumers to the new field; configuration
   and recovery checkpoint formats are unchanged.
@@ -1377,8 +1380,8 @@ History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 - Require every tag pipeline to verify that its exact annotated release tag carries an SSH signature trusted by the repository-owned signer anchor before packaging, publication, or GitLab Release creation. An unsigned or untrusted tag now fails closed.
 
 [Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.3...main
-[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.0...main
-[0.4.0-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.5...v0.4.0
+[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.1...main
+[0.4.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.5...v0.4.1
 [0.3.5-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.4...v0.3.5
 [0.3.4-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.3...v0.3.4
 [0.3.3-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.1...v0.3.3
