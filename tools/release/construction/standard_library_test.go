@@ -38,37 +38,9 @@ func TestDependencyPolicyScansTheGoStandardLibrary(t *testing.T) {
 }
 
 func TestReleaseSBOMCarriesTheScannedStandardLibrary(t *testing.T) {
-	for _, failure := range []string{"unscanned", "other version", "unnamed program", "one program", "foreign module", "self dependency"} {
+	for _, failure := range []string{"unscanned", "other version", "unnamed program", "one program", "foreign module", "self dependency", "foreign version"} {
 		t.Run(failure, func(t *testing.T) {
-			root := releaseRoot(t)
-			for name, content := range map[string]string{
-				"go.mod": "module aigw-cli\n", "go.sum": "fixture", "package-lock.json": "fixture",
-				".config/mise/mise.lock": "fixture", "LICENSE": "fixture", "README.md": "fixture",
-				".config/mise/config.toml": "[tools]\ngo = \"1.27.1\"\nosv-scanner = \"2.5.1\"\n",
-			} {
-				if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
-					t.Fatal(err)
-				}
-			}
-			output := filepath.Join(root, "dist")
-			var calls []toolCall
-			fault := ""
-			runner := releaseFixtureRunner(t, root, &calls, &fault)
-			err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}, func(call toolCall) error {
-				if err := runner(call); err != nil {
-					return err
-				}
-				switch {
-				case call.Name == "osv-scanner" && failure == "unscanned":
-					report := dependencyReportFixture(root)
-					report.Results[0].Packages = slices.DeleteFunc(report.Results[0].Packages, func(item osvFixturePackage) bool { return item.Package.Name == "stdlib" })
-					return writeJSON(call.Args[slices.Index(call.Args, "--output-file")+1], report)
-				case call.Name == "syft" && failure != "unscanned":
-					return rewriteStandardLibraries(strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json="), failure)
-				}
-				return nil
-			})
-			signed := slices.ContainsFunc(calls, func(call toolCall) bool { return call.Name == "ssh-keygen" })
+			output, signed, err := buildStandardLibraryRelease(t, failure)
 			if err == nil || !strings.Contains(err.Error(), "standard library") || signed {
 				t.Fatalf("release evidence was accepted without the scanned standard library: error=%v signed=%t", err, signed)
 			}
@@ -77,6 +49,53 @@ func TestReleaseSBOMCarriesTheScannedStandardLibrary(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Go stamps a main module built from version control with a version, which
+// Syft records in both the package version and its package URL.
+func TestReleaseSBOMAcceptsAVersionedMainModule(t *testing.T) {
+	output, signed, err := buildStandardLibraryRelease(t, "versioned module")
+	if err != nil || !signed {
+		t.Fatalf("release refused a versioned main module: error=%v signed=%t", err, signed)
+	}
+	if _, err := os.Stat(output); err != nil {
+		t.Fatalf("accepted release wrote no output: %v", err)
+	}
+}
+
+// buildStandardLibraryRelease builds a fixture release whose dependency scan or
+// SBOM carries the named change and reports whether signing started.
+func buildStandardLibraryRelease(t *testing.T, change string) (string, bool, error) {
+	t.Helper()
+	root := releaseRoot(t)
+	for name, content := range map[string]string{
+		"go.mod": "module aigw-cli\n", "go.sum": "fixture", "package-lock.json": "fixture",
+		".config/mise/mise.lock": "fixture", "LICENSE": "fixture", "README.md": "fixture",
+		".config/mise/config.toml": "[tools]\ngo = \"1.27.1\"\nosv-scanner = \"2.5.1\"\n",
+	} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	output := filepath.Join(root, "dist")
+	var calls []toolCall
+	fault := ""
+	runner := releaseFixtureRunner(t, root, &calls, &fault)
+	err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}, func(call toolCall) error {
+		if err := runner(call); err != nil {
+			return err
+		}
+		switch {
+		case call.Name == "osv-scanner" && change == "unscanned":
+			report := dependencyReportFixture(root)
+			report.Results[0].Packages = slices.DeleteFunc(report.Results[0].Packages, func(item osvFixturePackage) bool { return item.Package.Name == "stdlib" })
+			return writeJSON(call.Args[slices.Index(call.Args, "--output-file")+1], report)
+		case call.Name == "syft" && change != "unscanned":
+			return rewriteStandardLibraries(strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json="), change)
+		}
+		return nil
+	})
+	return output, slices.ContainsFunc(calls, func(call toolCall) bool { return call.Name == "ssh-keygen" }), err
 }
 
 func rewriteStandardLibraries(path, failure string) error {
@@ -88,11 +107,22 @@ func rewriteStandardLibraries(path, failure string) error {
 	relationships, _ := document["relationships"].([]any)
 	libraries := map[any]bool{}
 	for _, item := range packages {
-		if object, ok := item.(map[string]any); ok && object["name"] == "stdlib" {
+		object, _ := item.(map[string]any)
+		switch {
+		case object["name"] == "stdlib":
 			libraries[object["SPDXID"]] = true
 			if failure == "other version" {
 				object["versionInfo"] = "go1.0.0"
 			}
+		case object["name"] == "aigw-cli" && (failure == "versioned module" || failure == "foreign version"):
+			// A dirty checkout appends +dirty, which a package URL percent-encodes;
+			// "foreign version" names another version in the package URL.
+			object["versionInfo"] = "v0.0.0-20261014024910-ab2167db2f0d+dirty"
+			locator := "pkg:golang/aigw-cli@v0.0.0-20261014024910-ab2167db2f0d%2Bdirty"
+			if failure == "foreign version" {
+				locator = "pkg:golang/aigw-cli@v9.9.9"
+			}
+			object["externalRefs"] = []any{map[string]any{"referenceCategory": "PACKAGE-MANAGER", "referenceType": "purl", "referenceLocator": locator}}
 		}
 	}
 	if failure == "unnamed program" {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -38,9 +39,22 @@ type spdxReference struct {
 	Locator string `json:"referenceLocator"`
 }
 
-// isModule reports whether the package names the Go module and its package URL.
+// isModule reports whether the package is the Go module: its name and package
+// URL name the module, and a versioned package URL names the package's own
+// version, as Go stamps a main module built from version control.
 func (item spdxPackage) isModule(module string) bool {
-	return item.Name == module && slices.Contains(item.ExternalRefs, spdxReference{Type: "purl", Locator: "pkg:golang/" + module})
+	identity := "pkg:golang/" + module
+	return item.Name == module && slices.ContainsFunc(item.ExternalRefs, func(reference spdxReference) bool {
+		if reference.Type != "purl" {
+			return false
+		}
+		version, versioned := strings.CutPrefix(reference.Locator, identity+"@")
+		if !versioned {
+			return reference.Locator == identity
+		}
+		decoded, err := url.PathUnescape(version)
+		return err == nil && decoded == item.Version
+	})
 }
 
 // mainModulePath reads the module that go.mod declares for the release programs.
