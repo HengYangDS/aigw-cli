@@ -259,6 +259,8 @@ NOT migrate.
   earlier release
 - **AND** if a conversion fails, AIGW SHALL return the converted items and report
   that the installed program is unchanged
+- **AND** if the configuration that names those Accounts cannot be read or
+  decoded, AIGW SHALL change no item and SHALL NOT report the credentials ready
 - **AND** if the operator keeps the release, its next Token use SHALL migrate the
   items again
 - **AND** without that preparation AIGW SHALL NOT claim credential continuity,

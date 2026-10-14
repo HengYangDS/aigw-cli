@@ -272,8 +272,9 @@ Token, so a predecessor that is still installed keeps reading it.
 after admitting the rollback and before activating that program. Before a
 Homebrew downgrade, run `aigw update --rollback` on the Homebrew installation:
 it returns the Tokens without touching Homebrew's files, and the next Token use
-by a kept release takes them back. Without that step, the older program asks
-macOS to allow access to each Token.
+by a kept release takes them back. If it cannot read the configuration, it
+moves no Token and reports that the credentials are not ready. Without that
+step, the older program asks macOS to allow access to each Token.
 
 The first Homebrew upgrade from 0.3.5 or earlier is a managed cutover, not a bare
 `brew upgrade aigw`: existing sessions may still call Homebrew's public

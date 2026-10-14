@@ -17,8 +17,18 @@ import (
 // prepareHomebrewRollback returns macOS Keychain items to the reader of an
 // earlier release before Homebrew installs it; Homebrew keeps its program files.
 // If the operator keeps this release, its next Token use takes the items back.
+// Without a readable configuration it cannot name those items, so it stops
+// before any native request.
 func prepareHomebrewRollback(runtime invocation.Context) error {
-	custody := invocation.CredentialCustody(runtime)
+	custody, err := invocation.CredentialCustody(runtime)
+	if err != nil {
+		return invocation.Problem(runtime,
+			"Credentials are not ready for a Homebrew rollback",
+			"AIGW could not read the configuration that names its credentials.",
+			"No credential or program changed.",
+			"Run `aigw doctor` to inspect or restore the configuration, then retry `aigw update --rollback` before Homebrew installs the earlier release.",
+			err)
+	}
 	if err := custody.Release(""); err != nil {
 		return invocation.Problem(runtime,
 			"Credentials are not ready for a Homebrew rollback",
@@ -78,7 +88,10 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
 					return fmt.Errorf("read configuration before program rollback: %w", readErr)
 				}
-				result, err = runtime.Updater.Rollback(ctx.Context(), config, invocation.CredentialCustody(runtime))
+				// A configuration this program cannot load names no credential;
+				// the retained program's own compatibility check then decides.
+				custody, _ := invocation.CredentialCustody(runtime)
+				result, err = runtime.Updater.Rollback(ctx.Context(), config, custody)
 			} else if candidateArchive != "" {
 				result, err = runtime.Updater.UpdateCandidate(ctx.Context(), runtime.Version, upgrade.CandidateArchive{
 					ArchivePath:   candidateArchive,

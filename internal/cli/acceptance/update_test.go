@@ -237,10 +237,25 @@ func TestUpdateRollbackPreparesAHomebrewDowngrade(t *testing.T) {
 	for _, test := range []struct {
 		name string
 		code string
-		want string
+		// damage replaces the configuration that names the credentials.
+		damage func(t *testing.T, path string)
+		want   string
 	}{
 		{name: "prepared", code: "0", want: "__aigw-native-credential-restore team\n__aigw-native-credential-restore diagnostic@team\n"},
 		{name: "refused", code: "3", want: "__aigw-native-credential-restore team\n__aigw-native-credential-reclaim team\n"},
+		{name: "malformed authority", code: "0", damage: func(t *testing.T, path string) {
+			if err := os.WriteFile(path, []byte("version = 6\n[accounts\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "unreadable authority", code: "0", damage: func(t *testing.T, path string) {
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Mkdir(path, 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if test.code != "0" && runtime.GOOS != "darwin" {
@@ -257,20 +272,43 @@ func TestUpdateRollbackPreparesAHomebrewDowngrade(t *testing.T) {
 				t.Fatal(err)
 			}
 			record := keychainRecorder(t, app, test.code)
+			if test.damage != nil {
+				test.damage(t, app.Config.Path())
+			}
+			before, beforeErr := os.ReadFile(app.Config.Path())
 			updater := &fakeUpdater{}
 			app.Updater = updater
 			err := cli.Execute(app, []string{"update", "--rollback"})
-			if test.code == "0" && (err != nil || !strings.Contains(out.String(), "Install the earlier release with Homebrew")) {
-				t.Fatalf("Homebrew rollback = %v\n%s", err, out.String())
-			}
-			if test.code != "0" && (err == nil || !strings.Contains(out.String(), "can still read every credential")) {
-				t.Fatalf("refused Homebrew rollback = %v\n%s", err, out.String())
+			switch {
+			case test.damage != nil:
+				requireAuthorityRefusal(t, err, out.String(), app.Config.Path(), before, beforeErr)
+			case test.code == "0":
+				if err != nil || !strings.Contains(out.String(), "Install the earlier release with Homebrew") {
+					t.Fatalf("Homebrew rollback = %v\n%s", err, out.String())
+				}
+			default:
+				if err == nil || !strings.Contains(out.String(), "can still read every credential") {
+					t.Fatalf("refused Homebrew rollback = %v\n%s", err, out.String())
+				}
 			}
 			if updater.rollbackCalls != 0 {
 				t.Fatal("Homebrew rollback replaced a Homebrew-owned program")
 			}
 			requireCustodyRequests(t, record, test.want)
 		})
+	}
+}
+
+// requireAuthorityRefusal checks a Homebrew rollback that could not read the
+// configuration naming its credentials: it fails without reporting readiness
+// and leaves the configuration as it was.
+func requireAuthorityRefusal(t *testing.T, err error, output, path string, before []byte, beforeErr error) {
+	t.Helper()
+	if err == nil || strings.Contains(output, "Credentials are ready") || !strings.Contains(output, "could not read the configuration") {
+		t.Fatalf("Homebrew rollback without a readable configuration = %v\n%s", err, output)
+	}
+	if after, afterErr := os.ReadFile(path); string(after) != string(before) || (afterErr == nil) != (beforeErr == nil) {
+		t.Fatalf("refused Homebrew rollback changed the configuration: %q, %v", after, afterErr)
 	}
 }
 

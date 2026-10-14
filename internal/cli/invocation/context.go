@@ -162,15 +162,17 @@ func Synchronizer(runtime Context) synchronization.Synchronizer {
 }
 
 // CredentialCustody moves the configured Accounts' native items between the
-// active program and a program that a rollback activates. A configuration this
-// program cannot load names no credential; the retained program's own
-// compatibility check then decides.
-func CredentialCustody(runtime Context) upgrade.CredentialCustody {
+// active program and a program that a rollback activates. When this program
+// cannot load the routing and credential authority, the custody names no
+// credential and the error says why; a missing configuration names none
+// without an error.
+func CredentialCustody(runtime Context) (upgrade.CredentialCustody, error) {
 	custody := credentialCustody{store: runtime.Secrets, executable: runtime.Executable}
-	if cfg, err := runtime.Config.LoadCredentialConfig(); err == nil {
+	cfg, err := runtime.Config.LoadCredentialConfig()
+	if err == nil {
 		custody.accounts = slices.Sorted(maps.Keys(cfg.Accounts))
 	}
-	return custody
+	return custody, err
 }
 
 type credentialCustody struct {

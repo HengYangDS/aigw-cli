@@ -159,7 +159,7 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   `aigw update --rollback` returns the Tokens to the retained program's reader
   only after admitting the rollback, and takes them back if activation fails;
   on a Homebrew installation it returns them before Homebrew installs the
-  earlier release.
+  earlier release, and moves none when it cannot read the configuration.
 - Keep a team recommendation's protocol, model provider and client-native
   authentication with its own Account: selecting another Account's Route for an
   unbound client no longer inherits them and skips its Token.

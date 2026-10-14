@@ -43,7 +43,7 @@
 - [x] 5.1 Reconstruct a fresh current-HEAD lane's locked Go/Node/npm/tool environment; prove empty-cache bootstrap, independent mutable state, ambient-fallback rejection and exact cleanup.
 - [x] 5.2 Qualify Linux container/native setup, selection, projection, update, rollback, uninstall and cleanup with exact release bytes and retained predecessor state.
 - [x] 5.3 Qualify Windows native lifecycle, ACLs, executable replacement, quoted paths, noninteractive ENV and installed Codex/Claude; identify each unproved client mode.
-- [x] 5.4 Qualify isolated macOS Keychain and ENV lifecycle plus signed retained-item authorization under the approved `macos-keychain-item-migration`; preserve prompt-free original-caller continuity. The installed package-manager upgrade, rollback and forward follow under the [Migration Plan](design.md#migration-plan).
+- [x] 5.4 Qualify isolated macOS Keychain and ENV lifecycle plus signed retained-item authorization under the approved `macos-keychain-item-migration`; preserve prompt-free original-caller continuity, and refuse Homebrew rollback preparation before any item changes when the configuration cannot be read. The installed package-manager upgrade, rollback and forward follow under the [Migration Plan](design.md#migration-plan).
 - [x] 5.5 Qualify missing-client setup and late Codex/Claude installation on each OS; sync only admitted installed clients and preserve user files.
 - [x] 5.6 Prove exact owned-resource cleanup after success, failure, timeout and interruption; preserve installations, client state, rollback and evidence.
 
