@@ -323,6 +323,7 @@ signed input contract offline. `--input-release native-inputs-<carrier SHA>`
 with `--peer github` downloads `public-inputs-<input-sha256>.tar` from an
 existing GitHub transport release. These three input carriers are mutually exclusive; all require the
 original checksum, signed candidate source and published predecessor identity.
+
 The existing native owner verifies the signed annotated transport tag, its named
 carrier commit and archive checksum before extraction. The carrier is only a
 byte locator; its history neither admits nor rejects a later candidate. Complete
@@ -341,6 +342,7 @@ checked by its native input consumer. Retire the transport Release and
 exact tag only after its native input jobs finish, their evidence is retained,
 and any independent [tool-source consumer](../governance/change-and-release-policy.md#dependency-maintenance)
 has released that carrier.
+
 For published remote inputs, `--tag`, `--baseline-tag`, `--peer` and
 `--repository` select that peer's native CLI with a bounded no-prompt download;
 neither Forge is a transport fallback for the other. See
@@ -355,6 +357,7 @@ source diagnostic regressions and explicitly selected artifact measurements.
 Selected measurements first qualify native preparation, exact arguments,
 diagnostic streams and schema 2 through the existing focused fixture. A failed
 preflight stops the operation before the full performance samples.
+
 The existing Summary records `selected_backends` from the execution input, not
 from successful samples: ENV is always selected, file is selected on Linux, and
 system keyring requires `AIGW_VERIFY_SYSTEM_KEYRING=1`. Each selected backend must
@@ -363,11 +366,13 @@ through the common measurement contract. Missing selection, a missing workload o
 an entirely missing selected backend refuses qualification; unselected optional
 backends remain optional. Historical partial-backend receipts remain evidence for
 their measured workloads, not complete native performance.
+
 An explicit performance output selects only the matching measurements after
 normal artifact, source and predecessor trust checks; it does not repeat core,
 rollback or resource lifecycle acceptance. `--clients` additionally runs the
 requested native-client journey. Neither selection replaces required lifecycle
 evidence for release admission.
+
 The same measurement owner records first setup and converged sync separately
 from route changes. Setup preparation removes only fixture-owned configuration
 and projection files before each timed command; it preserves the installed program
@@ -380,15 +385,20 @@ The GitHub Verify workflow accepts `performance=true` together with
 `AIGW_NATIVE_PERFORMANCE=true` in a web or API pipeline with `AIGW_BASELINE_TAG`
 and either `AIGW_CANDIDATE_TAG` or the signed `AIGW_CANDIDATE_ARTIFACTS` input.
 Both peers reuse the same release acceptance and measurement owner, not a
-second build or lifecycle. Standalone Secret Service qualification follows
+second build or lifecycle.
+
+Standalone Secret Service qualification follows
 source-quality admission on both peers: review, accepted-branch push, tag, and
 explicit source checks retain it; artifact-only performance runs stay isolated.
 Transport-only `--peer` and `--repository` inputs
-do not repeat source lifecycle qualification. GitLab prepares Hyperfine for
+do not repeat source lifecycle qualification.
+
+GitLab prepares Hyperfine for
 selected prebuilt performance and GNU time on Linux; raw samples, warnings,
 individual blocks and pooled p95 remain under `build/verification/performance`
 in the existing always-retained verification artifact. GitHub retains the
 corresponding native performance artifact, including on failure.
+
 Each case uses five warmups and two reversed-order blocks of forty samples.
 Hyperfine 2.0 invokes each workload directly with time metrics; preparation still
 uses the platform shell. Schema 2 exports retain each run's wall-clock seconds and
@@ -402,8 +412,9 @@ explicit signed-input command. It selects only component diagnosis: the original
 shell helper, shell startup, source and copied-reader startup, direct invocation
 of that exact projected reader, and keyring `Read`/`Exists` through each variant's
 native source worker. Worker calls retain the product's restricted environment;
-these API timings include the native subprocess but exclude Hyperfine and the
-shell. Projection and synchronization cover each selected backend.
+these API timings include the native subprocess but exclude Hyperfine and the shell.
+
+Projection and synchronization cover each selected backend.
 Both cases retain the full measurement's declared prepare and command
 argv, with five warmups and forty samples in each reversed-order block.
 They record both completed prepare and sample processes:

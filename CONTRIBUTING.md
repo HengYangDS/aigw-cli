@@ -279,9 +279,12 @@ Manual GitHub `native_platform` and GitLab `AIGW_NATIVE_PLATFORM` select
 `AIGW_FULL_NATIVE_QUALITY=true` and `refresh_locks` / `AIGW_REFRESH_LOCKS=true`
 for targeted diagnostics. Source-native and full-quality runs share their locked
 native tool closure; explicit prebuilt acceptance selects only artifact tools.
+
 Lychee publishes a Windows x64 binary; Mise explicitly selects that
 locked official asset for Windows ARM64, where Windows runs it through x64
-emulation. Product archives retain their declared architecture. Review, accepted
+emulation. Product archives retain their declared architecture.
+
+Review, accepted
 push and tag admission require quality and the complete native set. Scoped manual
 artifact diagnostics may omit source quality; [manual runs do not substitute
 for required PR checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#checks-from-some-workflow-jobs-are-not-evaluated).
@@ -449,6 +452,7 @@ selects the predecessor and `AIGW_NATIVE_CLIENTS=true` adds provisioned clients.
 CUE forwards these after `ci native --`; source checks do not inherit them.
 `AIGW_CANDIDATE_SOURCE` forwards the exact signed pre-tag product commit to
 `--candidate-source` when a newer verifier consumes existing candidate bytes.
+
 Explicit prebuilt inputs without full quality or lock refresh select only native
 artifact tools and the existing release journey; they do not repeat source-wide
 tests or npm bootstrap. Ordinary source/review jobs and full qualification retain
@@ -458,6 +462,7 @@ check names, including tag dispatches and single-platform runs; only review and
 accepted push events report canonical required checks. Release evidence requires
 the exact tag push and canonical job set. GitLab retains its complete MR graph
 and native MR-pipeline admission, not a manually dispatched pipeline substitute.
+
 GitLab downloads use its explicit project and Job Token, not sibling credentials.
 GitHub manual `candidate_tag`/`baseline_tag` selects that peer's same bytes, with
 `windows_clients` for real-client execution. A reviewed verifier may have a

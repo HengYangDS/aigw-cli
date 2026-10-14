@@ -131,8 +131,9 @@ Without `--for`, `check` exits successfully only when every enabled Client
 Binding passes its applicable scope. With `--for`, only the requested enabled
 client contributes to the result, and JSON contains only that client. With no
 enabled client, it returns a deferred nonzero result
-without contacting an endpoint; an empty check is not health evidence. For
-client-native authentication it checks the local projection without accessing
+without contacting an endpoint; an empty check is not health evidence.
+
+For client-native authentication it checks the local projection without accessing
 client credentials or calling the endpoint. A selected Account-Token Route
 normally receives one model-carrying inference diagnostic; the default request
 is metered and establishes only that time-bound request's acceptance.

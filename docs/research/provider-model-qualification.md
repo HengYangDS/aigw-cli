@@ -197,6 +197,7 @@ its versioned credential reader was staged. This distinguishes a missing test
 reader from a product failure. The public AIHubMix catalogue also listed the
 model, while an earlier UCloud request rejected it. Later on September 30, a
 direct UCloud Responses request completed with exact wire model `gpt-6.1-sol`.
+
 A source-built AIGW 0.3.3 in an isolated installation completed bounded
 `verify --for codex` and `verify --for hermes` sessions for an explicitly imported UCloud Route using
 Codex CLI 0.159.2 and Hermes Agent v0.21.5. That supersedes the earlier
@@ -305,6 +306,7 @@ The plain AIHubMix Route was removed from the shipped manifest on October 7;
 protocol membership alone must not expose a failed tool-continuation channel
 as a usable Codex choice. The qualified CC Route and UCloud Route remain.
 This manifest retirement does not alter an operator's existing Route or binding.
+
 Its authenticated catalogue also listed `cc-minimax-m3`. With native effort
 `none`, that exact channel and UCloud's `MiniMax-M3` each completed a real
 Codex shell tool and same-thread note/follow-up sequence on October 1, 2026.
@@ -315,6 +317,7 @@ The manifest retains the existing logical `minimax-m3` Model and adds only
 that CC Route. Existing Routes, Models, client selections and projection bytes
 were conserved. This result does not qualify other efforts, every platform,
 Desktop GUI or final distribution; no reasoning text was stripped or retried.
+
 Muse Spark 1.3 has an AIHubMix Route only; DMXAPI's unrelated Spark IDs are
 not Meta models, and no UCloud Muse Route was observed.
 
@@ -338,6 +341,7 @@ minimal inference calls at that time. On September 23, 2026, UCloud also
 listed `gpt-6-sol` and `gpt-6-luna`; both completed minimal OpenAI Responses
 requests. On September 25, all three Accounts completed minimal authenticated
 Opus 5.5 requests; AIHubMix and UCloud also completed GPT-6 Sol requests.
+
 DMXAPI GPT-6 Sol previously completed through the locally configured Proxy
 transport and once through its direct Responses endpoint. Repeated direct
 requests on September 25 returned HTTP 503, so release 0.3.1 omitted that
@@ -346,6 +350,7 @@ September 27, 2026 manifest restored it. The September 30 manifest then
 retired the GPT-6 Sol Routes and recommends DMXAPI GPT-6.1 Sol for unselected
 Codex and Hermes clients; neither the earlier calls nor that recommendation
 proves sustained availability or runtime failover.
+
 AIHubMix and DMXAPI GPT-6 Luna also completed exact Responses requests; all
 three Accounts have evidenced Luna
 Routes. Existing local Route and Client Binding state remains separate and is
@@ -425,6 +430,7 @@ completed text through the configured AIHubMix and UCloud Responses endpoints
 on September 25. A later AIHubMix `ping` call was incomplete even at 512
 tokens, while the explicit short-answer request completed. No DMXAPI MiMo
 Route was inferred from those observations.
+
 On October 1, the exact AIHubMix Route returned HTTP 400
 `The model mimo-v2.6-pro cannot be served at the moment` through both AIGW and
 one official OpenAI SDK 2.24.0 request with retries disabled. Withdraw only
@@ -479,6 +485,7 @@ exact Route completed official Hermes's file tool and same-session recall in
 manifest without claiming the aliases are the same model generation or
 overwriting explicit selections. The newer Command A+ wire returned HTTP 400
 `no_available_channel`; it remains unqualified, not globally unavailable.
+
 Poolside [positions Laguna S 2.1](https://poolside.ai/blog/introducing-laguna-s-2-1)
 for long-horizon agentic coding; its [model card](https://huggingface.co/poolside/Laguna-S-2.1)
 also documents text-to-text Chat use. It is the strongest S/XS model listed

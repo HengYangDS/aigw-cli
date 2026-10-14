@@ -200,6 +200,7 @@ Normal commands read only the current schema. The explicit
 configuration schema and the immediate pre-convergence schema. For 0.1.0,
 the declared Claude and Codex clients determine their published wire protocols;
 model names never do. The later predecessor must declare its protocols explicitly.
+
 The preview lists retained Accounts, Routes,
 recommendations, Client Bindings and native targets without reading Tokens or
 writing client files. `aigw config migrate` commits the new schema with the

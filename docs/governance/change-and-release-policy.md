@@ -89,6 +89,7 @@ binary only in a verified zero-job window.
 Tool acquisition defaults to locked official upstreams. Explicit
 `tool_source=peer` in either GitHub workflow or `AIGW_TOOL_SOURCE=peer` on GitLab
 selects only that peer's checksum-verified copies; it is not an automatic fallback.
+
 GitLab's registry mirrors GitHub assets and release metadata using job-local
 CI_JOB_TOKEN netrc, removed with its owned scope. GitHub's
 carrier is selected by `miseMirror.githubRelease` in CUE and serves original
@@ -99,6 +100,7 @@ only absent, checksum-verified assets without replacement. Retain the carrier
 until both native-input and tool-source consumers release it. CUE projects both
 selectors and browser/API rewriting; the lock remains version/checksum SSOT.
 Missing or altered selected copies fail.
+
 Native upstream bootstrap and peer-isolated cold acquisition are separate
 claims; local inventory cannot establish either hosted result.
 
@@ -198,6 +200,7 @@ separate obligations. A green review does not imply merge or proposal deletion.
 Same-project GitLab MR admission requires equal source/project IDs and disabled
 fork-parent pipelines. This closes a fork path, not arbitrary developer-code trust
 or persistent Runner credential isolation. Keep proposals unprotected.
+
 Runner-manager credentials and protected-job state must live outside the ordinary
 review identity's authority. Native review admission requires OS-enforced identity,
 storage and execution separation: review code cannot read those resources or
@@ -293,10 +296,13 @@ The verifier binds archive checksums, exact certificate, Apple submission/log, u
 ZIP checksum and both executable members. Use one explicit profile or protected API
 key mode; Team keys need issuer ID, Individual keys omit it. Do not copy secrets to
 arguments/source or silently switch modes. All stable publication entrypoints require
-this verification before Forge access. `spctl --type execute` is not standalone-CLI
+this verification before Forge access.
+
+`spctl --type execute` is not standalone-CLI
 admission; valid notarized code can fail that App-oriented assessment. Portable binaries
 cannot carry stapled tickets: fresh Gatekeeper discovery remains online. Follow the
 [Apple procedure](../operations/forge-operations.md#macos-signing-and-notarization).
+
 API-key mode uses `AIGW_MACOS_NOTARY_API_KEY_FILE`, `AIGW_MACOS_NOTARY_API_KEY_ID`
 and Team-only `AIGW_MACOS_NOTARY_API_ISSUER_ID`; profile mode uses
 `AIGW_MACOS_NOTARY_PROFILE`. Native store tests additionally require
@@ -396,6 +402,7 @@ separate native identity, storage and execution containment.
 [Coverage policy](../../.config/checks/coverage/policy.toml) owns strictly greater-than
 95% native Go statement coverage across every product/tool/tested platform package.
 All three native platforms invoke that same gate and retain its raw profile.
+
 The coverage command's optional `--json` passes native Go test events unchanged
 to stdout and sends package and aggregate summaries to stderr. It runs tests once;
 `--profile-output` retains that attempt's counters, including diagnostic counters
@@ -403,6 +410,7 @@ after failure. Event output alone does not qualify receiver custody or per-file
 execution. Human output and the selected inventory, flags and thresholds remain unchanged.
 Windows omits the race detector because the native graph includes ARM64 with
 CGO disabled; that limit does not remove coverage or package observation.
+
 If tests fail, any emitted profile remains diagnostic evidence only; retention
 and test errors stay visible, and partial counters cannot qualify coverage.
 No package/source exclusion or zero-denominator percentage is permitted. Observe
@@ -527,12 +535,14 @@ inputs, not guarantees for every host:
 An exceedance needs repair or an explicitly accepted measured product trade-off;
 never silently waive it. Exclude inference/client startup/human authorization from
 local budgets but report them separately, not subtract them from end-to-end results.
+
 Each setup sample starts without the owned AIGW configuration or managed client
 projection; a bounded test-binary preparation resets only those fixture files
 outside the timed command. Credentials and the installed program remain intact.
 Sync starts from a converged explicit binding. Both include guarded durable
 projection work with warm process and filesystem caches; human authorization,
 cold-cache onboarding, repository construction and CI duration remain separate.
+
 Use five warmups and two reversed-order blocks of at least forty samples; retain
 outliers, per-block and pooled p95. Backend/OS/client/tool identity remains explicit.
 Any native benchmark warning makes the acceptance command fail after preserving

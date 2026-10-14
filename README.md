@@ -284,6 +284,7 @@ existing Account items without a prompt, preproject managed clients, and prefetc
 verified Cask. Measure the bounded link gap, then immediately test captured
 commands and real clients; restore the predecessor if acceptance fails. Do not
 switch if a required existing native item cannot be read noninteractively.
+
 A session still caching the public link may fail once during the gap. Blanket
 client shutdown or restart does not eliminate that risk and is not an upgrade
 step. Later versioned-reader upgrades must keep old commands callable. See the
