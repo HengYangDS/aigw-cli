@@ -139,7 +139,11 @@ func writeReleaseSBOM(request buildRequest, stage, candidate string, instant tim
 	if err := normalizeSPDX(rawSBOM, sbom, request.Version, instant); err != nil {
 		return err
 	}
-	return bindStandardLibrary(filepath.Join(candidate, "aigw_"+request.Version+".licenses.json"), sbom)
+	module, err := mainModulePath(request.Root)
+	if err != nil {
+		return err
+	}
+	return bindStandardLibrary(filepath.Join(candidate, "aigw_"+request.Version+".licenses.json"), sbom, module)
 }
 
 func admitReleaseInputs(request *buildRequest, run toolRunner) (dependencyPolicy, error) {

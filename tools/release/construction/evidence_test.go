@@ -38,8 +38,8 @@ func spdxFixture(t *testing.T, root, version string) []byte {
 		file, module, library := fmt.Sprintf("SPDXRef-File-%d", index), fmt.Sprintf("SPDXRef-Package-aigw-cli-%d", index), fmt.Sprintf("SPDXRef-Package-stdlib-%d", index)
 		files = append(files, fmt.Sprintf(`{"SPDXID":%q,"fileName":%q,"checksums":[{"algorithm":"SHA1","checksumValue":"0000000000000000000000000000000000000000"}]}`, file, relative))
 		packages = append(packages,
-			fmt.Sprintf(`{"SPDXID":%q,"name":"aigw-cli","versionInfo":"UNKNOWN"}`, module),
-			fmt.Sprintf(`{"SPDXID":%q,"name":"stdlib","versionInfo":"go%s"}`, library, standardLibraryVersion))
+			fmt.Sprintf(`{"SPDXID":%q,"name":"aigw-cli","versionInfo":"UNKNOWN","externalRefs":[{"referenceCategory":"PACKAGE-MANAGER","referenceLocator":"pkg:golang/aigw-cli","referenceType":"purl"}]}`, module),
+			fmt.Sprintf(`{"SPDXID":%q,"name":"stdlib","versionInfo":"go%s","externalRefs":[{"referenceCategory":"PACKAGE-MANAGER","referenceLocator":"pkg:golang/stdlib@%s","referenceType":"purl"}]}`, library, standardLibraryVersion, standardLibraryVersion))
 		relationships = append(relationships,
 			fmt.Sprintf(`{"spdxElementId":%q,"relationshipType":"OTHER","relatedSpdxElement":%q,"comment":"evident-by: indicates the package's existence is evident by the given file"}`, module, file),
 			fmt.Sprintf(`{"spdxElementId":%q,"relationshipType":"OTHER","relatedSpdxElement":%q,"comment":"evident-by: indicates the package's existence is evident by the given file"}`, library, file),

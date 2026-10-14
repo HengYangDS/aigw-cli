@@ -244,10 +244,12 @@ with focused regressions. Homebrew rollback preparation treated a configuration
 it could not read as naming no credential and reported the credentials ready;
 it now changes no item and fails. The OSV policy lacked `ScanGoModVersion`, so
 the scan dropped the Go standard library; release construction now requires
-each program in the SBOM to carry exactly one standard library, at the scanned
-version, as a dependency of its own main module. Exact-SHA review, push and tag
-CI and the installed Homebrew upgrade, rollback and forward qualify the final
-source; `b3663e89`'s receipts do not cover these paths.
+each program in the SBOM to carry exactly one package of the main module that
+`go.mod` declares, named by that module path and package URL, and exactly one
+standard library at the scanned version as a dependency of that package.
+Exact-SHA review, push and tag CI and the installed Homebrew upgrade, rollback
+and forward qualify the final source; `b3663e89`'s receipts do not cover these
+paths.
 
 Windows supplier regression now selects the official Codex 0.162.1 platform
 package, not its three-file bootstrap package. One CUE declaration owns the

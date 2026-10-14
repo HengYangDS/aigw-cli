@@ -38,11 +38,11 @@ func TestDependencyPolicyScansTheGoStandardLibrary(t *testing.T) {
 }
 
 func TestReleaseSBOMCarriesTheScannedStandardLibrary(t *testing.T) {
-	for _, failure := range []string{"unscanned", "other version", "unnamed program", "one program", "foreign module"} {
+	for _, failure := range []string{"unscanned", "other version", "unnamed program", "one program", "foreign module", "self dependency"} {
 		t.Run(failure, func(t *testing.T) {
 			root := releaseRoot(t)
 			for name, content := range map[string]string{
-				"go.mod": "fixture", "go.sum": "fixture", "package-lock.json": "fixture",
+				"go.mod": "module aigw-cli\n", "go.sum": "fixture", "package-lock.json": "fixture",
 				".config/mise/mise.lock": "fixture", "LICENSE": "fixture", "README.md": "fixture",
 				".config/mise/config.toml": "[tools]\ngo = \"1.27.1\"\nosv-scanner = \"2.5.1\"\n",
 			} {
@@ -103,7 +103,9 @@ func rewriteStandardLibraries(path, failure string) error {
 	}
 	// "one program" keeps every library, file and relationship but attributes
 	// each library to the first program; "foreign module" makes the second
-	// program's library a dependency of the first program's main module.
+	// program's library a dependency of the first program's main module; "self
+	// dependency" keeps every evident-by edge and makes each library depend on
+	// itself instead of its program's main module.
 	for _, item := range relationships {
 		object, ok := item.(map[string]any)
 		if !ok || !libraries[object["spdxElementId"]] {
@@ -117,6 +119,8 @@ func rewriteStandardLibraries(path, failure string) error {
 			object["relatedSpdxElement"] = "SPDXRef-File-0"
 		case failure == "foreign module" && dependency && object["spdxElementId"] == "SPDXRef-Package-stdlib-1":
 			object["relatedSpdxElement"] = "SPDXRef-Package-aigw-cli-0"
+		case failure == "self dependency" && dependency:
+			object["relatedSpdxElement"] = object["spdxElementId"]
 		}
 	}
 	document["packages"] = packages

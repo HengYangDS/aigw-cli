@@ -33,7 +33,7 @@ func TestGoReleaserStagePreservesPaths(t *testing.T) {
 func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 	root := releaseRoot(t)
 	for name, content := range map[string]string{
-		"go.mod": "fixture", "go.sum": "fixture", "package-lock.json": "fixture",
+		"go.mod": "module aigw-cli\n", "go.sum": "fixture", "package-lock.json": "fixture",
 		".config/mise/mise.lock": "fixture", "LICENSE": "fixture", "README.md": "fixture",
 		".config/mise/config.toml": "[tools]\ngo = \"1.27.1\"\nosv-scanner = \"2.5.1\"\n",
 	} {
@@ -479,8 +479,8 @@ func TestReleaseBuildPropagatesToolFailureAndNeverPublishesPartialMatrix(t *test
 
 func TestReleaseBuildPropagatesChecksumAndMatrixFailures(t *testing.T) {
 	root := releaseRoot(t)
-	for _, name := range []string{"go.mod", "go.sum", "package-lock.json", ".config/mise/mise.lock"} {
-		if err := os.WriteFile(filepath.Join(root, name), []byte("fixture"), 0o600); err != nil {
+	for name, content := range map[string]string{"go.mod": "module aigw-cli\n", "go.sum": "fixture", "package-lock.json": "fixture", ".config/mise/mise.lock": "fixture"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
