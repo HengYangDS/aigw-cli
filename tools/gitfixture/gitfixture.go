@@ -17,9 +17,10 @@ import (
 
 // Run executes tests under an owned global Git configuration and returns their
 // exit code. The configuration includes the host's top-level global files and
-// then names an empty owned hook directory, and GIT_TEMPLATE_DIR names an empty
-// owned template. Fixture-local configuration and command-line options keep
-// their precedence, so fixtures retain their own hook directories.
+// then names an empty owned directory as its hook directory, and
+// GIT_TEMPLATE_DIR names the same directory as the template. Fixture-local
+// configuration and command-line options keep their precedence, so fixtures
+// retain their own hook directories.
 func Run(tests interface{ Run() int }) int {
 	directory, err := os.MkdirTemp("", "aigw-git-")
 	if err != nil {
@@ -40,11 +41,9 @@ func Run(tests interface{ Run() int }) int {
 }
 
 func isolate(directory string) error {
-	hooks, template := filepath.Join(directory, "hooks"), filepath.Join(directory, "template")
-	for _, path := range []string{hooks, template} {
-		if err := os.Mkdir(path, 0o700); err != nil {
-			return err
-		}
+	empty := filepath.Join(directory, "empty")
+	if err := os.Mkdir(empty, 0o700); err != nil {
+		return err
 	}
 	files, err := hostGlobalFiles()
 	if err != nil {
@@ -54,15 +53,12 @@ func isolate(directory string) error {
 	for _, file := range files {
 		configuration.WriteString("[include]\n\tpath = " + quoted(file) + "\n")
 	}
-	configuration.WriteString("[core]\n\thooksPath = " + quoted(hooks) + "\n")
+	configuration.WriteString("[core]\n\thooksPath = " + quoted(empty) + "\n")
 	path := filepath.Join(directory, "config")
 	if err := os.WriteFile(path, []byte(configuration.String()), 0o600); err != nil {
 		return err
 	}
-	if err := os.Setenv("GIT_CONFIG_GLOBAL", path); err != nil {
-		return err
-	}
-	return os.Setenv("GIT_TEMPLATE_DIR", template)
+	return errors.Join(os.Setenv("GIT_CONFIG_GLOBAL", path), os.Setenv("GIT_TEMPLATE_DIR", empty))
 }
 
 // hostGlobalFiles lists the top-level global configuration files in the order

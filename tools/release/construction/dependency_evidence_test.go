@@ -494,3 +494,26 @@ func TestDependencyScanRetainsButRejectsNativeWarning(t *testing.T) {
 		t.Fatalf("native warning was not retained: %q %v", data, err)
 	}
 }
+
+// The live scan runs only in the network-declared dependency-acceptance gate;
+// these refusals happen before the scanner is started.
+func TestScanDependenciesRefusesUnusableInputsBeforeScanning(t *testing.T) {
+	if err := ScanDependencies(t.Context(), t.TempDir(), t.TempDir()); err == nil || !strings.Contains(err.Error(), "read dependency policy") {
+		t.Fatalf("missing dependency policy accepted: %v", err)
+	}
+	root := t.TempDir()
+	policy := filepath.Join(root, ".config", "checks", "dependencies", "policy.toml")
+	if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(policy, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	blocked := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocked, []byte("not a directory\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ScanDependencies(t.Context(), root, filepath.Join(blocked, "evidence")); err == nil {
+		t.Fatal("unusable evidence output accepted")
+	}
+}

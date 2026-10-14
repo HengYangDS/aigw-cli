@@ -21,6 +21,12 @@ rejects every update, failed 80 tests in five packages through that hook alone.
 With `gitfixture`, the suite passes under that hostile host and with public
 network access refused.
 
+GitHub run `38612255679` passed every Windows test, including `tools/gitfixture`,
+but Windows aggregate coverage fell to 94.97%, below the 95% floor. The moved
+live test had been the only one to reach `ScanDependencies`, and `gitfixture`
+added untested error paths. Offline tests now cover the scan's refusals before
+the scanner starts and `gitfixture`'s report of a failed cleanup.
+
 ## Goals / Non-Goals
 
 **Goals:** the offline behavior gates observe only controlled fixtures, and

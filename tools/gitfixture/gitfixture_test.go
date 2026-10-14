@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -79,6 +80,43 @@ func TestRunOwnsGitPolicyWhenGitIsUnavailable(t *testing.T) {
 	}
 }
 
+func TestRunFailsWhenItCannotRemoveItsPolicy(t *testing.T) {
+	if runtime.GOOS != "windows" && os.Geteuid() == 0 {
+		t.Skip("Root can remove entries from a directory without write permission")
+	}
+	global := filepath.Join(t.TempDir(), "config")
+	writeFile(t, global, "")
+	t.Setenv("GIT_CONFIG_GLOBAL", global)
+	isolateScratch(t)
+	var owned string
+	var held *os.File
+	code := Run(tests(func() int {
+		var err error
+		// Windows refuses to delete an open file; other hosts refuse to delete
+		// entries of a directory without write permission.
+		if held, err = os.Open(os.Getenv("GIT_CONFIG_GLOBAL")); err != nil {
+			t.Fatal(err)
+		}
+		owned = filepath.Dir(os.Getenv("GIT_CONFIG_GLOBAL"))
+		if err := os.Chmod(owned, 0o500); err != nil {
+			t.Fatal(err)
+		}
+		return 0
+	}))
+	if held != nil {
+		_ = held.Close()
+	}
+	if owned == "" {
+		t.Fatalf("Run = %d without running tests", code)
+	}
+	if err := os.Chmod(owned, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if code == 0 {
+		t.Fatal("Run reported success while its isolated Git policy remained")
+	}
+}
+
 func TestRunRefusesAnUnreadableHostConfiguration(t *testing.T) {
 	global := filepath.Join(t.TempDir(), "config")
 	writeFile(t, global, "[broken\n")
@@ -108,6 +146,9 @@ func TestRunRefusesUnavailableScratch(t *testing.T) {
 
 func isolateScratch(t *testing.T) string {
 	t.Helper()
+	for _, name := range []string{"GIT_CONFIG_GLOBAL", "GIT_TEMPLATE_DIR"} {
+		t.Setenv(name, os.Getenv(name))
+	}
 	scratch := t.TempDir()
 	for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
 		t.Setenv(name, scratch)
