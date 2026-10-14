@@ -472,7 +472,6 @@ prefixes = ["manifests"]
 responsibility = "development tooling and locked dependency closure"
 prefixes = [".config/mise", ".config/npm"]
 exact_paths = [
-  ".cbmignore",
   ".config/miserc.toml",
   "go.mod",
   "go.sum",

@@ -63,8 +63,10 @@ failures. Codebase-memory is optional navigation: select the exact root, inspect
 `check_index_coverage`, and use `index_repository` with `mode: full` and
 `persistence: false` when coverage/file metadata is absent or stale. Recheck
 coverage afterward; HEAD and `ready` alone do not prove freshness. Verify uncertain
-edges against source. [`.cbmignore`](.cbmignore) retains source-owned coverage tools
-while excluding generated output; indexes are neither release inputs nor proof.
+edges against source. Codebase-memory applies its default exclusions, which may
+omit the authored coverage tooling under `tools/coverage/` and
+`.config/checks/coverage/`; read those directly. Indexes are neither release
+inputs nor proof.
 
 ### Analyzer isolation
 
