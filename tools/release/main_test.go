@@ -69,6 +69,9 @@ func TestMain(m *testing.M) {
 		_, _ = fmt.Fprintln(os.Stdout, "native-real-client-token")
 		os.Exit(0)
 	}
+	// An empty Git template keeps a host init.templateDir from adding hooks,
+	// configuration or excludes to fixture repositories.
+	_ = os.Setenv("GIT_TEMPLATE_DIR", "")
 	code := m.Run()
 	if nativeSourceFixtures.directory != "" {
 		if err := robustio.RemoveAll(nativeSourceFixtures.directory); err != nil {

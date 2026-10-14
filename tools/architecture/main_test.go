@@ -10,6 +10,13 @@ import (
 	"testing"
 )
 
+// TestMain gives fixture repositories an empty Git template, so a host
+// init.templateDir cannot add hooks, configuration or excludes to them.
+func TestMain(m *testing.M) {
+	_ = os.Setenv("GIT_TEMPLATE_DIR", "")
+	os.Exit(m.Run())
+}
+
 const validPolicy = `owner = "product-toolchain"
 source = "repository architecture layout"
 risk_model = "undeclared semantic owners and dependency edges create hidden coupling"
