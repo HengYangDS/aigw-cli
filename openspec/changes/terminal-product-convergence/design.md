@@ -621,7 +621,9 @@ signing cannot prove operator-Token authorization.
    proposal ref. Do not fabricate contribution or incoming-Change completion.
 3. Archive through governed official OpenSpec, re-prove that SHA, promote the
    exact object to `main`, pass selected-peer main checks and create the signed
-   release tag. Tag checks and assets precede installed-product claims.
+   release tag. Tag checks and assets precede installed-product claims. On
+   2026-10-14 the operator released 0.4.0 while task 4.5.2 remained open, so
+   the tag binds the unarchived source and the archive follows that task.
 4. Qualify production bytes and native package-manager upgrade, rollback and
    forward; then retire superseded tags, outputs and the completed lane through
    their owners. Final retirement cannot be its own release prerequisite.
