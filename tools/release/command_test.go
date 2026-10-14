@@ -92,8 +92,6 @@ func TestRunBuildCIAndTagReadinessInputBoundaries(t *testing.T) {
 			t.Fatalf("invalid invocation accepted: %v", args)
 		}
 	}
-	t.Setenv("AIGW_CHANGELOG_RELEASE_TAG", "")
-	t.Setenv("GITHUB_REF_TYPE", "")
 	t.Setenv("CI_COMMIT_TAG", "")
 	if err := run([]string{"validate-version-tag"}, &output); err == nil || !strings.Contains(err.Error(), "v<semver>") {
 		t.Fatalf("missing tag error = %v", err)
@@ -112,14 +110,6 @@ func TestRunBuildCIAndTagReadinessInputBoundaries(t *testing.T) {
 			t.Errorf("tag=%q readiness=%v, ready=%t", tc.tag, err, tc.ready)
 		}
 	}
-	// A GitHub tag push names its tag only through the ref variables.
-	t.Setenv("CI_COMMIT_TAG", "")
-	t.Setenv("GITHUB_REF_TYPE", "tag")
-	t.Setenv("GITHUB_REF_NAME", "v1.2.3")
-	if err := run([]string{"validate-version-tag"}, &output); err != nil {
-		t.Fatalf("GitHub tag readiness = %v", err)
-	}
-	t.Setenv("GITHUB_REF_TYPE", "")
 
 	workspace := filepath.Join(t.TempDir(), "workspace")
 	outputPath := filepath.Join(t.TempDir(), "dist")

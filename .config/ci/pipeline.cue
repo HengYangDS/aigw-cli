@@ -1239,7 +1239,7 @@ githubVerify: {
 			steps: [
 				#SourceCheckout,
 				#Toolchain,
-				{name: "Validate tag version", run: commands.version},
+				{name: "Validate tag version", env: {CI_COMMIT_TAG: "${{ github.ref_name }}"}, run: commands.version},
 			]
 		}
 		for platform in productEvidence.native {

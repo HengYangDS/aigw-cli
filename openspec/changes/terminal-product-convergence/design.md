@@ -245,11 +245,13 @@ it could not read as naming no credential and reported the credentials ready;
 it now changes no item and fails. The OSV policy lacked `ScanGoModVersion`, so
 the scan dropped the Go standard library; release construction now requires
 each program in the SBOM to carry exactly one package of the main module that
-`go.mod` declares, named by that module path and package URL, and exactly one
-standard library at the scanned version as a dependency of that package.
-The first GitHub tag run, for `v0.4.0`, then exposed that `validate-version-tag`
-read only GitLab's tag variable and that candidate-mode tests inherited the
-runner's tag; both are fixed and qualify on the `v0.4.1` tag run.
+`go.mod` declares, named by that module path and a package URL whose version,
+if any, is the package's own, and exactly one standard library at the scanned
+version as a dependency of that package. The first GitHub tag run, for
+`v0.4.0`, then exposed that the GitHub version job never passed its tag to the
+gate's `CI_COMMIT_TAG` input and that candidate-mode tests inherited the
+runner's tag; the CI projection now supplies the tag, the tests clear the
+runner's selection, and the `v0.4.1` tag run qualifies both.
 Exact-SHA review, push and tag CI and the installed Homebrew upgrade, rollback
 and forward qualify the final source; `b3663e89`'s receipts do not cover these
 paths.

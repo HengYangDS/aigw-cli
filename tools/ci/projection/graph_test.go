@@ -307,13 +307,15 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 		t.Fatalf("GitLab quality job = %#v", got)
 	}
 
+	type gitHubStep struct {
+		Run string            `yaml:"run"`
+		Env map[string]string `yaml:"env"`
+	}
 	var github struct {
 		Jobs map[string]struct {
-			If    string   `yaml:"if"`
-			Needs []string `yaml:"needs"`
-			Steps []struct {
-				Run string `yaml:"run"`
-			} `yaml:"steps"`
+			If    string       `yaml:"if"`
+			Needs []string     `yaml:"needs"`
+			Steps []gitHubStep `yaml:"steps"`
 		} `yaml:"jobs"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
@@ -324,17 +326,15 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 		t.Fatalf("GitHub jobs = %q, want %q", got, wantGitHubJobs)
 	}
 	version := github.Jobs["release-version"]
-	if version.If != "github.ref_type == 'tag'" || !slices.ContainsFunc(version.Steps, func(step struct {
-		Run string `yaml:"run"`
-	}) bool {
-		return step.Run == "mise exec --locked -- go run ./tools/release validate-version-tag"
+	// A GitHub tag push names its tag only through github.ref_name, so the
+	// projection supplies the gate's explicit CI_COMMIT_TAG input from it.
+	if version.If != "github.ref_type == 'tag'" || !slices.ContainsFunc(version.Steps, func(step gitHubStep) bool {
+		return step.Run == "mise exec --locked -- go run ./tools/release validate-version-tag" && step.Env["CI_COMMIT_TAG"] == "${{ github.ref_name }}"
 	}) {
 		t.Fatalf("GitHub tag version gate = %#v", version)
 	}
 	quality := github.Jobs["quality"]
-	if !slices.ContainsFunc(quality.Steps, func(step struct {
-		Run string `yaml:"run"`
-	}) bool {
+	if !slices.ContainsFunc(quality.Steps, func(step gitHubStep) bool {
 		return step.Run == "mise exec --locked -- go run ./tools/ci quality"
 	}) {
 		t.Fatalf("GitHub quality job = %#v", quality.Steps)

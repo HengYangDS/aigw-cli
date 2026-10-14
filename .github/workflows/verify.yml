@@ -253,6 +253,8 @@ jobs:
           cache: ${{ inputs.tool_source != 'peer' }}
           cache_key_prefix: mise-${{ github.job }}
       - name: Validate tag version
+        env:
+          CI_COMMIT_TAG: ${{ github.ref_name }}
         run: mise exec --locked -- go run ./tools/release validate-version-tag
   native-darwin:
     defaults:
