@@ -53,7 +53,7 @@
 - [x] 6.2 Apply one native Go format/lint/static/test/race/coverage policy to product, tools and tests; remove duplicated rules and reject unowned warnings.
 - [x] 6.3 Simplify semantic hotspots and enforce risk-justified ELOC, statement, nesting and complexity bounds without mechanical splitting or suppression.
 - [x] 6.4 Qualify Markdown, Mermaid rendering, links, TOML/YAML/JSON/CUE, shell and generated text on tracked inputs; malformed or unreachable authored content must fail its owning gate.
-- [x] 6.5 Qualify locked-candidate dependency hygiene, dead code, secrets, SBOM, licenses, checksums, signatures and provenance; disclose nonblocking vulnerabilities and delete unconsumed duplicate scans.
+- [x] 6.5 Qualify locked-candidate dependency hygiene, dead code, secrets, SBOM, licenses, checksums, signatures and provenance, including the Go standard library at the version every release program's SBOM entry carries; disclose nonblocking vulnerabilities and delete unconsumed duplicate scans.
 - [x] 6.6 Qualify startup/setup/sync/credential/projection/build/CI against retained-predecessor budgets through the [native measurement contract](../../../docs/governance/change-and-release-policy.md#behavioral-and-quantitative-evidence); preserve raw samples, host/order and exact identities, complete Windows/macOS Keychain/final-signing evidence, and optimize only diagnosed owners. The operator accepted the measured 0.4.0 trade-off in [design.md](design.md#accepted-040-performance-trade-off); `single-pass-reader-verification` owns the diagnosed hashing cost.
 - [x] 6.7 Reject warnings and malformed public errors at their origin; prove precise human/JSON states and safe actions without private paths, secrets or implementation leakage.
 

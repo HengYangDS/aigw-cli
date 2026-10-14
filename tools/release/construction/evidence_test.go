@@ -23,6 +23,7 @@ import (
 func spdxFixture(t *testing.T, root, version string) []byte {
 	t.Helper()
 	files := make([]string, 0, len(artifact.Archives(version)))
+	packages := make([]string, 0, len(artifact.Archives(version)))
 	for _, archive := range artifact.Archives(version) {
 		name := strings.TrimSuffix(strings.TrimSuffix(archive, ".tar.gz"), ".zip")
 		relative := name + "/aigw"
@@ -34,8 +35,9 @@ func spdxFixture(t *testing.T, root, version string) []byte {
 			t.Fatal(err)
 		}
 		files = append(files, fmt.Sprintf(`{"fileName":%q,"checksums":[{"algorithm":"SHA1","checksumValue":"0000000000000000000000000000000000000000"}]}`, relative))
+		packages = append(packages, fmt.Sprintf(`{"SPDXID":"SPDXRef-Package-stdlib-%d","name":"stdlib","versionInfo":"go%s"}`, len(packages), standardLibraryVersion))
 	}
-	return []byte(`{"spdxVersion":"SPDX-2.3","documentNamespace":"https://volatile.invalid/random","creationInfo":{"created":"2099-01-01T00:00:00Z"},"files":[` + strings.Join(files, ",") + `]}`)
+	return []byte(`{"spdxVersion":"SPDX-2.3","documentNamespace":"https://volatile.invalid/random","creationInfo":{"created":"2099-01-01T00:00:00Z"},"files":[` + strings.Join(files, ",") + `],"packages":[` + strings.Join(packages, ",") + `]}`)
 }
 
 func TestGoReleaserArchiveMetadataIsHostIndependent(t *testing.T) {

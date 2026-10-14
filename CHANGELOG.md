@@ -23,6 +23,9 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 - Upgrade the development math renderer to KaTeX 0.19.0, preventing inherited
   prototype properties from enabling trusted rendering; verify the Mermaid and
   Markdown math consumers without changing production credentials or runtime.
+- Include the Go standard library in each release's vulnerability and license
+  evidence, at the version every program in the release SBOM carries; earlier
+  release evidence omitted it.
 
 ### Added
 

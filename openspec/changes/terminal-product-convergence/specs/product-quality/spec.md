@@ -116,6 +116,14 @@ construction.
 - **AND** the override SHALL leave vulnerability scanning active
 - **AND** a later package version SHALL require a new license observation.
 
+#### Scenario: The Go standard library is part of the scan
+
+- **WHEN** release construction scans `go.mod`
+- **THEN** the selected OSV policy SHALL keep the Go standard library at the
+  module's Go version in the scanned inventory
+- **AND** construction SHALL fail before signing unless every program in the
+  release SBOM carries that same standard library version.
+
 ## ADDED Requirements
 
 ### Requirement: Native Go events retain one coverage attempt

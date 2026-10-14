@@ -3,10 +3,22 @@
 # Native scanner failures, incomplete evidence and artifact integrity remain
 # separate validity requirements. Do not suppress advisory IDs.
 
+# OSV drops the Go standard library from the go.mod inventory unless this is
+# set. Release construction requires every program in the release SBOM to carry
+# the scanned version.
+ScanGoModVersion = true
+
 # Exact integrity-locked archive LICENSE files establish these corrections;
 # upstream metadata resolves to UNKNOWN. Only license observations change.
 # Vulnerability findings remain complete in the raw report. Remove each entry
 # when upstream metadata or the selected package version changes.
+[[PackageOverrides]]
+name = "stdlib"
+version = "1.27.2"
+ecosystem = "Go"
+license.override = ["BSD-3-Clause"]
+reason = "BSD-3-Clause LICENSE in the locked Go 1.27.2 distribution; OSV license metadata is UNKNOWN"
+
 [[PackageOverrides]]
 name = "@mermaid-lint/core"
 version = "0.53.1"

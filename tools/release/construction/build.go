@@ -85,12 +85,7 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 			return err
 		}
 	}
-	sbom := filepath.Join(candidate, "aigw_"+request.Version+".spdx.json")
-	rawSBOM := filepath.Join(stage, "aigw.spdx.json")
-	if err := run(toolCall{Name: "syft", Directory: request.Root, Args: []string{"scan", "dir:" + stage, "--config", filepath.Join(request.Root, ".config", "release", "syft.yaml"), "--override-default-catalogers", "go-module-binary-cataloger,file", "--source-name", "aigw", "--source-version", request.Version, "-o", "spdx-json=" + rawSBOM}}); err != nil {
-		return fmt.Errorf("generate release SBOM: %w", err)
-	}
-	if err := normalizeSPDX(rawSBOM, sbom, request.Version, instant); err != nil {
+	if err := writeReleaseSBOM(request, stage, candidate, instant, run); err != nil {
 		return err
 	}
 	commit, err := resolveGitObject(request.Root, "HEAD^{commit}", run)
@@ -131,6 +126,20 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 		return fmt.Errorf("retain generated Homebrew projection: %w", err)
 	}
 	return replaceDirectory(candidate, output)
+}
+
+// writeReleaseSBOM catalogs the staged programs into the candidate's SBOM and
+// binds their Go standard library to the scanned dependency evidence.
+func writeReleaseSBOM(request buildRequest, stage, candidate string, instant time.Time, run toolRunner) error {
+	sbom := filepath.Join(candidate, "aigw_"+request.Version+".spdx.json")
+	rawSBOM := filepath.Join(stage, "aigw.spdx.json")
+	if err := run(toolCall{Name: "syft", Directory: request.Root, Args: []string{"scan", "dir:" + stage, "--config", filepath.Join(request.Root, ".config", "release", "syft.yaml"), "--override-default-catalogers", "go-module-binary-cataloger,file", "--source-name", "aigw", "--source-version", request.Version, "-o", "spdx-json=" + rawSBOM}}); err != nil {
+		return fmt.Errorf("generate release SBOM: %w", err)
+	}
+	if err := normalizeSPDX(rawSBOM, sbom, request.Version, instant); err != nil {
+		return err
+	}
+	return bindStandardLibrary(filepath.Join(candidate, "aigw_"+request.Version+".licenses.json"), sbom, len(artifact.Archives(request.Version)))
 }
 
 func admitReleaseInputs(request *buildRequest, run toolRunner) (dependencyPolicy, error) {

@@ -20,6 +20,8 @@ import (
 )
 
 type dependencyPolicy struct {
+	// ScanGoModVersion keeps the Go standard library in OSV's go.mod inventory.
+	ScanGoModVersion bool `toml:"ScanGoModVersion"`
 	PackageOverrides []struct {
 		Name      string `toml:"name"`
 		Version   string `toml:"version"`
@@ -333,6 +335,57 @@ func writeJSON(path string, value any) error {
 		return err
 	}
 	return os.WriteFile(path, append(data, '\n'), 0o600)
+}
+
+// bindStandardLibrary requires the release SBOM to carry, for every program,
+// the Go standard library version that the dependency scan observed in go.mod.
+func bindStandardLibrary(licenses, sbom string, programs int) error {
+	var evidence licenseEvidence
+	if err := readJSON(licenses, &evidence); err != nil {
+		return fmt.Errorf("read license evidence: %w", err)
+	}
+	var scanned []string
+	for _, source := range evidence.Sources {
+		for _, item := range source.Packages {
+			if source.Lockfile == "go.mod" && item.Ecosystem == "Go" && item.Name == "stdlib" {
+				scanned = append(scanned, item.Version)
+			}
+		}
+	}
+	if len(scanned) != 1 {
+		return fmt.Errorf("dependency scan observed %d Go standard library versions, want 1; OSV needs ScanGoModVersion", len(scanned))
+	}
+	var document struct {
+		Packages []struct {
+			Name    string `json:"name"`
+			Version string `json:"versionInfo"`
+		} `json:"packages"`
+	}
+	if err := readJSON(sbom, &document); err != nil {
+		return fmt.Errorf("read release SBOM: %w", err)
+	}
+	carried := 0
+	for _, item := range document.Packages {
+		if item.Name != "stdlib" {
+			continue
+		}
+		if item.Version != "go"+scanned[0] {
+			return fmt.Errorf("release SBOM standard library %s differs from the scanned Go %s", item.Version, scanned[0])
+		}
+		carried++
+	}
+	if carried != programs {
+		return fmt.Errorf("release SBOM names the standard library of %d programs, want %d", carried, programs)
+	}
+	return nil
+}
+
+func readJSON(path string, value any) error {
+	data, err := os.ReadFile(path)
+	if err == nil {
+		err = json.Unmarshal(data, value)
+	}
+	return err
 }
 
 func normalizeSPDX(source, target, version string, instant time.Time) error {

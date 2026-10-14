@@ -108,6 +108,9 @@ func dependencyReportFixture(root string) osvFixtureReport {
 						{ID: "OSV-2", Modified: "2026-09-07T00:00:00Z"},
 						{ID: "OSV-1"},
 					},
+				}, {
+					Package:  dependencyIdentity{Ecosystem: "Go", Name: "stdlib", Version: standardLibraryVersion},
+					Licenses: []string{"BSD-3-Clause"},
 				}},
 			},
 			{
