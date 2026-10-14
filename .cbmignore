@@ -1,3 +1,0 @@
-# These are authored quality controls, not generated coverage reports.
-!/tools/coverage/
-!/.config/checks/coverage/
