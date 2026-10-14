@@ -5,6 +5,7 @@ import (
 	"aigw-cli/internal/codex"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
+	"aigw-cli/tools/gitfixture"
 	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
@@ -69,10 +70,8 @@ func TestMain(m *testing.M) {
 		_, _ = fmt.Fprintln(os.Stdout, "native-real-client-token")
 		os.Exit(0)
 	}
-	// An empty Git template keeps a host init.templateDir from adding hooks,
-	// configuration or excludes to fixture repositories.
-	_ = os.Setenv("GIT_TEMPLATE_DIR", "")
-	code := m.Run()
+	// gitfixture keeps host Git hooks and templates out of fixture repositories.
+	code := gitfixture.Run(m)
 	if nativeSourceFixtures.directory != "" {
 		if err := robustio.RemoveAll(nativeSourceFixtures.directory); err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, "remove native test fixtures:", err)

@@ -8,11 +8,11 @@
 - [x] 1.2 Set an empty `GIT_TEMPLATE_DIR` in the `TestMain` of every test
       package that creates repositories; the regression passes, and the
       default suite passes under that hostile host template.
-- [ ] 1.3 Add `tools/gitfixture` with a test that gives the host a global hook
+- [x] 1.3 Add `tools/gitfixture` with a test that gives the host a global hook
       directory and template that reject every update; a fixture repository
       still initializes and commits, and still reads the host's other global
       settings.
-- [ ] 1.4 Run every test package that creates repositories through
+- [x] 1.4 Run every test package that creates repositories through
       `gitfixture.Run`; the default suite passes under the hostile host
       template and hook directory.
 

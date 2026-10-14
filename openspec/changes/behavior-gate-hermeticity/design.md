@@ -18,6 +18,8 @@ request refused through an unreachable proxy, with loopback exempt. Only
 settings would not be detected this way. The same suite, run under a hostile
 host template and a global hook directory whose `reference-transaction` hook
 rejects every update, failed 80 tests in five packages through that hook alone.
+With `gitfixture`, the suite passes under that hostile host and with public
+network access refused.
 
 ## Goals / Non-Goals
 
