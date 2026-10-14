@@ -88,9 +88,9 @@ func policyCommands() commandSet {
 			if err := requireArguments(args, 0, "usage: release validate-version-tag"); err != nil {
 				return err
 			}
-			tag := os.Getenv("CI_COMMIT_TAG")
+			tag := readiness.SelectedReleaseTag()
 			if !strings.HasPrefix(tag, "v") {
-				return errors.New("CI_COMMIT_TAG must use v<semver>")
+				return errors.New("the selected release tag must use v<semver>")
 			}
 			return readiness.ValidateVersion(strings.TrimPrefix(tag, "v"))
 		},
