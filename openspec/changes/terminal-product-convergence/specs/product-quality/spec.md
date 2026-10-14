@@ -121,8 +121,9 @@ construction.
 - **WHEN** release construction scans `go.mod`
 - **THEN** the selected OSV policy SHALL keep the Go standard library at the
   module's Go version in the scanned inventory
-- **AND** construction SHALL fail before signing unless every program in the
-  release SBOM carries that same standard library version.
+- **AND** construction SHALL fail before signing unless each release program in
+  the SBOM carries exactly one standard library, at that version, as a
+  dependency of its own main module.
 
 ## ADDED Requirements
 

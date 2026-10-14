@@ -337,9 +337,30 @@ func writeJSON(path string, value any) error {
 	return os.WriteFile(path, append(data, '\n'), 0o600)
 }
 
-// bindStandardLibrary requires the release SBOM to carry, for every program,
-// the Go standard library version that the dependency scan observed in go.mod.
-func bindStandardLibrary(licenses, sbom string, programs int) error {
+// spdxGraph holds the identities and relationships that bind release programs
+// to the Go modules Syft found in them.
+type spdxGraph struct {
+	Files []struct {
+		ID   string `json:"SPDXID"`
+		Name string `json:"fileName"`
+	} `json:"files"`
+	Packages []struct {
+		ID      string `json:"SPDXID"`
+		Name    string `json:"name"`
+		Version string `json:"versionInfo"`
+	} `json:"packages"`
+	Relationships []struct {
+		Element string `json:"spdxElementId"`
+		Type    string `json:"relationshipType"`
+		Related string `json:"relatedSpdxElement"`
+		Comment string `json:"comment"`
+	} `json:"relationships"`
+}
+
+// bindStandardLibrary requires each release program in the SBOM to carry
+// exactly one Go standard library, at the version the dependency scan observed
+// in go.mod, as a dependency of that same program's main module.
+func bindStandardLibrary(licenses, sbom string) error {
 	var evidence licenseEvidence
 	if err := readJSON(licenses, &evidence); err != nil {
 		return fmt.Errorf("read license evidence: %w", err)
@@ -355,27 +376,38 @@ func bindStandardLibrary(licenses, sbom string, programs int) error {
 	if len(scanned) != 1 {
 		return fmt.Errorf("dependency scan observed %d Go standard library versions, want 1; OSV needs ScanGoModVersion", len(scanned))
 	}
-	var document struct {
-		Packages []struct {
-			Name    string `json:"name"`
-			Version string `json:"versionInfo"`
-		} `json:"packages"`
-	}
-	if err := readJSON(sbom, &document); err != nil {
+	var graph spdxGraph
+	if err := readJSON(sbom, &graph); err != nil {
 		return fmt.Errorf("read release SBOM: %w", err)
 	}
-	carried := 0
-	for _, item := range document.Packages {
+	evidentBy, dependencyOf := map[string][]string{}, map[string][]string{}
+	for _, relation := range graph.Relationships {
+		switch {
+		case relation.Type == "OTHER" && strings.HasPrefix(relation.Comment, "evident-by:"):
+			evidentBy[relation.Element] = append(evidentBy[relation.Element], relation.Related)
+		case relation.Type == "DEPENDENCY_OF":
+			dependencyOf[relation.Element] = append(dependencyOf[relation.Element], relation.Related)
+		}
+	}
+	libraries := map[string]int{}
+	for _, item := range graph.Packages {
 		if item.Name != "stdlib" {
 			continue
 		}
-		if item.Version != "go"+scanned[0] {
-			return fmt.Errorf("release SBOM standard library %s differs from the scanned Go %s", item.Version, scanned[0])
+		programs, modules := evidentBy[item.ID], dependencyOf[item.ID]
+		if item.Version != "go"+scanned[0] || len(programs) != 1 || len(modules) != 1 || !slices.Equal(evidentBy[modules[0]], programs) {
+			return fmt.Errorf("release SBOM standard library %s %s is not Go %s of exactly one program's main module", item.ID, item.Version, scanned[0])
 		}
-		carried++
+		libraries[programs[0]]++
 	}
-	if carried != programs {
-		return fmt.Errorf("release SBOM names the standard library of %d programs, want %d", carried, programs)
+	for _, program := range graph.Files {
+		if libraries[program.ID] != 1 {
+			return fmt.Errorf("release SBOM program %s carries %d Go standard library packages, want 1", program.Name, libraries[program.ID])
+		}
+		delete(libraries, program.ID)
+	}
+	if len(libraries) != 0 {
+		return errors.New("release SBOM attributes a Go standard library to a file outside the release programs")
 	}
 	return nil
 }

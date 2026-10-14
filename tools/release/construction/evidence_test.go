@@ -22,9 +22,8 @@ import (
 
 func spdxFixture(t *testing.T, root, version string) []byte {
 	t.Helper()
-	files := make([]string, 0, len(artifact.Archives(version)))
-	packages := make([]string, 0, len(artifact.Archives(version)))
-	for _, archive := range artifact.Archives(version) {
+	var files, packages, relationships []string
+	for index, archive := range artifact.Archives(version) {
 		name := strings.TrimSuffix(strings.TrimSuffix(archive, ".tar.gz"), ".zip")
 		relative := name + "/aigw"
 		target := filepath.Join(root, filepath.FromSlash(relative))
@@ -34,10 +33,20 @@ func spdxFixture(t *testing.T, root, version string) []byte {
 		if err := os.WriteFile(target, []byte(relative), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		files = append(files, fmt.Sprintf(`{"fileName":%q,"checksums":[{"algorithm":"SHA1","checksumValue":"0000000000000000000000000000000000000000"}]}`, relative))
-		packages = append(packages, fmt.Sprintf(`{"SPDXID":"SPDXRef-Package-stdlib-%d","name":"stdlib","versionInfo":"go%s"}`, len(packages), standardLibraryVersion))
+		// Each program is evidence for its main module and standard library,
+		// and the standard library is a dependency of that main module.
+		file, module, library := fmt.Sprintf("SPDXRef-File-%d", index), fmt.Sprintf("SPDXRef-Package-aigw-cli-%d", index), fmt.Sprintf("SPDXRef-Package-stdlib-%d", index)
+		files = append(files, fmt.Sprintf(`{"SPDXID":%q,"fileName":%q,"checksums":[{"algorithm":"SHA1","checksumValue":"0000000000000000000000000000000000000000"}]}`, file, relative))
+		packages = append(packages,
+			fmt.Sprintf(`{"SPDXID":%q,"name":"aigw-cli","versionInfo":"UNKNOWN"}`, module),
+			fmt.Sprintf(`{"SPDXID":%q,"name":"stdlib","versionInfo":"go%s"}`, library, standardLibraryVersion))
+		relationships = append(relationships,
+			fmt.Sprintf(`{"spdxElementId":%q,"relationshipType":"OTHER","relatedSpdxElement":%q,"comment":"evident-by: indicates the package's existence is evident by the given file"}`, module, file),
+			fmt.Sprintf(`{"spdxElementId":%q,"relationshipType":"OTHER","relatedSpdxElement":%q,"comment":"evident-by: indicates the package's existence is evident by the given file"}`, library, file),
+			fmt.Sprintf(`{"spdxElementId":%q,"relationshipType":"DEPENDENCY_OF","relatedSpdxElement":%q}`, library, module))
 	}
-	return []byte(`{"spdxVersion":"SPDX-2.3","documentNamespace":"https://volatile.invalid/random","creationInfo":{"created":"2099-01-01T00:00:00Z"},"files":[` + strings.Join(files, ",") + `],"packages":[` + strings.Join(packages, ",") + `]}`)
+	return []byte(`{"spdxVersion":"SPDX-2.3","documentNamespace":"https://volatile.invalid/random","creationInfo":{"created":"2099-01-01T00:00:00Z"},"files":[` +
+		strings.Join(files, ",") + `],"packages":[` + strings.Join(packages, ",") + `],"relationships":[` + strings.Join(relationships, ",") + `]}`)
 }
 
 func TestGoReleaserArchiveMetadataIsHostIndependent(t *testing.T) {

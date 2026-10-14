@@ -1,7 +1,6 @@
 package construction
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -39,7 +38,7 @@ func TestDependencyPolicyScansTheGoStandardLibrary(t *testing.T) {
 }
 
 func TestReleaseSBOMCarriesTheScannedStandardLibrary(t *testing.T) {
-	for _, failure := range []string{"unscanned", "other version", "unnamed program"} {
+	for _, failure := range []string{"unscanned", "other version", "unnamed program", "one program", "foreign module"} {
 		t.Run(failure, func(t *testing.T) {
 			root := releaseRoot(t)
 			for name, content := range map[string]string{
@@ -81,21 +80,43 @@ func TestReleaseSBOMCarriesTheScannedStandardLibrary(t *testing.T) {
 }
 
 func rewriteStandardLibraries(path, failure string) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
 	var document map[string]any
-	if err := json.Unmarshal(data, &document); err != nil {
+	if err := readJSON(path, &document); err != nil {
 		return err
 	}
 	packages, _ := document["packages"].([]any)
-	if failure == "unnamed program" {
-		packages = packages[1:]
-	}
+	relationships, _ := document["relationships"].([]any)
+	libraries := map[any]bool{}
 	for _, item := range packages {
-		if object, ok := item.(map[string]any); ok && failure == "other version" {
-			object["versionInfo"] = "go1.0.0"
+		if object, ok := item.(map[string]any); ok && object["name"] == "stdlib" {
+			libraries[object["SPDXID"]] = true
+			if failure == "other version" {
+				object["versionInfo"] = "go1.0.0"
+			}
+		}
+	}
+	if failure == "unnamed program" {
+		packages = slices.DeleteFunc(packages, func(item any) bool {
+			object, _ := item.(map[string]any)
+			return object["SPDXID"] == "SPDXRef-Package-stdlib-0"
+		})
+	}
+	// "one program" keeps every library, file and relationship but attributes
+	// each library to the first program; "foreign module" makes the second
+	// program's library a dependency of the first program's main module.
+	for _, item := range relationships {
+		object, ok := item.(map[string]any)
+		if !ok || !libraries[object["spdxElementId"]] {
+			continue
+		}
+		dependency := object["relationshipType"] == "DEPENDENCY_OF"
+		switch {
+		case failure == "one program" && dependency:
+			object["relatedSpdxElement"] = "SPDXRef-Package-aigw-cli-0"
+		case failure == "one program":
+			object["relatedSpdxElement"] = "SPDXRef-File-0"
+		case failure == "foreign module" && dependency && object["spdxElementId"] == "SPDXRef-Package-stdlib-1":
+			object["relatedSpdxElement"] = "SPDXRef-Package-aigw-cli-0"
 		}
 	}
 	document["packages"] = packages
