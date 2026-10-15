@@ -123,31 +123,29 @@ func Prepare(path string, desired *Desired) (Plan, error) {
 // PrepareAuthorizedSelection admits an explicit selection only when replacing
 // the selected tuple with the prior tuple proves all other managed state.
 func PrepareAuthorizedSelection(path string, desired, previous Desired) (Plan, error) {
-	if err := previous.Validate(); err != nil {
-		return Plan{}, err
-	}
-	return prepare(path, &desired, &previous)
+	return prepareSelection(path, desired, previous, false)
 }
 
 // PrepareAdoptedSelection prepares the projection after synchronization adopted
-// Hermes' own selection. It admits proved selection drift only when Hermes
-// already selects the desired model, so it never replaces the native choice.
+// Hermes' own selection. It admits proved selection drift only when the same
+// observed file already selects the desired model, so it never replaces the
+// native choice.
 func PrepareAdoptedSelection(path string, desired, previous Desired) (Plan, error) {
-	config, err := transaction.CaptureFileSnapshot(path)
-	if err != nil {
+	return prepareSelection(path, desired, previous, true)
+}
+
+func prepareSelection(path string, desired, previous Desired, adopted bool) (Plan, error) {
+	if err := previous.Validate(); err != nil {
 		return Plan{}, err
 	}
-	root, err := parse(config.Data)
-	if err != nil {
-		return Plan{}, err
-	}
-	if !desired.selects(root) {
-		return Plan{}, errExternalEdit
-	}
-	return PrepareAuthorizedSelection(path, desired, previous)
+	return prepareObserved(path, &desired, &previous, adopted)
 }
 
 func prepare(path string, desired, previous *Desired) (Plan, error) {
+	return prepareObserved(path, desired, previous, false)
+}
+
+func prepareObserved(path string, desired, previous *Desired, adopted bool) (Plan, error) {
 	plan := Plan{path: path, Action: "unchanged"}
 	var err error
 	plan.configBefore, err = transaction.CaptureFileSnapshot(path)
@@ -164,6 +162,9 @@ func prepare(path string, desired, previous *Desired) (Plan, error) {
 	root, err := parse(plan.configBefore.Data)
 	if err != nil {
 		return Plan{}, err
+	}
+	if adopted && !desired.selects(root) {
+		return Plan{}, errExternalEdit
 	}
 	state, before, err := plan.readOwnership(root, desired, previous)
 	if err != nil {

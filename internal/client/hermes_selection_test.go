@@ -8,6 +8,33 @@ import (
 	hermesconfig "aigw-cli/internal/hermes/configuration"
 )
 
+func TestAdoptHermesSelectionLeavesUnprojectedBindingsUnchanged(t *testing.T) {
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Routes["opus"] = qualifiedRoute("Opus", "gateway", "claude-opus-5-5", configuration.ProtocolAnthropic)
+	cfg.Normalize()
+	for name, prepare := range map[string]func(*configuration.Config){
+		"disabled": func(*configuration.Config) {},
+		"unselected": func(cfg *configuration.Config) {
+			cfg.SetClientActivation(configuration.ClientHermes, true, "/opt/hermes", []string{"/missing/config.yaml"})
+		},
+		"two homes": func(cfg *configuration.Config) {
+			cfg.SetSelectedRoute(configuration.ClientHermes, "opus", "")
+			cfg.SetClientActivation(configuration.ClientHermes, true, "/opt/hermes", []string{"/a/config.yaml", "/b/config.yaml"})
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := cfg.Clone()
+			prepare(&candidate)
+			before := candidate.Clone()
+			routeID, err := AdoptHermesSelection(Dependencies{}, &candidate)
+			if err != nil || routeID != "" || candidate.SelectedRoute(configuration.ClientHermes) != before.SelectedRoute(configuration.ClientHermes) {
+				t.Fatalf("adoption = %q, %v; binding %#v", routeID, err, candidate.Clients[configuration.ClientHermes])
+			}
+		})
+	}
+}
+
 func TestHermesRouteForAdoptsOnlyOneExactRoute(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{

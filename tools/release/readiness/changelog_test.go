@@ -51,6 +51,8 @@ func TestChangelogRequiresKeepAChangelogStructure(t *testing.T) {
 		"release without changes":     validChangelog("## Unreleased\n\n## 1.0.0 - 2026-08-07\n\n### Fixed\n"),
 		"loose change list":           validChangelog("## Unreleased\n\n### Fixed\n\n- Fix one.\n\n- Fix two.\n"),
 		"loose wrapped change list":   validChangelog("## Unreleased\n\n## 1.0.0 - 2026-08-07\n\n### Fixed\n\n- Fix one\n  across lines.\n\n- Fix two.\n"),
+		"category before unreleased":  validChangelog("### Fixed\n\n## Unreleased\n"),
+		"item outside a category":     validChangelog("## Unreleased\n\n- Fix one.\n"),
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "CHANGELOG.md")
