@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -73,6 +74,21 @@ func TestNativeClientSuccessionRequiresPublishedPredecessor(t *testing.T) {
 	}
 }
 
+func TestNativeAcceptanceClientsSelectSupportedHostJourneys(t *testing.T) {
+	for _, platform := range []string{"darwin", "linux", "windows"} {
+		want := []string{configuration.ClientClaude, configuration.ClientCodex}
+		if platform != "windows" {
+			want = append(want, configuration.ClientHermes)
+		}
+		if got := NativeAcceptanceClients(platform); !slices.Equal(got, want) {
+			t.Fatalf("%s native clients: got %v, want %v", platform, got, want)
+		}
+	}
+	if got := NativeAcceptanceClients("unsupported"); len(got) != 0 {
+		t.Fatalf("unsupported native host admitted client journeys: %v", got)
+	}
+}
+
 func TestNativeDiagnosticClientAdmission(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("AIGW_ACCEPTANCE_HERMES_HOME", root)
@@ -83,10 +99,10 @@ func TestNativeDiagnosticClientAdmission(t *testing.T) {
 	if err := os.WriteFile(executable, []byte("test-owned executable"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	for _, client := range nativeAcceptanceClients {
+	for _, client := range NativeAcceptanceClients(runtime.GOOS) {
 		t.Setenv("AIGW_ACCEPTANCE_"+strings.ToUpper(client), "")
 	}
-	for _, client := range nativeAcceptanceClients {
+	for _, client := range NativeAcceptanceClients(runtime.GOOS) {
 		if _, err := ParseNativeAcceptance([]string{artifacts, "--candidate", "--diagnostic-client=" + client}); err != nil {
 			t.Errorf("explicit %s diagnostic was refused: %v", client, err)
 		}
@@ -102,7 +118,14 @@ func TestNativeDiagnosticClientAdmission(t *testing.T) {
 	}
 	t.Setenv("AIGW_ACCEPTANCE_HERMES", executable)
 	t.Setenv("AIGW_ACCEPTANCE_HERMES_HOME", "")
-	if err := requireNativeClients(configuration.ClientHermes); err == nil || !strings.Contains(err.Error(), "AIGW_ACCEPTANCE_HERMES_HOME") {
+	if runtime.GOOS == "windows" {
+		if err := requireNativeClients(configuration.ClientHermes); err == nil || !strings.Contains(err.Error(), "unsupported native client") {
+			t.Fatalf("unsupported Windows Hermes diagnostic was admitted: %v", err)
+		}
+		if _, err := ParseNativeAcceptance([]string{artifacts, "--candidate", "--diagnostic-client=hermes"}); err == nil {
+			t.Fatal("Windows Hermes diagnostic could succeed without a matching journey")
+		}
+	} else if err := requireNativeClients(configuration.ClientHermes); err == nil || !strings.Contains(err.Error(), "AIGW_ACCEPTANCE_HERMES_HOME") {
 		t.Fatalf("Hermes acceptance admitted an unbound native installation: %v", err)
 	}
 	for _, arguments := range [][]string{
@@ -211,14 +234,14 @@ func TestNativePerformanceScopeCannotInheritAttribution(t *testing.T) {
 
 func TestNativeDiagnosticClientSelectsOnlyItsRetainedJourney(t *testing.T) {
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "/published/aigw")
-	for _, client := range nativeAcceptanceClients {
+	for _, client := range NativeAcceptanceClients(runtime.GOOS) {
 		t.Run(client, func(t *testing.T) {
 			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
 			artifacts := t.TempDir()
 			writeNativeArchive(t, artifacts, "1.2.3")
 			want := errors.New("diagnosed client failure")
 			var calls []toolCall
-			err := acceptNative(request, artifacts, "/published/aigw", NativeAcceptance{DiagnosticClient: client}, func(call toolCall) error {
+			err := acceptNative(request, artifacts, "/published/aigw", NativeAcceptance{Artifacts: artifacts, DiagnosticClient: client}, func(call toolCall) error {
 				calls = append(calls, call)
 				return want
 			})

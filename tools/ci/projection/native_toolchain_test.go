@@ -364,7 +364,7 @@ func checkGitHubNativeToolClosure(t *testing.T, projection projection) {
 		if hasDarwinSigner != (name == "native-darwin") {
 			t.Errorf("%s %s Darwin signer presence = %t", projection.Path, name, hasDarwinSigner)
 		}
-		clientTools := strings.Contains(tools, "inputs.windows_clients && ',node,uv'")
+		clientTools := strings.Contains(tools, "inputs.windows_clients && ',node'")
 		if clientTools != (name == "native-windows") {
 			t.Errorf("%s %s selected Windows client tool closure = %t", projection.Path, name, clientTools)
 		}
@@ -420,9 +420,17 @@ func TestWindowsClientSupplyUsesOfficialPlatformPackage(t *testing.T) {
 	if !strings.Contains(script, platformRoot) {
 		t.Fatalf("offline native supply does not select the official platform package: %s", platformRoot)
 	}
+	for _, key := range []string{"AIGW_ACCEPTANCE_CLAUDE", "AIGW_ACCEPTANCE_CODEX", "CLAUDE_CODE_GIT_BASH_PATH"} {
+		if !strings.Contains(script, key) {
+			t.Fatalf("offline Windows supply omits %s", key)
+		}
+	}
+	if strings.Contains(script, "hermes") || strings.Contains(script, "HERMES") {
+		t.Fatal("offline Windows supply installs an unsupported native journey")
+	}
 }
 
-func TestWindowsClientInstallerUsesPinnedContentAPI(t *testing.T) {
+func TestWindowsClientSupplyMatchesSupportedNativeJourneys(t *testing.T) {
 	projections := canonicalProjections(t)
 	type step struct {
 		Name           string            `yaml:"name"`
@@ -440,44 +448,43 @@ func TestWindowsClientInstallerUsesPinnedContentAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	windows := workflow.Jobs["native-windows"].Steps
-	fetchIndex := slices.IndexFunc(windows, func(item step) bool { return item.Name == "Fetch pinned Hermes installer" })
 	supplyIndex := slices.IndexFunc(windows, func(item step) bool { return item.Name == "Prepare official Windows clients" })
 	nativeIndex := slices.IndexFunc(windows, func(item step) bool { return item.Name == "Run historical release acceptance" })
 	cleanupIndex := slices.IndexFunc(windows, func(item step) bool { return item.Name == "Remove official Windows client supply" })
-	if fetchIndex < 0 || supplyIndex <= fetchIndex || nativeIndex <= supplyIndex || cleanupIndex <= nativeIndex {
-		t.Fatalf("Windows native supply ordering: fetch=%d supply=%d native=%d cleanup=%d", fetchIndex, supplyIndex, nativeIndex, cleanupIndex)
+	if supplyIndex < 0 || nativeIndex <= supplyIndex || cleanupIndex <= nativeIndex {
+		t.Fatalf("Windows native supply ordering: supply=%d native=%d cleanup=%d", supplyIndex, nativeIndex, cleanupIndex)
 	}
-	fetch, supply := windows[fetchIndex], windows[supplyIndex]
+	supply := windows[supplyIndex]
 	const selection = "github.event_name == 'workflow_dispatch' && inputs.windows_clients && inputs.baseline_tag != ''"
 	for _, field := range []struct{ got, want string }{
-		{fetch.If, selection}, {supply.If, selection}, {windows[cleanupIndex].If, "always() && " + selection},
-		{fetch.Env["GH_TOKEN"], "${{ github.token }}"}, {fetch.Env["GH_PROMPT_DISABLED"], "1"},
+		{supply.If, selection}, {windows[cleanupIndex].If, "always() && " + selection},
+		{supply.Env["GIT_TERMINAL_PROMPT"], "0"},
 	} {
 		if field.got != field.want {
 			t.Fatalf("Windows official supply input = %q, want %q", field.got, field.want)
 		}
 	}
-	if fetch.TimeoutMinutes != 2 || supply.TimeoutMinutes != 12 {
+	if supply.TimeoutMinutes != 12 {
 		t.Fatal("Windows official supply lost its caller deadlines")
-	}
-	const commit = "71d34bad1045610252eda02ee79549436896e784"
-	const digest = "61824d6b47be29ab793d0e72872cf56cd7a3e99cbe40abeb177a6c9eef52f485"
-	if !strings.Contains(fetch.Run, commit) || !strings.Contains(fetch.Run, digest) || !strings.Contains(fetch.Run, "gh api") || !strings.Contains(fetch.Run, "[Convert]::FromBase64String") {
-		t.Fatal("Hermes installer must preserve original pinned Git blob bytes")
 	}
 	for _, key := range []string{"GH_TOKEN", "GITHUB_TOKEN"} {
 		if value, present := supply.Env[key]; !present || value != "" {
 			t.Fatalf("Windows official installation inherits %s", key)
 		}
 	}
-	for _, required := range []string{commit, digest, "npm install", "npm audit signatures", "pwsh -NoProfile -File $hermesInstaller", "hash-verified via uv.lock", "@('prerequisites', 'repository', 'venv', 'python-deps')", "uv run --no-project --python 3.12 --managed-python", "hermes_cli/_launchers.py", "SkipBrowser -SkipComputerUse", "\".hermes/bin/hermes.exe\"", "AIGW_ACCEPTANCE_CODEX", "AIGW_ACCEPTANCE_CLAUDE", "AIGW_ACCEPTANCE_HERMES", "AIGW_ACCEPTANCE_CLIENT_PATH", "CLAUDE_CODE_GIT_BASH_PATH", "GITHUB_ENV", "$env:GIT_CONFIG_GLOBAL = Join-Path $clients 'gitconfig'", "git config --file $env:GIT_CONFIG_GLOBAL core.autocrlf false", "git -C $hermesInstall status --porcelain=v1 --untracked-files=no"} {
+	for _, required := range []string{"npm install", "npm audit signatures", "@openai/codex@0.162.1", "@anthropic-ai/claude-code-win32-x64@2.1.296", "AIGW_ACCEPTANCE_CODEX", "AIGW_ACCEPTANCE_CLAUDE", "AIGW_ACCEPTANCE_CLIENT_PATH", "CLAUDE_CODE_GIT_BASH_PATH", "GITHUB_ENV", "$env:GIT_CONFIG_GLOBAL = Join-Path $clients 'gitconfig'", "git config --file $env:GIT_CONFIG_GLOBAL core.autocrlf false"} {
 		if !strings.Contains(supply.Run, required) {
 			t.Fatalf("Windows native supply lost %q", required)
 		}
 	}
+	for _, item := range windows {
+		if strings.Contains(item.Run, "hermes") || strings.Contains(item.Run, "HERMES") {
+			t.Fatal("Windows native supply requests an unsupported Hermes journey")
+		}
+	}
 	for _, platform := range []string{"darwin", "linux"} {
 		if slices.ContainsFunc(workflow.Jobs["native-"+platform].Steps, func(item step) bool {
-			return item.Name == fetch.Name || item.Name == supply.Name || item.Name == windows[cleanupIndex].Name
+			return item.Name == supply.Name || item.Name == windows[cleanupIndex].Name
 		}) {
 			t.Fatalf("%s contains Windows-only supply orchestration", platform)
 		}

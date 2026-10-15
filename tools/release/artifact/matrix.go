@@ -102,17 +102,16 @@ func verifiedDigests(directory, version string) (map[string]string, error) {
 	slices.Sort(actual)
 	expected := slices.Clone(wanted)
 	slices.Sort(expected)
-	localDigests := make(map[string]string, len(wanted)-1)
+	localDigests := make(map[string]string, len(wanted))
 	var manifest []byte
 	for _, name := range wanted {
 		data, readErr := os.ReadFile(filepath.Join(directory, name))
 		if readErr != nil || len(data) == 0 {
 			return nil, fmt.Errorf("release artifact matrix: missing or empty artifact: %s", name)
 		}
+		localDigests[name] = fmt.Sprintf("%x", sha256.Sum256(data))
 		if name == "checksums.txt" {
 			manifest = data
-		} else {
-			localDigests[name] = fmt.Sprintf("%x", sha256.Sum256(data))
 		}
 	}
 	if !slices.Equal(actual, expected) {
@@ -138,8 +137,7 @@ func verifiedDigests(directory, version string) (map[string]string, error) {
 	if len(digests) != len(checksummedNames(version)) {
 		return nil, errors.New("release artifact matrix: checksum manifest has unexpected entries")
 	}
-	digests["checksums.txt.sig"] = localDigests["checksums.txt.sig"]
-	return digests, nil
+	return localDigests, nil
 }
 
 // CompareMatrices verifies two complete matrices and compares their content.
@@ -152,7 +150,7 @@ func CompareMatrices(left, right, version string) error {
 	if err != nil {
 		return err
 	}
-	for _, name := range comparableNames(version) {
+	for _, name := range Names(version) {
 		if leftDigests[name] != rightDigests[name] {
 			return fmt.Errorf("release artifact differs across forge stages: %s", name)
 		}
@@ -176,8 +174,4 @@ func RewriteChecksums(directory, version string) error {
 func checksummedNames(version string) []string {
 	names := Names(version)
 	return names[:len(names)-2]
-}
-
-func comparableNames(version string) []string {
-	return append(checksummedNames(version), "checksums.txt.sig")
 }

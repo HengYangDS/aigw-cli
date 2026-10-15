@@ -35,7 +35,18 @@ type NativeAcceptance struct {
 	DiagnosticClient                                                  string
 }
 
-var nativeAcceptanceClients = []string{configuration.ClientClaude, configuration.ClientCodex, configuration.ClientHermes}
+// NativeAcceptanceClients owns the client journeys supported on each native host.
+func NativeAcceptanceClients(platform string) []string {
+	clients := []string{configuration.ClientClaude, configuration.ClientCodex}
+	switch platform {
+	case "windows":
+		return clients
+	case "darwin", "linux":
+		return append(clients, configuration.ClientHermes)
+	default:
+		return nil
+	}
+}
 
 // ParseNativeAcceptance keeps native input and scope selection at the release owner.
 func ParseNativeAcceptance(arguments []string) (NativeAcceptance, error) {
@@ -203,14 +214,18 @@ func (input *NativeAcceptance) validateDiagnosticScopes() error {
 	if input.PerformanceAttribution && (input.Performance == "" || input.Clients || input.DiagnosticClient != "") {
 		return errors.New("performance attribution requires an explicit performance output and no client scope")
 	}
-	if input.DiagnosticClient != "" && (!slices.Contains(nativeAcceptanceClients, input.DiagnosticClient) || !input.UsesPrebuiltArtifacts() || input.Clients || input.Performance != "") {
+	if input.DiagnosticClient != "" && (!slices.Contains(NativeAcceptanceClients(runtime.GOOS), input.DiagnosticClient) || !input.UsesPrebuiltArtifacts() || input.Clients || input.Performance != "") {
 		return errors.New("native client diagnostics require one supported client, prebuilt artifacts, and no full-client or performance scope")
 	}
 	return nil
 }
 
 func requireNativeClients(selected string) error {
-	for _, client := range nativeAcceptanceClients {
+	clients := NativeAcceptanceClients(runtime.GOOS)
+	if len(clients) == 0 || selected != "" && !slices.Contains(clients, selected) {
+		return fmt.Errorf("unsupported native client acceptance on %s: %s", runtime.GOOS, selected)
+	}
+	for _, client := range clients {
 		if selected != "" && selected != client {
 			continue
 		}
@@ -301,6 +316,9 @@ func BuildNative(ctx context.Context, root, workspace, version string) (string, 
 }
 
 func acceptNative(request buildRequest, artifacts, baseline string, input NativeAcceptance, run toolRunner) (result error) {
+	if err := input.validateDiagnosticScopes(); err != nil {
+		return err
+	}
 	clients, performanceDirectory := input.Clients, input.Performance
 	if performanceDirectory != "" {
 		if _, err := os.Stat(performanceDirectory); !os.IsNotExist(err) {
