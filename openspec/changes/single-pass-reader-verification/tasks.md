@@ -20,4 +20,5 @@
 
 - [ ] 2.1 Measure all eight native workloads against the published 0.4.1
       predecessor on macOS, Linux and Windows; every candidate p95 stays within
-      its budget or the exceedance is explicitly accepted.
+      its budget or the exceedance is explicitly accepted. The 0.4.2 release
+      artifacts are the measured candidate.
