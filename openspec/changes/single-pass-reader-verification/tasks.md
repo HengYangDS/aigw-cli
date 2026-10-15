@@ -26,7 +26,8 @@
 
 ## 2. Requalify
 
-- [ ] 2.1 Measure all eight native workloads against the published 0.4.1
+- [x] 2.1 Measure all eight native workloads against the published 0.4.1
       predecessor on macOS, Linux and Windows; every candidate p95 stays within
       its budget or the exceedance is explicitly accepted. The 0.4.2 release
-      artifacts are the measured candidate.
+      artifacts are the measured candidate; GitHub run 38777446724, attempt 2,
+      kept every candidate p95 within budget.
