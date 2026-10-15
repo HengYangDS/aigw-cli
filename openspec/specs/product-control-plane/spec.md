@@ -393,7 +393,9 @@ policy. Compatibility facades and duplicate policy owners SHALL not be retained.
 ### Requirement: Deterministic local verification
 
 Local verification MUST use controlled fixtures rather than an undeclared
-public network dependency.
+public network dependency or host-provided Git templates and hooks. A native
+qualification that needs public services SHALL run only in a quality gate that
+declares network access.
 
 #### Scenario: A local test depends on external state
 
@@ -401,6 +403,28 @@ public network dependency.
   controlled fixture
 - **THEN** local verification SHALL fail or the fixture SHALL intercept the
   exact request without public network I/O
+
+#### Scenario: A host provides Git templates
+
+- **WHEN** the host configures a Git template directory with hooks,
+  configuration or exclusions
+- **THEN** repositories created by verification tests SHALL contain none of
+  that content
+
+#### Scenario: A host provides global Git hooks
+
+- **WHEN** the host's global Git configuration names a hook directory
+- **THEN** verification tests SHALL NOT execute those hooks
+- **AND** fixtures SHALL keep their own hook directories and the host's other
+  global settings
+
+#### Scenario: A native tool needs public services
+
+- **WHEN** a test qualifies a native tool against public advisory or license
+  services
+- **THEN** it SHALL run only in a quality gate that declares network access
+- **AND** offline behavior tests SHALL cover the same evidence handling with
+  controlled fixtures
 
 ### Requirement: Source-bound quantitative evidence
 
