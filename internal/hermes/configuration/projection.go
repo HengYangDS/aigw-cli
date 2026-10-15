@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"slices"
 	"strings"
 
@@ -81,6 +80,7 @@ type Plan struct {
 	configAfter  []byte
 	stateAfter   []byte
 	removeConfig bool
+	keepConfig   bool
 	commands     map[string]string
 }
 
@@ -127,6 +127,24 @@ func PrepareAuthorizedSelection(path string, desired, previous Desired) (Plan, e
 		return Plan{}, err
 	}
 	return prepare(path, &desired, &previous)
+}
+
+// PrepareAdoptedSelection prepares the projection after synchronization adopted
+// Hermes' own selection. It admits proved selection drift only when Hermes
+// already selects the desired model, so it never replaces the native choice.
+func PrepareAdoptedSelection(path string, desired, previous Desired) (Plan, error) {
+	config, err := transaction.CaptureFileSnapshot(path)
+	if err != nil {
+		return Plan{}, err
+	}
+	root, err := parse(config.Data)
+	if err != nil {
+		return Plan{}, err
+	}
+	if !desired.selects(root) {
+		return Plan{}, errExternalEdit
+	}
+	return PrepareAuthorizedSelection(path, desired, previous)
 }
 
 func prepare(path string, desired, previous *Desired) (Plan, error) {
@@ -177,6 +195,9 @@ func prepare(path string, desired, previous *Desired) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
+	if plan.keepConfig {
+		plan.configAfter = plan.configBefore.Data
+	}
 	return plan, nil
 }
 
@@ -207,6 +228,11 @@ func (plan *Plan) prepareDesired(root *yaml.Node, desired Desired, state ownersh
 	if plan.stateBefore.Exists && bytes.Equal(before, after) && !orderChanged && state.ManagedDigest == afterDigest {
 		return nil
 	}
+	if plan.stateBefore.Exists && bytes.Equal(before, after) && !orderChanged {
+		// Hermes already shows the desired projection; record it without
+		// rewriting the operator's file.
+		plan.keepConfig = true
+	}
 	state.ManagedDigest = afterDigest
 	plan.stateAfter, err = json.MarshalIndent(state, "", "  ")
 	if err != nil {
@@ -221,21 +247,16 @@ func (plan *Plan) readOwnership(root *yaml.Node, desired, previous *Desired) (ow
 	if !plan.stateBefore.Exists {
 		return initialOwnership(root, desired, plan.configBefore.Exists)
 	}
-	var state ownership
-	decoder := json.NewDecoder(bytes.NewReader(plan.stateBefore.Data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&state); err != nil {
-		return state, nil, fmt.Errorf("invalid Hermes ownership record: %w", err)
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) || state.Version != 2 || state.ManagedDigest == "" || len(state.ProviderIDs) == 0 {
-		return state, nil, errors.New("invalid Hermes ownership record")
+	state, err := decodeOwnership(plan.stateBefore.Data)
+	if err != nil {
+		return state, nil, err
 	}
 	current, err := managedBytes(root, state.ProviderIDs)
 	if err != nil {
 		return state, nil, err
 	}
 	if digest(current) != state.ManagedDigest && !selectionOnlyDrift(root, state, previous) {
-		return state, nil, errors.New("managed Hermes settings changed outside AIGW; preserve the edit before synchronization")
+		return state, nil, errExternalEdit
 	}
 	return state, current, nil
 }

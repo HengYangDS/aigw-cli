@@ -191,16 +191,19 @@ func hermesPlans(deps Dependencies, before, after configuration.Config) ([]herme
 			projection = &desired
 		}
 		plan, err := hermesconfig.Prepare(target, projection)
-		if err != nil && projection != nil && deps.AuthorizedSelectionClient == configuration.ClientHermes {
-			selected, resolveErr := before.ResolveRuntime(configuration.ClientHermes, "")
-			if resolveErr != nil {
-				return nil, nil, resolveErr
+		if err != nil && projection != nil {
+			authorized := deps.AuthorizedSelectionClient == configuration.ClientHermes
+			previous, previousErr := hermesPreviousDesired(deps, before)
+			switch {
+			case previousErr != nil && authorized:
+				return nil, nil, previousErr
+			case previousErr != nil:
+				// Without a previous projection there is no proved selection to adopt.
+			case authorized:
+				plan, err = hermesconfig.PrepareAuthorizedSelection(target, *projection, previous)
+			default:
+				plan, err = hermesconfig.PrepareAdoptedSelection(target, *projection, previous)
 			}
-			previous, desiredErr := hermesDesired(deps, before, selected)
-			if desiredErr != nil {
-				return nil, nil, desiredErr
-			}
-			plan, err = hermesconfig.PrepareAuthorizedSelection(target, *projection, previous)
 		}
 		if err != nil {
 			return nil, nil, err
@@ -208,6 +211,80 @@ func hermesPlans(deps Dependencies, before, after configuration.Config) ([]herme
 		plans = append(plans, plan)
 	}
 	return plans, targets, nil
+}
+
+func hermesPreviousDesired(deps Dependencies, before configuration.Config) (hermesconfig.Desired, error) {
+	selected, err := before.ResolveRuntime(configuration.ClientHermes, "")
+	if err != nil {
+		return hermesconfig.Desired{}, err
+	}
+	return hermesDesired(deps, before, selected)
+}
+
+// AdoptHermesSelection records Hermes' own model choice as its Client Binding
+// when the operator selected another model of AIGW's projected catalogue in
+// Hermes and nothing else that AIGW owns changed. It returns the adopted Route,
+// or an empty string when Hermes still shows the bound selection.
+func AdoptHermesSelection(deps Dependencies, cfg *configuration.Config) (string, error) {
+	binding := cfg.Clients[configuration.ClientHermes]
+	if !binding.Enabled || len(binding.Targets) != 1 {
+		return "", nil
+	}
+	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	if err != nil {
+		return "", nil
+	}
+	current, err := hermesDesired(deps, *cfg, selected)
+	if err != nil {
+		return "", err
+	}
+	native, changed, err := hermesconfig.ObserveSelection(binding.Targets[0], current)
+	if err != nil || !changed {
+		return "", err
+	}
+	routeID, protocol, err := hermesRouteFor(*cfg, native)
+	if err != nil {
+		return "", err
+	}
+	cfg.SetSelectedRoute(configuration.ClientHermes, routeID, protocol)
+	return routeID, nil
+}
+
+// hermesRouteFor maps a projected provider and model to the one catalogue
+// Route with that provider's Account, protocol and upstream model.
+func hermesRouteFor(cfg configuration.Config, native hermesconfig.Selection) (string, configuration.EndpointProtocol, error) {
+	catalogue, err := hermesCatalogue(cfg)
+	if err != nil {
+		return "", "", err
+	}
+	index := slices.IndexFunc(catalogue, func(item hermesCatalogueProvider) bool { return item.ID == native.Provider })
+	if index < 0 {
+		return "", "", fmt.Errorf("Hermes selects provider %q, which AIGW no longer projects; run `aigw use --for hermes <route>`", native.Provider)
+	}
+	provider := catalogue[index]
+	spec := mustClientSpec(configuration.ClientHermes)
+	var matches []string
+	for _, routeID := range cfg.CatalogRouteIDs() {
+		route := cfg.Routes[routeID]
+		if route.Account != provider.Account || route.UpstreamModelID() != native.Model {
+			continue
+		}
+		if slices.Contains(spec.CompatibleRouteProtocols(cfg.Accounts[route.Account], route), provider.Protocol) {
+			matches = append(matches, routeID)
+		}
+	}
+	switch len(matches) {
+	case 1:
+		return matches[0], provider.Protocol, nil
+	case 0:
+		return "", "", fmt.Errorf("Hermes selects model %q, which no AIGW Route provides; run `aigw use --for hermes <route>`", native.Model)
+	default:
+		commands := make([]string, 0, len(matches))
+		for _, routeID := range matches {
+			commands = append(commands, fmt.Sprintf("`aigw use --for hermes --protocol %s %s`", provider.Protocol, routeID))
+		}
+		return "", "", fmt.Errorf("Hermes selects model %q, which several AIGW Routes provide; run one of %s", native.Model, strings.Join(commands, ", "))
+	}
 }
 
 func (hermesAdapter) Plan(deps Dependencies, before, after configuration.Config) ([]ProjectionPlan, error) {
