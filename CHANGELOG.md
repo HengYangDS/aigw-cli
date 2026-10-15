@@ -14,6 +14,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Changed
+
+- Read the running program and each credential reader once per setup, sync or
+  Route change, and install a reader from exactly the program bytes that this
+  read verified.
+
 ## 0.4.1 - 2026-10-14
 
 History: [GitHub][0.4.1-github]

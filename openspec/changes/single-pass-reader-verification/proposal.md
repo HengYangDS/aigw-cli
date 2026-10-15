@@ -13,20 +13,20 @@ the repeated reads.
 
 - Verify the running program and each versioned reader once per command, and
   project exactly the bytes that verification read.
-- Keep refusing a reader or program whose bytes no longer match the identity
-  that verification established, including a same-size rewrite that leaves
-  coarse file timestamps unchanged.
+- Keep verifying content in every command, so a same-size rewrite that leaves
+  coarse file timestamps unchanged is still found; within one command, refuse a
+  reader that disappears or is replaced before projection completes.
 - Requalify the native performance budgets on macOS, Linux and Windows against
-  the published 0.4.0 predecessor.
+  the published 0.4.1 predecessor; `v0.4.0` has no release assets.
 
 ## Capabilities
 
 `secret-storage` gains a requirement that one command reads each verified
-executable once without accepting bytes changed after verification.
+executable once and installs only the bytes it verified.
 
 ## Impact
 
 The owner is `internal/credential` and its synchronization caller. Content
 addressing, receipts, the private namespace and versioned reader retention are
-unchanged. No cache outlives one command, and file metadata alone never proves
-that bytes are unchanged.
+unchanged. No cache outlives one command; across commands, file metadata never
+stands in for content verification.

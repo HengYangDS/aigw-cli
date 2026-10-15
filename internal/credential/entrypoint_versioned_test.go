@@ -29,8 +29,8 @@ func TestVersionedEntrypointPathRejectsInvalidInputsWithoutWrites(t *testing.T) 
 	for _, tc := range []struct {
 		name, data, source, installName, problem string
 	}{
-		{"relative-data", "data", source, "aigw", "absolute paths"},
-		{"relative-source", data, "source", "aigw", "absolute paths"},
+		{"relative-data", "data", source, "aigw", "absolute path"},
+		{"relative-source", data, "source", "aigw", "absolute path"},
 		{"empty-name", data, source, "", "one file name"},
 		{"current-name", data, source, ".", "one file name"},
 		{"parent-name", data, source, "..", "one file name"},
@@ -290,6 +290,11 @@ func TestEntrypointVerificationKeepsMemoryBounded(t *testing.T) {
 			t.Error(err)
 		}
 	})
+	// A command reads and keeps its program once; verification stays bounded.
+	program, err := ReadProgram(nil, source)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, operation := range []struct {
 		name string
 		run  func() error
@@ -302,11 +307,11 @@ func TestEntrypointVerificationKeepsMemoryBounded(t *testing.T) {
 			return err
 		}},
 		{"ensure-existing", func() error {
-			undo, err := EnsureEntrypoint(source, target)
+			entrypoint, undo, err := program.EnsureEntrypoint(target)
 			if err != nil {
 				return err
 			}
-			return undo()
+			return errors.Join(entrypoint.Confirm(), undo())
 		}},
 	} {
 		t.Run(operation.name, func(t *testing.T) {
@@ -484,9 +489,9 @@ func TestExecutableDigestRechecksConcurrentSources(t *testing.T) {
 				if err := os.WriteFile(path, data, 0o700); err != nil {
 					t.Fatal(err)
 				}
-				actual, err := executableDigest(path)
-				if err != nil || actual != sha256.Sum256(data) {
-					t.Fatalf("fresh %s identity at iteration %d = %x, %v", name, iteration, actual, err)
+				observed, err := executables{}.observe(path, false)
+				if err != nil || observed.digest != sha256.Sum256(data) {
+					t.Fatalf("fresh %s identity at iteration %d = %x, %v", name, iteration, observed.digest, err)
 				}
 			}
 		})

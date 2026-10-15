@@ -65,7 +65,7 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg configuration.Con
 	if _, err := s.registry().Plan(dependencies, cfg, cfg, clientID); err != nil {
 		return err
 	}
-	undoEntrypoint, err := s.prepareCredentialEntrypoint(cfg, clientID)
+	entrypoint, undoEntrypoint, err := s.prepareCredentialEntrypoint(cfg, clientID)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg configuration.Con
 		}
 		return err
 	}
-	finalizeErr := s.finalizeCredentialEntrypoint(cfg, clientID)
+	finalizeErr := s.finalizeCredentialEntrypoint(entrypoint)
 	if finalizeErr == nil {
 		return nil
 	}
@@ -86,23 +86,38 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg configuration.Con
 	return errors.Join(fmt.Errorf("credential entrypoint finalization failed; client projection was rolled back: %w", finalizeErr), undoCreatedEntrypoint(undoEntrypoint))
 }
 
-func (s Synchronizer) prepareCredentialEntrypoint(cfg configuration.Config, clientIDs ...string) (func() error, error) {
+func (s Synchronizer) prepareCredentialEntrypoint(cfg configuration.Config, clientIDs ...string) (*credential.Entrypoint, func() error, error) {
 	accounts, err := s.credentialEntrypointAccounts(cfg, clientIDs...)
 	if err != nil || len(accounts) == 0 {
-		return nil, err
+		return nil, nil, err
 	}
 	path, err := s.CredentialEntrypointPath()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	undo, err := credential.EnsureEntrypoint(s.AIGWExecutable, path)
-	if err != nil || s.Secrets == nil {
-		return undo, err
+	program, err := s.program()
+	if err != nil {
+		return nil, nil, err
 	}
-	if err := secrets.VerifyNativeReaderAccess(s.Secrets, path, accounts); err != nil {
-		return nil, errors.Join(err, undoCreatedEntrypoint(undo))
+	entrypoint, undo, err := program.EnsureEntrypoint(path)
+	if err != nil {
+		return nil, nil, err
 	}
-	return undo, nil
+	if s.Secrets != nil {
+		if err := secrets.VerifyNativeReaderAccess(s.Secrets, path, accounts); err != nil {
+			return nil, nil, errors.Join(err, undoCreatedEntrypoint(undo))
+		}
+	}
+	return &entrypoint, undo, nil
+}
+
+// program returns the running AIGW program that this invocation already read,
+// or reads AIGWExecutable when the invocation supplied no program.
+func (s Synchronizer) program() (credential.Program, error) {
+	if s.ResolveProgram != nil {
+		return s.ResolveProgram()
+	}
+	return credential.ReadProgram(s.Files, s.AIGWExecutable)
 }
 
 // ConfigStore is the exact persistence capability needed by a synchronization
@@ -125,6 +140,8 @@ type Synchronizer struct {
 	AIGWExecutable            string
 	CredentialPath            string
 	ResolveCredentialPath     func() (string, error)
+	ResolveProgram            func() (credential.Program, error)
+	Files                     credential.Files
 	AuthorizedSelectionClient string
 }
 
@@ -333,7 +350,7 @@ func (s Synchronizer) CredentialEntrypointPlan(cfg configuration.Config, clientI
 	if err != nil {
 		return CredentialEntrypointUnchanged, err
 	}
-	missing, err := credential.EntrypointNeeded(path)
+	missing, err := credential.EntrypointNeededFrom(s.Files, path)
 	if err != nil {
 		return CredentialEntrypointUnchanged, err
 	}

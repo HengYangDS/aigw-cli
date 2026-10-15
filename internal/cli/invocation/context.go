@@ -12,6 +12,7 @@ import (
 	"time"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
@@ -47,6 +48,8 @@ type Context struct {
 	DataDir               string
 	CredentialPath        string
 	ResolveCredentialPath func() (string, error)
+	ResolveProgram        func() (credential.Program, error)
+	Files                 credential.Files
 	InstallTarget         string
 	ClaudeSettingsPath    string
 	Config                configuration.Store
@@ -158,6 +161,8 @@ func Synchronizer(runtime Context) synchronization.Synchronizer {
 		AIGWExecutable:        runtime.Executable,
 		CredentialPath:        runtime.CredentialPath,
 		ResolveCredentialPath: runtime.ResolveCredentialPath,
+		ResolveProgram:        runtime.ResolveProgram,
+		Files:                 runtime.Files,
 	}
 }
 

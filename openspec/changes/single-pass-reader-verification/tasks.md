@@ -2,15 +2,18 @@
 
 ## 1. Verify Once
 
-- [ ] 1.1 Add a failing regression that counts executable reads in one
-      `setup`, `sync` and `use --for` command; it fails at the current three to
-      four reads per command.
-- [ ] 1.2 Carry the program and reader digests through one command so each file
-      is read once; `TestExecutableDigestRechecksConcurrentSources` and every
-      existing reader integrity test still pass.
+- [x] 1.1 Inject a `credential.Files` capability through the App, invocation
+      and synchronizer, and add a failing regression that counts executable
+      opens per path in one `setup`, `sync` and `use --for` command; it fails at
+      the current two program and two reader reads per command.
+- [x] 1.2 Read the program once through `credential.ReadProgram`, verify or
+      install each reader once through `Program.EnsureEntrypoint`, and confirm
+      it after projection through `Entrypoint.Confirm` without another read; the
+      regression passes, and `TestExecutableDigestRechecksConcurrentSources` and
+      every existing reader integrity test still pass.
 
 ## 2. Requalify
 
-- [ ] 2.1 Measure all eight native workloads against the published 0.4.0
+- [ ] 2.1 Measure all eight native workloads against the published 0.4.1
       predecessor on macOS, Linux and Windows; every candidate p95 stays within
       its budget or the exceedance is explicitly accepted.
