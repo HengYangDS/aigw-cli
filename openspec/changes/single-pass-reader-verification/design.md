@@ -14,9 +14,10 @@ reveal a same-size rewrite.
 
 ## Goals / Non-Goals
 
-**Goals:** within one command, read the program once and each versioned reader
-once, copy only bytes that this read hashed, and keep every refusal that
-content verification provides today.
+**Goals:** within one command, stream the program once to verify it and each
+versioned reader once, keep memory bounded, copy only bytes whose digest equals
+the verified one, and keep every refusal that content verification provides
+today.
 
 **Non-Goals:** a digest cache keyed by path, size or time; any state that
 outlives one command; changes to receipts, the private namespace, retained
@@ -24,18 +25,24 @@ readers or the native performance contract.
 
 ## Decisions
 
-### Two content reads, identities everywhere else
+### One verification read per file, identities everywhere else
 
-`credential.ReadProgram` reads the running program once, hashes it and keeps the
-bytes it hashed. `Program.EnsureEntrypoint` reads an existing reader once,
+`credential.ReadProgram` streams the running program once and keeps only its
+path and digest. `Program.EnsureEntrypoint` reads an existing reader once,
 checks it against its receipt and versioned path, and compares its digest with
-the program's; an absent reader is installed from the kept bytes and read back
-once. Every later step consumes these values instead of a path: the versioned
-path derives from the program's digest, and `Entrypoint.Confirm` checks after
-projection that the reader path still names the verified file and receipt
-without hashing it again. Each read still hashes every byte and nothing is keyed
-by path or time, so `TestExecutableDigestRechecksConcurrentSources` keeps its
-assertion.
+the program's. Only when the reader is absent does it read the program a second
+time to copy it, and it refuses the copy unless those bytes hash to the verified
+digest; the written reader is then read back once. Every later step consumes
+these values instead of a path: the versioned path derives from the program's
+digest, and `Entrypoint.Confirm` checks after projection that the reader path
+still names the verified file and receipt without hashing it again. Each read
+still hashes every byte and nothing is keyed by path or time, so
+`TestExecutableDigestRechecksConcurrentSources` keeps its assertion.
+
+Keeping the verified bytes instead would save the copy read on installation,
+but every command that names the reader, including `status` and `doctor`, would
+hold the whole program, about 11 MiB, raising peak memory past the release
+policy's review threshold. An installation happens once per program version.
 
 The post-projection check exists to notice a reader that disappeared or was
 replaced while clients were projected; deletion and replacement remain
@@ -56,10 +63,8 @@ counting opens per path.
 
 ## Risks / Trade-offs
 
-- [Every command that resolves the reader holds the program's bytes] → about
-  13 MB until the process exits, also in `status`, `doctor` and `check`, which
-  only derive the reader path; reader verification still streams within
-  256 KiB, and task 2.1 measures every workload.
+- [An installation reads the program twice] → once per program version; the
+  copy is refused unless it hashes to the verified digest.
 - [A caller keeps a path-based check by accident] → the regression counts every
   open through `Files`, and a program read that bypasses it fails.
 - [The 0.4.1 measurements also vary with hosted runners] → task 2.1 compares

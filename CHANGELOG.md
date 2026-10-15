@@ -17,8 +17,8 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 ### Changed
 
 - Read the running program and each credential reader once per setup, sync or
-  Route change, and install a reader from exactly the program bytes that this
-  read verified.
+  Route change with bounded memory; installing a reader copies only program
+  bytes whose digest matches that read.
 
 ## 0.4.1 - 2026-10-14
 

@@ -11,6 +11,10 @@
       it after projection through `Entrypoint.Confirm` without another read; the
       regression passes, and `TestExecutableDigestRechecksConcurrentSources` and
       every existing reader integrity test still pass.
+- [x] 1.3 Keep no program bytes in memory: stream verification, and on
+      installation copy the program again only when that copy hashes to the
+      verified digest; the counting regression expects one program read, or
+      two when it installs, and memory-bounded verification still passes.
 
 ## 2. Requalify
 

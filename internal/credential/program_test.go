@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestProgramInstallsTheBytesItVerified(t *testing.T) {
+func TestProgramInstallsOnlyTheBytesItVerified(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "aigw")
 	if err := os.WriteFile(source, []byte("verified program"), 0o700); err != nil {
@@ -20,15 +20,25 @@ func TestProgramInstallsTheBytesItVerified(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	target, err := program.EntrypointPath(filepath.Join(root, "data"), "aigw")
+	data := filepath.Join(root, "data")
+	target, err := program.EntrypointPath(data, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(source, []byte("replaced program"), 0o700); err != nil {
 		t.Fatal(err)
 	}
+	if _, _, err := program.EnsureEntrypoint(target); err == nil {
+		t.Fatal("program bytes that changed after verification were installed")
+	}
+	if _, err := os.Lstat(data); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("refused installation left reader state: %v", err)
+	}
+	if err := os.WriteFile(source, []byte("verified program"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	if _, _, err := program.EnsureEntrypoint(target); err != nil {
-		t.Fatalf("install after a same-size program rewrite: %v", err)
+		t.Fatalf("install the verified bytes: %v", err)
 	}
 	if got, err := os.ReadFile(target); err != nil || string(got) != "verified program" {
 		t.Fatalf("installed reader = %q, %v; want the verified program bytes", got, err)

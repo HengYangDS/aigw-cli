@@ -23,7 +23,7 @@ var executableReadBuffers = sync.Pool{New: func() any { return new([256 << 10]by
 // VersionedEntrypointPath binds a private executable path to the exact source
 // bytes without creating files or relying on an installer-owned public link.
 func VersionedEntrypointPath(dataDir, source, installName string) (path string, err error) {
-	program, err := readProgram(nil, source, false)
+	program, err := ReadProgram(nil, source)
 	if err != nil {
 		return "", err
 	}
