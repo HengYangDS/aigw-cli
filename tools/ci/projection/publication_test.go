@@ -310,7 +310,7 @@ func TestManualPrebuiltPerformanceUsesItsExactToolClosure(t *testing.T) {
 		}
 		selected := "' || inputs.performance && '" + artifactTools + ",github:sharkdp/hyperfine' || '" + artifactTools + "' }}"
 		if platform == "windows" {
-			selected += "${{ inputs.windows_clients && ',node,uv' || '' }}"
+			selected += "${{ inputs.windows_clients && ',node' || '' }}"
 		}
 		tools := workflow.Jobs["native-"+platform].Env["MISE_ENABLE_TOOLS"]
 		if !strings.HasPrefix(tools, source) || !strings.HasSuffix(tools, selected) {

@@ -81,5 +81,5 @@
 ## 9. Frozen Source and Pre-Archive Acceptance
 
 - [x] 9.1 Audit every changed requirement against source, tests, CLI, team manifest, quality/CI and docs; remove contradictions and unused compatibility paths before freezing inputs.
-- [x] 9.2 Qualify focused RED/GREEN, native static/behavior gates and strict official OpenSpec on the frozen source; no skipped required gate or warning counts as pass.
+- [ ] 9.2 Qualify focused RED/GREEN, native static/behavior gates and strict official OpenSpec on the frozen source; no skipped required gate or warning counts as pass. Requalify the exact successor to failed `c355cefc` proof.
 - [x] 9.3 Qualify one signed untagged three-OS candidate's exact-byte install, predecessor upgrade/rollback, credentials and real clients; bind hashes/provenance and disclose missing evidence in the [`b3663e89` row](design.md#native-qualification-and-remaining-limits). Publication, Homebrew cutover and final retirement follow the Migration Plan; maintenance 0.3.5 does not qualify final 0.4.1.
