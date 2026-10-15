@@ -74,8 +74,9 @@ func TestReaderCommandsReadEachAIGWExecutableOnce(t *testing.T) {
 			}
 			others := maps.Clone(files.opens)
 			delete(others, reader)
-			if want := map[string]int{base.Executable: step.programReads}; !maps.Equal(others, want) || files.opens[reader] != 1 {
-				t.Fatalf("%s opened executables %v; want the program %d times and the reader once", step.args[0], files.opens, step.programReads)
+			// The reader is verified once before projection and once after it.
+			if want := map[string]int{base.Executable: step.programReads}; !maps.Equal(others, want) || files.opens[reader] != 2 {
+				t.Fatalf("%s opened executables %v; want the program %d times and the reader twice", step.args[0], files.opens, step.programReads)
 			}
 		})
 	}

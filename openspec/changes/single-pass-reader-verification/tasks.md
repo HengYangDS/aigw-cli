@@ -15,6 +15,10 @@
       installation copy the program again only when that copy hashes to the
       verified digest; the counting regression expects one program read, or
       two when it installs, and memory-bounded verification still passes.
+- [x] 1.4 Make `Entrypoint.Confirm` stream the reader again and refuse bytes
+      whose digest differs from the verified one; a same-size in-place rewrite
+      with a restored timestamp is refused, and the counting regression expects
+      two reader reads.
 
 ## 2. Requalify
 

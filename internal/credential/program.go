@@ -53,9 +53,10 @@ func (p Program) EntrypointPath(dataDir, installName string) (string, error) {
 
 // Entrypoint is a credential reader whose bytes one read verified.
 type Entrypoint struct {
-	path   string
-	digest [sha256.Size]byte
-	file   os.FileInfo
+	executables executables
+	path        string
+	digest      [sha256.Size]byte
+	file        os.FileInfo
 }
 
 // EntrypointNeededFrom reports, like EntrypointNeeded, whether the reader at
@@ -99,9 +100,9 @@ func (p Program) ensure(
 	return reader, func() error { return nil }, nil
 }
 
-// Confirm refuses, without reading the reader again, a verified reader that
-// disappeared or whose path or receipt no longer names what was verified. The
-// next command verifies the reader's content again.
+// Confirm refuses a verified reader that disappeared or whose bytes or receipt
+// no longer match what was verified, even after a same-size rewrite with a
+// restored timestamp. It streams the reader once more with bounded memory.
 func (e Entrypoint) Confirm() error {
 	binary, absent, err := inspectEntrypoint(e.path)
 	if err == nil && !absent {
@@ -117,12 +118,19 @@ func (e Entrypoint) Confirm() error {
 }
 
 func (e Entrypoint) matches(binary os.FileInfo) error {
-	if !os.SameFile(e.file, binary) || binary.Size() != e.file.Size() || !binary.ModTime().Equal(e.file.ModTime()) {
+	if !os.SameFile(e.file, binary) {
 		return errors.New("credential entrypoint changed after verification")
 	}
 	receipt, err := os.ReadFile(e.path + ".sha256")
 	if err != nil || string(receipt) != hex.EncodeToString(e.digest[:])+"\n" {
 		return errors.Join(errors.New("credential entrypoint receipt changed after verification"), err)
+	}
+	observed, err := e.executables.observe(e.path, false)
+	if err != nil {
+		return err
+	}
+	if observed.digest != e.digest {
+		return errors.New("credential entrypoint bytes changed after verification")
 	}
 	return nil
 }
