@@ -290,11 +290,6 @@ func TestEntrypointVerificationKeepsMemoryBounded(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	// A command reads and keeps its program once; verification stays bounded.
-	program, err := ReadProgram(nil, source)
-	if err != nil {
-		t.Fatal(err)
-	}
 	for _, operation := range []struct {
 		name string
 		run  func() error
@@ -307,6 +302,10 @@ func TestEntrypointVerificationKeepsMemoryBounded(t *testing.T) {
 			return err
 		}},
 		{"ensure-existing", func() error {
+			program, err := ReadProgram(nil, source)
+			if err != nil {
+				return err
+			}
 			entrypoint, undo, err := program.EnsureEntrypoint(target)
 			if err != nil {
 				return err

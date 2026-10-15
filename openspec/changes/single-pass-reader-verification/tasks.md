@@ -11,9 +11,14 @@
       it after projection through `Entrypoint.Confirm` without another read; the
       regression passes, and `TestExecutableDigestRechecksConcurrentSources` and
       every existing reader integrity test still pass.
+- [x] 1.3 Keep no program bytes in memory: stream verification, and on
+      installation copy the program again only when that copy hashes to the
+      verified digest; the counting regression expects one program read, or
+      two when it installs, and memory-bounded verification still passes.
 
 ## 2. Requalify
 
 - [ ] 2.1 Measure all eight native workloads against the published 0.4.1
       predecessor on macOS, Linux and Windows; every candidate p95 stays within
-      its budget or the exceedance is explicitly accepted.
+      its budget or the exceedance is explicitly accepted. The 0.4.2 release
+      artifacts are the measured candidate.

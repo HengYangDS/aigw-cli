@@ -14,11 +14,15 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+## 0.4.2 - 2026-10-15
+
+History: [GitLab][0.4.2-gitlab] · [GitHub][0.4.2-github]
+
 ### Changed
 
 - Read the running program and each credential reader once per setup, sync or
-  Route change, and install a reader from exactly the program bytes that this
-  read verified.
+  Route change with bounded memory; installing a reader copies only program
+  bytes whose digest matches that read.
 
 ### Fixed
 
@@ -32,7 +36,7 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ## 0.4.1 - 2026-10-14
 
-History: [GitHub][0.4.1-github]
+History: [GitLab][0.4.1-gitlab] · [GitHub][0.4.1-github]
 
 The first published 0.4 release. The `v0.4.0` tag failed its GitHub release
 checks and has no release assets; its changes ship here.
@@ -1394,8 +1398,11 @@ History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 
 - Require every tag pipeline to verify that its exact annotated release tag carries an SSH signature trusted by the repository-owned signer anchor before packaging, publication, or GitLab Release creation. An unsigned or untrusted tag now fails closed.
 
-[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.3...main
-[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.1...main
+[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.2...main
+[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.2...main
+[0.4.2-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.1...v0.4.2
+[0.4.2-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.1...v0.4.2
+[0.4.1-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.5...v0.4.1
 [0.4.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.5...v0.4.1
 [0.3.5-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.4...v0.3.5
 [0.3.4-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.3...v0.3.4

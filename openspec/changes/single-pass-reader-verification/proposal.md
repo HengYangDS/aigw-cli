@@ -11,8 +11,9 @@ the repeated reads.
 
 ## What Changes
 
-- Verify the running program and each versioned reader once per command, and
-  project exactly the bytes that verification read.
+- Verify the running program and each versioned reader once per command with
+  bounded memory, and install only program bytes whose digest equals the
+  verified one.
 - Keep verifying content in every command, so a same-size rewrite that leaves
   coarse file timestamps unchanged is still found; within one command, refuse a
   reader that disappears or is replaced before projection completes.

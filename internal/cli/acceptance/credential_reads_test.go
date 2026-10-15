@@ -45,11 +45,13 @@ func TestReaderCommandsReadEachAIGWExecutableOnce(t *testing.T) {
 		args    []string
 		stdin   string
 		prepare func(t *testing.T, app *cli.App)
+		// programReads counts identity plus, when the reader is installed, its copy.
+		programReads int
 	}{
 		{args: []string{"setup", "--account", "gateway", "--route", "claude-team", "--label", "Gateway",
-			"--anthropic-url", "https://gateway.test", "--for", "claude", "--model", "claude-team", "--token-stdin"}, stdin: "fixture-token\n"},
-		{args: []string{"sync"}},
-		{args: []string{"use", "--for", "claude", "claude-next"}, prepare: addNextClaudeRoute},
+			"--anthropic-url", "https://gateway.test", "--for", "claude", "--model", "claude-team", "--token-stdin"}, stdin: "fixture-token\n", programReads: 2},
+		{args: []string{"sync"}, programReads: 1},
+		{args: []string{"use", "--for", "claude", "claude-next"}, prepare: addNextClaudeRoute, programReads: 1},
 	} {
 		t.Run(step.args[0], func(t *testing.T) {
 			if step.prepare != nil {
@@ -72,8 +74,8 @@ func TestReaderCommandsReadEachAIGWExecutableOnce(t *testing.T) {
 			}
 			others := maps.Clone(files.opens)
 			delete(others, reader)
-			if want := map[string]int{base.Executable: 1}; !maps.Equal(others, want) || files.opens[reader] > 1 {
-				t.Fatalf("%s opened executables %v; want the program once and the reader at most once", step.args[0], files.opens)
+			if want := map[string]int{base.Executable: step.programReads}; !maps.Equal(others, want) || files.opens[reader] != 1 {
+				t.Fatalf("%s opened executables %v; want the program %d times and the reader once", step.args[0], files.opens, step.programReads)
 			}
 		})
 	}

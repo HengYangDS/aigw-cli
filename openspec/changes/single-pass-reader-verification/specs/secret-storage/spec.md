@@ -5,24 +5,30 @@
 ### Requirement: One command verifies each credential executable once
 
 Within one AIGW command, credential reader preparation SHALL read the running
-program and each versioned reader at most once to verify its content identity,
-and SHALL install only bytes that this verification read. Every command SHALL
-verify content again; no verified identity SHALL be reused by a later command
-or keyed by file metadata. After client projection, AIGW SHALL refuse a
-verified reader that disappeared or was replaced.
+program and each versioned reader once to verify its content identity, with
+memory bounded independently of the program's size. It SHALL install only
+program bytes whose digest equals that identity. Every command SHALL verify
+content again; no identity SHALL be reused by a later command or keyed by file
+metadata.
 
 #### Scenario: A synchronization reuses its verified reader
 
-- **WHEN** one command derives, verifies and projects a versioned credential
-  reader
-- **THEN** it SHALL read the program and the reader at most once each
+- **WHEN** one command derives, verifies and projects an existing versioned
+  credential reader
+- **THEN** it SHALL read the program and the reader once each
 - **AND** later steps of the same command SHALL use those verified identities.
+
+#### Scenario: A command installs the reader
+
+- **WHEN** the versioned reader is absent
+- **THEN** AIGW MAY read the program once more to copy it
+- **AND** it SHALL refuse the copy unless its digest equals the verified one.
 
 #### Scenario: The program changes after verification
 
-- **WHEN** the running program's bytes change after the command read them
-- **THEN** a reader that the command installs SHALL contain the bytes it
-  verified.
+- **WHEN** the running program's bytes change after the command verified them
+  and the reader must be installed
+- **THEN** AIGW SHALL refuse the installation and leave no reader state.
 
 #### Scenario: A reader changes during projection
 
