@@ -15,7 +15,7 @@ import (
 
 func TestCompensationFailedMarksOnlyIncompleteCompensation(t *testing.T) {
 	cause, compensation := errors.New("write failed"), errors.New("restore failed")
-	if err := transaction.CompensationFailed(cause, nil); err != cause {
+	if err := transaction.CompensationFailed(cause, nil); !errors.Is(err, cause) || errors.Is(err, transaction.ErrCompensationIncomplete) {
 		t.Fatalf("complete compensation changed the cause: %v", err)
 	}
 	err := transaction.CompensationFailed(cause, compensation)
