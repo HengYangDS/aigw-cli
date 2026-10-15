@@ -20,6 +20,16 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   Route change with bounded memory; installing a reader copies only program
   bytes whose digest matches that read.
 
+### Fixed
+
+- Keep a model chosen in Hermes from AIGW's catalogue: `aigw sync` now records
+  the matching Route as Hermes' selection instead of refusing with "managed
+  Hermes settings changed outside AIGW". Other edits to AIGW-owned Hermes
+  settings are still refused, and an ambiguous choice names each
+  `aigw use --for hermes` command.
+- Refuse a blank line between change items of one CHANGELOG category, so each
+  category stays one list.
+
 ## 0.4.1 - 2026-10-14
 
 History: [GitHub][0.4.1-github]
@@ -64,7 +74,6 @@ checks and has no release assets; its changes ship here.
 - Distinguish a provider's hard quota from throttling in endpoint diagnostics.
 - Report whether configuration was restored when a client projection fails
   after a configuration commit, including during `aigw rollback`.
-
 - Qualify Hyperfine's native preparation and raw evidence before measuring a
   signed candidate; failed preflight stops before full performance sampling.
 - Update the locked development runtime to Node 26.11.1 and typo checks to

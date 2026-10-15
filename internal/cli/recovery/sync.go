@@ -2,6 +2,7 @@ package recovery
 
 import (
 	"errors"
+	"fmt"
 
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
@@ -27,6 +28,7 @@ func (plan credentialEntrypointPlan) humanAction() string {
 type syncResult struct {
 	DryRun               bool                      `json:"dry_run"`
 	Selections           map[string]string         `json:"selections"`
+	AdoptedSelections    map[string]string         `json:"adopted_selections,omitempty"`
 	Targets              []client.ProjectionPlan   `json:"targets,omitempty"`
 	CredentialEntrypoint *credentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
 	EnabledClients       int                       `json:"enabled_clients"`
@@ -50,7 +52,11 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			operation := runtime
 			operation.Secrets = secrets.ObserveAvailability(runtime.Secrets)
 			synchronizer := invocation.Synchronizer(operation)
-			after, _, err := synchronizer.DesiredSyncConfiguration(before)
+			adoptedConfig, adopted, err := synchronizer.AdoptNativeSelections(before)
+			if err != nil {
+				return fmt.Errorf("sync synchronization preflight failed; configuration and client files were unchanged: %w", err)
+			}
+			after, _, err := synchronizer.DesiredSyncConfiguration(adoptedConfig)
 			if err != nil {
 				return invocation.Problem(
 					runtime,
@@ -62,7 +68,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				)
 			}
 			activation := clientactivation.AssessActivation(after, operation.Secrets)
-			result := syncResult{DryRun: dryRun, Selections: map[string]string{}, NextAction: activation.NextActionFor(nil)}
+			result := syncResult{DryRun: dryRun, Selections: map[string]string{}, AdoptedSelections: adopted, NextAction: activation.NextActionFor(nil)}
 			result.EnabledClients = activation.EnabledClients
 			result.State = string(activation.State)
 			for _, client := range configuration.AdmittedClientIDs() {
@@ -85,6 +91,11 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				renderSyncPreview(r, after, result)
 			} else {
 				r.ProductTitle("Synchronization completed")
+			}
+			for _, client := range configuration.AdmittedClientIDs() {
+				if route, ok := result.AdoptedSelections[client]; ok {
+					r.Status(presentation.Info, "Adopted selection", invocation.Title(client)+" now uses "+after.RouteLabel(route)+", chosen in "+invocation.Title(client))
+				}
 			}
 			if result.EnabledClients == 0 {
 				// The activation decision names the continuation for the current backend.

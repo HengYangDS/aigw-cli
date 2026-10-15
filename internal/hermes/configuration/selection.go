@@ -1,11 +1,79 @@
 package configuration
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
 	"slices"
+
+	"aigw-cli/internal/transaction"
 
 	"go.yaml.in/yaml/v3"
 )
 
+// Selection is Hermes' own selected provider and model.
+type Selection struct {
+	Provider string
+	Model    string
+}
+
+// ObserveSelection reports Hermes' own selection when the operator changed it to
+// another model in AIGW's projected catalogue and nothing else that AIGW owns
+// changed. It reports nothing when the owned settings are unchanged or absent,
+// and refuses any other managed drift.
+func ObserveSelection(path string, current Desired) (Selection, bool, error) {
+	if err := current.Validate(); err != nil {
+		return Selection{}, false, err
+	}
+	config, err := transaction.CaptureFileSnapshot(path)
+	if err != nil {
+		return Selection{}, false, err
+	}
+	stateSnapshot, err := transaction.CaptureFileSnapshot(path + stateSuffix)
+	if err != nil || !stateSnapshot.Exists {
+		return Selection{}, false, err
+	}
+	root, err := parse(config.Data)
+	if err != nil {
+		return Selection{}, false, err
+	}
+	state, err := decodeOwnership(stateSnapshot.Data)
+	if err != nil {
+		return Selection{}, false, err
+	}
+	owned, err := managedBytes(root, state.ProviderIDs)
+	if err != nil {
+		return Selection{}, false, err
+	}
+	if digest(owned) == state.ManagedDigest {
+		return Selection{}, false, nil
+	}
+	if !selectionOnlyDrift(root, state, &current) {
+		return Selection{}, false, errExternalEdit
+	}
+	model := field(root, "model")
+	return Selection{Provider: field(model, "provider").Value, Model: field(model, "default").Value}, true, nil
+}
+
+var errExternalEdit = errors.New("managed Hermes settings changed outside AIGW; preserve the edit before synchronization")
+
+func decodeOwnership(data []byte) (ownership, error) {
+	var state ownership
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&state); err != nil {
+		return state, errors.Join(errors.New("invalid Hermes ownership record"), err)
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) || state.Version != 2 || state.ManagedDigest == "" || len(state.ProviderIDs) == 0 {
+		return state, errors.New("invalid Hermes ownership record")
+	}
+	return state, nil
+}
+
+// selectionOnlyDrift proves that replacing Hermes' selected model with the
+// previous selection reproduces the recorded owned settings, so only the
+// selection moved and it names a model of an AIGW-owned provider.
 func selectionOnlyDrift(root *yaml.Node, state ownership, previous *Desired) bool {
 	if previous == nil {
 		return false
@@ -37,4 +105,12 @@ func selectionOnlyDrift(root *yaml.Node, state ownership, previous *Desired) boo
 	defer setField(root, "model", model)
 	proven, err := managedBytes(root, state.ProviderIDs)
 	return err == nil && digest(proven) == state.ManagedDigest
+}
+
+// selects reports whether Hermes' selection already names the desired provider
+// and model.
+func (desired Desired) selects(root *yaml.Node) bool {
+	model := field(root, "model")
+	provider, defaultModel := field(model, "provider"), field(model, "default")
+	return provider != nil && defaultModel != nil && provider.Value == desired.SelectedProvider && defaultModel.Value == desired.SelectedModel
 }

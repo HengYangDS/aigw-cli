@@ -161,6 +161,27 @@ func (s Synchronizer) DesiredClientConfiguration(before configuration.Config, cl
 	return after, discovered, err
 }
 
+// AdoptNativeSelections returns before with each client's own selection inside
+// AIGW's projected catalogue recorded as its Client Binding, and the adopted
+// Route per client. Only synchronization adopts: an explicit selection names
+// the Route that wins.
+func (s Synchronizer) AdoptNativeSelections(before configuration.Config) (configuration.Config, map[string]string, error) {
+	after := before.Clone()
+	adopted := map[string]string{}
+	dependencies, err := s.clientDependencies(nil)
+	if err != nil {
+		return configuration.Config{}, nil, err
+	}
+	routeID, err := client.AdoptHermesSelection(dependencies, &after)
+	if err != nil {
+		return configuration.Config{}, nil, err
+	}
+	if routeID != "" {
+		adopted[configuration.ClientHermes] = routeID
+	}
+	return after, adopted, nil
+}
+
 // DesiredSyncConfiguration activates unselected recommendations when a
 // read-only credential source gains an Account Token after catalogue import.
 // Writable native stores are not searched for unselected credentials.
