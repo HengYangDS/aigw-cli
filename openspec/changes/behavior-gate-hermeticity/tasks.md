@@ -25,13 +25,16 @@
 
 ## 3. Local gates and proof
 
-- [ ] 3.1 `mise run check` passes on the lane head.
-- [ ] 3.2 ETHOS proves the exact lane head.
+- [x] 3.1 `mise run check` passes on the lane head; 95.12% coverage at
+      `3358f611`.
+- [x] 3.2 ETHOS proves the exact lane head; Attestation `41ca6b53` at
+      `3358f611`.
 
 ## 4. Hosted CI
 
-- [ ] 4.1 GitHub CI passes on the published head, including the regressions
-      on native Windows, macOS and Linux.
+- [x] 4.1 GitHub CI passes on the published head, including the regressions
+      on native Windows, macOS and Linux; runs `38619667134` and
+      `38625619613` at `3358f611`, Windows coverage 95.01%.
 
 ## Workflow follow-up
 
