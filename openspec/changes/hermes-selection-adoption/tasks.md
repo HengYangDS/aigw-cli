@@ -19,7 +19,9 @@
 
 ## 2. Verification and release
 
-- [ ] 2.1 `mise run check` passes, the lane head is proved and landed locally.
-- [ ] 2.2 With user authorization, publish and release through the existing
+- [x] 2.1 `mise run check` passes, the lane head is proved and landed locally;
+      release head `3a2fffdc`.
+- [x] 2.2 With user authorization, publish and release through the existing
       release workflow; after the Homebrew upgrade, the operator's Hermes model
-      choice survives `aigw sync`.
+      choice survives `aigw sync`; released as `v0.4.2` and installed on
+      2026-10-16.
