@@ -17,8 +17,13 @@ import (
 
 const entrypointDirectory = "credential"
 
+// executableReadSize keeps one command's reads within bounded memory even when
+// a collection empties the pool: a command streams the program and its reader
+// up to three times.
+const executableReadSize = 64 << 10
+
 // Reuse read buffers, never executable identities; each call still hashes every byte.
-var executableReadBuffers = sync.Pool{New: func() any { return new([256 << 10]byte) }}
+var executableReadBuffers = sync.Pool{New: func() any { return new([executableReadSize]byte) }}
 
 // VersionedEntrypointPath binds a private executable path to the exact source
 // bytes without creating files or relying on an installer-owned public link.
@@ -73,7 +78,7 @@ func (e executables) observe(path string, keep bool) (observed observation, err 
 		kept.Grow(int(info.Size()))
 		destination = io.MultiWriter(hash, &kept)
 	}
-	buffer, ok := executableReadBuffers.Get().(*[256 << 10]byte)
+	buffer, ok := executableReadBuffers.Get().(*[executableReadSize]byte)
 	if !ok || buffer == nil {
 		return observed, errors.New("AIGW executable read buffer is unavailable")
 	}

@@ -302,6 +302,10 @@ func TestEntrypointVerificationKeepsMemoryBounded(t *testing.T) {
 			return err
 		}},
 		{"ensure-existing", func() error {
+			// Two collections empty the buffer pool, as a busy process can between
+			// commands; every read then allocates a fresh buffer.
+			runtime.GC()
+			runtime.GC()
 			program, err := ReadProgram(nil, source)
 			if err != nil {
 				return err
