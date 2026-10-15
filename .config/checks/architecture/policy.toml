@@ -110,6 +110,7 @@ allowed_import_edges."internal/client" = [
   "internal/process",
   "internal/secrets",
   "internal/surface",
+  "internal/transaction",
   "internal/client/verification",
 ]
 allowed_import_edges."internal/client/verification" = [

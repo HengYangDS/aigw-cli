@@ -26,12 +26,15 @@ provider, endpoint or credential command edits.
 
 `hermesconfig.ObserveSelection(path, current)` reads the native file and its
 ownership record. It reports no change when the owned digest matches. When it
-does not, it applies the existing selection-only proof against the current
-binding's selection and returns the native provider and model. Any other drift
-returns the existing refusal. The proof is unchanged: the provider must be
-AIGW-owned, `base_url` and `api_mode` must equal that provider's, the model
-must be in its catalogue, and replacing the selection with the recorded one must
-reproduce the recorded digest.
+does not, it applies the selection-only proof and returns the native provider
+and model. Any other drift returns the existing refusal. The proof requires
+that the provider is AIGW-owned, that `base_url` and `api_mode` equal that
+provider's, that the model is in its catalogue, and that replacing the selection
+with some owned provider and model reproduces the recorded digest. The proof
+searches the recorded providers instead of using the current binding: when a
+missing Token deferred the projection after an adoption, the binding already
+names the native choice while the record still holds the earlier selection, and
+a binding-based proof would refuse forever once the Token returns.
 
 ### The Hermes adapter maps the choice to exactly one Route
 
@@ -52,11 +55,20 @@ choice override `aigw use --for hermes <route>`, whose named Route must win.
 
 After adoption, the desired selection equals the native one, but the ownership
 record still holds the previous digest. `hermesPlans` now falls back to
-`PrepareAdoptedSelection` when the before configuration resolves. It accepts the
-drift only if the selection-only proof holds and the native selection already
-equals the desired one, so this fallback can never overwrite a native choice.
-When the projection is semantically unchanged, the plan keeps Hermes' bytes and
-rewrites only the ownership record.
+`PrepareAdoptedSelection` when the before configuration resolves. On the same
+snapshot that the plan writes from, it accepts the drift only if the
+selection-only proof holds and the native selection already equals the desired
+one, so this fallback can never overwrite a native choice. When the projection
+is semantically unchanged, the plan keeps Hermes' bytes and rewrites only the
+ownership record.
+
+### Incomplete self-compensation keeps the reader
+
+When a client adapter's write fails and its own compensation also fails, part
+of its configuration may still reference a newly installed credential reader.
+`transaction.CompensationFailed` marks such errors, and the client registry
+reports them as `ErrProjectionRollbackFailed`, the existing outcome that keeps
+the reader. The Hermes, Claude Desktop, Claude Code and Codex adapters use it.
 
 ### The result names the adoption
 

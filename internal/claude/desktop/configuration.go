@@ -262,7 +262,7 @@ func (plan Plan) Apply() (Receipt, error) {
 			post, err = transaction.RemoveFileIfUnchanged(change.path, change.before)
 		}
 		if err != nil {
-			return Receipt{}, errors.Join(err, receipt.Rollback())
+			return Receipt{}, transaction.CompensationFailed(err, receipt.Rollback())
 		}
 		receipt.changes = append(receipt.changes, appliedChange{path: change.path, pre: change.before, post: post})
 	}

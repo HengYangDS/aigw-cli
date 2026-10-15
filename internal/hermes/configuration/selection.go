@@ -71,9 +71,11 @@ func decodeOwnership(data []byte) (ownership, error) {
 	return state, nil
 }
 
-// selectionOnlyDrift proves that replacing Hermes' selected model with the
-// previous selection reproduces the recorded owned settings, so only the
-// selection moved and it names a model of an AIGW-owned provider.
+// selectionOnlyDrift proves that Hermes' selection names a model of an
+// AIGW-owned provider and that replacing it with some owned provider and model
+// reproduces the recorded owned settings, so only the selection moved. The
+// proof does not depend on the current binding, which may already name the
+// native choice. previous only authorizes the proof.
 func selectionOnlyDrift(root *yaml.Node, state ownership, previous *Desired) bool {
 	if previous == nil {
 		return false
@@ -94,17 +96,26 @@ func selectionOnlyDrift(root *yaml.Node, state ownership, previous *Desired) boo
 	if defaultModel == nil || models == nil || !slices.ContainsFunc(models.Content, func(node *yaml.Node) bool { return node.Value == defaultModel.Value }) {
 		return false
 	}
-	prior := previous.Providers[slices.IndexFunc(previous.Providers, func(provider Provider) bool { return provider.ID == previous.SelectedProvider })]
-	replacement := mapping()
-	setString(replacement, "provider", prior.ID)
-	setString(replacement, "default", previous.SelectedModel)
-	setString(replacement, "base_url", prior.Endpoint)
-	protocol, _ := nativeProtocol(prior.Protocol)
-	setString(replacement, "api_mode", protocol)
-	setField(root, "model", replacement)
 	defer setField(root, "model", model)
-	proven, err := managedBytes(root, state.ProviderIDs)
-	return err == nil && digest(proven) == state.ManagedDigest
+	for _, providerID := range state.ProviderIDs {
+		owned := field(field(root, "providers"), providerID)
+		baseURL, transport, candidates := field(owned, "base_url"), field(owned, "transport"), field(owned, "models")
+		if baseURL == nil || transport == nil || candidates == nil {
+			continue
+		}
+		for _, candidate := range candidates.Content {
+			replacement := mapping()
+			setString(replacement, "provider", providerID)
+			setString(replacement, "default", candidate.Value)
+			setString(replacement, "base_url", baseURL.Value)
+			setString(replacement, "api_mode", transport.Value)
+			setField(root, "model", replacement)
+			if proven, err := managedBytes(root, state.ProviderIDs); err == nil && digest(proven) == state.ManagedDigest {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // selects reports whether Hermes' selection already names the desired provider

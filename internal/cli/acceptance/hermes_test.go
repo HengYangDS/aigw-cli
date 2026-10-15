@@ -248,7 +248,21 @@ func hermesNativeSelection(t *testing.T, target, providerID, model string, edit 
 
 func shippedHermesApp(t *testing.T) (*cli.App, *bytes.Buffer, *fakeHTTP, string) {
 	t.Helper()
+	return shippedHermesAppWith(t, false)
+}
+
+// shippedHermesAppWith optionally binds a private credential reader, as
+// production does, so that a missing Account Token defers its clients.
+func shippedHermesAppWith(t *testing.T, reader bool) (*cli.App, *bytes.Buffer, *fakeHTTP, string) {
+	t.Helper()
 	app, output, credentials, _, httpClient := testApp(t, "")
+	if reader {
+		root := t.TempDir()
+		app.Executable = filepath.Join(root, "bin", executableName("aigw"))
+		app.DataDir = filepath.Join(root, "data")
+		writeFile(t, app.Executable, []byte("portable program"), 0o755)
+		app.UseExecutableIdentity(nil, executableName("aigw"))
+	}
 	for _, account := range []string{"dmxapi", "ucloud"} {
 		if err := credentials.Set(account, "fixture-token"); err != nil {
 			t.Fatal(err)
@@ -345,6 +359,71 @@ func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
 	}
 	if httpClient.calls != 0 || strings.Contains(output.String(), "fixture-token") {
 		t.Fatal("adoption sent requests or disclosed credentials")
+	}
+}
+
+func TestHermesSyncAdoptsAChoiceWhoseTokenReturnsLater(t *testing.T) {
+	app, output, httpClient, target := shippedHermesAppWith(t, true)
+	drifted := hermesNativeSelection(t, target, "aigw-ucloud-anthropic", "claude-opus-5-5", nil)
+	stateBefore := readFile(t, target+".aigw-state.json")
+	if err := app.Secrets.Delete("ucloud"); err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range []string{"token-missing", "token-restored", "converged"} {
+		if step == "token-restored" {
+			if err := app.Secrets.Set("ucloud", "fixture-token"); err != nil {
+				t.Fatal(err)
+			}
+		}
+		output.Reset()
+		if err := cli.Execute(app, []string{"sync", "--json"}); err != nil {
+			t.Fatalf("%s sync: %v\n%s", step, err, output)
+		}
+		var result struct {
+			Adopted map[string]string `json:"adopted_selections"`
+		}
+		if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+			t.Fatalf("%s sync result: %v\n%s", step, err, output)
+		}
+		wantAdopted := map[string]string{}
+		if step == "token-missing" {
+			wantAdopted[configuration.ClientHermes] = "ucloud-claude-opus-5-5"
+		}
+		if len(result.Adopted) != len(wantAdopted) || result.Adopted[configuration.ClientHermes] != wantAdopted[configuration.ClientHermes] {
+			t.Fatalf("%s adopted selections = %v, want %v", step, result.Adopted, wantAdopted)
+		}
+		cfg, err := app.Config.Load()
+		if err != nil || cfg.SelectedRoute(configuration.ClientHermes) != "ucloud-claude-opus-5-5" {
+			t.Fatalf("%s Hermes binding = %#v, %v", step, cfg.Clients[configuration.ClientHermes], err)
+		}
+		if !bytes.Equal(readFile(t, target), drifted) {
+			t.Fatalf("%s sync rewrote Hermes' own selection", step)
+		}
+		// A missing Token defers Hermes, so its ownership record stays stale.
+		if step == "token-missing" && !bytes.Equal(readFile(t, target+".aigw-state.json"), stateBefore) {
+			t.Fatal("a deferred Hermes projection changed its ownership record")
+		}
+	}
+	output.Reset()
+	if err := cli.Execute(app, []string{"sync", "--dry-run", "--json"}); err != nil {
+		t.Fatalf("converged preview: %v\n%s", err, output)
+	}
+	var preview struct {
+		Targets []struct {
+			Client string `json:"client"`
+			Action string `json:"action"`
+		} `json:"targets"`
+	}
+	if err := json.Unmarshal(output.Bytes(), &preview); err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range preview.Targets {
+		if target.Client == configuration.ClientHermes && target.Action != "unchanged" {
+			t.Fatalf("restored-Token adoption did not converge: %+v", preview.Targets)
+		}
+	}
+	if httpClient.calls != 0 {
+		t.Fatalf("adoption sent %d provider requests", httpClient.calls)
 	}
 }
 
