@@ -13,6 +13,7 @@ import (
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	hermesconfig "aigw-cli/internal/hermes/configuration"
+	"aigw-cli/internal/transaction"
 )
 
 type hermesAdapter struct{}
@@ -246,6 +247,10 @@ func AdoptHermesSelection(deps Dependencies, cfg *configuration.Config) (string,
 	if err != nil {
 		return "", err
 	}
+	if routeID == binding.Route && protocol == selected.Protocol {
+		// The binding already names the native choice; only the record is stale.
+		return "", nil
+	}
 	cfg.SetSelectedRoute(configuration.ClientHermes, routeID, protocol)
 	return routeID, nil
 }
@@ -318,7 +323,7 @@ func (hermesAdapter) Apply(_ context.Context, deps Dependencies, before, after c
 	for _, plan := range plans {
 		receipt, err := plan.Apply()
 		if err != nil {
-			return nil, errors.Join(err, receipts.Rollback())
+			return nil, transaction.CompensationFailed(err, receipts.Rollback())
 		}
 		receipts = append(receipts, receipt)
 	}

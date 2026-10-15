@@ -184,7 +184,7 @@ func reconcileCodexConfigsTransition(before, after []TargetRef, previous, runtim
 			if commitErr != nil {
 				rollbackErr := rollbackCodexArtifacts(committed)
 				if rollbackErr != nil {
-					return ReconciliationReceipt{}, fmt.Errorf("commit Codex reconciliation %s: %w; rollback also failed: %w", artifact.path, commitErr, rollbackErr)
+					return ReconciliationReceipt{}, transaction.CompensationFailed(fmt.Errorf("commit Codex reconciliation %s: %w", artifact.path, commitErr), rollbackErr)
 				}
 				return ReconciliationReceipt{}, fmt.Errorf("commit Codex reconciliation %s: %w; all artifacts rolled back", artifact.path, commitErr)
 			}

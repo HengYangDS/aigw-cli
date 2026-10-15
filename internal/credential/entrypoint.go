@@ -193,7 +193,7 @@ func (e executables) verify(path string) (Entrypoint, bool, error) {
 	if string(identity) != hex.EncodeToString(observed.digest[:])+"\n" {
 		return Entrypoint{}, false, fmt.Errorf("credential entrypoint differs from its recorded bytes")
 	}
-	return Entrypoint{path: path, digest: observed.digest, file: observed.file}, false, nil
+	return Entrypoint{executables: e, path: path, digest: observed.digest, file: observed.file}, false, nil
 }
 
 // inspectEntrypoint validates the private namespace and the reader pair's

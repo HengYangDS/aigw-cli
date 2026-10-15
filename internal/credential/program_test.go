@@ -63,6 +63,22 @@ func TestEntrypointConfirmationRefusesAReaderChangedAfterVerification(t *testing
 		{"receipt", func(reader string) error {
 			return os.WriteFile(reader+".sha256", fmt.Appendf(nil, "%x\n", sha256.Sum256([]byte("another program"))), 0o600)
 		}},
+		// Same inode, same size and a restored timestamp: only the bytes differ.
+		{"rewritten-in-place", func(reader string) error {
+			info, err := os.Stat(reader)
+			if err != nil {
+				return err
+			}
+			file, err := os.OpenFile(reader, os.O_WRONLY, 0)
+			if err != nil {
+				return err
+			}
+			_, writeErr := file.WriteAt([]byte("X"), 0)
+			if err := errors.Join(writeErr, file.Close()); err != nil {
+				return err
+			}
+			return os.Chtimes(reader, info.ModTime(), info.ModTime())
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()

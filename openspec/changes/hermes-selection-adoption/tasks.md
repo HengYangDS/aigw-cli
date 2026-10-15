@@ -10,6 +10,12 @@
       `adopted_selections`; the regressions and every existing Hermes test pass.
 - [x] 1.3 Refuse a blank line between change items of one CHANGELOG category in
       `validate-changelog`, and remove the one such gap in `CHANGELOG.md`.
+- [x] 1.4 Prove selection-only drift from the recorded providers, so a choice
+      adopted while its Token was missing converges once the Token returns;
+      the public sync regression covers missing, restored and converged steps.
+- [x] 1.5 Report an adapter's failed self-compensation as a failed rollback so
+      that synchronization keeps a reader its surviving configuration may
+      reference; the regression drives an adapter through `CommitProjection`.
 
 ## 2. Verification and release
 

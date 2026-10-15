@@ -2,6 +2,7 @@ package transaction_test
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -11,6 +12,17 @@ import (
 
 	"aigw-cli/internal/transaction"
 )
+
+func TestCompensationFailedMarksOnlyIncompleteCompensation(t *testing.T) {
+	cause, compensation := errors.New("write failed"), errors.New("restore failed")
+	if err := transaction.CompensationFailed(cause, nil); !errors.Is(err, cause) || errors.Is(err, transaction.ErrCompensationIncomplete) {
+		t.Fatalf("complete compensation changed the cause: %v", err)
+	}
+	err := transaction.CompensationFailed(cause, compensation)
+	if !errors.Is(err, transaction.ErrCompensationIncomplete) || !errors.Is(err, cause) || !errors.Is(err, compensation) {
+		t.Fatalf("incomplete compensation = %v", err)
+	}
+}
 
 func TestFileSnapshotOwnsExactContentAndPermissionIdentity(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "file")

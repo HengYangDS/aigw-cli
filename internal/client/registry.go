@@ -15,6 +15,7 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/transaction"
 )
 
 // DiscoverySource is the bounded host observation surface used by adapters.
@@ -214,6 +215,12 @@ func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, a
 		}
 		if rollbackErr := rollbackReceipts(receipts); rollbackErr != nil {
 			resultErr = fmt.Errorf("%w: client projection failed: %w; rollback also failed: %w", ErrProjectionRollbackFailed, resultErr, rollbackErr)
+			return
+		}
+		if errors.Is(resultErr, transaction.ErrCompensationIncomplete) {
+			// The failing adapter could not undo its own writes, which may still
+			// reference the projected credential reader.
+			resultErr = fmt.Errorf("%w: %w", ErrProjectionRollbackFailed, resultErr)
 			return
 		}
 		resultErr = fmt.Errorf("client projection failed and prior adapters were rolled back: %w", resultErr)

@@ -306,7 +306,7 @@ func (change settingsChange) apply() (SettingsReceipt, error) {
 	if err != nil {
 		rollbackErr := restoreGuarded(change.path, change.settingsBefore, settingsAfter)
 		if rollbackErr != nil {
-			return SettingsReceipt{}, fmt.Errorf("%s Claude settings state: %w; settings rollback failed: %w", stateAction, err, rollbackErr)
+			return SettingsReceipt{}, transaction.CompensationFailed(fmt.Errorf("%s Claude settings state: %w", stateAction, err), rollbackErr)
 		}
 		return SettingsReceipt{}, fmt.Errorf("%s Claude settings state: %w", stateAction, err)
 	}

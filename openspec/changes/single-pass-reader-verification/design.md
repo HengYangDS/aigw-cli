@@ -2,22 +2,22 @@
 
 ## Context
 
-One `sync` that finds an existing reader reads the roughly 13 MB running
-program twice and the reader twice. The App hashes the program to derive the
-versioned reader path; `EnsureEntrypoint` hashes the reader, then hashes the
+One `sync` that finds an existing reader read the roughly 13 MB running
+program twice and the reader twice. The App hashed the program to derive the
+versioned reader path; `EnsureEntrypoint` hashed the reader, then hashed the
 program again to compare it with the reader's receipt; after projection,
-`finalizeCredentialEntrypoint` hashes the reader again. A first installation
-reads the program a second time to copy it and reads the written reader back.
+`finalizeCredentialEntrypoint` hashed the reader again. A first installation
+read the program a second time to copy it and read the written reader back.
 `TestExecutableDigestRechecksConcurrentSources` deliberately forbids reusing a
 digest by file identity, because Linux and Windows timestamps are too coarse to
 reveal a same-size rewrite.
 
 ## Goals / Non-Goals
 
-**Goals:** within one command, stream the program once to verify it and each
-versioned reader once, keep memory bounded, copy only bytes whose digest equals
-the verified one, and keep every refusal that content verification provides
-today.
+**Goals:** within one command, stream the program once to verify it, verify
+each versioned reader once before projection and once after it, keep memory
+bounded, copy only bytes whose digest equals the verified one, and keep every
+refusal that content verification provides today.
 
 **Non-Goals:** a digest cache keyed by path, size or time; any state that
 outlives one command; changes to receipts, the private namespace, retained
@@ -25,30 +25,28 @@ readers or the native performance contract.
 
 ## Decisions
 
-### One verification read per file, identities everywhere else
+### One program read, identities everywhere else
 
 `credential.ReadProgram` streams the running program once and keeps only its
 path and digest. `Program.EnsureEntrypoint` reads an existing reader once,
 checks it against its receipt and versioned path, and compares its digest with
 the program's. Only when the reader is absent does it read the program a second
 time to copy it, and it refuses the copy unless those bytes hash to the verified
-digest; the written reader is then read back once. Every later step consumes
-these values instead of a path: the versioned path derives from the program's
-digest, and `Entrypoint.Confirm` checks after projection that the reader path
-still names the verified file and receipt without hashing it again. Each read
-still hashes every byte and nothing is keyed by path or time, so
-`TestExecutableDigestRechecksConcurrentSources` keeps its assertion.
+digest; the written reader is then read back once. The versioned path derives
+from the program's digest. Each read still hashes every byte and nothing is
+keyed by path or time, so `TestExecutableDigestRechecksConcurrentSources` keeps
+its assertion.
 
 Keeping the verified bytes instead would save the copy read on installation,
 but every command that names the reader, including `status` and `doctor`, would
 hold the whole program, about 11 MiB, raising peak memory past the release
 policy's review threshold. An installation happens once per program version.
 
-The post-projection check exists to notice a reader that disappeared or was
-replaced while clients were projected; deletion and replacement remain
-refusals. An in-place rewrite after verification is not re-detected within the
-command, but AIGW never copies or records those bytes: the receipt keeps the
-verified digest, and the next command's verification reads the file again.
+`Entrypoint.Confirm` runs after projection. It refuses a reader that
+disappeared, was replaced, or whose receipt changed, and it streams the reader
+once more and refuses bytes that no longer hash to the verified digest. A file
+identity and timestamp check alone would miss a same-size rewrite with a
+restored timestamp, which content verification refused before this Change.
 
 ### Reads go through an injected capability
 

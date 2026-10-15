@@ -344,7 +344,7 @@ func (plan *Plan) Apply() (Receipt, error) {
 		receipt.stateAfter, err = transaction.WriteFileAtomicIfUnchanged(plan.path+stateSuffix, plan.stateBefore, plan.stateAfter, 0o600)
 	}
 	if err != nil {
-		return Receipt{}, errors.Join(err, transaction.RestoreFileAtomicIfPostimage(plan.path, plan.configBefore, receipt.configAfter))
+		return Receipt{}, transaction.CompensationFailed(err, transaction.RestoreFileAtomicIfPostimage(plan.path, plan.configBefore, receipt.configAfter))
 	}
 	return receipt, nil
 }

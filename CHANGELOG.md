@@ -20,9 +20,9 @@ History: [GitLab][0.4.2-gitlab] · [GitHub][0.4.2-github]
 
 ### Changed
 
-- Read the running program and each credential reader once per setup, sync or
-  Route change with bounded memory; installing a reader copies only program
-  bytes whose digest matches that read.
+- Read the running program once per setup, sync or Route change with bounded
+  memory, and verify each credential reader before and after client projection;
+  installing a reader copies only program bytes whose digest matches that read.
 
 ### Fixed
 
@@ -30,7 +30,10 @@ History: [GitLab][0.4.2-gitlab] · [GitHub][0.4.2-github]
   the matching Route as Hermes' selection instead of refusing with "managed
   Hermes settings changed outside AIGW". Other edits to AIGW-owned Hermes
   settings are still refused, and an ambiguous choice names each
-  `aigw use --for hermes` command.
+  `aigw use --for hermes` command. A choice made while its Account Token was
+  missing converges once the Token returns.
+- Keep a newly installed credential reader when a client's own rollback fails,
+  because that client's configuration may still reference it.
 - Refuse a blank line between change items of one CHANGELOG category, so each
   category stays one list.
 
