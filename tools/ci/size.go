@@ -18,7 +18,7 @@ func checkSourceSize(root string, runner commandRunner) (result error) {
 	if err != nil {
 		return err
 	}
-	data, err := os.ReadFile(filepath.Join(root, ".config", "checks", "go", "size.toml"))
+	data, err := os.ReadFile(filepath.Join(root, ".config", "checks", "scc", "policy.toml"))
 	if err != nil {
 		return err
 	}

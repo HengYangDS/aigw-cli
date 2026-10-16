@@ -69,7 +69,10 @@ func checkGo(root string, runner commandRunner) error {
 	if err != nil {
 		return err
 	}
-	config := filepath.Join(root, ".config", "checks", "go", "policy.yml")
+	config := filepath.Join(root, ".config", "checks", "golangci-lint", "golangci-lint.toml")
+	if _, err := os.ReadFile(config); err != nil {
+		return fmt.Errorf("read native Go configuration: %w", err)
+	}
 	if err := runner(command{Name: "golangci-lint", Dir: root, Args: []string{
 		"fmt", "--diff", "--config", config,
 	}}); err != nil {
@@ -262,7 +265,7 @@ func checkTOML(root string, runner commandRunner) error {
 		}
 		files[index] = relative
 	}
-	config := filepath.Join(root, ".config", "checks", "toml", "policy.toml")
+	config := filepath.Join(root, ".config", "checks", "taplo", "taplo.toml")
 	for _, arguments := range [][]string{
 		{"lint", "--config", config, "--no-schema", "--"},
 		{"format", "--config", config, "--check", "--diff", "--"},

@@ -45,7 +45,6 @@ func newForgeFixture(t *testing.T) forgeFixture {
 		t.Fatal(err)
 	}
 	policy := `[commit_policy]
-subject_pattern = "^(feat|fix|docs|test|refactor|perf|build|ci|chore|revert)(\\([a-z0-9-]+\\))?!?: .+"
 signing_required = true
 signing_format = "ssh"
 `

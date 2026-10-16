@@ -16,7 +16,7 @@ import (
 
 // CheckPolicy validates one checkout's policy without fetching schemas or changing files.
 func CheckPolicy(root string) error {
-	path := filepath.Join(root, ".config", "checks", "markdown", "policy.yaml")
+	path := filepath.Join(root, ".config", "checks", "markdownlint-cli2", ".markdownlint-cli2.yaml")
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -30,13 +30,17 @@ func CheckPolicy(root string) error {
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return errors.New("Markdown policy must contain exactly one YAML document")
 	}
+	carrier, ok := document.(map[string]any)
+	if !ok || len(carrier) != 1 || carrier["config"] == nil {
+		return errors.New("Markdown native carrier must contain only its config rules")
+	}
 	compiler := jsonschema.NewCompiler()
 	compiler.UseLoader(nil)
 	rulesSchema, err := bundledSchema(compiler, filepath.Join(root, "node_modules", "markdownlint", "schema", "markdownlint-config-schema-strict.json"))
 	if err != nil {
 		return err
 	}
-	if err := rulesSchema.Validate(document); err != nil {
+	if err := rulesSchema.Validate(carrier["config"]); err != nil {
 		return fmt.Errorf("validate Markdown rules: %w", err)
 	}
 	return nil

@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:decision:0005
 role: decision
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: Admit Client Adapters Explicitly
 ---
--->
 
 # DR-0005: Admit Client Adapters Explicitly
 

@@ -50,7 +50,7 @@ func spdxFixture(t *testing.T, root, version string) []byte {
 }
 
 func TestGoReleaserArchiveMetadataIsHostIndependent(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", ".config", "release", "goreleaser.yaml"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", ".config", "release", "goreleaser", ".goreleaser.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}

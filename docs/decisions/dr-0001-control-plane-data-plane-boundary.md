@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:decision:0001
 role: decision
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: Separate AIGW Control Plane from Transport Data Planes
 ---
--->
 
 # DR-0001: Separate AIGW Control Plane from Transport Data Planes
 

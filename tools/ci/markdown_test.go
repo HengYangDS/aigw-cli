@@ -82,7 +82,7 @@ func TestMarkdownCheckDiscoversAuthoredDocuments(t *testing.T) {
 		".serena/notes.md":                     invalid,
 	}
 	for _, relative := range []string{
-		".config/checks/markdown/policy.yaml",
+		".config/checks/markdownlint-cli2/.markdownlint-cli2.yaml",
 		"node_modules/markdownlint/schema/markdownlint-config-schema-strict.json",
 	} {
 		files[relative] = string(readFile(t, filepath.Join(repository, relative)))

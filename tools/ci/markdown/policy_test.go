@@ -36,8 +36,9 @@ func TestCheckPolicyUsesBundledSchemas(t *testing.T) {
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			root := markdownPolicyCheckout(t, repository)
-			path := filepath.Join(root, ".config", "checks", "markdown", "policy.yaml")
-			if err := os.WriteFile(path, []byte(scenario.content), 0o600); err != nil {
+			path := filepath.Join(root, ".config", "checks", "markdownlint-cli2", ".markdownlint-cli2.yaml")
+			wrapped := "config:\n  " + strings.ReplaceAll(strings.TrimSuffix(scenario.content, "\n"), "\n", "\n  ") + "\n"
+			if err := os.WriteFile(path, []byte(wrapped), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			err := CheckPolicy(root)
@@ -45,7 +46,7 @@ func TestCheckPolicyUsesBundledSchemas(t *testing.T) {
 				t.Fatalf("Markdown policy validity = %t, want %t: %v", err == nil, scenario.valid, err)
 			}
 			actual, readErr := os.ReadFile(path)
-			if readErr != nil || string(actual) != scenario.content {
+			if readErr != nil || string(actual) != wrapped {
 				t.Fatalf("validation changed its input: %v", readErr)
 			}
 		})
@@ -56,7 +57,7 @@ func markdownPolicyCheckout(t *testing.T, repository string) string {
 	t.Helper()
 	root := filepath.Join(t.TempDir(), "checkout with spaces")
 	for _, relative := range []string{
-		".config/checks/markdown/policy.yaml",
+		".config/checks/markdownlint-cli2/.markdownlint-cli2.yaml",
 		"node_modules/markdownlint/schema/markdownlint-config-schema-strict.json",
 	} {
 		content, err := os.ReadFile(filepath.Join(repository, filepath.FromSlash(relative)))
@@ -80,7 +81,7 @@ func TestCheckPolicyRequiresEveryLocalInput(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, relative := range []string{
-		".config/checks/markdown/policy.yaml",
+		".config/checks/markdownlint-cli2/.markdownlint-cli2.yaml",
 		"node_modules/markdownlint/schema/markdownlint-config-schema-strict.json",
 	} {
 		t.Run(relative, func(t *testing.T) {

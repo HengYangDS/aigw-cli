@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:decision:0007
 role: decision
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: Local Product Objects and Independent Forge Peers
 ---
--->
 
 # DR-0007: Local Product Objects and Independent Forge Peers
 

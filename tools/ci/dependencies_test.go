@@ -20,7 +20,7 @@ import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import { parsers } from "prettier/plugins/babel";
 const policy = await parsers.json5.parse(
-  await readFile(".config/dependencies/renovate.json5", "utf8"), {},
+  await readFile(".config/checks/renovate/renovate.json5", "utf8"), {},
 );
 const inputs = policy.node.properties.find(
   ({ key }) => (key.name ?? key.value) === "includePaths",

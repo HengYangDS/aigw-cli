@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:decision:0011
 role: decision
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: Select One Portable Token Backend
 ---
--->
 
 # DR-0011: Select One Portable Token Backend
 

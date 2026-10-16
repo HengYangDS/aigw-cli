@@ -10,11 +10,34 @@ Version headings stay local. Explicit history links identify the peer they
 open. A heading or link is not publication proof; artifact publication,
 platform acceptance, signing, and GA status remain separate evidence.
 
-## Unreleased
+## [Unreleased]
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
-## 0.4.2 - 2026-10-15
+## [0.4.3] - 2026-10-16
+
+History: [GitLab][0.4.3-gitlab] · [GitHub][0.4.3-github]
+
+### Changed
+
+- Offer Gemini 4 Argon, Google's flagship reasoning model, in place of Gemini
+  3.8 Flash in the team manifest: on OpenAI Responses through AIHubMix and
+  DMXAPI, and on OpenAI Chat Completions through UCloud. Importing the updated
+  manifest keeps local Gemini 3.8 Flash Routes and their selections; retire an
+  unselected one by importing with `--retire-route <id>`.
+
+### Fixed
+
+- Keep a disabled client from deciding readiness: while another client is
+  enabled, `aigw status`, `aigw check` and `aigw doctor` no longer read the
+  Account of a disabled Client Binding. A denied or unreadable credential there
+  no longer reports that client as unavailable, recommends `aigw doctor` or
+  fails doctor.
+- Keep setup, sync and Route changes within their memory bound while they
+  verify the running program and credential readers; 0.4.2 could exceed it
+  slightly when its shared read buffers were exhausted.
+
+## [0.4.2] - 2026-10-15
 
 History: [GitLab][0.4.2-gitlab] · [GitHub][0.4.2-github]
 
@@ -37,7 +60,7 @@ History: [GitLab][0.4.2-gitlab] · [GitHub][0.4.2-github]
 - Refuse a blank line between change items of one CHANGELOG category, so each
   category stays one list.
 
-## 0.4.1 - 2026-10-14
+## [0.4.1] - 2026-10-14
 
 History: [GitLab][0.4.1-gitlab] · [GitHub][0.4.1-github]
 
@@ -211,9 +234,9 @@ checks and has no release assets; its changes ship here.
 - Let `aigw catalog --all --json` return the complete JSON catalogue instead
   of rejecting two compatible output flags.
 
-## 0.3.5 - 2026-10-12
+## [0.3.5] - 2026-10-12
 
-History: [GitHub][0.3.5-github]
+History: [GitLab][0.3.5-gitlab] · [GitHub][0.3.5-github]
 
 ### Fixed
 
@@ -226,9 +249,9 @@ History: [GitHub][0.3.5-github]
 - Exercise Account inventory ordering and reviewed Route recommendation
   replacement without changing unrelated selections or configuration.
 
-## 0.3.4 - 2026-10-10
+## [0.3.4] - 2026-10-10
 
-History: [GitHub][0.3.4-github]
+History: [GitLab][0.3.4-gitlab] · [GitHub][0.3.4-github]
 
 ### Fixed
 
@@ -239,7 +262,7 @@ History: [GitHub][0.3.4-github]
 - Exercise native Linux coverage with the isolated Secret Service and retain
   failed coverage evidence instead of masking incomplete acceptance.
 
-## 0.3.3 - 2026-10-09
+## [0.3.3] - 2026-10-09
 
 History: [GitLab][0.3.3-gitlab] · [GitHub][0.3.3-github]
 
@@ -257,7 +280,7 @@ History: [GitLab][0.3.3-gitlab] · [GitHub][0.3.3-github]
 - Reject stale upstream bindings and target conflicts without overwriting newer
   edits; compensate independent owned files after partial write failure.
 
-## 0.3.1 - 2026-09-25
+## [0.3.1] - 2026-09-25
 
 History: [GitLab][0.3.1-gitlab] · [GitHub][0.3.1-github]
 
@@ -269,7 +292,7 @@ History: [GitLab][0.3.1-gitlab] · [GitHub][0.3.1-github]
 - Classify failed inference responses using structured provider error messages,
   including nested error fields.
 
-## 0.3.0 - 2026-09-25
+## [0.3.0] - 2026-09-25
 
 History: [GitLab][0.3.0-gitlab] · [GitHub][0.3.0-github]
 
@@ -299,7 +322,7 @@ History: [GitLab][0.3.0-gitlab] · [GitHub][0.3.0-github]
 - Preserve an explicit Route protocol mapping when its capability list is empty,
   including UCloud GLM 5.3's Chat Completions mapping during configuration merge.
 
-## 0.2.0 - 2026-09-24
+## [0.2.0] - 2026-09-24
 
 History: [GitLab][0.2.0-gitlab] · [GitHub][0.2.0-github]
 
@@ -327,7 +350,7 @@ History: [GitLab][0.2.0-gitlab] · [GitHub][0.2.0-github]
 - Preserve selected Routes and retained credentials through published-predecessor
   upgrade, rollback, and forward recovery.
 
-## 0.2.0-rc.3 - 2026-09-24
+## [0.2.0-rc.3] - 2026-09-24
 
 History: [GitLab][0.2.0-rc.3-gitlab] · [GitHub][0.2.0-rc.3-github]
 
@@ -341,7 +364,7 @@ History: [GitLab][0.2.0-rc.3-gitlab] · [GitHub][0.2.0-rc.3-github]
 - Prevent isolated Hermes verification from installing unrelated optional
   dependencies before it tests the selected inference route.
 
-## 0.2.0-rc.2 - 2026-09-23
+## [0.2.0-rc.2] - 2026-09-23
 
 History: [GitLab][0.2.0-rc.2-gitlab] · [GitHub][0.2.0-rc.2-github]
 
@@ -350,7 +373,7 @@ History: [GitLab][0.2.0-rc.2-gitlab] · [GitHub][0.2.0-rc.2-github]
 - Isolate release-policy command tests from ambient Forge tag variables so the
   same source gate passes for accepted branches and signed release tags.
 
-## 0.2.0-rc.1 - 2026-09-23
+## [0.2.0-rc.1] - 2026-09-23
 
 History: [GitLab][0.2.0-rc.1-gitlab] · [GitHub][0.2.0-rc.1-github]
 
@@ -393,7 +416,7 @@ History: [GitLab][0.2.0-rc.1-gitlab] · [GitHub][0.2.0-rc.1-github]
 - Make clean-checkout bootstrap independent of ambient tools and sibling Work
   Lanes on macOS, Linux, and Windows.
 
-## 0.1.0 - 2026-09-19
+## [0.1.0] - 2026-09-19
 
 History: [GitLab][0.1.0-gitlab] · [GitHub][0.1.0-github]
 
@@ -417,7 +440,7 @@ History: [GitLab][0.1.0-gitlab] · [GitHub][0.1.0-github]
   executables cannot carry stapled notarization tickets and require online
   ticket discovery on a fresh machine.
 
-## 0.1.0-rc.118 - 2026-09-19
+## [0.1.0-rc.118] - 2026-09-19
 
 History: [GitLab][0.1.0-rc.118-gitlab] · [GitHub][0.1.0-rc.118-github]
 
@@ -428,7 +451,7 @@ History: [GitLab][0.1.0-rc.118-gitlab] · [GitHub][0.1.0-rc.118-github]
 - Use the current GoReleaser archive timestamp contract directly and retain
   reproducible native artifacts without a redundant timestamp rewrite.
 
-## 0.1.0-rc.117 - 2026-09-18
+## [0.1.0-rc.117] - 2026-09-18
 
 History: [GitLab][0.1.0-rc.117-gitlab] · [GitHub][0.1.0-rc.117-github]
 
@@ -446,7 +469,7 @@ History: [GitLab][0.1.0-rc.117-gitlab] · [GitHub][0.1.0-rc.117-github]
   client projection, preserving the selected Route and user configuration while
   resolving the matching Account Token by projection identity.
 
-## 0.1.0-rc.116 - 2026-09-17
+## [0.1.0-rc.116] - 2026-09-17
 
 History: [GitLab][0.1.0-rc.116-gitlab] · [GitHub][0.1.0-rc.116-github]
 
@@ -458,7 +481,7 @@ History: [GitLab][0.1.0-rc.116-gitlab] · [GitHub][0.1.0-rc.116-github]
   instead of a duplicate native Token; suppress unknown credential-bearing
   diagnostics and reject incompatible program-only rollback before replacement.
 
-## 0.1.0-rc.115 - 2026-09-15
+## [0.1.0-rc.115] - 2026-09-15
 
 History: [GitLab][0.1.0-rc.115-gitlab] · [GitHub][0.1.0-rc.115-github]
 
@@ -470,7 +493,7 @@ History: [GitLab][0.1.0-rc.115-gitlab] · [GitHub][0.1.0-rc.115-github]
 - Prepare the release output parent before reproducibility builds; reject an
   unusable parent before invoking the builder and preserve existing content.
 
-## 0.1.0-rc.114 - 2026-09-14
+## [0.1.0-rc.114] - 2026-09-14
 
 History: [GitLab][0.1.0-rc.114-gitlab] · [GitHub][0.1.0-rc.114-github]
 
@@ -483,7 +506,7 @@ History: [GitLab][0.1.0-rc.114-gitlab] · [GitHub][0.1.0-rc.114-github]
 - Link shared documentation to tracked repository owners and primary sources;
   reject local link targets that exist only in an author's working environment.
 
-## 0.1.0-rc.113 - 2026-09-14
+## [0.1.0-rc.113] - 2026-09-14
 
 History: [GitLab][0.1.0-rc.113-gitlab] · [GitHub][0.1.0-rc.113-github]
 
@@ -501,7 +524,7 @@ History: [GitLab][0.1.0-rc.113-gitlab] · [GitHub][0.1.0-rc.113-github]
 - Distinguish endpoint HTTP observation from model inference and native-client
   verification in connectivity-test output.
 
-## 0.1.0-rc.112 - 2026-09-14
+## [0.1.0-rc.112] - 2026-09-14
 
 History: [GitLab][0.1.0-rc.112-gitlab] · [GitHub][0.1.0-rc.112-github]
 
@@ -554,7 +577,7 @@ History: [GitLab][0.1.0-rc.112-gitlab] · [GitHub][0.1.0-rc.112-github]
 - Enforce observed remote tips even for fast-forward publication and stream the
   complete link inventory through the native cross-platform checker.
 
-## 0.1.0-rc.110 - 2026-09-01
+## [0.1.0-rc.110] - 2026-09-01
 
 History: [GitLab][0.1.0-rc.110-gitlab] · [GitHub][0.1.0-rc.110-github]
 
@@ -572,7 +595,7 @@ History: [GitLab][0.1.0-rc.110-gitlab] · [GitHub][0.1.0-rc.110-github]
 - Prove that an unavailable Linux Secret Service fails explicitly without
   reading secret values, choosing a fallback backend, or prompting the user.
 
-## 0.1.0-rc.109 - 2026-09-01
+## [0.1.0-rc.109] - 2026-09-01
 
 History: [GitLab][0.1.0-rc.109-gitlab] · [GitHub][0.1.0-rc.109-github]
 
@@ -581,7 +604,7 @@ History: [GitLab][0.1.0-rc.109-gitlab] · [GitHub][0.1.0-rc.109-github]
 - Report credential availability without exposing secret values or treating
   an unavailable credential backend as an absent Account.
 
-## 0.1.0-rc.108 - 2026-08-31
+## [0.1.0-rc.108] - 2026-08-31
 
 History: [GitLab][0.1.0-rc.108-gitlab] · [GitHub][0.1.0-rc.108-github]
 
@@ -592,7 +615,7 @@ History: [GitLab][0.1.0-rc.108-gitlab] · [GitHub][0.1.0-rc.108-github]
 - Re-evaluate available Accounts during `aigw sync`, activate compatible
   Routes, and project clients installed after initial setup.
 
-## 0.1.0-rc.107 - 2026-08-31
+## [0.1.0-rc.107] - 2026-08-31
 
 History: [GitLab][0.1.0-rc.107-gitlab] · [GitHub][0.1.0-rc.107-github]
 
@@ -601,7 +624,7 @@ History: [GitLab][0.1.0-rc.107-gitlab] · [GitHub][0.1.0-rc.107-github]
 - Expose machine-readable readiness checks for configured client routes.
 - Keep readiness failures structured and actionable for automation.
 
-## 0.1.0-rc.106 - 2026-08-31
+## [0.1.0-rc.106] - 2026-08-31
 
 History: [GitLab][0.1.0-rc.106-gitlab] · [GitHub][0.1.0-rc.106-github]
 
@@ -612,7 +635,7 @@ History: [GitLab][0.1.0-rc.106-gitlab] · [GitHub][0.1.0-rc.106-github]
 - Direct deferred-client setup to `aigw sync`, the command that activates
   clients installed after initial setup.
 
-## 0.1.0-rc.105 - 2026-08-31
+## [0.1.0-rc.105] - 2026-08-31
 
 History: [GitLab][0.1.0-rc.105-gitlab] · [GitHub][0.1.0-rc.105-github]
 
@@ -626,7 +649,7 @@ History: [GitLab][0.1.0-rc.105-gitlab] · [GitHub][0.1.0-rc.105-github]
 - Make progressive setup actionable when credentials or supported clients are
   intentionally deferred, while keeping `aigw check` a read-only verifier.
 
-## 0.1.0-rc.104 - 2026-08-30
+## [0.1.0-rc.104] - 2026-08-30
 
 History: [GitLab][0.1.0-rc.104-gitlab] · [GitHub][0.1.0-rc.104-github]
 
@@ -639,7 +662,7 @@ History: [GitLab][0.1.0-rc.104-gitlab] · [GitHub][0.1.0-rc.104-github]
   shipped executable on macOS, Linux, and Windows while retaining user state.
 - Reduce the locked Go module graph to its current, consumed dependency closure.
 
-## 0.1.0-rc.103 - 2026-08-30
+## [0.1.0-rc.103] - 2026-08-30
 
 History: [GitLab][0.1.0-rc.103-gitlab] · [GitHub][0.1.0-rc.103-github]
 
@@ -649,7 +672,7 @@ History: [GitLab][0.1.0-rc.103-gitlab] · [GitHub][0.1.0-rc.103-github]
   protocol-specific model path and authentication headers used by Claude Code
   and Codex.
 
-## 0.1.0-rc.102 - 2026-08-30
+## [0.1.0-rc.102] - 2026-08-30
 
 History: [GitLab][0.1.0-rc.102-gitlab] · [GitHub][0.1.0-rc.102-github]
 
@@ -671,7 +694,7 @@ History: [GitLab][0.1.0-rc.102-gitlab] · [GitHub][0.1.0-rc.102-github]
   fallback because they duplicate or contradict explicit client Route
   authority.
 
-## 0.1.0-rc.101 - 2026-08-30
+## [0.1.0-rc.101] - 2026-08-30
 
 History: [GitLab][0.1.0-rc.101-gitlab] · [GitHub][0.1.0-rc.101-github]
 
@@ -681,7 +704,7 @@ History: [GitLab][0.1.0-rc.101-gitlab] · [GitHub][0.1.0-rc.101-github]
   selected Route, Account, and Token through the same fail-closed credential
   authority used by Claude Code.
 
-## 0.1.0-rc.100 - 2026-08-30
+## [0.1.0-rc.100] - 2026-08-30
 
 History: [GitLab][0.1.0-rc.100-gitlab] · [GitHub][0.1.0-rc.100-github]
 
@@ -690,7 +713,7 @@ History: [GitLab][0.1.0-rc.100-gitlab] · [GitHub][0.1.0-rc.100-github]
 - Make `aigw check` validate the selected Account Token for every enabled
   admitted-client Route before reporting the client or overall system ready.
 
-## 0.1.0-rc.99 - 2026-08-29
+## [0.1.0-rc.99] - 2026-08-29
 
 History: [GitLab][0.1.0-rc.99-gitlab] · [GitHub][0.1.0-rc.99-github]
 
@@ -706,7 +729,7 @@ History: [GitLab][0.1.0-rc.99-gitlab] · [GitHub][0.1.0-rc.99-github]
 - Reject environment-backed Token rotation before reading input, validating a
   replacement, opening a credential prompt, or attempting persistence.
 
-## 0.1.0-rc.98 - 2026-08-29
+## [0.1.0-rc.98] - 2026-08-29
 
 History: [GitLab][0.1.0-rc.98-gitlab] · [GitHub][0.1.0-rc.98-github]
 
@@ -717,7 +740,7 @@ History: [GitLab][0.1.0-rc.98-gitlab] · [GitHub][0.1.0-rc.98-github]
 - Rebuild the six-platform mise lock and retain only the minimal consumed Go
   dependency closure.
 
-## 0.1.0-rc.97 - 2026-08-29
+## [0.1.0-rc.97] - 2026-08-29
 
 History: [GitLab][0.1.0-rc.97-gitlab] · [GitHub][0.1.0-rc.97-github]
 
@@ -735,7 +758,7 @@ History: [GitLab][0.1.0-rc.97-gitlab] · [GitHub][0.1.0-rc.97-github]
   npm tool bytes, verify registry signatures, and avoid ambient command
   fallback on macOS, Linux, and Windows.
 
-## 0.1.0-rc.96 - 2026-08-27
+## [0.1.0-rc.96] - 2026-08-27
 
 History: [GitLab][0.1.0-rc.96-gitlab] · [GitHub][0.1.0-rc.96-github]
 
@@ -757,7 +780,7 @@ History: [GitLab][0.1.0-rc.96-gitlab] · [GitHub][0.1.0-rc.96-github]
 - Allow team setup with any available provider, no installed clients, and
   deferred `aigw sync` after Claude Code or Codex is installed.
 
-## 0.1.0-rc.95 - 2026-08-25
+## [0.1.0-rc.95] - 2026-08-25
 
 History: [GitLab][0.1.0-rc.95-gitlab] · [GitHub][0.1.0-rc.95-github]
 
@@ -778,7 +801,7 @@ History: [GitLab][0.1.0-rc.95-gitlab] · [GitHub][0.1.0-rc.95-github]
   the CUE-owned CI lifecycle, while enforcing canonical CUE formatting before
   projecting GitHub and GitLab workflows.
 
-## 0.1.0-rc.94 - 2026-08-24
+## [0.1.0-rc.94] - 2026-08-24
 
 History: [GitLab][0.1.0-rc.94-gitlab] · [GitHub][0.1.0-rc.94-github]
 
@@ -797,7 +820,7 @@ History: [GitLab][0.1.0-rc.94-gitlab] · [GitHub][0.1.0-rc.94-github]
   status output, using Codex's public read-only login status and recommending
   the explicit authentication command instead of reporting unproved readiness.
 
-## 0.1.0-rc.93 - 2026-08-23
+## [0.1.0-rc.93] - 2026-08-23
 
 History: [GitLab][0.1.0-rc.93-gitlab] · [GitHub][0.1.0-rc.93-github]
 
@@ -806,7 +829,7 @@ History: [GitLab][0.1.0-rc.93-gitlab] · [GitHub][0.1.0-rc.93-github]
 - Diagnose credentials only for Accounts selected by active client Routes, so
   optional providers in the reviewed team catalogue can remain unconnected.
 
-## 0.1.0-rc.92 - 2026-08-23
+## [0.1.0-rc.92] - 2026-08-23
 
 History: [GitLab][0.1.0-rc.92-gitlab] · [GitHub][0.1.0-rc.92-github]
 
@@ -819,7 +842,7 @@ History: [GitLab][0.1.0-rc.92-gitlab] · [GitHub][0.1.0-rc.92-github]
 - Keep archived OpenSpec chronology and temporary Git policy fixtures isolated
   from host state, hooks, and signing configuration.
 
-## 0.1.0-rc.91 - 2026-08-22
+## [0.1.0-rc.91] - 2026-08-22
 
 History: [GitLab][0.1.0-rc.91-gitlab] · [GitHub][0.1.0-rc.91-github]
 
@@ -843,7 +866,7 @@ History: [GitLab][0.1.0-rc.91-gitlab] · [GitHub][0.1.0-rc.91-github]
 - Verify the exact signed product commit in Forge review pipelines and isolate
   release jobs from ambient lifecycle and credential state.
 
-## 0.1.0-rc.90 - 2026-08-21
+## [0.1.0-rc.90] - 2026-08-21
 
 History: [GitLab][0.1.0-rc.90-gitlab] · [GitHub][0.1.0-rc.90-github]
 
@@ -853,7 +876,7 @@ History: [GitLab][0.1.0-rc.90-gitlab] · [GitHub][0.1.0-rc.90-github]
   invocation, allowing admitted Anthropic-compatible providers to work without
   optional beta support while keeping the setting process-local.
 
-## 0.1.0-rc.89 - 2026-08-19
+## [0.1.0-rc.89] - 2026-08-19
 
 History: [GitLab][0.1.0-rc.89-gitlab] · [GitHub][0.1.0-rc.89-github]
 
@@ -881,7 +904,7 @@ History: [GitLab][0.1.0-rc.89-gitlab] · [GitHub][0.1.0-rc.89-github]
 - Bind Claude Code credential lookup to the installed AIGW executable so GUI
   and service launches do not depend on shell `PATH`.
 
-## 0.1.0-rc.88 - 2026-08-18
+## [0.1.0-rc.88] - 2026-08-18
 
 History: [GitLab][0.1.0-rc.88-gitlab] · [GitHub][0.1.0-rc.88-github]
 
@@ -890,7 +913,7 @@ History: [GitLab][0.1.0-rc.88-gitlab] · [GitHub][0.1.0-rc.88-github]
 - Isolate Forge test repositories from host Git signing and hook configuration
   so native macOS acceptance cannot wait on workstation Keychain state.
 
-## 0.1.0-rc.87 - 2026-08-18
+## [0.1.0-rc.87] - 2026-08-18
 
 History: [GitLab][0.1.0-rc.87-gitlab] · [GitHub][0.1.0-rc.87-github]
 
@@ -900,7 +923,7 @@ History: [GitLab][0.1.0-rc.87-gitlab] · [GitHub][0.1.0-rc.87-github]
   retire the conflicting alias without losing user settings, and preserve the
   configured Codex executable during repair and rediscovery.
 
-## 0.1.0-rc.86 - 2026-08-17
+## [0.1.0-rc.86] - 2026-08-17
 
 History: [GitLab][0.1.0-rc.86-gitlab] · [GitHub][0.1.0-rc.86-github]
 
@@ -909,7 +932,7 @@ History: [GitLab][0.1.0-rc.86-gitlab] · [GitHub][0.1.0-rc.86-github]
 - Refresh the locked Go module graph to the current stable releases and rerun
   the complete cross-platform source, coverage, and release proof.
 
-## 0.1.0-rc.85 - 2026-08-17
+## [0.1.0-rc.85] - 2026-08-17
 
 History: [GitLab][0.1.0-rc.85-gitlab] · [GitHub][0.1.0-rc.85-github]
 
@@ -919,7 +942,7 @@ History: [GitLab][0.1.0-rc.85-gitlab] · [GitHub][0.1.0-rc.85-github]
   complete module and every canonical Go package, using one machine-readable
   policy and complete raw evidence.
 
-## 0.1.0-rc.84 - 2026-08-16
+## [0.1.0-rc.84] - 2026-08-16
 
 History: [GitLab][0.1.0-rc.84-gitlab] · [GitHub][0.1.0-rc.84-github]
 
@@ -929,7 +952,7 @@ History: [GitLab][0.1.0-rc.84-gitlab] · [GitHub][0.1.0-rc.84-github]
   builders produce byte-identical portable release assets from the same source
   tree, epoch, toolchain, and release inputs.
 
-## 0.1.0-rc.83 - 2026-08-16
+## [0.1.0-rc.83] - 2026-08-16
 
 History: [GitLab][0.1.0-rc.83-gitlab] · [GitHub][0.1.0-rc.83-github]
 
@@ -940,7 +963,7 @@ History: [GitLab][0.1.0-rc.83-gitlab] · [GitHub][0.1.0-rc.83-github]
   argument. Unscoped Profiles still require an explicit client, and conflicting
   selections fail before network access.
 
-## 0.1.0-rc.82 - 2026-08-15
+## [0.1.0-rc.82] - 2026-08-15
 
 History: [GitLab][0.1.0-rc.82-gitlab] · [GitHub][0.1.0-rc.82-github]
 
@@ -1000,7 +1023,7 @@ History: [GitLab][0.1.0-rc.82-gitlab] · [GitHub][0.1.0-rc.82-github]
 - Project Codex's current per-session scheduler keys with a 16-thread limit and
   depth 1, leaving global transport capacity to the selected external service.
 
-## 0.1.0-rc.77 - 2026-07-30
+## [0.1.0-rc.77] - 2026-07-30
 
 History: [GitLab][0.1.0-rc.77-gitlab] · [GitHub][0.1.0-rc.77-github]
 
@@ -1015,7 +1038,7 @@ History: [GitLab][0.1.0-rc.77-gitlab] · [GitHub][0.1.0-rc.77-github]
 - Remove the three DMXAPI GPT-5.6 `-cdx` aliases from the maintained deployment
   profile matrix; native Luna, Sol, and Terra profiles remain available.
 
-## 0.1.0-rc.76 - 2026-07-30
+## [0.1.0-rc.76] - 2026-07-30
 
 History: [GitLab][0.1.0-rc.76-gitlab] · [GitHub][0.1.0-rc.76-github]
 
@@ -1025,7 +1048,7 @@ History: [GitLab][0.1.0-rc.76-gitlab] · [GitHub][0.1.0-rc.76-github]
   and project the bounded Codex provider identity needed to keep multi-turn
   `rs_...` and tool-call items valid with Codex 0.146.
 
-## 0.1.0-rc.75 - 2026-07-30
+## [0.1.0-rc.75] - 2026-07-30
 
 History: [GitLab][0.1.0-rc.75-gitlab] · [GitHub][0.1.0-rc.75-github]
 
@@ -1047,7 +1070,7 @@ History: [GitLab][0.1.0-rc.75-gitlab] · [GitHub][0.1.0-rc.75-github]
 - Align provider-native commit trust anchors with the currently registered
   GitLab and GitHub SSH signing keys.
 
-## 0.1.0-rc.74 - 2026-07-29
+## [0.1.0-rc.74] - 2026-07-29
 
 History: [GitLab][0.1.0-rc.74-gitlab] · [GitHub][0.1.0-rc.74-github]
 
@@ -1083,7 +1106,7 @@ History: [GitLab][0.1.0-rc.74-gitlab] · [GitHub][0.1.0-rc.74-github]
 - Preserve signed, forward-only GitHub projection for merge branches forked
   from older canonical ancestors, including Keychain-backed signing.
 
-## 0.1.0-rc.71 - 2026-07-27
+## [0.1.0-rc.71] - 2026-07-27
 
 History: [GitLab][0.1.0-rc.71-gitlab] · [GitHub][0.1.0-rc.71-github]
 
@@ -1106,7 +1129,7 @@ History: [GitLab][0.1.0-rc.71-gitlab] · [GitHub][0.1.0-rc.71-github]
   tags, even when global Git fetch pruning is enabled, and record retired GitLab
   `rc.58` chronology so fresh CI checkouts do not depend on workstation refs.
 
-## 0.1.0-rc.70 - 2026-07-24
+## [0.1.0-rc.70] - 2026-07-24
 
 History: [GitLab][0.1.0-rc.70-gitlab] · [GitHub][0.1.0-rc.70-github]
 
@@ -1118,7 +1141,7 @@ History: [GitLab][0.1.0-rc.70-gitlab] · [GitHub][0.1.0-rc.70-github]
 
 - Remove runtime and static exclusions for specific `gpt-5.6-*-cdx` profile and model IDs; model identity is now constrained only by general format, references, and client protocol capabilities.
 
-## 0.1.0-rc.69 - 2026-07-21
+## [0.1.0-rc.69] - 2026-07-21
 
 History: [GitLab][0.1.0-rc.69-gitlab] · [GitHub][0.1.0-rc.69-github]
 
@@ -1157,7 +1180,7 @@ History: [GitLab][0.1.0-rc.69-gitlab] · [GitHub][0.1.0-rc.69-github]
   so unchecked errors and analysis regressions fail before a release candidate
   is prepared.
 
-## 0.1.0-rc.68 - 2026-07-19
+## [0.1.0-rc.68] - 2026-07-19
 
 History: [GitLab][0.1.0-rc.68-gitlab] · [GitHub][0.1.0-rc.68-github]
 
@@ -1189,7 +1212,7 @@ History: [GitLab][0.1.0-rc.68-gitlab] · [GitHub][0.1.0-rc.68-github]
 - Reject credential-shaped literals in tracked source and test fixtures while
   retaining explicit, non-secret redaction sentinels.
 
-## 0.1.0-rc.67 - 2026-07-19
+## [0.1.0-rc.67] - 2026-07-19
 
 History: [GitLab][0.1.0-rc.67-gitlab] · [GitHub][0.1.0-rc.67-github]
 
@@ -1204,7 +1227,7 @@ History: [GitLab][0.1.0-rc.67-gitlab] · [GitHub][0.1.0-rc.67-github]
 - Preserve existing GitLab Releases by verifying them read-only instead of
   updating them after a publication conflict.
 
-## 0.1.0-rc.66 - 2026-07-18
+## [0.1.0-rc.66] - 2026-07-18
 
 History: [GitLab][0.1.0-rc.66-gitlab] · [GitHub][0.1.0-rc.66-github]
 
@@ -1216,7 +1239,7 @@ History: [GitLab][0.1.0-rc.66-gitlab] · [GitHub][0.1.0-rc.66-github]
   ephemeral Go source-run or compiler output, preventing a durable shim
   from pointing to a binary that disappears after the command exits.
 
-## 0.1.0-rc.65 - 2026-07-18
+## [0.1.0-rc.65] - 2026-07-18
 
 History: [GitLab][0.1.0-rc.65-gitlab] · [GitHub][0.1.0-rc.65-github]
 
@@ -1226,7 +1249,7 @@ History: [GitLab][0.1.0-rc.65-gitlab] · [GitHub][0.1.0-rc.65-github]
   fallback-sidecar mismatch, removing AIGW residue and explicit target
   membership without fabricating a JetBrains selection or touching sessions.
 
-## 0.1.0-rc.64 - 2026-07-17
+## [0.1.0-rc.64] - 2026-07-17
 
 History: [GitLab][0.1.0-rc.64-gitlab] · [GitHub][0.1.0-rc.64-github]
 
@@ -1239,7 +1262,7 @@ History: [GitLab][0.1.0-rc.64-gitlab] · [GitHub][0.1.0-rc.64-github]
   local `gh` credential path when the official API intentionally returns an
   anonymous 404. No GitHub token is read, exported, or persisted by AIGW.
 
-## 0.1.0-rc.63 - 2026-07-17
+## [0.1.0-rc.63] - 2026-07-17
 
 History: [GitLab][0.1.0-rc.63-gitlab] · [GitHub][0.1.0-rc.63-github]
 
@@ -1271,7 +1294,7 @@ History: [GitLab][0.1.0-rc.63-gitlab] · [GitHub][0.1.0-rc.63-github]
   verified provenance rather than claiming unavailable host-enforced tag
   immutability; AIGW automation still never rewrites provider-native tags.
 
-## 0.1.0-rc.62 - 2026-07-17
+## [0.1.0-rc.62] - 2026-07-17
 
 History: [GitLab][0.1.0-rc.62-gitlab] · [GitHub][0.1.0-rc.62-github]
 
@@ -1292,7 +1315,7 @@ History: [GitLab][0.1.0-rc.62-gitlab] · [GitHub][0.1.0-rc.62-github]
   inventory, and keep the chronology regression fixture valid after a candidate
   tag is created.
 
-## 0.1.0-rc.58 - 2026-07-17
+## [0.1.0-rc.58] - 2026-07-17
 
 History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 
@@ -1401,13 +1424,17 @@ History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 
 - Require every tag pipeline to verify that its exact annotated release tag carries an SSH signature trusted by the repository-owned signer anchor before packaging, publication, or GitLab Release creation. An unsigned or untrusted tag now fails closed.
 
-[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.2...main
-[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.2...main
+[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.3...main
+[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.3...main
+[0.4.3-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.2...v0.4.3
+[0.4.3-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.2...v0.4.3
 [0.4.2-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.1...v0.4.2
 [0.4.2-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.1...v0.4.2
 [0.4.1-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.5...v0.4.1
 [0.4.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.5...v0.4.1
+[0.3.5-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.4...v0.3.5
 [0.3.5-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.4...v0.3.5
+[0.3.4-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.3...v0.3.4
 [0.3.4-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.3...v0.3.4
 [0.3.3-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.1...v0.3.3
 [0.3.3-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.1...v0.3.3

@@ -41,7 +41,7 @@ record = { z = 2, a = 1 }
 		"internal/domain/test.toml": valid,
 		"build/generated.toml":      "value = [\n",
 	}
-	for _, path := range []string{".gitignore", ".config/checks/toml/policy.toml"} {
+	for _, path := range []string{".gitignore", ".config/checks/taplo/taplo.toml"} {
 		files[path] = string(readFile(t, filepath.Join(repository, filepath.FromSlash(path))))
 	}
 	for path, content := range files {
@@ -111,7 +111,7 @@ record = { z = 2, a = 1 }
 func TestFormattingCoversCurrentCarriersAndPreservesOwnedExclusions(t *testing.T) {
 	repository := repositoryRoot(t)
 	root := newGitRepository(t)
-	for _, path := range []string{"package.json", ".gitignore", ".editorconfig", ".config/checks/markdown/prettierignore"} {
+	for _, path := range []string{"package.json", ".gitignore", ".editorconfig", ".config/checks/prettier/prettierignore", ".config/checks/prettier/prettier.toml"} {
 		if err := os.MkdirAll(filepath.Dir(filepath.Join(root, path)), 0o700); err != nil {
 			t.Fatal(err)
 		}
