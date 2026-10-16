@@ -14,6 +14,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Fixed
+
+- Keep a disabled client from deciding readiness: while another client is
+  enabled, `aigw status`, `aigw check` and `aigw doctor` no longer read the
+  Account of a disabled Client Binding. A denied or unreadable credential there
+  no longer reports that client as unavailable, recommends `aigw doctor` or
+  fails doctor.
+
 ## 0.4.2 - 2026-10-15
 
 History: [GitLab][0.4.2-gitlab] · [GitHub][0.4.2-github]
