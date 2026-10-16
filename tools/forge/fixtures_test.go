@@ -107,7 +107,11 @@ func newBareRepository(t *testing.T) string {
 		}
 	})
 	runCommand(t, "git", "init", "-q", "--bare", repository)
-	gitTest(t, repository, "config", "core.hooksPath", filepath.Join(repository, "hooks"))
+	hooks := filepath.Join(repository, "hooks")
+	if err := os.Mkdir(hooks, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	gitTest(t, repository, "config", "core.hooksPath", hooks)
 	return repository
 }
 

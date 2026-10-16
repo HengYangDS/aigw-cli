@@ -17,12 +17,46 @@ import (
 	"aigw-cli/internal/presentation"
 )
 
-func TestFinalizeCredentialEntrypointRejectsMissingActiveHelper(t *testing.T) {
-	root := t.TempDir()
-	syncer := Synchronizer{CredentialPath: filepath.Join(root, "data", "credential", "aigw")}
-	err := syncer.finalizeCredentialEntrypoint(testConfig(filepath.Join(root, "codex.toml")))
-	if err == nil || !strings.Contains(err.Error(), "disappeared after client projection") {
-		t.Fatalf("missing active helper finalization = %v", err)
+func TestFinalizeCredentialEntrypointRefusesReaderChangedAfterPreparation(t *testing.T) {
+	for _, tc := range []struct {
+		name, want string
+		change     func(t *testing.T, reader string)
+	}{
+		{"missing", "disappeared after client projection", func(t *testing.T, reader string) {
+			if err := errors.Join(os.Remove(reader), os.Remove(reader+".sha256")); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"replaced", "inspect credential entrypoint", func(t *testing.T, reader string) {
+			replacement := reader + ".replacement"
+			if err := os.WriteFile(replacement, []byte("changed executable"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Rename(replacement, reader); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			source := filepath.Join(root, "aigw")
+			if err := os.WriteFile(source, []byte("executable fixture"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+			if err != nil {
+				t.Fatal(err)
+			}
+			syncer := Synchronizer{AIGWExecutable: source, CredentialPath: reader}
+			entrypoint, _, err := syncer.prepareCredentialEntrypoint(testConfig(filepath.Join(root, "codex.toml")), configuration.ClientCodex)
+			if err != nil || entrypoint == nil {
+				t.Fatalf("prepared reader = %v, %v", entrypoint, err)
+			}
+			tc.change(t, reader)
+			if err := syncer.finalizeCredentialEntrypoint(entrypoint); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("finalization = %v; want %q", err, tc.want)
+			}
+		})
 	}
 }
 
@@ -371,12 +405,18 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 	}
 }
 
-func TestFinalizeCredentialEntrypointRejectsInvalidBinding(t *testing.T) {
+func TestPrepareCredentialEntrypointRejectsInvalidBindingBeforeReading(t *testing.T) {
 	root := t.TempDir()
 	cfg := testConfig(filepath.Join(root, "codex.toml"))
 	delete(cfg.Routes, "gpt")
-	syncer := Synchronizer{CredentialPath: filepath.Join(root, "data", "credential", "aigw")}
-	if err := syncer.finalizeCredentialEntrypoint(cfg); err == nil || !strings.Contains(err.Error(), "inspect credential entrypoint") {
-		t.Fatalf("invalid binding finalization = %v", err)
+	syncer := Synchronizer{
+		CredentialPath: filepath.Join(root, "data", "credential", "aigw"),
+		ResolveProgram: func() (credential.Program, error) {
+			t.Fatal("an invalid binding read the AIGW program")
+			return credential.Program{}, nil
+		},
+	}
+	if entrypoint, _, err := syncer.prepareCredentialEntrypoint(cfg, configuration.ClientCodex); err == nil || entrypoint != nil {
+		t.Fatalf("invalid binding preparation = %v, %v", entrypoint, err)
 	}
 }

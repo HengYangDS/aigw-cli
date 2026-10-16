@@ -39,6 +39,8 @@ type changelogParser struct {
 	firstHeading       string
 	currentEntry       int
 	unreleasedCount    int
+	inItem             bool
+	gapAfterItem       bool
 	hasTitle           bool
 	hasKeepAChangelog  bool
 	hasSemanticVersion bool
@@ -123,14 +125,27 @@ func (p *changelogParser) consume(line string, lineNumber int) error {
 	p.hasSemanticVersion = p.hasSemanticVersion || strings.Contains(line, "https://semver.org/")
 
 	if strings.HasPrefix(line, "## ") {
+		p.inItem, p.gapAfterItem = false, false
 		return p.consumeReleaseHeading(line, lineNumber)
 	}
 	if category, ok := strings.CutPrefix(line, "### "); ok {
+		p.inItem, p.gapAfterItem = false, false
 		return p.consumeCategory(category, lineNumber)
 	}
-	if !strings.HasPrefix(line, "- ") {
+	if strings.TrimSpace(line) == "" {
+		p.gapAfterItem = p.inItem
 		return nil
 	}
+	if !strings.HasPrefix(line, "- ") {
+		// An indented line continues the item; anything else ends the list.
+		p.inItem = p.inItem && !p.gapAfterItem && strings.HasPrefix(line, " ")
+		p.gapAfterItem = false
+		return nil
+	}
+	if p.gapAfterItem {
+		return fmt.Errorf("CHANGELOG.md: blank line before the change item at line %d; items of one category form one list", lineNumber)
+	}
+	p.inItem = true
 	if len(p.sectionCategories) == 0 && p.firstHeading != "" {
 		return fmt.Errorf("CHANGELOG.md: change item at line %d is outside a canonical category", lineNumber)
 	}

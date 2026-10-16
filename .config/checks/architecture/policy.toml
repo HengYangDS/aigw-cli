@@ -46,6 +46,7 @@ package_children."tools" = [
   "codex",
   "coverage",
   "forge",
+  "gitfixture",
   "release",
 ]
 package_children."internal/claude" = ["desktop"]
@@ -109,6 +110,7 @@ allowed_import_edges."internal/client" = [
   "internal/process",
   "internal/secrets",
   "internal/surface",
+  "internal/transaction",
   "internal/client/verification",
 ]
 allowed_import_edges."internal/client/verification" = [
@@ -218,6 +220,7 @@ allowed_import_edges."internal/cli" = [
 ]
 allowed_import_edges."internal/cli/invocation" = [
   "internal/configuration",
+  "internal/credential",
   "internal/discovery",
   "internal/presentation",
   "internal/process",
@@ -390,6 +393,7 @@ allowed_import_edges."tools/release/publication" = ["tools/release/artifact"]
 allowed_import_edges."tools/release/readiness" = []
 allowed_import_edges."tools/architecture" = []
 allowed_import_edges."tools/forge" = []
+allowed_import_edges."tools/gitfixture" = []
 allowed_import_edges."tools/codex/catalog" = [
   "internal/codex",
   "internal/codex/catalog",

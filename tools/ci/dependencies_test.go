@@ -1,8 +1,6 @@
 package main
 
 import (
-	"aigw-cli/tools/release/construction"
-	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -101,68 +99,5 @@ func TestNPMDependencyGraphHasNoDeprecatedPackages(t *testing.T) {
 	if len(deprecated) != 0 {
 		sort.Strings(deprecated)
 		t.Fatalf("deprecated npm dependencies:\n%s", strings.Join(deprecated, "\n"))
-	}
-}
-
-func TestNativeDependencyEvidenceRetainsFindings(t *testing.T) {
-	root := t.TempDir()
-	policy := filepath.Join(root, ".config", "checks", "dependencies", "policy.toml")
-	if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(policy, []byte("[[PackageOverrides]]\nname='example.invalid/dependency'\nversion='1.0.0'\necosystem='Go'\nlicense.override=['MIT']\n[[PackageOverrides]]\nname='braces'\nversion='3.0.3'\necosystem='npm'\nlicense.override=['MIT']\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	// npm records a registry package's resolved URL; OSV Scanner 2.7 treats an
-	// entry without one as a local package and queries no advisory for it.
-	for path, value := range map[string]string{
-		"go.mod":            "module example.invalid/fixture\ngo 1.27.1\nrequire example.invalid/dependency v1.0.0\n",
-		"package-lock.json": `{"name":"fixture","lockfileVersion":3,"packages":{"node_modules/braces":{"version":"3.0.3","resolved":"https://registry.npmjs.org/braces/-/braces-3.0.3.tgz","dev":true}}}`,
-	} {
-		if err := os.WriteFile(filepath.Join(root, path), []byte(value), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	output := filepath.Join(root, "evidence")
-	if err := construction.ScanDependencies(t.Context(), root, output); err != nil {
-		t.Fatal(err)
-	}
-	scans, err := filepath.Glob(filepath.Join(output, "scan-*"))
-	if err != nil || len(scans) != 1 {
-		t.Fatalf("expected one native scan: %v %v", scans, err)
-	}
-	files, err := filepath.Glob(filepath.Join(scans[0], "dependencies.*.json"))
-	if err != nil || len(files) != 2 {
-		t.Fatalf("native raw/exit evidence incomplete: %v %v", files, err)
-	}
-	for _, name := range []string{"dependencies.raw.json", "vulnerabilities.json", "licenses.json"} {
-		content, err := os.ReadFile(filepath.Join(scans[0], name))
-		if err != nil || !json.Valid(content) {
-			t.Fatalf("native evidence %s is unavailable or invalid: %v", name, err)
-		}
-		if name != "licenses.json" {
-			if !bytes.Contains(content, []byte("GHSA-vfj7-8cjw-p6xm")) {
-				t.Fatalf("native evidence %s lost the selected advisory", name)
-			}
-		} else {
-			for _, value := range []string{"go.mod", "package-lock.json", "example.invalid/dependency", "braces", "MIT"} {
-				encoded, err := json.Marshal(value)
-				if err != nil || !bytes.Contains(content, encoded) {
-					t.Fatalf("native license evidence lost %s: %v", value, err)
-				}
-			}
-		}
-	}
-	content, err := os.ReadFile(filepath.Join(scans[0], "dependencies.raw.json.exit.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var exit struct {
-		Exit     int  `json:"exit"`
-		Failed   bool `json:"failed"`
-		Findings bool `json:"findings"`
-	}
-	if err := json.Unmarshal(content, &exit); err != nil || exit.Exit != 1 || exit.Failed || !exit.Findings {
-		t.Fatalf("native findings must be retained and nonblocking: %+v %v", exit, err)
 	}
 }

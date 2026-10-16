@@ -25,6 +25,19 @@ type FileSnapshot struct {
 	Mode   os.FileMode
 }
 
+// ErrCompensationIncomplete marks a failed write whose own compensation also
+// failed, so some of its postimage may remain and may still be consumed.
+var ErrCompensationIncomplete = errors.New("compensation incomplete")
+
+// CompensationFailed reports cause, and, when its compensation failed too,
+// both errors marked with ErrCompensationIncomplete.
+func CompensationFailed(cause, compensation error) error {
+	if compensation == nil {
+		return cause
+	}
+	return fmt.Errorf("%w: %w; compensation also failed: %w", ErrCompensationIncomplete, cause, compensation)
+}
+
 type snapshotFile interface {
 	io.Reader
 	Stat() (os.FileInfo, error)

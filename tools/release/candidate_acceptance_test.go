@@ -203,7 +203,10 @@ func TestNativeClientAcceptanceRejectsMissingExecutableBeforeBuild(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	keys := []string{"AIGW_ACCEPTANCE_CLAUDE", "AIGW_ACCEPTANCE_CODEX", "AIGW_ACCEPTANCE_HERMES"}
+	var keys []string
+	for _, client := range construction.NativeAcceptanceClients(runtime.GOOS) {
+		keys = append(keys, "AIGW_ACCEPTANCE_"+strings.ToUpper(client))
+	}
 	for _, missing := range keys {
 		t.Run(missing, func(t *testing.T) {
 			for _, key := range keys {

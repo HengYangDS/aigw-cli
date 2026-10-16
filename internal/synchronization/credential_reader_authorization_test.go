@@ -200,7 +200,7 @@ func requireSingleCopiedCredentialRead(t *testing.T, syncer Synchronizer, cfg co
 			t.Fatal(err)
 		}
 	}
-	if _, err := syncer.prepareCredentialEntrypoint(cfg, configuration.ClientCodex); err != nil {
+	if _, _, err := syncer.prepareCredentialEntrypoint(cfg, configuration.ClientCodex); err != nil {
 		t.Fatal(err)
 	}
 	var operations []string

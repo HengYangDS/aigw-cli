@@ -57,6 +57,8 @@ type App struct {
 	Executable            string
 	CredentialPath        string
 	ResolveCredentialPath func() (string, error)
+	ResolveProgram        func() (credential.Program, error)
+	Files                 credential.Files
 	InstallTarget         string
 	ClaudeSettingsPath    string
 	Config                configuration.Store
@@ -205,9 +207,6 @@ func NewDefault() (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve AIGW executable: %w", err)
 	}
-	resolveCredentialPath := sync.OnceValues(func() (string, error) {
-		return credential.VersionedEntrypointPath(paths.Data, executable, paths.InstallName)
-	})
 	secretStore, err := secrets.Select(secrets.Selection{
 		Backend:    env["AIGW_SECRET_BACKEND"],
 		GOOS:       runtime.GOOS,
@@ -224,30 +223,49 @@ func NewDefault() (*App, error) {
 	}
 	host := discovery.Current()
 	host.ClaudeDesktopLibrary = paths.ClaudeDesktopLibrary
-	return &App{
-		GOOS:                  runtime.GOOS,
-		DataDir:               paths.Data,
-		Now:                   time.Now,
-		Version:               Version,
-		Executable:            executable,
-		ResolveCredentialPath: resolveCredentialPath,
-		InstallTarget:         filepath.Join(paths.InstallDir, paths.InstallName),
-		ClaudeSettingsPath:    paths.ClaudeSettings,
-		Config:                configuration.NewStore(paths.Config),
-		Secrets:               secretStore,
-		Accounts:              diagnosticCredentialStore,
-		Env:                   os.Environ(),
-		In:                    os.Stdin,
-		Out:                   os.Stdout,
-		Err:                   os.Stderr,
-		Interactive:           presentation.Interactive(os.Stdin),
-		Color:                 presentation.ColorEnabled(runtime.GOOS, env, presentation.Interactive(os.Stdout), presentation.EnableVirtualTerminal),
-		Runner:                process.Runner{},
-		HTTP:                  &http.Client{},
-		Prompt:                prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
-		Discovery:             client.NewDiscoverer(client.DefaultRegistry(), host),
-		Updater:               upgrade.Current(executable),
-	}, nil
+	app := &App{
+		GOOS:               runtime.GOOS,
+		DataDir:            paths.Data,
+		Now:                time.Now,
+		Version:            Version,
+		Executable:         executable,
+		InstallTarget:      filepath.Join(paths.InstallDir, paths.InstallName),
+		ClaudeSettingsPath: paths.ClaudeSettings,
+		Config:             configuration.NewStore(paths.Config),
+		Secrets:            secretStore,
+		Accounts:           diagnosticCredentialStore,
+		Env:                os.Environ(),
+		In:                 os.Stdin,
+		Out:                os.Stdout,
+		Err:                os.Stderr,
+		Interactive:        presentation.Interactive(os.Stdin),
+		Color:              presentation.ColorEnabled(runtime.GOOS, env, presentation.Interactive(os.Stdout), presentation.EnableVirtualTerminal),
+		Runner:             process.Runner{},
+		HTTP:               &http.Client{},
+		Prompt:             prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
+		Discovery:          client.NewDiscoverer(client.DefaultRegistry(), host),
+		Updater:            upgrade.Current(executable),
+	}
+	app.UseExecutableIdentity(nil, paths.InstallName)
+	return app, nil
+}
+
+// UseExecutableIdentity binds the App's credential reader to the bytes of its
+// Executable. The program is read through files at most once for this App,
+// and only when a command first needs the reader.
+func (a *App) UseExecutableIdentity(files credential.Files, installName string) {
+	executable, dataDir := a.Executable, a.DataDir
+	program := sync.OnceValues(func() (credential.Program, error) {
+		return credential.ReadProgram(files, executable)
+	})
+	a.Files, a.ResolveProgram = files, program
+	a.ResolveCredentialPath = sync.OnceValues(func() (string, error) {
+		current, err := program()
+		if err != nil {
+			return "", err
+		}
+		return current.EntrypointPath(dataDir, installName)
+	})
 }
 
 func environmentMap(values []string) map[string]string {
@@ -286,6 +304,8 @@ func (a *App) invocationContext() invocation.Context {
 	return invocation.Context{
 		Version: appVersion(a), Executable: a.Executable, DataDir: a.DataDir, CredentialPath: a.CredentialPath, InstallTarget: a.InstallTarget,
 		ResolveCredentialPath: a.ResolveCredentialPath,
+		ResolveProgram:        a.ResolveProgram,
+		Files:                 a.Files,
 		ClaudeSettingsPath:    a.ClaudeSettingsPath,
 		Config:                a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.outputWriter(),
 		In:        a.In,

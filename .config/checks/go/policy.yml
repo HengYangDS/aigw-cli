@@ -4,6 +4,7 @@ run:
   tests: true
   build-tags:
     - client_acceptance
+    - dependency_acceptance
     - native_hermes
     - native_resource_acceptance
     - performance_acceptance

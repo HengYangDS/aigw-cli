@@ -138,6 +138,7 @@ distinct Routes. A shared model name does not make every Account/client pair
 interchangeable. A sole DMXAPI or UCloud Account is enough for the declared
 recommendation; select an AIHubMix Route explicitly with `aigw use --for`.
 Display order never creates automatic recovery when the selected provider fails.
+
 A local Account endpoint override is not silently replaced by the team's
 direct endpoint. Re-importing the team manifest
 against that differing Account fails closed; inspect it with
@@ -205,7 +206,9 @@ installed CLI, then run `aigw verify --for <client>` for each enabled client
 before rollout. Verification runs Codex in a private home with your settings
 but without your MCP servers, plugins, hooks, memories and notifications, so
 those extensions neither start nor decide the result. Claude Desktop needs
-separate application-version and native verification evidence. A provider may
+separate application-version and native verification evidence.
+
+A provider may
 require a newer client even when an API request works. Update through the
 existing installation owner rather than adding a second executable. Claude Code's
 [`stable` and `latest` channels](https://code.claude.com/docs/en/setup#update-claude-code)
@@ -445,12 +448,14 @@ in both configurations; `--replace-account <id>` uses the incoming metadata.
 They cannot be combined for the same Account. Other conflicting Model or Route
 metadata requires its specific replacement flag after review. Tokens are
 neither exported nor replaced. Actual import also supports `--json`.
+
 Pass `--retire-route <id>` once per obsolete local Route to retire it in the
 same guarded import, rather than running one removal and projection per Route.
 Import rejects a missing Route, one still declared by the incoming manifest,
 or one selected by any client. It also rejects a retained recommendation that
 would reference a retired Route. Only Models left without a Route reference
 and absent from the incoming manifest are removed; Accounts and Tokens remain.
+
 The import reports public changes without guessing Token or client readiness;
 run `aigw status` for the selected Route's next step. Use `aigw setup --from`
 when guided team onboarding is wanted instead.

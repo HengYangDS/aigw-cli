@@ -111,6 +111,7 @@ and never changes an item's owner. `aigw update --rollback` returns the items to
 the predecessor's reader after admitting a portable rollback, or before a
 Homebrew downgrade. The [credential decision](../decisions/dr-0011-single-portable-token-backend.md)
 records the migration and its custody rules.
+
 The [current credential-continuity design](../../openspec/changes/terminal-product-convergence/design.md#4-decide-credential-command-continuity-before-cutover)
 defines native qualification. The [frozen-source and delivery tasks](../../openspec/changes/terminal-product-convergence/tasks.md#9-frozen-source-and-pre-archive-acceptance)
 must also pass before this path is a released guarantee.
@@ -133,6 +134,7 @@ report only local projection readiness and direct the operator to live
 verification instead of requiring a duplicate Token in AIGW's store.
 Direct `aigw test` does not invoke an external helper: use real-client
 verification, or supply an explicit test Token through the existing stdin path.
+
 Explicit live verification uses the selected
 native client's synchronized settings. Claude verification does not first read
 AIGW's native store when this policy is present. A failure hides raw client

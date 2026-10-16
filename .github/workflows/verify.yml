@@ -519,7 +519,7 @@ jobs:
     timeout-minutes: 25
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'windows')
     env:
-      MISE_ENABLE_TOOLS: ${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || (inputs.candidate_tag == '' && inputs.input_release == '')) && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' || inputs.performance && 'go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine' || 'go,gh,glab,github:goreleaser/goreleaser' }}${{ inputs.windows_clients && ',node,uv' || '' }}
+      MISE_ENABLE_TOOLS: ${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || (inputs.candidate_tag == '' && inputs.input_release == '')) && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' || inputs.performance && 'go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine' || 'go,gh,glab,github:goreleaser/goreleaser' }}${{ inputs.windows_clients && ',node' || '' }}
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -565,30 +565,6 @@ jobs:
         name: Qualify all repository tools on Windows
         if: github.event_name == 'workflow_dispatch' && inputs.full_quality
         run: mise exec --locked -- go run ./tools/ci native --platform windows --full-quality
-      - name: Fetch pinned Hermes installer
-        if: github.event_name == 'workflow_dispatch' && inputs.windows_clients && inputs.baseline_tag != ''
-        shell: pwsh
-        timeout-minutes: 2
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_PROMPT_DISABLED: "1"
-        run: |-
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          $hermesCommit = '71d34bad1045610252eda02ee79549436896e784'
-          $hermesInstallerDigest = '61824d6b47be29ab793d0e72872cf56cd7a3e99cbe40abeb177a6c9eef52f485'
-          $metadata = mise exec --locked -- gh api "repos/NousResearch/hermes-agent/contents/scripts/install.ps1?ref=$hermesCommit" | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0 -or $metadata.type -ne 'file' -or $metadata.encoding -ne 'base64') { throw 'Pinned Hermes installer metadata is unavailable' }
-          $installer = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString() + '.ps1')
-          [IO.File]::Open($installer, [IO.FileMode]::CreateNew).Dispose()
-          try {
-            [IO.File]::WriteAllBytes($installer, [Convert]::FromBase64String($metadata.content))
-            if ((Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hermesInstallerDigest) { throw 'Pinned Hermes installer checksum mismatch' }
-            Add-Content -LiteralPath $env:GITHUB_ENV -Value "AIGW_HERMES_INSTALLER=$installer"
-          } catch {
-            Remove-Item -LiteralPath $installer -Force -ErrorAction Stop
-            throw
-          }
       - name: Prepare official Windows clients
         if: github.event_name == 'workflow_dispatch' && inputs.windows_clients && inputs.baseline_tag != ''
         timeout-minutes: 12
@@ -601,43 +577,13 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           $clients = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString())
           New-Item -ItemType Directory -Path $clients | Out-Null
-          $hermesCommit = '71d34bad1045610252eda02ee79549436896e784'
-          $hermesInstaller = $env:AIGW_HERMES_INSTALLER
           try {
             Add-Content -LiteralPath $env:GITHUB_ENV -Value "AIGW_NATIVE_CLIENT_SUPPLY=$clients"
             $env:GIT_CONFIG_GLOBAL = Join-Path $clients 'gitconfig'
             git config --file $env:GIT_CONFIG_GLOBAL core.autocrlf false
-            $env:UV_CACHE_DIR = Join-Path $clients 'uv-cache'
             Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
             mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.162.1' '@anthropic-ai/claude-code-win32-x64@2.1.296'
             mise exec --locked -- npm audit signatures --prefix $clients
-            $hermesHome = Join-Path $clients 'hermes'
-            $hermesInstall = Join-Path $hermesHome 'hermes-agent'
-            $hermesStages = @('prerequisites', 'repository', 'venv', 'python-deps')
-            if ((Get-FileHash -LiteralPath $hermesInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne '61824d6b47be29ab793d0e72872cf56cd7a3e99cbe40abeb177a6c9eef52f485') { throw 'Pinned Hermes installer checksum mismatch.' }
-          $env:HERMES_HOME = $hermesHome
-          $env:HERMES_RUNTIME_DIR = Join-Path $hermesHome 'tools'
-          $env:UV_PYTHON_INSTALL_DIR = Join-Path $hermesHome 'python'
-          $env:UV_PYTHON_INSTALL_REGISTRY = '0'
-          $env:UV_PYTHON_INSTALL_BIN = '0'
-          $env:UV_NO_CONFIG = '1'
-          foreach ($stage in $hermesStages) {
-            $frames = @(& pwsh -NoProfile -File $hermesInstaller -Commit $hermesCommit -HermesHome $hermesHome -InstallDir $hermesInstall -NonInteractive -SkipBrowser -SkipComputerUse -Json -Stage $stage)
-            if ($LASTEXITCODE -ne 0 -or $frames.Count -eq 0) { throw "Hermes install stage failed: $stage" }
-            $frame = $frames[-1] | ConvertFrom-Json
-            if ($frame.stage -ne $stage -or -not $frame.ok -or $frame.skipped) { throw "Hermes install stage was not admitted: $stage" }
-            if ($stage -eq 'python-deps' -and -not ($frames -match 'hash-verified via uv.lock')) { throw 'Hermes dependencies lack locked hash verification.' }
-          }
-          $launcherDirectory = Join-Path $hermesInstall ".hermes/bin"
-          $runtimeCommand = @(mise exec --locked -- uv run --no-project --python 3.12 --managed-python (Join-Path $hermesInstall 'hermes_cli/_launchers.py') --print-runtime-command --module hermes_cli._launchers -- $launcherDirectory | ConvertFrom-Json)
-          if ($LASTEXITCODE -ne 0 -or $runtimeCommand.Count -lt 2) { throw 'Hermes store runtime command is unavailable.' }
-          $runtimeArguments = @($runtimeCommand | Select-Object -Skip 1)
-          & $runtimeCommand[0] @runtimeArguments
-          if ($LASTEXITCODE -ne 0) { throw 'Hermes installation-local launcher publication failed.' }
-            $observed = git -C $hermesInstall rev-parse HEAD
-            if ($LASTEXITCODE -ne 0 -or $observed.Trim() -ne $hermesCommit) { throw 'Hermes installed source differs from the pin.' }
-            $changes = git -C $hermesInstall status --porcelain=v1 --untracked-files=no
-            if ($LASTEXITCODE -ne 0 -or $changes) { throw 'Pinned Hermes source is not clean after official installation.' }
             $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
             $gitBin = Split-Path (Get-Command git.exe).Source
             $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
@@ -645,12 +591,10 @@ jobs:
             $outputs = [ordered]@{
               AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
               AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-              AIGW_ACCEPTANCE_HERMES = Join-Path $hermesInstall ".hermes/bin/hermes.exe"
             }
             foreach ($executable in $outputs.Values) { Get-FileHash -LiteralPath $executable -Algorithm SHA256 }
-            $outputs.AIGW_ACCEPTANCE_HERMES_HOME = $hermesHome
             $outputs.CLAUDE_CODE_GIT_BASH_PATH = $bash
-            $outputs.AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), (Join-Path $hermesHome 'bin'), $launcherDirectory, (Split-Path (Get-Command node.exe).Source), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+            $outputs.AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), (Split-Path (Get-Command node.exe).Source), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
             foreach ($entry in $outputs.GetEnumerator()) { Add-Content -LiteralPath $env:GITHUB_ENV -Value "$($entry.Key)=$($entry.Value)" }
           } catch {
             Remove-Item -LiteralPath $clients -Recurse -Force -ErrorAction Stop
@@ -699,10 +643,9 @@ jobs:
       - name: Remove official Windows client supply
         if: always() && github.event_name == 'workflow_dispatch' && inputs.windows_clients && inputs.baseline_tag != ''
         run: |-
-          foreach ($owned in @($env:AIGW_NATIVE_CLIENT_SUPPLY, $env:AIGW_HERMES_INSTALLER)) {
-            if ($owned -and (Test-Path -LiteralPath $owned)) { Remove-Item -LiteralPath $owned -Recurse -Force -ErrorAction Stop }
-            if ($owned -and (Test-Path -LiteralPath $owned)) { throw "Windows native supply remains after cleanup: $owned" }
-          }
+          $owned = $env:AIGW_NATIVE_CLIENT_SUPPLY
+          if ($owned -and (Test-Path -LiteralPath $owned)) { Remove-Item -LiteralPath $owned -Recurse -Force -ErrorAction Stop }
+          if ($owned -and (Test-Path -LiteralPath $owned)) { throw "Windows native supply remains after cleanup: $owned" }
       - name: Retain native dependency evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

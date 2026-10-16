@@ -5,10 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
@@ -114,6 +116,39 @@ func TestInvocationReaderIdentityIsMemoizedWithoutGlobalState(t *testing.T) {
 			t.Fatalf("independent reader was contaminated: %q, %v", path, err)
 		}
 	}
+}
+
+func TestExecutableIdentityReadsTheProgramOncePerApp(t *testing.T) {
+	for _, present := range []bool{true, false} {
+		t.Run(fmt.Sprintf("present=%t", present), func(t *testing.T) {
+			root := t.TempDir()
+			app := &App{Executable: filepath.Join(root, "aigw"), DataDir: filepath.Join(root, "data")}
+			if present {
+				if err := os.WriteFile(app.Executable, []byte("portable program"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			files := &openCounter{}
+			app.UseExecutableIdentity(files, "aigw")
+			for range 3 {
+				_, programErr := app.ResolveProgram()
+				path, pathErr := app.ResolveCredentialPath()
+				if (programErr == nil) != present || (pathErr == nil) != present || (path != "") != present {
+					t.Fatalf("program error = %v; reader path = %q, %v", programErr, path, pathErr)
+				}
+			}
+			if files.opens.Load() != 1 {
+				t.Fatalf("program opens = %d, want one for this App", files.opens.Load())
+			}
+		})
+	}
+}
+
+type openCounter struct{ opens atomic.Int32 }
+
+func (counter *openCounter) Open(name string) (*os.File, error) {
+	counter.opens.Add(1)
+	return os.Open(name)
 }
 
 func BenchmarkDefaultAppStartup(b *testing.B) {

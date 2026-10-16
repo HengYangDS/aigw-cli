@@ -9,6 +9,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	surfaceidentity "aigw-cli/internal/surface"
+	"aigw-cli/internal/transaction"
 )
 
 type claudeDesktopAdapter struct{}
@@ -95,7 +96,7 @@ func (claudeDesktopAdapter) Apply(_ context.Context, deps Dependencies, before, 
 	for _, plan := range plans {
 		receipt, err := plan.Apply()
 		if err != nil {
-			return nil, errors.Join(err, receipts.Rollback())
+			return nil, transaction.CompensationFailed(err, receipts.Rollback())
 		}
 		receipts = append(receipts, receipt)
 	}

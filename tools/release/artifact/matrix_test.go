@@ -164,6 +164,28 @@ func TestCompareMatrices(t *testing.T) {
 	}
 }
 
+func TestCompareMatricesComparesRawChecksumManifest(t *testing.T) {
+	version := "1.2.3"
+	key := signingKey(t)
+	left, right := writeFixtureWithKey(t, version, key), writeFixtureWithKey(t, version, key)
+	manifest := filepath.Join(right, "checksums.txt")
+	content, err := os.ReadFile(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Keep identical payloads and signature bytes to isolate the manifest comparison.
+	content = []byte(strings.ReplaceAll(string(content), "  ", "   "))
+	if err := os.WriteFile(manifest, content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := verifiedDigests(right, version); err != nil {
+		t.Fatalf("equivalent checksum entries changed matrix validity: %v", err)
+	}
+	if err := CompareMatrices(left, right, version); err == nil || !strings.Contains(err.Error(), "differs across forge stages: checksums.txt") {
+		t.Fatalf("different checksum manifest bytes: %v", err)
+	}
+}
+
 func TestRewriteChecksumsReportsInputAndOutputFailures(t *testing.T) {
 	version := "1.2.3"
 	directory := writeFixtureWithKey(t, version, signingKey(t))

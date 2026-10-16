@@ -1,6 +1,7 @@
 package credential
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -16,52 +17,77 @@ import (
 
 const entrypointDirectory = "credential"
 
+// executableReadSize keeps one command's reads within bounded memory even when
+// a collection empties the pool: a command streams the program and its reader
+// up to three times.
+const executableReadSize = 64 << 10
+
 // Reuse read buffers, never executable identities; each call still hashes every byte.
-var executableReadBuffers = sync.Pool{New: func() any { return new([256 << 10]byte) }}
+var executableReadBuffers = sync.Pool{New: func() any { return new([executableReadSize]byte) }}
 
 // VersionedEntrypointPath binds a private executable path to the exact source
 // bytes without creating files or relying on an installer-owned public link.
 func VersionedEntrypointPath(dataDir, source, installName string) (path string, err error) {
-	if !filepath.IsAbs(dataDir) || !filepath.IsAbs(source) {
-		return "", errors.New("credential data directory and source must be absolute paths")
-	}
-	if installName == "" || installName == "." || installName == ".." || filepath.Base(installName) != installName {
-		return "", errors.New("credential executable name must be one file name")
-	}
-	sum, err := executableDigest(source)
+	program, err := ReadProgram(nil, source)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dataDir, entrypointDirectory, hex.EncodeToString(sum[:]), installName), nil
+	return program.EntrypointPath(dataDir, installName)
 }
 
-func executableDigest(source string) (sum [sha256.Size]byte, err error) {
-	executable, err := os.Open(source)
+// executables reads AIGW executables through one injected file capability.
+type executables struct {
+	files Files
+}
+
+func (e executables) open(name string) (*os.File, error) {
+	if e.files == nil {
+		return os.Open(name)
+	}
+	return e.files.Open(name)
+}
+
+// observation is one read of an executable: its digest, the opened file's
+// identity and, when the caller keeps them, the bytes behind that digest.
+type observation struct {
+	digest [sha256.Size]byte
+	file   os.FileInfo
+	data   []byte
+}
+
+func (e executables) observe(path string, keep bool) (observed observation, err error) {
+	executable, err := e.open(path)
 	if err != nil {
-		return sum, fmt.Errorf("open AIGW executable for credential identity: %w", err)
+		return observed, fmt.Errorf("open AIGW executable for credential identity: %w", err)
 	}
 	defer func() { err = errors.Join(err, executable.Close()) }()
 	info, err := executable.Stat()
 	if err != nil {
-		return sum, fmt.Errorf("inspect AIGW executable for credential identity: %w", err)
+		return observed, fmt.Errorf("inspect AIGW executable for credential identity: %w", err)
 	}
 	if !info.Mode().IsRegular() {
-		return sum, errors.New("AIGW credential source is not a regular executable")
+		return observed, errors.New("AIGW credential source is not a regular executable")
 	}
 	if info.Size() == 0 {
-		return sum, errors.New("AIGW credential source is empty")
+		return observed, errors.New("AIGW credential source is empty")
 	}
 	hash := sha256.New()
-	buffer, ok := executableReadBuffers.Get().(*[256 << 10]byte)
+	destination := io.Writer(hash)
+	var kept bytes.Buffer
+	if keep {
+		kept.Grow(int(info.Size()))
+		destination = io.MultiWriter(hash, &kept)
+	}
+	buffer, ok := executableReadBuffers.Get().(*[executableReadSize]byte)
 	if !ok || buffer == nil {
-		return sum, errors.New("AIGW executable read buffer is unavailable")
+		return observed, errors.New("AIGW executable read buffer is unavailable")
 	}
 	defer executableReadBuffers.Put(buffer)
 	// Hide File.WriteTo so CopyBuffer preserves the selected read size on every OS.
-	if _, err := io.CopyBuffer(hash, struct{ io.Reader }{executable}, buffer[:]); err != nil {
-		return sum, fmt.Errorf("hash AIGW executable for credential identity: %w", err)
+	if _, err := io.CopyBuffer(destination, struct{ io.Reader }{executable}, buffer[:]); err != nil {
+		return observed, fmt.Errorf("hash AIGW executable for credential identity: %w", err)
 	}
-	return [sha256.Size]byte(hash.Sum(nil)), nil
+	return observation{digest: [sha256.Size]byte(hash.Sum(nil)), file: info, data: kept.Bytes()}, nil
 }
 
 // ValidateRetainedEntrypoint accepts only an intact predecessor in the current
@@ -144,56 +170,77 @@ func privateEntrypointDirectories(path string) []string {
 // EntrypointNeeded reports whether the AIGW-owned credential executable is
 // absent. An existing non-executable or redirected path is never adopted.
 func EntrypointNeeded(path string) (bool, error) {
+	return executables{}.needed(path)
+}
+
+func (e executables) needed(path string) (bool, error) {
+	_, absent, err := e.verify(path)
+	return absent, err
+}
+
+// verify reads the reader at path once and checks its bytes against its
+// receipt and versioned path. An absent reader is not an error.
+func (e executables) verify(path string) (Entrypoint, bool, error) {
+	if _, absent, err := inspectEntrypoint(path); err != nil || absent {
+		return Entrypoint{}, absent, err
+	}
+	observed, err := e.observe(path, false)
+	if err != nil {
+		return Entrypoint{}, false, fmt.Errorf("read credential entrypoint: %w", err)
+	}
+	identity, err := os.ReadFile(path + ".sha256")
+	if err != nil {
+		return Entrypoint{}, false, fmt.Errorf("read credential entrypoint receipt: %w", err)
+	}
+	if err := validateVersionedDigest(path, observed.digest); err != nil {
+		return Entrypoint{}, false, err
+	}
+	if string(identity) != hex.EncodeToString(observed.digest[:])+"\n" {
+		return Entrypoint{}, false, fmt.Errorf("credential entrypoint differs from its recorded bytes")
+	}
+	return Entrypoint{executables: e, path: path, digest: observed.digest, file: observed.file}, false, nil
+}
+
+// inspectEntrypoint validates the private namespace and the reader pair's
+// types and permissions without reading either file. A missing namespace
+// directory or a missing pair means that the reader is absent.
+func inspectEntrypoint(path string) (os.FileInfo, bool, error) {
 	if !filepath.IsAbs(path) {
-		return false, fmt.Errorf("credential entrypoint must be an absolute path")
+		return nil, false, fmt.Errorf("credential entrypoint must be an absolute path")
 	}
 	for _, directory := range privateEntrypointDirectories(path) {
 		info, err := os.Lstat(directory)
 		if errors.Is(err, os.ErrNotExist) {
-			return true, nil
+			return nil, true, nil
 		}
 		if err != nil {
-			return false, fmt.Errorf("inspect credential directory: %w", err)
+			return nil, false, fmt.Errorf("inspect credential directory: %w", err)
 		}
 		if err := validatePrivateDirectory(directory, info); err != nil {
-			return false, err
+			return nil, false, err
 		}
 	}
 	binary, binaryErr := os.Lstat(path)
 	receipt, receiptErr := os.Lstat(path + ".sha256")
 	if errors.Is(binaryErr, os.ErrNotExist) && errors.Is(receiptErr, os.ErrNotExist) {
-		return true, nil
+		return nil, true, nil
 	}
 	if binaryErr != nil || receiptErr != nil {
-		return false, fmt.Errorf("credential entrypoint and receipt must exist together: %w", errors.Join(binaryErr, receiptErr))
+		return nil, false, fmt.Errorf("credential entrypoint and receipt must exist together: %w", errors.Join(binaryErr, receiptErr))
 	}
 	if !binary.Mode().IsRegular() {
-		return false, fmt.Errorf("credential entrypoint is not a regular executable")
+		return nil, false, fmt.Errorf("credential entrypoint is not a regular executable")
 	}
 	if !receipt.Mode().IsRegular() {
-		return false, fmt.Errorf("credential entrypoint receipt is not a regular file")
+		return nil, false, fmt.Errorf("credential entrypoint receipt is not a regular file")
 	}
 	if err := validatePrivateFile(path, binary, 0o700); err != nil {
-		return false, err
+		return nil, false, err
 	}
 	if err := validatePrivateFile(path+".sha256", receipt, 0o600); err != nil {
-		return false, err
+		return nil, false, err
 	}
-	sum, err := executableDigest(path)
-	if err != nil {
-		return false, fmt.Errorf("read credential entrypoint: %w", err)
-	}
-	identity, err := os.ReadFile(path + ".sha256")
-	if err != nil {
-		return false, fmt.Errorf("read credential entrypoint receipt: %w", err)
-	}
-	if err := validateVersionedDigest(path, sum); err != nil {
-		return false, err
-	}
-	if string(identity) != hex.EncodeToString(sum[:])+"\n" {
-		return false, fmt.Errorf("credential entrypoint differs from its recorded bytes")
-	}
-	return false, nil
+	return binary, false, nil
 }
 
 // EnsureEntrypoint retains one executable outside a package manager's CLI
@@ -207,51 +254,48 @@ func ensureEntrypoint(
 	source, target string,
 	write func(string, transaction.FileSnapshot, []byte, os.FileMode) (transaction.FileSnapshot, error),
 ) (func() error, error) {
-	needed, err := EntrypointNeeded(target)
+	program, err := ReadProgram(nil, source)
 	if err != nil {
 		return nil, err
 	}
-	if !needed {
-		if err := verifyEntrypointSource(source, target); err != nil {
-			return nil, err
-		}
-		return func() error { return nil }, nil
-	}
-	data, err := os.ReadFile(source)
-	if err != nil {
-		return nil, fmt.Errorf("read AIGW credential source: %w", err)
-	}
-	if len(data) == 0 {
-		return nil, fmt.Errorf("AIGW credential source is empty")
-	}
-	sum := sha256.Sum256(data)
+	_, undo, err := program.ensure(target, write)
+	return undo, err
+}
+
+// install writes exactly the given source bytes, whose digest the caller
+// computed from those bytes, as the reader and its receipt, and verifies the
+// written reader once.
+func (e executables) install(
+	data []byte, sum [sha256.Size]byte, target string,
+	write func(string, transaction.FileSnapshot, []byte, os.FileMode) (transaction.FileSnapshot, error),
+) (Entrypoint, func() error, error) {
 	if err := validateVersionedDigest(target, sum); err != nil {
-		return nil, err
+		return Entrypoint{}, nil, err
 	}
 	identity := hex.EncodeToString(sum[:]) + "\n"
 	parent := filepath.Dir(target)
 	cleanupDirectories, err := createCredentialDirectoryChain(parent)
 	if err != nil {
-		return nil, err
+		return Entrypoint{}, nil, err
 	}
 	for _, directory := range privateEntrypointDirectories(target) {
 		info, err := os.Lstat(directory)
 		if err != nil {
-			return nil, errors.Join(fmt.Errorf("inspect credential directory: %w", err), cleanupDirectories())
+			return Entrypoint{}, nil, errors.Join(fmt.Errorf("inspect credential directory: %w", err), cleanupDirectories())
 		}
 		if err := validatePrivateDirectory(directory, info); err != nil {
-			return nil, errors.Join(err, cleanupDirectories())
+			return Entrypoint{}, nil, errors.Join(err, cleanupDirectories())
 		}
 	}
 	post, err := write(target, transaction.FileSnapshot{}, data, 0o700)
 	if err != nil {
-		return nil, errors.Join(err, cleanupDirectories())
+		return Entrypoint{}, nil, errors.Join(err, cleanupDirectories())
 	}
 	receiptPath := target + ".sha256"
 	receiptPost, err := write(receiptPath, transaction.FileSnapshot{}, []byte(identity), 0o600)
 	if err != nil {
 		_, cleanupErr := transaction.RemoveFileIfUnchanged(target, post)
-		return nil, errors.Join(err, cleanupErr, cleanupDirectories())
+		return Entrypoint{}, nil, errors.Join(err, cleanupErr, cleanupDirectories())
 	}
 	undo := func() error {
 		if err := removeEntrypointPair(target, post, receiptPost); err != nil {
@@ -259,31 +303,14 @@ func ensureEntrypoint(
 		}
 		return cleanupDirectories()
 	}
-	if needed, err := EntrypointNeeded(target); err != nil || needed {
-		if needed {
+	reader, absent, err := e.verify(target)
+	if err != nil || absent {
+		if absent {
 			err = errors.New("credential entrypoint disappeared during installation")
 		}
-		return nil, errors.Join(err, undo())
+		return Entrypoint{}, nil, errors.Join(err, undo())
 	}
-	return undo, nil
-}
-
-func verifyEntrypointSource(source, target string) error {
-	sum, err := executableDigest(source)
-	if err != nil {
-		return err
-	}
-	if err := validateVersionedDigest(target, sum); err != nil {
-		return err
-	}
-	recorded, err := os.ReadFile(target + ".sha256")
-	if err != nil {
-		return fmt.Errorf("read credential entrypoint receipt: %w", err)
-	}
-	if string(recorded) != hex.EncodeToString(sum[:])+"\n" {
-		return errors.New("credential entrypoint does not match the current AIGW executable; refusing to replace active bytes")
-	}
-	return nil
+	return reader, undo, nil
 }
 
 func createCredentialDirectoryChain(parent string) (func() error, error) {

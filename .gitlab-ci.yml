@@ -364,7 +364,7 @@ native-windows:
       $env:MISE_NETRC = 'true'
       $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
       }
-      if (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE -and ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT))) { $env:MISE_ENABLE_TOOLS += ',node,uv' }
+      if (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE -and ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT))) { $env:MISE_ENABLE_TOOLS += ',node' }
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - if (-not (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true')) { mise run bootstrap }
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
@@ -393,46 +393,16 @@ native-windows:
         }
         if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:AIGW_NATIVE_INPUT_SHA256) { throw 'Native public input checksum mismatch' }
         [void](New-Item -ItemType Directory -Path $fixture -ErrorAction Stop)
-        tar -xf $archive -C $fixture suppliers/
+        tar -xf $archive -C $fixture suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz
         tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz') -C $fixture
-        $hermesHome = Join-Path $fixture 'clients/hermes'
-        $hermesInstall = Join-Path $hermesHome 'hermes-agent'
-        [void](New-Item -ItemType Directory -Path $hermesInstall -ErrorAction Stop)
-        tar -xf (Join-Path $fixture 'suppliers/official-hermes-71d34bad-source.tar') -C $hermesInstall
-        $hermesInstaller = Join-Path $hermesInstall 'scripts/install.ps1'
-        $hermesCommit = '71d34bad1045610252eda02ee79549436896e784'
-        $hermesStages = @('prerequisites', 'venv', 'python-deps')
-        $env:UV_CACHE_DIR = Join-Path $jobDirectory 'uv-cache'
-        if ((Get-FileHash -LiteralPath $hermesInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne '61824d6b47be29ab793d0e72872cf56cd7a3e99cbe40abeb177a6c9eef52f485') { throw 'Pinned Hermes installer checksum mismatch.' }
-      $env:HERMES_HOME = $hermesHome
-      $env:HERMES_RUNTIME_DIR = Join-Path $hermesHome 'tools'
-      $env:UV_PYTHON_INSTALL_DIR = Join-Path $hermesHome 'python'
-      $env:UV_PYTHON_INSTALL_REGISTRY = '0'
-      $env:UV_PYTHON_INSTALL_BIN = '0'
-      $env:UV_NO_CONFIG = '1'
-      foreach ($stage in $hermesStages) {
-        $frames = @(& pwsh -NoProfile -File $hermesInstaller -Commit $hermesCommit -HermesHome $hermesHome -InstallDir $hermesInstall -NonInteractive -SkipBrowser -SkipComputerUse -Json -Stage $stage)
-        if ($LASTEXITCODE -ne 0 -or $frames.Count -eq 0) { throw "Hermes install stage failed: $stage" }
-        $frame = $frames[-1] | ConvertFrom-Json
-        if ($frame.stage -ne $stage -or -not $frame.ok -or $frame.skipped) { throw "Hermes install stage was not admitted: $stage" }
-        if ($stage -eq 'python-deps' -and -not ($frames -match 'hash-verified via uv.lock')) { throw 'Hermes dependencies lack locked hash verification.' }
-      }
-      $launcherDirectory = Join-Path $hermesInstall ".hermes/bin"
-      $runtimeCommand = @(mise exec --locked -- uv run --no-project --python 3.12 --managed-python (Join-Path $hermesInstall 'hermes_cli/_launchers.py') --print-runtime-command --module hermes_cli._launchers -- $launcherDirectory | ConvertFrom-Json)
-      if ($LASTEXITCODE -ne 0 -or $runtimeCommand.Count -lt 2) { throw 'Hermes store runtime command is unavailable.' }
-      $runtimeArguments = @($runtimeCommand | Select-Object -Skip 1)
-      & $runtimeCommand[0] @runtimeArguments
-      if ($LASTEXITCODE -ne 0) { throw 'Hermes installation-local launcher publication failed.' }
         $codex = Join-Path $fixture 'clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
         $gitBin = Split-Path (Get-Command git.exe -ErrorAction Stop).Source
         $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
         if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Native Claude requires Git Bash.' }
         $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codex 'bin/codex.exe'
         $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $fixture 'clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-        $env:AIGW_ACCEPTANCE_HERMES = Join-Path $launcherDirectory 'hermes.exe'
-        $env:AIGW_ACCEPTANCE_HERMES_HOME = $hermesHome
         $node = mise which node
-        $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), $launcherDirectory, (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+        $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
         $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
       }
       $acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)
@@ -574,7 +544,7 @@ native-windows-review:
       $env:MISE_NETRC = 'true'
       $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
       }
-      if (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE -and ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT))) { $env:MISE_ENABLE_TOOLS += ',node,uv' }
+      if (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE -and ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT))) { $env:MISE_ENABLE_TOOLS += ',node' }
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
     - if (-not (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true')) { mise run bootstrap }
     - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
@@ -603,46 +573,16 @@ native-windows-review:
         }
         if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:AIGW_NATIVE_INPUT_SHA256) { throw 'Native public input checksum mismatch' }
         [void](New-Item -ItemType Directory -Path $fixture -ErrorAction Stop)
-        tar -xf $archive -C $fixture suppliers/
+        tar -xf $archive -C $fixture suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz
         tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz') -C $fixture
-        $hermesHome = Join-Path $fixture 'clients/hermes'
-        $hermesInstall = Join-Path $hermesHome 'hermes-agent'
-        [void](New-Item -ItemType Directory -Path $hermesInstall -ErrorAction Stop)
-        tar -xf (Join-Path $fixture 'suppliers/official-hermes-71d34bad-source.tar') -C $hermesInstall
-        $hermesInstaller = Join-Path $hermesInstall 'scripts/install.ps1'
-        $hermesCommit = '71d34bad1045610252eda02ee79549436896e784'
-        $hermesStages = @('prerequisites', 'venv', 'python-deps')
-        $env:UV_CACHE_DIR = Join-Path $jobDirectory 'uv-cache'
-        if ((Get-FileHash -LiteralPath $hermesInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -ne '61824d6b47be29ab793d0e72872cf56cd7a3e99cbe40abeb177a6c9eef52f485') { throw 'Pinned Hermes installer checksum mismatch.' }
-      $env:HERMES_HOME = $hermesHome
-      $env:HERMES_RUNTIME_DIR = Join-Path $hermesHome 'tools'
-      $env:UV_PYTHON_INSTALL_DIR = Join-Path $hermesHome 'python'
-      $env:UV_PYTHON_INSTALL_REGISTRY = '0'
-      $env:UV_PYTHON_INSTALL_BIN = '0'
-      $env:UV_NO_CONFIG = '1'
-      foreach ($stage in $hermesStages) {
-        $frames = @(& pwsh -NoProfile -File $hermesInstaller -Commit $hermesCommit -HermesHome $hermesHome -InstallDir $hermesInstall -NonInteractive -SkipBrowser -SkipComputerUse -Json -Stage $stage)
-        if ($LASTEXITCODE -ne 0 -or $frames.Count -eq 0) { throw "Hermes install stage failed: $stage" }
-        $frame = $frames[-1] | ConvertFrom-Json
-        if ($frame.stage -ne $stage -or -not $frame.ok -or $frame.skipped) { throw "Hermes install stage was not admitted: $stage" }
-        if ($stage -eq 'python-deps' -and -not ($frames -match 'hash-verified via uv.lock')) { throw 'Hermes dependencies lack locked hash verification.' }
-      }
-      $launcherDirectory = Join-Path $hermesInstall ".hermes/bin"
-      $runtimeCommand = @(mise exec --locked -- uv run --no-project --python 3.12 --managed-python (Join-Path $hermesInstall 'hermes_cli/_launchers.py') --print-runtime-command --module hermes_cli._launchers -- $launcherDirectory | ConvertFrom-Json)
-      if ($LASTEXITCODE -ne 0 -or $runtimeCommand.Count -lt 2) { throw 'Hermes store runtime command is unavailable.' }
-      $runtimeArguments = @($runtimeCommand | Select-Object -Skip 1)
-      & $runtimeCommand[0] @runtimeArguments
-      if ($LASTEXITCODE -ne 0) { throw 'Hermes installation-local launcher publication failed.' }
         $codex = Join-Path $fixture 'clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
         $gitBin = Split-Path (Get-Command git.exe -ErrorAction Stop).Source
         $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
         if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Native Claude requires Git Bash.' }
         $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codex 'bin/codex.exe'
         $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $fixture 'clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-        $env:AIGW_ACCEPTANCE_HERMES = Join-Path $launcherDirectory 'hermes.exe'
-        $env:AIGW_ACCEPTANCE_HERMES_HOME = $hermesHome
         $node = mise which node
-        $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), $launcherDirectory, (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+        $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
         $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
       }
       $acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)

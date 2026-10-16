@@ -7,6 +7,7 @@ import (
 
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 )
 
 // Commit persists one configuration transition and converges affected client
@@ -56,8 +57,9 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 		return false, err
 	}
 	var undoEntrypoint func() error
+	var entrypoint *credential.Entrypoint
 	if len(projectable) > 0 {
-		undoEntrypoint, err = s.prepareCredentialEntrypoint(after, projectable...)
+		entrypoint, undoEntrypoint, err = s.prepareCredentialEntrypoint(after, projectable...)
 		if err != nil {
 			return false, err
 		}
@@ -76,7 +78,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 	if err != nil {
 		return false, fmt.Errorf("%s %w", subject, err)
 	}
-	if err := s.finalizeCredentialEntrypoint(after, projectable...); err != nil {
+	if err := s.finalizeCredentialEntrypoint(entrypoint); err != nil {
 		projectionErr := receipt.Rollback()
 		configErr := s.Config.RestoreSnapshot(configBefore, configAfter)
 		if projectionErr != nil {
@@ -100,19 +102,13 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 	return projectionChanged, nil
 }
 
-func (s Synchronizer) finalizeCredentialEntrypoint(cfg configuration.Config, clientIDs ...string) error {
-	action, err := s.CredentialEntrypointPlan(cfg, clientIDs...)
-	if err != nil {
-		return fmt.Errorf("inspect credential entrypoint: %w", err)
-	}
-	switch action {
-	case CredentialEntrypointInstall:
-		return errors.New("credential entrypoint disappeared after client projection")
-	case CredentialEntrypointUnchanged:
+// finalizeCredentialEntrypoint confirms, after projection, the reader that this
+// transaction prepared; without a prepared reader there is nothing to confirm.
+func (s Synchronizer) finalizeCredentialEntrypoint(entrypoint *credential.Entrypoint) error {
+	if entrypoint == nil {
 		return nil
-	default:
-		return fmt.Errorf("unsupported credential entrypoint action %q", action)
 	}
+	return entrypoint.Confirm()
 }
 
 func (s Synchronizer) applyProjection(

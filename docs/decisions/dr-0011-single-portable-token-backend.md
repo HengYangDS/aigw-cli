@@ -55,11 +55,15 @@ targets.
 Writes carry the logical Token through standard input, never argv or the
 environment; the native writer applies the same base64 envelope exactly once.
 Native metadata observation requests attributes only, under the same no-UI
-policy, without asking for password data. An item created by the old
+policy, without asking for password data.
+
+An item created by the old
 `/usr/bin/security` writer denies the new AIGW identity. On 2026-10-13 a
 Developer ID-signed successor was denied every retained operator item
 (OSStatus -25293), and the operator rejected re-entering or hand-authorizing
-each Token as upgrade experience. Such an item is therefore migrated once:
+each Token as upgrade experience.
+
+Such an item is therefore migrated once:
 when its keychain is unlocked and its access list trusts `/usr/bin/security`,
 the worker reads it through that tool and stages the Token in an AIGW-owned
 `migration@<slot>` item. It then deletes the retained item through the tool,
@@ -93,14 +97,18 @@ The successor uses the predecessor's exact physical Account name, including
 Changing the reader implementation must not change storage identity or require
 Token enrollment again. A migrated item's access list names the AIGW signing
 identifier and team rather than one executable's bytes, so later signed
-releases read it without migration, while ad-hoc builds are denied. A portable
+releases read it without migration, while ad-hoc builds are denied.
+
+A portable
 rollback first admits the retained program and current configuration; if that
 program predates AIGW-owned items, AIGW then converts each configured Account's
 items back to `/usr/bin/security` ownership with the same envelope before
 activating it, and takes them back if activation fails. On a Homebrew
 installation, `aigw update --rollback` performs only that conversion and leaves
 the program files to Homebrew. A Homebrew downgrade without it leaves the older
-reader asking macOS for authorization. Earlier unreleased candidates created
+reader asking macOS for authorization.
+
+Earlier unreleased candidates created
 `native@` shadow items.
 Preserve an exact item until its retained consumer and rollback owner release
 it; then retire it through its existing owner, never by prefix-based deletion.
@@ -241,7 +249,9 @@ public-link gap, then exercise the captured old commands and real clients
 immediately; a failed candidate restores the working predecessor. A cached
 public-link call during the gap can still fail once. Report that residual risk
 and measured interval rather than claiming zero interruption or seizing
-Homebrew's link. Later versioned-path upgrades must keep old commands callable
+Homebrew's link.
+
+Later versioned-path upgrades must keep old commands callable
 throughout. Native macOS Keychain, Linux backend and Windows credential tests,
 including retained state and interruption, remain release gates.
 

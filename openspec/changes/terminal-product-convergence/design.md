@@ -94,11 +94,13 @@ recorded executable or target that fails native inspection is a repairable
 failure instead. When every enabled projection is deferred, observational
 commands must not probe a provider or suggest `aigw check` as activation.
 Client-specific verification remains a separate, later claim.
+
 Selected AIGW-owned credentials use one Account/Kind presence observation per
 command across collection, native inspection and activation. Each invocation
 starts fresh; Token reads and reader authorization remain live. External
 credential executables and client-native authentication require no duplicate
 AIGW Token and retain their explicit real-client verification boundary.
+
 When both an AIGW Token and projection are absent, the
 decision retains both facts and offers Token recovery first; after recovery,
 installation if needed and synchronization become the continuation. A ready
@@ -206,12 +208,13 @@ borrowing nor Unix probes. A real journey separately qualifies launch effects.
 
 #### Native qualification and remaining limits
 
-| Signed source                                                                               | Qualified scope                                                                                                                                                                                                                                                                                                                                    | Explicit limit                                                                                                                                                                                                                  |
-| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `2b746c96`                                                                                  | Six-target candidate; packaged macOS Codex, Claude Code and Hermes and Linux retained-state lifecycle against published 0.3.3; forwarding, rollback/re-upgrade, Codex tools and Hermes model adoption/continuation.                                                                                                                                | Public Tokens and local servers, not live Provider authorization; ten Routes remained metadata-incomplete.                                                                                                                      |
-| `8254c1f5`, tree `66591638`                                                                 | Refreshed six-target matrix, full-source gate and packaged macOS Hermes boot/custody journey.                                                                                                                                                                                                                                                      | Ad-hoc macOS signatures and dependency-currency warnings; not warning-free or final-byte acceptance.                                                                                                                            |
-| `fbeeb89aee48fa18ae6410608d6f0b9224a1b07e`, tree `98566ac4091670762518b3d08c281ef05dc351da` | Full-source gate, native boot/member regressions, static checks, Windows cross-compilation and warning-free packaged macOS Hermes journey.                                                                                                                                                                                                         | Not native Windows, Desktop, live Provider, native-store, notarization or publication acceptance.                                                                                                                               |
-| `b3663e89d27b7497f29d6c960b7211b88dad091c`                                                  | Developer ID-signed six-target candidate against published 0.3.5: three-OS lifecycle, disposable macOS Keychain, Linux Secret Service and native Windows Codex and Claude Code; packaged macOS Codex, Claude Code and Hermes journeys, then live-Provider `aigw verify` for each with operator configuration, readers and item metadata unchanged. | Linux uses fixture clients; Claude Code and Hermes live checks covered text only; DeepSeek V4.1 Flash lacks Codex metadata; Claude Desktop, notarization and the Homebrew cutover follow the [Migration Plan](#migration-plan). |
+| Signed source                                                                               | Qualified scope                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Explicit limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `2b746c96`                                                                                  | Six-target candidate; packaged macOS Codex, Claude Code and Hermes and Linux retained-state lifecycle against published 0.3.3; forwarding, rollback/re-upgrade, Codex tools and Hermes model adoption/continuation.                                                                                                                                                                                                                                                                                                                                    | Public Tokens and local servers, not live Provider authorization; ten Routes remained metadata-incomplete.                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `8254c1f5`, tree `66591638`                                                                 | Refreshed six-target matrix, full-source gate and packaged macOS Hermes boot/custody journey.                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Ad-hoc macOS signatures and dependency-currency warnings; not warning-free or final-byte acceptance.                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `fbeeb89aee48fa18ae6410608d6f0b9224a1b07e`, tree `98566ac4091670762518b3d08c281ef05dc351da` | Full-source gate, native boot/member regressions, static checks, Windows cross-compilation and warning-free packaged macOS Hermes journey.                                                                                                                                                                                                                                                                                                                                                                                                             | Not native Windows, Desktop, live Provider, native-store, notarization or publication acceptance.                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `b3663e89d27b7497f29d6c960b7211b88dad091c`                                                  | Developer ID-signed six-target candidate against published 0.3.5: three-OS lifecycle, disposable macOS Keychain, Linux Secret Service and native Windows Codex and Claude Code; packaged macOS Codex, Claude Code and Hermes journeys, then live-Provider `aigw verify` for each with operator configuration, readers and item metadata unchanged.                                                                                                                                                                                                     | Linux uses fixture clients; Claude Code and Hermes live checks covered text only; DeepSeek V4.1 Flash lacks Codex metadata; Claude Desktop, notarization and the Homebrew cutover follow the [Migration Plan](#migration-plan).                                                                                                                                                                                                                                                                                                    |
+| `03e210c5433d000fe6595520dfc7e6140e8fc04b`, released as `v0.4.1`                            | Green PR, push and tag CI; GitHub assets equal the Apple-accepted local bytes; the operator's Homebrew 0.3.5 to 0.4.1 managed cutover, `aigw update --rollback` with a 0.3.5 reinstall, and a managed re-upgrade. Each switch passed same-Token checks of all nine captured commands, immediate original and cached command probes, and installed sync and check; only the installed program migrated items. Two later reviewer holds at 0.3.5 and their managed restores kept retained Claude Code, Codex and Hermes sessions recalling tool results. | Link gaps were 52 ms, 27 ms and none sampled. One re-upgrade check got no endpoint response and passed when observed again immediately. A manual `brew upgrade` ended the first reviewer hold early. Non-AIGW bytes of the rewritten Claude and Hermes files are unproved. Operator Attestation `4c2178b9` accepts Claude Desktop Chat inference/recall and Cowork and Code file creation/readback/recall on the installed 0.4.1 reader. Exact model IDs, per-call helper traces and in-flight cutover continuity remain unproved. |
 
 The passive October 12 comparison found that the old borrowed home omitted the
 operator's dependency member. Selector-only profiles preserve resolved identities
@@ -221,6 +224,7 @@ upgrade/rollback/re-upgrade. Eleven protected files kept their bytes, mode, inod
 and mtime; shared installation state gained or lost no file. Only the native
 lease-directory mtime changed; no lease, profile or boot record remained. All 36
 authorized historical records remained absent. Unknown concurrent work was preserved.
+
 A postlude variable-shadow error followed scratch removal; independent process/group
 and path readback proved cleanup without replay. These receipts do not qualify a
 later Hermes revision. Artifact checksum signing is distinct from Developer ID
@@ -238,6 +242,13 @@ Original source-bound custody remains under `build/verification/`:
 - `b3663e89d27b7497f29d6c960b7211b88dad091c` retains its native inputs, signed
   candidate, macOS acceptance, client journeys and live-Provider results; GitHub
   runs `38478948110`, `38478968121` and `38478987650` retain its CI.
+- `03e210c5433d000fe6595520dfc7e6140e8fc04b` retains `release-20261014`,
+  `notarization-20261014`, `github-release-20261014`, with its locked-console
+  first attempt, `installed-cutover-20261014` and `reviewer-lifecycle-20261014`;
+  GitHub runs `38505738709`, `38507091517`, `38511245925` and `38511864230`
+  retain its CI. The reviewer's originals stay under the accepted root's
+  `build/evidence/real-provider-continuation-01a11a05-20261014`, bound by the
+  Attestations that task 4.5.2 cites.
 
 Read-only review after `b3663e89` found two defects that the final source fixes
 with focused regressions. Homebrew rollback preparation treated a configuration
@@ -247,14 +258,17 @@ the scan dropped the Go standard library; release construction now requires
 each program in the SBOM to carry exactly one package of the main module that
 `go.mod` declares, named by that module path and a package URL whose version,
 if any, is the package's own, and exactly one standard library at the scanned
-version as a dependency of that package. The first GitHub tag run, for
+version as a dependency of that package.
+
+The first GitHub tag run, for
 `v0.4.0`, then exposed that the GitHub version job never passed its tag to the
 gate's `CI_COMMIT_TAG` input and that candidate-mode tests inherited the
 runner's tag; the CI projection now supplies the tag, the tests clear the
 runner's selection, and the `v0.4.1` tag run qualifies both.
+
 Exact-SHA review, push and tag CI and the installed Homebrew upgrade, rollback
-and forward qualify the final source; `b3663e89`'s receipts do not cover these
-paths.
+and forward qualify the final source in the `03e210c5` row; `b3663e89`'s
+receipts do not cover these paths.
 
 Windows supplier regression now selects the official Codex 0.162.1 platform
 package, not its three-file bootstrap package. One CUE declaration owns the
@@ -262,7 +276,9 @@ vendor root for GitHub installation and both GitLab native Windows jobs.
 Focused RED/GREEN, the complete projection suite, generated-output reconciliation,
 Go checks, source-size, formatter and strict OpenSpec checks pass under
 `build/verification/610f8b7729b30df0186def5ebdedfa06504033e6/native-supplier-preflight-20261012`.
-GitHub's rendered installer remains unchanged. At signed `5276330c`, both ordinary
+GitHub's rendered installer remains unchanged.
+
+At signed `5276330c`, both ordinary
 review and selected-peer cold-supply runs pass quality, macOS, Linux, Windows and
 Secret Service. Their logs prove fresh glab 1.122.0 installation under the selected
 GitHub mirror configuration, not enforced sibling-network denial or Windows client
@@ -314,7 +330,9 @@ owns read, write and delete through Security.framework. A private legacy-Keychai
 fixture demonstrated that `LAContext.interactionNotAllowed` plus the legacy
 per-query UI-fail flag did not prevent an authorization prompt. The
 single-operation worker temporarily disables its own optional Keychain UI and
-restores that process setting. An item created by the old `/usr/bin/security`
+restores that process setting.
+
+An item created by the old `/usr/bin/security`
 writer may deny direct AIGW access: a successor refuses to overwrite such an
 item unless it qualifies under "Retained macOS Keychain items migrate to AIGW
 ownership". That requirement owns the one-time migration and its recovery;
@@ -328,19 +346,24 @@ Metadata observation requests attributes through Security.framework under the
 same no-UI policy; the old `/usr/bin/security` observer is removed. Updating the
 reader must not require Token enrollment again or establish a second credential
 authority. Migration staging is bounded recovery state, not an alternate store.
+
 Only the installed program migrates: an executable that Homebrew's receipt owns,
 or a portable one beside the predecessor AIGW retained for its rollback. A
 versioned reader copy, an extracted successor that preprojects clients, or a
 development build cannot tell whether its installation still runs the
-predecessor, so it reads retained items without changing their owner. A
-qualified rollback restores a compatible credential owner after admission and
+predecessor, so it reads retained items without changing their owner.
+
+A qualified rollback restores a compatible credential owner after admission and
 before predecessor activation, and reclaims it if activation fails; on Homebrew
 the same command restores it before Homebrew installs the earlier release. Its
 subsequent rotation remains visible to captured readers and the successor before
-synchronization or re-upgrade. Outside the admitted migration,
+synchronization or re-upgrade.
+
+Outside the admitted migration,
 denied authorization blocks the affected transition without ACL mutation,
 backend fallback or Token copy. Task 5.4 remains open until the approved migration
 passes the signed retained-operator-item and original-caller journey.
+
 Native item service, Account and display names have one precise grammar in the
 existing secrets owner. Preserve exact shadow items made by unreleased candidates
 until their retained consumers and rollback owners release them; naming similarity
@@ -410,12 +433,14 @@ provenance, native extraction and scratch cleanup. Prebuilt acceptance selects i
 artifact tool closure; ordinary source/full-quality/lock-refresh retains full bootstrap
 and scans. `--candidate-source` may select an exact signed untagged product with a
 same-version verifier; mutable refs, unsigned sources and failed quality remain refused.
+
 An existing signed transport Release is only a byte locator. Native acquisition
 selects `public-inputs-<input-sha256>.tar`, then verifies the outer checksum,
 complete trusted matrix signatures, exact-source provenance and published predecessor.
 The carrier's signed named target remains verified; ancestry is not product trust.
 Preserve its original assets and reuse the existing owner instead of creating another
 transport tag, Release, downloader or extraction/cleanup path.
+
 Declare real-client inputs before construction/download; gh/glab are deadline-bounded
 and no-prompt. [Delivery](#migration-plan), not a policy readback, proves integration,
 proposal retirement, archive, main/tag events, assets and installed cutover.
@@ -505,7 +530,9 @@ and, in the last two runs, the disposable macOS Keychain. No run qualified every
 platform. Each failed block either carried Hyperfine's first-run warning, which
 also struck the 0.3.5 baseline, or exceeded a p95 budget with three to eight
 samples above twice its median; the baseline shows the same spikes, and every
-candidate median stays within its budget. The candidate does spend 35 to 70 ms
+candidate median stays within its budget.
+
+The candidate does spend 35 to 70 ms
 more CPU than 0.3.5 on setup, sync and projection, and about 10 ms more on
 status, because each command hashes the roughly 13 MB program and its versioned
 reader three or four times to verify reader integrity.

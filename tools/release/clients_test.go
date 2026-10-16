@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/configuration"
 	hermesconfig "aigw-cli/internal/hermes/configuration"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"crypto/sha256"
@@ -118,11 +119,7 @@ func TestNativeClientJourney(t *testing.T) {
 		version: version, team: team, manifest: manifest,
 		baseline: baseline, candidate: candidate, archive: archive, checksums: checksums,
 	}
-	clients := []string{configuration.ClientClaude, configuration.ClientCodex}
-	if runtime.GOOS != "windows" {
-		clients = append(clients, configuration.ClientHermes)
-	}
-	for _, client := range clients {
+	for _, client := range construction.NativeAcceptanceClients(runtime.GOOS) {
 		t.Run(client, func(t *testing.T) { plan.run(t, client) })
 	}
 	t.Run("codex-general-routes", plan.runCodexGeneralRoutes)

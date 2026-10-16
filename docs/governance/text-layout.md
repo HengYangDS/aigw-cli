@@ -181,6 +181,7 @@ layout. Pass related rows as one group: its longest label sets the description
 column, and a multiline or over-width row switches the whole group to stacked
 layout. Derive the executable name from Cobra command metadata. A narrow terminal
 places the explanation below its command instead of truncating either field.
+
 Standalone executable examples remain command output, not annotated rows.
 Preserve their characters, quoted whitespace and explicit line breaks; leave
 visual soft wrapping to the terminal. A logical command line may exceed the

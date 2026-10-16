@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/gitfixture"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,11 @@ import (
 	"strings"
 	"testing"
 )
+
+// TestMain keeps host Git hooks and templates out of fixture repositories.
+func TestMain(m *testing.M) {
+	os.Exit(gitfixture.Run(m))
+}
 
 const validPolicy = `owner = "product-toolchain"
 source = "repository architecture layout"

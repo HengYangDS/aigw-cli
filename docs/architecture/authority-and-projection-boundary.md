@@ -311,6 +311,7 @@ incomplete diagnostic stream, or an unclosed pipe rejects and removes the partia
 asset. Upgrade owns Forge error interpretation, not a second executor or output
 limiter. GitLab binds its selected host for both paths; executor capability does
 not change peer selection or silently discard the host environment.
+
 GitLab also binds API host, scheme and root path, so ambient CLI aliases and
 stored API routing cannot redirect the selected release source. GitHub's CLI
 fallback binds the admitted source host instead of inheriting `GH_HOST`.
@@ -318,6 +319,7 @@ Overrides use the [Go process API](https://pkg.go.dev/os/exec)'s last-value prec
 merger. Native GitLab conformance uses the locked CLI, isolated configuration,
 synthetic credentials and two loopback servers to prove both capture and file
 download reach only the selected origin.
+
 An explicit empty environment remains empty; inheritance is represented by an
 unspecified environment. Process plans represent captured child invocations,
 not replacement of AIGW. There is no uncaptured launcher or replacement mode.
