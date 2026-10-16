@@ -14,6 +14,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Changed
+
+- Offer Gemini 4 Argon, Google's flagship reasoning model, in place of Gemini
+  3.8 Flash in the team manifest: on OpenAI Responses through AIHubMix and
+  DMXAPI, and on OpenAI Chat Completions through UCloud. Importing the updated
+  manifest keeps local Gemini 3.8 Flash Routes and their selections; retire an
+  unselected one by importing with `--retire-route <id>`.
+
 ## 0.4.2 - 2026-10-15
 
 History: [GitLab][0.4.2-gitlab] · [GitHub][0.4.2-github]

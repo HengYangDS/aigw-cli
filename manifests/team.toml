@@ -91,8 +91,8 @@ order = 220
 label = 'ERNIE 5.1'
 order = 230
 
-[models.'gemini-3.8-flash']
-label = 'Gemini 3.8 Flash'
+[models.gemini-4-argon]
+label = 'Gemini 4 Argon'
 order = 240
 
 [models.'glm-5.3']
@@ -216,12 +216,12 @@ upstream_model = 'ernie-5.1'
 [routes.'aihubmix-ernie-5.1'.interfaces]
 openai_responses = []
 
-[routes.'aihubmix-gemini-3.8-flash']
+[routes.aihubmix-gemini-4-argon]
 account = 'aihubmix'
-model = 'gemini-3.8-flash'
-upstream_model = 'gemini-3.8-flash'
+model = 'gemini-4-argon'
+upstream_model = 'gemini-4-argon'
 
-[routes.'aihubmix-gemini-3.8-flash'.interfaces]
+[routes.aihubmix-gemini-4-argon.interfaces]
 openai_responses = []
 
 [routes.'aihubmix-glm-5.3']
@@ -380,12 +380,12 @@ upstream_model = 'doubao-seed-2-1-pro-260628'
 [routes.dmxapi-doubao-seed-2-1-pro-260628.interfaces]
 openai_responses = []
 
-[routes.'dmxapi-gemini-3.8-flash']
+[routes.dmxapi-gemini-4-argon]
 account = 'dmxapi'
-model = 'gemini-3.8-flash'
-upstream_model = 'gemini-3.8-flash'
+model = 'gemini-4-argon'
+upstream_model = 'gemini-4-argon'
 
-[routes.'dmxapi-gemini-3.8-flash'.interfaces]
+[routes.dmxapi-gemini-4-argon.interfaces]
 openai_responses = []
 
 [routes.'dmxapi-glm-5.3']
@@ -501,12 +501,12 @@ upstream_model = 'doubao-seed-2-1-pro-260628'
 [routes.ucloud-doubao-seed-2-1-pro-260628.interfaces]
 openai_responses = []
 
-[routes.'ucloud-gemini-3.8-flash']
+[routes.ucloud-gemini-4-argon]
 account = 'ucloud'
-model = 'gemini-3.8-flash'
-upstream_model = 'gemini-3.8-flash'
+model = 'gemini-4-argon'
+upstream_model = 'gemini-4-argon'
 
-[routes.'ucloud-gemini-3.8-flash'.interfaces]
+[routes.ucloud-gemini-4-argon.interfaces]
 openai_chat_completions = []
 
 [routes.'ucloud-glm-5.3']
