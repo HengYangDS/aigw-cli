@@ -14,6 +14,10 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+## 0.4.3 - 2026-10-16
+
+History: [GitLab][0.4.3-gitlab] · [GitHub][0.4.3-github]
+
 ### Changed
 
 - Offer Gemini 4 Argon, Google's flagship reasoning model, in place of Gemini
@@ -21,6 +25,17 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   DMXAPI, and on OpenAI Chat Completions through UCloud. Importing the updated
   manifest keeps local Gemini 3.8 Flash Routes and their selections; retire an
   unselected one by importing with `--retire-route <id>`.
+
+### Fixed
+
+- Keep a disabled client from deciding readiness: while another client is
+  enabled, `aigw status`, `aigw check` and `aigw doctor` no longer read the
+  Account of a disabled Client Binding. A denied or unreadable credential there
+  no longer reports that client as unavailable, recommends `aigw doctor` or
+  fails doctor.
+- Keep setup, sync and Route changes within their memory bound while they
+  verify the running program and credential readers; 0.4.2 could exceed it
+  slightly when its shared read buffers were exhausted.
 
 ## 0.4.2 - 2026-10-15
 
@@ -221,7 +236,7 @@ checks and has no release assets; its changes ship here.
 
 ## 0.3.5 - 2026-10-12
 
-History: [GitHub][0.3.5-github]
+History: [GitLab][0.3.5-gitlab] · [GitHub][0.3.5-github]
 
 ### Fixed
 
@@ -236,7 +251,7 @@ History: [GitHub][0.3.5-github]
 
 ## 0.3.4 - 2026-10-10
 
-History: [GitHub][0.3.4-github]
+History: [GitLab][0.3.4-gitlab] · [GitHub][0.3.4-github]
 
 ### Fixed
 
@@ -1409,13 +1424,17 @@ History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 
 - Require every tag pipeline to verify that its exact annotated release tag carries an SSH signature trusted by the repository-owned signer anchor before packaging, publication, or GitLab Release creation. An unsigned or untrusted tag now fails closed.
 
-[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.2...main
-[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.2...main
+[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.3...main
+[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.3...main
+[0.4.3-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.2...v0.4.3
+[0.4.3-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.2...v0.4.3
 [0.4.2-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.1...v0.4.2
 [0.4.2-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.1...v0.4.2
 [0.4.1-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.5...v0.4.1
 [0.4.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.5...v0.4.1
+[0.3.5-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.4...v0.3.5
 [0.3.5-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.4...v0.3.5
+[0.3.4-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.3...v0.3.4
 [0.3.4-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.3...v0.3.4
 [0.3.3-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.1...v0.3.3
 [0.3.3-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.1...v0.3.3

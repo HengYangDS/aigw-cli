@@ -146,6 +146,12 @@ func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *client
 	}
 	available, observationErr, observed := activation.CredentialAvailability(accountID)
 	if !observed {
+		if !facts.ProjectionEnabled {
+			// Activation owns which Accounts a read-only command reads, so a
+			// disabled binding outside its scope is classified without them.
+			facts.CredentialRequired = false
+			return
+		}
 		available, observationErr = store.Exists(accountID)
 	}
 	facts.CredentialAvailable = available
