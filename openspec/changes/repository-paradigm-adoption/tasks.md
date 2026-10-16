@@ -13,5 +13,5 @@
 
 ## 3. Qualify Delivery Inputs
 
-- [ ] 3.1 Freeze the adopted source and pass exact-head proof; preserve native proof and signed-object references for delivery.
+- [x] 3.1 Freeze the adopted source and pass exact-head proof; preserve native proof and signed-object references for delivery (d4a32df6; proof d5ddee47; archive successor remains subject to native admission).
 - [x] 3.2 Preserve unique evidence and exact owned cleanup inputs; verify custody bytes, metadata and consumer release conditions (custody 851857f8 and 2a8157e5; final native retirement remains pending).
