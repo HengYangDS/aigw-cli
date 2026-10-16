@@ -14,13 +14,16 @@
   - [ ] 1.2.3 Rebind aigw-cli to an accepted ETHOS runtime that admits attested
         maintenance releases; depends on `work/20261002-native-trust-closure`
         reaching ETHOS `dev`.
-  - [ ] 1.2.4 Publish the maintenance tags `v0.3.4` and `v0.3.5`; read back
-        GitHub's objects `e86777be` and `95132368`.
-- [ ] 1.3 Supply GitLab's locked tool closure for the current
-      `.config/mise/mise.lock`, through the peer mirror or the operator's chosen
-      upstream supply; GitLab's protected pipeline passes for the published head.
-      Upstream supply passes every job except `quality`, which waits for the
-      `v0.3.5` tag of task 1.2.4.
+  - [x] 1.2.4 Publish the maintenance tags `v0.3.4` and `v0.3.5`; read back
+        GitHub's objects `e86777be` and `95132368`. Done by the user-authorized
+        break glass of 2026-10-15, outside ETHOS publication.
+- [x] 1.3 Supply GitLab's locked tool closure for the current
+      `.config/mise/mise.lock` through upstream supply; GitLab's protected
+      pipelines pass for the published head (`17d9bdf6`: `dev` 11252, `main`
+      11254).
+- [ ] 1.4 Publish the GitLab Releases of `v0.3.4` and `v0.3.5` from their
+      retained local bundles; `v0.4.2` stays without a GitLab Release by the
+      user's decision of 2026-10-16.
 
 ## 2. Qualify GitLab Peer Admission
 

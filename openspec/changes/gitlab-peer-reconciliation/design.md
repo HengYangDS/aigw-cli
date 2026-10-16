@@ -21,12 +21,21 @@ assets; AIGW does not produce it. The operator decides whether to publish that
 package or to run GitLab with upstream supply where its runners reach GitHub.
 Pushing branches does not repair supply. On 2026-10-14 the operator chose
 upstream supply: the project's `AIGW_TOOL_SOURCE=peer` override was removed, so
-the CUE-projected default applies.
+the CUE-projected default applies. With that supply, GitLab's protected `dev`
+and `main` pipelines for `17d9bdf6` passed on 2026-10-16 (11252 and 11254).
 
 Peer admission reuses the checks that `terminal-product-convergence` task 7.4
 applied to GitHub. The ETHOS identity and reference successor is ETHOS's own
 deliverable; this Change consumes the accepted release and adds no private
 checker.
+
+## Maintenance tags
+
+On 2026-10-15 the user authorized a break glass for `v0.3.4` and `v0.3.5`:
+their existing signed tag objects, equal to GitHub's and passing
+`git verify-tag`, were pushed to GitLab with `git push --no-verify`. GitLab
+reads back `e86777be` and `95132368`. ETHOS has no publication receipt for
+them; task 3.1 reconciles that history.
 
 ## Order
 
