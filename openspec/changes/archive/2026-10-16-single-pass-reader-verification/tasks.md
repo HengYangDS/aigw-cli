@@ -19,10 +19,15 @@
       whose digest differs from the verified one; a same-size in-place rewrite
       with a restored timestamp is refused, and the counting regression expects
       two reader reads.
+- [x] 1.5 Read executables through 64 KiB pooled buffers, so one command stays
+      below 256 KiB even when a collection empties the pool; the memory test
+      empties the pool before every operation (GitHub dev push run 38758007867
+      failed macOS at 272,953 B/op with 256 KiB buffers).
 
 ## 2. Requalify
 
-- [ ] 2.1 Measure all eight native workloads against the published 0.4.1
+- [x] 2.1 Measure all eight native workloads against the published 0.4.1
       predecessor on macOS, Linux and Windows; every candidate p95 stays within
       its budget or the exceedance is explicitly accepted. The 0.4.2 release
-      artifacts are the measured candidate.
+      artifacts are the measured candidate; GitHub run 38777446724, attempt 2,
+      kept every candidate p95 within budget.
