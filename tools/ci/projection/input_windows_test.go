@@ -19,16 +19,6 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-const hermesInstallerFixture = `param([string]$Commit, [string]$HermesHome, [string]$InstallDir, [switch]$NonInteractive, [switch]$SkipBrowser, [switch]$SkipComputerUse, [switch]$Json, [string]$Stage)
-$ErrorActionPreference = 'Stop'
-if ($env:HERMES_HOME -ne $HermesHome -or $env:HERMES_RUNTIME_DIR -ne (Join-Path $HermesHome 'tools')) { throw 'Hermes PM inherited operator state instead of the admitted home' }
-if ($env:UV_PYTHON_INSTALL_DIR -notlike ($env:AIGW_TEST_OPERATION + '*') -or $env:UV_CACHE_DIR -notlike ($env:AIGW_TEST_OPERATION + '*')) { throw 'Hermes Python supply escaped operation ownership' }
-if (-not $NonInteractive -or -not $SkipBrowser -or -not $SkipComputerUse) { throw 'Hermes unattended selection was lost' }
-if ($Stage -eq 'repository') { [void](New-Item -ItemType Directory -Path $InstallDir -Force) }
-if ($Stage -eq 'python-deps') { Write-Output 'Installing dependencies (hash-verified via uv.lock)' }
-@{stage=$Stage; ok=$true; skipped=$false} | ConvertTo-Json -Compress
-`
-
 func TestWindowsClientSupplyPreservesPortableProductInputOwner(t *testing.T) {
 	pwsh, err := exec.LookPath("pwsh")
 	if err != nil {
@@ -93,9 +83,6 @@ func TestWindowsClientSupplyPreservesPortableProductInputOwner(t *testing.T) {
 			"clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/codex-path/rg.exe": []byte("resource fixture"),
 			"clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe":                          []byte("claude fixture"),
 		}, true),
-		"suppliers/official-hermes-71d34bad-source.tar": pack(map[string][]byte{
-			"scripts/install.ps1": []byte(hermesInstallerFixture),
-		}, false),
 	}, false)
 	input, trust := filepath.Join(operation, "inputs.tar"), filepath.Join(operation, "trust")
 	requireProjectionInput(t, os.WriteFile(input, archive, 0o600))
@@ -103,19 +90,12 @@ func TestWindowsClientSupplyPreservesPortableProductInputOwner(t *testing.T) {
 	bash := filepath.Join(operation, "git", "bin", "bash.exe")
 	requireProjectionInput(t, os.MkdirAll(filepath.Dir(bash), 0o700))
 	requireProjectionInput(t, os.WriteFile(bash, []byte("Git Bash fixture"), 0o600))
-	installer := filepath.Join(operation, "installer.ps1")
-	requireProjectionInput(t, os.WriteFile(installer, []byte(hermesInstallerFixture), 0o600))
-	launcher := filepath.Join(operation, "launcher.ps1")
-	requireProjectionInput(t, os.WriteFile(launcher, []byte("param([string]$Directory)\n$ErrorActionPreference = 'Stop'\nif ($env:HERMES_RUNTIME_DIR -ne (Join-Path $env:HERMES_HOME 'tools')) { throw 'launcher inherited a different PM store' }\n[void](New-Item -ItemType Directory -Path $Directory -Force)\n[IO.File]::WriteAllText((Join-Path $Directory 'hermes.exe'), 'hermes fixture')\n"), 0o600))
 	outputs := filepath.Join(operation, "github-env")
 	requireProjectionInput(t, os.WriteFile(outputs, nil, 0o600))
 	prelude := "$ErrorActionPreference = 'Stop'\n$PSNativeCommandUseErrorActionPreference = $true\n" +
 		"if ($env:SystemRoot -cne $env:AIGW_TEST_SYSTEM_ROOT) { throw 'native SystemRoot was replaced by a fixture' }\n" +
 		"function Get-Command { [pscustomobject]@{ Source = $(if ($args[0] -eq 'node.exe') { $env:AIGW_TEST_NODE_PATH } else { $env:AIGW_TEST_GIT_PATH }) } }\n" +
-		"function Get-FileHash { param([string]$LiteralPath, [string]$Algorithm); if ((Split-Path -Leaf $LiteralPath) -eq 'install.ps1' -or $LiteralPath -eq $env:AIGW_HERMES_INSTALLER) { return [pscustomobject]@{Hash='61824d6b47be29ab793d0e72872cf56cd7a3e99cbe40abeb177a6c9eef52f485'} }; Microsoft.PowerShell.Utility\\Get-FileHash -LiteralPath $LiteralPath -Algorithm $Algorithm }\n" +
-		"function git { if ($args -contains 'rev-parse') { return '71d34bad1045610252eda02ee79549436896e784' }; $global:LASTEXITCODE = 0 }\n" +
 		"function mise { if ($args[0] -eq 'which') { return $env:AIGW_TEST_NODE_PATH }; " +
-		"if ($args[2] -eq 'uv') { if ($args -notcontains '--print-runtime-command' -or $env:HERMES_RUNTIME_DIR -ne (Join-Path $env:HERMES_HOME 'tools')) { throw 'Hermes PM or publication bypassed the admitted home' }; $out = $args[-1]; @($env:AIGW_TEST_PWSH, '-NoProfile', '-File', $env:AIGW_TEST_LAUNCHER, $out) | ConvertTo-Json -Compress; $global:LASTEXITCODE = 0; return }; " +
 		"if ($args[2] -eq 'npm') { if ($args[3] -eq 'install') { $prefix = $args[[array]::IndexOf($args, '--prefix') + 1]; foreach ($item in @{ 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe'='codex fixture'; 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'='claude fixture' }.GetEnumerator()) { $file=Join-Path $prefix $item.Key; [void](New-Item -ItemType Directory -Path (Split-Path $file) -Force); [IO.File]::WriteAllText($file, $item.Value) } }; $global:LASTEXITCODE=0; return }; " +
 		"if ($args[0] -ne 'exec' -or $args[2] -ne 'glab') { throw 'unselected native client tool invoked' }; " +
 		"Copy-Item -LiteralPath $env:AIGW_TEST_PUBLIC_ARCHIVE -Destination $args[[array]::IndexOf($args, '--path') + 1]; $global:LASTEXITCODE = 0 }\n"
@@ -124,13 +104,13 @@ func TestWindowsClientSupplyPreservesPortableProductInputOwner(t *testing.T) {
 		"AIGW_RELEASE_ALLOWED_SIGNERS_FILE="+trust, "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="+trust, "AIGW_RELEASE_ARTIFACT_SIGNER=fixture@example.invalid",
 		"AIGW_NATIVE_INPUT_SHA256="+fmt.Sprintf("%x", sha256.Sum256(archive)), "AIGW_TEST_PUBLIC_ARCHIVE="+input,
 		"AIGW_TEST_SYSTEM_ROOT="+systemRoot,
-		"AIGW_TEST_OPERATION="+operation, "AIGW_TEST_PWSH="+pwsh, "AIGW_TEST_LAUNCHER="+launcher, "AIGW_HERMES_INSTALLER="+installer,
+		"AIGW_TEST_OPERATION="+operation,
 		"RUNNER_TEMP="+operation, "GITHUB_ENV="+outputs, "HERMES_HOME="+filepath.Join(operation, "operator-home"), "HERMES_RUNTIME_DIR="+filepath.Join(operation, "operator-store"),
 		"AIGW_TEST_GIT_PATH="+filepath.Join(operation, "git", "cmd", "git.exe"), "AIGW_TEST_NODE_PATH="+filepath.Join(operation, "node", "node.exe"), "SystemRoot="+systemRoot,
 		"CI_PROJECT_DIR="+project, "CI_PROJECT_URL=https://gitlab.test/team/aigw", "CI_JOB_ID=123")
-	clientAssertion := "foreach ($client in @{ codex = $env:AIGW_ACCEPTANCE_CODEX; claude = $env:AIGW_ACCEPTANCE_CLAUDE; hermes = $env:AIGW_ACCEPTANCE_HERMES }.GetEnumerator()) { " +
+	clientAssertion := "foreach ($client in @{ codex = $env:AIGW_ACCEPTANCE_CODEX; claude = $env:AIGW_ACCEPTANCE_CLAUDE }.GetEnumerator()) { " +
 		"if (-not (Test-Path -LiteralPath $client.Value -PathType Leaf) -or (Get-Content -LiteralPath $client.Value -Raw) -cne ($client.Key + ' fixture')) { throw 'selected native client identity is unavailable' } }; " +
-		"if ($env:AIGW_ACCEPTANCE_HERMES -ne (Join-Path $env:HERMES_HOME 'hermes-agent/.hermes/bin/hermes.exe')) { throw 'Hermes bypassed its published launcher' }; " +
+		"if ($env:HERMES_HOME -cne (Join-Path $env:AIGW_TEST_OPERATION 'operator-home') -or $env:HERMES_RUNTIME_DIR -cne (Join-Path $env:AIGW_TEST_OPERATION 'operator-store')) { throw 'unselected Hermes state was changed' }; " +
 		"if (Test-Path (Join-Path $env:AIGW_TEST_OPERATION 'operator-store')) { throw 'operator PM state was changed' }"
 	for _, mode := range []struct{ name, clients, performance, script, assertion string }{
 		{"artifact-only", "false", "true", script, "if ($env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_BASELINE_ARTIFACTS -or (Get-ChildItem -LiteralPath $env:AIGW_TEST_JOB_ROOT).Count -ne 0) { throw 'product inputs escaped their portable release owner' }"},
@@ -240,8 +220,8 @@ func TestWindowsPublicInputToolsPreserveSourceScope(t *testing.T) {
 		{"source", "", "false", "false", "false", "", "false", "source-tools"},
 		{"public package", "fixture", "false", "false", "false", "", "false", "go,gh,glab,github:goreleaser/goreleaser"},
 		{"performance", "fixture", "false", "false", "false", "", "true", "go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine"},
-		{"clients", "fixture", "false", "false", "true", "", "false", "go,gh,glab,github:goreleaser/goreleaser,node,uv"},
-		{"diagnostic", "fixture", "false", "false", "false", "hermes", "false", "go,gh,glab,github:goreleaser/goreleaser,node,uv"},
+		{"clients", "fixture", "false", "false", "true", "", "false", "go,gh,glab,github:goreleaser/goreleaser,node"},
+		{"diagnostic", "fixture", "false", "false", "false", "codex", "false", "go,gh,glab,github:goreleaser/goreleaser,node"},
 		{"full quality", "fixture", "true", "false", "false", "", "false", "source-tools"},
 		{"lock refresh", "fixture", "false", "true", "false", "", "false", "source-tools"},
 	} {
@@ -324,7 +304,7 @@ func TestNativePowerShellAcceptancePreservesDeclaredEmptyTag(t *testing.T) {
 			"${{ inputs.input_release != '' }}", fmt.Sprint(release != ""),
 		).Replace(suffix)
 		script := "& '" + strings.ReplaceAll(executable, "'", "''") + "' '-test.run=^TestNativePowerShellAcceptancePreservesDeclaredEmptyTag$' -- " + arguments
-		for _, client := range []string{"", "hermes"} {
+		for _, client := range []string{"", "codex"} {
 			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 			command := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script)
 			command.Env = append(os.Environ(),
