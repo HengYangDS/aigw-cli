@@ -8,10 +8,10 @@
 
 ## 2. Complete Repository Adoption
 
-- [ ] 2.1 Apply the admitted native workspace and front-matter repairs, reconcile the exact GitLab alias and Changelog grammar, and preserve historical content and foreign consumers.
-- [ ] 2.2 Validate task identity and dependency structure, strict OpenSpec, native formatting and the paradigm report; no diagnosed gap remains before source freeze.
+- [x] 2.1 Apply native workspace, front-matter, GitLab alias and Changelog repairs; verify preserved content and consumers (native migration 41eb5e9f; alias acceptance 20261017).
+- [x] 2.2 Validate task identities, dependency structure, strict OpenSpec, native formatting and a conforming paradigm report (14 OpenSpec items and native checks 20261017).
 
 ## 3. Qualify Delivery Inputs
 
 - [ ] 3.1 Freeze the adopted source and pass exact-head proof; preserve native proof and signed-object references for delivery.
-- [ ] 3.2 Preserve unique evidence and prepare exact owned cleanup inputs; verify custody bytes, metadata and each remaining consumer's release condition.
+- [x] 3.2 Preserve unique evidence and exact owned cleanup inputs; verify custody bytes, metadata and consumer release conditions (custody 851857f8 and 2a8157e5; final native retirement remains pending).
