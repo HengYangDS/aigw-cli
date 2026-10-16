@@ -2,7 +2,7 @@
 
 ### Requirement: Governed release-branch convergence
 
-Candidate, accepted, and release refs SHALL advance through current authority and the shared governed branch roles. Normal and exact-scope maintainer paths SHALL preserve proof, identity, compare-and-swap, and post-effect observation. The adopter SHALL consume the shared roles without a competing configurable role policy or an interpretation of ETHOS internals. Each Forge SHALL independently publish the same accepted source; local work SHALL require neither remote. OpenSpec SHALL remain progress authority until delivery is complete and archived.
+Candidate, accepted, and release refs SHALL advance through current authority and the shared governed roles. Normal and maintainer transitions SHALL preserve proof, identity, compare-and-swap, and post-effect observation. Each Forge SHALL publish the same accepted source independently; local work SHALL require neither remote. OpenSpec SHALL remain progress authority until delivery is complete and archived.
 
 #### Scenario: Accepted content is ready for release
 
@@ -27,17 +27,24 @@ Candidate, accepted, and release refs SHALL advance through current authority an
 
 - **WHEN** native adoption removes the retired branch-name overrides
 - **THEN** the existing CI projection consumes the shared accepted and release roles
+- **AND** the adopter has no competing configurable role policy or interpretation of ETHOS internals
 - **AND** the current Forge output retains its event, branch, identity and admission semantics.
 
 ### Requirement: Portable repository quality surface
 
-Repository configuration, tools, source, tests, documentation, and release assets SHALL be organized by semantic owner. Native tool settings SHALL have one consuming tool carrier, and repository-specific parameters SHALL retain one owning policy. Every source-quality and release consumer SHALL read its declared carrier explicitly and refuse an absent or malformed required configuration. Root-level sprawl, forwarding scripts, concatenated package names, cross-package private calls, and duplicated policy SHALL not create parallel authority. Unrelated external consumers SHALL own their adaptation and qualification outside this product's implementation and quality dependency graph.
+Repository configuration, tools, source, tests, documentation, and release assets SHALL have one semantic owner. Native tool settings SHALL have one consuming carrier; repository parameters SHALL have one owning policy. Every quality and release reader SHALL use its declared carrier and refuse absent or malformed required settings. Unrelated consumers SHALL own adaptation and qualification outside this product's implementation and quality graph.
 
 #### Scenario: A contributor follows one behavior
 
 - **WHEN** a contributor traces a public command or projection
 - **THEN** implementation, tests, specification, and documentation identify one owner
 - **AND** no compatibility facade or duplicate configuration must be consulted.
+
+#### Scenario: Physical layout introduces competing authority
+
+- **WHEN** root-level sprawl, forwarding scripts, concatenated package names, cross-package private calls, or duplicated policy create a parallel authority
+- **THEN** the content is organized under its semantic owner
+- **AND** those structures do not remain as a competing implementation or policy.
 
 #### Scenario: Contributor uses another host
 
