@@ -63,7 +63,7 @@ func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
 		`mise exec --locked -- go run ./tools/ci trust-input --artifact --output "$env:RUNNER_TEMP/aigw-artifact-signers" --github-env "$env:GITHUB_ENV"`,
 		`mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir dist`,
 		"mise exec --locked -- go run ./tools/release verify-artifacts dist",
-		"mise exec --locked -- go run ./tools/release accept-native --artifacts dist",
+		`mise exec --locked -- go run ./tools/release accept-native --artifacts dist --peer=github --repository="$env:GITHUB_REPOSITORY" --baseline-tag="$env:AIGW_BASELINE_TAG"`,
 	}
 	if len(commands) != len(want)+1 || !slices.Equal(commands[:3], want[:3]) || !slices.Equal(commands[4:], want[3:]) || !slices.Equal(trust, []string{"AIGW_RELEASE_ALLOWED_SIGNERS", "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS"}) {
 		t.Fatalf("release verification order or trust differs: %q, %q", commands, trust)
@@ -114,6 +114,9 @@ func TestPublishedNativeLifecycleUsesSelectedIsolatedRunner(t *testing.T) {
 	if inputs["native_lifecycle"].Type != "boolean" || inputs["native_lifecycle"].Default != "false" {
 		t.Fatal("published native lifecycle must be an explicit optional verification")
 	}
+	if baseline := inputs["baseline_tag"]; baseline.Type != "string" || baseline.Default != "" {
+		t.Fatal("published native lifecycle must name its predecessor through an explicit input")
+	}
 	if job.Runner != "${{ inputs.runner }}" || job.Defaults.Run.Shell != "pwsh" {
 		t.Fatal("release verification must use the selected native runner and a portable shell")
 	}
@@ -123,6 +126,9 @@ func TestPublishedNativeLifecycleUsesSelectedIsolatedRunner(t *testing.T) {
 	native := job.Steps[len(job.Steps)-1]
 	if native.If != "inputs.native_lifecycle" || native.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != "${{ runner.os == 'Windows' && '1' || '0' }}" || native.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" {
 		t.Fatal("native lifecycle must retain explicit isolated credential-store admission")
+	}
+	if native.Env["AIGW_BASELINE_TAG"] != "${{ inputs.baseline_tag }}" {
+		t.Fatal("native lifecycle must pass the selected published predecessor")
 	}
 }
 

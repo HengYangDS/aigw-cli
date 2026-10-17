@@ -232,7 +232,10 @@ bounded native runner choice. Its default remains Linux artifact verification.
 Set `native_lifecycle=true` to additionally run the existing release lifecycle
 against that host's published archive, after checksum, signature and source
 verification. This does not publish, replace a tag or rebuild the candidate.
-Separate runner selections can execute independently.
+The lifecycle upgrades from and rolls back to the published predecessor named
+by `baseline_tag`, which native acceptance downloads from this peer and
+verifies like the selected release; without it, the lifecycle journeys fail
+before product execution. Separate runner selections can execute independently.
 
 Before downloading assets, the workflow resolves the selected tag to its
 product commit and requires this peer's latest successful tag-push `Verify`
@@ -248,13 +251,15 @@ the ordinary Linux, macOS and Windows hosts, `ubuntu-24.04-arm`,
 Runner labels follow the [official image matrix](https://github.com/actions/runner-images#available-images);
 the job must still demonstrate the actual host and candidate identity.
 
-With `TAG` set to the exact published release, Windows ARM64 qualification uses:
+With `TAG` set to the exact published release and `BASELINE` to its published
+predecessor, Windows ARM64 qualification uses:
 
 ```sh
 gh workflow run release.yml --ref main \
   --field tag="$TAG" \
   --field runner=windows-11-arm \
-  --field native_lifecycle=true
+  --field native_lifecycle=true \
+  --field baseline_tag="$BASELINE"
 ```
 
 The selected tag and signed provenance identify the product bytes and their

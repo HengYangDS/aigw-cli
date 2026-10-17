@@ -28,8 +28,14 @@ client changes the result.
 
 ## Capabilities
 
-`cli-readiness` gains the requirement "A disabled Client Binding cannot change
-readiness".
+### New Capabilities
+
+- None.
+
+### Modified Capabilities
+
+- `cli-readiness`: gains the requirement "A disabled Client Binding cannot
+  change readiness".
 
 ## Impact
 

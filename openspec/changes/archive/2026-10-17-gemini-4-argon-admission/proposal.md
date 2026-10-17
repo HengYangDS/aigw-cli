@@ -27,8 +27,14 @@ the three Account and protocol pairs that carry Gemini 3.8 Flash today.
 
 ## Capabilities
 
-`product-control-plane` gains the requirement "The shipped catalogue keeps one
-general Model per other vendor".
+### New Capabilities
+
+- None.
+
+### Modified Capabilities
+
+- `product-control-plane`: gains the requirement "The shipped catalogue keeps
+  one general Model per other vendor".
 
 ## Impact
 

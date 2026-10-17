@@ -55,13 +55,3 @@ defect without that loss.
   its Account into activation's scope, where its Token state is reported.
 - [A credential problem on a disabled binding stays hidden] → it surfaces when
   the binding is enabled; read-only commands never prompt for it.
-
-## Verification
-
-On `17d9bdf6`, `TestDisabledBindingAccountCannotChangeReadiness` failed as
-expected: when Account two became unobservable, Claude Code turned unavailable
-in `status`, `check` and `doctor`, status recommended `aigw doctor`, doctor
-reported `ok: false`, and readiness read Account two. With the fix, the
-regression and the `internal/cli/acceptance`, `internal/cli/readiness`,
-`internal/cli/doctor`, `internal/activation` and `internal/readiness` packages
-pass.
