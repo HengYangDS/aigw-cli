@@ -16,4 +16,4 @@
 - [x] 2.1 `mise run check` passes, and the lane head is proved and landed
       locally.
 - [x] 2.2 Release the change with the next AIGW release through the existing
-      release workflow.
+      release workflow (`v0.4.3`).
