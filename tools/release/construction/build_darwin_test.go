@@ -85,7 +85,7 @@ func TestNativeReleaseUsesCacheSignificantDeploymentTarget(t *testing.T) {
 	err = run(toolCall{
 		Name: "goreleaser", Directory: request.Root,
 		Args: []string{"build", "--snapshot", "--clean", "--id", "macos", "--single-target", "--output", programPath,
-			"--config", filepath.Join(request.Root, ".config", "release", "goreleaser.yaml")},
+			"--config", filepath.Join(request.Root, ".config", "release", "goreleaser", ".goreleaser.yaml")},
 		Env: environment,
 	})
 	if err != nil || bytes.Contains(diagnostic.Bytes(), []byte("warning:")) {
@@ -193,16 +193,16 @@ func requireNativeReleaseSignature(t *testing.T, program []byte) {
 func privateInternalRelease(t *testing.T) buildRequest {
 	t.Helper()
 	root := releaseRoot(t)
-	config, err := os.ReadFile(filepath.Join("..", "..", "..", ".config", "release", "goreleaser.yaml"))
+	config, err := os.ReadFile(filepath.Join("..", "..", "..", ".config", "release", "goreleaser", ".goreleaser.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for name, content := range map[string][]byte{
-		".config/release/goreleaser.yaml": config,
-		"go.mod":                          []byte("module aigw-cli\n\ngo 1.25\n"),
-		"cmd/aigw/main.go":                []byte("package main\n\nfunc main() {}\n"),
-		"cmd/aigw/native_darwin.go":       []byte("package main\n\n/*\n#include <unistd.h>\n*/\nimport \"C\"\n\nfunc init() { _ = C.getpid() }\n"),
-		"README.md":                       []byte("# Signing fixture\n"), "LICENSE": []byte("fixture\n"),
+		".config/release/goreleaser/.goreleaser.yaml": config,
+		"go.mod":                    []byte("module aigw-cli\n\ngo 1.25\n"),
+		"cmd/aigw/main.go":          []byte("package main\n\nfunc main() {}\n"),
+		"cmd/aigw/native_darwin.go": []byte("package main\n\n/*\n#include <unistd.h>\n*/\nimport \"C\"\n\nfunc init() { _ = C.getpid() }\n"),
+		"README.md":                 []byte("# Signing fixture\n"), "LICENSE": []byte("fixture\n"),
 	} {
 		path := filepath.Join(root, name)
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {

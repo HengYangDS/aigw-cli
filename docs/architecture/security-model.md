@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:security-model
 role: explanation
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: credential, process, and trust boundaries
 ---
--->
 
 # Security Model
 
@@ -112,8 +110,8 @@ the predecessor's reader after admitting a portable rollback, or before a
 Homebrew downgrade. The [credential decision](../decisions/dr-0011-single-portable-token-backend.md)
 records the migration and its custody rules.
 
-The [current credential-continuity design](../../openspec/changes/terminal-product-convergence/design.md#4-decide-credential-command-continuity-before-cutover)
-defines native qualification. The [frozen-source and delivery tasks](../../openspec/changes/terminal-product-convergence/tasks.md#9-frozen-source-and-pre-archive-acceptance)
+The [credential-continuity design](../../openspec/changes/archive/2026-10-16-terminal-product-convergence/design.md#4-decide-credential-command-continuity-before-cutover)
+defines native qualification. The [frozen-source and delivery tasks](../../openspec/changes/archive/2026-10-16-terminal-product-convergence/tasks.md#9-frozen-source-and-pre-archive-acceptance)
 must also pass before this path is a released guarantee.
 
 ### External credential executable

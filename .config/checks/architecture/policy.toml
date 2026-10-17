@@ -459,6 +459,7 @@ prefixes = [".github"]
 [tracked_carrier_classes.quality-policy]
 responsibility = "native quality-tool policy"
 prefixes = [".config/checks"]
+exclude_prefixes = [".config/checks/renovate"]
 
 [tracked_carrier_classes.release-policy]
 responsibility = "release construction and Forge metadata"
@@ -466,7 +467,7 @@ prefixes = [".config/release"]
 
 [tracked_carrier_classes.dependency-policy]
 responsibility = "single dependency-update proposal policy"
-prefixes = [".config/dependencies"]
+prefixes = [".config/checks/renovate"]
 
 [tracked_carrier_classes.team-manifest]
 responsibility = "reviewed team capability manifest"

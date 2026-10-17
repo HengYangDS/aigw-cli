@@ -11,8 +11,9 @@ async function fixture(t) {
   const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "aigw-text-checks-")));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   for (const relative of [
-    ".config/checks/markdown/prettierignore",
-    ".config/checks/markdown/policy.yaml",
+    ".config/checks/prettier/prettierignore",
+    ".config/checks/prettier/prettier.toml",
+    ".config/checks/markdownlint-cli2/.markdownlint-cli2.yaml",
   ]) {
     const destination = path.join(root, relative);
     await fs.mkdir(path.dirname(destination), { recursive: true });
@@ -144,7 +145,7 @@ test("non-Markdown formatting does not require Markdown policy", async (t) => {
   const content = '{\n  "version": 1\n}\n';
   const file = path.join(root, "metadata.json");
   await fs.writeFile(file, content);
-  await fs.rm(path.join(root, ".config/checks/markdown/policy.yaml"));
+  await fs.rm(path.join(root, ".config/checks/markdownlint-cli2/.markdownlint-cli2.yaml"));
   const result = run(root, "format.mjs", [file]);
   assert.equal(result.status, 0, result.output);
   assert.equal(await fs.readFile(file, "utf8"), content);
@@ -155,6 +156,8 @@ test("formatting requires declared inputs, policy and dependencies", async (t) =
     ["empty inventory", [], "no authored files supported by Prettier"],
     ["unsupported source", ["source.txt"], "no authored files supported by Prettier"],
     ["missing ignore", ["source.txt"], "ENOENT"],
+    ["missing config", ["source.txt"], "ENOENT"],
+    ["malformed config", ["source.txt"], "Error"],
     ["missing dependency", ["source.txt"], "ERR_MODULE_NOT_FOUND"],
   ]) {
     await t.test(name, async (t) => {
@@ -162,7 +165,14 @@ test("formatting requires declared inputs, policy and dependencies", async (t) =
       const content = "unsupported authored source\n";
       await fs.writeFile(path.join(root, "source.txt"), content);
       if (name === "missing ignore")
-        await fs.rm(path.join(root, ".config/checks/markdown/prettierignore"));
+        await fs.rm(path.join(root, ".config/checks/prettier/prettierignore"));
+      if (name === "missing config")
+        await fs.rm(path.join(root, ".config/checks/prettier/prettier.toml"));
+      if (name === "malformed config")
+        await fs.writeFile(
+          path.join(root, ".config/checks/prettier/prettier.toml"),
+          "printWidth = [\n",
+        );
       let module = "format.mjs";
       if (name === "missing dependency") {
         module = path.join(root, "tools/ci/format.mjs");
@@ -175,6 +185,18 @@ test("formatting requires declared inputs, policy and dependencies", async (t) =
       assert.equal(await fs.readFile(path.join(root, "source.txt"), "utf8"), content);
     });
   }
+});
+
+test("format write prepares the complete input before mutation", async (t) => {
+  const root = await fixture(t);
+  const source = path.join(root, "source.json");
+  const invalid = path.join(root, "invalid.json");
+  await fs.writeFile(source, '{"value":1}\n');
+  await fs.writeFile(invalid, "{\n");
+  const result = run(root, "format.mjs", [source, invalid], undefined, 15_000, ["--write"]);
+  assert.notEqual(result.status, 0, result.output);
+  assert.equal(await fs.readFile(source, "utf8"), '{"value":1}\n');
+  assert.equal(await fs.readFile(invalid, "utf8"), "{\n");
 });
 
 test("Markdown uses declared engine packages without the CLI or parent fallback", async (t) => {
@@ -298,8 +320,19 @@ test("Markdown rejects warnings and missing native inputs", async (t) => {
   ]) {
     await t.test(name, async (t) => {
       const root = await fixture(t);
-      const policyPath = path.join(root, ".config/checks/markdown/policy.yaml");
-      if (policy) await fs.writeFile(policyPath, policy);
+      const policyPath = path.join(
+        root,
+        ".config/checks/markdownlint-cli2/.markdownlint-cli2.yaml",
+      );
+      if (policy)
+        await fs.writeFile(
+          policyPath,
+          "config:\n" +
+            policy
+              .split("\n")
+              .map((line) => (line ? "  " + line : ""))
+              .join("\n"),
+        );
       else await fs.rm(policyPath);
       const file = path.join(root, "document.md");
       const content = "# Document\n\n### Details\n";

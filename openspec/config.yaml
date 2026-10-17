@@ -5,13 +5,35 @@ context: |
   It never owns API traffic, external gateway lifecycle, IDE state, or sessions.
 rules:
   proposal:
+    - Follow the official proposal template. State why the change is needed, what changes, the
+      affected capabilities and the impact; mark breaking changes and name the out-of-scope boundary
+      without copying implementation or execution history.
     - State the authority boundary, breaking removals, reuse stance, and non-goals.
   specs:
+    - Use the native delta operations ADDED, MODIFIED, REMOVED and RENAMED at exact capability
+      paths. A MODIFIED requirement restates its complete block with every retained scenario; main
+      specs keep only Purpose and Requirements.
+    - State each requirement as an observable SHALL or MUST obligation with at least one Scenario
+      whose WHEN and THEN clauses can falsify it; describe behavior and its boundaries, not
+      implementation names.
     - Define observable behavior and fail-closed boundaries, not implementation names.
     - Replace a changed canonical requirement with MODIFIED, or retire its duplicate with REMOVED and name the surviving owner; ADDED alone does not supersede old behavior.
     - Review the complete result of the locked OpenSpec merge before archive, including inherited requirements and scenario preservation; structural validation is not semantic consistency proof.
   design:
+    - Follow the official design template for a non-trivial change. Explain its architecture,
+      alternatives, rationale, authority boundaries and migration risks, give each behavior one
+      semantic owner, and reference the proposal and specs instead of restating them.
+    - Keep execution history, logs and acceptance reports with their Git, CI and native evidence
+      owners, not in design prose.
     - Assign every behavior and policy to one semantic owner and dependency direction.
   tasks:
+    - Use official checkboxes under numbered groups in dependency order, with numbering and nesting
+      expressing one hierarchy. Each task keeps a stable identity, states one bounded action with
+      its observable completion condition, and carries a truthful state.
+    - Keep only short evidence references or current dependencies in tasks. Preserve execution
+      history, logs and originals with their Git, CI and native evidence owners, never in tasks,
+      design prose or a parallel ledger.
+    - Separate implementation tasks from lifecycle preconditions and effects; a Change never records
+      its own landing, archive or Lane retirement as a completed task.
     - Separate local gates, exact-HEAD proof, hosted CI, publication, and housekeeping.
     - Put each bounded action and its verification in a numbered checkbox; keep execution results with their verifier and design rationale in design.md.

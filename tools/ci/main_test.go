@@ -34,8 +34,8 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 	want := [][]string{
-		{"golangci-lint", "config", "verify", "--config", ".config/checks/go/policy.yml"},
-		{"goreleaser", "check", ".config/release/goreleaser.yaml"},
+		{"golangci-lint", "config", "verify", "--config", ".config/checks/golangci-lint/golangci-lint.toml"},
+		{"goreleaser", "check", ".config/release/goreleaser/.goreleaser.yaml"},
 		{"cue", "fmt", "--check", "--files", ".config/ci"},
 		{"go", "run", "./tools/ci", "project", "--check"},
 		{"npm", "audit", "signatures"},
@@ -125,17 +125,21 @@ func TestQualityUsesNativeConfigurationSchemas(t *testing.T) {
 	for _, test := range []struct {
 		tool, policy, state string
 	}{
-		{"golangci-lint", ".config/checks/go/policy.yml", "valid"},
-		{"golangci-lint", ".config/checks/go/policy.yml", "unknown field"},
-		{"golangci-lint", ".config/checks/go/policy.yml", "missing"},
-		{"goreleaser", ".config/release/goreleaser.yaml", "valid"},
-		{"goreleaser", ".config/release/goreleaser.yaml", "unknown field"},
-		{"goreleaser", ".config/release/goreleaser.yaml", "missing"},
+		{"golangci-lint", ".config/checks/golangci-lint/golangci-lint.toml", "valid"},
+		{"golangci-lint", ".config/checks/golangci-lint/golangci-lint.toml", "unknown field"},
+		{"golangci-lint", ".config/checks/golangci-lint/golangci-lint.toml", "missing"},
+		{"goreleaser", ".config/release/goreleaser/.goreleaser.yaml", "valid"},
+		{"goreleaser", ".config/release/goreleaser/.goreleaser.yaml", "unknown field"},
+		{"goreleaser", ".config/release/goreleaser/.goreleaser.yaml", "missing"},
 	} {
 		t.Run(test.tool+"/"+test.state, func(t *testing.T) {
 			content := readFile(t, filepath.Join(repository, filepath.FromSlash(test.policy)))
 			if test.state == "unknown field" {
-				content = append(content, []byte("\naigw_unknown_configuration_field: true\n")...)
+				if test.tool == "golangci-lint" {
+					content = append([]byte("aigw_unknown_configuration_field = true\n"), content...)
+				} else {
+					content = append(content, []byte("\naigw_unknown_configuration_field: true\n")...)
+				}
 			}
 			root := filepath.Join(t.TempDir(), "checkout with spaces")
 			policy := filepath.Join(root, filepath.FromSlash(test.policy))

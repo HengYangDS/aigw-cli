@@ -12,11 +12,11 @@ import (
 
 func TestSourceSizeUsesExactNativeCodeLines(t *testing.T) {
 	root := newGitRepository(t)
-	policy := filepath.Join(root, ".config", "checks", "go", "size.toml")
+	policy := filepath.Join(root, ".config", "checks", "scc", "policy.toml")
 	if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(policy, readFile(t, filepath.Join("..", "..", ".config", "checks", "go", "size.toml")), 0o600); err != nil {
+	if err := os.WriteFile(policy, readFile(t, filepath.Join("..", "..", ".config", "checks", "scc", "policy.toml")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("GIT_INDEX_FILE", filepath.Join(t.TempDir(), "foreign-index"))
@@ -87,7 +87,7 @@ func TestSourceSizeRequiresCompleteMeasurement(t *testing.T) {
 
 func TestSourceSizeStopsOnNativeFailure(t *testing.T) {
 	root := newGitRepository(t)
-	policy := filepath.Join(root, ".config", "checks", "go", "size.toml")
+	policy := filepath.Join(root, ".config", "checks", "scc", "policy.toml")
 	if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
 		t.Fatal(err)
 	}

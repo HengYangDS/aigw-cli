@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:team-rollout
 role: how-to
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: team setup and rollout
 ---
--->
 
 # Team Rollout
 

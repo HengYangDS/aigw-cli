@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:decision:0003
 role: decision
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: Migrate Account Rename Credentials in Two Phases
 ---
--->
 
 # DR-0003: Migrate Account Rename Credentials in Two Phases
 

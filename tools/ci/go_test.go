@@ -30,6 +30,7 @@ func TestGoChecksUseCurrentRepositorySources(t *testing.T) {
 		".snapshot/source.go": "captured bytes, not a Go package\n",
 		"retired.go":          "package fixture\n",
 		"build/generated.go":  "not source\n",
+		".config/checks/golangci-lint/golangci-lint.toml": "version = '2'\n",
 	} {
 		target := filepath.Join(root, filepath.FromSlash(path))
 		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
@@ -57,12 +58,23 @@ func TestGoChecksUseCurrentRepositorySources(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []command{{Name: "golangci-lint", Dir: root, Args: []string{
-		"fmt", "--diff", "--config", filepath.Join(root, ".config", "checks", "go", "policy.yml"),
+		"fmt", "--diff", "--config", filepath.Join(root, ".config", "checks", "golangci-lint", "golangci-lint.toml"),
 	}}, {Name: "golangci-lint", Dir: root, Args: []string{
-		"run", "--config", filepath.Join(root, ".config", "checks", "go", "policy.yml"), "--", root, filepath.Join(root, "nested"),
+		"run", "--config", filepath.Join(root, ".config", "checks", "golangci-lint", "golangci-lint.toml"), "--", root, filepath.Join(root, "nested"),
 	}}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Go commands = %#v, want %#v", got, want)
+	}
+	config := filepath.Join(root, ".config", "checks", "golangci-lint", "golangci-lint.toml")
+	if err := os.Remove(config); err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	if err := checkGo(root, func(command) error { called = true; return nil }); !errors.Is(err, os.ErrNotExist) || called {
+		t.Fatalf("missing native configuration started a checker: %v, called=%t", err, called)
+	}
+	if err := os.WriteFile(config, []byte("version = '2'\n"), 0o600); err != nil {
+		t.Fatal(err)
 	}
 	for _, phase := range []int{1, 2} {
 		wantErr := errors.New("native check failed")
@@ -82,16 +94,16 @@ func TestGoChecksUseCurrentRepositorySources(t *testing.T) {
 
 func TestGoChecksIgnoreGeneratedToolchainSources(t *testing.T) {
 	root := newGitRepository(t)
-	policy, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".config", "checks", "go", "policy.yml"))
+	policy, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".config", "checks", "golangci-lint", "golangci-lint.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for path, content := range map[string][]byte{
-		"go.mod":                       []byte("module fixture\n"),
-		".gitignore":                   []byte("build/\n"),
-		"source.go":                    []byte("// Package fixture owns the authored source.\npackage fixture\n"),
-		"build/tmp/generated.go":       []byte("package    generated\n"),
-		".config/checks/go/policy.yml": policy,
+		"go.mod":                 []byte("module fixture\n"),
+		".gitignore":             []byte("build/\n"),
+		"source.go":              []byte("// Package fixture owns the authored source.\npackage fixture\n"),
+		"build/tmp/generated.go": []byte("package    generated\n"),
+		".config/checks/golangci-lint/golangci-lint.toml": policy,
 	} {
 		target := filepath.Join(root, filepath.FromSlash(path))
 		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
@@ -132,15 +144,15 @@ func TestGoChecksIgnoreGeneratedToolchainSources(t *testing.T) {
 }
 
 func TestGoChecksExecuteInRequestedRepository(t *testing.T) {
-	policy, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".config", "checks", "go", "policy.yml"))
+	policy, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".config", "checks", "golangci-lint", "golangci-lint.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	root := newGitRepository(t)
 	caller := filepath.Dir(root)
 	for path, content := range map[string][]byte{
-		"go.mod":                       []byte("module fixture\n"),
-		".config/checks/go/policy.yml": policy,
+		"go.mod": []byte("module fixture\n"),
+		".config/checks/golangci-lint/golangci-lint.toml": policy,
 	} {
 		target := filepath.Join(root, filepath.FromSlash(path))
 		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
@@ -198,8 +210,8 @@ func TestGoChecksExecuteInRequestedRepository(t *testing.T) {
 
 func TestGoRulesExecuteInOneNativeBatch(t *testing.T) {
 	root := t.TempDir()
-	policy := readFile(t, filepath.Join(repositoryRoot(t), ".config", "checks", "go", "policy.yml"))
-	policyPath := filepath.Join(root, "policy.yml")
+	policy := readFile(t, filepath.Join(repositoryRoot(t), ".config", "checks", "golangci-lint", "golangci-lint.toml"))
+	policyPath := filepath.Join(root, "golangci-lint.toml")
 	if err := os.WriteFile(policyPath, policy, 0o600); err != nil {
 		t.Fatal(err)
 	}

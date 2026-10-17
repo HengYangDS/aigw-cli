@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:decision-record-navigation
 role: index
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: durable product decision navigation
 ---
--->
 
 # Decision Records
 

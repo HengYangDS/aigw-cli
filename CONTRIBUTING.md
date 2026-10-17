@@ -189,7 +189,7 @@ Root placement follows native discovery, not a file-count target. Git, editor
 and analyzer entrypoints, package manifests and paired locks, Forge projections,
 and project entry documents keep their native homes. Tool policy uses semantic
 `.config/` owners: [Mise](.config/mise/config.toml), [npm](.config/npm/npmrc), and
-[format scope](.config/checks/markdown/prettierignore). Native Mise discovery
+[format scope](.config/checks/prettier/prettierignore). Native Mise discovery
 preserves the repository task directory; its lock and dependency graphs stay
 together. Source and runtime resources remain with their consuming packages;
 `build/` owns generated output. No root alias or compatibility symlink is added.

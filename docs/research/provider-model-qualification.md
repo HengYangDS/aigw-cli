@@ -1,15 +1,13 @@
-<!--
 ---
 subject: aigw:provider-model-qualification
 role: research
 state: active
 relations: {}
 ---
--->
 
 # Provider Model Qualification Evidence
 
-These observations inform the October 10, 2026 team manifest; they neither
+These observations inform the October 16, 2026 team manifest; they neither
 maintain a live catalogue nor override the [Route inventory](../../manifests/team.toml).
 For setup/selection, use the [team rollout guide](../guides/team-rollout.md#reviewed-model-defaults).
 Listings, bounded inference and native-client tool loops prove distinct claims.
@@ -22,13 +20,7 @@ benchmarks inform selection but do not prove independent quality rankings.
 
 The October 1, 2026 primary-source review closes four missing rationales:
 
-- Google's [Gemini 3.1 Pro Preview](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-pro-preview)
-  improves Gemini 3 Pro thinking, engineering and multi-step tools. Retain the
-  qualified, explicitly labelled Preview, not a stable-release claim. Google's
-  [Gemini 3.8 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash)
-  targets long-horizon agents. October 5 qualification selects this GA option over
-  Pro Preview after exact inference, file-tool execution and same-session recall:
-  role/availability evidence, not universal reasoning-benchmark superiority.
+- Google's Gemini 3.8 Flash, selected over 3.1 Pro Preview on October 5, is replaced by the [October 16 admission](#october-16-gemini-4-argon-admission).
 - Z.ai's [GLM 5.3 model card](https://huggingface.co/zai-org/GLM-5.3)
   reports coding/long-horizon post-training improvements over GLM 5.2, supporting
   general coding use. Vendor-reported cross-model scores are not AIGW benchmarks.
@@ -41,10 +33,8 @@ The October 1, 2026 primary-source review closes four missing rationales:
 
 The October 4, 2026 review did not admit speculative replacements. Anthropic's
 [Fable page](https://www.anthropic.com/claude/fable) still identified Fable 5.1,
-without a verified Fable 5.5 API identity. Google's
-[Gemini 4 Argon announcement](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/)
-was a trusted-tester rollout, not general provider API access. MiniMax's
-[language models](https://platform.minimax.io/docs/guides/models-intro) identified
+without a verified Fable 5.5 API identity, and Gemini 4 Argon was trusted-tester-only.
+MiniMax's [language models](https://platform.minimax.io/docs/guides/models-intro) identified
 M3 for coding; [H3](https://www.minimax.io/blog/minimax-h3) generates video and
 sound, not text-agent inference. Step 5 Preview was discovery-only at the
 September 25 read; its later [admission](#october-56-model-refresh) supersedes that observation.
@@ -56,6 +46,16 @@ GPT/Claude, while DMXAPI required authentication. Neither omission nor anonymous
 Stable tool admission does not make inference models GA. Qualified general-agent
 Previews may remain explicitly named, non-default Routes; unqualified ones remain
 discovery-only. Preserve this distinction and explicit local selections.
+
+## October 16 Gemini 4 Argon admission
+
+Google's [changelog](https://ai.google.dev/gemini-api/docs/changelog) made its flagship reasoning model
+[`gemini-4-argon`](https://ai.google.dev/gemini-api/docs/models/gemini-4-argon) stable on October 13. AIGW
+0.4.2 then listed the exact ID on all eight authenticated surfaces, after one failed AIHubMix read.
+Hermes v0.22.2 (local `2cde9522`, modified tree), using existing credential commands, read a private
+file via `read_file` and recalled it tool-free in the resumed session on AIHubMix and direct DMXAPI
+Responses and UCloud Chat (37.9/15.2, 60.5/11.8, 14.3/16.8 s). An earlier AIHubMix run stalled for
+210 s; every run warned `install out of sync`. Argon replaces Gemini 3.8 Flash; other clients stay unqualified.
 
 ## October 10 Haiku 5.5 admission
 

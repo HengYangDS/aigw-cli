@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:decision:0009
 role: decision
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: Keep Only Current Product Semantics
 ---
--->
 
 # DR-0009: Keep Only Current Product Semantics
 

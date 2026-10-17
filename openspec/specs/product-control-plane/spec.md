@@ -542,11 +542,16 @@ endpoint verification MUST remain functional without them.
 
 Codex and Claude Code SHALL be independent Adapters owning discovery,
 projection, authentication, rollback, verification, status, and withdrawal of
-AIGW state. Account-Token helpers MUST use the absolute installed AIGW
-command and Route without storing Tokens in client files. Client-native
-authentication and preferences SHALL remain client-owned. Verification SHALL
-use synchronized settings without wrappers. New clients MUST add an Adapter
-without changing provider policy or existing Adapters.
+AIGW state. Account-Token credential commands MUST use an absolute qualified
+reader and Route, never store Tokens in client files, and never assume a
+package-manager CLI link stays available. Client-native authentication and
+preferences SHALL remain client-owned. A new client MUST add an Adapter without
+changing provider policy or other Adapters.
+
+#### Scenario: Verification uses synchronized settings
+
+- **WHEN** AIGW verifies an admitted client
+- **THEN** it SHALL use the client's synchronized settings without a wrapper.
 
 #### Scenario: One admitted client is absent
 
@@ -557,7 +562,7 @@ without changing provider policy or existing Adapters.
 #### Scenario: Claude launches outside the installer shell
 
 - **WHEN** Claude Code requests a credential from an enabled AIGW projection
-- **THEN** `apiKeyHelper` SHALL invoke the exact installed AIGW executable
+- **THEN** `apiKeyHelper` SHALL invoke the selected qualified reader
 - **AND** credential retrieval SHALL not depend on the caller's PATH
 - **AND** the projected settings SHALL contain no plaintext Token
 
@@ -565,8 +570,8 @@ without changing provider policy or existing Adapters.
 
 - **WHEN** an enabled Codex Route selects an explicit native provider identity
 - **THEN** its declared authentication mode SHALL determine credential ownership
-- **AND** Account-Token authentication SHALL invoke the exact installed AIGW
-  helper for only the active Codex Route
+- **AND** Account-Token authentication SHALL invoke the selected qualified
+  reader for only the active Codex Route
 - **AND** client-native authentication SHALL project no AIGW Token helper
 - **AND** neither mode SHALL write a plaintext Token to public configuration
 
@@ -583,6 +588,13 @@ without changing provider policy or existing Adapters.
 
 - **WHEN** a client credential projection is prepared with a relative path or
   control character in the AIGW executable path
+- **THEN** the transaction SHALL fail before writing the owned projection
+- **AND** existing user-owned settings SHALL remain unchanged
+
+#### Scenario: The credential reader path is invalid
+
+- **WHEN** a client credential projection is prepared with a relative path or
+  control character in the selected reader path
 - **THEN** the transaction SHALL fail before writing the owned projection
 - **AND** existing user-owned settings SHALL remain unchanged
 
@@ -605,6 +617,15 @@ without changing provider policy or existing Adapters.
 - **WHEN** Codex uses the same configuration home for CLI and Desktop
 - **THEN** AIGW SHALL project the selected Route once into that shared home
 - **AND** SHALL NOT create a second Desktop-specific configuration authority
+
+#### Scenario: An adapter is proposed for another agent client
+
+- **WHEN** a new agent client such as pi or OpenCode is proposed
+- **THEN** its admission SHALL independently prove executable discovery,
+  protocol/model selection, credential ownership, native configuration merge,
+  rollback, withdrawal and a real tool-loop journey
+- **AND** AIGW SHALL NOT advertise support based only on a writable config
+  path or a successful endpoint probe.
 
 ### Requirement: Independent product composition
 
@@ -840,10 +861,18 @@ until proved.
 
 The repository SHALL publish one token-free reviewed manifest directly
 consumable by `aigw setup --from` without credentials or installed clients.
-Setup and sync SHALL preserve client and model intent, select Routes only
-through usable authentication boundaries, project only AIGW-owned state, and
-never expose or rebind Tokens. Fictitious providers, workstation paths, and
-parallel example manifests SHALL NOT remain.
+Setup and sync SHALL preserve existing Client Bindings and fill only unselected
+bindings from declared primary Routes and ordered alternatives with usable
+authentication; any other Route SHALL require explicit selection. They SHALL
+project only AIGW-owned state and never expose or rebind Tokens.
+
+#### Scenario: The shipped manifest stays reviewed
+
+- **WHEN** the repository ships its team manifest
+- **THEN** fictitious providers, workstation paths, and parallel example
+  manifests SHALL NOT remain
+- **AND** a Route outside the recommendations SHALL require explicit selection
+  even if its Account is connected or its Model matches.
 
 #### Scenario: Team member imports reviewed settings
 
@@ -866,25 +895,26 @@ parallel example manifests SHALL NOT remain.
 
 - **WHEN** a user imports the team manifest with exactly one available Account Token
 - **THEN** setup SHALL succeed without Tokens for other Accounts
-- **AND** each route SHALL select a compatible Route owned by the connected Account
-- **AND** selection SHALL preserve the reviewed model when that Account offers it
-- **AND** a lexical fallback MAY be used only when no equivalent model exists.
+- **AND** each unselected client SHALL select the first usable declared
+  recommendation compatible with that client and connected Account
+- **AND** an undeclared Route SHALL remain unselected rather than becoming a
+  Model or lexical fallback.
 
 #### Scenario: A compatible Account becomes available after import
 
 - **WHEN** setup retained the reviewed catalogue without a connected Account
-- **AND** a Token for any compatible Account later becomes available through
-  the configured credential backend
-- **THEN** `aigw sync` SHALL select compatible Routes owned by that Account
-- **AND** SHALL preserve the reviewed client and model intent
+- **AND** a Token for a declared compatible recommendation later becomes
+  available through the read-only environment backend
+- **THEN** `aigw sync` SHALL select that recommendation for an unselected client
+- **AND** SHALL preserve the declared protocol and existing Client Bindings
 - **AND** SHALL NOT require Tokens for other Accounts.
 
 #### Scenario: A supported client is installed later
 
-- **WHEN** setup completed before Codex or Claude Code was installed
-- **AND** an available Account has a compatible route
+- **WHEN** setup completed before an admitted client was installed
+- **AND** its selected Route has usable declared authentication
 - **THEN** `aigw sync` SHALL discover and project that client
-- **AND** SHALL NOT require, replace, or expose any Token
+- **AND** SHALL NOT require, replace, or expose any unrelated Token
 - **AND** SHALL leave absent clients untouched.
 
 ### Requirement: Route-scoped Codex native provider
@@ -1717,9 +1747,36 @@ retained client state.
 ### Requirement: Online update owns its temporary resources and preserves failure causes
 
 An online update SHALL own all peer download directories within one operation
-workspace and attempt to remove that workspace on every return. Cleanup SHALL
-preserve unrelated files and SHALL NOT alter the completed installation outcome.
-Reported failures SHALL retain their original causes for caller inspection.
+workspace and attempt to remove it on every return, preserving unrelated files
+and the installation outcome. Failures SHALL keep their original causes, while
+public diagnostics expose only safe state and recovery guidance. Forge
+subprocesses SHALL disable native prompts explicitly. Each peer's checksum
+manifest SHALL be authenticated against the embedded release public key before
+checksums, extraction, or execution.
+
+#### Scenario: Release construction binds one public key
+
+- **WHEN** release construction embeds the release public key
+- **THEN** it SHALL freeze that key once and use the same value to verify the
+  actual checksum signature
+- **AND** downloaded metadata SHALL NOT supply trust
+- **AND** reported failures SHALL keep exact owned paths for internal callers.
+
+#### Scenario: A checksum-consistent candidate lacks valid authentication
+
+- **WHEN** an online peer supplies an archive and matching checksum manifest
+- **AND** its signature is absent, malformed, signed by another key, or bound
+  to different manifest bytes
+- **THEN** the updater SHALL reject it before any candidate execution
+- **AND** the current program and retained rollback bytes SHALL stay unchanged
+- **AND** its exact owned download workspace SHALL be removed.
+
+#### Scenario: Signing inputs change after release admission
+
+- **WHEN** release construction froze the public key embedded in its programs
+- **AND** another key signs the actual checksum manifest
+- **THEN** construction SHALL reject the output before replacing accepted assets
+- **AND** the prior accepted output SHALL remain unchanged.
 
 #### Scenario: A release peer is temporarily unavailable
 
@@ -1732,10 +1789,20 @@ Reported failures SHALL retain their original causes for caller inspection.
 #### Scenario: Workspace cleanup fails
 
 - **WHEN** the operation's workspace cannot be fully removed
-- **THEN** the error SHALL identify that exact workspace and preserve the cleanup
-  cause together with any preceding failure
+- **THEN** the error SHALL preserve its exact workspace and cleanup cause for
+  internal inspection together with any preceding failure
+- **AND** public output SHALL omit private paths and raw subprocess diagnostics
 - **AND** if replacement completed, the diagnostic SHALL state that the program
-  was updated rather than implying that installation was unchanged or rolled back.
+  was updated rather than imply an unchanged or rolled-back installation.
+
+#### Scenario: Replacement staging cleanup fails after activation
+
+- **WHEN** a candidate or rollback program was activated but its staging
+  directory cannot be removed
+- **THEN** the program transition SHALL retain both its completed activation
+  result and the cleanup failure
+- **AND** public output SHALL report the active replacement and incomplete
+  cleanup without claiming that program replacement failed.
 
 ### Requirement: Release construction owns only its operation resources
 
@@ -2156,9 +2223,19 @@ artifact bytes SHALL not be rebuilt or replaced.
 
 When the configured Hermes home's data root holds the installation's committed
 dependency environment and managed tools, AIGW's disposable Hermes verification
-environment SHALL reuse that installation state. Verification SHALL NOT install,
-synchronize, rebuild, or republish that state, and SHALL fail before starting
-Hermes when the state cannot be shared.
+environment SHALL reuse them without borrowing mutable home-maintenance records,
+and its own boot records SHALL remain disposable. The probe SHALL NOT activate
+operator plugins or credential-backed memory providers, or install, synchronize,
+rebuild, or republish the operator's dependencies, tools, launchers, or boot
+records.
+
+#### Scenario: Verification keeps the native dependency selection
+
+- **WHEN** the disposable environment reuses the committed dependencies
+- **THEN** native dependency selection SHALL retain its original physical lock
+  and generation leases
+- **AND** SHALL include the complete native live-profile dependency-member
+  union with its original resolved identities.
 
 #### Scenario: Hermes keeps installation state under its data root
 
@@ -2179,6 +2256,17 @@ Hermes when the state cannot be shared.
 - **AND** it does not provision another dependency environment, retry, or
   disclose private paths.
 
+#### Scenario: Installed dependencies include native plugin members
+
+- **WHEN** default or live named profiles contribute plugin or memory-provider
+  members to the committed dependency environment
+- **THEN** disposable selector-only profiles retain their native names,
+  disabled selections and resolved source identities without copying credentials
+- **AND** retired profiles, invalid profile names and the default alias do not
+  change the dependency union
+- **AND** the inference probe disables plugin and memory-provider activation
+  while native dependency and boot-record checks remain effective.
+
 #### Scenario: Native launch effects cannot be isolated
 
 - **WHEN** the installed platform's boot path cannot preserve the operator's
@@ -2187,6 +2275,14 @@ Hermes when the state cannot be shared.
 - **AND** it does not invent a private selection lock, provision dependencies,
   modify client configuration, or claim readiness
 - **AND** the refusal discloses no credential diagnostics.
+
+#### Scenario: Required installation state is unavailable
+
+- **WHEN** the installed Hermes cannot resolve required dependency state from
+  the configured native root
+- **THEN** verification reports the native failure without claiming readiness
+- **AND** it does not provision another dependency environment, retry, or
+  disclose private paths.
 
 ### Requirement: Synchronization adopts a Hermes model choice
 
@@ -2227,3 +2323,56 @@ SHALL NOT rewrite the native selection to make it match the previous binding.
 - **WHEN** the operator runs `aigw use --for hermes <route>` after choosing a
   different model in Hermes
 - **THEN** AIGW SHALL project the named Route, not the native choice.
+
+### Requirement: Diagnostic quota and throttling remain distinct
+
+An authenticated diagnostic SHALL use explicit provider error evidence, not HTTP
+status alone, to distinguish exhausted Account credit or quota from transient
+rate or concurrency limits. Classification SHALL NOT switch Routes or retry a
+request automatically.
+
+#### Scenario: A provider reports hard quota exhaustion with HTTP 429
+
+- **WHEN** an Account diagnostic receives HTTP 429 with an unambiguous exhausted
+  quota code or insufficient balance evidence
+- **THEN** AIGW SHALL report non-retryable Account quota exhaustion and give
+  Account-scoped recovery guidance
+
+#### Scenario: A provider reports transient throttling with HTTP 429
+
+- **WHEN** an Account diagnostic receives HTTP 429 with rate-limit or ambiguous
+  concurrency-quota evidence
+- **THEN** AIGW SHALL report retryable throttling rather than exhausted credit
+- **AND** the diagnostic SHALL have made only its single admitted request.
+
+### Requirement: Client projection failure reports verified recovery state
+
+After a configuration commit, a failed native client projection or credential
+entrypoint finalization SHALL report whether AIGW configuration restoration
+succeeded. Human and JSON output SHALL
+use the same outcome and safe next action without exposing a private file path,
+credential value, or internal error. Configuration restoration SHALL NOT be
+presented as proof that every client or credential entrypoint was restored.
+
+#### Scenario: Configuration was restored after projection failure
+
+- **WHEN** a client file rejects the projection and the configuration snapshot
+  is restored
+- **THEN** the error SHALL say that configuration was restored
+- **AND** SHALL direct the operator to inspect client state with `aigw doctor`
+  before retrying.
+
+#### Scenario: Configuration restoration is incomplete
+
+- **WHEN** a client projection fails and restoring the configuration fails
+- **THEN** the error SHALL report incomplete restoration rather than claim a
+  successful rollback
+- **AND** SHALL not expose the underlying file path or imply retry is safe.
+
+#### Scenario: Credential entrypoint finalization fails after projection
+
+- **WHEN** client projection succeeds but its credential entrypoint fails
+  finalization and compensation is attempted
+- **THEN** the error SHALL report the observed configuration restoration result
+- **AND** failed client or entrypoint compensation SHALL not conceal that result
+- **AND** public output SHALL retain safe recovery guidance without private paths.
