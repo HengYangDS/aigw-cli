@@ -13,14 +13,17 @@
         rejects.
   - [ ] 1.2.3 Rebind aigw-cli to an accepted ETHOS runtime that admits attested
         maintenance releases; depends on `work/20261002-native-trust-closure`
-        reaching ETHOS `dev`.
+        reaching ETHOS `dev`. Owner: session "fix aigw and proxy"; next:
+        inspect ETHOS `dev` for the accepted maintenance admission and the
+        missing publication receipts of `v0.3.4` and `v0.3.5`; review
+        2026-10-18.
   - [x] 1.2.4 Publish the maintenance tags `v0.3.4` and `v0.3.5`; read back
         GitHub's objects `e86777be` and `95132368`. Done by the user-authorized
         break glass of 2026-10-15, outside ETHOS publication.
 - [x] 1.3 Supply GitLab's locked tool closure for the current
       `.config/mise/mise.lock` through upstream supply; GitLab's protected
-      pipelines pass for the published head (`17d9bdf6`: `dev` 11252, `main`
-      11254).
+      pipelines pass for the published head (`3cf22277`: `dev` 11342, `main`
+      11343).
 - [x] 1.4 Publish the GitLab Releases of `v0.3.4` and `v0.3.5` from their
       retained local bundles; `v0.4.2` stays without a GitLab Release by the
       user's decision of 2026-10-16.
@@ -30,7 +33,8 @@
 - [ ] 2.1 Qualify GitLab's effective status enforcement, unprotected proposals,
       guarded merges, signer trust, source-ref auto-delete and untrusted-runner
       isolation and cleanup, as `terminal-product-convergence` task 7.4 did for
-      GitHub.
+      GitHub. Owner: session "fix aigw and proxy"; next: 2.1.2; review
+      2026-10-18.
   - [x] 2.1.1 Make the native review probe count a protected resource behind a
         directory that the review identity cannot traverse as unreadable, while
         still requiring no elevation grant; the probe tests pass.
@@ -43,4 +47,6 @@
 - [ ] 3.1 Once ETHOS accepts its identity and reference successor, qualify the
       installed admission: reachable wrong-repository links fail, and historical
       peer tag identities reconcile through authorized native repair without
-      copied maps or checkers.
+      copied maps or checkers. Owner: session "fix aigw and proxy"; next: query
+      ETHOS `dev` for the accepted identity and reference successor; review
+      2026-10-18.
