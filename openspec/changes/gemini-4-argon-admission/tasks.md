@@ -13,7 +13,7 @@
 
 ## 2. Verification and release
 
-- [ ] 2.1 `mise run check` passes, and the lane head is proved and landed
+- [x] 2.1 `mise run check` passes, and the lane head is proved and landed
       locally.
-- [ ] 2.2 Release the change with the next AIGW release through the existing
+- [x] 2.2 Release the change with the next AIGW release through the existing
       release workflow.

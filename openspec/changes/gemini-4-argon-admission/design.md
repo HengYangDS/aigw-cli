@@ -83,3 +83,7 @@ On `17d9bdf6`, the changed `TestTeamManifestUsesRequestedLogicalModels` and
 expected: the manifest still held `gemini-3.8-flash` and its three Routes and
 lacked the Gemini 4 Argon Routes. With the manifest change, the
 `internal/configuration` package passes.
+
+The merge-refreshed lane head `3c133d84` passed `mise run check` and its proof,
+and shipped as AIGW 0.4.3: tag `v0.4.3` (object `e86e0ece`) passed its tag
+pipelines on both peers, whose Releases carry the same notarized bundle.
