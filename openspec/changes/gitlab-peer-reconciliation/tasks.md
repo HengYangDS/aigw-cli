@@ -33,15 +33,20 @@
 - [ ] 2.1 Qualify GitLab's effective status enforcement, unprotected proposals,
       guarded merges, signer trust, source-ref auto-delete and untrusted-runner
       isolation and cleanup, as `terminal-product-convergence` task 7.4 did for
-      GitHub. Owner: session "fix aigw and proxy"; next: 2.1.2; review
-      2026-10-18.
+      GitHub. Owner: session "fix aigw and proxy"; next: 2.1.3, then qualify
+      signer trust (project 456 has no push rule) and record the Windows probe
+      limitation; review 2026-10-18.
   - [x] 2.1.1 Make the native review probe count a protected resource behind a
         directory that the review identity cannot traverse as unreadable, while
         still requiring no elevation grant, and accept sudo's answer when the
         review identity lists its own empty grant; the probe tests pass.
-  - [ ] 2.1.2 Run the macOS review probe once with a pipeline-level
-        `AIGW_REVIEW_PROTECTED_FILE`, then keep it as an unprotected project
-        variable; the review job's trace carries the probe line.
+  - [x] 2.1.2 Run the macOS review probe once with a pipeline-level
+        `AIGW_REVIEW_PROTECTED_FILE`; the review job's trace carries the probe
+        line (pipeline 11347, job 54275).
+  - [ ] 2.1.3 Keep `AIGW_REVIEW_PROTECTED_FILE` as an unprotected project
+        variable after one macOS review job with it passes in full; job 54275
+        failed only because projection tests inherited the variable, which
+        they now clear.
 
 ## 3. Adopt The ETHOS Reference Successor
 

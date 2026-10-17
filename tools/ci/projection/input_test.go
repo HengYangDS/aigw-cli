@@ -87,7 +87,7 @@ func checkProjectedNativeReleaseArguments(t *testing.T, script, platform string)
 				"CI_PROJECT_URL="+test.repository, "AIGW_NATIVE_PERFORMANCE="+test.performance, "AIGW_VERIFY_SYSTEM_KEYRING=0", "AIGW_FULL_NATIVE_QUALITY=false",
 				"AIGW_BASELINE_TAG=v1.2.3", "AIGW_BASELINE_ARTIFACTS=", "AIGW_CANDIDATE_TAG=", "AIGW_CANDIDATE_ARTIFACTS=candidate bytes",
 				"AIGW_CANDIDATE_SOURCE=selected-source", "AIGW_NATIVE_INPUT_PACKAGE=", "AIGW_NATIVE_PERFORMANCE_ATTRIBUTION=false",
-				"AIGW_NATIVE_DIAGNOSTIC_CLIENT=", "AIGW_NATIVE_CLIENTS=false", "AIGW_ARGUMENT_WITNESS="+witness, "AIGW_NATIVE_COMMAND_EXIT="+test.exit)
+				"AIGW_NATIVE_DIAGNOSTIC_CLIENT=", "AIGW_NATIVE_CLIENTS=false", "AIGW_REVIEW_PROTECTED_FILE=", "AIGW_ARGUMENT_WITNESS="+witness, "AIGW_NATIVE_COMMAND_EXIT="+test.exit)
 			output, runErr := command.CombinedOutput()
 			var exit *exec.ExitError
 			if test.exit == "0" && runErr != nil || test.exit != "0" && (!errors.As(runErr, &exit) || exit.ExitCode() != 23) {
