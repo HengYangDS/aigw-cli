@@ -31,11 +31,18 @@ archive without claiming them.
 
 ## Capabilities
 
-`product-control-plane` gains the contract for a returning publication peer:
-catch-up publishes the exact objects the other peer received, and the peer stays
-incomplete until its own CI passes. The existing local-first publication
-topology requirement is unchanged. `ci-diagnostics` gains the requirement
-"Native review isolation proves denial of its protected resource".
+### New Capabilities
+
+- None.
+
+### Modified Capabilities
+
+- `product-control-plane`: gains the contract for a returning publication peer:
+  catch-up publishes the exact objects the other peer received, and the peer
+  stays incomplete until its own CI passes. The existing local-first
+  publication topology requirement is unchanged.
+- `ci-diagnostics`: gains the requirement "Native review isolation proves
+  denial of its protected resource".
 
 ## Impact
 
