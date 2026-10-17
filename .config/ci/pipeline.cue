@@ -1197,6 +1197,11 @@ githubRelease: {
 				type:        "boolean"
 				default:     false
 			}
+			baseline_tag: {
+				description: "Published predecessor v* release that native_lifecycle upgrades from and rolls back to"
+				required:    false
+				type:        "string"
+			}
 		}
 	}
 	permissions: {
@@ -1252,8 +1257,9 @@ githubRelease: {
 					env: {
 						AIGW_VERIFY_SYSTEM_KEYRING:        "${{ runner.os == 'Windows' && '1' || '0' }}"
 						AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: "ephemeral-host"
+						AIGW_BASELINE_TAG:                 "${{ inputs.baseline_tag }}"
 					}
-					run: "mise exec --locked -- go run ./tools/release accept-native --artifacts dist"
+					run: #"mise exec --locked -- go run ./tools/release accept-native --artifacts dist --peer=github --repository="$env:GITHUB_REPOSITORY" --baseline-tag="$env:AIGW_BASELINE_TAG""#
 				},
 			]
 		}
