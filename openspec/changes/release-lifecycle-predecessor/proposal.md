@@ -26,8 +26,14 @@ explicit published predecessor".
 
 ## Capabilities
 
-`ci-diagnostics` gains the requirement "Published lifecycle verification
-selects its predecessor".
+### New Capabilities
+
+- None.
+
+### Modified Capabilities
+
+- `ci-diagnostics`: gains the requirement "Published lifecycle verification
+  selects its predecessor".
 
 ## Impact
 

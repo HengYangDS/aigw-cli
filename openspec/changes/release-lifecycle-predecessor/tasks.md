@@ -12,7 +12,8 @@
 
 ## 2. Verification and release
 
-- [ ] 2.1 `mise run check` passes, and the lane head is proved.
-- [ ] 2.2 With the fix on GitHub `main`, the Release workflow passes on its
+- [x] 2.1 `mise run check` passes, and the lane head is proved.
+- [x] 2.2 With the fix on GitHub `main`, the Release workflow passes on its
       Linux, macOS and Windows runners for `v0.4.3` with `baseline_tag`
-      `v0.4.2` and `native_lifecycle`.
+      `v0.4.2` and `native_lifecycle` (runs 39006218618, 39006221027 and
+      39006223351).
