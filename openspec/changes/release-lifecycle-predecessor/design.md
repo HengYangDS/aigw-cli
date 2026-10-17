@@ -43,18 +43,3 @@ workflow adds no download or verification of its own.
   verification still report their own result.
 - [A maintainer selects an unintended predecessor] → the run qualifies upgrade
   and rollback from that tag only, and its dispatch inputs record the tag.
-
-## Verification
-
-On `c14fe8d1`, the changed `TestPublishedArtifactVerificationUsesExactTagAndPublicTrust`
-and `TestPublishedNativeLifecycleUsesSelectedIsolatedRunner` failed as
-expected: the lifecycle step ran `accept-native --artifacts dist` alone, and
-the workflow had no `baseline_tag` input. With the projection change, only
-`.github/workflows/release.yml` changed among the peer projections, and the
-`tools/ci/projection` package passes.
-
-With the fix on GitHub `main` (`9292b719`), the Release workflow ran for
-`v0.4.3` with `baseline_tag=v0.4.2` and `native_lifecycle=true` on
-`ubuntu-24.04`, `macos-26` and `windows-2025`. On each runner the published
-native lifecycle step executed after artifact and source verification and
-passed, including the published-predecessor journeys.
