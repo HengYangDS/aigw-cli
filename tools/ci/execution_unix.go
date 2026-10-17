@@ -38,7 +38,10 @@ func qualifyProtectedResource(path string, stdout io.Writer, inquiry outputRunne
 		}
 	}
 	output, err := inquiry(command{Name: "sudo", Args: []string{"-n", "-l"}, Env: []string{"LC_ALL=C", "LANG=C"}, Timeout: 5 * time.Second})
-	noGrant := strings.Contains(string(output), "is not allowed to run sudo") || strings.Contains(string(output), "is not in the sudoers file")
+	// sudo words an empty grant differently when an identity lists its own rights.
+	noGrant := strings.Contains(string(output), "is not allowed to run sudo") ||
+		strings.Contains(string(output), "may not run sudo") ||
+		strings.Contains(string(output), "is not in the sudoers file")
 	if err == nil || errors.Is(err, context.DeadlineExceeded) || !noGrant {
 		return errors.New("native review identity has an elevation grant or its absence is unproved")
 	}

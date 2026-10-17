@@ -37,7 +37,8 @@
       2026-10-18.
   - [x] 2.1.1 Make the native review probe count a protected resource behind a
         directory that the review identity cannot traverse as unreadable, while
-        still requiring no elevation grant; the probe tests pass.
+        still requiring no elevation grant, and accept sudo's answer when the
+        review identity lists its own empty grant; the probe tests pass.
   - [ ] 2.1.2 Run the macOS review probe once with a pipeline-level
         `AIGW_REVIEW_PROTECTED_FILE`, then keep it as an unprotected project
         variable; the review job's trace carries the probe line.

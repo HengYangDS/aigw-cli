@@ -46,6 +46,14 @@ to review; credentials and protected release variables remain restricted.
 Darwin retains control-plane object and tag verification; Windows and Darwin
 native jobs retain their separate review and protected registrations.
 
+The Darwin review job qualifies its isolation when the unprotected project
+variable `AIGW_REVIEW_PROTECTED_FILE` names the protected Runner's
+configuration. Its privilege inquiry runs `sudo -n -l` as the review account,
+and macOS sudo asks for a password before listing by default. The review host
+therefore sets `Defaults:<review account> listpw=never` for that account
+alone: the account can list its own empty grant, and nothing more is
+authorized. Without that default the job fails before product execution.
+
 CUE enables GitLab's [`FF_GIT_URLS_WITHOUT_TOKENS`](https://docs.gitlab.com/runner/configuration/feature-flags/)
 for every job. The native Runner obtains the job Token from its environment
 instead of embedding it in Git configuration or caching it in a credential

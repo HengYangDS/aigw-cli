@@ -57,6 +57,11 @@ denied traversal counts as a denied read, and the probe reports the resource
 identity as asserted by the operator. Relaxing the directories to fit the probe
 would weaken the isolation it measures.
 
+The elevation inquiry must be answered without a password. macOS sudo asks for
+one before listing by default, so the review host sets `listpw=never` for the
+review account alone; that lists the account's empty grant and authorizes
+nothing.
+
 ### Catch-up precedes admission
 
 GitLab must hold the accepted branches, tags and tool closure before its
@@ -70,6 +75,8 @@ is ETHOS's own deliverable and may complete in either order.
 - [A closed directory hides the protected resource from the review identity] →
   the probe cannot confirm the resource exists; the operator's exact path is its
   only identity, and the report says so.
+- [The review host loses its sudo listing default] → the probe fails closed
+  until the operator restores it; the operations guide names the setting.
 - [Windows cannot run the protected-file probe] → Windows review isolation
   remains a bounded limitation; Linux review jobs run in disposable containers.
 - [GitLab's source-branch auto-delete ignores ETHOS fast-forward merges] →

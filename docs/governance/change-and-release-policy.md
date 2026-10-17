@@ -210,8 +210,10 @@ topology; broader arbitrary hostile-code sandboxing remains unproved unless
 separately qualified.
 
 The existing native entry accepts an explicit `--protected-file` for bounded
-Unix job-context qualification: a present regular file must deny a direct open, and
-native noninteractive privilege inquiry must prove no sudo grant. Missing paths,
+Unix job-context qualification: a visible regular file must deny a direct open, or a
+directory the review identity cannot traverse must hide it, in which case the
+report marks the resource identity as operator-asserted; native noninteractive
+privilege inquiry must prove no sudo grant. Missing paths in a visible directory,
 readable resources, pending authorization and deadlines do not qualify. Windows
 rejects this optional input before execution; ordinary native acceptance is unchanged. This
 optional resource probe is not complete remote-manager or hostile-code containment;

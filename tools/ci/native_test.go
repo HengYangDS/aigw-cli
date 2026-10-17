@@ -87,6 +87,7 @@ func TestNativeReviewProtectedResourceRequiresNoElevationGrant(t *testing.T) {
 		accepted     bool
 	}{
 		{"no grant", "User review is not allowed to run sudo on this host.", errors.New("exit 1"), true},
+		{"no grant in its own listing", "Sorry, user review may not run sudo on this host.", errors.New("exit 1"), true},
 		{"grant", "(ALL) ALL", nil, false},
 		{"authorization pending", "sudo: a password is required", errors.New("exit 1"), false},
 	} {
