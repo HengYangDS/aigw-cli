@@ -62,6 +62,18 @@ one before listing by default, so the review host sets `listpw=never` for the
 review account alone; that lists the account's empty grant and authorizes
 nothing.
 
+### GitLab admission matches GitHub's within its plan
+
+GitLab merges fast-forward only, after a successful pipeline with resolved
+discussions, and `dev` and `main` admit Maintainer pushes and merges only,
+without force push. Proposals are unprotected same-project refs, and fork
+pipelines cannot run in the project. Runners are project-scoped, locked and
+tagged-only, with separate review and protected registrations and separated
+caches. Protected pipelines verify every pushed commit against the
+allowed-signers file, and GitLab marks the accepted head's SSH signature
+verified. Unlike GitHub's required signatures, GitLab cannot refuse an unsigned
+push: project 456 answers 404 for push rules, a Premium feature.
+
 ### Catch-up precedes admission
 
 GitLab must hold the accepted branches, tags and tool closure before its
@@ -79,5 +91,7 @@ is ETHOS's own deliverable and may complete in either order.
   until the operator restores it; the operations guide names the setting.
 - [Windows cannot run the protected-file probe] → Windows review isolation
   remains a bounded limitation; Linux review jobs run in disposable containers.
+- [GitLab cannot refuse an unsigned push] → only Maintainers can push to
+  accepted refs, and the next protected pipeline fails its commit verification.
 - [GitLab's source-branch auto-delete ignores ETHOS fast-forward merges] →
   ETHOS retires proposal refs itself.

@@ -25,6 +25,11 @@ object; neither peer is an input to the other.
 
 Transport credentials never construct, rewrite, or sign product objects.
 
+Protected pipelines on both peers verify every pushed commit against the
+allowed-signers file. GitHub also refuses unsigned pushes to `dev` and `main`.
+This GitLab instance offers no push rules, so GitLab cannot refuse one; an
+unsigned Maintainer push fails the next protected pipeline instead.
+
 ## GitLab Runner Admission
 
 The CUE workflow selects Linux runners before jobs are created. `quality`,
@@ -53,6 +58,9 @@ and macOS sudo asks for a password before listing by default. The review host
 therefore sets `Defaults:<review account> listpw=never` for that account
 alone: the account can list its own empty grant, and nothing more is
 authorized. Without that default the job fails before product execution.
+Windows has no equivalent probe, because `--protected-file` requires a Unix
+host; Windows review isolation rests on its separate registration and Shell
+account alone.
 
 CUE enables GitLab's [`FF_GIT_URLS_WITHOUT_TOKENS`](https://docs.gitlab.com/runner/configuration/feature-flags/)
 for every job. The native Runner obtains the job Token from its environment
