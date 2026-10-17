@@ -10,7 +10,7 @@ health check.
 
 ### Requirement: Readiness has one machine-readable projection
 
-The readiness command SHALL accept `--json` and emit a stable JSON document without mutating configuration, credentials, client files, or network state beyond the existing read-only diagnostics.
+The readiness command SHALL accept `--json` and emit a stable JSON document without mutating configuration, credentials, client files, or network state beyond the existing read-only diagnostics. On macOS, the installed program's first read of a retained Keychain item MAY perform the one-time migration to AIGW ownership, which keeps the Token, service and Account unchanged.
 
 #### Scenario: Configured routes are reported as structured facts
 
@@ -215,3 +215,28 @@ unless authenticating a declared probe, start a client, or repair a projection.
 - **WHEN** a read-only command cannot observe credential metadata
 - **THEN** it reports the backend boundary and recovery action
 - **AND** does not open an operating-system credential prompt.
+
+### Requirement: One-client checks do not observe unrelated clients
+
+`aigw check` SHALL examine every enabled Client Binding when no client is
+specified. `aigw check --for <client>` SHALL instead examine only that admitted,
+enabled client. The scoped check SHALL not inspect another client's projection,
+read another Account's credential metadata or Token, or contact another
+endpoint. Human and JSON results SHALL report the checked scope; JSON
+`enabled_clients` SHALL count, and `clients` SHALL list, only the requested
+client.
+
+#### Scenario: One client is healthy while another is not ready
+
+- **GIVEN** two enabled clients with different Account Tokens and endpoints
+- **WHEN** the operator checks one of them with `--for`
+- **THEN** only that client's selected Route receives the requested endpoint or
+  inference diagnostic
+- **AND** the other client's missing Token or projection cannot block the
+  scoped result.
+
+#### Scenario: The requested client is unknown or disabled
+
+- **WHEN** `--for` names an unknown or disabled client
+- **THEN** check fails with a safe action before reading credential metadata or
+  contacting any endpoint.

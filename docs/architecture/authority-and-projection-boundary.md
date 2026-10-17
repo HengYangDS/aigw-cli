@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:control-plane-boundary
 role: explanation
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: AIGW control plane and native projection ownership
 ---
--->
 
 # Authority and Projection Boundary
 
@@ -351,17 +349,20 @@ reads and validates the canonical [canonical version](../../VERSION) once for CI
 construction and native journeys; malformed SemVer fails before execution.
 Package-local test file readers do not expose a shared test-support API.
 
-CI projection consumes branch roles from [workspace roles](../../.ethos/workspace.toml) through CUE's
-native TOML input. It does not copy role values or interpret ETHOS internals.
+CI projection binds the shared accepted `dev` and release `main` roles in its
+existing CUE owner. Its native TOML input keeps the [workspace binding](../../.ethos/workspace.toml);
+a competing branch policy cannot produce a projection.
 Release readiness also owns Changelog chronology, exact tag-to-HEAD binding,
 and release-epoch lookup. CI invokes that owner directly; no generic repository
 command layer or duplicated Changelog parser remains.
 
 [Forge commands](../../tools/forge/main.go), [Git-object verification](../../tools/forge/provenance.go),
 and [peer publication](../../tools/forge/project.go) have distinct owners.
-Publication calls the same typed commit verifier as the read-only command,
-not a reconstructed command line. Policy and identity metadata come from the
-resolved source commit, never an unrelated checkout or an uncommitted file.
+Publication calls the same typed commit verifier as the read-only command.
+That verifier projects ETHOS's fixed commit grammar and consumes optional scope
+restrictions and SSH-signing requirements from the resolved source commit.
+Identity metadata also comes from that object; unrelated checkouts and
+uncommitted files cannot replace it.
 Peer selection cannot change that object or its verification authority.
 
 Release construction, readiness, publication and upgrade consume the existing

@@ -1,0 +1,235 @@
+version = "2"
+
+[run]
+tests = true
+build-tags = [
+  "client_acceptance",
+  "dependency_acceptance",
+  "native_hermes",
+  "native_resource_acceptance",
+  "performance_acceptance",
+]
+allow-serial-runners = true
+
+[formatters]
+enable = [
+  "gofmt",
+  "goimports",
+]
+
+[formatters.exclusions]
+paths = [
+  "^(\\.\\./){3}build/",
+]
+
+[linters]
+default = "none"
+enable = [
+  "asasalint",
+  "bidichk",
+  "bodyclose",
+  "canonicalheader",
+  "contextcheck",
+  "copyloopvar",
+  "cyclop",
+  "dupl",
+  "durationcheck",
+  "errcheck",
+  "errname",
+  "errorlint",
+  "exhaustive",
+  "exptostd",
+  "fatcontext",
+  "funlen",
+  "gocheckcompilerdirectives",
+  "gocognit",
+  "gocritic",
+  "godoclint",
+  "gosec",
+  "govet",
+  "importas",
+  "ineffassign",
+  "intrange",
+  "loggercheck",
+  "maintidx",
+  "misspell",
+  "modernize",
+  "musttag",
+  "nestif",
+  "nolintlint",
+  "nosprintfhostport",
+  "predeclared",
+  "reassign",
+  "recvcheck",
+  "revive",
+  "sloglint",
+  "staticcheck",
+  "unconvert",
+  "unused",
+  "usestdlibvars",
+  "wastedassign",
+  "whitespace",
+]
+
+[linters.settings.govet]
+enable = [
+  "nilness",
+  "unusedwrite",
+]
+
+[linters.settings.godoclint]
+default = "basic"
+enable = [
+  "require-doc",
+  "require-pkg-doc",
+  "no-unused-link",
+  "require-stdlib-doclink",
+]
+
+[linters.settings.godoclint.options.require-doc]
+include-tests = false
+
+[linters.settings.godoclint.options.require-pkg-doc]
+include-tests = false
+
+[linters.settings.godoclint.options.no-unused-link]
+include-tests = false
+
+[linters.settings.godoclint.options.require-stdlib-doclink]
+include-tests = false
+
+[linters.settings.cyclop]
+max-complexity = 25
+package-average = 0
+
+[linters.settings.dupl]
+threshold = 100
+
+[linters.settings.errcheck]
+check-type-assertions = true
+
+[linters.settings.funlen]
+lines = 120
+statements = 60
+
+[linters.settings.gocognit]
+min-complexity = 45
+
+[linters.settings.gocritic]
+disable-all = true
+enabled-checks = [
+  "argOrder",
+  "badCall",
+  "badCond",
+  "badLock",
+  "badRegexp",
+  "badSorting",
+  "badSyncOnceFunc",
+  "caseOrder",
+  "dupArg",
+  "dupBranchBody",
+  "dupCase",
+  "dupSubExpr",
+  "evalOrder",
+  "exitAfterDefer",
+  "exposedSyncMutex",
+  "externalErrorReassign",
+  "filepathJoin",
+  "flagDeref",
+  "mapKey",
+  "nilValReturn",
+  "offBy1",
+  "regexpMust",
+  "sloppyLen",
+  "sloppyTypeAssert",
+  "switchTrue",
+  "typeSwitchVar",
+  "weakCond",
+]
+
+[linters.settings.maintidx]
+under = 25
+
+[linters.settings.nestif]
+min-complexity = 4
+
+[linters.settings.recvcheck]
+exclusions = [
+  "Config.Normalize",
+]
+
+[linters.settings.revive]
+enable-all-rules = false
+
+[[linters.settings.revive.rules]]
+name = "argument-limit"
+arguments = [
+  7,
+]
+
+[linters.settings.gosec]
+includes = [
+  "G103",
+  "G106",
+  "G110",
+  "G115",
+  "G116",
+  "G117",
+  "G118",
+  "G305",
+  "G401",
+  "G402",
+  "G403",
+  "G404",
+  "G405",
+  "G406",
+  "G408",
+  "G501",
+  "G502",
+  "G503",
+  "G504",
+  "G505",
+  "G506",
+  "G507",
+  "G601",
+  "G602",
+]
+
+[linters.settings.staticcheck]
+checks = [
+  "SA*",
+  "S1*",
+  "ST1000",
+  "ST1001",
+  "ST1003",
+  "ST1006",
+  "ST1008",
+  "ST1011",
+  "ST1012",
+  "ST1013",
+  "ST1015",
+  "ST1016",
+  "ST1017",
+  "ST1018",
+  "ST1019",
+  "ST1020",
+  "ST1021",
+  "ST1022",
+  "ST1023",
+  "QF*",
+  "U*",
+]
+
+[linters.exclusions]
+presets = []
+
+[[linters.exclusions.rules]]
+linters = [
+  "godoclint",
+]
+path = "_test\\.go"
+
+[issues]
+max-issues-per-linter = 0
+max-same-issues = 0
+uniq-by-line = false

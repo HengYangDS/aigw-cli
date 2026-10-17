@@ -141,7 +141,7 @@ func projectionRoot(t *testing.T, model string) string {
 	root := t.TempDir()
 	for name, content := range map[string]string{
 		".config/ci/pipeline.cue": model,
-		".ethos/workspace.toml":   "[branch_roles]\naccepted_branch = 'integration'\nrelease_branch = 'release'\n",
+		".ethos/workspace.toml":   "[branch_roles]\nrelease_mirror = 'accepted_ff'\n",
 	} {
 		path := filepath.Join(root, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -154,7 +154,7 @@ func projectionRoot(t *testing.T, model string) string {
 	return root
 }
 
-func TestProjectionUsesCheckoutBranchRoles(t *testing.T) {
+func TestProjectionUsesSharedBranchRoles(t *testing.T) {
 	model, err := os.ReadFile(filepath.Join("..", "..", "..", ".config", "ci", "pipeline.cue"))
 	if err != nil {
 		t.Fatal(err)
@@ -171,10 +171,10 @@ func TestProjectionUsesCheckoutBranchRoles(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(items[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	if got := gitlab.Parity.Rules[0].If; got != `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "release"` {
+	if got := gitlab.Parity.Rules[0].If; got != `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"` {
 		t.Fatalf("GitLab release role = %q", got)
 	}
-	if got := gitlab.Quality.Rules[1].If; got != `$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "integration" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "release") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID` {
+	if got := gitlab.Quality.Rules[1].If; got != `$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID` {
 		t.Errorf("GitLab review roles = %q", got)
 	}
 	var github struct {
@@ -186,15 +186,29 @@ func TestProjectionUsesCheckoutBranchRoles(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, event := range []string{"push", "pull_request"} {
-		want := "integration,release"
+		want := "dev,main"
 		if got := strings.Join(github.On[event].Branches, ","); got != want {
 			t.Fatalf("GitHub %s roles = %q, want %q", event, got, want)
 		}
+	}
+	workspace := filepath.Join(root, ".ethos", "workspace.toml")
+	if err := os.WriteFile(workspace, []byte("[branch_roles]\naccepted_branch = 'dev'\nrelease_branch = 'main'\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	explicit, err := renderProjections(root)
+	if err != nil || !slices.Equal(explicit, items) {
+		t.Fatalf("removing restated roles changed the shared projection: %v", err)
+	}
+	if err := os.WriteFile(workspace, []byte("[branch_roles]\naccepted_branch = 'integration'\nrelease_branch = 'release'\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := renderProjections(root); err == nil {
+		t.Fatal("a competing workspace role policy produced projections")
 	}
 	if err := os.Remove(filepath.Join(root, ".ethos", "workspace.toml")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := renderProjections(root); err == nil {
-		t.Fatal("missing branch-role authority produced projections")
+		t.Fatal("missing workspace binding produced projections")
 	}
 }

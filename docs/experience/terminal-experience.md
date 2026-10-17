@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:terminal-experience
 role: explanation
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: terminal interaction and recovery language
 ---
--->
 
 # Terminal Experience
 

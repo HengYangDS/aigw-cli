@@ -141,7 +141,7 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 	want := []string{
 		"claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5",
 		"cohere-command-a",
-		"deepseek-v4.1-flash", "doubao-seed-2-1-pro-260628", "ernie-5.1", "gemini-3.8-flash", "glm-5.3",
+		"deepseek-v4.1-flash", "doubao-seed-2-1-pro-260628", "ernie-5.1", "gemini-4-argon", "glm-5.3",
 		"gpt-6.1-sol", "grok-4.7",
 		"hy4-preview", "kimi-k3", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.5-preview", "mercury-2.5", "mimo-v2.6-pro",
 		"minimax-m3", "mistral-large-3", "muse-spark-1.3", "nemotron-3-ultra-550b-a55b",
@@ -304,9 +304,9 @@ func TestTeamManifestFrontierRefreshUsesQualifiedAccountProtocols(t *testing.T) 
 		wire     string
 		protocol EndpointProtocol
 	}{
-		"aihubmix-gemini-3.8-flash":  {"gemini-3.8-flash", "gemini-3.8-flash", ProtocolOpenAIResponses},
-		"dmxapi-gemini-3.8-flash":    {"gemini-3.8-flash", "gemini-3.8-flash", ProtocolOpenAIResponses},
-		"ucloud-gemini-3.8-flash":    {"gemini-3.8-flash", "gemini-3.8-flash", ProtocolOpenAIChatCompletions},
+		"aihubmix-gemini-4-argon":    {"gemini-4-argon", "gemini-4-argon", ProtocolOpenAIResponses},
+		"dmxapi-gemini-4-argon":      {"gemini-4-argon", "gemini-4-argon", ProtocolOpenAIResponses},
+		"ucloud-gemini-4-argon":      {"gemini-4-argon", "gemini-4-argon", ProtocolOpenAIChatCompletions},
 		"dmxapi-hy4-preview":         {"hy4-preview", "hy4-preview", ProtocolOpenAIResponses},
 		"dmxapi-longcat-2.5-preview": {"longcat-2.5-preview", "LongCat-2.5-Preview", ProtocolOpenAIResponses},
 		"dmxapi-step-5-preview":      {"step-5-preview", "step-5-preview", ProtocolOpenAIResponses},
@@ -316,6 +316,11 @@ func TestTeamManifestFrontierRefreshUsesQualifiedAccountProtocols(t *testing.T) 
 		if !ok || route.Model != expected.model || route.UpstreamModelID() != expected.wire ||
 			!slices.Equal(route.AdmittedProtocols(), []EndpointProtocol{expected.protocol}) {
 			t.Errorf("qualified frontier Route %q = %+v, want %+v", id, route, expected)
+		}
+	}
+	for _, superseded := range []string{"aihubmix-gemini-3.8-flash", "dmxapi-gemini-3.8-flash", "ucloud-gemini-3.8-flash"} {
+		if _, retained := manifest.Routes[superseded]; retained {
+			t.Errorf("superseded Route %q remains in the shipped manifest", superseded)
 		}
 	}
 }

@@ -124,7 +124,7 @@ docker run --pull=never --rm --read-only --network none --tmpfs /tmp:exec,mode=1
   --mount "type=bind,source={{config_root}},target=/workspace,readonly" \
   --workdir /workspace --env HOME=/tmp \
   --entrypoint renovate-config-validator {{vars.renovate_image}} \
-  --strict --no-global .config/dependencies/renovate.json5
+  --strict --no-global .config/checks/renovate/renovate.json5
 """
 
 [tasks."dependencies:inspect"]
@@ -138,6 +138,6 @@ docker run --pull=never --rm --read-only --network none --tmpfs /tmp:exec,mode=1
   --env RENOVATE_ONBOARDING=false --env RENOVATE_REQUIRE_CONFIG=ignored \
   --env RENOVATE_GITHUB_TOKEN_WARN=false \
   --env LOG_LEVEL=debug --env LOG_FORMAT=json \
-  --env RENOVATE_CONFIG_FILE=/workspace/.config/dependencies/renovate.json5 \
+  --env RENOVATE_CONFIG_FILE=/workspace/.config/checks/renovate/renovate.json5 \
   --entrypoint renovate {{vars.renovate_image}} --platform=local --dry-run=extract
 """

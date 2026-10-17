@@ -197,8 +197,9 @@ nativeArtifactToolchain: {
 	}
 }
 
-// Git role names belong to the adopter workspace; CUE consumes its native TOML.
-branch_roles: {accepted_branch: string, release_branch: string}
+// This projection consumes the shared governed roles. Workspace overrides cannot
+// introduce another branch policy; the remaining native TOML stays an input.
+branch_roles: {accepted_branch: "dev", release_branch: "main"}
 
 lifecycle: {
 	releaseBranch:  branch_roles.release_branch
@@ -212,7 +213,7 @@ productEvidence: native: ["darwin", "linux", "windows"]
 gitlabControlPlatform: #OperatingSystem & "darwin"
 
 // This map owns native execution evidence only. Product release targets remain
-// solely owned by .config/release/goreleaser.yaml.
+// solely owned by .config/release/goreleaser/.goreleaser.yaml.
 nativeEvidence: {
 	darwin: {
 		name: "macOS"

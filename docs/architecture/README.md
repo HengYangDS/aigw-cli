@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:architecture-docs
 role: index
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: AIGW architecture documentation navigation
 ---
--->
 
 # Architecture
 

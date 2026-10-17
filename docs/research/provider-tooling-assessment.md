@@ -1,11 +1,9 @@
-<!--
 ---
 subject: aigw:provider-tooling-assessment
 role: research
 state: active
 relations: {}
 ---
--->
 
 # AI Access Tooling: Needs, Architectures, and Competitive Value
 
@@ -169,7 +167,7 @@ The findings below separate observation, mechanism and decision implication. Rev
 For AIGW's current control-plane boundary, the substitution decisions are:
 
 - **CUE — retain.** Its [configuration and validation model](https://cuelang.org/docs/introduction/) already owns the [dual-peer CI graph](../../.config/ci/pipeline.cue); a second pipeline language would duplicate authority.
-- **GoReleaser, Syft, and OSV Scanner — retain.** [GoReleaser archives](https://goreleaser.com/customization/package/archives/) underpin [release construction](../../.config/release/goreleaser.yaml); Syft and OSV supply the separately required all-binary and locked-dependency evidence. The remaining release code binds signing, provenance, deterministic comparison, and peer readback, not a second archive builder.
+- **GoReleaser, Syft, and OSV Scanner — retain.** [GoReleaser archives](https://goreleaser.com/customization/package/archives/) underpin [release construction](../../.config/release/goreleaser/.goreleaser.yaml); Syft and OSV supply the separately required all-binary and locked-dependency evidence. The remaining release code binds signing, provenance, deterministic comparison, and peer readback, not a second archive builder.
 - **CC Switch Core — do not embed.** Its [sealed adapter][core-adapter] still leaves the host responsible for I/O, credential safety, and rollback; it does not retire AIGW's client ownership. Replacing AIGW with a complete switcher remains a separate product-level choice.
 - **CLIProxyAPI SDK — do not embed.** Its [public module][cpa-module] serves a request data plane, not AIGW's native client projections; assess it under Proxy only if it can retire a proven compatibility obligation.
 - **One API and LiteLLM — do not embed.** Their [shared-gateway][one-api] and [virtual-key][litellm] responsibilities can be composed as external endpoints; copying them into AIGW would create a traffic owner it does not need.

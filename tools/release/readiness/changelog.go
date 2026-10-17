@@ -14,9 +14,9 @@ import (
 	"github.com/Masterminds/semver/v3"
 )
 
-const unreleasedHeading = "## Unreleased"
+const unreleasedHeading = "## [Unreleased]"
 
-var releaseHeading = regexp.MustCompile(`^## (\S+) - (\d{4}-\d{2}-\d{2})(?: \[YANKED])?$`)
+var releaseHeading = regexp.MustCompile(`^## \[([^\]\s]+)\] - (\d{4}-\d{2}-\d{2})(?: \[YANKED])?$`)
 
 var changelogCategories = map[string]struct{}{
 	"Added":      {},

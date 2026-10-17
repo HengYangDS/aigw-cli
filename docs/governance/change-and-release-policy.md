@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:change-and-release-policy
 role: policy
@@ -6,23 +5,22 @@ state: canonical
 relations:
   canonical_for: change and release governance
 ---
--->
 
 # Change and Release Policy
 
 ## Authority Map
 
-| Meaning                                | Authoritative owner                                                                                                                                            |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product version and release chronology | [VERSION](../../VERSION) and [CHANGELOG](../../CHANGELOG.md)                                                                                                   |
-| Product commits and annotated tags     | Exact signed local Git objects                                                                                                                                 |
-| Change intent and accepted behavior    | [OpenSpec Changes](../../openspec/changes/) and [canonical specs](../../openspec/specs/)                                                                       |
-| Go dependency graph                    | [go.mod](../../go.mod) and [go.sum](../../go.sum)                                                                                                              |
-| Runtimes and standalone tools          | [.config/mise/config.toml](../../.config/mise/config.toml), [.config/mise/mise.lock](../../.config/mise/mise.lock) and native sidecars                         |
-| npm graph                              | [package.json](../../package.json) and [package-lock.json](../../package-lock.json)                                                                            |
-| CI topology                            | [CUE](../../.config/ci/pipeline.cue), projected to both peers                                                                                                  |
-| Quality and source size                | [Coverage policy](../../.config/checks/coverage/policy.toml), [Go policy](../../.config/checks/go/policy.yml), [SCC budget](../../.config/checks/go/size.toml) |
-| Construction and publication           | [Release owner](../../tools/release/) and native packaging policy                                                                                              |
+| Meaning                                | Authoritative owner                                                                                                                                                                  |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Product version and release chronology | [VERSION](../../VERSION) and [CHANGELOG](../../CHANGELOG.md)                                                                                                                         |
+| Product commits and annotated tags     | Exact signed local Git objects                                                                                                                                                       |
+| Change intent and accepted behavior    | [OpenSpec Changes](../../openspec/changes/) and [canonical specs](../../openspec/specs/)                                                                                             |
+| Go dependency graph                    | [go.mod](../../go.mod) and [go.sum](../../go.sum)                                                                                                                                    |
+| Runtimes and standalone tools          | [.config/mise/config.toml](../../.config/mise/config.toml), [.config/mise/mise.lock](../../.config/mise/mise.lock) and native sidecars                                               |
+| npm graph                              | [package.json](../../package.json) and [package-lock.json](../../package-lock.json)                                                                                                  |
+| CI topology                            | [CUE](../../.config/ci/pipeline.cue), projected to both peers                                                                                                                        |
+| Quality and source size                | [Coverage policy](../../.config/checks/coverage/policy.toml), [Go policy](../../.config/checks/golangci-lint/golangci-lint.toml), [SCC budget](../../.config/checks/scc/policy.toml) |
+| Construction and publication           | [Release owner](../../tools/release/) and native packaging policy                                                                                                                    |
 
 Workflows, Forge displays, installations, caches and IDE indexes are projections.
 Root files retain native discovery names; [`.config/checks`](../../.config/checks/) contains native policy
@@ -51,7 +49,7 @@ belongs in the [Decision Record navigation](../decisions/README.md).
 
 ## Dependency Maintenance
 
-[Renovate](../../.config/dependencies/renovate.json5) is the single proposal policy.
+[Renovate](../../.config/checks/renovate/renovate.json5) is the single proposal policy.
 Its [native mise manager](https://docs.renovatebot.com/modules/manager/mise/) and Go/npm managers read authored manifests and locks; [`includePaths`](https://docs.renovatebot.com/configuration-options/#includepaths)
 excludes disposable snapshots. Declarative extractors read authored Actions,
 images and exact npm client pins in CUE, not generated peer workflows. Native
@@ -248,7 +246,7 @@ retirement; age alone is not deletion authority.
 
 ## Release Chronicle
 
-[CHANGELOG](../../CHANGELOG.md) starts with `## Unreleased` for post-release changes.
+[CHANGELOG](../../CHANGELOG.md) starts with `## [Unreleased]` for post-release changes.
 Version headings are unique descending strict SemVer; only the first may be pending
 and equal [VERSION](../../VERSION). Older headings require exact signed tags/dates.
 Build metadata belongs to identity, not precedence; metadata-only duplicate entries
@@ -314,7 +312,7 @@ Keep source-bound provenance, SBOM, vulnerabilities/licenses and exact peer pari
 Retained Token authorization has its own [credential decision](../decisions/dr-0011-single-portable-token-backend.md#release-identity-and-credential-authorization).
 
 Syft catalogs every native binary, including platform dependencies, through the explicit
-[policy](../../.config/release/syft.yaml), not ambient user config, module caches, remote
+[policy](../../.config/release/syft/.syft.yaml), not ambient user config, module caches, remote
 lookups or vendor enrichment. Tests bind every reported path/digest to the generated
 matrix. Normalize paths through a root-confined handle; actual SHA-256 integrity and
 [SPDX-required SHA-1 metadata](https://spdx.github.io/spdx-spec/v2.3/file-information/#84-file-checksum-field) are computed, not guessed. Either path separator/one leading
@@ -338,7 +336,7 @@ its assets never become another peer's build input.
 
 ### Homebrew packaging projection
 
-[GoReleaser](../../.config/release/goreleaser.yaml) retains generated
+[GoReleaser](../../.config/release/goreleaser/.goreleaser.yaml) retains generated
 `dist/homebrew/Casks/aigw.rb` separately from signed assets. Windows-only builds
 skip it; Linux/macOS use the same native generator. Generation creates neither tap
 nor release. Verify archive-internal paths/checksums and regenerate after signing;
@@ -424,7 +422,7 @@ Go-selected inventory; unexpected counters reject rather than change denominator
 Retain raw counts, package identities, revision/tree/toolchain/policy digest and never
 relabel statement as branch coverage.
 
-[Go policy](../../.config/checks/go/policy.yml) and [SCC policy](../../.config/checks/go/size.toml)
+[Go policy](../../.config/checks/golangci-lint/golangci-lint.toml) and [SCC policy](../../.config/checks/scc/policy.toml)
 are the only editable thresholds. Their measurements have distinct meanings:
 
 | Analyzer         | Measurement and limitation                                                                             |

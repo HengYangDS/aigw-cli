@@ -174,17 +174,20 @@ func releaseRoot(t *testing.T) string {
 		t.Fatal(err)
 	}
 	config := filepath.Join(root, ".config", "release")
-	if err := os.MkdirAll(config, 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(config, "goreleaser"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(config, "goreleaser.yaml"), []byte("version: 2\n"), 0o600); err != nil {
+	if err := os.MkdirAll(filepath.Join(config, "syft"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	policy, err := os.ReadFile(filepath.Join("..", "..", "..", ".config", "release", "syft.yaml"))
+	if err := os.WriteFile(filepath.Join(config, "goreleaser", ".goreleaser.yaml"), []byte("version: 2\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	policy, err := os.ReadFile(filepath.Join("..", "..", "..", ".config", "release", "syft", ".syft.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(config, "syft.yaml"), policy, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(config, "syft", ".syft.yaml"), policy, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	dependencyPolicy := filepath.Join(root, ".config", "checks", "dependencies", "policy.toml")
@@ -407,7 +410,7 @@ func TestBuildCIFailsClosedAcrossUntaggedAndDependencyFailures(t *testing.T) {
 func TestResolveReleaseEpochUsesChangelogAuthorityInEveryEnvironment(t *testing.T) {
 	root := t.TempDir()
 	changelog := filepath.Join(root, "CHANGELOG.md")
-	if err := os.WriteFile(changelog, []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## Unreleased\n\n## 1.2.3 - 2026-08-09\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
+	if err := os.WriteFile(changelog, []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## [Unreleased]\n\n## [1.2.3] - 2026-08-09\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if epoch, err := resolveReleaseEpoch(t.Context(), root, "1.2.3"); err != nil || epoch != "1786233600" {
@@ -428,7 +431,7 @@ func TestResolveReleaseEpochUsesChangelogAuthorityInEveryEnvironment(t *testing.
 
 func TestCandidateBuildEpochUsesSourceCommitWithoutInventingARelease(t *testing.T) {
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## Unreleased\n\n## 1.2.3 - 2026-08-09\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\nThis project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).\n\n## [Unreleased]\n\n## [1.2.3] - 2026-08-09\n\n### Fixed\n\n- Fix.\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{

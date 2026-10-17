@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:decision:0008
 role: decision
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: Use a Non-Fetchable Product Build Identity
 ---
--->
 
 # DR-0008: Use a Non-Fetchable Product Build Identity
 

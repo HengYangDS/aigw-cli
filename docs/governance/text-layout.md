@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:text-layout
 role: policy
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: repository text layout and formatting
 ---
--->
 
 # Text Layout Policy
 
@@ -84,7 +82,7 @@ format .` writes that inventory; `check-format .` checks the same inputs without
 mutation. Neither resolves ambient formatter configuration. Use native
 `prettier-ignore` for byte-exact examples. Other lint rules must admit canonical
 formatter output; they do not rewrite list or quote containers. Git ignores filter untracked
-output, not tracked source; [formatter scope](../../.config/checks/markdown/prettierignore) excludes
+output, not tracked source; [formatter scope](../../.config/checks/prettier/prettierignore) excludes
 only immutable OpenSpec history. A directory named `archive` elsewhere remains
 current source.
 

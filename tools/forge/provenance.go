@@ -6,6 +6,7 @@ import (
 	"net/mail"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -75,6 +76,11 @@ func verifyCommits(repository, revision, base, email, allowedSigners string) (in
 	return len(commits), nil
 }
 
+// The fixed grammar projects ETHOS contracts/paradigm/paradigm.toml [commit].
+// Repository declarations may restrict scopes; they do not replace that grammar.
+const sharedCommitTypes = "build|chore|ci|docs|feat|fix|perf|refactor|revert|test"
+const sharedCommitScope = `[a-z0-9]+(?:-[a-z0-9]+)*`
+
 func loadCommitSubjectPolicy(repository, commit string) (*regexp.Regexp, error) {
 	data, err := gitBytes(repository, "show", commit+":.ethos/workspace.toml")
 	if err != nil {
@@ -82,24 +88,39 @@ func loadCommitSubjectPolicy(repository, commit string) (*regexp.Regexp, error) 
 	}
 	var workspace struct {
 		CommitPolicy struct {
-			SubjectPattern  string `toml:"subject_pattern"`
-			SigningRequired bool   `toml:"signing_required"`
-			SigningFormat   string `toml:"signing_format"`
+			SubjectPattern  *string  `toml:"subject_pattern"`
+			Scopes          []string `toml:"scopes"`
+			SigningRequired bool     `toml:"signing_required"`
+			SigningFormat   string   `toml:"signing_format"`
 		} `toml:"commit_policy"`
 	}
 	if err := toml.Unmarshal(data, &workspace); err != nil {
 		return nil, fmt.Errorf("parse commit policy: %w", err)
 	}
 	policy := workspace.CommitPolicy
-	if policy.SubjectPattern == "" {
-		return nil, errors.New("commit policy subject_pattern must be non-empty")
+	if policy.SubjectPattern != nil {
+		return nil, errors.New("commit policy subject_pattern must be replaced by the shared grammar")
 	}
 	if !policy.SigningRequired || policy.SigningFormat != "ssh" {
 		return nil, errors.New("commit policy must require SSH signing")
 	}
-	compiled, err := regexp.Compile(`\A(?:` + policy.SubjectPattern + `)\z`)
+	scope := sharedCommitScope
+	if policy.Scopes != nil {
+		scopes := policy.Scopes
+		valid := regexp.MustCompile(`\A(?:` + sharedCommitScope + `)\z`)
+		if len(scopes) == 0 {
+			return nil, errors.New("commit policy scopes must be non-empty and unique valid scopes")
+		}
+		for index, name := range scopes {
+			if !valid.MatchString(name) || slices.Contains(scopes[:index], name) {
+				return nil, errors.New("commit policy scopes must be non-empty and unique valid scopes")
+			}
+		}
+		scope = strings.Join(scopes, "|")
+	}
+	compiled, err := regexp.Compile(`\A(?:` + sharedCommitTypes + `)(?:\((?:` + scope + `)\))?!?: .+\z`)
 	if err != nil {
-		return nil, fmt.Errorf("compile commit policy subject_pattern: %w", err)
+		return nil, fmt.Errorf("compile shared commit grammar: %w", err)
 	}
 	return compiled, nil
 }

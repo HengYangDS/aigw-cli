@@ -121,7 +121,6 @@ func TestCommitVerificationEnforcesTrackedSubjectPolicyOnTheIntegrationRange(t *
 	fixture := newForgeFixture(t)
 	base := gitOutputForTest(t, fixture.repository, "rev-parse", "HEAD")
 	policy := `[commit_policy]
-subject_pattern = "^(feat|fix|docs|test|refactor|perf|build|ci|chore|revert)(\\([a-z0-9-]+\\))?!?: .+"
 signing_required = true
 signing_format = "ssh"
 `
@@ -163,11 +162,11 @@ func TestCommitVerificationDoesNotApplyNewPolicyToHistoryBeforeBase(t *testing.T
 	writeCommitWithSubjectForTest(t, fixture.repository, "legacy", "legacy\n", "old history")
 	base := gitOutputForTest(t, fixture.repository, "rev-parse", "HEAD")
 	policy := `[commit_policy]
-subject_pattern = "^fix: .+"
+scopes = ["source-tools"]
 signing_required = true
 signing_format = "ssh"
 `
-	writeCommitWithSubjectForTest(t, fixture.repository, ".ethos/workspace.toml", policy, "fix: verify only the integration range")
+	writeCommitWithSubjectForTest(t, fixture.repository, ".ethos/workspace.toml", policy, "fix(source-tools): verify only the integration range")
 	if err := os.WriteFile(filepath.Join(fixture.repository, ".mailmap"), []byte("untracked checkout metadata\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -207,10 +206,11 @@ func TestGitObjectOperationsUseTheSelectedRevisionPolicy(t *testing.T) {
 			fixture := newForgeFixture(t)
 			remote := newBareRepository(t)
 			gitTest(t, fixture.repository, "remote", "add", "peer", remote)
+			writeCommitWithSubjectForTest(t, fixture.repository, "selected", "selected\n", "docs(cli): qualify the selected object")
 			selected := gitOutputForTest(t, fixture.repository, "rev-parse", "main")
 			gitTest(t, fixture.repository, "checkout", "-q", "-b", "other")
 			policy := `[commit_policy]
-subject_pattern = "^chore: .+"
+scopes = ["other"]
 signing_required = true
 signing_format = "ssh"
 `
@@ -240,7 +240,6 @@ func TestCommitVerificationKeepsPolicyInTheVerifiedObject(t *testing.T) {
 	base := gitOutputForTest(t, fixture.repository, "rev-parse", "HEAD")
 	writeCommitWithSubjectForTest(t, fixture.repository, "invalid", "invalid\n", "update everything")
 	policy := `[commit_policy]
-subject_pattern = ".*"
 signing_required = true
 signing_format = "ssh"
 `
@@ -265,12 +264,11 @@ func TestCommitVerificationRequiresAUsableTrackedPolicy(t *testing.T) {
 		policy string
 		want   string
 	}{
-		"syntax": {"[commit_policy", "parse commit policy"},
-		"pattern": {
-			strings.Replace(string(original), "^(", "[", 1),
-			"compile commit policy",
-		},
-		"empty": {"[commit_policy]\nsubject_pattern = ''", "subject_pattern"},
+		"syntax":           {"[commit_policy", "parse commit policy"},
+		"replaced grammar": {string(original) + "subject_pattern = '.*'\n", "shared grammar"},
+		"empty scopes":     {string(original) + "scopes = []\n", "scopes"},
+		"invalid scope":    {string(original) + "scopes = ['cli--tools']\n", "scopes"},
+		"duplicate scopes": {string(original) + "scopes = ['cli', 'cli']\n", "scopes"},
 		"signing": {
 			strings.Replace(string(original), "signing_required = true", "signing_required = false", 1),
 			"require SSH signing",
@@ -307,19 +305,22 @@ func TestCommitVerificationRequiresAUsableTrackedPolicy(t *testing.T) {
 	}
 }
 
-func TestCommitSubjectPolicyMatchesTheCompleteSubject(t *testing.T) {
+func TestCommitSubjectPolicyUsesSharedGrammarAndRestrictedScopes(t *testing.T) {
 	fixture := newForgeFixture(t)
 	base := gitOutputForTest(t, fixture.repository, "rev-parse", "HEAD")
 	policy := `[commit_policy]
-subject_pattern = "fix: accepted|docs: accepted"
+scopes = ["cli", "source-tools"]
 signing_required = true
 signing_format = "ssh"
 `
-	writeCommitWithSubjectForTest(t, fixture.repository, ".ethos/workspace.toml", policy, "fix: accepted")
-	if _, err := verifyCommits(fixture.repository, "HEAD", base, fixture.email, fixture.allowedSigners); err != nil {
-		t.Fatalf("complete matching subject: %v", err)
+	writeCommitWithSubjectForTest(t, fixture.repository, ".ethos/workspace.toml", policy, "fix(cli): accepted\n\nThe body is outside the subject grammar.")
+	for _, kind := range []string{"build", "chore", "ci", "docs", "feat", "fix", "perf", "refactor", "revert", "test"} {
+		writeCommitWithSubjectForTest(t, fixture.repository, "subject", kind+"\n", kind+"(source-tools)!: accepted")
 	}
-	for _, subject := range []string{"prefix fix: accepted", "docs: accepted suffix"} {
+	if _, err := verifyCommits(fixture.repository, "HEAD", base, fixture.email, fixture.allowedSigners); err != nil {
+		t.Fatalf("valid shared subjects: %v", err)
+	}
+	for _, subject := range []string{"fix(other): rejected", "fix(cli--tools): rejected", "fix(-cli): rejected", "update: rejected", "fix: ", "prefix fix: accepted"} {
 		base = gitOutputForTest(t, fixture.repository, "rev-parse", "HEAD")
 		writeCommitWithSubjectForTest(t, fixture.repository, "change", subject, subject)
 		if _, err := verifyCommits(fixture.repository, "HEAD", base, fixture.email, fixture.allowedSigners); err == nil || !strings.Contains(err.Error(), "subject") {

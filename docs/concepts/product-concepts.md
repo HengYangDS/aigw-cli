@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:product-vocabulary
 role: reference
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: Account, Model, Route, Client Binding, and Native Projection vocabulary
 ---
--->
 
 # Product Concepts
 

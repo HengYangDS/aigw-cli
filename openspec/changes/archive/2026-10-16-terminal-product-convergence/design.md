@@ -145,8 +145,8 @@ IDs; it removes retired entries and preserves explicit local choices. GPT,
 Claude, and other Provider families follow the same grammar, with supplier
 variants only when their upstream contract truly differs.
 
-Team curation follows the [reviewed defaults](../../../docs/guides/team-rollout.md#reviewed-model-defaults)
-and [dated qualification](../../../docs/research/provider-model-qualification.md#october-10-haiku-55-admission).
+Team curation follows the [reviewed defaults](../../../../docs/guides/team-rollout.md#reviewed-model-defaults)
+and [dated qualification](../../../../docs/research/provider-model-qualification.md#october-10-haiku-55-admission).
 The October 10 GPT 6.1+/Claude 5.5+ floors supersede older catalogue inclusions;
 requested successors without qualified wire IDs and inference remain unadmitted,
 not permanently unsupported. These authored team constraints do not alter native
@@ -197,12 +197,12 @@ private. This is an upstream-layout-dependent adapter, not an isolation API.
 `PrepareVerification` disables lazy installs, update checks and PATH exposure.
 Hermes 0.21.6 ignores the last on Windows; AIGW refuses before launch.
 
-The [Unix native regressions](../../../internal/client/hermes_native_unix_test.go)
+The [Unix native regressions](../../../../internal/client/hermes_native_unix_test.go)
 exercise Hermes' boot resolver with stubbed steps and the native dependency-member
-union. [Configuration custody](../../../internal/hermes/configuration/verification_home_unix_test.go)
+union. [Configuration custody](../../../../internal/hermes/configuration/verification_home_unix_test.go)
 owns physical-lock identity, refusal and private placement. The
-[Windows home factory](../../../internal/hermes/configuration/verification_home_windows.go)
-refuses before launch; [credential diagnostics](../../../internal/client/credential_policy_test.go)
+[Windows home factory](../../../../internal/hermes/configuration/verification_home_windows.go)
+refuses before launch; [credential diagnostics](../../../../internal/client/credential_policy_test.go)
 assert zero client calls and no canary disclosure. Windows compiles neither Unix
 borrowing nor Unix probes. A real journey separately qualifies launch effects.
 
@@ -311,7 +311,7 @@ unadmitted without an executable and real tool-loop evidence.
 
 ### 4. Decide credential-command continuity before cutover
 
-The accepted [credential decision](../../../docs/decisions/dr-0011-single-portable-token-backend.md)
+The accepted [credential decision](../../../../docs/decisions/dr-0011-single-portable-token-backend.md)
 rejects the independent `aigw-keychain` helper. The existing private copy is
 the same AIGW executable, not another Token reader. DR-0011 now selects a
 content-addressed direct path over fixed replacement and indirection after a
@@ -421,7 +421,7 @@ bounded HTTPS check covered 166 successful links, two redirects and no errors in
 
 #### Peer admission and native candidates
 
-The [CUE graph](../../../.config/ci/pipeline.cue) is the sole CI intent for equal optional
+The [CUE graph](../../../../.config/ci/pipeline.cue) is the sole CI intent for equal optional
 GitHub/GitLab peers. Each owns exact signed objects, transport authentication,
 three-OS jobs, required checks and proposal/update/maintainer/dev/main/tag events.
 Approvals alone do not trigger duplicate content CI; reuse binds unchanged inputs,
@@ -446,7 +446,7 @@ and no-prompt. [Delivery](#migration-plan), not a policy readback, proves integr
 proposal retirement, archive, main/tag events, assets and installed cutover.
 
 Unprotected proposals must not gain protected credentials by using protected runners.
-The [native review boundary](../../../docs/governance/change-and-release-policy.md#commit-and-tag-identity)
+The [native review boundary](../../../../docs/governance/change-and-release-policy.md#commit-and-tag-identity)
 requires OS-enforced separation from Runner-manager/protected-job state, actual denial
 and per-job cleanup; cleared environments, separate IDs or another peer's pass are
 insufficient. Protected dev/main/tag pools require event-specific routing evidence.
@@ -600,24 +600,24 @@ system, not a macOS result reused for Linux or Windows.
 | 9.1–9.2 | [quality] · Source acceptance precedes delivery completion                                                                                       | OpenSpec, `tools/ci`                                   | `mise run check`; strict OpenSpec validation                                |
 | 9.3     | [control] · Native released-artifact lifecycle acceptance; [quality-delta] · Native artifact acceptance has its own execution closure            | `tools/release`                                        | Build-only `mise run release`; `mise run native` on all three OSs           |
 
-[organization]: ../../specs/repository-organization/spec.md
-[projection]: ../../specs/projection-format/spec.md
-[readiness]: ../../specs/cli-readiness/spec.md
+[organization]: ../../../specs/repository-organization/spec.md
+[projection]: ../../../specs/projection-format/spec.md
+[readiness]: ../../../specs/cli-readiness/spec.md
 [reader-delta]: specs/secret-storage/spec.md
 [quality-delta]: specs/product-quality/spec.md
 [ci-delta]: specs/ci-diagnostics/spec.md
 [client-delta]: specs/product-control-plane/spec.md
-[control]: ../../specs/product-control-plane/spec.md
+[control]: ../../../specs/product-control-plane/spec.md
 [selection]: specs/route-client-selection/spec.md
-[quality]: ../../specs/product-quality/spec.md
-[ci]: ../../specs/ci-diagnostics/spec.md
-[onboarding]: ../../specs/progressive-team-onboarding/spec.md
+[quality]: ../../../specs/product-quality/spec.md
+[ci]: ../../../specs/ci-diagnostics/spec.md
+[onboarding]: ../../../specs/progressive-team-onboarding/spec.md
 
 ### Repository identity and release history
 
-The one [Changelog](../../../CHANGELOG.md) keeps neutral local version headings
+The one [Changelog](../../../../CHANGELOG.md) keeps neutral local version headings
 and offers each applicable peer's native history.
-[Release declarations](../../../.ethos/release.toml) own `forge_repository`
+[Release declarations](../../../../.ethos/release.toml) own `forge_repository`
 independently of SSH or HTTP Git transport; no inferred scheme, port, user path,
 or second local identity manifest is needed. The current untagged prepared
 release compares the latest published tag with `main` and labels those links

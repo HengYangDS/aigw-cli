@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:decision:0010
 role: decision
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: Scope CI Evidence to Product Lifecycle Stages
 ---
--->
 
 # DR-0010: Scope CI Evidence to Product Lifecycle Stages
 

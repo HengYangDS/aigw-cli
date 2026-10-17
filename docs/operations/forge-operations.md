@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:forge-operations
 role: how-to
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: independent Forge operation
 ---
--->
 
 # Forge Operations
 
@@ -103,7 +101,7 @@ mise exec --locked -- go run ./tools/forge tags \
 
 ```sh
 mise exec --locked -- go run ./tools/forge project \
-  --remote origin \
+  --remote gitlab \
   --source main \
   --email "$AIGW_RELEASE_AUTHOR_EMAIL" \
   --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
@@ -211,7 +209,7 @@ object independently:
 
 ```sh
 mise exec --locked -- go run ./tools/forge publish-tag \
-  --remote origin \
+  --remote gitlab \
   --tag "$TAG" \
   --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
 

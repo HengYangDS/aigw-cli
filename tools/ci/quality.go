@@ -60,8 +60,8 @@ type qualityGraph struct {
 
 var repositoryQualityGraph = qualityGraph{
 	Gates: []qualityGate{
-		{ID: "go-policy-schema", Command: command{Name: "golangci-lint", Args: []string{"config", "verify", "--config", ".config/checks/go/policy.yml"}}, Concerns: []qualityConcern{qualitySchema}},
-		{ID: "release-policy-schema", Command: command{Name: "goreleaser", Args: []string{"check", ".config/release/goreleaser.yaml"}}, Concerns: []qualityConcern{qualitySchema}},
+		{ID: "go-policy-schema", Command: command{Name: "golangci-lint", Args: []string{"config", "verify", "--config", ".config/checks/golangci-lint/golangci-lint.toml"}}, Concerns: []qualityConcern{qualitySchema}},
+		{ID: "release-policy-schema", Command: command{Name: "goreleaser", Args: []string{"check", ".config/release/goreleaser/.goreleaser.yaml"}}, Concerns: []qualityConcern{qualitySchema}},
 		{ID: "cue-format", Command: command{Name: "cue", Args: []string{"fmt", "--check", "--files", ".config/ci"}}, Concerns: []qualityConcern{qualityFormat}},
 		{ID: "ci-projection", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "project", "--check"}}, Concerns: []qualityConcern{qualitySchema, qualityWorkflow, qualityProjection}},
 		{ID: "npm-signatures", Command: command{Name: "npm", Args: []string{"audit", "signatures"}}, Concerns: []qualityConcern{qualitySecurity}},

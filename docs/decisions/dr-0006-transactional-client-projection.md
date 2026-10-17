@@ -1,4 +1,3 @@
-<!--
 ---
 subject: aigw:decision:0006
 role: decision
@@ -6,7 +5,6 @@ state: canonical
 relations:
   canonical_for: Project Client State as One Guarded Transaction
 ---
--->
 
 # DR-0006: Project Client State as One Guarded Transaction
 
