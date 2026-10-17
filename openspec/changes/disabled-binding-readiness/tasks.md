@@ -13,8 +13,7 @@
 
 ## 2. Verification and release
 
-- [x] 2.1 `mise run check` passes, and the lane head is proved and landed
-      locally.
+- [x] 2.1 `mise run check` passes, and the lane head is proved.
 - [x] 2.2 With user authorization, release the fix as 0.4.3 through the
       existing release workflow, publishing each peer's Release from the same
       local bundle; after the Homebrew upgrade, the operator's `aigw status`
