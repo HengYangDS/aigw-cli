@@ -21,7 +21,7 @@
       `.config/mise/mise.lock` through upstream supply; GitLab's protected
       pipelines pass for the published head (`17d9bdf6`: `dev` 11252, `main`
       11254).
-- [ ] 1.4 Publish the GitLab Releases of `v0.3.4` and `v0.3.5` from their
+- [x] 1.4 Publish the GitLab Releases of `v0.3.4` and `v0.3.5` from their
       retained local bundles; `v0.4.2` stays without a GitLab Release by the
       user's decision of 2026-10-16.
 
@@ -31,6 +31,12 @@
       guarded merges, signer trust, source-ref auto-delete and untrusted-runner
       isolation and cleanup, as `terminal-product-convergence` task 7.4 did for
       GitHub.
+  - [x] 2.1.1 Make the native review probe count a protected resource behind a
+        directory that the review identity cannot traverse as unreadable, while
+        still requiring no elevation grant; the probe tests pass.
+  - [ ] 2.1.2 Run the macOS review probe once with a pipeline-level
+        `AIGW_REVIEW_PROTECTED_FILE`, then keep it as an unprotected project
+        variable; the review job's trace carries the probe line.
 
 ## 3. Adopt The ETHOS Reference Successor
 

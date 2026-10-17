@@ -24,6 +24,9 @@ archive without claiming them.
   declared peer mirror, or through upstream supply where its runners reach it.
 - Qualify GitLab's effective status enforcement, guarded merges, signer trust,
   source-ref retirement and runner isolation, as task 7.4 did for GitHub.
+- Let the native review isolation probe count a protected resource behind a
+  directory that the review identity cannot traverse as unreadable, so the
+  strictest runner layout can pass without relaxing its permissions.
 - Adopt the accepted ETHOS identity and reference successor once it exists.
 
 ## Capabilities
@@ -31,7 +34,8 @@ archive without claiming them.
 `product-control-plane` gains the contract for a returning publication peer:
 catch-up publishes the exact objects the other peer received, and the peer stays
 incomplete until its own CI passes. The existing local-first publication
-topology requirement is unchanged.
+topology requirement is unchanged. `ci-diagnostics` gains the requirement
+"Native review isolation proves denial of its protected resource".
 
 ## Impact
 

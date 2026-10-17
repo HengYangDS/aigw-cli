@@ -108,6 +108,50 @@ func TestNativeReviewProtectedResourceRequiresNoElevationGrant(t *testing.T) {
 	}
 }
 
+func TestNativeReviewProtectedResourceBehindClosedDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("Root cannot represent a denied native review identity")
+	}
+	directory := filepath.Join(t.TempDir(), "protected")
+	path := filepath.Join(directory, "manager-config")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("fixture-only"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(directory, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(directory, 0o700) })
+	for _, test := range []struct {
+		name, output string
+		err          error
+		accepted     bool
+	}{
+		{"no grant", "User review is not allowed to run sudo on this host.", errors.New("exit 1"), true},
+		{"grant", "(ALL) ALL", nil, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			asked := false
+			err := qualifyProtectedResource(path, &stdout, func(command) ([]byte, error) {
+				asked = true
+				return []byte(test.output), test.err
+			})
+			if !asked || (err == nil) != test.accepted {
+				t.Fatalf("closed-directory qualification asked=%t accepted=%t error=%v", asked, test.accepted, err)
+			}
+			if test.accepted && !strings.Contains(stdout.String(), "direct_read=denied traversal=denied identity=operator-asserted sudo_grant=none") {
+				t.Fatalf("closed-directory qualification omitted its exact effect: %q", stdout.String())
+			}
+		})
+	}
+}
+
 func TestNativeSourceQualificationRunsLifecycleOnce(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
