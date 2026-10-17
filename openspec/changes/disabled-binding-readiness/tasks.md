@@ -18,4 +18,5 @@
 - [x] 2.2 With user authorization, release the fix as 0.4.3 through the
       existing release workflow, publishing each peer's Release from the same
       local bundle; after the Homebrew upgrade, the operator's `aigw status`
-      and `aigw doctor` keep reporting the enabled clients.
+      and `aigw doctor` keep reporting the enabled clients (`v0.4.3` tag
+      pipelines: GitHub 38936264884, GitLab 11318).

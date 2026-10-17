@@ -55,27 +55,3 @@ defect without that loss.
   its Account into activation's scope, where its Token state is reported.
 - [A credential problem on a disabled binding stays hidden] → it surfaces when
   the binding is enabled; read-only commands never prompt for it.
-
-## Verification
-
-On `17d9bdf6`, `TestDisabledBindingAccountCannotChangeReadiness` failed as
-expected: when Account two became unobservable, Claude Code turned unavailable
-in `status`, `check` and `doctor`, status recommended `aigw doctor`, doctor
-reported `ok: false`, and readiness read Account two. With the fix, the
-regression and the `internal/cli/acceptance`, `internal/cli/readiness`,
-`internal/cli/doctor`, `internal/activation` and `internal/readiness` packages
-pass.
-
-The fix shipped in 0.4.3. Tag `v0.4.3` (object `e86e0ece`) on `3c133d84`
-passed its tag pipelines on both peers (GitHub run 38936264884, GitLab
-pipeline 11318), and both peers' Releases carry the same notarized bundle
-(Apple submission `c4a722d4`). On October 17 the operator's Homebrew upgrade
-from 0.4.2, a rollback to 0.4.2 and the forward upgrade to 0.4.3 each ended
-with all four enabled clients `configured` in `status`, `doctor` passing and
-every client `inference_checked` by `aigw check`; the ten projected credential
-commands passed Token-discarding probes after each step. The upgrade's first
-sync refused an external edit of the AIGW-owned `ANTHROPIC_BASE_URL`, as
-designed, and converged once the managed value was restored. Receipts are in
-the main checkout under
-`build/verification/3c133d84c7caf5bdbf804f7a55c9e12daf010532/`, in
-`installed-cutover-20261017/` and `installed-lifecycle-20261017/`.
