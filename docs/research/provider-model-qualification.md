@@ -55,12 +55,12 @@ it. Desktop's host shape keeps the other betas off and remains unqualified, so
 no Route declares `tool_search` yet.
 
 The October 18 cache-continuity step found that this workstation's October 11–18
-Claude client requests on `claude-opus-5-5` read the cache in 92.6% of 52,214
-pairs. The 14,245 answered with a `msg_` ID and `inference_geo: "global"` hit in
-79.5%, a cost limitation (80.1% between two such responses), against 96.3–99.5% for
-five other signatures. Five scripted journeys each on UCloud `claude-sonnet-5-5`
-and `claude-haiku-5-5`, one signature per journey, hit in 19 of 20 pairs (the miss
-on `msg_`) and 20 of 20; both are too few to rank signatures. UCloud's guidance
+Claude client requests on `claude-opus-5-5` read the cache in 92.6% of 52,214 pairs.
+The 14,245 answered with a `msg_` ID and `inference_geo: "global"` hit in 79.5%, a
+cost limitation (80.1% between two such responses), against 96.3–99.5% for five
+other signatures. Five scripted journeys each on UCloud `claude-sonnet-5-5` and
+`claude-haiku-5-5`, one signature per journey, hit in 19 of 20 pairs (the miss on
+`msg_bdrk_`) and 20 of 20; both are too few to rank signatures. UCloud's guidance
 asks for a stable `metadata.user_id`, which Claude Code 2.1.302 already sends.
 
 ## October 16 Gemini 4 Argon admission
