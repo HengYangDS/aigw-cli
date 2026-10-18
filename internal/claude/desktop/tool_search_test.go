@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -27,8 +28,8 @@ func TestProjectionOwnsTheToolSearchSetting(t *testing.T) {
 	profile := readJSON(t, paths.Profile)
 	profile["toolSearchEnabled"] = true
 	writeJSON(t, paths.Profile, profile)
-	if _, err := Prepare(paths, &desired); err == nil {
-		t.Fatal("tool search enabled outside AIGW was accepted")
+	if _, err := Prepare(paths, &desired); err == nil || !strings.Contains(err.Error(), "changed outside AIGW") {
+		t.Fatalf("tool search enabled outside AIGW: error = %v, want managed drift", err)
 	}
 }
 
