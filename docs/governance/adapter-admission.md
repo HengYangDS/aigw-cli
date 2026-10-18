@@ -101,11 +101,12 @@ Desktop tool search is a profile-wide setting. AIGW writes
 `tool_search` on its Anthropic interface. Desktop then supplies host tool
 search: the tool-search beta, deferred tool loading and `tool_reference`
 results, while `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` keeps every other
-experimental beta off. Declare the capability on a Route only after a native
+experimental beta off. Desktop's application reader reads the setting as well
+as its Code reader. Declare the capability on a Route only after a native
 Desktop Code session on it lists MCP tools by name and completes one deferred
 tool call through `ToolSearch`, a multi-turn tool continuation and a
-compaction; record the app, bundled Claude Code and Route. AIGW writes no
-admin-tier settings for this.
+compaction, and Chat and Cowork still complete a tool call; record the app,
+bundled Claude Code and Route. AIGW writes no admin-tier settings for this.
 
 ## Host-surface ownership
 
