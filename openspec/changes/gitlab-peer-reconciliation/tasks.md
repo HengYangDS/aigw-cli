@@ -48,6 +48,10 @@
         pipelines verify pushed commits against the allowed-signers file, but
         GitLab cannot refuse an unsigned push without push rules, and Windows
         has no protected-file probe.
+  - [x] 2.1.5 Retire the project variables `AIGW_GITLAB_LINUX_RUNNER_TAG`,
+        `AIGW_GITLAB_DARWIN_RUNNER_TAG` and `AIGW_GITLAB_WINDOWS_RUNNER_TAG`,
+        which no job reads since `v0.3.3`, after both Linux runner paths ran the
+        current workflow (pipelines 11357 and 11366; retired 2026-10-18).
 
 ## 3. Adopt The ETHOS Reference Successor
 

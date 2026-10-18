@@ -73,10 +73,9 @@ Service session on either peer. This includes prebuilt candidates and published
 predecessors; source-only locked-store checks remain separate. A passing source
 store check does not qualify the shipped executable's credential succession.
 
-The former `AIGW_GITLAB_LINUX_RUNNER_TAG` project variable has no consumer in
-this workflow. Retire it after the updated workflow is admitted and both runner
-paths have executed. Do not set a project variable named
-`AIGW_CI_LINUX_RUNNER_TAG`, which would override the workflow's selection.
+No project variable selects a runner tag; the former runner-tag variables are
+retired. Do not set a project variable named `AIGW_CI_LINUX_RUNNER_TAG`, which
+would override the workflow's selection.
 
 ## Verify Local Objects
 
