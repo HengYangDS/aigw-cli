@@ -14,6 +14,10 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+## [0.4.4] - 2026-10-18
+
+History: [GitLab][0.4.4-gitlab] · [GitHub][0.4.4-github]
+
 ### Added
 
 - Turn on Claude Desktop's host tool search, which loads MCP tool schemas on
@@ -1432,8 +1436,10 @@ History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 
 - Require every tag pipeline to verify that its exact annotated release tag carries an SSH signature trusted by the repository-owned signer anchor before packaging, publication, or GitLab Release creation. An unsigned or untrusted tag now fails closed.
 
-[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.3...main
-[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.3...main
+[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.4...main
+[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.4...main
+[0.4.4-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.3...v0.4.4
+[0.4.4-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.3...v0.4.4
 [0.4.3-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.2...v0.4.3
 [0.4.3-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.2...v0.4.3
 [0.4.2-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.1...v0.4.2

@@ -17,7 +17,7 @@
 
 ## 2. Verification
 
-- [ ] 2.1 `mise run check` passes, and the lane head is proved.
+- [x] 2.1 `mise run check` passes, and the lane head is proved.
 
 ## 3. Qualification and Release
 
