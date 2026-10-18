@@ -116,7 +116,8 @@ func (claudeDesktopAdapter) ProjectionChanged(before, after configuration.Config
 	if leftErr != nil || rightErr != nil || left != right {
 		return true
 	}
-	return !slices.Equal(claudeDesktopModels(before, left), claudeDesktopModels(after, right))
+	return !slices.Equal(claudeDesktopModels(before, left), claudeDesktopModels(after, right)) ||
+		claudeDesktopToolSearch(before, left) != claudeDesktopToolSearch(after, right)
 }
 
 func (claudeDesktopAdapter) Inspect(ctx context.Context, deps Dependencies, cfg configuration.Config, selected configuration.Runtime) Status {
@@ -227,11 +228,14 @@ func claudeDesktopDesired(deps Dependencies, cfg configuration.Config, selected 
 		CredentialExecutable: helper,
 		CredentialArguments:  arguments,
 		Models:               models,
+		ToolSearch:           claudeDesktopToolSearch(cfg, selected),
 	}, nil
 }
 
-func claudeDesktopModels(cfg configuration.Config, selected configuration.Runtime) []claudedesktop.Model {
-	models := []claudedesktop.Model{{Name: selected.Model, Label: selected.RouteLabel}}
+// claudeDesktopRouteIDs lists the Routes the profile exposes: the selected
+// Route, then each compatible Route of its Account with a distinct Model.
+func claudeDesktopRouteIDs(cfg configuration.Config, selected configuration.Runtime) []string {
+	routeIDs := []string{selected.RouteID}
 	seen := map[string]bool{cfg.Routes[selected.RouteID].Model: true}
 	spec := mustClientSpec(configuration.ClientClaudeDesktop)
 	for _, routeID := range cfg.CatalogRouteIDs() {
@@ -246,10 +250,30 @@ func claudeDesktopModels(cfg configuration.Config, selected configuration.Runtim
 		if !slices.Contains(spec.CompatibleRouteProtocols(account, route), selected.Protocol) {
 			continue
 		}
-		models = append(models, claudedesktop.Model{Name: route.UpstreamModelID(), Label: cfg.RouteLabel(routeID)})
+		routeIDs = append(routeIDs, routeID)
 		seen[route.Model] = true
 	}
+	return routeIDs
+}
+
+func claudeDesktopModels(cfg configuration.Config, selected configuration.Runtime) []claudedesktop.Model {
+	routeIDs := claudeDesktopRouteIDs(cfg, selected)
+	models := []claudedesktop.Model{{Name: selected.Model, Label: selected.RouteLabel}}
+	for _, routeID := range routeIDs[1:] {
+		models = append(models, claudedesktop.Model{Name: cfg.Routes[routeID].UpstreamModelID(), Label: cfg.RouteLabel(routeID)})
+	}
 	return models
+}
+
+// claudeDesktopToolSearch enables Desktop's profile-wide host tool search only
+// when every exposed Route qualified it on the selected protocol.
+func claudeDesktopToolSearch(cfg configuration.Config, selected configuration.Runtime) bool {
+	for _, routeID := range claudeDesktopRouteIDs(cfg, selected) {
+		if !cfg.Routes[routeID].Declares(selected.Protocol, configuration.CapabilityToolSearch) {
+			return false
+		}
+	}
+	return true
 }
 
 func claudeDesktopTarget(current []string, discovered discovery.Result) string {

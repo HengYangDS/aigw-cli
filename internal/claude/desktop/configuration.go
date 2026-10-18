@@ -65,6 +65,8 @@ type Desired struct {
 	CredentialExecutable string
 	CredentialArguments  []string
 	Models               []Model
+	// ToolSearch enables Desktop's host tool search for every listed model.
+	ToolSearch bool
 }
 
 // Plan is a prepared, side-effect-free Claude Desktop projection.
@@ -324,7 +326,7 @@ func encodeProfile(desired Desired) ([]byte, error) {
 		}
 		models = append(models, entry)
 	}
-	return encode(document{
+	profile := document{
 		"chatTabEnabled":                raw(true),
 		"coworkTabEnabled":              raw(true),
 		"inferenceCredentialHelper":     raw(desired.CredentialExecutable),
@@ -336,7 +338,11 @@ func encodeProfile(desired Desired) ([]byte, error) {
 		"inferenceProvider":             raw("gateway"),
 		"isClaudeCodeForDesktopEnabled": raw(true),
 		"modelDiscoveryEnabled":         raw(false),
-	})
+	}
+	if desired.ToolSearch {
+		profile["toolSearchEnabled"] = raw(true)
+	}
+	return encode(profile)
 }
 
 func (desired Desired) validate() error {

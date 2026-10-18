@@ -144,6 +144,31 @@ func TestRouteInterfacesKeepProtocolAndCapabilitySeparate(t *testing.T) {
 	}
 }
 
+func TestRouteToolSearchBelongsToTheAnthropicInterface(t *testing.T) {
+	for _, protocol := range []EndpointProtocol{ProtocolAnthropic, ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions} {
+		t.Run(string(protocol), func(t *testing.T) {
+			cfg := validConfig()
+			account := cfg.Accounts["dmx"]
+			account.Endpoints.OpenAIChatCompletions = "https://example.test/chat/v1"
+			cfg.Accounts["dmx"] = account
+			route := cfg.Routes["dmx"]
+			route.Interfaces = map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}
+			route.Interfaces[protocol] = []Capability{CapabilityTools, Capability("tool_search")}
+			cfg.Routes["dmx"] = route
+			err := cfg.Validate()
+			if protocol == ProtocolAnthropic {
+				if err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), "only the anthropic interface") {
+				t.Fatalf("error = %v, want an Anthropic-only refusal", err)
+			}
+		})
+	}
+}
+
 func TestRouteCapabilitiesRemainScopedToTheExactWireInterface(t *testing.T) {
 	route := Route{
 		Account: "team",

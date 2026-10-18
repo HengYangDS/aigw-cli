@@ -56,6 +56,9 @@ const (
 	CapabilityCompaction Capability = "compaction"
 	// CapabilityMultimodalInput identifies non-text model input.
 	CapabilityMultimodalInput Capability = "multimodal_input"
+	// CapabilityToolSearch identifies the Anthropic host tool-search shape:
+	// the tool-search beta, deferred tool loading, and tool_reference results.
+	CapabilityToolSearch Capability = "tool_search"
 
 	// RouteAdmitted is the default lifecycle state for a configured Route.
 	RouteAdmitted RouteLifecycle = "admitted"
@@ -121,6 +124,11 @@ func (route Route) LifecycleState() RouteLifecycle {
 		return route.Lifecycle
 	}
 	return RouteAdmitted
+}
+
+// Declares reports whether the Route qualified capability on protocol.
+func (route Route) Declares(protocol EndpointProtocol, capability Capability) bool {
+	return slices.Contains(route.Interfaces[protocol], capability)
 }
 
 // AdmittedProtocols returns the Route's wire interfaces in stable order.

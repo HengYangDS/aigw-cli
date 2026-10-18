@@ -289,6 +289,9 @@ func (route Route) validate(name string, accounts map[string]Account, models map
 			if seenCapabilities[capability] {
 				return fmt.Errorf("route %q interface %q repeats capability %q", name, protocol, capability)
 			}
+			if capability == CapabilityToolSearch && protocol != ProtocolAnthropic {
+				return fmt.Errorf("route %q interface %q declares %q, which only the %s interface admits", name, protocol, capability, ProtocolAnthropic)
+			}
 			seenCapabilities[capability] = true
 		}
 	}
@@ -299,7 +302,7 @@ func knownCapability(capability Capability) bool {
 	switch capability {
 	case CapabilityText, CapabilityReasoning, CapabilityStreaming, CapabilityTools,
 		CapabilityStructuredOutput, CapabilityContinuation, CapabilityCompaction,
-		CapabilityMultimodalInput:
+		CapabilityMultimodalInput, CapabilityToolSearch:
 		return true
 	default:
 		return false

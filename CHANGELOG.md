@@ -14,6 +14,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Added
+
+- Turn on Claude Desktop's host tool search, which loads MCP tool schemas on
+  demand, when every Route in AIGW's Desktop profile declares the new
+  `tool_search` capability on its Anthropic interface. No shipped Route
+  declares it yet. Elsewhere the setting stays off, and AIGW refuses to
+  overwrite a profile where it was turned on by hand.
+
 ## [0.4.3] - 2026-10-16
 
 History: [GitLab][0.4.3-gitlab] · [GitHub][0.4.3-github]

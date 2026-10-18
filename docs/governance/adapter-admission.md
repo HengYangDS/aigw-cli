@@ -96,6 +96,17 @@ provider authentication, and platform support likewise require their exact
 native contracts. A plugin's external-process authentication type does not by
 itself prove a general credential-command interface.
 
+Desktop tool search is a profile-wide setting. AIGW writes
+`toolSearchEnabled: true` only when every Route the profile exposes declares
+`tool_search` on its Anthropic interface. Desktop then supplies host tool
+search: the tool-search beta, deferred tool loading and `tool_reference`
+results, while `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` keeps every other
+experimental beta off. Declare the capability on a Route only after a native
+Desktop Code session on it lists MCP tools by name and completes one deferred
+tool call through `ToolSearch`, a multi-turn tool continuation and a
+compaction; record the app, bundled Claude Code and Route. AIGW writes no
+admin-tier settings for this.
+
 ## Host-surface ownership
 
 Client admission does not grant AIGW control over every product that can read a
@@ -135,7 +146,12 @@ Every new adapter must supply all of the following before merge:
 9. An explicit compatibility result for the selected client, endpoint, model,
    and host: streaming, tools, cancellation, continuation, compaction, and any
    required images or hosted services. Preserve provider model mappings in
-   user-visible identity; an alias is not proof of the serving model.
+   user-visible identity; an alias is not proof of the serving model. For a
+   Claude Route, also record prompt-cache continuity: over at least four
+   requests less than five minutes apart, a request hits when its
+   `cache_read_input_tokens` cover 90% of a previous prefix above 20,000
+   tokens. Report the hit rate of each response signature (`id` prefix and
+   `inference_geo`); a signature below 96% is a cost limitation to record.
 
 The implementation must expose one cohesive Adapter boundary for discovery,
 planning, guarded projection, verification, rollback, and uninstall. Client
