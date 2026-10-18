@@ -47,16 +47,21 @@ Stable tool admission does not make inference models GA. Qualified general-agent
 Previews may remain explicitly named, non-default Routes; unqualified ones remain
 discovery-only. Preserve this distinction and explicit local selections.
 
-## October 16–17 Claude Route observations
+## October 16–18 Claude Route observations
 
 Claude Code 2.1.301 on UCloud `claude-opus-5-5`, with experimental betas lifted,
 resolved a deferred MCP tool through `ToolSearch` (`tool_reference`) and called
 it. Desktop's host shape keeps the other betas off and remains unqualified, so
-no Route declares `tool_search` yet. Over October 10–17, consecutive Claude Code
-requests on UCloud under four minutes apart read the prompt cache in 83% of
-pairs answered with a `msg_` ID and `inference_geo: "global"`, against
-96.9–98.1% for the other response signatures. UCloud's guidance asks for a stable
-`metadata.user_id`, which Claude Code 2.1.302 already sends.
+no Route declares `tool_search` yet.
+
+The October 18 cache-continuity step found that this workstation's October 11–18
+Claude client requests on `claude-opus-5-5` read the cache in 92.6% of 52,214
+pairs. The 14,245 answered with a `msg_` ID and `inference_geo: "global"` hit in
+79.5%, a cost limitation (80.1% between two such responses), against 96.3–99.5% for
+five other signatures. Five scripted journeys each on UCloud `claude-sonnet-5-5`
+and `claude-haiku-5-5`, one signature per journey, hit in 19 of 20 pairs (the miss
+on `msg_`) and 20 of 20; both are too few to rank signatures. UCloud's guidance
+asks for a stable `metadata.user_id`, which Claude Code 2.1.302 already sends.
 
 ## October 16 Gemini 4 Argon admission
 

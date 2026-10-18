@@ -21,10 +21,12 @@
 
 ## 3. Qualification and Release
 
-- [ ] 3.1 Run the cache-continuity step on the UCloud Claude Routes and record
-      the consecutive-request hit rate of each response signature.
-- [ ] 3.2 Release the projection with the next AIGW release through the
-      existing release workflow, with the operator present for notarization.
+- [x] 3.1 Run the cache-continuity step on the UCloud Claude Routes and record
+      the consecutive-request hit rate of each response signature (October 18;
+      `provider-model-qualification.md`).
+- [x] 3.2 Release the projection with the next AIGW release through the
+      existing release workflow (0.4.4, GitHub and GitLab Releases on
+      October 18).
 - [ ] 3.3 With the released build, declare `tool_search` on each UCloud Claude
       Route in local configuration and run the Desktop tool-search journey:
       MCP tools listed by name, one deferred tool call, a multi-turn tool
