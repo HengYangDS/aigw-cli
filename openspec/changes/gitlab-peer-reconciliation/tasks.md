@@ -12,11 +12,12 @@
   - [x] 1.2.2 Remove the root `.cbmignore`, which ETHOS's repository paradigm
         rejects.
   - [ ] 1.2.3 Rebind aigw-cli to an accepted ETHOS runtime that admits attested
-        maintenance releases; depends on `work/20261002-native-trust-closure`
-        reaching ETHOS `dev`. Owner: session "fix aigw and proxy"; next:
-        inspect ETHOS `dev` for the accepted maintenance admission and the
-        missing publication receipts of `v0.3.4` and `v0.3.5`; review
-        2026-10-18.
+        maintenance releases. native-trust-closure is in ETHOS `dev`, but
+        runtime `39f56ba8` still refuses the `v0.3.4` receipt
+        (`release_tag_source_untrusted`, 2026-10-20). Owner: session "fix aigw
+        and proxy"; next: after the aigw repository-paradigm batch rebinds the
+        runtime, preview the `v0.3.4` and `v0.3.5` receipts again; review
+        2026-10-22.
   - [x] 1.2.4 Publish the maintenance tags `v0.3.4` and `v0.3.5`; read back
         GitHub's objects `e86777be` and `95132368`. Done by the user-authorized
         break glass of 2026-10-15, outside ETHOS publication.
@@ -58,6 +59,8 @@
 - [ ] 3.1 Once ETHOS accepts its identity and reference successor, qualify the
       installed admission: reachable wrong-repository links fail, and historical
       peer tag identities reconcile through authorized native repair without
-      copied maps or checkers. Owner: session "fix aigw and proxy"; next: query
-      ETHOS `dev` for the accepted identity and reference successor; review
-      2026-10-18.
+      copied maps or checkers. ETHOS publication-history-repair task 13.4.9
+      owns reconciling the eleven rc tags; their per-peer objects are in
+      `build/evidence/gitlab-peer-reconciliation/rc-tag-identities-20261020/`
+      of the main checkout. Owner: session "fix aigw and proxy"; next: qualify
+      once 13.4.9 ships in an aigw runtime; review 2026-10-27.
