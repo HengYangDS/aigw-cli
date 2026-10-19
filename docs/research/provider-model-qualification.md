@@ -47,12 +47,12 @@ Stable tool admission does not make inference models GA. Qualified general-agent
 Previews may remain explicitly named, non-default Routes; unqualified ones remain
 discovery-only. Preserve this distinction and explicit local selections.
 
-## October 16–18 Claude Route observations
+## October 16–19 Claude Route observations
 
-Claude Code 2.1.301 on UCloud `claude-opus-5-5`, with experimental betas lifted,
-resolved a deferred MCP tool through `ToolSearch` (`tool_reference`) and called
-it. Desktop's host shape keeps the other betas off and remains unqualified, so
-no Route declares `tool_search` yet.
+On October 19, Claude Desktop 2.42304.0 (Claude Code 2.1.299) ran its host shape
+on UCloud with experimental betas off: `ToolSearch` loaded deferred MCP tools
+that completed on all three Claude Routes, Code, Chat and Cowork completed tool
+calls and Code a compaction, so these Routes now declare `tool_search`.
 
 The October 18 cache-continuity step found that this workstation's October 11–18
 Claude client requests on `claude-opus-5-5` read the cache in 92.6% of 52,214 pairs.

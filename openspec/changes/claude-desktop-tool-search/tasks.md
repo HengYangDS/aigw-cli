@@ -27,11 +27,12 @@
 - [x] 3.2 Release the projection with the next AIGW release through the
       existing release workflow (0.4.4, GitHub and GitLab Releases on
       October 18).
-- [ ] 3.3 With the released build, declare `tool_search` on each UCloud Claude
+- [x] 3.3 With the released build, declare `tool_search` on each UCloud Claude
       Route in local configuration and run the Desktop tool-search journey:
       MCP tools listed by name, one deferred tool call, a multi-turn tool
       continuation and a compaction in Code, and one tool call each in Chat
-      and Cowork; record the app, bundled Claude Code and Route. Until 3.4
-      ships, a team import sees that local declaration as a changed Route.
+      and Cowork; record the app, bundled Claude Code and Route (October 19;
+      `provider-model-qualification.md`). Until 3.4 ships, a team import sees
+      that local declaration as a changed Route.
 - [ ] 3.4 Declare `tool_search` in `manifests/team.toml` on the Routes that
       passed 3.3, with a team manifest test, and release that catalogue.

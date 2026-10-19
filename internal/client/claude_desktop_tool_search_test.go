@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"testing"
 
 	configuration "aigw-cli/internal/configuration"
@@ -36,6 +37,37 @@ func TestClaudeDesktopToolSearchRequiresEveryExposedRoute(t *testing.T) {
 	}
 	if !fixture.adapter.ProjectionChanged(qualified, fixture.cfg) {
 		t.Fatal("withdrawing a Route's qualification did not change the projection")
+	}
+}
+
+func TestShippedTeamManifestQualifiesDesktopToolSearchOnUCloudClaude(t *testing.T) {
+	team, err := os.ReadFile(filepath.Join("..", "..", "manifests", "team.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := configuration.Parse(team)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := configuration.Merge(configuration.NewConfig(), manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for routeID, want := range map[string]bool{
+		"ucloud-claude-haiku-5-5":  true,
+		"ucloud-claude-opus-5-5":   true,
+		"ucloud-claude-sonnet-5-5": true,
+		"aihubmix-claude-opus-5-5": false,
+		"dmxapi-claude-opus-5-5":   false,
+	} {
+		cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, routeID, "")
+		runtime, err := cfg.ResolveRuntime(configuration.ClientClaudeDesktop, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := claudeDesktopToolSearch(cfg, runtime); got != want {
+			t.Errorf("Desktop tool search with %s selected = %v, want %v", routeID, got, want)
+		}
 	}
 }
 

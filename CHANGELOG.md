@@ -14,6 +14,16 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Changed
+
+- Turn on Claude Desktop's host tool search on UCloud: the team manifest now
+  declares `tool_search` on the UCloud Claude Opus 5.5, Sonnet 5.5 and Haiku
+  5.5 Routes, which passed Desktop's tool-search journey. A Desktop profile on
+  these Routes then loads MCP tool schemas on demand. After an earlier import,
+  adopt them with `aigw config import <manifest> --replace-route <id>` for
+  each Route; without it, the import reports them as conflicts and changes
+  nothing.
+
 ## [0.4.4] - 2026-10-18
 
 History: [GitLab][0.4.4-gitlab] · [GitHub][0.4.4-github]
