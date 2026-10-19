@@ -81,11 +81,12 @@ func testDeadlineAfterPipeDrain(t *testing.T, startup string) {
 	}()
 	if err := awaitFixtureFile(marker, pipeDrainFixtureWait); err != nil {
 		ctx.expire()
+		var drained error
 		select {
-		case <-result:
+		case drained = <-result:
 		case <-time.After(capturedProcessWaitDelay + pipeDrainFixtureWait):
 		}
-		t.Fatalf("background descendant did not inherit output before deadline: %v", err)
+		t.Fatalf("background descendant did not inherit output before deadline: %v (run result: %v)", err, drained)
 	}
 	ctx.expire()
 	var runErr error

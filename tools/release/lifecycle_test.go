@@ -463,8 +463,8 @@ func writeZipArchive(t *testing.T, path, member string, payload []byte) {
 
 func closeArchive(t *testing.T, closers ...func() error) {
 	t.Helper()
-	for _, close := range closers {
-		if err := close(); err != nil {
+	for _, closeFn := range closers {
+		if err := closeFn(); err != nil {
 			t.Fatal(err)
 		}
 	}

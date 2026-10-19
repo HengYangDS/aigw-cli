@@ -311,10 +311,10 @@ _graphOrder: {
 	}
 }
 
-miseImage:                        "docker.io/jdxcode/mise:2026.10.8-debian@sha256:8cc0b83dd86465df9ae4a813cce9ce24cb0b4f749617c419d3e4beb838b365b1"
+miseImage:                        "docker.io/jdxcode/mise:2026.10.14-debian@sha256:e5436e60a44a455bb6b516a9e24c029ab50e4bde622601a13bbcf6f48405c2fc"
 miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
-miseWindowsArm64ExecutableSHA256: "37fb631c501e8bb6a96e72914a5066f3c8d87a0c5e3aa0b42acffad714752db3"
-miseWindowsArm64ShimSHA256:       "88e6ea20e780ed03861d33be06319c80b0508e51eb6a48190153922a14309498"
+miseWindowsArm64ExecutableSHA256: "e7a1d0bfea13eb19bdfa4d56eb26e7626eeacd180346717f338595975b11e9e9"
+miseWindowsArm64ShimSHA256:       "990f7a0032af80292d8a54e6375cf74d80fd5204288028cd78463621370ae8a2"
 windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
 nativeWindowsClientSelection:     "$env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)"
 windowsCodexVendorRoot:           "node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc"
@@ -359,7 +359,7 @@ nativeWindowsClientSupply: #"""
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
-	mise:     "jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8"         // v5.1.2
+	mise:     "jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7"         // v5.2.0
 	upload:   "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" // v7.0.2
 }
 
@@ -532,7 +532,7 @@ workflowEvidencePath:   "build/verification/workflows"
 				  $env:GIT_CONFIG_GLOBAL = Join-Path $clients 'gitconfig'
 				  git config --file $env:GIT_CONFIG_GLOBAL core.autocrlf false
 				  Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-				  mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.162.1' '@anthropic-ai/claude-code-win32-x64@2.1.296'
+				  mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.163.0' '@anthropic-ai/claude-code-win32-x64@2.1.301'
 				  mise exec --locked -- npm audit signatures --prefix $clients
 				  $codexRoot = Join-Path $clients '\#(windowsCodexVendorRoot)'
 				  $gitBin = Split-Path (Get-Command git.exe).Source

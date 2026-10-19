@@ -166,7 +166,12 @@ func TestVerificationResourceCleanupStopsOwnedFixture(t *testing.T) {
 		}
 	})
 	select {
-	case <-completed:
+	case err := <-completed:
+		// Reclamation terminates the fixture, so Wait may only report its exit status.
+		var exit *exec.ExitError
+		if err != nil && !errors.As(err, &exit) {
+			t.Fatalf("owned fixture wait failed: %v", err)
+		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("native process observation did not reclaim its owned fixture")
 	}
