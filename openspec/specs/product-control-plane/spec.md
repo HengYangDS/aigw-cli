@@ -779,6 +779,15 @@ literals or compatibility fallbacks.
 - **THEN** local development, GitLab, and GitHub resolve the same declared versions
 - **AND** obsolete pins and compatibility fallbacks are removed.
 
+#### Scenario: A runner-owned tool advances with its declaration
+
+- **WHEN** a refreshed declaration moves a tool whose executable a CI runner
+  owns, such as the Windows ARM64 Mise
+- **THEN** the CUE authority SHALL pin that release's version and executable
+  digests from the verified upstream release
+- **AND** the runner's executable SHALL be replaced in a window without running
+  jobs before any job consumes the new declaration.
+
 ### Requirement: Terminal candidate integration is exact and local
 
 A proven work lane SHALL advance the local candidate only through explicit
