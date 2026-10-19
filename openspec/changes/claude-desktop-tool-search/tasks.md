@@ -34,5 +34,6 @@
       and Cowork; record the app, bundled Claude Code and Route (October 19;
       `provider-model-qualification.md`). Until 3.4 ships, a team import sees
       that local declaration as a changed Route.
-- [ ] 3.4 Declare `tool_search` in `manifests/team.toml` on the Routes that
-      passed 3.3, with a team manifest test, and release that catalogue.
+- [x] 3.4 Declare `tool_search` in `manifests/team.toml` on the Routes that
+      passed 3.3, with a team manifest test, and release that catalogue
+      (0.4.5, GitHub and GitLab Releases on October 19).
