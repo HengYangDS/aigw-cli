@@ -98,12 +98,9 @@ func (s Store) CaptureSnapshot() (Snapshot, error) {
 		return Snapshot{}, err
 	}
 	capabilities, err := transaction.CaptureFileSnapshot(s.capabilitiesPath())
-	if err != nil {
-		return Snapshot{}, err
-	}
-	capabilitiesBackup, err := transaction.CaptureFileSnapshot(s.capabilitiesPath() + ".bak")
-	if err != nil {
-		return Snapshot{}, err
+	capabilitiesBackup, backupErr := transaction.CaptureFileSnapshot(s.capabilitiesPath() + ".bak")
+	if failure := errors.Join(err, backupErr); failure != nil {
+		return Snapshot{}, failure
 	}
 	return Snapshot{Config: configSnapshot, Backup: backupSnapshot, Forwarding: forwarding, ForwardingBackup: forwardingBackup, Catalog: catalog, CatalogBackup: catalogBackup, Capabilities: capabilities, CapabilitiesBackup: capabilitiesBackup, Verified: verifiedSnapshot}, nil
 }
@@ -120,12 +117,9 @@ func (s Store) Commit(before Snapshot, cfg Config) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	catalog, err := encodeCatalogOrder(cfg)
-	if err != nil {
-		return Snapshot{}, err
-	}
-	capabilities, err := encodeRouteCapabilities(cfg)
-	if err != nil {
+	catalog, catalogErr := encodeCatalogOrder(cfg)
+	capabilities, capabilitiesErr := encodeRouteCapabilities(cfg)
+	if err = errors.Join(catalogErr, capabilitiesErr); err != nil {
 		return Snapshot{}, err
 	}
 	return s.commitComponents(before, data, forwarding, catalog, capabilities)
@@ -239,11 +233,7 @@ func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
 	if err != nil {
 		return VerifiedBackupState{}, err
 	}
-	checkpoint.Config, err = decodeCatalogOrder(checkpoint.Config, snapshot.Catalog)
-	if err != nil {
-		return VerifiedBackupState{}, err
-	}
-	checkpoint.Config, err = decodeRouteCapabilities(checkpoint.Config, snapshot.Capabilities)
+	checkpoint.Config, err = decodeComponents(checkpoint.Config, snapshot.Catalog, snapshot.Capabilities)
 	if err != nil {
 		return VerifiedBackupState{}, err
 	}
@@ -392,19 +382,7 @@ func (s Store) Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	catalog, err := transaction.CaptureFileSnapshot(s.catalogPath())
-	if err != nil {
-		return Config{}, newLoadError(LoadPhaseRead, err)
-	}
-	cfg, err = decodeCatalogOrder(cfg, catalog)
-	if err != nil {
-		return Config{}, err
-	}
-	capabilities, err := transaction.CaptureFileSnapshot(s.capabilitiesPath())
-	if err != nil {
-		return Config{}, newLoadError(LoadPhaseRead, err)
-	}
-	return decodeRouteCapabilities(cfg, capabilities)
+	return s.withComponents(cfg, "")
 }
 
 // LoadCredentialConfig reads only the routing and credential authority. Display
@@ -497,19 +475,7 @@ func (s Store) LoadBackup() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	catalog, err := transaction.CaptureFileSnapshot(s.catalogPath() + ".bak")
-	if err != nil {
-		return Config{}, newLoadError(LoadPhaseRead, err)
-	}
-	cfg, err = decodeCatalogOrder(cfg, catalog)
-	if err != nil {
-		return Config{}, err
-	}
-	capabilities, err := transaction.CaptureFileSnapshot(s.capabilitiesPath() + ".bak")
-	if err != nil {
-		return Config{}, newLoadError(LoadPhaseRead, err)
-	}
-	return decodeRouteCapabilities(cfg, capabilities)
+	return s.withComponents(cfg, ".bak")
 }
 
 func decodeTOMLConfig(data []byte) (Config, error) {

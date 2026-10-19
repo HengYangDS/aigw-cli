@@ -94,12 +94,10 @@ func configurationsEqual(left, right Config) (bool, error) {
 	}
 	leftCatalog, leftErr := encodeCatalogOrder(left)
 	rightCatalog, rightErr := encodeCatalogOrder(right)
-	if err := errors.Join(leftErr, rightErr); err != nil || !bytes.Equal(leftCatalog, rightCatalog) {
-		return false, err
-	}
-	leftCapabilities, leftErr := encodeRouteCapabilities(left)
-	rightCapabilities, rightErr := encodeRouteCapabilities(right)
-	return bytes.Equal(leftCapabilities, rightCapabilities), errors.Join(leftErr, rightErr)
+	leftCapabilities, leftCapabilitiesErr := encodeRouteCapabilities(left)
+	rightCapabilities, rightCapabilitiesErr := encodeRouteCapabilities(right)
+	return bytes.Equal(leftCatalog, rightCatalog) && bytes.Equal(leftCapabilities, rightCapabilities),
+		errors.Join(leftErr, rightErr, leftCapabilitiesErr, rightCapabilitiesErr)
 }
 
 func runtimeConfigurationsEqual(left, right Config) (bool, error) {

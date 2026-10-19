@@ -58,6 +58,27 @@ func (snapshot Snapshot) sameCurrent(other Snapshot) bool {
 		snapshot.Catalog.Equal(other.Catalog) && snapshot.Capabilities.Equal(other.Capabilities)
 }
 
+// withComponents reads the optional components of one generation, the
+// current one or ".bak", and merges them into its canonical configuration.
+func (s Store) withComponents(cfg Config, suffix string) (Config, error) {
+	catalog, err := transaction.CaptureFileSnapshot(s.catalogPath() + suffix)
+	capabilities, capabilitiesErr := transaction.CaptureFileSnapshot(s.capabilitiesPath() + suffix)
+	if failure := errors.Join(err, capabilitiesErr); failure != nil {
+		return Config{}, newLoadError(LoadPhaseRead, failure)
+	}
+	return decodeComponents(cfg, catalog, capabilities)
+}
+
+// decodeComponents merges catalogue presentation and recorded Route
+// capabilities into a decoded canonical configuration.
+func decodeComponents(cfg Config, catalog, capabilities transaction.FileSnapshot) (Config, error) {
+	cfg, err := decodeCatalogOrder(cfg, catalog)
+	if err != nil {
+		return Config{}, err
+	}
+	return decodeRouteCapabilities(cfg, capabilities)
+}
+
 func (Store) writeOptional(path string, before transaction.FileSnapshot, data []byte) (transaction.FileSnapshot, error) {
 	if len(data) == 0 {
 		if !before.Exists {

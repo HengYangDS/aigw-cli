@@ -85,10 +85,7 @@ func encodeRouteCapabilities(cfg Config) ([]byte, error) {
 		return nil, nil
 	}
 	data, err := toml.Marshal(recorded)
-	if err != nil {
-		return nil, fmt.Errorf("encode route capabilities: %w", err)
-	}
-	return separateTOMLTableBlocks(data), nil
+	return separateTOMLTableBlocks(data), err
 }
 
 // decodeRouteCapabilities adds each recorded capability to its Route while the
