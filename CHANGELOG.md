@@ -14,6 +14,20 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Fixed
+
+- Keep earlier credential readers working after a newer AIGW writes the
+  configuration. Once a Route declared `tool_search`, as the 0.4.5 team
+  manifest does, readers from AIGW 0.4.3 and earlier, which a client may still
+  call, returned no Token. Route capabilities those readers do not know now
+  live in `config.capabilities.toml`, which credential readers never read; the
+  next `aigw sync` moves them out of `config.toml`. After a rollback, the
+  earlier program does not see `tool_search` and turns Claude Desktop tool
+  search off at its next sync.
+- Name the reader's AIGW version and the failed stage when a credential reader
+  cannot read, parse or validate the configuration, plus the file operation and
+  error for a read failure, without the path.
+
 ## [0.4.5] - 2026-10-19
 
 History: [GitLab][0.4.5-gitlab] · [GitHub][0.4.5-github]

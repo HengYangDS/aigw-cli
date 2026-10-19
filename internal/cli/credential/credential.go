@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
@@ -30,7 +31,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			cfg, err := runtime.Config.LoadCredentialConfig()
 			if err != nil {
-				return presentation.ProblemError("Cannot read AIGW configuration", "", "Credential lookup did not start.", "Run `aigw doctor` to inspect the configuration.", err)
+				return configurationProblem(runtime.Version, err)
 			}
 			adapter := cfg.Clients[client]
 			if !adapter.Enabled {
@@ -76,6 +77,27 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		},
 	}
+}
+
+// configurationProblem names this reader's version and the configuration stage
+// that failed. Client logs receive it, so it omits the path and content.
+func configurationProblem(version string, err error) error {
+	reader := "This AIGW credential reader"
+	if version != "" {
+		reader = "AIGW " + version + " credential reader"
+	}
+	evidence := reader + " could not load the configuration."
+	fix := "If a newer AIGW wrote this configuration, run `aigw sync` with the installed AIGW and reload the client to use its current reader; otherwise run `aigw doctor`."
+	if failure, ok := errors.AsType[*configuration.LoadError](err); ok {
+		evidence = fmt.Sprintf("%s stopped at the configuration %s stage.", reader, failure.Phase)
+		if failure.Phase == configuration.LoadPhaseRead {
+			if access, ok := errors.AsType[*os.PathError](err); ok {
+				evidence = fmt.Sprintf("%s stopped at the configuration read stage (%s: %v).", reader, access.Op, access.Err)
+			}
+			fix = "Restore the client's read access to the AIGW configuration; run `aigw doctor` to inspect it."
+		}
+	}
+	return presentation.ProblemError("Cannot read AIGW configuration", evidence, "Credential lookup did not start.", fix, err)
 }
 
 func resolveProjectedRuntime(cfg configuration.Config, client, fingerprint string) (configuration.Runtime, error) {

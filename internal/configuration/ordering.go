@@ -142,5 +142,9 @@ func (s Store) loadSnapshot(snapshot Snapshot) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	return decodeCatalogOrder(cfg, snapshot.Catalog)
+	cfg, err = decodeCatalogOrder(cfg, snapshot.Catalog)
+	if err != nil {
+		return Config{}, err
+	}
+	return decodeRouteCapabilities(cfg, snapshot.Capabilities)
 }

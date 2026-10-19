@@ -84,6 +84,10 @@ order is Fable, Opus, Sonnet, Haiku; GPT order is Astra, Sol, Terra, Luna. Only
 qualified Claude 5.5+ and GPT 6.1+ identities appear. Missing successors are not
 invented. Local presentation lives in `config.catalog.toml`, separate from the
 canonical routing file so published credential readers remain compatible.
+For the same reason, Route capabilities those readers do not know, such as
+`tool_search`, live in `config.capabilities.toml` and apply only while the
+Route keeps its Account, endpoint, upstream model and interface; `aigw sync`
+moves an earlier declaration there from `config.toml`.
 Hermes loads the declared names and model order, but its native picker still
 ranks the current provider first and other providers by model count. AIGW does
 not modify that client behavior.

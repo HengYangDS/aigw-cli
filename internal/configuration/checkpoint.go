@@ -43,22 +43,14 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg Config, clients [
 			resultErr = errors.Join(resultErr, fmt.Errorf("release checkpoint lock: %w", err))
 		}
 	}()
-	configBefore, err := transaction.CaptureFileSnapshot(s.path)
+	before, err := s.captureCurrent()
 	if err != nil {
 		return err
 	}
-	if !configBefore.Exists {
+	if !before.Config.Exists {
 		return errors.New("configuration is unavailable; verification checkpoint was not saved")
 	}
-	forwardingBefore, err := transaction.CaptureFileSnapshot(s.forwardingPath())
-	if err != nil {
-		return err
-	}
-	catalogBefore, err := transaction.CaptureFileSnapshot(s.catalogPath())
-	if err != nil {
-		return err
-	}
-	current, err := s.loadSnapshot(Snapshot{Config: configBefore, Forwarding: forwardingBefore, Catalog: catalogBefore})
+	current, err := s.loadSnapshot(before)
 	if err != nil {
 		return err
 	}
@@ -75,18 +67,9 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg Config, clients [
 		return err
 	}
 	checkpoint := VerifiedCheckpoint{
-		Config:     current,
+		Config:     publishedCheckpointConfig(current),
 		Clients:    append([]string(nil), clients...),
 		VerifiedAt: time.Now().UTC(),
-	}
-	checkpoint.Config = checkpoint.Config.Clone()
-	for id, account := range checkpoint.Config.Accounts {
-		account.Order = 0
-		checkpoint.Config.Accounts[id] = account
-	}
-	for id, model := range checkpoint.Config.Models {
-		model.Order = 0
-		checkpoint.Config.Models[id] = model
 	}
 	data, err := json.MarshalIndent(checkpoint, "", "  ")
 	if err != nil {
@@ -99,11 +82,8 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg Config, clients [
 	if err != nil {
 		return err
 	}
-	configAfter, err := transaction.CaptureFileSnapshot(s.path)
-	forwardingAfter, forwardingErr := transaction.CaptureFileSnapshot(s.forwardingPath())
-	catalogAfter, catalogErr := transaction.CaptureFileSnapshot(s.catalogPath())
-	err = errors.Join(err, forwardingErr, catalogErr)
-	if err == nil && configBefore.Equal(configAfter) && forwardingBefore.Equal(forwardingAfter) && catalogBefore.Equal(catalogAfter) {
+	after, err := s.captureCurrent()
+	if err == nil && before.sameCurrent(after) {
 		return nil
 	}
 	if err == nil {
@@ -113,8 +93,25 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg Config, clients [
 	return errors.Join(err, rollbackErr)
 }
 
+// publishedCheckpointConfig omits display order and later Route capabilities,
+// which their components restore when the checkpoint is read.
+func publishedCheckpointConfig(current Config) Config {
+	cfg := current.Clone()
+	for id, account := range cfg.Accounts {
+		account.Order = 0
+		cfg.Accounts[id] = account
+	}
+	for id, model := range cfg.Models {
+		model.Order = 0
+		cfg.Models[id] = model
+	}
+	keepPublishedCapabilities(cfg)
+	return cfg
+}
+
 // LoadVerifiedCheckpoint restores verified routing with current presentation
-// metadata for identities that still exist in the checkpoint.
+// metadata and recorded Route capabilities for identities that still exist in
+// the checkpoint.
 func (s Store) LoadVerifiedCheckpoint() (VerifiedCheckpoint, error) {
 	data, err := os.ReadFile(s.path + ".verified.json")
 	if err != nil {
@@ -129,6 +126,14 @@ func (s Store) LoadVerifiedCheckpoint() (VerifiedCheckpoint, error) {
 		return VerifiedCheckpoint{}, err
 	}
 	checkpoint.Config, err = decodeCatalogOrder(checkpoint.Config, catalog)
+	if err != nil {
+		return VerifiedCheckpoint{}, err
+	}
+	capabilities, err := transaction.CaptureFileSnapshot(s.capabilitiesPath())
+	if err != nil {
+		return VerifiedCheckpoint{}, err
+	}
+	checkpoint.Config, err = decodeRouteCapabilities(checkpoint.Config, capabilities)
 	return checkpoint, err
 }
 

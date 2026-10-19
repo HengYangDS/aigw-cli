@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -62,27 +63,88 @@ func TestCredentialHelperPrintsOnlyTheProjectedAccountToken(t *testing.T) {
 	}
 }
 
-func TestCredentialHelperIgnoresMalformedPresentation(t *testing.T) {
+func TestCredentialHelperIgnoresMalformedOptionalComponents(t *testing.T) {
 	for _, client := range configuration.AdmittedClientIDs() {
-		t.Run(client, func(t *testing.T) {
-			runtime, buffer := helperRuntime(t, client, true)
-			args := helperArgs(t, runtime, client)
-			if err := runtime.Secrets.Set("gateway", "original-token"); err != nil {
+		for _, component := range []string{".catalog.toml", ".capabilities.toml"} {
+			t.Run(client+component, func(t *testing.T) {
+				runtime, buffer := helperRuntime(t, client, true)
+				args := helperArgs(t, runtime, client)
+				if err := runtime.Secrets.Set("gateway", "original-token"); err != nil {
+					t.Fatal(err)
+				}
+				path := strings.TrimSuffix(runtime.Config.Path(), filepath.Ext(runtime.Config.Path())) + component
+				if err := os.WriteFile(path, []byte("[invalid component"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := runtime.Config.Load(); err == nil {
+					t.Fatal("invalid optional component was accepted by the full configuration reader")
+				}
+				command := NewCommand(runtime)
+				if err := command.RunE(command, args); err != nil {
+					t.Fatal(err)
+				}
+				if got := buffer.String(); got != "original-token\n" {
+					t.Fatalf("credential output = %q, want the projected Account Token", got)
+				}
+			})
+		}
+	}
+}
+
+func TestCredentialHelperNamesReaderAndStage(t *testing.T) {
+	for _, stage := range []string{"read", "parse", "validate"} {
+		t.Run(stage, func(t *testing.T) {
+			runtime, stdout := helperRuntime(t, configuration.ClientCodex, true)
+			runtime.Version = "9.8.7"
+			args := helperArgs(t, runtime, configuration.ClientCodex)
+			path := runtime.Config.Path()
+			data, err := os.ReadFile(path)
+			if err != nil {
 				t.Fatal(err)
 			}
-			path := strings.TrimSuffix(runtime.Config.Path(), filepath.Ext(runtime.Config.Path())) + ".catalog.toml"
-			if err := os.WriteFile(path, []byte("[invalid presentation"), 0o600); err != nil {
-				t.Fatal(err)
+			want := []string{"AIGW 9.8.7 credential reader", "configuration " + stage + " stage", "aigw sync", "reload the client"}
+			switch stage {
+			case "read":
+				if err := os.Remove(path); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Mkdir(path, 0o700); err != nil {
+					t.Fatal(err)
+				}
+				_, readErr := os.ReadFile(path)
+				failure, ok := errors.AsType[*os.PathError](readErr)
+				if !ok {
+					t.Fatalf("directory read error = %v, want a path error", readErr)
+				}
+				want = []string{"AIGW 9.8.7 credential reader", "configuration read stage", "(" + failure.Op + ": " + failure.Err.Error() + ")", "aigw doctor"}
+			case "parse":
+				data = []byte("[invalid configuration")
+			case "validate":
+				data = regexp.MustCompile(`(?m)^openai_responses = \[\]$`).ReplaceAll(data, []byte("openai_responses = ['future_capability']"))
+				if !bytes.Contains(data, []byte("future_capability")) {
+					t.Fatalf("fixture has no Responses interface to extend:\n%s", data)
+				}
 			}
-			if _, err := runtime.Config.Load(); err == nil {
-				t.Fatal("invalid presentation was accepted by the catalogue reader")
+			if stage != "read" {
+				if err := os.WriteFile(path, data, 0o600); err != nil {
+					t.Fatal(err)
+				}
 			}
 			command := NewCommand(runtime)
-			if err := command.RunE(command, args); err != nil {
-				t.Fatal(err)
+			err = command.RunE(command, args)
+			var stderr bytes.Buffer
+			presentation.RenderCredentialError(presentation.New(&stderr, false), err)
+			diagnostic := stderr.String()
+			if err == nil || stdout.Len() != 0 {
+				t.Fatalf("error=%v stdout=%q", err, stdout.String())
 			}
-			if got := buffer.String(); got != "original-token\n" {
-				t.Fatalf("credential output = %q, want the projected Account Token", got)
+			for _, text := range want {
+				if !strings.Contains(diagnostic, text) {
+					t.Fatalf("diagnostic lacks %q:\n%s", text, diagnostic)
+				}
+			}
+			if strings.Contains(diagnostic, filepath.Dir(path)) || strings.Contains(diagnostic, "future_capability") {
+				t.Fatalf("diagnostic disclosed a path or configuration content:\n%s", diagnostic)
 			}
 		})
 	}
