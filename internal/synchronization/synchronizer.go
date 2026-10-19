@@ -179,6 +179,13 @@ func (s Synchronizer) AdoptNativeSelections(before configuration.Config) (config
 	if routeID != "" {
 		adopted[configuration.ClientHermes] = routeID
 	}
+	routeID, err = client.AdoptCodexSelection(dependencies, &after)
+	if err != nil {
+		return configuration.Config{}, nil, err
+	}
+	if routeID != "" {
+		adopted[configuration.ClientCodex] = routeID
+	}
 	return after, adopted, nil
 }
 

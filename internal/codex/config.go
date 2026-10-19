@@ -262,10 +262,12 @@ func DisableConfig(path string) error {
 }
 
 func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot) (string, codexState, error) {
-	return codexUserConfigTransition(configSnapshot, stateSnapshot, configuration.Runtime{}, false)
+	return codexUserConfigTransition(configSnapshot, stateSnapshot, configuration.Runtime{}, "", false)
 }
 
-func codexUserConfigTransition(configSnapshot, stateSnapshot transaction.FileSnapshot, previous configuration.Runtime, replaceRootSelections bool) (string, codexState, error) {
+// codexUserConfigTransition removes the recorded projection from a target
+// before chosen, the root model about to be projected, replaces it.
+func codexUserConfigTransition(configSnapshot, stateSnapshot transaction.FileSnapshot, previous configuration.Runtime, chosen string, replaceRootSelections bool) (string, codexState, error) {
 	text := string(configSnapshot.Data)
 	if !stateSnapshot.Exists {
 		scheduler, err := captureCodexScheduler(text)
@@ -291,7 +293,7 @@ func codexUserConfigTransition(configSnapshot, stateSnapshot transaction.FileSna
 	if err != nil {
 		return "", codexState{}, err
 	}
-	base, err := removeCodexProjectionTransition(text, state, previous, replaceRootSelections)
+	base, err := removeCodexProjectionTransition(text, state, previous, chosen, replaceRootSelections)
 	if err != nil {
 		return "", codexState{}, err
 	}
@@ -364,10 +366,13 @@ func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
 }
 
 func removeCodexProjection(current string, state codexState) (string, error) {
-	return removeCodexProjectionTransition(current, state, configuration.Runtime{}, false)
+	return removeCodexProjectionTransition(current, state, configuration.Runtime{}, "", false)
 }
 
-func removeCodexProjectionTransition(current string, state codexState, previous configuration.Runtime, replaceRootSelections bool) (string, error) {
+// removeCodexProjectionTransition refuses a changed root model unless it already
+// holds chosen, the model about to be projected, because writing that value
+// cannot lose an edit.
+func removeCodexProjectionTransition(current string, state codexState, previous configuration.Runtime, chosen string, replaceRootSelections bool) (string, error) {
 	provider := codexStateProvider(state)
 	block, err := codexManagedBlockForProviderIn(current, provider)
 	if err != nil {
@@ -398,7 +403,7 @@ func removeCodexProjectionTransition(current string, state codexState, previous 
 		if !isManagedSelection(modelLine, "model", selectionStringValue(modelLine)) {
 			return "", fmt.Errorf("Codex config conflict: AIGW-managed model selection cannot be attributed; refusing to overwrite user edits")
 		}
-	} else if !selectionHasValue(modelLine, "model", projectedModel) {
+	} else if !selectionHasValue(modelLine, "model", projectedModel) && (chosen == "" || !selectionHasValue(modelLine, "model", chosen)) {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed model selection changed; refusing to overwrite user edits")
 	}
 	if err := validateCodexSchedulerOwnership(state, current); err != nil {

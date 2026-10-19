@@ -14,6 +14,15 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Changed
+
+- Adopt a model chosen in Codex: when Codex's own model picker selects the
+  upstream model of another Route of the same Account and nothing else that
+  AIGW manages in Codex changed, `aigw sync` records that Route instead of
+  refusing, keeps Codex's choice and reports the adopted Route. An unknown or
+  ambiguous choice names `aigw use --for codex` commands, and a changed
+  provider still refuses.
+
 ## [0.4.6] - 2026-10-20
 
 History: [GitLab][0.4.6-gitlab] · [GitHub][0.4.6-github]

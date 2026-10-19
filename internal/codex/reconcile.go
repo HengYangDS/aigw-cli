@@ -253,7 +253,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 		return prepareCodexRestoreTransition(target.ref, configSnapshot, stateSnapshot, catalogSnapshot, previous, replaceRootSelections)
 	}
 	block := codexManagedBlock(runtime, endpoint)
-	base, state, err := codexUserConfigTransition(configSnapshot, stateSnapshot, previous, replaceRootSelections)
+	base, state, err := codexUserConfigTransition(configSnapshot, stateSnapshot, previous, runtime.Model, replaceRootSelections)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -347,7 +347,7 @@ func prepareCodexRestoreTransition(target TargetRef, configSnapshot, stateSnapsh
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	restored, err := removeCodexProjectionTransition(string(configSnapshot.Data), state, previous, replaceRootSelections)
+	restored, err := removeCodexProjectionTransition(string(configSnapshot.Data), state, previous, "", replaceRootSelections)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}

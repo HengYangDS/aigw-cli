@@ -99,9 +99,12 @@ An admitted client adapter produces and withdraws only its AIGW-owned native
 projection; it does not own provider behavior. Missing and unbound clients
 remain untouched.
 
-Explicit `use` can adopt a native Hermes selection change only after proving
-that its owned providers and credential commands are intact. Ordinary `sync`
-refuses unproved edits; selection is not permission to overwrite a changed
+`aigw sync` adopts a model chosen in Hermes or Codex when it names exactly one
+Route of the projected Account and protocol and nothing else that AIGW owns in
+that client changed; the result reports the adopted Route, and an unknown or
+ambiguous choice names `aigw use` commands instead. Explicit `use` replaces a
+native choice only after proving that the owned providers and credential
+commands are intact. Selection is not permission to overwrite a changed
 provider definition.
 
 ## Endpoint
