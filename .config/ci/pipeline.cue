@@ -532,7 +532,7 @@ workflowEvidencePath:   "build/verification/workflows"
 				  $env:GIT_CONFIG_GLOBAL = Join-Path $clients 'gitconfig'
 				  git config --file $env:GIT_CONFIG_GLOBAL core.autocrlf false
 				  Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-				  mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.163.0' '@anthropic-ai/claude-code-win32-x64@2.1.301'
+				  mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.162.1' '@anthropic-ai/claude-code-win32-x64@2.1.296'
 				  mise exec --locked -- npm audit signatures --prefix $clients
 				  $codexRoot = Join-Path $clients '\#(windowsCodexVendorRoot)'
 				  $gitBin = Split-Path (Get-Command git.exe).Source

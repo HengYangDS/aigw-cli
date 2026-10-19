@@ -10,6 +10,12 @@ nothing.
 - Advance only the candidates Renovate's policy admits: stable releases, npm
   releases at least three days old. Newer releases inside that window (OpenSpec
   1.14.3, Claude Code 2.1.303) wait for the next maintenance run.
+- Keep the Windows native client pins. The governance policy admits native
+  client proposals only deliberately, and the projection test pins the
+  qualified set (Codex 0.162.1 passed real-Provider verification on October 14);
+  Codex 0.163.0 and Claude Code 2.1.301 need their own journeys first. The
+  signed historical supplier archive named after those versions stays bound to
+  its producer.
 - Move direct Go requirements only; indirect modules keep the versions that
   minimal version selection derives from them.
 - Regenerate every lock and peer projection with its native owner; edit no
