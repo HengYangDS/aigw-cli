@@ -86,8 +86,10 @@ comments alone do not grant authority.
 
 - **WHEN** the root provider or model value no longer matches the attributed
   AIGW projection
-- **THEN** ordinary synchronization and repair SHALL reject the conflict before
-  writing configuration, sidecar, catalogue, or credential state
+- **THEN** repair, and synchronization unless it adopts a model-only change
+  under "Synchronization adopts a Codex model choice", SHALL reject the
+  conflict before writing configuration, sidecar, catalogue, or credential
+  state
 - **AND** an explicit Route verification MAY replace the values only in its
   private projection copy
 - **AND** an explicit operator Route selection MAY replace the root values only
