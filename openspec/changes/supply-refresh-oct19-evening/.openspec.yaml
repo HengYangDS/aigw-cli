@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-10-19
+goal: Clear the Windows Mise shim warning by advancing to Mise 2026.10.15, and
+  advance the other inputs that became admissible stable releases since the
+  morning refresh.

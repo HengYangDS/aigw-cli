@@ -311,10 +311,10 @@ _graphOrder: {
 	}
 }
 
-miseImage:                        "docker.io/jdxcode/mise:2026.10.14-debian@sha256:e5436e60a44a455bb6b516a9e24c029ab50e4bde622601a13bbcf6f48405c2fc"
+miseImage:                        "docker.io/jdxcode/mise:2026.10.15-debian@sha256:329c5517b4ce4e63cfbe619b4d49b4a4ffefa546d7c1d99d59f54043c38191bf"
 miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
-miseWindowsArm64ExecutableSHA256: "e7a1d0bfea13eb19bdfa4d56eb26e7626eeacd180346717f338595975b11e9e9"
-miseWindowsArm64ShimSHA256:       "990f7a0032af80292d8a54e6375cf74d80fd5204288028cd78463621370ae8a2"
+miseWindowsArm64ExecutableSHA256: "7a7abd2f66fd6619a14cb340eda3889923b5599d0d75e2d098d086e49ed72ce6"
+miseWindowsArm64ShimSHA256:       "9a39151763eac654f280ce950f6dd8ddfbcf1043211c9460f7a9e1e77307623b"
 windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
 nativeWindowsClientSelection:     "$env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)"
 windowsCodexVendorRoot:           "node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc"
@@ -359,7 +359,7 @@ nativeWindowsClientSupply: #"""
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
-	mise:     "jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7"         // v5.2.0
+	mise:     "jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde"         // v5.2.1
 	upload:   "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" // v7.0.2
 }
 
