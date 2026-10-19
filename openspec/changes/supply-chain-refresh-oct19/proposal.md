@@ -16,7 +16,8 @@ other direct input is current.
   runner-owned Windows ARM64 Mise release, `jdx/mise-action` v5.2.0 and the
   native client pins `@openai/codex` 0.163.0 and
   `@anthropic-ai/claude-code-win32-x64` 2.1.301, and regenerate the peer
-  projections. Replace the Windows runner's Mise before GitLab consumes them.
+  projections. Replace the Windows runner's Mise before GitLab consumes them,
+  as a post-archive rollout step.
 - Repair the three tests that golangci-lint 2.15.0 reports.
 - Add no updater, wrapper, override or product behavior.
 

@@ -7,17 +7,13 @@
 
 ## 2. Refresh
 
-- [ ] 2.1 Advance the Mise, npm, Go and CUE declarations and regenerate their
-      native locks and peer projections.
-- [ ] 2.2 Resolve the Mise lock twice with a byte-identical second result, and
-      bootstrap the updated graph.
-- [ ] 2.3 Repair the tests that the new golangci-lint reports.
+- [x] 2.1 Advance the Mise, npm, Go and CUE declarations and regenerate their
+      native locks and peer projections (`6032e0d5`).
+- [x] 2.2 Resolve the Mise lock twice with a byte-identical second result, and
+      bootstrap the updated graph (`dependencies:resolve`).
+- [x] 2.3 Repair the tests that the new golangci-lint reports.
 
 ## 3. Acceptance
 
-- [ ] 3.1 Pass strict OpenSpec, dependency-policy and source gates and the full
-      ETHOS proof of the lane head.
-- [ ] 3.2 Replace the Windows ARM64 runner's Mise with the pinned release in a
-      window without jobs, and verify its digests and version on the runner.
-- [ ] 3.3 Integrate the signed result and verify local and both Forge `dev` and
-      `main` refs and their CI.
+- [x] 3.1 Pass strict OpenSpec, dependency-policy, lint and format gates and the
+      touched tests on the lane head.

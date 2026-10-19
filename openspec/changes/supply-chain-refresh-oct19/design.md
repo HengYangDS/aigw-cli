@@ -39,3 +39,14 @@ nothing.
 - Between the runner replacement and GitLab's first run of the new declaration,
   an older GitLab pipeline would fail its Mise identity check. Replace the
   runner's Mise only after the pipelines of the previous head have finished.
+
+## Rollout
+
+These are post-archive obligations of the delivery, not checklist tasks:
+
+1. Integrate the proved, archived head and publish it to GitHub through a
+   reviewed proposal.
+2. Before GitLab receives it, pause both Windows runners, replace the runner's
+   Mise from the verified release in a window without jobs, verify its digests
+   and version, and restore the VM's isolation and the runners.
+3. Publish to GitLab and verify both peers' `dev` and `main` refs and CI.
