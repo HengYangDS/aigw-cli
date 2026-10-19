@@ -788,6 +788,14 @@ literals or compatibility fallbacks.
 - **AND** the runner's executable SHALL be replaced in a window without running
   jobs before any job consumes the new declaration.
 
+#### Scenario: An admitted tool release fails its own consistency check
+
+- **WHEN** a native job reports that the admitted release of a tool is internally
+  inconsistent, such as a Mise executable finding its own release's shim stale
+- **THEN** the declaration SHALL advance to the stable release that fixes it, or
+  return to the previous release, on every Forge projection and runner
+- **AND** the tool's warning SHALL be absent from the next native jobs.
+
 ### Requirement: Terminal candidate integration is exact and local
 
 A proven work lane SHALL advance the local candidate only through explicit
