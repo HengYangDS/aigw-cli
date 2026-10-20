@@ -16,7 +16,7 @@
         `2a682982` since 2026-10-20, whose preview still refuses with
         `proof_attestation_repository_policy_mismatch`: their sources predate
         the shared paradigm. Owner: ETHOS publication-history-repair 13.4.10
-        (session "Ethos 框架分析"); next: bind the runtime that ships 13.4.10
+        (session `Ethos 框架分析`); next: bind the runtime that ships 13.4.10
         and preview both receipts again; review 2026-10-27.
   - [x] 1.2.4 Publish the maintenance tags `v0.3.4` and `v0.3.5`; read back
         GitHub's objects `e86777be` and `95132368`. Done by the user-authorized
