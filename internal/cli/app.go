@@ -154,7 +154,7 @@ func Execute(app *App, args []string) error {
 		return err
 	}
 	renderer := app.Renderer()
-	presentation.RenderError(renderer, err, jsonMode)
+	presentation.RenderError(renderer, presentation.LocalFailure(Version, err), jsonMode)
 	return presentation.Presented(errors.Join(err, renderer.Err()))
 }
 

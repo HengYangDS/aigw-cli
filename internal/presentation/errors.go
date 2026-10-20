@@ -3,8 +3,10 @@ package presentation
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"strings"
+	"syscall"
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -65,6 +67,105 @@ func RenderCredentialError(renderer *Renderer, err error) {
 		)
 	}
 	RenderError(renderer, err, false)
+}
+
+// LocalFailure turns a configuration load failure into a problem that names
+// its stage and the AIGW version that stopped there. Other errors, including
+// structured problems, configuration recovery outcomes and an unsupported
+// configuration version, which carries its own migration guidance, return
+// unchanged.
+func LocalFailure(version string, err error) error {
+	if _, presented := errors.AsType[*userError](err); presented {
+		return err
+	}
+	if _, recovery := ConfigurationRecoveryImpact(err); recovery {
+		return err
+	}
+	if _, unsupported := errors.AsType[*configuration.UnsupportedConfigVersionError](err); unsupported {
+		return err
+	}
+	failure, ok := errors.AsType[*configuration.LoadError](err)
+	if !ok {
+		return err
+	}
+	evidence, _ := ConfigurationLoadEvidence("AIGW "+version, err)
+	return ProblemError(
+		configurationLoadTitle(failure.Phase), evidence,
+		"The command could not finish; inspect current state before retrying.",
+		configurationLoadFix(failure.Phase), err,
+	)
+}
+
+// ConfigurationLoadEvidence states the configuration stage at which subject
+// stopped, with the operation and operating-system error of a read or the
+// position of a parse failure. It never includes a path or document content.
+func ConfigurationLoadEvidence(subject string, err error) (string, bool) {
+	failure, ok := errors.AsType[*configuration.LoadError](err)
+	if !ok {
+		return "", false
+	}
+	detail := ""
+	switch failure.Phase {
+	case configuration.LoadPhaseRead:
+		if access, ok := errors.AsType[*os.PathError](err); ok {
+			detail = fmt.Sprintf(" (%s: %s)", access.Op, fileErrorReason(access.Err))
+		}
+	case configuration.LoadPhaseParse:
+		if document, ok := errors.AsType[*toml.DecodeError](err); ok {
+			line, column := document.Position()
+			detail = fmt.Sprintf(" at line %d, column %d", line, column)
+		}
+	case configuration.LoadPhaseValidate:
+	}
+	return fmt.Sprintf("%s stopped at the configuration %s stage%s.", subject, failure.Phase, detail), true
+}
+
+func configurationLoadTitle(phase configuration.LoadPhase) string {
+	switch phase {
+	case configuration.LoadPhaseRead:
+		return "Cannot read local configuration"
+	case configuration.LoadPhaseParse:
+		return "Cannot parse local configuration"
+	case configuration.LoadPhaseValidate:
+		return "Cannot validate local configuration"
+	default:
+		return "Cannot load local configuration"
+	}
+}
+
+func configurationLoadFix(phase configuration.LoadPhase) string {
+	switch phase {
+	case configuration.LoadPhaseRead:
+		return "Restore read access to the AIGW configuration; run `aigw doctor` to inspect it."
+	case configuration.LoadPhaseParse:
+		return "Correct the configuration at that position or restore it from a backup; run `aigw doctor` to inspect it."
+	case configuration.LoadPhaseValidate:
+		return "If a newer AIGW wrote this configuration, use that installed AIGW; otherwise run `aigw doctor` to inspect or restore it."
+	default:
+		return "Run `aigw doctor` to inspect or restore the configuration."
+	}
+}
+
+func localFileAccessMessage(operation string, err error) string {
+	return fmt.Sprintf("Local file access failed (%s: %s); run `aigw doctor` to inspect current state", operation, fileErrorReason(err))
+}
+
+// fileErrorReason names an operating-system file error from a closed set, so
+// no path or caller-supplied text reaches a diagnostic.
+func fileErrorReason(err error) string {
+	if number, ok := errors.AsType[syscall.Errno](err); ok {
+		return number.Error()
+	}
+	switch {
+	case errors.Is(err, fs.ErrPermission):
+		return "permission denied"
+	case errors.Is(err, fs.ErrNotExist):
+		return "no such file or directory"
+	case errors.Is(err, fs.ErrExist):
+		return "file exists"
+	default:
+		return "unexpected error"
+	}
 }
 
 // RenderError emits one structured actionable error and records any output failure on the renderer.
@@ -134,13 +235,14 @@ func typedErrorMessage(err error) (string, bool) {
 		}
 		return message, true
 	}
-	if _, ok := errors.AsType[*configuration.LoadError](err); ok {
-		return "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it", true
+	if failure, ok := errors.AsType[*configuration.LoadError](err); ok {
+		return configurationLoadTitle(failure.Phase) + "; run `aigw doctor` to inspect or restore it", true
 	}
-	_, hasPathError := errors.AsType[*os.PathError](err)
-	_, hasLinkError := errors.AsType[*os.LinkError](err)
-	if hasPathError || hasLinkError {
-		return "Local file access failed; run `aigw doctor` to inspect current state", true
+	if access, ok := errors.AsType[*os.PathError](err); ok {
+		return localFileAccessMessage(access.Op, access.Err), true
+	}
+	if link, ok := errors.AsType[*os.LinkError](err); ok {
+		return localFileAccessMessage(link.Op, link.Err), true
 	}
 	if document, ok := errors.AsType[*toml.DecodeError](err); ok {
 		line, column := document.Position()

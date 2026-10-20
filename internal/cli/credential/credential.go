@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
@@ -88,14 +87,11 @@ func configurationProblem(version string, err error) error {
 	}
 	evidence := reader + " could not load the configuration."
 	fix := "If a newer AIGW wrote this configuration, run `aigw sync` with the installed AIGW and reload the client to use its current reader; otherwise run `aigw doctor`."
-	if failure, ok := errors.AsType[*configuration.LoadError](err); ok {
-		evidence = fmt.Sprintf("%s stopped at the configuration %s stage.", reader, failure.Phase)
-		if failure.Phase == configuration.LoadPhaseRead {
-			if access, ok := errors.AsType[*os.PathError](err); ok {
-				evidence = fmt.Sprintf("%s stopped at the configuration read stage (%s: %v).", reader, access.Op, access.Err)
-			}
-			fix = "Restore the client's read access to the AIGW configuration; run `aigw doctor` to inspect it."
-		}
+	if stage, ok := presentation.ConfigurationLoadEvidence(reader, err); ok {
+		evidence = stage
+	}
+	if failure, ok := errors.AsType[*configuration.LoadError](err); ok && failure.Phase == configuration.LoadPhaseRead {
+		fix = "Restore the client's read access to the AIGW configuration; run `aigw doctor` to inspect it."
 	}
 	return presentation.ProblemError("Cannot read AIGW configuration", evidence, "Credential lookup did not start.", fix, err)
 }

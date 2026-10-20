@@ -6,12 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"strings"
+	"syscall"
 	"testing"
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 type rewrittenOutputError struct{ cause error }
@@ -27,18 +31,83 @@ func (e presentationProjectionError) ConfigurationRestored() bool { return e.res
 
 func TestRenderErrorDoesNotExposeLocalFilePath(t *testing.T) {
 	const privatePath = "/private/account-store/configuration.toml.bak"
-	for _, cause := range []error{
-		&os.PathError{Op: "read", Path: privatePath, Err: os.ErrPermission},
-		&os.LinkError{Op: "rename", Old: privatePath, New: privatePath + ".new", Err: os.ErrPermission},
+	for _, test := range []struct {
+		cause error
+		want  string
+	}{
+		{&os.PathError{Op: "read", Path: privatePath, Err: os.ErrPermission}, "Local file access failed (read: permission denied)"},
+		{&os.LinkError{Op: "rename", Old: privatePath, New: privatePath + ".new", Err: os.ErrPermission}, "Local file access failed (rename: permission denied)"},
+		{&os.PathError{Op: "open", Path: privatePath, Err: os.ErrNotExist}, "Local file access failed (open: no such file or directory)"},
+		{&os.PathError{Op: "stat", Path: privatePath, Err: syscall.ENOENT}, "Local file access failed (stat: " + syscall.ENOENT.Error() + ")"},
+		{&os.PathError{Op: "mkdir", Path: privatePath, Err: fs.ErrExist}, "Local file access failed (mkdir: file exists)"},
+		{&os.PathError{Op: "mkdir", Path: privatePath, Err: errors.New(privatePath + " is a private detail")}, "Local file access failed (mkdir: unexpected error)"},
 	} {
 		for _, jsonMode := range []bool{false, true} {
 			var out bytes.Buffer
 			renderer := New(&out, false)
-			RenderError(renderer, fmt.Errorf("capture current config: %w", cause), jsonMode)
+			RenderError(renderer, fmt.Errorf("capture current config: %w", test.cause), jsonMode)
 			if renderer.Err() != nil || strings.Contains(out.String(), privatePath) ||
-				!strings.Contains(out.String(), "Local file access failed") || !strings.Contains(out.String(), "aigw doctor") {
-				t.Fatalf("json=%t local file diagnostic = %q, render error = %v", jsonMode, out.String(), renderer.Err())
+				!strings.Contains(out.String(), test.want) || !strings.Contains(out.String(), "aigw doctor") {
+				t.Fatalf("json=%t local file diagnostic = %q, want %q, render error = %v", jsonMode, out.String(), test.want, renderer.Err())
 			}
+		}
+	}
+}
+
+func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
+	const content = "secret-looking configuration content"
+	decodeErr := toml.Unmarshal([]byte("[routes]\nbroken = \n"), &struct{}{})
+	syntax, ok := errors.AsType[*toml.DecodeError](decodeErr)
+	if !ok {
+		t.Fatalf("fixture did not produce a TOML decode error: %v", decodeErr)
+	}
+	line, column := syntax.Position()
+	for name, test := range map[string]struct {
+		err  error
+		want []string
+	}{
+		"read": {
+			err:  &configuration.LoadError{Phase: configuration.LoadPhaseRead, Err: &os.PathError{Op: "open", Path: "/private/config.toml", Err: os.ErrPermission}},
+			want: []string{"Cannot read local configuration", "read stage (open: permission denied)", "aigw doctor"},
+		},
+		"parse": {
+			err:  &configuration.LoadError{Phase: configuration.LoadPhaseParse, Err: fmt.Errorf("%s: %w", content, syntax)},
+			want: []string{"Cannot parse local configuration", fmt.Sprintf("parse stage at line %d, column %d", line, column), "aigw doctor"},
+		},
+		"validate": {
+			err:  &configuration.LoadError{Phase: configuration.LoadPhaseValidate, Err: errors.New(content)},
+			want: []string{"Cannot validate local configuration", "AIGW 9.8.7 stopped at the configuration validate stage", "newer AIGW", "aigw doctor"},
+		},
+		"unknown stage": {
+			err:  &configuration.LoadError{Phase: "replay", Err: errors.New(content)},
+			want: []string{"Cannot load local configuration", "stopped at the configuration replay stage", "aigw doctor"},
+		},
+	} {
+		for _, jsonMode := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/json=%t", name, jsonMode), func(t *testing.T) {
+				var out bytes.Buffer
+				renderer := New(&out, false)
+				RenderError(renderer, LocalFailure("9.8.7", fmt.Errorf("load: %w", test.err)), jsonMode)
+				rendered := out.String()
+				if renderer.Err() != nil || strings.Contains(rendered, content) || strings.Contains(rendered, "/private/config.toml") {
+					t.Fatalf("configuration diagnostic exposed private detail: %q, %v", rendered, renderer.Err())
+				}
+				for _, required := range test.want {
+					if !strings.Contains(rendered, required) {
+						t.Fatalf("configuration diagnostic omits %q: %q", required, rendered)
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestLocalFailureKeepsOtherErrorsUnchanged(t *testing.T) {
+	recovery := presentationProjectionError{restored: true, cause: &os.PathError{Op: "write", Path: "/private/x", Err: os.ErrPermission}}
+	unsupported := &configuration.LoadError{Phase: configuration.LoadPhaseValidate, Err: &configuration.UnsupportedConfigVersionError{Version: 0, ExpectedVersion: configuration.ConfigVersion}}
+	for _, err := range []error{nil, errors.New("plain failure"), ProblemError("Problem", "", "", "", nil), recovery, unsupported} {
+		if got := LocalFailure("1.2.3", err); !errors.Is(got, err) || !errors.Is(err, got) {
+			t.Fatalf("LocalFailure changed %#v into %#v", err, got)
 		}
 	}
 }
@@ -231,7 +300,7 @@ func TestTypedErrorLocalizationDoesNotDependOnErrorText(t *testing.T) {
 		{name: "unsupported version", err: &configuration.UnsupportedConfigVersionError{Version: 3, ExpectedVersion: 2}, want: "unsupported configuration version: found 3, expected 2. AIGW does not reinterpret configuration schemas"},
 		{name: "migratable version", err: &configuration.UnsupportedConfigVersionError{Version: configuration.LegacyConfigVersion, ExpectedVersion: configuration.ConfigVersion}, want: fmt.Sprintf("unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas; run `aigw config migrate --dry-run`", configuration.LegacyConfigVersion, configuration.ConfigVersion)},
 		{name: "published migratable version", err: &configuration.UnsupportedConfigVersionError{Version: configuration.PublishedConfigVersion, ExpectedVersion: configuration.ConfigVersion}, want: fmt.Sprintf("unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas; run `aigw config migrate --dry-run`", configuration.PublishedConfigVersion, configuration.ConfigVersion)},
-		{name: "config load", err: &configuration.LoadError{Phase: configuration.LoadPhaseRead, Err: errors.New("details changed")}, want: "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it"},
+		{name: "config load", err: &configuration.LoadError{Phase: configuration.LoadPhaseRead, Err: errors.New("details changed")}, want: "Cannot read local configuration; run `aigw doctor` to inspect or restore it"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

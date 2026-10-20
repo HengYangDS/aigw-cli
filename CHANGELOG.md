@@ -14,6 +14,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Changed
+
+- Name where a local failure stopped: a file error names its operation and
+  the operating-system error, such as `open: permission denied`, and a
+  configuration error names the read, parse or validate stage, with the line
+  and column of a parse error and the running AIGW version for a validation
+  error. Paths and configuration content stay out of the message.
+
 ## [0.4.7] - 2026-10-20
 
 History: [GitLab][0.4.7-gitlab] · [GitHub][0.4.7-github]
