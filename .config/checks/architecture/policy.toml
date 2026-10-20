@@ -446,6 +446,10 @@ prefixes = [".ethos"]
 responsibility = "single CI semantic graph"
 exact_paths = [".config/ci/pipeline.cue"]
 
+[tracked_carrier_classes.ci-retention]
+responsibility = "recorded operating-system glue that projected CI steps keep as shell"
+exact_paths = [".config/ci/retained-steps.toml"]
+
 [tracked_carrier_classes.ci-bootstrap]
 responsibility = "job-local CI toolchain bootstrap implementation"
 prefixes = ["tools/ci/bootstrap"]
