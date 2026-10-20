@@ -796,6 +796,15 @@ literals or compatibility fallbacks.
   return to the previous release, on every Forge projection and runner
 - **AND** the tool's warning SHALL be absent from the next native jobs.
 
+#### Scenario: A security advisory names a locked tool
+
+- **WHEN** a published advisory places the locked release of a tool in its
+  vulnerable range, such as uv before 0.13.4 trusting a compromised CA
+- **THEN** the declaration and its lock SHALL advance to the first fixed stable
+  release without the ordinary release-age delay
+- **AND** the advance SHALL pass complete native verification before
+  integration.
+
 ### Requirement: Terminal candidate integration is exact and local
 
 A proven work lane SHALL advance the local candidate only through explicit
