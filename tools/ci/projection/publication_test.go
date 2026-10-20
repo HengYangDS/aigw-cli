@@ -3,7 +3,6 @@ package projection
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -376,8 +375,9 @@ func TestGitLabPerformanceUsesItsSelectedNativeClosure(t *testing.T) {
 	for _, name := range []string{"native-linux", "native-darwin-review", "native-darwin", "native-windows-review", "native-windows"} {
 		t.Run(name, func(t *testing.T) {
 			var job struct {
-				BeforeScript []string `yaml:"before_script"`
-				Script       []string `yaml:"script"`
+				BeforeScript []string     `yaml:"before_script"`
+				Script       []string     `yaml:"script"`
+				Rules        []gitLabRule `yaml:"rules"`
 				Artifacts    struct {
 					When  string   `yaml:"when"`
 					Paths []string `yaml:"paths"`
@@ -387,29 +387,16 @@ func TestGitLabPerformanceUsesItsSelectedNativeClosure(t *testing.T) {
 			if err := node.Decode(&job); err != nil {
 				t.Fatal(err)
 			}
-			script := strings.Join(append(slices.Clone(job.BeforeScript), job.Script...), "\n")
-			for _, input := range []string{"AIGW_NATIVE_PERFORMANCE", "github:sharkdp/hyperfine", "--performance", "build/verification/performance", "Native diagnostics and performance require a manual pipeline"} {
-				if !strings.Contains(script, input) {
-					t.Errorf("selected native performance omits %q", input)
-				}
+			// The native command fences performance to manual pipelines and
+			// writes it under the physical checkout; its table tests cover both.
+			platform := strings.TrimSuffix(strings.TrimPrefix(name, "native-"), "-review")
+			if !slices.Contains(job.Script, "mise exec --locked -- go run ./tools/ci native --platform "+platform+" --from-env") {
+				t.Fatal("native performance command is missing")
 			}
-			performanceArgument := `--performance "$(pwd -P)/build/verification/performance"`
-			if strings.HasPrefix(name, "native-windows") {
-				performanceArgument = `'--performance', (Join-Path (Get-Location).ProviderPath 'build/verification/performance')`
-			}
-			if !strings.Contains(script, performanceArgument) {
-				t.Error("performance output must belong to the native checkout, not the runner manager path")
-			}
-			if runtime.GOOS != "windows" && !strings.HasPrefix(name, "native-windows") {
-				native := slices.IndexFunc(job.Script, func(step string) bool { return strings.Contains(step, "--performance") })
-				if native < 0 {
-					t.Fatal("native performance command is missing")
-				}
-				platform := "darwin"
-				if name == "native-linux" {
-					platform = "linux"
-				}
-				checkProjectedNativeReleaseArguments(t, job.Script[native], platform)
+			if !slices.ContainsFunc(job.Rules, func(rule gitLabRule) bool {
+				return strings.Contains(rule.If, `$AIGW_NATIVE_PERFORMANCE == "true"`) && strings.Contains(rule.Variables["MISE_ENABLE_TOOLS"], "github:sharkdp/hyperfine")
+			}) {
+				t.Error("selected native performance omits its measurement tool")
 			}
 			if job.Artifacts.When != "always" || !slices.Contains(job.Artifacts.Paths, "./{.config/mise/mise.lock,.config/mise/locks,build/verification}") {
 				t.Fatal("performance samples must remain in the existing verification artifact on success and failure")

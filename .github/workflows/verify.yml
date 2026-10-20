@@ -572,34 +572,7 @@ jobs:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
           GIT_TERMINAL_PROMPT: "0"
-        run: |-
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          $clients = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString())
-          New-Item -ItemType Directory -Path $clients | Out-Null
-          try {
-            Add-Content -LiteralPath $env:GITHUB_ENV -Value "AIGW_NATIVE_CLIENT_SUPPLY=$clients"
-            $env:GIT_CONFIG_GLOBAL = Join-Path $clients 'gitconfig'
-            git config --file $env:GIT_CONFIG_GLOBAL core.autocrlf false
-            Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-            mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.162.1' '@anthropic-ai/claude-code-win32-x64@2.1.296'
-            mise exec --locked -- npm audit signatures --prefix $clients
-            $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
-            $gitBin = Split-Path (Get-Command git.exe).Source
-            $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
-            if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Claude requires native Git Bash.' }
-            $outputs = [ordered]@{
-              AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
-              AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-            }
-            foreach ($executable in $outputs.Values) { Get-FileHash -LiteralPath $executable -Algorithm SHA256 }
-            $outputs.CLAUDE_CODE_GIT_BASH_PATH = $bash
-            $outputs.AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), (Split-Path (Get-Command node.exe).Source), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
-            foreach ($entry in $outputs.GetEnumerator()) { Add-Content -LiteralPath $env:GITHUB_ENV -Value "$($entry.Key)=$($entry.Value)" }
-          } catch {
-            Remove-Item -LiteralPath $clients -Recurse -Force -ErrorAction Stop
-            throw
-          }
+        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$env:RUNNER_TEMP" --github-env "$env:GITHUB_ENV" --package '@openai/codex@0.162.1' --package '@anthropic-ai/claude-code-win32-x64@2.1.296'
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.windows_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)
         env:
@@ -642,10 +615,7 @@ jobs:
         run: mise run performance --peer=github --repository="$env:GITHUB_REPOSITORY" --baseline-tag="$env:AIGW_BASELINE_TAG" --tag="$env:AIGW_CANDIDATE_TAG" --clients=${{ inputs.windows_clients && inputs.diagnostic_client == '' }} --diagnostic-client="$env:AIGW_NATIVE_DIAGNOSTIC_CLIENT" --performance-attribution=${{ inputs.performance_attribution }} --input-release="$env:AIGW_NATIVE_INPUT_RELEASE" --input-sha256="$env:AIGW_NATIVE_INPUT_SHA256" --candidate-source="$env:AIGW_CANDIDATE_SOURCE" --candidate=${{ inputs.input_release != '' }} --performance "$env:GITHUB_WORKSPACE/build/performance"
       - name: Remove official Windows client supply
         if: always() && github.event_name == 'workflow_dispatch' && inputs.windows_clients && inputs.baseline_tag != ''
-        run: |-
-          $owned = $env:AIGW_NATIVE_CLIENT_SUPPLY
-          if ($owned -and (Test-Path -LiteralPath $owned)) { Remove-Item -LiteralPath $owned -Recurse -Force -ErrorAction Stop }
-          if ($owned -and (Test-Path -LiteralPath $owned)) { throw "Windows native supply remains after cleanup: $owned" }
+        run: mise exec --locked -- go run ./tools/ci native-clients retire
       - name: Retain native dependency evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

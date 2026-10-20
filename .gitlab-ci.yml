@@ -5,9 +5,49 @@ native-linux:
   tags:
     - $AIGW_CI_LINUX_RUNNER_TAG
   rules:
+    - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
+      variables:
+        CGO_ENABLED: "0"
+        AIGW_LINUX_COMPILER_PACKAGES: ""
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+    - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
+      variables:
+        CGO_ENABLED: "0"
+        AIGW_LINUX_COMPILER_PACKAGES: ""
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
     - if: $CI_COMMIT_TAG
+    - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
+      variables:
+        CGO_ENABLED: "0"
+        AIGW_LINUX_COMPILER_PACKAGES: ""
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+    - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
+      variables:
+        CGO_ENABLED: "0"
+        AIGW_LINUX_COMPILER_PACKAGES: ""
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
+    - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
+      variables:
+        CGO_ENABLED: "0"
+        AIGW_LINUX_COMPILER_PACKAGES: ""
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+    - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
+      variables:
+        CGO_ENABLED: "0"
+        AIGW_LINUX_COMPILER_PACKAGES: ""
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
     - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
+    - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "linux")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
+      variables:
+        CGO_ENABLED: "0"
+        AIGW_LINUX_COMPILER_PACKAGES: ""
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+    - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "linux")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
+      variables:
+        CGO_ENABLED: "0"
+        AIGW_LINUX_COMPILER_PACKAGES: ""
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
     - if: ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "linux")
     - when: never
   after_script:
@@ -25,6 +65,7 @@ native-linux:
   stage: verify
   variables:
     CGO_ENABLED: "1"
+    AIGW_LINUX_COMPILER_PACKAGES: gcc libc6-dev
     GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
   artifacts:
@@ -36,10 +77,7 @@ native-linux:
       set -eu
       timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
       DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y libatomic1 openssh-client procps time
-    - |-
-      if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; then export CGO_ENABLED=0; else export CGO_ENABLED=1; set -eu
-      DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y gcc libc6-dev; fi
-    - DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
+    - DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y $AIGW_LINUX_COMPILER_PACKAGES dbus-x11 gnome-keyring libglib2.0-bin
     - |-
       set -eu
       case "${AIGW_TOOL_SOURCE:-upstream}" in
@@ -68,43 +106,9 @@ native-linux:
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
       esac
-    - if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; then export MISE_ENABLE_TOOLS='go,gh,glab,github:goreleaser/goreleaser'; if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then export MISE_ENABLE_TOOLS="$MISE_ENABLE_TOOLS,github:sharkdp/hyperfine"; fi; fi
     - env GODEBUG=http2client=0 mise install --locked
   script:
-    - if ! { [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; }; then mise run bootstrap; fi
-    - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
-    - |-
-      if { [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] || [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ] || [ "${AIGW_NATIVE_PERFORMANCE_ATTRIBUTION:-false}" = true ]; } && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
-        printf '%s\n' 'Native diagnostics and performance require a manual pipeline' >&2
-        exit 1
-      fi
-      set -eu
-      set -- --peer gitlab --repository "$CI_PROJECT_URL"
-      if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
-      if [ -n "${AIGW_BASELINE_ARTIFACTS:-}" ]; then set -- "$@" --baseline-artifacts "$AIGW_BASELINE_ARTIFACTS"; fi
-      if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
-      if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
-      if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
-      if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ]; then set -- "$@" --input-package "$AIGW_NATIVE_INPUT_PACKAGE" --input-sha256 "$AIGW_NATIVE_INPUT_SHA256" --candidate; fi
-      if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then set -- "$@" --performance "$(pwd -P)/build/verification/performance"; fi
-      if [ "${AIGW_NATIVE_PERFORMANCE_ATTRIBUTION:-false}" = true ]; then set -- "$@" --performance-attribution; fi
-      if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ]; then
-        set -- "$@" --diagnostic-client "$AIGW_NATIVE_DIAGNOSTIC_CLIENT"
-      elif [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
-        : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
-        set -- "$@" --clients
-      fi
-      export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
-      export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
-      if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}${AIGW_BASELINE_TAG:-}${AIGW_BASELINE_ARTIFACTS:-}" ]; then
-      dbus-run-session -- bash -s -euo pipefail -- "$@" <<'AIGW_SECRET_SERVICE'
-      gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias session | grep -Fq /org/freedesktop/secrets/collection/session
-      gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.SetAlias default /org/freedesktop/secrets/collection/session >/dev/null
-      AIGW_VERIFY_SYSTEM_KEYRING=1 mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
-      AIGW_SECRET_SERVICE
-      else
-        mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
-      fi
+    - mise exec --locked -- go run ./tools/ci native --platform linux --from-env
     - |-
       set -eu
       if [ -n "${CI_JOB_ID:-}" ]; then
@@ -146,38 +150,8 @@ native-darwin:
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
       esac
-    - if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; then export MISE_ENABLE_TOOLS='go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs'; if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then export MISE_ENABLE_TOOLS="$MISE_ENABLE_TOOLS,github:sharkdp/hyperfine"; fi; fi
     - env GODEBUG=http2client=0 mise install --locked
-    - if ! { [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; }; then mise run bootstrap; fi
-    - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
-    - |-
-      if { [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] || [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ] || [ "${AIGW_NATIVE_PERFORMANCE_ATTRIBUTION:-false}" = true ]; } && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
-        printf '%s\n' 'Native diagnostics and performance require a manual pipeline' >&2
-        exit 1
-      fi
-      set -eu
-      set -- --peer gitlab --repository "$CI_PROJECT_URL"
-      if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
-      if [ -n "${AIGW_BASELINE_ARTIFACTS:-}" ]; then set -- "$@" --baseline-artifacts "$AIGW_BASELINE_ARTIFACTS"; fi
-      if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
-      if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
-      if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
-      if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ]; then set -- "$@" --input-package "$AIGW_NATIVE_INPUT_PACKAGE" --input-sha256 "$AIGW_NATIVE_INPUT_SHA256" --candidate; fi
-      if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then set -- "$@" --performance "$(pwd -P)/build/verification/performance"; fi
-      if [ "${AIGW_NATIVE_PERFORMANCE_ATTRIBUTION:-false}" = true ]; then set -- "$@" --performance-attribution; fi
-      if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ]; then
-        set -- "$@" --diagnostic-client "$AIGW_NATIVE_DIAGNOSTIC_CLIENT"
-      elif [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
-        : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
-        set -- "$@" --clients
-      fi
-      export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
-      export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
-      if [ "${CI_COMMIT_REF_PROTECTED:-}" = false ] && [ -n "${AIGW_REVIEW_PROTECTED_FILE:-}" ]; then
-        mise exec --locked -- go run ./tools/ci native --platform darwin --protected-file "$AIGW_REVIEW_PROTECTED_FILE" --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
-      else
-        mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
-      fi
+    - mise exec --locked -- go run ./tools/ci native --platform darwin --from-env
     - |-
       set -eu
       if [ -n "${CI_JOB_ID:-}" ]; then
@@ -192,8 +166,26 @@ native-darwin:
   tags:
     - ci-macos-arm64-shell
   rules:
+    - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
+    - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
     - if: $CI_COMMIT_TAG
+    - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
+    - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
     - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
+    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
+    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
     - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")) && $CI_COMMIT_REF_PROTECTED == "true"
     - when: never
   after_script:
@@ -246,38 +238,8 @@ native-darwin-review:
           ;;
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
       esac
-    - if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; then export MISE_ENABLE_TOOLS='go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs'; if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then export MISE_ENABLE_TOOLS="$MISE_ENABLE_TOOLS,github:sharkdp/hyperfine"; fi; fi
     - env GODEBUG=http2client=0 mise install --locked
-    - if ! { [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}" ] && [ "${AIGW_FULL_NATIVE_QUALITY:-false}" != true ] && [ "${AIGW_REFRESH_LOCKS:-false}" != true ]; }; then mise run bootstrap; fi
-    - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
-    - |-
-      if { [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] || [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ] || [ "${AIGW_NATIVE_PERFORMANCE_ATTRIBUTION:-false}" = true ]; } && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
-        printf '%s\n' 'Native diagnostics and performance require a manual pipeline' >&2
-        exit 1
-      fi
-      set -eu
-      set -- --peer gitlab --repository "$CI_PROJECT_URL"
-      if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
-      if [ -n "${AIGW_BASELINE_ARTIFACTS:-}" ]; then set -- "$@" --baseline-artifacts "$AIGW_BASELINE_ARTIFACTS"; fi
-      if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
-      if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
-      if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
-      if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ]; then set -- "$@" --input-package "$AIGW_NATIVE_INPUT_PACKAGE" --input-sha256 "$AIGW_NATIVE_INPUT_SHA256" --candidate; fi
-      if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then set -- "$@" --performance "$(pwd -P)/build/verification/performance"; fi
-      if [ "${AIGW_NATIVE_PERFORMANCE_ATTRIBUTION:-false}" = true ]; then set -- "$@" --performance-attribution; fi
-      if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ]; then
-        set -- "$@" --diagnostic-client "$AIGW_NATIVE_DIAGNOSTIC_CLIENT"
-      elif [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
-        : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
-        set -- "$@" --clients
-      fi
-      export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
-      export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
-      if [ "${CI_COMMIT_REF_PROTECTED:-}" = false ] && [ -n "${AIGW_REVIEW_PROTECTED_FILE:-}" ]; then
-        mise exec --locked -- go run ./tools/ci native --platform darwin --protected-file "$AIGW_REVIEW_PROTECTED_FILE" --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
-      else
-        mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
-      fi
+    - mise exec --locked -- go run ./tools/ci native --platform darwin --from-env
     - |-
       set -eu
       if [ -n "${CI_JOB_ID:-}" ]; then
@@ -292,7 +254,19 @@ native-darwin-review:
   tags:
     - ci-macos-arm64-review
   rules:
+    - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
+    - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
+    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
+    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
     - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")) && $CI_COMMIT_REF_PROTECTED == "false"
     - when: never
   after_script:
@@ -364,72 +338,8 @@ native-windows:
       $env:MISE_NETRC = 'true'
       $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
       }
-      if (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE -and ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT))) { $env:MISE_ENABLE_TOOLS += ',node' }
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
-    - if (-not (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true')) { mise run bootstrap }
-    - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
-    - |-
-      $ErrorActionPreference = 'Stop'
-      $PSNativeCommandUseErrorActionPreference = $true
-      if (($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT -or $env:AIGW_NATIVE_PERFORMANCE -eq 'true' -or $env:AIGW_NATIVE_PERFORMANCE_ATTRIBUTION -eq 'true') -and $env:CI_PIPELINE_SOURCE -notin @('web', 'api')) { throw 'Native diagnostics and performance require a manual pipeline' }
-      if ($env:AIGW_NATIVE_INPUT_PACKAGE -and ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT))) {
-        if ($env:AIGW_NATIVE_PLATFORM -ne 'windows') { throw 'Native public input requires the Windows platform' }
-        if ($env:AIGW_NATIVE_INPUT_SHA256 -notmatch '^[0-9a-f]{64}$' -or $env:AIGW_CANDIDATE_SOURCE -notmatch '^[0-9a-f]{40}$') { throw 'Native public input requires exact source and checksum.' }
-        if (-not $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ALLOWED_SIGNERS }
-        if (-not $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }
-        if ([string]::IsNullOrWhiteSpace($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) -or [string]::IsNullOrWhiteSpace($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) -or [string]::IsNullOrWhiteSpace($env:AIGW_RELEASE_ARTIFACT_SIGNER) -or -not (Test-Path -LiteralPath $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE -PathType Leaf) -or -not (Test-Path -LiteralPath $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE -PathType Leaf)) { throw 'Native public input requires configured source and artifact trust' }
-        $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
-        $archive = Join-Path $jobDirectory 'native-input.tar'
-        $fixture = Join-Path $jobDirectory 'native-input'
-        $previousLogin = $env:GLAB_ENABLE_CI_AUTOLOGIN
-        $previousConfig = $env:GLAB_CONFIG_DIR
-        try {
-          $env:GLAB_ENABLE_CI_AUTOLOGIN = 'true'
-          $env:GLAB_CONFIG_DIR = Join-Path $jobDirectory 'glab'
-          mise exec --locked -- glab packages download --repo $env:CI_PROJECT_URL --name $env:AIGW_NATIVE_INPUT_PACKAGE --version $env:AIGW_CANDIDATE_SOURCE --filename public-inputs.tar --path $archive
-        } finally {
-          $env:GLAB_CONFIG_DIR = $previousConfig
-          $env:GLAB_ENABLE_CI_AUTOLOGIN = $previousLogin
-        }
-        if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:AIGW_NATIVE_INPUT_SHA256) { throw 'Native public input checksum mismatch' }
-        [void](New-Item -ItemType Directory -Path $fixture -ErrorAction Stop)
-        tar -xf $archive -C $fixture suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz
-        tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz') -C $fixture
-        $codex = Join-Path $fixture 'clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
-        $gitBin = Split-Path (Get-Command git.exe -ErrorAction Stop).Source
-        $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
-        if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Native Claude requires Git Bash.' }
-        $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codex 'bin/codex.exe'
-        $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $fixture 'clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-        $node = mise which node
-        $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
-        $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
-      }
-      $acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)
-      if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }
-      if ($env:AIGW_BASELINE_ARTIFACTS) { $acceptance += @('--baseline-artifacts', $env:AIGW_BASELINE_ARTIFACTS) }
-      if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
-      if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
-      if ($env:AIGW_CANDIDATE_SOURCE) { $acceptance += @('--candidate-source', $env:AIGW_CANDIDATE_SOURCE) }
-      if ($env:AIGW_NATIVE_INPUT_PACKAGE) {
-        if ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)) {
-          $acceptance += @('--input-archive', $archive)
-        } else {
-          $acceptance += @('--input-package', $env:AIGW_NATIVE_INPUT_PACKAGE)
-        }
-        $acceptance += @('--input-sha256', $env:AIGW_NATIVE_INPUT_SHA256, '--candidate')
-      }
-      if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $acceptance += @('--performance', (Join-Path (Get-Location).ProviderPath 'build/verification/performance')) }
-      if ($env:AIGW_NATIVE_PERFORMANCE_ATTRIBUTION -eq 'true') { $acceptance += @('--performance-attribution') }
-      if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT) {
-        $acceptance += @('--diagnostic-client', $env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)
-      } elseif ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
-        if (-not $env:AIGW_BASELINE_TAG) { throw 'Real-client succession requires AIGW_BASELINE_TAG.' }
-        $acceptance += '--clients'
-      }
-      if (-not $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }
-      if (-not $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ALLOWED_SIGNERS }
-      mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')" -- @acceptance
+    - mise exec --locked -- go run ./tools/ci native --platform windows --from-env
     - |-
       $ErrorActionPreference = 'Stop'
       $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
@@ -457,8 +367,44 @@ native-windows:
   tags:
     - ci-windows-arm64-shell
   rules:
+    - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
+    - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+    - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,node
+    - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
     - if: $CI_COMMIT_TAG
+    - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
+    - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+    - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,node
+    - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
     - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
+    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
+    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,node
+    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
     - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true"
     - when: never
   after_script:
@@ -489,6 +435,7 @@ native-windows:
   stage: verify
   variables:
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
+    AIGW_NATIVE_CLIENT_SUPPLIER: suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz
     GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
   artifacts:
@@ -544,72 +491,8 @@ native-windows-review:
       $env:MISE_NETRC = 'true'
       $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
       }
-      if (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true') { $env:MISE_ENABLE_TOOLS = 'go,gh,glab,github:goreleaser/goreleaser'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE -and ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT))) { $env:MISE_ENABLE_TOOLS += ',node' }
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
-    - if (-not (($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true')) { mise run bootstrap }
-    - if ($env:AIGW_REFRESH_LOCKS -eq 'true') { mise run dependencies:resolve }
-    - |-
-      $ErrorActionPreference = 'Stop'
-      $PSNativeCommandUseErrorActionPreference = $true
-      if (($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT -or $env:AIGW_NATIVE_PERFORMANCE -eq 'true' -or $env:AIGW_NATIVE_PERFORMANCE_ATTRIBUTION -eq 'true') -and $env:CI_PIPELINE_SOURCE -notin @('web', 'api')) { throw 'Native diagnostics and performance require a manual pipeline' }
-      if ($env:AIGW_NATIVE_INPUT_PACKAGE -and ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT))) {
-        if ($env:AIGW_NATIVE_PLATFORM -ne 'windows') { throw 'Native public input requires the Windows platform' }
-        if ($env:AIGW_NATIVE_INPUT_SHA256 -notmatch '^[0-9a-f]{64}$' -or $env:AIGW_CANDIDATE_SOURCE -notmatch '^[0-9a-f]{40}$') { throw 'Native public input requires exact source and checksum.' }
-        if (-not $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ALLOWED_SIGNERS }
-        if (-not $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }
-        if ([string]::IsNullOrWhiteSpace($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) -or [string]::IsNullOrWhiteSpace($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) -or [string]::IsNullOrWhiteSpace($env:AIGW_RELEASE_ARTIFACT_SIGNER) -or -not (Test-Path -LiteralPath $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE -PathType Leaf) -or -not (Test-Path -LiteralPath $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE -PathType Leaf)) { throw 'Native public input requires configured source and artifact trust' }
-        $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
-        $archive = Join-Path $jobDirectory 'native-input.tar'
-        $fixture = Join-Path $jobDirectory 'native-input'
-        $previousLogin = $env:GLAB_ENABLE_CI_AUTOLOGIN
-        $previousConfig = $env:GLAB_CONFIG_DIR
-        try {
-          $env:GLAB_ENABLE_CI_AUTOLOGIN = 'true'
-          $env:GLAB_CONFIG_DIR = Join-Path $jobDirectory 'glab'
-          mise exec --locked -- glab packages download --repo $env:CI_PROJECT_URL --name $env:AIGW_NATIVE_INPUT_PACKAGE --version $env:AIGW_CANDIDATE_SOURCE --filename public-inputs.tar --path $archive
-        } finally {
-          $env:GLAB_CONFIG_DIR = $previousConfig
-          $env:GLAB_ENABLE_CI_AUTOLOGIN = $previousLogin
-        }
-        if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:AIGW_NATIVE_INPUT_SHA256) { throw 'Native public input checksum mismatch' }
-        [void](New-Item -ItemType Directory -Path $fixture -ErrorAction Stop)
-        tar -xf $archive -C $fixture suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz
-        tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz') -C $fixture
-        $codex = Join-Path $fixture 'clients/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
-        $gitBin = Split-Path (Get-Command git.exe -ErrorAction Stop).Source
-        $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
-        if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Native Claude requires Git Bash.' }
-        $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codex 'bin/codex.exe'
-        $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $fixture 'clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-        $node = mise which node
-        $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
-        $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
-      }
-      $acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)
-      if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }
-      if ($env:AIGW_BASELINE_ARTIFACTS) { $acceptance += @('--baseline-artifacts', $env:AIGW_BASELINE_ARTIFACTS) }
-      if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
-      if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
-      if ($env:AIGW_CANDIDATE_SOURCE) { $acceptance += @('--candidate-source', $env:AIGW_CANDIDATE_SOURCE) }
-      if ($env:AIGW_NATIVE_INPUT_PACKAGE) {
-        if ($env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)) {
-          $acceptance += @('--input-archive', $archive)
-        } else {
-          $acceptance += @('--input-package', $env:AIGW_NATIVE_INPUT_PACKAGE)
-        }
-        $acceptance += @('--input-sha256', $env:AIGW_NATIVE_INPUT_SHA256, '--candidate')
-      }
-      if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $acceptance += @('--performance', (Join-Path (Get-Location).ProviderPath 'build/verification/performance')) }
-      if ($env:AIGW_NATIVE_PERFORMANCE_ATTRIBUTION -eq 'true') { $acceptance += @('--performance-attribution') }
-      if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT) {
-        $acceptance += @('--diagnostic-client', $env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)
-      } elseif ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
-        if (-not $env:AIGW_BASELINE_TAG) { throw 'Real-client succession requires AIGW_BASELINE_TAG.' }
-        $acceptance += '--clients'
-      }
-      if (-not $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }
-      if (-not $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ALLOWED_SIGNERS }
-      mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')" -- @acceptance
+    - mise exec --locked -- go run ./tools/ci native --platform windows --from-env
     - |-
       $ErrorActionPreference = 'Stop'
       $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
@@ -637,7 +520,31 @@ native-windows-review:
   tags:
     - ci-windows-arm64-review
   rules:
+    - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
+    - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+    - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,node
+    - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
+    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
+    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,node
+    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
+      variables:
+        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
     - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false"
     - when: never
   after_script:
@@ -668,6 +575,7 @@ native-windows-review:
   stage: verify
   variables:
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
+    AIGW_NATIVE_CLIENT_SUPPLIER: suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz
     GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
   artifacts:

@@ -55,11 +55,12 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		}
 	}
 	for name, job := range map[string]gitLabJob{"quality": gitlab.Quality, "native-linux": *gitlab.Linux} {
-		if len(job.Rules) != 5 || job.Rules[1].If != wantGitLabWorkflow[1].If {
-			t.Errorf("GitLab %s must verify reviews into both integration and release: %#v", name, job.Rules)
+		rules := admissionRules(job.Rules)
+		if len(rules) != 5 || rules[1].If != wantGitLabWorkflow[1].If {
+			t.Errorf("GitLab %s must verify reviews into both integration and release: %#v", name, rules)
 			continue
 		}
-		if got := job.Rules[2].If; got != wantGitLabWorkflow[2].If {
+		if got := rules[2].If; got != wantGitLabWorkflow[2].If {
 			t.Errorf("GitLab %s protected-push rule = %q", name, got)
 		}
 	}
@@ -207,11 +208,9 @@ func TestGitLabFullNativeQualityUsesTheExistingEntryPoint(t *testing.T) {
 			t.Fatal(err)
 		}
 		platform := strings.TrimSuffix(strings.TrimPrefix(name, "native-"), "-review")
-		want := "mise exec --locked -- go run ./tools/ci native --platform " + platform + ` --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"`
-		if platform == "windows" {
-			want = `mise exec --locked -- go run ./tools/ci native --platform windows --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')"`
-		}
-		if !slices.ContainsFunc(job.Script, func(script string) bool { return strings.Contains(script, want+" -- ") }) {
+		// The native command maps AIGW_FULL_NATIVE_QUALITY to its own --full-quality flag.
+		want := "mise exec --locked -- go run ./tools/ci native --platform " + platform + " --from-env"
+		if !slices.Contains(job.Script, want) {
 			t.Fatalf("GitLab %s lacks the same explicit native-quality entrypoint", name)
 		}
 	}
@@ -457,11 +456,19 @@ type gitLabJob struct {
 	Script        []string          `yaml:"script"`
 	Tags          []string          `yaml:"tags"`
 	Variables     map[string]string `yaml:"variables"`
-	Rules         []struct {
-		If        string            `yaml:"if"`
-		When      string            `yaml:"when"`
-		Variables map[string]string `yaml:"variables"`
-	} `yaml:"rules"`
+	Rules         []gitLabRule      `yaml:"rules"`
+}
+
+type gitLabRule struct {
+	If        string            `yaml:"if"`
+	When      string            `yaml:"when"`
+	Variables map[string]string `yaml:"variables"`
+}
+
+// admissionRules drops the artifact-only scopes that GitLab evaluates before
+// each native admission rule, leaving the routes that admit the job.
+func admissionRules(rules []gitLabRule) []gitLabRule {
+	return slices.DeleteFunc(slices.Clone(rules), func(rule gitLabRule) bool { return rule.Variables["MISE_ENABLE_TOOLS"] != "" })
 }
 
 func TestSemanticGraphDefinesExactClaims(t *testing.T) {

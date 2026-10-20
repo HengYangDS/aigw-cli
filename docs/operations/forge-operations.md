@@ -306,8 +306,8 @@ archive SHA256, and extracts only the complete positive candidate/predecessor
 matrix names. Signatures, source identity, published-predecessor admission and
 lifecycle execution retain their existing release owners.
 
-Windows client supply alone uses the existing job directory, managed Python
-3.12 and frozen official Hermes dependencies. It forwards its already downloaded
+Windows client supply alone uses the existing job directory and the reviewed
+client supplier archive that the Windows job declares. It forwards its already downloaded
 archive through `--input-archive`; the release owner rechecks the same SHA256 and
 matrices without another download. It never changes or deletes that caller-owned
 file. Locked uv is an acceptance tool, not an AIGW runtime dependency. The job

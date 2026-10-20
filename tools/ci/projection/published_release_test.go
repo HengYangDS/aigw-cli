@@ -69,9 +69,10 @@ func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
 		t.Fatalf("release verification order or trust differs: %q, %q", commands, trust)
 	}
 	evidence := commands[3]
+	// The release-evidence command peels the selected tag to its commit itself.
 	for _, required := range []string{
-		"git rev-parse", "release-evidence", "--repository", "--workflow verify.yml",
-		"--tag", "--sha", "--job 'Quality and governance'", "--job 'Native macOS acceptance'",
+		"release-evidence", "--repository", "--workflow verify.yml",
+		"--tag", "--job 'Quality and governance'", "--job 'Native macOS acceptance'",
 		"--job 'Native Linux acceptance'", "--job 'Native Windows acceptance'", "--job 'Linux Secret Service'",
 		"--job 'Release version'",
 	} {

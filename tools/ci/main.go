@@ -34,7 +34,7 @@ func main() {
 
 func run(args []string, stdout io.Writer, runner commandRunner) error {
 	if len(args) == 0 {
-		return errors.New("usage: ci <project|source|quality|openspec|links|format|check-format|check-go|check-source-size|check-spelling|check-toml|check-markdown|check-markdown-policy|check-mermaid|check-secrets|native|release-evidence|trust-input>")
+		return errors.New("usage: ci <project|source|quality|openspec|links|format|check-format|check-go|check-source-size|check-spelling|check-toml|check-markdown|check-markdown-policy|check-mermaid|check-secrets|native|native-clients|release-evidence|trust-input>")
 	}
 	checks := map[string]func(string, commandRunner) error{
 		"links": checkLinks, "check-go": checkGo, "check-workflows": checkWorkflows,
@@ -87,8 +87,10 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 		return projection.Reconcile(*root, *check)
 	case "native":
 		return runNative(args[1:], stdout, runner)
+	case "native-clients":
+		return runNativeClients(args[1:], stdout, runner)
 	case "release-evidence":
-		return runReleaseEvidence(args[1:], stdout)
+		return runReleaseEvidence(args[1:], stdout, systemOutputRunner)
 	case "trust-input":
 		flags := flag.NewFlagSet("ci trust-input", flag.ContinueOnError)
 		flags.SetOutput(io.Discard)
@@ -108,27 +110,34 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 	}
 }
 
-type jobFlags []string
+type repeatedFlag []string
 
-func (flags *jobFlags) String() string { return strings.Join(*flags, ", ") }
+func (flags *repeatedFlag) String() string { return strings.Join(*flags, ", ") }
 
-func (flags *jobFlags) Set(value string) error {
+func (flags *repeatedFlag) Set(value string) error {
 	*flags = append(*flags, value)
 	return nil
 }
 
-func runReleaseEvidence(arguments []string, output io.Writer) error {
-	const usage = "usage: ci release-evidence --repository <owner/name> --workflow <file> --tag <v...> --sha <commit> --job <name>..."
+func runReleaseEvidence(arguments []string, output io.Writer, inquiry outputRunner) error {
+	const usage = "usage: ci release-evidence --repository <owner/name> --workflow <file> --tag <v...> [--sha <commit>] --job <name>..."
 	flags := flag.NewFlagSet("ci release-evidence", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	repository := flags.String("repository", "", "selected GitHub repository")
 	workflow := flags.String("workflow", "", "verification workflow filename")
 	tag := flags.String("tag", "", "selected release tag")
-	sha := flags.String("sha", "", "peeled release commit")
-	var jobs jobFlags
+	sha := flags.String("sha", "", "peeled release commit; defaults to the checkout's commit for the selected tag")
+	var jobs repeatedFlag
 	flags.Var(&jobs, "job", "required tag workflow job")
-	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *repository == "" || *workflow == "" || *tag == "" || *sha == "" || len(jobs) == 0 {
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *repository == "" || *workflow == "" || *tag == "" || len(jobs) == 0 {
 		return errors.New(usage)
+	}
+	if *sha == "" {
+		commit, err := resolveTagCommit(*tag, inquiry)
+		if err != nil {
+			return err
+		}
+		*sha = commit
 	}
 	apiBase := os.Getenv("GITHUB_API_URL")
 	if apiBase == "" {
@@ -151,24 +160,63 @@ func runReleaseEvidence(arguments []string, output io.Writer) error {
 	return nil
 }
 
-func runNative(args []string, stdout io.Writer, runner commandRunner) (result error) {
-	var releaseArgs []string
+// resolveTagCommit peels a release tag in the checkout to its commit.
+func resolveTagCommit(tag string, inquiry outputRunner) (string, error) {
+	output, err := inquiry(command{Name: "git", Args: []string{"rev-parse", "--verify", "--quiet", "refs/tags/" + tag + "^{commit}"}, Timeout: time.Minute})
+	commit := strings.TrimSpace(string(output))
+	if err != nil || !exactCommit.MatchString(commit) {
+		return "", fmt.Errorf("cannot resolve selected release tag %s", tag)
+	}
+	return commit, nil
+}
+
+const nativeUsage = "usage: ci native [--platform <darwin|linux|windows>] [--full-quality] [--protected-file <path>] [-- <release accept-native arguments>] | ci native [--platform <darwin|linux|windows>] --from-env"
+
+func runNative(args []string, stdout io.Writer, runner commandRunner) error {
+	request := nativeRequest{}
+	separated := false
 	if separator := slices.Index(args, "--"); separator >= 0 {
-		releaseArgs, args = args[separator+1:], args[:separator]
+		request.release, args, separated = args[separator+1:], args[:separator], true
 	}
 	flags := flag.NewFlagSet("ci native", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	platform := flags.String("platform", runtime.GOOS, "darwin, linux, or windows")
-	fullQuality := flags.Bool("full-quality", false, "Qualify every repository quality tool on this host before native acceptance")
-	protectedFile := flags.String("protected-file", "", "Qualify denial and no elevation grant for an exact native review resource")
-	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || !supportedNativePlatform(*platform) {
-		return errors.New("usage: ci native [--platform <darwin|linux|windows>] [--full-quality] [-- <release accept-native arguments>]")
+	flags.StringVar(&request.platform, "platform", runtime.GOOS, "darwin, linux, or windows")
+	flags.BoolVar(&request.fullQuality, "full-quality", false, "Qualify every repository quality tool on this host before native acceptance")
+	flags.StringVar(&request.protectedFile, "protected-file", "", "Qualify denial and no elevation grant for an exact native review resource")
+	fromEnvironment := flags.Bool("from-env", false, "Derive the native job from its GitLab inputs")
+	session := flags.Bool("secret-service-session", false, "Run the derived job inside its private Secret Service session")
+	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || !supportedNativePlatform(request.platform) ||
+		*session && !*fromEnvironment || *fromEnvironment && (request.fullQuality || request.protectedFile != "" || separated) {
+		return errors.New(nativeUsage)
 	}
-	if *platform != runtime.GOOS {
-		return fmt.Errorf("native acceptance requires %s host, running on %s", *platform, runtime.GOOS)
+	if request.platform != runtime.GOOS {
+		return fmt.Errorf("native acceptance requires %s host, running on %s", request.platform, runtime.GOOS)
 	}
-	if *protectedFile != "" {
-		if err := qualifyProtectedResource(*protectedFile, stdout, systemOutputRunner); err != nil {
+	if !*fromEnvironment {
+		return runNativeRequest(request, stdout, runner)
+	}
+	workdir, err := physicalWorkdir()
+	if err != nil {
+		return err
+	}
+	host := nativeHost{getenv: os.Getenv, platform: request.platform, workdir: workdir, session: *session, inquiry: systemOutputRunner, attach: runAttached}
+	return runNativeJob(host, stdout, runner)
+}
+
+// nativeRequest is one native acceptance invocation. Every command inherits
+// environment; setup runs before source qualification only.
+type nativeRequest struct {
+	platform      string
+	fullQuality   bool
+	protectedFile string
+	release       []string
+	environment   []string
+	setup         []command
+}
+
+func runNativeRequest(request nativeRequest, stdout io.Writer, runner commandRunner) (result error) {
+	if request.protectedFile != "" {
+		if err := qualifyProtectedResource(request.protectedFile, stdout, systemOutputRunner); err != nil {
 			return err
 		}
 	}
@@ -176,15 +224,15 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) (result er
 	if err != nil {
 		return err
 	}
-	input, err := construction.ParseNativeAcceptance(releaseArgs)
+	input, err := construction.ParseNativeAcceptance(request.release)
 	if err != nil {
 		return err
 	}
-	commands := nativeCommands(*platform)
-	if input.UsesPrebuiltArtifacts() && !*fullQuality && os.Getenv("AIGW_REFRESH_LOCKS") != "true" {
+	commands := nativeCommands(request.platform)
+	if input.UsesPrebuiltArtifacts() && !request.fullQuality && os.Getenv("AIGW_REFRESH_LOCKS") != "true" {
 		commands = nil
 	}
-	if *fullQuality {
+	if request.fullQuality {
 		if err := validateRepositoryQualityGraph("."); err != nil {
 			return err
 		}
@@ -202,9 +250,13 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) (result er
 		}
 		defer func() { result = errors.Join(result, robustio.RemoveAll(workspace)) }()
 		commands[len(commands)-1].Env = construction.NativeTestEnvironment(workspace, "", "")
+		commands = append(slices.Clone(request.setup), commands...)
 	}
 	if input.UsesPrebuiltArtifacts() || input.BaselineTag != "" || os.Getenv("AIGW_ACCEPTANCE_BASELINE") != "" {
-		commands = append(commands, command{Name: "go", Args: append([]string{"run", "./tools/release", "accept-native"}, releaseArgs...)})
+		commands = append(commands, command{Name: "go", Args: append([]string{"run", "./tools/release", "accept-native"}, request.release...)})
+	}
+	for index := range commands {
+		commands[index].Env = append(slices.Clone(request.environment), commands[index].Env...)
 	}
 	return runCommands(commands, stdout, runner)
 }
@@ -259,13 +311,7 @@ func writeTrustInput(output, githubEnvironment, variable string) error {
 	if err := os.WriteFile(output, []byte(allowed+"\n"), 0o600); err != nil {
 		return fmt.Errorf("write trust input: %w", err)
 	}
-	file, err := os.OpenFile(githubEnvironment, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-	if err != nil {
-		return fmt.Errorf("open GitHub environment: %w", err)
-	}
-	defer func() { _ = file.Close() }()
-	_, err = fmt.Fprintf(file, "%s_FILE=%s\n", variable, output)
-	return err
+	return appendGitHubEnvironment(githubEnvironment, variable+"_FILE="+output)
 }
 
 func supportedNativePlatform(platform string) bool {

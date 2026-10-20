@@ -1,0 +1,130 @@
+# Operating-system glue that runs before any locked toolchain exists, or after it may
+# have failed. Each entry binds the exact step text the Forge reads; any edit reports
+# inline shell again until the entry names the new text.
+
+[[step]]
+file = ".github/workflows/verify.yml"
+jobs = ["native-linux", "quality"]
+sha256 = "d1ae2ea58efb7c7ad892cfe762600c12ff3bbd6d84f990bcb75ab3faa1774c8c"
+class = "operating-system-glue"
+owner = "CI pipeline model (.config/ci/pipeline.cue linuxToolchain)"
+reason = "GitHub's Ubuntu image lacks GNU time, which native acceptance measures with; apt is the image's package owner and runs before Mise."
+platforms = ["linux"]
+evidence = "GitHub verify.yml quality and native-linux jobs at d02033e0 installed time through this step"
+
+[[step]]
+file = ".github/workflows/verify.yml"
+jobs = ["linux-secret-service"]
+sha256 = "53b4017aa5e6e68b22483e3d81d18eb98c4b1b3725d97770a0847c07c1568c70"
+class = "operating-system-glue"
+owner = "CI pipeline model (.config/ci/pipeline.cue linuxSecretService)"
+reason = "The Secret Service journey needs D-Bus, GNOME Keyring and gdbus from the OS package manager before a private session starts."
+platforms = ["linux"]
+evidence = "GitHub verify.yml linux-secret-service job at d02033e0 ran the system credential store journey"
+
+[[step]]
+file = ".github/workflows/verify.yml"
+jobs = ["native-linux"]
+sha256 = "c8cea12d5725510f1ee9bb5ecebb3caaf6b051bbdb6b37f71877cfd3f5271bc4"
+class = "operating-system-glue"
+owner = "CI pipeline model (.config/ci/pipeline.cue linuxSecretService.githubPrepare)"
+reason = "Linux release acceptance writes the system credential store through D-Bus, GNOME Keyring and gdbus, which GitHub's Ubuntu image lacks; apt is the image's package owner."
+platforms = ["linux"]
+evidence = "GitHub verify.yml native-linux job at d02033e0 installed the Secret Service packages through this step"
+
+[[step]]
+file = ".github/workflows/verify.yml"
+jobs = ["native-linux"]
+sha256 = "906ff28f6ac90c2acba301696773a0a0d3f542abd14ed0f775d84e7e805eee4d"
+class = "operating-system-glue"
+owner = "CI pipeline model (.config/ci/pipeline.cue linuxSecretService.session)"
+reason = "A private dbus-run-session isolates the Secret Service under test; the wrapper only aliases the session collection, then runs one native Go test."
+platforms = ["linux"]
+evidence = "GitHub verify.yml native-linux job at d02033e0 passed TestNativeProductJourney/system_credential_store in this session"
+
+[[step]]
+file = ".github/workflows/verify.yml"
+jobs = ["native-linux"]
+sha256 = "0bd562c6bc231c7c7d0b07ec3eb4350fb47eb34a75f7868d30291d43af7a0827"
+class = "operating-system-glue"
+owner = "CI pipeline model (.config/ci/pipeline.cue linuxSecretService.session)"
+reason = "The same private D-Bus session wraps the second native credential journey."
+platforms = ["linux"]
+evidence = "GitHub verify.yml native-linux job at d02033e0 ran this session step"
+
+[[step]]
+file = ".gitlab-ci.yml"
+jobs = [".linux-toolchain", "native-linux"]
+sha256 = "52bad681d1fd977a47a083697ae90135dd45447568f07eb9fbfad46db64d1496"
+class = "operating-system-glue"
+owner = "CI pipeline model (.config/ci/pipeline.cue linuxToolchain.prepare)"
+reason = "The minimal Mise image lacks libatomic, OpenSSH, procps and time, which every Linux job's locked tools need; apt is the image's package owner."
+platforms = ["linux"]
+evidence = "GitLab dev pipeline 11617 and main 11618 Linux jobs at d02033e0 ran this before_script"
+
+[[step]]
+file = ".gitlab-ci.yml"
+jobs = ["linux-secret-service"]
+sha256 = "8768650ad66af37351e5c45759da57cacd30d362c1b94cb4db562784335fb73c"
+class = "operating-system-glue"
+owner = "CI pipeline model (.config/ci/pipeline.cue linuxSecretService.gitlab)"
+reason = "The GitLab Secret Service job installs D-Bus and GNOME Keyring from apt, then runs the native credential journey in a private session."
+platforms = ["linux"]
+evidence = "GitLab dev pipeline 11617 and main 11618 linux-secret-service jobs at d02033e0 ran this step"
+
+[[step]]
+file = ".gitlab-ci.yml"
+jobs = [
+  ".linux-toolchain",
+  "native-linux",
+  "native-darwin",
+  "native-darwin-review",
+  "accepted-ref-parity",
+  "release-version",
+]
+sha256 = "2bba7cb687161e072e357424f8370963826019534c2ba1f031e74fd9d387b23a"
+class = "operating-system-glue"
+owner = "CI pipeline model (.config/ci/pipeline.cue miseMirror.unixPrepare)"
+reason = "Before Mise installs Go, the job shell takes job-owned Mise state and, for peer tool supply, a private netrc and URL replacements keyed by the lock digest; later steps inherit these exports."
+platforms = ["darwin", "linux"]
+evidence = "GitLab pipelines 11691 (dev), 11692 (main) and 11696 (v0.4.7) at b327be43 ran this text in native-linux, native-darwin, accepted-ref-parity, release-version and the jobs that extend .linux-toolchain; native-darwin-review shares the job definition"
+
+[[step]]
+file = ".gitlab-ci.yml"
+jobs = [
+  ".linux-toolchain",
+  "native-linux",
+  "native-darwin",
+  "native-darwin-review",
+  "quality",
+  "accepted-ref-parity",
+  "linux-secret-service",
+  "release-version",
+  "release-assets",
+]
+sha256 = "4227950fb7023b6f21e4947117b406cb5672f8250b40a8ba5b341626d6532e96"
+class = "operating-system-glue"
+owner = "CI pipeline model (.config/ci/pipeline.cue miseMirror.unixCleanup)"
+reason = "Job-owned Mise state is removed and proved absent by the job shell, also in after_script when the locked toolchain may have failed to install."
+platforms = ["darwin", "linux"]
+evidence = "GitLab pipelines 11691, 11692, 11696 and 11699 (release-assets) at b327be43 ran this text as the final script step and the after_script of each listed job; native-darwin-review shares the job definition"
+
+[[step]]
+file = ".gitlab-ci.yml"
+jobs = ["native-windows", "native-windows-review"]
+sha256 = "8104d5319cfe03ea595f923b31059bd58f8b6d6296ba1478d32beb3a5ff0da95"
+class = "operating-system-glue"
+owner = "CI pipeline model (.config/ci/pipeline.cue #NativeGitLabJob windows _prepareMise)"
+reason = "Before Mise runs, PowerShell creates the ACL-restricted job directory and Mise state, verifies the runner-owned Mise executable and shim digests and version, and sets the peer tool supply."
+platforms = ["windows"]
+evidence = "GitLab pipelines 11691 and 11692 at b327be43 ran this preparation on native-windows with one more line, the tool selection that the job's rules variables now own"
+
+[[step]]
+file = ".gitlab-ci.yml"
+jobs = ["native-windows", "native-windows-review"]
+sha256 = "425006c2e26000358b46b435d40a0bc514f41ef228d1281fd5996d368090d6a3"
+class = "operating-system-glue"
+owner = "CI pipeline model (.config/ci/pipeline.cue #NativeGitLabJob windows _cleanup)"
+reason = "The job directory holds ACL-restricted Mise state that only a robocopy mirror from an empty directory removes reliably; it also runs in after_script when Mise may have failed."
+platforms = ["windows"]
+evidence = "GitLab pipelines 11691, 11692 and 11696 at b327be43 ran this text as native-windows's final script step and after_script; native-windows-review shares the job definition"

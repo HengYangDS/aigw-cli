@@ -105,8 +105,9 @@ linuxToolchain: {
 	// The runnable Mise image is intentionally small. Declare the complete
 	// repository execution closure here so every Linux job inherits one owner.
 	runtimePackages: ["libatomic1", "openssh-client", "procps", "time"]
-	prepare:  "set -eu\n\(linuxApt.update)\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
-	compiler: "set -eu\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) gcc libc6-dev"
+	prepare: "set -eu\n\(linuxApt.update)\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
+	// Native source qualification links with cgo; artifact journeys skip it.
+	compilerPackages: ["gcc", "libc6-dev"]
 }
 
 linuxSecretService: {
@@ -138,6 +139,12 @@ commands: {
 	native: {
 		for platform in ["darwin", "linux", "windows"] {
 			(platform): "mise exec --locked -- go run ./tools/ci native --platform \(platform)"
+		}
+	}
+	// GitLab native jobs derive their scope from the declared job inputs.
+	nativeJob: {
+		for platform in ["darwin", "linux", "windows"] {
+			(platform): "\(native[platform]) --from-env"
 		}
 	}
 	version:   "mise exec --locked -- go run ./tools/release validate-version-tag"
@@ -197,8 +204,8 @@ nativeArtifactToolchain: {
 	}
 }
 
-// This projection consumes the shared governed roles. Workspace overrides cannot
-// introduce another branch policy; the remaining native TOML stays an input.
+// This projection binds the shared governed roles; no repository declaration
+// can introduce another branch policy.
 branch_roles: {accepted_branch: "dev", release_branch: "main"}
 
 lifecycle: {
@@ -316,46 +323,38 @@ miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split
 miseWindowsArm64ExecutableSHA256: "7a7abd2f66fd6619a14cb340eda3889923b5599d0d75e2d098d086e49ed72ce6"
 miseWindowsArm64ShimSHA256:       "9a39151763eac654f280ce950f6dd8ddfbcf1043211c9460f7a9e1e77307623b"
 windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
-nativeWindowsClientSelection:     "$env:AIGW_NATIVE_CLIENTS -eq 'true' -or -not [string]::IsNullOrWhiteSpace($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)"
-windowsCodexVendorRoot:           "node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc"
 
-// Windows owns official client supply only; the portable release owner acquires
-// and admits the candidate and predecessor matrices on every native platform.
-nativeWindowsClientSupply: #"""
-	if ($env:AIGW_NATIVE_INPUT_PACKAGE -and (\#(nativeWindowsClientSelection))) {
-	  if ($env:AIGW_NATIVE_PLATFORM -ne 'windows') { throw 'Native public input requires the Windows platform' }
-	  if ($env:AIGW_NATIVE_INPUT_SHA256 -notmatch '^[0-9a-f]{64}$' -or $env:AIGW_CANDIDATE_SOURCE -notmatch '^[0-9a-f]{40}$') { throw 'Native public input requires exact source and checksum.' }
-	  if (-not $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ALLOWED_SIGNERS }
-	  if (-not $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }
-	  if ([string]::IsNullOrWhiteSpace($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) -or [string]::IsNullOrWhiteSpace($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) -or [string]::IsNullOrWhiteSpace($env:AIGW_RELEASE_ARTIFACT_SIGNER) -or -not (Test-Path -LiteralPath $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE -PathType Leaf) -or -not (Test-Path -LiteralPath $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE -PathType Leaf)) { throw 'Native public input requires configured source and artifact trust' }
-	  $jobDirectory = \#(windowsMiseJobDirectory)
-	  $archive = Join-Path $jobDirectory 'native-input.tar'
-	  $fixture = Join-Path $jobDirectory 'native-input'
-	  $previousLogin = $env:GLAB_ENABLE_CI_AUTOLOGIN
-	  $previousConfig = $env:GLAB_CONFIG_DIR
-	  try {
-	    $env:GLAB_ENABLE_CI_AUTOLOGIN = 'true'
-	    $env:GLAB_CONFIG_DIR = Join-Path $jobDirectory 'glab'
-	    mise exec --locked -- glab packages download --repo $env:CI_PROJECT_URL --name $env:AIGW_NATIVE_INPUT_PACKAGE --version $env:AIGW_CANDIDATE_SOURCE --filename public-inputs.tar --path $archive
-	  } finally {
-	    $env:GLAB_CONFIG_DIR = $previousConfig
-	    $env:GLAB_ENABLE_CI_AUTOLOGIN = $previousLogin
-	  }
-	  if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:AIGW_NATIVE_INPUT_SHA256) { throw 'Native public input checksum mismatch' }
-	  [void](New-Item -ItemType Directory -Path $fixture -ErrorAction Stop)
-	  tar -xf $archive -C $fixture suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz
-	  tar -xf (Join-Path $fixture 'suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz') -C $fixture
-	  $codex = Join-Path $fixture 'clients/\#(windowsCodexVendorRoot)'
-	  $gitBin = Split-Path (Get-Command git.exe -ErrorAction Stop).Source
-	  $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
-	  if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Native Claude requires Git Bash.' }
-	  $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codex 'bin/codex.exe'
-	  $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $fixture 'clients/node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-	  $node = mise which node
-	  $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codex 'codex-path'), (Split-Path $node), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
-	  $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
+// Official Windows clients for real-client acceptance. GitHub installs these
+// packages; a GitLab public input carries the reviewed supplier archive.
+windowsClientPackages: ["@openai/codex@0.162.1", "@anthropic-ai/claude-code-win32-x64@2.1.296"]
+windowsClientSupplier: "suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz"
+
+// Artifact-only journeys enable only the artifact tool closure and, on Linux,
+// no compiler; source, full-quality and lock-refresh runs keep the complete
+// native closure. GitLab selects them from the inputs the native job reads.
+nativeArtifactScope: {
+	_prebuilt:    "($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != \"true\" && $AIGW_REFRESH_LOCKS != \"true\""
+	_performance: "$AIGW_NATIVE_PERFORMANCE == \"true\""
+	_clients:     "$AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == \"true\" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)"
+	for platform in productEvidence.native {
+		(platform): [
+			for performance in [true, false] for clients in [true, false] if !clients || platform == "windows" {
+				if: strings.Join(list.Concat([[_prebuilt], [if performance {_performance}], [if clients {_clients}]]), " && ")
+				variables: {
+					MISE_ENABLE_TOOLS: strings.Join(list.Concat([
+						[nativeArtifactToolchain[platform].MISE_ENABLE_TOOLS],
+						[if performance {strings.Join(toolchainTools.performance, ",")}],
+						[if clients {strings.Join(toolchainTools.nativeClientSupply, ",")}],
+					]), ",")
+					if platform == "linux" {
+						CGO_ENABLED:                  "0"
+						AIGW_LINUX_COMPILER_PACKAGES: ""
+					}
+				}
+			},
+		]
 	}
-	"""#
+}
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
@@ -522,35 +521,7 @@ workflowEvidencePath:   "build/verification/workflows"
 				GITHUB_TOKEN:        ""
 				GIT_TERMINAL_PROMPT: "0"
 			}
-			run: #"""
-				$ErrorActionPreference = 'Stop'
-				$PSNativeCommandUseErrorActionPreference = $true
-				$clients = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString())
-				New-Item -ItemType Directory -Path $clients | Out-Null
-				try {
-				  Add-Content -LiteralPath $env:GITHUB_ENV -Value "AIGW_NATIVE_CLIENT_SUPPLY=$clients"
-				  $env:GIT_CONFIG_GLOBAL = Join-Path $clients 'gitconfig'
-				  git config --file $env:GIT_CONFIG_GLOBAL core.autocrlf false
-				  Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
-				  mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.162.1' '@anthropic-ai/claude-code-win32-x64@2.1.296'
-				  mise exec --locked -- npm audit signatures --prefix $clients
-				  $codexRoot = Join-Path $clients '\#(windowsCodexVendorRoot)'
-				  $gitBin = Split-Path (Get-Command git.exe).Source
-				  $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
-				  if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Claude requires native Git Bash.' }
-				  $outputs = [ordered]@{
-				    AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
-				    AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
-				  }
-				  foreach ($executable in $outputs.Values) { Get-FileHash -LiteralPath $executable -Algorithm SHA256 }
-				  $outputs.CLAUDE_CODE_GIT_BASH_PATH = $bash
-				  $outputs.AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), (Split-Path (Get-Command node.exe).Source), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
-				  foreach ($entry in $outputs.GetEnumerator()) { Add-Content -LiteralPath $env:GITHUB_ENV -Value "$($entry.Key)=$($entry.Value)" }
-				} catch {
-				  Remove-Item -LiteralPath $clients -Recurse -Force -ErrorAction Stop
-				  throw
-				}
-				"""#
+			run: "mise exec --locked -- go run ./tools/ci native-clients supply --root \"$env:RUNNER_TEMP\" --github-env \"$env:GITHUB_ENV\" \(strings.Join([for client in windowsClientPackages {"--package '\(client)'"}], " "))"
 		},
 		for trust in [{kind: "source", flag: ""}, {kind: "artifact", flag: " --artifact"}] {
 			name: "Prepare native \(trust.kind) trust"
@@ -586,11 +557,7 @@ workflowEvidencePath:   "build/verification/workflows"
 		if _platform == "windows" {
 			name: "Remove official Windows client supply"
 			if:   "always() && github.event_name == 'workflow_dispatch' && inputs.windows_clients && inputs.baseline_tag != ''"
-			run: #"""
-				$owned = $env:AIGW_NATIVE_CLIENT_SUPPLY
-				if ($owned -and (Test-Path -LiteralPath $owned)) { Remove-Item -LiteralPath $owned -Recurse -Force -ErrorAction Stop }
-				if ($owned -and (Test-Path -LiteralPath $owned)) { throw "Windows native supply remains after cleanup: $owned" }
-				"""#
+			run:  "mise exec --locked -- go run ./tools/ci native-clients retire"
 		},
 		#DependencyEvidenceGitHubStep & {_name: "dependency-evidence-\(_platform)"},
 		#SourceEvidenceGitHubStep & {_name: "source-evidence-\(_platform)"},
@@ -608,22 +575,18 @@ workflowEvidencePath:   "build/verification/workflows"
 }
 
 #NativeGitLabJob: {
-	_platform:          #OperatingSystem
-	_prepareMise:       string
-	_install:           string
-	_refreshLocks:      string
-	_native:            string
-	_prebuiltCondition: string
-	_selectTools:       string
-	_bootstrap:         string
-	_cleanup:           string
+	_platform:    #OperatingSystem
+	_prepareMise: string
+	_install:     string
+	_cleanup:     string
 	tags: [string, ...string]
-	rules: [...{...}]
+	// Each admission condition first admits its artifact-only scopes.
+	_admission: [...string]
+	rules: list.Concat([for condition in _admission {
+		list.Concat([[for scope in nativeArtifactScope[_platform] {if: "(\(condition)) && \(scope.if)", variables: scope.variables}], [{if: condition}]])
+	}, [{when: "never"}]])
 	if _platform == "windows" {
-		_prebuiltCondition: "($env:AIGW_NATIVE_INPUT_PACKAGE -or $env:AIGW_CANDIDATE_ARTIFACTS -or $env:AIGW_CANDIDATE_TAG) -and $env:AIGW_FULL_NATIVE_QUALITY -ne 'true' -and $env:AIGW_REFRESH_LOCKS -ne 'true'"
-		_selectTools:       "if (\(_prebuiltCondition)) { $env:MISE_ENABLE_TOOLS = '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)'; if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $env:MISE_ENABLE_TOOLS += ',\(strings.Join(toolchainTools.performance, ","))' } }; if ($env:AIGW_NATIVE_INPUT_PACKAGE -and (\(nativeWindowsClientSelection))) { $env:MISE_ENABLE_TOOLS += ',\(strings.Join(toolchainTools.nativeClientSupply, ","))' }"
-		_bootstrap:         "if (-not (\(_prebuiltCondition))) { \(commands.bootstrap) }"
-		_prepareMise:       #"""
+		_prepareMise: #"""
 			$ErrorActionPreference = 'Stop'
 			foreach ($name in @('CI_API_V4_URL', 'CI_PROJECT_ID', 'CI_PROJECT_DIR', 'CI_JOB_ID', 'CI_JOB_TOKEN', 'CI_SERVER_HOST')) {
 			  if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) { throw "Missing GitLab job input: $name" }
@@ -670,42 +633,9 @@ workflowEvidencePath:   "build/verification/workflows"
 			$env:MISE_NETRC = 'true'
 			$env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
 			}
-			\#(_selectTools)
 			"""#
-		_install:           "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
-		_refreshLocks:      "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
-		_native:            #"""
-			$ErrorActionPreference = 'Stop'
-			$PSNativeCommandUseErrorActionPreference = $true
-			if (($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT -or $env:AIGW_NATIVE_PERFORMANCE -eq 'true' -or $env:AIGW_NATIVE_PERFORMANCE_ATTRIBUTION -eq 'true') -and $env:CI_PIPELINE_SOURCE -notin @('web', 'api')) { throw 'Native diagnostics and performance require a manual pipeline' }
-			\#(nativeWindowsClientSupply)
-			$acceptance = @('--peer', 'gitlab', '--repository', $env:CI_PROJECT_URL)
-			if ($env:AIGW_BASELINE_TAG) { $acceptance += @('--baseline-tag', $env:AIGW_BASELINE_TAG) }
-			if ($env:AIGW_BASELINE_ARTIFACTS) { $acceptance += @('--baseline-artifacts', $env:AIGW_BASELINE_ARTIFACTS) }
-			if ($env:AIGW_CANDIDATE_TAG) { $acceptance += @('--tag', $env:AIGW_CANDIDATE_TAG) }
-			if ($env:AIGW_CANDIDATE_ARTIFACTS) { $acceptance += @('--artifacts', $env:AIGW_CANDIDATE_ARTIFACTS, '--candidate') }
-			if ($env:AIGW_CANDIDATE_SOURCE) { $acceptance += @('--candidate-source', $env:AIGW_CANDIDATE_SOURCE) }
-			if ($env:AIGW_NATIVE_INPUT_PACKAGE) {
-			  if (\#(nativeWindowsClientSelection)) {
-			    $acceptance += @('--input-archive', $archive)
-			  } else {
-			    $acceptance += @('--input-package', $env:AIGW_NATIVE_INPUT_PACKAGE)
-			  }
-			  $acceptance += @('--input-sha256', $env:AIGW_NATIVE_INPUT_SHA256, '--candidate')
-			}
-			if ($env:AIGW_NATIVE_PERFORMANCE -eq 'true') { $acceptance += @('--performance', (Join-Path (Get-Location).ProviderPath 'build/verification/performance')) }
-			if ($env:AIGW_NATIVE_PERFORMANCE_ATTRIBUTION -eq 'true') { $acceptance += @('--performance-attribution') }
-			if ($env:AIGW_NATIVE_DIAGNOSTIC_CLIENT) {
-			  $acceptance += @('--diagnostic-client', $env:AIGW_NATIVE_DIAGNOSTIC_CLIENT)
-			} elseif ($env:AIGW_NATIVE_CLIENTS -eq 'true') {
-			  if (-not $env:AIGW_BASELINE_TAG) { throw 'Real-client succession requires AIGW_BASELINE_TAG.' }
-			  $acceptance += '--clients'
-			}
-			if (-not $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }
-			if (-not $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE) { $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = $env:AIGW_RELEASE_ALLOWED_SIGNERS }
-			\#(commands.native[_platform]) --full-quality="$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')" -- @acceptance
-			"""#
-		_cleanup:           #"""
+		_install:     "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
+		_cleanup:     #"""
 			$ErrorActionPreference = 'Stop'
 			$jobDirectory = \#(windowsMiseJobDirectory)
 			if (Test-Path -LiteralPath $jobDirectory) {
@@ -732,64 +662,16 @@ workflowEvidencePath:   "build/verification/workflows"
 			"""#
 	}
 	if _platform != "windows" {
-		_cleanup:           miseMirror.unixCleanup
-		_prebuiltCondition: "[ -n \"${AIGW_NATIVE_INPUT_PACKAGE:-}${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}\" ] && [ \"${AIGW_FULL_NATIVE_QUALITY:-false}\" != true ] && [ \"${AIGW_REFRESH_LOCKS:-false}\" != true ]"
-		_selectTools:       "if \(_prebuiltCondition); then export MISE_ENABLE_TOOLS='\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)'; if [ \"${AIGW_NATIVE_PERFORMANCE:-false}\" = true ]; then export MISE_ENABLE_TOOLS=\"$MISE_ENABLE_TOOLS,\(strings.Join(toolchainTools.performance, ","))\"; fi; fi"
-		_bootstrap:         "if ! { \(_prebuiltCondition); }; then \(commands.bootstrap); fi"
-		_install:           commands.install
-		_refreshLocks:      "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
-		_nativeCommand:     "\(commands.native[_platform]) --full-quality=\"${AIGW_FULL_NATIVE_QUALITY:-false}\" -- \"$@\""
-		_nativeExecution:   string
-		if _platform != "linux" {
-			_nativeExecution: #"""
-				if [ "${CI_COMMIT_REF_PROTECTED:-}" = false ] && [ -n "${AIGW_REVIEW_PROTECTED_FILE:-}" ]; then
-				  \#(commands.native[_platform]) --protected-file "$AIGW_REVIEW_PROTECTED_FILE" --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}" -- "$@"
-				else
-				  \#(_nativeCommand)
-				fi
-				"""#
-		}
-		if _platform == "linux" {
-			_nativeExecution: #"""
-				if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}${AIGW_CANDIDATE_ARTIFACTS:-}${AIGW_CANDIDATE_TAG:-}${AIGW_BASELINE_TAG:-}${AIGW_BASELINE_ARTIFACTS:-}" ]; then
-				\#((linuxSecretService.session & {command: _nativeCommand}).run)
-				else
-				  \#(_nativeCommand)
-				fi
-				"""#
-		}
-		_native: #"""
-			if { [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ] || [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ] || [ "${AIGW_NATIVE_PERFORMANCE_ATTRIBUTION:-false}" = true ]; } && [ "${CI_PIPELINE_SOURCE:-}" != web ] && [ "${CI_PIPELINE_SOURCE:-}" != api ]; then
-			  printf '%s\n' 'Native diagnostics and performance require a manual pipeline' >&2
-			  exit 1
-			fi
-			set -eu
-			set -- --peer gitlab --repository "$CI_PROJECT_URL"
-			if [ -n "${AIGW_BASELINE_TAG:-}" ]; then set -- "$@" --baseline-tag "$AIGW_BASELINE_TAG"; fi
-			if [ -n "${AIGW_BASELINE_ARTIFACTS:-}" ]; then set -- "$@" --baseline-artifacts "$AIGW_BASELINE_ARTIFACTS"; fi
-			if [ -n "${AIGW_CANDIDATE_TAG:-}" ]; then set -- "$@" --tag "$AIGW_CANDIDATE_TAG"; fi
-			if [ -n "${AIGW_CANDIDATE_ARTIFACTS:-}" ]; then set -- "$@" --artifacts "$AIGW_CANDIDATE_ARTIFACTS" --candidate; fi
-			if [ -n "${AIGW_CANDIDATE_SOURCE:-}" ]; then set -- "$@" --candidate-source "$AIGW_CANDIDATE_SOURCE"; fi
-			if [ -n "${AIGW_NATIVE_INPUT_PACKAGE:-}" ]; then set -- "$@" --input-package "$AIGW_NATIVE_INPUT_PACKAGE" --input-sha256 "$AIGW_NATIVE_INPUT_SHA256" --candidate; fi
-			if [ "${AIGW_NATIVE_PERFORMANCE:-false}" = true ]; then set -- "$@" --performance "$(pwd -P)/build/verification/performance"; fi
-			if [ "${AIGW_NATIVE_PERFORMANCE_ATTRIBUTION:-false}" = true ]; then set -- "$@" --performance-attribution; fi
-			if [ -n "${AIGW_NATIVE_DIAGNOSTIC_CLIENT:-}" ]; then
-			  set -- "$@" --diagnostic-client "$AIGW_NATIVE_DIAGNOSTIC_CLIENT"
-			elif [ "${AIGW_NATIVE_CLIENTS:-false}" = true ]; then
-			  : "${AIGW_BASELINE_TAG:?Real-client succession requires AIGW_BASELINE_TAG}"
-			  set -- "$@" --clients
-			fi
-			export AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS:-}}"
-			export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="${AIGW_RELEASE_ALLOWED_SIGNERS_FILE:-${AIGW_RELEASE_ALLOWED_SIGNERS:-}}"
-			\#(_nativeExecution)
-			"""#
+		_cleanup: miseMirror.unixCleanup
+		_install: commands.install
 	}
 	"after_script": [_cleanup]
 	stage: graph["native-\(_platform)"].stage
 	variables: nativeToolchain[_platform] & {
 		GLAB_NO_PROMPT: "1"
 		if _platform == "windows" {
-			AIGW_VERIFY_SYSTEM_KEYRING: "1"
+			AIGW_VERIFY_SYSTEM_KEYRING:  "1"
+			AIGW_NATIVE_CLIENT_SUPPLIER: windowsClientSupplier
 		}
 	}
 	artifacts: {
@@ -799,22 +681,22 @@ workflowEvidencePath:   "build/verification/workflows"
 	if _platform == "linux" {
 		interruptible: true
 		extends: [".linux-toolchain"]
-		variables: CGO_ENABLED: "1"
+		variables: {
+			CGO_ENABLED:                  "1"
+			AIGW_LINUX_COMPILER_PACKAGES: strings.Join(linuxToolchain.compilerPackages, " ")
+		}
 		"before_script": [
 			linuxToolchain.prepare,
-			"if \(_prebuiltCondition); then export CGO_ENABLED=0; else export CGO_ENABLED=1; \(linuxToolchain.compiler); fi",
-			"DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(linuxSecretService.packages)",
-			miseMirror.unixPrepare, _selectTools, commands.install,
+			"DEBIAN_FRONTEND=noninteractive \(linuxApt.install) $AIGW_LINUX_COMPILER_PACKAGES \(linuxSecretService.packages)",
+			miseMirror.unixPrepare, commands.install,
 		]
-		script: [_bootstrap, _refreshLocks, _native, _cleanup]
+		script: [commands.nativeJob[_platform], _cleanup]
 	}
-	if _platform != "linux" {
-		if _platform == "windows" {
-			script: [_prepareMise, _install, _bootstrap, _refreshLocks, _native, _cleanup]
-		}
-		if _platform != "windows" {
-			script: [miseMirror.unixPrepare, _selectTools, _install, _bootstrap, _refreshLocks, _native, _cleanup]
-		}
+	if _platform == "darwin" {
+		script: [miseMirror.unixPrepare, _install, commands.nativeJob[_platform], _cleanup]
+	}
+	if _platform == "windows" {
+		script: [_prepareMise, _install, commands.nativeJob[_platform], _cleanup]
 	}
 }
 
@@ -912,12 +794,11 @@ gitlab: {
 			"native-linux": #NativeGitLabJob & {
 				_platform: platform
 				tags:      nativeEvidence.linux.gitlab.tags
-				rules: [
-					{if: gitlabVerificationCondition.tag},
-					{if: gitlabVerificationCondition.review},
-					{if: gitlabVerificationCondition.protectedPush},
-					{if: _nativeManualCondition[platform]},
-					{when: "never"},
+				_admission: [
+					gitlabVerificationCondition.tag,
+					gitlabVerificationCondition.review,
+					gitlabVerificationCondition.protectedPush,
+					_nativeManualCondition[platform],
 				]
 			}
 		}
@@ -925,20 +806,18 @@ gitlab: {
 			"native-\(platform)": #NativeGitLabJob & {
 				_platform: platform
 				tags: [nativeEvidence[platform].gitlab.protectedTag]
-				rules: [
-					{if: gitlabVerificationCondition.tag},
-					{if: gitlabVerificationCondition.protectedPush},
-					{if: "(\(_nativeManualCondition[platform])) && $CI_COMMIT_REF_PROTECTED == \"true\""},
-					{when: "never"},
+				_admission: [
+					gitlabVerificationCondition.tag,
+					gitlabVerificationCondition.protectedPush,
+					"(\(_nativeManualCondition[platform])) && $CI_COMMIT_REF_PROTECTED == \"true\"",
 				]
 			}
 			"native-\(platform)-review": #NativeGitLabJob & {
 				_platform: platform
 				tags: [nativeEvidence[platform].gitlab.reviewTag]
-				rules: [
-					{if: gitlabVerificationCondition.review},
-					{if: "(\(_nativeManualCondition[platform])) && $CI_COMMIT_REF_PROTECTED == \"false\""},
-					{when: "never"},
+				_admission: [
+					gitlabVerificationCondition.review,
+					"(\(_nativeManualCondition[platform])) && $CI_COMMIT_REF_PROTECTED == \"false\"",
 				]
 			}
 		}
@@ -1240,11 +1119,7 @@ githubRelease: {
 				},
 				{
 					name: "Verify this peer's exact tag pipeline"
-					run:  """
-						$tagCommit = git rev-parse --verify "$($env:CI_COMMIT_TAG)^{commit}"
-						if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($tagCommit)) { throw 'Cannot resolve selected release tag' }
-						mise exec --locked -- go run ./tools/ci release-evidence --repository "$env:GITHUB_REPOSITORY" --workflow verify.yml --tag "$env:CI_COMMIT_TAG" --sha "$tagCommit" \(githubTagEvidenceJobs)
-						"""
+					run:  "mise exec --locked -- go run ./tools/ci release-evidence --repository \"$env:GITHUB_REPOSITORY\" --workflow verify.yml --tag \"$env:CI_COMMIT_TAG\" \(githubTagEvidenceJobs)"
 				},
 				{
 					name: "Download this peer's published artifacts"

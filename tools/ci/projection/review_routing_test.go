@@ -37,18 +37,19 @@ func TestGitLabNativeRunnerTrustSplit(t *testing.T) {
 				!maps.Equal(route.protected.Variables, route.review.Variables) {
 				t.Fatal("review and protected jobs diverged from the shared native command owner")
 			}
-			if len(route.protected.Rules) != 4 || len(route.review.Rules) != 3 ||
-				route.protected.Rules[0].If != "$CI_COMMIT_TAG" ||
-				route.protected.Rules[1].If != pipeline.Quality.Rules[2].If ||
-				route.review.Rules[0].If != pipeline.Quality.Rules[1].If ||
-				route.protected.Rules[3].When != "never" || route.review.Rules[2].When != "never" {
-				t.Fatalf("native trust event routes = protected %#v, review %#v", route.protected.Rules, route.review.Rules)
+			protected, review := admissionRules(route.protected.Rules), admissionRules(route.review.Rules)
+			if len(protected) != 4 || len(review) != 3 ||
+				protected[0].If != "$CI_COMMIT_TAG" ||
+				protected[1].If != pipeline.Quality.Rules[2].If ||
+				review[0].If != pipeline.Quality.Rules[1].If ||
+				protected[3].When != "never" || review[2].When != "never" {
+				t.Fatalf("native trust event routes = protected %#v, review %#v", protected, review)
 			}
-			if !strings.Contains(route.protected.Rules[2].If, `$CI_COMMIT_REF_PROTECTED == "true"`) ||
-				!strings.Contains(route.review.Rules[1].If, `$CI_COMMIT_REF_PROTECTED == "false"`) ||
-				!strings.Contains(route.protected.Rules[2].If, `$AIGW_NATIVE_PLATFORM == "`+route.platform+`"`) ||
-				!strings.Contains(route.review.Rules[1].If, `$AIGW_NATIVE_PLATFORM == "`+route.platform+`"`) ||
-				!strings.Contains(route.review.Rules[0].If, "$CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID") {
+			if !strings.Contains(protected[2].If, `$CI_COMMIT_REF_PROTECTED == "true"`) ||
+				!strings.Contains(review[1].If, `$CI_COMMIT_REF_PROTECTED == "false"`) ||
+				!strings.Contains(protected[2].If, `$AIGW_NATIVE_PLATFORM == "`+route.platform+`"`) ||
+				!strings.Contains(review[1].If, `$AIGW_NATIVE_PLATFORM == "`+route.platform+`"`) ||
+				!strings.Contains(review[0].If, "$CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID") {
 				t.Fatal("native manual or MR trust predicate is absent")
 			}
 		})

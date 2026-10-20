@@ -41,7 +41,8 @@ func TestGitLabQualityAndControlRunnerSelectors(t *testing.T) {
 	}
 }
 
-func TestGitLabDarwinReviewQualifiesDeclaredProtectedResource(t *testing.T) {
+// The native command alone reads the review resource, and only on macOS.
+func TestGitLabNativeReviewResourceBelongsToTheNativeCommand(t *testing.T) {
 	projections := canonicalProjections(t)
 	var pipeline struct {
 		Darwin       gitLabJob `yaml:"native-darwin"`
@@ -52,17 +53,16 @@ func TestGitLabDarwinReviewQualifiesDeclaredProtectedResource(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	const resourceArgument = `--protected-file "$AIGW_REVIEW_PROTECTED_FILE"`
 	for name, job := range map[string]gitLabJob{
 		"native-darwin": pipeline.Darwin, "native-darwin-review": pipeline.DarwinReview,
 		"native-linux": pipeline.Linux, "native-windows": pipeline.Windows,
 	} {
-		declared := strings.Contains(strings.Join(job.Script, "\n"), resourceArgument)
-		if declared != strings.HasPrefix(name, "native-darwin") {
-			t.Errorf("%s native review resource qualification declared=%t", name, declared)
+		platform := strings.TrimSuffix(strings.TrimPrefix(name, "native-"), "-review")
+		if !slices.Contains(job.Script, "mise exec --locked -- go run ./tools/ci native --platform "+platform+" --from-env") {
+			t.Errorf("%s does not hand its inputs to the native command", name)
 		}
-		if declared && !strings.Contains(strings.Join(job.Script, "\n"), `[ "${CI_COMMIT_REF_PROTECTED:-}" = false ] && [ -n "${AIGW_REVIEW_PROTECTED_FILE:-}" ]`) {
-			t.Fatal("native review depends on an undeclared infrastructure resource")
+		if strings.Contains(strings.Join(append(slices.Clone(job.BeforeScript), job.Script...), "\n"), "AIGW_REVIEW_PROTECTED_FILE") {
+			t.Errorf("%s reads the review resource outside the native command", name)
 		}
 	}
 }
