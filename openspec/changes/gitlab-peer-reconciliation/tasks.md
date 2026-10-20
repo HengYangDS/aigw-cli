@@ -11,13 +11,13 @@
         accepted history; read back GitHub's objects `6be2e3d3` and `c9f923b9`.
   - [x] 1.2.2 Remove the root `.cbmignore`, which ETHOS's repository paradigm
         rejects.
-  - [ ] 1.2.3 Rebind aigw-cli to an accepted ETHOS runtime that admits attested
-        maintenance releases. native-trust-closure is in ETHOS `dev`, but the
-        bound runtime still refuses the `v0.3.4` receipt
-        (`release_tag_source_untrusted`, 2026-10-20). Owner: session "fix aigw
-        and proxy"; next: after the aigw repository-paradigm batch rebinds the
-        runtime, preview the `v0.3.4` and `v0.3.5` receipts again; review
-        2026-10-22.
+  - [ ] 1.2.3 Record native ETHOS receipts for `v0.3.4` and `v0.3.5`, which
+        both peers already name identically. AIGW is bound to runtime
+        `2a682982` since 2026-10-20, whose preview still refuses with
+        `proof_attestation_repository_policy_mismatch`: their sources predate
+        the shared paradigm. Owner: ETHOS publication-history-repair 13.4.10
+        (session "Ethos 框架分析"); next: bind the runtime that ships 13.4.10
+        and preview both receipts again; review 2026-10-27.
   - [x] 1.2.4 Publish the maintenance tags `v0.3.4` and `v0.3.5`; read back
         GitHub's objects `e86777be` and `95132368`. Done by the user-authorized
         break glass of 2026-10-15, outside ETHOS publication.
