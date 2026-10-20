@@ -272,6 +272,77 @@ func TestLinuxReleaseInputRunsInAPrivateSecretService(t *testing.T) {
 	}
 }
 
+func TestWindowsNativeJobSuppliesClientsWithDefaultedTrust(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	job, archive, base := windowsPublicInput(t, officialClientMembers(t))
+	windowsClientTools(t, filepath.Dir(job))
+	selected := maps.Clone(base)
+	// GitLab supplies trust only as file variables; the job defaults the _FILE inputs from them.
+	selected["AIGW_RELEASE_ALLOWED_SIGNERS"] = selected["AIGW_RELEASE_ALLOWED_SIGNERS_FILE"]
+	selected["AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS"] = selected["AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"]
+	delete(selected, "AIGW_RELEASE_ALLOWED_SIGNERS_FILE")
+	delete(selected, "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE")
+	maps.Copy(selected, map[string]string{"CI_PIPELINE_SOURCE": "api", "AIGW_NATIVE_DIAGNOSTIC_CLIENT": "codex", "AIGW_BASELINE_TAG": "v0.4.6"})
+	nativeJobEnvironment(t, selected)
+	var accepted []command
+	serve := servePublicInput(archive)
+	err := runNativeJob(nativeHost{getenv: os.Getenv, platform: "windows", workdir: "/work"}, &bytes.Buffer{}, func(call command) error {
+		if call.Name == "go" {
+			accepted = append(accepted, call)
+			return nil
+		}
+		return serve(call)
+	})
+	trust := "AIGW_RELEASE_ALLOWED_SIGNERS_FILE=" + selected["AIGW_RELEASE_ALLOWED_SIGNERS"]
+	if err != nil || len(accepted) != 1 || !slices.Contains(accepted[0].Env, trust) {
+		t.Fatalf("Windows supply with defaulted trust = %v, %#v", err, accepted)
+	}
+}
+
+func TestWindowsNativeJobRunsAcceptanceWithItsSuppliedClients(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	job, archive, base := windowsPublicInput(t, officialClientMembers(t))
+	windowsClientTools(t, filepath.Dir(job))
+	selected := maps.Clone(base)
+	maps.Copy(selected, map[string]string{"CI_PIPELINE_SOURCE": "web", "AIGW_NATIVE_CLIENTS": "true", "AIGW_BASELINE_TAG": "v0.4.6"})
+	nativeJobEnvironment(t, selected)
+	host := nativeHost{getenv: os.Getenv, platform: "windows", workdir: "/work"}
+	var accepted []command
+	serve := servePublicInput(archive)
+	runner := func(call command) error {
+		if call.Name == "go" {
+			accepted = append(accepted, call)
+			return nil
+		}
+		return serve(call)
+	}
+	if err := runNativeJob(host, &bytes.Buffer{}, runner); err != nil {
+		t.Fatal(err)
+	}
+	archivePath := filepath.Join(job, "native-input.tar")
+	if len(accepted) != 1 || !slices.Contains(accepted[0].Args, "--input-archive") || !slices.Contains(accepted[0].Args, archivePath) ||
+		!slices.ContainsFunc(accepted[0].Env, func(entry string) bool { return strings.HasPrefix(entry, "AIGW_ACCEPTANCE_CODEX=") }) {
+		t.Fatalf("Windows input acceptance = %#v", accepted)
+	}
+	t.Setenv("AIGW_NATIVE_PLATFORM", "all")
+	accepted = nil
+	if err := runNativeJob(host, &bytes.Buffer{}, runner); err == nil || !strings.Contains(err.Error(), "requires the Windows platform") || len(accepted) != 0 {
+		t.Fatalf("Windows input outside its platform selection = %v, %#v", err, accepted)
+	}
+}
+
+func TestPrivateSessionReportsAFailedAlias(t *testing.T) {
+	err := openSecretServiceSession(func(call command) ([]byte, error) {
+		if slices.Contains(call.Args, "org.freedesktop.Secret.Service.SetAlias") {
+			return []byte("access denied"), errors.New("exit status 1")
+		}
+		return []byte("(objectpath '" + secretServiceCollection + "',)"), nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "alias the private Secret Service collection") {
+		t.Fatalf("failed session alias = %v", err)
+	}
+}
+
 func TestMacOSReviewJobProbesItsProtectedResource(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
 	nativeJobEnvironment(t, map[string]string{"CI_COMMIT_REF_PROTECTED": "false", "AIGW_REVIEW_PROTECTED_FILE": "manager-config"})
@@ -295,6 +366,7 @@ func TestNativeJobFromEnvironmentRefusesItsGuardsBeforeExecution(t *testing.T) {
 		{"native", "--from-env", "--protected-file", "/protected"},
 		{"native", "--from-env", "--", "--clients"},
 		{"native", "--secret-service-session"},
+		{"native", "--", "--not-a-release-flag"},
 	} {
 		calls := 0
 		if err := run(arguments, &bytes.Buffer{}, func(command) error { calls++; return nil }); err == nil || calls != 0 {
@@ -336,6 +408,7 @@ func nativeJobEnvironment(t *testing.T, selected map[string]string) {
 		"AIGW_NATIVE_DIAGNOSTIC_CLIENT", "AIGW_NATIVE_CLIENTS", "AIGW_FULL_NATIVE_QUALITY", "AIGW_REFRESH_LOCKS",
 		"AIGW_REVIEW_PROTECTED_FILE", "AIGW_RELEASE_ALLOWED_SIGNERS", "AIGW_RELEASE_ALLOWED_SIGNERS_FILE",
 		"AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS", "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE", "AIGW_ACCEPTANCE_BASELINE",
+		"AIGW_NATIVE_PLATFORM", "AIGW_NATIVE_CLIENT_SUPPLIER", "AIGW_RELEASE_ARTIFACT_SIGNER", "AIGW_VERIFY_SYSTEM_KEYRING",
 	} {
 		t.Setenv(name, selected[name])
 	}
