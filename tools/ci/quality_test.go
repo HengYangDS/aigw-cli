@@ -205,7 +205,7 @@ func TestPortableQualityToolsHaveCompletePlatformLocks(t *testing.T) {
 		"platforms.windows-arm64",
 		"platforms.windows-x64",
 	}
-	call := exec.CommandContext(t.Context(), "cue", "export", ".config/ci/pipeline.cue", ".ethos/workspace.toml", "--expression", "toolchainTools.native", "--out", "json")
+	call := exec.CommandContext(t.Context(), "cue", "export", ".config/ci/pipeline.cue", "--expression", "toolchainTools.native", "--out", "json")
 	call.Dir = repositoryRoot(t)
 	output, err := call.Output()
 	if err != nil {

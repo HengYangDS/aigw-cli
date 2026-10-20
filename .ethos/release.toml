@@ -22,3 +22,6 @@ ci_surface = ".github/workflows/verify.yml"
 
 [protected_refs]
 tags = ["v*"]
+
+[release]
+mirror = "accepted_ff"

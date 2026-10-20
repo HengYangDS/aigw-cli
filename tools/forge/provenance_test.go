@@ -121,8 +121,7 @@ func TestCommitVerificationEnforcesTrackedSubjectPolicyOnTheIntegrationRange(t *
 	fixture := newForgeFixture(t)
 	base := gitOutputForTest(t, fixture.repository, "rev-parse", "HEAD")
 	policy := `[commit_policy]
-signing_required = true
-signing_format = "ssh"
+scopes = ["cli"]
 `
 	if err := os.MkdirAll(filepath.Join(fixture.repository, ".ethos"), 0o700); err != nil {
 		t.Fatal(err)
@@ -163,8 +162,6 @@ func TestCommitVerificationDoesNotApplyNewPolicyToHistoryBeforeBase(t *testing.T
 	base := gitOutputForTest(t, fixture.repository, "rev-parse", "HEAD")
 	policy := `[commit_policy]
 scopes = ["source-tools"]
-signing_required = true
-signing_format = "ssh"
 `
 	writeCommitWithSubjectForTest(t, fixture.repository, ".ethos/workspace.toml", policy, "fix(source-tools): verify only the integration range")
 	if err := os.WriteFile(filepath.Join(fixture.repository, ".mailmap"), []byte("untracked checkout metadata\n"), 0o600); err != nil {
@@ -211,8 +208,6 @@ func TestGitObjectOperationsUseTheSelectedRevisionPolicy(t *testing.T) {
 			gitTest(t, fixture.repository, "checkout", "-q", "-b", "other")
 			policy := `[commit_policy]
 scopes = ["other"]
-signing_required = true
-signing_format = "ssh"
 `
 			writeCommitWithSubjectForTest(t, fixture.repository, ".ethos/workspace.toml", policy, "chore: change another branch policy")
 			arguments := []string{operation, "--repository", fixture.repository, "--email", fixture.email, "--allowed-signers", fixture.allowedSigners}
@@ -240,8 +235,7 @@ func TestCommitVerificationKeepsPolicyInTheVerifiedObject(t *testing.T) {
 	base := gitOutputForTest(t, fixture.repository, "rev-parse", "HEAD")
 	writeCommitWithSubjectForTest(t, fixture.repository, "invalid", "invalid\n", "update everything")
 	policy := `[commit_policy]
-signing_required = true
-signing_format = "ssh"
+scopes = ["cli"]
 `
 	if err := os.WriteFile(filepath.Join(fixture.repository, ".ethos", "workspace.toml"), []byte(policy), 0o600); err != nil {
 		t.Fatal(err)
@@ -256,27 +250,18 @@ signing_format = "ssh"
 
 func TestCommitVerificationRequiresAUsableTrackedPolicy(t *testing.T) {
 	fixture := newForgeFixture(t)
-	original, err := os.ReadFile(filepath.Join(fixture.repository, ".ethos", "workspace.toml"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	original := "[commit_policy]\nscopes = [\"cli\"]\n"
 	for name, entry := range map[string]struct {
 		policy string
 		want   string
 	}{
 		"syntax":           {"[commit_policy", "parse commit policy"},
-		"replaced grammar": {string(original) + "subject_pattern = '.*'\n", "shared grammar"},
-		"empty scopes":     {string(original) + "scopes = []\n", "scopes"},
-		"invalid scope":    {string(original) + "scopes = ['cli--tools']\n", "scopes"},
-		"duplicate scopes": {string(original) + "scopes = ['cli', 'cli']\n", "scopes"},
-		"signing": {
-			strings.Replace(string(original), "signing_required = true", "signing_required = false", 1),
-			"require SSH signing",
-		},
-		"format": {
-			strings.Replace(string(original), `signing_format = "ssh"`, `signing_format = "openpgp"`, 1),
-			"require SSH signing",
-		},
+		"replaced grammar": {original + "subject_pattern = '.*'\n", "shared grammar"},
+		"empty scopes":     {"[commit_policy]\nscopes = []\n", "scopes"},
+		"invalid scope":    {"[commit_policy]\nscopes = ['cli--tools']\n", "scopes"},
+		"duplicate scopes": {"[commit_policy]\nscopes = ['cli', 'cli']\n", "scopes"},
+		"signing":          {original + "signing_required = true\n", "signing is shared"},
+		"format":           {original + "signing_format = \"ssh\"\n", "signing is shared"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			base := gitOutputForTest(t, fixture.repository, "rev-parse", "HEAD")
@@ -289,19 +274,24 @@ func TestCommitVerificationRequiresAUsableTrackedPolicy(t *testing.T) {
 			}
 		})
 	}
-	gitTest(t, fixture.repository, "rm", ".ethos/workspace.toml")
-	gitTest(t, fixture.repository, "commit", "-q", "-m", "test: remove tracked policy")
-	if err := os.MkdirAll(filepath.Join(fixture.repository, ".ethos"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(fixture.repository, ".ethos", "workspace.toml"), original, 0o600); err != nil {
-		t.Fatal(err)
-	}
+}
+
+func TestCommitVerificationUsesTheSharedPolicyWithoutAWorkspaceTable(t *testing.T) {
+	fixture := newForgeFixture(t)
+	base := gitOutputForTest(t, fixture.repository, "rev-parse", "HEAD")
+	writeCommitWithSubjectForTest(t, fixture.repository, "file", "next\n", "fix: accepted under the shared grammar")
 	if err := run([]string{
-		"commits", "--repository", fixture.repository,
+		"commits", "--repository", fixture.repository, "--base", base,
 		"--email", fixture.email, "--allowed-signers", fixture.allowedSigners,
-	}); err == nil || !strings.Contains(err.Error(), "read commit policy") {
-		t.Fatalf("untracked policy substituted for missing object policy: %v", err)
+	}); err != nil {
+		t.Fatalf("shared commit policy refused a conforming commit: %v", err)
+	}
+	writeCommitWithSubjectForTest(t, fixture.repository, "file", "again\n", "update everything")
+	if err := run([]string{
+		"commits", "--repository", fixture.repository, "--base", base,
+		"--email", fixture.email, "--allowed-signers", fixture.allowedSigners,
+	}); err == nil || !strings.Contains(err.Error(), "subject") {
+		t.Fatalf("shared commit policy admitted a nonconforming subject: %v", err)
 	}
 }
 
@@ -310,8 +300,6 @@ func TestCommitSubjectPolicyUsesSharedGrammarAndRestrictedScopes(t *testing.T) {
 	base := gitOutputForTest(t, fixture.repository, "rev-parse", "HEAD")
 	policy := `[commit_policy]
 scopes = ["cli", "source-tools"]
-signing_required = true
-signing_format = "ssh"
 `
 	writeCommitWithSubjectForTest(t, fixture.repository, ".ethos/workspace.toml", policy, "fix(cli): accepted\n\nThe body is outside the subject grammar.")
 	for _, kind := range []string{"build", "chore", "ci", "docs", "feat", "fix", "perf", "refactor", "revert", "test"} {

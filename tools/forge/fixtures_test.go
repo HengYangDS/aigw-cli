@@ -44,17 +44,10 @@ func newForgeFixture(t *testing.T) forgeFixture {
 	if err := os.MkdirAll(filepath.Join(repository, ".ethos"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	policy := `[commit_policy]
-signing_required = true
-signing_format = "ssh"
-`
-	if err := os.WriteFile(filepath.Join(repository, ".ethos", "workspace.toml"), []byte(policy), 0o600); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.WriteFile(filepath.Join(repository, "file"), []byte("value\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	gitTest(t, repository, "add", "file", ".ethos/workspace.toml")
+	gitTest(t, repository, "add", "file")
 	gitTest(t, repository, "commit", "-q", "-m", "feat: initial product object")
 	gitTest(t, repository, "tag", "-s", "-a", "v1.2.3", "-m", "release v1.2.3")
 	return forgeFixture{repository: repository, email: email, key: key, allowedSigners: allowed}

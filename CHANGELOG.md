@@ -121,9 +121,6 @@ History: [GitLab][0.4.2-gitlab] · [GitHub][0.4.2-github]
 
 History: [GitLab][0.4.1-gitlab] · [GitHub][0.4.1-github]
 
-The first published 0.4 release. The `v0.4.0` tag failed its GitHub release
-checks and has no release assets; its changes ship here.
-
 ### Security
 
 - Authenticate online update checksum manifests against an independently
@@ -152,6 +149,8 @@ checks and has no release assets; its changes ship here.
 
 ### Changed
 
+- Ship the changes of the `v0.4.0` tag, which failed its GitHub release checks and
+  has no release assets; 0.4.1 is the first published 0.4 release.
 - Import a reviewed team manifest without contacting a provider; `aigw check`
   owns endpoint and inference observations.
 - Name only continuations that the next command can complete: an environment

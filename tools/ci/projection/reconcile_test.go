@@ -141,7 +141,6 @@ func projectionRoot(t *testing.T, model string) string {
 	root := t.TempDir()
 	for name, content := range map[string]string{
 		".config/ci/pipeline.cue": model,
-		".ethos/workspace.toml":   "[branch_roles]\nrelease_mirror = 'accepted_ff'\n",
 	} {
 		path := filepath.Join(root, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -191,24 +190,9 @@ func TestProjectionUsesSharedBranchRoles(t *testing.T) {
 			t.Fatalf("GitHub %s roles = %q, want %q", event, got, want)
 		}
 	}
-	workspace := filepath.Join(root, ".ethos", "workspace.toml")
-	if err := os.WriteFile(workspace, []byte("[branch_roles]\naccepted_branch = 'dev'\nrelease_branch = 'main'\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	explicit, err := renderProjections(root)
-	if err != nil || !slices.Equal(explicit, items) {
-		t.Fatalf("removing restated roles changed the shared projection: %v", err)
-	}
-	if err := os.WriteFile(workspace, []byte("[branch_roles]\naccepted_branch = 'integration'\nrelease_branch = 'release'\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := renderProjections(root); err == nil {
-		t.Fatal("a competing workspace role policy produced projections")
-	}
-	if err := os.Remove(filepath.Join(root, ".ethos", "workspace.toml")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := renderProjections(root); err == nil {
-		t.Fatal("missing workspace binding produced projections")
+	// The shared roles come from the model alone; the repository paradigm refuses a
+	// workspace table that restates or replaces them.
+	if _, err := os.Stat(filepath.Join(root, ".ethos")); !os.IsNotExist(err) {
+		t.Fatalf("projection needs no workspace table: %v", err)
 	}
 }

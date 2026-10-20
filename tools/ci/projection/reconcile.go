@@ -74,7 +74,6 @@ func projectionCommand(root, expression string) *exec.Cmd {
 		"cue",
 		"export",
 		filepath.FromSlash(".config/ci/pipeline.cue"),
-		filepath.FromSlash(".ethos/workspace.toml"),
 		"--expression",
 		expression,
 		"--out",

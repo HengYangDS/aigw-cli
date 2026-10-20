@@ -350,8 +350,8 @@ construction and native journeys; malformed SemVer fails before execution.
 Package-local test file readers do not expose a shared test-support API.
 
 CI projection binds the shared accepted `dev` and release `main` roles in its
-existing CUE owner. Its native TOML input keeps the [workspace binding](../../.ethos/workspace.toml);
-a competing branch policy cannot produce a projection.
+existing CUE owner and reads no repository branch policy, so a competing branch
+policy cannot produce a projection.
 Release readiness also owns Changelog chronology, exact tag-to-HEAD binding,
 and release-epoch lookup. CI invokes that owner directly; no generic repository
 command layer or duplicated Changelog parser remains.

@@ -81,28 +81,37 @@ func verifyCommits(repository, revision, base, email, allowedSigners string) (in
 const sharedCommitTypes = "build|chore|ci|docs|feat|fix|perf|refactor|revert|test"
 const sharedCommitScope = `[a-z0-9]+(?:-[a-z0-9]+)*`
 
+// The paradigm requires an SSH signature on every commit, so a commit without
+// .ethos/workspace.toml uses the shared grammar. A declared table may only
+// restrict scopes; it cannot restate or relax signing.
 func loadCommitSubjectPolicy(repository, commit string) (*regexp.Regexp, error) {
-	data, err := gitBytes(repository, "show", commit+":.ethos/workspace.toml")
-	if err != nil {
-		return nil, fmt.Errorf("read commit policy: %w", err)
-	}
 	var workspace struct {
 		CommitPolicy struct {
 			SubjectPattern  *string  `toml:"subject_pattern"`
 			Scopes          []string `toml:"scopes"`
-			SigningRequired bool     `toml:"signing_required"`
-			SigningFormat   string   `toml:"signing_format"`
+			SigningRequired *bool    `toml:"signing_required"`
+			SigningFormat   *string  `toml:"signing_format"`
 		} `toml:"commit_policy"`
 	}
-	if err := toml.Unmarshal(data, &workspace); err != nil {
-		return nil, fmt.Errorf("parse commit policy: %w", err)
+	present, err := gitOutput(repository, "ls-tree", "--name-only", commit, "--", ".ethos/workspace.toml")
+	if err != nil {
+		return nil, fmt.Errorf("read commit policy: %w", err)
+	}
+	if present != "" {
+		data, err := gitBytes(repository, "show", commit+":.ethos/workspace.toml")
+		if err != nil {
+			return nil, fmt.Errorf("read commit policy: %w", err)
+		}
+		if err := toml.Unmarshal(data, &workspace); err != nil {
+			return nil, fmt.Errorf("parse commit policy: %w", err)
+		}
 	}
 	policy := workspace.CommitPolicy
 	if policy.SubjectPattern != nil {
 		return nil, errors.New("commit policy subject_pattern must be replaced by the shared grammar")
 	}
-	if !policy.SigningRequired || policy.SigningFormat != "ssh" {
-		return nil, errors.New("commit policy must require SSH signing")
+	if policy.SigningRequired != nil || policy.SigningFormat != nil {
+		return nil, errors.New("commit policy signing is shared; remove signing_required and signing_format")
 	}
 	scope := sharedCommitScope
 	if policy.Scopes != nil {

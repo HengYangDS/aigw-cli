@@ -81,7 +81,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 func TestQualityCommandsResolveInDeclaredToolchain(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
 	activeToolchain := os.Getenv("MISE_ENABLE_TOOLS")
-	output, err := exec.Command("cue", "export", ".config/ci/pipeline.cue", ".ethos/workspace.toml", "--expression", "qualityToolchain", "--out", "json").Output()
+	output, err := exec.Command("cue", "export", ".config/ci/pipeline.cue", "--expression", "qualityToolchain", "--out", "json").Output()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -452,14 +452,6 @@ githubRelease: {name: "Release"}
 	if err := os.WriteFile(model, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	workspace := filepath.Join(root, ".ethos", "workspace.toml")
-	if err := os.MkdirAll(filepath.Dir(workspace), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(workspace, []byte("[branch_roles]\naccepted_branch = 'dev'\nrelease_branch = 'main'\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
 	if err := run([]string{"project", "--root", root}, &bytes.Buffer{}, nil); err != nil {
 		t.Fatal(err)
 	}
