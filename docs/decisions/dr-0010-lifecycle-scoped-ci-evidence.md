@@ -2,13 +2,14 @@
 subject: aigw:decision:0010
 role: decision
 state: canonical
+decision_id: DR-0010
+decision_status: accepted
 relations:
   canonical_for: Scope CI Evidence to Product Lifecycle Stages
 ---
 
 # DR-0010: Scope CI Evidence to Product Lifecycle Stages
 
-- Status: accepted
 - Date: 2026-08-22
 
 ## Context
@@ -23,9 +24,9 @@ after the operator has finished publication.
 
 ## Decision
 
-[Workspace roles](../../.ethos/workspace.toml) own accepted integration and
-release branch names. The [CUE graph](../../.config/ci/pipeline.cue) consumes
-that native TOML and owns event routing; generated files own no policy.
+The shared ETHOS branch roles own the accepted integration and release branch
+names. The [CUE graph](../../.config/ci/pipeline.cue) binds those roles and
+owns event routing; generated files own no policy.
 
 | Event                                                            | Required execution                                              |
 | ---------------------------------------------------------------- | --------------------------------------------------------------- |
@@ -54,7 +55,19 @@ complete asset readback. This keeps private signing keys off runners and avoids
 a release-created event racing incomplete uploads. Public trust and transport
 authorization remain independent inputs.
 
-## Consequences
+## Alternatives Rejected
+
+- **A second graph for proposal branch pushes:** rejected because the review
+  event already verifies the same object.
+- **Skipping accepted-branch verification:** rejected because direct maintainer
+  pushes have no reviewed evidence for the exact object, and a green `main`
+  cannot repair that.
+- **Reusing another event's evidence:** unavailable, because no verifier binds
+  one event's complete evidence to another lifecycle stage.
+- **Hosted construction on release creation:** rejected because it would put
+  private signing keys on runners and race incomplete uploads.
+
+## Consequences and Boundary
 
 Review updates invalidate earlier green results. Maintainer integration does
 not need a fabricated review event, and accepted `dev` receives real checks.
@@ -62,7 +75,7 @@ Ref parity belongs to release promotion, so an ordinary `dev` update need not
 already equal `main`. Separate accepted and release verification costs runner
 time; this is explicit, not a claim that all duplicate execution is eliminated.
 
-## Revisit Trigger
+## Evidence and Revisit
 
 Revisit if either Forge gains a portable, immutable evidence-reuse primitive
 that can bind one successful graph to another lifecycle stage without rerunning

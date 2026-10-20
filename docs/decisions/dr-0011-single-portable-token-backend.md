@@ -2,13 +2,14 @@
 subject: aigw:decision:0011
 role: decision
 state: canonical
+decision_id: DR-0011
+decision_status: accepted
 relations:
   canonical_for: Select One Portable Token Backend
 ---
 
 # DR-0011: Select One Portable Token Backend
 
-- Status: accepted
 - Date: 2026-08-23
 - Last amended: 2026-10-13
 
@@ -39,7 +40,25 @@ Windows file backend binds encryption to the current Windows user through DPAPI
 and uses bounded directory handles and same-directory replacement. Neither
 implementation reads or migrates another product's credential state.
 
-## Consequences
+## Alternatives Rejected
+
+- **Searching both a keyring and a file store:** rejected because Token
+  authority would be ambiguous.
+- **Independent host-local credential helper:** rejected and rolled back,
+  because it adds another reader and caller boundary.
+- **Silent backend migration:** rejected because it changes credential
+  authority without the operator's decision.
+- **Package-manager path for credential commands:** rejected because the
+  installer owns its public link and may withdraw it before the successor is
+  installed. AIGW cannot promise that cached callers retain that path.
+- **Fixed private copy:** rejected for upgrades. It preserves old bytes, but
+  replacement changes the pathname's identity. Go does not promise atomic
+  `os.Rename` on Windows; open-handle sharing may also reject replacement.
+- **Stable indirection:** rejected as a portable default. A Unix symlink can
+  switch targets, but unprivileged Windows symlink creation requires Developer
+  Mode. A forwarding executable adds another launcher contract.
+
+## Consequences and Boundary
 
 The private AIGW worker preserves go-keyring `v0.2.8`'s service, logical
 Account slots and storage envelope. On macOS, the same AIGW executable now owns native
@@ -57,8 +76,8 @@ policy, without asking for password data.
 
 An item created by the old
 `/usr/bin/security` writer denies the new AIGW identity. On 2026-10-13 a
-Developer ID-signed successor was denied every retained operator item
-(OSStatus -25293), and the operator rejected re-entering or hand-authorizing
+Developer ID-signed successor was denied every retained operator item with
+OSStatus `-25293`, and the operator rejected re-entering or hand-authorizing
 each Token as upgrade experience.
 
 Such an item is therefore migrated once:
@@ -102,9 +121,9 @@ rollback first admits the retained program and current configuration; if that
 program predates AIGW-owned items, AIGW then converts each configured Account's
 items back to `/usr/bin/security` ownership with the same envelope before
 activating it, and takes them back if activation fails. On a Homebrew
-installation, `aigw update --rollback` performs only that conversion and leaves
-the program files to Homebrew. A Homebrew downgrade without it leaves the older
-reader asking macOS for authorization.
+installation, the update command's rollback mode performs only that conversion
+and leaves the program files to Homebrew. A Homebrew downgrade without it
+leaves the older reader asking macOS for authorization.
 
 Earlier unreleased candidates created
 `native@` shadow items.
@@ -114,7 +133,7 @@ it; then retire it through its existing owner, never by prefix-based deletion.
 The independent host-local helper cutover was rejected and rolled back. It is
 not the product's credential reader or Token backend. This decision does not
 forbid an AIGW-owned copy of the same executable to keep the existing
-`credential` command reachable during package-manager replacement; that
+credential command reachable during package-manager replacement; that
 delivery path remains subject to
 [installed-transition acceptance](../governance/change-and-release-policy.md#native-platform-evidence).
 
@@ -122,15 +141,14 @@ A successor must execute every retained original credential command before
 client projection refresh, then prove update, rollback and re-upgrade against
 the same item. Source-only worker tests do not admit deployment.
 
-### Release identity and credential authorization
-
-Release construction owns distribution signing; the credential store owns
-authorization to each retained item. Signing-key custody, recovery and rotation
-are not an AIGW Account or Token backend. No private signing material belongs in
-the repository or client configuration.
-Installing or using published AIGW requires neither developer membership nor the
-publisher's private key. An individual may also be the publisher; that is a
-separate role, not a prerequisite imposed on every workstation user.
+**Release identity and credential authorization.** Release construction owns
+distribution signing; the credential store owns authorization to each retained
+item. Signing-key custody, recovery and rotation are not an AIGW Account or
+Token backend. No private signing material belongs in the repository or client
+configuration. Installing or using published AIGW requires neither developer
+membership nor the publisher's private key. An individual may also be the
+publisher; that is a separate role, not a prerequisite imposed on every
+workstation user.
 
 Distribution and credential authorization retain separate acceptance
 boundaries:
@@ -163,17 +181,14 @@ authorized access to each selected operator Account and diagnostic slot before
 any host projection or package link changes. Retain original commands and items;
 denial blocks that cutover, not unrelated source or platform acceptance.
 
-### Product reader and migration boundary
-
-The product reader is the existing `aigw credential` command and one selected
-backend. On macOS, its bounded credential subprocess uses the existing
-logical Account grammar and envelope with noninteractive Security.framework
-operations at its own physical Keychain slot.
-The proposed user-private executable copy changes the command's installed
-location without adding a reader or Token
-backend; preservation of native item authorization still requires the retained-
-item journey. No independent helper reader, host script, service, or second
-Token backend is admitted.
+**Product reader and migration boundary.** The product reader is AIGW's
+existing credential command and one selected backend. On macOS, its bounded
+credential subprocess uses the existing logical Account grammar and envelope
+with noninteractive Security.framework operations at its own physical Keychain
+slot. The proposed user-private executable copy changes the command's installed
+location without adding a reader or Token backend; preservation of native item
+authorization still requires the retained-item journey. No independent helper
+reader, host script, service, or second Token backend is admitted.
 
 | Path                                          | Disposition                      | Reason                                                                                         |
 | --------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------- |
@@ -189,30 +204,19 @@ external-integration contract, not permission to install an independent helper
 or automatic Keychain recovery path. Its presence does not establish an
 approved deployment consumer. Product defaults continue to use AIGW itself.
 
-### Credential command continuity
+**Credential command continuity.** Releases up to 0.3.5 project the CLI
+executable itself; an unreleased early form of this Change created one
+fixed-path AIGW copy. The current Change derives a SHA-256-addressed path from
+executable bytes, but that source behavior is not yet an installed-product
+guarantee. Installed clients of 0.3.5 and earlier still invoke Homebrew's
+public binary link, whose lifetime is owned by Homebrew, not AIGW.
 
-Releases up to 0.3.5 project the CLI executable itself; an unreleased early
-form of this Change created one fixed-path AIGW copy. The current Change derives
-a SHA-256-addressed path from executable bytes, but that source behavior is not
-yet an installed-product guarantee. Installed clients of 0.3.5 and earlier still
-invoke Homebrew's public binary link, whose lifetime is owned by Homebrew, not
-AIGW.
+Direct immutable versioned AIGW paths are selected for implementation. Prepare
+and verify successor bytes before projection. Old commands keep their old
+bytes; rollback reselects them without replacing an in-use file. Native
+acceptance remains mandatory.
 
-- **Package-manager path: rejected.** The installer owns its public link and
-  may withdraw it before the successor is installed. AIGW cannot promise that
-  cached callers retain that path.
-- **Fixed private copy: rejected for upgrades.** It preserves old bytes, but
-  replacement changes the pathname's identity. Go does not promise atomic
-  `os.Rename` on Windows; open-handle sharing may also reject replacement.
-- **Stable indirection: rejected as a portable default.** A Unix symlink can
-  switch targets, but unprivileged Windows symlink creation requires Developer
-  Mode. A forwarding executable adds another launcher contract.
-- **Direct immutable versioned AIGW paths: selected for implementation.**
-  Prepare and verify successor bytes before projection. Old commands keep their
-  old bytes; rollback reselects them without replacing an in-use file. Native
-  acceptance remains mandatory.
-
-The selected path is another installation of the same `aigw credential`
+The selected path is another installation of the same AIGW credential
 reader, not an independent helper or Token store. It lives in an owner-only
 AIGW data namespace resolved on the destination host. Preparation is
 create-if-absent and byte-verified; projection switches only after the new
@@ -287,7 +291,7 @@ native credential service is available. Existing keyring Tokens remain in
 their selected backend; there is no dual-read compatibility period. Operators
 must make any intentional backend change explicitly.
 
-## Revisit Trigger
+## Evidence and Revisit
 
 Revisit the native reader when an operating-system contract changes or exact
 native evidence contradicts its security or lifecycle assumptions. A replacement

@@ -2,13 +2,14 @@
 subject: aigw:decision:0007
 role: decision
 state: canonical
+decision_id: DR-0007
+decision_status: accepted
 relations:
   canonical_for: Local Product Objects and Independent Forge Peers
 ---
 
 # DR-0007: Local Product Objects and Independent Forge Peers
 
-- Status: accepted
 - Date: 2026-08-19
 - Owner: Release maintainers
 
@@ -39,7 +40,16 @@ The invariants are:
 Additional organizational approval uses detached attestations rather than
 changing the product object.
 
-## Consequences
+## Alternatives Rejected
+
+- **Forge-specific identity replay:** rejected because it gives each Forge a
+  different object for the same source, weakens parity below Git object
+  identity, and duplicates signing and repair logic.
+- **Parity through provider-qualified tags, commit maps or tree comparison:**
+  rejected because each substitutes a mapping for the identity of one signed
+  object.
+
+## Consequences and Boundary
 
 Each Forge may show a different account-level verification presentation and
 use different credentials, while still hosting the same signed object. A peer
@@ -47,7 +57,7 @@ failure never blocks local acceptance or the other peer. Existing divergent
 history requires one bounded cutover; old formal releases are not rewritten
 without a separate explicit retention and migration decision.
 
-## Revisit Trigger
+## Evidence and Revisit
 
 Revisit only if local Git stops being the product-object authority or a future
 distribution system cannot transport an existing signed Git object unchanged.

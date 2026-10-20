@@ -2,24 +2,12 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
-
-func TestDecisionRecordReadFailureIsReported(t *testing.T) {
-	root := t.TempDir()
-	directory := filepath.Join(root, "docs", "decisions")
-	writeFile(t, filepath.Join(directory, decisionNavigationFile), "# Decisions\n")
-	if err := os.Symlink(filepath.Join(root, "missing-record"), filepath.Join(directory, "dr-0001-missing.md")); err != nil {
-		t.Fatal(err)
-	}
-	report := newReport("policy", root)
-	if err := checkDecisionRecords(root, &report); err == nil || !strings.Contains(err.Error(), "read docs/decisions/dr-0001-missing.md") {
-		t.Fatalf("decision record read error = %v", err)
-	}
-}
 
 func TestDecisionRecordDirectoryReadFailureIsReported(t *testing.T) {
 	root := t.TempDir()
@@ -82,7 +70,7 @@ func TestDecisionRecordsRejectBareNumbersAndDuplicateRegistrationWithoutRequirin
 	}
 }
 
-func TestDecisionRecordsReportMissingNavigationAndIncompleteBody(t *testing.T) {
+func TestDecisionRecordsReportMissingNavigationAndRegistration(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "docs", "decisions", "dr-0001-product-boundary.md")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -102,47 +90,30 @@ func TestDecisionRecordsReportMissingNavigationAndIncompleteBody(t *testing.T) {
 	if err := checkDecisionRecords(root, &report); err != nil {
 		t.Fatal(err)
 	}
-	assertFinding(t, report.Findings, "decision_record_title", "docs/decisions/dr-0001-product-boundary.md")
-	assertFinding(t, report.Findings, "decision_record_section_missing", "docs/decisions/dr-0001-product-boundary.md")
 	assertFinding(t, report.Findings, "decision_record_unregistered", "docs/decisions/dr-0001-product-boundary.md")
 }
 
-func TestDecisionRecordBodyChecksVisibleContentAfterMetadata(t *testing.T) {
-	const visible = "# DR-0001: Decision\n\n- Status: accepted\n- Date: 2026-08-07\n\n## Context\nContext.\n\n## Decision\nDecision.\n\n## Consequences\nConsequences.\n\n## Revisit Trigger\nTrigger.\n"
-	const metadata = "---\nsubject: aigw:decision:0001\nrole: decision\nstate: canonical\nrelations: {}\n---\n"
-	tests := []struct {
-		name                string
-		body                string
-		wantTitleFinding    bool
-		wantSectionFindings bool
-	}{
-		{name: "plain frontmatter", body: metadata + "\n" + visible},
-		{name: "title-first hidden frontmatter", body: "<!--\n" + metadata + "-->\n\n" + visible},
-		{name: "CRLF hidden frontmatter", body: strings.ReplaceAll("<!--\n"+metadata+"-->\n\n"+visible, "\n", "\r\n")},
-		{
-			name:             "metadata cannot impersonate visible content",
-			body:             "<!--\n---\nsubject: aigw:decision:0001\nrole: decision\nstate: canonical\nrelations: {}\nnotes: |\n  # DR-0001: Decision\n  - Status: accepted\n  - Date: 2026-08-07\n  ## Context\n  ## Decision\n  ## Consequences\n  ## Revisit Trigger\n---\n-->\n\n# Wrong visible title\n",
-			wantTitleFinding: true, wantSectionFindings: true,
-		},
-		{name: "unfinished metadata", body: "<!--\n" + metadata + visible, wantTitleFinding: true, wantSectionFindings: true},
+// The shared ETHOS paradigm owns the rationale structure; this index check
+// must not restate an older section list that the shared one replaced.
+func TestDecisionRecordsLeaveRationaleStructureToTheSharedParadigm(t *testing.T) {
+	root := t.TempDir()
+	writeDecisionRecord(t, root, "dr-0001-product-boundary.md", 1)
+	writeFile(t, filepath.Join(root, "docs", "decisions", decisionNavigationFile), "[DR-0001](dr-0001-product-boundary.md)\n")
+	report := newReport("policy", root)
+	if err := checkDecisionRecords(root, &report); err != nil {
+		t.Fatal(err)
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			report := newReport("policy", t.TempDir())
-			checkDecisionRecordBody("docs/decisions/dr-0001-decision.md", 1, test.body, &report)
-			if got := hasRule(report, "decision_record_title"); got != test.wantTitleFinding {
-				t.Fatalf("title finding = %t, want %t: %+v", got, test.wantTitleFinding, report.Findings)
-			}
-			if got := hasRule(report, "decision_record_section_missing"); got != test.wantSectionFindings {
-				t.Fatalf("section finding = %t, want %t: %+v", got, test.wantSectionFindings, report.Findings)
-			}
-		})
+	if !report.OK {
+		t.Fatalf("a record in the shared structure was refused: %+v", report.Findings)
 	}
 }
 
 func writeDecisionRecord(t *testing.T, root, name string, sequence int) {
 	t.Helper()
-	body := []byte("# DR-" + fourDigits(sequence) + ": Decision\n\n- Status: accepted\n- Date: 2026-08-07\n\n## Context\n\nContext.\n\n## Decision\n\nDecision.\n\n## Consequences\n\nConsequences.\n\n## Revisit Trigger\n\nTrigger.\n")
+	identity := fmt.Sprintf("DR-%04d", sequence)
+	body := []byte("---\ndecision_id: " + identity + "\ndecision_status: accepted\nstate: canonical\n---\n\n# " + identity + ": Decision\n\n" +
+		"## Context\n\nContext.\n\n## Decision\n\nDecision.\n\n## Alternatives Rejected\n\nAlternatives.\n\n" +
+		"## Consequences and Boundary\n\nConsequences.\n\n## Evidence and Revisit\n\nEvidence.\n")
 	path := filepath.Join(root, "docs", "decisions", name)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)

@@ -2,13 +2,14 @@
 subject: aigw:decision:0001
 role: decision
 state: canonical
+decision_id: DR-0001
+decision_status: accepted
 relations:
   canonical_for: Separate AIGW Control Plane from Transport Data Planes
 ---
 
 # DR-0001: Separate AIGW Control Plane from Transport Data Planes
 
-- Status: accepted
 - Date: 2026-07-14
 - Last amended: 2026-08-16
 
@@ -32,13 +33,7 @@ Codex retains authority over existing conversation model selection, transcripts,
 and Desktop-only GUI settings. Foreign applications and integrations remain
 independent; AIGW neither depends on, configures, nor verifies them.
 
-## Consequences
-
-Projection recovery happens through AIGW's all-target transaction. Transport
-recovery remains entirely within the selected service's product boundary.
-Neither path edits historical conversations.
-
-## Alternatives Considered
+## Alternatives Rejected
 
 - **Mandatory all-in-one AI gateway:** rejected because local client use would
   depend on a traffic process, combining configuration, policy, and transport
@@ -53,7 +48,13 @@ feature breadth is not AIGW's product objective. AIGW optimizes for a small
 authority surface, native-client configuration, explicit transactions, and
 independent endpoint products.
 
-## Revisit Trigger
+## Consequences and Boundary
+
+Projection recovery happens through AIGW's all-target transaction. Transport
+recovery remains entirely within the selected service's product boundary.
+Neither path edits historical conversations.
+
+## Evidence and Revisit
 
 Revisit only if AIGW intentionally becomes a transport runtime or an external
 transport service becomes an admitted AIGW configuration owner.

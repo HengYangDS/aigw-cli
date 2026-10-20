@@ -24,10 +24,14 @@ OpenSpec carrier names keep their native grammar.
 
 ## Required sections
 
-Every record contains Status, Date, Context, Decision, Consequences, and Revisit
-Trigger. A record is required for a durable product boundary, foundational
-architecture or dependency choice, compatibility or retention policy, release
-trust, security posture, or another costly-to-reverse ruling.
+Front matter names the record's `decision_id`, matching its sequence, and its
+`decision_status`. The body holds exactly the sections Context, Decision,
+Alternatives Rejected, Consequences and Boundary, and Evidence and Revisit,
+without lower headings; dates stay under the title. Records state rationale
+and describe commands as behavior; usage belongs in the guides. A record is
+required for a durable product boundary, foundational architecture or
+dependency choice, compatibility or retention policy, release trust, security
+posture, or another costly-to-reverse ruling.
 
 ## Register
 

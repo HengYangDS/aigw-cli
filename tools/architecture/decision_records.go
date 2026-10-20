@@ -13,6 +13,9 @@ var decisionRecordName = regexp.MustCompile(`^dr-([0-9]{4})-([a-z0-9]+(?:-[a-z0-
 
 const decisionNavigationFile = "README.md"
 
+// checkDecisionRecords keeps the decision index complete: every record has a
+// sequenced name and appears exactly once in the README navigation. The shared
+// ETHOS paradigm owns each record's identity, disposition and rationale sections.
 func checkDecisionRecords(root string, report *Report) error {
 	return checkDecisionRecordsWithReadDir(root, report, os.ReadDir)
 }
@@ -52,11 +55,6 @@ func checkDecisionRecordsWithReadDir(
 			report.addFinding(Finding{Rule: "decision_record_sequence_duplicate", Path: relative, Count: sequence, Message: "Decision Record sequence is already used"})
 		}
 		sequences[sequence] = true
-		body, readErr := os.ReadFile(filepath.Join(directory, entry.Name()))
-		if readErr != nil {
-			return fmt.Errorf("read %s: %w", relative, readErr)
-		}
-		checkDecisionRecordBody(relative, sequence, string(body), report)
 		registrations := strings.Count(string(navigation), "("+entry.Name()+")")
 		if registrations == 0 {
 			report.addFinding(Finding{Rule: "decision_record_unregistered", Path: relative, Message: "Decision Record is absent from README navigation"})
@@ -65,40 +63,4 @@ func checkDecisionRecordsWithReadDir(
 		}
 	}
 	return nil
-}
-
-func checkDecisionRecordBody(relative string, sequence int, body string, report *Report) {
-	body = decisionRecordVisibleBody(body)
-	required := []string{"- Status: ", "- Date: ", "## Context", "## Decision", "## Consequences", "## Revisit Trigger"}
-	if !strings.HasPrefix(body, "# DR-"+fourDigits(sequence)+": ") {
-		report.addFinding(Finding{Rule: "decision_record_title", Path: relative, Message: "Decision Record title must match its sequence"})
-	}
-	for _, marker := range required {
-		if !strings.Contains(body, marker) {
-			report.addFinding(Finding{Rule: "decision_record_section_missing", Path: relative, Name: marker, Message: "Decision Record is missing required content"})
-		}
-	}
-}
-
-func decisionRecordVisibleBody(body string) string {
-	body = strings.ReplaceAll(body, "\r\n", "\n")
-	marker := ""
-	switch {
-	case strings.HasPrefix(body, "<!--\n---\n"):
-		marker = "\n---\n-->\n"
-	case strings.HasPrefix(body, "---\n"):
-		marker = "\n---\n"
-	}
-	if marker == "" {
-		return body
-	}
-	_, visible, found := strings.Cut(body, marker)
-	if !found {
-		return ""
-	}
-	return strings.TrimLeft(visible, "\n")
-}
-
-func fourDigits(value int) string {
-	return fmt.Sprintf("%04d", value)
 }

@@ -2,13 +2,14 @@
 subject: aigw:decision:0009
 role: decision
 state: canonical
+decision_id: DR-0009
+decision_status: accepted
 relations:
   canonical_for: Keep Only Current Product Semantics
 ---
 
 # DR-0009: Keep Only Current Product Semantics
 
-- Status: accepted
 - Date: 2026-08-07
 
 ## Context
@@ -29,13 +30,21 @@ Source-level shims, re-exports, alias-only packages, forwarding facades, and
 silent legacy readers are forbidden unless a new current requirement explicitly
 admits them with ownership and end-to-end proof.
 
-## Consequences
+## Alternatives Rejected
+
+- **Compatibility shims, alias packages, forwarding wrappers and dual readers
+  for historical shapes:** rejected because they enlarge the API and test
+  surface and obscure the single semantic owner.
+- **An indefinite hidden compatibility layer at an external data boundary:**
+  rejected in favor of an explicit documented migration.
+
+## Consequences and Boundary
 
 The codebase remains lean and each behavior has one owner. Operators may need
 an explicit documented migration at a true external data boundary rather than
 an indefinite hidden compatibility layer.
 
-## Revisit Trigger
+## Evidence and Revisit
 
 Revisit only for a concrete external compatibility obligation whose users,
 sunset condition, owner, and verification are explicitly defined.

@@ -366,7 +366,7 @@ diagnostics remain off Token stdout. The deadline bounds the owned process but
 cannot guarantee that macOS itself will never present authorization UI.
 
 The product path remains the `aigw credential` command and the selected backend,
-not a host-local helper. [DR-0011](../../../../docs/decisions/dr-0011-single-portable-token-backend.md#product-reader-and-migration-boundary)
+not a host-local helper. [DR-0011](../../../../docs/decisions/dr-0011-single-portable-token-backend.md#consequences-and-boundary)
 owns the migration boundary. Retained-item authorization, original-caller
 continuity, real-client inference and public distribution require distinct
 evidence; source verification alone permits no host cutover.

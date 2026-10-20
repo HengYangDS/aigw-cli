@@ -255,7 +255,7 @@ func TestDecisionRecordDuplicateSequence(t *testing.T) {
 	root := t.TempDir()
 	directory := filepath.Join(root, "docs", "decisions")
 	writeFile(t, filepath.Join(directory, decisionNavigationFile), "[A](dr-0001-a.md)\n[B](dr-0001-b.md)\n")
-	body := "# DR-0001: Fixture\n\n- Status: Accepted\n- Date: 2026-08-08\n\n## Context\nX\n\n## Decision\nX\n\n## Consequences\nX\n\n## Revisit Trigger\nX\n"
+	body := "---\ndecision_id: DR-0001\ndecision_status: accepted\nstate: canonical\n---\n\n# DR-0001: Fixture\n"
 	writeFile(t, filepath.Join(directory, "dr-0001-a.md"), body)
 	writeFile(t, filepath.Join(directory, "dr-0001-b.md"), body)
 	report := newReport("policy", root)

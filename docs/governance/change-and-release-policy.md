@@ -137,7 +137,7 @@ A scheduler is not required for this owner-driven path.
 
 ## Change Lifecycle
 
-[Workspace roles](../../.ethos/workspace.toml) distinguish accepted `dev`, release
+The shared ETHOS workspace roles distinguish accepted `dev`, release
 `main` and the one authoring Work Lane; `proposal/*` is a review projection, not
 another lane. Active intent may remain on accepted/release branches while delivery
 is unfinished. Follow [OpenSpec merge then archive](https://github.com/Fission-AI/OpenSpec/blob/v1.14.1/docs/team-workflow.md#when-to-archive):
@@ -184,9 +184,10 @@ errors and surviving file bytes; compilation is not execution.
 
 One commit/tag is constructed and signed locally, then transferred unchanged:
 OID, peeled commit/tree, author, committer, annotation and product signature.
-[Workspace policy](../../.ethos/workspace.toml) owns the complete subject grammar;
-strict SemVer shared with upgrade/construction owns `v` tags and build metadata.
-ETHOS hooks and hosted object checks consume that policy, not copied regexes.
+The shared ETHOS commit policy owns the complete subject grammar and the SSH
+signature requirement; strict SemVer shared with upgrade/construction owns `v`
+tags and build metadata. ETHOS hooks apply that policy, and hosted object
+checks project its fixed grammar instead of declaring another.
 
 CUE selects exact introduced-range verification and independent native matrices for
 review, dev/main push and tags on each chosen peer. Manual diagnostics default to
@@ -311,7 +312,7 @@ RC publication/download verification remain portable without publisher credentia
 
 Detached `aigw-release` signatures independently authenticate complete checksums.
 Keep source-bound provenance, SBOM, vulnerabilities/licenses and exact peer parity.
-Retained Token authorization has its own [credential decision](../decisions/dr-0011-single-portable-token-backend.md#release-identity-and-credential-authorization).
+Retained Token authorization has its own [credential decision](../decisions/dr-0011-single-portable-token-backend.md#consequences-and-boundary).
 
 Syft catalogs every native binary, including platform dependencies, through the explicit
 [policy](../../.config/release/syft/.syft.yaml), not ambient user config, module caches, remote

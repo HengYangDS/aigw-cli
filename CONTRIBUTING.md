@@ -437,7 +437,7 @@ mise exec --locked -- go run ./tools/release accept-native --clients \
 ```
 
 Omitting artifacts deliberately builds once; on macOS that explicit build needs
-[release identity inputs](docs/decisions/dr-0011-single-portable-token-backend.md#release-identity-and-credential-authorization).
+[release identity inputs](docs/decisions/dr-0011-single-portable-token-backend.md#consequences-and-boundary).
 One retained candidate serves lifecycle and client tests; stop at first failure.
 Quality jobs still run input/envelope/preservation regressions without real clients.
 Homebrew's public-link replacement gap needs its own installed upgrade proof.

@@ -288,7 +288,7 @@ switch if a required existing native item cannot be read noninteractively.
 A session still caching the public link may fail once during the gap. Blanket
 client shutdown or restart does not eliminate that risk and is not an upgrade
 step. Later versioned-reader upgrades must keep old commands callable. See the
-[credential succession decision](docs/decisions/dr-0011-single-portable-token-backend.md#credential-command-continuity).
+[credential succession decision](docs/decisions/dr-0011-single-portable-token-backend.md#consequences-and-boundary).
 
 `aigw uninstall` withdraws AIGW-owned client projections and removes the
 portable executable plus its predecessor. It retains versioned credential

@@ -2,13 +2,14 @@
 subject: aigw:decision:0005
 role: decision
 state: canonical
+decision_id: DR-0005
+decision_status: accepted
 relations:
   canonical_for: Admit Client Adapters Explicitly
 ---
 
 # DR-0005: Admit Client Adapters Explicitly
 
-- Status: accepted
 - Date: 2026-08-07
 - Last amended: 2026-09-23
 
@@ -59,13 +60,23 @@ promise atomic visibility across separate client files.
 The interface is shared; configuration paths, credential mechanisms, protocol
 details, and client-specific policy remain encapsulated by each adapter.
 
-## Consequences
+## Alternatives Rejected
+
+- **Admission by protocol compatibility or generic discovery:** rejected
+  because configuration-shape similarity can adopt a foreign IDE or agent.
+- **Admission because a provider supports the client:** rejected because
+  provider support proves nothing about the client's state, rollback or
+  uninstall boundary.
+- **Client-specific state machines in shared commands:** rejected because they
+  would duplicate the registry's lifecycle for each client.
+
+## Consequences and Boundary
 
 AIGW stays focused on proven enterprise client surfaces. Future clients enter
 through one narrow contract without reusing another client's private state or
 adding parallel setup, repair, readiness, verification, or uninstall logic.
 
-## Revisit Trigger
+## Evidence and Revisit
 
 Revisit when a new client completes the adapter admission contract or Codex and
 Claude Code change their authoritative configuration surfaces.
