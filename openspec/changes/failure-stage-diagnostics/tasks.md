@@ -17,4 +17,4 @@
 
 ## 3. Verification
 
-- [ ] 3.1 `mise run check` and the full proof of the lane head pass.
+- [x] 3.1 `mise run check` and the full proof of the lane head pass.
