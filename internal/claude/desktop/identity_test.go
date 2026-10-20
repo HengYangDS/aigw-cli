@@ -14,7 +14,10 @@ func TestProfileIdentityMatchesClaudeDesktopContract(t *testing.T) {
 	}
 }
 
-func TestProjectionMigratesTheInvalidLegacyProfileIdentity(t *testing.T) {
+// writeLegacyProjection writes a projection that an earlier release owned
+// under the legacy profile identity.
+func writeLegacyProjection(t *testing.T) (Paths, Desired) {
+	t.Helper()
 	root := t.TempDir()
 	paths := PathsForLibrary(filepath.Join(root, "Claude-3p", "configLibrary"))
 	legacyProfile, legacyState := legacyPaths(paths)
@@ -48,6 +51,12 @@ func TestProjectionMigratesTheInvalidLegacyProfileIdentity(t *testing.T) {
 	writeJSON(t, paths.Metadata, metadata)
 	writeFile(t, legacyProfile, profile)
 	writeFile(t, legacyState, state)
+	return paths, desired
+}
+
+func TestProjectionMigratesTheInvalidLegacyProfileIdentity(t *testing.T) {
+	paths, desired := writeLegacyProjection(t)
+	legacyProfile, legacyState := legacyPaths(paths)
 
 	plan, err := Prepare(paths, &desired)
 	if err != nil {

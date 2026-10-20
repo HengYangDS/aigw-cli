@@ -55,18 +55,18 @@ func PathsForLibrary(library string) Paths {
 
 // Model is one explicit Claude Desktop model-picker entry.
 type Model struct {
-	Name  string
-	Label string
+	Name  string `json:"name"`
+	Label string `json:"label,omitempty"`
 }
 
 // Desired is the complete AIGW-owned Claude Desktop profile.
 type Desired struct {
-	BaseURL              string
-	CredentialExecutable string
-	CredentialArguments  []string
-	Models               []Model
+	BaseURL              string   `json:"base_url"`
+	CredentialExecutable string   `json:"credential_executable"`
+	CredentialArguments  []string `json:"credential_arguments"`
+	Models               []Model  `json:"models"`
 	// ToolSearch enables Desktop's host tool search for every listed model.
-	ToolSearch bool
+	ToolSearch bool `json:"tool_search,omitempty"`
 }
 
 // Plan is a prepared, side-effect-free Claude Desktop projection.
@@ -103,11 +103,15 @@ type originalState struct {
 	AppliedID        optionalValue `json:"applied_id"`
 }
 
+// ownershipState keeps version 1 and the raw-byte digest that earlier releases
+// read; ManagedRequest records the projection request so that a later
+// Claude Desktop save can be compared by meaning.
 type ownershipState struct {
-	Version       int           `json:"version"`
-	WriterID      string        `json:"writer_id"`
-	Original      originalState `json:"original"`
-	ManagedSHA256 string        `json:"managed_sha256"`
+	Version        int           `json:"version"`
+	WriterID       string        `json:"writer_id"`
+	Original       originalState `json:"original"`
+	ManagedSHA256  string        `json:"managed_sha256"`
+	ManagedRequest *Desired      `json:"managed_request,omitempty"`
 }
 
 type fileChange struct {
@@ -175,21 +179,15 @@ func Prepare(paths Paths, desired *Desired) (Plan, error) {
 	if err := addProfileEntry(metadata); err != nil {
 		return Plan{}, err
 	}
-	profile, err := encodeProfile(*desired)
+	profile, err := projectedProfile(paths.Profile, before, *desired)
 	if err != nil {
 		return Plan{}, err
 	}
-	state.ManagedSHA256, err = managedHash(profileID, standard, thirdParty, profile, metadata)
-	if err != nil {
+	projected := projectedFiles{standard: standard, thirdParty: thirdParty, profile: profile, metadata: metadata, original: state.Original}
+	if projected.state, err = recordOwnership(state, projected, before, *desired); err != nil {
 		return Plan{}, err
 	}
-	stateBytes, err := encode(state)
-	if err != nil {
-		return Plan{}, err
-	}
-	plan, err := buildPlan(ActionProject, paths, before, projectedFiles{
-		standard: standard, thirdParty: thirdParty, profile: profile, metadata: metadata, state: stateBytes, original: state.Original,
-	})
+	plan, err := buildPlan(ActionProject, paths, before, projected)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -212,26 +210,15 @@ func Prepare(paths Paths, desired *Desired) (Plan, error) {
 }
 
 func buildPlan(action Action, paths Paths, before snapshots, projected projectedFiles) (Plan, error) {
-	standardBytes, err := encodeOptional(projected.standard, projected.original.StandardExists)
+	encoded, err := encodeDocuments(projected, before)
 	if err != nil {
 		return Plan{}, err
 	}
-	thirdPartyBytes, err := encodeOptional(projected.thirdParty, projected.original.ThirdPartyExists)
-	if err != nil {
-		return Plan{}, err
-	}
-	metadataBytes, err := encodeOptional(projected.metadata, projected.original.MetadataExists)
-	if err != nil {
-		return Plan{}, err
-	}
-	standardBytes = preserveEquivalentJSON(standardBytes, before.standard)
-	thirdPartyBytes = preserveEquivalentJSON(thirdPartyBytes, before.thirdParty)
-	metadataBytes = preserveEquivalentJSON(metadataBytes, before.metadata)
 	after := []transaction.FileSnapshot{
-		snapshot(standardBytes, before.standard),
-		snapshot(thirdPartyBytes, before.thirdParty),
+		snapshot(encoded[0], before.standard),
+		snapshot(encoded[1], before.thirdParty),
 		snapshot(projected.profile, before.profile),
-		snapshot(metadataBytes, before.metadata),
+		snapshot(encoded[2], before.metadata),
 		snapshot(projected.state, before.state),
 		snapshot(projected.legacyProfile, before.legacyProfile),
 		snapshot(projected.legacyState, before.legacyState),
@@ -246,10 +233,28 @@ func buildPlan(action Action, paths Paths, before snapshots, projected projected
 		}
 		changes = append(changes, fileChange{path: path, before: beforeList[index], after: after[index]})
 	}
-	if len(changes) == 0 {
+	// Refreshing only the ownership record leaves the projection unchanged.
+	if !slices.ContainsFunc(changes, func(change fileChange) bool { return change.path != paths.State }) {
 		action = ActionUnchanged
 	}
 	return Plan{Action: action, changes: changes}, nil
+}
+
+// encodeDocuments returns the standard, third-party and metadata bytes that a
+// plan writes, keeping a current file whose JSON is already equivalent.
+func encodeDocuments(projected projectedFiles, before snapshots) ([3][]byte, error) {
+	var result [3][]byte
+	sources := [3]document{projected.standard, projected.thirdParty, projected.metadata}
+	existed := [3]bool{projected.original.StandardExists, projected.original.ThirdPartyExists, projected.original.MetadataExists}
+	previous := [3]transaction.FileSnapshot{before.standard, before.thirdParty, before.metadata}
+	for index := range sources {
+		data, err := encodeOptional(sources[index], existed[index])
+		if err != nil {
+			return result, err
+		}
+		result[index] = preserveEquivalentJSON(data, previous[index])
+	}
+	return result, nil
 }
 
 // Apply commits the prepared projection and returns a guarded rollback receipt.
@@ -315,6 +320,14 @@ func decodeObject(path string, snapshot transaction.FileSnapshot) (document, err
 }
 
 func encodeProfile(desired Desired) ([]byte, error) {
+	profile, err := profileDocument(desired)
+	if err != nil {
+		return nil, err
+	}
+	return encode(profile)
+}
+
+func profileDocument(desired Desired) (document, error) {
 	if err := desired.validate(); err != nil {
 		return nil, err
 	}
@@ -327,22 +340,18 @@ func encodeProfile(desired Desired) ([]byte, error) {
 		models = append(models, entry)
 	}
 	profile := document{
-		"chatTabEnabled":                raw(true),
-		"coworkTabEnabled":              raw(true),
 		"inferenceCredentialHelper":     raw(desired.CredentialExecutable),
 		"inferenceCredentialHelperArgs": raw(desired.CredentialArguments),
-		"inferenceCredentialKind":       raw("helper-script"),
-		"inferenceGatewayAuthScheme":    raw("bearer"),
 		"inferenceGatewayBaseUrl":       raw(strings.TrimRight(desired.BaseURL, "/")),
 		"inferenceModels":               raw(models),
-		"inferenceProvider":             raw("gateway"),
-		"isClaudeCodeForDesktopEnabled": raw(true),
-		"modelDiscoveryEnabled":         raw(false),
+	}
+	for _, setting := range managedPolicy {
+		profile[setting.key] = slices.Clone(setting.value)
 	}
 	if desired.ToolSearch {
 		profile["toolSearchEnabled"] = raw(true)
 	}
-	return encode(profile)
+	return profile, nil
 }
 
 func (desired Desired) validate() error {

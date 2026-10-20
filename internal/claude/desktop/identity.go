@@ -55,8 +55,16 @@ func readOwnedState(data []byte, id string, standard, thirdParty document, profi
 	if err != nil {
 		return ownershipState{}, err
 	}
-	if currentHash != state.ManagedSHA256 {
-		return ownershipState{}, errors.New("managed Claude Desktop configuration changed outside AIGW; refusing to overwrite user edits")
+	if currentHash == state.ManagedSHA256 {
+		return state, nil
+	}
+	if id != profileID {
+		return ownershipState{}, changedOutsideAIGW(nil)
+	}
+	// Claude Desktop may save the profile again in its own encoding.
+	equivalent, changed := equivalentProfile(state, standard, thirdParty, metadata, profile)
+	if !equivalent {
+		return ownershipState{}, changedOutsideAIGW(changed)
 	}
 	return state, nil
 }

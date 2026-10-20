@@ -14,6 +14,16 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Fixed
+
+- Accept Claude Desktop's own saves of the AIGW profile. Claude Desktop's
+  configuration editor drops settings that equal its defaults and adds its own
+  settings, which made `aigw sync` refuse every client and status report
+  Claude Desktop as invalid. AIGW now compares the profile by meaning, keeps
+  Desktop's own settings when it projects new values, and names each managed
+  setting that really changed. An earlier AIGW release still accepts the
+  ownership record.
+
 ## [0.4.8] - 2026-10-20
 
 History: [GitLab][0.4.8-gitlab] · [GitHub][0.4.8-github]

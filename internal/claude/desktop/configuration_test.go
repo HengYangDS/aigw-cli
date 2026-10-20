@@ -418,6 +418,13 @@ func TestInternalDocumentBoundariesFailClosed(t *testing.T) {
 		if _, err := buildPlan(ActionProject, Paths{}, snapshots{}, projected); err == nil {
 			t.Fatal("invalid projected document was accepted")
 		}
+		if _, err := recordOwnership(ownershipState{}, projected, snapshots{}, Desired{}); err == nil {
+			t.Fatal("ownership of an invalid projected document was recorded")
+		}
+	}
+	entries := projectedFiles{standard: document{}, thirdParty: document{}, metadata: document{"entries": raw(map[string]any{})}}
+	if _, err := recordOwnership(ownershipState{}, entries, snapshots{}, Desired{}); err == nil {
+		t.Fatal("ownership of invalid metadata entries was recorded")
 	}
 }
 
