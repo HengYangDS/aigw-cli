@@ -345,7 +345,7 @@ not carry repository acceptance verdicts.
 Native product journeys belong to [release acceptance](../../tools/release/): they exercise built artifacts,
 credential backends, client projections, upgrades, rollback and uninstall. CI
 schedules those tests but does not own their fixtures. [Release readiness](../../tools/release/readiness/)
-reads and validates the canonical [canonical version](../../VERSION) once for CI admission, release
+reads and validates the [canonical version](../../VERSION) once for CI admission, release
 construction and native journeys; malformed SemVer fails before execution.
 Package-local test file readers do not expose a shared test-support API.
 
