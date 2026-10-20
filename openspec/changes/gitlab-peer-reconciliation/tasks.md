@@ -12,8 +12,8 @@
   - [x] 1.2.2 Remove the root `.cbmignore`, which ETHOS's repository paradigm
         rejects.
   - [ ] 1.2.3 Rebind aigw-cli to an accepted ETHOS runtime that admits attested
-        maintenance releases. native-trust-closure is in ETHOS `dev`, but
-        runtime `39f56ba8` still refuses the `v0.3.4` receipt
+        maintenance releases. native-trust-closure is in ETHOS `dev`, but the
+        bound runtime still refuses the `v0.3.4` receipt
         (`release_tag_source_untrusted`, 2026-10-20). Owner: session "fix aigw
         and proxy"; next: after the aigw repository-paradigm batch rebinds the
         runtime, preview the `v0.3.4` and `v0.3.5` receipts again; review
