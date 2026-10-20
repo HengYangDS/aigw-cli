@@ -27,4 +27,4 @@
 
 - [x] 3.1 The runtime built from ETHOS `dev` `846b529ac` reports no paradigm or
       decision-record gap, and `mise run check` passes on the change set.
-- [ ] 3.2 Rebind AIGW to that runtime; the full proof of the lane head passes.
+- [x] 3.2 Rebind AIGW to that runtime; the full proof of the lane head passes.
