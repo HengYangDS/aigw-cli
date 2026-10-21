@@ -326,8 +326,8 @@ windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT
 
 // Official Windows clients for real-client acceptance. GitHub installs these
 // packages; a GitLab public input carries the reviewed supplier archive.
-windowsClientPackages: ["@openai/codex@0.162.1", "@anthropic-ai/claude-code-win32-x64@2.1.296"]
-windowsClientSupplier: "suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz"
+windowsClientPackages: ["@openai/codex@0.163.0", "@anthropic-ai/claude-code-win32-x64@2.1.302"]
+windowsClientSupplier: "suppliers/windows-codex-0.163.0-claude-2.1.302-native-packages.tar.gz"
 
 // Artifact-only journeys enable only the artifact tool closure and, on Linux,
 // no compiler; source, full-quality and lock-refresh runs keep the complete

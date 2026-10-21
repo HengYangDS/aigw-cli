@@ -431,7 +431,7 @@ func TestGitLabWindowsDeclaresItsPublicInputClientSupplier(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &jobs); err != nil {
 		t.Fatal(err)
 	}
-	const supplier = "suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz"
+	const supplier = "suppliers/windows-codex-0.163.0-claude-2.1.302-native-packages.tar.gz"
 	for _, name := range []string{"native-darwin", "native-linux", "native-windows", "native-windows-review"} {
 		var job gitLabJob
 		node := jobs[name]
@@ -476,7 +476,7 @@ func TestWindowsClientSupplyMatchesSupportedNativeJourneys(t *testing.T) {
 	for _, field := range []struct{ got, want string }{
 		{supply.If, selection}, {windows[cleanupIndex].If, "always() && " + selection},
 		{supply.Env["GIT_TERMINAL_PROMPT"], "0"},
-		{supply.Run, `mise exec --locked -- go run ./tools/ci native-clients supply --root "$env:RUNNER_TEMP" --github-env "$env:GITHUB_ENV" --package '@openai/codex@0.162.1' --package '@anthropic-ai/claude-code-win32-x64@2.1.296'`},
+		{supply.Run, `mise exec --locked -- go run ./tools/ci native-clients supply --root "$env:RUNNER_TEMP" --github-env "$env:GITHUB_ENV" --package '@openai/codex@0.163.0' --package '@anthropic-ai/claude-code-win32-x64@2.1.302'`},
 		{windows[cleanupIndex].Run, "mise exec --locked -- go run ./tools/ci native-clients retire"},
 	} {
 		if field.got != field.want {

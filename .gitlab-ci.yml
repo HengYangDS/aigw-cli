@@ -435,7 +435,7 @@ native-windows:
   stage: verify
   variables:
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
-    AIGW_NATIVE_CLIENT_SUPPLIER: suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz
+    AIGW_NATIVE_CLIENT_SUPPLIER: suppliers/windows-codex-0.163.0-claude-2.1.302-native-packages.tar.gz
     GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
   artifacts:
@@ -575,7 +575,7 @@ native-windows-review:
   stage: verify
   variables:
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
-    AIGW_NATIVE_CLIENT_SUPPLIER: suppliers/windows-codex-0.162.1-claude-2.1.296-native-packages.tar.gz
+    AIGW_NATIVE_CLIENT_SUPPLIER: suppliers/windows-codex-0.163.0-claude-2.1.302-native-packages.tar.gz
     GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
   artifacts:

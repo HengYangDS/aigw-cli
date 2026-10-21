@@ -572,7 +572,7 @@ jobs:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
           GIT_TERMINAL_PROMPT: "0"
-        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$env:RUNNER_TEMP" --github-env "$env:GITHUB_ENV" --package '@openai/codex@0.162.1' --package '@anthropic-ai/claude-code-win32-x64@2.1.296'
+        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$env:RUNNER_TEMP" --github-env "$env:GITHUB_ENV" --package '@openai/codex@0.163.0' --package '@anthropic-ai/claude-code-win32-x64@2.1.302'
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.windows_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)
         env:
