@@ -815,6 +815,15 @@ literals or compatibility fallbacks.
 - **AND** the next AIGW release SHALL be built with it, because released
   programs embed the standard library.
 
+#### Scenario: A qualified native client release advances
+
+- **WHEN** the admitted Windows native client releases advance past their
+  pinned versions and the repository's minimum release age
+- **THEN** the CUE authority SHALL pin the exact new versions once, and both
+  Forge projections and the Windows client supplier name SHALL follow from it
+- **AND** the Windows native client journey SHALL pass with the new versions
+  before the forges integrate them.
+
 ### Requirement: Terminal candidate integration is exact and local
 
 A proven work lane SHALL advance the local candidate only through explicit
