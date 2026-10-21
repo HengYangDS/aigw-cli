@@ -805,6 +805,16 @@ literals or compatibility fallbacks.
 - **AND** the advance SHALL pass complete native verification before
   integration.
 
+#### Scenario: A security advisory names the toolchain in released programs
+
+- **WHEN** an advisory places the locked Go standard library in its vulnerable
+  range, such as Go before 1.27.3 trusting compromised intermediate certificates
+- **THEN** the Mise declaration, the `go.mod` directive and the
+  standard-library scan override SHALL advance together to the first fixed
+  stable toolchain
+- **AND** the next AIGW release SHALL be built with it, because released
+  programs embed the standard library.
+
 ### Requirement: Terminal candidate integration is exact and local
 
 A proven work lane SHALL advance the local candidate only through explicit
