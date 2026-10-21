@@ -14,10 +14,10 @@ ScanGoModVersion = true
 # when upstream metadata or the selected package version changes.
 [[PackageOverrides]]
 name = "stdlib"
-version = "1.27.2"
+version = "1.27.3"
 ecosystem = "Go"
 license.override = ["BSD-3-Clause"]
-reason = "BSD-3-Clause LICENSE in the locked Go 1.27.2 distribution; OSV license metadata is UNKNOWN"
+reason = "BSD-3-Clause LICENSE in the locked Go 1.27.3 distribution; OSV license metadata is UNKNOWN"
 
 [[PackageOverrides]]
 name = "@mermaid-lint/core"

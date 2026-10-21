@@ -14,6 +14,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Security
+
+- Build AIGW with Go 1.27.3, which fixes GO-2026-6809: `crypto/x509` now
+  distrusts intermediate certificates whose private keys were compromised.
+  AIGW programs built with Go 1.27.2, including 0.4.9, still trust them.
+
 ## [0.4.9] - 2026-10-21
 
 History: [GitLab][0.4.9-gitlab] · [GitHub][0.4.9-github]
