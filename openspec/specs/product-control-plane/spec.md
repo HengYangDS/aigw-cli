@@ -2218,6 +2218,14 @@ Bindings, and exclude inferred Route matrices and proxy endpoints.
 - **AND** native manifest export SHALL omit a stored label equal to the
   derived form while preserving an explicit distinct label.
 
+#### Scenario: Account lists follow the declared presentation order
+
+- **WHEN** Accounts declare presentation `order` values
+- **THEN** `aigw account list`, human and JSON, SHALL list Accounts by that
+  order and then by identity, as Route lists already do
+- **AND** serialized configuration and manifest export SHALL keep their
+  lexical identity order.
+
 ### Requirement: Hermes verification excludes unrelated update services
 
 When AIGW verifies an enabled Hermes Client Binding, it SHALL invoke the native
