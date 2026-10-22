@@ -14,6 +14,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Fixed
+
+- When `aigw use` refuses a Route with more than one compatible protocol, the
+  recommended action and JSON `next_action` now name the retry,
+  `aigw use --for <client> --protocol <a|b> <route>`, instead of `aigw check`.
+  Direct `aigw setup` with more than one endpoint URL names the compatible
+  protocols and asks for the same command with `--protocol`.
+
 ## [0.4.10] - 2026-10-21
 
 History: [GitLab][0.4.10-gitlab] · [GitHub][0.4.10-github]

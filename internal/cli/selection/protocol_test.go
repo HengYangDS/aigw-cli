@@ -1,6 +1,8 @@
 package selection
 
 import (
+	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"slices"
@@ -8,9 +10,44 @@ import (
 	"testing"
 
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secrets"
 )
+
+func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
+	runtime, cfg, _ := configuredRuntime(t)
+	runtime.Problem = presentation.ProblemError
+	cfg.Routes["shared"] = configuration.Route{
+		Account: "gateway", Model: "shared-model",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
+			configuration.ProtocolAnthropic: {}, configuration.ProtocolOpenAIResponses: {},
+		},
+	}
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	command := NewUseCommand(runtime)
+	command.SilenceErrors = true
+	command.SilenceUsage = true
+	command.SetArgs([]string{"--for", configuration.ClientHermes, "--dry-run", "--json", "shared"})
+	err := command.Execute()
+	if err == nil || !strings.Contains(err.Error(), "--protocol") {
+		t.Fatalf("ambiguous Hermes Route preview error = %v, want explicit protocol guidance", err)
+	}
+	var out bytes.Buffer
+	renderer := presentation.New(&out, false)
+	presentation.RenderError(renderer, err, true)
+	var rendered struct {
+		NextAction string `json:"next_action"`
+	}
+	if decodeErr := json.Unmarshal(out.Bytes(), &rendered); decodeErr != nil || renderer.Err() != nil {
+		t.Fatalf("JSON error = %q, %v, %v", out.String(), decodeErr, renderer.Err())
+	}
+	if want := "aigw use --for hermes --protocol <openai_responses|anthropic> shared"; rendered.NextAction != want {
+		t.Fatalf("next_action = %q, want %q", rendered.NextAction, want)
+	}
+}
 
 func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)

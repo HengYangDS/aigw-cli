@@ -174,8 +174,15 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 		return setupPlan{}, fmt.Errorf("--for must be %s; run `aigw setup --help`", configuration.AdmittedClientUsage())
 	}
 	account := configuration.Account{ID: plan.request.Account, Endpoints: endpoints}
-	if plan.request.Protocol == "" && len(spec.CompatibleProtocols(account)) > 1 {
-		return setupPlan{}, fmt.Errorf("--for %s has multiple compatible endpoints; specify --protocol", plan.request.Client)
+	if compatible := spec.CompatibleProtocols(account); plan.request.Protocol == "" && len(compatible) > 1 {
+		names := make([]string, 0, len(compatible))
+		for _, candidate := range compatible {
+			names = append(names, string(candidate))
+		}
+		refusal := fmt.Errorf("--for %s has multiple compatible endpoints; specify --protocol", plan.request.Client)
+		return setupPlan{}, presentation.ProblemError(refusal.Error(), "Compatible protocols: "+strings.Join(names, ", ")+".",
+			"No Account, Route or Client Binding was changed.",
+			"Rerun the same aigw setup command with --protocol <"+strings.Join(names, "|")+">", refusal)
 	}
 	_, protocol, err := spec.ResolveEndpoint(account, configuration.EndpointProtocol(plan.request.Protocol))
 	if err != nil {

@@ -3,6 +3,7 @@ package onboarding
 import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/prompt"
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -15,6 +16,7 @@ import (
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
 )
@@ -433,6 +435,12 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "--protocol") {
 		t.Fatalf("ambiguous Hermes setup error = %v, want explicit protocol guidance", err)
+	}
+	var rendered bytes.Buffer
+	presentation.RenderError(presentation.New(&rendered, false), err, false)
+	if want := "Rerun the same aigw setup command with --protocol <openai_responses|anthropic>"; !strings.Contains(rendered.String(), want) ||
+		strings.Contains(rendered.String(), "aigw check") {
+		t.Fatalf("ambiguous Hermes setup recommendation = %q, want %q", rendered.String(), want)
 	}
 	_, err = planSetup(configuration.NewConfig(), Request{
 		Route: "chat", Client: configuration.ClientHermes, Model: "chat-model",
