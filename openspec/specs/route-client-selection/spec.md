@@ -155,6 +155,15 @@ the same protocol names used by the team manifest.
 - **THEN** validation probes only the explicitly selected protocol and endpoint
 - **AND** a failed probe does not store the Token or change the Client Binding.
 
+#### Scenario: A non-interactive refusal names its retry
+
+- **WHEN** non-interactive Route selection or direct setup refuses because more
+  than one protocol is compatible
+- **THEN** the recommended action, including JSON `next_action`, names the same
+  operation with `--protocol` and the compatible protocol names
+- **AND** Route selection names its exact retry,
+  `aigw use --for <client> --protocol <a|b> <route>`.
+
 ### Requirement: Forwarding selection belongs to one Client Binding
 
 A Client Binding MAY explicitly select a forwarding endpoint independently of
