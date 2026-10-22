@@ -63,6 +63,49 @@ func TestAccountListJSONIsStableAndSecretFree(t *testing.T) {
 	}
 }
 
+func TestAccountListFollowsDeclaredPresentationOrder(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	cfg := configuration.NewConfig()
+	for _, account := range []struct {
+		id, label string
+		order     int
+	}{{"aihubmix", "AIHubMix", 30}, {"dmxapi", "DMXAPI", 10}, {"ucloud", "UCloud", 20}} {
+		addAccountRoute(&cfg, account.id, account.id, account.label, configuration.Endpoints{OpenAIResponses: "https://" + account.id + ".test/v1"}, configuration.ClientCodex, "gpt-test")
+		declared := cfg.Accounts[account.id]
+		declared.Order = account.order
+		cfg.Accounts[account.id] = declared
+	}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := cli.Execute(app, []string{"account", "list", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Accounts []configuration.Account `json:"accounts"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	ids := make([]string, 0, len(result.Accounts))
+	for _, account := range result.Accounts {
+		ids = append(ids, account.ID)
+	}
+	if want := []string{"dmxapi", "ucloud", "aihubmix"}; !reflect.DeepEqual(ids, want) {
+		t.Fatalf("JSON account order = %v, want %v", ids, want)
+	}
+
+	out.Reset()
+	if err := cli.Execute(app, []string{"account", "list"}); err != nil {
+		t.Fatal(err)
+	}
+	human := out.String()
+	if dmxapi, ucloud, aihubmix := strings.Index(human, "DMXAPI"), strings.Index(human, "UCloud"), strings.Index(human, "AIHubMix"); dmxapi < 0 || dmxapi > ucloud || ucloud > aihubmix {
+		t.Fatalf("human account order lost the declared ranks: %s", human)
+	}
+}
+
 func TestAccountEditValidation(t *testing.T) {
 	t.Run("account edit requires change", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")

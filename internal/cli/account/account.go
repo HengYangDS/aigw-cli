@@ -6,8 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
 	"strings"
 	"time"
 
@@ -327,7 +325,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			result := accountListOutput{Accounts: make([]configuration.Account, 0, len(cfg.Accounts))}
-			for _, id := range slices.Sorted(maps.Keys(cfg.Accounts)) {
+			for _, id := range cfg.CatalogAccountIDs() {
 				account := cfg.Accounts[id]
 				account.ID = id
 				result.Accounts = append(result.Accounts, account)

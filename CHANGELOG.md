@@ -14,6 +14,13 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Fixed
+
+- `aigw account list` and `aigw account list --json` list Accounts in their
+  declared presentation `order`, such as DMXAPI, UCloud, then AIHubMix in the
+  team manifest, as Route lists already do. Accounts without a rank still
+  follow their identity order.
+
 ## [0.4.11] - 2026-10-22
 
 History: [GitLab][0.4.11-gitlab] · [GitHub][0.4.11-github]
