@@ -824,6 +824,15 @@ literals or compatibility fallbacks.
 - **AND** the Windows native client journey SHALL pass with the new versions
   before the forges integrate them.
 
+#### Scenario: A candidate lookup cannot reach its datasource
+
+- **WHEN** the candidate calculation cannot reach the datasource of a declared
+  dependency, such as the Go module proxy or a container registry
+- **THEN** that dependency SHALL remain unaudited rather than current, and the
+  failed lookups SHALL be retained as the calculation's evidence
+- **AND** a later calculation that reaches the datasource SHALL audit it before
+  the supply chain is described as current.
+
 ### Requirement: Terminal candidate integration is exact and local
 
 A proven work lane SHALL advance the local candidate only through explicit
